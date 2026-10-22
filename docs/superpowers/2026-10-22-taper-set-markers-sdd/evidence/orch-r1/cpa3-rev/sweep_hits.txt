@@ -1,0 +1,372 @@
+library belafleckandtheflecktones-1995-08-25 description
+    [2] 'New South Africa (1st time played – no title)'
+library belafleckandtheflecktones-2004-12-03 description
+    [2] 'Mars Needs Women pt 1: Space Is a Lonely Place'
+    [2] "Mars Needs Women pt 2: They're Here"
+library billystrings-2022-03-27 description
+    [2] 'End Of The Rainbow'
+library bluestraveler-1998-11-25 description
+    [2] 'Closing Down The Park'
+library brokemountainbluegrassband-2004-07-16 description
+    [2] 'break mountain brokedown'
+library clubdelf-2011-04-09 description
+    [1] "Set 1(con't)-"
+    [2] "Set 2(con't)-"
+library cowboyjunkies-2004-06-06 description
+    [2] 'End of the Rainbow'
+    [2] 'CD2* [54:14]'
+library cubensis-2006-01-31 description
+    [1] 'Weather Report Suite Part II: Let It Grow'
+library cubensis-2011-01-22 description
+    [2] 'Opener : Punk Is Dead'
+library darkstarorchestra-2007-02-05 description
+    [2] 'CD3'
+library darkstarorchestra-2007-07-07 description
+    [2] 'wrs prelude-part 1 +'
+library darkstarorchestra-2007-09-07 description
+    [1] 'Mississippi Half-Step Uptown Toodleloo'
+    [2] 'Weather Report Suite: Part I'
+    [2] 'Weather Report Suite: Part II'
+library darkstarorchestra-2009-12-30 description
+    [1] 'Mississippi Half Step'
+library darkstarorchestra-2011-02-05 description
+    [1] 'Mississippi Half-Step Uptown Toodeloo'
+    [1] 'Weather Report Suite Part 1'
+library darkstarorchestra-2011-12-29 description
+    [2] 'Mississippi Half-Step'
+library darkstarorchestra-2012-05-17 description
+    [2] 'Mississippi Half-Step Uptown Toodleloo'
+library darkstarorchestra-2012-05-19 description
+    [1] 'First'
+    [1] 'Set'
+library darkstarorchestra-2013-05-25 description
+    [1] 'Mississippi Half-Step %'
+library darkstarorchestra-2014-12-29 description
+    [2] 'Mississippi Half Step'
+library darkstarorchestra-2017-02-11 description
+    [1] 'Mississippi Half Step'
+library deadandcompany-2015-11-05 description
+    [1] 'Mississippi Half Step Uptown Toodeloo'
+library deadandcompany-2017-06-20 description
+    [1] 'Mississippi Half Step'
+library deadandcompany-2017-11-28 description
+    [1] '- Mississippi Half Step/Uptown Todeloo'
+library deadsessions-2008-03-14 description
+    [1] 'Mississippi Half-Step'
+library deadsessions-2008-06-03 description
+    [1] 'Second That Emotion'
+library discobiscuits-1998-02-19 description
+    [2] "Set II (con't.)"
+library discobiscuits-1999-01-18 description
+    [2] "Set II (con't.)"
+library discobiscuits-2003-05-28 description
+    [1] "Set I (con't.)"
+library furthur-2009-12-30 description
+    [1] 'Mississippi Half Step'
+library furthur-2010-06-30 description
+    [1] 'Mississippi Half-Step Uptown Toodeloo'
+library furthur-2010-11-21 description
+    [2] 'Weather Report Suite Part I'
+library furthur-2011-11-11 description
+    [2] 'WRS Suite Part I'
+library furthur-2011-12-29 description
+    [1] 'WRS Part I'
+library furthur-2013-07-20 description
+    [1] 'Half Step Mississippi Up town Toodleloo'
+library gratefuldead-1971-04-29 description
+    [2] 'Second That Emotion'
+library gratefuldead-1972-09-10 description
+    [1] 'Mississippi Half Step'
+library gratefuldead-1972-09-28 description
+    [1] 'Mississippi Half-Step Uptown Toodeloo'
+library gratefuldead-1972-11-19 description
+    [2] 'Mississippi Half Step'
+library gratefuldead-1973-05-26 description
+    [3] 'Mississippi Half-Step Uptown Toodeloo'
+library gratefuldead-1973-07-01 description
+    [1] 'Mississippi Half Step'
+library gratefuldead-1973-11-11 description
+    [1] 'Weather Report Suite Part'
+    [2] 'Mississippi Half-Step Uptown Toodeloo'
+library gratefuldead-1973-11-30 description
+    [2] 'Weather Report Suite Part 1'
+library gratefuldead-1973-12-02 description
+    [1] 'Weather Report Suite Part 1'
+    [2] 'Mississippi Half Step'
+library gratefuldead-1973-12-18 description
+    [2] 'Weather Report Suite Part 1'
+library gratefuldead-1973-12-19 description
+    [2] 'Mississippi Half Step'
+    [2] 'Weather Report Suite Part 1'
+library gratefuldead-1974-02-22 description
+    [3] 'Mississippi Half Step'
+library gratefuldead-1974-02-23 description
+    [2] 'Weather Report Suite Part 1'
+library gratefuldead-1977-05-04 description
+    [1] 'Mississippi Half-Step Uptown Toodeloo'
+library gratefuldead-1978-01-31 description
+    [1] 'Mississippi Half-Step Uptown Toodeloo'
+library gratefuldead-1978-04-08 description
+    [1] 'Mississippi Half-Step Uptown Toodeloo'
+library gratefuldead-1979-09-01 description
+    [1] 'Mississippi Half Step'
+library gratefuldead-1979-11-02 description
+    [1] 'Mississippi Half Step'
+library gratefuldead-1985-06-30 description
+    [1] 'Mississippi Half-Step Uptown Toodeloo'
+library gratefuldead-1986-03-24 description
+    [2] 'Mississippi Half Step'
+library gratefuldead-1988-03-24 description
+    [2] 'Mississippi Half-Step Uptown Toodleloo'
+library gratefuldead-1990-05-06 description
+    [1] 'Mississippi Half-Step Uptown Toodleloo'
+library gratefuldead-1990-07-04 description
+    [1] 'Mississippi Half-Step Uptown Toodleloo'
+library greenskybluegrass-2009-04-18 description
+    [2] "For the most part it sounds pretty good.  C'est La Vie"
+library greenskybluegrass-2010-03-26 description
+    [1] 'Break Mountain Breakdown'
+library jackiegreene-2010-02-12 description
+    [2] '1961 (solo acoustic)'
+library joerussosalmostdead-2015-01-23 description
+    [2] 'Mississippi Half-Step Uptown Toodeloo'
+library joerussosalmostdead-2015-04-22 notes
+    [1] 'Weather Report Suite Part One (Instr)'
+library joerussosalmostdead-2015-05-24 notes
+    [2] 'Mississippi Half-Step Uptown Toodeloo (TH)'
+library joerussosalmostdead-2017-04-29 description
+    [2] 'Half Step'
+library joerussosalmostdead-2017-11-09 notes
+    [1] 'Weather Report Prelude / Part One @'
+library joerussosalmostdead-2019-03-13 description
+    [1] 'Weather Report Suite: Prelude / Part One $'
+library joerussosalmostdead-2021-10-23 description
+    [1] 'Opening jam'
+library larrykeel-2006-05-27 description
+    [2] 'First Day in Town'
+library lotus-2006-02-18 description
+    [1] 'Point/Electric Counterpoint'
+library lotus-2007-04-28 description
+    [1] 'Reich aka Point/Electric Counterpoint'
+library moe-2004-04-17 description
+    [1] 'Shoot First'
+library moe-2004-05-29 description
+    [1] 'Shoot First'
+library moe-2005-04-15 description
+    [1] 'Shoot First'
+library moe-2006-01-22 description
+    [1] 'Shoot First'
+library motherhips-2000-10-06 description
+    [2] 'Third Floor Story'
+library mymorningjacket-2008-06-13 description
+    [1] "Touch Me I'm Going To Scream Pt.1"
+    [2] "Touch Me I'm Going To Scream Pt.2"
+library mymorningjacket-2018-03-05 description
+    [1] "Touch Me I'm Going To Scream Pt. 1"
+    [1] "Touch Me I'm Going To Scream Pt. 2"
+    [2] 'First Light'
+library newridersofthepurplesage-2010-08-01 description
+    [2] '! NRPS played the first side of their first album to honor JG on his B-Day.'
+    [2] 'first time played for the fans.'
+library particle-2005-01-22 description
+    [2] 'Set The Controls For The Heart of The Sun'
+library perpetualgroove-2005-07-09 description
+    [2] 'All This Everything Part II'
+library perpetualgroove-2006-02-02 description
+    [1] 'All This Everything Part I'
+    [1] 'All This Everything Part II'
+library perpetualgroove-2008-05-03 description
+    [1] 'All This Everything Part I'
+library philleshandfriends-2005-12-10 description
+    [1] 'Mississippi Half-Step'
+library philleshandfriends-2008-05-08 description
+    [1] 'Mississippi Half Step'
+library radiators-1979-01-14 description
+    [2] 'Always A First Time ** ^'
+    [2] 'CD 2'
+    [3] 'Closer Walk With Thee # ^^^ $'
+    [3] 'CD 3'
+library radiators-1980-01-14 description
+    [3] 'CD 3'
+library radiators-1981-07-11 description
+    [1] 'End Of Your Rope'
+library radiators-1983-12-17 description
+    [1] '- First Snow'
+library railroadearth-2005-01-28 description
+    [2] "Set 2 (con't):"
+library railroadearth-2006-09-03 description
+    [2] 'Second Barn On The Right'
+library ryanadams-2006-02-14 description
+    [1] 'The Hardest Part'
+    [1] 'Elizabeth, You Were Born To Play That Part'
+library ryanadams-2006-02-18 description
+    [1] "Sweet Lil' Gal (23rd/1st)"
+library ryanadams-2007-07-26 description
+    [1] 'The Sun Also Sets'
+library ryanadams-2008-01-19 description
+    [1] "Sweet Lil' Gal (23rd/1st)"
+    [1] 'Elizabeth, You Were Born To Play That Part'
+    [1] 'The Sun Also Sets'
+library ryanadams-2008-01-23 description
+    [1] 'The Sun Also Sets'
+library ryanadams-2008-01-26 description
+    [1] 'The Sun Also Sets'
+library ryanadams-2008-08-23 notes
+    [2] 'Elizabeth, You Were Born To Play That Part'
+library ryanadams-2008-09-27 description
+    [1] 'The Sun Also Sets'
+    [1] 'cd 2'
+library ryanadams-2008-10-05 description
+    [1] 'Sun Also Sets'
+library ryanadams-2008-10-16 description
+    [2] 'Sun Also Sets'
+    [2] 'first minute of Born Into A Light patched with Schoeps CCM4'
+library splinteredsunlight-2008-07-19 description
+    [1] 'CD 1 [75:06]'
+    [1] 'CD 2 [60:58]'
+    [2] 'CD 3 [49:52]'
+library stevekimockband-2001-12-20 description
+    [2] 'CD1 track 01-05'
+    [2] 'CD2 track 06-08'
+    [2] 'CD3 track 09-12'
+library stevekimockband-2002-07-03 description
+    [2] 'Electric Wildlife (White Strat'
+library stevekimockband-2005-10-01 description
+    [2] 'Long Form Part 1'
+library stevekimockband-2005-10-07 description
+    [1] 'Long Form Part One'
+library stevekimockband-2005-10-26 description
+    [2] 'Electric Wildlife'
+library stevekimockband-2005-10-27 description
+    [2] 'Electric Wildfire'
+library stevekimockband-2006-01-22 description
+    [1] 'Long Form Part 1'
+library stringcheeseincident-2000-01-31 description
+    [2] "(acoustic) Think What You've Done"
+    [2] 'Pirates (electric) Sing a New Song'
+library stringcheeseincident-2004-11-26 description
+    [1] 'One Step Closer'
+library stringcheeseincident-2005-03-25 description
+    [2] 'One Step Closer'
+library stringcheeseincident-2011-07-03 description
+    [2] 'Electric Jam'
+library stuallenandmarshotel-2009-05-16 description
+    [2] 'surprise vocal by Mark Karan - this was not on the set list...'
+library stuallenandmarshotel-2011-11-02 description
+    [2] "Set 2 con't"
+library stuallenandmarshotel-2015-02-18 description
+    [2] "Set 2 con't"
+library tealeafgreen-2005-03-11 description
+    [1] 'The Garden (Part I)'
+    [1] 'The Garden (Part II)'
+    [1] 'The Garden (Part III)'
+library tealeafgreen-2005-06-15 description
+    [2] 'The Garden Part III'
+library tealeafgreen-2005-09-29 description
+    [1] 'The Garden (Part I)'
+    [1] 'The Garden (Part II)'
+    [1] 'The Garden (Part III)'
+library tealeafgreen-2006-04-22 description
+    [1] 'The Garden(Part II)'
+    [3] 'The Garden(Part I)'
+    [3] 'The Garden(Part III)'
+library tedeschitrucksband-2017-10-14 description
+    [1] 'Part of Me'
+library tedeschitrucksband-2018-10-13 description
+    [1] 'Part Of Me'
+library tedeschitrucksband-2019-01-22 description
+    [2] 'Part of Me'
+library tedeschitrucksband-2019-11-11 description
+    [2] 'Part Of Me'
+library tedeschitrucksband-2019-11-15 description
+    [2] '- Part of Me'
+library tedeschitrucksband-2020-02-14 description
+    [2] 'Part Of Me'
+library tedeschitrucksband-2020-02-21 description
+    [2] 'Part Of Me'
+library tedeschitrucksband-2020-02-29 description
+    [2] 'Part of Me'
+library tedeschitrucksband-2022-02-19 description
+    [2] 'Part Of Me'
+library tedeschitrucksband-2022-03-25 description
+    [2] 'Part of Me'
+library tedeschitrucksband-2023-02-18 description
+    [1] 'Part Of Me'
+library thebrew-2007-09-05 description
+    [2] 'first of things'
+library thebrew-2009-04-18 description
+    [1] 'Hard Enough To Break'
+library thedead-2009-05-01 description
+    [1] 'Mississippi Half Step'
+library thegourds-2002-09-04 description
+    [1] '1st In Line'
+    [2] "Set II (con't.)"
+library thegourds-2005-06-04 description
+    [1] 'First In Line'
+library themotet-2011-10-29 description
+    [1] 'DJ Set:'
+library theschwag-2009-09-19 description
+    [2] 'David Gans: Sit-in Acoustic Guitar'
+library theschwag-2010-09-17 description
+    [2] 'Featuring David Gans on second guitar'
+library theschwag-2010-09-18 description
+    [2] 'Featuring Tracy (without an "E") Lowe from Vitamin A/The Schwag on second guitar'
+library umphreysmcgee-2004-10-19 description
+    [1] 'The Bottom Half'
+library umphreysmcgee-2004-11-12 description
+    [1] '2nd Self'
+    [2] 'The Bottom Half'
+    [2] 'Rock and Roll Part II'
+library umphreysmcgee-2005-09-02 description
+    [2] 'The Bottom Half'
+library umphreysmcgee-2005-09-30 description
+    [2] '2nd Self'
+library yondermountainstringband-2004-10-08 description
+    [2] 'End Of The Day'
+library yondermountainstringband-2004-11-04 description
+    [1] 'End Of The Day'
+library yondermountainstringband-2005-10-14 description
+    [2] 'End Of The Day'
+library yondermountainstringband-2006-01-27 description
+    [2] 'At The End Of The Day'
+library yondermountainstringband-2006-06-14 description
+    [2] 'Lord Only Knows (Part One)'
+library yondermountainstringband-2006-12-29 description
+    [1] 'End Of The Day'
+library yondermountainstringband-2008-07-19 description
+    [2] "Danny Barnes playing Mark Vann's electric banjo The Stump)"
+library yondermountainstringband-2010-07-17 description
+    [2] 'On The Run pt.2'
+    [2] 'Ramblin In The Rambler pt.1'
+gate darkstarorchestra-2007-08-06 description
+    [1] 'mississippi half step toodeloo'
+gate ryanadams-2008-10-04 description
+    [1] 'The Sun Also Sets'
+gate stuallenandmarshotel-2013-11-13 notes
+    [1] '01-Second That Emotion'
+gate tealeafgreen-2005-01-20 description
+    [3] 'The Garden (Part III)'
+gate cowboyjunkies-2012-04-26 description
+    [1] 'Third Crusade'
+gate railroadearth-2005-03-17 description
+    [2] "Set 2 (Con't):"
+gate derektrucksband-2007-05-26 description
+    [2] 'Yonrico solo (will fit on CD1)'
+    [2] 'Crippled and Crazy (will fit on CD1)'
+    [2] 'CD2'
+gate gratefuldead-1980-10-10 description
+    [2] 'Mississippi Half-Step Uptown Toodeloo'
+gate ryanadams-2007-10-27 description
+    [1] 'The Sun Also Sets'
+    [2] 'The Evening Joke With Jon Graboff/Bathroom Break'
+gate newridersofthepurplesage-2007-12-31 description
+    [1] 'Tweener Set - Skarecrow'
+gate radiators-2003-03-14 description
+    [2] 'Third Stone From the Sun jam'
+gate railroadearth-2005-02-18 description
+    [2] '- Mississippi Half Step'
+gate railroadearth-2007-09-29 description
+    [2] 'Mississippi Half-Step Uptown Toodleoo'
+gate umphreysmcgee-2003-10-10 description
+    [2] 'Another Brick in the Wall Pt. 1'
+rows with hits 165

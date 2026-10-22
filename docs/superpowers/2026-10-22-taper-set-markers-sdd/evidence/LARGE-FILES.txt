@@ -1,0 +1,20 @@
+# Evidence files larger than 256 KB (orchestrator ruling R21) are NOT in git.
+# They live on only in the worktree's git-ignored .superpowers/sdd/taper-markers/ (path below is relative to it).
+# Columns: sha256, size, path under $D.
+21c869372433175a80a47211428c6d829c57c97c22f5cd5c66ffd4b79a3ddcc2  1036041 bytes  orch/evidence/cpa-forms/inline.json
+ae5a80b2817a5210ed85789477397db81c70d5606b7669eefe40e42e2f83784c  14411805 bytes  orch/evidence/cpa-forms/corpus.jsonl
+fa4e2fc6e998cc9ac9cddd5ab356b00af3d76d93c8f94baa51bf13e2a8a02dd8  1489493 bytes  orch/evidence/cpa-forms/inline_ablate.json
+b46d9d758a02a4316fc547d46863c9b6b302bcf67fa91143242618fd9626505f  4093161 bytes  orch/evidence/cpa-forms/ablate.jsonl
+fbd4c453b0ce049fccac4dbf9521df53c524e943abd5a6974e0e2dec6fe28ad4  1725814 bytes  orch/evidence/t12-rev/h_old.json
+dc704908fa961f8dad6e9dc4323560d018e29d82070b587f77ca4182c096ea36  10696340 bytes  orch/evidence/t12-rev/d_3d1c1e7.json
+21ba7c3a729fed0bf9f8b8898ff8cedf2415c2908237b7438379cfa57d0ba07c  1801519 bytes  orch/evidence/t12-rev/h_new.json
+81b4572f300f96887309a5b611a3e6a64130141d723b5c47ba433b479b373ecd  10533916 bytes  orch/evidence/t12-rev/d_head.json
+ca90d465867b209160a32aac284b04ad7a56855cc90234a22db56cb7b1d47a10  342768 bytes  orch/evidence/cpa-decl/q2_dump.txt
+d8f6f3c1966128f18095af46ab00936299c2d81ea6aa4f2aa2a96374ce589728  10602417 bytes  orch/evidence/t12-rev/d_025e713.json
+66dcf92c3ffbbd7f939ce1136815ed0bc3b30b2c1bfd96a148149863c6764c98  10696878 bytes  orch/evidence/t12-rev/d_67291bd.json
+daa7349d749b7a3b413542f28871896576642ad7aae5b509eab3f2361935807d  1488965 bytes  orch/evidence/cpa2-forms/corpus2.jsonl
+d5e6d17d0fc32b6a873391a061de749a39252fd6ba526f83d76a02d8ba7747e1  1993142 bytes  orch/evidence/t12-rev/c_67291bd/packages/llama/src/llama/data/set_breaks.csv
+d5e6d17d0fc32b6a873391a061de749a39252fd6ba526f83d76a02d8ba7747e1  1993142 bytes  orch/evidence/t12-rev/c_025e713/packages/llama/src/llama/data/set_breaks.csv
+d5e6d17d0fc32b6a873391a061de749a39252fd6ba526f83d76a02d8ba7747e1  1993142 bytes  orch/evidence/t12-rev/c_3d1c1e7/packages/llama/src/llama/data/set_breaks.csv
+d5e6d17d0fc32b6a873391a061de749a39252fd6ba526f83d76a02d8ba7747e1  1993142 bytes  orch/evidence/t12-rev/mut/packages/llama/src/llama/data/set_breaks.csv
+c11ff09edb01c9a7f2fedce2c10cad0491876893b020879e1dbbe37964588dac  607747 bytes  orch-r1/evidence/cpa3-rev/items.json

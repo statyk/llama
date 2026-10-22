@@ -1,0 +1,387 @@
+==========================================================================================
+gratefuldead-1980-10-10 gd1980-10-10.mtx.chappell.sb03.28740.flac16 src= description reason= None renum= False t_breaks= [9, 19] t_enc= 32
+--- TEXT
+Set 1: (Acoustic)
+d1t01 - On The Road Again
+d1t02 - It Must Have Been The Roses
+d1t03 - Monkey And The Engineer
+d1t04 - Jack-a-roe
+d1t05 - Dark Hollow
+d1t06 - To Lay Me Down
+d1t07 - Heaven Help The Fool
+d1t08 - Bird Song
+d1t09 - Ripple
+Set 2: (Electric)
+d1t10 - Mississippi Half-Step Uptown Toodeloo >
+d1t11 - Franklin's Tower
+d1t12 - Me And My Uncle  >
+d1t13 - Big River
+d2t01 - Candyman
+d2t02 - Beat It On Down The Line
+d2t03 - Row Jimmy
+d2t04 - New Minglewood Blues
+d2t05 - Althea
+d2t06 - Jack Straw
+Set3:
+d2t07 - Scarlet Begonias  >
+d2t08 - Fire On The Mountain
+d2t09 - Samson And Delilah
+d2t10 - Big Railroad Blues  
+d3t01 - Estimated Prophet >
+d3t02 - Eyes Of The World >
+d3t03 - Drums >
+d3t04 - Space >
+d3t05 - Truckin' >
+d3t06 - Nobody's Fault jam >
+d3t07 - Black Peter >
+d3t08 - Around And Around >
+d3t09 - The // Promised Land
+Encore:
+d3t10 - U.S. Blues
+--- ITEMS: 1:On The Road Again | 1:It Must Have Been The Roses | 1:Monkey And The Engineer | 1:Jack-a-roe | 1:Dark Hollow | 1:To Lay Me Down | 1:Heaven Help The Fool | 1:Bird Song | 1:Ripple | 2:Mississippi Half-Step Uptown Toodeloo | 2:Franklin's Tower | 2:Me And My Uncle | 2:Big River | 2:Candyman | 2:Beat It On Down The Line | 2:Row Jimmy | 2:New Minglewood Blues | 2:Althea | 2:Jack Straw | 3:Scarlet Begonias | 3:Fire On The Mountain | 3:Samson And Delilah | 3:Big Railroad Blues | 3:Estimated Prophet | 3:Eyes Of The World | 3:Drums | 3:Space | 3:Truckin' | 3:Nobody's Fault jam | 3:Black Peter | 3:Around And Around | 3:The // Promised Land | encore:U.S. Blues
+    1 today=1       taper=1       target=1       tags           On The Road Again
+    2 today=1       taper=1       target=1       tags           It Must Have Been The Roses
+    3 today=1       taper=1       target=1       tags           Monkey and The Engineer
+    4 today=1       taper=1       target=1       tags           Jack-A-Roe
+    5 today=1       taper=1       target=1       tags           Dark Hollow
+    6 today=1       taper=1       target=1       tags           To Lay Me Down
+    7 today=1       taper=1       target=1       tags           Heaven Help The Fool
+    8 today=1       taper=1       target=1       tags           Bird Song
+    9 today=1       taper=1       target=1       tags           Ripple
+*  10 today=1       taper=2       target=2       tags           Mississippi Half-Step Uptown Toodeloo >
+*  11 today=1       taper=2       target=2       tags           Franklin's Tower
+*  12 today=1       taper=2       target=2       tags           Me and My Uncle >
+*  13 today=1       taper=2       target=2       tags           Big River
+*  14 today=1       taper=2       target=2       tags           Candyman
+*  15 today=1       taper=2       target=2       tags           Beat It On Down The Line
+*  16 today=1       taper=2       target=2       tags           Row Jimmy
+*  17 today=1       taper=2       target=2       tags           New Minglewood Blues
+*  18 today=1       taper=2       target=2       tags           Althea
+*  19 today=1       taper=2       target=2       tags           Jack Straw
+*  20 today=2       taper=3       target=3       tags           Scarlet Begonias >
+*  21 today=2       taper=3       target=3       tags           Fire On The Mountain
+*  22 today=2       taper=3       target=3       tags           Samson and Delilah
+*  23 today=2       taper=3       target=3       tags           Big Railroad Blues
+*  24 today=2       taper=3       target=3       tags           Estimated Prophet >
+*  25 today=2       taper=3       target=3       tags           Eyes Of The World >
+*  26 today=2       taper=3       target=3       tags           Drums >
+*  27 today=2       taper=3       target=3       tags           Space >
+*  28 today=2       taper=3       target=3       tags           Truckin' >
+*  29 today=2       taper=3       target=3       tags           Nobody's Fault Jam >
+*  30 today=2       taper=3       target=3       tags           Black Peter >
+*  31 today=2       taper=3       target=3       tags           Around and Around >
+*  32 today=2       taper=3       target=3       tags           The // Promised Land
+   33 today=encore  taper=encore  target=encore  tags           U.S. Blues
+==========================================================================================
+greyboyallstars-2012-04-20 gba2012-04-20.tlm170.flac16 src= description reason= None renum= False t_breaks= [8, 16] t_enc= None
+--- TEXT
+Set 1
+1.  tuning / intro
+2.  The Show Has Begun
+3.  Profundo Grosso
+4.  banter - how y'all doin?
+5.  Fried Grease
+6.  Hot Dog
+7.  tuning / thanks
+8.  Serpico
+9.  banter - new album
+10. Breakin' Blood
+11. The Weasel
+12. Gravee
+13. setbreak announce
+Set 2
+1.  tuning / banter - Levon Helm condolences
+2.  The Way You Make Me Feel
+3.  Hot Pants Breakdown
+4.  Get A Job
+5.  Soul Dream
+6.  Flood In Franklin Park *
+7.  Inland Emperor
+8.  Right On -> *+
+9.  Quantico, VA
+Set 3
+1.  tuning
+2.  V Neck Sweater
+3.  Taxman
+4.  Back In The Game
+5.  Still Waiting
+6.  Volcanic Acne
+7.  Wanna Be Startin' Something
+8.  Confusion
+9.  banter - one more for you / tuning
+10. Deck Shoes
+--- ITEMS: 1:The Show Has Begun | 1:Profundo Grosso | 1:Fried Grease | 1:Hot Dog | 1:Serpico | 1:Breakin' Blood | 1:The Weasel | 1:Gravee | 2:The Way You Make Me Feel | 2:Hot Pants Breakdown | 2:Get A Job | 2:Soul Dream | 2:Flood In Franklin Park | 2:Inland Emperor | 2:Right On | 2:Quantico, VA | 3:V Neck Sweater | 3:Taxman | 3:Back In The Game | 3:Still Waiting | 3:Volcanic Acne | 3:Wanna Be Startin' Something | 3:Confusion | 3:Deck Shoes
+    1 today=1       taper=1       target=1       tags           The Show Has Begun
+    2 today=1       taper=1       target=1       tags           Profundo Grosso
+    3 today=1       taper=1       target=1       tags           Fried Grease
+    4 today=1       taper=1       target=1       tags           Hot Dog
+    5 today=1       taper=1       target=1       tags           Serpico
+    6 today=1       taper=1       target=1       tags           Breakin' Blood
+    7 today=1       taper=1       target=1       tags           The Weasel
+    8 today=1       taper=1       target=1       tags           Gravee
+*   9 today=1       taper=2       target=2       tags           The Way You Make Me Feel
+*  10 today=1       taper=2       target=2       tags           Hot Pants Breakdown
+*  11 today=1       taper=2       target=2       tags           Get A Job
+*  12 today=1       taper=2       target=2       tags           Soul Dream
+*  13 today=1       taper=2       target=2       tags           Flood In Franklin Park *
+   14 today=2       taper=2       target=2       tags           Inland Emperor
+   15 today=2       taper=2       target=2       tags           Right On -> *+
+   16 today=2       taper=2       target=2       tags           Quantico, VA
+*  17 today=2       taper=3       target=3       tags           V Neck Sweater
+*  18 today=2       taper=3       target=3       tags           Taxman
+*  19 today=2       taper=3       target=3       tags           Back In The Game
+*  20 today=2       taper=3       target=3       tags           Still Waiting
+*  21 today=2       taper=3       target=3       tags           Volcanic Acne
+*  22 today=2       taper=3       target=3       tags           Wanna Be Startin' Something
+*  23 today=2       taper=3       target=3       tags           Confusion
+*  24 today=2       taper=3       target=3       tags           Deck Shoes
+==========================================================================================
+infamousstringdusters-2008-12-06 is2008-12-06.flac16.aud src= description reason= None renum= False t_breaks= [14] t_enc= 30
+--- TEXT
+The Infamous Stringdusters, The Morse Theater, Chicago, IL, 2008-12-06
+AKG Perception 170's (FOB 10'/8' High/DFC) > MOTU Ultralite mk3 > PC(Sonar 7 16-Bit/48kHz) > FLAC(16/44.1)
+Recorded By: John F.
+Set 1
+=====
+1. Intro / Tuning
+2. Three Days In July
+3. 40 West
+4. Won't Be Coming Back
+5. Let's Rekindle Our Love
+6. Tuning / Banter
+7. Bound for Tennessee
+8. Tuning / Banter
+9. Gettin' Down the Road
+10. Cluck Ol' Hen
+11. Tuning / Banter
+12. Fork In The Road
+13. Tuning / Banter
+14. My Destination
+Set 2
+=====
+1. Intro / Tuning
+2. You Can't Handle the Truth
+3. When Silence is the Only Sound
+4. Tuning / Banter
+5. High on a Mountain Top
+6. I Ain't Been Myself in Years
+7. Tuning
+8. Black Rock
+9. Tuning / Banter
+10.
+11. Deep Elem Blues
+12. Dream You Back
+13. Tuning / Banter
+14. Get It While You Can
+15. Tuning / Banter
+16. Lovin' You
+17. Intros / Crowd
+18. Sunny Side Of The Mountain
+Encores
+=======
+19. Callback / Banter
+20. Poor Boy's Delight
+21. Tuning / Banter
+22. 
+Notes: Encores were played acoustic on the front of the stage. Turned off my mic pad after the first acoustic encore and ran wild.
+Thanks to the Stringdusters for allowing me to record and thanks to all the wonderful people that were at this show
+for being so nice and quiet which allowed me to pull a nice recording.
+is2008-12-06d1t01.flac:ea1dcb3d49ae118e022fe00af3d595e3
+is2008-12-06d1t02.flac:4a29865947e5167ddd3a07df4a561530
+is2008-12-06d1t03.flac:59c2894da5c6f259c315c7b85fc38ac7
+is2008-12-06d1t04.flac:1329ca90ad9054e58a60a
+--- ITEMS: 1:Three Days In July | 1:40 West | 1:Won't Be Coming Back | 1:Let's Rekindle Our Love | 1:Bound for Tennessee | 1:Gettin' Down the Road | 1:Cluck Ol' Hen | 1:Fork In The Road | 1:My Destination | 2:You Can't Handle the Truth | 2:When Silence is the Only Sound | 2:High on a Mountain Top | 2:I Ain't Been Myself in Years | 2:Black Rock | 2:Deep Elem Blues | 2:Dream You Back | 2:Get It While You Can | 2:Lovin' You | 2:Sunny Side Of The Mountain | encore:Poor Boy's Delight | encore:for being so nice and quiet which allowed me to pull a nice recording.
+    1 today=1       taper=1       target=1       tags         F Intro / Tuning
+    2 today=1       taper=1       target=1       tags           Three Days In July
+    3 today=1       taper=1       target=1       tags           40 West
+    4 today=1       taper=1       target=1       tags           Won't Be Coming Back
+    5 today=1       taper=1       target=1       tags           Let's Rekindle Our Love
+    6 today=1       taper=1       target=1       tags         F Tuning / Banter
+    7 today=1       taper=1       target=1       tags           Bound for Tennessee
+    8 today=1       taper=1       target=1       tags         F Tuning / Banter
+    9 today=1       taper=1       target=1       tags           Gettin' Down the Road
+   10 today=1       taper=1       target=1       tags           Cluck Ol' Hen
+   11 today=1       taper=1       target=1       tags         F Tuning / Banter
+   12 today=1       taper=1       target=1       tags           Fork In The Road
+   13 today=1       taper=1       target=1       tags         F Tuning / Banter
+   14 today=1       taper=1       target=1       tags           My Destination
+   15 today=2       taper=2       target=2       tags         F Intro / Tuning
+   16 today=2       taper=2       target=2       tags           You Can't Handle the Truth
+   17 today=2       taper=2       target=2       tags           When Silence is the Only Sound
+   18 today=2       taper=2       target=2       tags         F Tuning / Banter
+   19 today=2       taper=2       target=2       tags           High on a Mountain Top
+   20 today=2       taper=2       target=2       tags           I Ain't Been Myself in Years
+   21 today=2       taper=2       target=2       tags           Black Rock
+   22 today=2       taper=2       target=2       tags         F Tuning / Banter
+   23 today=2       taper=2       target=2       unresolved     is2008-12-06d2t10.mp3
+   24 today=2       taper=2       target=2       tags           Deep Elem Blues
+   25 today=2       taper=2       target=2       tags           Dream You Back
+   26 today=2       taper=2       target=2       tags         F Tuning / Banter
+   27 today=2       taper=2       target=2       tags           Get It While You Can
+   28 today=2       taper=2       target=2       tags         F Tuning / Banter
+   29 today=2       taper=2       target=2       tags           Lovin' You
+   30 today=2       taper=2       target=2       tags           Sunny Side Of The Mountain
+*  31 today=2       taper=encore  target=encore  tags         F Callback / Banter
+*  32 today=2       taper=encore  target=encore  tags           Poor Boy's Delight
+*  33 today=2       taper=encore  target=encore  tags         F Tuning / Banter
+*  34 today=2       taper=encore  target=encore  unresolved     is2008-12-06d2t22.mp3
+==========================================================================================
+philleshandfriends-2007-10-07 plf2007-10-07.mk41.flac16 src= description reason= None renum= False t_breaks= [6, 11] t_enc= 20
+--- TEXT
+Set One
+s1t01: Good Lovin'
+s1t02: Mexican Girl
+s1t03: Candyman
+s1t04: Let It Ride
+s1t05: Sugaree
+s1t06: Casey Jones
+Set Two
+s2t01: Ripple
+s2t02: Cry Yourself Dry*
+s2t03: Friend of the Devil>
+s2t04: Big Mon* 
+s2t05: Brokedown Palace 
+Set Three
+s3t01: The Wheel>
+s3t02: Cryptical Envelopment>
+s3t03: All Along The Watchtower>
+s3t04: The Other One
+s3t05: Help on The Way>
+s3t06: Slipknot!>
+s3t07: Franklin's Tower
+s3t08: Turn On Your Lovelight
+s3t09: crowd/donor rap/intros
+encore
+s3t10:  Not Fade Away
+--- ITEMS: 1:Good Lovin' | 1:Mexican Girl | 1:Candyman | 1:Let It Ride | 1:Sugaree | 1:Casey Jones | 2:Ripple | 2:Cry Yourself Dry | 2:Friend of the Devil | 2:Big Mon | 2:Brokedown Palace | 3:The Wheel | 3:Cryptical Envelopment | 3:All Along The Watchtower | 3:The Other One | 3:Help on The Way | 3:Slipknot! | 3:Franklin's Tower | 3:Turn On Your Lovelight | encore:Not Fade Away
+    1 today=1       taper=1       target=1       tags           Good Lovin'
+    2 today=1       taper=1       target=1       tags           Mexican Girl
+    3 today=1       taper=1       target=1       tags           Candyman
+    4 today=1       taper=1       target=1       tags           Let It Ride
+    5 today=1       taper=1       target=1       tags           Sugaree
+    6 today=1       taper=1       target=1       tags           Casey Jones
+*   7 today=1       taper=2       target=2       tags           Ripple
+*   8 today=1       taper=2       target=2       tags           Cry Yourself Dry*
+*   9 today=1       taper=2       target=2       tags           Friend of the Devil>
+*  10 today=1       taper=2       target=2       tags           Big Mon*
+*  11 today=1       taper=2       target=2       tags           Brokedown Palace
+*  12 today=1       taper=3       target=3       tags           The Wheel>
+*  13 today=1       taper=3       target=3       tags           Cryptical Envelopment>
+*  14 today=1       taper=3       target=3       tags           All Along The Watchtower>
+*  15 today=1       taper=3       target=3       tags           The Other One
+*  16 today=1       taper=3       target=3       tags           Help on The Way>
+*  17 today=1       taper=3       target=3       tags           Slipknot!>
+*  18 today=1       taper=3       target=3       tags           Franklin's Tower
+*  19 today=1       taper=3       target=3       tags           Turn On Your Lovelight
+ ! 20 today=encore  taper=encore  target=3       tags         F crowd/donor rap/intros
+   21 today=encore  taper=encore  target=encore  tags           Not Fade Away
+==========================================================================================
+railroadearth-2005-08-20 rre2005-08-20.schoepsCMC6.flac src= description reason= None renum= False t_breaks= [9] t_enc= 18
+--- TEXT
+Set 1: Disc 1: 
+01. Lordy Lordy 
+02. New Lee Highway Blues> 
+03. Fiddlee 
+04. Chains 
+05. Mourning Flies 
+06. Lois Ann 
+07. Stillwater Getaway 
+08. Wayfaring Stranger 
+09. Waterfountain Quicksand 
+Set 2: Disc 2: 
+01. //Long Way To Go 
+02. Seven Story Mountain 
+03. The Wheel 
+04. Old Man & The Land 
+05. The Hunting Song> 
+06. Black Bear 
+07. Donkey For Sale 
+08. [Timmy's props to the Delaware River Keepers]
+09. Ragtime Annie Lee 
+Encore: Disc 3: 
+1. Bird In A House 
+2. Railroad Earth
+--- ITEMS: 1:Lordy Lordy | 1:New Lee Highway Blues | 1:Fiddlee | 1:Chains | 1:Mourning Flies | 1:Lois Ann | 1:Stillwater Getaway | 1:Wayfaring Stranger | 1:Waterfountain Quicksand | 2://Long Way To Go | 2:Seven Story Mountain | 2:The Wheel | 2:Old Man & The Land | 2:The Hunting Song | 2:Black Bear | 2:Donkey For Sale | 2:[Timmy's props to the Delaware River Keepers] | 2:Ragtime Annie Lee | encore:Bird In A House | encore:Railroad Earth
+    1 today=1       taper=1       target=1       tags           Lordy Lordy
+    2 today=1       taper=1       target=1       tags           New Lee Highway Blues>
+    3 today=1       taper=1       target=1       tags           Fiddlee
+    4 today=1       taper=1       target=1       tags           Chains
+    5 today=1       taper=1       target=1       tags           Mourning Flies
+    6 today=1       taper=1       target=1       tags           Lois Ann
+    7 today=1       taper=1       target=1       tags           Stillwater Getaway
+    8 today=1       taper=1       target=1       tags           Wayfaring Stranger
+    9 today=1       taper=1       target=1       tags           Waterfountain Quicksand
+*  10 today=1       taper=2       target=2       tags           Long Way To Go
+*  11 today=1       taper=2       target=2       tags           Seven Story Mountain
+*  12 today=1       taper=2       target=2       tags           The Wheel
+*  13 today=1       taper=2       target=2       tags           Old Man & The Land
+*  14 today=1       taper=2       target=2       tags           The Hunting Song>
+*  15 today=1       taper=2       target=2       tags           Black Bear
+*  16 today=1       taper=2       target=2       tags           Donkey For Sale
+*  17 today=1       taper=2       target=2       tags           Timmy's props to the Delaware River Keepers]
+*  18 today=1       taper=2       target=2       tags           Ragtime Annie Lee
+*  19 today=1       taper=encore  target=encore  tags           Bird In A House
+*  20 today=1       taper=encore  target=encore  tags           Railroad Earth
+==========================================================================================
+railroadearth-2014-11-28 rre2014-11-28.spc4.hypers.flac16 src= description reason= None renum= True t_breaks= [8] t_enc= 21
+--- TEXT
+Horn O'Plenty 2014 Night 1
+Set 1
+01 Won't You Come And Sing For Me
+02 The Jupiter And The 119
+03 Happy Song
+04 Saddle Of The Sun
+05 Grandfather Mountain (A)
+06 Flower Between The Stones (A)
+07 Mission Man (B)
+08 Hangtown Ball (A)
+Set 2
+01 Lordy, Lordy
+02 The Good Life
+03 Donkey For Sale
+04 Potter's Field
+05 Bread And Water
+06 Black Elk Speaks ->
+07 Tuba Mirum -> (A)
+08 Face With A Hole (A)
+09 Monkey (A)
+10 Like A Buddha (A)
+11 Give That Boy A Hand
+12 One More Night On The Road (A)
+13 Take A Bow (A)
+14 crowd
+Encore
+15 Roadhouse Blues (A)
+Bill Evans' Soulgrass opened the show.
+Show notes
+(A) with the "Stroudsburg Horn Men":
+Jay Rattman -- alto Sax and clarinet 
+Jim Daniels -- bass trombone and tuba 
+Tom Hamilton -- tenor and baritone Sax, carinet 
+Sean McNally -- trumpet and flugelhorn 
+Arrangements by Jay Rattman
+(B) with Bill Evans on tenor Sax
+--- ITEMS: 1:Won't You Come And Sing For Me | 1:The Jupiter And The 119 | 1:Happy Song | 1:Saddle Of The Sun | 1:Grandfather Mountain (A) | 1:Flower Between The Stones (A) | 1:Mission Man (B) | 1:Hangtown Ball (A) | 2:Lordy, Lordy | 2:The Good Life | 2:Donkey For Sale | 2:Potter's Field | 2:Bread And Water | 2:Black Elk Speaks | 2:Tuba Mirum | 2:(A) | 2:Face With A Hole (A) | 2:Monkey (A) | 2:Like A Buddha (A) | 2:Give That Boy A Hand | 2:One More Night On The Road (A) | 2:Take A Bow (A) | encore:Roadhouse Blues (A) | encore:Bill Evans' Soulgrass opened the show. | encore:Show notes | encore:(A) with the "Stroudsburg Horn Men": | encore:Jim Daniels -- bass trombone and tuba | encore:Tom Hamilton -- tenor and baritone Sax | encore:carinet | encore:Sean McNally -- trumpet and flugelhorn | encore:Arrangements by Jay Rattman | encore:(B) with Bill Evans on tenor Sax
+    1 today=1       taper=1       target=1       tags           Won't You Come And Sing For Me
+    2 today=1       taper=1       target=1       tags           The Jupiter And The 119
+    3 today=1       taper=1       target=1       tags           Happy Song
+    4 today=1       taper=1       target=1       tags           Saddle Of The Sun
+    5 today=1       taper=1       target=1       tags           Grandfather Mountain (A)
+    6 today=1       taper=1       target=1       tags           Flower Between The Stones (A)
+    7 today=1       taper=1       target=1       tags           Mission Man (B)
+    8 today=1       taper=1       target=1       tags           Hangtown Ball (A)
+*   9 today=1       taper=2       target=2       tags           Lordy, Lordy
+*  10 today=1       taper=2       target=2       tags           The Good Life
+*  11 today=1       taper=2       target=2       tags           Donkey For Sale
+*  12 today=1       taper=2       target=2       tags           Potter's Field
+*  13 today=1       taper=2       target=2       tags           Bread And Water
+*  14 today=1       taper=2       target=2       tags           Black Elk Speaks ->
+*  15 today=1       taper=2       target=2       tags           Tuba Mirum -> (A)
+*  16 today=1       taper=2       target=2       tags           Face With A Hole (A)
+*  17 today=1       taper=2       target=2       tags           Monkey (A)
+*  18 today=1       taper=2       target=2       tags           Like A Buddha (A)
+*  19 today=1       taper=2       target=2       tags           Give That Boy A Hand
+*  20 today=1       taper=2       target=2       tags           One More Night On The Road (A)
+*  21 today=1       taper=2       target=2       tags           Take A Bow (A)
+*! 22 today=1       taper=2       target=encore  tags         F crowd
+   23 today=encore  taper=encore  target=encore  tags           Roadhouse Blues (A)

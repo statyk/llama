@@ -1,0 +1,224 @@
+jerrybase: skipped 117 malformed rows
+==========================================================================================
+aquariumrescueunit-1992-07-07 src description align deterministic ssrc setlist.fm
+  markers: [Set II]->11) Band Intros > Jam ; [Encore]->11) Swing
+  reader groups: 1:Shoeless Joe..Compared to What | 2:Jam..Ain't // Nothing You Can Do | encore:Swing..Believe I...
+     9 1      1       tags       Tron//dossa
+    10 1      1       tags       Compared to What
+  * 11 1      2       tags       Band Intros > Jam
+    12 2      2       tags       Yield Not to Temptation
+    13 2      2       tags       Working on the Building @
+==========================================================================================
+chuckprophet-2012-01-08 src description align deterministic ssrc setlist.fm
+  markers: [Set 1]->Styrofoam Woman->Credit->James ; [Set 2]->Look Both Ways, Temple Beautif ; [E:Hot Tramp*, Goodtime Crowd*]->*W/Brad Brooks
+  reader groups: 1:Styrofoam Woman..The Left Hand and the Right Hand | 2:Look Both Ways..You Did | encore:Hot Tramp..Kyle Caprista
+    19 2      2       tags       Balinese Dancer
+    20 2      2       tags       You Did
+  * 21 2      encore  tags       Hot Tramp
+  * 22 2      encore  tags       Goodtime Crowd
+==========================================================================================
+darkstarorchestra-2007-07-07 src description align jerrybase ssrc setlist.fm
+  markers: [set 1]->disc 1 ; [set 2]->disc 2 ; [set 2 continued]->Encore: ; [Encore:]->11. Brokedown Palace +
+  reader groups: 1:shakedown street..music never stopped | 2:bird song..i know you rider | encore:Brokedown Palace +..w/ john morgan kimock and jamie heintz on drums
+    19 2      2       tags       china cat sunflower >
+    20 2      2       tags       i know you rider
+  * 21 2      encore  tags       Brokedown Palace +
+==========================================================================================
+derektrucksband-2006-01-22 src description align deterministic ssrc setlist.fm
+  markers: [set 1]->1.   Mahjoun > ; [set 2]->1.   Key To The Highway ; [E: Hook & Sling]->
+  reader groups: 1:Mahjoun..Up Above My Head | 2:Key To The Highway..Spirit In The Dark | encore:Hook & Sling..Hook & Sling
+     7 1      1       tags       Sailing On
+     8 1      1       tags       Up Above My Head
+  *  9 1      2       tags       Key To The Highway
+  * 10 1      2       tags       Volunteered Slavery>
+  * 11 1      2       tags       IÂll Find My Way>
+  * 12 1      2       tags       Crow Jane>
+  * 13 1      2       tags       LetÂs Go Get Stoned
+  * 14 1      2       tags       Maybe Your Baby>
+  * 15 1      2       tags       drums>Everything Is Everything>
+  * 16 1      2       tags       Fat Mama>
+  * 17 1      2       tags       Everything Is Everything
+  * 18 1      2       tags       Spirit In The Dark
+  * 19 1      encore  tags       crowd encore call
+  * 20 1      encore  tags       E: Hook & Sling
+==========================================================================================
+greatamericantaxi-2010-03-13 src description align deterministic ssrc setlist.fm
+  markers: [Set I]->01. Sittin' On Top Of The Worl ; [Set II]->01. Lumpy Beanpole & Dirt ; [E: Maud]->
+  reader groups: 1:Sittin' On Top Of The World..Good Night To Boogie | 2:Lumpy Beanpole & Dirt..Unpromised Land | encore:Maud..Maud
+    25 2      2       tags       Why Don't We Do It In The Road
+    26 2      2       tags       Unpromised Land > Whiskey Before Breakfast > Unpromised Land
+  * 27 2      encore  tags       E: Maud
+==========================================================================================
+joerussosalmostdead-2014-10-11 src description align deterministic ssrc chosen
+  markers: [-SET I-]->01. The Music Never Stopped -> ; [-SET II-]->01. Shakedown Street -> ; [-ENCORE-]->07. Brokedown Palace
+  reader groups: 1:The Music Never Stopped..Not Fade Away | 2:Shakedown Street..Stella Blue | encore:Brokedown Palace..Brokedown Palace
+    11 2      2       tags       Throwing Stones ->
+    12 2      2       tags       Stella Blue
+  * 13 2      encore  tags       Brokedown Palace
+==========================================================================================
+joerussosalmostdead-2016-02-10 src notes align deterministic ssrc setlist.fm
+  markers: [Set one:]->01.  intro/crowd ; [Set Two:]->01.  Scarlet Begonias (TH) -> ; [Encore:]->08.  Big Railroad Blues (TH)
+  reader groups: 1:Alligator (SM)..Tennessee Jed (TH) | 2:Scarlet Begonias (TH)..Bird Song $ (TM) | encore:Big Railroad Blues (TH)..Jon Shaw - Bass (Dave Dreiwitz on Ween tour)
+    13 2      2       tags       Casey Jones # (TH/All)
+    14 2      2       tags       Bird Song $ (TM)
+  * 15 3      encore  tags       Big Railroad Blues (TH)
+==========================================================================================
+joerussosalmostdead-2022-04-30 src description align deterministic ssrc setlist.fm
+  markers: [Set One:]->01. Intro ; [Set Two:]->01. Intro ; [Encore:]->10. Absolutely Sweet Marie >
+  reader groups: 1:Jam..Truckin' | 2:Fire on the Mountain..Samson and Delilah | encore:Absolutely Sweet Marie..w/ Crazy Train tease & Sunshine Daydream ending
+    13 2      2       tags       In Memory of Elizabeth Reed >
+    14 2      2       tags       Samson and Delilah
+  * 15 3      encore  tags       Absolutely Sweet Marie >
+  * 16 3      encore  tags       Goin' Down the Road Feeling Bad
+==========================================================================================
+radiators-2005-07-03 src description align deterministic ssrc chosen
+  markers: [set1:]->01  tuning/intro ; [set 1:]->01  Like Dreamers Do ; [set 2:]->02  intro ; [encores:]->14  Texas Chainsaw Massacre >
+  reader groups: 1:Law of the Fish..Like Dreamers Do | 2:Confidential..callin em back | encore:Texas Chainsaw Massacre..outtro
+    22 2      2       tags       Waitin For the Rain
+    23 2      2       tags       callin em back
+  * 24 2      encore  tags       Texas Chainsaw Massacre >
+  * 25 2      encore  tags       Cissy Strut
+==========================================================================================
+railroadearth-2004-03-27 src description align deterministic ssrc chosen
+  markers: [Set I:]->1. Tuning ; [Set II:]->9. Tuning ; [Set II cont:]->1. Bird In A House ; [Encores:]->8. El //Cumbanchero
+  reader groups: 1:Lordy Lordy..Storms | 2:Drag Him Down..Fiddlee | encore:El //Cumbanchero..Fire On The Mountain
+    15 2      2       tags       Cold Water
+    16 2      2       tags       Fiddlee
+  * 17 2      encore  tags       El Cumbanchero
+  * 18 2      encore  tags       Long Way To Go
+  * 19 2      encore  tags       Fire On The Mountain
+==========================================================================================
+railroadearth-2008-03-01 src description align deterministic ssrc chosen
+  markers: [Set 1:]->01. Chains ; [Set 2:]->01. My Sisters and Brothers * ; [Encores:]->09. Bird in a House
+  reader groups: 1:Chains..Crossing the Gap | 2:My Sisters and Brothers..Cuckoo's Medley | encore:Bird in a House..with Len Mooney on accordion
+    14 2      2       tags       For Love
+    15 2      2       tags       Cuckoo's Medley
+  * 16 2      encore  tags       Bird in a House
+  * 17 2      encore  tags       Little Rabbit
+==========================================================================================
+railroadearth-2009-08-22 src description align deterministic ssrc chosen
+  markers: [Set 1:]->01 Where Songs Begin ; [Set 2:]->01 Long Way To Go ; [Encore:]->05 Railroad Earth
+  reader groups: 1:Where Songs Begin..Ragtime Annie Lee | 2:Long Way To Go..Head | encore:Railroad Earth..Railroad Earth
+    18 2      2       tags       The Wheel
+    19 2      2       tags       Head
+  * 20 2      encore  tags       Railroad Earth
+==========================================================================================
+railroadearth-2013-07-12 src description align deterministic ssrc setlist.fm
+  markers: [Set I: Black Elk Speaks> The Jupiter and]->Set II: Potter's Field> Old Ma ; [Set II: Potter's Field> Old Man and the ]->Encore: Railroad Earth ; [Encore: Railroad Earth]->
+  reader groups: 1:Black Elk Speaks..Head | 2:Potter's Field..Seven Story Mountain | encore:Railroad Earth..Railroad Earth
+    20 2      2       tags       Peace on Earth
+    21 2      2       tags       Seven Story Mountain
+  * 22 2      encore  tags       Railroad Earth
+==========================================================================================
+ryanadams-2007-10-14 src description align deterministic ssrc setlist.fm
+  markers: [Set I:]->01. Goodnight Rose ; [Set II:]->14. Two
+  reader groups: 1:Goodnight Rose..What Sin Replaces Love | 2:Two..Easy Plateau
+    12 1      1       tags       Off Broadway
+    13 1      1       tags       What Sin Replaces Love
+  * 14 encore 2       tags       Two
+  * 15 encore 2       tags       Spacewolf Happy Birthday/Jon Graboff Joke
+  * 16 encore 2       tags       Everybody Knows
+  * 17 encore 2       tags       Let It Ride
+  * 18 encore 2       tags       Beautiful Sorta
+  * 19 encore 2       tags       Games
+  * 20 encore 2       tags       Easy Plateau
+==========================================================================================
+soundtribesector9-2005-02-11 src description align deterministic ssrc setlist.fm
+  markers: [SET 1]->Intro ; [SET 2]->Tap In ; [E:]->ASAA
+  reader groups: 1:By The AM Sun..GloGLI | 2:Tap In..Grow | encore:ASAA..ASAA
+    14 2      2       tags       4 Year Puma
+    15 2      2       tags       Grow
+  * 16 2      encore  tags       ASAA
+==========================================================================================
+soundtribesector9-2007-04-26 src description align deterministic ssrc setlist.fm
+  markers: [Set 1: Abcees, F. Word, From Now On, Mov]->Set 2: Tokyo, Breathe In, Lo S ; [Set 2: Tokyo, Breathe In, Lo Swaga, We'l]->Encore: Really Wut? ; [Encore: Really Wut?]->
+  reader groups: 1:Abcees..Kamuy | 2:Tokyo..Circus | encore:Really Wut?..Really Wut?
+    12 2      2       tags       Mischief Of A Sleepwalker
+    13 2      2       tags       Circus
+  * 14 2      encore  tags       Really Wut?
+==========================================================================================
+stringcheeseincident-2004-12-31 src description align deterministic ssrc setlist.fm
+  markers: [Set 1: This Must Be the Place (Naive Mel]->Set 2:  Drums¹ > Way Back Home ; [Set 2:  Drums¹ > Way Back Home > Reelin']->Encore: Boogie on Reggae Woman ; [Encore: Boogie on Reggae Woman, Good Tim]->
+  reader groups: 1:This Must Be the Place (Naive Melody)..Desert Dawn | 2:Drums¹..Black Clouds | encore:Boogie on Reggae Woman..Good Times Around the Bend
+    19 2      2       tags       Dirk
+    20 2      2       tags       Black Clouds
+  * 21 2      encore  tags       Crowd
+  * 22 2      encore  tags       E: Boogie On Reggae Woman
+  * 23 2      encore  tags       E: Good Times Around The Bend
+==========================================================================================
+stringcheeseincident-2006-07-20 src description align deterministic ssrc setlist.fm
+  markers: [Set 1:]->Disc 1: ; [Set 2:]->Disc 2: ; [E: Travis Drums > On the Road]->
+  reader groups: 1:Texas..Bam | 2:Under African Skies..Black Clouds | encore:Travis Drums..On the Road
+    14 2      2       tags       Dirk >
+    15 2      2       tags       Black Clouds
+  * 16 2      encore  tags       Travis Drums > On the Road
+==========================================================================================
+stringcheeseincident-2010-07-30 src description align deterministic ssrc setlist.fm
+  markers: [Set 1:]->Disc 1: ; [Set 2:]->Disc 2: ; [Encore:]->07 Hey Pocky Way*
+  reader groups: 1:Smile..Miss Brown's Teahouse | 2:Black and White..Restless Wind | encore:Hey Pocky Way..Hey Pocky Way
+    18 2      2       tags       Bumpin' Reel,
+    19 2      2       tags       Restless Wind
+  * 20 2      encore  tags       Hey Pocky Way*
+==========================================================================================
+tedeschitrucksband-2019-11-15 src description align deterministic ssrc setlist.fm
+  markers: [set i]->01 - Laugh About It ; [set ii]->10 - Keep Your Lamp Trimmed an ; [encore]->22 - I Walk on Guilded Splinte
+  reader groups: 1:- Laugh About It..- Idle Wind | 2:- Keep Your Lamp Trimmed and Burning..- Bound for Glory | encore:- I Walk on Guilded Splinters..- Sing a Simple Song  I Want to Take You Higher
+    13 2      2       tags       I Am Yours
+    14 2      2       tags       Down in the Bottom
+  * 15 3      2       tags       Keep On Growing
+  * 16 3      2       tags       Midnight in Harlem
+  * 17 3      2       tags       Part of Me
+  * 18 3      2       tags       Shame
+  * 19 3      2       tags       Bound for Glory
+  * 20 3      2       tags       crowd
+  * 21 4      encore  tags       I Walk on Guilded Splinters
+  * 22 4      encore  tags       Sing a Simple Song / I Want to Take You Higher
+==========================================================================================
+thebrew-2009-04-18 src description align deterministic ssrc chosen
+  markers: [Set 1:]->01 Intro ; [Set 2:]->01 Intro ; [Enc:]->11 Kiss#
+  reader groups: 1:Faces..Black Train | 2:No Future..Hunter's Moon | encore:Kiss#..# "Kiss" - Prince cover - "you don't have to be rich" song.
+    19 2      2       tags       Chance Reaching
+    20 2      2       tags       Hunter's Moon
+  * 21 2      encore  tags       Kiss
+==========================================================================================
+umphreysmcgee-2005-04-15 src description align deterministic ssrc setlist.fm
+  markers: [Set One :]->1.  August > ; [Set Two:]->1.  Miss Tinkle's Overture * > ; [Encore:]->2.  A 5th of Beethoven
+  reader groups: 1:August..All In Time | 2:Miss Tinkle's Overture..Mulche's Odyssey | encore:A 5th of Beethoven..A 5th of Beethoven
+    18 2      2       tags       Dump City
+    19 2      2       tags       Mulche's Odyssey
+  * 20 2      encore  tags       A 5th of Beethoven
+==========================================================================================
+yondermountainstringband-2006-07-04 src description align deterministic ssrc setlist.fm
+  markers: [Set 1:]->Disc 1: ; [Set 2:]->Disc 2: ; [Encore:Two Hits and the Joint Turns Brow]->
+  reader groups: 1:Get Me Outta this City..Sidewalk Stars | 2:It's All Too Much..Traffic Jam | encore:Two Hits and the Joint Turns Brown..Two Hits and the Joint Turns Brown
+    11 1      1       tags       Free to Run >
+    12 1      1       tags       Sidewalk Stars
+  * 13 1      2       tags       Chit-Chat
+  * 14 1      2       tags       It's All Too Much>
+  * 15 1      2       tags       Troubled Mind
+  * 16 1      2       tags       Steep Grade, Sharp Curves
+  * 17 1      2       tags       You're No Good
+  * 18 1      2       tags       Must've Had You Reasons
+  * 19 1      2       tags       Dawn's Early Light>Too Late Now
+  * 20 1      2       tags       Long Time
+  * 21 1      2       tags       Crowd Surfin Comments
+  * 22 1      2       tags       My Gal
+  * 23 1      2       tags       Cuckoo's Nest >
+  * 24 1      2       tags       Elzic's Farewell >
+  * 25 1      2       tags       Traffic Jam
+  * 26 1      encore  tags       Two Hits and the Joint Turns Brown
+==========================================================================================
+yondermountainstringband-2007-06-20 src description align deterministic ssrc setlist.fm
+  markers: [Set 1:]->1.  Intro ; [Set 2:]->1.  Kentucky Mandolin #+ ; [Encore:]->8.  2 Hits and The Joint Turne
+  reader groups: 1:Fastball..Sidewalk Stars | 2:Kentucky Mandolin #+..Good Hearted Woman #^@+ | encore:Hits and The Joint Turned Brown #^@+..Hits and The Joint Turned Brown #^@+
+    17 2      2       tags       No Expectations
+    18 2      2       tags       Years With Rose> Robot Jam> Years With Rose> Good Hearted Wo
+  * 19 2      encore  tags       2 Hits and The Joint Turned Brown
+==========================================================================================
+yondermountainstringband-2008-02-09 src description align deterministic ssrc chosen
+  markers: [Set 1:]->d1t01: Get Me Outta This City, ; [Set 2:]->d2t06: Out Of The Blue, ; [ENC:]->d3t09: Holdin',
+  reader groups: 1:Get Me Outta This City..Only A Northern Song | 2:Out Of The Blue..Ramblin' Reprise | encore:Holdin'..Down The River Road
+    28 2      2       tags       Turn On Your Love Light
+    29 2      2       tags       Ramblin' Reprise
+  * 30 2      encore  tags       Holdin'
+  * 31 2      encore  tags       Down The River Road

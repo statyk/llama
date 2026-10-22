@@ -1,0 +1,288 @@
+==========================================================================================
+stringcheeseincident-2010-07-30 sci2010-07-30 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1:
+Disc 1:  
+01 Intro and Blessings from Jane Horning
+02 Smile, 
+03 Missin' Me > 
+04 Wheel Hoss, 
+05 Sometimes a River, 
+06 Born on the Wrong Planet, 
+07 Under African Skies > 
+08 Climb, 
+09 Miss Brown's Teahouse*
+Set 2:
+Disc 2:
+01 Set 2 Intro 
+02 Black and White, 
+03 Bend Down Low > 
+04 Sittin' On Top of the World, 
+05 Song In My Head, 
+Disc 3:
+01 Water, 
+02 Dirk > 
+03 Jungle Boogie > 
+04 Dirk, 
+05 Bumpin' Reel, 
+06 Restless Wind
+Encore:
+07 Hey Pocky Way*
+--- ITEMS: 1:Smile | 1:Missin' Me | 1:Wheel Hoss | 1:Sometimes a River | 1:Born on the Wrong Planet | 1:Under African Skies | 1:Climb | 1:Miss Brown's Teahouse | 2:Black and White | 2:Bend Down Low | 2:Sittin' On Top of the World | 2:Song In My Head | 2:Water | 2:Dirk | 2:Jungle Boogie | 2:Dirk | 2:Bumpin' Reel | 2:Restless Wind | encore:Hey Pocky Way
+has_encore True encore_like False
+  18 2       2       tags             Bumpin' Reel,
+  19 2       2       tags             Restless Wind
+* 20 2       encore  tags             Hey Pocky Way*
+   (20 tracks)
+==========================================================================================
+tedeschitrucksband-2019-11-15 ttb2019-11-15 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Tedeschi Trucks Band
+2019-11-15
+Austin, TX
+Bass Concert Hall
+Audience->Schoeps MK4-Naiant Tinybox-Sony PCM-M10-cdwav->mp3tag for tagging->Traders Little Helper->recorded by seedy
+Recorded from row k left side
+set i
+01 - Laugh About It 
+02 - Don't Know What It Means 
+03 - The Letter 
+04 - High & Mighty 
+05 - Somebody Pick Up My Pieces 
+06 - Still Your Mind 
+07 - Little by Little 
+08 - Hard Case 
+09 - Idle Wind 
+set ii
+10 - Keep Your Lamp Trimmed and Burning 
+11 - Women Be Wise 
+12 - Done Somebody Wrong 
+13 - I Am Yours 
+14 - Down in the Bottom 
+15 - banter - fix level 
+16 - Keep On Growing 
+17 - Midnight in Harlem 
+18 - Part of Me 
+19 - Shame 
+20 - Bound for Glory 
+21 - crowd 
+encore
+22 - I Walk on Guilded Splinters 
+23 - Sing a Simple Song  I Want to Take You Higher 
+
+--- ITEMS: 1:- Laugh About It | 1:- Don't Know What It Means | 1:- The Letter | 1:- High & Mighty | 1:- Somebody Pick Up My Pieces | 1:- Still Your Mind | 1:- Little by Little | 1:- Hard Case | 1:- Idle Wind | 2:- Keep Your Lamp Trimmed and Burning | 2:- Women Be Wise | 2:- Done Somebody Wrong | 2:- I Am Yours | 2:- Down in the Bottom | 2:- Keep On Growing | 2:- Midnight in Harlem | 2:- Part of Me | 2:- Shame | 2:- Bound for Glory | encore:- I Walk on Guilded Splinters | encore:- Sing a Simple Song  I Want to Take You Higher
+has_encore True encore_like False
+  13 2       2       tags             I Am Yours
+  14 2       2       tags             Down in the Bottom
+* 15 3       2       tags             Keep On Growing
+* 16 3       2       tags             Midnight in Harlem
+* 17 3       2       tags             Part of Me
+* 18 3       2       tags             Shame
+* 19 3       2       tags             Bound for Glory
+* 20 3       2       tags           F crowd
+* 21 4       encore  tags             I Walk on Guilded Splinters
+* 22 4       encore  tags             Sing a Simple Song / I Want to Take You Higher
+   (22 tracks)
+==========================================================================================
+thebrew-2009-04-18 brew2009-04-18.schoepsmk22_16bit src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+Disc 1:
+Set 1: 
+01 Intro
+02 Pulp Fiction Intro > 
+03 Faces
+04 Machine
+05 I Do Believe
+06 Let Go
+07 Sharks In the Pool
+08 Castle Walls
+09 Hard Enough To Break
+10 Looking Down
+11 Birds On The Window
+12 Black Train
+Disc 2:
+Set 2:
+01 Intro
+02 No Future>Radio Swiss
+03 Seen It All* 
+04 Slipping Through The City$
+05 Gardens In The Snow
+06 Eyes Of The Giant
+07 Control 
+08 Who's The Boss
+09 Chance Reaching
+10 Hunter's Moon
+Enc: 
+11 Kiss#
+* w/ Matt from Will Dailey Band on pedal steel
+$ FTP - First Time Played - believed to be brand new song debut
+# "Kiss" - Prince cover - "you don't have to be rich" song.
+--- ITEMS: 1:Faces | 1:Machine | 1:I Do Believe | 1:Let Go | 1:Sharks In the Pool | 1:Castle Walls | 1:Hard Enough To Break | 1:Looking Down | 1:Birds On The Window | 1:Black Train | 2:No Future | 2:Radio Swiss | 2:Seen It All | 2:Slipping Through The City$ | 2:Gardens In The Snow | 2:Eyes Of The Giant | 2:Control | 2:Who's The Boss | 2:Chance Reaching | 2:Hunter's Moon | encore:Kiss# | encore:w/ Matt from Will Dailey Band on pedal steel | encore:$ FTP - First Time Played - believed to be brand new song debut | encore:# "Kiss" - Prince cover - "you don't have to be rich" song.
+has_encore True encore_like False
+  19 2       2       tags             Chance Reaching
+  20 2       2       tags             Hunter's Moon
+* 21 2       encore  tags             Kiss
+   (21 tracks)
+==========================================================================================
+umphreysmcgee-2005-04-15 um2005-04-15.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Disc 1 Set One :
+1.  August >
+2.  Jazz Odyssey > 
+3.  Utiopian Fir > 
+4.  Passing >
+5.  Andy's Last Beer >
+6.  13 Days
+7.  Runnin' with the Devil >
+8.  All In Time 
+Disc 2 Set Two: 
+1.  Miss Tinkle's Overture * > 
+2.  Resolution > 
+3.  "Jimmy Stewart" > 
+4.  Sociable Jimmy
+5.  Atmosfarag
+6.  Black Water
+7.  Prowler ** >
+8.  Glory
+9.  Last Man Swerving >
+10. Dump City
+Disc 3 Set Two cont:
+1.  Mulche's Odyssey 
+Encore:
+2.  A 5th of Beethoven
+--- ITEMS: 1:August | 1:Jazz Odyssey | 1:Utiopian Fir | 1:Passing | 1:Andy's Last Beer | 1:13 Days | 1:Runnin' with the Devil | 1:All In Time | 2:Miss Tinkle's Overture | 2:Resolution | 2:"Jimmy Stewart" | 2:Sociable Jimmy | 2:Atmosfarag | 2:Black Water | 2:Prowler | 2:Glory | 2:Last Man Swerving | 2:Dump City | 2:Mulche's Odyssey | encore:A 5th of Beethoven
+has_encore True encore_like False
+  18 2       2       tags             Dump City
+  19 2       2       tags             Mulche's Odyssey
+* 20 2       encore  tags             A 5th of Beethoven
+   (20 tracks)
+==========================================================================================
+yondermountainstringband-2006-07-04 ymsb2006-07-04.Matrix src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1:
+Disc 1:
+Intro
+Get Me Outta this City
+Night Out
+Hill Country Girl>
+High Cross Junction 
+Lord Woncha Help me
+High on the Hilltop
+Fathers Arms
+Red Bird
+Postcard to my Son from Jail
+Free to Run >
+Sidewalk Stars
+Set 2:
+Disc 2:
+Chit-Chat
+It's All Too Much>
+Troubled Mind
+Steep Grade, Sharp Curves
+You're No Good
+Must've Had You Reasons
+Dawn's Early Light>Too Late Now
+Disc 3:
+Freebird Tease
+Long Time
+Crowd Surfin Comments
+My Gal
+Cuckoo's Nest >
+Elzic's Farewell >
+Traffic Jam
+Encore:Two Hits and the Joint Turns Brown
+--- ITEMS: 1:Get Me Outta this City | 1:Night Out | 1:Hill Country Girl | 1:High Cross Junction | 1:Lord Woncha Help me | 1:High on the Hilltop | 1:Fathers Arms | 1:Red Bird | 1:Postcard to my Son from Jail | 1:Free to Run | 1:Sidewalk Stars | 2:It's All Too Much | 2:Troubled Mind | 2:Steep Grade | 2:Sharp Curves | 2:You're No Good | 2:Must've Had You Reasons | 2:Dawn's Early Light | 2:Too Late Now | 2:Freebird Tease | 2:Long Time | 2:My Gal | 2:Cuckoo's Nest | 2:Elzic's Farewell | 2:Traffic Jam | encore:Two Hits and the Joint Turns Brown
+has_encore True encore_like False
+  11 1       1       tags             Free to Run >
+  12 1       1       tags             Sidewalk Stars
+* 13 1       2       tags           F Chit-Chat
+* 14 1       2       tags             It's All Too Much>
+* 15 1       2       tags             Troubled Mind
+* 16 1       2       tags             Steep Grade, Sharp Curves
+* 17 1       2       tags             You're No Good
+* 18 1       2       tags             Must've Had You Reasons
+* 19 1       2       tags             Dawn's Early Light>Too Late Now
+* 20 1       2       tags             Long Time
+* 21 1       2       tags           F Crowd Surfin Comments
+* 22 1       2       tags             My Gal
+* 23 1       2       tags             Cuckoo's Nest >
+* 24 1       2       tags             Elzic's Farewell >
+* 25 1       2       tags             Traffic Jam
+* 26 1       encore  tags             Two Hits and the Joint Turns Brown
+   (26 tracks)
+==========================================================================================
+yondermountainstringband-2007-06-20 ymsb2007-06-20.sbd.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1:
+1.  Intro
+2.  Fastball
+3.  Angel
+4.  Boatman's Dance
+5.  Mental Breakdown
+6.  How 'Bout You?
+7.  Another Day
+8.  Big Lights *
+9.  Lazy *
+10. On the Run> High Cross Junction> On the Run
+11. Crow Black Chicken
+12. Ruby> Sidewalk Stars
+Set 2:
+1.  Kentucky Mandolin #+
+2.  Fun Time +
+3.  Cuckoo's Nest #+
+4.  Get Me Outta This City #+
+5.  Steep Grade Sharp Curves %
+6.  No Expectations %@^
+7.  Years With Rose> Robot Jam> Years With Rose> Good Hearted Woman #^@+
+Encore:
+8.  2 Hits and The Joint Turned Brown #^@+
+--- ITEMS: 1:Fastball | 1:Angel | 1:Boatman's Dance | 1:Mental Breakdown | 1:How 'Bout You? | 1:Another Day | 1:Big Lights | 1:Lazy | 1:On the Run | 1:High Cross Junction | 1:On the Run | 1:Crow Black Chicken | 1:Ruby | 1:Sidewalk Stars | 2:Kentucky Mandolin #+ | 2:Fun Time + | 2:Cuckoo's Nest #+ | 2:Get Me Outta This City #+ | 2:Steep Grade Sharp Curves % | 2:No Expectations %@^ | 2:Years With Rose | 2:Robot Jam | 2:Years With Rose | 2:Good Hearted Woman #^@+ | encore:2 Hits and The Joint Turned Brown #^@+
+has_encore True encore_like False
+  17 2       2       tags             No Expectations
+  18 2       2       tags             Years With Rose> Robot Jam> Years With Rose> Good Hearted Woman
+* 19 2       encore  tags             2 Hits and The Joint Turned Brown
+   (19 tracks)
+==========================================================================================
+yondermountainstringband-2008-02-09 YMSB2008-02-09.flac16 src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+Set 1: 
+d1t01: Get Me Outta This City, 
+d1t02: Rag Mama, 
+d1t03: Maid Of The Canyon, 
+d1t04: Crow Black Chicken, 
+d1t05: Pride Of Alabama, 
+d1t06: Sharecropper's Son, 
+d1t07: Too Late Now> 
+d1t08: Casualty, 
+d1t09: Everybody Knows This Is Nowhere, 
+d1t10: Different Day, 
+d2t01; Loved You Enough, 
+d2t02: Don't Let Your Deal Go Down, 
+d2t03: To See You Coming Round The Bend, 
+d2t04: East Nashville Easter> 
+d2t05: Only A Northern Song
+Set 2: 
+d2t06: Out Of The Blue, 
+d2t07: Red Rocking Chair, 
+d2t08: Crooked Hitch, 
+d2t09: Fingerprint> 
+d2t10: Whipping Post> 
+d2t11: On The Run, 
+d3t01: How Bout You?, 
+d3t02: Roughneck Blues, 
+d3t03: If There's Still Ramblin' In The Rambler (Let Him Go)> 
+d3t04: Snow On The Pines> 
+d3t05: Mother's Only Son> 
+d3t06: Snow On The Pines> 
+d3t07: Turn On Your Love Light. 
+d3t08: Ramblin' Reprise 
+ENC:
+d3t09: Holdin', 
+d3t10: Down The River Road
+--- ITEMS: 1:Get Me Outta This City | 1:Rag Mama | 1:Maid Of The Canyon | 1:Crow Black Chicken | 1:Pride Of Alabama | 1:Sharecropper's Son | 1:Too Late Now | 1:Casualty | 1:Everybody Knows This Is Nowhere | 1:Different Day | 1:d2t01 | 1:Loved You Enough | 1:Don't Let Your Deal Go Down | 1:To See You Coming Round The Bend | 1:East Nashville Easter | 1:Only A Northern Song | 2:Out Of The Blue | 2:Red Rocking Chair | 2:Crooked Hitch | 2:Fingerprint | 2:Whipping Post | 2:On The Run | 2:How Bout You? | 2:Roughneck Blues | 2:If There's Still Ramblin' In The Rambler (Let Him Go) | 2:Snow On The Pines | 2:Mother's Only Son | 2:Snow On The Pines | 2:Turn On Your Love Light. | 2:Ramblin' Reprise | encore:Holdin' | encore:Down The River Road
+has_encore True encore_like False
+  28 2       2       tags             Turn On Your Love Light
+  29 2       2       tags             Ramblin' Reprise
+* 30 2       encore  tags             Holdin'
+* 31 2       encore  tags             Down The River Road
+   (31 tracks)

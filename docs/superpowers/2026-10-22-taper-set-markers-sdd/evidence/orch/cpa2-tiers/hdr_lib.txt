@@ -1,0 +1,151 @@
+### mechanism 6
+badlivers-1991-05-04 src=description same_as_today=True bounds=(22,) n=27 enc=False
+     S1:'Set 1 Disc 1:' ; S2:'Set 2 Disc 2:'
+belafleckandtheflecktones-1996-11-09 src=description same_as_today=True bounds=(7,) n=16 enc=False
+     S1:'Disc 1: Set I' ; S2:'Disc 2: Set II'
+corblund-2004-11-04 src=description same_as_today=False bounds=(12, 26) n=37 enc=False
+     S1:'Disc/Set1' ; S2:'Disc/Set2' ; S3:'Disc/Set3'
+darkstarorchestra-2007-02-05 src=description same_as_today=True bounds=(11, 22) n=24 enc=True
+     S1:'Set1/CD1' ; S2:'Set2/CD2' ; E:'E: Mighty Quinn'
+darkstarorchestra-2009-11-16 src=description same_as_today=True bounds=(7, 17) n=19 enc=True
+     S1:'set 1/Disc 1' ; S2:'set 2/Disc 2' ; S2:'Set 2/Disc 3' ; E:'encore: U.S. Blues'
+davealvin-2008-11-01 src=description same_as_today=False bounds=(10, 19) n=21 enc=True
+     S1:'Disc I, Set I' ; S2:'Disc II, Set II' ; E:'-(encore)-'
+derektrucksband-2008-10-23 src=description same_as_today=False bounds=(9, 16) n=18 enc=True
+     S1:'Disk 1 Set 1' ; S2:'Disk 2 Set 2' ; E:'Encore:'
+furthur-2010-02-08 src=description same_as_today=True bounds=(8, 17) n=19 enc=True
+     S1:'Disc I 1st Set' ; S2:'Disc II 2nd Set' ; E:'Encore:'
+furthur-2010-02-10 src=description same_as_today=True bounds=(9, 19) n=20 enc=True
+     S1:'Disc I 1st Set' ; S2:'Disc II 2nd Set' ; E:'Encore:'
+furthur-2010-11-21 src=description same_as_today=True bounds=(8, 16) n=18 enc=True
+     S2:'Disc II 2nd Set' ; E:'Encore:'
+furthur-2011-02-13 src=description same_as_today=False bounds=(9, 20) n=22 enc=True
+     S1:'Set 1/Disk 1:' ; S2:'Set 2/Disk 2:' ; S2c:'Set 2 (cont.)/Disk 3:' ; E:'ENCORE:'
+furthur-2011-03-26 src=description same_as_today=True bounds=(8, 19) n=21 enc=True
+     S1:'Disc 01 [Set I]' ; S2:'Disc 02 [Set II]' ; E:'E: One More Saturday Night'
+greenskybluegrass-2010-03-26 src=description same_as_today=True bounds=(9,) n=18 enc=False
+     S1:'Disc I, Set I' ; S2:'Disc II, Set II'
+larrykeel-2006-05-05 src=description same_as_today=True bounds=(10,) n=15 enc=False
+     S1:'Set I Disc I' ; S2:'Set II Disc II'
+lotus-2006-02-18 src=description same_as_today=False bounds=(5,) n=9 enc=False
+     S1:'~Disc 1: Set 1~' ; S2:'~Disc 2: Set 2~'
+lotus-2007-04-28 src=description same_as_today=True bounds=(6, 13) n=14 enc=True
+     S1:'~Disc 1: Set 1~' ; S2:'~Disc 2: Set 2~' ; E:'Encore'
+radiators-1980-01-14 src=description same_as_today=True bounds=(19, 34) n=38 enc=False
+     S1:'CD 1 - Set 1' ; S2:'CD 2 - Set 2' ; S3:'Set 3'
+radiators-1983-12-17 src=description same_as_today=True bounds=(15, 25) n=31 enc=False
+     S1:'Set 1 Disc 1' ; S1:'Set 1 Disc 2' ; S2:'Set 2 Disc 2' ; S3:'Set 3 Disc 3'
+radiators-1991-01-18 src=description same_as_today=False bounds=(15, 22) n=25 enc=True
+     S1:'Set 1 Disc 1' ; S2:'Set 2 Disc 2' ; E:'[Encore]'
+radiators-1992-12-06 src=description same_as_today=True bounds=(16, 30) n=34 enc=True
+     S1:'Set 1 Disc 1' ; S1:'Set 1 Disc 2' ; S2:'Set 2 Disc 2' ; S2:'Set 2 Disc 3' ; E:'[Encore]'
+radiators-2000-12-15 src=description same_as_today=True bounds=(10, 18, 25) n=28 enc=True
+     S1:'1st set disc 1:' ; S2:'2nd set disc 2:' ; S3:'3rd set disc 3:' ; E:'encores:'
+radiators-2006-04-21 src=description same_as_today=False bounds=(12, 28) n=31 enc=True
+     S1:'1st set disc one:' ; S2:'2nd set disc two:' ; E:'encores:'
+ryanadams-2007-07-29 src=description same_as_today=True bounds=(7,) n=21 enc=False
+     S1:'Disc I Set 1' ; S2:'Disc II Set 2'
+ryanadams-2008-01-21 src=description same_as_today=False bounds=(14,) n=21 enc=False
+     S2:'Set 2 CD 3'
+ryanadams-2008-10-16 src=description same_as_today=True bounds=(17,) n=29 enc=False
+     S1:'Set 1/ Disc 1' ; S1:'Set 1/ Disc 2' ; S2:'Set 2/ Disc 2'
+soulive-2001-12-15 src=description same_as_today=False bounds=(5,) n=10 enc=False
+     S1:'Set 1 disc 1' ; S2:'Set 2 disc 2'
+soundtribesector9-2007-10-02 src=description same_as_today=True bounds=(7, 14) n=15 enc=True
+     S1:'~Disc 1: Set 1~' ; S2:'~Disc 2: Set 2~' ; E:'Encore'
+tealeafgreen-2008-02-08 src=description same_as_today=True bounds=(9, 18) n=20 enc=True
+     S1:'Set 1/Disc 1:' ; S2:'Set 2/Disc 2:' ; E:"E: I've Got A Truck >"
+thegourds-2009-05-29 src=description same_as_today=True bounds=(14, 24) n=25 enc=True
+     S1:'Set 1/Disc 1:' ; S2:'Set 2/Disc 2:' ; E:'ENCORE'
+yondermountainstringband-2006-06-14 src=description same_as_today=False bounds=(10, 19) n=21 enc=True
+     S1:'Disk 1/Set I:' ; S2:'Disk 2/Set II:' ; E:'Encore:'
+yondermountainstringband-2006-10-21 src=description same_as_today=False bounds=(13, 24) n=28 enc=True
+     S1:'DISC ONE, 1ST SET' ; S2:'DISC TWO, 2ND SET' ; S2c:'DISC THREE, 2ND SET (cont.)' ; E:'ENCORE 1' ; E:'ENCORE 2'
+### mechanism 5
+deadandcompany-2016-06-21 src=description same_as_today=True bounds=(7, 16) n=18 enc=True
+     S1:'1st Set (80:21)' ; S2:'2nd Set (112:15)' ; E:'Encore'
+deadandcompany-2017-06-20 src=description same_as_today=True bounds=(8, 17) n=18 enc=True
+     S1:'1st set(70:57)' ; S2:'2nd Set(110:22)' ; E:'encore'
+furthur-2011-04-03 src=description same_as_today=False bounds=(9, 21) n=23 enc=True
+     S1:'Set I (68:48)' ; S2:'Set II (111:56)' ; E:'-Encore-'
+greenskybluegrass-2013-05-04 src=description same_as_today=False bounds=(8,) n=21 enc=False
+     S1:'Set I (66:47:02)' ; S2:'Set II (78:42:08)'
+joerussosalmostdead-2015-12-12 src=notes same_as_today=True bounds=(6, 12) n=16 enc=True
+     S1:'Set 1 (8:21pm):' ; S2:'Set 2 (10:20pm):' ; E:'Encore:'
+joerussosalmostdead-2017-01-12 src=notes same_as_today=True bounds=(5, 14) n=16 enc=True
+     S1:'Set 1 (7:51PM - 9:08PM):' ; S2:'Set 2 (9:47PM - 11:30PM):' ; E:'Encore:'
+joerussosalmostdead-2017-03-16 src=notes same_as_today=True bounds=(8, 15) n=16 enc=True
+     S1:'Set One (8:45PM - 9:57PM):' ; S2:'Set Two (10:31PM - 11:53PM):' ; E:'Encore:'
+joerussosalmostdead-2017-05-06 src=notes same_as_today=False bounds=(7, 13) n=14 enc=True
+     S1:'Set One (10:00PM - 11:22PM):' ; S2:'Set Two (11:38PM - 12:56AM):' ; E:'Encore:'
+joerussosalmostdead-2017-10-07 src=notes same_as_today=True bounds=(8, 12) n=13 enc=True
+     S1:'Set One (9:34PM - 11:03PM):' ; S2:'Set Two (11:36PM - 1:01AM):' ; E:'Encore:'
+joerussosalmostdead-2018-01-14 src=notes same_as_today=True bounds=(7, 14) n=16 enc=True
+     S1:'Set One (9:00PM - 10:14PM):' ; S2:'Set Two (10:52PM - 12:30AM):' ; E:'Encore:'
+joerussosalmostdead-2018-04-21 src=notes same_as_today=True bounds=(6,) n=15 enc=False
+     S1:'Set One (5:12PM - 6:13PM):' ; S2:'Set Two (6:42PM - 7:58PM):'
+joerussosalmostdead-2018-05-04 src=notes same_as_today=False bounds=(8, 16) n=17 enc=True
+     S1:'Set One (9:30PM - 10:33PM):' ; S2:'Set Two (11:01PM - 12:44AM):' ; E:'Encore:'
+joerussosalmostdead-2018-10-25 src=notes same_as_today=False bounds=(5, 11) n=12 enc=True
+     S1:'Set One (8:31PM - 9:34PM):' ; S2:'Set Two (10:00PM - 11:26PM):' ; E:'Encore:'
+joerussosalmostdead-2018-11-11 src=description same_as_today=True bounds=(4, 9) n=10 enc=True
+     S1:'Set One (7:31PM - 8:32PM):' ; S2:'Set Two (9:06PM - 10:45PM):' ; E:'Encore:'
+joerussosalmostdead-2019-01-19 src=description same_as_today=True bounds=(9, 16) n=17 enc=True
+     S1:'Set One (8:58PM - 10:02PM):' ; S2:'Set Two (10:31PM - 12:11AM):' ; E:'Encore:'
+joerussosalmostdead-2019-03-02 src=description same_as_today=False bounds=(7, 14) n=17 enc=True
+     S1:'Set One (8:11PM - 9:27PM):' ; S2:'Set Two (10:03PM - 11:39PM):' ; E:'Encore:'
+joerussosalmostdead-2019-03-13 src=description same_as_today=True bounds=(7, 15) n=16 enc=True
+     S1:'Set One (8:15PM - 9:38PM):' ; S2:'Set Two (10:08PM - 11:54PM):' ; E:'Encore:'
+joerussosalmostdead-2019-03-16 src=description same_as_today=True bounds=(6, 13) n=15 enc=True
+     S1:'Set One (8:05PM - 9:25PM):' ; S2:'Set Two (10:06PM - 11:44PM):' ; E:'Encore:'
+joerussosalmostdead-2019-09-26 src=description same_as_today=True bounds=(6, 14) n=15 enc=True
+     S1:'Set One (9:03PM - 10:13PM):' ; S2:'Set Two (10:50PM - 12:17AM):' ; E:'Encore:'
+joerussosalmostdead-2019-09-28 src=description same_as_today=False bounds=(8, 15) n=18 enc=True
+     S1:'Set One (8:20PM - 9:32PM):' ; S2:'Set Two (10:02PM - 11:38PM):' ; E:'Encore:'
+joerussosalmostdead-2020-02-23 src=description same_as_today=True bounds=(7, 14) n=15 enc=True
+     S1:'Set One (8:17PM - 9:26PM):' ; S2:'Set Two (9:57PM - 11:23PM):' ; E:'Encore:'
+joerussosalmostdead-2021-05-30 src=description same_as_today=True bounds=(8, 14) n=15 enc=True
+     S1:'Set One (5:30PM - 6:49PM):' ; S2:'Set Two (7:19PM - 8:40PM):' ; E:'Encore:'
+joerussosalmostdead-2021-12-03 src=description same_as_today=True bounds=(6, 15) n=16 enc=True
+     S1:'Set One (8:11PM - 9:39PM):' ; S2:'Set Two (10:29PM - 12:19AM):' ; E:'Encore:'
+joerussosalmostdead-2022-07-21 src=description same_as_today=True bounds=(8, 14) n=15 enc=True
+     S1:'Set One (8:00PM - 9:19PM):' ; S2:'Set Two (9:47PM - 11:28PM):' ; E:'Encore:'
+joerussosalmostdead-2023-01-26 src=description same_as_today=True bounds=(6, 13) n=14 enc=True
+     S1:'Set One (8:15PM - 9:38PM):' ; S2:'Set Two (10:15PM - 12:20AM):' ; E:'Encore:'
+joerussosalmostdead-2023-06-04 src=description same_as_today=True bounds=(8, 17) n=18 enc=True
+     S1:'Set One (6:40PM - 8:00PM):' ; S2:'Set Two (8:28PM - 10:21PM):' ; E:'Encore:'
+johnkadlecik-2014-03-28 src=description same_as_today=True bounds=(9, 20) n=21 enc=True
+     S1:'Set 1 (01:14:40)' ; S2:'Set 2 (01:41:02)' ; E:'E: How Sweet It Is (08:22)'
+tedeschitrucksband-2019-11-11 src=description same_as_today=True bounds=(9, 18) n=19 enc=True
+     S1:'Set 1\xa0 (58:24)' ; S2:'Set 2\xa0 (76:35)' ; E:'E'
+thegourds-2008-04-15 src=description same_as_today=True bounds=(10, 23) n=26 enc=True
+     S1:'Set One (46:20)' ; S2:'Set Two (76:03)' ; E:'Encore:'
+zero-2008-08-08 src=description same_as_today=True bounds=(9,) n=16 enc=False
+     S1:'Set 1 (9:45pm - 11:20pm)' ; S2:'Set 2 (12:00am - 1:50am)'
+### mechanism 4
+darkstarorchestra-2009-07-03 src=description same_as_today=True bounds=(9, 17) n=19 enc=True
+     S1:'Set 1:' ; S2:'Set 2:' ; E:'E: Mr.Charlie >' ; E:'E: Samson & Delilah'
+darkstarorchestra-2010-04-23 src=description same_as_today=True bounds=(10, 21) n=23 enc=True
+     S1:'Set One: (total 1h 24m)' ; S2:'Set Two: (total 1h 57 min)' ; E:"Encore: Don't Ease Me In"
+darkstarorchestra-2015-09-24 src=description same_as_today=True bounds=(10, 17) n=18 enc=True
+     S1:'Set 1' ; S2:'Set 2' ; E:'Encore:'
+darkstarorchestra-2017-02-10 src=description same_as_today=False bounds=(12, 23) n=25 enc=True
+     S1:'Set 1' ; S2:'Set 2' ; E:'Encore'
+derektrucksband-2003-12-26 src=description same_as_today=False bounds=(8, 16) n=18 enc=True
+     S1:'Set I' ; S2:'Set II' ; S2c:'Set II (Cont.)' ; E:'Encore:'
+gratefuldead-1985-06-14 src=description same_as_today=True bounds=(10, 20) n=21 enc=True
+     S1:'Set I:' ; S2:'Set II:' ; E:'E: Day Job'
+jackiegreene-2010-12-31 src=description same_as_today=True bounds=(9,) n=22 enc=False
+     S1:'Set 1' ; S2:'Set 2'
+motherhips-2000-10-06 src=description same_as_today=True bounds=(15, 29) n=30 enc=True
+     S1:'Set 1 - Disc 1:' ; S2:'Set 2 - Disc 1:' ; E:'Encore:'
+railroadearth-2005-02-19 src=description same_as_today=False bounds=(7, 19) n=20 enc=True
+     S1:'Set 1: Disc 1:' ; S2:'Set 2: Disc 2:' ; E:'Encore:'
+ratdog-2007-11-03 src=description same_as_today=True bounds=(9, 17) n=18 enc=True
+     S1:'disc 1 (set 1):' ; S1c:'disc 2 (set 1 cont.)' ; S2:'set 2 -' ; S2c:'disc 3 (set 2 cont.):' ; E:'E: One More Saturday Night'
+robertwalters20thcongress-2004-01-02 src=description same_as_today=False bounds=(9, 15) n=17 enc=True
+     S1:'Set 1-Disk 1' ; S2:'Set 2:-Disk 2' ; E:'==Encores=='
+ryanadams-2008-10-05 src=description same_as_today=True bounds=(15,) n=30 enc=False
+     S1:'Set I' ; S2:'Set II'
+yondermountainstringband-2008-07-19 src=description same_as_today=True bounds=(15,) n=22 enc=False
+     S1:'Set One' ; S2:'Set Two'

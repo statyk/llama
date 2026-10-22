@@ -1,0 +1,160 @@
+==========================================================================================
+mermen-2003-07-19 mermen2003-07-19.shn src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1: Intro > Quiet Surf, Latina, Emmylou > Ghost Riders > Emmylou, With No Definite Future..., Miserlou, Drume Negrita, Honeybomb, Intro > The Goodbye, Into The West > Be My Noir > Jam
+Set 2: Batman tease, Casbah, To Be Naked And French..., Here Kitty Kitty, Splashin' With The Mermaid, Hammerhead, Sponge Cookie, Intro > Pull Of The Moon, Drivin' The Cow, Fernwood Kicks Ass, TR-6 > Unknown > Crash, Dancing In Her Sleep, Silly Elephant, Raglan, Fran Catches A  Wave, Curve, Intro > Burn
+--- ITEMS: 1:Quiet Surf | 1:Latina | 1:Emmylou | 1:Ghost Riders | 1:Emmylou | 1:With No Definite Future... | 1:Miserlou | 1:Drume Negrita | 1:Honeybomb | 1:The Goodbye | 1:Into The West | 1:Be My Noir | 1:Jam | 2:Batman tease | 2:Casbah | 2:To Be Naked And French... | 2:Here Kitty Kitty | 2:Splashin' With The Mermaid | 2:Hammerhead | 2:Sponge Cookie | 2:Pull Of The Moon | 2:Drivin' The Cow | 2:Fernwood Kicks Ass | 2:TR-6 | 2:Unknown | 2:Crash | 2:Dancing In Her Sleep | 2:Silly Elephant | 2:Raglan | 2:Fran Catches A  Wave | 2:Curve | 2:Burn
+has_encore False encore_like False
+  14 1       1       tags             Be My Noir >
+  15 1       1       tags             Jam
+* 16 1       2       tags             Batman tease
+  17 2       2       tags             Casbah
+  18 2       2       tags             To Be Naked And French
+   (35 tracks)
+==========================================================================================
+moe-2006-10-06 moe2006-10-06.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set I: Understand, Stranger Than Fiction, Wind it up, George> Lazarus> McBain
+Set II: Bullet> Brent Black, Rebubula, Not Coming Down> Wormwood> 32 Things
+Encore: Godzilla, The Ghost Of Ralph's Mom
+--- ITEMS: 1:Understand | 1:Stranger Than Fiction | 1:Wind it up | 1:George | 1:Lazarus | 1:McBain | 2:Bullet | 2:Brent Black | 2:Rebubula | 2:Not Coming Down | 2:Wormwood | 2:32 Things | encore:Godzilla | encore:The Ghost Of Ralph's Mom
+has_encore True encore_like False
+  11 2       2       tags             Wormwood>
+  12 2       2       tags             32 Things
+* 13 2       encore  tags           F Crowd
+* 14 2       encore  tags             Godzilla (Encore)
+  15 encore  encore  tags             The Ghost Of Ralph's Mom (Encore)
+   (15 tracks)
+==========================================================================================
+moe-2009-03-29 moe2009-03-29.dsm6p.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set I: Tuning
+Understand
+All Roads Lead to Home
+Deep This Time
+Again and Again>
+St. Augustine
+Yodelittle> 
+Skrunk> 
+Plane Crash
+Set II: Tuning
+Cathedral> 
+The Pit> 
+Brent Black 
+Akimbo> 
+Lost Along the Way> 
+Yodelittle> 
+Rebubula
+Encore:
+Alnouncements 
+Good Trip> 
+Akimbo
+--- ITEMS: 1:Understand | 1:All Roads Lead to Home | 1:Deep This Time | 1:Again and Again | 1:St. Augustine | 1:Yodelittle | 1:Skrunk | 1:Plane Crash | 2:Cathedral | 2:The Pit | 2:Brent Black | 2:Akimbo | 2:Lost Along the Way | 2:Yodelittle | 2:Rebubula | encore:Alnouncements | encore:Good Trip | encore:Akimbo
+has_encore True encore_like False
+  14 2       2       tags             Yodelittle>
+  15 2       2       tags             Rebubula
+* 16 2       encore  tags             *Alnouncements
+  17 encore  encore  tags             *Good Trip>
+  18 encore  encore  tags             *Akimbo
+   (18 tracks)
+==========================================================================================
+moe-2009-04-04 moe2009-04-04.HouseOBlues src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Setlist
+Set 1
+1.  The Ghost of Ralph's Mom >
+2.  Tailspin
+3.  Jazz Wank >
+4.  Cathedral >
+5.  St. Augustine
+6.  The Road
+Set 2
+1.  Blue Jeans Pizza
+2.  All Roads Lead to Home >
+3.  Waiting for the Punchline
+4.  Opium >
+5.  Big World >
+6.  Rebubula
+Encore
+1.  Crowd
+2.  AlNouncements
+3.  Plane Crash
+--- ITEMS: 1:The Ghost of Ralph's Mom | 1:Tailspin | 1:Jazz Wank | 1:Cathedral | 1:St. Augustine | 1:The Road | 2:Blue Jeans Pizza | 2:All Roads Lead to Home | 2:Waiting for the Punchline | 2:Opium | 2:Big World | 2:Rebubula | encore:AlNouncements | encore:Plane Crash
+has_encore True encore_like False
+  11 2       2       tags             Big World >
+  12 2       2       tags             Rebubula
+* 13 2       encore  tags           F Crowd
+* 14 2       encore  tags             AlNouncements
+  15 encore  encore  tags             Plane Crash
+   (15 tracks)
+==========================================================================================
+radiators-1997-04-12 rad1997-04-12.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+[Disc 1]
+Set 1:
+01. Last Getaway
+02. The Wrong Road
+03. I'm in the Mood
+04. If You Wanna Be Somebody
+05. Make Fire
+06. Papaya
+07. Ghosts along the Mississippi
+08. Let's Radiate
+09. Straight Eight >
+10. Doctor Doctor
+[Disc 2]
+01. Nightmare on the Misery Train >
+02. Take Your Dead Ass Home
+Set 2:
+03. Smokin' Hole
+04. Not Fade Away [medley]
+05. Never Let Your Fire Go Out
+06. Henri  > Big Chief
+07. Screw Loose
+[Disc 3]
+01. Warren Intro/Three Stooges Theme
+02. Good Morning Miss Brown *
+03. Down the Road I Go *
+04. My Babe *
+05. Jump Back *
+06. Sympathy for the Devil *
+Encore:
+07. calling them back
+08. Junco Partner *
+09. Brown-Eyed Girl *
+--- ITEMS: 1:Last Getaway | 1:The Wrong Road | 1:I'm in the Mood | 1:If You Wanna Be Somebody | 1:Make Fire | 1:Papaya | 1:Ghosts along the Mississippi | 1:Let's Radiate | 1:Straight Eight | 1:Doctor Doctor | 1:Nightmare on the Misery Train | 1:Take Your Dead Ass Home | 2:Smokin' Hole | 2:Not Fade Away [medley] | 2:Never Let Your Fire Go Out | 2:Henri | 2:Big Chief | 2:Screw Loose | 2:Good Morning Miss Brown | 2:Down the Road I Go | 2:My Babe | 2:Jump Back | 2:Sympathy for the Devil | encore:calling them back | encore:Junco Partner | encore:Brown-Eyed Girl
+has_encore True encore_like False
+  22 2       2       tags             Jump Back
+  23 2       2       tags             Sympathy for the Devil
+* 24 2       encore  tags             calling them back
+  25 encore  encore  tags             Junco Partner
+  26 encore  encore  tags             Brown-Eyed Girl
+   (26 tracks)
+==========================================================================================
+soundtribesector9-2004-12-31 sts9-2004-12-31 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1:Nautilus, Squares & Cubes, Reemergence^, Open E, Crystal Instrument, Movements> 4 My Peeps, Better Day, What Is Love?
+Set 2: Tribal Jam*^, Alien Funk*^, Peoples, Possibilities^, Tap In, Native End, Grow, Mischief of a Sleepwalker, Tokyo 
+Encore: Improv Jam*, Havona Ascent**, Breathe In
+--- ITEMS: 1:Nautilus | 1:Squares & Cubes | 1:Reemergence^ | 1:Open E | 1:Crystal Instrument | 1:Movements | 1:4 My Peeps | 1:Better Day | 1:What Is Love? | 2:Tribal Jam*^ | 2:Alien Funk*^ | 2:Peoples | 2:Possibilities^ | 2:Tap In | 2:Native End | 2:Grow | 2:Mischief of a Sleepwalker | 2:Tokyo | encore:Improv Jam | encore:Havona Ascent | encore:Breathe In
+has_encore True encore_like False
+  16 2       2       tags             Mischief of a Sleepwalker
+  17 2       2       tags             Tokyo
+* 18 2       encore  tags             Improv Jam
+  19 encore  encore  tags             Havona Ascent
+  20 encore  encore  tags             Breathe In
+   (21 tracks)
+==========================================================================================
+stringcheeseincident-2000-01-31 sci2000-01-31.dsbd.shnf src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1:  Land's End > Lonesome Road Blues, Come as You Are, Drifting Away, Got What He Wanted, Sand Dollar, Rhythm of the Road
+Set 2:  (acoustic) Think What You've Done, Take Five, I've Just Seen a Face, Pirates (electric) Sing a New Song > Mouna Bowa, Cottonmouth, Best Feeling > Restless Wind
+Encore:  Under African Skies^ > Whiskey Before Breakfast
+--- ITEMS: 1:Land's End | 1:Lonesome Road Blues | 1:Come as You Are | 1:Drifting Away | 1:Got What He Wanted | 1:Sand Dollar | 1:Rhythm of the Road | 2:(acoustic) Think What You've Done | 2:Take Five | 2:I've Just Seen a Face | 2:Pirates (electric) Sing a New Song | 2:Mouna Bowa | 2:Cottonmouth | 2:Best Feeling | 2:Restless Wind | encore:Under African Skies^ | encore:Whiskey Before Breakfast
+has_encore True encore_like False
+   6 1       1       tags             Sand Dollar
+   7 1       1       tags             Rhythm Of The Road
+*  8 1       2       tags             Think What You've Done
+   9 2       2       tags             Take Five
+  10 2       2       tags             I've Just Seen A Face
+   (18 tracks)

@@ -1,0 +1,140 @@
+jerrybase: skipped 117 malformed rows
+====================================================================================================
+darkstarorchestra-2001-12-15 dso2001-12-15.shnf src= description reason= None align= jerrybase ssrc= setlist.fm needs_review= False
+--- TEXT
+Set 1:
+Bucket
+West L. A.
+Victim
+Built To Last
+Blow Away
+Masterpiece
+Cumberland
+Cassidy>
+Don't Ease
+
+Set 2:
+Help>
+Slipknot>
+Franklin's
+Estimated>
+Eyes>
+Drumz>
+
+Set 2 (cont):
+Wheel>
+Mr. Fantasy>
+Hey Jude Finale>
+Death Don't>
+Lovelight
+Encore: Baby Blue
+Filler: Sisters and Brothers*
+--- READER items: 1:Bucket | 1:West L. A. | 1:Victim | 1:Built To Last | 1:Blow Away | 1:Masterpiece | 1:Cumberland | 1:Cassidy | 1:Don't Ease | 2:Help | 2:Slipknot | 2:Franklin's | 2:Estimated | 2:Eyes | 2:Drumz | 2:Wheel | 2:Mr. Fantasy | 2:Hey Jude Finale | 2:Death Don't | 2:Lovelight | encore:Baby Blue | encore:Filler: Sisters and Brothers
+has_encore True encore_like False
+--- TRACKS (stored | taper)
+   1 1       1       tags             Hell in a Bucket
+   2 1       1       tags             West LA Fadeaway
+   3 1       1       tags             Victim or the Crime
+   4 1       1       tags             Built to Last
+   5 1       1       tags             Blow Away
+   6 1       1       tags             When I Paint My Masterpiece
+   7 1       1       tags             Cumberland Blues
+   8 1       1       tags             Cassidy>
+   9 1       1       tags             Don't Ease Me In
+  10 2       2       tags             Help on the Way>
+  11 2       2       tags             Slipknot>
+  12 2       2       tags             Franklin's Tower
+  13 2       2       tags             Estimated Prophet>
+  14 2       2       tags             Eyes of the World>
+  15 2       2       tags             Drumz>
+  16 2       2       tags             Space>
+  17 2       2       tags             The Wheel>
+  18 2       2       tags             Dear Mr. Fantasy>
+  19 2       2       tags             Hey Jude Finale>
+  20 2       2       tags             Death Don't Have No Mercy>
+* 21 encore  2       tags             Lovelight
+  22 encore  encore  tags             Baby Blue
+  23 encore  encore  tags             Sisters and Brothers
+====================================================================================================
+darkstarorchestra-2017-02-10 dso2017-02-10.km184.flac24 src= description reason= None align= jerrybase ssrc= setlist.fm needs_review= False
+--- TEXT
+<div><u><b>Dark Star Orchestra</b></u></div><div><b>The Roseland Theater</b></div><div><b>Portland, OR</b></div><div><b>February 10, 2017</b></div><div><br /></div><div>Source: Neumann SKM-184 > DR-680 (24 Bit,48kHz)</div><div>Format: 24-bit, 48 kHz </div><div>Recorded and transferred by Rick Odeen</div><div><br /></div><div><span style="color:rgb(51,51,51);">This setlist is a re-creation of the Grateful Dead, August 31, 1980, Capital Centre, Landover, MD</span><br /></div><div><br /></div><div>Set 1</div><div>-----</div><div>01. Alabama Getaway</div><div>02. Promised Land</div><div>03. They Love Each Other</div><div>04. Mama Tried</div><div>05. Mexicali Blues</div><div>06. Althea</div><div>07. Little Red Rooster</div><div>08. Tennessee Jed</div><div>09. Far From Me</div><div>10. Lazy Lightnin'</div><div>11. Supplication</div><div>12. Deal</div><div><br /></div><div>Set 2</div><div>-----</div><div>01. Greatest Story Ever Told</div><div>02. Uncle John's Band</div><div>03. Lost Sailor</div><div>04. Saint of Circumstance</div><div>05. Comes a Time</div><div>06. Truckin'</div><div>07. Drums > Space</div><div>08. The Other One</div><div>09. Stella Blue</div><div>10. I Need a Miracle</div><div>11. Good Lovin'</div><div><br /></div><div>Encore</div><div>------</div><div>12. Brokedown Palace</div><div>13. White Rabbit</div><div><br /></div>
+--- READER items: 1:Alabama Getaway | 1:Promised Land | 1:They Love Each Other | 1:Mama Tried | 1:Mexicali Blues | 1:Althea | 1:Little Red Rooster | 1:Tennessee Jed | 1:Far From Me | 1:Lazy Lightnin' | 1:Supplication | 1:Deal | 2:Greatest Story Ever Told | 2:Uncle John's Band | 2:Lost Sailor | 2:Saint of Circumstance | 2:Comes a Time | 2:Truckin' | 2:Drums | 2:Space | 2:The Other One | 2:Stella Blue | 2:I Need a Miracle | 2:Good Lovin' | encore:Brokedown Palace | encore:White Rabbit
+has_encore True encore_like False
+--- TRACKS (stored | taper)
+   1 1       1       tags             Alabama Getaway
+   2 1       1       tags             Promised Land
+   3 1       1       tags             They Love Each Other
+   4 1       1       tags             Mama Tried
+   5 1       1       tags             Mexicali Blues
+   6 1       1       tags             Althea
+   7 1       1       tags             Little Red Rooster
+   8 1       1       tags             Tennessee Jed
+   9 1       1       tags             Far From Me
+  10 1       1       tags             Lazy Lightnin'
+  11 1       1       tags             Supplication
+  12 1       1       tags             Deal
+* 13 encore  2       tags             Greatest Story Ever Told
+* 14 encore  2       tags             Uncle John's Band
+* 15 encore  2       tags             Lost Sailor
+* 16 encore  2       tags             Saint of Circumstance
+* 17 encore  2       tags             Comes a Time
+* 18 encore  2       tags             Truckin'
+* 19 encore  2       tags             Drums > Space
+* 20 encore  2       tags             The Other One
+* 21 encore  2       tags             Stella Blue
+* 22 encore  2       tags             I Need a Miracle
+* 23 encore  2       tags             Good Lovin'
+  24 encore  encore  tags             Brokedown Palace
+  25 encore  encore  tags             White Rabbit
+====================================================================================================
+furthur-2009-12-13 furthur2009-12-13.mk4-mmp.taraszki.103552.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm needs_review= False
+--- TEXT
+Set 1:
+01. intro
+02. Box Of Rain
+03. I Need A Miracle >
+04. Wang Dang Doodle
+05. They Love Each Other
+06. Beat It On Down The Line
+07. Candyman
+08. Estimated Prophet >
+09. Cumberland Blues
+
+Set 2:
+01. intro >
+02. Lost Sailor >
+03. Saint Of Circumstance
+04. Mason's Children
+05. Sugaree
+06. Terrapin Station >
+07. Jam >
+08. Help On The Way >
+09. Slipknot >
+10. Franklins Tower
+11. Phil's Donor Rap
+12. E: US Blues
+--- READER items: 1:Box Of Rain | 1:I Need A Miracle | 1:Wang Dang Doodle | 1:They Love Each Other | 1:Beat It On Down The Line | 1:Candyman | 1:Estimated Prophet | 1:Cumberland Blues | 2:Lost Sailor | 2:Saint Of Circumstance | 2:Mason's Children | 2:Sugaree | 2:Terrapin Station | 2:Jam | 2:Help On The Way | 2:Slipknot | 2:Franklins Tower | 2:Phil's Donor Rap | encore:US Blues
+has_encore True encore_like False
+--- TRACKS (stored | taper)
+   1 1       1       tags           F intro
+   2 1       1       tags             Box Of Rain
+   3 1       1       tags             I Need A Miracle >
+   4 1       1       tags             Wang Dang Doodle
+   5 1       1       tags             They Love Each Other
+   6 1       1       tags             Beat It On Down The Line
+   7 1       1       tags             Candyman
+   8 1       1       tags             Estimated Prophet >
+   9 1       1       tags             Cumberland Blues
+  10 2       2       tags           F intro >
+  11 2       2       tags             Lost Sailor >
+  12 2       2       tags             Saint Of Circumstance
+  13 2       2       tags             Mason's Children
+  14 2       2       tags             Sugaree
+  15 2       2       tags             Terrapin Station >
+  16 2       2       tags             Jam >
+  17 2       2       tags             Help On The Way >
+  18 2       2       tags             Slipknot >
+  19 2       2       tags             Franklins Tower
+* 20 encore  2       tags             Phil's Donor Rap
+  21 encore  encore  tags             US Blues

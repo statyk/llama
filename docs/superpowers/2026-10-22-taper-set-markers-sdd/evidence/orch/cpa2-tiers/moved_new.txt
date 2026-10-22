@@ -1,0 +1,153 @@
+==========================================================================================
+furthur-2011-04-03 furthur2011-04-03.schoeps-mk4.hatcher.112854.flac16 src= description reason= None align= llm ssrc= setlist.fm
+--- TEXT
+Set I (68:48)
+01. Tuning
+02. Hell in a Bucket
+03. Cold Rain and Snow
+04. West LA Fadeaway
+05. To Lay Me Down*
+06. Peggy-O
+07. Ramble On Rose
+08. Samson and Delilah
+09. Deal
+Set II (111:56)
+01. Tuning 
+02. Iko Iko 
+03. Last Time*
+04. Wharf Rat
+05. Born Cross-Eyed
+06. Dark Star
+07. Time > Breath Reprise
+08. Dear Prudence
+09. The Eleven
+10. Lady with a Fan
+11. Terrapin
+12. At the Siding
+13. Terrapin Flyer
+-Encore-
+14. Phil Donor Rap
+15. Brokedown Palace
+* First time played
+Notes: Team FInd Recording / AOTJ Release
+Source: Schoeps mk4(din) > kcy > m222 > nt222 > Busman Mod R4 Pro
+Location: OTS/DFC
+Linage: Edirol R4 Pro @ 24/48 > HD > Wavelab 6 > SoundForge 10 > CDWave > Foobar Tagger > TLH
+Tape and Transfer: Jeff Hatcher (habit1973@gmail.com)
+--- ITEMS: 1:Hell in a Bucket | 1:Cold Rain and Snow | 1:West LA Fadeaway | 1:To Lay Me Down | 1:Peggy-O | 1:Ramble On Rose | 1:Samson and Delilah | 1:Deal | 2:Iko Iko | 2:Last Time | 2:Wharf Rat | 2:Born Cross-Eyed | 2:Dark Star | 2:Time | 2:Breath Reprise | 2:Dear Prudence | 2:The Eleven | 2:Lady with a Fan | 2:Terrapin | 2:At the Siding | 2:Terrapin Flyer | encore:Phil Donor Rap | encore:Brokedown Palace | encore:First time played | encore:Notes: Team FInd Recording / AOTJ Release | encore:Location: OTS/DFC | encore:Linage: Edirol R4 Pro @ 24/48 | encore:HD | encore:Wavelab 6 | encore:SoundForge 10 | encore:CDWave | encore:Foobar Tagger | encore:TLH
+has_encore True encore_like False
+  20 2       2       tags             At the Siding
+  21 2       2       tags             Terrapin Flyer
+* 22 2       encore  tags             Phil Donor Rap
+  23 encore  encore  tags             Brokedown Palace
+   (23 tracks)
+==========================================================================================
+joerussosalmostdead-2018-05-04 jrad2018-05-04.cmc621.cmc64.sbd.matrix.flac16 src= notes reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Joe Russo's Almost Dead 05/04/2018 Mardi Gras World Ballroom, New Orleans, LA ** Night One of Two ** SOLD OUT ~ THANK YOU! **
+Source 1: Schoeps cmc621 (On Stage, Split 25') -> Avid SC-48 -> Zoom H6N -> WAV (@24/96);
+Source 2: Schoeps cmc64 (FOH booth) -> ART Tube MP Studio Pre Amps -> Zoom H6N -> WAV (@24/96);
+Source 3: SBD (Avid SC-48) -> Zoom H6N -> WAV (@24/96);
+Transfer: WAVs -> SoundForge Pro 11.0 (EQ, Time Align, normalize) -> Vegas Pro 13.0 (mix/render) -> SoundForge Pro 11.0 (EQ, normalize, fades, 96->44.1 iZotope 64-Bit SRC; 24->16 bit iZotope MBIT+ Dither) -> CDWav -> FLAC
+Costello & McRoberts Ultra Mix - Recording and FOH mix by Peter Costello - Monitors by Aaron Gittleman - Video by Sean Smith - Audio edited, mixed and mastered by Eric McRoberts 06/23-24/2018
+	Set One (9:30PM - 10:33PM):
+01.  Jam ->
+02.  Man Smart, Woman Smarter @ >
+03.  Help On The Way ->
+04.  Slipknot! # ->
+05.  Scarlet Begonias $ ->
+06.  Jam % ->
+07.  I Know You Rider >
+08.  I Need A Miracle
+	Set Two (11:01PM - 12:44AM):
+01.  Marco Solo - >
+02.  Yazoo Street Scandal ^ ->
+03.  Jam & ->
+04.  Tennessee Jed * >
+05.  Playing In The Band + ->
+06.  Jam + @@ ->
+07.  The Eleven + ->
+08.  Feel Like A Stranger + ##
+09.  Morning Dew $$
+	Encore:
+10.  Bertha
+@ - With an Iko Iko Tease/Jam (SM)
+# - With elements of “Foam” (Phish) and Terrapin Station & an “In Memory of Elizabeth Reed“ (The Allman Brothers) Jam
+$ - With multiple Terrapin Station Teases (SM, then MB, then TH)
+% - With a Terrapin Station Tease (Band)
+^ - Bob Dylan & The Band Cover, 2nd Time Played by Almost Dead, MB on Vox
+& - With a “Good Lovin’” (The Rascals) Tease
+* - With a “Revelry” (Traditional) Tease (SM) & another Marco Solo
++ - With Katie Jacoby (KJ) on Violin
+@@ - With a "Swingtown" (Steve Miller Band) Tease (KJ), and a “Come Together” (The Beatles) Tease (KJ)
+## - With a “Here Comes the Hotstepper” (Ini Kamoze) Tease (KJ)
+$$ - With a “Baba O'Riley” (The Who) Tease (MB)
+Pre Show Music: Costello’s Pre Show 2018 Spotify Playlist
+Set Break Music: Costello on Petty Spotify Playlist
+Post Show Music: The Meters - “Just Kissed My Baby” & “Fire On The Bayou”
+Poster: New Antlers
+Joe Russo - Drums, Vocals
+Tom Hamilton - Guitar, Voca
+--- ITEMS: 1:Jam | 1:Man Smart, Woman Smarter @ | 1:Help On The Way | 1:Slipknot! # | 1:Scarlet Begonias $ | 1:Jam % | 1:I Know You Rider | 1:I Need A Miracle | 2:Marco Solo - | 2:Yazoo Street Scandal ^ | 2:Jam & | 2:Tennessee Jed | 2:Playing In The Band + | 2:Jam + @@ | 2:The Eleven + | 2:Feel Like A Stranger + ## | 2:Morning Dew $$ | encore:Bertha | encore:@ - With an Iko Iko Tease/Jam (SM) | encore:$ - With multiple Terrapin Station Teases (SM | encore:then MB | encore:then TH) | encore:% - With a Terrapin Station Tease (Band) | encore:^ - Bob Dylan & The Band Cover | encore:2nd Time Played by Almost Dead | encore:MB on Vox | encore:& - With a “Good Lovin’” (The Rascals) Tease | encore:- With a “Revelry” (Traditional) Tease (SM) & another Marco Solo | encore:+ - With Katie Jacoby (KJ) on Violin | encore:@@ - With a "Swingtown" (Steve Miller Band) Tease (KJ) | encore:and a “Come Together” (The Beatles) Tease (KJ) | encore:## - With a “Here Comes the Hotstepper” (Ini Kamoze) Tease (KJ) | encore:$$ - With a “Baba O'Riley” (The Who) Tease (MB) | encore:Pre Show Music: Costello’s Pre Show 2018 Spotify Playlist | encore:Set Break Music: Costello on Petty Spotify Playlist | encore:Post Show Music: The Meters - “Just Kissed My Baby” & “Fire On The Bayou” | encore:Poster: New Antlers | encore:Show #150 | encore:There is a higher quality 24 bit version o this recording available here:
+has_encore True encore_like False
+   7 1       1       tags             I Know You Rider >
+   8 1       1       tags             I Need A Miracle
+*  9 1       2       tags             Marco Solo - >
+  10 2       2       tags             Yazoo Street Scandal ^ ->
+  11 2       2       tags             Tennessee Jed * >
+   (17 tracks)
+==========================================================================================
+joerussosalmostdead-2019-03-02 jrad2019-03-02.cmc621.cmc64.sbd.matrix.flac24 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+*** THIS IS A 24 BIT RECORDING, NOT INTENDED FOR CD BURNING ****** The normal 16 bit CD quality version of this show is available for download/CD burning ****** here: https://archive.org/details/jrad2019-03-02.cmc621.cmc64.sbd.matrix.flac16 ***
+Joe Russo's Almost Dead 03/02/2019 State Theatre, Portland, ME
+Source 1: Schoeps cmc621 (On Stage, Split 25') -> Avid SC-48 -> Zoom H6N -> WAV (@24/96);
+Source 2: Schoeps cmc64 (FOH booth) -> ART Tube MP Studio Pre Amps -> Zoom H6N -> WAV (@24/96);
+Source 3: SBD (Avid SC-48) -> Zoom H6N -> WAV (@24/96);
+Transfer: WAVs -> SoundForge Pro 11.0 (Time Align, normalize) -> Vegas Pro 13.0 (mix/render) -> SoundForge Pro 11.0 (EQ, normalize, fades) -> CDWav -> FLAC
+Costello & McRoberts Ultra Mix - Recording and FOH mix by Peter Costello - Monitors by Justin Ripley - Video by Sean Smith - Audio recording edited and mixed by Eric McRoberts 03/07-08/2019
+	Set One (8:11PM - 9:27PM):
+01.  BIODTL @ ->
+02.  Cumberland Blues # > 
+03.  My Brother Esau 
+04.  They Love Each Other >
+05.  Casey Jones 
+06.  Good Lovin’ $ > 
+07.  Uncle John’s Band
+	Set Two (10:03PM - 11:39PM):
+01.  Jam ->
+02.  Here Comes Sunshine >
+03.  Lost Sailor ->
+04.  Saint Of Circumstance 
+05.  Bird Song % -> How Many More Times ^ -> Bird Song Reprise &
+06.  Silvio * ->
+07.  I Know You Rider
+	Encore: 
+08.  Marco Solo -> 
+09.  Such A Night + >
+10.  Touch Of Grey
+@ - With 23 beats to start - Maine is the 23rd state
+# - With an “LA Woman” (The Doors) Tease (MB) 
+$ - With a “La Bamba” (Richie Valens) Tease (MB)
+% - With a Bertha Tease (TH)
+^ - Partial version of a Led Zeppelin Cover, First Time Played by Almost Dead, Joe sang a few lyrics 
+& - Not Played by Almost Dead since 2017-10-26 Hulaween - Amphitheatre Stage, Spirit of the Suwanee Music Park, Live Oak, FL, a gap of 56 shows
+* - Not Played by Almost Dead since 2018-03-15 Landmark Theatre, Syracuse, NY, a gap of 37 shows
++ - Not Played by Almost Dead since 2017-10-13 Brooklyn Bowl, Brooklyn, NY, a gap of 58 shows
+Pre Show And Set Break Music: Spotify Black Power Mixtape 1967 - 1975
+https://open.spotify.com/…/spotify/…/37i9dQZF1DX94QVAxB7Dum…
+Walk Out Music: “Flashlight” (Parliament) and “Life During Wartime” (Talking Head
+--- ITEMS: 1:BIODTL @ | 1:Cumberland Blues # | 1:My Brother Esau | 1:They Love Each Other | 1:Casey Jones | 1:Good Lovin’ $ | 1:Uncle John’s Band | 2:Jam | 2:Here Comes Sunshine | 2:Lost Sailor | 2:Saint Of Circumstance | 2:Bird Song % | 2:How Many More Times ^ | 2:Bird Song Reprise & | 2:Silvio | 2:I Know You Rider | encore:Marco Solo | encore:Such A Night + | encore:Touch Of Grey | encore:@ - With 23 beats to start - Maine is the 23rd state | encore:# - With an “LA Woman” (The Doors) Tease (MB) | encore:$ - With a “La Bamba” (Richie Valens) Tease (MB) | encore:% - With a Bertha Tease (TH) | encore:^ - Partial version of a Led Zeppelin Cover | encore:First Time Played by Almost Dead | encore:Joe sang a few lyrics | encore:& - Not Played by Almost Dead since 2017-10-26 Hulaween - Amphitheatre Stage | encore:Spirit of the Suwanee Music Park | encore:Live Oak | encore:FL | encore:a gap of 56 shows | encore:- Not Played by Almost Dead since 2018-03-15 Landmark Theatre | encore:Syracuse | encore:NY | encore:a gap of 37 shows | encore:+ - Not Played by Almost Dead since 2017-10-13 Brooklyn Bowl | encore:Brooklyn | encore:NY | encore:a gap of 58 shows | encore:Pre Show And Set Break Music: Spotify Black Power Mixtape 1967 - 1975 | encore:https://open.spotify.com/…/spotify/…/37i9dQZF1DX94QVAxB7Dum… | encore:Poster: Michael Fuchs | encore:Show #183 | encore:SOLD OUT ~ THANK YOU
+has_encore True encore_like False
+   6 1       1       tags             Good Lovin’ $ >
+   7 1       1       tags             Uncle John’s Band
+*  8 1       2       tags             Jam ->
+   9 2       2       tags             Here Comes Sunshine >
+  10 2       2       tags             Lost Sailor ->
+   ...
+  13 2       2       tags             Silvio * ->
+  14 2       2       tags             I Know You Rider
+* 15 2       encore  tags             Marco Solo ->
+  16 encore  encore  tags             Such A Night + >
+  17 encore  encore  tags             Touch Of Grey
+   (17 tracks)

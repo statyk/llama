@@ -1,0 +1,18 @@
+== db2002-12-31.shnf description 2002-12-31 lib= None
+    date line 1 'Set II: Shelby Rose(>4/3/03) > History of the Disco Biscuits(Lai,Endo,HAB,AtW) > Run Like '
+     m 0 "Set I: Floes > (12/30>)Mindless Dribble > Floes, 7-11(unf) > Mulberry'"
+     m 1 'Set II: Shelby Rose(>4/3/03) > History of the Disco Biscuits(Lai,Endo,'
+     m 2 'Set III: Svenghali(unf) > (12/29>)Munchkin Invasion, Crickets > The Ve'
+== sci2022-07-17.neumann_skm140.sunboy.flac16 description 2022-07-17 lib= None
+    date line 39 'd2t03. Cold Rain and Snow LTP 12/31/13'
+    date line 41 'd2t04. Brown-Eyed Women+ LTP 7/23/17'
+     m 10 'set1: 01:08:02'
+     m 33 'set2: 01:37:27'
+     m 56 'set3: 01:22:54'
+== sci2022-07-17.neumann_skm140.sunboy.flac24 description 2022-07-17 lib= None
+    date line 22 'd2t03. Cold Rain and Snow LTP 12/31/13'
+    date line 23 'd2t04. Brown-Eyed Women+ LTP 7/23/17'
+     m 7 'set1: 01:08:02'
+     m 19 'set2: 01:37:27'
+     m 31 'set3: 01:22:54'
+asserting texts with another date between markers: 3

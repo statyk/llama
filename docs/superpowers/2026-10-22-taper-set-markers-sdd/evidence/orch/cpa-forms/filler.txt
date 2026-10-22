@@ -1,0 +1,9 @@
+== dso2005-11-19-mix description lib= darkstarorchestra-2005-11-19 | filler line 19 'Filler: Scarlet*'
+     0 s 'Disc 1 (Set 1):'
+     14 s 'Disc 2 (set 1 cont):'
+     22 s 'Disc 3 (Set 2):'
+== dso2023-12-30.166629.aud.se8.gravel.flac1648 description lib= darkstarorchestra-2023-12-30 | filler line 28 "- This show is a re-performance of the Grateful Dead's performance on 6/17/1976 "
+     35 s 'Set 1:'
+     58 s 'Set 2:'
+     89 e 'Encore:'
+asserting texts with a marker after a filler/bonus mention: 2

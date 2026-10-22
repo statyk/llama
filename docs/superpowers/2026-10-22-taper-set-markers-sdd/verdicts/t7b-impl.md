@@ -1,0 +1,6 @@
+# t7b-impl handback: DONE
+Commit: 86e9886 feat(harness): taper_cleared and taper_changes reports (only scripts/replay_holds.py, scripts/test_replay_holds.py).
+Tests: scripts/test_replay_holds.py 66 passed; full suite ./.venv/bin/python -m pytest -q: 4423 passed, 1 skipped. setlist.py diff vs main empty.
+Tests (all in scripts/test_replay_holds.py, appended at end): the 7 brief names, plus test_taper_reports_not_written_for_stripped_arms. All failed before implementation.
+Decisions: reports not written for stripped pairs (summary says so; stripped arm is not the shipped library). compare --config default = ~/.llama/config.toml as run; read lazily only when a delivered row is a candidate for the report. "breaks" = track numbers after which the set label changes (label-derived for before/after/stored). Tiers: non-filler tracks (candidate filler) compared: break positions differ or length differs = songs moved; same positions, labels differ = labels renamed; only filler labels differ = filler labels only; labels equal and cand owned, base not = provenance only. stored-llm moved = base needs_llm has "stored alignment llm" and cand outcome != needs-llm (any state), in a section of taper_changes.txt. Unreplayable/slfm_miss section: non-held in either arm.
+Concerns: none.

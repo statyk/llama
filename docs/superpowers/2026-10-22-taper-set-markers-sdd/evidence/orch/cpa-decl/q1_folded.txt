@@ -1,0 +1,1817 @@
+jerrybase: skipped 117 malformed rows
+====================================================================================================
+darkstarorchestra-2013-12-29 dso2013-12-29.mk41v.m222.mk5.cmc6.2448 src= description alignment= jerrybase ssrc= setlist.fm
+--- TEXT
+Set 1:
+01. Intro Set 1
+02. Bertha
+03. Jack Straw
+04. Tennessee Jed
+05. Looks Like Rain
+06. Peggy-O
+07. El Paso
+08. Friend of the Devil
+09. Music Never Stopped
+
+Set 2:
+10. Intro Set 2
+11. Scarlet Begonias>
+12. Fire on the Mountain>
+13. Good Lovin'
+14. Candyman
+15. Estimated Prophet>
+16. He's Gone>
+17. Drums>
+18. Samson and Delilah
+19. Terrapin Station>
+20. Morning Dew>
+21. Around and Around
+
+Encor:
+22. Uncle John's Band
+23. U.S. Blues
+24. Show Reveal - Winterland Ballroom - San Francisco, CA June 7, 1977 
+25. Mr. Charlie
+--- READER items: 1:Bertha | 1:Jack Straw | 1:Tennessee Jed | 1:Looks Like Rain | 1:Peggy-O | 1:El Paso | 1:Friend of the Devil | 1:Music Never Stopped | 2:Scarlet Begonias | 2:Fire on the Mountain | 2:Good Lovin' | 2:Candyman | 2:Estimated Prophet | 2:He's Gone | 2:Drums | 2:Samson and Delilah | 2:Terrapin Station | 2:Morning Dew | 2:Around and Around | 2:Encor: | 2:Uncle John's Band | 2:U.S. Blues | 2:Show Reveal - Winterland Ballroom - San Francisco | 2:CA June 7 | 2:1977 | 2:Mr. Charlie
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Bertha
+  2 1       1       tags           Jack Straw
+  3 1       1       tags           Tennessee Jed
+  4 1       1       tags           Looks Like Rain
+  5 1       1       tags           Peggy-O
+  6 1       1       tags           El Paso
+  7 1       1       tags           Friend of the Devil
+  8 1       1       tags           Music Never Stopped
+  9 2       2       tags           Scarlet Begonias>
+ 10 2       2       tags           Fire on the Mountain>
+ 11 2       2       tags           Good Lovin'
+ 12 2       2       tags           Candyman
+ 13 2       2       tags           Estimated Prophet>
+ 14 2       2       tags           He's Gone>
+ 15 2       2       tags           Drums>
+ 16 2       2       tags           Samson and Delilah
+ 17 2       2       tags           Terrapin Station>
+ 18 2       2       tags           Morning Dew>
+ 19 2       2       tags           Around and Around
+ 20 encore  2       tags           Uncle John's Band
+ 21 encore  2       tags           U.S. Blues
+ 22 encore  2       tags           Mr. Charlie
+====================================================================================================
+discobiscuits-2000-08-26 db2000-08-26RM.flac src= description alignment= llm ssrc= setlist.fm
+--- TEXT
+Disc 1 	
+Set I
+1.  Intros
+2.  Mr. Don ->
+3.  Trooper McCue
+4.  Home Again ->
+5.  Bring Your Ass to the Party ->
+6.  Home Again
+
+Disc 2 	
+Set I con't
+1.  Banter
+2.  Jigsaw Earth
+3.  Munchkin Invasion*
+
+Disc 3  
+Set II
+1.  DJ Mauricio's set (end only)
+2.  Crickets*
+3.  Confrontation ->
+4.  Helicopters ->
+5.  Confrontation
+
+Disc 4 	
+set II con't
+1.  Banter
+2.  Humuhumunukunukuapua'a
+3.  Aceetobee
+4.  crowd/banter
+5.  Bernstein and Chasnoff ->
+6.  Svenghali 
+7.  Floes
+--- READER items: 1:Mr. Don | 1:Trooper McCue | 1:Home Again | 1:Bring Your Ass to the Party | 1:Home Again | 1:Set I con't | 1:Jigsaw Earth | 1:Munchkin Invasion | 2:DJ Mauricio's set (end only) | 2:Crickets | 2:Confrontation | 2:Helicopters | 2:Confrontation | 2:set II con't | 2:Humuhumunukunukuapua'a | 2:Aceetobee | 2:Bernstein and Chasnoff | 2:Svenghali | 2:Floes
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Mr. Don ->
+  2 1       1       tags           Trooper McCue
+  3 1       1       tags           Home Again ->
+  4 1       1       tags           Bring Your Ass to the Party ->
+  5 1       1       tags           Home Again
+  6 1       1       tags           Jigsaw Earth
+  7 1       1       tags           Munchkin Invasion*
+  8 2       2       tags           DJ Mauricio's set (end only)
+  9 2       2       tags           Crickets*
+ 10 2       2       tags           Confrontation ->
+ 11 2       2       tags           Helicopters ->
+ 12 2       2       tags           Confrontation
+ 13 2       2       tags           Humuhumunukunukuapua'a
+ 14 2       2       tags           Aceetobee
+ 15 encore  2       tags           crowd/banter
+ 16 encore  2       tags           Bernstein and Chasnoff ->
+ 17 encore  2       tags           Svenghali
+ 18 encore  2       tags           Floes
+====================================================================================================
+discobiscuits-2009-07-01 db2009-07-01.akg480ck63.flac16 src= description alignment= llm ssrc= setlist.fm
+--- TEXT
+Set 1
+
+Disc 1
+
+01.  banter
+02.  Meditation
+03.  Rockafella ->
+04.  Caterpillar ->
+05.  Crickets -> (1)
+06.  Aceetobee -> (2)
+07.  Caterpillar  (3)
+
+Set 2
+
+Disc 2
+
+01.  banter
+02.  Hope -> (2)
+03.  Tamarin Alley
+
+Disc 3
+
+01.  Reactor ->
+02.  Minions ->
+03.  Orch Theme ->
+04.  Moshi Fameus ->
+05.  Digital Buddha (4)
+06.  crowd
+07.  banter
+08.  Digital Buddha -> (4)
+09.  You and I ->
+10.  Reactor
+--- READER items: 1:Meditation | 1:Rockafella | 1:Caterpillar | 1:Crickets | 1:(1) | 1:Aceetobee | 1:(2) | 1:Caterpillar  (3) | 2:Hope | 2:(2) | 2:Tamarin Alley | 2:Reactor | 2:Minions | 2:Orch Theme | 2:Moshi Fameus | 2:Digital Buddha (4) | 2:Digital Buddha | 2:(4) | 2:You and I | 2:Reactor
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Meditation
+  2 1       1       tags           Rockafella ->
+  3 1       1       tags           Caterpillar ->
+  4 1       1       tags           Crickets -> (1)
+  5 1       1       tags           Aceetobee -> (2)
+  6 1       1       tags           Caterpillar (3)
+  7 2       2       tags           Hope -> (2)
+  8 2       2       tags           Tamarin Alley
+  9 2       2       tags           Reactor ->
+ 10 2       2       tags           Minions ->
+ 11 2       2       tags           Orch Theme ->
+ 12 2       2       tags           Moshi Fameus ->
+ 13 2       2       tags           Digital Buddha (4)
+ 14 2       2       tags           Digital Buddha -> (4)
+ 15 encore  2       tags           You and I ->
+ 16 encore  2       tags           Reactor
+====================================================================================================
+furthur-2011-03-29 furthur2011-03-29.akg.suraci.113450.flac16 src= description alignment= jerrybase ssrc= setlist.fm
+--- TEXT
+Set One:
+Passenger(fades in)
+Music Never Stopped
+Crazy Fingers
+Race is On
+Peaceful Valley
+Black Throated Wind
+Sugaree
+Bertha
+
+Set Two:
+Jam
+Truckin>
+New Speedway Boogie>
+Cosmic Charlie
+Something
+Mountain Song>
+Scarlet Begonias>
+Fire on the Mountain
+Standing on the Moon>
+GDTRFB>
+We Bid You Goodnight
+-----
+U.S. Blues
+
+The Band:
+Phil Lesh
+Bob Weir
+Jeff Chimenti
+John Kadelick
+Joe Russo
+Jeff Pehrson
+Sunshine Becker
+
+Notes:
+Passenger fades in. Not too much missing. Had some difficulties at the start. Sorry. :)
+The set list does not reflect track markings. Enjoy!
+--- READER items: 1:Passenger(fades in) | 1:Music Never Stopped | 1:Crazy Fingers | 1:Race is On | 1:Peaceful Valley | 1:Black Throated Wind | 1:Sugaree | 1:Bertha | 2:Jam | 2:Truckin | 2:New Speedway Boogie | 2:Cosmic Charlie | 2:Something | 2:Mountain Song | 2:Scarlet Begonias | 2:Fire on the Mountain | 2:Standing on the Moon | 2:GDTRFB | 2:We Bid You Goodnight | 2:----- | 2:U.S. Blues | 2:The Band: | 2:Phil Lesh | 2:Bob Weir | 2:Jeff Chimenti | 2:John Kadelick | 2:Joe Russo | 2:Jeff Pehrson | 2:Sunshine Becker | 2:Notes: | 2:The set list does not reflect track markings. Enjoy!
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Passenger
+  2 1       1       tags           Music Never Stopped
+  3 1       1       tags           Crazy Fingers
+  4 1       1       tags           Race is On
+  5 1       1       tags           Peaceful Valley
+  6 1       1       tags           Black Throated Wind
+  7 1       1       tags           Sugaree
+  8 1       1       tags           Bertha
+  9 2       2       tags           Crowd
+ 10 2       2       tags           Jam
+ 11 2       2       tags           Truckin'
+ 12 2       2       tags           New Speedway Boogie>
+ 13 2       2       tags           Cosmic Charlie
+ 14 2       2       tags           Something
+ 15 2       2       tags           Mountain Song>
+ 16 2       2       tags           Scarlet Begonias>
+ 17 2       2       tags           Fire on the Mountain
+ 18 2       2       tags           Standing on the Moon>
+ 19 2       2       tags           GDTRFB>
+ 20 2       2       tags           We Bid You Goodnight
+ 21 encore  2       tags           U.S. Blues
+====================================================================================================
+furthur-2011-07-28 furthur2011-07-28.teac-me80.bischman.115457.flac16 src= description alignment= llm ssrc= setlist.fm
+--- TEXT
+Furthur
+Raleigh Ampfitheater
+2011-07-28
+
+Source: JB-Mod Teac ME-80 (Nakamichi CP-3 capsules)>JB custom mic amp>Zoom H4n 24/48 ORTF FOB slightly left of center 
+Set 1:
+01. Intro/Tuning
+02. Alligator
+03. Gloria
+04. Ramble On Rose
+05. No More Do I
+06. Hell In A Bucket
+07. Row Jimmy
+08. A Hard Rain’s Gonna Fall
+Set 2:
+09. Good Lovin’
+10. Viola Lee Blues
+11. Bertha
+12. Viloa Lee Blues
+13. Next Time You See Me
+14. Viola Lee Blues
+15. Cryptical Envelopment
+16. The Other One
+17. Cryptical Jam
+18. Morning Dew
+19. Mountains Of The Moon
+20. Let It Grow
+21. Sugar Magnolia
+22. Donor Rap
+23. Johnny B Goode
+--- READER items: 1:Alligator | 1:Gloria | 1:Ramble On Rose | 1:No More Do I | 1:Hell In A Bucket | 1:Row Jimmy | 1:A Hard Rain’s Gonna Fall | 2:Good Lovin’ | 2:Viola Lee Blues | 2:Bertha | 2:Viloa Lee Blues | 2:Next Time You See Me | 2:Viola Lee Blues | 2:Cryptical Envelopment | 2:The Other One | 2:Cryptical Jam | 2:Morning Dew | 2:Mountains Of The Moon | 2:Let It Grow | 2:Sugar Magnolia | 2:Donor Rap | 2:Johnny B Goode
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Intro/Tuning
+  2 1       1       tags           Alligator
+  3 1       1       tags           Gloria
+  4 1       1       tags           Ramble On Rose
+  5 1       1       tags           No More Do I
+  6 1       1       tags           Hell In A Bucket
+  7 1       1       tags           Row Jimmy
+  8 1       1       tags           A Hard Rains Gonna Fall
+  9 2       2       tags           Good Lovin
+ 10 2       2       tags           Viola Lee Blues
+ 11 2       2       tags           Bertha
+ 12 2       2       tags           Viloa Lee Blues
+ 13 2       2       tags           Next Time You See Me
+ 14 2       2       tags           Viola Lee Blues
+ 15 2       2       tags           Cryptical Envelopment
+ 16 2       2       tags           The Other One
+ 17 2       2       tags           Cryptical Jam
+ 18 2       2       tags           Morning Dew
+ 19 2       2       tags           Mountains Of The Moon
+ 20 2       2       tags           Let It Grow
+ 21 2       2       tags           Sugar Magnolia
+ 22 2       2       tags           Donor Rap
+ 23 encore  2       tags           Johnny B Goode
+====================================================================================================
+gratefuldead-1972-11-17 gd1972-11-17.sbd.lai.1185.shnf src= description alignment= jerrybase ssrc= setlist.fm
+--- TEXT
+Set 1
+
+The Promised Land  
+Sugaree  
+Me And My Uncle   
+Tennessee Jed  
+Black Throated Wind  
+Bird Song  
+Jack Straw  
+Box Of Rain   
+Don't Ease Me In  
+Beat It On Down The Line   
+Brown Eyed Women  
+Big River  
+China Cat Sunflower  ->
+I Know You Rider   
+Around And Around  
+Casey Jones   
+
+Set 2
+
+Cumberland Blues  
+El Paso  
+He's Gone  
+Truckin'  ->
+The Other One   ->
+Brokedown Palace  ->
+Sugar Magnolia   
+Uncle John's Band  
+Johnny B. Goode
+--- READER items: 1:The Promised Land | 1:Sugaree | 1:Me And My Uncle | 1:Tennessee Jed | 1:Black Throated Wind | 1:Bird Song | 1:Jack Straw | 1:Box Of Rain | 1:Don't Ease Me In | 1:Beat It On Down The Line | 1:Brown Eyed Women | 1:Big River | 1:China Cat Sunflower | 1:I Know You Rider | 1:Around And Around | 1:Casey Jones | 2:Cumberland Blues | 2:El Paso | 2:He's Gone | 2:Truckin' | 2:The Other One | 2:Brokedown Palace | 2:Sugar Magnolia | 2:Uncle John's Band | 2:Johnny B. Goode
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           The Promised Land
+  2 1       1       tags           Sugaree
+  3 1       1       tags           Me & My Uncle
+  4 1       1       tags           Tennessee Jed
+  5 1       1       tags           Black Throated Wind
+  6 1       1       tags           Bird Song
+  7 1       1       tags           Jack Straw
+  8 1       1       tags           Box of Rain
+  9 1       1       tags           Don't Ease Me In
+ 10 1       1       tags           Beat It On Down the Line
+ 11 1       1       tags           Brown Eyed Women
+ 12 1       1       tags           Big River
+ 13 1       1       tags           China Cat Sun Flower > I Know You Rider
+ 14 1       1       tags           Around and Around
+ 15 1       1       tags           Casey Jones
+ 16 2       2       tags           Cumberland Blues
+ 17 2       2       tags           El Paso
+ 18 2       2       tags           He's Gone
+ 19 2       2       tags           Truckin' > Jam >
+ 20 2       2       tags           The Other One >
+ 21 2       2       tags           Brokedown Palace >
+ 22 2       2       tags           Sugar Magnolia
+ 23 2       2       tags           Uncle John's Band
+ 24 encore  2       tags           Johnny B. Goode
+====================================================================================================
+gratefuldead-1973-03-28 gd1973-03-28.sbd.miller.86459.sbeok.flac16 src= description alignment= jerrybase ssrc= setlist.fm
+--- TEXT
+Set 1:
+d1t01 - Cumberland Blues
+d1t02 - Here Comes Sunshine
+d1t03 - Mexicali Blues
+d1t04 - Wave That Flag
+d1t05 - Beat It On Down The Line
+d1t06 - Loser
+d1t07 - Jack Straw
+d1t08 - Box Of Rain
+d1t09 - They Love Each Other
+d1t10 - El Paso
+d1t11 - Row Jimmy
+d1t12 - Around And Around
+d1t13 - Brown Eyed Women
+d2t01 - You Ain't Woman Enough
+d2t02 - Looks Like Rain
+d2t03 - China Cat Sunflower ->
+d2t04 - I Know You Rider
+
+Set 2:
+d2t05 - The Promised Land
+d2t06 - Loose Lucy
+d2t07 - Me And My Uncle
+d2t08 - Don't Ease Me In
+d2t09 - The Race Is On
+d2t10 - Stella Blue
+d2t11 - Big River
+d2t12 - Mississippi Half-Step Uptown Toodeloo
+d3t01 - Weather Report Suite Prelude ->
+d3t02 - Dark Star ->
+d3t03 - Eyes Of The World ->
+d3t04 - Playing In The Band
+d3t05 - Johnny B. Goode
+--- READER items: 1:Cumberland Blues | 1:Here Comes Sunshine | 1:Mexicali Blues | 1:Wave That Flag | 1:Beat It On Down The Line | 1:Loser | 1:Jack Straw | 1:Box Of Rain | 1:They Love Each Other | 1:El Paso | 1:Row Jimmy | 1:Around And Around | 1:Brown Eyed Women | 1:You Ain't Woman Enough | 1:Looks Like Rain | 1:China Cat Sunflower | 1:I Know You Rider | 2:The Promised Land | 2:Loose Lucy | 2:Me And My Uncle | 2:Don't Ease Me In | 2:The Race Is On | 2:Stella Blue | 2:Big River | 2:Mississippi Half-Step Uptown Toodeloo | 2:Weather Report Suite Prelude | 2:Dark Star | 2:Eyes Of The World | 2:Playing In The Band | 2:Johnny B. Goode
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Cumberland Blues
+  2 1       1       tags           Here Comes Sunshine
+  3 1       1       tags           Mexicali Blues
+  4 1       1       tags           Wave That Flag
+  5 1       1       tags           Beat It On Down The Line
+  6 1       1       tags           Loser
+  7 1       1       tags           Jack Straw
+  8 1       1       tags           Box Of Rain
+  9 1       1       tags           They Love Each Other
+ 10 1       1       tags           El Paso
+ 11 1       1       tags           Row Jimmy
+ 12 1       1       tags           Around And Around
+ 13 1       1       tags           Brown Eyed Women
+ 14 1       1       tags           You Ain't Woman Enough
+ 15 1       1       tags           Looks Like Rain
+ 16 1       1       tags           China Cat Sunflower ->
+ 17 1       1       tags           I Know You Rider
+ 18 2       2       tags           The Promised Land
+ 19 2       2       tags           Loose Lucy
+ 20 2       2       tags           Me And My Uncle
+ 21 2       2       tags           Don't Ease Me In
+ 22 2       2       tags           The Race Is On
+ 23 2       2       tags           Stella Blue
+ 24 2       2       tags           Big River
+ 25 2       2       tags           Mississippi Half-Step Uptown Toodeloo
+ 26 2       2       tags           Weather Report Suite Prelude ->
+ 27 2       2       tags           Dark Star ->
+ 28 2       2       tags           Eyes Of The World ->
+ 29 2       2       tags           Playing In The Band
+ 30 encore  2       tags           Johnny B. Goode
+====================================================================================================
+gratefuldead-1982-09-11 gd1982-09-11.146916.mtx.seamons.ht116.flac16 src= description alignment= jerrybase ssrc= setlist.fm
+--- TEXT
+<div>
+<div class="b1 set">
+<b>Set I</b>
+    <div class="set_info">
+        <span title="Click to edit">New Minglewood Blues<br />
+They Love Each Other<br />
+Me & My Uncle ><br />
+Big River<br />
+Dupree's Diamond Blues ><br />
+C.C. Rider<br />
+Loser ><br />
+Looks Like Rain<br />
+Tennessee Jed ><br />
+Let It Grow</span>
+    </div>
+</div>
+
+<div class="b2 set">
+<b>Set II</b>
+    <div class="set_info">
+        <span title="Click to edit">Scarlet Begonias ><br />
+Fire On The Mountain<br />
+Lost Sailor ><br />
+Saint Of Circumstance ><br />
+Terrapin Station ><br />
+Drums ><br />
+Space ><br />
+Truckin' ><br />
+Stella Blue ><br />
+Around & Around ><br />
+One More Saturday Night<br />
+It's All Over Now Baby Blue</span></div>
+</div>
+
+<div class="b1 set">
+<br /><div class="set_info">
+        <span title="Click to edit"><br /></span></div>
+</div>
+
+<div class="b2 set">
+<b>Comment</b>
+    <div class="set_info">
+        <span title="Click to edit">Jerry Garcia - Guitar<br />
+Bob Weir - Guitar<br />
+Brent Mydland - Keyboards<br />
+Phil Lesh - Bass<br />
+Bill Kreutzmann - Drums<br />
+Mickey Hart - Drums</span>
+    </div>
+</div>
+
+</div>
+--- READER items: 1:New Minglewood Blues | 1:They Love Each Other | 1:Me & My Uncle | 1:Big River | 1:Dupree's Diamond Blues | 1:C.C. Rider | 1:Loser | 1:Looks Like Rain | 1:Tennessee Jed | 1:Let It Grow | 2:Scarlet Begonias | 2:Fire On The Mountain | 2:Lost Sailor | 2:Saint Of Circumstance | 2:Terrapin Station | 2:Drums | 2:Space | 2:Truckin' | 2:Stella Blue | 2:Around & Around | 2:One More Saturday Night | 2:It's All Over Now Baby Blue
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Minglewood Blues
+  2 1       1       tags           They Love Each Other
+  3 1       1       tags           Me And My Uncle >
+  4 1       1       tags           Big River
+  5 1       1       tags           Dupree's Diamond Blues >
+  6 1       1       tags           C.C. Rider
+  7 1       1       tags           Loser
+  8 1       1       tags           Looks Like Rain
+  9 1       1       tags           Tennessee Jed >
+ 10 1       1       tags           Let It Grow
+ 11 2       2       tags           Scarlet Begonias >
+ 12 2       2       tags           Fire On The Mountain >
+ 13 2       2       tags           Lost Sailor >
+ 14 2       2       tags           Saint Of Circumstance >
+ 15 2       2       tags           Terrapin Station >
+ 16 2       2       tags           Drums >
+ 17 2       2       tags           Space >
+ 18 2       2       tags           Truckin' >
+ 19 2       2       tags           Stella Blue >
+ 20 2       2       tags           Around And Around >
+ 21 2       2       tags           One More Saturday Night
+ 22 encore  2       tags           It's All Over Now, Baby Blue
+====================================================================================================
+jackiegreene-2011-02-12 jgreene2011-02-12.J.Greene-2-12-11 src= description alignment= llm ssrc= setlist.fm
+--- TEXT
+Jackie Green
+El Rey Theater
+Los Angeles, Ca 
+2-12-11
+Set 1
+1.Don't Let the Devil Take your mind.
+2.I'm so Gone
+3.Farewell, so long, Goodbye
+4.A moment of Temporary Color-New Speedway Boogie
+5.Shaky Grounde
+6.Gone Wondering
+7.Heard it through the grapevine-Brick in the Wall-Shakedown Street.
+
+Set 2
+8. Funky Time
+9. Shaken
+10.So hard to find my way.
+11.Tell Me Mama.
+12.Medicine
+13.Uphill Mountain
+14.Hollywood-Beatles(cover)
+15.Mexican Girl
+16.Ball an Chain
+17.Sugaree.
+ 
+Recorded, Mastered and Posted by Pat Myers Aka. DATPAT
+Equipment used:
+Pair of Sennheiser Mkh-8050's-V3-Digi out to Tascam Dr-680
+Single earthworks sr-77-Littlebox with input transformer-analog into Dr-680.
+3 Mic mix done in post using single earthworks paned down the middle.
+--- READER items: 1:Don't Let the Devil Take your mind. | 1:I'm so Gone | 1:Farewell | 1:so long | 1:Goodbye | 1:A moment of Temporary Color-New Speedway Boogie | 1:Shaky Grounde | 1:Gone Wondering | 1:Heard it through the grapevine-Brick in the Wall-Shakedown Street. | 2:Funky Time | 2:Shaken | 2:So hard to find my way. | 2:Tell Me Mama. | 2:Medicine | 2:Uphill Mountain | 2:Hollywood-Beatles(cover) | 2:Mexican Girl | 2:Ball an Chain | 2:Sugaree. | 2:Pair of Sennheiser Mkh-8050's-V3-Digi out to Tascam Dr-680 | 2:Single earthworks sr-77-Littlebox with input transformer-analog into Dr-680. | 2:Mic mix done in post using single earthworks paned down the middle.
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Don't Let the Devil Take your mind
+  2 1       1       tags           I'm so Gone
+  3 1       1       tags           Farewell, so long, Goodbye
+  4 1       1       tags           A moment of Temporary Color-New Speedway Boogie
+  5 1       1       tags           Shaky Grounde
+  6 1       1       tags           I don't know his songs that well but based on the set list i was given jackie threw in an extra song as there is nothing shown on the list in this slot?
+  7 1       1       tags           Heard it through the grapevine-Brick in the Wall-Shakedown Street
+  8 2       2       tags           Funky Time
+  9 2       2       tags           Shaken
+ 10 2       2       tags           So hard to find my way
+ 11 2       2       tags           Tell Me Mama
+ 12 2       2       tags           Medicine
+ 13 2       2       tags           Uphill Mountain
+ 14 2       2       tags           Hollywood-Beatles(cover)
+ 15 2       2       tags           Mexican Girl
+ 16 2       2       tags           Ball an Chain
+ 17 encore  2       tags           Gone Wondering-Sugaree
+====================================================================================================
+jackiegreene-2011-12-31 jg2011-12-31.jg2011-12-31-mk41 src= description alignment= llm ssrc= setlist.fm
+--- TEXT
+Set 1
+
+01. I Don't Live in a Dream
+02. So Gone
+03. Deal
+04. jg2011-12-31-d1t04
+05. Grapevine >
+06. Another Brick in the Wall III >
+07. Shakedown Street > Casey Jones >
+08. Grapevine
+09. Spooky Tina
+
+Set 2
+
+01. Jam
+02. Shaken
+03. So Hard to Find my Way
+04. Tell Me Mama
+05. Curtis Lowe 
+06. jg2011-12-31-d206
+07. NYE Countdown
+08. New Speedway Boogie > Other One (tease) > Birdsong (tease) > New Speedway Boogie
+09. Crowd
+10. Ball and Chain
+--- READER items: 1:I Don't Live in a Dream | 1:So Gone | 1:Deal | 1:Grapevine | 1:Another Brick in the Wall III | 1:Shakedown Street | 1:Casey Jones | 1:Grapevine | 1:Spooky Tina | 2:Jam | 2:Shaken | 2:So Hard to Find my Way | 2:Tell Me Mama | 2:Curtis Lowe | 2:jg2011-12-31-d206 | 2:NYE Countdown | 2:New Speedway Boogie | 2:Other One (tease) | 2:Birdsong (tease) | 2:New Speedway Boogie | 2:Ball and Chain
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           I Don't Live in a Dream
+  2 1       1       tags           So Gone
+  3 1       1       tags           Deal
+  4 1       1       unresolved     jg2011-12-31-d1t04.mp3
+  5 1       1       tags           Grapevine >
+  6 1       1       tags           Another Brick in the Wall III >
+  7 1       1       tags           Shakedown Street > Casey Jones >
+  8 1       1       tags           Spooky Tina
+  9 2       2       tags           Jam
+ 10 2       2       tags           Shaken
+ 11 2       2       tags           So Hard to Find my Way
+ 12 2       2       tags           Tell Me Mama
+ 13 2       2       tags           Curtis Lowe
+ 14 2       2       unresolved     jg2011-12-31-d2t06.mp3
+ 15 2       2       tags           NYE Countdown
+ 16 2       2       tags           New Speedway Boogie > Other One (tease) > Birdsong (tease) > New Speedway Boogie
+ 17 2       2       tags           Crowd
+ 18 encore  2       tags           Ball and Chain
+====================================================================================================
+moe-2010-12-04 moe2010-12-04.mk41.nbox.722 src= description alignment= llm ssrc= setlist.fm
+--- TEXT
+SET I
+01.	-set I intro-
+02.	Chromatic Nightmare (1,2)
+03.	Not Coming Down >
+04.	Wormwood >
+05. 	Interstellar Overdrive >
+06.	Moth
+07.	Suck A Lemon (1)
+08.	Plane Crash
+09.	Earache My Eye (3)
+
+SET II
+01.	-set II intro-	
+02.	No Refrain (1) 
+03.	Buster 
+04.	Meat >
+05.	Mar-Dema (1) >
+06.	Meat
+07.	Silver Sun (1) >
+08.	Recreational Chemistry
+09.	-raffle drawing/al.nouncements-
+10.	Mexico
+--- READER items: 1:Chromatic Nightmare (1 | 1:2) | 1:Not Coming Down | 1:Wormwood | 1:Interstellar Overdrive | 1:Moth | 1:Suck A Lemon (1) | 1:Plane Crash | 1:Earache My Eye (3) | 2:No Refrain (1) | 2:Buster | 2:Meat | 2:Mar-Dema (1) | 2:Meat | 2:Silver Sun (1) | 2:Recreational Chemistry | 2:-raffle drawing/al.nouncements- | 2:Mexico
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Chromatic Nightmare (1,2)
+  2 1       1       tags           Not Coming Down >
+  3 1       1       tags           Wormwood >
+  4 1       1       tags           Interstellar Overdrive >
+  5 1       1       tags           Moth
+  6 1       1       tags           Suck A Lemon (1)
+  7 1       1       tags           Plane Crash
+  8 1       1       tags           Earache My Eye (3)
+  9 2       2       tags           No Refrain (1)
+ 10 2       2       tags           Buster
+ 11 2       2       tags           Meat >
+ 12 2       2       tags           Mar-Dema (1) >
+ 13 2       2       tags           Meat
+ 14 2       2       tags           Silver Sun (1) >
+ 15 2       2       tags           Recreational Chemistry
+ 16 2       2       tags           raffle drawing/al.nouncements
+ 17 encore  2       tags           Mexico
+====================================================================================================
+newridersofthepurplesage-2006-04-08 nrps2006-04-08.flac16 src= description alignment= llm ssrc= setlist.fm
+--- TEXT
+Disc 1
+
+Set 1: 
+1. Panama Red
+2. Sing Me a Rainbow
+3. Whatcha Gonna Do
+4. Contract
+5. I Don't Know You
+6. Garden of Eden
+7. Crooked Judge
+8. Sunday Suzie
+9. Louisiana Lady
+10.15 Days Under the Hood
+11.Dead Flowers
+
+Set 2: 
+1. Lonesome L.A. Cowboy
+2. Sutter's Mill
+
+Disc 2
+
+3. Take a Letter Maria
+4. One Too Many Stories
+5. Henry
+6. Lochinvar
+7. Let It Bleed
+8. Death & Destruction
+9. Portland Woman
+10.Runnin' Back to You
+11.Rainy Day Women #12 & 35
+12.Truck Drivin' Man
+13.Ripple*
+--- READER items: 1:Panama Red | 1:Sing Me a Rainbow | 1:Whatcha Gonna Do | 1:Contract | 1:I Don't Know You | 1:Garden of Eden | 1:Crooked Judge | 1:Sunday Suzie | 1:Louisiana Lady | 1:15 Days Under the Hood | 1:Dead Flowers | 2:Lonesome L.A. Cowboy | 2:Sutter's Mill | 2:Take a Letter Maria | 2:One Too Many Stories | 2:Henry | 2:Lochinvar | 2:Let It Bleed | 2:Death & Destruction | 2:Portland Woman | 2:Runnin' Back to You | 2:Rainy Day Women #12 & 35 | 2:Truck Drivin' Man | 2:Ripple
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Panama Red
+  2 1       1       tags           Sing Me a Rainbow
+  3 1       1       tags           Whatcha Gonna Do
+  4 1       1       tags           Contract
+  5 1       1       tags           I Don't Know You
+  6 1       1       tags           Garden of Eden
+  7 1       1       tags           Crooked Judge
+  8 1       1       tags           Sunday Suzie
+  9 1       1       tags           Louisiana Lady
+ 10 1       1       tags           15 Days Under the Hood
+ 11 1       1       tags           Dead Flowers
+ 12 2       2       tags           Lonesome L.A. Cowboy
+ 13 2       2       tags           Sutter's Mill
+ 14 2       2       tags           Take a Letter Maria
+ 15 2       2       tags           One Too Many Stories
+ 16 2       2       tags           Henry
+ 17 2       2       tags           Lochinvar
+ 18 2       2       tags           Let It Bleed
+ 19 2       2       tags           Death & Destruction
+ 20 2       2       tags           Portland Woman >
+ 21 2       2       tags           Runnin' Back to You >
+ 22 2       2       tags           Rainy Day Women #12 & 35
+ 23 encore  2       tags           Truck Drivin' Man
+ 24 encore  2       tags           Ripple * (w/Robert Hunter)
+====================================================================================================
+philleshandfriends-2005-02-12 phil2005-02-12.matrix.flac16 src= description alignment= jerrybase ssrc= lma:2005-02-12.paf.nak300.robr.28166.flacf
+--- TEXT
+Phil Lesh and Friends
+February 12, 2005
+Mardi Gras Spectacular
+Bill Graham Civic Auditorium
+San Francisco, CA
+
+Source: Matrix (SBD/AUD mixdown):
+SBD: DSBD - Official Release from www.phillesh.net (CDs mastered by Wizard) 
+AUD: Mbho603aHypers-> V3-> Neundo 24/96 Audiolink Multiset-> Sony PCG-C1VPK-> Wavelab 4.0 24bit 96kHz; Transfer: Wavelab 4.0->Apogee dithering algorithm 24bit 96kHz to 16bit 44.1kHz (Taped and transferred by Marty S|Jack Russel)
+
+ORIGINALLY TORRENTED AT http://tmnsp.net
+
+-----------------------------------------------------------------------------------------------------------
+
+DISC 1
+
+Set 1: 
+1)~^Party
+2) Playin' In The Band> 
+3) ~Carnival> Samson & Delilah tease> 
+4) Loose Lucy
+
+DISC 2
+
+1) ~Life Is A Carnival> 
+2) Jam> 
+3) *Cumberland Blues> 
+4) ~*Storm> 
+5) *Cumberland Blues Reprise> 
+6) ~*Goat> 
+7) *Uncle John's Band 
+8) ~@Do Right Woman
+9) @Bertha
+
+DISC 3
+
+Set 2: 
+1) ~#^Carnival Time> 
+2) #^Iko Iko 
+3) Sitting On Top Of The World 
+4) New Speedway Boogie> 
+5) ~Hurricane> 
+6) ~Below Radar> 
+7) ~You've Got To Hide Your Love Away> 
+8) Spacey Jam> Playin' Jam> 
+9) Playin' In The Band Reprise
+
+DISC 4 
+1) Don't Ease Me In 
+2) Scarlet Begonias
+3) ~Brown Sugar 
+4) ^After Midnight> 
+5) ^Midnight Hour 
+6) Donor Rap/Intros 
+7) *US Blues
+8) *Box Of Rain
+ 
+
+~1st time played
+Phil, Molo, Jimmy Herring (guitar)
+Chris Robinson (vocals, @aco guitar)
+Barry Sless (g, %pedal steel)
+Steve Molitz (k, from Particle)
+*Tim Carbone - violin (RRE) 
+*John Skehan - mandolin (RRE)
+*Todd Sheaffer - acoustic guitar (RRE)
+*Andy Goessling - sax, flute, dobro (RRE)
+*Carey Harmon - percussion (RRE)
+Gloria Jones & Jackie LaBranch - vocals (JGB) 
+^Theryl "Houseman" DeClouet - vocals (Galactic)
+#with Dancing procession and parade of 
+floats from UBC, DNC and Philzone.com
+
+-----------------------------------------------------------------------------------------------------------
+Notes:
+The soundboard was kept at its original strength, while the audience was slightly reduced in strength.  I kept the crowd as a pretty large factor, which is definitely appropriate for this show.  For synchronization, I used the audience recording as my benchmark.  The reason for this is that the transitions from disc 1 to disc 2 and from disc 3 to disc 4 in the audience recording are seamless, while on the board they are not.  The tracking, however, was done based on the soundboards, although the exact splits differ slightly.    
+Because I was working with two beautiful digital recordings, I saw no reason to edit the waveforms in any way, besides the cuts needed for synchronization.  
+The sound is very full, with very nice depth provided by the audience recording.  This is probably very close to what you would have experienced aurally if you had attended the show.  
+
+Thanks to Phil and his crew for the board and to Marty S for his much praised audience recording.  
+Thanks to the Internet Archive for both of the downloads.  
+
+-Ben Scott-Killian (shruggy1987)
+bscottk@gmail.com
+-----------------------------------------------------------------------------------------------------------
+
+FLAC info:
+FLAC level 6 encoding utilized
+--- READER items: 1:~^Party | 1:Playin' In The Band | 1:~Carnival | 1:Samson & Delilah tease | 1:Loose Lucy | 1:~Life Is A Carnival | 1:Jam | 1:Cumberland Blues | 1:~*Storm | 1:Cumberland Blues Reprise | 1:~*Goat | 1:Uncle John's Band | 1:~@Do Right Woman | 1:@Bertha | 2:~#^Carnival Time | 2:#^Iko Iko | 2:Sitting On Top Of The World | 2:New Speedway Boogie | 2:~Hurricane | 2:~Below Radar | 2:~You've Got To Hide Your Love Away | 2:Spacey Jam | 2:Playin' Jam | 2:Playin' In The Band Reprise | 2:Don't Ease Me In | 2:Scarlet Begonias | 2:~Brown Sugar | 2:^After Midnight | 2:^Midnight Hour | 2:US Blues | 2:Box Of Rain | 2:~1st time played | 2:Phil | 2:Molo | 2:Jimmy Herring (guitar) | 2:Chris Robinson (vocals | 2:@aco guitar) | 2:Barry Sless (g | 2:%pedal steel) | 2:Steve Molitz (k | 2:from Particle) | 2:Tim Carbone - violin (RRE) | 2:John Skehan - mandolin (RRE) | 2:Todd Sheaffer - acoustic guitar (RRE) | 2:Andy Goessling - sax | 2:flute | 2:dobro (RRE) | 2:Carey Harmon - percussion (RRE) | 2:Gloria Jones & Jackie LaBranch - vocals (JGB) | 2:^Theryl "Houseman" DeClouet - vocals (Galactic) | 2:#with Dancing procession and parade of | 2:floats from UBC | 2:DNC and Philzone.com | 2:Notes: | 2:Because I was working with two beautiful digital recordings | 2:I saw no reason to edit the waveforms in any way | 2:besides the cuts needed for synchronization. | 2:The sound is very full | 2:-Ben Scott-Killian (shruggy1987) | 2:bscottk@gmail.com
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Party
+  2 1       1       tags           Playin' In The Band>
+  3 1       1       tags           Carnival> Samson & Delilah tease>
+  4 1       1       tags           Loose Lucy
+  5 1       1       tags           Life Is A Carnival>
+  6 1       1       tags           Jam>
+  7 1       1       tags           Cumberland Blues>
+  8 1       1       tags           Storms>
+  9 1       1       tags           Cumberland Blues Reprise>
+ 10 1       1       tags           Goat>
+ 11 1       1       tags           Uncle John's Band
+ 12 1       1       tags           Do Right Woman
+ 13 1       1       tags           Bertha
+ 14 2       2       tags           Carnival Time>
+ 15 2       2       tags           Iko Iko
+ 16 2       2       tags           Sitting On Top Of The World
+ 17 2       2       tags           New Speedway Boogie>
+ 18 2       2       tags           Hurricane>
+ 19 2       2       tags           Below Radar>
+ 20 2       2       tags           You've Got To Hide Your Love Away>
+ 21 2       2       tags           Spacey Jam> Playin' Jam>
+ 22 2       2       tags           Playin' In The Band Reprise
+ 23 2       2       tags           Don't Ease Me In
+ 24 2       2       tags           Scarlet Begonias
+ 25 2       2       tags           Brown Sugar
+ 26 2       2       tags           After Midnight>
+ 27 2       2       tags           Midnight Hour
+ 28 encore  2       tags           Donor Rap/Intros
+ 29 encore  2       tags           US Blues
+ 30 encore  2       tags           Box Of Rain
+====================================================================================================
+philleshandfriends-2006-02-26 phil2006-02-26.nak701.nakguy.32554.sbeok.flac16 src= description alignment= deterministic ssrc= lma:phil2006-02-26.mk4.nbox.flac16
+--- TEXT
+Phil Lesh and Friends
+Tower Theatre
+Upper Darby, PA
+February 26, 2006
+
+Disc 1
+1. Jam
+2. Unbroken Chain
+3. Let it Grow
+4. Peggy-O
+5. Bird song
+6. Magnolia Mountain
+
+Disc 2
+1. Reuben and Cerise
+Set 2:
+2. Gimme Shelter
+3. Cryptical Envelopment
+4. St. Stephen
+5. Millenium Jam
+6. The Eleven
+7. Jam
+ 
+Disc 3
+1. Turn Around
+2. The Other One
+3. Dark Star
+4. Uncle Johns Band
+5. Not Fade Away
+6. donor / intros
+7. Franklins Tower
+--- READER items: 1:Phil Lesh and Friends | 1:Tower Theatre | 1:Upper Darby | 1:PA | 1:February 26 | 1:2006 | 1:Jam | 1:Unbroken Chain | 1:Let it Grow | 1:Peggy-O | 1:Bird song | 1:Magnolia Mountain | 1:Reuben and Cerise | 2:Gimme Shelter | 2:Cryptical Envelopment | 2:St. Stephen | 2:Millenium Jam | 2:The Eleven | 2:Jam | 2:Turn Around | 2:The Other One | 2:Dark Star | 2:Uncle Johns Band | 2:Not Fade Away | 2:Franklins Tower
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Jam
+  2 1       1       tags           Unbroken Chain
+  3 1       1       tags           Let it Grow
+  4 1       1       tags           Peggy-O
+  5 1       1       tags           Bird Song
+  6 1       1       tags           Magnolia Mountain
+  7 1       1       tags           Reuben and Cerise
+  8 2       2       tags           Gimme Shelter
+  9 2       2       tags           Cryptical Envelopment
+ 10 2       2       tags           St. Stephen
+ 11 2       2       tags           The Eleven
+ 12 2       2       tags           Jam
+ 13 2       2       tags           Turn Around
+ 14 2       2       tags           The Other One
+ 15 2       2       tags           Dark Star
+ 16 2       2       tags           Uncle JohnÃÂs Band
+ 17 2       2       tags           Not Fade Away
+ 18 2       2       tags           donor / introÃÂs
+ 19 encore  2       tags           FranklinÃÂs Tower
+====================================================================================================
+radiators-2007-03-30 rad2007-03-30.SBD.flac16 src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1 - 57:24
+Disc 1
+
+1- Tuning and Intro  * >
+2- Times ain't like they used to be * > Percussion * > Times ain't like they used to be * >
+3- Roll me over >
+4- Pipeline
+5- Ace in the Hole
+6- Death of the blues
+7- Alligator wine >
+8- Ling ting tong >
+9- Ooh Poo Pah doo (verse) >
+10- Chinatown >
+11- Ling ting tong
+12- Gimme a Rainbow
+13- Ooh Las Vegas
+
+Set 2 - 74:22
+Disc 2
+
+1- Tuning and Intro
+2- Total Evaporation >
+3- God don't never change (verse) >
+4- 19th Nervous Breakdown
+5- Stealin'
+6- Further on up the Road
+7- Raindancer >
+8- Lost Highway
+9- Lover of the Bayou
+10- City Lights >
+11- Seven Devil's
+12- Honey don't
+13- Blackjack >
+14- Somebody to Love >
+15- Jump into the fire >
+16- Time has come today (verse) >
+17- Jump into the fire
+
+Set 2 con't - 13:35
+Disc 3
+
+1- Callin um back
+2- You can't do that
+3- Drinkin wine spo-dee o'dee
+--- READER items: 1:2- Times ain't like they used to be | 1:Percussion | 1:Times ain't like they used to be | 1:3- Roll me over | 1:4- Pipeline | 1:5- Ace in the Hole | 1:6- Death of the blues | 1:7- Alligator wine | 1:8- Ling ting tong | 1:9- Ooh Poo Pah doo (verse) | 1:10- Chinatown | 1:11- Ling ting tong | 1:12- Gimme a Rainbow | 1:13- Ooh Las Vegas | 2:2- Total Evaporation | 2:3- God don't never change (verse) | 2:4- 19th Nervous Breakdown | 2:5- Stealin' | 2:6- Further on up the Road | 2:7- Raindancer | 2:8- Lost Highway | 2:9- Lover of the Bayou | 2:10- City Lights | 2:11- Seven Devil's | 2:12- Honey don't | 2:13- Blackjack | 2:14- Somebody to Love | 2:15- Jump into the fire | 2:16- Time has come today (verse) | 2:17- Jump into the fire | 2:Set 2 con't - 13:35 | 2:1- Callin um back | 2:2- You can't do that | 2:3- Drinkin wine spo-dee o'dee
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Tuning and Intro * >
+  2 1       1       tags           Times ain't like they used to be * > Percussion * > Times ain't like they used to be * >
+  3 1       1       tags           Roll me over >
+  4 1       1       tags           Pipeline
+  5 1       1       tags           Ace in the Hole
+  6 1       1       tags           Death of the blues
+  7 1       1       tags           Alligator wine >
+  8 1       1       tags           Ling ting tong >
+  9 1       1       tags           Ling ting tong
+ 10 1       1       tags           Gimme a Rainbow
+ 11 1       1       tags           Ooh Las Vegas
+ 12 1       1       tags           Tuning and Intro
+ 13 2       2       tags           Total Evaporation >
+ 14 2       2       tags           God don't never change (verse) >
+ 15 2       2       tags           19th Nervous Breakdown
+ 16 2       2       tags           Stealin'
+ 17 2       2       tags           Further on up the Road
+ 18 2       2       tags           Raindancer >
+ 19 2       2       tags           Lost Highway
+ 20 2       2       tags           Lover of the Bayou
+ 21 2       2       tags           City Lights >
+ 22 2       2       tags           Seven Devil's
+ 23 2       2       tags           Honey don't
+ 24 2       2       tags           Blackjack >
+ 25 2       2       tags           Somebody to Love >
+ 26 2       2       tags           Jump into the fire >
+ 27 2       2       tags           Jump into the fire
+ 28 2       2       tags           Callin um back
+ 29 encore  2       tags           You can't do that
+ 30 encore  2       tags           Drinkin wine spo-dee o'dee
+====================================================================================================
+radiators-2010-06-05 rad2010-06-05.2496 src= description alignment= llm ssrc= lma:rad2010-06-05.flac16
+--- TEXT
+Set One:
+01. tuning > Mackies intro>
+02. Barn Burner
+03. Back To Loveland
+04. Monkey Brain BBQ
+05. You Aint Goin' Nowhere
+06. Sunglasses On > Rockin Pneumonia And Boogie Woogie Flu
+07. Let The Red Wine Flow
+08. Chevrolet > Satisfaction > Chevrolet
+09. Rub It In
+10. The Last Time
+11. Gospel Plow >
+12. Devils Dream
+13. Kenny's outro
+
+Set Two:
+14. tuning > Kenny's intro > tuning 
+15. Summertime
+16. Mackies Farm 
+17. Alligator Wine > Guilded Splinters 
+18. Ring Of Fire
+19. Soul Of A Man 
+20. Further On Up the Road
+21. Sloop John B
+22. Not Fade Away > Mona > Bo Diddley > NFA
+23. Kenny, Todd & Mackie calls em' back
+24. Bring It On Home
+25. Smokin' Hole
+26. Train Kept A Rollin' / Kenny outro
+--- READER items: 1:Barn Burner | 1:Back To Loveland | 1:Monkey Brain BBQ | 1:You Aint Goin' Nowhere | 1:Sunglasses On | 1:Rockin Pneumonia And Boogie Woogie Flu | 1:Let The Red Wine Flow | 1:Chevrolet | 1:Satisfaction | 1:Chevrolet | 1:Rub It In | 1:The Last Time | 1:Gospel Plow | 1:Devils Dream | 2:Summertime | 2:Mackies Farm | 2:Alligator Wine | 2:Guilded Splinters | 2:Ring Of Fire | 2:Soul Of A Man | 2:Further On Up the Road | 2:Sloop John B | 2:Not Fade Away | 2:Mona | 2:Bo Diddley | 2:NFA | 2:Kenny | 2:Todd & Mackie calls em' back | 2:Bring It On Home | 2:Smokin' Hole
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           tuning > Mackies intro>
+  2 1       1       tags           Barn Burner
+  3 1       1       tags           Back To Loveland
+  4 1       1       tags           Monkey Brain BBQ
+  5 1       1       tags           You Aint Goin' Nowhere
+  6 1       1       tags           Sunglasses On > Rockin' Pneumonia And Boogie Woogie Flu
+  7 1       1       tags           Let The Red Wine Flow
+  8 1       1       tags           Chevrolet > Satisfaction > Chevrolet
+  9 1       1       tags           Rub It In
+ 10 1       1       tags           The Last Time
+ 11 1       1       tags           Gospel Plow >
+ 12 1       1       tags           Devils Dream
+ 13 2       2       tags           tuning > Kenny's intro > tuning
+ 14 2       2       tags           Summertime
+ 15 2       2       tags           Mackies Farm
+ 16 2       2       tags           Alligator Wine > Guilded Splinters
+ 17 2       2       tags           Ring Of Fire
+ 18 2       2       tags           Soul Of A Man
+ 19 2       2       tags           Further On Up the Road
+ 20 2       2       tags           Sloop John B
+ 21 2       2       tags           Not Fade Away > Mona > Bo Diddley > NFA
+ 22 encore  2       tags           Kenny, Todd & Mackie calls em' back
+ 23 encore  2       tags           Bring It On Home
+ 24 encore  2       tags           Smokin' Hole
+ 25 encore  2       tags           Train Kept A Rollin' / Kenny outro
+====================================================================================================
+railroadearth-2011-10-30 rre2011-10-30.flac16 src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+Set I
+1. Long Way To Go 
+2. Drag Him Down 
+3. Just So You Know 
+4. Lone Croft Farewell 
+5. The Hunting Song 
+6. Pulling the Devil by the Tail 
+7. Mighty River 
+8. 1759 
+9. Mourning Flies 
+
+ Set II
+1. Like a Buddha 
+2. Lordy, Lordy 
+3. Water Fountain Quicksand 
+4. Seven Story Mountain 
+5. Old Man and the Land 
+6. The Forecast 
+7. Warhead Boogie > 
+8. Gallows Pole (A) 
+9E.Wayfaring Stranger
+--- READER items: 1:Long Way To Go | 1:Drag Him Down | 1:Just So You Know | 1:Lone Croft Farewell | 1:The Hunting Song | 1:Pulling the Devil by the Tail | 1:Mighty River | 1:1759 | 1:Mourning Flies | 2:Like a Buddha | 2:Lordy | 2:Lordy | 2:Water Fountain Quicksand | 2:Seven Story Mountain | 2:Old Man and the Land | 2:The Forecast | 2:Warhead Boogie | 2:Gallows Pole (A) | 2:9E.Wayfaring Stranger
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Long Way To Go
+  2 1       1       tags           Drag Him Down
+  3 1       1       tags           Just So You Know
+  4 1       1       tags           Lone Croft Farewell
+  5 1       1       tags           The Hunting Song
+  6 1       1       tags           Pulling the Devil by the Tail
+  7 1       1       tags           Mighty River
+  8 1       1       tags           1759
+  9 1       1       tags           Mourning Flies
+ 10 2       2       tags           Like a Buddha
+ 11 2       2       tags           Lordy, Lordy
+ 12 2       2       tags           Water Fountain Quicksand
+ 13 2       2       tags           Seven Story Mountain
+ 14 2       2       tags           Old Man and the Land
+ 15 2       2       tags           The Forecast
+ 16 2       2       tags           Warhead Boogie >
+ 17 2       2       tags           Gallows Pole (A)
+ 18 encore  2       tags           Wayfaring Stranger
+====================================================================================================
+ratdog-2014-02-14 rd2014-02-14.mk4.edtyre src= description alignment= jerrybase ssrc= setlist.fm
+--- TEXT
+Set 1
+
+The Music Never Stopped >
+Shakey Ground > 
+Maggie's Farm > 
+Easy Answers
+Bird Song > 
+Cassidy
+Weather Report Suite Prelude/Part 1 >  
+Let It Grow
+
+Set 2
+
+Friend of the Devil@ > 
+Peggy-O@
+Looks Like Rain@ 
+Playin in the Band > Eyes of the World > 
+Standing on the Moon > 
+Two Djinn > 
+Not Fade Away
+E Ripple
+
+@ Acoustic
+--- READER items: 1:The Music Never Stopped | 1:Shakey Ground | 1:Maggie's Farm | 1:Easy Answers | 1:Bird Song | 1:Cassidy | 1:Weather Report Suite Prelude/Part 1 | 1:Let It Grow | 2:Friend of the Devil@ | 2:Peggy-O@ | 2:Looks Like Rain@ | 2:Playin in the Band | 2:Eyes of the World | 2:Standing on the Moon | 2:Two Djinn | 2:Not Fade Away | 2:E Ripple | 2:@ Acoustic
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           The Music Never Stopped >
+  2 1       1       tags           Shakey Ground >
+  3 1       1       tags           Maggie's Farm >
+  4 1       1       tags           Easy Answers
+  5 1       1       tags           Bird Song >
+  6 1       1       tags           Cassidy
+  7 1       1       tags           Weather Report Suite Prelude/Part 1 >
+  8 1       1       tags           Let It Grow
+  9 2       2       tags           Friend of the Devil@ >
+ 10 2       2       tags           Peggy-O@
+ 11 2       2       tags           Looks Like Rain@
+ 12 2       2       tags           Playin in the Band > Eyes of the World >
+ 13 2       2       tags           Standing on the Moon >
+ 14 2       2       tags           Two Djinn >
+ 15 2       2       tags           Not Fade Away
+ 16 encore  2       tags           Ripple
+====================================================================================================
+ryanadams-2008-01-25 radams2008-01-25.sbd.flac16 src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+Ryan Adams & The Cardinals
+Elsinore Theatre
+Salem, OR
+1/25/2008 
+
+Set 1
+(disc 1)
+1. Cold Roses
+2. Off Broadway
+3. Psilocinbird Sang 
+4. Beautiful Sorta
+5. The Rescue Blues
+6. The Sun Also Sets
+7. Everybody Knows
+8. Wonderwall
+9. Oh My Sweet Carolina
+10. When The Stars Go Blue
+11. Oh My God Whatever Etc...
+(disc 2)
+1. Goodnite Rose->
+2. Bartering Lines->
+3. The Wheels Are Dry Jam->
+4. I See Monsters
+
+
+Set 2
+5. Elizabeth
+6. Goodnite Hollywood Blvd.
+7. Magnolia Mountain->
+8. The End
+(disc3)
+1. Pearls On A String
+2. A Kiss Before I Go
+3. Let It Ride
+4. Easy Plateau
+--- READER items: 1:Cold Roses | 1:Off Broadway | 1:Psilocinbird Sang | 1:Beautiful Sorta | 1:The Rescue Blues | 1:The Sun Also Sets | 1:Everybody Knows | 1:Wonderwall | 1:Oh My Sweet Carolina | 1:When The Stars Go Blue | 1:Oh My God Whatever Etc... | 1:Goodnite Rose | 1:Bartering Lines | 1:The Wheels Are Dry Jam | 1:I See Monsters | 2:Elizabeth | 2:Goodnite Hollywood Blvd. | 2:Magnolia Mountain | 2:The End | 2:Pearls On A String | 2:A Kiss Before I Go | 2:Let It Ride | 2:Easy Plateau
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Cold Roses
+  2 1       1       tags           Off Broadway
+  3 1       1       tags           Psilocinbird Sang
+  4 1       1       tags           Beautiful Sorta
+  5 1       1       tags           The Rescue Blues
+  6 1       1       tags           The Sun Also Sets
+  7 1       1       tags           Everybody Knows
+  8 1       1       tags           Wonderwall
+  9 1       1       tags           Oh My Sweet Carolina
+ 10 1       1       tags           When The Stars Go Blue
+ 11 1       1       tags           Oh My God Whatever Etc
+ 12 1       1       tags           Goodnite Rose->
+ 13 1       1       tags           Bartering Lines->
+ 14 1       1       tags           The Wheels Are Dry Jam->
+ 15 1       1       tags           I See Monsters
+ 16 1       2       tags           Elizabeth
+ 17 1       2       tags           Goodnite Hollywood Blvd
+ 18 1       2       tags           Magnolia Mountain->
+ 19 1       2       tags           The End
+ 20 encore  2       tags           Pearls On A String
+ 21 encore  2       tags           A Kiss Before I Go
+ 22 encore  2       tags           Let It Ride
+ 23 encore  2       tags           Easy Plateau
+====================================================================================================
+ryanadams-2008-09-29 radams2008-09-29.radams2008-09-29.sbd.3-fan.flac16 src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+Ryan Adams and The Cardinals
+2008-09-29
+Columbus, OH  - Palace Theatre
+
+Ryan Adams - electric guitar, vocals
+Neal Casal - electric guitar, vocals
+Chris Feinstein - bass guitar, backing vocals
+Jon Graboff - pedal steel guitar, electric guitar, backing vocals
+Brad Pemberton - drums
+
+Taper: 3-Fan (de3x8in2001@yahoo.com
+Source: SBD > Edirol R-09HR (24/48)
+Conversion: SD > USB > Sound Forge 8.0 > CD Wave > Traders Little Helper (FLAC level 8)
+Format: 16bit, 44.1kHZ
+Editing: Sound Forge: normalization to peak (-0.2db), resample, dither; CD Wave: tracking
+
+SET ONE
+
+Intro
+Cobwebs
+Stars Go Blue
+Wonderwall
+Two
+La Cienga Just Smiled
+'banter'
+Fix It
+The Sun Also Sets
+Magick
+Remote Control (improv)
+Come Pick Me Up
+Goodnight Rose
+Evergreen >
+Bartering Lines
+'banter'
+Desire
+'banter'
+
+DISC 2 
+
+Natural Ghost
+'banter'
+Let It Ride
+
+SET TWO 
+
+'banter'
+Sinking Ships > 
+Crossed Out Name
+'banter'
+Afraid Not Scared > 
+Please Don't Let Me Go
+Everybody Knows
+Oh My God, Whatever, Etc.
+Rescue Blues
+'banter'
+Note to Self, Don't Die
+'banter'
+Dear Chicago
+Off Broadway
+--- READER items: 1:Cobwebs | 1:Stars Go Blue | 1:Wonderwall | 1:Two | 1:La Cienga Just Smiled | 1:Fix It | 1:The Sun Also Sets | 1:Magick | 1:Remote Control (improv) | 1:Come Pick Me Up | 1:Goodnight Rose | 1:Evergreen | 1:Bartering Lines | 1:Desire | 1:Natural Ghost | 1:Let It Ride | 2:Sinking Ships | 2:Crossed Out Name | 2:Afraid Not Scared | 2:Please Don't Let Me Go | 2:Everybody Knows | 2:Oh My God | 2:Whatever | 2:Etc. | 2:Rescue Blues | 2:Note to Self | 2:Don't Die | 2:Dear Chicago | 2:Off Broadway
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Cobwebs
+  2 1       1       tags           Stars Go Blue
+  3 1       1       tags           Wonderwall
+  4 1       1       tags           Two
+  5 1       1       tags           La Cienga Just Smiled
+  6 1       1       tags           banter'
+  7 1       1       tags           Fix It
+  8 1       1       tags           The Sun Also Sets
+  9 1       1       tags           Magick
+ 10 1       1       tags           Remote Control (improv)
+ 11 1       1       tags           Come Pick Me Up
+ 12 1       1       tags           Goodnight Rose
+ 13 1       1       tags           Evergreen >
+ 14 1       1       tags           Bartering Lines
+ 15 1       1       tags           banter'
+ 16 1       1       tags           Desire
+ 17 1       1       tags           banter'
+ 18 1       1       tags           Natural Ghost
+ 19 1       1       tags           banter'
+ 20 1       1       tags           Let It Ride
+ 21 1       2       tags           banter'
+ 22 1       2       tags           Sinking Ships >
+ 23 2       2       tags           Crossed Out Name
+ 24 2       2       tags           banter'
+ 25 2       2       tags           Afraid Not Scared >
+ 26 2       2       tags           Please Don't Let Me Go
+ 27 2       2       tags           Everybody Knows
+ 28 2       2       tags           Oh My God, Whatever, Etc
+ 29 2       2       tags           Rescue Blues
+ 30 2       2       tags           banter'
+ 31 2       2       tags           Note to Self, Don't Die
+ 32 2       2       tags           banter'
+ 33 2       2       tags           Dear Chicago
+ 34 encore  2       tags           Off Broadway
+====================================================================================================
+smashingpumpkins-1998-05-19 tsp1998-05-19.flac16 src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+1. To Sheila
+2. Tear
+3. Crest Fallen
+4. Once Upon A Time
+5. Ava Adore
+6. Shame
+7. Daphne Descends
+8. Let Me Give The World To You
+9. Perfect
+10. Tonight, Tonight
+11. The Tale of Dusty and Pistol Pete
+Set 2 	
+1. Stumbeline
+2. Bullet With Butterfly Wings
+3. 1979
+4. Thru The Eyes of Ruby
+5. For Martha
+6. Crowd Noise
+7. Transmission
+--- READER items: 1:To Sheila | 1:Tear | 1:Crest Fallen | 1:Once Upon A Time | 1:Ava Adore | 1:Shame | 1:Daphne Descends | 1:Let Me Give The World To You | 1:Perfect | 1:Tonight | 1:Tonight | 1:The Tale of Dusty and Pistol Pete | 2:Stumbeline | 2:Bullet With Butterfly Wings | 2:1979 | 2:Thru The Eyes of Ruby | 2:For Martha | 2:Transmission
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Intro
+  2 1       1       tags           To Sheila
+  3 1       1       tags           Tear
+  4 1       1       tags           Crest Fallen
+  5 1       1       tags           Once Upon A Time
+  6 1       1       tags           Ava Adore
+  7 1       1       tags           Shame
+  8 1       1       tags           Daphne Descends
+  9 1       1       tags           Let Me Give The World To You
+ 10 2       1       tags           Perfect
+ 11 2       1       tags           Tonight, Tonight
+ 12 2       1       tags           The Tale of Dusty and Pistol Pete
+ 13 2       2       tags           Stumbeline
+ 14 3       2       tags           Bullet With Butterfly Wings
+ 15 3       2       tags           Thru The Eyes of Ruby
+ 16 3       2       tags           For Martha
+ 17 3       2       tags           Crowd Noise
+ 18 encore  2       tags           Transmission
+====================================================================================================
+soundtribesector9-2003-11-01 sts9-2003-11-01 src= description alignment= llm ssrc= setlist.fm
+--- TEXT
+Set 1: l1nqs>, Circus, Gobnugget, Surreality, Today, King Pharoh's Tomb, Tricon, Dance
+Set 2: ISB, ASAA, Grow, Not in our name, Baraka, 4 year puma, Jebez, Just thanks,-e- Freq.1>2
+--- READER items: 1:l1nqs | 1:Circus | 1:Gobnugget | 1:Surreality | 1:Today | 1:King Pharoh's Tomb | 1:Tricon | 1:Dance | 2:ISB | 2:ASAA | 2:Grow | 2:Not in our name | 2:Baraka | 2:4 year puma | 2:Jebez | 2:Just thanks | 2:-e- Freq.1 | 2:2
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Circus
+  2 1       1       tags           Gobnugget
+  3 1       1       tags           Surreality
+  4 1       1       tags           Today
+  5 1       1       tags           King Pharoh's Tomb
+  6 1       1       tags           Tricon
+  7 1       1       tags           Dance
+  8 2       2       tags           ISB
+  9 2       2       tags           ASAA
+ 10 2       2       tags           Grow
+ 11 2       2       tags           Not in Our Name
+ 12 2       2       tags           Baraka
+ 13 2       2       tags           Four Year Puma
+ 14 2       2       tags           Jebez
+ 15 2       2       tags           Just Thanks
+ 16 encore  2       tags           Freq 1 > 2
+====================================================================================================
+soundtribesector9-2004-03-04 sts9-2004-03-04 src= description alignment= llm ssrc= setlist.fm
+--- TEXT
+Set 1
+Freq. 2>3, Movments>4 My Peeps, Mishchief of a Sleepwalker, We'll Meet In Our Dreams, STS9, From Now On, Glogli
+Set 2
+Grow, Luma Daylight, What Is Love, Tokyo, Circus, Rilly Wut, And Some Are Angels
+--- READER items: 1:Freq. 2 | 1:3 | 1:Movments | 1:4 My Peeps | 1:Mishchief of a Sleepwalker | 1:We'll Meet In Our Dreams | 1:STS9 | 1:From Now On | 1:Glogli | 2:Grow | 2:Luma Daylight | 2:What Is Love | 2:Tokyo | 2:Circus | 2:Rilly Wut | 2:And Some Are Angels
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Freq. 2 > Freq. 3
+  2 1       1       tags           Movements > 4 My Peeps
+  3 1       1       tags           Mischief of a Sleepwalker
+  4 1       1       tags           We'll Meet In Our Dreams
+  5 1       1       tags           STS9
+  6 1       1       tags           From Now On
+  7 1       1       tags           Glogli
+  8 2       2       tags           Grow
+  9 2       2       tags           Luma Daylight
+ 10 2       2       tags           What is Love?
+ 11 2       2       tags           Tokyo
+ 12 2       2       tags           Circus
+ 13 2       2       tags           Rilly Wut?
+ 14 encore  2       tags           And Some Are Angels
+====================================================================================================
+soundtribesector9-2004-06-25 sts9-2004-06-25 src= description alignment= llm ssrc= setlist.fm
+--- TEXT
+Set One: Just Thanks, Posiedon, STS9, Mobsters>Surrealty>EB, Improv F, Baraka
+Set Two: Tap In, Glogli, What is Love, LSB, Moonsocket, Orbital  E~ Water Song
+
+--- READER items: 1:Just Thanks | 1:Posiedon | 1:STS9 | 1:Mobsters | 1:Surrealty | 1:EB | 1:Improv F | 1:Baraka | 2:Tap In | 2:Glogli | 2:What is Love | 2:LSB | 2:Moonsocket | 2:Orbital  E~ Water Song
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Poseidon
+  2 1       1       tags           STS9
+  3 1       1       tags           Today
+  4 1       1       tags           Mobsters >
+  5 1       1       tags           Surrealty > EB
+  6 1       1       tags           Improv
+  7 1       1       tags           Baraka
+  8 2       2       tags           Tap In
+  9 2       2       tags           GLOgli
+ 10 2       2       tags           What is Love?
+ 11 2       2       tags           Life's Sweet Breath
+ 12 2       2       tags           Moon Socket >
+ 13 2       2       tags           Orbital
+ 14 encore  2       tags           Water Song
+====================================================================================================
+soundtribesector9-2004-10-31 sts9-2004-10-31 src= description alignment= llm ssrc= setlist.fm
+--- TEXT
+Set 1*:Intro, Peoples, Arigato, Artifact, 102.4, Since 7th, Providing Sun, Glogli,Bwanf>Sift 5,Forest Hu ,Havona Ascent, Improv,Jebez (v. 2.0)
+
+Set 2: Ramone & Emiglio, And Some Are Angels, Inspire Strikes Back, Be Pulse, Orbital, Crystal Instrument, Kamuy, Tap In, E~ Twilight, Really Wut
+--- READER items: 1:Peoples | 1:Arigato | 1:Artifact | 1:102.4 | 1:Since 7th | 1:Providing Sun | 1:Glogli | 1:Bwanf | 1:Sift 5 | 1:Forest Hu | 1:Havona Ascent | 1:Improv | 1:Jebez (v. 2.0) | 2:Ramone & Emiglio | 2:And Some Are Angels | 2:Inspire Strikes Back | 2:Be Pulse | 2:Orbital | 2:Crystal Instrument | 2:Kamuy | 2:Tap In | 2:E~ Twilight | 2:Really Wut
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Peoples%
+  2 1       1       tags           Arigato
+  3 1       1       tags           Artifact%
+  4 1       1       setlist        102.4
+  5 1       1       tags           Since 7th
+  6 1       1       tags           Providing Sun
+  7 1       1       tags           Glogli
+  8 1       1       tags           Bwanf>Sift 5
+  9 1       1       tags           Havona Ascent
+ 10 1       1       tags           Improv%
+ 11 1       1       tags           Jebez (v. 2.0)
+ 12 2       2       tags           Ramone & Emiglio
+ 13 2       2       tags           And Some Are Angels
+ 14 2       2       tags           Inspire Strikes Back
+ 15 2       2       tags           Be Pulse
+ 16 2       2       tags           Orbital
+ 17 2       2       tags           Crystal Instrument
+ 18 2       2       tags           Evasive/Kamuy
+ 19 2       2       tags           Tap In
+ 20 encore  2       tags           Twilight
+ 21 encore  2       tags           Really Wut?
+ 22 encore  2       tags           Filler-Telefon Tel Aviv***
+====================================================================================================
+tedeschitrucksband-2018-02-09 ttb2018-02-09 src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+Set One<br /><br />01. Don't Let Me Slide<br />02. Laugh About It<br />03. Bird On The Wire<br />04. Part of Me<br />05. Sky Is Crying<br />06. Crying Over You<br />07. Don't Think Twice, It's All Right<br />08. Drums > Let Me Get By<br /><br />
+Set Two<br /><br />09. Statesboro Blues<br />10. Don't Know What It Means<br />11. Midnight in Harlem<br />12. Just as Strange<br />13. Goin' Down Slow<br />14. Shame <br />15. I Wish I Knew (How It Would Feel To Be Free)<br />16. You Don't Know How It Feels<br />17. Space Captain
+--- READER items: 1:Don't Let Me Slide | 1:Laugh About It | 1:Bird On The Wire | 1:Part of Me | 1:Sky Is Crying | 1:Crying Over You | 1:Don't Think Twice | 1:It's All Right | 1:Drums | 1:Let Me Get By | 2:Statesboro Blues | 2:Don't Know What It Means | 2:Midnight in Harlem | 2:Just as Strange | 2:Goin' Down Slow | 2:Shame | 2:I Wish I Knew (How It Would Feel To Be Free) | 2:You Don't Know How It Feels | 2:Space Captain
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Don't Let Me Slide
+  2 1       1       tags           Laugh About It
+  3 1       1       tags           Bird On The Wire
+  4 1       1       tags           Part of Me
+  5 1       1       tags           Sky Is Crying
+  6 1       1       tags           Crying Over You
+  7 1       1       tags           Don't Think Twice, It's All Right
+  8 1       1       tags           Drums > Let Me Get By
+  9 2       2       tags           Statesboro Blues
+ 10 2       2       tags           Don't Know What It Means
+ 11 2       2       tags           Midnight in Harlem
+ 12 2       2       tags           Just as Strange
+ 13 2       2       tags           Goin' Down Slow
+ 14 2       2       tags           Shame
+ 15 2       2       tags           I Wish I Knew How It Would Feel To Be Free
+ 16 encore  2       tags           You Don't Know How It Feels
+ 17 encore  2       tags           Space Captain
+====================================================================================================
+thedead-2009-04-21 TheDead2009-04-21.TheDead09-04-21_AKG568_LaPorte_16bitFLAC src= description alignment= jerrybase ssrc= setlist.fm
+--- TEXT
+Set 1:
+01 Tuning
+02 Promised Land
+03 The Love Each Other
+04 Mama Tried
+05 Loser
+06 Smokestack Lightning
+07 Stella Blue
+08 All Over Now
+09 Big River
+
+Set 2:
+01 Tuning
+02 Playin' in the Band
+03 Me and Bobby McGee
+04 Loose Lucy
+05 Ramble on Rose
+06 Drums
+07 Space
+08 Maggie's Farm
+09 Eyes of the World
+10 Playin' Reprise
+11 donor rap
+12 Truckin'
+--- READER items: 1:Promised Land | 1:The Love Each Other | 1:Mama Tried | 1:Loser | 1:Smokestack Lightning | 1:Stella Blue | 1:All Over Now | 1:Big River | 2:Playin' in the Band | 2:Me and Bobby McGee | 2:Loose Lucy | 2:Ramble on Rose | 2:Drums | 2:Space | 2:Maggie's Farm | 2:Eyes of the World | 2:Playin' Reprise | 2:donor rap | 2:Truckin'
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Promised Land
+  2 1       1       tags           The Love Each Other
+  3 1       1       tags           Mama Tried
+  4 1       1       tags           Loser
+  5 1       1       tags           Smokestack Lightning
+  6 1       1       tags           Stella Blue
+  7 1       1       tags           All Over Now
+  8 1       1       tags           Big River
+  9 2       2       tags           Playin' in the Band
+ 10 encore  2       tags           Me and Bobby McGee
+ 11 encore  2       tags           Loose Lucy
+ 12 encore  2       tags           Ramble on Rose
+ 13 encore  2       tags           Drums
+ 14 encore  2       tags           Space
+ 15 encore  2       tags           Maggie's Farm
+ 16 encore  2       tags           Eyes of the World
+ 17 encore  2       tags           Playin' Reprise
+ 18 encore  2       tags           donor rap
+ 19 encore  2       tags           Truckin'
+====================================================================================================
+thedead-2009-04-22 thedead2009-04-22.krall src= description alignment= jerrybase ssrc= setlist.fm
+--- TEXT
+The Dead
+April 22, 2009
+Wachovia Arena
+Wilkes-Barre, PA 
+
+Source: CMXY4V > Mini Me > 722 (24/96)   
+Location: OTS @  10'
+Transfer: Compact Flash > vegas > CDWave > FLAC  
+   
+
+Recorded & uploaded by Robert Krall
+
+ 
+
+Set One
+ 
+01.Jam > Mr. Charlie
+02.Stagger Lee
+03.Liberty
+04.Candyman
+05.Me & My Uncle
+06.Built to Last
+07.Tennessee Jed
+08.Dire Wolf
+
+Set 2 
+
+01.Golden Road to Unlimited Devotion >
+02.Revolution
+03.Weather Report Suite >
+04.Iko-Iko >
+05.Rhythm Devils >space
+06.Caution >Jam >
+07.So Many Roads >
+08.Midnight Hour
+09.Box of Rain
+--- READER items: 1:Jam | 1:Mr. Charlie | 1:Stagger Lee | 1:Liberty | 1:Candyman | 1:Me & My Uncle | 1:Built to Last | 1:Tennessee Jed | 1:Dire Wolf | 2:Golden Road to Unlimited Devotion | 2:Revolution | 2:Weather Report Suite | 2:Iko-Iko | 2:Rhythm Devils | 2:space | 2:Caution | 2:Jam | 2:So Many Roads | 2:Midnight Hour | 2:Box of Rain
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Jam > Mr. Charlie
+  2 1       1       tags           Stagger Lee
+  3 1       1       tags           Liberty
+  4 1       1       tags           Candyman
+  5 1       1       tags           Me & My Uncle
+  6 1       1       tags           Built to Last
+  7 1       1       tags           Tennessee Jed
+  8 1       1       tags           Dire Wolf
+  9 2       2       tags           Golden Road to Unlimited Devotion >
+ 10 2       2       tags           Revolution
+ 11 2       2       tags           Weather Report Suite >
+ 12 2       2       tags           Iko-Iko >
+ 13 2       2       tags           Rhythm Devils >space
+ 14 2       2       tags           Caution >Jam >
+ 15 2       2       tags           So Many Roads >
+ 16 2       2       tags           Midnight Hour
+ 17 encore  2       tags           Box of Rain
+====================================================================================================
+thedead-2009-04-28 thedead2009-04-28.krall.flac16 src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+The Dead
+April 28, 2009
+IZOD Center
+East Rutherford,NJ 
+
+Source: MK2 > CMC6XT (dina) + Kmr81i (A,B) > SX-PR > 722 (24/96)   
+Location: OTS @  10'
+Transfer: Compact Flash > vegas > CDWave > FLAC  
+   
+
+Recorded by Robert Krall & Scott Reese
+
+ 
+ 
+
+FIRST SET:
+ 
+01.US Blues  
+02.Scarlet Begonias 
+03.Fire on the Mountain* 
+04.Bird Song*  
+05.Stranger* 
+06.High Time 
+07.Lovelight* 
+   
+  
+
+SECOND SET:
+
+01.New Potato caboose* >
+02.Estimated Prophet* >
+03.Milestones* >
+04.drums > space* > 
+05.Dear Mr. fantasy* > 
+06.Dark Star* (second verse) 
+07.Eyes of the world*
+08.Franklin's Tower*
+ 
+
+* = with Branford Marsalis
+--- READER items: 1:US Blues | 1:Scarlet Begonias | 1:Fire on the Mountain | 1:Bird Song | 1:Stranger | 1:High Time | 1:Lovelight | 2:New Potato caboose | 2:Estimated Prophet | 2:Milestones | 2:drums | 2:space | 2:Dear Mr. fantasy | 2:Dark Star* (second verse) | 2:Eyes of the world | 2:Franklin's Tower | 2:= with Branford Marsalis
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           US Blues
+  2 1       1       tags           Scarlet Begonias
+  3 1       1       tags           Fire on the Mountain*
+  4 1       1       tags           Bird Song*
+  5 1       1       tags           Stranger*
+  6 1       1       tags           High Time
+  7 1       1       tags           Lovelight*
+  8 2       2       tags           New Potato caboose* >
+  9 2       2       tags           Estimated Prophet* >
+ 10 2       2       tags           Milestones* >
+ 11 2       2       tags           drums > space* >
+ 12 2       2       tags           Dear Mr. fantasy* >
+ 13 2       2       tags           Dark Star* (second verse)
+ 14 2       2       tags           Eyes of the world*
+ 15 encore  2       tags           Franklin's Tower*
+====================================================================================================
+thedead-2009-05-10 TheDead2009-05-10 src= description alignment= jerrybase ssrc= setlist.fm
+--- TEXT
+The Dead
+Shoreline Amphitheater
+Mountain View, CA
+May 10, 2009
+
+Source: FOB Nakamichi 701’s -> Luminous Audio P/S -> Korg MR-1 (1bit/2.8MHz DSD)
+
+Transfer: Korg MR-1 -> AudioGate (16/44) -> CD Wave -> FLAC
+
+Disc 1
+1. Help on The Way
+2. Slipknot
+3. Franklin’s Tower
+4. Good Lovin'
+5. Cassidy
+6. Bird Song
+7. Uncle John’s Band
+
+Disc 2
+Set 2:
+1. crowd, tuning
+2. Unbroken Chain
+3. The Other One
+4. Drums (with fire dancers)
+5. Space
+
+Disc 3
+1. Sugaree
+2. Gimme Shelter
+3. Sugar Magnolia
+4. donor
+5. St. Stephen
+6. The Eleven
+7. Touch of Grey
+--- READER items: 1:The Dead | 1:Shoreline Amphitheater | 1:Mountain View | 1:CA | 1:May 10 | 1:2009 | 1:Help on The Way | 1:Slipknot | 1:Franklin’s Tower | 1:Good Lovin' | 1:Cassidy | 1:Bird Song | 1:Uncle John’s Band | 2:Unbroken Chain | 2:The Other One | 2:Drums (with fire dancers) | 2:Space | 2:Sugaree | 2:Gimme Shelter | 2:Sugar Magnolia | 2:donor | 2:St. Stephen | 2:The Eleven | 2:Touch of Grey
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Help on The Way
+  2 1       1       tags           Franklin�s Tower
+  3 1       1       tags           Good Lovin'
+  4 1       1       tags           Cassidy
+  5 1       1       tags           Bird Song
+  6 1       1       tags           Uncle John�s Band
+  7 2       2       tags           Unbroken Chain
+  8 2       2       tags           The Other One
+  9 2       2       tags           Drums (with fire dancers)
+ 10 2       2       tags           Space
+ 11 2       2       tags           Sugaree
+ 12 2       2       tags           Gimme Shelter
+ 13 2       2       tags           Sugar Magnolia
+ 14 encore  2       tags           St. Stephen
+ 15 encore  2       tags           The Eleven
+ 16 encore  2       tags           Touch of Grey
+====================================================================================================
+thedead-2009-05-16 thedead2009-05-16.flac16 src= description alignment= jerrybase ssrc= setlist.fm
+--- TEXT
+set I
+1.tuning
+2.the music never stopped
+3.loose lucy
+4.crazy fingers
+5.dark star (1st v.)
+6.dire wolf
+7.tom thumb blues
+8.into the mystic
+9.man smart, woman smarter
+
+set II
+1.tuning
+2.passenger>
+3.hell in a bucket
+4.althea
+5.eyes of the world>
+6.drumz>
+7.space>
+8.days between>
+9.dark star (2nd v.)
+10.one more saturday night
+11.crowd-phil speaks
+12.box of rain
+13.crew intros
+--- READER items: 1:the music never stopped | 1:loose lucy | 1:crazy fingers | 1:dark star (1st v.) | 1:dire wolf | 1:tom thumb blues | 1:into the mystic | 1:man smart | 1:woman smarter | 2:passenger | 2:hell in a bucket | 2:althea | 2:eyes of the world | 2:drumz | 2:space | 2:days between | 2:dark star (2nd v.) | 2:one more saturday night | 2:box of rain
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           the music never stopped
+  2 1       1       tags           loose lucy
+  3 1       1       tags           crazy fingers
+  4 1       1       tags           dark star (1st v.)
+  5 1       1       tags           dire wolf
+  6 1       1       tags           tom thumb blues
+  7 1       1       tags           into the mystic
+  8 1       1       tags           man smart, woman smarter
+  9 2       2       tags           passenger>
+ 10 2       2       tags           hell in a bucket
+ 11 2       2       tags           althea
+ 12 2       2       tags           eyes of the world>
+ 13 2       2       tags           drumz>
+ 14 2       2       tags           space>
+ 15 2       2       tags           days between>
+ 16 2       2       tags           dark star (2nd v.)
+ 17 2       2       tags           one more saturday night
+ 18 encore  2       tags           crowd-phil speaks
+ 19 encore  2       tags           box of rain
+====================================================================================================
+thedead-2015-06-28 GD2015-06-28.FareTheeWell src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+Fare Thee Well: Celebrating 50 Years Of The Grateful Dead
+Levi's Stadium
+Santa Clara, CA
+June 28, 2015
+
+Source: Schoeps MK4's>Schoeps CMR's>Naiant PFA>Edirol UA-5 (BM2p+)>Edirol R-09HR
+Transfer: SDHC>Adobe Audition>Cakewalk pyro>.WAV>FLAC (5)
+Location: OTS ~ 10'
+
+Set 1
+
+Tuning
+Feel Like A Stranger
+Minglewood Blues
+Brown-Eyed Women
+Loose Lucy
+Loser
+Row Jimmy
+Alabama Getaway
+Black Peter
+Hell In A Bucket
+
+Set 2
+
+Tuning
+Mississippi Half-Step Uptown Toodeloo
+Wharf Rat
+Eyes Of The World
+He's Gone
+Drums>Space
+I Need A Miracle
+Death Don't Have No Mercy
+Sugar Magnolia
+Brokedown Palace
+--- READER items: 1:Feel Like A Stranger | 1:Minglewood Blues | 1:Brown-Eyed Women | 1:Loose Lucy | 1:Loser | 1:Row Jimmy | 1:Alabama Getaway | 1:Black Peter | 1:Hell In A Bucket | 2:Mississippi Half-Step Uptown Toodeloo | 2:Wharf Rat | 2:Eyes Of The World | 2:He's Gone | 2:Drums | 2:Space | 2:I Need A Miracle | 2:Death Don't Have No Mercy | 2:Sugar Magnolia | 2:Brokedown Palace
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Feel Like A Stranger
+  2 1       1       tags           Minglewood Blues
+  3 1       1       tags           Brown-Eyed Women
+  4 1       1       tags           Loose Lucy
+  5 1       1       tags           Loser
+  6 1       1       tags           Row Jimmy
+  7 1       1       tags           Alabama Getaway
+  8 1       1       tags           Black Peter
+  9 1       1       tags           Hell In A Bucket
+ 10 2       2       tags           Mississippi Half-Step Uptown Toodeloo
+ 11 2       2       tags           Wharf Rat
+ 12 2       2       tags           Eyes Of The World
+ 13 2       2       tags           He's Gone
+ 14 2       2       tags           Drums>Space
+ 15 2       2       tags           I Need A Miracle
+ 16 2       2       tags           Death Don't Have No Mercy
+ 17 2       2       tags           Sugar Magnolia
+ 18 encore  2       tags           Brokedown Palace

@@ -1,0 +1,313 @@
+noC CVB2003-01-18late desc read=True as=True lib=None
+   prev=['CVB 1-18-03 Late Show', 'The Abbey Pub Chicago Il.']
+   LINE='Set 1 Disc 1'
+   next=['01,Intro', '02,Abundance', "03,O'Death"]
+noC CVB2003-01-18late desc read=True as=True lib=None
+   prev=['18,Pictures Of Matchstick Men', '19,Tusk']
+   LINE='Set 2 Disc 2'
+   next=['01,Flowers', '02,Down & Out', '03,Cowboys From Hollywood']
+noC RD2007-11-17.aud desc read=True as=True lib=ratdog-2007-11-17
+   prev=['05 Eyes of the World>', '']
+   LINE='set 2 disc 3:'
+   next=['01 >stuff>', '02 Sugaree>', '03 Dark Star (verse 2)>']
+noC aru2006-11-10.184.flac16 desc read=True as=True lib=aquariumrescueunit-2006-11-10
+   prev=['', '']
+   LINE='set one/disc one:'
+   next=['', '', '']
+noC aru2006-11-10.184.flac16 desc read=True as=True lib=aquariumrescueunit-2006-11-10
+   prev=['', '']
+   LINE='set two/disc two:'
+   next=['', '', '']
+noC bfft1996-11-09.flac16 desc read=True as=True lib=belafleckandtheflecktones-1996-11-09
+   prev=[]
+   LINE='Disc 1: Set I'
+   next=['01. ?', '02. ?', '03. Cheeseballs in Cowtown']
+noB bfft2003-04-12.shnf desc read=True as=True lib=belafleckandtheflecktones-2003-04-12
+   prev=['7.\tCheeseballs in Cowtown', '']
+   LINE='Disc 2 - Set II...'
+   next=['--------------------', '1.\tDm 5/4', '2.\tNatalie McMaster Tune']
+noC bgug2008-04-04 desc read=True as=False lib=bluegroundundergrass-2008-04-04
+   prev=[]
+   LINE='Disc 1 Set 1'
+   next=['Happy Birthday>You get a line,', 'Thirsty In The Rain??', 'Mr. Lunchbox?? >']
+noC dead2004-07-25.AKG414B.flac16 desc read=True as=True lib=None
+   prev=['Drums', '']
+   LINE='Disc Three, Set 2, cont.'
+   next=['', 'Jam>Lucy in the Sky >', 'Going Down The Road Feeling Bad >']
+noC dead2015-11-17 desc read=True as=True lib=deadandcompany-2015-11-17
+   prev=['', '']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC dead2015-11-17 desc read=True as=True lib=deadandcompany-2015-11-17
+   prev=['', '']
+   LINE='Disc II 2nd Set'
+   next=['', '', '']
+noC dead2018-06-16.ccm4v.flac16 desc read=True as=False lib=deadandcompany-2018-06-16
+   prev=['', '']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC deadco2017-11-28.SchoepsCCM4V desc read=True as=False lib=None
+   prev=['']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC deadco2017-11-28.SchoepsCCM4V desc read=True as=False lib=None
+   prev=['', '']
+   LINE='Disc II 2nd Set'
+   next=['', '', '']
+noC deadco2017-11-28.SchoepsCCM4V desc read=True as=False lib=None
+   prev=['', '']
+   LINE='Disc III 1st Set'
+   next=['', '', '']
+noC deadco2023-07-02 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC deadco2023-07-02 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc II 2nd Set'
+   next=['', '', '']
+noC deadco2023-07-03 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC deadco2023-07-03 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc II 2nd Set'
+   next=['', '', '']
+noC dso2008-11-16.mstc.flac16 desc read=True as=True lib=None
+   prev=[]
+   LINE='set 1/Disc 1'
+   next=['~ (arrived late, missed Mississippi Half Step->) ~', '1. It Must Have Been The Roses (partial) ->', '2. Jack Straw']
+noC gb2010-03-26.dsbd.flac16 desc read=True as=True lib=greenskybluegrass-2010-03-26
+   prev=[]
+   LINE='Disc I, Set I'
+   next=['01. {{Freeborn Man}} removed', "02. {{Can't Make Time}} removed", '03. Radio Blues']
+noC gd1966-12-01.sbd.32800.shnf desc read=True as=True lib=gratefuldead-1966-12-01
+   prev=[]
+   LINE='Set 1/Disk 1:'
+   next=['', '', '']
+noC gd1966-12-01.sbd.32800.shnf desc read=True as=True lib=gratefuldead-1966-12-01
+   prev=['', '']
+   LINE='Set 2/Disk 2:'
+   next=['', '', '']
+noC gd1966-12-01.sbd.32800.shnf desc read=True as=True lib=gratefuldead-1966-12-01
+   prev=['', '']
+   LINE='Set 3/Disk 3:'
+   next=['', '', '']
+noC gd1979-11-02.sbd.unknown.4672.shnf desc read=True as=False lib=None
+   prev=[]
+   LINE='Set 1/Disc 1'
+   next=['*gd79-11-02_d1t01_Mississippi Half Step.shn (cut into)', '*gd79-11-02_d1t02_Franklins Tower.shn', '*gd79-11-02_d1t03_El Paso.shn']
+noC gd1979-11-02.sbd.unknown.4672.shnf desc read=True as=False lib=None
+   prev=['*gd79-11-02_d1t08_Deal.shn', '']
+   LINE='Set 2/Disc 2'
+   next=['*gd79-11-02_d2t01_Tuning.shn', '*gd79-11-02_d2t02_I Need A Miracle.shn', '*gd79-11-02_d2t03_Bertha.shn']
+noC gd1979-11-02.sbd.unknown.4672.shnf desc read=True as=False lib=None
+   prev=['*gd79-11-02_d2t06_Drums.shn', '']
+   LINE='Set 2/Disc 3'
+   next=['*gd79-11-02_d3t01_Jam.shn', '*gd79-11-02_d3t02_Not Fade Away.shn', '*gd79-11-02_d3t03_Stella Blue.shn']
+noC grateful2015-07-05.flac16 desc read=True as=True lib=thedead-2015-07-05
+   prev=["08 Throwin' Stones", '']
+   LINE='Disc II 2nd Set'
+   next=['', '01 *Jam >', "02 *Truckin' >"]
+noC jrad2013-12-27 desc read=True as=False lib=None
+   prev=['', '']
+   LINE='Disc/Set 1:'
+   next=['', '', '']
+noB jrad2017-04-29.ccm41_flac16 desc read=True as=False lib=None
+   prev=['', '']
+   LINE='Set 1 (8:39PM - 10:17PM)'
+   next=['', '', '']
+noB jrad2017-04-29.mk22_flac16 desc read=True as=False lib=None
+   prev=['', '']
+   LINE='Set 1 (8:39PM - 10:17PM)'
+   next=['', '', '']
+noB jrad2017-04-29.mk4_flac16 desc read=True as=False lib=None
+   prev=['', '']
+   LINE='Set 1 (8:39PM - 10:17PM)'
+   next=['', '', '']
+noC jrad2018-02-15.flac16 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC jrad2018-03-10.flac16 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC jrad2018-03-10.flac16 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc II 2nd Set'
+   next=['', '', '']
+noC jrad2019-04-19 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc II 2nd Set'
+   next=['', '', '']
+noB jrad2020-02-22.aud.c480b.ck63.mkh8040.nico11104.fl desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Set One (8:15PM - 9:29PM)'
+   next=['', '', '']
+noC jrad2021-05-30 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC jrad2021-05-30 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc II 2nd Set'
+   next=['', '', '']
+noC jrad2021-06-18 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC jrad2021-06-18 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc II 2nd Set'
+   next=['', '', '']
+noC jrad2024-02-10.z desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC jrad2024-02-10.z desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc II 2nd Set'
+   next=['', '', '']
+noC lknb2006-05-05.matrix.flac16 desc read=True as=True lib=larrykeel-2006-05-05
+   prev=['============']
+   LINE='Set I Disc I'
+   next=['============', '', '01) Intro']
+noC lknb2006-05-05.matrix.flac16 desc read=True as=True lib=larrykeel-2006-05-05
+   prev=['', '==============']
+   LINE='Set II Disc II'
+   next=['==============', '', '01) Intro']
+noC moe2005-11-26.483 desc read=True as=True lib=None
+   prev=['05. Head', '']
+   LINE='~Disc 3: Set 2(Cont.)~'
+   next=['', '01. 32 Things >>>', '02. Jingle Bells tease >>>']
+noC moe2005-12-31.483.v3 desc read=True as=True lib=None
+   prev=[]
+   LINE='~Disc 1: Set 1~'
+   next=['', '', '']
+noC moe2005-12-31.483.v3 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='~Disc 2: Set 2~'
+   next=['', '', '']
+noC moe2005-12-31.483.v3 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='~Disc 3: Set 3~'
+   next=['', '', '']
+noC moe2005-12-31.483.v3 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='~Disc 4: Set 3(Cont.)~'
+   next=['', '', '']
+noC nms2007-06-01.akg482.flac16 desc read=True as=True lib=None
+   prev=[]
+   LINE='Set 1 Disc 1'
+   next=['', '', '']
+noC nms2007-06-01.akg482.flac16 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Set 2 Disc 2'
+   next=['', '', '']
+noC nms2007-06-01.mk21.flac16 desc read=True as=True lib=None
+   prev=[]
+   LINE='disc 1 set 1'
+   next=['', '', '']
+noC nms2007-06-01.mk21.flac16 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='disc 2 set 2'
+   next=['', '', '']
+noB nms2014-11-06.DPA4021s-SD722.flac16 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='SET I (50:51)'
+   next=['', '{disc 1}', '']
+noC paf2006-02-11 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC paf2006-02-11 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc II 2nd Set'
+   next=['', '', '']
+noC paf2006-02-12 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC paf2006-02-12 desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc II 2nd Set'
+   next=['', '', '']
+noC plf2008-11-18.95923.sbeok.zman.ccm4v.flac16 desc read=True as=True lib=philleshandfriends-2008-11-18
+   prev=['08 Morning Dew', '']
+   LINE='Disc II 2nd Set'
+   next=['', '01 *Born Cross-Eyed >', '02 New Potato Caboose >']
+noC rre2011-02-05 desc read=True as=True lib=None
+   prev=[]
+   LINE='1st set Disc1'
+   next=['01) 420', '02) Saddle of The Sun', '03) Jupiter and the 119']
+noB sts9-2003-06-13.shnf desc read=True as=False lib=None
+   prev=[]
+   LINE='Disc 1 - Set I...'
+   next=['------------------', '1.\tBanter', '2.\tRamone and Emiglio']
+noB sts9-2003-06-13fixO0o.o0O.shnf desc read=True as=False lib=None
+   prev=[]
+   LINE='Disc 1 - Set I...'
+   next=['------------------', '1.\tBanter', '2.\tRamone and Emiglio']
+noB tsp2007-06-27.m300.flac16 desc read=True as=True lib=smashingpumpkins-2007-06-27
+   prev=['11) Rotten Apples', '12) Thirty-three']
+   LINE='Disc 3/ Set 2 Cont...'
+   next=['01) ?', '02) Cherub Rock', '03) Untitled']
+noB ttb2018-02-09.mk6.edtyre desc read=True as=True lib=None
+   prev=['']
+   LINE='set 1\xa0 (54:06)'
+   next=['', '', '']
+noB ttb2018-02-09.mk6.edtyre desc read=True as=True lib=None
+   prev=['', '']
+   LINE='set 2\xa0 (80:45)'
+   next=['', '', '']
+noB ttb2019-11-11.mk41v.edtyre desc read=True as=True lib=tedeschitrucksband-2019-11-11
+   prev=['', '']
+   LINE='Set 1\xa0 (58:24)'
+   next=['', '', '']
+noB ttb2019-11-11.mk41v.edtyre desc read=True as=True lib=tedeschitrucksband-2019-11-11
+   prev=['', '']
+   LINE='Set 2\xa0 (76:35)'
+   next=['', '', '']
+noB ttb2020-02-29.mk41v.edtyre desc read=True as=False lib=None
+   prev=['', '']
+   LINE='Set 1\xa0 (65:02)'
+   next=['', '', '']
+noC um2004-10-08.flac desc read=True as=True lib=umphreysmcgee-2004-10-08
+   prev=['6. Walletsworth', '']
+   LINE='Disc Three Set II cont:'
+   next=["1. 40's Theme >", '2. Glory >', '3. Utopian Fir^ >']
+noC um2005-07-06.flac desc read=True as=False lib=umphreysmcgee-2005-07-06
+   prev=[]
+   LINE='Set One Disc 1:'
+   next=['1. #Trenchtown Rock >', '2. Divisions', '3. Robot World >']
+noC ymsb2006-02-24.Z-Man desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc I 1st Set'
+   next=['', '', '']
+noC ymsb2006-02-24.Z-Man desc read=True as=True lib=None
+   prev=['', '']
+   LINE='Disc II 2nd Set'
+   next=['', '', '']
+noC ymsb2006-08-26.TLM103.flac16 desc read=True as=True lib=None
+   prev=['Please do not trade in lossy formats.', '']
+   LINE='set1/disc 1:'
+   next=['1:00:12', '01 Lord Only Knows>Fastball', '02 Follow Me Down To The Riverside']
+noC ymsb2006-08-26.TLM103.flac16 desc read=True as=True lib=None
+   prev=['09 Traffic Jam%', '']
+   LINE='set 2/disc 2:'
+   next=['1:11:02', "01 If There's Still Ramblin' In The Rambler", "02 Ten>Rambler's Reprise"]
+noC ymsb2006-10-21.c414-mk21.flac16 desc read=True as=True lib=yondermountainstringband-2006-10-21
+   prev=[]
+   LINE='DISC ONE, 1ST SET'
+   next=['', '01.', '']
+noC ymsb2006-10-21.c414-mk21.flac16 desc read=True as=True lib=yondermountainstringband-2006-10-21
+   prev=["14. Ramblin' (Reprise)", '']
+   LINE='DISC TWO, 2ND SET'
+   next=['', '01.', '']
+noC ymsb2006-10-21.c414-mk21.flac16 desc read=True as=True lib=yondermountainstringband-2006-10-21
+   prev=['', '']
+   LINE='DISC THREE, 2ND SET (cont.)'
+   next=['', '01.', '']
+TOTALS {('noC', True, True): 535, ('noB', True, True): 339, ('noB/noC', True, True): 44, ('noB', True, False): 30, ('noC', True, False): 40, ('noC', False, True): 4, ('noB', False, True): 12} odd 78

@@ -1,0 +1,307 @@
+==========================================================================================
+bigdaddybluegrassband-2004-01-10 bdbb2004-01-10.flac16 src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+Disc 1/Set 1:
+1. Instrumental
+2. Good Gone Bad
+3. Pioneers 
+4. Red Clay Halo
+5. Rebecca
+6. If I Lose
+7. Bloody Mary Morning
+8. Black Jack
+9. One More Dollar
+10. Rose of Old Kentucky
+11. Wreck of the Great Titanic
+12. Dear Old Dixie
+Disc 2/Set 2:
+1. Hillbilly Hot Tub
+2. Water of Love
+3. Kind Veggie Burrito
+4. Mountain Song
+5. November
+6. Roanoke * >
+7. Wheel Hoss *
+8. Okracoke *
+9. Dim Lights, Thick Smoke *
+10. Little Girl From Tennessee *
+11. Footprints In The Snow *
+12. Ruby *
+13. Drink Up & Go Home *
+--- ITEMS: 1:Instrumental | 1:Good Gone Bad | 1:Pioneers | 1:Red Clay Halo | 1:Rebecca | 1:If I Lose | 1:Bloody Mary Morning | 1:Black Jack | 1:One More Dollar | 1:Rose of Old Kentucky | 1:Wreck of the Great Titanic | 1:Dear Old Dixie | 2:Hillbilly Hot Tub | 2:Water of Love | 2:Kind Veggie Burrito | 2:Mountain Song | 2:November | 2:Roanoke | 2:Wheel Hoss | 2:Okracoke | 2:Dim Lights, Thick Smoke | 2:Little Girl From Tennessee | 2:Footprints In The Snow | 2:Ruby | 2:Drink Up & Go Home
+has_encore False encore_like False
+  11 1       1       tags             Wreck of the Great Titanic
+  12 1       1       tags             Dear Old Dixie
+* 13 1       2       tags             Hillbilly Hot Tub
+* 14 1       2       tags             Water of Love
+* 15 1       2       tags             Kind Veggie Burrito
+* 16 1       2       tags             Mountain Song
+* 17 1       2       tags             November
+* 18 1       2       tags             Roanoke * >
+* 19 1       2       tags             Wheel Hoss *
+* 20 1       2       tags             Okracoke *
+* 21 1       2       tags             Dim Lights, Thick Smoke *
+* 22 1       2       tags             Little Girl From Tennessee *
+* 23 1       2       tags             Footprints In The Snow *
+* 24 1       2       tags             Ruby *
+* 25 1       2       tags             Drink Up & Go Home *
+   (25 tracks)
+==========================================================================================
+derektrucksband-2004-04-15 dtb2004-04-15.flac16 src= description reason= None align= llm ssrc= setlist.fm
+--- TEXT
+
+Set I:
+1. Jackson Soul Stew
+2. Everything is Everything
+3. Soul Serenade
+4. I'll Find My Way
+5. Feel So Bad
+6. Rastaman Chant
+7. For My Brother
+8. Vol. Slavery
+Set II:
+1. Hey Driver **
+2. Joyful Noise
+3. Lonely Avenger
+4. Preachin Blues
+5. I Wish I Knew
+6. To Know You
+7. Leavin Trunk
+8. Afro Blue
+encore
+9. Gonna Move
+
+--- ITEMS: 1:Jackson Soul Stew | 1:Everything is Everything | 1:Soul Serenade | 1:I'll Find My Way | 1:Feel So Bad | 1:Rastaman Chant | 1:For My Brother | 1:Vol. Slavery | 2:Hey Driver | 2:Joyful Noise | 2:Lonely Avenger | 2:Preachin Blues | 2:I Wish I Knew | 2:To Know You | 2:Leavin Trunk | 2:Afro Blue | encore:Gonna Move
+has_encore True encore_like False
+   7 1       1       tags             For My Brother
+   8 1       1       tags             Vol. Slavery
+*  9 1       2       tags             Hey Driver **
+* 10 1       2       tags             Joyful Noise
+* 11 1       2       tags             Lonely Avenger
+* 12 1       2       tags             Preachin Blues
+* 13 1       2       tags             I Wish I Knew
+* 14 1       2       tags             To Know You
+* 15 1       2       tags             Leavin Trunk
+* 16 1       2       tags             Afro Blue
+  17 encore  encore  tags             Gonna Move
+   (17 tracks)
+==========================================================================================
+gratefuldead-1974-09-18 gd1974-09-18.sbd.miller.20675.shnf src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Set One:	
+d1t01 - Uncle John?s Band
+d1t02 - Jack Straw
+d1t03 - Friend Of The Devil
+d1t04 - Black Throated Wind
+d1t05 - Scarlet Begonias
+d1t06 - Mexicali Blues
+d1t07 - Row Jimmy
+d1t08 - Beat It On Down The Line
+d1t09 - Deal
+d1t10 - The Race Is On
+d1t11 - To Lay Me Down
+d2t01 - Playin? In The Band
+Set Two:
+d2t02 - Phil And ned
+Set Three:
+d2t03 - Loose Lucy
+d2t04 - Big River
+d2t05 - Peggy-O
+d2t06 - Me & My Uncle
+d3t01 - Eyes Of The World ->
+d3t02 - China Doll
+d3t03 - He?s Gone ->
+d3t04 - Truckin? ->
+d3t05 - Drums ->
+d3t06 - Caution Jam ->
+d3t07 - Ship Of Fools
+d3t08 - Johnny B. Goode
+Encore:
+d3t09 - U.S. Blues
+--- ITEMS: 1:Uncle John?s Band | 1:Jack Straw | 1:Friend Of The Devil | 1:Black Throated Wind | 1:Scarlet Begonias | 1:Mexicali Blues | 1:Row Jimmy | 1:Beat It On Down The Line | 1:Deal | 1:The Race Is On | 1:To Lay Me Down | 1:Playin? In The Band | 2:Phil And ned | 3:Loose Lucy | 3:Big River | 3:Peggy-O | 3:Me & My Uncle | 3:Eyes Of The World | 3:China Doll | 3:He?s Gone | 3:Truckin? | 3:Drums | 3:Caution Jam | 3:Ship Of Fools | 3:Johnny B. Goode | encore:U.S. Blues
+has_encore True encore_like False
+  12 1       1       tags             Playing In The Band
+  13 2       2       tags             Phil And Ned
+* 14 2       3       tags             Loose Lucy
+* 15 2       3       tags             Big River
+* 16 2       3       tags             Peggy-O
+* 17 2       3       tags             Me & My Uncle
+* 18 2       3       tags             Eyes Of The World ->
+* 19 2       3       tags             China Doll
+* 20 2       3       tags             He's Gone ->
+* 21 2       3       tags             Truckin' ->
+* 22 2       3       tags             Drums ->
+* 23 2       3       tags             Caution Jam ->
+* 24 2       3       tags             Ship Of Fools
+* 25 2       3       tags             Johnny B. Goode
+  26 encore  encore  tags             U.S. Blues
+   (26 tracks)
+==========================================================================================
+greenskybluegrass-2006-05-16 gsbg2006-05-16.flac16 src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+disc1/set1
+01: bont's breakdown
+02:atomic power
+03:feast here tonight
+04:stop that train > shenendoah > stt
+05:less than supper
+06:broken highways
+07:albeta bound
+08:hoxeyville
+09:tuesday letter
+10:white freght liner blues
+11:do it twice > blackberry rag
+	disc2/set2
+01:radio blues
+01:bottle dry
+03:mama tried
+04:bound to ride
+05:grow bananas
+06:leavin
+07:gold rush
+08:fox on the run
+09:old barns
+10:runnin the briars
+11:stone walls and steel bars
+12:king of the hill
+	disc3/set3
+01: crowd intro
+02:tied down
+03:little cabin home
+04:dancin' in the dark >
+05:dancin' in the dark cont.
+06:white water
+07:no more fun
+08: when doves cry
+09:mountain girls
+10: steam powered airplane
+11:sugarfoot rag
+12: cassidy
+13:katy daly
+	encore
+14: i love the women
+15:small axe
+--- ITEMS: 1:bont's breakdown | 1:02:atomic power | 1:03:feast here tonight | 1:04:stop that train | 1:shenendoah | 1:stt | 1:05:less than supper | 1:06:broken highways | 1:07:albeta bound | 1:08:hoxeyville | 1:09:tuesday letter | 1:10:white freght liner blues | 1:11:do it twice | 1:blackberry rag | 2:01:radio blues | 2:01:bottle dry | 2:03:mama tried | 2:04:bound to ride | 2:05:grow bananas | 2:06:leavin | 2:07:gold rush | 2:08:fox on the run | 2:09:old barns | 2:10:runnin the briars | 2:11:stone walls and steel bars | 2:12:king of the hill | 3:02:tied down | 3:03:little cabin home | 3:04:dancin' in the dark | 3:05:dancin' in the dark cont. | 3:06:white water | 3:07:no more fun | 3:when doves cry | 3:09:mountain girls | 3:steam powered airplane | 3:11:sugarfoot rag | 3:cassidy | 3:13:katy daly | encore:i love the women | encore:15:small axe
+has_encore True encore_like False
+  10 1       1       tags             white freight liner blues
+  11 1       1       tags             do it twice> blackberry rag
+* 12 1       2       tags             radio blues
+* 13 1       2       tags             bottle dry
+* 14 1       2       tags             mama tried
+* 15 1       2       tags             bound to ride
+* 16 1       2       tags             grow bananas
+* 17 1       2       tags             leavin'
+* 18 1       2       tags             gold rush
+* 19 1       2       tags             fox on the run
+* 20 1       2       tags             old barns
+* 21 1       2       tags             runnin the briars
+* 22 1       2       tags             stone walls and steel bars
+* 23 1       2       tags             king of the hill
+* 24 1       3       tags           F crowd intro
+* 25 1       3       tags             tied down
+* 26 1       3       tags             little cabin home
+* 27 1       3       tags             dancin' in the dark
+* 28 1       3       tags             dancin' cont
+* 29 1       3       tags             white water
+* 30 1       3       tags             no more fun
+* 31 1       3       tags             when doves cry
+* 32 1       3       tags             mountain girls
+* 33 1       3       tags             steam powered airplane
+* 34 1       3       tags             sugarfoot rag
+* 35 1       3       tags             cassidy
+* 36 1       3       tags             katy daly
+  37 encore  encore  tags             i love the women
+  38 encore  encore  tags             small axe
+   (38 tracks)
+==========================================================================================
+lotus-2008-08-02 lotus2008-08-02.ka500.603a.722.flac16 src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+~Set 1~
+01. Set 1 Intro
+02. Nematode
+03. Reich * >>>
+04. Slow Cookin' >>>
+05. Umbilical Moonset
+06. Livingston Storm
+07. Mikesnack
+08. Age Of Inexperience
+~Set 2~
+01. Set 2 Intro
+02. Expired Slang
+03. Jump Off >>>
+04. Juggernaut >>>
+05. Jump Off
+06. Did Fatt >>>
+07. Sid >>>
+08. Flower Sermon
+Encore
+09. Hammerstrike
+* aka 'Point/Electric Counterpoint'
+A 'Beats By Bean/Team Pittsburgh' recording!
+--- ITEMS: 1:Nematode | 1:Reich | 1:Slow Cookin' | 1:Umbilical Moonset | 1:Livingston Storm | 1:Mikesnack | 1:Age Of Inexperience | 2:Expired Slang | 2:Jump Off | 2:Juggernaut | 2:Jump Off | 2:Did Fatt | 2:Sid | 2:Flower Sermon | encore:Hammerstrike | encore:aka 'Point/Electric Counterpoint' | encore:A 'Beats By Bean/Team Pittsburgh' recording!
+has_encore True encore_like False
+   6 1       1       tags             Mikesnack
+   7 1       1       tags             Age Of Inexperience
+*  8 1       2       tags             Expired Slang
+*  9 1       2       tags             Jump Off >>>
+* 10 1       2       tags             Juggernaut >>>
+* 11 1       2       tags             Jump Off
+* 12 1       2       tags             Did Fatt >>>
+* 13 1       2       tags             Sid >>>
+* 14 1       2       tags             Flower Sermon
+  15 encore  encore  tags             Hammerstrike
+   (15 tracks)
+==========================================================================================
+motherhips-1995-08-06 mh1995-08-06 src= notes reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+nk 11:02
+Magazine	4:57
+I Can't Sleep At All	3:40
+Please Don't Worry	4:20
+instrumedley	2:31
+Rich Little Girl (pt 1)	1:58 (MCAS flip edited together)
+Rich Little Girl	4:46
+Parchman Farm	4:22
+Tehachapi Bloodline	5:15
+Meet Me In the Morning	7:02
+Shut The Door	4:37
+Mother Hips	4:35
+covers-
+JOHNNY BUSH- Whiskey River
+GRAND FUNK RAILROAD - Please Don't Worry
+MOSE ALLISON- Parchman Farm
+BOB DYLAN- Meet Me In The Morning
+TAJ MAHAL- Leaving Trunk
+787.2MB / 2:22:40
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+opening band- "Bottle"
+Source: 
+Realistic PZM's on stand > Marantz PMD430 cassette deck w/ no NR > MCAS
+Transfer:
+MCAS> Nakamichi CR-1A > Audiomedia III PCI card> PowermacG3/266> Protools v4.1.1 >  44.1KHz AIF files > Audacity v1.2.3  (tracking on sector boundaries) > xACT 1.3 (FLAC encode) > FLAC
+Notes:
+http://www.rivercitysaloon.com/
+http://www.motherhips.com
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+Soundscape Preservation Society Founded 1991
+http://www.iamtypingwithonefinger.com/SPS.html
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+--- ITEMS: 1:https://archive.org/details/MotherHips1995-08-06 | 1:set one-(1:05:59) | 1:Ballgame	6:47 | 1:Mona Lisa & The Last Supper	3:34 | 1:The Cosmonaut	3:50 | 1:Been Lost Once	4:15 | 1:Pancho Villa	3:46 | 1:Desert Song	4:18 | 1:Sunshine Feel	5:28 | 1:Showing It All To Bad Marie	6:05 | 1:Honey Dew	5:39 (end cut due to MCAS flip) | 1:Loup Garou	4:20 | 1:Two Young Queens	4:52 | 1:Stoned Up The Road	4:34 | 1:Whiskey River	6:20 | 2:Precious Opal	9:34 | 2:Lady Be Cool	8:00 | 2:Run Around Me	- Leaving Trunk 11:02 | 2:Magazine	4:57 | 2:I Can't Sleep At All	3:40 | 2:Please Don't Worry	4:20 | 2:instrumedley	2:31 | 2:Rich Little Girl (pt 1)	1:58 (MCAS flip edited together) | 2:Rich Little Girl	4:46 | 2:Parchman Farm	4:22 | 2:Tehachapi Bloodline	5:15 | 2:Meet Me In the Morning	7:02 | 2:Shut The Door	4:37 | 2:Mother Hips	4:35 | 2:covers- | 2:JOHNNY BUSH- Whiskey River | 2:GRAND FUNK RAILROAD - Please Don't Worry | 2:MOSE ALLISON- Parchman Farm | 2:BOB DYLAN- Meet Me In The Morning | 2:TAJ MAHAL- Leaving Trunk | 2:787.2MB / 2:22:40 | 2:opening band- "Bottle" | 2:Notes: | 2:http://www.rivercitysaloon.com/ | 2:http://www.motherhips.com | 2:Soundscape Preservation Society Founded 1991 | 2:http://www.iamtypingwithonefinger.com/SPS.html
+has_encore False encore_like False
+  13 1       1       tags             Stoned Up The Road
+  14 1       1       tags             Whiskey River
+* 15 1       2       tags             Precious Opal
+* 16 1       2       tags             Lady Be Cool
+* 17 1       2       tags             Run Around Me - Leaving Trunk
+* 18 1       2       tags             Magazine
+* 19 1       2       tags             I Can't Sleep At All
+* 20 1       2       tags             Please Don't Worry
+* 21 1       2       tags             instrumedley
+* 22 1       2       tags             Rich Little Girl (pt 1)
+* 23 1       2       tags             Rich Little Girl (continuation)
+* 24 1       2       tags             Parchman Farm
+* 25 1       2       tags             Tehachapi Bloodline
+* 26 1       2       tags             Meet Me In The Morning
+* 27 1       2       tags             Shut The Door
+* 28 1       2       tags             Mother Hips
+   (28 tracks)

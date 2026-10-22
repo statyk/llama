@@ -1,0 +1,182 @@
+==========================================================================================
+radiators-1991-01-18 rads1991-01-18 src= description reason= None align= deterministic ssrc= lma:rad1991-01-18.AUD
+--- TEXT
+The New Orleans Radiators
+1/18/1991
+Boulder Theater
+Boulder, CO
+*ACOUSTIC*
+Set 1 Disc 1
+01 - Isn't That So
+02 - Chick's Too Young To Fry
+03 - Take It Or Leave It
+04 - Sailor's Delight
+05 - Love Potion #9
+06 - Kickin' Mule
+07 - Turtle Beach
+08 - Honey Don't
+09 - Back Street Girl
+10 - Drinkin' Wine Spo-Dee O'Dee
+11 - Instrumental
+12 - Subterranean Homesick Blues
+13 - The Weight
+14 - Umbilical
+15 - Dead Flowers
+16 - Last Getaway
+Set 2 Disc 2
+01 - Last Fair Deal Gone Down
+02 - Yankee Lady
+03 - Searchin' For Soul
+04 - I Am A Lonesome Fugitive > White Line Fever
+05 - Rainy Day Women #12 & 35
+06 - You've Got To Hide Your Love Away
+07 - River Run
+[Encore]
+08 - Willin'
+09 - New Speedway Boogie
+10 - Frankie And Johnny
+11 - Brown Eyed Girl
+--- ITEMS: 1:- Isn't That So | 1:- Chick's Too Young To Fry | 1:- Take It Or Leave It | 1:- Sailor's Delight | 1:- Love Potion #9 | 1:- Kickin' Mule | 1:- Turtle Beach | 1:- Honey Don't | 1:- Back Street Girl | 1:- Drinkin' Wine Spo-Dee O'Dee | 1:- Instrumental | 1:- Subterranean Homesick Blues | 1:- The Weight | 1:- Umbilical | 1:- Dead Flowers | 1:- Last Getaway | 2:- Last Fair Deal Gone Down | 2:- Yankee Lady | 2:- Searchin' For Soul | 2:- I Am A Lonesome Fugitive | 2:White Line Fever | 2:- Rainy Day Women #12 & 35 | 2:- You've Got To Hide Your Love Away | 2:- River Run | encore:- Willin' | encore:- New Speedway Boogie | encore:- Frankie And Johnny | encore:- Brown Eyed Girl
+has_encore True encore_like False
+  14 1       1       tags             Dead Flowers
+  15 1       1       tags             Last Getaway
+* 16 1       2       tags             Last Fair Deal Gone Down
+* 17 1       2       tags             Yankee Lady
+* 18 1       2       tags             Searchin' For Soul
+* 19 1       2       tags             I Am A Lonesome Fugitive > White Line Fever
+  20 2       2       tags             Rainy Day Women #12 & 35
+  21 2       2       tags             You've Got To Hide Your Love Away
+  22 2       2       tags             River Run
+* 23 2       encore  tags             Willin'
+* 24 2       encore  tags             New Speedway Boogie
+* 25 2       encore  tags             Frankie And Johnny
+   (25 tracks)
+==========================================================================================
+radiators-2006-04-21 Rad2006-04-21.sbd.flac src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+1st set disc one:
+01 tunin/intro
+02 Feel Like Rockin'
+03 Jack of Diamonds>Make it thru the World
+04 Dreamin Out Loud
+05 UFO's Exactly>
+06 I Got Loaded>
+07 UFO's
+08 Brokedown Ehgine
+09 Don't Cry 4 Me
+10 U Can't Do That (w/ Darcy Malone)
+11 #2 Pencil
+12 Whole Lotta Love>Smokestack Lightning
+13 Tomworrow Never Knows
+14 outro
+2nd set disc two:
+01 tunin/intro
+02 Cisco Kid
+03 Salty Jane
+04 I Got the Twitch>
+05 Danang
+06 Rub It In
+07 Kickin Mule
+08 Hardcore>
+09 Pump It Up>
+10 No Way 2 the Lake>
+11 Dance Shout>
+12 Hardcore
+13 Hey Joe
+14 U Say It's Your Birthday>
+15 Ride the Pony>
+16 Let It Bleed
+17 callin em back
+encores:
+18 Psychotic Reaction>
+19 Maggie's Farm tease>
+20 Soul Kitchen
+21 outro
+--- ITEMS: 1:Feel Like Rockin' | 1:Jack of Diamonds | 1:Make it thru the World | 1:Dreamin Out Loud | 1:UFO's Exactly | 1:I Got Loaded | 1:UFO's | 1:Brokedown Ehgine | 1:Don't Cry 4 Me | 1:U Can't Do That (w/ Darcy Malone) | 1:#2 Pencil | 1:Whole Lotta Love | 1:Smokestack Lightning | 1:Tomworrow Never Knows | 2:Cisco Kid | 2:Salty Jane | 2:I Got the Twitch | 2:Danang | 2:Rub It In | 2:Kickin Mule | 2:Hardcore | 2:Pump It Up | 2:No Way 2 the Lake | 2:Dance Shout | 2:Hardcore | 2:Hey Joe | 2:U Say It's Your Birthday | 2:Ride the Pony | 2:Let It Bleed | 2:callin em back | encore:Psychotic Reaction | encore:Maggie's Farm tease | encore:Soul Kitchen
+has_encore True encore_like False
+  27 2       2       tags             Let It Bleed
+  28 2       2       tags             callin em back
+* 29 2       encore  tags             Psychotic Reaction>
+* 30 2       encore  tags             Soul Kitchen
+* 31 2       encore  tags           F outro
+   (31 tracks)
+==========================================================================================
+robertwalters20thcongress-2004-01-02 RWTC04-01-02.shnf src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+Set 1-Disk 1 
+1. Bygones Be
+2. Aquafresh
+3. Circle Limit
+4. Corry's Snail and Slug Death
+5. Rack and Pinion
+6. Greyboy
+7. Nautilus->
+8. Rapture (blondie)->
+9. Nautilus
+10.Freshman 10 
+Set 2:-Disk 2 
+1. El Cuervo 
+2. 2% Body Fat
+3. Shemp Time
+4. X->
+5. Planet of the Superkids
+6. Be Yourself
+==Encores==
+7. Instant Karma
+8. Instant Death
+--- ITEMS: 1:Bygones Be | 1:Aquafresh | 1:Circle Limit | 1:Corry's Snail and Slug Death | 1:Rack and Pinion | 1:Greyboy | 1:Nautilus | 1:Rapture (blondie) | 1:Nautilus | 1:Freshman 10 | 2:El Cuervo | 2:2% Body Fat | 2:Shemp Time | 2:X | 2:Planet of the Superkids | 2:Be Yourself | encore:Instant Karma | encore:Instant Death
+has_encore True encore_like False
+  14 2       2       tags             Planet of the Superkids
+  15 2       2       tags             Be Yourself
+* 16 2       encore  tags             Instant Karma
+* 17 2       encore  tags             Instant Death
+   (17 tracks)
+==========================================================================================
+yondermountainstringband-2006-10-21 ymsb2006-10-21.c414-mk21.flac16 src= description reason= None align= deterministic ssrc= lma:ymsb2006-10-21.c414-mk21.flac24
+--- TEXT
+DISC ONE, 1ST SET
+01. 
+02. Ramblin' In The Rambler (Let Him Go)
+03. New Horizons
+04. Night Out
+05. How 'Bout You
+06. Loved You Enough
+07. Wildewood Drive
+08. Years With Rose
+09. Free To Run
+10. River
+11. Steam Powered Aereoplane
+12. Kentucky Mandolin
+13. Come Together
+14. Ramblin' (Reprise)
+DISC TWO, 2ND SET
+01. 
+02. Death Trip
+03. Little Maggie > Wheel Hoss > Little Maggie
+04. Postcard To My Son From Jail
+05. Troubled Mind
+06. Angel
+07. Dogs
+08. Damned If The Right One Didn't Go Wrong
+09. Idaho
+10. Crow Black Chicken
+11. Finally Saw The Light
+12. 
+DISC THREE, 2ND SET (cont.)
+01. 
+02. Ruby
+ENCORE 1
+03. Snow On The Pines
+04. Wind's On Fire
+ENCORE 2
+05. Redbird
+06. Tear Down The Grand Ole Opry
+--- ITEMS: 1:Ramblin' In The Rambler (Let Him Go) | 1:New Horizons | 1:Night Out | 1:How 'Bout You | 1:Loved You Enough | 1:Wildewood Drive | 1:Years With Rose | 1:Free To Run | 1:River | 1:Steam Powered Aereoplane | 1:Kentucky Mandolin | 1:Come Together | 1:Ramblin' (Reprise) | 2:Death Trip | 2:Little Maggie | 2:Wheel Hoss | 2:Little Maggie | 2:Postcard To My Son From Jail | 2:Troubled Mind | 2:Angel | 2:Dogs | 2:Damned If The Right One Didn't Go Wrong | 2:Idaho | 2:Crow Black Chicken | 2:Finally Saw The Light | 2:Ruby | encore:Snow On The Pines | encore:Wind's On Fire | encore:Redbird | encore:Tear Down The Grand Ole Opry
+has_encore True encore_like False
+  23 2       2       tags             Finally Saw The Light
+  24 2       2       tags             Ruby
+* 25 2       encore  tags             Snow On The Pines
+* 26 2       encore  tags             Wind's On Fire
+* 27 2       encore  tags             Redbird
+* 28 2       encore  tags             Tear Down The Grand Ole Opry
+   (28 tracks)

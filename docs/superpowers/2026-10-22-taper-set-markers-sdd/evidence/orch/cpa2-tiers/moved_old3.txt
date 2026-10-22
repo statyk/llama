@@ -1,0 +1,292 @@
+==========================================================================================
+stringcheeseincident-2000-10-27 sci2000-10-27.dsbd.shnf src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1:  Rhum 'n' Zouc, 100 Year Flood > MLT* > Drums* > MLT*, Up the Canyon, Sing a New Song > Impressions > Land's End Reprise > Smile
+Set 2:  Tom Thumb's Blues > Jam > Rivertrance, Water, Sittin' On Top of the World, Use Me > Jam > Best Feeling > Jam > Rollover*
+Encore:  Ramble On^
+--- ITEMS: 1:Rhum 'n' Zouc | 1:100 Year Flood | 1:MLT | 1:Drums | 1:MLT | 1:Up the Canyon | 1:Sing a New Song | 1:Impressions | 1:Land's End Reprise | 1:Smile | 2:Tom Thumb's Blues | 2:Jam | 2:Rivertrance | 2:Water | 2:Sittin' On Top of the World | 2:Use Me | 2:Jam | 2:Best Feeling | 2:Jam | 2:Rollover | encore:Ramble On^
+has_encore True encore_like False
+   7 1       1       tags             Land's End Reprise >
+   8 1       1       tags             Smile
+*  9 1       2       tags             Tom Thumb's Blues > Jam >
+  10 2       2       tags             Rivertrance
+  11 2       2       tags             Water
+   (16 tracks)
+==========================================================================================
+stringcheeseincident-2004-11-26 sci2004-11-26.mk012.shnf src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1:  Round the Wheel, One Step Closer > What I Know, Suntan, 45th of November, Black Clouds, Outside Inside¹
+Set 2:  Dirk, Under African Skies > Desert Dawn, Sand Dollar > Sirens, Miss Brown's Teahouse, It Is What It Is
+Encore:  On the Road² > Give It Away
+--- ITEMS: 1:Round the Wheel | 1:One Step Closer | 1:What I Know | 1:Suntan | 1:45th of November | 1:Black Clouds | 1:Outside Inside¹ | 2:Dirk | 2:Under African Skies | 2:Desert Dawn | 2:Sand Dollar | 2:Sirens | 2:Miss Brown's Teahouse | 2:It Is What It Is | encore:On the Road² | encore:Give It Away
+has_encore True encore_like False
+  13 2       2       tags             Miss Brown's Teahouse
+  14 2       2       tags             It Is What It Is
+* 15 2       encore  tags             On the Road # >
+  16 encore  encore  tags             Give It Away
+   (16 tracks)
+==========================================================================================
+stringcheeseincident-2007-07-28 sci2007-07-28.SchoepsFOB-1644 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Disc 1 (Set 1)
+1. Down a River*
+2. Catfish John**
+3. Temperance Reel**
+4. Until The Music's Over***
+5. When I Paint My Masterpiece^
+6. Metered Man^^
+7. Texas Town
+8. Tamba
+9. Windy Mountain
+10.Could You Be Loved
+Disc 2 (Set 2)	
+1. Tom Thumb's Blues
+2. Indian Creek
+3. Solution
+4. Lester had a Coconut
+5. Can't Stop Now
+6. Eye Know Why >
+7. Jam
+8. Hotel Window
+9. Ramble On
+Disc 3 (Set 3)
+1. Ritual Jam>
+2. Chillout Jam>
+3. Texas
+4. Vocal Jam w/ Paulina Lamb>
+5. Bumpin' Reel
+Disc 4
+1. Piece of Mine>
+2. Round the Wheel
+3. E: Best Feeling^^^
+--- ITEMS: 1:Down a River | 1:Catfish John | 1:Temperance Reel | 1:Until The Music's Over | 1:When I Paint My Masterpiece^ | 1:Metered Man^^ | 1:Texas Town | 1:Tamba | 1:Windy Mountain | 1:Could You Be Loved | 2:Tom Thumb's Blues | 2:Indian Creek | 2:Solution | 2:Lester had a Coconut | 2:Can't Stop Now | 2:Eye Know Why | 2:Jam | 2:Hotel Window | 2:Ramble On | 3:Ritual Jam | 3:Chillout Jam | 3:Texas | 3:Vocal Jam w/ Paulina Lamb | 3:Bumpin' Reel | 3:Piece of Mine | 3:Round the Wheel | encore:Best Feeling^^^
+has_encore True encore_like False
+  18 2       2       tags             Hotel Window
+  19 2       2       tags             Ramble On
+* 20 2       3       tags             Ritual Jam>
+* 21 2       3       tags             Chillout Jam>
+  22 3       3       tags             Texas
+  23 3       3       tags             Vocal Jam w/ Paulina Lamb>
+   (27 tracks)
+==========================================================================================
+tealeafgreen-2005-03-11 tlg2005-03-11.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Disc 1
+01) Warmup
+02) Las Vegas
+03) Criminal Intent
+04) Ride Together >
+05) Hard Travelin'* >
+06) Ride Together
+07) Taught To Be Proud
+08) Baseball Jam
+09) Rapture
+10) The Garden (Part I) >
+11) The Garden (Part II) >
+12) The Garden (Part III)
+13) My Bastard Brother
+14) Professor's Blues
+(set II)
+15) Bouncin' Betty
+Disc 2
+(set II cont.)
+01) Cherry Red Guitar
+02) Earth and Sky
+03) Incandescent Devil
+04) Panspermic De-evolution**
+05) Georgie P**
+06) Biscuits
+07) Death Cake
+08) Pretty Jane
+09) I Believe
+10) Sex in the 70's
+(encore)
+11) Freedom**
+--- ITEMS: 1:Warmup | 1:Las Vegas | 1:Criminal Intent | 1:Ride Together | 1:Hard Travelin' | 1:Ride Together | 1:Taught To Be Proud | 1:Baseball Jam | 1:Rapture | 1:The Garden (Part I) | 1:The Garden (Part II) | 1:The Garden (Part III) | 1:My Bastard Brother | 1:Professor's Blues | 2:Bouncin' Betty | 2:Cherry Red Guitar | 2:Earth and Sky | 2:Incandescent Devil | 2:Panspermic De-evolution | 2:Georgie P | 2:Biscuits | 2:Death Cake | 2:Pretty Jane | 2:I Believe | 2:Sex in the 70's | encore:Freedom
+has_encore True encore_like False
+  12 1       1       tags             My Bastard Brother
+  13 1       1       tags             Professor's Blues
+* 14 1       2       tags             Bouncin' Betty
+  15 2       2       tags             Cherry Red Guitar
+  16 2       2       tags             Earth and Sky
+   (25 tracks)
+==========================================================================================
+tedeschitrucksband-2018-10-13 ttb2018-10-13.km184 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1:
+1. Are You Ready>
+2. Made Up Mind
+3. Do I Look Worried
+4. Part Of Me
+5. Until You Remember
+6. Don't Miss me
+7. Coming Home
+8. Don't Drift Away
+9. Misunderstood
+10. Idle Wind>Drums>Idle Wind
+Set 2:
+1. Sitting Here In Limbo
+2. Show Me
+3. Let Me Get By
+4. Going, Going, Gone
+5. Shame
+6. Preachin' Blues*
+7. Done Somebody Wrong#
+8. Walk On Guilded Splinters@
+9. I Want More>#
+10. In Memory Of Elizabeth Reed#
+11. E: With A Little Help From My Friends#
+
+--- ITEMS: 1:Are You Ready | 1:Made Up Mind | 1:Do I Look Worried | 1:Part Of Me | 1:Until You Remember | 1:Don't Miss me | 1:Coming Home | 1:Don't Drift Away | 1:Misunderstood | 1:Idle Wind | 1:Drums | 1:Idle Wind | 2:Sitting Here In Limbo | 2:Show Me | 2:Let Me Get By | 2:Going, Going, Gone | 2:Shame | 2:Preachin' Blues | 2:Done Somebody Wrong# | 2:Walk On Guilded Splinters@ | 2:I Want More | 2:In Memory Of Elizabeth Reed# | encore:With A Little Help From My Friends#
+has_encore True encore_like False
+   9 1       1       tags             Misunderstood
+  10 1       1       tags             Idle Wind>Drums>Idle Wind
+* 11 1       2       tags             Sitting Here In Limbo
+  12 2       2       tags             Show Me
+  13 2       2       tags             Let Me Get By
+   (21 tracks)
+==========================================================================================
+tedeschitrucksband-2022-03-26 ttb2022-03-26.omt7audmtx.perez.t-flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Tedeschi Trucks Band
+March 26, 2022
+Capitol Theatre
+Port Chester, NY
+Source: OMT7 AUD MTX (24/44.1)
+Channels 1|2: Studio Projects C4 (hyper), split 2' @ 45º -> Naiant MidBox -> Tascam DR-680MKII
+Channels 3|4: Audio Technica 853Rx (omni) A-B split 3'-> Sound Devices MixPre -> Tascam DR-680MKII
+Channel  5:   Tascam PE-120 (w/ JVC M510 short shotgun capsule) @ 0º -> Shure FP11 -> Tascam DR-680MKII
+Channels 6|7: Audio Technica 3031, X-Y PAS -> Oade PMod Edirol UA-5 (digital out) -> Tascam DR-680MKII
+Location: OTS 2nd row @ 7' up
+Transfer: SDHC> WAV> Audacity (mix and render; loudness normalization; TDR Nova; Slate Digital Virtual Tape Machines)-> CDWave (tracking)-> 
+Weiss Saracon (24/44.1->16/44.1)-> Flac16 -> MP3 Tag (tagging)
+Recorded by David Perez
+Set I
+101-s1t01 - Signs, High Times
+102-s1t02 - Don't Drift Away
+103-s1t03 - Misunderstood*
+104-s1t04 - Suzanne
+105-s1t05 - Everybody's Got To Change Sometime
+106-s1t06 - Just Won't Burn 
+107-s1t07 - Anyday
+108-s1t08 - When Will I Begin
+109-s1t09 - The Storm
+Set II
+201-s2t01 - Soul Serenade/Sugaree
+202-s2t02 - Laugh About It
+203-s2t03 - I Walk on Guilded Splinters
+204-s2t04 - Looking for Answers 
+205-s2t05 - Learn How To Love 
+206-s2t06 - Shame
+207-s2t07 - Leaving Trunk
+208-s2t08 - Fire and Rain
+209-s2t09 - Bound for Glory
+210-s2t10 - Band Introductions
+Encore
+211-s2t11 - Trophy Presentation
+212-s2t12 - I Pity The Fool
+Mixing Notes:
+AT 3031: +5db
+SP C4: +3db
+AT 853Rx: -6db
+Tascam PE-120: -8db
+* A few seconds missing from beginning of song. Crossfade applied. 
+Thanks to Tedeschi Trucks Band and the Capitol Theatre for allowing this recording. 
+
+--- ITEMS: 1:101-s1t01 - Signs | 1:High Times | 1:102-s1t02 - Don't Drift Away | 1:103-s1t03 - Misunderstood | 1:104-s1t04 - Suzanne | 1:105-s1t05 - Everybody's Got To Change Sometime | 1:106-s1t06 - Just Won't Burn | 1:107-s1t07 - Anyday | 1:108-s1t08 - When Will I Begin | 1:109-s1t09 - The Storm | 2:201-s2t01 - Soul Serenade/Sugaree | 2:202-s2t02 - Laugh About It | 2:203-s2t03 - I Walk on Guilded Splinters | 2:204-s2t04 - Looking for Answers | 2:205-s2t05 - Learn How To Love | 2:206-s2t06 - Shame | 2:207-s2t07 - Leaving Trunk | 2:208-s2t08 - Fire and Rain | 2:209-s2t09 - Bound for Glory | 2:210-s2t10 - Band Introductions | encore:211-s2t11 - Trophy Presentation | encore:212-s2t12 - I Pity The Fool | encore:Mixing Notes: | encore:AT 3031: +5db | encore:SP C4: +3db | encore:AT 853Rx: -6db | encore:Tascam PE-120: -8db | encore:A few seconds missing from beginning of song. Crossfade applied.
+has_encore True encore_like False
+  18 2       2       tags             Bound for Glory
+  19 2       2       tags             Band Introductions
+* 20 2       encore  tags             Trophy Presentation
+  21 encore  encore  tags             I Pity The Fool
+   (21 tracks)
+==========================================================================================
+tedeschitrucksband-2023-03-31 ttb2023-03-31.km184.flac24 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Tedeschi Trucks Band
+Chicago Theatre
+Chicago, IL
+March 18, 2023
+Source: Neumann km184's (FOH) > Sound Devices 722 (24/48, 40 Hz HPF @ 12 dB/oct.)
+Transfer: CF card > Audiogate (+6 dB, fades, tracking) > xACT (flac 8 w/ tags)
+Recorded & transferred by taperjoe
+** 24-bit / 48 kHz recording **
+Set 1:
+101. Rainy Day
+102. Don't Keep Me Wonderin'
+103. Misunderstood
+104. Take Me As I Am
+105. Gin House Blues
+106. Pasaquan
+107. How Blue Can You Get?
+Set 2:
+201. Suzanne
+202. The Letter
+203. Do I Look Worried?
+204. Whiskey Legs
+205. Somebody Pick Up My Pieces
+206. Down In The Flood
+207. Gravity
+208. Keep On Growing
+209. Bound For Glory
+Encore:
+210. Sweet Soul Song
+211. More And More
+Night 3 of 4 (over 2 weekends) at The Chicago Theatre
+TTB 2023:
+Susan Tedeschi - vocals & guitar
+Derek Trucks - guitar
+Isaac Eady - drums
+Tyler Greenwell - drums
+Kebbi Williams - tenor sax
+Elizabeth Lea - trombone, backing vocals
+Ephriam Owens - trumpet
+Alicia Chakour - backing vocals, percussion toys
+Mike Mattison - lead & backing vocals, acoustic guitar
+Mark Rivers - backing vocals, percussion toys
+Brandon Boone - bass
+Gabe Dixon - keyboards & vocals
+Thanks to Erik for the tickets!
+Big thanks again to Dennis at the Theatre for the FOH taping spot!
+Enjoy!!
+
+--- ITEMS: 1:Rainy Day | 1:Don't Keep Me Wonderin' | 1:Misunderstood | 1:Take Me As I Am | 1:Gin House Blues | 1:Pasaquan | 1:How Blue Can You Get? | 2:Suzanne | 2:The Letter | 2:Do I Look Worried? | 2:Whiskey Legs | 2:Somebody Pick Up My Pieces | 2:Down In The Flood | 2:Gravity | 2:Keep On Growing | 2:Bound For Glory | encore:Sweet Soul Song | encore:More And More | encore:Night 3 of 4 (over 2 weekends) at The Chicago Theatre | encore:TTB 2023: | encore:Alicia Chakour - backing vocals | encore:percussion toys | encore:Mike Mattison - lead & backing vocals | encore:acoustic guitar | encore:Mark Rivers - backing vocals | encore:percussion toys | encore:Enjoy!!
+has_encore True encore_like False
+  15 2       2       tags             Keep On Growing
+  16 2       2       tags             Bound For Glory
+* 17 2       encore  tags             Sweet Soul Song
+  18 encore  encore  tags             More And More
+   (18 tracks)
+==========================================================================================
+thedead-2009-05-01 dead2009-05-01.nickyc.wklitz.schoepsmk41.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Set I: 
+01 Playin' In The Band> 
+02 Mississippi Half Step> 
+03 New Speedway Boogie
+04 Shakedown Street
+05 Duprees Diamond Blues 
+06 Hard To Handle 
+07 Friend Of The Devil> 
+08 Playin' reprise 
+Set II: 
+01 Jack Straw 
+02 Alligator> 
+03 Caution> 
+04 Drums> 
+05 Space> 
+06 Loose Lucy 
+07 Comes A Time> 
+08 Cold Rain & Snow> 
+09 Sugar Magnolia
+Encore: 
+10 Donor Rap 
+11 Box Of Rain
+--- ITEMS: 1:Playin' In The Band | 1:Mississippi Half Step | 1:New Speedway Boogie | 1:Shakedown Street | 1:Duprees Diamond Blues | 1:Hard To Handle | 1:Friend Of The Devil | 1:Playin' reprise | 2:Jack Straw | 2:Alligator | 2:Caution | 2:Drums | 2:Space | 2:Loose Lucy | 2:Comes A Time | 2:Cold Rain & Snow | 2:Sugar Magnolia | encore:Donor Rap | encore:Box Of Rain
+has_encore True encore_like False
+   6 1       1       tags             Hard To Handle
+   7 1       1       tags             Friend Of The Devil>
+*  8 2       1       tags             Playin' reprise
+   9 2       2       tags             Jack Straw
+  10 2       2       tags             Alligator>
+   (19 tracks)

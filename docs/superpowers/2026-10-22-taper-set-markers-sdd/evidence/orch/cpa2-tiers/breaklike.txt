@@ -1,0 +1,268 @@
+belafleckandtheflecktones-1996-11-09 None 21
+     (5, '1', 'Vic Wooten Solo (Jam')
+     (8, '2', 'Future Man (solo)')
+     (14, '2', 'Béla solo (Jam')
+     (17, '2', 'Béla solo (Jam')
+belafleckandtheflecktones-2003-12-07 None 16
+     (4, '1', 'Vic Solo')
+     (7, '2', 'Futch Solo')
+     (13, '2', 'Bela Solo')
+belafleckandtheflecktones-2006-01-21 None 16
+     (4, '1', 'Victor Solo')
+     (7, '2', 'Futureman Solo')
+     (13, '2', "Bela's Solo")
+belafleckandtheflecktones-2006-08-04 None 18
+     (9, '2', 'Futch Solo')
+billystrings-2022-03-27 None 20
+     (2, '1', 'Show Me The Door')
+     (13, '2', 'End Of The Rainbow')
+brokemountainbluegrassband-2004-07-16 None 36
+     (17, '2', 'break mountain brokedown')
+cowboyjunkies-2004-06-06 None 20
+     (9, '2', 'End of the Rainbow')
+darkstarorchestra-2011-02-05 None 37
+     (28, 'encore', 'Original show by Grateful Dead September 10')
+darkstarorchestra-2011-12-29 None 34
+     (31, 'encore', 'Show Reveal - Warfield Theater September 27')
+darkstarorchestra-2012-05-19 None 29
+     (26, 'encore', 'Original show was 09/12/1991')
+darkstarorchestra-2017-06-22 None 22
+     (10, '2', 'Wave That Flag (early version of U.S. Blues)')
+     (20, 'encore', 'not from the 2/22/73 show')
+davidnelsonband-2009-06-27 None 36
+     (26, 'encore', 'Encore can fit on end of Set 1 disc.')
+     (29, 'encore', "of this show will be available for purchase for those who prefer them. But it's")
+deadandcompany-2015-11-14 None 19
+     (18, 'encore', 'John and Bob on acoustic')
+deadandcompany-2017-11-28 None 22
+     (19, 'encore', '@Weir on acoustic')
+deadandcompany-2019-06-23 None 28
+     (26, 'encore', '– John Mayer was playing Jerry Garcia’s “Wolf” guitar during show')
+     (27, 'encore', '- PA crashed at end of Fire on the Mountain aand during Drums')
+gratefuldead-1971-02-18 None 24
+     (23, '2', "Mickey's last show until 10-20-74 - E.S.P. show - Other artist(s): NRPS")
+gratefuldead-1973-05-26 None 35
+     (28, '3', 'Bass Solo')
+gratefuldead-1973-06-22 None 33
+     (26, '2', 'Bass Solo')
+greenskybluegrass-2010-03-26 None 19
+     (8, '1', 'Break Mountain Breakdown')
+jackiegreene-2010-02-12 None 29
+     (28, '2', '1961 (solo acoustic)')
+joerussosalmostdead-2015-04-22 None 22
+     (20, 'encore', 'Show #22')
+joerussosalmostdead-2017-01-12 None 22
+     (21, 'encore', 'Show #96')
+joerussosalmostdead-2017-03-16 None 42
+     (38, 'encore', 'Entire show with Stuart Bogie on horns & percussion')
+     (39, 'encore', 'Show #103 - SOLD OUT ~ THANK YOU!!!  Pre Show Music was Scott Metzger’s Soul Mix')
+     (40, 'encore', 'starting at doors.  DJ Moma DJ’d after the show.')
+joerussosalmostdead-2017-05-06 encore added 23
+     (19, 'encore', 'Pre Show / Set Break Music: Scott Metzger’s Soul Mix')
+     (21, 'encore', 'Pre Show / Set Break Music: Scott Metzger’s Soul Mix')
+joerussosalmostdead-2017-10-07 None 36
+     (17, 'encore', '% - With a Marco Solo that evolved into a Marco/Tommy Duet')
+     (18, 'encore', 'a DD Bass Solo & the circa 1973 ending in 7')
+     (32, 'encore', 'Show #123')
+joerussosalmostdead-2017-11-09 None 26
+     (20, 'encore', '% - With a DD Bass Solo')
+joerussosalmostdead-2018-01-14 None 40
+     (26, 'encore', '+ - With the ’73 Ending and a DD bass solo')
+     (35, 'encore', 'Pre Show Music: Cap Mix')
+     (36, 'encore', 'Set Break Music: The Greatest :: Number Ones (Johnny Cash)')
+     (37, 'encore', 'Post Show Music: Girlfriend Is Better (Talking Heads)')
+     (39, 'encore', 'Show #138 - Night Three of Three - SOLD OUT ~ THANK YOU!')
+joerussosalmostdead-2018-04-21 None 36
+     (35, '2', 'Show #149')
+joerussosalmostdead-2018-05-04 songs moved 39
+     (8, '2', 'Marco Solo -')
+     (27, 'encore', '- With a “Revelry” (Traditional) Tease (SM) & another Marco Solo')
+     (33, 'encore', 'Pre Show Music: Costello’s Pre Show 2018 Spotify Playlist')
+     (34, 'encore', 'Set Break Music: Costello on Petty Spotify Playlist')
+     (35, 'encore', 'Post Show Music: The Meters - “Just Kissed My Baby” & “Fire On The Bayou”')
+     (37, 'encore', 'Show #150')
+joerussosalmostdead-2018-10-25 encore added 30
+     (25, 'encore', 'Set Break Music: Wilco - Yankee Hotel Foxtrot')
+     (26, 'encore', 'Post Show Music: The Clash - Rock The Casbah & Should I Stay or Should I Go')
+     (27, 'encore', 'Parts of this show were broadcast a day later on SiriusXM')
+     (28, 'encore', 'Show #170')
+joerussosalmostdead-2018-11-11 None 37
+     (21, 'encore', '# - With a DD Bass Solo')
+     (31, 'encore', 'Pre Show And Set Break Music: Costello’s Spotify Prince & Michael Mix')
+     (36, 'encore', 'Show #174')
+joerussosalmostdead-2019-01-19 None 67
+     (52, 'encore', 'a DD Bass Solo and with Jonathan Goldberger on Guitar')
+     (61, 'encore', 'Pre Show Music: Costello’s Early Rock and Roll Spotify Playlist')
+     (62, 'encore', 'Set Break Music: Costello’s Prince & Michael Spotify Playlist')
+     (64, 'encore', 'Show #176')
+joerussosalmostdead-2019-03-02 songs moved 44
+     (16, 'encore', 'Marco Solo')
+     (39, 'encore', 'Pre Show And Set Break Music: Spotify Black Power Mixtape 1967 - 1975')
+     (42, 'encore', 'Show #183')
+joerussosalmostdead-2019-03-13 None 42
+     (18, '2', 'Marco Solo')
+     (36, 'encore', 'Pre Show & Set Break Music: Costello’s Spotify Soul Mix')
+     (40, 'encore', 'Show #185')
+joerussosalmostdead-2019-03-16 None 36
+     (3, '1', 'Marco Solo')
+     (25, 'encore', 'a DD Solo')
+     (32, 'encore', 'Pre Show And Set Break Music: Costello’s Spotify Soul Mix')
+     (35, 'encore', 'Show #188 SOLD OUT ~ THANK YOU!')
+joerussosalmostdead-2019-09-26 None 57
+     (31, 'encore', 'a "Love Supreme" (John Coltrane) Tease (SM) and a MB Solo')
+     (50, 'encore', "Pre Show Music: Costello's Spotify Early Rock and Roll Playlist")
+     (51, 'encore', "Set Break Music: Costello's Spotify Soul Playlist")
+     (56, 'encore', 'Show #208')
+joerussosalmostdead-2019-09-28 encore added 49
+     (7, '1', 'MB Solo')
+     (44, 'encore', "Pre Show Music: Costello's Dire Straits Spotify Playlist")
+     (45, 'encore', "Set Break Music: Costello's Soul Spotify Playlist")
+     (47, 'encore', 'Show #210')
+joerussosalmostdead-2020-02-23 None 59
+     (52, 'encore', "Pre Show Music: Costello's Early Rock And Roll Spotify Playlist")
+     (53, 'encore', 'Set Break Music: Costello on Petty Spotify Playlist')
+     (56, 'encore', 'Show #215')
+joerussosalmostdead-2021-05-30 None 45
+     (35, 'encore', 'Pre Show Music: "This Is Marco Benevento" Spotify Playlist')
+     (37, 'encore', 'Set Break Music: "Parcels" (Parcels)')
+     (41, 'encore', 'Show #221')
+     (44, 'encore', 'Entire show with Stuart Bogie on Tenor Sax and Flute')
+joerussosalmostdead-2021-10-23 None 14
+     (4, '1', 'Marco Piano Solo')
+joerussosalmostdead-2021-12-03 None 35
+     (29, 'encore', "Pre Show Music: Costello's New Spotify Motown Playlist")
+     (30, 'encore', "Set Break Music: Costello's Spotify Reggae Playlist")
+     (33, 'encore', 'Show #243')
+joerussosalmostdead-2022-07-21 None 44
+     (39, 'encore', "Pre Show Music: Costello's Reggae Playlist")
+     (40, 'encore', "Set Break Music: Costello's Early Rock And Roll Playlist")
+     (43, 'encore', 'Show #267')
+joerussosalmostdead-2023-01-26 None 58
+     (22, 'encore', 'From The Other One to end of set with Stuart Bogie on Tenor Sax')
+     (52, 'encore', 'Pre Show Music: Costello on New Orleans Playlist')
+     (53, 'encore', 'Set Break Music:\xa0 Costello on New Orleans Playlist')
+     (57, 'encore', 'Show #283 ~ SOLD OUT ~ THANK YOU!')
+joerussosalmostdead-2023-06-04 None 53
+     (47, 'encore', "Pre Show Music: Costello's New Orleans Playlist")
+     (48, 'encore', "Set Break Music:\xa0 Costello's New Orleans Playlist")
+     (51, 'encore', 'Show #299 ~ Sunday')
+johnkadlecik-2014-03-28 None 22
+     (21, 'encore', '+ John Kadlecik solo')
+johnkadlecik-2015-11-06 None 16
+     (14, '2', '- Show technically Nov. 7 as it began at 12:15 a.m. Sold out.')
+johnkadlecik-2021-11-24 None 21
+     (20, 'encore', '- Attendees required to show proof of Covid-19 vaccination.')
+leftoversalmon-1997-10-31 None 65
+     (53, '2', '--show notes--')
+lotus-2006-02-18 sets split 9
+     (1, '1', 'Point/Electric Counterpoint')
+lotus-2007-04-28 None 16
+     (2, '1', 'Reich aka Point/Electric Counterpoint')
+lotus-2008-08-02 sets split 17
+     (15, 'encore', "aka 'Point/Electric Counterpoint'")
+moe-2007-07-08 None 15
+     (13, 'encore', 'Tijuana Donkey Show')
+perpetualgroove-2004-10-09 None 18
+     (10, '2', 'Free Ride to the Show')
+perpetualgroove-2008-05-03 sets split 14
+     (3, '1', 'Free Ride to the Show')
+philleshandfriends-2001-11-17 None 62
+     (30, 'encore', 'shifted toward the lower end of frequence')
+radiators-1981-07-11 sets split 30
+     (3, '1', 'End Of Your Rope')
+railroadearth-2008-09-20 None 23
+     (17, 'encore', 'with Bill Nershi on electric guitar')
+railroadearth-2008-12-29 None 31
+     (19, 'encore', 'Andy Goessling - acoustic guitar')
+railroadearth-2009-09-06 None 18
+     (17, 'encore', 'with Jeff Miller on electric guitar')
+ratdog-2007-08-11 None 24
+     (21, 'encore', 'Show with Steve Kimock (Guitar)')
+ryanadams-2006-07-22 None 29
+     (28, 'encore', 'Strawberry Wine (solo)')
+ryanadams-2008-01-19 sets merged 26
+     (0, '1', 'Ryan Solo')
+ryanadams-2008-01-21 sets merged 29
+     (6, '1', 'Ryan Solo CD 1')
+stevekimockband-2002-07-03 None 13
+     (6, '2', 'Electric Wildlife (White Strat')
+stevekimockband-2005-10-26 None 11
+     (6, '2', 'Electric Wildlife')
+stevekimockband-2005-10-27 None 13
+     (8, '2', 'Electric Wildfire')
+strangefolk-2003-01-11 None 29
+     (24, 'encore', 'Electric Avenue')
+stringcheeseincident-1995-09-02 None 33
+     (28, '3', 'Late in the Evening')
+stringcheeseincident-2000-01-31 songs moved 17
+     (7, '2', "(acoustic) Think What You've Done")
+     (10, '2', 'Pirates (electric) Sing a New Song')
+stringcheeseincident-2011-07-03 None 20
+     (17, '2', 'Electric Jam')
+tedeschitrucksband-2018-10-13 songs moved 23
+     (13, '2', 'Show Me')
+tedeschitrucksband-2020-02-14 None 24
+     (18, 'encore', 'Show Me')
+tedeschitrucksband-2020-02-21 sets merged 28
+     (26, 'encore', '- Acoustic start to second set.')
+tedeschitrucksband-2021-10-08 None 23
+     (22, 'encore', 'Notes : Mini acoustic set opens second set.')
+tedeschitrucksband-2022-02-19 None 28
+     (26, 'encore', '- Attendees required to show proof of Covid-19 vaccination.')
+tedeschitrucksband-2023-02-18 None 26
+     (18, 'encore', 'Show Me')
+tedeschitrucksband-2023-03-31 songs moved 27
+     (23, 'encore', 'acoustic guitar')
+thebrew-2009-04-18 encore added 24
+     (6, '1', 'Hard Enough To Break')
+thedead-2009-04-25 songs moved 27
+     (7, '2', '- end of set one')
+thedead-2009-05-07 None 35
+     (22, 'encore', 'acoustic')
+thegourds-2009-05-29 None 26
+     (18, '2', 'Blanket Show')
+theschwag-2009-09-19 None 26
+     (22, '2', 'David Gans: Sit-in Acoustic Guitar')
+theschwag-2010-09-17 None 18
+     (16, '2', 'Melvin Seals on keys the whole show!')
+theschwag-2010-09-18 None 18
+     (17, '2', 'Melvin Seals was on keys the whole show!')
+u-melt-2008-08-29 None 20
+     (3, '1', "Late July's Lament")
+umphreysmcgee-2002-12-31 None 53
+     (45, 'encore', '@ with Jake on acoustic guitar')
+yondermountainstringband-2003-06-20 None 23
+     (9, '1', 'way bass solo')
+     (11, '2', "Dawn's Early Light*^#")
+yondermountainstringband-2004-10-08 None 23
+     (15, '2', 'End Of The Day')
+     (18, '2', "Dawn's Early Light")
+yondermountainstringband-2004-11-04 None 29
+     (5, '1', 'End Of The Day')
+yondermountainstringband-2005-06-18 None 23
+     (6, '1', "Dawn's Early Light")
+yondermountainstringband-2005-10-14 None 27
+     (4, '1', 'Too Late Now')
+     (9, '1', "Dawn's Early Light")
+     (12, '2', 'End Of The Day')
+yondermountainstringband-2006-01-27 None 27
+     (17, '2', 'At The End Of The Day')
+     (20, '2', 'Too Late Now')
+yondermountainstringband-2006-07-04 encore added 26
+     (17, '2', "Dawn's Early Light")
+     (18, '2', 'Too Late Now')
+yondermountainstringband-2006-12-29 None 26
+     (5, '1', 'End Of The Day')
+yondermountainstringband-2007-02-15 None 22
+     (8, '1', 'Too Late Now')
+     (13, '2', "Dawn's Early Light")
+yondermountainstringband-2008-02-09 encore added 32
+     (6, '1', 'Too Late Now')
+yondermountainstringband-2008-07-19 None 40
+     (20, '2', 'Darol Anger on fiddle entire show')
+     (31, '2', "Danny Barnes playing Mark Vann's electric banjo The Stump)")
+yondermountainstringband-2008-10-16 None 26
+     (1, '1', "Dawn's Early Light")
+yondermountainstringband-2010-07-16 None 30
+     (0, '1', 'Too Late Now')
+99 of 648

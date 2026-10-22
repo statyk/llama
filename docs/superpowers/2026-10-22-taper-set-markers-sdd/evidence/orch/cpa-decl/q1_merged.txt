@@ -1,0 +1,989 @@
+jerrybase: skipped 117 malformed rows
+====================================================================================================
+assemblyofdust-2004-12-31 aod2004-12-31.flac16 src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+Disc 1
+Set 1
+01. Rachel
+02. Bus Driver
+03. Westerly
+04. Grand Design*
+05. The Time Of Deeds
+06. Fountain**
+07. Stone Choir
+
+Disc 2
+Set2
+01. Corpus Christi
+02. Champagne Supernova^
+03. Man With A Plan
+04. Cabin John->
+4a. Champagne Supernova^ >
+4b. Cabin John
+05. Sinner
+06. Love Junkie
+07. Weekhawken Ferry
+08. Speculator->
+8a. You Lay The Dust** >
+8b. Speculator
+
+Disc 3
+09. Harrower
+Encore 1:
+01. Crest Of My Wing***
+02. Up On Cripple Creek^
+03. Valhalla
+04.  Love The One You're With^
+Encore 2:
+01. Songs We Sing
+--- READER items: 1:Rachel | 1:Bus Driver | 1:Westerly | 1:Grand Design | 1:The Time Of Deeds | 1:Fountain | 1:Stone Choir | 2:Corpus Christi | 2:Champagne Supernova^ | 2:Man With A Plan | 2:Cabin John | 2:4a. Champagne Supernova^ | 2:4b. Cabin John | 2:Sinner | 2:Love Junkie | 2:Weekhawken Ferry | 2:Speculator | 2:8a. You Lay The Dust | 2:8b. Speculator | 2:Harrower | encore:Crest Of My Wing | encore:Up On Cripple Creek^ | encore:Valhalla | encore:Love The One You're With^ | encore:Songs We Sing
+has_encore True encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Rachel
+  2 1       1       tags           Bus Driver
+  3 1       1       tags           Westerly
+  4 1       1       tags           Grand Design*
+  5 1       1       tags           The Time Of Deeds
+  6 1       1       tags           Fountain**
+  7 1       1       tags           Stone Choir
+  8 2       2       tags           Corpus Christi
+  9 2       2       tags           Champagne Supernova^
+ 10 2       2       tags           Man With A Plan
+ 11 2       2       tags           Cabin John->
+ 12 2       2       tags           Sinner
+ 13 2       2       tags           Love Junkie
+ 14 2       2       tags           Weekhawken Ferry
+ 15 2       2       tags           Speculator->
+ 16 2       2       tags           Harrower
+ 17 encore  encore  tags           Crest Of My Wing***
+ 18 encore  encore  tags           Up On Cripple Creek^
+ 19 encore  encore  tags           Valhalla
+ 20 encore  encore  tags           Love The One You're With^
+ 21 3       encore  tags           Songs We Sing
+====================================================================================================
+bigdaddybluegrassband-2004-01-10 bdbb2004-01-10.flac16 src= description alignment= deterministic ssrc= chosen
+--- TEXT
+Disc 1/Set 1:
+
+1. Instrumental
+2. Good Gone Bad
+3. Pioneers 
+4. Red Clay Halo
+5. Rebecca
+6. If I Lose
+7. Bloody Mary Morning
+8. Black Jack
+9. One More Dollar
+10. Rose of Old Kentucky
+11. Wreck of the Great Titanic
+12. Dear Old Dixie
+
+Disc 2/Set 2:
+
+1. Hillbilly Hot Tub
+2. Water of Love
+3. Kind Veggie Burrito
+4. Mountain Song
+5. November
+6. Roanoke * >
+7. Wheel Hoss *
+8. Okracoke *
+9. Dim Lights, Thick Smoke *
+10. Little Girl From Tennessee *
+11. Footprints In The Snow *
+12. Ruby *
+13. Drink Up & Go Home *
+--- READER items: 1:Instrumental | 1:Good Gone Bad | 1:Pioneers | 1:Red Clay Halo | 1:Rebecca | 1:If I Lose | 1:Bloody Mary Morning | 1:Black Jack | 1:One More Dollar | 1:Rose of Old Kentucky | 1:Wreck of the Great Titanic | 1:Dear Old Dixie | 2:Hillbilly Hot Tub | 2:Water of Love | 2:Kind Veggie Burrito | 2:Mountain Song | 2:November | 2:Roanoke | 2:Wheel Hoss | 2:Okracoke | 2:Dim Lights | 2:Thick Smoke | 2:Little Girl From Tennessee | 2:Footprints In The Snow | 2:Ruby | 2:Drink Up & Go Home
+has_encore False encore_like False
+--- parse_setlist labels: ['1']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Instrumental
+  2 1       1       tags           Good Gone Bad
+  3 1       1       tags           Pioneers
+  4 1       1       tags           Red Clay Halo
+  5 1       1       tags           Rebecca
+  6 1       1       tags           If I Lose
+  7 1       1       tags           Bloody Mary Morning
+  8 1       1       tags           Blackjack
+  9 1       1       tags           One More Dollar
+ 10 1       1       tags           Rose of Old Kentucky
+ 11 1       1       tags           Wreck of the Great Titanic
+ 12 1       1       tags           Dear Old Dixie
+ 13 1       2       tags           Hillbilly Hot Tub
+ 14 1       2       tags           Water of Love
+ 15 1       2       tags           Kind Veggie Burrito
+ 16 1       2       tags           Mountain Song
+ 17 1       2       tags           November
+ 18 1       2       tags           Roanoke * >
+ 19 1       2       tags           Wheel Hoss *
+ 20 1       2       tags           Okracoke *
+ 21 1       2       tags           Dim Lights, Thick Smoke *
+ 22 1       2       tags           Little Girl From Tennessee *
+ 23 1       2       tags           Footprints In The Snow *
+ 24 1       2       tags           Ruby *
+ 25 1       2       tags           Drink Up & Go Home *
+====================================================================================================
+derektrucksband-2004-04-15 dtb2004-04-15.flac16 src= description alignment= llm ssrc= setlist.fm
+--- TEXT
+
+
+Set I:
+1. Jackson Soul Stew
+2. Everything is Everything
+3. Soul Serenade
+4. I'll Find My Way
+5. Feel So Bad
+6. Rastaman Chant
+7. For My Brother
+8. Vol. Slavery
+
+Set II:
+1. Hey Driver **
+2. Joyful Noise
+3. Lonely Avenger
+4. Preachin Blues
+5. I Wish I Knew
+6. To Know You
+7. Leavin Trunk
+8. Afro Blue
+encore
+9. Gonna Move
+
+--- READER items: 1:Jackson Soul Stew | 1:Everything is Everything | 1:Soul Serenade | 1:I'll Find My Way | 1:Feel So Bad | 1:Rastaman Chant | 1:For My Brother | 1:Vol. Slavery | 2:Hey Driver | 2:Joyful Noise | 2:Lonely Avenger | 2:Preachin Blues | 2:I Wish I Knew | 2:To Know You | 2:Leavin Trunk | 2:Afro Blue | encore:Gonna Move
+has_encore True encore_like False
+--- parse_setlist labels: ['1', '2', 'encore']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Jackson Soul Stew
+  2 1       1       tags           Everything is Everything
+  3 1       1       tags           Soul Serenade
+  4 1       1       tags           I'll Find My Way
+  5 1       1       tags           Feel So Bad
+  6 1       1       tags           Rastaman Chant
+  7 1       1       tags           For My Brother
+  8 1       1       tags           Vol. Slavery
+  9 1       2       tags           Hey Driver **
+ 10 1       2       tags           Joyful Noise
+ 11 1       2       tags           Lonely Avenger
+ 12 1       2       tags           Preachin Blues
+ 13 1       2       tags           I Wish I Knew
+ 14 1       2       tags           To Know You
+ 15 1       2       tags           Leavin Trunk
+ 16 1       2       tags           Afro Blue
+ 17 encore  encore  tags           Gonna Move
+====================================================================================================
+furthur-2011-03-11 furthur2011-03-11.akg-c460b.spyder9.113408.flac16 src= description alignment= jerrybase ssrc= setlist.fm
+--- TEXT
+Set 1: (1:09:06)
+ 
+101. Jam >
+102. Greatest Story Ever Told
+103. Doin' That Rag
+104. Black Throated Wind
+105. Dupree's Diamond Blues
+106. Big Bad Blues
+107. I Want You (She's So Heavy)    1
+108. Loser >
+109. Jack Straw
+
+
+Set 2: (1:52:03)
+
+201. Box of Rain >
+202. Estimated Prophet >
+203. Dark Star >
+204. Bird Song >
+205. Dark Star >
+206. The Eleven >
+207. Black Peter >
+208. Dear Mr. Fantasy >
+209. Hey Jude! (reprise) >     
+210. Around & Around
+211. Donor Rap
+212. E: Like A Rolling Stone
+--- READER items: 1:Jam | 1:Greatest Story Ever Told | 1:Doin' That Rag | 1:Black Throated Wind | 1:Dupree's Diamond Blues | 1:Big Bad Blues | 1:I Want You (She's So Heavy)    1 | 1:Loser | 1:Jack Straw | 2:Box of Rain | 2:Estimated Prophet | 2:Dark Star | 2:Bird Song | 2:Dark Star | 2:The Eleven | 2:Black Peter | 2:Dear Mr. Fantasy | 2:Hey Jude! (reprise) | 2:Around & Around | 2:Donor Rap | encore:Like A Rolling Stone
+has_encore True encore_like False
+--- parse_setlist labels: ['1', '2', 'encore']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Jam
+  2 1       1       tags           Greatest Story Ever Told
+  3 1       1       tags           Doin' That Rag
+  4 1       1       tags           Black Throated Wind
+  5 1       1       tags           Dupree's Diamond Blues
+  6 1       1       tags           Big Bad Blues
+  7 1       1       tags           I Want You
+  8 1       1       tags           Loser
+  9 1       1       tags           Jack Straw
+ 10 1       2       tags           Box of Rain
+ 11 1       2       tags           Estimated Prophet
+ 12 1       2       tags           Dark Star
+ 13 1       2       tags           Bird Song
+ 14 1       2       tags           Dark Star
+ 15 1       2       tags           The Eleven
+ 16 1       2       tags           Black Peter
+ 17 1       2       tags           Dear Mr. Fantasy
+ 18 1       2       tags           Around & Around
+ 19 encore  2       tags           Donor Rap
+ 20 encore  encore  tags           Like A Rolling Stone
+====================================================================================================
+gratefuldead-1974-09-18 gd1974-09-18.sbd.miller.20675.shnf src= description alignment= jerrybase ssrc= setlist.fm
+--- TEXT
+Set One:	
+d1t01 - Uncle John?s Band
+d1t02 - Jack Straw
+d1t03 - Friend Of The Devil
+d1t04 - Black Throated Wind
+d1t05 - Scarlet Begonias
+d1t06 - Mexicali Blues
+d1t07 - Row Jimmy
+d1t08 - Beat It On Down The Line
+d1t09 - Deal
+d1t10 - The Race Is On
+d1t11 - To Lay Me Down
+d2t01 - Playin? In The Band
+
+Set Two:
+d2t02 - Phil And ned
+
+Set Three:
+d2t03 - Loose Lucy
+d2t04 - Big River
+d2t05 - Peggy-O
+d2t06 - Me & My Uncle
+d3t01 - Eyes Of The World ->
+d3t02 - China Doll
+d3t03 - He?s Gone ->
+d3t04 - Truckin? ->
+d3t05 - Drums ->
+d3t06 - Caution Jam ->
+d3t07 - Ship Of Fools
+d3t08 - Johnny B. Goode
+
+Encore:
+d3t09 - U.S. Blues
+--- READER items: 1:Uncle John?s Band | 1:Jack Straw | 1:Friend Of The Devil | 1:Black Throated Wind | 1:Scarlet Begonias | 1:Mexicali Blues | 1:Row Jimmy | 1:Beat It On Down The Line | 1:Deal | 1:The Race Is On | 1:To Lay Me Down | 1:Playin? In The Band | 2:Phil And ned | 3:Loose Lucy | 3:Big River | 3:Peggy-O | 3:Me & My Uncle | 3:Eyes Of The World | 3:China Doll | 3:He?s Gone | 3:Truckin? | 3:Drums | 3:Caution Jam | 3:Ship Of Fools | 3:Johnny B. Goode | encore:U.S. Blues
+has_encore True encore_like False
+--- parse_setlist labels: ['1', '2', '3', 'encore']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Uncle John's Band
+  2 1       1       tags           Jack Straw
+  3 1       1       tags           Friend Of The Devil
+  4 1       1       tags           Black Throated Wind
+  5 1       1       tags           Scarlet Begonias
+  6 1       1       tags           Mexicale Blues
+  7 1       1       tags           Row Jimmy
+  8 1       1       tags           Beat It On Down The Line
+  9 1       1       tags           Deal
+ 10 1       1       tags           The Race Is On
+ 11 1       1       tags           To Lay Me Down
+ 12 1       1       tags           Playing In The Band
+ 13 2       2       tags           Phil And Ned
+ 14 2       3       tags           Loose Lucy
+ 15 2       3       tags           Big River
+ 16 2       3       tags           Peggy-O
+ 17 2       3       tags           Me & My Uncle
+ 18 2       3       tags           Eyes Of The World ->
+ 19 2       3       tags           China Doll
+ 20 2       3       tags           He's Gone ->
+ 21 2       3       tags           Truckin' ->
+ 22 2       3       tags           Drums ->
+ 23 2       3       tags           Caution Jam ->
+ 24 2       3       tags           Ship Of Fools
+ 25 2       3       tags           Johnny B. Goode
+ 26 encore  encore  tags           U.S. Blues
+====================================================================================================
+greenskybluegrass-2006-05-16 gsbg2006-05-16.flac16 src= description alignment= deterministic ssrc= chosen
+--- TEXT
+disc1/set1
+01: bont's breakdown
+02:atomic power
+03:feast here tonight
+04:stop that train > shenendoah > stt
+05:less than supper
+06:broken highways
+07:albeta bound
+08:hoxeyville
+09:tuesday letter
+10:white freght liner blues
+11:do it twice > blackberry rag
+	disc2/set2
+01:radio blues
+01:bottle dry
+03:mama tried
+04:bound to ride
+05:grow bananas
+06:leavin
+07:gold rush
+08:fox on the run
+09:old barns
+10:runnin the briars
+11:stone walls and steel bars
+12:king of the hill
+	disc3/set3
+01: crowd intro
+02:tied down
+03:little cabin home
+04:dancin' in the dark >
+05:dancin' in the dark cont.
+06:white water
+07:no more fun
+08: when doves cry
+09:mountain girls
+10: steam powered airplane
+11:sugarfoot rag
+12: cassidy
+13:katy daly
+	encore
+14: i love the women
+15:small axe
+--- READER items: 1:01: bont's breakdown | 1:02:atomic power | 1:03:feast here tonight | 1:04:stop that train | 1:shenendoah | 1:stt | 1:05:less than supper | 1:06:broken highways | 1:07:albeta bound | 1:08:hoxeyville | 1:09:tuesday letter | 1:10:white freght liner blues | 1:11:do it twice | 1:blackberry rag | 2:01:radio blues | 2:01:bottle dry | 2:03:mama tried | 2:04:bound to ride | 2:05:grow bananas | 2:06:leavin | 2:07:gold rush | 2:08:fox on the run | 2:09:old barns | 2:10:runnin the briars | 2:11:stone walls and steel bars | 2:12:king of the hill | 3:02:tied down | 3:03:little cabin home | 3:04:dancin' in the dark | 3:05:dancin' in the dark cont. | 3:06:white water | 3:07:no more fun | 3:08: when doves cry | 3:09:mountain girls | 3:10: steam powered airplane | 3:11:sugarfoot rag | 3:12: cassidy | 3:13:katy daly | encore:14: i love the women | encore:15:small axe
+has_encore True encore_like False
+--- parse_setlist labels: ['1', 'encore']
+--- TRACKS (stored | taper)
+  1 1       1       tags           bont's breakdown
+  2 1       1       tags           atomic power
+  3 1       1       tags           feast here tonight
+  4 1       1       tags           stop that train> shenendoah> stt
+  5 1       1       tags           less than supper
+  6 1       1       tags           broken highways
+  7 1       1       tags           albeta bound
+  8 1       1       tags           hoxeyville
+  9 1       1       tags           tuesday letter
+ 10 1       1       tags           white freight liner blues
+ 11 1       1       tags           do it twice> blackberry rag
+ 12 1       2       tags           radio blues
+ 13 1       2       tags           bottle dry
+ 14 1       2       tags           mama tried
+ 15 1       2       tags           bound to ride
+ 16 1       2       tags           grow bananas
+ 17 1       2       tags           leavin'
+ 18 1       2       tags           gold rush
+ 19 1       2       tags           fox on the run
+ 20 1       2       tags           old barns
+ 21 1       2       tags           runnin the briars
+ 22 1       2       tags           stone walls and steel bars
+ 23 1       2       tags           king of the hill
+ 24 1       3       tags           crowd intro
+ 25 1       3       tags           tied down
+ 26 1       3       tags           little cabin home
+ 27 1       3       tags           dancin' in the dark
+ 28 1       3       tags           dancin' cont
+ 29 1       3       tags           white water
+ 30 1       3       tags           no more fun
+ 31 1       3       tags           when doves cry
+ 32 1       3       tags           mountain girls
+ 33 1       3       tags           steam powered airplane
+ 34 1       3       tags           sugarfoot rag
+ 35 1       3       tags           cassidy
+ 36 1       3       tags           katy daly
+ 37 encore  encore  tags           i love the women
+ 38 encore  encore  tags           small axe
+====================================================================================================
+lotus-2008-08-02 lotus2008-08-02.ka500.603a.722.flac16 src= description alignment= deterministic ssrc= chosen
+--- TEXT
+~Set 1~
+
+01. Set 1 Intro
+02. Nematode
+03. Reich * >>>
+04. Slow Cookin' >>>
+05. Umbilical Moonset
+06. Livingston Storm
+07. Mikesnack
+08. Age Of Inexperience
+
+~Set 2~
+
+01. Set 2 Intro
+02. Expired Slang
+03. Jump Off >>>
+04. Juggernaut >>>
+05. Jump Off
+06. Did Fatt >>>
+07. Sid >>>
+08. Flower Sermon
+Encore
+09. Hammerstrike
+
+* aka 'Point/Electric Counterpoint'
+
+A 'Beats By Bean/Team Pittsburgh' recording!
+--- READER items: 1:Nematode | 1:Reich | 1:Slow Cookin' | 1:Umbilical Moonset | 1:Livingston Storm | 1:Mikesnack | 1:Age Of Inexperience | 2:Expired Slang | 2:Jump Off | 2:Juggernaut | 2:Jump Off | 2:Did Fatt | 2:Sid | 2:Flower Sermon | encore:Hammerstrike | encore:aka 'Point/Electric Counterpoint' | encore:A 'Beats By Bean/Team Pittsburgh' recording!
+has_encore True encore_like False
+--- parse_setlist labels: ['1', 'encore']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Nematode
+  2 1       1       tags           Reich * >>>
+  3 1       1       tags           Slow Cookin' >>>
+  4 1       1       tags           Umbilical Moonset
+  5 1       1       tags           Livingston Storm
+  6 1       1       tags           Mikesnack
+  7 1       1       tags           Age Of Inexperience
+  8 1       2       tags           Expired Slang
+  9 1       2       tags           Jump Off >>>
+ 10 1       2       tags           Juggernaut >>>
+ 11 1       2       tags           Jump Off
+ 12 1       2       tags           Did Fatt >>>
+ 13 1       2       tags           Sid >>>
+ 14 1       2       tags           Flower Sermon
+ 15 encore  encore  tags           Hammerstrike
+====================================================================================================
+motherhips-1995-08-06 mh1995-08-06 src= notes alignment= deterministic ssrc= setlist.fm
+--- TEXT
+This same set of original cassettes has now been re-transfered at high definition, and uploaded here:
+<a href="https://archive.org/details/MotherHips1995-08-06" rel="ugc nofollow">https://archive.org/details/MotherHips1995-08-06</a>
+
+set one-(1:05:59)
+
+intro	2:11
+Ballgame	6:47
+Mona Lisa & The Last Supper	3:34
+The Cosmonaut	3:50
+Been Lost Once	4:15
+Pancho Villa	3:46
+Desert Song	4:18
+Sunshine Feel	5:28
+Showing It All To Bad Marie	6:05
+Honey Dew	5:39 (end cut due to MCAS flip)
+Loup Garou	4:20
+Two Young Queens	4:52
+Stoned Up The Road	4:34
+Whiskey River	6:20
+
+set two- (1:16:39)
+
+Precious Opal	9:34
+Lady Be Cool	8:00
+Run Around Me	- Leaving Trunk 11:02
+Magazine	4:57
+I Can't Sleep At All	3:40
+Please Don't Worry	4:20
+instrumedley	2:31
+Rich Little Girl (pt 1)	1:58 (MCAS flip edited together)
+Rich Little Girl	4:46
+Parchman Farm	4:22
+Tehachapi Bloodline	5:15
+Meet Me In the Morning	7:02
+Shut The Door	4:37
+Mother Hips	4:35
+
+covers-
+JOHNNY BUSH- Whiskey River
+GRAND FUNK RAILROAD - Please Don't Worry
+MOSE ALLISON- Parchman Farm
+BOB DYLAN- Meet Me In The Morning
+TAJ MAHAL- Leaving Trunk
+
+787.2MB / 2:22:40
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+opening band- "Bottle"
+
+Source: 
+Realistic PZM's on stand > Marantz PMD430 cassette deck w/ no NR > MCAS
+
+Transfer:
+MCAS> Nakamichi CR-1A > Audiomedia III PCI card> PowermacG3/266> Protools v4.1.1 >  44.1KHz AIF files > Audacity v1.2.3  (tracking on sector boundaries) > xACT 1.3 (FLAC encode) > FLAC
+
+Notes:
+http://www.rivercitysaloon.com/
+http://www.motherhips.com
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+Soundscape Preservation Society Founded 1991
+http://www.iamtypingwithonefinger.com/SPS.html
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+--- READER items: 1:https://archive.org/details/MotherHips1995-08-06 | 1:set one-(1:05:59) | 1:Ballgame	6:47 | 1:Mona Lisa & The Last Supper	3:34 | 1:The Cosmonaut	3:50 | 1:Been Lost Once	4:15 | 1:Pancho Villa	3:46 | 1:Desert Song	4:18 | 1:Sunshine Feel	5:28 | 1:Showing It All To Bad Marie	6:05 | 1:Honey Dew	5:39 (end cut due to MCAS flip) | 1:Loup Garou	4:20 | 1:Two Young Queens	4:52 | 1:Stoned Up The Road	4:34 | 1:Whiskey River	6:20 | 2:Precious Opal	9:34 | 2:Lady Be Cool	8:00 | 2:Run Around Me	- Leaving Trunk 11:02 | 2:Magazine	4:57 | 2:I Can't Sleep At All	3:40 | 2:Please Don't Worry	4:20 | 2:instrumedley	2:31 | 2:Rich Little Girl (pt 1)	1:58 (MCAS flip edited together) | 2:Rich Little Girl	4:46 | 2:Parchman Farm	4:22 | 2:Tehachapi Bloodline	5:15 | 2:Meet Me In the Morning	7:02 | 2:Shut The Door	4:37 | 2:Mother Hips	4:35 | 2:covers- | 2:JOHNNY BUSH- Whiskey River | 2:GRAND FUNK RAILROAD - Please Don't Worry | 2:MOSE ALLISON- Parchman Farm | 2:BOB DYLAN- Meet Me In The Morning | 2:TAJ MAHAL- Leaving Trunk | 2:787.2MB / 2:22:40 | 2:-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- | 2:opening band- "Bottle" | 2:Notes: | 2:http://www.rivercitysaloon.com/ | 2:http://www.motherhips.com | 2:-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- | 2:Soundscape Preservation Society Founded 1991 | 2:http://www.iamtypingwithonefinger.com/SPS.html | 2:-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           intro
+  2 1       1       tags           Ballgame
+  3 1       1       tags           Mona Lisa & The Last Supper
+  4 1       1       tags           The Cosmonaut
+  5 1       1       tags           Been Lost Once
+  6 1       1       tags           Pancho Villa
+  7 1       1       tags           Desert Song
+  8 1       1       tags           Sunshine Feel
+  9 1       1       tags           Showing It All To Bad Marie
+ 10 1       1       tags           Honey Dew
+ 11 1       1       tags           Loup Garou
+ 12 1       1       tags           Two Young Queens
+ 13 1       1       tags           Stoned Up The Road
+ 14 1       1       tags           Whiskey River
+ 15 1       2       tags           Precious Opal
+ 16 1       2       tags           Lady Be Cool
+ 17 1       2       tags           Run Around Me - Leaving Trunk
+ 18 1       2       tags           Magazine
+ 19 1       2       tags           I Can't Sleep At All
+ 20 1       2       tags           Please Don't Worry
+ 21 1       2       tags           instrumedley
+ 22 1       2       tags           Rich Little Girl (pt 1)
+ 23 1       2       tags           Rich Little Girl (continuation)
+ 24 1       2       tags           Parchman Farm
+ 25 1       2       tags           Tehachapi Bloodline
+ 26 1       2       tags           Meet Me In The Morning
+ 27 1       2       tags           Shut The Door
+ 28 1       2       tags           Mother Hips
+====================================================================================================
+mymorningjacket-2018-03-05 mmj2018-03-05.flac src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1<br /><br />01: Intro<br />02: Evil Urges *<br />03: Touch Me I'm Going To Scream Pt. 1<br />04: Highly Suspicious *<br />05: I'm Amazed<br />06: Thank You Too<br />07: Sec Walkin<br />08: Two Halves<br />09: Librarian<br />10: Look At You<br />11: Aluminum Park<br />12: Remnants<br />13: Smokin From Shootin<br />14: Touch Me I'm Going To Scream Pt. 2<br /><br />Set 2<br /><br />01: Intro<br />02: Victory Dance<br />03: Cirucuital<br />04: Day Is Coming<br />05: Wonderful<br />06: Outta My System<br />07: Holdin On To Black Metal *<br />08: First Light<br />09: You Wanna Freak Out<br />10: Slow Slow Tune<br />11: Movin Away<br />12: Believe (Nobody Knows)<br />13: Compound Fracture<br />14: Like A River<br />15: In It's Infancy (The Waterfall)<br />16: Get To The Point<br />17: Spring (Among The Living)<br />18: Thin Line<br />19: Big Decisions<br />20: Tropics (Erase Traces)<br />21: Only Memories Remain<br /><br />encore<br /><br />22: Thanks<br />23: Magic Bullet<br />24: One Big Holiday<br />25: Outro<br /><br />* w/ Preservation Hall Jazz Band
+--- READER items: 1:02: Evil Urges | 1:03: Touch Me I'm Going To Scream Pt. 1 | 1:04: Highly Suspicious | 1:05: I'm Amazed | 1:06: Thank You Too | 1:07: Sec Walkin | 1:08: Two Halves | 1:09: Librarian | 1:10: Look At You | 1:11: Aluminum Park | 1:12: Remnants | 1:13: Smokin From Shootin | 1:14: Touch Me I'm Going To Scream Pt. 2 | 2:02: Victory Dance | 2:03: Cirucuital | 2:04: Day Is Coming | 2:05: Wonderful | 2:06: Outta My System | 2:07: Holdin On To Black Metal | 2:08: First Light | 2:09: You Wanna Freak Out | 2:10: Slow Slow Tune | 2:11: Movin Away | 2:12: Believe (Nobody Knows) | 2:13: Compound Fracture | 2:14: Like A River | 2:15: In It's Infancy (The Waterfall) | 2:16: Get To The Point | 2:17: Spring (Among The Living) | 2:18: Thin Line | 2:19: Big Decisions | 2:20: Tropics (Erase Traces) | 2:21: Only Memories Remain | encore:23: Magic Bullet | encore:24: One Big Holiday | encore:w/ Preservation Hall Jazz Band
+has_encore True encore_like False
+--- parse_setlist labels: ['1', '2', 'encore']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Intro
+  2 1       1       tags           Evil Urges
+  3 1       1       tags           Touch Me I'm Going To Scream Pt. 1
+  4 1       1       tags           Highly Suspicious
+  5 1       1       tags           I'm Amazed
+  6 1       1       tags           Thank You Too
+  7 1       1       tags           Sec Walkin
+  8 1       1       tags           Two Halves
+  9 1       1       tags           Librarian
+ 10 1       1       tags           Look At You
+ 11 1       1       tags           Aluminum Park
+ 12 1       1       tags           Remnants
+ 13 1       1       tags           Smokin From Shootin
+ 14 1       1       tags           Touch Me I'm Going To Scream Pt. 2
+ 15 2       2       tags           Victory Dance
+ 16 2       2       tags           Cirucuital
+ 17 2       2       tags           Day Is Coming
+ 18 2       2       tags           Wonderful
+ 19 2       2       tags           Outta My System
+ 20 2       2       tags           Holdin On To Black Metal
+ 21 2       2       tags           First Light
+ 22 2       2       tags           You Wanna Freak Out
+ 23 2       2       tags           Slow Slow Tune
+ 24 2       2       tags           Movin Away
+ 25 3       2       tags           Believe (Nobody Knows)
+ 26 3       2       tags           Compound Fracture
+ 27 3       2       tags           Like A River
+ 28 3       2       tags           In It's Infancy (The Waterfall)
+ 29 3       2       tags           Get To The Point
+ 30 3       2       tags           Spring (Among The Living)
+ 31 3       2       tags           Thin Line
+ 32 3       2       tags           Big Decisions
+ 33 3       2       tags           Tropics (Erase Traces)
+ 34 3       2       tags           Only Memories Remain
+ 35 encore  encore  tags           Magic Bullet
+ 36 encore  encore  tags           One Big Holiday
+====================================================================================================
+perpetualgroove-2006-12-29 pgroove2006-12-29.flac16 src= description alignment= deterministic ssrc= chosen
+--- TEXT
+Disc 1 - Set I
+
+1. Sundog
+2. Space Oddity
+3. La Casa Bien
+4. TSMM
+5. AIM
+6. Playground
+
+Disc 2 - Set II
+
+1. Crowded Tub
+2. Space Paranoids
+3. Diamonds on the Soles of Her Shoes
+4. Breeze
+
+Disc 3 - Set II cont
+
+1. Robot Waltz
+2. Macumba
+
+E:
+
+3. Walkin' in Place
+--- READER items: 1:Sundog | 1:Space Oddity | 1:La Casa Bien | 1:TSMM | 1:AIM | 1:Playground | 2:Space Paranoids | 2:Diamonds on the Soles of Her Shoes | 2:Breeze | 2:Robot Waltz | 2:Macumba | encore:Walkin' in Place
+has_encore True encore_like False
+--- parse_setlist labels: ['1', 'encore']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Sundog
+  2 1       1       tags           Space Oddity
+  3 1       1       tags           La Casa Bien
+  4 1       1       tags           TSMM
+  5 1       1       tags           AIM
+  6 1       1       tags           Playground
+  7 1       2       tags           Crowded Tub
+  8 1       2       tags           Space Paranoids
+  9 1       2       tags           Diamonds on the Soles of Her Shoes
+ 10 1       2       tags           Breeze
+ 11 1       2       tags           Robot Waltz
+ 12 1       2       tags           Macumba
+ 13 encore  encore  tags           Walkin' in Place
+====================================================================================================
+perpetualgroove-2007-08-18 pgroove2007-08-18.flac16 src= description alignment= deterministic ssrc= chosen
+--- TEXT
+Disc 1 - Set I
+1. Pentium Groove Processor->
+2. MOTA
+3. The Golden Path
+4. Space Paranoids
+5. Mayday
+6. Too Close to the Sun
+7. Robot Waltz
+Disc 2 - Set II
+1. Teakwood Betz
+2. Don't Come Around Here No More->
+3. Crapshoot
+4. Breeze
+Disc 3 - Set II cont
+1. It Starts Where it Ends
+2. Mr Transistor
+E:
+3. I'm Afraid of Americans
+--- READER items: 1:Pentium Groove Processor | 1:MOTA | 1:The Golden Path | 1:Space Paranoids | 1:Mayday | 1:Too Close to the Sun | 1:Robot Waltz | 2:Teakwood Betz | 2:Don't Come Around Here No More | 2:Crapshoot | 2:Breeze | 2:It Starts Where it Ends | 2:Mr Transistor | encore:I'm Afraid of Americans
+has_encore True encore_like False
+--- parse_setlist labels: ['1', 'encore']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Pentium Groove Processor->
+  2 1       1       tags           MOTA
+  3 1       1       tags           The Golden Path
+  4 1       1       tags           Space Paranoids
+  5 1       1       tags           Mayday
+  6 1       1       tags           Too Close to the Sun
+  7 1       1       tags           Robot Waltz
+  8 1       2       tags           Teakwood Betz
+  9 1       2       tags           Don't Come Around Here No More->
+ 10 1       2       tags           Crapshoot
+ 11 1       2       tags           Breeze
+ 12 1       2       tags           It Starts Where it Ends
+ 13 1       2       tags           Mr Transistor
+ 14 encore  encore  tags           I'm Afraid of Americans
+====================================================================================================
+perpetualgroove-2008-05-03 pgroove2008-05-03.flac16 src= description alignment= deterministic ssrc= chosen
+--- TEXT
+Disc 1 - Set I
+
+1. Gorilla Monsoon
+2. A Day the Way
+3. Jam
+4. Free Ride to the Show
+5. Diamonds on the Soles of Her Shoes
+6. All This Everything Part I->
+7. Space Paranoids
+
+Disc 2 - Set II
+
+1. Teakwood Betz
+2. Crapshoot
+3. Mota
+4. TSMM
+
+Disc 3 - Set II cont
+
+1. All Night Long
+2. Speed Queen
+
+E:
+
+3. Orange Wedge*
+--- READER items: 1:Gorilla Monsoon | 1:A Day the Way | 1:Jam | 1:Free Ride to the Show | 1:Diamonds on the Soles of Her Shoes | 1:All This Everything Part I | 1:Space Paranoids | 2:Teakwood Betz | 2:Crapshoot | 2:Mota | 2:TSMM | 2:All Night Long | 2:Speed Queen | encore:Orange Wedge
+has_encore True encore_like False
+--- parse_setlist labels: ['1', 'encore']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Gorilla Monsoon
+  2 1       1       tags           A Day the Way
+  3 1       1       tags           Jam
+  4 1       1       tags           Free Ride to the Show
+  5 1       1       tags           Diamonds on the Soles of Her Shoes
+  6 1       1       tags           All This Everything Part I->
+  7 1       1       tags           Space Paranoids
+  8 1       2       tags           Teakwood Betz
+  9 1       2       tags           Crapshoot
+ 10 1       2       tags           Mota
+ 11 1       2       tags           TSMM
+ 12 1       2       tags           All Night Long
+ 13 1       2       tags           Speed Queen
+ 14 encore  encore  tags           Orange Wedge*
+====================================================================================================
+radiators-1981-07-11 rad1981-07-11.shnf src= description alignment= deterministic ssrc= chosen
+--- TEXT
+-DISC ONE-
+(Set 1)
+01) One Eyed Jack
+02) Tell Me How Do You Feel
+03) Hard To Tell
+04) End Of Your Rope
+05) House Of Blue Lights
+06) I'd Rather Waste You (Than See You Wasted On Somebody Else)
+07) Deep In the Night
+08) Moving Day
+09) Hardcore-> Trouble Every Day-> Hardcore
+10) Nail Your Heart To Mine
+11) My Whole World Flies Apart->
+12) Hot Lube
+
+-DISC TWO-
+(Set 1, cont.)
+01) Red Dress
+02) Heat Generation Medley
+03) Automatic
+04) Low Life//
+05) //Honey Bee ->
+06) Lovelight
+(Set 2)
+07) Haunted House
+
+-DISC THREE-
+(Set 2, cont.)
+01) Spanish Moon
+02) Killing Floor
+03) Slip Away
+04) Monkey In Her Heart
+05) Stealin' A Feelin'
+06) Good Morning Miss Brown
+07) Dixie Chicken ->
+08) Goin' Down The Road Feelin' Bad
+-Encore
+09) Chevy 39
+--- READER items: 1:One Eyed Jack | 1:Tell Me How Do You Feel | 1:Hard To Tell | 1:End Of Your Rope | 1:House Of Blue Lights | 1:I'd Rather Waste You (Than See You Wasted On Somebody Else) | 1:Deep In the Night | 1:Moving Day | 1:Hardcore | 1:Trouble Every Day | 1:Hardcore | 1:Nail Your Heart To Mine | 1:My Whole World Flies Apart | 1:Hot Lube | 1:Red Dress | 1:Heat Generation Medley | 1:Automatic | 1:Low Life// | 1://Honey Bee | 1:Lovelight | 2:Haunted House | 2:Spanish Moon | 2:Killing Floor | 2:Slip Away | 2:Monkey In Her Heart | 2:Stealin' A Feelin' | 2:Good Morning Miss Brown | 2:Dixie Chicken | 2:Goin' Down The Road Feelin' Bad | encore:Chevy 39
+has_encore True encore_like False
+--- parse_setlist labels: ['1', 'encore']
+--- TRACKS (stored | taper)
+  1 1       1       tags           One Eyed Jack
+  2 1       1       tags           Tell Me How Do You Feel
+  3 1       1       tags           Hard To Tell
+  4 1       1       tags           End Of Your Rope
+  5 1       1       tags           House Of Blue Lights
+  6 1       1       tags           I'd Rather Waste You
+  7 1       1       tags           Deep In The Night
+  8 1       1       tags           Moving Day
+  9 1       1       tags           Hardcore> Trouble Every Day> Hardcore
+ 10 1       1       tags           Nail Your Heart To Mine
+ 11 1       1       tags           My Whole World Flies Apart>
+ 12 1       1       tags           Hot Lube
+ 13 1       1       tags           Red Dress
+ 14 1       1       tags           Heat Generation Medley
+ 15 1       1       tags           Automatic
+ 16 1       1       tags           Low Life
+ 17 1       1       tags           Honey Bee>
+ 18 1       1       tags           Lovelight
+ 19 1       2       tags           Haunted House
+ 20 1       2       tags           Spanish Moon
+ 21 1       2       tags           Killing Floor
+ 22 1       2       tags           Slip Away
+ 23 1       2       tags           Monkey In Her Heart
+ 24 1       2       tags           Stealin A Feelin
+ 25 1       2       tags           Good Morning Miss Brown
+ 26 1       2       tags           Dixie Chicken>
+ 27 1       2       tags           Goin Down The Road Feelin Bad
+ 28 encore  encore  tags           Chevy 39
+====================================================================================================
+ryanadams-2007-07-21 ra2007-07-21 src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+Ryan Adams and The Cardinals
+2007-07-21
+The Catalyst
+Santa Cruz, California
+
+Disc 1 (76:15)
+Set 1
+1.	What Sin
+2. 	Please Don't Let Me Go
+3.	Dear Chicago
+4.	Goodnight Rose
+5.	Cold Roses
+6.	Mockingbird >
+7.	Beautiful Sorta
+8.	Bartering Lines
+9.	Magnolia Mountain
+
+Set 2
+10.	Pearls On A String
+11.	Peaceful Valley
+12.	Trouble On Wheels
+13.	Arkham Asylum
+
+Disc 2 (69:12)
+14.	I See Monsters
+15. Games
+16. A Kiss Before I Go
+17.	Oh My God, Whatever, Etc
+18.	Dear John
+19.	The End
+20.	Blue Hotel
+21.   Wild Flowers
+22.	Band Introductions
+23.	Let It Ride
+24.	Easy Plateau >
+25.	I Taught Myself How To Grow Old
+--- READER items: 1:What Sin | 1:Please Don't Let Me Go | 1:Dear Chicago | 1:Goodnight Rose | 1:Cold Roses | 1:Mockingbird | 1:Beautiful Sorta | 1:Bartering Lines | 1:Magnolia Mountain | 2:Pearls On A String | 2:Peaceful Valley | 2:Trouble On Wheels | 2:Arkham Asylum | 2:I See Monsters | 2:Games | 2:A Kiss Before I Go | 2:Oh My God | 2:Whatever | 2:Etc | 2:Dear John | 2:The End | 2:Blue Hotel | 2:Wild Flowers | 2:Band Introductions | 2:Let It Ride | 2:Easy Plateau | 2:I Taught Myself How To Grow Old
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           What Sin
+  2 1       1       tags           Please Don't Let Me Go
+  3 1       1       tags           Dear Chicago
+  4 1       1       tags           Goodnight Rose
+  5 1       1       tags           Cold Roses
+  6 1       1       tags           Mockingbird
+  7 1       1       tags           Beautiful Sorta
+  8 1       1       tags           Bartering Lines
+  9 1       1       tags           Magnolia Mountain
+ 10 1       2       tags           Pearls On A String
+ 11 1       2       tags           Peaceful Valley
+ 12 1       2       tags           Trouble On Wheels
+ 13 1       2       tags           Arkham Asylum
+ 14 1       2       tags           I See Monsters
+ 15 1       2       tags           Games
+ 16 1       2       tags           A Kiss Before I Go
+ 17 1       2       tags           Oh My God, Whatever, Etc
+ 18 1       2       tags           Dear John
+ 19 1       2       tags           The End
+ 20 1       2       tags           Blue Hotel
+ 21 1       2       tags           Wild Flowers
+ 22 1       2       tags           Band Introductions
+ 23 1       2       tags           Let It Ride
+ 24 1       2       tags           Easy Plateau
+ 25 1       2       tags           I Taught Myself How To Grow Old
+====================================================================================================
+ryanadams-2008-01-19 ra2008-01-19.flac16 src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1:
+Ryan Solo
+01.Intro
+02.Sweet Lil' Gal (23rd/1st)
+03.Everything Dies
+04.San Diego
+Cardinals
+05.Peaceful Valley Intro>
+06.Please Do Not Let Me Go
+07.Off Broadway
+08.Mockingbird
+09.The Rescue Blues
+10.This House Is Not For Sale
+11.Elizabeth, You Were Born To Play That Part
+12.Everybody Knows
+13.When The Stars Go Blue
+14.Evening Joke w/Jon Graboff//Happy Birthday Spacewolf
+15.Goodnight Rose
+16.The Sun Also Sets
+Set 2:
+01.A Kiss Before I Go>
+02.The End
+03.Freeway To The Canyon
+04.Halloweenhead
+05.Easy Plateau>
+06.Bartering Lines>
+07.Beautiful Sorta
+08.Cold Roses
+09.Wildflowers
+10.Peaceful Valley Reprise
+--- READER items: 1:Ryan Solo | 1:Sweet Lil' Gal (23rd/1st) | 1:Everything Dies | 1:San Diego | 1:Cardinals | 1:Please Do Not Let Me Go | 1:Off Broadway | 1:Mockingbird | 1:The Rescue Blues | 1:This House Is Not For Sale | 1:Elizabeth | 1:You Were Born To Play That Part | 1:Everybody Knows | 1:When The Stars Go Blue | 1:Evening Joke w/Jon Graboff//Happy Birthday Spacewolf | 1:Goodnight Rose | 1:The Sun Also Sets | 2:A Kiss Before I Go | 2:The End | 2:Freeway To The Canyon | 2:Halloweenhead | 2:Easy Plateau | 2:Bartering Lines | 2:Beautiful Sorta | 2:Cold Roses | 2:Wildflowers | 2:Peaceful Valley Reprise
+has_encore False encore_like False
+--- parse_setlist labels: ['1', '2']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Intro
+  2 1       1       tags           Sweet Lil' Gal (23rd/1st)
+  3 1       1       tags           Everything Dies
+  4 1       1       tags           San Diego
+  5 2       1       tags           Peaceful Valley Intro>
+  6 2       1       tags           Please Do Not Let Me Go
+  7 2       1       tags           Off Broadway
+  8 2       1       tags           Mockingbird
+  9 2       1       tags           The Rescue Blues
+ 10 2       1       tags           This House Is Not For Sale
+ 11 2       1       tags           Elizabeth, You Were Born To Play That Part
+ 12 2       1       tags           Everybody Knows
+ 13 2       1       tags           When The Stars Go Blue
+ 14 2       1       tags           Evening Joke w/Jon Graboff//Happy Birthday Spacewolf
+ 15 2       1       tags           Goodnight Rose
+ 16 2       1       tags           The Sun Also Sets
+ 17 3       2       tags           A Kiss Before I Go>
+ 18 3       2       tags           The End
+ 19 3       2       tags           Freeway To The Canyon
+ 20 3       2       tags           Halloweenhead
+ 21 3       2       tags           Easy Plateau>
+ 22 3       2       tags           Bartering Lines>
+ 23 3       2       tags           Beautiful Sorta
+ 24 3       2       tags           Cold Roses
+ 25 3       2       tags           Wildflowers
+ 26 3       2       tags           Peaceful Valley Reprise
+====================================================================================================
+ryanadams-2008-01-29 ra2008-01-29.sbd.flac16 src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+Ryan Adams and The Cardinals
+2008-01-29
+The Catalyst
+Santa Cruz, California
+
+Disc 1 (59:18)
+Set 1
+01.	Peaceful Valley->
+02.	Beautiful Sorta
+03.	Shakedown On 9th Street
+04.	Bartering Lines
+05.	A Kiss Before I Go
+06.	Cold Roses
+07.	Freeway To The Canyon
+08.	Wildflowers
+09.	Mockingbird->
+10.	Off Broadway
+
+Disc 2 (69:56) 
+Set 2
+01.	Why Do They Leave
+02.	Everybody Knows
+03.	I See Monsters
+04.	The End
+05.	Please Do Not Let Me Go
+06.	Goodnight Rose
+07.	"Casserole and meatloaf"
+08.	Easy Plateau
+
+Encore:
+09.	Magnolia Mountain
+10.	Blue Hotel
+--- READER items: 1:Peaceful Valley | 1:Beautiful Sorta | 1:Shakedown On 9th Street | 1:Bartering Lines | 1:A Kiss Before I Go | 1:Cold Roses | 1:Freeway To The Canyon | 1:Wildflowers | 1:Mockingbird | 1:Off Broadway | 2:Why Do They Leave | 2:Everybody Knows | 2:I See Monsters | 2:The End | 2:Please Do Not Let Me Go | 2:Goodnight Rose | 2:"Casserole and meatloaf" | 2:Easy Plateau | encore:Magnolia Mountain | encore:Blue Hotel
+has_encore True encore_like False
+--- parse_setlist labels: ['1', '2', 'encore']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Peaceful Valley->
+  2 1       1       tags           Beautiful Sorta
+  3 1       1       tags           Shakedown On 9th Street
+  4 1       1       tags           Bartering Lines
+  5 1       1       tags           A Kiss Before I Go
+  6 1       1       tags           Cold Roses
+  7 1       1       tags           Freeway To The Canyon
+  8 1       1       tags           Wildflowers
+  9 1       1       tags           Mockingbird->
+ 10 1       1       tags           Off Broadway
+ 11 1       2       tags           Why Do They Leave
+ 12 1       2       tags           Everybody Knows
+ 13 1       2       tags           I See Monsters
+ 14 1       2       tags           The End
+ 15 1       2       tags           Please Do Not Let Me Go
+ 16 1       2       tags           Goodnight Rose
+ 17 1       2       tags           Casserole and meatloaf
+ 18 1       2       tags           Easy Plateau
+ 19 encore  encore  tags           Magnolia Mountain
+ 20 encore  encore  tags           Blue Hotel
+====================================================================================================
+tedeschitrucksband-2020-02-21 ttb2020-02-21 src= description alignment= deterministic ssrc= setlist.fm
+--- TEXT
+Tedeschi Trucks Band<br />21 February 2020 (Friday)<br />Warner Theatre<br />Washington, D.C.<br /><br />Source: DPA 4023 > Sound Devices MixPre-6 (24/48)<br />Transfer: MP6 > iMac. Tracked via Sound Studio, FLAC via xACT<br /><br />Recorded by Alex Leary<br /><br />Set One<br /><br />01. Don't Let Me Slide<br />02. Laugh About It<br />03. They Don't Shine<br />04. Right On Time<br />05. Get What You Deserve<br />06. Keep On Growing<br />07. Until You Remember<br />08. Learn How To Love<br />09. Sweet Inspiration<br /><br />Set Two<br /><br />10. Calling Out To You<br />11. Keep Your Lamp Trimmed and Burning<br />12. All My Friends<br />13. It Hurts Me Too<br />14. I Walk On Guilded Splinters<br />15. Part Of Me<br />16. Don't Think Twice, It's All Right<br />17. Drums > Let Me Get By<br />18. Key To The Highway<br />19. The Storm > Whipping Post<br />20. E: Made Up Mind<br /><br />Notes:<br /><br />- Sold out; Third of four-night stand at the Warner Theatre spread over two weekends (Feb. 14, 15 and Feb. 21, 22).<br />- Acoustic start to second set.<br />- Special thanks to David Lowman for facilitating recording.<br />- Photo by Josh Brick.<br />
+--- READER items: 1:Don't Let Me Slide | 1:Laugh About It | 1:They Don't Shine | 1:Right On Time | 1:Get What You Deserve | 1:Keep On Growing | 1:Until You Remember | 1:Learn How To Love | 1:Sweet Inspiration | 2:Calling Out To You | 2:Keep Your Lamp Trimmed and Burning | 2:All My Friends | 2:It Hurts Me Too | 2:I Walk On Guilded Splinters | 2:Part Of Me | 2:Don't Think Twice | 2:It's All Right | 2:Drums | 2:Let Me Get By | 2:Key To The Highway | 2:The Storm | 2:Whipping Post | encore:Made Up Mind | encore:Notes: | encore:- Sold out | encore:15 and Feb. 21 | encore:22). | encore:- Acoustic start to second set. | encore:- Photo by Josh Brick.
+has_encore True encore_like False
+--- parse_setlist labels: ['1', '2', 'encore']
+--- TRACKS (stored | taper)
+  1 1       1       tags           Don't Let Me Slide
+  2 1       1       tags           Laugh About It
+  3 1       1       tags           They Don't Shine
+  4 1       1       tags           Right On Time
+  5 1       1       tags           Get What You Deserve
+  6 1       1       tags           Keep On Growing
+  7 1       1       tags           Until You Remember
+  8 1       1       tags           Learn How To Love
+  9 1       1       tags           Sweet Inspiration
+ 10 2       2       tags           Calling Out To You
+ 11 2       2       tags           Keep Your Lamp Trimmed and Burning
+ 12 2       2       tags           All My Friends
+ 13 2       2       tags           It Hurts Me Too
+ 14 3       2       tags           I Walk On Guilded Splinters
+ 15 3       2       tags           Part Of Me
+ 16 3       2       tags           Don't Think Twice, It's All Right
+ 17 3       2       tags           Drums > Let Me Get By
+ 18 3       2       tags           Key To The Highway
+ 19 3       2       tags           The Storm > Whipping Post
+ 20 encore  encore  tags           E: Made Up Mind

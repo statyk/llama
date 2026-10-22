@@ -1,0 +1,205 @@
+==========================================================================================
+davealvin-2008-11-01 d_alvin2008-11-01.matrix.flac16 src= description reason= None align= deterministic ssrc= lma:d_alvin2008-11-01.matrix.flac24
+--- TEXT
+Dave Alvin & Greg Leisz (acoustic duo)
+Disc I, Set I
+01. intro
+02. King of California
+03. Rio Grande
+04. Blue Wing
+05. Barn Burning
+06. Abilene
+07. Jubilee Train
+08. Everett Ruess
+09. Mary Brown ->
+10. Out in California
+Disc II, Set II
+01. intro
+02. Dry River
+03. Shenendoah
+04. Out of Control
+05. Six Nights a Week
+06. 1968
+07. Two Lucky Bums
+08. Somewhere in Time ->
+09. Ashgrove
+10. Fourth of July
+-(encore)-
+11. California Bloodlines
+12. Long White Cadillac
+--- ITEMS: 1:King of California | 1:Rio Grande | 1:Blue Wing | 1:Barn Burning | 1:Abilene | 1:Jubilee Train | 1:Everett Ruess | 1:Mary Brown | 1:Out in California | 2:Dry River | 2:Shenendoah | 2:Out of Control | 2:Six Nights a Week | 2:1968 | 2:Two Lucky Bums | 2:Somewhere in Time | 2:Ashgrove | 2:Fourth of July | encore:California Bloodlines | encore:Long White Cadillac
+has_encore True encore_like False
+  18 2       2       tags             Ashgrove
+  19 2       2       tags             Fourth of July
+* 20 2       encore  tags             California Bloodlines
+* 21 2       encore  tags             Long White Cadillac
+   (21 tracks)
+==========================================================================================
+joerussosalmostdead-2017-05-06 jrad2017-05-06.cmc621.cmc64.sbd.matrix.flac24 src= notes reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+*** THIS IS A 24 BIT RECORDING, NOT INTENDED FOR CD BURNING ***
+*** The normal 16 bit CD quality version of this show is available for download/CD burning ***
+*** here: https://archive.org/details/jrad2017-05-06.cmc621.cmc64.sbd.matrix.flac16 ***
+Joe Russo's Almost Dead 2017-05-06 Joy Theater, New Orleans, LA (#JoyRAD Night Two of Three SOLD OUT ~ THANK YOU!!)
+Source 1: SBD (Avid SC-48) -> Zoom H6N -> WAV @24/96;
+Source 2: Schoeps cmc621 (On Stage, Split 25') -> Avid SC-48 -> Zoom H6N -> WAV @24/96;
+Source 3: Schoeps cmc64 (@ FOH) -> Avid SC-48 -> Zoom H6N -> WAV @24/96;
+Recording and FOH mix by Peter Costello - Mixed & mastered by Micah Gordon - Edited, retracked & posted by Eric McRoberts 05/11-12/2017
+	Set One (10:00PM - 11:22PM):
+01.  Greatest Story >
+02.  Scarlet Begonias ->
+03.  Help On The Way ->
+04.  Slipknot! ->
+05.  Fire On The Mountain 
+06.  Gonesville ->
+07.  Not Fade Away
+	Set Two (11:38PM - 12:56AM):
+01.  Lost Sailor @ ->
+02.  Saint Of Circumstance #
+03.  Althea ->
+04.  Jam ->
+05.  Truckin $ -> 
+06.  Tennessee Jed %
+	Encore: 
+07.  Bertha
+@ - With a Tease from TH that I missed, but Sean thinks it was The Beatles, maybe Day Tripper?
+# - With “Head Over Heels” (Tears for Fears) Teases (MB & TH)
+$ - With Born Cross Eyed Teases (TH)
+% - With a “Chop Sticks” (Euphemia Allen under the pseudonym Arthur de Lulli) Tease (MB)
+Joe Russo - Drums, Vocals
+Tom Hamilton - Guitar, Vocals
+Scott Metzger - Guitar, Vocals
+Marco Benevento - Keyboards, Vocals
+Dave Dreiwitz - Bass
+Pre Show / Set Break Music: Scott Metzger’s Soul Mix
+Poster: Nathaniel Deas
+Joe Russo - Drums, Vocals
+Tom Hamilton - Guitar, Vocals
+Scott Metzger - Guitar, Vocals
+Marco Benevento - Keyboards, Vocals
+Dave Dreiwitz - Bass
+Pre Show / Set Break Music: Scott Metzger’s Soul Mix
+Poster: Nathaniel Deas
+--- ITEMS: 1:Greatest Story | 1:Scarlet Begonias | 1:Help On The Way | 1:Slipknot! | 1:Fire On The Mountain | 1:Gonesville | 1:Not Fade Away | 2:Lost Sailor @ | 2:Saint Of Circumstance # | 2:Althea | 2:Jam | 2:Truckin $ | 2:Tennessee Jed % | encore:Bertha | encore:@ - With a Tease from TH that I missed | encore:but Sean thinks it was The Beatles | encore:maybe Day Tripper? | encore:# - With “Head Over Heels” (Tears for Fears) Teases (MB & TH) | encore:$ - With Born Cross Eyed Teases (TH) | encore:Pre Show / Set Break Music: Scott Metzger’s Soul Mix | encore:Poster: Nathaniel Deas | encore:Pre Show / Set Break Music: Scott Metzger’s Soul Mix | encore:Poster: Nathaniel Deas
+has_encore True encore_like False
+  12 2       2       tags             Truckin $ ->
+  13 2       2       tags             Tennessee Jed %
+* 14 3       encore  tags             Bertha
+   (14 tracks)
+==========================================================================================
+joerussosalmostdead-2018-10-25 jrad2018-10-25.cmc621.cmc64.sbd.matrix.flac24 src= notes reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+*** THIS IS A 24 BIT RECORDING, NOT INTENDED FOR CD BURNING ***
+*** The normal 16 bit CD quality version of this show is available for download/CD burning ***
+*** here: https://archive.org/details/jrad2018-10-25.cmc621.cmc64.sbd.matrix.flac16 ***
+Joe Russo's Almost Dead 10/25/2018 Suwannee Hulaween - Amphitheatre Stage, Spirit of the Suwannee Music Park, Live Oak, FL
+Source 1: Schoeps cmc621 (On Stage, Split 25') -> Avid SC-48 -> Zoom H6N -> WAV (@24/96);
+Source 2: Schoeps cmc64 (FOH booth) -> ART Tube MP Studio Pre Amps -> Zoom H6N -> WAV (@24/96);
+Source 3: SBD (Avid SC-48) -> Zoom H6N -> WAV (@24/96);
+Transfer: WAVs -> SoundForge Pro 11.0 (Time Align, normalize) -> Vegas Pro 13.0 (mix/render) -> SoundForge Pro 11.0 (EQ, normalize, fades) -> CDWav -> FLAC
+Costello & McRoberts Ultra Mix - Recording and FOH mix by Peter Costello - Monitors by Aaron Gittleman - Audio edited, mixed and mastered by Eric McRoberts 12/26-27/2018
+	Set One (8:31PM - 9:34PM):
+01.  The Eleven -> 
+02.  New Speedway Boogie @ ->
+03.  Estimated Prophet ->
+04.  Tennessee Jed 
+05.  Jack Straw
+	Set Two (10:00PM - 11:26PM):
+01.  The Music Never Stopped $ ->
+02.  Brown Eyed Women 
+03.  Black Throated Wind ->
+04.  Bertha >
+05.  The Wheel % ->
+06.  Cumberland Blues ^
+	Encore: 
+07.  Deal &
+@ - With multiple “Eleanor Rigby” (The Beatles) Teases (TH, Band, TH) and a The Eleven Tease (TH), Not played by Almost Dead since 2017-11-25 The Fillmore, Philadelphia, a gap of 38 shows
+# - With a The Eleven Tease (TH)
+$ - With a The Eleven Jam (Band)
+% - With a Estimated Tease (TH)
+^ - With “Thank You (Falettinme Be Mice Elf Agin)” and “Everyday People” (Sly Stone) Teases / Jams (MB) and a “Get In The Van” (WOLF) Jam (Band)
+& - Not played by Almost Dead since 2018-02-17 The Pageant, St Louis, MO, a gap of 30 shows
+Set Break Music: Wilco - Yankee Hotel Foxtrot
+Post Show Music: The Clash - Rock The Casbah & Should I Stay or Should I Go 
+Parts of this show were broadcast a day later on SiriusXM
+Joe Russo - Drums, Vocals
+Tom Hamilton - Guitar, Vocals
+Scott Metzger - Guitar, Vocals
+Marco Benevento - Keyboards, Vocals
+Dave Dreiwitz - Bass, Vocals
+Show #170
+SOLD OUT ~ THANK YOU
+The normal 16 bit CD quality version of this recording is available for streaming and download/CD burning here: https://archive.org/details/jrad2018-10-25.cmc621.cmc64.sbd.matrix.flac16
+--- ITEMS: 1:The Eleven | 1:New Speedway Boogie @ | 1:Estimated Prophet | 1:Tennessee Jed | 1:Jack Straw | 2:The Music Never Stopped $ | 2:Brown Eyed Women | 2:Black Throated Wind | 2:Bertha | 2:The Wheel % | 2:Cumberland Blues ^ | encore:Deal & | encore:@ - With multiple “Eleanor Rigby” (The Beatles) Teases (TH | encore:Band | encore:TH) and a The Eleven Tease (TH) | encore:Not played by Almost Dead since 2017-11-25 The Fillmore | encore:Philadelphia | encore:a gap of 38 shows | encore:# - With a The Eleven Tease (TH) | encore:$ - With a The Eleven Jam (Band) | encore:% - With a Estimated Tease (TH) | encore:& - Not played by Almost Dead since 2018-02-17 The Pageant | encore:St Louis | encore:MO | encore:a gap of 30 shows | encore:Set Break Music: Wilco - Yankee Hotel Foxtrot | encore:Post Show Music: The Clash - Rock The Casbah & Should I Stay or Should I Go | encore:Parts of this show were broadcast a day later on SiriusXM | encore:Show #170 | encore:SOLD OUT ~ THANK YOU
+has_encore True encore_like False
+  10 2       2       tags             The Wheel % ->
+  11 2       2       tags             Cumberland Blues ^
+* 12 2       encore  tags             Deal &
+   (12 tracks)
+==========================================================================================
+joerussosalmostdead-2019-09-28 jrad2019-09-28.cmc621.cmc64.sbd.matrix.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Joe Russo's Almost Dead 09/28/2019 The Anthem, Washington, DC
+Source 1: Schoeps cmc621 (On Stage, Split 25') -> Avid SC-48 -> Zoom H6N -> WAV (@24/96);
+Source 2: Schoeps cmc64 (FOH booth) -> ART Tube MP Studio Pre Amps -> Zoom H6N -> WAV (@24/96);
+Source 3: SBD (Avid SC-48) -> Zoom H6N -> WAV (@24/96);
+Transfer: WAVs -> SoundForge Pro 11.0 (Time Align, normalize) -> Vegas Pro 13.0 (mix/render) -> SoundForge Pro 11.0 (EQ, normalize, fades, 96->44.1 iZotope 64-Bit SRC; 24->16 bit iZotope MBIT+ Dither) -> CDWav -> FLAC
+Costello & McRoberts Ultra Mix - Recording and FOH mix by Peter Costello - Audio recording edited and mixed by Eric McRoberts 10/13-14/2019
+	Set One (8:20PM - 9:32PM):
+01.  Jam ->
+02.  Easy Wind
+03.  Feel Like A Stranger @
+04.  Cumberland Blues
+05.  Jam ->
+06.  Jack Straw
+07.  Box Of Rain
+08.  MB Solo -> (Turn On Your) Lovelight #
+	Set Two (10:02PM - 11:38PM):
+01.  Alligator $ ->
+02.  Me & My Uncle
+03.  Scarlet Begonias ->
+04.  Cream Puff War % >
+05.  Ophelia ^ >
+06.  Fire On The Mountain &
+07.  Black Muddy River *
+	Encore:
+08.  The Weight +
+09.  Samson & Delilah
+10.  In The Meantime
+@ - With a China Cat Tease (Band) and a Viola Lee Tease (TH)
+# - Not Played By Almost Dead Since 2017-03-17 Brooklyn Bowl, Brooklyn, NY, a gap of 106 shows, Marco on vocals.
+$ - Not Played By Almost Dead Since 2019-03-03 State Theatre, Portland, ME, a gap of 26 shows
+% - Not Played By Almost Dead Since 2019-01-20 The Capitol Theatre, Port Chester, NY, a gap of 33 shows
+^ - Not Played By Almost Dead Since 2019-02-14 Tabernacle Atlanta, Atlanta, GA, a gap of 32 shows
+& - With China Cat Teases (SM & TH), Good Lovin' Teases (SM & TH) and a "Tequila" (The Champs) Tease (SM)
+* - First Time Played By Almost Dead
++ - Not Played By Almost Dead Since 2017-11-25 Fillmore Philadelphia, Philadelphia, PA, a gap of 78 shows, proceeded by a Tennessee Jed Tease (MB) and including Tennessee Jed Teases (SM & MB)
+Pre Show Music: Costello's Dire Straits Spotify Playlist
+Set Break Music: Costello's Soul Spotify Playlist
+Walk Out Music: "Life During Wartime" & "This Must Be The Place (Naive Melody) - Talking Heads,
+Poster: Colortest / Suburban Avenger
+Joe Russo - Drums, Vocals
+Tom Hamilton - Guitar, Vocals
+Scott Metzger - Guitar, Vocals
+Marco Benevento - Keyboards, Vocals
+Dave Dreiwitz - Bass
+Show #210
+There is a higher quality 24 bit version of this recording available here: https://archive.org/details/jrad2019-09-28.cmc621.cmc64.sbd.matrix.flac24
+
+--- ITEMS: 1:Jam | 1:Easy Wind | 1:Feel Like A Stranger @ | 1:Cumberland Blues | 1:Jam | 1:Jack Straw | 1:Box Of Rain | 1:MB Solo | 1:(Turn On Your) Lovelight # | 2:Alligator $ | 2:Me & My Uncle | 2:Scarlet Begonias | 2:Cream Puff War % | 2:Ophelia ^ | 2:Fire On The Mountain & | 2:Black Muddy River | encore:The Weight + | encore:Samson & Delilah | encore:In The Meantime | encore:@ - With a China Cat Tease (Band) and a Viola Lee Tease (TH) | encore:# - Not Played By Almost Dead Since 2017-03-17 Brooklyn Bowl | encore:Brooklyn | encore:NY | encore:a gap of 106 shows | encore:Marco on vocals. | encore:$ - Not Played By Almost Dead Since 2019-03-03 State Theatre | encore:Portland | encore:ME | encore:a gap of 26 shows | encore:% - Not Played By Almost Dead Since 2019-01-20 The Capitol Theatre | encore:Port Chester | encore:NY | encore:a gap of 33 shows | encore:^ - Not Played By Almost Dead Since 2019-02-14 Tabernacle Atlanta | encore:Atlanta | encore:GA | encore:a gap of 32 shows | encore:& - With China Cat Teases (SM & TH) | encore:Good Lovin' Teases (SM & TH) and a "Tequila" (The Champs) Tease (SM) | encore:- First Time Played By Almost Dead | encore:+ - Not Played By Almost Dead Since 2017-11-25 Fillmore Philadelphia | encore:Philadelphia | encore:PA | encore:a gap of 78 shows | encore:Pre Show Music: Costello's Dire Straits Spotify Playlist | encore:Set Break Music: Costello's Soul Spotify Playlist | encore:Poster: Colortest / Suburban Avenger | encore:Show #210 | encore:There is a higher quality 24 bit version of this recording available here:
+has_encore True encore_like False
+   3 1       1       tags             Feel Like A Stranger @
+   4 1       1       tags             Cumberland Blues
+*  5 2       1       tags             Jam ->
+*  6 2       1       tags             Jack Straw
+*  7 2       1       tags             Box Of Rain
+*  8 2       1       tags             MB Solo -> (Turn On Your) Lovelight #
+   9 2       2       tags             Alligator $ ->
+  10 2       2       tags             Me & My Uncle
+   ...
+  14 2       2       tags             Fire On The Mountain &
+  15 2       2       tags             Black Muddy River *
+* 16 3       encore  tags             The Weight +
+* 17 3       encore  tags             Samson & Delilah
+* 18 3       encore  tags             In The Meantime
+   (18 tracks)
