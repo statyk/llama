@@ -72,6 +72,11 @@ Invariants:
 - A tie is counted exactly as grouping counts (raw venue strings, blank ones
   not counted, `grouping.py` `_make_candidate`); the string that ships is
   stripped, as the swap arm strips it. No new normalization.
+- The tie-break applies only when the selected recording's venue string and the
+  vote's are `venues_equivalent` (one name, spelled or phrased two ways). Owner
+  ruling, measured 2026-10-21: about 38 of 234 ties were different names, where
+  the selected string was no better on average ("9:30 Club" -> "Nightclub"),
+  so those ship the vote unchanged.
 - The tie-break applies only when the selected recording's city is blank or
   `cities_compatible` with the vote's city; otherwise the vote ships
   unchanged, venue and city both. When it applies, the city is
