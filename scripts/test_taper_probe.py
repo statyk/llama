@@ -158,7 +158,7 @@ def test_forms_counts_the_checkpoint_a_forms_and_rules(tmp_path):
     _, lines, _, _, _ = tp.forms_scan(root)
     assert lines["set header: Set M + Disc N (set first, ruling c)"] == 1
     assert lines["set header: Disc N + Set M (disc first)"] == 1
-    assert lines["rule: header + (duration|time) or ... (ruling b)"] == 1
+    assert lines["rule: header + (duration|time) (ruling b)"] == 1
     assert lines["rule: set-and-encore header held before the inline split"] == 1
     assert lines["void input: encore none / no encore / n/a"] == 1
     assert lines["veto Checkpoint A gap: Encor / 9E. / E Title / E~ / -e-"] == 1

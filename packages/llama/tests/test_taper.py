@@ -3275,7 +3275,6 @@ def test_annotated_header_real_cases_own(slug):
     ("Set One (8:38PM - 9:56PM):", "Set Two (10:26PM - 12:14AM?):"),
     ("Set I (66:41)", "Set II (61:20)"),
     ("Disc 1 - Set 1 (61:20):", "Disc 2 - Set 2 (58:02):"),
-    ("Disc 1 - Set I...", "Disc 2 - Set II..."),
     ("Disc 1 (Set 1) (45:10)", "Disc 2 (Set 2) (50:00)"),
     ("Set 1 (9:30 pm - 10:46 pm)", "Set 2 (1:02:03.5)"),
 ])
@@ -3729,3 +3728,11 @@ def test_single_title_comma_boundary_item_still_owns():
     d = decide_taper(tracks, {"description": JG_2010_12_31}, aliases={},
                      today_sets=JG_2010_12_31_TODAY)
     assert d.placement is not None and d.placement.boundaries == (9,), d.reason
+
+
+def test_trailing_dots_are_not_an_annotation():
+    """(pin changed, fix round 1) Ruling (b) admits only a `(duration|time)` annotation; the
+    `...` the Checkpoint A round also admitted is dropped (controller ruling R8)."""
+    for h1, h2 in (("Disc 1 - Set I...", "Disc 2 - Set II..."), ("Set 1...", "Set 2…")):
+        tt = read_taper_structure(f"{h1}\nBertha\nSugaree\n{h2}\nScarlet Begonias\nRipple\n")
+        assert tt.asserts is False, (h1, tt)

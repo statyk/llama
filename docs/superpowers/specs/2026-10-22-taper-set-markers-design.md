@@ -206,24 +206,28 @@ The canonical setlist, `rank_parses`, `blend_segues`, `_corroboration`, the titl
   (My call: alone-on-line forms count, as `parse_setlist` already reads them; Measurement 5
   measures their collisions.)
 
-Operator ruling 2026-10-22 (Checkpoint A): a recognised numbered header followed directly by a
-duration or time annotation in parentheses, `(50:28)` or `(9:30PM - 10:46PM)`, or by `...`, is
-still that header: `SET ONE (50:28)`, `Set One (9:30PM - 10:46PM):`, `Disc 1 - Set 1 (61:20):`,
-`Disc 2 - Set II...`. The annotation must directly follow the header token, so prose such as
-"Set I is Bobby and Jerry playing acoustic" stays excluded.
+Operator ruling 2026-10-22 (Checkpoint A): a recognised header followed by a trailing
+`(duration|time)` annotation (`SET ONE (50:28)`, `Set One (9:30PM - 10:46PM):`) is that header.
 
-Operator ruling 2026-10-22 (Checkpoint A): the disc-and-set shapes below are admitted and read as
-set M. Every one carries the word `Set` or an ordinal set (`1st Set`):
+The annotation must directly follow the header token, so prose such as "Set I is Bobby and
+Jerry playing acoustic" stays excluded; a word (`Set 1 (Acoustic)`) and a trailing `...` are not
+annotations. (My call: a time range may also be joined by `~`, and a time may end in `?`
+(`12:14AM?`); both are still a parenthesised time, so this stays within the ruling's
+`(duration|time)`.)
+
+Operator ruling 2026-10-22 (Checkpoint A): admit the disc-and-set shapes cpa-decl listed, each
+carrying the word `Set` or an ordinal set (`1st Set`), read as set M:
 
 - set first: `Set 1 Disc 1`, `Set I Disc I`, `Set I Disc 1: 74:16`, `set 1 - disc 1`,
   `Set 1/Disc 1:`, `set 2 / disc 2`;
-- disc first: `Disc I 1st Set`, `Disk 1: Set 1`, `Disc 1, Set 1`, `DISC 1 SET ONE`,
-  `DISC 01:SET I :`, `disc 01 [Set I]`, `CD1 Set 1`, `Disc/Set1`, and the colon form
-  `Disc N: Set M`.
+- disc first: `Disc I 1st Set`, `Disk 1: Set 1`, `DISC 1 SET ONE`, `DISC 01:SET I :`,
+  `disc 01 [Set I]`, `CD1 Set 1`, `Disc/Set1`, and the colon form `Disc N: Set M`.
 
-`Disc`, `Disk` and `CD` are interchangeable in these shapes and in `Disc N (Set M)`,
-`Disc N - Set M` and `Disc N / Set M`. `Set 1/2`, `(Start Set N)` and `(start of Set II)` are not
-admitted: the ruling admits the disc-and-set family only.
+(llama-db reading of operator ruling (c), 2026-10-22: `Disc`, `Disk` and `CD` are interchangeable
+in these shapes and in `Disc N (Set M)`, `Disc N - Set M` and `Disc N / Set M`, as one family of
+disc labels; and the `,` and unspaced-dash joins, `Disc 1, Set 1` and `Set 1-Disk 1`, are
+admitted as variants of the listed `:`, `/` and ` - ` joins.) `Set 1/2`, `(Start Set N)` and
+`(start of Set II)` are not admitted: the ruling admits the disc-and-set family only.
 
 Markers are tested on each line **after** stripping a leading track or disc prefix
 (`_TRACK_PREFIX`, and the enumerated `_NUM_PREFIX` when the text is enumerated), so
@@ -306,11 +310,14 @@ the taper's structure keeps it); a `Disc 2 (Set 2)` show; a notes-only show.
     song line (after track-prefix stripping) starting `E.`, `E)`, `E` plus a digit, or `(E)`.
   An unrecognised encore must never become "no encore": that would fold an encore the taper
   wrote into the last set.
-- Operator ruling 2026-10-22 (Checkpoint A): **keep today's encore.** When the taper's text has
-  no recognised encore marker and today's (step 1) structure has an `encore` label on any track
-  after the taper's last placed numbered boundary, the taper owns nothing and the show is
-  computed as today. This applies in `decide_taper`, after placement, using `today_sets`. It
-  only turns ownership off: the two structures are never merged.
+- Operator ruling 2026-10-22 (Checkpoint A): **keep the encore.** When the taper's text has no
+  recognised encore marker and today's step-1 structure has an encore boundary after the
+  taper's last placed numbered break, the taper owns nothing (the show is computed as today).
+  This only turns ownership off; no merge. (llama-db reading of operator ruling (d),
+  2026-10-22: "an encore boundary after the break" is read as an `encore` label on any track
+  after the taper's last placed numbered break, in `decide_taper` after placement, using
+  `today_sets`; this also covers an encore starting at the break or running past it, and only
+  makes the taper own less.)
 - The shipped labels are always the taper's: 1..n, and `encore` if it marks one.
 
 ### 3. Placing the taper's structure on the tape

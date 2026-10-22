@@ -17,20 +17,24 @@ Recognised forms are EXACTLY the spec's section 1 list, and nothing else:
   (dashes, asterisks, tildes, brackets, parentheses, `=`) may surround the header, which
   stands alone on its line or is followed by `:`/`-` and songs. `Disc N (Set M)`,
   `Disc N - Set M` and `Disc N / Set M` read as set M.
-- Operator ruling 2026-10-22 (Checkpoint A, (c)): the disc-and-set shapes, each carrying
-  `Set` or an ordinal set, read as set M: set first `Set 1 Disc 1`, `Set I Disc 1: 74:16`,
-  `set 1 - disc 1`, `Set 1/Disc 1:`, `set 2 / disc 2`; disc first `Disc I 1st Set`,
-  `Disk 1: Set 1`, `Disc 1, Set 1`, `DISC 1 SET ONE`, `DISC 01:SET I :`, `disc 01 [Set I]`,
-  `CD1 Set 1`, `Disc/Set1`, `Disc N: Set M` (`Disc`/`Disk`/`CD` interchangeable). Never
-  `Set 1/2`, `(Start Set N)` or `(start of Set II)`.
+- Operator ruling 2026-10-22 (Checkpoint A, (c)): the disc-and-set shapes cpa-decl listed,
+  each carrying `Set` or an ordinal set, read as set M: set first `Set 1 Disc 1`,
+  `Set I Disc 1: 74:16`, `set 1 - disc 1`, `Set 1/Disc 1:`, `set 2 / disc 2`; disc first
+  `Disc I 1st Set`, `Disk 1: Set 1`, `DISC 1 SET ONE`, `DISC 01:SET I :`, `disc 01 [Set I]`,
+  `CD1 Set 1`, `Disc/Set1`, `Disc N: Set M`. Never `Set 1/2`, `(Start Set N)` or
+  `(start of Set II)`. (llama-db reading of operator ruling (c), 2026-10-22: `Disc`/`Disk`/
+  `CD` are interchangeable in these shapes and in `Disc N (Set M)`/`- Set M`/`/ Set M`, and
+  the `,` and unspaced-dash joins, `Disc 1, Set 1` and `Set 1-Disk 1`, are admitted.)
 - the encore: a line starting (after decoration and track-prefix stripping) `Encore`,
   `Encores`, `ENC`, `E`, `E1`, `E2` ..., followed by `:` (or `- `) and songs or alone on the
   line; `Encore 1:`, `Encore #1:`, `1st Encore:`; plus the mid-line `Set II:`/`E:`/
   `Encore:` that `setlist._INLINE_MARKER` already splits.
-- Operator ruling 2026-10-22 (Checkpoint A, (b)): a numbered header (set or disc-and-set)
-  followed directly by a `(duration)`, a `(time range)` or `...` is still that header
-  (`SET ONE (50:28)`, `Set One (9:30PM - 10:46PM):`, `Disc 2 - Set II...`). A word
-  (`Set 1 (Acoustic)`) or anything between the token and the annotation is not.
+- Operator ruling 2026-10-22 (Checkpoint A, (b)): a recognised header followed by a
+  trailing `(duration|time)` annotation is that header (`SET ONE (50:28)`,
+  `Set One (9:30PM - 10:46PM):`). The annotation must directly follow the header token: a
+  word (`Set 1 (Acoustic)`), anything in between, and a trailing `...` are not admitted.
+  (My call: a time range may also be joined by `~`, and a time may end in `?`,
+  `12:14AM?`; both are still a parenthesised time.)
 - `Set 4` or higher anywhere in the text, for VOIDING only.
 
 A header naming both a set and the encore (`Set II & Encore:`, `Set 3 / Encore:`,
@@ -155,11 +159,12 @@ _CONT = r"(?P<cont>\s*,?\s*\(?\s*cont(?:inued|'d|’d|d)?\.?\s*\)?)?"
 _AND_ENCORE = r"(?P<andenc>\s*(?:\+|&|/|,|\band\b)\s*encores?(?!\w))?"
 _SET_CORE = _SET_TOKEN + _CONT + _AND_ENCORE
 
-# Operator ruling 2026-10-22 (Checkpoint A, (b)): a duration or time annotation, or `...`,
-# directly after the header token: `SET ONE (50:28)`, `Set One (9:30PM - 10:46PM):`,
-# `Disc 2 - Set II...`. Only a time in parentheses, never a word (`Set 1 (Acoustic)`).
+# Operator ruling 2026-10-22 (Checkpoint A, (b)): a trailing `(duration|time)` annotation
+# directly after the header token: `SET ONE (50:28)`, `Set One (9:30PM - 10:46PM):`. Only a
+# time in parentheses, never a word (`Set 1 (Acoustic)`) and never `...` (fix round 1).
+# (My call: the `~` range join and a trailing `?` after a time.)
 _TIME = r"\d{1,3}:\d{2}(?::\d{2})?(?:\.\d+)?\s*(?:[ap]\.?m\.?)?\??"
-_ANNOT = rf"(?:\s*\(\s*{_TIME}(?:\s*[-–—~]\s*{_TIME})?\s*\)|\s*(?:\.{{2,}}|…))?"
+_ANNOT = rf"(?:\s*\(\s*{_TIME}(?:\s*[-–—~]\s*{_TIME})?\s*\))?"
 
 _SET_HEADER = re.compile(rf"^{_DECOR}{_SET_CORE}{_ANNOT}(?:{_TAIL_ALONE}|{_TAIL_SONGS})", re.I)
 # `Disc N (Set M)`, `Disc N - Set M`, `Disc N / Set M`. Tested BEFORE `_NOISE`, which drops
@@ -170,8 +175,9 @@ _DISC_NUM = r"(?:\d{1,2}|one|two|three|four|five|six|iv|i{1,3})(?!\w)"
 _DISC = rf"{_DISC_WORD}\s*#?\s*{_DISC_NUM}"
 # Disc first, then the set. Spec section 1's `Disc N (Set M)`, `Disc N - Set M` and
 # `Disc N / Set M`, and (operator ruling 2026-10-22, Checkpoint A, (c)) `Disc N: Set M`,
-# `Disc N, Set M`, `Disc N Set M` (`DISC 1 SET ONE`, `CD1 Set 1`, `Disc I 1st Set`),
-# `disc 01 [Set I]`, `DISC 01:SET I :` and `Disc/Set1`. Tested BEFORE `_NOISE`, which drops
+# `Disc N Set M` (`DISC 1 SET ONE`, `CD1 Set 1`, `Disc I 1st Set`), `disc 01 [Set I]`,
+# `DISC 01:SET I :` and `Disc/Set1`. (llama-db reading of operator ruling (c): `Disc`/`Disk`/
+# `CD` interchangeable everywhere here, and the `,` join, `Disc 1, Set 1`.) Tested BEFORE `_NOISE`, which drops
 # every disc line (and is not changed: only this reader gives such a line meaning). One copy
 # of the core; the closing bracket is required exactly when an opening one is there.
 _DISC_SET_HEADER = re.compile(
@@ -181,7 +187,8 @@ _DISC_SET_HEADER = re.compile(
     re.I,
 )
 # The set first, then the disc (Checkpoint A, (c)): `Set 1 Disc 1`, `Set I Disc 1: 74:16`,
-# `set 1 - disc 1`, `Set 1/Disc 1:`, `set 2 / disc 2`, `Set 1-Disk 1`.
+# `set 1 - disc 1`, `Set 1/Disc 1:`, `set 2 / disc 2`. (llama-db reading of operator ruling
+# (c): the unspaced dash join, `Set 1-Disk 1`.)
 _SET_DISC_HEADER = re.compile(
     rf"^{_DECOR}{_SET_CORE}\s*(?:[-–—/]\s*)?{_DISC}{_ANNOT}(?:{_TAIL_ALONE}|{_TAIL_SONGS})",
     re.I,
@@ -714,8 +721,9 @@ def decide_taper(tracks: list[Track], meta: dict, *, aliases: dict[str, str],
         return TaperDecision(None, taper, source, placed)
     if not taper.has_encore and "encore" in today_sets[placed.boundaries[-1]:]:
         # Operator ruling 2026-10-22 (Checkpoint A, (d)), keep today's encore: the taper
-        # marks no encore, and today's structure has one after the taper's last numbered
-        # boundary. Owning would fold it into the last set; the show is computed as today.
-        # This only turns ownership off: the two structures are never merged.
+        # marks no encore, and today's step-1 structure has an encore boundary after the
+        # taper's last placed numbered break. The show is computed as today; this only
+        # turns ownership off, never a merge. (llama-db reading of operator ruling (d): an
+        # `encore` label on any track after that break, `today_sets[boundaries[-1]:]`.)
         return TaperDecision(None, taper, source, "veto: today's encore")
     return TaperDecision(placed, taper, source, None)

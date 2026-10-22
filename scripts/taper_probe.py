@@ -458,7 +458,7 @@ def _set_form(m: re.Match) -> str:
 
 
 # Checkpoint A additions (ruling (b)'s annotation, the veto gap).
-_ANNOTATED = re.compile(r"\(\s*\d{1,3}:\d{2}|\.{2,}|…")
+_ANNOTATED = re.compile(r"\(\s*\d{1,3}:\d{2}")
 
 
 def _header_form(core: str):
@@ -507,7 +507,7 @@ def line_hits(text: str) -> list[tuple[str, str]]:
                 hits.append(("rule: header naming set and encore", line))
             head = core[:mm.start("rest")] if mm.group("rest") is not None else core
             if _ANNOTATED.search(head):
-                hits.append(("rule: header + (duration|time) or ... (ruling b)", line))
+                hits.append(("rule: header + (duration|time) (ruling b)", line))
             rest = mm.group("rest") or ""
         elif e:
             ordinal = re.match(r"^[-–—*~=\[\]()\s]*(?:1st|2nd|3rd|first|second|third)", core, re.I)
