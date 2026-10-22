@@ -3060,6 +3060,16 @@ def test_tie_ships_the_selected_recordings_string_without_jerrybase(tmp_path):
     assert _venue_flags(res.show) == []
 
 
+def test_a_tie_between_different_names_ships_the_vote_unchanged(tmp_path):
+    # Owner ruling 2026-10-21: the tie-break applies only to venues_equivalent strings.
+    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
+                 ("gd73-other", "9:30 Club", "Washington, DC"), (IDENT, "Nightclub", "Washington, DC"))
+    assert cand.venue == "9:30 Club"
+    res = _gd(tmp_path, cand)
+    assert (res.show.venue, res.show.city) == ("9:30 Club", "Washington, DC")
+    assert _venue_flags(res.show) == []
+
+
 def test_a_majority_keeps_the_consensus(tmp_path):   # (pin)
     cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
                  ("a", "R.F.K. Stadium", "Washington, DC"), ("b", "R.F.K. Stadium", "Washington, DC"),
@@ -3107,9 +3117,12 @@ def test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_
 
 def test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string(tmp_path):   # (pin)
     cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
-                 ("ds-other", "Barrymore Theatre", "Madison, WI"), (DSO_IDENT, "Orpheum Theater", "Madison, WI"))
+                 ("ds-other", "Barrymore Theatre Madison", "Madison, WI"), (DSO_IDENT, "Madison", "Madison, WI"))
+    # Reshaped under the 2026-10-21 narrowing: the pair must be venues_equivalent to
+    # reach step 1's corroboration test ("Madison" is, to the vote, not to jerrybase).
+    assert venue_tie_break(cand, cand.recordings[1]) is not None
     res = _gather(tmp_path, DSO, cand, DSO_IDENT)
-    assert res.show.venue == "Barrymore Theatre" and _venue_flags(res.show) == []
+    assert res.show.venue == "Barrymore Theatre Madison" and _venue_flags(res.show) == []
 
 
 def _blank_venue_event(monkeypatch, city="Philadelphia", state="PA"):

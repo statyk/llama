@@ -955,12 +955,17 @@ def _stripped(s: str | None) -> str | None:
 def venue_tie_break(candidate: Candidate, sel) -> tuple[str, str | None] | None:
     """Slice B: on a tied grouping vote the selected recording's own stripped
     venue ships. Raw strings are counted as `grouping._make_candidate` counts
-    them. Returns `(venue, city)`, or None when the tie-break does not apply."""
+    them. It applies only when the two strings are `venues_equivalent` (one name,
+    spelled or phrased two ways); different names ship the vote (measured
+    2026-10-21: the selected string was no better). Returns `(venue, city)`,
+    or None when the tie-break does not apply."""
     if sel is None or not _stripped(sel.venue):
         return None
     counts = Counter(r.venue for r in candidate.recordings if r.venue)
     n = counts.get(sel.venue, 0)
     if n == 0 or n != counts.get(candidate.venue, 0) or sel.venue == candidate.venue:
+        return None
+    if not venues_equivalent(_stripped(sel.venue), candidate.venue):
         return None
     sel_city = _stripped(sel.coverage)
     if sel_city is not None and not cities_compatible(sel_city, candidate.city):
