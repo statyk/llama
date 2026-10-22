@@ -200,8 +200,14 @@ The canonical setlist, `rank_parses`, `blend_segues`, `_corroboration`, the titl
 - **the encore:** a line starting (after decoration) with `Encore`, `Encores`, `ENC` or `E`,
   either followed by `:` (or `- `) and songs or standing alone on the line (`Encore`,
   `==encores==`, `Encore ======`, a bare `E`): the existing `_ENCORE_LINE` shapes plus
-  `Encores`/`ENC` and decoration. (My call: alone-on-line forms count, as `parse_setlist`
-  already reads them; Measurement 5 measures their collisions.)
+  `Encores`/`ENC` and decoration, and the numbered `Encore 1:`/`Encore #1:`/`1st Encore:`
+  (each counts as an encore line, so the first starts the encore and later ones continue it).
+  (My call: alone-on-line forms count, as `parse_setlist` already reads them; Measurement 5
+  measures their collisions.)
+
+Markers are tested on each line **after** stripping a leading track or disc prefix
+(`_TRACK_PREFIX`, and the enumerated `_NUM_PREFIX` when the text is enumerated), so
+`18. E: Let's Go Get Stoned` and `3. Encore: Higgins` are encore lines. (My call.)
 
 Not recognised, so they assert nothing: bare digits (`1:`, `[1]`), bare roman numerals (`I`,
 `II:`), `S1`/`S2`, `E.`, `(E)`, a trailing `enc`, and inline or parenthetical markers
@@ -210,21 +216,30 @@ be two shows, or unnumbered), `Early Show`/`Late Show` and act headers stay non-
 `parse_setlist` keeps parsing them as today. A recognised form with collision risk and tiny
 yield may be dropped by Measurement 5. The builder adds no other form.
 
-**Required negative tests**, on real cases, each asserting no structure asserted:
+**Required negative tests**, on real cases. Unless stated otherwise each asserts that the
+named line or text asserts no structure:
 `giantsand-1991-01-30` and the other `N:` tracklists (`giantsand` 1989-05-10, 1996-02-03,
 2001-01-08, 2001-03-04, 2004-10-15, 2005-09-02; `calexico` 1998-06-14, 2000-07-01, 2003-04-25;
-`signalpath-2005-06-09`); the DSO bare-digit disc numbering (`darkstarorchestra-2005-11-16`,
-`-2004-04-20`, `-2005-12-03`, `-2004-04-24`); `umphreysmcgee-2004-04-14` and
-`lotus-2005-10-15` (their set-and-encore disc lines assert nothing, and the later `e:` still
-starts the encore); `davidnelsonband-2007-09-07` (a numbered marker after the encore voids the
-structure); the `[1]` footnotes of `moe-2002-06-22` and
+`signalpath-2005-06-09`); the DSO bare-digit disc lines (`1:`, `2:`, `3:` in
+`darkstarorchestra-2005-11-16`, `-2004-04-20`, `-2005-12-03`, `-2004-04-24`) are not markers
+and not song items, while the same texts' worded `Set 2:`/`E:` still assert a structure
+(2005-11-16 then declines at placement on its repeated `NFA`); in `umphreysmcgee-2004-04-14`
+and `lotus-2005-10-15` the set-and-encore disc line asserts nothing and the later `e:` still
+starts the encore (umphreysmcgee-2004-04-14 is taper-owned, identical to today);
+`davidnelsonband-2007-09-07` (its `encore: Box Of Rain (set 2)` line, after track-prefix
+stripping, is followed by `set 2`, a numbered marker after the encore, so the structure is
+void); `moe-1997-02-21` (`Encore 1:` is recognised, and its encore boundary does not place, so
+the show is computed as today); the `[1]` footnotes of `moe-2002-06-22` and
 `kinggizzardandthelizardwizard-2025-08-17`; `railroadearth-2008-08-17`'s `(E) With Allie Kral`;
 `antibalasmusic-2003-04-28`'s `[1]…[5]` track numbers; `E.Ville`; `B. E. Women`;
 `E. Rutherford, NJ`; `I Know You Rider`; `J`; `Untitled #12`; `1:08:07`; "Set I is Bobby and
 Jerry playing acoustic" (`gd1981-10-16`); `Set Intro`; `Set IV`.
 
 **Positive tests:** `charliehunter-2001-12-08` is NOT taper-owned (`Early Show`/`Late Show`
-plus an encore only); `gratefulshred-2023-11-10`; a `Disc 2 (Set 2)` show; a notes-only show.
+plus an encore only); `tedeschitrucksband-2019-02-16` (`18. E: …` is an encore line, so its
+encore is not folded into set 2); `gratefulshred-2023-11-10` (`14 E. Playin' Reprise` is
+unrecognised encore-like text, so the veto applies and the show is computed as today); a
+`Disc 2 (Set 2)` show; a notes-only show.
 
 ### 2. What the taper asserts
 
@@ -244,10 +259,16 @@ plus an encore only); `gratefulshred-2023-11-10`; a `Disc 2 (Set 2)` show; a not
   numbered marker after the encore marker means the taper asserts **no** structure, and the
   show is computed as today. (My call.)
 - **No encore marker** (operator ruling, 2026-10-22): the taper's last set runs to the end of
-  the tape, so encore songs listed under set 2 ship in set 2, repeating the tape. **Veto** (my
-  call): if the taper's text has no encore marker but some track title on the tape matches
-  `structure._ENCORE_MARKER` (the test `encore_lost` already uses), the taper owns nothing and
-  the show is computed as today.
+  the tape, so encore songs listed under set 2 ship in set 2, repeating the tape. This applies
+  only when the taper truly wrote no encore. **Veto** (my call): the taper owns nothing, and the
+  show is computed as today, when its text has no recognised encore marker but either
+  - some track title on the tape matches `structure._ENCORE_MARKER` (the test `encore_lost`
+    already uses), or
+  - the taper's own text carries encore-like words outside a recognised marker: `\bencores?\b`
+    or `\benc\b` anywhere (an inline `… US Blues. Encore: Touch of Grey`, `encore break`), or a
+    song line (after track-prefix stripping) starting `E.`, `E)`, `E` plus a digit, or `(E)`.
+  An unrecognised encore must never become "no encore": that would fold an encore the taper
+  wrote into the last set.
 - The shipped labels are always the taper's: 1..n, and `encore` if it marks one.
 
 ### 3. Placing the taper's structure on the tape
@@ -255,7 +276,9 @@ plus an encore only); `gratefulshred-2023-11-10`; a `Disc 2 (Set 2)` show; a not
 **The reader's output** is the ordered song items (those that are not `is_filler`), each with
 its taper set label (`1`, `2`, `3`, `encore`). It is produced with `setlist.py`'s existing line
 handling, as `_emit_items` does (`_NOISE`, `_TRACK_PREFIX`, the enumerated `_NUM_PREFIX`,
-segue splitting), plus stripping a leading duration or timestamp (`-04:41.50-`).
+segue splitting), plus stripping a leading duration or timestamp (`-04:41.50-`). Bare
+`\d{1,3}:?` lines (DSO disc numbers) and items that are only a timestamp (`(2:33:33)` after a
+set header) are dropped, not song items. (My call.)
 
 **Matching.** A tape track matches an item when `fuzzy_title_eq` holds for its title, or for a
 title component of a merged track, with gather's family aliases. Only tracks whose
@@ -405,7 +428,9 @@ candidate), `--all` so non-held shows are covered, plus a cached-corpus check fo
 2. **Newly cleared holds.** Every show held in base and not held in candidate is listed. An
    Opus pre-screen of the list runs **before merge**, so a rule defect it finds is fixed on the
    branch. It checks every newly cleared show for completeness against the adjudicator's
-   `partial-tape` tag. The operator's hand check of the list gates the **apply**, not the merge,
+   `partial-tape` tag, and checks the date of every newly cleared show whose cleared flags were
+   only jerrybase ones (a misdated tape whose description fits it loses its jerrybase holds on a
+   taper-owned show). The operator's hand check of the list gates the **apply**, not the merge,
    as in piece 1. (My call.)
 3. **Non-held shows whose structure changes**, in a new harness report (report 3):
    - "before" is the **base arm's replay**, or the stored structure where the base arm is
@@ -465,6 +490,11 @@ Not part of the build. After merge and release:
 - A `Set Break` or `Donor Rap` track between sets, or a title repeated across a boundary, leaves
   the boundary unplaced, so the show falls back to today's behaviour (section 3).
 - Encore-only descriptions and the unrecognised forms (section 1) keep today's behaviour.
+- On a taper-owned show, jerrybase's set-count and closer disagreements are notes, so a misdated
+  tape whose description fits it is no longer held by them (venue mismatch still is). The
+  report-2 pre-screen checks dates for this case.
+- An encore written in a form the reader does not recognise is caught only by section 2's veto
+  words; an encore the veto also misses would fold into the last set.
 
 ## Left to the builder
 
