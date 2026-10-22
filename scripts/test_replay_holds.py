@@ -855,6 +855,11 @@ def test_strip_mode_removes_only_structure_overrides(tmp_path, monkeypatch):
     assert arm["structure_overrides_stripped"] is True
     row = arm["shows"]["gratefuldead-1973-06-10"]
     assert row["state"] == "held" and row["unreplayable"] is None
+    assert row["stripped"] == {"set_breaks": [3], "encore_after": 5}
+    assert "stripped" not in json.loads(
+        (lambda p: (rh.main(["run", "--out", str(p), "--all", "--config",
+                             str(root / "config.toml")]), p.read_text())[1])(
+            tmp_path / "plain.json"))["shows"]["gratefuldead-1973-06-10"]
     # the digests are the REAL show's, so a stripped arm stays comparable with an unstripped base
     import hashlib
     assert row["digests"]["overrides.json"] == hashlib.sha256(live_bytes).hexdigest()

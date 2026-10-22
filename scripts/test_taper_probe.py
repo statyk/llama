@@ -246,10 +246,13 @@ def test_score_counts_matches_against_adjudicator_targets(tmp_path, capsys):
     assert tp.main(["score", "--arm", str(arm), "--evidence", str(ev), "--out", str(out),
                     "--root", str(tmp_path / "lib"), "--bundles", str(tmp_path / "b")]) == 0
     text = (out / "score_summary.txt").read_text()
-    assert "in scope (not filename / track-tag): 4" in text
-    assert "graded (owned, with a target, not renumbered): 3" in text
+    assert "yes/partial excluding filename/track-tag: 4" in text
+    assert "graded (owned, with a target; renumbered rows only when the adjudicator's fix is applied): 3" in text
     assert "match (exact, song level): 1" in text
     assert "filler-only differences (own class, not matches, not misses): 1" in text
+    assert "IN SCOPE (yes, worded form, 3 desc primaries; the gate's definition): 4 rows: match 1, " \
+           "filler-only 1, miss 1 (of 3 graded); declined 1" in text
+    assert "  of which yes: 4 rows" in text and "  of which partial: 0 rows" in text
     assert "misses: 1" in text and "declined (not taper-owned, computed as today): 1" in text
     assert "## misses (1)\n  miss  [desc-set-header] owned ([1], 4) target [[2], 4]" in text
     assert "## out of scope (filename / track-tag rows) (1)\n  fname" in text
@@ -276,8 +279,9 @@ def test_score_refuses_an_unstripped_arm_and_scores_the_known_disagreements(tmp_
     shows["gratefuldead-1970-05-15-spans"] = _arm_row(
         two, outcome="still-held", gather_flags=["tape spans 2 events"])
     shows["gratefuldead-1981-12-31"] = _arm_row(["1", "1", "2", "2", "encore"])   # equals target
-    shows["stevekimockband-2003-03-11"] = _arm_row(two)                          # differs: expected
+    shows["stevekimockband-2003-03-11"] = _arm_row(two)       # owned, no encore label: expected
     shows["ekoostikhookah-2009-12-31"] = _arm_row(two, owned=False, taper_reason="one set")
+    shows["deadandcompany-2018-06-16"] = _arm_row(two, owned=False, taper_reason="one set")
     (tmp_path / "w").mkdir()
     ev, arm = _score_world(tmp_path / "w", rows, s1, shows)
     rows_out = {r["slug"]: r for r in tp.score_rows(json.loads(arm.read_text()), ev)}
@@ -287,10 +291,35 @@ def test_score_refuses_an_unstripped_arm_and_scores_the_known_disagreements(tmp_
         s: "as expected" for s in slugs if s != "thedead-2009-04-29"}
     assert all(r["class"] == "known disagreement" for r in rows_out.values())
     assert rows_out["derektrucksband-2005-01-09"]["detail"].startswith("owned, no encore label")
-    assert rows_out["deadandcompany-2018-06-16"]["detail"].startswith("owned; the taper's structure ships")
+    assert rows_out["gratefuldead-1981-12-31"]["detail"].startswith("owned; the shipped structure happens")
+    assert rows_out["deadandcompany-2018-06-16"]["detail"].startswith("declined")
+    # not-asserted: owned is a reader defect; no-encore: an encore label ships is wrong
+    shows["ekoostikhookah-2009-12-31"] = _arm_row(["1", "1", "1", "1", "encore"])
+    shows["deadandcompany-2018-06-16"] = _arm_row(two)
+    shows["stevekimockband-2003-03-11"] = _arm_row(["1", "1", "2", "2", "encore"])
+    v = {r["slug"]: r["verdict"] for r in tp.score_rows({"shows": shows}, ev)}
+    assert v["ekoostikhookah-2009-12-31"] == v["deadandcompany-2018-06-16"] == "UNEXPECTED"
+    assert v["stevekimockband-2003-03-11"] == "UNEXPECTED"
     # a spans row that is not held is flagged
     shows["gratefuldead-1970-05-15-spans"] = _arm_row(two)
     bad = tp.score_rows({"shows": shows}, ev)
     assert {r["slug"]: r["verdict"] for r in bad}["gratefuldead-1970-05-15-spans"] == "UNEXPECTED"
     text = tp.score_summary(bad)
     assert "thedead-2009-04-29: UNEXPECTED" in text and "expectation:" in text
+
+
+def test_score_grades_a_renumbered_row_only_when_the_adjudicators_fix_was_stripped(tmp_path):
+    base = {"taper_explicit": "yes", "primary": "desc-set-header", "marker_quote": "Set 2:"}
+    rows = [dict(base, slug=s) for s in ("applied", "other-fix", "no-fix", "enc-differs")]
+    s1 = [{"slug": s, "t_breaks": [2], "t_enc": 4, "renum": True} for s in
+          ("applied", "other-fix", "no-fix", "enc-differs")]
+    target = ["1", "1", "2", "2", "encore"]
+    ev, arm = _score_world(tmp_path, rows, s1, {
+        "applied": _arm_row(target, stripped={"set_breaks": [2], "encore_after": 4}),
+        "other-fix": _arm_row(target, stripped={"set_breaks": [3], "encore_after": 4}),
+        "no-fix": _arm_row(target, stripped={}),
+        "enc-differs": _arm_row(target, stripped={"set_breaks": [2]})})
+    got = {r["slug"]: r["class"] for r in tp.score_rows(json.loads(arm.read_text()), ev)}
+    assert got["applied"] == "match"
+    assert got["other-fix"] == got["no-fix"] == got["enc-differs"] == \
+        "owned, renumbered target (not graded)"

@@ -102,12 +102,14 @@ STRIPPED_KEYS = ("set_breaks", "encore_after")
 SHADOW_FILES = ("provenance.json", "show.json", "vetting.json", "briefing.json", "briefing.md")
 
 
-def _shadow(d: Path, shadow_root: Path) -> ShowWorkspace:
+def _shadow(d: Path, shadow_root: Path) -> tuple[ShowWorkspace, dict]:
     """A scratch copy of show dir `d` whose `overrides.json` has `set_breaks` and
     `encore_after` removed (excludes, includes, titles, narration and the rest kept:
     the adjudicator's targets are in post-exclusion numbering). Built under the run's
     scratch root; `d` is only read. An unparsable overrides file is copied unchanged,
-    so the replay records it unreplayable as it would unstripped."""
+    so the replay records it unreplayable as it would unstripped. Also returns what was
+    removed (`{key: value}` for each stripped key that was present; empty if nothing)."""
+    stripped: dict = {}
     sd = shadow_root / d.name
     shutil.rmtree(sd, ignore_errors=True)
     sd.mkdir(parents=True)
@@ -123,15 +125,17 @@ def _shadow(d: Path, shadow_root: Path) -> ShowWorkspace:
         else:
             if isinstance(data, dict):
                 for k in STRIPPED_KEYS:
-                    data.pop(k, None)
+                    if k in data:
+                        stripped[k] = data.pop(k)
             (sd / "overrides.json").write_text(json.dumps(data, indent=1) + "\n")
-    return ShowWorkspace(sd)
+    return ShowWorkspace(sd), stripped
 
 
-def _replay_stripped(d: Path, *, shadow_root: Path, **kw) -> ShowReplay:
+def _replay_stripped(d: Path, *, shadow_root: Path, **kw) -> dict:
     """`replay_show` over the shadow of `d`; the row then carries the REAL show's
     state and input digests, so arms stay comparable with an unstripped base."""
-    r = replay_show(_shadow(d, shadow_root), **kw)
+    shadow, stripped = _shadow(d, shadow_root)
+    r = replay_show(shadow, **kw)
     real = ShowWorkspace(d)
     try:
         r.state = derive_state(real, kw["delivered"])[0]
@@ -141,7 +145,9 @@ def _replay_stripped(d: Path, *, shadow_root: Path, **kw) -> ShowReplay:
         r.digests = input_digests(real)
     except Exception:
         pass
-    return r
+    row = r.to_dict()
+    row["stripped"] = stripped     # what strip mode removed; absent/empty = nothing
+    return row
 
 
 def run(args: argparse.Namespace) -> int:
@@ -182,7 +188,7 @@ def run(args: argparse.Namespace) -> int:
                               delivered=delivered)
                     rows[d.name] = (_replay_stripped(d, shadow_root=scratch / ".shadow", **kw)
                                     if args.strip_structure_overrides
-                                    else replay_show(ShowWorkspace(d), **kw)).to_dict()
+                                    else replay_show(ShowWorkspace(d), **kw).to_dict())
                 finally:
                     shutil.rmtree(show_scratch, ignore_errors=True)
                     shutil.rmtree(scratch / ".shadow" / d.name, ignore_errors=True)

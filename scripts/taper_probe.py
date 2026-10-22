@@ -620,6 +620,9 @@ OUT_OF_SCOPE_PRIMARY = ("filename-set", "track-title-set-label")
 NO_ENCORE_EXPECTATION = ("the disputed boundary is an encore the taper did not label: if the taper "
                          "owns the show its last set runs to the end of the tape (no encore label "
                          "ships); if not owned it is computed as today")
+NOT_ASSERTED_EXPECTATION = ("one numbered set plus an encore marker asserts nothing (spec section 2): "
+                            "the taper must NOT own it; owned is a reader defect, declined is "
+                            "computed as today")
 OWNED_SHIPS_EXPECTATION = ("where the taper owns the structure its structure ships, an expected "
                            "disagreement with the adjudicator; if not owned it is computed as today")
 EXPECTED_DISAGREEMENTS = {
@@ -628,10 +631,10 @@ EXPECTED_DISAGREEMENTS = {
     "thedead-2009-04-29": ("no-encore", NO_ENCORE_EXPECTATION),
     "gratefuldead-1970-05-15-spans": (
         "stays-held", "stays held by `tape spans` (a hold, whatever the taper owns)"),
-    "deadandcompany-2018-06-16": ("ships", OWNED_SHIPS_EXPECTATION),
+    "deadandcompany-2018-06-16": ("not-asserted", NOT_ASSERTED_EXPECTATION),
     "gratefuldead-1981-12-31": ("ships", OWNED_SHIPS_EXPECTATION),
-    "stevekimockband-2003-03-11": ("ships", OWNED_SHIPS_EXPECTATION),
-    "ekoostikhookah-2009-12-31": ("ships", OWNED_SHIPS_EXPECTATION),
+    "stevekimockband-2003-03-11": ("no-encore", NO_ENCORE_EXPECTATION),
+    "ekoostikhookah-2009-12-31": ("not-asserted", NOT_ASSERTED_EXPECTATION),
 }
 
 
@@ -656,6 +659,8 @@ def _expectation(kind: str, r: dict, graded: str | None) -> tuple[str, str]:
         return "UNEXPECTED", f"outcome {r.get('outcome')!r}, gather flags {flags}"
     if not owned:
         return "as expected", f"declined, computed as today ({r.get('taper_reason')})"
+    if kind == "not-asserted":
+        return "UNEXPECTED", "owned, but one numbered set plus an encore asserts nothing"
     if kind == "no-encore":
         if "encore" in sets:
             return "UNEXPECTED", "owned, but an encore label ships"
@@ -663,6 +668,18 @@ def _expectation(kind: str, r: dict, graded: str | None) -> tuple[str, str]:
     if graded == "match":
         return "as expected", "owned; the shipped structure happens to equal the adjudicator's"
     return "as expected", f"owned; the taper's structure ships, differing from the target ({graded})"
+
+
+def _fix_applied(stripped: dict | None, t_breaks, t_enc) -> bool:
+    """A renumbered row is gradable when the overrides strip mode removed ARE the
+    adjudicator's target: its include/exclude edits (kept) and its `--set-breaks`/
+    `--set-encore` (stripped) were all applied, so the stripped replay is in the target's
+    own numbering. Nothing stripped (or a different value) means the library does not hold
+    the adjudicator's fix."""
+    if not stripped:
+        return False
+    return (sorted(stripped.get("set_breaks") or []) == sorted(t_breaks or [])
+            and stripped.get("encore_after") == t_enc)
 
 
 def score_rows(arm: dict, evidence: Path) -> list[dict]:
@@ -692,7 +709,7 @@ def score_rows(arm: dict, evidence: Path) -> list[dict]:
             row["owned_breaks"] = breaks_of(sets)
             if tb is None and te is None:
                 row["class"] = "owned, no target"
-            elif row["renum"]:
+            elif row["renum"] and not _fix_applied(a.get("stripped"), tb, te):
                 row["class"] = "owned, renumbered target (not graded)"
             elif max([*(tb or []), te or 0], default=0) > len(sets):
                 row["class"] = "owned, target does not fit the tape (not graded)"
@@ -720,10 +737,23 @@ def score_summary(rows: list[dict]) -> str:
     out_of_scope = [r for r in rows if not scoped(r)]
     by_class = Counter(r["class"] for r in inscope)
     graded = by_class["match"] + by_class["filler-only"] + by_class["miss"]
+    core = [r for r in rows if r["in_scope"]]
+
+    def headline(rs):
+        c = Counter(r["class"] for r in rs)
+        n = c["match"] + c["filler-only"] + c["miss"]
+        return (f"{len(rs)} rows: match {c['match']}, filler-only {c['filler-only']}, "
+                f"miss {c['miss']} (of {n} graded); declined {c['declined']}, "
+                f"known disagreements {c['known disagreement']}")
+
     out = ["# taper score: stripped candidate arm vs the adjudicator's targets",
-           f"yes/partial rows: {len(rows)}; in scope (not filename / track-tag): {len(inscope)};"
-           f" reported apart as out of scope: {len(out_of_scope)}",
-           f"graded (owned, with a target, not renumbered): {graded}",
+           f"yes/partial rows: {len(rows)}; yes/partial excluding filename/track-tag: "
+           f"{len(inscope)}; reported apart as out of scope: {len(out_of_scope)}",
+           f"IN SCOPE (yes, worded form, 3 desc primaries; the gate's definition): "
+           f"{headline(core)}",
+           f"  of which yes: {headline([r for r in core if r['taper_explicit'] == 'yes'])}",
+           f"  of which partial: {headline([r for r in core if r['taper_explicit'] == 'partial'])}",
+           f"graded (owned, with a target; renumbered rows only when the adjudicator's fix is applied): {graded}",
            f"  match (exact, song level): {by_class['match']}",
            f"  filler-only differences (own class, not matches, not misses): {by_class['filler-only']}",
            f"  misses: {by_class['miss']}",
