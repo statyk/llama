@@ -17,6 +17,12 @@ Recognised forms are EXACTLY the spec's section 1 list, and nothing else:
   (dashes, asterisks, tildes, brackets, parentheses, `=`) may surround the header, which
   stands alone on its line or is followed by `:`/`-` and songs. `Disc N (Set M)`,
   `Disc N - Set M` and `Disc N / Set M` read as set M.
+- Operator ruling 2026-10-22 (Checkpoint A, (c)): the disc-and-set shapes, each carrying
+  `Set` or an ordinal set, read as set M: set first `Set 1 Disc 1`, `Set I Disc 1: 74:16`,
+  `set 1 - disc 1`, `Set 1/Disc 1:`, `set 2 / disc 2`; disc first `Disc I 1st Set`,
+  `Disk 1: Set 1`, `Disc 1, Set 1`, `DISC 1 SET ONE`, `DISC 01:SET I :`, `disc 01 [Set I]`,
+  `CD1 Set 1`, `Disc/Set1`, `Disc N: Set M` (`Disc`/`Disk`/`CD` interchangeable). Never
+  `Set 1/2`, `(Start Set N)` or `(start of Set II)`.
 - the encore: a line starting (after decoration and track-prefix stripping) `Encore`,
   `Encores`, `ENC`, `E`, `E1`, `E2` ..., followed by `:` (or `- `) and songs or alone on the
   line; `Encore 1:`, `Encore #1:`, `1st Encore:`; plus the mid-line `Set II:`/`E:`/
@@ -158,15 +164,29 @@ _ANNOT = rf"(?:\s*\(\s*{_TIME}(?:\s*[-–—~]\s*{_TIME})?\s*\)|\s*(?:\.{{2,}}|�
 _SET_HEADER = re.compile(rf"^{_DECOR}{_SET_CORE}{_ANNOT}(?:{_TAIL_ALONE}|{_TAIL_SONGS})", re.I)
 # `Disc N (Set M)`, `Disc N - Set M`, `Disc N / Set M`. Tested BEFORE `_NOISE`, which drops
 # every disc line (and is not changed: only this reader gives such a line meaning).
+# A disc label: `Disc`, `Disk` or `CD` and its number (`Disc 1`, `Disk II`, `CD1`, `DISC 01`).
+_DISC_WORD = r"(?:disc|disk|cd)"
+_DISC_NUM = r"(?:\d{1,2}|one|two|three|four|five|six|iv|i{1,3})(?!\w)"
+_DISC = rf"{_DISC_WORD}\s*#?\s*{_DISC_NUM}"
+# Disc first, then the set. Spec section 1's `Disc N (Set M)`, `Disc N - Set M` and
+# `Disc N / Set M`, and (operator ruling 2026-10-22, Checkpoint A, (c)) `Disc N: Set M`,
+# `Disc N, Set M`, `Disc N Set M` (`DISC 1 SET ONE`, `CD1 Set 1`, `Disc I 1st Set`),
+# `disc 01 [Set I]`, `DISC 01:SET I :` and `Disc/Set1`. Tested BEFORE `_NOISE`, which drops
+# every disc line (and is not changed: only this reader gives such a line meaning). One copy
+# of the core; the closing bracket is required exactly when an opening one is there.
 _DISC_SET_HEADER = re.compile(
-    rf"^{_DECOR}disc\s*#?\s*(?:\d{{1,2}}|one|two|three|four|five|six|iv|i{{1,3}})(?!\w)\s*"
-    # `(Set M)` in parentheses, or `- Set M` / `/ Set M`: one copy of the core, the
-    # closing parenthesis required exactly when the opening one is there.
-    rf"(?P<open>\()?(?(open)\s*|[-–—/]\s*){_SET_CORE}{_ANNOT}(?(open)\s*\)){_ANNOT}"
+    rf"^{_DECOR}(?:{_DISC}\s*(?:(?P<open>[(\[])\s*|[-–—/:,]\s*|(?<=\s))|{_DISC_WORD}\s*/\s*)"
+    rf"{_SET_CORE}{_ANNOT}(?(open)\s*[)\]]){_ANNOT}"
     rf"(?:{_TAIL_ALONE}|{_TAIL_SONGS})",
     re.I,
 )
-_SET_HEADERS = (_SET_HEADER, _DISC_SET_HEADER)
+# The set first, then the disc (Checkpoint A, (c)): `Set 1 Disc 1`, `Set I Disc 1: 74:16`,
+# `set 1 - disc 1`, `Set 1/Disc 1:`, `set 2 / disc 2`, `Set 1-Disk 1`.
+_SET_DISC_HEADER = re.compile(
+    rf"^{_DECOR}{_SET_CORE}\s*(?:[-–—/]\s*)?{_DISC}{_ANNOT}(?:{_TAIL_ALONE}|{_TAIL_SONGS})",
+    re.I,
+)
+_SET_HEADERS = (_SET_HEADER, _DISC_SET_HEADER, _SET_DISC_HEADER)
 # Worded encore headers: `Encore`, `Encores`, `==encores==`, `Encore ======`, `(encore)`,
 # `Encore 1:`, `Encore #1:`, `1st Encore:`.
 _ENCORE_HEADER = re.compile(

@@ -1542,14 +1542,17 @@ def test_set_and_encore_disc_line_asserts_nothing():
     assert label(tt, "Ocean Billy") == "2"
     assert label(tt, "Kabump") == "encore"
     assert label(tt, "Nemo") == "encore"
-    # "~Disc 1: Set 1+Encore~" is not even a recognised form (a colon disc line), so it
-    # changes no label, and the later "Encore" starts the encore. "~Disc 2: Set 2~" is not
-    # recognised either, so no numbered set is asserted here at all.
+    # "~Disc 1: Set 1+Encore~" names a set and the encore (`Disc N: Set M` is a recognised
+    # shape since the Checkpoint A ruling (c)), so it asserts nothing and changes no label;
+    # the later "Encore" starts the encore. "~Disc 2: Set 2~" is now recognised too, and as
+    # a numbered marker after the encore it voids the structure. (Before ruling (c) neither
+    # disc line was a form at all, and the text read as "one set".)
     tt = read_taper_structure(LOTUS_2005_10_15)
     assert tt.has_encore is True
+    assert tt.encore_like is True  # the set-and-encore header names an encore
     assert label(tt, "Lucid Awakening") == "1"
     assert label(tt, "Nematode") == "encore"
-    assert tt.asserts is False and tt.reason == "one set"
+    assert tt.asserts is False and tt.reason == "void: numbered marker after the encore"
     # "Set One & Encore" asserts nothing either.
     tt = read_taper_structure(
         "Set 1:\nBertha\nSet 2:\nSugaree\nSet 2 & Encore\nScarlet Begonias\nE: Ripple\n")
@@ -3293,3 +3296,266 @@ def test_annotation_forms_that_stay_unrecognised(line):
     tt = read_taper_structure(f"{line}\nSugaree\nSet 2:\nRipple\n")
     assert line in titles(tt) or any(t.startswith(line.split(" (")[0] + " (") for t in titles(tt))
     assert label(tt, "Sugaree") == "1" and label(tt, "Ripple") == "2"
+
+
+# Item 6, ruling (c): the disc-and-set shapes. Each carries `Set` or an ordinal set and reads
+# as set M.
+# ratdog-2008-11-16: md_rd2008-11-16.mg210.flac16.json (description)
+RATDOG_2008_11_16 = (
+    'Set I Disc 1: 74:16\n'
+    '\n'
+    '01. Milestones Jam* >\n'
+    '02. Here Comes Sunshine > \n'
+    '03. Mama Tried\n'
+    "04. It's All Over Now, Baby Blue\n"
+    '05. Mission in the Rain\n'
+    '06. Lucky Enough >\n'
+    '07. Big Boss Man\n'
+    '08. Cream Puff War >\n'
+    '09. Silvio > Tequila > Silvio >\n'
+    "10. Good Lovin'\n"
+    '\n'
+    'Set II Disc 2: 69:34\n'
+    '\n'
+    '01. Peggy-O@ >\n'
+    '02. Me and My Uncle@\n'
+    '03. Quinn The Eskimo@ >\n'
+    '04. The Other One >\n'
+    '05. Samson and Delilah >\n'
+    '06. Stuff\n'
+    '07. Come Together>\n'
+    '08. Going Down The Road Feeling Bad\n'
+    '\n'
+    '\n'
+    'Encore:\n'
+    '\n'
+    '09. Ripple / Birthday Rap\n'
+    '\n'
+    '\n'
+    '*-Distinct Milestones signature riffs during most of the opening Jam.'
+)
+RATDOG_2008_11_16_TRACKS = ['Milestones Jam* >', 'Here Comes Sunshine >', 'Mama Tried', "It's All Over Now, Baby Blue", 'Mission in the Rain', 'Lucky Enough >', 'Big Boss Man', 'Cream Puff War >', 'Silvio > Tequila > Silvio >', "Good Lovin'", 'Peggy-O@ >', 'Me and My Uncle@', 'Quinn The Eskimo@ >', 'The Other One >', 'Samson and Delilah >', 'Stuff', 'Come Together>', 'Going Down The Road Feeling Bad', 'Ripple / Birthday Rap']
+RATDOG_2008_11_16_SOURCES = {}
+RATDOG_2008_11_16_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', '2']
+
+# soulive-2001-12-15: md_Soulive2001-12-15sbd.shn.json (description)
+SOULIVE_2001_12_15 = (
+    'Set 1 disc 1\n'
+    "1. steppin'\n"
+    '2. cannonball\n'
+    '3. 1 in 7 (techno intro remix) \n'
+    '4. azucar\n'
+    '5. hurry up... and wait\n'
+    '\n'
+    'Set 2 disc 2\n'
+    '1. uncle jr.\n'
+    "2. it's your thing\n"
+    '3. lenny->\n'
+    '4. turn it out'
+)
+SOULIVE_2001_12_15_TRACKS = ["Steppin'", 'Cannonball', 'soulive2001-12-15d1.shnf/soulive2001-12-15d1t03.mp3', 'Azucar', 'Hurry Up... and Wait', 'uncle jr', "it's your thing", 'lenny->', 'turn it out', 'soulive2001-12-15d2.shnf/soulive2001-12-15d2t05.mp3']
+SOULIVE_2001_12_15_SOURCES = {3: 'unresolved', 10: 'unresolved'}
+SOULIVE_2001_12_15_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1']
+
+# soundtribesector9-2007-07-08: md_sts92007-07-08.mk4.flac16.json (description)
+STS9_2007_07_08 = (
+    'Set 1/Disc 1:\n'
+    '01 - Intro/Murph\n'
+    '02 - Instantly \n'
+    '03 - Move my Peeps\n'
+    '04 - Velez *\n'
+    '05 - Unquestionable Supremacy\n'
+    '06 - Ramone & Emiglio\n'
+    '07 - The Rabble\n'
+    '08 - Open e\n'
+    '\n'
+    'Set 2/Disc 2:\n'
+    '01 - Lo Swaga\n'
+    '02 - 1103\n'
+    '03 - One a Day\n'
+    '04 - 303* >  \n'
+    '05 - Hip-hop* >Surreality* > Eb* \n'
+    '06 - Blu Mood\n'
+    '\n'
+    'Set 2/Disc 3:\n'
+    'Encore 1\n'
+    '01 - Baraka\n'
+    '02 - Evasive Maneuvers > Kamuy\n'
+    'Encore 2\n'
+    '03 - Grow'
+)
+STS9_2007_07_08_TRACKS = ['Instantly', 'Move my Peeps', 'Velez *', 'Unquestionable Supremacy', 'Ramone & Emiglio', 'The Rabble', 'Open e', 'Lo Swaga', '1103', 'One a Day', '303 Improv*', 'Hip-hop* >Surreality* > Eb*', 'Blu Mood', 'Baraka', 'Evasive Maneuvers > Kamuy', 'Grow']
+STS9_2007_07_08_SOURCES = {11: 'sibling-align'}
+STS9_2007_07_08_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', 'encore', 'encore', 'encore']
+
+# thecodetalkers-2003-10-31: md_codetalkers2003-10-31.flac16.json (description)
+CODETALKERS_2003_10_31 = (
+    'DISC 1 SET ONE\n'
+    '01 Nash\n'
+    "02 I'm So Glad\n"
+    '03 Lima\n'
+    '04 Basically Frightened*\n'
+    '05 Body in the Lake\n'
+    '06 When The World Comes Tumbling Down\n'
+    '\n'
+    'DISC 2 SET TWO\n'
+    '01 Saturn!\n'
+    '02 Turn On Your Lovelight\n'
+    '03 Get to Know You Better >>\n'
+    "04 Fixin' to Die  \n"
+    "05 ENCORE: Diggin' Up Bones"
+)
+CODETALKERS_2003_10_31_TRACKS = ['Nash (7:53)', "I'm So Glad (8:19)", 'Lima (14:50)', 'Basically Frightened* (10:18)', 'Body in the Lake (8:37)', 'When The World Comes Tumbling Down (11:40)', 'Saturn! (10:50)', 'Turn On Your Lovelight (10:41)', 'Get to Know You Better >> (10:04)', "Fixin' to Die (9:17)", "ENCORE: Diggin' Up Bones (6:54)"]
+CODETALKERS_2003_10_31_SOURCES = {}
+CODETALKERS_2003_10_31_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', 'encore']
+
+# corblund-2004-11-04: md_corblund2004-11-04.emc709.flac.json (description)
+CORBLUND_2004_11_04 = (
+    'The Corb Lund Band\n'
+    'Live At The Times Change High And Lonesome Club\n'
+    'Winnipeg, Manitoba\n'
+    'November 5, 2004\n'
+    'Three Sets\n'
+    'Taped from the front row & Transferred by Redseed Mobile\n'
+    '\n'
+    'EMC709->MT-877\n'
+    '\n'
+    "Transfer done with a wicked soundcard at my buddy's studio\n"
+    '\n'
+    'Sound is excellent, especially for rig used\n'
+    '\n'
+    'Disc/Set1\n'
+    '01 (Gonna) Shine up My Boots\n'
+    '02 Expectation and the Blues\n'
+    '03 Apocalyptic Modified Blues\n'
+    "04 The Counterfeiter's Blues\n"
+    '05 No Roads Here\n'
+    '06 Short Native Grasses\n'
+    '07 Sixteen Tons\n'
+    '08 The Big Bitch Butch Bull Fiddle\n'
+    "09 The Truck Got Stuck Talkin' Blues\n"
+    "10 We Used To Ride 'em\n"
+    "11 Buckin' Horse Rider\n"
+    '12 Okie From Muskogee\n'
+    '\n'
+    'Disc/Set2\n'
+    '01 Roughest Neck Around\n'
+    "02 Daughter Don't You Marry No Guitar Picker\n"
+    '03 The Cover of The Rolling Stone\n'
+    '04 Heavy And Leaving\n'
+    '05 Good Copenhagen Is Better Than Bad Cocaine\n'
+    '06 Time To Switch To Whiskey\n'
+    '07 Mora (Blackberry)\n'
+    '08 Where Is My Soldier\n'
+    '09 Seven Spanish Angels\n'
+    '10 A Leader on Losing Control\n'
+    '11 All I Wanna Do Is Play Cards\n'
+    '12 Five Dollar Bill\n'
+    "13 She Won't Come To me\n"
+    '14 Always keep An Edge on Your Knife\n'
+    '\n'
+    'Disc/Set3\n'
+    "01 Workin' Man Blues\n"
+    '02 Now I Must Leave\n'
+    '03 Eating Me Alive\n'
+    '04 Crazy\n'
+    '05 Lament For Lester Cousins\n'
+    '06 Case Of The Winde Soaked Preacher\n'
+    '07 Folsom Prison Blues\n'
+    '08 (Gonna) Shine up My Boots\n'
+    '09 Are You Sure Hank Done it This Way\n'
+    '10 Spanish Armada\n'
+    '11 On The Road Again\n'
+    '\n'
+    'Please share but NEVER EVER encode to mp3 or other lossy formats.'
+)
+CORBLUND_2004_11_04_TRACKS = ['Gonna) Shine up My Boots', 'Expectation and the Blues', 'Apocalyptic Modified Blues', "The Counterfeiter's Blues", 'No Roads Here', 'Short Native Grasses', 'Sixteen Tons', 'The Big Bitch Butch Bull Fiddle', "The Truck Got Stuck Talkin' Blues", "We Used To Ride 'em", "Buckin' Horse Rider", 'Okie From Muskogee', 'Roughest Neck Around', "Daughter Don't You Marry No Guitar Picker", 'The Cover of The Rolling Stone', 'Heavy And Leaving', 'Good Copenhagen Is Better Than Bad Cocaine', 'Time To Switch To Whiskey', 'Mora (Blackberry)', 'Where Is My Soldier', 'Seven Spanish Angels', 'A Leader on Losing Control', 'All I Wanna Do Is Play Cards', 'Five Dollar Bill', "She Won't Come To me", 'Always keep An Edge on Your Knife', "Workin' Man Blues", 'Now I Must Leave', 'Eating Me Alive', 'Crazy', 'Lament For Lester Cousins', 'Case Of The Winde Soaked Preacher', 'Folsom Prison Blues', 'Gonna) Shine up My Boots', 'Are You Sure Hank Done it This Way', 'Spanish Armada', 'On The Road Again']
+CORBLUND_2004_11_04_SOURCES = {}
+CORBLUND_2004_11_04_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1']
+
+N_FORM_CASES = {
+    "ratdog-2008-11-16": (RATDOG_2008_11_16, RATDOG_2008_11_16_TRACKS, RATDOG_2008_11_16_SOURCES,
+                          RATDOG_2008_11_16_TODAY, True),
+    "soulive-2001-12-15": (SOULIVE_2001_12_15, SOULIVE_2001_12_15_TRACKS,
+                           SOULIVE_2001_12_15_SOURCES, SOULIVE_2001_12_15_TODAY, False),
+    "soundtribesector9-2007-07-08": (STS9_2007_07_08, STS9_2007_07_08_TRACKS,
+                                     STS9_2007_07_08_SOURCES, STS9_2007_07_08_TODAY, False),
+    "thecodetalkers-2003-10-31": (CODETALKERS_2003_10_31, CODETALKERS_2003_10_31_TRACKS,
+                                  CODETALKERS_2003_10_31_SOURCES, CODETALKERS_2003_10_31_TODAY,
+                                  False),
+    "corblund-2004-11-04": (CORBLUND_2004_11_04, CORBLUND_2004_11_04_TRACKS,
+                            CORBLUND_2004_11_04_SOURCES, CORBLUND_2004_11_04_TODAY, False),
+}
+
+
+@pytest.mark.parametrize("slug", sorted(N_FORM_CASES))
+def test_disc_and_set_real_cases_own(slug):
+    text, names, sources, today, family = N_FORM_CASES[slug]
+    d = decide_taper(_mk_src(names, today, sources), {"description": text},
+                     aliases=GD_SHORTHAND if family else {}, today_sets=today)
+    assert d.placement is not None, d.reason
+    assert d.source == "description"
+
+
+def test_disc_and_set_real_case_labels():
+    tt = read_taper_structure(RATDOG_2008_11_16)  # "Set I Disc 1: 74:16"
+    assert tt.asserts is True and runs(tt) == ["1", "2", "encore"]
+    assert "74:16" not in titles(tt) and label(tt, "Peggy-O@") == "2"
+    tt = read_taper_structure(CORBLUND_2004_11_04)  # "Disc/Set1" ... "Disc/Set3"
+    assert tt.asserts is True and runs(tt) == ["1", "2", "3"]
+    assert label(tt, "Roughest Neck Around") == "2" and label(tt, "Workin' Man Blues") == "3"
+    tt = read_taper_structure(STS9_2007_07_08)  # "Set 2/Disc 3:" continues set 2
+    assert runs(tt) == ["1", "2", "encore"] and label(tt, "- Blu Mood") == "2"
+
+
+@pytest.mark.parametrize("h1, h2", [
+    ("Set 1 Disc 1", "Set 2 Disc 2"),
+    ("Set I Disc I", "Set II Disc II"),
+    ("Set One Disc One", "Set Two Disc Two"),
+    ("Set I Disc 1: 74:16", "Set II Disc 2: 69:34"),
+    ("set 1 - disc 1", "set 2 - disc 2"),
+    ("Set 1-Disk 1", "Set 2-Disk 2"),
+    ("Set 1/Disc 1:", "Set 2/Disc 2:"),
+    ("set 1 / disc 1", "set 2 / disc 2"),
+    ("Disc I 1st Set", "Disc II 2nd Set"),
+    ("Disk 1: Set 1", "Disk 2: Set 2"),
+    ("Disc 1, Set 1", "Disc 2, Set 2"),
+    ("DISC 1 SET ONE", "DISC 2 SET TWO"),
+    ("DISC 01:SET I :", "DISC 02:SET II"),
+    ("disc 01 [Set I]", "disc 02 [Set II]"),
+    ("CD1 Set 1", "CD2 Set 2"),
+    ("CD 1 - Set 1", "CD 2 - Set 2"),
+    ("Disc/Set1", "Disc/Set2"),
+    ("Disc 1: Set 1", "Disc 2: Set 2"),
+    ("~Disc 1: Set 1~", "~Disc 2: Set 2~"),
+    ("Disk 1 (Set 1)", "Disk 2 (Set 2)"),
+])
+def test_disc_and_set_shapes_read_as_set_m(h1, h2):
+    tt = read_taper_structure(f"{h1}\nBertha\nSugaree\n{h2}\nScarlet Begonias\nRipple\n")
+    assert tt.asserts is True and runs(tt) == ["1", "2"], tt.reason
+    assert titles(tt) == ["Bertha", "Sugaree", "Scarlet Begonias", "Ripple"]
+
+
+def test_disc_and_set_repeated_set_is_a_continuation():
+    tt = read_taper_structure("Set 1 Disc 1\nBertha\nSet 2 Disc 2\nSugaree\n"
+                              "Set 2 Disc 3\nRipple\nEncore:\nTruckin\n")
+    assert tt.asserts is True and runs(tt) == ["1", "2", "encore"]
+    assert label(tt, "Ripple") == "2"
+
+
+@pytest.mark.parametrize("line", [
+    "SET 1/2",                # set 1 of 2: not admitted
+    "(Start Set 2)",          # not admitted
+    "(start of Set II)",
+    "Set II (Disc 2)",        # not in the ruling's list
+    "Disc 2 Set Break",       # no set number
+    "Disc 2 - NRPS",          # an act header
+    "Disc 1 set in Boston",   # word-bounded token
+    "CD2 Set 2 Part1",        # a trailing word is no tail
+    "Disk 3: Encore",         # disc-and-ENCORE is not in the ruling
+])
+def test_shapes_the_ruling_does_not_admit(line):
+    tt = read_taper_structure(f"Set 1:\nBertha\n{line}\nSugaree\nSet 2:\nRipple\n")
+    assert label(tt, "Sugaree") == "1"
+    assert label(tt, "Ripple") == "2"
+    assert tt.has_encore is False
