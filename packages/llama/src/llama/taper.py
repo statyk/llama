@@ -40,6 +40,10 @@ matched on song lines and on the song text after a marker, never on the marker i
 - a song line ending ` E`, ` (E)`, ` [E]` or `, E` (`Traffic Jam E`, `US Blues (E)`; ruling
   R4 (b)). Accepted collateral: a title such as `D to E` also counts. It only makes the
   taper own less;
+- the Checkpoint A veto gap: the `Encor:` typo (`\bencor\b`), an `E` glued to the track
+  number (`9E.Wayfaring Stranger`), a song line `E <Title>` (`E Ripple`, `24. E Ripple`;
+  case-sensitive), and a decorated `E~` or `-e-` anywhere (`Tap In, E~ Twilight`,
+  `-e- Freq.1>2`). Accepted collateral: a title such as `E Street Shuffle` counts too;
 - a header naming both a set and the encore (`Set 2 + Encore`), which names an encore it
   does not start.
 
@@ -174,7 +178,8 @@ _LEAD_TIMESTAMP = re.compile(rf"^{_TIMESTAMP}\s+(?=\S)")
 _TIMESTAMP_ONLY = re.compile(rf"^{_TIMESTAMP}$")
 
 # --- Encore-like text (section 2's veto input), matched only OUTSIDE recognised markers.
-_ENCORE_WORDS = re.compile(r"\bencores?\b|\benc\b", re.I)
+# `\bencor\b` is the `Encor:` typo (Checkpoint A, the veto gap).
+_ENCORE_WORDS = re.compile(r"\bencores?\b|\benc\b|\bencor\b", re.I)
 # A song line (after track-prefix stripping) starting `E.`, `E)`, `E` plus a digit, `(E)`.
 _ENCORE_LIKE_START = re.compile(r"^(?:e[.)]|e\d|\(e\))", re.I)
 # The same test is also made after this unconditional bare-number strip (ruling R4 (d)).
@@ -183,6 +188,14 @@ _LEADING_NUMBER = re.compile(r"^\d{1,3}\s+")
 _ENCORE_LIKE_END = re.compile(r"\s(?:e|\(e\)|\[e\])$|,\s*e$", re.I)
 # A split song item that is only `E`, `E<digit>` or `ENC` (ruling R4 (a), (c)).
 _ENCORE_LIKE_ITEM = re.compile(r"^(?:e\d?|enc)$", re.I)
+# Checkpoint A, the veto gap (only raises `encore_like`; nothing here starts an encore):
+# an `E` glued to the track number (`9E.Wayfaring Stranger`);
+_ENCORE_GLUED = re.compile(r"^\d{1,3}e[.):]", re.I)
+# a song line `E <Title>` (`E Ripple`, `24. E Ripple`), case-sensitive;
+_ENCORE_E_SPACE = re.compile(r"^(?:\d+\.?\s+)?E\s+[A-Z]")
+# a decorated `E~` or `-e-` anywhere (`Tap In, E~ Twilight`, `Orbital  E~ Water Song`,
+# `Just thanks,-e- Freq.1>2`).
+_ENCORE_DECORATED_E = re.compile(r"(?<![a-z0-9])e~|-e-", re.I)
 _ITEM_DECOR = "-–—*~=[]() \t"
 
 
@@ -249,9 +262,12 @@ def _encore_like(song_text: str) -> bool:
     """Section 2's encore-like rules (plus ruling R4) on one piece of song text: a song
     line after its track-prefix strip, or the song text after a marker."""
     text = song_text.strip()
-    if _ENCORE_WORDS.search(text) or _ENCORE_LIKE_END.search(text):
+    if (_ENCORE_WORDS.search(text) or _ENCORE_LIKE_END.search(text)
+            or _ENCORE_DECORATED_E.search(text)):
         return True
     if _ENCORE_LIKE_START.match(text) or _ENCORE_LIKE_START.match(_LEADING_NUMBER.sub("", text)):
+        return True
+    if _ENCORE_GLUED.match(text) or _ENCORE_E_SPACE.match(text):
         return True
     return any(_ENCORE_LIKE_ITEM.match(title.strip(_ITEM_DECOR)) for title, _ in _split_songs(text))
 

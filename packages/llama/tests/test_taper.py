@@ -2207,3 +2207,225 @@ def test_decide_taper_reports_source_and_reader_reason():
     d = decide_taper(tracks, {"description": "Set 1: A\nSet 3: B\n"}, aliases={},
                      today_sets=["1"] * 4)
     assert d.placement is None and d.reason.startswith("void:")
+
+
+# ---------------------------------------------------------------------------------------
+# Checkpoint A reader fixes (operator rulings 2026-10-22). Every literal below is copied
+# verbatim from `~/.llama/cache/md_<identifier>.json` (named in the comment); the `_TRACKS`
+# and `_TODAY` lists are that show's stored `show.json` titles and set labels.
+# ---------------------------------------------------------------------------------------
+
+# darkstarorchestra-2013-12-29: md_dso2013-12-29.mk41v.m222.mk5.cmc6.2448.json (description)
+DSO_2013_12_29 = (
+    'Set 1:\n'
+    '01. Intro Set 1\n'
+    '02. Bertha\n'
+    '03. Jack Straw\n'
+    '04. Tennessee Jed\n'
+    '05. Looks Like Rain\n'
+    '06. Peggy-O\n'
+    '07. El Paso\n'
+    '08. Friend of the Devil\n'
+    '09. Music Never Stopped\n'
+    '\n'
+    'Set 2:\n'
+    '10. Intro Set 2\n'
+    '11. Scarlet Begonias>\n'
+    '12. Fire on the Mountain>\n'
+    "13. Good Lovin'\n"
+    '14. Candyman\n'
+    '15. Estimated Prophet>\n'
+    "16. He's Gone>\n"
+    '17. Drums>\n'
+    '18. Samson and Delilah\n'
+    '19. Terrapin Station>\n'
+    '20. Morning Dew>\n'
+    '21. Around and Around\n'
+    '\n'
+    'Encor:\n'
+    "22. Uncle John's Band\n"
+    '23. U.S. Blues\n'
+    '24. Show Reveal - Winterland Ballroom - San Francisco, CA June 7, 1977 \n'
+    '25. Mr. Charlie'
+)
+DSO_2013_12_29_TRACKS = ['Bertha', 'Jack Straw', 'Tennessee Jed', 'Looks Like Rain', 'Peggy-O', 'El Paso', 'Friend of the Devil', 'Music Never Stopped', 'Scarlet Begonias>', 'Fire on the Mountain>', "Good Lovin'", 'Candyman', 'Estimated Prophet>', "He's Gone>", 'Drums>', 'Samson and Delilah', 'Terrapin Station>', 'Morning Dew>', 'Around and Around', "Uncle John's Band", 'U.S. Blues', 'Mr. Charlie']
+DSO_2013_12_29_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', 'encore', 'encore', 'encore']
+
+# railroadearth-2011-10-30: md_rre2011-10-30.flac16.json (description)
+RRE_2011_10_30 = (
+    'Set I\n'
+    '1. Long Way To Go \n'
+    '2. Drag Him Down \n'
+    '3. Just So You Know \n'
+    '4. Lone Croft Farewell \n'
+    '5. The Hunting Song \n'
+    '6. Pulling the Devil by the Tail \n'
+    '7. Mighty River \n'
+    '8. 1759 \n'
+    '9. Mourning Flies \n'
+    '\n'
+    ' Set II\n'
+    '1. Like a Buddha \n'
+    '2. Lordy, Lordy \n'
+    '3. Water Fountain Quicksand \n'
+    '4. Seven Story Mountain \n'
+    '5. Old Man and the Land \n'
+    '6. The Forecast \n'
+    '7. Warhead Boogie > \n'
+    '8. Gallows Pole (A) \n'
+    '9E.Wayfaring Stranger'
+)
+RRE_2011_10_30_TRACKS = ['Long Way To Go', 'Drag Him Down', 'Just So You Know', 'Lone Croft Farewell', 'The Hunting Song', 'Pulling the Devil by the Tail', 'Mighty River', '1759', 'Mourning Flies', 'Like a Buddha', 'Lordy, Lordy', 'Water Fountain Quicksand', 'Seven Story Mountain', 'Old Man and the Land', 'The Forecast', 'Warhead Boogie >', 'Gallows Pole (A)', 'Wayfaring Stranger']
+RRE_2011_10_30_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', 'encore']
+
+# ratdog-2014-02-14: md_rd2014-02-14.mk4.edtyre.json (description)
+RATDOG_2014_02_14 = (
+    'Set 1\n'
+    '\n'
+    'The Music Never Stopped >\n'
+    'Shakey Ground > \n'
+    "Maggie's Farm > \n"
+    'Easy Answers\n'
+    'Bird Song > \n'
+    'Cassidy\n'
+    'Weather Report Suite Prelude/Part 1 >  \n'
+    'Let It Grow\n'
+    '\n'
+    'Set 2\n'
+    '\n'
+    'Friend of the Devil@ > \n'
+    'Peggy-O@\n'
+    'Looks Like Rain@ \n'
+    'Playin in the Band > Eyes of the World > \n'
+    'Standing on the Moon > \n'
+    'Two Djinn > \n'
+    'Not Fade Away\n'
+    'E Ripple\n'
+    '\n'
+    '@ Acoustic'
+)
+RATDOG_2014_02_14_TRACKS = ['The Music Never Stopped >', 'Shakey Ground >', "Maggie's Farm >", 'Easy Answers', 'Bird Song >', 'Cassidy', 'Weather Report Suite Prelude/Part 1 >', 'Let It Grow', 'Friend of the Devil@ >', 'Peggy-O@', 'Looks Like Rain@', 'Playin in the Band > Eyes of the World >', 'Standing on the Moon >', 'Two Djinn >', 'Not Fade Away', 'Ripple']
+RATDOG_2014_02_14_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', 'encore']
+
+# soundtribesector9-2003-11-01: md_sts9-2003-11-01.json (description)
+STS9_2003_11_01 = (
+    "Set 1: l1nqs>, Circus, Gobnugget, Surreality, Today, King Pharoh's Tomb, Tricon, Dance\n"
+    'Set 2: ISB, ASAA, Grow, Not in our name, Baraka, 4 year puma, Jebez, Just thanks,-e- Freq.1>2'
+)
+STS9_2003_11_01_TRACKS = ['Circus', 'Gobnugget', 'Surreality', 'Today', "King Pharoh's Tomb", 'Tricon', 'Dance', 'ISB', 'ASAA', 'Grow', 'Not in Our Name', 'Baraka', 'Four Year Puma', 'Jebez', 'Just Thanks', 'Freq 1 > 2']
+STS9_2003_11_01_TODAY = ['1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', 'encore']
+
+# soundtribesector9-2004-06-25: md_sts9-2004-06-25.json (description)
+STS9_2004_06_25 = (
+    'Set One: Just Thanks, Posiedon, STS9, Mobsters>Surrealty>EB, Improv F, Baraka\n'
+    'Set Two: Tap In, Glogli, What is Love, LSB, Moonsocket, Orbital  E~ Water Song\n'
+)
+STS9_2004_06_25_TRACKS = ['Poseidon', 'STS9', 'Today', 'Mobsters >', 'Surrealty > EB', 'Improv', 'Baraka', 'Tap In', 'GLOgli', 'What is Love?', "Life's Sweet Breath", 'Moon Socket >', 'Orbital', 'Water Song']
+STS9_2004_06_25_TODAY = ['1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', 'encore']
+
+# soundtribesector9-2004-10-31: md_sts9-2004-10-31.json (description)
+STS9_2004_10_31 = (
+    'Set 1*:Intro, Peoples, Arigato, Artifact, 102.4, Since 7th, Providing Sun, Glogli,Bwanf>Sift 5,Forest Hu ,Havona Ascent, Improv,Jebez (v. 2.0)\n'
+    '\n'
+    'Set 2: Ramone & Emiglio, And Some Are Angels, Inspire Strikes Back, Be Pulse, Orbital, Crystal Instrument, Kamuy, Tap In, E~ Twilight, Really Wut'
+)
+STS9_2004_10_31_TRACKS = ['Peoples%', 'Arigato', 'Artifact%', '102.4', 'Since 7th', 'Providing Sun', 'Glogli', 'Bwanf>Sift 5', 'Havona Ascent', 'Improv%', 'Jebez (v. 2.0)', 'Ramone & Emiglio', 'And Some Are Angels', 'Inspire Strikes Back', 'Be Pulse', 'Orbital', 'Crystal Instrument', 'Evasive/Kamuy', 'Tap In', 'Twilight', 'Really Wut?', 'Filler-Telefon Tel Aviv***']
+STS9_2004_10_31_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', 'encore', 'encore', 'encore']
+
+# shakedownband-2013-08-24: md_Shakedownband2013-08-24.json (description)
+SHAKEDOWN_2013_08_24 = (
+    '1st set\n'
+    '01. China Cat Sunflower >\n'
+    '02. I Know You Rider\n'
+    '03. All Over Now\n'
+    '04. When Push Comes To Shove\n'
+    '05. Cassidy\n'
+    '06. CC Rider\n'
+    '07. Promised Land\n'
+    '08. When I Paint My Masterpiece\n'
+    '09. Viola Lee Blues\n'
+    '10. Brown Eyed Women\n'
+    '2nd Set\n'
+    '11. Mississippi Half Step >\n'
+    '12. Dark Star Jam >\n'
+    '13. Midnight Hour\n'
+    '14. Althea\n'
+    '15. Help On The Way >\n'
+    '16. Slipknot > \n'
+    '17. Aiko Aiko\n'
+    '18. I Need A Miricle >\n'
+    '19. Samson And Delilah\n'
+    '20. Loose Lucy >\n'
+    '21. Shakedown Street\n'
+    '22. Dark Hollow\n'
+    '23. Morning Dew\n'
+    '24. E Ripple'
+)
+SHAKEDOWN_2013_08_24_TRACKS = ['China Cat Sunflower >', 'I Know You Rider', 'All Over Now', 'When Push Comes To Shove', 'Cassidy', 'CC Rider', 'Promised Land', 'When I Paint My Masterpiece', 'Viola Lee Blues', 'Brown Eyed Women', 'Mississippi Half Step >', 'Dark Star Jam >', 'Midnight Hour', 'Althea', 'Help On The Way >', 'Slipknot >', 'Aiko Aiko', 'I Need A Miricle >', 'Samson And Delilah', 'Loose Lucy >', 'Shakedown Street', 'Dark Hollow', 'Morning Dew', 'E Ripple']
+SHAKEDOWN_2013_08_24_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2']
+
+
+def _mk_today(titles_: list[str], today: list[str]) -> list[Track]:
+    return [Track(index=i + 1, set=s, title=t, filename=f"t{i + 1:02d}.mp3", title_source="tags")
+            for i, (t, s) in enumerate(zip(titles_, today))]
+
+
+# Item 1, the veto gap: each of these encores was written in a form the reader does not
+# recognise, and the old veto missed it, so the taper's encore folded into set 2.
+VETO_GAP_CASES = {
+    "darkstarorchestra-2013-12-29": (DSO_2013_12_29, DSO_2013_12_29_TRACKS, DSO_2013_12_29_TODAY),
+    "railroadearth-2011-10-30": (RRE_2011_10_30, RRE_2011_10_30_TRACKS, RRE_2011_10_30_TODAY),
+    "ratdog-2014-02-14": (RATDOG_2014_02_14, RATDOG_2014_02_14_TRACKS, RATDOG_2014_02_14_TODAY),
+    "soundtribesector9-2003-11-01": (STS9_2003_11_01, STS9_2003_11_01_TRACKS, STS9_2003_11_01_TODAY),
+    "soundtribesector9-2004-06-25": (STS9_2004_06_25, STS9_2004_06_25_TRACKS, STS9_2004_06_25_TODAY),
+    "soundtribesector9-2004-10-31": (STS9_2004_10_31, STS9_2004_10_31_TRACKS, STS9_2004_10_31_TODAY),
+    "shakedownband-2013-08-24": (SHAKEDOWN_2013_08_24, SHAKEDOWN_2013_08_24_TRACKS,
+                                 SHAKEDOWN_2013_08_24_TODAY),
+}
+
+
+@pytest.mark.parametrize("slug", sorted(VETO_GAP_CASES))
+def test_veto_gap_real_cases_are_not_owned(slug):
+    text, names, today = VETO_GAP_CASES[slug]
+    tt = read_taper_structure(text)
+    assert tt.asserts is True and tt.has_encore is False
+    assert tt.encore_like is True
+    d = decide_taper(_mk_today(names, today), {"description": text}, aliases=GD_SHORTHAND,
+                     today_sets=today)
+    assert d.placement is None and d.reason == "veto: encore-like text"
+
+
+@pytest.mark.parametrize("tail", [
+    "Encor:\nRipple\n",             # the `Encor:` typo
+    "9E.Ripple\n",                   # E glued to the track number
+    "9E)Ripple\n", "9e:Ripple\n",
+    "E Ripple\n",                    # E, a space, then the title
+    "24. E Ripple\n", "24 E Ripple\n",
+    "Tap In, E~ Twilight\n",         # decorated E inside a comma list
+    "Orbital  E~ Water Song\n",      # ... or mid-item
+    "Just thanks,-e- Freq.1>2\n",
+])
+def test_encore_like_veto_gap_forms(tail):
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\n" + tail)
+    assert tt.has_encore is False
+    assert tt.encore_like is True
+
+
+def test_encore_like_veto_gap_forms_in_a_marker_lines_songs():
+    tt = read_taper_structure("Set 1: Bertha\nSet 2: Sugaree, Tap In, E~ Twilight\n")
+    assert tt.has_encore is False and tt.encore_like is True
+
+
+@pytest.mark.parametrize("tail", [
+    "Encorner\n", "Eyes of the World\n", "E-Bow the Letter\n", "Tree~ Hugger\n",
+    "Eleanor Rigby\n", "Eel River\n",
+])
+def test_encore_like_veto_gap_negatives(tail):
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\n" + tail)
+    assert tt.encore_like is False
+
+
+def test_encore_like_e_space_rule_is_case_sensitive():
+    # "e ripple" in lower case is not the `E <Title>` shape.
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\ne ripple\n")
+    assert tt.encore_like is False
