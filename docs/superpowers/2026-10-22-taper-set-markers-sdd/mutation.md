@@ -299,3 +299,42 @@ The same six test files ran, 798 tests in all.
 apart: a hit that must be unique has no earliest or latest. Its test,
 `test_the_hit_is_the_earliest_match_of_set_1s_first_song`, became
 `test_set_1_first_song_matching_several_tracks_declines`.
+
+## Fix round 4 (t9-fix4): B4 checks the latest hit (narrowed ruling)
+
+**What changed.** llama-db narrowed the B4 uniqueness ruling the same day (llama-db ruling,
+2026-10-22, narrowed the same day):
+- When set 1's first song (or the item standing in for it) matches several tracks in set 1's
+  window, B4 makes its break test against the LATEST of those hits.
+- The `veto: set 1's first song matches several tracks` reason is gone.
+
+**Rows retired.** U1 and U2 from fix round 3 are moot, because the uniqueness branch they
+mutated no longer exists.
+- U1's tests were rewritten for the latest-hit reading.
+- U2's window is now pinned by L3.
+- M1 and K1 are unaffected and stand.
+
+**Setup.** Base `git archive 77e5322`, then `95c735a` for the re-run. Same instrument as before,
+800 tests, predictions logged first in `t9-fix4.log`. S0 was 0 / 800 red on both bases.
+
+| id | mutation | file:line | predicted (core) | observed red | verdict |
+|---|---|---|---|---|---|
+| L1 | earliest hit instead of latest: `h = hits[-1]` → `h = hits[0]` | taper.py (`_step1_break_before_set_1`) | `test_step1_break_before_set_1_real_case_declines`, `test_repeated_set_1_opener_checks_the_latest_hit[today0-False]`, `test_the_stand_in_item_uses_its_latest_hit[today0-False]` | first run (77e5322): the last two only, so the real-case test stayed GREEN (see below). Re-run (95c735a): exactly the predicted 3 | first run SURPRISE-CATCH; re-run CAUGHT-AS-PREDICTED |
+| L2 | the several-hits treatment removed, only the first hit kept: `hits = [...]` → `hits = [...][:1]` | taper.py (`_step1_break_before_set_1`) | the same 3 as L1 | first run: the same 2 as L1. Re-run: exactly the predicted 3 | first run SURPRISE-CATCH; re-run CAUGHT-AS-PREDICTED |
+| L3 | the window widened to the whole tape: `enumerate(tracks[:last + 1])` → `enumerate(tracks)` | taper.py (`_step1_break_before_set_1`) | `test_a_repeat_after_set_1_is_outside_the_window` | that, plus `test_a_set_1_song_heard_only_after_set_1_does_not_widen_the_window` (declared) | CAUGHT (+1 declared, read) |
+
+**Why L1's first run surprised.**
+- stevekimockband-2000-03-31's step 1 [6, 13] breaks after track 6. Its two
+  `Severe Tire Damage` hits are tracks 7 and 9. The break precedes both hits, so the real case
+  cannot tell the latest hit from the earliest.
+- The fix is in the same test (commit 95c735a): a hypothetical step 1 that breaks between the
+  two hits, after track 8. On that one the earliest hit sees no break and the latest does.
+
+**L2 is behaviourally the same mutant as L1.** In the narrowed rule there is no separate
+"uniqueness branch". Choosing the latest hit IS the several-hits treatment, so removing it
+(keeping one hit) reduces to the earliest hit. It is recorded for completeness.
+
+**Extra red, read.**
+- **L3:** in `test_a_set_1_song_heard_only_after_set_1_does_not_widen_the_window`, `Truckin`
+  (set 1's first item) is heard only after set 1. With the window widened, its hit is track 4.
+  The step-1 break after track 1 then precedes it, so B4 declines a show that should stay owned.
