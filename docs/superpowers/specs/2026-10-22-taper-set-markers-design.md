@@ -261,7 +261,9 @@ named line or text asserts no structure:
 and not song items, while the same texts' worded `Set 2:`/`E:` still assert a structure
 (2005-11-16 then declines at placement on its repeated `NFA`); in `umphreysmcgee-2004-04-14`
 and `lotus-2005-10-15` the set-and-encore disc line asserts nothing and the later `e:` still
-starts the encore (umphreysmcgee-2004-04-14 is taper-owned, identical to today);
+starts the encore (umphreysmcgee-2004-04-14 asserts that structure and is computed
+identically to today; since the B4 uniqueness rule below it is not taper-owned, because its
+set-1 opener `The Fuzz` is on the tape twice in set 1);
 `davidnelsonband-2007-09-07` (its `encore: Box Of Rain (set 2)` line, after track-prefix
 stripping, is followed by `set 2`, a numbered marker after the encore, so the structure is
 void); `moe-1997-02-21` (`Encore 1:` is recognised, and its encore boundary does not place, so
@@ -346,9 +348,16 @@ the taper's structure keeps it); a `Disc 2 (Set 2)` show; a notes-only show.
   leading-block rule above drops lines before an explicit `Set 1` as header text, so placement would
   fold the Happy Hour songs into set 1 and erase step 1's break after track 6 (step 1 [6, 13]).
   A break at the hit itself (between the hit and the next track) does not count, and leading
-  filler, intro or pre-show tracks with no step-1 break before set 1 stay owned. (My call: the
-  hit is the earliest track at or before set 1's placed last song matching set 1's first song
-  item; when that item matches none, the next set-1 item's earliest such hit stands in.)
+  filler, intro or pre-show tracks with no step-1 break before set 1 stay owned. The hit is
+  searched among the tracks at or before set 1's placed boundary. It must be unique, as
+  placement requires of a boundary song: when set 1's first song matches more than one of those
+  tracks (a repeated `Jam`-style opener), the taper owns nothing
+  (`veto: set 1's first song matches several tracks`; llama-db ruling, 2026-10-22). A unique
+  hit is checked as above. (My call: when set 1's first song item matches none of those
+  tracks, the next set-1 item stands in, and the uniqueness test applies to it.) Measured
+  declines, from the real-case tests: joerussosalmostdead-2017-03-11 (`Jam @`),
+  umphreysmcgee-2004-04-14 (`The Fuzz`) and stevekimockband-2000-03-31 itself
+  (`Severe Tire Damage`, tracks 7 and 9).
 - The shipped labels are always the taper's: 1..n, and `encore` if it marks one.
 
 ### 3. Placing the taper's structure on the tape
@@ -406,9 +415,11 @@ jerrybase anchoring therefore never moves or removes a taper boundary, and the P
 stop erasing tapers' set 2.
 
 **Low-confidence flag on a taper-owned show** (my call): raised, with no LLM call, only when
-today's path would have reached the LLM branch (no anchoring and step-1 coverage below
-`align_coverage_threshold`) **and** the coverage of the reader's items aligned with `align()`
-against the tape is also below the threshold. That coverage is recorded.
+today's path would have reached the LLM branch (canonical items, no anchoring and step-1
+coverage below `align_coverage_threshold`) **and** the coverage of the reader's items aligned
+with `align()` against the tape is also below the threshold. That coverage is recorded. Since
+the no-encore veto on today's LLM path (section 2), the flag can arise only on a taper with a
+recognised encore marker: a taper without one is not owned on that path.
 
 **Provenance** (my call):
 
@@ -590,10 +601,13 @@ Not part of the build. After merge and release:
   of 62 stored-llm shows); segues are a nice-to-have per the operator. (Operator ruling D1 (c),
   accept, via llama-db, 2026-10-22. The figure is the measurement taken before the no-encore
   veto on today's LLM path (section 2) was added; that veto shrinks the population, since a
-  show on that path is now owned only when the taper marks an encore. Report 3's
+  show on that path is now owned only when the taper marks an encore. After G1: 143 segues
+  lost over 36 shows, about 139 of them real (acceptance run 2, 9388d09). Report 3's
   `segues changed` tier lists these rows.)
 - On a taper-owned show the jerrybase closer flag becomes a note (section 5), so an encore the
-  taper did not mark folds into the last set without a hold (furthur-2012-07-08).
+  taper did not mark folds into the last set without a hold (furthur-2012-07-08; it carries an
+  operator structure override, so production ships the override and the fold is seen only in
+  the harness's override-ignoring mode).
 - An owned show's low-confidence flag uses `align()`'s coverage of the taper's items (section
   4), so a correct owned structure can be held where the LLM alignment used to clear it
   (darkstarorchestra-2009-11-14, deadandcompany-2015-10-29, stringcheeseincident-2005-03-25,
