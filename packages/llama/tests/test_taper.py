@@ -1658,14 +1658,18 @@ def test_n_colon_tracklists_are_not_markers(text):
     assert tt.asserts is False and tt.reason == "no markers"
     assert tt.has_encore is False
     assert {i.set for i in tt.items} == {"1"}
-    # The titles are exactly parse_setlist's (the reader only labels).
-    assert titles(tt) == [i.title for i in parse_setlist(text).items if i.title in titles(tt)]
+    # The titles are parse_setlist's, less the `N:` prefix the reader strips (Checkpoint A,
+    # item 4: `08: Ripple`); stripping it gives the line no meaning as a marker.
+    import re as _re
+    parsed = [_re.sub(r"^\s*\d{1,3}:\s+(?=\S)", "", i.title) for i in parse_setlist(text).items]
+    assert titles(tt) == [t for t in parsed if t in titles(tt)]
 
 
 def test_signalpath_n_colon_is_not_a_marker():
     tt = read_taper_structure(SIGNAL_PATH)
     assert tt.asserts is False and tt.reason == "one set"
-    assert tt.items[0] == TaperItem("1:  Escape Strategy", "1")
+    # Checkpoint A, item 4: the reader strips the `1:` prefix (was "1:  Escape Strategy").
+    assert tt.items[0] == TaperItem("Escape Strategy", "1")
     # Only the inline "E:" is a marker; the "9:" stub it leaves is no item.
     assert tt.items[-1] == TaperItem("Bad Monkies", "encore")
     assert "9:" not in titles(tt)
@@ -2598,3 +2602,477 @@ def test_encore_none_collateral_is_accepted():
     # A title starting with the word "None" voids too. It only makes the taper own less.
     tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\nEncore: None of Us Are Free\n")
     assert tt.asserts is False and tt.reason == "void: encore none"
+
+
+# Item 4, reader-local item cleaning (R-ITEM). `parse_setlist` keeps every one of these junk
+# items; only the reader cleans them. Real cases: the gate rows cpa-decl measured, each owned
+# once its item is clean. Tracks are the adjudication bundle's pre-adjudication table.
+# gratefuldead-1980-10-10: md_gd1980-10-10.mtx.chappell.sb03.28740.flac16.json (description)
+GD_1980_10_10 = (
+    'Set 1: (Acoustic)\n'
+    'd1t01 - On The Road Again\n'
+    'd1t02 - It Must Have Been The Roses\n'
+    'd1t03 - Monkey And The Engineer\n'
+    'd1t04 - Jack-a-roe\n'
+    'd1t05 - Dark Hollow\n'
+    'd1t06 - To Lay Me Down\n'
+    'd1t07 - Heaven Help The Fool\n'
+    'd1t08 - Bird Song\n'
+    'd1t09 - Ripple\n'
+    '\n'
+    'Set 2: (Electric)\n'
+    'd1t10 - Mississippi Half-Step Uptown Toodeloo >\n'
+    "d1t11 - Franklin's Tower\n"
+    'd1t12 - Me And My Uncle  >\n'
+    'd1t13 - Big River\n'
+    'd2t01 - Candyman\n'
+    'd2t02 - Beat It On Down The Line\n'
+    'd2t03 - Row Jimmy\n'
+    'd2t04 - New Minglewood Blues\n'
+    'd2t05 - Althea\n'
+    'd2t06 - Jack Straw\n'
+    '\n'
+    'Set3:\n'
+    'd2t07 - Scarlet Begonias  >\n'
+    'd2t08 - Fire On The Mountain\n'
+    'd2t09 - Samson And Delilah\n'
+    'd2t10 - Big Railroad Blues  \n'
+    'd3t01 - Estimated Prophet >\n'
+    'd3t02 - Eyes Of The World >\n'
+    'd3t03 - Drums >\n'
+    'd3t04 - Space >\n'
+    "d3t05 - Truckin' >\n"
+    "d3t06 - Nobody's Fault jam >\n"
+    'd3t07 - Black Peter >\n'
+    'd3t08 - Around And Around >\n'
+    'd3t09 - The // Promised Land\n'
+    '\n'
+    'Encore:\n'
+    'd3t10 - U.S. Blues'
+)
+GD_1980_10_10_TRACKS = ['On The Road Again', 'It Must Have Been The Roses', 'Monkey and The Engineer', 'Jack-A-Roe', 'Dark Hollow', 'To Lay Me Down', 'Heaven Help The Fool', 'Bird Song', 'Ripple', 'Mississippi Half-Step Uptown Toodeloo >', "Franklin's Tower", 'Me and My Uncle >', 'Big River', 'Candyman', 'Beat It On Down The Line', 'Row Jimmy', 'New Minglewood Blues', 'Althea', 'Jack Straw', 'Scarlet Begonias >', 'Fire On The Mountain', 'Samson and Delilah', 'Big Railroad Blues', 'Estimated Prophet >', 'Eyes Of The World >', 'Drums >', 'Space >', "Truckin' >", "Nobody's Fault Jam >", 'Black Peter >', 'Around and Around >', 'The // Promised Land', 'U.S. Blues']
+GD_1980_10_10_SOURCES = {}
+GD_1980_10_10_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', 'encore']
+
+# railroadearth-2005-08-20: md_rre2005-08-20.schoepsCMC6.flac.json (description)
+RRE_2005_08_20 = (
+    'Set 1: Disc 1: \n'
+    '01. Lordy Lordy \n'
+    '02. New Lee Highway Blues> \n'
+    '03. Fiddlee \n'
+    '04. Chains \n'
+    '05. Mourning Flies \n'
+    '06. Lois Ann \n'
+    '07. Stillwater Getaway \n'
+    '08. Wayfaring Stranger \n'
+    '09. Waterfountain Quicksand \n'
+    '\n'
+    'Set 2: Disc 2: \n'
+    '01. //Long Way To Go \n'
+    '02. Seven Story Mountain \n'
+    '03. The Wheel \n'
+    '04. Old Man & The Land \n'
+    '05. The Hunting Song> \n'
+    '06. Black Bear \n'
+    '07. Donkey For Sale \n'
+    "08. [Timmy's props to the Delaware River Keepers]\n"
+    '09. Ragtime Annie Lee \n'
+    '\n'
+    'Encore: Disc 3: \n'
+    '1. Bird In A House \n'
+    '2. Railroad Earth'
+)
+RRE_2005_08_20_TRACKS = ['Lordy Lordy', 'New Lee Highway Blues>', 'Fiddlee', 'Chains', 'Mourning Flies', 'Lois Ann', 'Stillwater Getaway', 'Wayfaring Stranger', 'Waterfountain Quicksand', 'Long Way To Go', 'Seven Story Mountain', 'The Wheel', 'Old Man & The Land', 'The Hunting Song>', 'Black Bear', 'Donkey For Sale', "Timmy's props to the Delaware River Keepers]", 'Ragtime Annie Lee', 'Bird In A House', 'Railroad Earth']
+RRE_2005_08_20_SOURCES = {}
+RRE_2005_08_20_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1']
+
+# greyboyallstars-2012-04-20: md_gba2012-04-20.tlm170.flac16.json (description)
+GBA_2012_04_20 = (
+    'Set 1\n'
+    '1.  tuning / intro\n'
+    '2.  The Show Has Begun\n'
+    '3.  Profundo Grosso\n'
+    "4.  banter - how y'all doin?\n"
+    '5.  Fried Grease\n'
+    '6.  Hot Dog\n'
+    '7.  tuning / thanks\n'
+    '8.  Serpico\n'
+    '9.  banter - new album\n'
+    "10. Breakin' Blood\n"
+    '11. The Weasel\n'
+    '12. Gravee\n'
+    '13. setbreak announce\n'
+    '\n'
+    'Set 2\n'
+    '1.  tuning / banter - Levon Helm condolences\n'
+    '2.  The Way You Make Me Feel\n'
+    '3.  Hot Pants Breakdown\n'
+    '4.  Get A Job\n'
+    '5.  Soul Dream\n'
+    '6.  Flood In Franklin Park *\n'
+    '7.  Inland Emperor\n'
+    '8.  Right On -> *+\n'
+    '9.  Quantico, VA\n'
+    '\n'
+    'Set 3\n'
+    '1.  tuning\n'
+    '2.  V Neck Sweater\n'
+    '3.  Taxman\n'
+    '4.  Back In The Game\n'
+    '5.  Still Waiting\n'
+    '6.  Volcanic Acne\n'
+    "7.  Wanna Be Startin' Something\n"
+    '8.  Confusion\n'
+    '9.  banter - one more for you / tuning\n'
+    '10. Deck Shoes'
+)
+GBA_2012_04_20_TRACKS = ['The Show Has Begun', 'Profundo Grosso', 'Fried Grease', 'Hot Dog', 'Serpico', "Breakin' Blood", 'The Weasel', 'Gravee', 'The Way You Make Me Feel', 'Hot Pants Breakdown', 'Get A Job', 'Soul Dream', 'Flood In Franklin Park *', 'Inland Emperor', 'Right On -> *+', 'Quantico, VA', 'V Neck Sweater', 'Taxman', 'Back In The Game', 'Still Waiting', 'Volcanic Acne', "Wanna Be Startin' Something", 'Confusion', 'Deck Shoes']
+GBA_2012_04_20_SOURCES = {}
+GBA_2012_04_20_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2']
+
+# derektrucksband-2003-12-26: md_dtb2003-12-26.flac16.json (description)
+DTB_2003_12_26 = (
+    'Disc 1\n'
+    'Set I\n'
+    '01. Voluntary Slavery\n'
+    '02. Gonna Move\n'
+    '03. Sahib Teri/Maki Madni\n'
+    "04. Preachin' Blues\n"
+    '05. For My Brother\n'
+    '06. Like Anyone Else\n'
+    '07. I Wish I Knew\n'
+    "08. Kickin' Bach \n"
+    '\n'
+    'Disc 2\n'
+    'Set II\n'
+    '01. Soul Stew\n'
+    '02. Everything\n'
+    '03. Intro Angola\n'
+    '04. Feel So Bad\n'
+    '05. 7/4\n'
+    "06. Leavin' Trunk\n"
+    '\n'
+    '\n'
+    'Disc 3\n'
+    'Set II (Cont.)\n'
+    '01. Afro Blue\n'
+    "02. Goin' Down Slow\n"
+    '03. Joyful Noise\n'
+    '\n'
+    'Encore:\n'
+    '04. 44 Blues\n'
+    "05. Freddie's Dead\n"
+    '\n'
+)
+DTB_2003_12_26_TRACKS = ['Voluntary Slavery', 'Gonna Move', 'Sahib Teri/Maki Madni', "Preachin' Blues", 'For My Brother', 'Like Anyone Else', 'I Wish I Knew', "Kickin' Bach", 'Soul Stew', 'Everything', 'Intro Angola', 'Feel So Bad', 'dtb2003-12-26d2t05.mp3', 'Afro Blue', "Goin' Down Slow", 'Joyful Noise', '44 Blues', "Freddie's Dead"]
+DTB_2003_12_26_SOURCES = {13: 'unresolved'}
+DTB_2003_12_26_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', 'encore', 'encore']
+
+# darkstarorchestra-2007-07-06: md_DSO2007-07-06.16b.flac.json (description)
+DSO_2007_07_06 = (
+    'Dark Star Orchestra\n'
+    '07-06-07 \n'
+    'Nelson Ledges Quarry Park\n'
+    'Nelson twp. OH.\n'
+    'Grateful Fest #8 \n'
+    "Source: AKG 480's (ck61's) > zaolla cables > V3 > HD-P2 @ 24/96\n"
+    'Lineage: cf card > card reader > HDD > cdwav > wavlab downsampled &dithered (UV22HR) 16/44.1 >.flac\n'
+    'location: FOB 40~ back 10~ high NOS\n'
+    'Taper: Jackoroses\n'
+    '\n'
+    '\n'
+    '\n'
+    'Set 1 Disc 1\n'
+    '01: Feel Like a Stranger\n'
+    '02: Donna intro\n'
+    '03: Row Jimmy \n'
+    '04: Easywind\n'
+    "05: It's all over now\n"
+    '06: So Many Roads\n'
+    '07: tuning/ stage talk\n'
+    '08: Jack Straw\n'
+    'Set 2\n'
+    '09: US Blues\n'
+    '\n'
+    'Disc 2\n'
+    '01: Estimated Prophet >\n'
+    '02: Dark Star >\n'
+    '03: Drums >\n'
+    '04: Space >\n'
+    '05: Throwing Stones > \n'
+    '06: Not Fade Away\n'
+    '07: Lucy in the Sky with Diamonds\n'
+    'E:\n'
+    '08: Ripple'
+)
+DSO_2007_07_06_TRACKS = ['Feel Like a Stranger', 'Row Jimmy', 'Easywind', "It's all over now", 'So Many Roads', 'Jack Straw', 'US Blues', 'Estimated Prophet >', 'Dark Star >', 'Drums >', 'Space >', 'Throwing Stones >', 'Not Fade Away', 'Lucy in the Sky with Diamonds', 'Ripple']
+DSO_2007_07_06_SOURCES = {}
+DSO_2007_07_06_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', 'encore']
+
+# philleshandfriends-2007-10-07: md_plf2007-10-07.mk41.flac16.json (description)
+PLF_2007_10_07 = (
+    'Set One\n'
+    "s1t01: Good Lovin'\n"
+    's1t02: Mexican Girl\n'
+    's1t03: Candyman\n'
+    's1t04: Let It Ride\n'
+    's1t05: Sugaree\n'
+    's1t06: Casey Jones\n'
+    '\n'
+    'Set Two\n'
+    's2t01: Ripple\n'
+    's2t02: Cry Yourself Dry*\n'
+    's2t03: Friend of the Devil>\n'
+    's2t04: Big Mon* \n'
+    's2t05: Brokedown Palace \n'
+    '\n'
+    'Set Three\n'
+    's3t01: The Wheel>\n'
+    's3t02: Cryptical Envelopment>\n'
+    's3t03: All Along The Watchtower>\n'
+    's3t04: The Other One\n'
+    's3t05: Help on The Way>\n'
+    's3t06: Slipknot!>\n'
+    "s3t07: Franklin's Tower\n"
+    's3t08: Turn On Your Lovelight\n'
+    's3t09: crowd/donor rap/intros\n'
+    'encore\n'
+    's3t10:  Not Fade Away'
+)
+PLF_2007_10_07_TRACKS = ["Good Lovin'", 'Mexican Girl', 'Candyman', 'Let It Ride', 'Sugaree', 'Casey Jones', 'Ripple', 'Cry Yourself Dry*', 'Friend of the Devil>', 'Big Mon*', 'Brokedown Palace', 'The Wheel>', 'Cryptical Envelopment>', 'All Along The Watchtower>', 'The Other One', 'Help on The Way>', 'Slipknot!>', "Franklin's Tower", 'Turn On Your Lovelight', 'crowd/donor rap/intros', 'Not Fade Away']
+PLF_2007_10_07_SOURCES = {}
+PLF_2007_10_07_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', 'encore', 'encore']
+
+# railroadearth-2014-11-28: md_rre2014-11-28.spc4.hypers.flac16.json (description)
+RRE_2014_11_28 = (
+    "Horn O'Plenty 2014 Night 1\n"
+    'Set 1\n'
+    "01 Won't You Come And Sing For Me\n"
+    '02 The Jupiter And The 119\n'
+    '03 Happy Song\n'
+    '04 Saddle Of The Sun\n'
+    '05 Grandfather Mountain (A)\n'
+    '06 Flower Between The Stones (A)\n'
+    '07 Mission Man (B)\n'
+    '08 Hangtown Ball (A)\n'
+    '\n'
+    'Set 2\n'
+    '01 Lordy, Lordy\n'
+    '02 The Good Life\n'
+    '03 Donkey For Sale\n'
+    "04 Potter's Field\n"
+    '05 Bread And Water\n'
+    '06 Black Elk Speaks ->\n'
+    '07 Tuba Mirum -> (A)\n'
+    '08 Face With A Hole (A)\n'
+    '09 Monkey (A)\n'
+    '10 Like A Buddha (A)\n'
+    '11 Give That Boy A Hand\n'
+    '12 One More Night On The Road (A)\n'
+    '13 Take A Bow (A)\n'
+    '14 crowd\n'
+    'Encore\n'
+    '15 Roadhouse Blues (A)\n'
+    '\n'
+    "Bill Evans' Soulgrass opened the show.\n"
+    '\n'
+    'Show notes\n'
+    '\n'
+    '(A) with the "Stroudsburg Horn Men":\n'
+    'Jay Rattman -- alto Sax and clarinet \n'
+    'Jim Daniels -- bass trombone and tuba \n'
+    'Tom Hamilton -- tenor and baritone Sax, carinet \n'
+    'Sean McNally -- trumpet and flugelhorn \n'
+    'Arrangements by Jay Rattman\n'
+    '\n'
+    '(B) with Bill Evans on tenor Sax'
+)
+RRE_2014_11_28_TRACKS = ["Won't You Come And Sing For Me", 'The Jupiter And The 119', 'Happy Song', 'Saddle Of The Sun', 'Grandfather Mountain (A)', 'Flower Between The Stones (A)', 'Mission Man (B)', 'Hangtown Ball (A)', 'Lordy, Lordy', 'The Good Life', 'Donkey For Sale', "Potter's Field", 'Bread And Water', 'Black Elk Speaks ->', 'Tuba Mirum -> (A)', 'Face With A Hole (A)', 'Monkey (A)', 'Like A Buddha (A)', 'Give That Boy A Hand', 'One More Night On The Road (A)', 'Take A Bow (A)', 'crowd', 'Roadhouse Blues (A)']
+RRE_2014_11_28_SOURCES = {}
+RRE_2014_11_28_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', 'encore']
+
+# robertwalters20thcongress-2004-01-02: md_RWTC04-01-02.shnf.json (description)
+RWTC_2004_01_02 = (
+    'Set 1-Disk 1 \n'
+    '1. Bygones Be\n'
+    '2. Aquafresh\n'
+    '3. Circle Limit\n'
+    "4. Corry's Snail and Slug Death\n"
+    '5. Rack and Pinion\n'
+    '6. Greyboy\n'
+    '7. Nautilus->\n'
+    '8. Rapture (blondie)->\n'
+    '9. Nautilus\n'
+    '10.Freshman 10 \n'
+    '\n'
+    'Set 2:-Disk 2 \n'
+    '1. El Cuervo \n'
+    '2. 2% Body Fat\n'
+    '3. Shemp Time\n'
+    '4. X->\n'
+    '5. Planet of the Superkids\n'
+    '6. Be Yourself\n'
+    '==Encores==\n'
+    '7. Instant Karma\n'
+    '8. Instant Death'
+)
+RWTC_2004_01_02_TRACKS = ['Bygones Be', 'Aquafresh', 'Circle Limit', "Corry's Snail and Slug Death", 'Rack and Pinion', 'Greyboy', 'Nautilus >', 'Nautilus', 'Freshman 10 (Pete McNeil on Drums)', 'El Cuervo (Live Debut)', '2% Body Fat', 'Shemp Time', 'RWTC04-01-02d2.shnf/RW2C04-01-02d2t04.mp3', 'Planet of the Superkids', 'Be Yourself', 'Instant Karma', 'Instant Death']
+RWTC_2004_01_02_SOURCES = {13: 'unresolved'}
+RWTC_2004_01_02_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2']
+
+# infamousstringdusters-2008-12-06: md_is2008-12-06.flac16.aud.json (description), excerpt
+ISD_2008_12_06 = (
+    "Set 1\n=====\n1. Intro / Tuning\n2. Three Days In July\n3. 40 West\n"
+    "4. Won't Be Coming Back\n5. Let's Rekindle Our Love\n6. Tuning / Banter\n"
+    "7. Bound for Tennessee\n8. Tuning / Banter\n9. Gettin' Down the Road\n10. Cluck Ol' Hen\n"
+    "11. Tuning / Banter\n12. Fork In The Road\n13. Tuning / Banter\n14. My Destination\n\n"
+    "Set 2\n=====\n1. Intro / Tuning\n2. You Can't Handle the Truth\n"
+    "3. When Silence is the Only Sound\n4. Tuning / Banter\n5. High on a Mountain Top\n"
+    "6. I Ain't Been Myself in Years\n7. Tuning\n8. Black Rock\n9. Tuning / Banter\n10.\n"
+    "11. Deep Elem Blues\n12. Dream You Back\n13. Tuning / Banter\n14. Get It While You Can\n"
+    "15. Tuning / Banter\n16. Lovin' You\n17. Intros / Crowd\n18. Sunny Side Of The Mountain\n"
+    "\nEncores\n=======\n19. Callback / Banter\n20. Poor Boy's Delight\n21. Tuning / Banter\n"
+    "22. \n\n"
+)
+
+
+def _mk_src(titles_: list[str], today: list[str], sources: dict[int, str]) -> list[Track]:
+    return [Track(index=i + 1, set=s, title=t, filename=f"t{i + 1:02d}.mp3",
+                  title_source=sources.get(i + 1, "tags"))
+            for i, (t, s) in enumerate(zip(titles_, today))]
+
+
+R_ITEM_CASES = {
+    # slug: (text, tracks, sources, today, family, expected boundaries)
+    "gratefuldead-1980-10-10": (GD_1980_10_10, GD_1980_10_10_TRACKS, GD_1980_10_10_SOURCES,
+                                GD_1980_10_10_TODAY, True),
+    "railroadearth-2005-08-20": (RRE_2005_08_20, RRE_2005_08_20_TRACKS, RRE_2005_08_20_SOURCES,
+                                 RRE_2005_08_20_TODAY, False),
+    "greyboyallstars-2012-04-20": (GBA_2012_04_20, GBA_2012_04_20_TRACKS, GBA_2012_04_20_SOURCES,
+                                   GBA_2012_04_20_TODAY, False),
+    "derektrucksband-2003-12-26": (DTB_2003_12_26, DTB_2003_12_26_TRACKS, DTB_2003_12_26_SOURCES,
+                                   DTB_2003_12_26_TODAY, False),
+    "darkstarorchestra-2007-07-06": (DSO_2007_07_06, DSO_2007_07_06_TRACKS,
+                                     DSO_2007_07_06_SOURCES, DSO_2007_07_06_TODAY, True),
+    "philleshandfriends-2007-10-07": (PLF_2007_10_07, PLF_2007_10_07_TRACKS,
+                                      PLF_2007_10_07_SOURCES, PLF_2007_10_07_TODAY, True),
+    "railroadearth-2014-11-28": (RRE_2014_11_28, RRE_2014_11_28_TRACKS, RRE_2014_11_28_SOURCES,
+                                 RRE_2014_11_28_TODAY, False),
+    "robertwalters20thcongress-2004-01-02": (RWTC_2004_01_02, RWTC_2004_01_02_TRACKS,
+                                             RWTC_2004_01_02_SOURCES, RWTC_2004_01_02_TODAY, False),
+}
+
+
+@pytest.mark.parametrize("slug", sorted(R_ITEM_CASES))
+def test_r_item_real_cases_own_once_their_items_are_clean(slug):
+    text, names, sources, today, family = R_ITEM_CASES[slug]
+    d = decide_taper(_mk_src(names, today, sources), {"description": text},
+                     aliases=GD_SHORTHAND if family else {}, today_sets=today)
+    assert d.placement is not None, d.reason
+
+
+def test_r_item_real_case_titles():
+    # `s2t01: Ripple` (filename-token prefix)
+    assert label(read_taper_structure(PLF_2007_10_07), "Ripple") == "2"
+    # `Set 2: (Electric)`: a parenthetical alone in a header line's rest is no item
+    tt = read_taper_structure(GD_1980_10_10)
+    assert "(Electric)" not in titles(tt) and "(Acoustic)" not in titles(tt)
+    assert tt.items[0].title == "On The Road Again"
+    # `=====` underlines are no items
+    tt = read_taper_structure(ISD_2008_12_06)
+    assert not any(set(t) <= set("=") for t in titles(tt))
+    assert tt.items[0].title == "Three Days In July"
+    # `Set 2: Disc 2:` / `Encore: Disc 3:` / `Set 2:-Disk 2`: a disc label in a header's rest
+    tt = read_taper_structure(RRE_2005_08_20)
+    assert not any(t.lower().startswith("disc") for t in titles(tt))
+    assert label(tt, "//Long Way To Go") == "2"
+    tt = read_taper_structure(RWTC_2004_01_02)
+    assert "-Disk 2" not in titles(tt) and label(tt, "El Cuervo") == "2"
+    # `04. 44 Blues`: one prefix strip, never two
+    assert label(read_taper_structure(DTB_2003_12_26), "44 Blues") == "encore"
+    # `08: Ripple` (an `NN:` prefix)
+    assert label(read_taper_structure(DSO_2007_07_06), "Ripple") == "encore"
+    # `9.  Quantico, VA` / `01 Lordy, Lordy`: one numbered title is not split on its comma
+    assert label(read_taper_structure(GBA_2012_04_20), "Quantico, VA") == "2"
+    assert label(read_taper_structure(RRE_2014_11_28), "Lordy, Lordy") == "2"
+
+
+def test_parse_setlist_keeps_the_junk_items():
+    """(pin) The cleaning is the reader's alone: `parse_setlist` still yields the junk."""
+    parsed = [i.title for i in parse_setlist(GD_1980_10_10).items]
+    assert "(Electric)" in parsed
+    parsed = [i.title for i in parse_setlist(GBA_2012_04_20).items]
+    assert "Quantico" in parsed and "VA" in parsed
+    parsed = [i.title for i in parse_setlist(DTB_2003_12_26).items]
+    assert "Blues" in parsed and "44 Blues" not in parsed
+
+
+@pytest.mark.parametrize("line, kept", [
+    ("=====", None), ("-", None), ("~~~ ***", None), ("%", None), ("Sugaree, *#", "Sugaree"),
+    ("?", "?"),  # an unknown song is not decoration
+    ("Jam", "Jam"),
+])
+def test_decoration_only_items_are_dropped(line, kept):
+    tt = read_taper_structure(f"Set 1:\nBertha\n{line}\nSet 2:\nSugaree\n")
+    assert titles(tt) == ["Bertha"] + ([kept] if kept else []) + ["Sugaree"]
+
+
+@pytest.mark.parametrize("rest, kept", [
+    ("(Electric)", []), ("[Acoustic]", []), ("Disc 2:", []), ("-Disk 2", []), ("CD 2", []),
+    ("Disc Two", []),
+    ("(I Can't Get No) Satisfaction", ["(I Can't Get No) Satisfaction"]),
+    ("Discotheque", ["Discotheque"]), ("Disc Jockey Blues", ["Disc Jockey Blues"]),
+])
+def test_header_rest_parenthetical_and_disc_label_items_are_dropped(rest, kept):
+    tt = read_taper_structure(f"Set 1:\nBertha\nSet 2: {rest}\nSugaree\n")
+    assert titles(tt) == ["Bertha"] + kept + ["Sugaree"]
+
+
+def test_parenthetical_song_line_is_kept_outside_a_header_rest():
+    # Only a header line's rest drops a lone parenthetical: an own-line one stays an item.
+    tt = read_taper_structure("Set 1:\nBertha\n(Electric)\nSet 2:\nSugaree\n")
+    assert label(tt, "(Electric)") == "1"
+
+
+@pytest.mark.parametrize("line, title", [
+    ("s2t01: Ripple", "Ripple"), ("s3t10:  Not Fade Away", "Not Fade Away"),
+    ("S1T02 Bertha", "Bertha"),
+    ("08: Ripple", "Ripple"), ("8: Ripple", "Ripple"),
+    ("12:Bars", "12:Bars"),  # `NN:` needs a following space
+    ("Sts9 Jam", "Sts9 Jam"),
+])
+def test_track_token_and_colon_prefixes_are_stripped(line, title):
+    tt = read_taper_structure(f"Set 1:\nBertha\nSet 2:\n{line}\n")
+    assert titles(tt) == ["Bertha", title]
+
+
+def test_one_prefix_strip_only():
+    text = "Set 1:\n01. Bertha\n02. 44 Blues\n03. 08 Days\nSet 2:\n04. 17 Cents\n05. Ripple\n"
+    assert titles(read_taper_structure(text)) == ["Bertha", "44 Blues", "08 Days", "17 Cents",
+                                                  "Ripple"]
+    # An unpunctuated track number on an enumerated text is still stripped once.
+    text = "Set 1:\n01 Bertha\n02 100 Years\nSet 2:\n03 Sugaree\n"
+    assert titles(read_taper_structure(text)) == ["Bertha", "100 Years", "Sugaree"]
+    # The `\d{1,3}` bound holds: no new strip reaches into a digit-leading title.
+    text = "Set 1:\nBertha\n08 Days\n1952 Vincent Black Lightning\nSet 2:\nSugaree\n"
+    assert titles(read_taper_structure(text)) == ["Bertha", "08 Days",
+                                                  "1952 Vincent Black Lightning", "Sugaree"]
+
+
+def test_numbered_title_comma_kept_only_on_enumerated_text():
+    text = "Set 1:\n1. Bertha\n2. Quantico, VA\n3. Sugaree\nSet 2:\n4. Lordy, Lordy\n5. Ripple\n"
+    assert titles(read_taper_structure(text)) == ["Bertha", "Quantico, VA", "Sugaree",
+                                                  "Lordy, Lordy", "Ripple"]
+    # A comma before a footnote mark or a duration still splits (Mark Burgin's
+    # `02 Casualty,*` / `10  ??Instrumental,  [2:31]`, yondermountainstringband-2008-07-19,
+    # larrykeel-2009-12-02), and so does a trailing one.
+    text = "Set 1:\n01 Intro,\n02 Casualty,*\n03 Up on the Hill, %\nSet 2:\n04 Ripple,  [2:31]\n"
+    assert titles(read_taper_structure(text)) == ["Casualty", "Up on the Hill", "Ripple"]
+    # A segue still splits a numbered line.
+    text = "Set 1:\n1. Bertha\n2. Scarlet Begonias > Fire On The Mountain\n3. Sugaree\nSet 2:\n4. Ripple\n"
+    assert titles(read_taper_structure(text))[1:3] == ["Scarlet Begonias", "Fire On The Mountain"]
+    # Not enumerated, or an unnumbered line: commas split as before.
+    assert titles(read_taper_structure("Set 1: Bertha, Sugaree\nSet 2: Ripple, Truckin\n")) == [
+        "Bertha", "Sugaree", "Ripple", "Truckin"]
+    text = "Set 1:\n1. Bertha\n2. Sugaree\n3. Jack Straw\nSet 2:\nRipple, Truckin\n"
+    assert titles(read_taper_structure(text))[-2:] == ["Ripple", "Truckin"]

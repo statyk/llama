@@ -52,6 +52,14 @@ matched on song lines and on the song text after a marker, never on the marker i
 - a header naming both a set and the encore (`Set 2 + Encore`), which names an encore it
   does not start.
 
+Song items get reader-local cleaning `parse_setlist` does not do (Checkpoint A, R-ITEM; see
+`_song_titles`): at most ONE leading prefix is stripped from a title (`_TRACK_PREFIX`, a
+`s2t01:` token or an `08:` colon number, else the enumerated `_NUM_PREFIX`), so
+`04. 44 Blues` keeps its `44`; items with no letter or digit (`=====`) are dropped, and so,
+in a header line's rest, are a lone parenthetical (`(Electric)`) or disc label (`Disc 2:`);
+and a numbered line on an enumerated text keeps a comma that is followed by a word
+(`9. Quantico, VA`).
+
 An encore whose rest (or first song item) is `none`, `no encore` or `n/a`, after
 decoration (`Encore: none`, `E: None Filler: ...`), voids the structure: `void: encore none`
 (Checkpoint A). Accepted collateral: a title starting with the word `None` voids too.
@@ -192,6 +200,26 @@ _TIMESTAMP_ONLY = re.compile(rf"^{_TIMESTAMP}$")
 # marker's rest after decoration, and on the encore's first song item.
 _ENCORE_NONE = re.compile(r"^[-–—*~=\[\]()\s]*(?:none|no\s+encores?|n/a)(?![\w/])", re.I)
 
+# --- Reader-local item cleaning (Checkpoint A, R-ITEM). `parse_setlist` keeps all of these.
+# A filename-style set/track token: `s2t01: Ripple`, `S1T02 Bertha`.
+_SXT_PREFIX = re.compile(r"^\s*s\d{1,2}t\d{1,3}(?:\s*[:.\-]\s*|\s+)", re.I)
+# A colon track number: `08: Ripple` (a following space required, so `1:08:07` is untouched).
+_COLON_PREFIX = re.compile(r"^\s*\d{1,3}:\s+(?=\S)")
+# An item that is only decoration, with no letter or digit: `=====`, `-`, `~~~ ***`, a
+# footnote mark (`%`, `&`). A lone `?` (an unknown song) is kept.
+_DECOR_ONLY = re.compile(r"^[^\w?]+$")
+# In a header line's rest: an item that is only a parenthetical, `(Electric)`, `[Acoustic]`,
+_PAREN_ONLY = re.compile(r"^\([^()]*\)$|^\[[^\[\]]*\]$")
+# ... or only a disc label, `Disc 2:`, `-Disk 2`, `CD 2`.
+_DISC_LABEL = re.compile(
+    r"^[-–—*~=\s\[(]*(?:disc|disk|cd)\s*#?\s*(?:\d{1,2}|one|two|three|four|five|six|iv|i{1,3})"
+    r"(?!\w)[-–—\])\s:.]*$",
+    re.I,
+)
+# Stands in for a comma that must not split (a numbered title on an enumerated text).
+_COMMA = "\x00"
+_TITLE_COMMA = re.compile(r",(?=\s*[^\W\d_])")
+
 # --- Encore-like text (section 2's veto input), matched only OUTSIDE recognised markers.
 # `\bencor\b` is the `Encor:` typo (Checkpoint A, the veto gap).
 _ENCORE_WORDS = re.compile(r"\bencores?\b|\benc\b|\bencor\b", re.I)
@@ -326,19 +354,44 @@ def _encore_like(song_text: str) -> bool:
     return any(_ENCORE_LIKE_ITEM.match(title.strip(_ITEM_DECOR)) for title, _ in _split_songs(text))
 
 
-def _song_titles(rest: str, enumerated: bool) -> list[str]:
-    """Song items from the text after a marker, or from a whole (unstripped) song line.
-    The track prefix is stripped exactly ONCE here, as `_emit_items` strips it: stripping
-    it twice would turn `02 100 Years` into `Years` on an enumerated text."""
-    rest = _TRACK_PREFIX.sub("", rest)
-    if enumerated:
-        rest = _NUM_PREFIX.sub("", rest)
+def _strip_title_prefix(text: str, enumerated: bool) -> tuple[str, bool]:
+    """(text, numbered): AT MOST ONE leading prefix stripped, the first of `_TRACK_PREFIX`,
+    `_SXT_PREFIX`, `_COLON_PREFIX` that strips anything, else (enumerated text only)
+    `_NUM_PREFIX`. Unlike `_emit_items`, which strips `_TRACK_PREFIX` and then `_NUM_PREFIX`,
+    a second number is the title's own: `04. 44 Blues` is `44 Blues`, not `Blues`."""
+    rxs = (_TRACK_PREFIX, _SXT_PREFIX, _COLON_PREFIX) + ((_NUM_PREFIX,) if enumerated else ())
+    for rx in rxs:
+        out = rx.sub("", text)
+        if out != text:
+            return out, True
+    return text, False
+
+
+def _song_titles(rest: str, enumerated: bool, *, header_rest: bool = False) -> list[str]:
+    """Song items from the text after a marker (`header_rest`), or from a whole (unstripped)
+    song line. The prefix is stripped here once (`_strip_title_prefix`), never also by the
+    caller. Reader-local cleaning (Checkpoint A), none of it in `parse_setlist`: items that
+    are only decoration are dropped; in a header line's rest, so are items that are only a
+    parenthetical (`Set 2: (Electric)`) or only a disc label (`Set 2: Disc 2:`); and on an
+    enumerated text a numbered line is one title, not split on its commas
+    (`9. Quantico, VA`)."""
+    rest, numbered = _strip_title_prefix(rest, enumerated)
     if _BARE_NUMBER.match(rest.strip()):
         return []
     rest = _LEAD_TIMESTAMP.sub("", rest.strip())
+    if enumerated and numbered:
+        # One title per numbered line: a comma followed by a word stays in the title
+        # (`Quantico, VA`). A comma before a footnote mark, a duration or the line end
+        # (`Casualty,*`, `Intro,  [1:03]`) still splits, so those stay apart.
+        rest = _TITLE_COMMA.sub(_COMMA, rest)
     titles = []
     for title, _segue in _split_songs(rest):
+        title = title.replace(_COMMA, ",")
         if len(title) > MAX_TITLE_LEN or is_junk_title(title) or _TIMESTAMP_ONLY.match(title):
+            continue
+        if _DECOR_ONLY.match(title):
+            continue
+        if header_rest and (_PAREN_ONLY.match(title) or _DISC_LABEL.match(title)):
             continue
         if is_filler(title):
             continue
@@ -381,7 +434,7 @@ def _scan(text: str) -> _Scan:
             # Every encore line after the first continues the encore.
             if _ENCORE_NONE.match(rest):
                 s.set_void("encore none")
-        for title in _song_titles(rest, enumerated):
+        for title in _song_titles(rest, enumerated, header_rest=kind != "song"):
             lab = s.label()
             if lab == "encore" and s.songs.get("encore", 0) == 0 and _ENCORE_NONE.match(title):
                 s.set_void("encore none")
