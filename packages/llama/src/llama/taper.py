@@ -21,6 +21,10 @@ Recognised forms are EXACTLY the spec's section 1 list, and nothing else:
   `Encores`, `ENC`, `E`, `E1`, `E2` ..., followed by `:` (or `- `) and songs or alone on the
   line; `Encore 1:`, `Encore #1:`, `1st Encore:`; plus the mid-line `Set II:`/`E:`/
   `Encore:` that `setlist._INLINE_MARKER` already splits.
+- Operator ruling 2026-10-22 (Checkpoint A, (b)): a numbered header (set or disc-and-set)
+  followed directly by a `(duration)`, a `(time range)` or `...` is still that header
+  (`SET ONE (50:28)`, `Set One (9:30PM - 10:46PM):`, `Disc 2 - Set II...`). A word
+  (`Set 1 (Acoustic)`) or anything between the token and the annotation is not.
 - `Set 4` or higher anywhere in the text, for VOIDING only.
 
 A header naming both a set and the encore (`Set II & Encore:`, `Set 3 / Encore:`,
@@ -145,14 +149,20 @@ _CONT = r"(?P<cont>\s*,?\s*\(?\s*cont(?:inued|'d|’d|d)?\.?\s*\)?)?"
 _AND_ENCORE = r"(?P<andenc>\s*(?:\+|&|/|,|\band\b)\s*encores?(?!\w))?"
 _SET_CORE = _SET_TOKEN + _CONT + _AND_ENCORE
 
-_SET_HEADER = re.compile(rf"^{_DECOR}{_SET_CORE}(?:{_TAIL_ALONE}|{_TAIL_SONGS})", re.I)
+# Operator ruling 2026-10-22 (Checkpoint A, (b)): a duration or time annotation, or `...`,
+# directly after the header token: `SET ONE (50:28)`, `Set One (9:30PM - 10:46PM):`,
+# `Disc 2 - Set II...`. Only a time in parentheses, never a word (`Set 1 (Acoustic)`).
+_TIME = r"\d{1,3}:\d{2}(?::\d{2})?(?:\.\d+)?\s*(?:[ap]\.?m\.?)?\??"
+_ANNOT = rf"(?:\s*\(\s*{_TIME}(?:\s*[-–—~]\s*{_TIME})?\s*\)|\s*(?:\.{{2,}}|…))?"
+
+_SET_HEADER = re.compile(rf"^{_DECOR}{_SET_CORE}{_ANNOT}(?:{_TAIL_ALONE}|{_TAIL_SONGS})", re.I)
 # `Disc N (Set M)`, `Disc N - Set M`, `Disc N / Set M`. Tested BEFORE `_NOISE`, which drops
 # every disc line (and is not changed: only this reader gives such a line meaning).
 _DISC_SET_HEADER = re.compile(
     rf"^{_DECOR}disc\s*#?\s*(?:\d{{1,2}}|one|two|three|four|five|six|iv|i{{1,3}})(?!\w)\s*"
     # `(Set M)` in parentheses, or `- Set M` / `/ Set M`: one copy of the core, the
     # closing parenthesis required exactly when the opening one is there.
-    rf"(?P<open>\()?(?(open)\s*|[-–—/]\s*){_SET_CORE}(?(open)\s*\))"
+    rf"(?P<open>\()?(?(open)\s*|[-–—/]\s*){_SET_CORE}{_ANNOT}(?(open)\s*\)){_ANNOT}"
     rf"(?:{_TAIL_ALONE}|{_TAIL_SONGS})",
     re.I,
 )

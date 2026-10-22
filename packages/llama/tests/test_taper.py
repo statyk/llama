@@ -3076,3 +3076,220 @@ def test_numbered_title_comma_kept_only_on_enumerated_text():
         "Bertha", "Sugaree", "Ripple", "Truckin"]
     text = "Set 1:\n1. Bertha\n2. Sugaree\n3. Jack Straw\nSet 2:\nRipple, Truckin\n"
     assert titles(read_taper_structure(text))[-2:] == ["Ripple", "Truckin"]
+
+
+# Item 5, ruling (b): a recognised numbered header followed directly by a (duration), a
+# (time range) or `...` is still that header.
+# cowboyjunkies-2012-04-26: md_cowboyjunkies2012-04-26.at822.flac16.json (description)
+CJ_2012_04_26 = (
+    '*** 16bit regular CD version ***\n'
+    '\n'
+    'SET ONE (50:28)\n'
+    '\n'
+    '01. Sing In My Meadow\n'
+    '02. Wrong Piano\n'
+    '03. West Of Rome\n'
+    '04. Third Crusade\n'
+    '05. I Cannot Sit Sadly By Your Side\n'
+    '06. Stranger Here\n'
+    '07. Damaged From The Start\n'
+    '08. Fairytale\n'
+    '09. Unanswered Letter\n'
+    '\n'
+    'SET TWO (1:15:03)\n'
+    '\n'
+    '01. Sweet Jane\n'
+    '02. Dreaming My Dreams With You\n'
+    '03. A Common Disaster\n'
+    '04. 32-20 Blues\n'
+    '05. Five Room Love Story\n'
+    '06. A Horse In The Country\n'
+    "07. Bea's Song\n"
+    '08. Murder, Tonight, In The Trailer Park >\n'
+    '09. Those Final Feet\n'
+    '10. (Band Introductions)\n'
+    '11. Misguided Angel\n'
+    '\n'
+    'ENCORE\n'
+    '\n'
+    '12. Powderfinger\n'
+    '13. Fuck, I Hate The Cold'
+)
+CJ_2012_04_26_TRACKS = ['Sing In My Meadow', 'Wrong Piano', 'West Of Rome', 'Third Crusade', 'I Cannot Sit Sadly By Your Side', 'Stranger Here', 'Damaged From The Start', 'Fairytale', 'Unanswered Letter', 'Sweet Jane', 'Dreaming My Dreams With You', 'A Common Disaster', '32-20 Blues', 'Five Room Love Story', 'A Horse In The Country', "Bea's Song", 'Murder, Tonight, In The Trailer Park >', 'Those Final Feet', '(Band Introductions)', 'Misguided Angel', 'Powderfinger', 'Fuck, I Hate The Cold']
+CJ_2012_04_26_SOURCES = {}
+CJ_2012_04_26_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', 'encore', 'encore']
+
+# joerussosalmostdead-2018-02-15: md_jrad2018-02-15.cmc621.cmc64.sbd.matrix.flac16.json (notes)
+JRAD_2018_02_15 = (
+    "Joe Russo's Almost Dead 02/15/2018 War Memorial Auditorium, Nashville, TN\n"
+    '\n'
+    "Source 1: Schoeps cmc621 (On Stage, Split 25') -> Avid SC-48 -> Zoom H6N -> WAV (@24/96);\n"
+    'Source 2: Schoeps cmc64 (FOH booth) -> ART Tube MP Studio Pre Amps -> Zoom H6N -> WAV (@24/96);\n'
+    'Source 3: SBD (Avid SC-48) -> Zoom H6N -> WAV (@24/96);\n'
+    '\n'
+    'Transfer: WAVs -> SoundForge Pro 11.0 (Time Align, normalize) -> Vegas Pro 13.0 (mix/render) -> SoundForge Pro 11.0 (EQ, normalize, fades, 96->44.1 iZotope 64-Bit SRC; 24->16 bit iZotope MBIT+ Dither) -> CDWav -> FLAC\n'
+    '\n'
+    'Costello & McRoberts Ultra Mix - Recording and FOH mix by Peter Costello - Monitors by Aaron Gittleman - Audio edited, mixed and mastered by Eric McRoberts 07/01-03/2018\n'
+    '\n'
+    '\tSet One (8:20PM - 9:45PM):\n'
+    '01.  Jam @@ ->\n'
+    '02.  Cassidy ## ->\n'
+    '03.  Here Comes Sunshine @ ->\n'
+    '04.  Not Fade Away # ->\n'
+    '05.  Ruben & Cherise $ ->\n'
+    '06.  Doin That Rag % (NA)\n'
+    '07.  Magnificent Sanctuary Band ^\n'
+    '\n'
+    '\tSet Two (10:16PM - 11:53PM):\n'
+    '01.  Eyes Of The World & ->\n'
+    '02.  The Eleven * ->\n'
+    '03.  Feel Like A Stranger ->\n'
+    '04.  China Cat Sunflower ->\n'
+    '05.  I Know You Rider >\n'
+    '06.  The Other One\n'
+    '\tEncore:\n'
+    '07.  Shakedown Street\n'
+    '\n'
+    '@@ - With GDTRFB teases (Band)\n'
+    '## - With New Speedway Boogie Teases (Band)\n'
+    '@ - With a “Fearless” (Pink Floyd) Tease (MB)\n'
+    '# - With an “I Want Candy” (Bow Wow Wow) Jam, A “Simpsons Theme” (Danny Elfman) Tease (SM) & Throwin Stones Teases (Band)\n'
+    '$ - With a Terrapin Station Tease (Band) & maybe something else?\n'
+    '% - First time played by Almost Dead since 2016-01-10, Capitol Theatre, Port Chester, NY, a gap of 79 shows. NA is Nicole Atkins on Lead Vocals.\n'
+    '^ - First time played by Almost Dead since 2016-10-08, Brooklyn Bowl, Brooklyn, NY, a gap of 55 shows. (It was played at the Tiger Auction Benefit last May - not a JRAD Show.)\n'
+    '& - With a DD bass solo & the “1973 Ending” changes\n'
+    '* - With a “Duo Jam”\n'
+    '+ - With a “Fly Like an Eagle” (Steve Miller) Tease (MB), maybe an “Axel F Theme” (Herbie Hancock) Tease (SM) & unknown teases from (MB & SM) that I’ll update if I figure out.\n'
+    '\n'
+    'Pre Show / Set Break Music: Costello’s Motown Mix\n'
+    "Post Show Walk Out Music: Stayin' Alive, The Bee Gees\n"
+    'Poster: New Antlers\n'
+    '\n'
+    'Joe Russo - Drums, Vocals\n'
+    'Tom Hamilton - Guitar, Vocals\n'
+    'Scott Metzger - Guitar, Vocals\n'
+    'Marco Benevento - Keyboards, Vocals\n'
+    'Dave Dreiwitz - Bass, Vocals\n'
+    '\n'
+    'Show #139\n'
+    '\n'
+    'There is a higher quality 24 bit version of this recording available here: <a href="https://archive.org/details/jrad2018-02-15.cmc621.cmc64.sbd.matrix.flac24" rel="nofollow">https://archive.org/details/jrad2018-02-15.cmc621.cmc64.sbd.matrix.flac24</a>'
+)
+JRAD_2018_02_15_TRACKS = ['Jam @@ ->', 'Cassidy ## ->', 'Here Come Sunshine @ ->', 'Not Fade Away # ->', 'Ruben & Cherise $ ->', 'Doin That Rag % (NA)', 'Magnificent Sanctuary Band ^', 'Eyes Of The World & ->', 'The Eleven * ->', 'Feel Like A Stranger ->', 'China Cat Sunflower ->', 'I Know You Rider >', 'The Other One', 'Shakedown Street']
+JRAD_2018_02_15_SOURCES = {}
+JRAD_2018_02_15_TODAY = ['1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '3']
+
+# joerussosalmostdead-2017-03-11: md_jrad2017-03-11.cmc621.cmc641vxt.sbd.matrix.flac16.json (notes)
+JRAD_2017_03_11 = (
+    "Joe Russo's Almost Dead 03/11/2017 Brooklyn Bowl, Brooklyn, NY\n"
+    '\n'
+    "Source 1: Schoeps cmc621 (On Stage, Split 20') -> Sonosax SX-M2 -> Sound Devices 788T -> WAV (@24/96);\n"
+    'Source 2: Schoeps cmc641v xt (PAS in FOH booth) -> Sonosax SX-M2 -> Sound Devices 788T -> WAV (@24/96);\n'
+    'Source 3: SBD (Digidesign/Avid Profile) -> Sound Devices 788T -> WAV (@24/96);\n'
+    '\n'
+    'Transfer: WAVs -> SoundForge Pro 11.0 (EQ, Time Align, normalize) -> Vegas Pro 13.0 (mix/render) -> SoundForge Pro 11.0 (EQ, normalize, fades, 96->44.1 iZotope 64-Bit SRC; 24->16 bit iZotope MBIT+ Dither) -> CDWav -> FLAC\n'
+    '\n'
+    'Costello & McRoberts Ultra Mix - Recorded by Peter Costello & Eric McRoberts - FOH mix by Peter Costello - Monitors by Aaron Gittleman - Lights by Jason Liggy Liggett - Video by Sean Smith - Edited, mixed and mastered by Eric McRoberts 03/12/2017\n'
+    '\n'
+    '\tSet One (9:30PM - 10:46PM):\n'
+    '01.  Jam @ ->\n'
+    '02.  Cassidy # (SM) ->\n'
+    '03.  Let It Grow Jam ->\n'
+    '04.  Born Cross Eyed Jam $ ->\n'
+    '05.  Tennessee Jed % (TH) ->\n'
+    '06.  Jam %% ->\n'
+    '07.  Chuckles ^ ->\n'
+    '08.  Tequila & ->\n'
+    '09.  Chuckles Reprise ^ ->\n'
+    '10.  Big River (SM) >\n'
+    '11.  Box Of Rain (JR)\n'
+    '12.  Althea (TH) * >\n'
+    '13.  Throwing Stones (SM)\n'
+    '\n'
+    '\tSet Two (11:18PM - 12:41AM):\n'
+    '01.  Deal (TH) >\n'
+    '02.  Good Lovin + (SM) ->\n'
+    '03.  Summer Nights Jam @@ ->\n'
+    '04.  Good Lovin’ Reprise (SM) ->\n'
+    '05.  Heartbreaker Jam ## ->\n'
+    '06.  Cumberland Blues $$ (All) ->\n'
+    '07.  Terrapin Station (TH) ->\n'
+    '08.  The Other One Jam ->\n'
+    '09.  Terrapin Suite (TH/JR) ^^\n'
+    '\tEncore: \n'
+    '10.  One More Saturday Night (SM)\n'
+    '\n'
+    '@ - With a China>Rider Transition Jam Tease (TH)\n'
+    '# - Unfinished\n'
+    '$ - With “Rainy Day Women #12 & 35” (Bob Dylan) Teases (Band)\n'
+    '% - With a Spoonful Tease (SM) & a lengthy Marco Solo that included “Chopsticks”\n'
+    '%% - With “Big River” teases\n'
+    '^ - WOLF!! Original, First Time Played By Almost Dead\n'
+    '& - The Champs Original, First Time Played By Almost Dead\n'
+    '* - With a “So What” (Miles Davis) Tease (SM) & a full band “All of my Love” (Led Zeppelin) Jam\n'
+    '+ - With a back & forth between Marco & Scott that teased numerous jazz standards including “St. Thomas” (Sonny Rollins) & “Four” (Miles Davis)\n'
+    '@@ - Olivia Newton-John & John Travolta / Grease Soundtrack Original, (AKA Summer Lovin’ - written by Jim Jacobs and Warren Casey). First Time Played By Almost Dead\n'
+    '## - Led Zeppelin Original, First Time Played By Almost Dead\n'
+    '$$ - With a “Heartbreaker” (Led Zeppelin) Tease (DD) & a Slipknot! Jam (Band)\n'
+    '^^ - This is probably the 1st "split" Terrapin Suite, making me think that I should reassess how I note the full version of the song, vs. when they just play the first part that the GD usually played live...\n'
+    '\n'
+    'Joe Russo - Drums, Vocals\n'
+    'Tom Hamilton - Guitar, Vocals\n'
+    'Scott Metzger - Guitar, Vocals\n'
+    'Marco Benevento - Keyboards, Vocals\n'
+    'Dave Dreiwitz - Bass\n'
+    '\n'
+    'Show #102- SOLD OUT ~ THANK YOU!!!  Pre Show Music DJ Uncle Mike from Doors until 8:30PM.  Kevin Kendrick DJ’d before, between sets & after.\n'
+    '\n'
+    'There is a higher quality 24 bit version of this recording available here:  <a href="https://archive.org/details/jrad2017-03-11.cmc621.cmc641vxt.sbd.matrix.flac24" rel="nofollow">https://archive.org/details/jrad2017-03-11.cmc621.cmc641vxt.sbd.matrix.flac24</a>'
+)
+JRAD_2017_03_11_TRACKS = ['Jam @ ->', 'Cassidy # (SM) ->', 'Let It Grow Jam ->', 'Tennessee Jed % (TH) ->', 'Jam %% ->', 'Big River (SM) >', 'Box Of Rain (JR)', 'Althea (TH) * >', 'Throwing Stones (SM)', 'Deal (TH) >', 'Good Lovin + (SM) ->', 'Good Lovin’ Reprise (SM) ->', 'Heartbreaker Jam ## ->', 'Cumberland Blues $$ (All) ->', 'Terrapin Station (TH) ->', 'The Other One Jam ->', 'Terrapin Suite (TH/JR) ^^', 'One More Saturday Night (SM)']
+JRAD_2017_03_11_SOURCES = {}
+JRAD_2017_03_11_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', 'encore']
+
+
+ANNOTATED_CASES = {
+    "cowboyjunkies-2012-04-26": (CJ_2012_04_26, CJ_2012_04_26_TRACKS, CJ_2012_04_26_TODAY,
+                                 "description"),
+    "joerussosalmostdead-2018-02-15": (JRAD_2018_02_15, JRAD_2018_02_15_TRACKS,
+                                       JRAD_2018_02_15_TODAY, "notes"),
+    "joerussosalmostdead-2017-03-11": (JRAD_2017_03_11, JRAD_2017_03_11_TRACKS,
+                                       JRAD_2017_03_11_TODAY, "notes"),
+}
+
+
+@pytest.mark.parametrize("slug", sorted(ANNOTATED_CASES))
+def test_annotated_header_real_cases_own(slug):
+    text, names, today, field = ANNOTATED_CASES[slug]
+    d = decide_taper(_mk_today(names, today), {field: text}, aliases={}, today_sets=today)
+    assert d.placement is not None, d.reason
+    assert d.source == field
+
+
+@pytest.mark.parametrize("h1, h2", [
+    ("SET ONE (50:28)", "SET TWO (1:15:03)"),
+    ("Set One (9:30PM - 10:46PM):", "Set Two  (11:18PM - 12:41AM):"),
+    ("Set One (8:38PM - 9:56PM):", "Set Two (10:26PM - 12:14AM?):"),
+    ("Set I (66:41)", "Set II (61:20)"),
+    ("Disc 1 - Set 1 (61:20):", "Disc 2 - Set 2 (58:02):"),
+    ("Disc 1 - Set I...", "Disc 2 - Set II..."),
+    ("Disc 1 (Set 1) (45:10)", "Disc 2 (Set 2) (50:00)"),
+    ("Set 1 (9:30 pm - 10:46 pm)", "Set 2 (1:02:03.5)"),
+])
+def test_annotated_headers_are_headers(h1, h2):
+    tt = read_taper_structure(f"{h1}\nBertha\nSugaree\n{h2}\nScarlet Begonias\nRipple\n")
+    assert tt.asserts is True and runs(tt) == ["1", "2"], tt.reason
+    assert titles(tt) == ["Bertha", "Sugaree", "Scarlet Begonias", "Ripple"]
+
+
+@pytest.mark.parametrize("line", [
+    "Set 1 (Acoustic)",               # a word, not a duration or time
+    "Set 1 (night)",
+    "Set 1 @ (8:16PM - 9:18PM):",     # the annotation must directly follow the header token
+    "Set 1 (50:28) Bertha",           # songs after an annotation need `:` or `-`
+    "Set 1 (50:28 w/ Bill Evans)",
+])
+def test_annotation_forms_that_stay_unrecognised(line):
+    tt = read_taper_structure(f"{line}\nSugaree\nSet 2:\nRipple\n")
+    assert line in titles(tt) or any(t.startswith(line.split(" (")[0] + " (") for t in titles(tt))
+    assert label(tt, "Sugaree") == "1" and label(tt, "Ripple") == "2"
