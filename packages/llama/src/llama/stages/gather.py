@@ -25,6 +25,7 @@ from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align
                              structure_guard, venues_equivalent,
                              _venues_equivalent_pre1b)
 from llama.placeholders import is_junk_tag
+from llama.taper import TaperDecision
 from llama.titles import (_GLUED_NUM_PREFIX, _JOINED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
                           is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, shipped_short_tag, tag_core,
                           tag_layer, title_fraction)
@@ -936,11 +937,22 @@ class GatherResult(NamedTuple):
     `needs_llm` names each LLM touchpoint gather reached but could not take
     for want of a provider -- `"extract_setlist"`, `"align_structure"`, each
     at most once, in that order. Empty when providers were passed: with
-    providers gather behaves exactly as it always has."""
+    providers gather behaves exactly as it always has.
+
+    The last three fields are in-process only, never persisted (held-backlog
+    piece 2, spec 2026-10-22-taper-set-markers sections 4 and 7):
+    `taper_owned` is True when the taper's own markers own the shipped
+    structure (the one predicate `replay` may key on); `taper` is the
+    `decide_taper` result, None on the structure-override path; and
+    `step1_alignment` is today's mechanism before the taper step
+    (`deterministic`/`jerrybase`), None on the override path."""
     show: Show
     reviews: list[dict]
     notes: list[str]
     needs_llm: tuple[str, ...]
+    taper_owned: bool = False
+    taper: TaperDecision | None = None
+    step1_alignment: str | None = None
 
 
 # Slice 1 1d's hold (Contracts "Exact note and flag strings"); an operator

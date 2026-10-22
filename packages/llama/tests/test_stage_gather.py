@@ -3180,3 +3180,14 @@ def test_venue_tie_break_unit_cases():
     assert venue_tie_break(odd, recs[1]) is None
     stray = RecordingSummary(identifier="z", venue="Y Hall", coverage=None)
     assert venue_tie_break(odd, stray) is None                           # 0 == 0 is not a tie
+
+
+# --- Held-backlog piece 2, Task 4: the taper's markers own the structure -----
+
+from llama.models import StructureInfo
+
+
+def test_old_structure_info_reads_without_taper_owned():
+    old = StructureInfo.model_validate({"source": "chosen", "alignment": "deterministic",
+                                        "coverage": 1.0, "conflicts": []})
+    assert old.taper_owned is False

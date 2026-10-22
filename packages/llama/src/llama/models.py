@@ -142,9 +142,13 @@ class AlignedStructure(BaseModel):
 
 class StructureInfo(BaseModel):
     source: str  # "setlist.fm" | "chosen" | "lma:<identifier>" | "llm" | "none"
-    alignment: str  # "deterministic" | "jerrybase" | "llm" | "override"
+    alignment: str  # "deterministic" | "jerrybase" | "llm" | "override" | "taper"
     coverage: float
     conflicts: list[str] = Field(default_factory=list)
+    # The taper's own set/encore markers own the shipped structure (held-backlog
+    # piece 2, spec 2026-10-22-taper-set-markers section 4). Permissive and
+    # defaulted: a show dir written before the field reads False.
+    taper_owned: bool = False
 
 
 class Track(BaseModel):
