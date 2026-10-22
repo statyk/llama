@@ -35,8 +35,9 @@ them setting the structure (`--set-breaks`/`--set-encore`).
 
 Most of the 394 are already dealt with: **312 carry an operator structure override and are not
 held; 82 remain held.** The payoff is therefore mostly future gathers, and shipped shows that
-carry the same defect with no flag. Example: `gratefulshred-2023-11-10` shipped unflagged with
-"Dancin' in the Streets" in set 1, while its own description lists it second under `Set 2:`.
+carry the same defect with no flag. Example (held): `acousticsyndicate-2005-05-29`, whose
+description marks `Set 1 … / Set 2 … / encore:` while setlist.fm's single unlabelled set
+shipped.
 
 The operator's standing rule ([[llama-accuracy-philosophy]], restated 2026-10-22): **the
 original archive description is ground truth unless something clearly says otherwise, and we
@@ -209,9 +210,21 @@ Markers are tested on each line **after** stripping a leading track or disc pref
 (`_TRACK_PREFIX`, and the enumerated `_NUM_PREFIX` when the text is enumerated), so
 `18. E: Let's Go Get Stoned` and `3. Encore: Higgins` are encore lines. (My call.)
 
+**Inline markers** (my call, restoring what `parse_setlist` already reads): the reader applies
+`setlist._INLINE_MARKER`'s split exactly as `_emit_items` does, so a mid-line `Set II:` or
+`E:`/`Encore:` (`…, Sugar Magnolia, E: It's All Over Now Baby Blue`) starts a set or the encore
+there.
+
+**The reader never sees less than `parse_setlist` does** (my call). As a cross-check, the
+taper owns nothing when `parse_setlist` of the same text yields an encore label, or a numbered
+set label, that the reader's structure does not have (for example `set 3, disc 2`, which
+`_SET_LINE` reads and the reader's header shape does not). Any mention of a set numbered 4 or
+higher (`Set 4`, `Set IV`, `Set Four`, `4th Set`) anywhere in the text voids the structure, as
+section 2 says; the reader recognises these for voiding only.
+
 Not recognised, so they assert nothing: bare digits (`1:`, `[1]`), bare roman numerals (`I`,
-`II:`), `S1`/`S2`, `E.`, `(E)`, a trailing `enc`, and inline or parenthetical markers
-(`(start of Set II)`, `(set II)` mid-line). `Acoustic`/`Electric`/`Early`/`Late Set` (they may
+`II:`), `S1`/`S2`, `E.`, `(E)`, a trailing `enc`, and parenthetical markers
+(`(start of Set II)`, `(set II)`). `Acoustic`/`Electric`/`Early`/`Late Set` (they may
 be two shows, or unnumbered), `Early Show`/`Late Show` and act headers stay non-markers, though
 `parse_setlist` keeps parsing them as today. A recognised form with collision risk and tiny
 yield may be dropped by Measurement 5. The builder adds no other form.
@@ -233,13 +246,17 @@ the show is computed as today); the `[1]` footnotes of `moe-2002-06-22` and
 `kinggizzardandthelizardwizard-2025-08-17`; `railroadearth-2008-08-17`'s `(E) With Allie Kral`;
 `antibalasmusic-2003-04-28`'s `[1]…[5]` track numbers; `E.Ville`; `B. E. Women`;
 `E. Rutherford, NJ`; `I Know You Rider`; `J`; `Untitled #12`; `1:08:07`; "Set I is Bobby and
-Jerry playing acoustic" (`gd1981-10-16`); `Set Intro`; `Set IV`.
+Jerry playing acoustic" (`gd1981-10-16`); `Set Intro`; `Set IV` (voids, not set 1);
+`paf2007-10-12.schoeps.taraszki.barfield.87850.flac24` (`set 3, disc 2` is read by
+`parse_setlist` and not by the reader's header shape, so the cross-check means the taper owns
+nothing); `stringcheeseincident-2004-06-19` (`Set 4:` voids).
 
 **Positive tests:** `charliehunter-2001-12-08` is NOT taper-owned (`Early Show`/`Late Show`
 plus an encore only); `tedeschitrucksband-2019-02-16` (`18. E: …` is an encore line, so its
 encore is not folded into set 2); `gratefulshred-2023-11-10` (`14 E. Playin' Reprise` is
-unrecognised encore-like text, so the veto applies and the show is computed as today); a
-`Disc 2 (Set 2)` show; a notes-only show.
+unrecognised encore-like text, so the veto applies and the show is computed as today);
+`gratefuldead-1990-03-22` (the inline `…, E: It's All Over Now Baby Blue` starts the encore, so
+the taper's structure keeps it); a `Disc 2 (Set 2)` show; a notes-only show.
 
 ### 2. What the taper asserts
 
@@ -264,7 +281,8 @@ unrecognised encore-like text, so the veto applies and the show is computed as t
   show is computed as today, when its text has no recognised encore marker but either
   - some track title on the tape matches `structure._ENCORE_MARKER` (the test `encore_lost`
     already uses), or
-  - the taper's own text carries encore-like words outside a recognised marker: `\bencores?\b`
+  - the taper's text (the description and the notes, whichever was read) carries encore-like
+    words outside a recognised marker: `\bencores?\b`
     or `\benc\b` anywhere (an inline `… US Blues. Encore: Touch of Grey`, `encore break`), or a
     song line (after track-prefix stripping) starting `E.`, `E)`, `E` plus a digit, or `(E)`.
   An unrecognised encore must never become "no encore": that would fold an encore the taper
@@ -315,7 +333,7 @@ For each show without an operator structure override, in this order:
 2. **The reader and placement** (sections 1–3).
 3. **If the taper owns the structure**, exactly its structure ships: its numbered breaks and, if
    it marks one, its encore. The `align_structure` LLM is not called, as successful jerrybase
-   anchoring skips it today.
+   anchoring skips it today. Segues and `matched` come from step 1's alignment, unchanged.
 4. **Otherwise**, everything from here on is exactly today's path: the LLM branch, then every
    flag.
 
@@ -407,7 +425,11 @@ which is a `reapply` gate.
 and placement runs over the 339 yes/partial shows (tracks from the evidence's `sort1.json`) and
 reports placed, unplaced and owned, and how many owned shows match the adjudicator's target at
 song level. If fewer than half of the in-scope rows the rule covers (see "Why") are owned, the
-work stops and the result goes to the operator.
+work stops and the result goes to the operator. The same prototype also runs over every library show's
+selected description and stored tracks, and reports how many shipped shows would become
+taper-owned with breaks or encore different from what they ship today, with a sample of each
+kind (songs moved, encore folded or added, filler only). A large count of encores folded or
+sets merged is a reader defect to fix before building, not a finding to report later.
 
 Replay harness, two arms from clean trees (`main` @ `a26c4d1` as base, the branch as
 candidate), `--all` so non-held shows are covered, plus a cached-corpus check for the reader:
@@ -428,9 +450,9 @@ candidate), `--all` so non-held shows are covered, plus a cached-corpus check fo
 2. **Newly cleared holds.** Every show held in base and not held in candidate is listed. An
    Opus pre-screen of the list runs **before merge**, so a rule defect it finds is fixed on the
    branch. It checks every newly cleared show for completeness against the adjudicator's
-   `partial-tape` tag, and checks the date of every newly cleared show whose cleared flags were
-   only jerrybase ones (a misdated tape whose description fits it loses its jerrybase holds on a
-   taper-owned show). The operator's hand check of the list gates the **apply**, not the merge,
+   `partial-tape` tag, and checks the date of every newly cleared show on which any jerrybase flag
+   became a note (a misdated tape whose description fits it loses its jerrybase holds on a
+   taper-owned show, whatever else cleared with them). The operator's hand check of the list gates the **apply**, not the merge,
    as in piece 1. (My call.)
 3. **Non-held shows whose structure changes**, in a new harness report (report 3):
    - "before" is the **base arm's replay**, or the stored structure where the base arm is
@@ -491,7 +513,8 @@ Not part of the build. After merge and release:
   the boundary unplaced, so the show falls back to today's behaviour (section 3).
 - Encore-only descriptions and the unrecognised forms (section 1) keep today's behaviour.
 - On a taper-owned show, jerrybase's set-count and closer disagreements are notes, so a misdated
-  tape whose description fits it is no longer held by them (venue mismatch still is). The
+  tape whose description fits it is no longer held by them. Venue mismatch still holds a
+  different venue, but not a same-venue multi-night run, the commonest Dead misdate. The
   report-2 pre-screen checks dates for this case.
 - An encore written in a form the reader does not recognise is caught only by section 2's veto
   words; an encore the veto also misses would fold into the last set.
