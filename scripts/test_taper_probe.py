@@ -207,3 +207,90 @@ def test_delta_lists_newly_owned_and_newly_not_owned(tmp_path):
     assert tp.main(["delta", "--old", str(old), "--new", str(new), "--out", str(out),
                     "--root", str(tmp_path / "root"), "--bundles", str(tmp_path / "b")]) == 0
     assert (out / "delta_summary.txt").read_text() == text
+
+
+# --- score ---
+
+def _score_world(tmp_path, rows, s1, arm_shows, stripped=True):
+    ev = tmp_path / "ev"
+    ev.mkdir()
+    (ev / "classified.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    (ev / "sort1.json").write_text(json.dumps(s1))
+    arm = tmp_path / "arm.json"
+    arm.write_text(json.dumps({"structure_overrides_stripped": stripped, "root": str(tmp_path / "lib"),
+                               "shows": arm_shows}))
+    return ev, arm
+
+
+def _arm_row(sets, owned=True, filler=None, **kw):
+    return dict({"taper_owned": owned, "sets": sets, "filler": filler or [False] * len(sets),
+                 "taper_reason": None, "outcome": "clean", "gather_flags": [],
+                 "unreplayable": None}, **kw)
+
+
+def test_score_counts_matches_against_adjudicator_targets(tmp_path, capsys):
+    base = {"taper_explicit": "yes", "primary": "desc-set-header", "marker_quote": "Set 2:"}
+    rows = [dict(base, slug="hit"), dict(base, slug="miss"), dict(base, slug="fill"),
+            dict(base, slug="declined"), dict(base, slug="fname", primary="filename-set")]
+    s1 = [{"slug": s, "t_breaks": [2], "t_enc": 4, "renum": False}
+          for s in ("hit", "miss", "fill", "declined", "fname")]
+    target = ["1", "1", "2", "2", "encore"]
+    ev, arm = _score_world(tmp_path, rows, s1, {
+        "hit": _arm_row(target),
+        "miss": _arm_row(["1", "2", "2", "2", "encore"]),
+        # differs from the target only on a filler track
+        "fill": _arm_row(["1", "1", "1", "2", "encore"], filler=[False, False, True, False, False]),
+        "declined": _arm_row(["1"] * 5, owned=False, taper_reason="veto: encore-like text"),
+        "fname": _arm_row(target)})
+    out = tmp_path / "out"
+    assert tp.main(["score", "--arm", str(arm), "--evidence", str(ev), "--out", str(out),
+                    "--root", str(tmp_path / "lib"), "--bundles", str(tmp_path / "b")]) == 0
+    text = (out / "score_summary.txt").read_text()
+    assert "in scope (not filename / track-tag): 4" in text
+    assert "graded (owned, with a target, not renumbered): 3" in text
+    assert "match (exact, song level): 1" in text
+    assert "filler-only differences (own class, not matches, not misses): 1" in text
+    assert "misses: 1" in text and "declined (not taper-owned, computed as today): 1" in text
+    assert "## misses (1)\n  miss  [desc-set-header] owned ([1], 4) target [[2], 4]" in text
+    assert "## out of scope (filename / track-tag rows) (1)\n  fname" in text
+    got = {r["slug"]: r["class"] for r in tp.read_jsonl(out / "score_rows.jsonl")}
+    assert got["hit"] == "match" and got["fill"] == "filler-only" and got["miss"] == "miss"
+    assert got["declined"] == "declined"
+    assert "match (exact" in capsys.readouterr().out
+
+
+def test_score_refuses_an_unstripped_arm_and_scores_the_known_disagreements(tmp_path, capsys):
+    ev, arm = _score_world(tmp_path, [], [], {}, stripped=False)
+    assert tp.main(["score", "--arm", str(arm), "--evidence", str(ev), "--out", str(tmp_path / "o"),
+                    "--root", str(tmp_path / "lib"), "--bundles", str(tmp_path / "b")]) == 2
+    assert "--strip-structure-overrides" in capsys.readouterr().err
+
+    base = {"taper_explicit": "partial", "primary": "desc-set-header", "marker_quote": "Set 2:"}
+    slugs = list(tp.EXPECTED_DISAGREEMENTS)
+    rows = [dict(base, slug=s) for s in slugs]
+    s1 = [{"slug": s, "t_breaks": [2], "t_enc": 4, "renum": False} for s in slugs]
+    two = ["1", "1", "2", "2", "2"]
+    shows = {s: _arm_row(two) for s in slugs}
+    shows["thedead-2009-04-29"] = _arm_row(["1", "1", "2", "2", "encore"])      # encore ships: wrong
+    shows["darkstarorchestra-2007-05-08"] = _arm_row(two, owned=False, taper_reason="unplaced")
+    shows["gratefuldead-1970-05-15-spans"] = _arm_row(
+        two, outcome="still-held", gather_flags=["tape spans 2 events"])
+    shows["gratefuldead-1981-12-31"] = _arm_row(["1", "1", "2", "2", "encore"])   # equals target
+    shows["stevekimockband-2003-03-11"] = _arm_row(two)                          # differs: expected
+    shows["ekoostikhookah-2009-12-31"] = _arm_row(two, owned=False, taper_reason="one set")
+    (tmp_path / "w").mkdir()
+    ev, arm = _score_world(tmp_path / "w", rows, s1, shows)
+    rows_out = {r["slug"]: r for r in tp.score_rows(json.loads(arm.read_text()), ev)}
+    verdict = {s: r["verdict"] for s, r in rows_out.items()}
+    assert verdict["thedead-2009-04-29"] == "UNEXPECTED"
+    assert {s: v for s, v in verdict.items() if v != "UNEXPECTED"} == {
+        s: "as expected" for s in slugs if s != "thedead-2009-04-29"}
+    assert all(r["class"] == "known disagreement" for r in rows_out.values())
+    assert rows_out["derektrucksband-2005-01-09"]["detail"].startswith("owned, no encore label")
+    assert rows_out["deadandcompany-2018-06-16"]["detail"].startswith("owned; the taper's structure ships")
+    # a spans row that is not held is flagged
+    shows["gratefuldead-1970-05-15-spans"] = _arm_row(two)
+    bad = tp.score_rows({"shows": shows}, ev)
+    assert {r["slug"]: r["verdict"] for r in bad}["gratefuldead-1970-05-15-spans"] == "UNEXPECTED"
+    text = tp.score_summary(bad)
+    assert "thedead-2009-04-29: UNEXPECTED" in text and "expectation:" in text

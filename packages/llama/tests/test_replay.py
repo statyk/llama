@@ -465,7 +465,8 @@ def test_show_replay_to_dict_has_the_contract_keys_plus_date():
         "brief_flags", "stored_brief_guard", "needs_llm", "outcome", "would_be", "briefing",
         "reproduces", "title_changes", "venue", "city", "date", "selected_venue", "selected_city",
         "set_changes", "segue_changes", "set_breaks", "alignment", "notes", "digests",
-        "slfm_miss", "unreplayable"]
+        "slfm_miss", "unreplayable", "taper_owned", "sets", "filler", "taper_source",
+        "taper_reason", "step1_alignment"]
     assert r.to_dict()["date"] is None
 
 
@@ -720,3 +721,22 @@ def test_stored_brief_guard_runs_on_the_normalised_briefing(tmp_path):
     ws, _ = _library_show(tmp_path, held=False)
     _with_empty_set_briefing(ws)
     assert _replay(tmp_path, ws).stored_brief_guard == []
+
+
+def test_record_carries_taper_fields(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, description=_PLACING)
+    owned = _replay(tmp_path, ws)
+    assert owned.taper_owned is True
+    assert owned.taper_source == "description" and owned.taper_reason is None
+    assert owned.sets and set(owned.sets) <= {"1", "2", "encore"} and "2" in owned.sets
+    assert len(owned.filler) == len(owned.sets) and all(isinstance(f, bool) for f in owned.filler)
+    assert owned.step1_alignment in ("deterministic", "jerrybase")
+    d = owned.to_dict()
+    assert d["sets"] == owned.sets and d["taper_owned"] is True
+
+    ws2, _ = _library_show(tmp_path / "b", held=True, description=_NO_MARKERS)
+    plain = _replay(tmp_path / "b", ws2)
+    assert plain.taper_owned is False
+    assert plain.taper_source == "none" and plain.taper_reason
+    assert plain.sets and len(plain.filler) == len(plain.sets)
+    assert plain.step1_alignment == "deterministic"

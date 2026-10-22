@@ -35,7 +35,7 @@ from llama.catalog import derive_state
 from llama.config import DEFAULT_ROOT, load_config
 from llama.ledger import Ledger
 from llama.replay import (CacheOnlyIA, ShowReplay, code_identity, config_fingerprint, flag_family,
-                          replay_show, setlistfm_client, setlistfm_configured)
+                          input_digests, replay_show, setlistfm_client, setlistfm_configured)
 from llama.models import Briefing, Track
 from llama.stages.brief import _ORDINAL_SET, _SET_COUNT_CLAIM, _claim_matches, _guard_prose
 from llama.structure import _place_tokens
@@ -96,6 +96,54 @@ def _targets(shows_dir: Path, scope: str, slugs: list[str],
     return out
 
 
+STRIPPED_KEYS = ("set_breaks", "encore_after")
+# Copied into a shadow show dir: everything `compute_legs` reads from the show directory
+# besides `overrides.json` (rewritten) and the stored side `replay_show` reads.
+SHADOW_FILES = ("provenance.json", "show.json", "vetting.json", "briefing.json", "briefing.md")
+
+
+def _shadow(d: Path, shadow_root: Path) -> ShowWorkspace:
+    """A scratch copy of show dir `d` whose `overrides.json` has `set_breaks` and
+    `encore_after` removed (excludes, includes, titles, narration and the rest kept:
+    the adjudicator's targets are in post-exclusion numbering). Built under the run's
+    scratch root; `d` is only read. An unparsable overrides file is copied unchanged,
+    so the replay records it unreplayable as it would unstripped."""
+    sd = shadow_root / d.name
+    shutil.rmtree(sd, ignore_errors=True)
+    sd.mkdir(parents=True)
+    for name in SHADOW_FILES:
+        if (d / name).is_file():
+            shutil.copyfile(d / name, sd / name)
+    ov = d / "overrides.json"
+    if ov.is_file():
+        try:
+            data = json.loads(ov.read_text())
+        except ValueError:
+            shutil.copyfile(ov, sd / "overrides.json")
+        else:
+            if isinstance(data, dict):
+                for k in STRIPPED_KEYS:
+                    data.pop(k, None)
+            (sd / "overrides.json").write_text(json.dumps(data, indent=1) + "\n")
+    return ShowWorkspace(sd)
+
+
+def _replay_stripped(d: Path, *, shadow_root: Path, **kw) -> ShowReplay:
+    """`replay_show` over the shadow of `d`; the row then carries the REAL show's
+    state and input digests, so arms stay comparable with an unstripped base."""
+    r = replay_show(_shadow(d, shadow_root), **kw)
+    real = ShowWorkspace(d)
+    try:
+        r.state = derive_state(real, kw["delivered"])[0]
+    except Exception:
+        pass
+    try:
+        r.digests = input_digests(real)
+    except Exception:
+        pass
+    return r
+
+
 def run(args: argparse.Namespace) -> int:
     _check_identity()
     config_path = args.config or DEFAULT_ROOT / "config.toml"   # as `llama` does
@@ -130,11 +178,14 @@ def run(args: argparse.Namespace) -> int:
             else:
                 show_scratch = scratch / d.name
                 try:
-                    rows[d.name] = replay_show(ShowWorkspace(d), config=config, ia=ia,
-                                               slfm=slfm, scratch=show_scratch,
-                                               delivered=delivered).to_dict()
+                    kw = dict(config=config, ia=ia, slfm=slfm, scratch=show_scratch,
+                              delivered=delivered)
+                    rows[d.name] = (_replay_stripped(d, shadow_root=scratch / ".shadow", **kw)
+                                    if args.strip_structure_overrides
+                                    else replay_show(ShowWorkspace(d), **kw)).to_dict()
                 finally:
                     shutil.rmtree(show_scratch, ignore_errors=True)
+                    shutil.rmtree(scratch / ".shadow" / d.name, ignore_errors=True)
             if i % PROGRESS_EVERY == 0:
                 print(f"replayed {i}/{len(targets)}", file=sys.stderr)
     finally:
@@ -147,6 +198,7 @@ def run(args: argparse.Namespace) -> int:
         "config_fingerprint": config_fingerprint(config),
         "setlistfm_configured": setlistfm_configured(config),
         "scope": scope,
+        "structure_overrides_stripped": bool(args.strip_structure_overrides),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "llama_file": llama.__file__,
         "root": str(root),
@@ -229,6 +281,8 @@ def _gates(base: dict, cand: dict) -> None:
         problems.append("setlistfm_configured differs")
     if base.get("config_fingerprint") != cand.get("config_fingerprint"):
         problems.append("config_fingerprint differs")
+    if bool(base.get("structure_overrides_stripped")) != bool(cand.get("structure_overrides_stripped")):
+        problems.append("structure_overrides_stripped differs")
     b, c = base["shows"], cand["shows"]
     for slug in sorted(set(b) - set(c)):
         problems.append(f"{slug} is in the base arm only")
@@ -796,9 +850,11 @@ def compare(args: argparse.Namespace) -> int:
     sclist = [_list_row(s, r, r.get("would_be")) for s, r in ordered
               if r.get("outcome") == "structure-changed"]
     pilot = _pilot(predicted)
-    for name, rows in (("predicted_list.json", predicted), ("structure_changed_list.json", sclist),
-                       ("pilot_list.json", pilot)):
-        (out / name).write_text(json.dumps(_list_doc(cand, rows), indent=1) + "\n")
+    stripped = bool(cand.get("structure_overrides_stripped"))
+    if not stripped:   # a stripped arm can never feed `reapply --from-list`
+        for name, rows in (("predicted_list.json", predicted),
+                           ("structure_changed_list.json", sclist), ("pilot_list.json", pilot)):
+            (out / name).write_text(json.dumps(_list_doc(cand, rows), indent=1) + "\n")
 
     n_notes = sum(len(v) for v in _notes_by_group(cand).values())
     held_nl = lambda arm: sum(1 for r in arm["shows"].values()
@@ -822,10 +878,11 @@ def compare(args: argparse.Namespace) -> int:
         f"closest_calls.txt: {n_cc} row(s)",
         f"needs_llm.txt: base {nb}, cand {nc_}",
         f"notes.txt: {n_notes} note(s)",
+    ] + ([f"apply lists: not written (arms replayed with --strip-structure-overrides)"] if stripped else [
         f"predicted_list.json: {len(predicted)} row(s)",
         f"structure_changed_list.json: {len(sclist)} row(s)",
         f"pilot_list.json: {len(pilot)} row(s)",
-    ])
+    ]))
     print(f"compare: wrote {out}", file=sys.stderr)
     return 0
 
@@ -844,6 +901,9 @@ def main(argv: list[str] | None = None) -> int:
     scope.add_argument("--held", action="store_true", help="held shows only (the default)")
     scope.add_argument("--all", action="store_true", help="every show in the library")
     scope.add_argument("--slugs", type=Path, help="a file of slugs, one per line")
+    r.add_argument("--strip-structure-overrides", action="store_true",
+                   help="replay each show with overrides.set_breaks/encore_after removed "
+                        "(a scratch copy; the arm is stamped and yields no apply lists)")
     r.add_argument("--config", type=Path, default=None,
                    help="config file (default ~/.llama/config.toml, as llama)")
     r.add_argument("--scratch", type=Path, default=None,

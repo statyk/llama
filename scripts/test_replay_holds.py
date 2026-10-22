@@ -819,3 +819,89 @@ def test_venue_changes_ignores_an_identical_diff_and_counts_a_flag_change(tmp_pa
     assert 'city: "Washington, DC" -> "Washington, D.C."' in text
     assert "flags CHANGED: added" in text
     assert "venue_changes.txt: 1 show(s), 1 with a flag change" in (out / "summary.txt").read_text()
+
+
+# --- piece 2: --strip-structure-overrides, stamped arms ---
+
+_OVERRIDES = {"exclude": ["nonexistent-track.mp3"], "titles": {"1": "Forced Title"},
+              "set_breaks": [3], "encore_after": 5}
+
+
+def test_strip_mode_removes_only_structure_overrides(tmp_path, monkeypatch):
+    root = tmp_path / "lib"
+    shows = build_library(root)
+    live = shows["gratefuldead-1973-06-10"].overrides
+    live.write_text(json.dumps(_OVERRIDES))
+    live_bytes = live.read_bytes()
+    seen = {}
+    real = rh.replay_show
+
+    def spy(ws, **kw):
+        if ws.dir.name == "gratefuldead-1973-06-10":
+            seen["dir"] = ws.dir
+            seen["overrides"] = json.loads(ws.overrides.read_text())
+        return real(ws, **kw)
+
+    monkeypatch.setattr(rh, "replay_show", spy)
+    out = tmp_path / "arm.json"
+    scratch = tmp_path / "scratch"
+    assert rh.main(["run", "--out", str(out), "--all", "--strip-structure-overrides",
+                    "--config", str(root / "config.toml"), "--scratch", str(scratch)]) == 0
+    assert seen["overrides"] == {"exclude": ["nonexistent-track.mp3"],
+                                 "titles": {"1": "Forced Title"}}
+    assert scratch in seen["dir"].parents                  # the shadow lives under the scratch root
+    assert live.read_bytes() == live_bytes                 # the live file is untouched
+    arm = json.loads(out.read_text())
+    assert arm["structure_overrides_stripped"] is True
+    row = arm["shows"]["gratefuldead-1973-06-10"]
+    assert row["state"] == "held" and row["unreplayable"] is None
+    # the digests are the REAL show's, so a stripped arm stays comparable with an unstripped base
+    import hashlib
+    assert row["digests"]["overrides.json"] == hashlib.sha256(live_bytes).hexdigest()
+    assert not any(p.name == ".shadow" and any(p.iterdir()) for p in scratch.iterdir())
+
+
+def test_unstripped_arm_is_stamped_false_and_replays_the_real_overrides(tmp_path, monkeypatch):
+    root = tmp_path / "lib"
+    shows = build_library(root)
+    shows["gratefuldead-1973-06-10"].overrides.write_text(json.dumps(_OVERRIDES))
+    out = tmp_path / "arm.json"
+    assert rh.main(["run", "--out", str(out), "--all", "--config", str(root / "config.toml")]) == 0
+    assert json.loads(out.read_text())["structure_overrides_stripped"] is False
+
+
+def _stripped_arms(tmp_path, base_stripped, cand_stripped):
+    root = tmp_path / "lib"
+    build_library(root, held_for_real=True)
+    cfg = str(root / "config.toml")
+    paths = []
+    for name, stripped in (("base", base_stripped), ("cand", cand_stripped)):
+        p = tmp_path / f"{name}.json"
+        argv = ["run", "--out", str(p), "--all", "--config", cfg]
+        assert rh.main(argv + (["--strip-structure-overrides"] if stripped else [])) == 0
+        paths.append(p)
+    return paths
+
+
+def test_compare_refuses_mixed_strip_arms_and_writes_no_lists_for_stripped(tmp_path, capsys):
+    base, cand = _stripped_arms(tmp_path, False, True)
+    assert rh.main(["compare", str(base), str(cand), "--out", str(tmp_path / "mixed")]) == 2
+    assert "structure_overrides_stripped differs" in capsys.readouterr().err
+    assert rh.main(["compare", str(cand), str(base), "--out", str(tmp_path / "mixed2")]) == 2
+
+    # a base-code arm has no key at all: it reads as unstripped
+    arm = json.loads(base.read_text())
+    del arm["structure_overrides_stripped"]
+    base.write_text(json.dumps(arm))
+    out = tmp_path / "plain"
+    assert rh.main(["compare", str(base), str(base), "--out", str(out)]) == 0
+    assert (out / "predicted_list.json").exists()
+
+    sb, sc = _stripped_arms(tmp_path / "s", True, True)
+    out = tmp_path / "stripped"
+    out.mkdir()
+    for name in ("predicted_list.json", "structure_changed_list.json", "pilot_list.json"):
+        (out / name).write_text("stale")                       # a stale list must not outlive it
+    assert rh.main(["compare", str(sb), str(sc), "--out", str(out)]) == 0
+    assert not list(out.glob("*_list.json"))
+    assert "apply lists: not written" in (out / "summary.txt").read_text()

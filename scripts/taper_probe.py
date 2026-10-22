@@ -10,6 +10,10 @@ gather). Two subcommands, both writing only under `--out`:
          library show (tracks from its `show.json`).
   forms  per recognised form / void / veto rule, the matching lines over every cached
          `md_*.json` description and notes field, plus a sample file for review.
+  score  grade a STRIPPED candidate replay arm (`replay_holds.py run --strip-structure-overrides`)
+         against the adjudicator's targets (`--arm`), by `primary`; filler-only differences are
+         their own class, and the 8 known disagreements are scored by the spec's restated
+         expectations instead of as misses.
   delta  compare two `gate` output dirs (`--old`, `--new`): rows newly owned and newly not
          owned, each with its reason, for the gate rows and the library pass.
 
@@ -607,6 +611,157 @@ def forms_outputs(root: Path) -> tuple[str, str]:
     return "\n".join(summ) + "\n", "\n".join(samples) + "\n"
 
 
+# --- score (a stripped candidate replay arm against the adjudicator's targets) ---
+
+OUT_OF_SCOPE_PRIMARY = ("filename-set", "track-title-set-label")
+# The 8 known disagreements (spec, "What the evidence says"): the adjudicator's target differs
+# from the taper's own labels, so a mismatch is expected there, not a miss. Each entry is the
+# restated expectation, then the checker's key.
+NO_ENCORE_EXPECTATION = ("the disputed boundary is an encore the taper did not label: if the taper "
+                         "owns the show its last set runs to the end of the tape (no encore label "
+                         "ships); if not owned it is computed as today")
+OWNED_SHIPS_EXPECTATION = ("where the taper owns the structure its structure ships, an expected "
+                           "disagreement with the adjudicator; if not owned it is computed as today")
+EXPECTED_DISAGREEMENTS = {
+    "derektrucksband-2005-01-09": ("no-encore", NO_ENCORE_EXPECTATION),
+    "darkstarorchestra-2007-05-08": ("no-encore", NO_ENCORE_EXPECTATION),
+    "thedead-2009-04-29": ("no-encore", NO_ENCORE_EXPECTATION),
+    "gratefuldead-1970-05-15-spans": (
+        "stays-held", "stays held by `tape spans` (a hold, whatever the taper owns)"),
+    "deadandcompany-2018-06-16": ("ships", OWNED_SHIPS_EXPECTATION),
+    "gratefuldead-1981-12-31": ("ships", OWNED_SHIPS_EXPECTATION),
+    "stevekimockband-2003-03-11": ("ships", OWNED_SHIPS_EXPECTATION),
+    "ekoostikhookah-2009-12-31": ("ships", OWNED_SHIPS_EXPECTATION),
+}
+
+
+def compare_filler(labels: list[str], other: list[str], filler: list[bool]) -> str:
+    """`compare`, over the arm's per-track `filler` flags: `match` | `filler-only` | `miss`."""
+    if labels == other:
+        return "match"
+    if all(a == b for a, b, f in zip(labels, other, filler) if not f):
+        return "filler-only"
+    return "miss"
+
+
+def _expectation(kind: str, r: dict, graded: str | None) -> tuple[str, str]:
+    """(verdict, detail) of one known disagreement against its arm row."""
+    owned = bool(r.get("taper_owned"))
+    sets = r.get("sets") or []
+    if kind == "stays-held":
+        flags = list(r.get("gather_flags") or [])
+        held = r.get("outcome") in ("still-held", "still-held-package")
+        if held and any(f.startswith("tape spans") for f in flags):
+            return "as expected", "held by a `tape spans` flag"
+        return "UNEXPECTED", f"outcome {r.get('outcome')!r}, gather flags {flags}"
+    if not owned:
+        return "as expected", f"declined, computed as today ({r.get('taper_reason')})"
+    if kind == "no-encore":
+        if "encore" in sets:
+            return "UNEXPECTED", "owned, but an encore label ships"
+        return "as expected", "owned, no encore label ships (last set runs to the end)"
+    if graded == "match":
+        return "as expected", "owned; the shipped structure happens to equal the adjudicator's"
+    return "as expected", f"owned; the taper's structure ships, differing from the target ({graded})"
+
+
+def score_rows(arm: dict, evidence: Path) -> list[dict]:
+    classified = read_jsonl(evidence / "classified.jsonl")
+    sort1 = {r["slug"]: r for r in json.loads((evidence / "sort1.json").read_text())}
+    shows = arm["shows"]
+    rows = []
+    for c in classified:
+        if c.get("taper_explicit") not in ("yes", "partial"):
+            continue
+        slug = c["slug"]
+        s1 = sort1.get(slug, {})
+        row = {"slug": slug, "primary": c.get("primary"), "taper_explicit": c["taper_explicit"],
+               "in_scope": in_scope(c), "renum": bool(s1.get("renum"))}
+        a = shows.get(slug)
+        graded = None
+        if a is None:
+            row["class"] = "absent from arm"
+        elif a.get("unreplayable") is not None:
+            row["class"], row["why"] = "unreplayable", a["unreplayable"]
+        elif not a.get("taper_owned"):
+            row["class"], row["why"] = "declined", a.get("taper_reason") or a.get("outcome")
+        else:
+            tb, te = s1.get("t_breaks"), s1.get("t_enc")
+            sets = list(a.get("sets") or [])
+            row["sets"] = sets
+            row["owned_breaks"] = breaks_of(sets)
+            if tb is None and te is None:
+                row["class"] = "owned, no target"
+            elif row["renum"]:
+                row["class"] = "owned, renumbered target (not graded)"
+            elif max([*(tb or []), te or 0], default=0) > len(sets):
+                row["class"] = "owned, target does not fit the tape (not graded)"
+            else:
+                graded = compare_filler(sets, target_labels(len(sets), tb, te),
+                                        list(a.get("filler") or [False] * len(sets)))
+                row["class"] = graded
+                row["target"] = [tb, te]
+        if slug in EXPECTED_DISAGREEMENTS and a is not None:
+            kind, text = EXPECTED_DISAGREEMENTS[slug]
+            row["known_disagreement"] = text
+            row["verdict"], row["detail"] = _expectation(kind, a, graded)
+            row["graded_class"] = row["class"]
+            row["class"] = "known disagreement"
+        elif slug in EXPECTED_DISAGREEMENTS:
+            row["known_disagreement"] = EXPECTED_DISAGREEMENTS[slug][1]
+            row["verdict"], row["detail"] = "UNEXPECTED", "absent from the arm"
+        rows.append(row)
+    return rows
+
+
+def score_summary(rows: list[dict]) -> str:
+    scoped = lambda r: r["primary"] not in OUT_OF_SCOPE_PRIMARY
+    inscope = [r for r in rows if scoped(r)]
+    out_of_scope = [r for r in rows if not scoped(r)]
+    by_class = Counter(r["class"] for r in inscope)
+    graded = by_class["match"] + by_class["filler-only"] + by_class["miss"]
+    out = ["# taper score: stripped candidate arm vs the adjudicator's targets",
+           f"yes/partial rows: {len(rows)}; in scope (not filename / track-tag): {len(inscope)};"
+           f" reported apart as out of scope: {len(out_of_scope)}",
+           f"graded (owned, with a target, not renumbered): {graded}",
+           f"  match (exact, song level): {by_class['match']}",
+           f"  filler-only differences (own class, not matches, not misses): {by_class['filler-only']}",
+           f"  misses: {by_class['miss']}",
+           f"declined (not taper-owned, computed as today): {by_class['declined']}",
+           f"known disagreements (scored by expectation): {by_class['known disagreement']}",
+           "", "## counts by primary (in scope)"]
+    by = defaultdict(Counter)
+    for r in inscope:
+        by[r["primary"]][r["class"]] += 1
+    for prim in sorted(by, key=str):
+        out.append(f"{prim}: " + ", ".join(f"{k}={v}" for k, v in sorted(by[prim].items())))
+    out += ["", "## all classes (in scope)"]
+    out += [f"{v:4d}  {k}" for k, v in sorted(by_class.items(), key=lambda kv: (-kv[1], kv[0]))]
+
+    def listing(title, rs, extra=lambda r: ""):
+        out.extend(["", f"## {title} ({len(rs)})"] + [f"  {r['slug']}{extra(r)}" for r in rs])
+
+    known = [r for r in rows if "known_disagreement" in r]
+    out += ["", f"## the 8 known disagreements ({len(known)} scored)"]
+    for r in known:
+        out += [f"  {r['slug']}: {r.get('verdict')}  -- {r.get('detail')}",
+                f"      expectation: {r['known_disagreement']}"]
+    listing("misses", [r for r in inscope if r["class"] == "miss"],
+            lambda r: f"  [{r['primary']}] owned {r['owned_breaks']} target {r['target']}")
+    listing("filler-only", [r for r in inscope if r["class"] == "filler-only"],
+            lambda r: f"  [{r['primary']}]")
+    listing("declines", [r for r in inscope if r["class"] == "declined"],
+            lambda r: f"  [{r['primary']}] {r.get('why')}")
+    listing("owned, not graded", [r for r in inscope if r["class"].startswith("owned,")],
+            lambda r: f"  [{r['primary']}] {r['class']}")
+    listing("unreplayable / absent", [r for r in inscope
+                                       if r["class"] in ("unreplayable", "absent from arm")],
+            lambda r: f"  {r['class']} {r.get('why', '')}")
+    listing("out of scope (filename / track-tag rows)", out_of_scope,
+            lambda r: f"  [{r['primary']}] {r['class']}")
+    return "\n".join(out) + "\n"
+
+
 # --- delta (two gate runs) ---
 
 def _rows_by_slug(path: Path) -> dict[str, dict]:
@@ -677,9 +832,10 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("cmd", choices=("gate", "forms", "delta"))
+    ap.add_argument("cmd", choices=("gate", "forms", "delta", "score"))
     ap.add_argument("--old", type=Path, help="delta: the earlier gate output dir")
     ap.add_argument("--new", type=Path, help="delta: the later gate output dir")
+    ap.add_argument("--arm", type=Path, help="score: a stripped candidate arm JSON")
     ap.add_argument("--root", type=Path, default=DEFAULT_ROOT)
     ap.add_argument("--bundles", type=Path, default=DEFAULT_BUNDLES)
     ap.add_argument("--evidence", type=Path, default=DEFAULT_EVIDENCE)
@@ -701,6 +857,23 @@ def main(argv: list[str] | None = None) -> int:
         _write_jsonl(out / "library_rows.jsonl", lib)
         (out / "library_summary.txt").write_text(library_summary(lib))
         print((out / "gate_summary.txt").read_text().split("## counts by primary")[0])
+    elif args.cmd == "score":
+        if not args.arm:
+            print("score needs --arm", file=sys.stderr)
+            return 2
+        arm = json.loads(args.arm.expanduser().read_text())
+        if not arm.get("structure_overrides_stripped"):
+            print("refusing: score needs an arm replayed with --strip-structure-overrides",
+                  file=sys.stderr)
+            return 2
+        if arm.get("root") and _overlaps(out, Path(arm["root"]).expanduser()):
+            print(f"refusing: --out {out} overlaps the arm's library {arm['root']}", file=sys.stderr)
+            return 2
+        rows = score_rows(arm, args.evidence)
+        _write_jsonl(out / "score_rows.jsonl", rows)
+        text = score_summary(rows)
+        (out / "score_summary.txt").write_text(text)
+        print(text.split("## all classes")[0])
     elif args.cmd == "delta":
         if not (args.old and args.new):
             print("delta needs --old and --new", file=sys.stderr)

@@ -25,6 +25,7 @@ from llama.stages import brief as brief_stage, package as package_stage
 from llama.stages.brief import briefing_guard, normalize_briefing
 from llama.stages.gather import GatherResult, compute_gather
 from llama.stages.vet_research import VetOutcome, apply_vet
+from llama.structure import is_filler
 from llama.workspace import ShowWorkspace, read_model, read_overrides
 
 _REFUSED = "network refused by the cache-only client"
@@ -416,6 +417,15 @@ class ShowReplay:
     digests: dict = dataclasses.field(default_factory=dict)
     slfm_miss: bool = False
     unreplayable: str | None = None
+    # Piece 2 (taper markers). Base-arm rows (base code) lack these keys; readers
+    # treat a missing key as absent. `sets`/`filler` are the replayed per-track
+    # labels and `is_filler` of `gathered.show`, before vet.
+    taper_owned: bool = False
+    sets: list[str] = dataclasses.field(default_factory=list)
+    filler: list[bool] = dataclasses.field(default_factory=list)
+    taper_source: str | None = None
+    taper_reason: str | None = None
+    step1_alignment: str | None = None
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
@@ -478,6 +488,13 @@ def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlis
                     "segue_changes", "set_breaks", "alignment"):
             setattr(r, key, diff[key])
         r.notes = list(legs.gather.notes) + (list(legs.vet.notes) if legs.vet is not None else [])
+        g = legs.gather
+        r.taper_owned = bool(g.taper_owned)
+        r.sets = [t.set for t in g.show.tracks]
+        r.filler = [bool(is_filler(t.title)) for t in g.show.tracks]
+        r.taper_source = g.taper.source if g.taper is not None else None
+        r.taper_reason = g.taper.reason if g.taper is not None else None
+        r.step1_alignment = g.step1_alignment
     except CacheMiss as err:
         r.outcome, r.unreplayable = "unreplayable", str(err)
     except _OverridesUnreadable:
