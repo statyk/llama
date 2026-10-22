@@ -35,7 +35,7 @@ from llama.catalog import derive_state
 from llama.config import DEFAULT_ROOT, load_config
 from llama.ledger import Ledger
 from llama.replay import (CacheOnlyIA, ShowReplay, code_identity, config_fingerprint, flag_family,
-                          replay_show, setlistfm_client, setlistfm_configured)
+                          input_digests, replay_show, setlistfm_client, setlistfm_configured)
 from llama.models import Briefing, Track
 from llama.stages.brief import _ORDINAL_SET, _SET_COUNT_CLAIM, _claim_matches, _guard_prose
 from llama.structure import _place_tokens
@@ -96,6 +96,60 @@ def _targets(shows_dir: Path, scope: str, slugs: list[str],
     return out
 
 
+STRIPPED_KEYS = ("set_breaks", "encore_after")
+# Copied into a shadow show dir: everything `compute_legs` reads from the show directory
+# besides `overrides.json` (rewritten) and the stored side `replay_show` reads.
+SHADOW_FILES = ("provenance.json", "show.json", "vetting.json", "briefing.json", "briefing.md")
+
+
+def _shadow(d: Path, shadow_root: Path) -> tuple[ShowWorkspace, dict]:
+    """A scratch copy of show dir `d` whose `overrides.json` has `set_breaks` and
+    `encore_after` removed (excludes, includes, titles, narration and the rest kept:
+    the adjudicator's targets are in post-exclusion numbering). Built under the run's
+    scratch root; `d` is only read. An unparsable overrides file is copied unchanged,
+    so the replay records it unreplayable as it would unstripped. Also returns what was
+    removed (`{key: value}` for each stripped key that was present; empty if nothing)."""
+    stripped: dict = {}
+    sd = shadow_root / d.name
+    shutil.rmtree(sd, ignore_errors=True)
+    sd.mkdir(parents=True)
+    for name in SHADOW_FILES:
+        if (d / name).is_file():
+            shutil.copyfile(d / name, sd / name)
+    ov = d / "overrides.json"
+    if ov.is_file():
+        try:
+            data = json.loads(ov.read_text())
+        except ValueError:
+            shutil.copyfile(ov, sd / "overrides.json")
+        else:
+            if isinstance(data, dict):
+                for k in STRIPPED_KEYS:
+                    if k in data:
+                        stripped[k] = data.pop(k)
+            (sd / "overrides.json").write_text(json.dumps(data, indent=1) + "\n")
+    return ShowWorkspace(sd), stripped
+
+
+def _replay_stripped(d: Path, *, shadow_root: Path, **kw) -> dict:
+    """`replay_show` over the shadow of `d`; the row then carries the REAL show's
+    state and input digests, so arms stay comparable with an unstripped base."""
+    shadow, stripped = _shadow(d, shadow_root)
+    r = replay_show(shadow, **kw)
+    real = ShowWorkspace(d)
+    try:
+        r.state = derive_state(real, kw["delivered"])[0]
+    except Exception:
+        pass
+    try:
+        r.digests = input_digests(real)
+    except Exception:
+        pass
+    row = r.to_dict()
+    row["stripped"] = stripped     # what strip mode removed; absent/empty = nothing
+    return row
+
+
 def run(args: argparse.Namespace) -> int:
     _check_identity()
     config_path = args.config or DEFAULT_ROOT / "config.toml"   # as `llama` does
@@ -130,11 +184,14 @@ def run(args: argparse.Namespace) -> int:
             else:
                 show_scratch = scratch / d.name
                 try:
-                    rows[d.name] = replay_show(ShowWorkspace(d), config=config, ia=ia,
-                                               slfm=slfm, scratch=show_scratch,
-                                               delivered=delivered).to_dict()
+                    kw = dict(config=config, ia=ia, slfm=slfm, scratch=show_scratch,
+                              delivered=delivered)
+                    rows[d.name] = (_replay_stripped(d, shadow_root=scratch / ".shadow", **kw)
+                                    if args.strip_structure_overrides
+                                    else replay_show(ShowWorkspace(d), **kw).to_dict())
                 finally:
                     shutil.rmtree(show_scratch, ignore_errors=True)
+                    shutil.rmtree(scratch / ".shadow" / d.name, ignore_errors=True)
             if i % PROGRESS_EVERY == 0:
                 print(f"replayed {i}/{len(targets)}", file=sys.stderr)
     finally:
@@ -147,6 +204,7 @@ def run(args: argparse.Namespace) -> int:
         "config_fingerprint": config_fingerprint(config),
         "setlistfm_configured": setlistfm_configured(config),
         "scope": scope,
+        "structure_overrides_stripped": bool(args.strip_structure_overrides),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "llama_file": llama.__file__,
         "root": str(root),
@@ -175,6 +233,7 @@ NOTE_GROUPS = (   # (Contracts id, fixed leading words)
     ("2b", "placeholder tag title:"),
     ("2c", "stripped glued track number:"),
     ("2d", "stripped joined track number:"),
+    ("taper", "set breaks from the taper's markers"),   # also any note ending (taper's markers)
     ("5c.1", "jerrybase set closer "),
     ("4a", "unknown-song flags suppressed by the right-show gate:"),
     ("format sibling tagged", "format sibling tagged"),
@@ -183,7 +242,7 @@ NONE = "  (none)"
 OUTPUT_FILES = ("summary.txt", "drift.txt", "flags.txt", "outcomes.txt", "packaged_exposure.txt",
                 "venue_changes.txt", "title_sources.txt", "structure_changed.txt", "hand_check_sample.txt",
                 "closest_calls.txt", "needs_llm.txt", "notes.txt", "briefings.txt",
-                "narration_candidates.html", "predicted_list.json",
+                "taper_cleared.txt", "taper_changes.txt", "narration_candidates.html", "predicted_list.json",
                 "structure_changed_list.json", "pilot_list.json")
 
 
@@ -229,6 +288,8 @@ def _gates(base: dict, cand: dict) -> None:
         problems.append("setlistfm_configured differs")
     if base.get("config_fingerprint") != cand.get("config_fingerprint"):
         problems.append("config_fingerprint differs")
+    if bool(base.get("structure_overrides_stripped")) != bool(cand.get("structure_overrides_stripped")):
+        problems.append("structure_overrides_stripped differs")
     b, c = base["shows"], cand["shows"]
     for slug in sorted(set(b) - set(c)):
         problems.append(f"{slug} is in the base arm only")
@@ -473,13 +534,18 @@ def _hand_check(base: dict, cand: dict) -> list[str]:
     return out
 
 
+def _is_taper_note(n: str) -> bool:
+    """Two of the three fixed taper notes are identified by their suffix, not leading words."""
+    return n.startswith("set breaks from the taper's markers") or n.endswith("(taper's markers)")
+
+
 def _notes_by_group(cand: dict) -> dict[str, list[tuple[str, str]]]:
     groups: dict[str, list[tuple[str, str]]] = {g: [] for g, _ in NOTE_GROUPS}
     groups["other"] = []
     for slug, r in sorted(cand["shows"].items()):
         for n in r.get("notes") or []:
             for g, prefix in NOTE_GROUPS:
-                if n.startswith(prefix):
+                if (_is_taper_note(n) if g == "taper" else n.startswith(prefix)):
                     groups[g].append((slug, n))
                     break
             else:
@@ -492,6 +558,180 @@ def _notes_txt(cand: dict) -> list[str]:
     for g, rows in _notes_by_group(cand).items():
         out += _lines(f"== {g} ({len(rows)})", [f"  {s}: {n}" for s, n in rows])
     return out
+
+
+# --- piece 2 (taper markers) reports ---
+
+def _taper_cleared(base: dict, cand: dict) -> list[str]:
+    """Every show held in the base arm whose candidate outcome clears it or is
+    structure-changed (a structure-changed show is a clear a taper rule made)."""
+    out = []
+    for slug, c in sorted(cand["shows"].items()):
+        b = base["shows"][slug]
+        if b.get("state") != "held" or not _would_clear(c):
+            continue
+        removed = [f for f in _all_flags(b) if f not in _all_flags(c)]
+        out.append(f"{slug}  {c.get('outcome')}"
+                   + (f" (would be {c.get('would_be')})" if c.get("would_be") else "")
+                   + f"  taper_owned: {_j(c.get('taper_owned'))}  source: {_j(c.get('taper_source'))}")
+        out.append(f"  removed: {'; '.join(removed) or '(none)'}")
+        out += [f"  note: {n}" for n in c.get("notes") or []]
+    return out
+
+
+def _stored_labels(root: Path, slug: str) -> list:
+    return [t.get("set") for t in _tracks(_show_json(root, slug))]
+
+
+def _apply_set_changes(labels: list, changes: list[dict] | None) -> list:
+    """The stored labels with a row's `set_changes` applied (`index` is 1-based; a
+    `new` of None means the track is past that tape's end)."""
+    by = {c.get("index"): c.get("new") for c in changes or [] if isinstance(c, dict)}
+    n = max([len(labels), *[i for i in by if isinstance(i, int)]], default=0)
+    out = []
+    for i in range(1, n + 1):
+        v = by[i] if i in by else (labels[i - 1] if i <= len(labels) else None)
+        if v is not None:
+            out.append(v)
+    return out
+
+
+def _label_breaks(labels: list) -> list[int]:
+    """Track numbers after which the set label changes."""
+    return [i for i in range(1, len(labels)) if labels[i - 1] != labels[i]]
+
+
+def _after_labels(c: dict, stored: list) -> list:
+    return list(c["sets"]) if c.get("sets") else _apply_set_changes(stored, c.get("set_changes"))
+
+
+def _before_labels(b: dict, stored: list) -> list:
+    if b.get("outcome") == "needs-llm":
+        return list(stored)            # the stored structure; the base could not replay it
+    if b.get("sets"):
+        return list(b["sets"])
+    return _apply_set_changes(stored, b.get("set_changes"))
+
+
+def _is_encore(label) -> bool:
+    return str(label).lower() in ("encore", "e")
+
+
+def _runs(labels: list) -> str:
+    """Compact label runs: ['1','1','2','encore'] -> '1x2 2x1 encorex1'."""
+    out, i = [], 0
+    while i < len(labels):
+        j = i
+        while j < len(labels) and labels[j] == labels[i]:
+            j += 1
+        out.append(f"{labels[i]}x{j - i}")
+        i = j
+    return " ".join(out) or "-"
+
+
+def _segues_before(b: dict) -> list:
+    """The base arm's segue changes against stored, or none where the base is needs-LLM
+    (its "before" is then the stored structure, as for the labels)."""
+    return [] if b.get("outcome") == "needs-llm" else list(b.get("segue_changes") or [])
+
+
+def _segue_key(changes: list) -> list:
+    return sorted(json.dumps(ch, sort_keys=True) for ch in changes)
+
+
+def _tier(before: list, after: list, filler: list, base_owned: bool, cand_owned: bool,
+          segues_differ: bool = False) -> str | None:
+    if before == after:
+        if not (cand_owned and not base_owned):
+            return None
+        # R1 (pre3-llm): labels unchanged but segues changed is not provenance only. On a
+        # taper-owned show segues come from step 1, so the LLM's restored segues are lost
+        # (spec "Documented limitations", D1); this tier keeps that loss visible.
+        return "segues changed" if segues_differ else "provenance only"
+    if len(before) != len(after) or len(filler) != len(after):
+        return "songs moved"           # cannot compare per track: do not under-report
+    keep = [i for i, f in enumerate(filler) if not f]
+    b, a = [before[i] for i in keep], [after[i] for i in keep]
+    if _label_breaks(b) != _label_breaks(a):
+        return "songs moved"
+    if [_is_encore(x) for x in b] != [_is_encore(x) for x in a]:
+        return "songs moved"           # a set became (or stopped being) the encore: a boundary kind changed
+    return "labels renamed" if b != a else "filler labels only"
+
+
+def _is_voiced(delivery: Path | None, slug: str) -> bool:
+    if delivery is None:
+        return False
+    from llama.cli import _destination_is_voiced   # a raw-JSON read of manifest.json; writes nothing
+    return _destination_is_voiced(delivery / slug)
+
+
+def _delivery_path(config_path: Path | None) -> Path | None:
+    return load_config(config_path or DEFAULT_ROOT / "config.toml").delivery_path   # as `run`
+
+
+TAPER_TIERS = ("songs moved", "labels renamed", "filler labels only", "segues changed",
+               "provenance only")
+
+
+def _taper_changes(base: dict, cand: dict, root: Path, delivery: Path | None) -> tuple[list[str], dict]:
+    tiers: dict[str, list[str]] = {t: [] for t in TAPER_TIERS}
+    not_owned_nl = 0
+    for slug, c in sorted(cand["shows"].items()):
+        b = base["shows"][slug]
+        if c.get("state") not in NON_HELD or "unreplayable" in (b.get("outcome"), c.get("outcome")):
+            continue
+        if c.get("outcome") == "needs-llm" and not c.get("taper_owned"):
+            not_owned_nl += 1
+            continue
+        stored = _stored_labels(root, slug)
+        before, after = _before_labels(b, stored), _after_labels(c, stored)
+        filler = list(c.get("filler") or [False] * len(after))
+        seg_before, seg_after = _segues_before(b), list(c.get("segue_changes") or [])
+        tier = _tier(before, after, filler, bool(b.get("taper_owned")), bool(c.get("taper_owned")),
+                     segues_differ=_segue_key(seg_before) != _segue_key(seg_after))
+        if tier is None:
+            continue
+        state = str(c.get("state"))
+        if state == "delivered":
+            if _is_voiced(delivery, slug):
+                state = "voiced"
+        # Step 1's MECHANISM (deterministic/jerrybase), not its quality (rescreen2 O1);
+        # nothing was overruled when labels agree.
+        step1 = "overruled step1 mechanism" if before != after else "step1 mechanism"
+        tiers[tier].append(
+            f"  {slug}  [{state}]  before {_j(_label_breaks(before))} after {_j(_label_breaks(after))} "
+            f"stored {_j(_label_breaks(stored))}  labels: before {_runs(before)} | after {_runs(after)} "
+            f"| stored {_runs(stored)}  source: {c.get('taper_source')}  "
+            f"{step1}: {c.get('step1_alignment')}"
+            + (f"  segue changes: before {_j(seg_before)} after {_j(seg_after)}"
+               if tier == "segues changed" else ""))
+    out = [f"needs-LLM in the candidate and not taper-owned (unchanged by this piece, not listed): "
+           f"{not_owned_nl}", ""]
+    for t in TAPER_TIERS:
+        out += _lines(f"== {t} ({len(tiers[t])})", tiers[t])
+    unrep = []
+    for slug, c in sorted(cand["shows"].items()):
+        b = base["shows"][slug]
+        if not (c.get("state") in NON_HELD or b.get("state") in NON_HELD):
+            continue
+        arms = (("base", b), ("cand", c))
+        why = [f"{a}: {r.get('unreplayable') or 'unreplayable'}" for a, r in arms
+               if r.get("outcome") == "unreplayable"]
+        why += [f"{a}: setlist.fm miss" for a, r in arms if r.get("slfm_miss")]
+        if why:
+            unrep.append(f"  {slug}  [{c.get('state')}]  {'; '.join(why)}")
+    out += _lines(f"== unreplayable or setlist.fm-miss shipped shows ({len(unrep)})", unrep)
+    moved = []
+    for slug, c in sorted(cand["shows"].items()):
+        b = base["shows"][slug]
+        if ("stored alignment llm" in (b.get("needs_llm") or [])
+                and c.get("outcome") not in ("needs-llm", "unreplayable")):
+            moved.append(f"  {slug}  [{c.get('state')}]  taper_owned: {_j(c.get('taper_owned'))}  "
+                         f"segue changes: {_j(c.get('segue_changes'))}")
+    out += _lines(f"== stored-llm shows now replayable ({len(moved)})", moved)
+    return out, {**{t: len(v) for t, v in tiers.items()}, "needs-llm not owned": not_owned_nl,
+                 "unreplayable": len(unrep), "stored-llm moved": len(moved)}
 
 
 def _jaccard(x: str, y: str) -> float:
@@ -748,6 +988,10 @@ def _write(out: Path, name: str, lines: list[str]) -> None:
 
 def compare(args: argparse.Namespace) -> int:
     base, cand = _load_arm(args.base), _load_arm(args.cand)
+    config_arg = getattr(args, "config", None)
+    if config_arg is not None and not config_arg.exists():    # before anything is written, as `run`
+        raise Refusal(f"no such config: {config_arg}")
+    delivery = _delivery_path(config_arg)      # a malformed config also refuses before any write
     _gates(base, cand)
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
@@ -789,6 +1033,12 @@ def compare(args: argparse.Namespace) -> int:
     nl, nb, nc_ = _needs_llm(base, cand)
     _write(out, "needs_llm.txt", nl)
     _write(out, "notes.txt", _notes_txt(cand))
+    stripped = bool(cand.get("structure_overrides_stripped"))
+    tc, tcounts = _taper_cleared(base, cand), {}
+    if not stripped:   # a stripped arm replays without the operator's overrides: not the shipped library
+        _write(out, "taper_cleared.txt", _lines("shows held in base and cleared (or structure-changed) in cand:", tc))
+        tch, tcounts = _taper_changes(base, cand, root, delivery)
+        _write(out, "taper_changes.txt", tch)
     (out / "narration_candidates.html").write_text(_narration_page(cand, root), encoding="utf-8")
 
     ordered = sorted(cand["shows"].items(), key=lambda kv: _skey(kv[0]))
@@ -796,9 +1046,10 @@ def compare(args: argparse.Namespace) -> int:
     sclist = [_list_row(s, r, r.get("would_be")) for s, r in ordered
               if r.get("outcome") == "structure-changed"]
     pilot = _pilot(predicted)
-    for name, rows in (("predicted_list.json", predicted), ("structure_changed_list.json", sclist),
-                       ("pilot_list.json", pilot)):
-        (out / name).write_text(json.dumps(_list_doc(cand, rows), indent=1) + "\n")
+    if not stripped:   # a stripped arm can never feed `reapply --from-list`
+        for name, rows in (("predicted_list.json", predicted),
+                           ("structure_changed_list.json", sclist), ("pilot_list.json", pilot)):
+            (out / name).write_text(json.dumps(_list_doc(cand, rows), indent=1) + "\n")
 
     n_notes = sum(len(v) for v in _notes_by_group(cand).values())
     held_nl = lambda arm: sum(1 for r in arm["shows"].values()
@@ -822,10 +1073,16 @@ def compare(args: argparse.Namespace) -> int:
         f"closest_calls.txt: {n_cc} row(s)",
         f"needs_llm.txt: base {nb}, cand {nc_}",
         f"notes.txt: {n_notes} note(s)",
+    ] + (["taper reports: not written (arms replayed with --strip-structure-overrides)"] if stripped else [
+        f"taper_cleared.txt: {sum(1 for x in tc if not x.startswith(' '))} show(s)",
+        "taper_changes.txt: " + ", ".join(f"{k} {v}" for k, v in tcounts.items()),
+        f"voiced check: delivery_path {delivery}" if delivery is not None
+        else "voiced check: off (no delivery_path in config)",
+    ]) + ([f"apply lists: not written (arms replayed with --strip-structure-overrides)"] if stripped else [
         f"predicted_list.json: {len(predicted)} row(s)",
         f"structure_changed_list.json: {len(sclist)} row(s)",
         f"pilot_list.json: {len(pilot)} row(s)",
-    ])
+    ]))
     print(f"compare: wrote {out}", file=sys.stderr)
     return 0
 
@@ -844,6 +1101,9 @@ def main(argv: list[str] | None = None) -> int:
     scope.add_argument("--held", action="store_true", help="held shows only (the default)")
     scope.add_argument("--all", action="store_true", help="every show in the library")
     scope.add_argument("--slugs", type=Path, help="a file of slugs, one per line")
+    r.add_argument("--strip-structure-overrides", action="store_true",
+                   help="replay each show with overrides.set_breaks/encore_after removed "
+                        "(a scratch copy; the arm is stamped and yields no apply lists)")
     r.add_argument("--config", type=Path, default=None,
                    help="config file (default ~/.llama/config.toml, as llama)")
     r.add_argument("--scratch", type=Path, default=None,
@@ -852,6 +1112,9 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("base", type=Path)
     c.add_argument("cand", type=Path)
     c.add_argument("--out", type=Path, required=True, help="directory for the reports")
+    c.add_argument("--config", type=Path, default=None,
+                   help="config file whose delivery_path the voiced check reads "
+                        "(default ~/.llama/config.toml, as `run`)")
     c.add_argument("--no-repro-gate", action="store_true",
                    help="skip the base-reproduction gate (for a -prev arm, which carries earlier slices)")
     args = ap.parse_args(argv)

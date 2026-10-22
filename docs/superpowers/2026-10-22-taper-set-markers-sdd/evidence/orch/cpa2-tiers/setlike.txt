@@ -1,0 +1,126 @@
+clubdelf-2011-04-09 None 12
+     (4, '1', "Set 1(con't)-")
+     (8, '2', "Set 2(con't)-")
+cowboyjunkies-2004-06-06 None 20
+     (12, '2', 'CD2* [54:14]')
+darkstarorchestra-2007-02-05 None 25
+     (13, '2', 'CD3')
+darkstarorchestra-2012-05-19 None 29
+     (1, '1', 'Set')
+davidnelsonband-2009-06-27 None 36
+     (24, 'encore', 'Sets 1 and 2 each fit on 1 80 min. CD')
+     (25, 'encore', 'The encore requires a third disc.')
+     (26, 'encore', 'Encore can fit on end of Set 1 disc.')
+discobiscuits-1998-02-19 None 12
+     (7, '2', "Set II (con't.)")
+discobiscuits-1999-01-18 None 15
+     (9, '2', "Set II (con't.)")
+discobiscuits-2003-05-28 None 12
+     (3, '1', "Set I (con't.)")
+gratefuldead-1974-07-19 songs moved 24
+     (10, '1', 'Set 1.5:')
+gratefuldead-1993-09-22 None 19
+     (17, 'encore', 'David Murray on sax during Birdsong and entire second set')
+joerussosalmostdead-2017-05-06 encore added 23
+     (19, 'encore', 'Pre Show / Set Break Music: Scott Metzger’s Soul Mix')
+     (21, 'encore', 'Pre Show / Set Break Music: Scott Metzger’s Soul Mix')
+joerussosalmostdead-2018-01-14 None 40
+     (36, 'encore', 'Set Break Music: The Greatest :: Number Ones (Johnny Cash)')
+joerussosalmostdead-2018-05-04 songs moved 39
+     (34, 'encore', 'Set Break Music: Costello on Petty Spotify Playlist')
+joerussosalmostdead-2018-10-25 encore added 30
+     (25, 'encore', 'Set Break Music: Wilco - Yankee Hotel Foxtrot')
+joerussosalmostdead-2018-11-11 None 37
+     (31, 'encore', 'Pre Show And Set Break Music: Costello’s Spotify Prince & Michael Mix')
+joerussosalmostdead-2019-01-19 None 67
+     (62, 'encore', 'Set Break Music: Costello’s Prince & Michael Spotify Playlist')
+joerussosalmostdead-2019-03-02 songs moved 44
+     (39, 'encore', 'Pre Show And Set Break Music: Spotify Black Power Mixtape 1967 - 1975')
+joerussosalmostdead-2019-03-13 None 42
+     (36, 'encore', 'Pre Show & Set Break Music: Costello’s Spotify Soul Mix')
+joerussosalmostdead-2019-03-16 None 36
+     (32, 'encore', 'Pre Show And Set Break Music: Costello’s Spotify Soul Mix')
+joerussosalmostdead-2019-09-26 None 57
+     (51, 'encore', "Set Break Music: Costello's Spotify Soul Playlist")
+joerussosalmostdead-2019-09-28 encore added 49
+     (45, 'encore', "Set Break Music: Costello's Soul Spotify Playlist")
+joerussosalmostdead-2020-02-23 None 59
+     (53, 'encore', 'Set Break Music: Costello on Petty Spotify Playlist')
+joerussosalmostdead-2021-05-30 None 45
+     (37, 'encore', 'Set Break Music: "Parcels" (Parcels)')
+joerussosalmostdead-2021-12-03 None 35
+     (30, 'encore', "Set Break Music: Costello's Spotify Reggae Playlist")
+joerussosalmostdead-2022-07-21 None 44
+     (40, 'encore', "Set Break Music: Costello's Early Rock And Roll Playlist")
+joerussosalmostdead-2023-01-26 None 58
+     (22, 'encore', 'From The Other One to end of set with Stuart Bogie on Tenor Sax')
+     (53, 'encore', 'Set Break Music:\xa0 Costello on New Orleans Playlist')
+joerussosalmostdead-2023-06-04 None 53
+     (48, 'encore', "Set Break Music:\xa0 Costello's New Orleans Playlist")
+localh-2004-12-31 None 27
+     (0, '1', 'Set I * ["Pack Up The Cats"]')
+motherhips-1995-08-06 sets split 42
+     (1, '1', 'set one-(1:05:59)')
+neworleanssuspects-2012-08-02 None 28
+     (0, '1', 'Set 1.')
+particle-2005-01-22 None 15
+     (12, '2', 'Set The Controls For The Heart of The Sun')
+philleshandfriends-2006-07-03 songs moved 19
+     (18, 'encore', 'Trey Anastasio plays entire 2nd set and encore (no Barry)')
+radiators-1979-01-14 None 39
+     (12, '2', 'CD 2')
+     (24, '3', 'CD 3')
+radiators-1980-01-14 None 43
+     (39, '3', 'CD 3')
+railroadearth-2005-01-28 None 20
+     (17, '2', "Set 2 (con't):")
+ryanadams-2007-07-26 None 21
+     (0, '1', 'The Sun Also Sets')
+ryanadams-2008-01-19 sets merged 26
+     (15, '1', 'The Sun Also Sets')
+ryanadams-2008-01-21 sets merged 29
+     (6, '1', 'Ryan Solo CD 1')
+     (10, '1', 'Cardinals Set 1 CD 2')
+     (19, '1', 'The Sun Also Sets')
+ryanadams-2008-01-23 None 27
+     (10, '1', 'The Sun Also Sets')
+ryanadams-2008-01-26 None 23
+     (5, '1', 'The Sun Also Sets')
+ryanadams-2008-09-27 None 26
+     (6, '1', 'The Sun Also Sets')
+     (14, '1', 'cd 2')
+ryanadams-2008-10-05 None 41
+     (12, '1', 'Sun Also Sets')
+ryanadams-2008-10-16 None 30
+     (16, '2', 'Sun Also Sets')
+splinteredsunlight-2008-07-19 None 32
+     (0, '1', 'CD 1 [75:06]')
+     (11, '1', 'CD 2 [60:58]')
+     (21, '2', 'CD 3 [49:52]')
+stevekimockband-2001-12-20 None 19
+     (16, '2', 'CD1 track 01-05')
+     (17, '2', 'CD2 track 06-08')
+     (18, '2', 'CD3 track 09-12')
+stuallenandmarshotel-2009-05-16 None 17
+     (16, '2', 'surprise vocal by Mark Karan - this was not on the set list...')
+stuallenandmarshotel-2011-11-02 None 25
+     (13, '2', "Set 2 con't")
+stuallenandmarshotel-2015-02-18 None 16
+     (13, '2', "Set 2 con't")
+tedeschitrucksband-2020-02-21 sets merged 28
+     (26, 'encore', '- Acoustic start to second set.')
+tedeschitrucksband-2021-10-08 None 23
+     (22, 'encore', 'Notes : Mini acoustic set opens second set.')
+thedead-2009-04-25 songs moved 27
+     (7, '2', '- end of set one')
+thedead-2009-05-07 None 35
+     (30, 'encore', 'Digital editing: WaveLab 5.0a (pre and post set fades)')
+thegourds-2002-09-04 None 44
+     (18, '2', "Set II (con't.)")
+themotet-2011-10-29 None 42
+     (7, '1', 'DJ Set:')
+umphreysmcgee-2002-12-31 None 53
+     (51, 'encore', 'between two of the sets')
+yondermountainstringband-2008-10-11 None 26
+     (25, 'encore', '= Jon Fishman on drums. entire second set')
+56 of 648

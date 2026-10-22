@@ -1,0 +1,302 @@
+==========================================================================================
+chuckprophet-2012-01-08 cp2012-01-08 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Chuck Prophet & The Mission Express
+1-8-12, Armondos, Martinez, CA
+Set 1
+Styrofoam Woman->Credit->James Intro->Sonny Liston's Blues, Castro Halloween, Let Freedom Ring->Killer->Let Freedom Ring, White Night Big City White Night, I Bow Down and Pray to Every Woman I See, Wasn't I Always A Friend To You, Hot Burrito, You Can Make a Doubter Out of Jesus, Fear is a Man's Best Friend, The Left Hand and the Right Hand
+Set 2
+Look Both Ways, Temple Beautiful, Automatic Blues->Motorcycle Mama, What'll I Do, Three On Two Out, I Can Help, A Certain Girl, "Something Worse", Balinese Dancer, You Did, E:Hot Tramp*, Goodtime Crowd*
+*W/Brad Brooks
+Chuck Prophet, Stephanie Finch, James DePrado, Kevin White, Kyle Caprista
+sbd+Josephson C42MP (Split Stage)->Presonus Firebox->Wavelab
+--- ITEMS: 1:Styrofoam Woman | 1:Credit | 1:Sonny Liston's Blues | 1:Castro Halloween | 1:Let Freedom Ring | 1:Killer | 1:Let Freedom Ring | 1:White Night Big City White Night | 1:I Bow Down and Pray to Every Woman I See | 1:Wasn't I Always A Friend To You | 1:Hot Burrito | 1:You Can Make a Doubter Out of Jesus | 1:Fear is a Man's Best Friend | 1:The Left Hand and the Right Hand | 2:Look Both Ways | 2:Temple Beautiful | 2:Automatic Blues | 2:Motorcycle Mama | 2:What'll I Do | 2:Three On Two Out | 2:I Can Help | 2:A Certain Girl | 2:"Something Worse" | 2:Balinese Dancer | 2:You Did | encore:Hot Tramp | encore:W/Brad Brooks | encore:Chuck Prophet | encore:Stephanie Finch | encore:James DePrado | encore:Kevin White | encore:Kyle Caprista
+has_encore True encore_like False
+  19 2       2       tags             Balinese Dancer
+  20 2       2       tags             You Did
+* 21 2       encore  tags             Hot Tramp
+* 22 2       encore  tags           F Goodtime Crowd
+   (22 tracks)
+==========================================================================================
+darkstarorchestra-2007-07-07 dso2007-07-07.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+set 1
+disc 1
+1. intro/tuning
+2. shakedown street
+3. biodtl
+4. Candyman +
+5. mr. charlie
+6. me and my uncle >
+7. cumberland blues >
+8. visions of johanna
+9. pride of cucamonga
+10. music never stopped
+set 2
+disc 2
+1. tuning/crowd
+2. bird song *
+3. wrs prelude-part 1 + >
+4. eyes of the world + >
+5. drums ** >
+6. space >
+7. playin in the band >
+8. world to give >
+9. china cat sunflower >
+10. i know you rider
+disc 3
+set 2 continued
+Encore: 
+11. Brokedown Palace +
+Filler: none
++ w/ donna jean godchaux-mckay
+* w/ robbie eaton, jr on guitar and john morgan kimock on drums
+** w/ john morgan kimock and jamie heintz on drums
+--- ITEMS: 1:shakedown street | 1:biodtl | 1:Candyman + | 1:mr. charlie | 1:me and my uncle | 1:cumberland blues | 1:visions of johanna | 1:pride of cucamonga | 1:music never stopped | 2:bird song | 2:wrs prelude-part 1 + | 2:eyes of the world + | 2:drums | 2:space | 2:playin in the band | 2:world to give | 2:china cat sunflower | 2:i know you rider | encore:Brokedown Palace + | encore:Filler: none | encore:+ w/ donna jean godchaux-mckay | encore:w/ robbie eaton | encore:jr on guitar and john morgan kimock on drums | encore:w/ john morgan kimock and jamie heintz on drums
+has_encore True encore_like False
+  19 2       2       tags             china cat sunflower >
+  20 2       2       tags             i know you rider
+* 21 2       encore  tags             Brokedown Palace +
+   (21 tracks)
+==========================================================================================
+derektrucksband-2006-01-22 dtb2006-01-22.shnf src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+disc 1
+set 1
+1.   Mahjoun >
+2.   Greensleeves
+3.   percussion>
+4.   I Wish I Knew
+5.   All I Do>
+6.   7/4 Jam
+7.   introductions
+8.   Chevrolet
+9.   Soul Serenade
+10.  Sailing On
+11.  Up Above My Head
+disc 2
+set 2
+1.   Key To The Highway
+2.   Volunteered Slavery>
+3.   Ill Find My Way>
+4.   Crow Jane>
+5.   Lets Go Get Stoned
+6.   Maybe Your Baby>
+7.   drums>Everything Is Everything>
+8.   Fat  Mama>
+9.   Everything Is Everything
+10.  Spirit In The Dark
+11.  crowd encore call
+12.  E: Hook & Sling
+
+--- ITEMS: 1:Mahjoun | 1:Greensleeves | 1:percussion | 1:I Wish I Knew | 1:All I Do | 1:7/4 Jam | 1:introductions | 1:Chevrolet | 1:Soul Serenade | 1:Sailing On | 1:Up Above My Head | 2:Key To The Highway | 2:Volunteered Slavery | 2:Ill Find My Way | 2:Crow Jane | 2:Lets Go Get Stoned | 2:Maybe Your Baby | 2:drums | 2:Everything Is Everything | 2:Fat  Mama | 2:Everything Is Everything | 2:Spirit In The Dark | encore:Hook & Sling
+has_encore True encore_like True
+   7 1       1       tags             Sailing On
+   8 1       1       tags             Up Above My Head
+*  9 1       2       tags             Key To The Highway
+* 10 1       2       tags             Volunteered Slavery>
+* 11 1       2       tags             IÂll Find My Way>
+* 12 1       2       tags             Crow Jane>
+* 13 1       2       tags             LetÂs Go Get Stoned
+* 14 1       2       tags             Maybe Your Baby>
+* 15 1       2       tags             drums>Everything Is Everything>
+* 16 1       2       tags             Fat Mama>
+* 17 1       2       tags             Everything Is Everything
+* 18 1       2       tags             Spirit In The Dark
+* 19 1       encore  tags           F crowd encore call
+* 20 1       encore  tags             E: Hook & Sling
+   (20 tracks)
+==========================================================================================
+greatamericantaxi-2010-03-13 gat2010-03-13.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set I
+01. Sittin' On Top Of The World
+02. Lazy John
+03. Maggie's Farm
+04. Flying Cloud Cotillion
+05. American Beauty
+06. Made By Hand
+07. Penny Arcade
+08. Swamp Song
+09. Pullin' The Devil By The Tail
+10. River Cantina
+11. Voodoo Queen Marie > Little Liza Jane
+12. Good Night To Boogie
+Set II
+01. Lumpy Beanpole & Dirt
+02. Dirty Business
+03. Instant Armadillo Blues
+04. Twilight
+05. Long Gone ^
+06. Dim Lights, Thick Smoke ^
+07. Nashville West ^
+08. Fuzzy Little Hippie Girl
+09. Boo Boo Day > Fun By The Ton > Boo Boo Day
+10. Steamboat Whistle Blues
+11. Cold Lonely Town
+12. New Madrid
+13. Why Don't We Do It In The Road
+14. Unpromised Land > Whiskey Before Breakfast > Unpromised Land
+15. E: Maud
+--- ITEMS: 1:Sittin' On Top Of The World | 1:Lazy John | 1:Maggie's Farm | 1:Flying Cloud Cotillion | 1:American Beauty | 1:Made By Hand | 1:Penny Arcade | 1:Swamp Song | 1:Pullin' The Devil By The Tail | 1:River Cantina | 1:Voodoo Queen Marie | 1:Little Liza Jane | 1:Good Night To Boogie | 2:Lumpy Beanpole & Dirt | 2:Dirty Business | 2:Instant Armadillo Blues | 2:Twilight | 2:Long Gone ^ | 2:Dim Lights, Thick Smoke ^ | 2:Nashville West ^ | 2:Fuzzy Little Hippie Girl | 2:Boo Boo Day | 2:Fun By The Ton | 2:Boo Boo Day | 2:Steamboat Whistle Blues | 2:Cold Lonely Town | 2:New Madrid | 2:Why Don't We Do It In The Road | 2:Unpromised Land | 2:Whiskey Before Breakfast | 2:Unpromised Land | encore:Maud
+has_encore True encore_like False
+  25 2       2       tags             Why Don't We Do It In The Road
+  26 2       2       tags             Unpromised Land > Whiskey Before Breakfast > Unpromised Land
+* 27 2       encore  tags             E: Maud
+   (27 tracks)
+==========================================================================================
+joerussosalmostdead-2014-10-11 jrad2014-10-11.fob.mc803.kindrec src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+-SET I-
+01. The Music Never Stopped ->
+02. Brown Eyed Women
+03. Bird Song ->
+04. I Know You Rider
+05. Easy Wind ->
+06. Not Fade Away
+-SET II-
+01. Shakedown Street ->
+02. Estimated Prophet ->
+03. Terrapin Station Suite
+04. Rubin & Cherise ->
+05. Throwing Stones ->
+06. Stella Blue
+-ENCORE-
+07. Brokedown Palace
+--- ITEMS: 1:The Music Never Stopped | 1:Brown Eyed Women | 1:Bird Song | 1:I Know You Rider | 1:Easy Wind | 1:Not Fade Away | 2:Shakedown Street | 2:Estimated Prophet | 2:Terrapin Station Suite | 2:Rubin & Cherise | 2:Throwing Stones | 2:Stella Blue | encore:Brokedown Palace
+has_encore True encore_like False
+  11 2       2       tags             Throwing Stones ->
+  12 2       2       tags             Stella Blue
+* 13 2       encore  tags             Brokedown Palace
+   (13 tracks)
+==========================================================================================
+joerussosalmostdead-2016-02-10 jrad2016-02-10.cmc621.sbd.matrix.flac24 src= notes reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+normalize) -> Vegas Pro 13.0 (mix/render) -> SoundForge Pro 11.0 (EQ, normalize, fades) -> CDWav -> FLAC
+Recorded by Peter Costello - FOH mix and on stage mics by Peter Costello - Mixed, mastered and edited by Eric McRoberts 02/15-16/2016
+	Set one:
+01.  intro/crowd
+02.  Alligator (SM) ->
+03.  Help On The Way (TH) ->
+04.  Slipknot! ->
+05.  Feel Like a Stranger @ (SM) 
+06.  He’s Gone (All) ->
+07.  Estimated Prophet (SM) ->
+08.  Tennessee Jed (TH)
+	Set Two:
+01.  Scarlet Begonias (TH) ->
+02.  Fire On The Mountain (TH) ->
+03.  I Know You Rider (All)
+04.  Row Jimmy (TH) > 
+05.  Mr. Charlie #(SM) -> 
+06.  Casey Jones # (TH/All)
+07.  Bird Song $ (TM)
+	Encore: 
+08.  Big Railroad Blues (TH)
+Costello's Notes:
+@ - With a “Fly Like A Eagle” (Steve Miller Band) Tease
+# - With a Slipknot! jam in the transition
+$ - With a Scarlet Begonias Tease (Band)
+Joe Russo - Drums, Vocals
+Tommy Hamilton - Guitar, Vocals
+Scott Metzger - Guitar, Vocals
+Marco Benevento - Keyboards, Vocals
+Jon Shaw - Bass (Dave Dreiwitz on Ween tour)
+This was the first of a five night JRAD New England run over President's/Valentine's Day weekend 2016.
+The normal 16 bit CD quality version of this recording is available for streaming and download/CD burning here: https://archive.org/details/jrad2016-02-10.cmc621.sbd.matrix.flac16
+--- ITEMS: 1:Alligator (SM) | 1:Help On The Way (TH) | 1:Slipknot! | 1:Feel Like a Stranger @ (SM) | 1:He’s Gone (All) | 1:Estimated Prophet (SM) | 1:Tennessee Jed (TH) | 2:Scarlet Begonias (TH) | 2:Fire On The Mountain (TH) | 2:I Know You Rider (All) | 2:Row Jimmy (TH) | 2:Mr. Charlie #(SM) | 2:Casey Jones # (TH/All) | 2:Bird Song $ (TM) | encore:Big Railroad Blues (TH) | encore:Costello's Notes: | encore:@ - With a “Fly Like A Eagle” (Steve Miller Band) Tease | encore:# - With a Slipknot! jam in the transition | encore:$ - With a Scarlet Begonias Tease (Band) | encore:Jon Shaw - Bass (Dave Dreiwitz on Ween tour)
+has_encore True encore_like False
+  13 2       2       tags             Casey Jones # (TH/All)
+  14 2       2       tags             Bird Song $ (TM)
+* 15 3       encore  tags             Big Railroad Blues (TH)
+   (15 tracks)
+==========================================================================================
+joerussosalmostdead-2022-04-30 jrad2022-04-30.m20.flac24 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Joe Russo's Almost Dead
+2022-04-30
+Rabbit Rabbit
+Asheville, NC
+source:   Microtech Gefell M20 (din) > Nbob actives > Naiant PFA  > Sound Devices MixPre-6 II @ 32/48
+location: inside soundboard cage dfc, 10' high
+transfer: SDHC > PC > iZotope RX 9 (gain, fades, edits, MBIT+ dither) > CD Wave (track splits) > TLH (flac 8) > Foobar (tags)
+*24bit/48khz fileset*
+recorded and transferred by Gordon Wilson
+A Team Dirty South Recording
+Set One:
+01. Intro
+02. Jam >
+03. Scarlet Begonias >
+04. Jack Straw
+05. Row Jimmy
+06. Estimated Prophet > *
+07. Wharf Rat >
+08. Truckin'
+Set Two:
+01. Intro
+02. Fire on the Mountain
+03. Shakedown Street >
+04. I Need a Miracle
+05. Help on the Way >
+06. Slipknot! >
+07. In Memory of Elizabeth Reed >
+08. Slipknot! >
+09. Samson and Delilah 
+Encore: 
+10. Absolutely Sweet Marie > 
+11. Goin' Down the Road Feeling Bad
+* w/ Crazy Train tease & Sunshine Daydream ending
+Some crowd noise during encore break removed seamlessly, no banter or music lost.
+
+--- ITEMS: 1:Jam | 1:Scarlet Begonias | 1:Jack Straw | 1:Row Jimmy | 1:Estimated Prophet | 1:Wharf Rat | 1:Truckin' | 2:Fire on the Mountain | 2:Shakedown Street | 2:I Need a Miracle | 2:Help on the Way | 2:Slipknot! | 2:In Memory of Elizabeth Reed | 2:Slipknot! | 2:Samson and Delilah | encore:Absolutely Sweet Marie | encore:Goin' Down the Road Feeling Bad | encore:w/ Crazy Train tease & Sunshine Daydream ending
+has_encore True encore_like True
+  13 2       2       tags             In Memory of Elizabeth Reed >
+  14 2       2       tags             Samson and Delilah
+* 15 3       encore  tags             Absolutely Sweet Marie >
+* 16 3       encore  tags             Goin' Down the Road Feeling Bad
+   (16 tracks)
+==========================================================================================
+radiators-2005-07-03 rad2005-07-03.flac16 src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+disc 1 set1:
+01  tuning/intro
+02  Law of the Fish>
+03  Tyger Tyger>Law of the Fish
+04  Mood to Move
+05  Let's Radiate
+06  Lost Radio
+07  I Don't Speak Love
+08  Boomerang
+09  Burnin Down the House
+10  Stealin A Feelin
+11  7 Devils
+12  Crazy Mona >
+13  Motherless Children > Mona
+14  Jump Back
+disc2 set 1:
+01  Like Dreamers Do
+set 2:
+02  intro
+03  Confidential
+04  Hard Lube >
+05  China Town>
+06  I Smoke em Buddha>
+07  Red Dress
+08  Rub It In
+09  Devil's Dream
+10  Under My Thumb
+11  Somethin You Got
+12  Waitin For the Rain
+13  callin em back
+encores:
+14  Texas Chainsaw Massacre >
+15  Cissy Strut
+16  outtro
+
+--- ITEMS: 1:Law of the Fish | 1:Tyger Tyger | 1:Law of the Fish | 1:Mood to Move | 1:Let's Radiate | 1:Lost Radio | 1:I Don't Speak Love | 1:Boomerang | 1:Burnin Down the House | 1:Stealin A Feelin | 1:7 Devils | 1:Crazy Mona | 1:Motherless Children | 1:Mona | 1:Jump Back | 1:Like Dreamers Do | 2:Confidential | 2:Hard Lube | 2:China Town | 2:I Smoke em Buddha | 2:Red Dress | 2:Rub It In | 2:Devil's Dream | 2:Under My Thumb | 2:Somethin You Got | 2:Waitin For the Rain | 2:callin em back | encore:Texas Chainsaw Massacre | encore:Cissy Strut | encore:outtro
+has_encore True encore_like False
+  22 2       2       tags             Waitin For the Rain
+  23 2       2       tags             callin em back
+* 24 2       encore  tags             Texas Chainsaw Massacre >
+* 25 2       encore  tags             Cissy Strut
+   (25 tracks)

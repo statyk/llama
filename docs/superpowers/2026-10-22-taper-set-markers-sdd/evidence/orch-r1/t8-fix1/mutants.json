@@ -1,0 +1,55 @@
+[
+ {
+  "id": "S0-base",
+  "file": null,
+  "predicted": [],
+  "collateral": []
+ },
+ {
+  "id": "S1-sentinel",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "            continue\n            return True\n    return False",
+  "new": "            continue\n            return True\n    raise RuntimeError(\"SENTINEL\")",
+  "predicted": [
+   "most of test_taper.py: every read_taper_structure call whose text is not set-like raises (the last line of _set_like)"
+  ],
+  "collateral": []
+ },
+ {
+  "id": "o",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "    r\"(?:set\\s*(?P<tok>one|two|three|iii|ii|i|[123])(?!\\w)\"",
+  "new": "    r\"(?:set\\s*(?P<tok>one|two|three|iii|ii|i|[123])\"",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_set_like_negatives[Set In Stone]",
+   "packages/llama/tests/test_taper.py::test_token_glued_to_cont_or_disc_is_a_song_title[Set2cont]",
+   "packages/llama/tests/test_taper.py::test_token_glued_to_cont_or_disc_is_a_song_title[Set 2cont:]",
+   "packages/llama/tests/test_taper.py::test_token_glued_to_cont_or_disc_is_a_song_title[Set IIcont]",
+   "packages/llama/tests/test_taper.py::test_token_glued_to_cont_or_disc_is_a_song_title[Set 1CD1]",
+   "packages/llama/tests/test_taper.py::test_token_glued_to_cont_or_disc_is_a_song_title[Set 1Disc 1]"
+  ],
+  "collateral": []
+ },
+ {
+  "id": "o2",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "    r\"|(?P<ord>first|second|third)\\s+set(?!\\w)\"",
+  "new": "    r\"|(?P<ord>first|second|third)\\s+set\"",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_set_like_negatives[songs from the first setlist]",
+   "packages/llama/tests/test_taper.py::test_set_like_negatives[Second Settlement]"
+  ],
+  "collateral": []
+ },
+ {
+  "id": "o3",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "    r\"|(?P<ordn>1st|2nd|3rd)\\s+set(?!\\w))\"",
+  "new": "    r\"|(?P<ordn>1st|2nd|3rd)\\s+set)\"",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_set_like_negatives[2nd settle]",
+   "packages/llama/tests/test_taper.py::test_set_like_negatives[1st Setting Sun]"
+  ],
+  "collateral": []
+ }
+]

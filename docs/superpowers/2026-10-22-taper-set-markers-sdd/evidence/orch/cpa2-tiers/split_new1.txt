@@ -1,0 +1,278 @@
+==========================================================================================
+corblund-2004-11-04 corblund2004-11-04.emc709.flac src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+The Corb Lund Band
+Live At The Times Change High And Lonesome Club
+Winnipeg, Manitoba
+November 5, 2004
+Three Sets
+Taped from the front row & Transferred by Redseed Mobile
+EMC709->MT-877
+Transfer done with a wicked soundcard at my buddy's studio
+Sound is excellent, especially for rig used
+Disc/Set1
+01 (Gonna) Shine up My Boots
+02 Expectation and the Blues
+03 Apocalyptic Modified Blues
+04 The Counterfeiter's Blues
+05 No Roads Here
+06 Short Native Grasses
+07 Sixteen Tons
+08 The Big Bitch Butch Bull Fiddle
+09 The Truck Got Stuck Talkin' Blues
+10 We Used To Ride 'em
+11 Buckin' Horse Rider
+12 Okie From Muskogee
+Disc/Set2
+01 Roughest Neck Around
+02 Daughter Don't You Marry No Guitar Picker
+03 The Cover of The Rolling Stone
+04 Heavy And Leaving
+05 Good Copenhagen Is Better Than Bad Cocaine
+06 Time To Switch To Whiskey
+07 Mora (Blackberry)
+08 Where Is My Soldier
+09 Seven Spanish Angels
+10 A Leader on Losing Control
+11 All I Wanna Do Is Play Cards
+12 Five Dollar Bill
+13 She Won't Come To me
+14 Always keep An Edge on Your Knife
+Disc/Set3
+01 Workin' Man Blues
+02 Now I Must Leave
+03 Eating Me Alive
+04 Crazy
+05 Lament For Lester Cousins
+06 Case Of The Winde Soaked Preacher
+07 Folsom Prison Blues
+08 (Gonna) Shine up My Boots
+09 Are You Sure Hank Done it This Way
+10 Spanish Armada
+11 On The Road Again
+Please share but NEVER EVER encode to mp3 or other lossy formats.
+--- ITEMS: 1:(Gonna) Shine up My Boots | 1:Expectation and the Blues | 1:Apocalyptic Modified Blues | 1:The Counterfeiter's Blues | 1:No Roads Here | 1:Short Native Grasses | 1:Sixteen Tons | 1:The Big Bitch Butch Bull Fiddle | 1:The Truck Got Stuck Talkin' Blues | 1:We Used To Ride 'em | 1:Buckin' Horse Rider | 1:Okie From Muskogee | 2:Roughest Neck Around | 2:Daughter Don't You Marry No Guitar Picker | 2:The Cover of The Rolling Stone | 2:Heavy And Leaving | 2:Good Copenhagen Is Better Than Bad Cocaine | 2:Time To Switch To Whiskey | 2:Mora (Blackberry) | 2:Where Is My Soldier | 2:Seven Spanish Angels | 2:A Leader on Losing Control | 2:All I Wanna Do Is Play Cards | 2:Five Dollar Bill | 2:She Won't Come To me | 2:Always keep An Edge on Your Knife | 3:Workin' Man Blues | 3:Now I Must Leave | 3:Eating Me Alive | 3:Crazy | 3:Lament For Lester Cousins | 3:Case Of The Winde Soaked Preacher | 3:Folsom Prison Blues | 3:(Gonna) Shine up My Boots | 3:Are You Sure Hank Done it This Way | 3:Spanish Armada | 3:On The Road Again | 3:Please share but NEVER EVER encode to mp3 or other lossy formats.
+has_encore False encore_like False
+  11 1       1       tags             Buckin' Horse Rider
+  12 1       1       tags             Okie From Muskogee
+* 13 1       2       tags             Roughest Neck Around
+* 14 1       2       tags             Daughter Don't You Marry No Guitar Picker
+* 15 1       2       tags             The Cover of The Rolling Stone
+* 16 1       2       tags             Heavy And Leaving
+* 17 1       2       tags             Good Copenhagen Is Better Than Bad Cocaine
+* 18 1       2       tags             Time To Switch To Whiskey
+* 19 1       2       tags             Mora (Blackberry)
+* 20 1       2       tags             Where Is My Soldier
+* 21 1       2       tags             Seven Spanish Angels
+* 22 1       2       tags             A Leader on Losing Control
+* 23 1       2       tags             All I Wanna Do Is Play Cards
+* 24 1       2       tags             Five Dollar Bill
+* 25 1       2       tags             She Won't Come To me
+* 26 1       2       tags             Always keep An Edge on Your Knife
+* 27 1       3       tags             Workin' Man Blues
+* 28 1       3       tags             Now I Must Leave
+* 29 1       3       tags             Eating Me Alive
+* 30 1       3       tags             Crazy
+* 31 1       3       tags             Lament For Lester Cousins
+* 32 1       3       tags             Case Of The Winde Soaked Preacher
+* 33 1       3       tags             Folsom Prison Blues
+* 34 1       3       tags             Gonna) Shine up My Boots
+* 35 1       3       tags             Are You Sure Hank Done it This Way
+* 36 1       3       tags             Spanish Armada
+* 37 1       3       tags             On The Road Again
+   (37 tracks)
+==========================================================================================
+darkstarorchestra-2017-02-10 dso2017-02-10.km184.flac24 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Dark Star Orchestra
+The Roseland Theater
+Portland, OR
+February 10, 2017
+Source: Neumann SKM-184 > DR-680 (24 Bit,48kHz)
+Format: 24-bit, 48 kHz 
+Recorded and transferred by Rick Odeen
+This setlist is a re-creation of the Grateful Dead, August 31, 1980, Capital Centre, Landover, MD
+Set 1
+-----
+01. Alabama Getaway
+02. Promised Land
+03. They Love Each Other
+04. Mama Tried
+05. Mexicali Blues
+06. Althea
+07. Little Red Rooster
+08. Tennessee Jed
+09. Far From Me
+10. Lazy Lightnin'
+11. Supplication
+12. Deal
+Set 2
+-----
+01. Greatest Story Ever Told
+02. Uncle John's Band
+03. Lost Sailor
+04. Saint of Circumstance
+05. Comes a Time
+06. Truckin'
+07. Drums > Space
+08. The Other One
+09. Stella Blue
+10. I Need a Miracle
+11. Good Lovin'
+Encore
+------
+12. Brokedown Palace
+13. White Rabbit
+
+--- ITEMS: 1:Alabama Getaway | 1:Promised Land | 1:They Love Each Other | 1:Mama Tried | 1:Mexicali Blues | 1:Althea | 1:Little Red Rooster | 1:Tennessee Jed | 1:Far From Me | 1:Lazy Lightnin' | 1:Supplication | 1:Deal | 2:Greatest Story Ever Told | 2:Uncle John's Band | 2:Lost Sailor | 2:Saint of Circumstance | 2:Comes a Time | 2:Truckin' | 2:Drums | 2:Space | 2:The Other One | 2:Stella Blue | 2:I Need a Miracle | 2:Good Lovin' | encore:Brokedown Palace | encore:White Rabbit
+has_encore True encore_like False
+  11 1       1       tags             Supplication
+  12 1       1       tags             Deal
+* 13 encore  2       tags             Greatest Story Ever Told
+* 14 encore  2       tags             Uncle John's Band
+* 15 encore  2       tags             Lost Sailor
+* 16 encore  2       tags             Saint of Circumstance
+* 17 encore  2       tags             Comes a Time
+* 18 encore  2       tags             Truckin'
+* 19 encore  2       tags             Drums > Space
+* 20 encore  2       tags             The Other One
+* 21 encore  2       tags             Stella Blue
+* 22 encore  2       tags             I Need a Miracle
+* 23 encore  2       tags             Good Lovin'
+  24 encore  encore  tags             Brokedown Palace
+  25 encore  encore  tags             White Rabbit
+   (25 tracks)
+==========================================================================================
+derektrucksband-2003-12-26 dtb2003-12-26.flac16 src= description reason= None align= llm ssrc= setlist.fm
+--- TEXT
+Disc 1
+Set I
+01. Voluntary Slavery
+02. Gonna Move
+03. Sahib Teri/Maki Madni
+04. Preachin' Blues
+05. For My Brother
+06. Like Anyone Else
+07. I Wish I Knew
+08. Kickin' Bach 
+Disc 2
+Set II
+01. Soul Stew
+02. Everything
+03. Intro Angola
+04. Feel So Bad
+05. 7/4
+06. Leavin' Trunk
+Disc 3
+Set II (Cont.)
+01. Afro Blue
+02. Goin' Down Slow
+03. Joyful Noise
+Encore:
+04. 44 Blues
+05. Freddie's Dead
+
+--- ITEMS: 1:Voluntary Slavery | 1:Gonna Move | 1:Sahib Teri/Maki Madni | 1:Preachin' Blues | 1:For My Brother | 1:Like Anyone Else | 1:I Wish I Knew | 1:Kickin' Bach | 2:Soul Stew | 2:Everything | 2:Feel So Bad | 2:7/4 | 2:Leavin' Trunk | 2:Afro Blue | 2:Goin' Down Slow | 2:Joyful Noise | encore:44 Blues | encore:Freddie's Dead
+has_encore True encore_like False
+   7 1       1       tags             I Wish I Knew
+   8 1       1       tags             Kickin' Bach
+*  9 1       2       tags             Soul Stew
+* 10 1       2       tags             Everything
+* 11 1       2       tags           F Intro Angola
+* 12 1       2       tags             Feel So Bad
+* 13 1       2       unresolved       dtb2003-12-26d2t05.mp3
+* 14 1       2       tags             Afro Blue
+* 15 1       2       tags             Goin' Down Slow
+* 16 1       2       tags             Joyful Noise
+  17 encore  encore  tags             44 Blues
+  18 encore  encore  tags             Freddie's Dead
+   (18 tracks)
+==========================================================================================
+derektrucksband-2008-10-23 dtb2008-10-23.km184.flac16 src= description reason= None align= llm ssrc= setlist.fm
+--- TEXT
+Disk 1 Set 1
+1. Volunteered Slavery
+2. I Know 
+3. Don't Miss Me
+4. Band intros
+5. These Days
+6. Done Got Over
+7. I'll Find My Way
+8. Down In The Flood
+9. Drums >
+10. My Favorite Things
+Disk 2 Set 2
+1 Chicken Robber
+2 Already Free
+3 Meet Me At The Bottom
+4 Soul Serenade
+5 Get Out My Life
+6 Down Don't Bother Me
+7 Anyday
+8 crowd
+Encore:
+9 Leavin' Trunk
+--- ITEMS: 1:Volunteered Slavery | 1:I Know | 1:Don't Miss Me | 1:These Days | 1:Done Got Over | 1:I'll Find My Way | 1:Down In The Flood | 1:Drums | 1:My Favorite Things | 2:Chicken Robber | 2:Already Free | 2:Meet Me At The Bottom | 2:Soul Serenade | 2:Get Out My Life | 2:Down Don't Bother Me | 2:Anyday | encore:Leavin' Trunk
+has_encore True encore_like False
+   8 1       1       tags             Drums >
+   9 1       1       tags             My Favorite Things
+* 10 1       2       tags             Chicken Robber
+* 11 1       2       tags             Already Free
+* 12 1       2       tags             Meet Me At The Bottom
+* 13 1       2       tags             Soul Serenade
+* 14 1       2       tags             Get Out My Life
+* 15 1       2       tags             Down Don't Bother Me
+* 16 1       2       tags             Anyday
+  17 encore  encore  tags           F crowd
+  18 encore  encore  tags             Leavin' Trunk
+   (18 tracks)
+==========================================================================================
+greenskybluegrass-2013-05-04 GSBG2013-05-04 src= description reason= None align= llm ssrc= setlist.fm
+--- TEXT
+Greensky Bluegrass
+The Castle Theatre
+Bloomington, Illinois
+May 4, 2013
+Set I (66:47:02)
+d1t01-Intro
+d1t02-Dustbowl Overtures
+d1t03-Gumboots
+d1t04-Train Junkie
+d1t05-Steam Powered Aeroplane
+d1t06-Worried About The Weather
+d1t07-Atlantic City
+d1t08-All Four
+d1t09-Leap Year
+Set II (78:42:08)
+d2t01-Intro
+d2t02-Through the Trees
+d2t03-Broke Mountain Breakdown
+d2t04-Booty Jam(Bend Over) - Includes 'Hot For Teacher' teases
+d2t05-After Midnight
+d2t06-Don't Lie
+d2t07-In Control
+d2t08-Letters to Seymour
+d2t09-Can't Stop Now
+d2t10-That's What Love Will Make You Do
+d2t11-Can't Stop Now (Reprise)
+d2t12-Working On A Building*
+d2t13-Whole Lotta Love*
+*Includes all members of Fruition on stage with Greensky Bluegrass
+--- ITEMS: 1:Dustbowl Overtures | 1:Gumboots | 1:Train Junkie | 1:Steam Powered Aeroplane | 1:Worried About The Weather | 1:Atlantic City | 1:All Four | 1:Leap Year | 2:Through the Trees | 2:Broke Mountain Breakdown | 2:Booty Jam(Bend Over) - Includes 'Hot For Teacher' teases | 2:After Midnight | 2:Don't Lie | 2:In Control | 2:Letters to Seymour | 2:Can't Stop Now | 2:That's What Love Will Make You Do | 2:Can't Stop Now (Reprise) | 2:Working On A Building | 2:Whole Lotta Love | 2:Includes all members of Fruition on stage with Greensky Bluegrass
+has_encore False encore_like False
+   7 1       1       tags             Greensky Bluegrass - d1t08-All Four
+   8 1       1       tags             Greensky Bluegrass - d1t09-Leap Year
+*  9 1       2       tags           F Greensky Bluegrass - d2t01-Intro
+* 10 1       2       tags             Greensky Bluegrass - d2t02-Through the Trees
+* 11 1       2       tags             Greensky Bluegrass - d2t03-Jam
+* 12 1       2       tags             Greensky Bluegrass - d2t04-Booty Jam(Bend Over)
+* 13 1       2       tags             Greensky Bluegrass - d2t05-After Midnight
+* 14 1       2       tags             Greensky Bluegrass - d2t06-Don't Lie
+* 15 1       2       tags             Greensky Bluegrass - d2t07-In Control
+* 16 1       2       tags             Greensky Bluegrass - d2t08-Take Me Away
+* 17 1       2       tags             Greensky Bluegrass - d2t09-Can't Stop Now
+* 18 1       2       tags             Greensky Bluegrass - d2t10-That's What Love Will Make You Do
+* 19 1       2       tags             Greensky Bluegrass - d2t11-Can't Stop Now (Reprise)
+* 20 1       2       tags             Greensky Bluegrass - d2t12-Working On A Building
+* 21 1       2       tags             Greensky Bluegrass - d2t13-Whole Lotta Love
+   (21 tracks)

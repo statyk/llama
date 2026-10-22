@@ -1,0 +1,442 @@
+##### badlivers-1991-05-04  ident=badlivers1991-05-04 src=description ntracks=27
+  today: ['22:1>2']
+  HEAD : ['22:1>2'] (22,)
+  noC: NOT OWNED no markers
+  L0 DIFF head=set1 var=song: 'Set 1 Disc 1:'
+       prev=[]
+       next=['01. Follow The Leader', '02. Crow Black Chicken']
+  L27 DIFF head=set2 var=song: 'Set 2 Disc 2:'
+       prev=['22. Cannonball Rag', '']
+       next=['01. Fight Fire With Fire [Metallica]', '02. The Wind Cries Mary [Jimi Hendrix]']
+  boundary 1|2: 'Cannonball Rag' | 'Fight Fire With Fire [Metallica]'
+   placed after t22: 'Cannonball Rag' | 'Fight Fire With Fire [Metallica]'
+##### belafleckandtheflecktones-1996-11-09  ident=bfft1996-11-09.flac16 src=description ntracks=16
+  today: ['7:1>2']
+  HEAD : ['7:1>2'] (7,)
+  noC: NOT OWNED no markers
+  L0 DIFF head=set1 var=song: 'Disc 1: Set I'
+       prev=[]
+       next=['01. ?', '02. ?']
+  L9 DIFF head=set2 var=song: 'Disc 2: Set II'
+       prev=['07. New South Africa', '']
+       next=['01. Future Man (solo)', '02. Throwdown at the Hoedown']
+  boundary 1|2: 'New South Africa' | 'Future Man (solo)'
+   placed after t7: 'New South Africa' | 'Future Man (solo)'
+##### corblund-2004-11-04  ident=corblund2004-11-04.emc709.flac src=description ntracks=37
+  today: []
+  HEAD : ['12:1>2', '26:2>3'] (12, 26)
+  noC: NOT OWNED no markers
+  L13 DIFF head=set1 var=song: 'Disc/Set1'
+       prev=['Sound is excellent, especially for rig used', '']
+       next=['01 (Gonna) Shine up My Boots', '02 Expectation and the Blues']
+  L27 DIFF head=set2 var=song: 'Disc/Set2'
+       prev=['12 Okie From Muskogee', '']
+       next=['01 Roughest Neck Around', "02 Daughter Don't You Marry No Guitar Picker"]
+  L43 DIFF head=set3 var=song: 'Disc/Set3'
+       prev=['14 Always keep An Edge on Your Knife', '']
+       next=["01 Workin' Man Blues", '02 Now I Must Leave']
+  boundary 1|2: 'Okie From Muskogee' | 'Roughest Neck Around'
+  boundary 2|3: 'Always keep An Edge on Your Knife' | "Workin' Man Blues"
+   placed after t12: 'Okie From Muskogee' | 'Roughest Neck Around'
+   placed after t26: 'Always keep An Edge on Your Knife' | "Workin' Man Blues"
+##### darkstarorchestra-2007-02-05  ident=dso2007-02-05 src=description ntracks=24
+  today: ['11:1>2', '22:2>encore']
+  HEAD : ['11:1>2', '22:2>encore'] (11, 22)
+  noC: NOT OWNED one set
+  L0 DIFF head=set1 var=song: 'Set1/CD1'
+       prev=[]
+       next=['01. crowd/tuning', '02. Greatest Story']
+  L13 DIFF head=set2 var=song: 'Set2/CD2'
+       prev=['11. Cassidy', '']
+       next=['01. crowd/tuning', '02. Touch']
+  boundary 1|2: 'Cassidy' | 'Touch'
+  boundary 2|encore: 'Sunshine Daydream2' | 'Mighty Quinn'
+   placed after t11: 'Cassidy' | 'Touch'
+   placed after t22: 'Sunshine Daydream2' | 'E: Mighty Quinn'
+##### darkstarorchestra-2009-11-16  ident=dso2009-11-16.mstc.flac16 src=description ntracks=19
+  today: ['7:1>2', '17:2>encore']
+  HEAD : ['7:1>2', '17:2>encore'] (7, 17)
+  noC: NOT OWNED one set
+  L0 DIFF head=set1 var=song: 'set 1/Disc 1'
+       prev=[]
+       next=['1. tuning', '2. The Promised Land']
+  L10 DIFF head=set2 var=song: 'set 2/Disc 2'
+       prev=['8. Deal', '']
+       next=['1. tuning', '2. I Need A Miracle']
+  L18 DIFF head=set2 var=song: 'Set 2/Disc 3'
+       prev=['6. Eyes Of The World >', '']
+       next=['1. Drums >', '2. Space >']
+  boundary 1|2: 'Deal' | 'I Need A Miracle'
+  boundary 2|encore: 'Around & Around' | 'U.S. Blues'
+   placed after t7: 'Deal' | 'I Need A Miracle'
+   placed after t17: 'Around & Around' | 'encore: U.S. Blues'
+##### davealvin-2008-11-01  ident=d_alvin2008-11-01.matrix.flac16 src=description ntracks=21
+  today: ['10:1>2']
+  HEAD : ['10:1>2', '19:2>encore'] (10, 19)
+  noC: NOT OWNED one set
+  L2 DIFF head=set1 var=song: 'Disc I, Set I'
+       prev=['Dave Alvin & Greg Leisz (acoustic duo)', '']
+       next=['01. intro', '02. King of California']
+  L14 DIFF head=set2 var=song: 'Disc II, Set II'
+       prev=['10. Out in California', '']
+       next=['01. intro', '02. Dry River']
+  boundary 1|2: 'Out in California' | 'Dry River'
+  boundary 2|encore: 'Fourth of July' | 'California Bloodlines'
+   placed after t10: 'Out in California' | 'Dry River'
+   placed after t19: 'Fourth of July' | 'California Bloodlines'
+##### derektrucksband-2008-10-23  ident=dtb2008-10-23.km184.flac16 src=description ntracks=18
+  today: ['16:1>encore']
+  HEAD : ['9:1>2', '16:2>encore'] (9, 16)
+  noC: NOT OWNED one set
+  L0 DIFF head=set1 var=song: 'Disk 1 Set 1'
+       prev=[]
+       next=['1. Volunteered Slavery', '2. I Know']
+  L12 DIFF head=set2 var=song: 'Disk 2 Set 2'
+       prev=['10. My Favorite Things', '']
+       next=['1 Chicken Robber', '2 Already Free']
+  boundary 1|2: 'My Favorite Things' | 'Chicken Robber'
+  boundary 2|encore: 'Anyday' | "Leavin' Trunk"
+   placed after t9: 'My Favorite Things' | 'Chicken Robber'
+   placed after t16: 'Anyday' | 'crowd'
+##### furthur-2010-02-08  ident=furthur2010-02-08.schoeps.ccm4v.zman.fob.105883.flac16 src=description ntracks=19
+  today: ['8:1>2', '17:2>encore']
+  HEAD : ['8:1>2', '17:2>encore'] (8, 17)
+  noC: NOT OWNED one set
+  L12 DIFF head=set1 var=song: 'Disc I 1st Set'
+       prev=['Seeded By: Z-Man', '']
+       next=['', '01 Tuning']
+  L24 DIFF head=set2 var=song: 'Disc II 2nd Set'
+       prev=['09 Passenger', '']
+       next=['', '01 Tuning']
+  boundary 1|2: 'Passenger' | 'Scarlet Begonias'
+  boundary 2|encore: 'Fire On The Mountain' | 'Satisfaction'
+   placed after t8: 'Passenger' | 'Scarlet Begonias >'
+   placed after t17: 'Fire On The Mountain' | '(Encore) Phil Donor Rap/Tuning'
+##### furthur-2010-02-10  ident=furthur2010-02-10.schoeps.ccm4v.zman.105986.flac16 src=description ntracks=20
+  today: ['9:1>2', '19:2>encore']
+  HEAD : ['9:1>2', '19:2>encore'] (9, 19)
+  noC: NOT OWNED one set
+  L12 DIFF head=set1 var=song: 'Disc I 1st Set'
+       prev=['', '']
+       next=['', '01 Tuning']
+  L25 DIFF head=set2 var=song: 'Disc II 2nd Set'
+       prev=['10 Cosmic Charlie', '']
+       next=['', '01 Tuning']
+  boundary 1|2: 'Cosmic Charlie' | 'Lost Sailor'
+  boundary 2|encore: 'Cold Rain And Snow' | 'Box Of Rain'
+   placed after t9: 'Cosmic Charlie' | 'Lost Sailor >'
+   placed after t19: 'Cold Rain & Snow' | 'Box Of Rain'
+##### furthur-2010-11-21  ident=furthur2010-11-21.schoeps-ccm4v.z-man.110817.flac16 src=description ntracks=18
+  today: ['8:1>2', '16:2>encore']
+  HEAD : ['8:1>2', '16:2>encore'] (8, 16)
+  noC: NOT OWNED one set
+  L11 DIFF head=set2 var=song: 'Disc II 2nd Set'
+       prev=["10 Goin' Down The Road Feelin' Bad", '']
+       next=['', '01 Tuning']
+  boundary 1|2: "Goin' Down The Road Feelin' Bad" | 'Born Cross-Eyed'
+  boundary 2|encore: "Playin' In The Band" | 'Phil Donor Rap'
+   placed after t8: "Goin' Down The Road Feelin' Bad" | 'Born Cross-Eyed >'
+   placed after t16: "Playin' In The Band" | 'Phil Donor Rap'
+##### furthur-2011-02-13  ident=further2011-02-13.mbho.keijzer.111978.flac16 src=description ntracks=22
+  today: ['9:1>2', '19:2>encore']
+  HEAD : ['9:1>2', '20:2>encore'] (9, 20)
+  noC: NOT OWNED one set
+  L0 DIFF head=set1 var=song: 'Set 1/Disk 1:'
+       prev=[]
+       next=['', '01. Intro']
+  L12 DIFF head=set2 var=song: 'Set 2/Disk 2:'
+       prev=['09. Women are Smarter', '']
+       next=['', '01. Intro']
+  L22 DIFF head=set2 var=song: 'Set 2 (cont.)/Disk 3:'
+       prev=['07. The Wheel >', '']
+       next=['', '01. Not Fade Away >']
+  boundary 1|2: 'Women are Smarter' | 'Colors of the Rain'
+  boundary 2|encore: 'Doner Rap' | 'Revolution'
+   placed after t9: 'Women are Smarter' | 'Intro'
+   placed after t20: 'Doner Rap' | 'Revolution >'
+##### furthur-2011-03-26  ident=furthur2011-03-26.me66vp88.digigal.113436.flac16 src=description ntracks=21
+  today: ['8:1>2', '19:2>encore']
+  HEAD : ['8:1>2', '19:2>encore'] (8, 19)
+  noC: NOT OWNED one set
+  L12 DIFF head=set1 var=song: 'Disc 01 [Set I]'
+       prev=['Description: ** 16-bit/44.1 Khz **', '']
+       next=['01 Tuning/Crowd', '02 The Golden Road']
+  L23 DIFF head=set2 var=song: 'Disc 02 [Set II]'
+       prev=['09 Turn On Your Lovelight', '']
+       next=['01 Tuning', '02 Playing In The Band']
+  boundary 1|2: 'Turn On Your Lovelight' | 'Playing In The Band'
+  boundary 2|encore: "Franklin's Tower" | 'One More Saturday Night'
+   placed after t8: 'Turn on Your Lovelight' | 'Playing In The Band'
+   placed after t19: "Franklin's Tower" | 'Encore Break/Donor Rap'
+##### greenskybluegrass-2010-03-26  ident=gb2010-03-26.dsbd.flac16 src=description ntracks=18
+  today: ['9:1>2']
+  HEAD : ['9:1>2'] (9,)
+  noC: NOT OWNED no markers
+  L0 DIFF head=set1 var=song: 'Disc I, Set I'
+       prev=[]
+       next=['01. {{Freeborn Man}} removed', "02. {{Can't Make Time}} removed"]
+  L14 DIFF head=set2 var=song: 'Disc II, Set II'
+       prev=['12. thank you/outro jam', '']
+       next=['01. fade in/tuning', "02. Can't Stop Now"]
+  boundary 1|2: 'The Wind Cries Mary' | "Can't Stop Now"
+   placed after t9: 'The Wind Cries Mary' | 'fade in/tuning'
+##### larrykeel-2006-05-05  ident=lknb2006-05-05.matrix.flac16 src=description ntracks=15
+  today: ['10:1>2']
+  HEAD : ['10:1>2'] (10,)
+  noC: NOT OWNED no markers
+  L1 DIFF head=set1 var=song: 'Set I Disc I'
+       prev=['============']
+       next=['============', '']
+  L16 DIFF head=set2 var=song: 'Set II Disc II'
+       prev=['', '==============']
+       next=['==============', '']
+  boundary 1|2: "Somebody Loves You Darlin'" | 'Critters'
+   placed after t10: "Somebody Loves You Darlin'" | 'Intro'
+##### lotus-2006-02-18  ident=lotus2006-02-18.481 src=description ntracks=9
+  today: []
+  HEAD : ['5:1>2'] (5,)
+  noC: NOT OWNED no markers
+  L0 DIFF head=set1 var=song: '~Disc 1: Set 1~'
+       prev=[]
+       next=['', '01. Intro']
+  L9 DIFF head=set2 var=song: '~Disc 2: Set 2~'
+       prev=['06. Jump Off', '']
+       next=['', '01. Intro']
+  boundary 1|2: 'Jump Off' | 'Wax'
+   placed after t5: 'Jump Off' | 'Wax'
+##### lotus-2007-04-28  ident=lotus2007-04-28.483.722.flac16 src=description ntracks=14
+  today: ['6:1>2', '13:2>encore']
+  HEAD : ['6:1>2', '13:2>encore'] (6, 13)
+  noC: NOT OWNED one set
+  L0 DIFF head=set1 var=song: '~Disc 1: Set 1~'
+       prev=[]
+       next=['', '01. Intro']
+  L10 DIFF head=set2 var=song: '~Disc 2: Set 2~'
+       prev=['07. One Last Hurrah', '']
+       next=['', '01. Intro']
+  boundary 1|2: 'One Last Hurrah' | 'Hammerstrike'
+  boundary 2|encore: 'Wax' | 'Alkaline'
+   placed after t6: 'One Last Hurrah' | 'Hammerstrike'
+   placed after t13: 'Wax' | 'Alkaline'
+##### radiators-1980-01-14  ident=rads1980-01-14.flac16 src=description ntracks=38
+  today: ['19:1>2', '34:2>3']
+  HEAD : ['19:1>2', '34:2>3'] (19, 34)
+  noC: NOT OWNED void: skipped set number
+  L0 DIFF head=set1 var=song: 'CD 1 - Set 1'
+       prev=[]
+       next=['01.Tell Me How Do You Feel', '02.Dead Flowers > Pressure Drop > Dead Flowers']
+  L21 DIFF head=set2 var=song: 'CD 2 - Set 2'
+       prev=['19.Screw Loose', '']
+       next=['01.Slip Away', '02.Dixie Chicken >']
+  boundary 1|2: 'Screw Loose' | 'Slip Away'
+  boundary 2|3: 'Cissy Strut' | 'Down The Road I Go'
+   placed after t19: 'Screw Loose' | 'Slip Away'
+   placed after t34: 'Cissy Strut' | 'Down The Road I Go'
+##### radiators-1983-12-17  ident=rads1983-12-17 src=description ntracks=31
+  today: ['15:1>2', '25:2>3']
+  HEAD : ['15:1>2', '25:2>3'] (15, 25)
+  noC: NOT OWNED no markers
+  L5 DIFF head=set1 var=song: 'Set 1 Disc 1'
+       prev=['Covington, LA', '']
+       next=['', "01 - I Can't Stand The Rain"]
+  L22 DIFF head=set1 var=song: 'Set 1 Disc 2'
+       prev=['14 - First Snow', '']
+       next=['', '01 - Mustang Sally']
+  L27 DIFF head=set2 var=song: 'Set 2 Disc 2'
+       prev=['02 - Iko Iko', '']
+       next=['', '03 - Slip Away']
+  L41 DIFF head=set3 var=song: 'Set 3 Disc 3'
+       prev=['', '']
+       next=['', '01 - Hardcore [medley]']
+  boundary 1|2: '- Iko Iko' | '- Slip Away'
+  boundary 2|3: '- Number Two Pencil' | '- Hardcore [medley]'
+   placed after t15: 'Iko Iko' | 'Slip Away'
+   placed after t25: 'Number Two Pencil' | 'Hardcore [medley]'
+##### radiators-1991-01-18  ident=rads1991-01-18 src=description ntracks=25
+  today: ['19:1>2']
+  HEAD : ['15:1>2', '22:2>encore'] (15, 22)
+  noC: NOT OWNED one set
+  L11 DIFF head=set1 var=song: 'Set 1 Disc 1'
+       prev=['', '']
+       next=['', '']
+  L47 DIFF head=set2 var=song: 'Set 2 Disc 2'
+       prev=['', '']
+       next=['', '']
+  boundary 1|2: '- Last Getaway' | '- Last Fair Deal Gone Down'
+  boundary 2|encore: '- River Run' | "- Willin'"
+   placed after t15: 'Last Getaway' | 'Last Fair Deal Gone Down'
+   placed after t22: 'River Run' | "Willin'"
+##### radiators-1992-12-06  ident=rads1992-12-06 src=description ntracks=34
+  today: ['16:1>2', '30:2>encore']
+  HEAD : ['16:1>2', '30:2>encore'] (16, 30)
+  noC: NOT OWNED one set
+  L6 DIFF head=set1 var=song: 'Set 1 Disc 1'
+       prev=['"Join the Circus"', '']
+       next=['', '01 - Busted']
+  L22 DIFF head=set1 var=song: 'Set 1 Disc 2'
+       prev=["13 - Rollin' Stone", '']
+       next=['', "01 - Had You Told It Like It Was It Wouldn't Be Like It Is"]
+  L29 DIFF head=set2 var=song: 'Set 2 Disc 2'
+       prev=['04 - Dancing In The Street', '']
+       next=['', '05 - The New Dark Ages']
+  L39 DIFF head=set2 var=song: 'Set 2 Disc 3'
+       prev=['11 - Tears Of A Clown', '']
+       next=['', '01 - Dead Flowers [intro] >']
+  boundary 1|2: '- Dancing In The Street' | '- The New Dark Ages'
+  boundary 2|encore: 'Cissy Strut' | '- One Meat Ball'
+   placed after t16: 'Dancing In The Street' | 'The New Dark Ages'
+   placed after t30: 'The Magnificent Seven > Mountain Jam > Cissy Strut' | "One Meat Ball > Drinkin' Wine Spo-Dee O'Dee"
+##### radiators-2000-12-15  ident=rad2000-12-15.flac16 src=description ntracks=28
+  today: ['10:1>2', '18:2>3', '25:3>encore']
+  HEAD : ['10:1>2', '18:2>3', '25:3>encore'] (10, 18, 25)
+  noC: NOT OWNED one set
+  L0 DIFF head=set1 var=song: '1st set disc 1:'
+       prev=[]
+       next=['01  Total Evaporation >', '02  Tyger tyger >']
+  L12 DIFF head=set2 var=song: '2nd set disc 2:'
+       prev=['10  All Meat', '']
+       next=["01  It's Only Maple Leaf", '02  Lowlife']
+  L22 DIFF head=set3 var=song: '3rd set disc 3:'
+       prev=['08  Nail Yur Heart', '']
+       next=['01  Rock Me Baby (w/ Teresa Andersen)', '02  Dead Flowers (w/ John Malone)']
+  boundary 1|2: 'All Meat' | "It's Only Maple Leaf"
+  boundary 2|3: 'Nail Yur Heart' | 'Rock Me Baby (w/ Teresa Andersen)'
+  boundary 3|encore: '1 Beer' | "You Can't Always get what you Want"
+   placed after t10: 'All Meat' | "It's Only Maple Leaf"
+   placed after t18: 'Nail Yur Heart' | 'Rock Me Baby (w/ Teresa Andersen)'
+   placed after t25: '1 Bourbon, 1 Scotch, 1 Beer' | "You Can't Always Get What You Want"
+##### radiators-2006-04-21  ident=Rad2006-04-21.sbd.flac src=description ntracks=31
+  today: ['12:1>2']
+  HEAD : ['12:1>2', '28:2>encore'] (12, 28)
+  noC: NOT OWNED one set
+  L0 DIFF head=set1 var=song: '1st set disc one:'
+       prev=[]
+       next=['01 tunin/intro', "02 Feel Like Rockin'"]
+  L16 DIFF head=set2 var=song: '2nd set disc two:'
+       prev=['14 outro', '']
+       next=['01 tunin/intro', '02 Cisco Kid']
+  boundary 1|2: 'Tomworrow Never Knows' | 'Cisco Kid'
+  boundary 2|encore: 'callin em back' | 'Psychotic Reaction'
+   placed after t12: 'Tomworrow Never Knows' | 'tunin/intro'
+   placed after t28: 'callin em back' | 'Psychotic Reaction>'
+##### ryanadams-2007-07-29  ident=radams2007-07-29.sbd.flac16 src=description ntracks=21
+  today: ['7:1>2']
+  HEAD : ['7:1>2'] (7,)
+  noC: NOT OWNED no markers
+  L0 DIFF head=set1 var=song: 'Disc I Set 1'
+       prev=[]
+       next=['1. Bartering Lines', '2. Trouble On Wheels']
+  L9 DIFF head=set2 var=song: 'Disc II Set 2'
+       prev=['7. Mockingbird', '']
+       next=['1. Games', '2. Goodnight Rose']
+  boundary 1|2: 'Mockingbird' | 'Games'
+   placed after t7: 'Mockingbird' | 'Games'
+##### ryanadams-2008-01-21  ident=ryanadams2008-01-21.sbd.flac16 src=description ntracks=21
+  today: ['3:1>2', '14:2>3']
+  HEAD : ['14:1>2'] (14,)
+  noC: NOT OWNED no markers
+  L30 DIFF head=set2 var=song: 'Set 2 CD 3'
+       prev=['1:08:07', '']
+       next=['01.Tuning', '02.When The Stars Go Blue']
+  boundary 1|2: 'Freeway To The Canyon' | 'When The Stars Go Blue'
+   placed after t14: 'Freeway To The Canyon' | 'When The Stars Go Blue'
+##### ryanadams-2008-10-16  ident=ryanadams2008-10-16.matrix src=description ntracks=29
+  today: ['17:1>2']
+  HEAD : ['17:1>2'] (17,)
+  noC: NOT OWNED no markers
+  L15 DIFF head=set1 var=song: 'Set 1/ Disc 1'
+       prev=['', '']
+       next=['', '1.  Intro']
+  L33 DIFF head=set1 var=song: 'Set 1/ Disc 2'
+       prev=['15. Wonderwall', '']
+       next=['', '1.  A Natural Ghost']
+  L37 DIFF head=set2 var=song: 'Set 2/ Disc 2'
+       prev=['1.  A Natural Ghost', '']
+       next=['', '2.  Intro']
+  boundary 1|2: 'A Natural Ghost' | 'Rescue Blues'
+   placed after t17: 'Intro' | 'Rescue Blues'
+##### soulive-2001-12-15  ident=Soulive2001-12-15sbd.shn src=description ntracks=10
+  today: []
+  HEAD : ['5:1>2'] (5,)
+  noC: NOT OWNED no markers
+  L0 DIFF head=set1 var=song: 'Set 1 disc 1'
+       prev=[]
+       next=["1. steppin'", '2. cannonball']
+  L7 DIFF head=set2 var=song: 'Set 2 disc 2'
+       prev=['5. hurry up... and wait', '']
+       next=['1. uncle jr.', "2. it's your thing"]
+  boundary 1|2: 'hurry up... and wait' | 'uncle jr.'
+   placed after t5: 'Hurry Up... and Wait' | 'uncle jr'
+##### soundtribesector9-2007-10-02  ident=sts92007-10-02.ka500.722.flac16 src=description ntracks=15
+  today: ['7:1>2', '14:2>encore']
+  HEAD : ['7:1>2', '14:2>encore'] (7, 14)
+  noC: NOT OWNED one set
+  L0 DIFF head=set1 var=song: '~Disc 1: Set 1~'
+       prev=[]
+       next=['', '01. Intro']
+  L11 DIFF head=set2 var=song: '~Disc 2: Set 2~'
+       prev=['08. Tooth', '']
+       next=['', '01. Intro']
+  boundary 1|2: 'Tooth' | '1103'
+  boundary 2|encore: 'Hubble' | 'Hi-Key (with Lo-Key section)'
+   placed after t7: 'Tooth' | '1103'
+   placed after t14: 'Hubble' | 'Hi-Key (with Lo-Key section)'
+##### tealeafgreen-2008-02-08  ident=tlg2008-02-08.flac16 src=description ntracks=20
+  today: ['9:1>2', '18:2>encore']
+  HEAD : ['9:1>2', '18:2>encore'] (9, 18)
+  noC: NOT OWNED one set
+  L0 DIFF head=set1 var=song: 'Set 1/Disc 1:'
+       prev=[]
+       next=['1 Red Ribbons', '2 7th Story']
+  L11 DIFF head=set2 var=song: 'Set 2/Disc 2:'
+       prev=['9 Baseball Song', '']
+       next=["1 Don't Curse The Night", '2 Let Us Go']
+  boundary 1|2: 'Baseball Song' | "Don't Curse The Night"
+  boundary 2|encore: "If It Wasn't For The Money" | "I've Got A Truck"
+   placed after t9: 'Baseball Song' | "Don't Curse The Night"
+   placed after t18: "If It Wasn't For The Money" | "E: I've Got A Truck >"
+##### thegourds-2009-05-29  ident=TheGourds2009-05-29.matrix.flac16 src=description ntracks=25
+  today: ['14:1>2', '24:2>encore']
+  HEAD : ['14:1>2', '24:2>encore'] (14, 24)
+  noC: NOT OWNED one set
+  L0 DIFF head=set1 var=song: 'Set 1/Disc 1:'
+       prev=[]
+       next=['01. All The Way To Jericho', '02. Do 4 U']
+  L16 DIFF head=set2 var=song: 'Set 2/Disc 2:'
+       prev=['14. Plaid Coat', '']
+       next=['15. Country Love', '16. Lower 48']
+  boundary 1|2: 'Plaid Coat' | 'Country Love'
+  boundary 2|encore: 'Fought the Law..' | 'Gin & Juice'
+   placed after t14: 'Plaid Coat' | 'Country Love'
+   placed after t24: 'All in the Pack > Fought the Law' | 'Gin & Juice'
+##### yondermountainstringband-2006-06-14  ident=ymsb2006-06-14.sbd.flac16 src=description ntracks=21
+  today: ['19:1>encore']
+  HEAD : ['10:1>2', '19:2>encore'] (10, 19)
+  noC: NOT OWNED one set
+  L0 DIFF head=set1 var=song: 'Disk 1/Set I:'
+       prev=[]
+       next=['1.  Intro', '2.  Let Me Fall']
+  L12 DIFF head=set2 var=song: 'Disk 2/Set II:'
+       prev=['10. Holding *', '']
+       next=['1.  Intro', '2.  Lord Only Knows (Part One)']
+  boundary 1|2: 'Holding' | 'Lord Only Knows (Part One)'
+  boundary 2|encore: 'Keep on Going %$' | 'Steam Powered Aereoplane %'
+   placed after t10: 'Holding' | 'Intro'
+   placed after t19: 'Keep on Going' | 'Steam Powered Aereoplane'
+##### yondermountainstringband-2006-10-21  ident=ymsb2006-10-21.c414-mk21.flac16 src=description ntracks=28
+  today: ['13:1>2']
+  HEAD : ['13:1>2', '24:2>encore'] (13, 24)
+  noC: NOT OWNED one set
+  L0 DIFF head=set1 var=song: 'DISC ONE, 1ST SET'
+       prev=[]
+       next=['', '01.']
+  L18 DIFF head=set2 var=song: 'DISC TWO, 2ND SET'
+       prev=["14. Ramblin' (Reprise)", '']
+       next=['', '01.']
+  L35 DIFF head=set2 var=song: 'DISC THREE, 2ND SET (cont.)'
+       prev=['', '']
+       next=['', '01.']
+  boundary 1|2: "Ramblin' (Reprise)" | 'Death Trip'
+  boundary 2|encore: 'Ruby' | 'Snow On The Pines'
+   placed after t13: "Ramblin' (Reprise)" | 'Death Trip'
+   placed after t24: 'Ruby' | 'Snow On The Pines'

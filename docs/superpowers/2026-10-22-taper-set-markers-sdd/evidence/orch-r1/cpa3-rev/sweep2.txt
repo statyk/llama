@@ -1,0 +1,79 @@
+library billystrings-2022-03-27 description 
+    [1] 'Show Me The Door'
+library clubdelf-2011-04-09 description 
+    [1] "Set 1(con't)-"
+    [2] "Set 2(con't)-"
+library darkstarorchestra-2012-05-19 description enc
+    [1] 'Set'
+library discobiscuits-1998-02-19 description 
+    [2] "Set II (con't.)"
+library discobiscuits-1999-01-18 description enc
+    [2] "Set II (con't.)"
+library discobiscuits-2003-05-28 description 
+    [1] "Set I (con't.)"
+library gratefuldead-1971-02-18 description 
+    [2] "Mickey's last show until 10-20-74 - E.S.P. show - Other artist(s): NRPS"
+library joerussosalmostdead-2018-04-21 notes 
+    [2] 'Show #149'
+library johnkadlecik-2015-11-06 description 
+    [2] '- Show technically Nov. 7 as it began at 12:15 a.m. Sold out.'
+library leftoversalmon-1997-10-31 description 
+    [2] '--show notes--'
+library particle-2005-01-22 description enc
+    [2] 'Set The Controls For The Heart of The Sun'
+library perpetualgroove-2004-10-09 description enc
+    [2] 'Free Ride to the Show'
+library perpetualgroove-2008-05-03 description enc
+    [1] 'Free Ride to the Show'
+library railroadearth-2005-01-28 description enc
+    [2] "Set 2 (con't):"
+library ryanadams-2007-07-26 description 
+    [1] 'The Sun Also Sets'
+library ryanadams-2008-01-19 description 
+    [1] 'The Sun Also Sets'
+library ryanadams-2008-01-23 description 
+    [1] 'The Sun Also Sets'
+library ryanadams-2008-01-26 description 
+    [1] 'The Sun Also Sets'
+library ryanadams-2008-09-27 description 
+    [1] 'The Sun Also Sets'
+library ryanadams-2008-10-05 description 
+    [1] 'Sun Also Sets'
+library ryanadams-2008-10-16 description 
+    [2] 'Sun Also Sets'
+library stuallenandmarshotel-2009-05-16 description 
+    [2] 'surprise vocal by Mark Karan - this was not on the set list...'
+library stuallenandmarshotel-2011-11-02 description enc
+    [2] "Set 2 con't"
+library stuallenandmarshotel-2015-02-18 description enc
+    [2] "Set 2 con't"
+library tedeschitrucksband-2018-10-13 description enc
+    [2] 'Show Me'
+library tedeschitrucksband-2019-01-22 description enc
+    [1] 'Idle Wind (w/drum interlude)'
+library thegourds-2002-09-04 description enc
+    [2] "Set II (con't.)"
+library thegourds-2009-05-29 description enc
+    [2] 'Blanket Show'
+library themotet-2011-10-29 description 
+    [1] 'DJ Set:'
+library theschwag-2010-09-17 description 
+    [2] 'Melvin Seals on keys the whole show!'
+library theschwag-2010-09-18 description 
+    [2] 'Melvin Seals was on keys the whole show!'
+library yondermountainstringband-2008-07-19 description 
+    [2] 'Darol Anger on fiddle entire show'
+gate ryanadams-2008-10-04 description 
+    [1] 'The Sun Also Sets'
+gate greyboyallstars-2012-04-20 description 
+    [1] 'The Show Has Begun'
+gate perpetualgroove-2006-01-21 description enc
+    [2] 'Free Ride to the Show'
+gate railroadearth-2005-03-17 description enc
+    [2] "Set 2 (Con't):"
+gate davidnelsonband-2004-10-22 description enc
+    [2] "W.S. Walcott's Medicine Show"
+gate ryanadams-2007-10-27 description enc
+    [1] 'The Sun Also Sets'
+gate newridersofthepurplesage-2007-12-31 description enc
+    [1] 'Tweener Set - Skarecrow'

@@ -1,0 +1,192 @@
+==========================================================================================
+assemblyofdust-2004-12-31 aod2004-12-31.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Disc 1
+Set 1
+01. Rachel
+02. Bus Driver
+03. Westerly
+04. Grand Design*
+05. The Time Of Deeds
+06. Fountain**
+07. Stone Choir
+Disc 2
+Set2
+01. Corpus Christi
+02. Champagne Supernova^
+03. Man With A Plan
+04. Cabin John->
+4a. Champagne Supernova^ >
+4b. Cabin John
+05. Sinner
+06. Love Junkie
+07. Weekhawken Ferry
+08. Speculator->
+8a. You Lay The Dust** >
+8b. Speculator
+Disc 3
+09. Harrower
+Encore 1:
+01. Crest Of My Wing***
+02. Up On Cripple Creek^
+03. Valhalla
+04.  Love The One You're With^
+Encore 2:
+01. Songs We Sing
+--- ITEMS: 1:Rachel | 1:Bus Driver | 1:Westerly | 1:Grand Design | 1:The Time Of Deeds | 1:Fountain | 1:Stone Choir | 2:Corpus Christi | 2:Champagne Supernova^ | 2:Man With A Plan | 2:Cabin John | 2:4a. Champagne Supernova^ | 2:4b. Cabin John | 2:Sinner | 2:Love Junkie | 2:Weekhawken Ferry | 2:Speculator | 2:8a. You Lay The Dust | 2:8b. Speculator | 2:Harrower | encore:Crest Of My Wing | encore:Up On Cripple Creek^ | encore:Valhalla | encore:Love The One You're With^ | encore:Songs We Sing
+has_encore True encore_like False
+  19 encore  encore  tags             Valhalla
+  20 encore  encore  tags             Love The One You're With^
+* 21 3       encore  tags             Songs We Sing
+   (21 tracks)
+==========================================================================================
+mymorningjacket-2018-03-05 mmj2018-03-05.flac src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1
+01: Intro
+02: Evil Urges *
+03: Touch Me I'm Going To Scream Pt. 1
+04: Highly Suspicious *
+05: I'm Amazed
+06: Thank You Too
+07: Sec Walkin
+08: Two Halves
+09: Librarian
+10: Look At You
+11: Aluminum Park
+12: Remnants
+13: Smokin From Shootin
+14: Touch Me I'm Going To Scream Pt. 2
+Set 2
+01: Intro
+02: Victory Dance
+03: Cirucuital
+04: Day Is Coming
+05: Wonderful
+06: Outta My System
+07: Holdin On To Black Metal *
+08: First Light
+09: You Wanna Freak Out
+10: Slow Slow Tune
+11: Movin Away
+12: Believe (Nobody Knows)
+13: Compound Fracture
+14: Like A River
+15: In It's Infancy (The Waterfall)
+16: Get To The Point
+17: Spring (Among The Living)
+18: Thin Line
+19: Big Decisions
+20: Tropics (Erase Traces)
+21: Only Memories Remain
+encore
+22: Thanks
+23: Magic Bullet
+24: One Big Holiday
+25: Outro
+* w/ Preservation Hall Jazz Band
+--- ITEMS: 1:Evil Urges | 1:Touch Me I'm Going To Scream Pt. 1 | 1:Highly Suspicious | 1:I'm Amazed | 1:Thank You Too | 1:Sec Walkin | 1:Two Halves | 1:Librarian | 1:Look At You | 1:Aluminum Park | 1:Remnants | 1:Smokin From Shootin | 1:Touch Me I'm Going To Scream Pt. 2 | 2:Victory Dance | 2:Cirucuital | 2:Day Is Coming | 2:Wonderful | 2:Outta My System | 2:Holdin On To Black Metal | 2:First Light | 2:You Wanna Freak Out | 2:Slow Slow Tune | 2:Movin Away | 2:Believe (Nobody Knows) | 2:Compound Fracture | 2:Like A River | 2:In It's Infancy (The Waterfall) | 2:Get To The Point | 2:Spring (Among The Living) | 2:Thin Line | 2:Big Decisions | 2:Tropics (Erase Traces) | 2:Only Memories Remain | encore:Magic Bullet | encore:One Big Holiday | encore:w/ Preservation Hall Jazz Band
+has_encore True encore_like False
+  23 2       2       tags             Slow Slow Tune
+  24 2       2       tags             Movin Away
+* 25 3       2       tags             Believe (Nobody Knows)
+* 26 3       2       tags             Compound Fracture
+* 27 3       2       tags             Like A River
+* 28 3       2       tags             In It's Infancy (The Waterfall)
+* 29 3       2       tags             Get To The Point
+* 30 3       2       tags             Spring (Among The Living)
+* 31 3       2       tags             Thin Line
+* 32 3       2       tags             Big Decisions
+* 33 3       2       tags             Tropics (Erase Traces)
+* 34 3       2       tags             Only Memories Remain
+  35 encore  encore  tags             Magic Bullet
+  36 encore  encore  tags             One Big Holiday
+   (36 tracks)
+==========================================================================================
+tedeschitrucksband-2020-02-21 ttb2020-02-21 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Tedeschi Trucks Band
+21 February 2020 (Friday)
+Warner Theatre
+Washington, D.C.
+Source: DPA 4023 > Sound Devices MixPre-6 (24/48)
+Transfer: MP6 > iMac. Tracked via Sound Studio, FLAC via xACT
+Recorded by Alex Leary
+Set One
+01. Don't Let Me Slide
+02. Laugh About It
+03. They Don't Shine
+04. Right On Time
+05. Get What You Deserve
+06. Keep On Growing
+07. Until You Remember
+08. Learn How To Love
+09. Sweet Inspiration
+Set Two
+10. Calling Out To You
+11. Keep Your Lamp Trimmed and Burning
+12. All My Friends
+13. It Hurts Me Too
+14. I Walk On Guilded Splinters
+15. Part Of Me
+16. Don't Think Twice, It's All Right
+17. Drums > Let Me Get By
+18. Key To The Highway
+19. The Storm > Whipping Post
+20. E: Made Up Mind
+Notes:
+- Sold out; Third of four-night stand at the Warner Theatre spread over two weekends (Feb. 14, 15 and Feb. 21, 22).
+- Acoustic start to second set.
+- Special thanks to David Lowman for facilitating recording.
+- Photo by Josh Brick.
+
+--- ITEMS: 1:Don't Let Me Slide | 1:Laugh About It | 1:They Don't Shine | 1:Right On Time | 1:Get What You Deserve | 1:Keep On Growing | 1:Until You Remember | 1:Learn How To Love | 1:Sweet Inspiration | 2:Calling Out To You | 2:Keep Your Lamp Trimmed and Burning | 2:All My Friends | 2:It Hurts Me Too | 2:I Walk On Guilded Splinters | 2:Part Of Me | 2:Don't Think Twice, It's All Right | 2:Drums | 2:Let Me Get By | 2:Key To The Highway | 2:The Storm | 2:Whipping Post | encore:Made Up Mind | encore:Notes: | encore:- Sold out | encore:15 and Feb. 21 | encore:22). | encore:- Acoustic start to second set. | encore:- Photo by Josh Brick.
+has_encore True encore_like False
+  12 2       2       tags             All My Friends
+  13 2       2       tags             It Hurts Me Too
+* 14 3       2       tags             I Walk On Guilded Splinters
+* 15 3       2       tags             Part Of Me
+* 16 3       2       tags             Don't Think Twice, It's All Right
+* 17 3       2       tags             Drums > Let Me Get By
+* 18 3       2       tags             Key To The Highway
+* 19 3       2       tags             The Storm > Whipping Post
+  20 encore  encore  tags             E: Made Up Mind
+   (20 tracks)
+==========================================================================================
+aquariumrescueunit-1992-07-07 aru1992-07-07.flac src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+1) Shoeless Joe
+2) All Night Long
+3) Sittin' On Top of the World
+4) Payday
+5) Time Flack
+6) Basically Frightened -> 
+7) Zambi -> 
+8) Space Is the Place
+9) Tron//dossa
+10) Compared to What
+Set II
+11) Band Intros > Jam  
+12) Yield Not to Temptation 
+13) Working on the Building @
+1) Poor Boy
+2) I Can't Quit You Baby
+3) T//ime Is Free -> 
+4) Jack the Rabbit -> 
+5) Davy Crockett >
+8) Elevator to the Moon
+7) Put On Your Shoes
+8) Jazz Bank
+9) Tuxedo Junction
+10) Ain't // Nothing You Can Do
+Encore
+11) Swing
+12) Believe I...
+--- ITEMS: 1:Shoeless Joe | 1:All Night Long | 1:Sittin' On Top of the World | 1:Payday | 1:Time Flack | 1:Basically Frightened | 1:Zambi | 1:Space Is the Place | 1:Tron//dossa | 1:Compared to What | 2:Jam | 2:Yield Not to Temptation | 2:Working on the Building @ | 2:Poor Boy | 2:I Can't Quit You Baby | 2:T//ime Is Free | 2:Jack the Rabbit | 2:Davy Crockett | 2:Elevator to the Moon | 2:Put On Your Shoes | 2:Jazz Bank | 2:Tuxedo Junction | 2:Ain't // Nothing You Can Do | encore:Swing | encore:Believe I...
+has_encore True encore_like False
+   9 1       1       tags             Tron//dossa
+  10 1       1       tags             Compared to What
+* 11 1       2       tags           F Band Intros > Jam
+  12 2       2       tags             Yield Not to Temptation
+  13 2       2       tags             Working on the Building @
+   (25 tracks)

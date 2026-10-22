@@ -1,0 +1,340 @@
+# taper score: stripped candidate arm vs the adjudicator's targets
+yes/partial rows: 339; yes/partial excluding filename/track-tag: 313; reported apart as out of scope: 26
+IN SCOPE (yes, worded form, 3 desc primaries; the gate's definition): 186 rows: match 52, filler-only 11, miss 1 (of 64 graded); declined 104, known disagreements 0
+  of which yes: 186 rows: match 52, filler-only 11, miss 1 (of 64 graded); declined 104, known disagreements 0
+  of which partial: 0 rows: match 0, filler-only 0, miss 0 (of 0 graded); declined 0, known disagreements 0
+graded (owned, with a target; renumbered rows only when the adjudicator's fix is applied): 67
+  match (exact, song level): 52
+  filler-only differences (own class, not matches, not misses): 11
+  misses: 4
+declined (not taper-owned, computed as today): 220
+known disagreements (scored by expectation): 8
+
+## counts by primary (in scope)
+desc-blank-line: declined=5
+desc-disc-only: declined=3
+desc-disc-with-set: declined=47, filler-only=2, known disagreement=1, match=16, owned, no target=6, owned, renumbered target (not graded)=1
+desc-encore-only: declined=41
+desc-inline-marker: declined=12, known disagreement=1, match=1, owned, no target=1
+desc-set-header: declined=92, filler-only=9, known disagreement=2, match=35, miss=4, owned, no target=9, owned, renumbered target (not graded)=1
+jerrybase: known disagreement=1
+other: declined=12
+sibling-description: declined=8, known disagreement=3
+
+## all classes (in scope)
+ 220  declined
+  52  match
+  16  owned, no target
+  11  filler-only
+   8  known disagreement
+   4  miss
+   2  owned, renumbered target (not graded)
+
+## the 8 known disagreements (8 scored)
+  deadandcompany-2018-06-16: as expected  -- declined, computed as today (one set)
+      expectation: one numbered set plus an encore marker asserts nothing (spec section 2): the taper must NOT own it; owned is a reader defect, declined is computed as today
+  derektrucksband-2005-01-09: as expected  -- owned, no encore label ships (last set runs to the end)
+      expectation: the disputed boundary is an encore the taper did not label: if the taper owns the show its last set runs to the end of the tape (no encore label ships); if not owned it is computed as today
+  gratefuldead-1970-05-15-spans: UNEXPECTED  -- outcome 'needs-llm', gather flags ['low-confidence structure alignment', 'tape spans 2 events']
+      expectation: stays held by `tape spans` (a hold, whatever the taper owns)
+  darkstarorchestra-2007-05-08: as expected  -- declined, computed as today (veto: today's encore)
+      expectation: the disputed boundary is an encore the taper did not label: if the taper owns the show its last set runs to the end of the tape (no encore label ships); if not owned it is computed as today
+  gratefuldead-1981-12-31: as expected  -- declined, computed as today (no markers)
+      expectation: where the taper owns the structure its structure ships, an expected disagreement with the adjudicator; if not owned it is computed as today
+  stevekimockband-2003-03-11: as expected  -- declined, computed as today (unplaced: 1|2 last song 'Hillbillies on PCP (pearl cerletti)' matches 0 tracks)
+      expectation: the disputed boundary is an encore the taper did not label: if the taper owns the show its last set runs to the end of the tape (no encore label ships); if not owned it is computed as today
+  thedead-2009-04-29: as expected  -- owned, no encore label ships (last set runs to the end)
+      expectation: the disputed boundary is an encore the taper did not label: if the taper owns the show its last set runs to the end of the tape (no encore label ships); if not owned it is computed as today
+  ekoostikhookah-2009-12-31: as expected  -- declined, computed as today (one set)
+      expectation: one numbered set plus an encore marker asserts nothing (spec section 2): the taper must NOT own it; owned is a reader defect, declined is computed as today
+
+## misses (4)
+  furthur-2012-07-08  [desc-set-header] owned ([7], None) target [[7], 17]
+  greenskybluegrass-2014-02-28  [desc-set-header] owned ([11], None) target [[11], 24]
+  darkstarorchestra-2007-05-17  [desc-set-header] owned ([8], 16) target [[8], 17]
+  thenewdeal-2005-04-29  [desc-set-header] owned ([10], None) target [[10], 21]
+
+## filler-only (11)
+  darkstarorchestra-2004-12-04  [desc-set-header]
+  philleshandfriends-2007-10-07  [desc-set-header]
+  railroadearth-2009-11-28  [desc-set-header]
+  ryanadams-2008-10-04  [desc-disc-with-set]
+  joerussosalmostdead-2015-02-05  [desc-set-header]
+  moe-2004-09-04  [desc-set-header]
+  moe-2005-11-26  [desc-set-header]
+  railroadearth-2004-08-28  [desc-disc-with-set]
+  moe-2006-01-19  [desc-set-header]
+  darkstarorchestra-2008-08-31  [desc-set-header]
+  moe-2007-02-10  [desc-set-header]
+
+## declines (220)
+  belafleckandtheflecktones-2003-02-11  [desc-set-header] unplaced: 1|2 last song 'Stomping Grounds\t-\t02:03.29' matches 2 tracks
+  bigheadtoddandthemonsters-2005-02-09  [other] one set
+  bobweir-2013-03-01  [desc-set-header] one set
+  cowboyjunkies-2009-10-05  [desc-encore-only] no markers
+  darkstarorchestra-2001-11-09  [desc-set-header] void: encore none
+  darkstarorchestra-2006-04-06  [desc-set-header] one set
+  darkstarorchestra-2009-01-31  [desc-disc-only] one set
+  darkstarorchestra-2010-08-12  [desc-set-header] veto: track title
+  darkstarorchestra-2014-07-31  [desc-disc-with-set] veto: encore-like text
+  derektrucksband-2003-11-26  [desc-encore-only] one set
+  derektrucksband-2008-09-11  [desc-set-header] one set
+  discobiscuits-2002-10-04  [desc-set-header] one set
+  discobiscuits-2009-06-03  [desc-set-header] unplaced: 2|encore last song 'Confrontation' matches 2 tracks
+  dupreesdiamonds-2013-11-08  [desc-set-header] unplaced: 1|2 'Greatest Story Ever Told' also occurs on the other side
+  furthur-2010-05-30  [desc-set-header] unplaced: 1|2 last song 'Unusual Occurrences In The Desert' matches 0 tracks
+  gratefuldead-1968-08-21  [sibling-description] one set
+  gratefuldead-1970-02-13-spans  [desc-set-header] unplaced: 1|2 last song 'Electric' matches 0 tracks
+  gratefuldead-1974-10-19  [sibling-description] one set
+  gratefuldead-1980-10-31  [desc-encore-only] one set
+  hankwilliamsiii-2006-04-08  [other] no markers
+  infamousstringdusters-2014-03-15  [desc-set-header] one set
+  jimillerband-2014-08-09  [desc-set-header] no markers
+  johnkadlecik-2016-10-22  [desc-set-header] one set
+  kellerwilliams-2006-06-10  [desc-encore-only] one set
+  littlefeat-2012-09-02  [desc-encore-only] one set
+  magnoliaelectricco-2008-11-03  [desc-encore-only] one set
+  moe-2004-02-21  [desc-set-header] unplaced: 1|2 first song 'Mexico' matches 2 tracks
+  moe-2005-09-03  [desc-set-header] unplaced: 1|2 first song 'New York City' matches 0 tracks
+  moe-2007-07-14  [desc-encore-only] one set
+  mountaingoats-2012-01-31  [desc-encore-only] one set
+  newmastersounds-2007-06-01  [sibling-description] no markers
+  newridersofthepurplesage-1970-07-30  [desc-set-header] veto: no encore on today's LLM path
+  perpetualgroove-2005-12-31  [desc-disc-with-set] unplaced: 2|3 first song 'Speed Queen' matches 2 tracks
+  perpetualgroove-2007-05-26  [desc-disc-with-set] unplaced: 2|3 last song 'Decepticon Structure' matches 2 tracks
+  philleshandfriends-2001-02-18  [desc-set-header] one set
+  philleshandfriends-2005-12-29  [desc-set-header] unplaced: 1|2 first song 'Darkstar (v1)' matches 0 tracks
+  philleshandfriends-2008-11-18  [desc-disc-with-set] unplaced: 2|encore first song 'Band Introductions' matches 0 tracks
+  pnuma-2006-04-14  [desc-disc-with-set] no markers
+  radiators-1990-07-29  [desc-encore-only] one set
+  radiators-2003-05-01  [sibling-description] one set
+  railroadearth-2005-03-04  [desc-set-header] one set
+  railroadearth-2009-01-15  [desc-set-header] one set
+  robertrandolphandthefamilyband-2008-08-01  [desc-encore-only] one set
+  robertwalters20thcongress-2009-04-29  [desc-disc-with-set] one set
+  ryanadams-2006-10-23  [desc-encore-only] one set
+  samkiningerband-2008-06-26  [desc-disc-with-set] unplaced: 1|2 first song 'Track 1' matches 0 tracks
+  soundtribesector9-2005-02-05  [desc-set-header] one set
+  stringcheeseincident-2004-10-31  [desc-set-header] unplaced: 1|2 last song "Miss Brown's Teahouse" matches 2 tracks
+  thedead-2009-04-15  [desc-set-header] unplaced: 1|2 first song "Playin' in the Band" matches 2 tracks
+  umphreysmcgee-2004-02-26  [desc-disc-with-set] unplaced: 2|encore last song 'Pay the Snucka (part III)' matches 2 tracks
+  umphreysmcgee-2006-11-16  [desc-disc-only] one set
+  yondermountainstringband-2005-02-04  [other] one set
+  yondermountainstringband-2008-07-20  [desc-set-header] unplaced: 1|2 first song 'Funtime~' matches 2 tracks
+  billystrings-2018-05-26  [desc-encore-only] one set
+  campervanbeethoven-2003-01-18  [desc-disc-with-set] no markers
+  charliehunter-2001-12-08  [other] one set
+  clubdelf-2004-05-20  [desc-set-header] unplaced: 1|2 last song '?(@15:57) 24:48' matches 0 tracks
+  darkstarorchestra-2002-04-13  [desc-set-header] one set
+  darkstarorchestra-2005-05-30  [desc-blank-line] one set
+  darkstarorchestra-2008-02-17  [desc-set-header] unplaced: 2|encore first song 'One More Saturday Night^' matches 0 tracks
+  darkstarorchestra-2009-02-27  [desc-set-header] no markers
+  darkstarorchestra-2011-04-15  [desc-disc-with-set] unplaced: 2|encore last song 'Playing In The Band(reprise)6:51' matches 2 tracks
+  davealvin-2016-03-19  [desc-encore-only] one set
+  deepbananablackout-2006-03-18  [desc-set-header] unplaced: 1|2 last song 'Tr-07 ????' matches 0 tracks
+  discobiscuits-2004-12-29  [desc-set-header] veto: track title
+  discobiscuits-2009-07-18  [desc-set-header] veto: track title
+  eotoband-2008-03-24  [desc-disc-with-set] veto: encore-like text
+  garajmahal-2007-06-02  [desc-set-header] veto: encore-like text
+  gratefuldead-1969-03-28  [desc-set-header] unplaced: 1|2 first song 'Cryptical Envelopment' matches 2 tracks
+  gratefuldead-1970-05-02  [desc-set-header] unplaced: 1|2 non-filler track "Workin' Man Blues" between the songs
+  gratefuldead-1970-06-06  [desc-encore-only] one set
+  gratefuldead-1978-12-19  [desc-encore-only] one set
+  gratefuldead-1990-09-19  [desc-encore-only] one set
+  greyboyallstars-2012-04-20  [desc-set-header] veto: no encore on today's LLM path
+  infamousstringdusters-2012-01-11  [desc-set-header] unplaced: 1|2 first song 'Steam Powered Areoplane' matches 0 tracks
+  jackiegreene-2009-10-10  [desc-set-header] unplaced: 1|2 last song 'Nineteen Sixty Nine' matches 0 tracks
+  joerussosalmostdead-2019-03-03  [desc-set-header] veto: set-like text
+  johnkadlecik-2011-04-28  [desc-disc-with-set] one set
+  karldensonstinyuniverse-2005-08-03  [desc-encore-only] one set
+  kellerwilliams-2007-02-23  [desc-disc-with-set] void: empty set
+  littlefeat-1973-07-19  [desc-blank-line] no markers
+  lotus-2003-01-25  [desc-disc-with-set] one set
+  moe-2007-09-01  [desc-inline-marker] void: continuation without its set's header
+  mymorningjacket-2007-03-10  [desc-encore-only] one set
+  newmastersounds-2007-06-02  [desc-blank-line] no markers
+  papagrowsfunk-2004-01-23  [desc-disc-with-set] unplaced: 2|encore last song 'Tr-10' matches 0 tracks
+  perpetualgroove-2008-05-25  [desc-disc-with-set] void: set 4 or higher
+  philleshandfriends-2001-12-31  [desc-disc-with-set] veto: encore-like text
+  philleshandfriends-2008-07-04  [desc-disc-with-set] veto: today's encore
+  radiators-2004-04-11  [desc-set-header] one set
+  railroadearth-2007-04-25  [desc-encore-only] one set
+  robertrandolphandthefamilyband-2004-02-18  [other] no markers
+  robertwalters20thcongress-2003-07-03  [desc-encore-only] one set
+  robertwalterssuperheavyorgan-2006-03-17  [desc-encore-only] one set
+  soulcoughing-1998-10-25  [desc-inline-marker] one set
+  soundtribesector9-2002-07-19  [desc-set-header] one set
+  soundtribesector9-2005-06-11  [desc-set-header] one set
+  splinteredsunlight-2001-02-10  [desc-disc-with-set] one set
+  steelydead-2019-06-14  [desc-encore-only] one set
+  stevekimockband-2002-04-20  [desc-set-header] unplaced: 1|2 last song 'Five B4 Funk' matches 0 tracks
+  stringcheeseincident-2005-03-26  [desc-set-header] unplaced: 2|3 first song 'Texas' matches 2 tracks
+  stuallenandmarshotel-2017-02-03  [desc-encore-only] no markers
+  tealeafgreen-2005-05-14  [desc-inline-marker] unplaced: 1|2 first song 'The Garden (Part I)' matches 3 tracks
+  thedead-2009-04-24  [desc-disc-with-set] unplaced: 2|encore songs out of order
+  thenewdeal-2003-02-20  [desc-set-header] unplaced: 1|2 last song 'Gone' matches 0 tracks
+  trampledbyturtles-2007-07-20  [desc-encore-only] one set
+  umphreysmcgee-2005-04-16  [desc-disc-with-set] unplaced: 2|encore first song 'YYZ&' matches 0 tracks
+  umphreysmcgee-2006-12-31  [desc-set-header] unplaced: 1|2 last song 'JaJunk\t\t\t\t\t\t  6:10' matches 0 tracks
+  zero-1986-09-06  [desc-set-header] unplaced: 1|2 last song 'Gomorrah' matches 0 tracks
+  aquariumrescueunit-1997-11-08  [sibling-description] one set
+  belafleckandtheflecktones-2003-04-12  [desc-disc-with-set] one set
+  billystrings-2023-06-10  [desc-set-header] unplaced: 1|2 last song 'Dealing Despair' matches 0 tracks
+  charliehunter-2004-05-22  [desc-inline-marker] no markers
+  clubdelf-2008-03-13  [other] no markers
+  darkstarorchestra-2004-04-17  [desc-set-header] unplaced: 1|2 last song 'Music' matches 0 tracks
+  darkstarorchestra-2005-06-04  [desc-set-header] void: continuation without its set's header
+  darkstarorchestra-2008-07-12  [desc-encore-only] one set
+  darkstarorchestra-2011-07-31  [desc-set-header] veto: today's encore
+  derektrucksband-2004-11-26  [desc-disc-with-set] unplaced: 2|encore last song 'Pedro' matches 0 tracks
+  discobiscuits-2007-05-27  [desc-disc-with-set] void: skipped set number
+  drive-bytruckers-2007-04-27  [desc-inline-marker] one set
+  ekoostikhookah-2009-05-24  [desc-disc-with-set] unplaced: 2|encore last song 'Loner@' matches 2 tracks
+  ericmcfadden-2005-10-06  [desc-set-header] no markers
+  furthur-2010-09-17  [desc-set-header] unplaced: 2|encore last song 'Donor Rap' matches 0 tracks
+  garciabirthdayband-2011-05-07  [desc-set-header] no markers
+  gratefuldead-1970-01-02-spans  [other] no markers
+  gratefuldead-1970-05-14  [other] one set
+  gratefuldead-1970-08-18  [desc-set-header] no markers
+  greatamericantaxi-2009-11-03  [desc-disc-with-set] veto: track title
+  infamousstringdusters-2012-03-16  [desc-set-header] veto: track title
+  jackiegreene-2011-12-31  [desc-set-header] veto: today's encore
+  joerussosalmostdead-2015-02-07  [desc-set-header] veto: track title
+  joerussosalmostdead-2019-11-25  [desc-set-header] unplaced: 1|2 last song 'In Memory Of Elizabeth Reed ^' matches 2 tracks
+  kellerwilliams-2004-07-09  [desc-inline-marker] no markers
+  kellerwilliams-2008-02-02  [desc-disc-with-set] unplaced: 1|2 last song '14- Skitso' matches 0 tracks
+  leftoversalmon-1996-08-10  [desc-inline-marker] no markers
+  littlefeat-2002-08-22  [desc-encore-only] one set
+  moe-2004-10-31  [desc-set-header] unplaced: 1|2 first song 'Six Days on the Road1' matches 0 tracks
+  moe-2007-12-31  [desc-set-header] one set
+  newmastersounds-2009-09-04  [desc-disc-with-set] veto: no encore on today's LLM path
+  particle-2003-12-29  [desc-set-header] unplaced: 1|2 last song 'Set The Controls for the Heart of the Sun' matches 2 tracks
+  philleshandfriends-2000-10-27  [other] one set
+  philleshandfriends-2004-12-17  [desc-disc-with-set] unplaced: 1|2 last song 'Sugaree (Chris vocals)' matches 0 tracks
+  philleshandfriends-2007-09-23  [desc-set-header] no markers
+  philleshandfriends-2008-07-06  [desc-disc-with-set] unplaced: 2|encore first song "Phil's Donor Rap" matches 0 tracks
+  pnuma-2005-05-09  [desc-inline-marker] no markers
+  radiators-1999-02-13  [desc-set-header] one set
+  radiators-2008-01-25  [desc-set-header] unplaced: 2|encore last song 'Call Back' matches 0 tracks
+  railroadearth-2010-07-01  [desc-inline-marker] no markers
+  robertrandolphandthefamilyband-2004-06-13  [desc-encore-only] one set
+  robertwalters20thcongress-2003-10-23  [desc-encore-only] one set
+  soulive-2001-12-15  [desc-disc-with-set] veto: no encore on today's LLM path
+  soundtribesector9-2005-10-29  [desc-set-header] one set
+  stantonmoore-2001-11-20  [desc-set-header] unplaced: 1|2 first song '?' matches 0 tracks
+  stevekimockband-2002-04-25  [other] no markers
+  stevekimockband-2003-12-27  [desc-set-header] unplaced: 1|2 last song 'martin fierro))' matches 0 tracks
+  tealeafgreen-2002-11-21  [desc-disc-with-set] veto: set-like text
+  tealeafgreen-2008-01-12  [desc-blank-line] no markers
+  tedeschitrucksband-2022-07-08  [desc-encore-only] one set
+  thenewdeal-2004-10-30  [desc-disc-with-set] unplaced: 1|2 last song '??  4:47' matches 0 tracks
+  u-melt-2007-06-22  [desc-disc-with-set] unplaced: 1|2 last song 'Sequel' matches 2 tracks
+  umphreysmcgee-2005-10-28  [desc-set-header] unplaced: 1|2 last song 'Red$' matches 0 tracks
+  umphreysmcgee-2007-06-30  [desc-encore-only] one set
+  yondermountainstringband-2002-03-16  [other] one set
+  yondermountainstringband-2005-10-13  [desc-disc-with-set] unplaced: 1|2 first song 'Keep on Going' matches 2 tracks
+  yondermountainstringband-2007-02-23  [desc-disc-with-set] unplaced: 2|encore last song 'On The Run' matches 2 tracks
+  belafleckandtheflecktones-2003-06-08  [desc-set-header] one set
+  campervanbeethoven-2006-01-20  [desc-encore-only] no markers
+  citizencope-2007-12-29  [desc-encore-only] one set
+  cracker-2006-11-12  [desc-encore-only] one set
+  darkstarorchestra-2004-05-06  [desc-set-header] no markers
+  darkstarorchestra-2005-11-16  [desc-set-header] unplaced: 2|encore last song 'NFA' matches 2 tracks
+  davidnelsonband-2009-06-26  [desc-set-header] unplaced: 1|2 first song 'Iko Iko' matches 2 tracks
+  derektrucksband-2005-01-08  [desc-encore-only] one set
+  derektrucksband-2006-12-31  [desc-encore-only] one set
+  derektrucksband-2007-12-31  [sibling-description] no markers
+  discobiscuits-1999-12-31  [desc-set-header] void: set 4 or higher
+  discobiscuits-2007-06-26  [desc-set-header] unplaced: 1|2 first song 'Confrontation' matches 2 tracks
+  drive-bytruckers-2007-04-28  [desc-inline-marker] one set
+  fugazi-2002-07-01  [desc-encore-only] one set
+  furthur-2011-02-11  [desc-blank-line] no markers
+  garciagrass-2010-10-23  [desc-disc-with-set] unplaced: 1|2 first song 'Set Break' matches 0 tracks
+  gratefuldead-1966-11-19  [desc-set-header] veto: today's encore
+  gratefuldead-1970-02-11-spans  [desc-set-header] one set
+  gratefuldead-1970-05-15-e2  [desc-inline-marker] one set
+  gratefuldead-1970-11-08  [desc-disc-with-set] no markers
+  gratefuldead-1980-10-14  [other] one set
+  gratefuldead-1989-07-19  [sibling-description] one set
+  greenskybluegrass-2013-08-02  [desc-set-header] one set
+  infamousstringdusters-2012-03-17  [desc-set-header] unplaced: 1|2 last song 'Set Break' matches 0 tracks
+  jeffaustinandchriscastino-2004-03-18  [desc-set-header] void: continuation without its set's header
+  joerussosalmostdead-2015-12-19  [desc-set-header] void: encore none
+  kinggizzardandthelizardwizard-2023-06-08  [desc-set-header] no markers
+  littlefeat-2005-07-01  [desc-inline-marker] one set
+  lotus-2008-04-05  [desc-disc-only] one set
+  moe-2004-01-31  [desc-disc-with-set] veto: encore-like text
+  moe-2004-12-31  [desc-set-header] no markers
+  moe-2009-06-13  [desc-encore-only] one set
+  mymorningjacket-2008-12-31  [desc-disc-with-set] veto: today's encore
+  newridersofthepurplesage-1970-06-24  [desc-set-header] no markers
+  newridersofthepurplesage-2007-12-31  [desc-set-header] unplaced: 1|2 last song 'Sugaree' matches 0 tracks
+  philleshandfriends-2001-02-17  [sibling-description] one set
+  philleshandfriends-2005-12-04  [desc-disc-with-set] unplaced: 1|2 first song 'Warm Up' matches 0 tracks
+  philleshandfriends-2007-09-28  [desc-set-header] unplaced: 2|encore last song 'Viola Lee Blues' matches 3 tracks
+  philleshandfriends-2008-10-31  [desc-set-header] unplaced: 1|2 first song 'Phil reads Edgar Allen Poe from offstage' matches 0 tracks
+  pnuma-2006-02-07  [desc-disc-with-set] void: empty set
+  railroadearth-2006-02-18  [desc-disc-with-set] unplaced: 1|2 first song 'Mardi Gras Celebration (Hey Pocky Way on PA)' matches 0 tracks
+  robertrandolphandthefamilyband-2005-04-30  [desc-encore-only] no markers
+  ryanadams-2009-02-21  [desc-disc-with-set] unplaced: 1|2 first song 'Dead Air' matches 0 tracks
+  soulive-2003-08-07  [desc-disc-with-set] unplaced: 1|2 non-filler track "Cash's Dream" between the songs
+  soundtribesector9-2005-01-21  [desc-encore-only] one set
+  stantonmoore-2008-09-11  [desc-set-header] no markers
+  stevekimockband-2000-03-31  [desc-set-header] veto: step-1 break before set 1
+  stevekimockband-2002-08-09  [desc-encore-only] one set
+  strangefolk-2002-09-01  [desc-disc-with-set] veto: set-like text
+  stringcheeseincident-2011-07-02  [desc-set-header] unplaced: 1|2 first song 'Desert Dawn' matches 2 tracks
+  tealeafgreen-2004-07-09  [desc-set-header] unplaced: 1|2 last song 'The Garden (Part III)' matches 2 tracks
+  tedeschitrucksband-2016-03-05  [desc-disc-with-set] unplaced: 1|2 last song 'The Storm' matches 0 tracks
+  waynehancock-2004-04-08  [desc-encore-only] one set
+  yondermountainstringband-2004-11-05  [desc-set-header] one set
+
+## owned, not graded (18)
+  joerussosalmostdead-2018-08-10  [desc-set-header] owned, no target
+  tealeafgreen-2005-01-20  [desc-inline-marker] owned, no target
+  derektrucksband-2003-12-26  [desc-set-header] owned, no target
+  greenskybluegrass-2013-01-03  [desc-set-header] owned, no target
+  railroadearth-2008-02-01  [desc-disc-with-set] owned, no target
+  railroadearth-2010-03-06  [desc-set-header] owned, no target
+  yondermountainstringband-2006-07-04  [desc-set-header] owned, renumbered target (not graded)
+  davidnelsonband-2004-10-22  [desc-set-header] owned, no target
+  derektrucksband-2007-05-26  [desc-set-header] owned, no target
+  thecodetalkers-2003-10-31  [desc-disc-with-set] owned, no target
+  derektrucksband-2004-04-01  [desc-set-header] owned, no target
+  derektrucksband-2005-04-09  [desc-disc-with-set] owned, no target
+  perpetualgroove-2005-04-01  [desc-disc-with-set] owned, no target
+  railroadearth-2005-02-18  [desc-disc-with-set] owned, no target
+  railroadearth-2007-09-29  [desc-set-header] owned, no target
+  robertwalters20thcongress-2004-01-02  [desc-disc-with-set] owned, renumbered target (not graded)
+  soundtribesector9-2007-07-08  [desc-disc-with-set] owned, no target
+  tedeschitrucksband-2022-10-01  [desc-set-header] owned, no target
+
+## unreplayable / absent (0)
+
+## out of scope (filename / track-tag rows) (26)
+  campervanbeethoven-2008-11-22  [track-title-set-label] declined
+  greenskybluegrass-2010-06-17  [filename-set] declined
+  infamousstringdusters-2009-10-17  [track-title-set-label] declined
+  joerussosalmostdead-2016-11-12  [filename-set] declined
+  soulive-2005-11-05  [track-title-set-label] declined
+  theblacklillies-2013-06-21  [filename-set] declined
+  themotet-2013-04-20  [track-title-set-label] declined
+  whitedenim-2012-08-13  [track-title-set-label] declined
+  belafleckandtheflecktones-2003-02-21  [track-title-set-label] declined
+  brokemountainbluegrassband-2005-05-13  [track-title-set-label] declined
+  heavypets-2010-04-11  [track-title-set-label] declined
+  motherhips-2013-06-21  [track-title-set-label] declined
+  purejerryband-2013-10-25  [filename-set] declined
+  derektrucksband-2008-11-02  [filename-set] declined
+  gracepotterandthenocturnals-2008-11-08  [track-title-set-label] declined
+  greenskybluegrass-2013-06-08  [filename-set] declined
+  hollybowling-2019-09-12  [filename-set] declined
+  johnkadlecik-2011-09-02  [filename-set] declined
+  mymorningjacket-2008-09-27  [track-title-set-label] declined
+  railroadearth-2009-03-20  [track-title-set-label] declined
+  rosehilldrive-2008-12-31  [track-title-set-label] declined
+  bandofheathens-2009-02-06  [track-title-set-label] declined
+  darkstarorchestra-2013-05-24  [filename-set] declined
+  mountaingoats-2009-12-01  [track-title-set-label] declined
+  radiators-2010-07-17  [filename-set] declined
+  umphreysmcgee-2006-08-31  [track-title-set-label] declined

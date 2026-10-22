@@ -1,0 +1,210 @@
+==========================================================================================
+darkstarorchestra-2006-11-29 dso_at_chameleonclub_1 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Set One
+d1t01 Promised Land
+d1t02 Sugaree
+d1t03 Greatest Story Ever Told
+d1t04 China Cat> 
+d1t05 I Know You Rider
+d1t06 Black Throated Wind
+d1t07 Tennessee Jed
+d1t08 El Paso
+d1t09 Loser
+d1t10 Jack Straw
+d1t11 Friend of the Devil 
+d2t01 Playin in the Band
+d2t02 Casey Jones
+Set Two 
+d2t03 He's Gone> 
+d2t04 Me & My Uncle
+d2t05 Bird Song
+d2t06 Mexicali Blues
+d2t07 Ramble on Rose
+d3t01 Truckin> 
+d3t02 drums> 
+d3t03 Other One> 
+d3t04 Sugar Magnolia
+d3t05 Encore: Saturday Night 
+d3t06 Show announcement
+d3t07 Filler: Baby Blue
+--- ITEMS: 1:Promised Land | 1:Sugaree | 1:Greatest Story Ever Told | 1:China Cat | 1:I Know You Rider | 1:Black Throated Wind | 1:Tennessee Jed | 1:El Paso | 1:Loser | 1:Jack Straw | 1:Friend of the Devil | 1:Playin in the Band | 1:Casey Jones | 2:He's Gone | 2:Me & My Uncle | 2:Bird Song | 2:Mexicali Blues | 2:Ramble on Rose | 2:Truckin | 2:drums | 2:Other One | 2:Sugar Magnolia | encore:Saturday Night | encore:Filler: Baby Blue
+has_encore True encore_like False
+  21 2       2       tags             Other One>
+  22 2       2       tags             Sugar Magnolia
+* 23 2       encore  tags             One More Saturday Night
+  24 encore  encore  tags             It's All Over Now Baby Blue
+   (24 tracks)
+==========================================================================================
+discobiscuits-2002-03-06 db2002-03-06.shnf src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1: Triumph > Vassillios > I-Man, Reactor, Little Betty Boop
+Set 2: Sound 1, Spaga > Pygmy Twylyte > Basis For A Day, Home Again
+Encore: King Of The World
+--- ITEMS: 1:Triumph | 1:Vassillios | 1:I-Man | 1:Reactor | 1:Little Betty Boop | 2:Sound 1 | 2:Spaga | 2:Pygmy Twylyte | 2:Basis For A Day | 2:Home Again | encore:King Of The World
+has_encore True encore_like False
+   4 1       1       tags             Reactor
+   5 1       1       tags             Little Betty Boop
+*  6 1       2       tags             Sound 1
+   7 2       2       tags             Spaga
+   8 2       2       tags             Pygmy Twylyte
+   (11 tracks)
+==========================================================================================
+gratefuldead-1974-07-19 gd1974-07-19.sbd.miller.32634.sbeok.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Soundcheck:
+d1t01 - Jam
+Set 1:
+d1t02 - Bertha
+d1t03 - Mexicali Blues
+d1t04 - Deal
+d1t05 - Beat It On Down The Line
+d1t06 - Row Jimmy
+d1t07 - Me And Bobby McGee
+d1t08 - Scarlet Begonias
+d1t09 - El Paso
+d1t10 - Tennessee Jed
+d2t01 - Playing In The Band
+Set 1.5:
+d2t02 - Seastones
+Set 2:
+d2t03 - Brown Eyed Women
+d2t04 - Me And My Uncle
+d2t05 - It Must Have Been The Roses
+d2t06 - Jack Straw
+d3t01 - He's Gone ->
+d3t02 - U.S. Blues
+d3t03 - Weather Report Suite ->
+d3t04 - Let It Grow ->
+d3t05 - Spanish Jam ->
+d3t06 - Eyes Of The World ->
+d3t07 - China Doll
+d3t08 - One More Saturday Night
+--- ITEMS: 1:Bertha | 1:Mexicali Blues | 1:Deal | 1:Beat It On Down The Line | 1:Row Jimmy | 1:Me And Bobby McGee | 1:Scarlet Begonias | 1:El Paso | 1:Tennessee Jed | 1:Playing In The Band | 1:Set 1.5: | 1:Seastones | 2:Brown Eyed Women | 2:Me And My Uncle | 2:It Must Have Been The Roses | 2:Jack Straw | 2:He's Gone | 2:U.S. Blues | 2:Weather Report Suite | 2:Let It Grow | 2:Spanish Jam | 2:Eyes Of The World | 2:China Doll | 2:One More Saturday Night
+has_encore False encore_like False
+  10 1       1       tags             Tennessee Jed
+  11 1       1       tags             Playing In The Band
+* 12 2       1       tags             Seastones
+  13 2       2       tags             Brown Eyed Women
+  14 2       2       tags             Me And My Uncle
+   (24 tracks)
+==========================================================================================
+joerussosalmostdead-2013-12-27 jrad2013-12-27.cmc64.sbd.matrix.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Joe Russo's Almost Dead
+	Set One:
+01.  intro/crowd
+02.  Cream Puff War ->
+03.  Truckin' ->
+04.  Dupree's Diamond Blues
+05.  Cumberland Blues
+06.  Row Jimmy ->
+07.  Bertha
+08.  Easy Wind ->
+09.  Shakedown Street
+	Set Two:
+01.  Space ->
+02.  Scarlet Begonias ->
+03.  Fire On The Mountain
+04.  Playin' In The Band ->
+05.  Althea ->
+06.  Turn On Your Lovelight
+07.  Terrapin Station ->
+08.  Terrapin Transit/At A Siding/Terrapin Flyer
+09.  encore break/crowd
+	Encore:
+10.  Brokedown Palace
+--- ITEMS: 1:Cream Puff War | 1:Truckin' | 1:Dupree's Diamond Blues | 1:Cumberland Blues | 1:Row Jimmy | 1:Bertha | 1:Easy Wind | 1:Shakedown Street | 2:Space | 2:Scarlet Begonias | 2:Fire On The Mountain | 2:Playin' In The Band | 2:Althea | 2:Turn On Your Lovelight | 2:Terrapin Station | 2:Terrapin Transit/At A Siding/Terrapin Flyer | encore:Brokedown Palace
+has_encore True encore_like True
+   7 1       1       tags             Easy Wind ->
+   8 1       1       tags             Shakedown Street
+*  9 1       2       tags             Space ->
+  10 2       2       tags             Scarlet Begonias ->
+  11 2       2       tags             Fire On The Mountain
+   (18 tracks)
+==========================================================================================
+joerussosalmostdead-2017-04-29 JRAD2017-04-29.1stBankCenter.TelefunkenM60.FLAC24 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+SET ONEShelter from the Storm->
+Bertha->
+Let it Grow->
+Help/Slipnot>
+Throwing Stones
+Must Have Been the Roses>
+Gonesville->
+Shakedown Street
+SET TWO
+Morfbeats->
+Dark Star->
+Half Step->
+Estimated Prophet->
+Terrapin Suite->
+The Other One
+Eyes of the World
+ENCORE 1
+One More Saturday Night
+Not Fade Away
+ENCORE 2
+Ripple
+Born to Run
+
+--- ITEMS: 1:Shelter from the Storm | 1:Bertha | 1:Let it Grow | 1:Help/Slipnot | 1:Throwing Stones | 1:Must Have Been the Roses | 1:Gonesville | 1:Shakedown Street | 2:Morfbeats | 2:Dark Star | 2:Half Step | 2:Estimated Prophet | 2:Terrapin Suite | 2:The Other One | 2:Eyes of the World | encore:One More Saturday Night | encore:Not Fade Away | encore:Ripple | encore:Born to Run
+has_encore True encore_like False
+   8 1       1       tags             Gonesville
+   9 1       1       tags             Shakedown Street
+* 10 1       2       tags             Morfbeats
+  11 2       2       tags             Dark Star
+  12 2       2       tags             Mississippi Half Step Uptown Toodleloo
+   (21 tracks)
+==========================================================================================
+kellerwilliams-2005-02-12 kw2005-02-12.flac src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+01. Shinjuku >
+02. Freeker >
+03. Word up >
+04. Freeker Reprise >
+05. King of birds >
+06. Swing
+07. Doin that Rag >
+08. Down Under >
+09. Loup>Get on Up >
+10.  Whole Lotta Love > For The Love Of Money > Superstitious > Cars,Trucks & Buses >
+11. Loup>Get on up >
+12. Streetbeater >
+13. Castles Made Of Sand > Little Wing > Castles Made Of Sand
+14. Stupid questions 
+15. 2003 minus 25
+16. Vocal Loup
+17. Black sheep
+18. Techno loup w/theramin
+19. Gatecrashers Suck
+20. One More Saturday night
+Set 2 
+Disc 2
+01. Shapes Of M&Ms >
+02. Breathe >
+03. Up in my Cadillac >
+04. Boomwhacker/Toy loup W/Crowd Response chant >
+05. Breathe
+06. Yoni
+07. Runnin on fumes >
+08. Black Peter
+09. Skitso >
+10. Victory song  >
+11. Play this >
+12. Outta Sight(Local outdoor organic)
+13. Keep it Simple >
+14. Dudely wah >
+15. Vacate
+16. Crowd
+E:
+17. Drum Loup >
+18. Boob job
+--- ITEMS: 1:Shinjuku | 1:Freeker | 1:Word up | 1:Freeker Reprise | 1:King of birds | 1:Swing | 1:Doin that Rag | 1:Down Under | 1:Loup | 1:Get on Up | 1:Whole Lotta Love | 1:For The Love Of Money | 1:Superstitious | 1:Cars,Trucks & Buses | 1:Loup | 1:Get on up | 1:Streetbeater | 1:Castles Made Of Sand | 1:Little Wing | 1:Castles Made Of Sand | 1:Stupid questions | 1:2003 minus 25 | 1:Vocal Loup | 1:Black sheep | 1:Techno loup w/theramin | 1:Gatecrashers Suck | 1:One More Saturday night | 2:Shapes Of M&Ms | 2:Breathe | 2:Up in my Cadillac | 2:Breathe | 2:Yoni | 2:Runnin on fumes | 2:Black Peter | 2:Skitso | 2:Victory song | 2:Play this | 2:Outta Sight(Local outdoor organic) | 2:Keep it Simple | 2:Dudely wah | 2:Vacate | encore:Drum Loup | encore:Boob job
+has_encore True encore_like False
+  17 1       1       tags             Gatecrashers Suck
+  18 1       1       tags             One More Saturday night
+* 19 1       2       tags             Shapes Of M&Ms >
+  20 2       2       tags             Breathe >
+  21 2       2       tags             Up in my Cadillac >
+   (36 tracks)

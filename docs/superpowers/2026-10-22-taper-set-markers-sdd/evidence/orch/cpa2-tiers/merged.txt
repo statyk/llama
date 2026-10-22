@@ -1,0 +1,124 @@
+==========================================================================================
+ryanadams-2008-01-21 ryanadams2008-01-21.sbd.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Ryan Adams and The Cardinals
+Arlington Theatre
+Santa Barbara, Ca.
+Monday January 21, 2008
+Recording Process: SBD Matrix w/2 audience facing shotguns mics on stage-lip>Tascam HD-P2
+Transfer Process: Tascam HD-P2>Dell Vostro 1500>Adobe Audition 3>cdwave>flacfrontend>tlh
+Recorded/Transferred: Bill Demars (wdemarsjr@yahoo.com)
+Ryan Solo CD 1
+01.Introduction/Tuning
+02.Call Me On Your Way Back Home
+03.Damn, Sam (I Love A Woman That Rains)
+04.Blossom
+15:13
+Cardinals Set 1 CD 2
+01.Bartering Lines
+02.Cold Roses>
+03.Blue Hotel
+04.Off Broadway
+05.Rescue Blues
+06.Nightbirds
+07.Everybody Knows
+08.Goodnight Rose
+09.The Sun Also Sets
+10.Halloweenhead
+11.Freeway To The Canyon
+1:08:07
+Set 2 CD 3
+01.Tuning
+02.When The Stars Go Blue
+03.Beautiful Sorta
+04.Peaceful Valley>
+05.Dear Chicago
+06.Graboff Joke//Happy Birthday Spacewolf
+07.A Kiss Before I Go
+08.Shakedown On 9th Street
+35:21
+Total Time: 1:58:42
+You can put the acoustic set at the beginning of set 2 and have just 2 discs instead of 3. I chose to keep everything in order.
+--- ITEMS: 1:Ryan Adams and The Cardinals | 1:Arlington Theatre | 1:Santa Barbara | 1:Ca. | 1:Monday January 21 | 1:2008 | 1:Ryan Solo CD 1 | 1:Call Me On Your Way Back Home | 1:Damn, Sam (I Love A Woman That Rains) | 1:Blossom | 1:Cardinals Set 1 CD 2 | 1:Bartering Lines | 1:Cold Roses | 1:Blue Hotel | 1:Off Broadway | 1:Rescue Blues | 1:Nightbirds | 1:Everybody Knows | 1:Goodnight Rose | 1:The Sun Also Sets | 1:Halloweenhead | 1:Freeway To The Canyon | 2:When The Stars Go Blue | 2:Beautiful Sorta | 2:Peaceful Valley | 2:Dear Chicago | 2:Graboff Joke//Happy Birthday Spacewolf | 2:A Kiss Before I Go | 2:Shakedown On 9th Street
+has_encore False encore_like False
+   2 1       1       tags             Damn, Sam (I Love A Woman That Rains)
+   3 1       1       tags             Blossom
+*  4 2       1       tags             Bartering Lines
+*  5 2       1       tags             Cold Roses
+*  6 2       1       tags             Blue Hotel
+*  7 2       1       tags             Off Broadway
+*  8 2       1       tags             Rescue Blues
+*  9 2       1       tags             Nightbirds
+* 10 2       1       tags             Everybody Knows
+* 11 2       1       tags             Goodnight Rose
+* 12 2       1       tags             The Sun Also Sets
+* 13 2       1       tags             Halloweenhead
+* 14 2       1       tags             Freeway To The Canyon
+* 15 3       2       tags             When The Stars Go Blue
+* 16 3       2       tags             Beautiful Sorta
+* 17 3       2       tags             Peaceful Valley
+* 18 3       2       tags             Dear Chicago
+* 19 3       2       tags             Graboff Joke//Happy Birthday Spacewolf
+* 20 3       2       tags             A Kiss Before I Go
+* 21 3       2       tags             Shakedown On 9th Street
+   (21 tracks)
+==========================================================================================
+ryanadams-2008-01-19 ra2008-01-19.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1:
+Ryan Solo
+01.Intro
+02.Sweet Lil' Gal (23rd/1st)
+03.Everything Dies
+04.San Diego
+Cardinals
+05.Peaceful Valley Intro>
+06.Please Do Not Let Me Go
+07.Off Broadway
+08.Mockingbird
+09.The Rescue Blues
+10.This House Is Not For Sale
+11.Elizabeth, You Were Born To Play That Part
+12.Everybody Knows
+13.When The Stars Go Blue
+14.Evening Joke w/Jon Graboff//Happy Birthday Spacewolf
+15.Goodnight Rose
+16.The Sun Also Sets
+Set 2:
+01.A Kiss Before I Go>
+02.The End
+03.Freeway To The Canyon
+04.Halloweenhead
+05.Easy Plateau>
+06.Bartering Lines>
+07.Beautiful Sorta
+08.Cold Roses
+09.Wildflowers
+10.Peaceful Valley Reprise
+--- ITEMS: 1:Ryan Solo | 1:Sweet Lil' Gal (23rd/1st) | 1:Everything Dies | 1:San Diego | 1:Cardinals | 1:Please Do Not Let Me Go | 1:Off Broadway | 1:Mockingbird | 1:The Rescue Blues | 1:This House Is Not For Sale | 1:Elizabeth, You Were Born To Play That Part | 1:Everybody Knows | 1:When The Stars Go Blue | 1:Evening Joke w/Jon Graboff//Happy Birthday Spacewolf | 1:Goodnight Rose | 1:The Sun Also Sets | 2:A Kiss Before I Go | 2:The End | 2:Freeway To The Canyon | 2:Halloweenhead | 2:Easy Plateau | 2:Bartering Lines | 2:Beautiful Sorta | 2:Cold Roses | 2:Wildflowers | 2:Peaceful Valley Reprise
+has_encore False encore_like False
+   3 1       1       tags             Everything Dies
+   4 1       1       tags             San Diego
+*  5 2       1       tags           F Peaceful Valley Intro>
+*  6 2       1       tags             Please Do Not Let Me Go
+*  7 2       1       tags             Off Broadway
+*  8 2       1       tags             Mockingbird
+*  9 2       1       tags             The Rescue Blues
+* 10 2       1       tags             This House Is Not For Sale
+* 11 2       1       tags             Elizabeth, You Were Born To Play That Part
+* 12 2       1       tags             Everybody Knows
+* 13 2       1       tags             When The Stars Go Blue
+* 14 2       1       tags             Evening Joke w/Jon Graboff//Happy Birthday Spacewolf
+* 15 2       1       tags             Goodnight Rose
+* 16 2       1       tags             The Sun Also Sets
+* 17 3       2       tags             A Kiss Before I Go>
+* 18 3       2       tags             The End
+* 19 3       2       tags             Freeway To The Canyon
+* 20 3       2       tags             Halloweenhead
+* 21 3       2       tags             Easy Plateau>
+* 22 3       2       tags             Bartering Lines>
+* 23 3       2       tags             Beautiful Sorta
+* 24 3       2       tags             Cold Roses
+* 25 3       2       tags             Wildflowers
+* 26 3       2       tags             Peaceful Valley Reprise
+   (26 tracks)

@@ -1,0 +1,15 @@
+### Finding Verdicts
+- **Finding 1 (labels renamed ran before encore checks): ADDRESSED.** scripts/taper_probe.py `tier()` (67291bd, ~L231-251) now returns `encore folded`/`encore added` on encore presence before any run comparison, and `labels renamed` additionally requires `same_enc` (equal encore positions on non-filler tracks). Regenerated library_rows.jsonl: ryanadams-2007-10-14 -> `encore folded`; joerussosalmostdead-2016-02-10 and -2022-04-30 -> `encore added`; `labels renamed` tier is now 0. Test: scripts/test_taper_probe.py `test_encore_changes_are_never_renames_and_merges_are_flagged`. Its case 2 (stored set 3 -> encore, equal runs) returns `labels renamed` under the old order, so the test pins the fix. Case 1's comment ("same runs shape would otherwise read as a rename") is wrong: [2,2,2] vs [2,4] runs differ, so case 1 passes under the old code too. Minor, and it doesn't matter because case 2 carries the pin.
+- **Finding 2 (merged lumped with split; hidden merges): ADDRESSED.** `TIER_ORDER` has separate `sets merged`/`sets split` (L59); `numbered_count`/`sets_merged` helpers (~L220-228); every owned row carries `sets_merged` (L398; 609/609 owned rows have the key). library_summary.txt lists every `sets merged` row, not a sample (~L424-426), plus a new "numbered-set count decreased (any tier), EVERY row" list with each row's tier (~L429-431). Regenerated output: sets merged = assemblyofdust-2004-12-31, mymorningjacket-2018-03-05, ryanadams-2008-01-19, tedeschitrucksband-2020-02-21 (4, listed in full). The any-tier list (8) also has smashingpumpkins-1998-05-19 [encore folded] and tedeschitrucksband-2019-11-15 [encore added], plus the two joerusso rows [encore added]. The joerusso rows are there because stored set 3 became the encore, so the numbered-set count drops by definition. The fix report discloses this, and the tier tag tells a reader which rows are which. Tests: merged/split tier asserts in `test_target_labels_and_tiers`, and a merge inside `encore folded` plus `sets_merged` both ways in the new test. Tier totals 31+0+34+23+4+13+1 = 106, which matches the "labels differ" count. Focused run: 7 passed.
+
+### New Breakage in the Fix Diff
+None at Critical or Important. Minor:
+- scripts/test_taper_probe.py, new test, case 1: the comment is inaccurate (see Finding 1). The `same_enc` clause of `tier()` is not pinned by any test: a mutant that drops it survives, because encore presence is decided first and both-have-encore with equal runs but different positions is near-unreachable in practice.
+- The new any-tier and every-row lists in `library_summary()` have no unit test. They were checked against the regenerated output only.
+
+### Out-of-Scope Observations
+- A numbered-set count *increase* inside an encore tier (a split hidden in `encore folded`/`encore added`) is not flagged anywhere. The findings only asked for decreases.
+- `sets merged` now skips `rng.sample`, so the seeded samples for the later tiers come out differently from the e59ab2f run. Expected after a tier change; no effect on correctness.
+
+### Verdict
+**Fix round:** All findings addressed, no new Critical/Important breakage.

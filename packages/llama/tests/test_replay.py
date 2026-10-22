@@ -155,6 +155,76 @@ def test_stored_llm_alignment_is_needs_llm(tmp_path):
     assert classify(legs, "held") == ("needs-llm", None)
 
 
+_PLACING = ("Set 1:\nMorning Dew\nChina Cat Sunflower > I Know You Rider\n\n"
+            "Set 2:\nDark Star > Eyes of the World\n")
+_NO_MARKERS = "Morning Dew\nChina Cat Sunflower > I Know You Rider\nDark Star > Eyes of the World\n"
+# paf2007-10-12.schoeps.taraszki.barfield.87850.flac24 (cache excerpt): `set 3, disc 2`
+# is a label only `parse_setlist` reads, so the taper reader declines (cross-check).
+_CROSS_CHECK = ("set 1 & 2, disc 1\n1 - good morning little schoolgirl\n2 - deal > jam >\n"
+                "3 - mexican girl > jam >\n4 - scarlet begonias >\n5 - i'm so gone\n"
+                "6 - turn on your lovelight\nset 2\n7 - lost highway\n8 - tell me mama\n"
+                "9 - deep elem blues\n10- friend of the devil >\n11- big mon\n\n"
+                "set 3, disc 2\n1 - playin' in the band >\n2 - cumberland blues >\n"
+                "3 - uncle john's band > jam >\n4 - mountains of the moon >\n"
+                "5 - terrapin station >\n6 - i know you rider\n7 - e: donor rap/intros\n"
+                "8 - help on the way > slipknot! >\n9 - franklins tower")
+
+
+def test_stored_llm_taper_owned_is_replayable(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm", description=_PLACING)
+    legs = _legs(tmp_path, ws)
+    assert legs.gather.taper_owned is True
+    assert "stored alignment llm" not in legs.needs_llm
+    assert legs.needs_llm == []
+
+
+def test_stored_llm_deterministic_candidate_stays_needs_llm(tmp_path):
+    # (pin) the candidate aligns deterministically with no LLM call, but the taper
+    # does not own it: the relaxation keys on taper_owned, not on "no LLM needed".
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm", description=_NO_MARKERS)
+    legs = _legs(tmp_path, ws)
+    assert legs.gather.taper_owned is False and legs.gather.needs_llm == ()
+    assert legs.gather.show.structure.alignment == "deterministic"
+    assert "stored alignment llm" in legs.needs_llm
+
+
+def test_stored_llm_anchored_candidate_stays_needs_llm(tmp_path, monkeypatch):
+    from llama import jerrybase
+    from llama.jerrybase import JerrybaseEvent, JerrybaseSet
+    ev = JerrybaseEvent(event_id="1", venue="V", city="C", state="ST", sets=[
+        JerrybaseSet(name="1", closer="I Know You Rider", break_length="long"),
+        JerrybaseSet(name="2", closer="Eyes of the World", break_length="long")])
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [ev])
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm", description=_NO_MARKERS)
+    legs = compute_legs(ws, config=Config(root=tmp_path), ia=CacheOnlyIA(tmp_path / "cache"),
+                        slfm=None, scratch=tmp_path / "scratch" / ws.dir.name)
+    assert legs.gather.taper_owned is False
+    assert legs.gather.show.structure.alignment == "jerrybase"
+    assert "stored alignment llm" in legs.needs_llm
+
+
+def test_cross_check_failure_keeps_stored_llm_needs_llm(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm", description=_CROSS_CHECK)
+    legs = _legs(tmp_path, ws)
+    assert legs.gather.taper.reason.startswith("cross-check:")
+    assert legs.gather.taper_owned is False
+    assert "stored alignment llm" in legs.needs_llm
+
+
+def test_track_title_veto_keeps_stored_llm_needs_llm(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm", description=_PLACING)
+    cache = tmp_path / "cache" / f"md_{IDENT}.json"
+    md = json.loads(cache.read_text())
+    for f in md["files"]:
+        if f.get("title") == "Eyes of the World":
+            f["title"] = "Encore: Eyes of the World"
+    cache.write_text(json.dumps(md))
+    legs = _legs(tmp_path, ws)
+    assert legs.gather.taper.reason == "veto: track title"
+    assert legs.gather.taper_owned is False
+    assert "stored alignment llm" in legs.needs_llm
+
+
 def test_missing_vetting_json_is_needs_llm(tmp_path):
     ws, _ = _library_show(tmp_path, held=True, with_vetting=False)
     legs = _legs(tmp_path, ws)
@@ -395,7 +465,8 @@ def test_show_replay_to_dict_has_the_contract_keys_plus_date():
         "brief_flags", "stored_brief_guard", "needs_llm", "outcome", "would_be", "briefing",
         "reproduces", "title_changes", "venue", "city", "date", "selected_venue", "selected_city",
         "set_changes", "segue_changes", "set_breaks", "alignment", "notes", "digests",
-        "slfm_miss", "unreplayable"]
+        "slfm_miss", "unreplayable", "taper_owned", "sets", "filler", "taper_source",
+        "taper_reason", "step1_alignment"]
     assert r.to_dict()["date"] is None
 
 
@@ -650,3 +721,22 @@ def test_stored_brief_guard_runs_on_the_normalised_briefing(tmp_path):
     ws, _ = _library_show(tmp_path, held=False)
     _with_empty_set_briefing(ws)
     assert _replay(tmp_path, ws).stored_brief_guard == []
+
+
+def test_record_carries_taper_fields(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, description=_PLACING)
+    owned = _replay(tmp_path, ws)
+    assert owned.taper_owned is True
+    assert owned.taper_source == "description" and owned.taper_reason is None
+    assert owned.sets and set(owned.sets) <= {"1", "2", "encore"} and "2" in owned.sets
+    assert len(owned.filler) == len(owned.sets) and all(isinstance(f, bool) for f in owned.filler)
+    assert owned.step1_alignment in ("deterministic", "jerrybase")
+    d = owned.to_dict()
+    assert d["sets"] == owned.sets and d["taper_owned"] is True
+
+    ws2, _ = _library_show(tmp_path / "b", held=True, description=_NO_MARKERS)
+    plain = _replay(tmp_path / "b", ws2)
+    assert plain.taper_owned is False
+    assert plain.taper_source == "none" and plain.taper_reason
+    assert plain.sets and len(plain.filler) == len(plain.sets)
+    assert plain.step1_alignment == "deterministic"

@@ -1,0 +1,70 @@
+== t8-rev run Thu Oct 22 13:52:45 EDT 2026
+S0: rc=0 760 passed in 8.32s import_ok diff=[]
+SENT: rc=1 15 failed, 745 passed in 10.44s import_ok diff=['-    notes: list[str] = []', "+    raise RuntimeError('SENTINEL')"]
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_agreeing_set_count_raises_neither_flag_nor_note
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_closer_agreement_uses_fuzzy_song_matching[Me & My Uncle-Me and My Uncle]
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_closer_agreement_uses_fuzzy_song_matching[Mississippi Half Step-Mississippi Half-Step Uptown Toodeloo]
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_closer_agreement_uses_fuzzy_song_matching[charlie brown-Charlie Brown]
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_closer_flag_is_a_note_when_taper_text_names_another_closer
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_closer_flag_stays_hard_when_taper_text_agrees
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_closer_for_a_set_the_taper_lacks_is_a_note
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_closer_maps_to_the_taper_set_of_the_same_number
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_duplicate_closer_flags_consume_sets_in_order
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_encore_closer_maps_to_the_taper_encore
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_owned_low_confidence_needs_no_anchoring
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_set_count_disagreement_is_a_note_when_taper_text_disagrees
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_set_count_note_excludes_the_taper_encore
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_taper_beats_jerrybase_anchoring
+     ../m/SENT/packages/llama/tests/test_stage_gather.py::test_tripwire_runs_on_owned_show_agreeing_with_anchoring
+t: rc=1 1 failed, 759 passed in 11.41s import_ok diff=['-        taper_n = len({i.set for i in taper.items if i.set != "encore"})', '+        taper_n = len({i.set for i in taper.items})']
+     ../m/t/packages/llama/tests/test_stage_gather.py::test_set_count_note_excludes_the_taper_encore
+u: rc=1 3 failed, 757 passed in 9.13s import_ok diff=['-                                                fuzzy_norm_title(st.closer, aliases))', '+                                                fuzzy_norm_title(st.closer, aliases)) and songs[-1] == st.closer']
+     ../m/u/packages/llama/tests/test_stage_gather.py::test_closer_agreement_uses_fuzzy_song_matching[Me & My Uncle-Me and My Uncle]
+     ../m/u/packages/llama/tests/test_stage_gather.py::test_closer_agreement_uses_fuzzy_song_matching[Mississippi Half Step-Mississippi Half-Step Uptown Toodeloo]
+     ../m/u/packages/llama/tests/test_stage_gather.py::test_closer_agreement_uses_fuzzy_song_matching[charlie brown-Charlie Brown]
+u2: rc=1 2 failed, 758 passed in 8.97s import_ok diff=['-        agrees = bool(songs) and fuzzy_title_eq(fuzzy_norm_title(songs[-1], aliases),', '+        agrees = bool(songs) and songs[-1].casefold() == st.closer.casefold() and (0,']
+     ../m/u2/packages/llama/tests/test_stage_gather.py::test_closer_agreement_uses_fuzzy_song_matching[Me & My Uncle-Me and My Uncle]
+     ../m/u2/packages/llama/tests/test_stage_gather.py::test_closer_agreement_uses_fuzzy_song_matching[Mississippi Half Step-Mississippi Half-Step Uptown Toodeloo]
+q: rc=1 21 failed, 739 passed in 9.36s import_ok diff=['-    if taper.set_like:', '+    if False:']
+     ../m/q/packages/llama/tests/test_taper.py::test_bare_set_item_real_case_is_not_owned
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_real_cases_are_not_owned[gratefuldead-1974-07-19]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_real_cases_are_not_owned[localh-2004-12-31]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_real_cases_are_not_owned[motherhips-1995-08-06]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_real_cases_are_not_owned[neworleanssuspects-2012-08-02]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_real_cases_are_not_owned[ryanadams-2008-01-21]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_real_cases_are_not_owned[thedead-2009-04-25]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_token_in_a_set_three_item
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_tokens_in_a_numbered_set_item[- end of set one]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_tokens_in_a_numbered_set_item[2nd set starts here]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_tokens_in_a_numbered_set_item[Cardinals Set 1 CD 2]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_tokens_in_a_numbered_set_item[Set 1 con't]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_tokens_in_a_numbered_set_item[Set 1.5:]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_tokens_in_a_numbered_set_item[Set 1.]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_tokens_in_a_numbered_set_item[Set I * ["Pack Up The Cats"]]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_tokens_in_a_numbered_set_item[Set II (late)]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_tokens_in_a_numbered_set_item[end of the first set]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_tokens_in_a_numbered_set_item[into the Set1 closer]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_tokens_in_a_numbered_set_item[set one-(1:05:59)]
+     ../m/q/packages/llama/tests/test_taper.py::test_set_like_veto_applies_with_a_marked_encore
+     ../m/q/packages/llama/tests/test_taper.py::test_split_ordinal_header_is_set_like
+s: rc=1 4 failed, 756 passed in 8.84s import_ok diff=['-            if str(number) == item.set and _CONT_AFTER.match(item.title[m.end():]):', '+            if False:']
+     ../m/s/packages/llama/tests/test_taper.py::test_set_like_negatives[Set 2 (con\u2019t):]
+     ../m/s/packages/llama/tests/test_taper.py::test_set_like_negatives[Set 2 con't]
+     ../m/s/packages/llama/tests/test_taper.py::test_set_like_negatives[Set 2(con't)-]
+     ../m/s/packages/llama/tests/test_taper.py::test_set_like_negatives[Set II (con't.)]
+i: rc=1 5 failed, 755 passed in 9.14s import_ok diff=['-            and not gathered.taper_owned):', '+            and bool(gathered.needs_llm)):']
+     ../m/i/packages/llama/tests/test_reapply.py::test_reapply_writes_nothing_on_a_needs_llm_show
+     ../m/i/packages/llama/tests/test_replay.py::test_stored_llm_alignment_is_needs_llm
+     ../m/i/packages/llama/tests/test_replay.py::test_stored_llm_anchored_candidate_stays_needs_llm
+     ../m/i/packages/llama/tests/test_replay.py::test_stored_llm_deterministic_candidate_stays_needs_llm
+     ../m/i/packages/llama/tests/test_replay.py::test_track_title_veto_keeps_stored_llm_needs_llm
+a: rc=1 3 failed, 757 passed in 8.68s import_ok diff=['-        if not is_filler(t.title) or not _counts(t):', '+        if not _counts(t):']
+     ../m/a/packages/llama/tests/test_taper.py::test_every_boundary_must_place
+     ../m/a/packages/llama/tests/test_taper.py::test_non_filler_between_is_unplaced
+     ../m/a/packages/llama/tests/test_taper.py::test_real_case_declines
+o: rc=1 1 failed, 759 passed in 8.64s import_ok diff=['-    r"(?:set\\s*(?P<tok>one|two|three|iii|ii|i|[123])(?!\\w)"', '+    r"(?:set\\s*(?P<tok>one|two|three|iii|ii|i|[123])"']
+     ../m/o/packages/llama/tests/test_taper.py::test_set_like_negatives[Set In Stone]
+o2: rc=0 760 passed in 8.62s import_ok diff=['-    r"|(?P<ord>first|second|third)\\s+set(?!\\w)"', '+    r"|(?P<ord>first|second|third)\\s+set"']
+o3: rc=0 760 passed in 8.69s import_ok diff=['-    r"|(?P<ordn>1st|2nd|3rd)\\s+set(?!\\w))"', '+    r"|(?P<ordn>1st|2nd|3rd)\\s+set)"']
+o4: rc=0 760 passed in 8.79s import_ok diff=['-    rf"^{_E_DECOR}(?:enc|e\\d?)(?!\\w)"', '+    rf"^{_E_DECOR}(?:enc|e\\d?)"']
+rc=0 Thu Oct 22 13:55:22 EDT 2026

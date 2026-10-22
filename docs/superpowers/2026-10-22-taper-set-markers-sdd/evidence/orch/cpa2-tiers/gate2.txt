@@ -1,0 +1,309 @@
+==========================================================================================
+corblund-2004-11-04 corblund2004-11-04.emc709.flac src= description reason= None renum= False t_breaks= [12, 26] t_enc= None
+--- TEXT
+The Corb Lund Band
+Live At The Times Change High And Lonesome Club
+Winnipeg, Manitoba
+November 5, 2004
+Three Sets
+Taped from the front row & Transferred by Redseed Mobile
+EMC709->MT-877
+Transfer done with a wicked soundcard at my buddy's studio
+Sound is excellent, especially for rig used
+Disc/Set1
+01 (Gonna) Shine up My Boots
+02 Expectation and the Blues
+03 Apocalyptic Modified Blues
+04 The Counterfeiter's Blues
+05 No Roads Here
+06 Short Native Grasses
+07 Sixteen Tons
+08 The Big Bitch Butch Bull Fiddle
+09 The Truck Got Stuck Talkin' Blues
+10 We Used To Ride 'em
+11 Buckin' Horse Rider
+12 Okie From Muskogee
+Disc/Set2
+01 Roughest Neck Around
+02 Daughter Don't You Marry No Guitar Picker
+03 The Cover of The Rolling Stone
+04 Heavy And Leaving
+05 Good Copenhagen Is Better Than Bad Cocaine
+06 Time To Switch To Whiskey
+07 Mora (Blackberry)
+08 Where Is My Soldier
+09 Seven Spanish Angels
+10 A Leader on Losing Control
+11 All I Wanna Do Is Play Cards
+12 Five Dollar Bill
+13 She Won't Come To me
+14 Always keep An Edge on Your Knife
+Disc/Set3
+01 Workin' Man Blues
+02 Now I Must Leave
+03 Eating Me Alive
+04 Crazy
+05 Lament For Lester Cousins
+06 Case Of The Winde Soaked Preacher
+07 Folsom Prison Blues
+08 (Gonna) Shine up My Boots
+09 Are You Sure Hank Done it This Way
+10 Spanish Armada
+11 On The Road Again
+Please share but NEVER EVER encode to mp3 or other lossy formats.
+--- ITEMS: 1:(Gonna) Shine up My Boots | 1:Expectation and the Blues | 1:Apocalyptic Modified Blues | 1:The Counterfeiter's Blues | 1:No Roads Here | 1:Short Native Grasses | 1:Sixteen Tons | 1:The Big Bitch Butch Bull Fiddle | 1:The Truck Got Stuck Talkin' Blues | 1:We Used To Ride 'em | 1:Buckin' Horse Rider | 1:Okie From Muskogee | 2:Roughest Neck Around | 2:Daughter Don't You Marry No Guitar Picker | 2:The Cover of The Rolling Stone | 2:Heavy And Leaving | 2:Good Copenhagen Is Better Than Bad Cocaine | 2:Time To Switch To Whiskey | 2:Mora (Blackberry) | 2:Where Is My Soldier | 2:Seven Spanish Angels | 2:A Leader on Losing Control | 2:All I Wanna Do Is Play Cards | 2:Five Dollar Bill | 2:She Won't Come To me | 2:Always keep An Edge on Your Knife | 3:Workin' Man Blues | 3:Now I Must Leave | 3:Eating Me Alive | 3:Crazy | 3:Lament For Lester Cousins | 3:Case Of The Winde Soaked Preacher | 3:Folsom Prison Blues | 3:(Gonna) Shine up My Boots | 3:Are You Sure Hank Done it This Way | 3:Spanish Armada | 3:On The Road Again | 3:Please share but NEVER EVER encode to mp3 or other lossy formats.
+    1 today=1       taper=1       target=1       tags           Gonna) Shine up My Boots
+    2 today=1       taper=1       target=1       tags           Expectation and the Blues
+    3 today=1       taper=1       target=1       tags           Apocalyptic Modified Blues
+    4 today=1       taper=1       target=1       tags           The Counterfeiter's Blues
+    5 today=1       taper=1       target=1       tags           No Roads Here
+    6 today=1       taper=1       target=1       tags           Short Native Grasses
+    7 today=1       taper=1       target=1       tags           Sixteen Tons
+    8 today=1       taper=1       target=1       tags           The Big Bitch Butch Bull Fiddle
+    9 today=1       taper=1       target=1       tags           The Truck Got Stuck Talkin' Blues
+   10 today=1       taper=1       target=1       tags           We Used To Ride 'em
+   11 today=1       taper=1       target=1       tags           Buckin' Horse Rider
+   12 today=1       taper=1       target=1       tags           Okie From Muskogee
+*  13 today=1       taper=2       target=2       tags           Roughest Neck Around
+*  14 today=1       taper=2       target=2       tags           Daughter Don't You Marry No Guitar Picker
+*  15 today=1       taper=2       target=2       tags           The Cover of The Rolling Stone
+*  16 today=1       taper=2       target=2       tags           Heavy And Leaving
+*  17 today=1       taper=2       target=2       tags           Good Copenhagen Is Better Than Bad Cocaine
+*  18 today=1       taper=2       target=2       tags           Time To Switch To Whiskey
+*  19 today=1       taper=2       target=2       tags           Mora (Blackberry)
+*  20 today=1       taper=2       target=2       tags           Where Is My Soldier
+*  21 today=1       taper=2       target=2       tags           Seven Spanish Angels
+*  22 today=1       taper=2       target=2       tags           A Leader on Losing Control
+*  23 today=1       taper=2       target=2       tags           All I Wanna Do Is Play Cards
+*  24 today=1       taper=2       target=2       tags           Five Dollar Bill
+*  25 today=1       taper=2       target=2       tags           She Won't Come To me
+*  26 today=1       taper=2       target=2       tags           Always keep An Edge on Your Knife
+*  27 today=1       taper=3       target=3       tags           Workin' Man Blues
+*  28 today=1       taper=3       target=3       tags           Now I Must Leave
+*  29 today=1       taper=3       target=3       tags           Eating Me Alive
+*  30 today=1       taper=3       target=3       tags           Crazy
+*  31 today=1       taper=3       target=3       tags           Lament For Lester Cousins
+*  32 today=1       taper=3       target=3       tags           Case Of The Winde Soaked Preacher
+*  33 today=1       taper=3       target=3       tags           Folsom Prison Blues
+*  34 today=1       taper=3       target=3       tags           Gonna) Shine up My Boots
+*  35 today=1       taper=3       target=3       tags           Are You Sure Hank Done it This Way
+*  36 today=1       taper=3       target=3       tags           Spanish Armada
+*  37 today=1       taper=3       target=3       tags           On The Road Again
+==========================================================================================
+ratdog-2008-11-16 rd2008-11-16.mg210.flac16 src= description reason= None renum= False t_breaks= [10] t_enc= 18
+--- TEXT
+Set I Disc 1: 74:16
+01. Milestones Jam* >
+02. Here Comes Sunshine > 
+03. Mama Tried
+04. It's All Over Now, Baby Blue
+05. Mission in the Rain
+06. Lucky Enough >
+07. Big Boss Man
+08. Cream Puff War >
+09. Silvio > Tequila > Silvio >
+10. Good Lovin'
+Set II Disc 2: 69:34
+01. Peggy-O@ >
+02. Me and My Uncle@
+03. Quinn The Eskimo@ >
+04. The Other One >
+05. Samson and Delilah >
+06. Stuff
+07. Come Together>
+08. Going Down The Road Feeling Bad
+Encore:
+09. Ripple / Birthday Rap
+*-Distinct Milestones signature riffs during most of the opening Jam.
+--- ITEMS: 1:Milestones Jam | 1:Here Comes Sunshine | 1:Mama Tried | 1:It's All Over Now, Baby Blue | 1:Mission in the Rain | 1:Lucky Enough | 1:Big Boss Man | 1:Cream Puff War | 1:Silvio | 1:Tequila | 1:Silvio | 1:Good Lovin' | 2:Peggy-O@ | 2:Me and My Uncle@ | 2:Quinn The Eskimo@ | 2:The Other One | 2:Samson and Delilah | 2:Stuff | 2:Come Together | 2:Going Down The Road Feeling Bad | encore:Ripple / Birthday Rap | encore:-Distinct Milestones signature riffs during most of the opening Jam.
+    1 today=1       taper=1       target=1       tags           Milestones Jam* >
+    2 today=1       taper=1       target=1       tags           Here Comes Sunshine >
+    3 today=1       taper=1       target=1       tags           Mama Tried
+    4 today=1       taper=1       target=1       tags           It's All Over Now, Baby Blue
+    5 today=1       taper=1       target=1       tags           Mission in the Rain
+    6 today=1       taper=1       target=1       tags           Lucky Enough >
+    7 today=1       taper=1       target=1       tags           Big Boss Man
+    8 today=1       taper=1       target=1       tags           Cream Puff War >
+    9 today=1       taper=1       target=1       tags           Silvio > Tequila > Silvio >
+   10 today=1       taper=1       target=1       tags           Good Lovin'
+   11 today=2       taper=2       target=2       tags           Peggy-O@ >
+   12 today=2       taper=2       target=2       tags           Me and My Uncle@
+   13 today=2       taper=2       target=2       tags           Quinn The Eskimo@ >
+   14 today=2       taper=2       target=2       tags           The Other One >
+   15 today=2       taper=2       target=2       tags           Samson and Delilah >
+   16 today=2       taper=2       target=2       tags           Stuff
+   17 today=2       taper=2       target=2       tags           Come Together>
+   18 today=2       taper=2       target=2       tags           Going Down The Road Feeling Bad
+*  19 today=2       taper=encore  target=encore  tags           Ripple / Birthday Rap
+==========================================================================================
+soulive-2001-12-15 Soulive2001-12-15sbd.shn src= description reason= None renum= False t_breaks= [5] t_enc= None
+--- TEXT
+Set 1 disc 1
+1. steppin'
+2. cannonball
+3. 1 in 7 (techno intro remix) 
+4. azucar
+5. hurry up... and wait
+Set 2 disc 2
+1. uncle jr.
+2. it's your thing
+3. lenny->
+4. turn it out
+--- ITEMS: 1:steppin' | 1:cannonball | 1:azucar | 1:hurry up... and wait | 2:uncle jr. | 2:it's your thing | 2:lenny | 2:turn it out
+    1 today=1       taper=1       target=1       tags           Steppin'
+    2 today=1       taper=1       target=1       tags           Cannonball
+    3 today=1       taper=1       target=1       unresolved     soulive2001-12-15d1.shnf/soulive2001-12-15d1t03.mp3
+    4 today=1       taper=1       target=1       tags           Azucar
+    5 today=1       taper=1       target=1       tags           Hurry Up... and Wait
+*   6 today=1       taper=2       target=2       tags           uncle jr
+*   7 today=1       taper=2       target=2       tags           it's your thing
+*   8 today=1       taper=2       target=2       tags           lenny->
+*   9 today=1       taper=2       target=2       tags           turn it out
+*  10 today=1       taper=2       target=2       unresolved     soulive2001-12-15d2.shnf/soulive2001-12-15d2t05.mp3
+==========================================================================================
+cowboyjunkies-2012-04-26 cowboyjunkies2012-04-26.at822.flac16 src= description reason= None renum= False t_breaks= [9] t_enc= 20
+--- TEXT
+*** 16bit regular CD version ***
+SET ONE (50:28)
+01. Sing In My Meadow
+02. Wrong Piano
+03. West Of Rome
+04. Third Crusade
+05. I Cannot Sit Sadly By Your Side
+06. Stranger Here
+07. Damaged From The Start
+08. Fairytale
+09. Unanswered Letter
+SET TWO (1:15:03)
+01. Sweet Jane
+02. Dreaming My Dreams With You
+03. A Common Disaster
+04. 32-20 Blues
+05. Five Room Love Story
+06. A Horse In The Country
+07. Bea's Song
+08. Murder, Tonight, In The Trailer Park >
+09. Those Final Feet
+10. (Band Introductions)
+11. Misguided Angel
+ENCORE
+12. Powderfinger
+13. Fuck, I Hate The Cold
+--- ITEMS: 1:Sing In My Meadow | 1:Wrong Piano | 1:West Of Rome | 1:Third Crusade | 1:I Cannot Sit Sadly By Your Side | 1:Stranger Here | 1:Damaged From The Start | 1:Fairytale | 1:Unanswered Letter | 2:Sweet Jane | 2:Dreaming My Dreams With You | 2:A Common Disaster | 2:32-20 Blues | 2:Five Room Love Story | 2:A Horse In The Country | 2:Bea's Song | 2:Murder, Tonight, In The Trailer Park | 2:Those Final Feet | 2:(Band Introductions) | 2:Misguided Angel | encore:Powderfinger | encore:Fuck, I Hate The Cold
+    1 today=1       taper=1       target=1       tags           Sing In My Meadow
+    2 today=1       taper=1       target=1       tags           Wrong Piano
+    3 today=1       taper=1       target=1       tags           West Of Rome
+    4 today=1       taper=1       target=1       tags           Third Crusade
+    5 today=1       taper=1       target=1       tags           I Cannot Sit Sadly By Your Side
+    6 today=1       taper=1       target=1       tags           Stranger Here
+    7 today=1       taper=1       target=1       tags           Damaged From The Start
+    8 today=1       taper=1       target=1       tags           Fairytale
+    9 today=1       taper=1       target=1       tags           Unanswered Letter
+*  10 today=1       taper=2       target=2       tags           Sweet Jane
+*  11 today=1       taper=2       target=2       tags           Dreaming My Dreams With You
+*  12 today=1       taper=2       target=2       tags           A Common Disaster
+*  13 today=1       taper=2       target=2       tags           32-20 Blues
+*  14 today=1       taper=2       target=2       tags           Five Room Love Story
+*  15 today=1       taper=2       target=2       tags           A Horse In The Country
+*  16 today=1       taper=2       target=2       tags           Bea's Song
+*  17 today=1       taper=2       target=2       tags           Murder, Tonight, In The Trailer Park >
+*  18 today=1       taper=2       target=2       tags           Those Final Feet
+*  19 today=1       taper=2       target=2       tags           (Band Introductions)
+*  20 today=1       taper=2       target=2       tags           Misguided Angel
+   21 today=encore  taper=encore  target=encore  tags           Powderfinger
+   22 today=encore  taper=encore  target=encore  tags           Fuck, I Hate The Cold
+==========================================================================================
+joerussosalmostdead-2018-02-15 jrad2018-02-15.cmc621.cmc64.sbd.matrix.flac16 src= notes reason= None renum= False t_breaks= [7] t_enc= 13
+--- TEXT
+Joe Russo's Almost Dead 02/15/2018 War Memorial Auditorium, Nashville, TN
+Source 1: Schoeps cmc621 (On Stage, Split 25') -> Avid SC-48 -> Zoom H6N -> WAV (@24/96);
+Source 2: Schoeps cmc64 (FOH booth) -> ART Tube MP Studio Pre Amps -> Zoom H6N -> WAV (@24/96);
+Source 3: SBD (Avid SC-48) -> Zoom H6N -> WAV (@24/96);
+Transfer: WAVs -> SoundForge Pro 11.0 (Time Align, normalize) -> Vegas Pro 13.0 (mix/render) -> SoundForge Pro 11.0 (EQ, normalize, fades, 96->44.1 iZotope 64-Bit SRC; 24->16 bit iZotope MBIT+ Dither) -> CDWav -> FLAC
+Costello & McRoberts Ultra Mix - Recording and FOH mix by Peter Costello - Monitors by Aaron Gittleman - Audio edited, mixed and mastered by Eric McRoberts 07/01-03/2018
+	Set One (8:20PM - 9:45PM):
+01.  Jam @@ ->
+02.  Cassidy ## ->
+03.  Here Comes Sunshine @ ->
+04.  Not Fade Away # ->
+05.  Ruben & Cherise $ ->
+06.  Doin That Rag % (NA)
+07.  Magnificent Sanctuary Band ^
+	Set Two (10:16PM - 11:53PM):
+01.  Eyes Of The World & ->
+02.  The Eleven * ->
+03.  Feel Like A Stranger ->
+04.  China Cat Sunflower ->
+05.  I Know You Rider >
+06.  The Other One
+	Encore:
+07.  Shakedown Street
+@@ - With GDTRFB teases (Band)
+## - With New Speedway Boogie Teases (Band)
+@ - With a “Fearless” (Pink Floyd) Tease (MB)
+# - With an “I Want Candy” (Bow Wow Wow) Jam, A “Simpsons Theme” (Danny Elfman) Tease (SM) & Throwin Stones Teases (Band)
+$ - With a Terrapin Station Tease (Band) 
+--- ITEMS: 1:Jam @@ | 1:Cassidy ## | 1:Here Comes Sunshine @ | 1:Not Fade Away # | 1:Ruben & Cherise $ | 1:Doin That Rag % (NA) | 1:Magnificent Sanctuary Band ^ | 2:Eyes Of The World & | 2:The Eleven | 2:Feel Like A Stranger | 2:China Cat Sunflower | 2:I Know You Rider | 2:The Other One | encore:Shakedown Street | encore:@@ - With GDTRFB teases (Band) | encore:## - With New Speedway Boogie Teases (Band) | encore:@ - With a “Fearless” (Pink Floyd) Tease (MB) | encore:# - With an “I Want Candy” (Bow Wow Wow) Jam | encore:A “Simpsons Theme” (Danny Elfman) Tease (SM) & Throwin Stones Teases (Band) | encore:$ - With a Terrapin Station Tease (Band) & maybe something else? | encore:% - First time played by Almost Dead since 2016-01-10 | encore:Capitol Theatre | encore:Port Chester | encore:NY | encore:a gap of 79 shows. NA is Nicole Atkins on Lead Vocals. | encore:^ - First time played by Almost Dead since 2016-10-08 | encore:Brooklyn Bowl | encore:Brooklyn | encore:NY | encore:& - With a DD bass solo & the “1973 Ending” changes | encore:- With a “Duo Jam” | encore:+ - With a “Fly Like an Eagle” (Steve Miller) Tease (MB) | encore:Pre Show / Set Break Music: Costello’s Motown Mix | encore:Post Show Walk Out Music: Stayin' Alive | encore:The Bee Gees | encore:Poster: New Antlers | encore:Show #139 | encore:There is a higher quality 24 bit version of this recording available here:
+    1 today=1       taper=1       target=1       tags           Jam @@ ->
+    2 today=1       taper=1       target=1       tags           Cassidy ## ->
+    3 today=1       taper=1       target=1       tags           Here Come Sunshine @ ->
+    4 today=1       taper=1       target=1       tags           Not Fade Away # ->
+    5 today=1       taper=1       target=1       tags           Ruben & Cherise $ ->
+    6 today=1       taper=1       target=1       tags           Doin That Rag % (NA)
+    7 today=1       taper=1       target=1       tags           Magnificent Sanctuary Band ^
+    8 today=2       taper=2       target=2       tags           Eyes Of The World & ->
+    9 today=2       taper=2       target=2       tags           The Eleven * ->
+   10 today=2       taper=2       target=2       tags           Feel Like A Stranger ->
+   11 today=2       taper=2       target=2       tags           China Cat Sunflower ->
+   12 today=2       taper=2       target=2       tags           I Know You Rider >
+   13 today=2       taper=2       target=2       tags           The Other One
+*  14 today=3       taper=encore  target=encore  tags           Shakedown Street
+==========================================================================================
+darkstarorchestra-2007-07-06 DSO2007-07-06.16b.flac src= description reason= None renum= False t_breaks= [6] t_enc= 14
+--- TEXT
+Dark Star Orchestra
+07-06-07 
+Nelson Ledges Quarry Park
+Nelson twp. OH.
+Grateful Fest #8 
+Source: AKG 480's (ck61's) > zaolla cables > V3 > HD-P2 @ 24/96
+Lineage: cf card > card reader > HDD > cdwav > wavlab downsampled &dithered (UV22HR) 16/44.1 >.flac
+location: FOB 40~ back 10~ high NOS
+Taper: Jackoroses
+Set 1 Disc 1
+01: Feel Like a Stranger
+02: Donna intro
+03: Row Jimmy 
+04: Easywind
+05: It's all over now
+06: So Many Roads
+07: tuning/ stage talk
+08: Jack Straw
+Set 2
+09: US Blues
+Disc 2
+01: Estimated Prophet >
+02: Dark Star >
+03: Drums >
+04: Space >
+05: Throwing Stones > 
+06: Not Fade Away
+07: Lucy in the Sky with Diamonds
+E:
+08: Ripple
+--- ITEMS: 1:Feel Like a Stranger | 1:Row Jimmy | 1:Easywind | 1:It's all over now | 1:So Many Roads | 1:Jack Straw | 2:US Blues | 2:Estimated Prophet | 2:Dark Star | 2:Drums | 2:Space | 2:Throwing Stones | 2:Not Fade Away | 2:Lucy in the Sky with Diamonds | encore:Ripple
+    1 today=1       taper=1       target=1       tags           Feel Like a Stranger
+    2 today=1       taper=1       target=1       tags           Row Jimmy
+    3 today=1       taper=1       target=1       tags           Easywind
+    4 today=1       taper=1       target=1       tags           It's all over now
+    5 today=1       taper=1       target=1       tags           So Many Roads
+    6 today=1       taper=1       target=1       tags           Jack Straw
+*   7 today=1       taper=2       target=2       tags           US Blues
+*   8 today=1       taper=2       target=2       tags           Estimated Prophet >
+*   9 today=1       taper=2       target=2       tags           Dark Star >
+*  10 today=1       taper=2       target=2       tags           Drums >
+*  11 today=1       taper=2       target=2       tags           Space >
+*  12 today=1       taper=2       target=2       tags           Throwing Stones >
+*  13 today=1       taper=2       target=2       tags           Not Fade Away
+*  14 today=1       taper=2       target=2       tags           Lucy in the Sky with Diamonds
+   15 today=encore  taper=encore  target=encore  tags           Ripple

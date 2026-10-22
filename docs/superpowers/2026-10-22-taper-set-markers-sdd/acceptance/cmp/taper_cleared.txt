@@ -1,0 +1,22 @@
+shows held in base and cleared (or structure-changed) in cand:
+corblund-2004-11-04  structure-changed (would be needs-brief)  taper_owned: true  source: "description"
+  removed: single-set structure for a long show (160 min); research asserts 3 sets but structure has 1
+  note: set breaks from the taper's markers (was [] ['1'])
+darkstarorchestra-2004-11-14  needs-brief  taper_owned: false  source: "description"
+  removed: (none)
+derektrucksband-2004-04-15  structure-changed (would be needs-brief)  taper_owned: true  source: "description"
+  removed: low-confidence structure alignment; research asserts 2 sets but structure has 1
+  note: set breaks from the taper's markers (was [16] ['1', 'encore'])
+derektrucksband-2008-10-23  structure-changed (would be needs-brief)  taper_owned: true  source: "description"
+  removed: low-confidence structure alignment; setlist evidence shows multiple sets but alignment found none; research asserts 2 sets but structure has 1
+  note: set breaks from the taper's markers (was [] ['1'])
+johnkadlecik-2021-11-28  needs-brief  taper_owned: true  source: "description"
+  removed: (none)
+northmississippiallstars-2010-03-11  needs-brief  taper_owned: false  source: "description"
+  removed: (none)
+  note: accepted short tag title: track 12 'ML' corroborated by lma:nma2010-03-11
+themotet-2013-04-20  needs-brief  taper_owned: false  source: null
+  removed: (none)
+yondermountainstringband-2006-07-04  structure-changed (would be needs-brief)  taper_owned: true  source: "description"
+  removed: research asserts 2 sets but structure has 1
+  note: set breaks from the taper's markers (was [] ['1'])

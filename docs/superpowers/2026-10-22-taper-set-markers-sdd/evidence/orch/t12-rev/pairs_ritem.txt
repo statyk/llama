@@ -1,0 +1,178 @@
+2161 prefix stripped (sNtN/NN:) 
+36 number kept: 32 Things md_moe.2010-01-31.JM27sHD-P224BIT.json|description
+16 number kept: 40 Miles From Denver md_ymsb2002-04-20.flac16.sbd.json|description
+10 number kept: 44 Blues md_DTB2007-05-15.akg451CK8.flac16.json|description
+9 number kept: 13 Days md_UM2008-04-11.mg200.24-96.json|description
+7 number kept: 17 Cents md_ISD2011-01-11.aud.wav.json|description
+7 number kept: 8 Cylinders md_YMSB2005-10-19-LSD2.flac16.json|description
+6 number kept: 3 Dimes Down md_dbt2008-03-15.mk4v.flac16.json|description
+5 number kept: 40 Miles from Denver md_ymsb2006-06-01.matrix.flac16.json|description
+4 number kept: 4 Year Puma md_STS9-2006-02-10.flac.json|description
+4 number kept: 2 Hits and the Joint Turned Brown md_YMSB2004-04-01sbd.flac.json|description
+4 number kept: 200 Miles From Montana md_gsbg2008-02-29.matrix.flac16.json|description
+4 number kept: 100 Years from Now md_isd2012-03-17.akg463mod.ua5.flac16.json|description
+3 number kept: 420 Special md_GAT2009-11-03.flac.json|description
+3 number kept: 15 Steps md_JAB2015-06-13.HuckFinnAKG.json|description
+3 number kept: 986 ft.. md_STS92007-03-15.FLAC16.json|description
+3 number kept: 40 Days md_paf2004-12-18.-km140s-fob.flac16.json|description
+3 number kept: 16 Days md_radams1999-10-28.sbd.flac.json|description
+3 number kept: 34 Small md_rwsho2005-08-19.flac.json|description
+3 number kept: 986 Foot Tall Trees md_sts9-2006-12-29..flac24.json|description
+3 number kept: 303 Improv md_sts9-2006-12-30.Remastered.flac.json|description
+3 number kept: 99 Floors md_tsp2007-07-27.csb.flac24.json|description
+3 number kept: 2 Hits and The Joint Turned Brown md_ymsb2006-10-13.oktava.flac16f.json|description
+2 number kept: 100 Flower Power Maximum md_Cracker2010-04-10.json|description
+2 number kept: 36 Cars md_NolaSuspects2012-08-17.json|description
+2 number kept: 99 Years md_bluegrassgenerals2017-01-06.matrix.json|description
+2 number kept: 100 Flower Power Maximum # md_cracker2007-12-30.matrix.flac16.json|description
+2 number kept: 42 (1) md_db2007-04-22.akg480ck61.vic.flac16.json|description
+2 number kept: 18 Wheels of Love md_dbt2006-06-22.json|description
+2 number kept: 700 Houses md_dtb2008-12-31.gefell210.flac24.json|description
+2 number kept: 3 minutes into Ramble On Rose md_gd1974-06-23.122269.mtx.tobin.flac24.json|notes
+2 number kept: 4 minutes into Ramble On Rose md_gd1974-06-23.122269.mtx.tobin.flac24.json|notes
+2 number kept: 99 Year Blues md_ldead2005-01-07.shnf.json|description
+2 number kept: 72 Hours Awake md_lotus2007-11-24.at4040.sbd.flac16.json|description
+2 number kept: 33 (A Fine Year to Die) md_nms2007-06-01.akg482.flac16.json|description
+2 number kept: 3 on the B md_nms2009-09-04.tlm170.flac16.json|description
+2 number kept: 46 Days md_paf2006-10-28.schoeps.85721.flac16.json|description
+2 number kept: 8 Piece Box md_scots2012-05-25.mbho.json|description
+2 number kept: 1 in 7 md_soulive2008-09-05.json|description
+2 number kept: 1 In 7 (w/drum solo) md_soulive2009-04-16.flac24.json|description
+2 number kept: 986 Foot Tall Trees (8:46) md_sts92006-09-09.schoeps.mk4v.flacf.json|description
+2 number kept: 44 Blues⁴ md_ttb2022-03-25.akgc414xlii.flac16.json|description
+2 number kept: 2 Hits And The Joint Turned Brown md_ymsb2005-03-31.matrix.flac16.json|description
+2 number kept: 20 Eyes md_ymsb2005-10-22.matrix.flac16.json|description
+2 number kept: 100 Years From Now md_ymsb2006-06-03.matrix.json|description
+2 number kept: 2 Hits & The Joint Turned Brown ~ md_ymsb2009-07-11.akg463s.ps2.flac24.json|description
+2 number kept: 20 Eyes @ md_ymsb2009-07-11.akg463s.ps2.flac24.json|description
+1 number kept: 7 Walkers md_7walkers2010-12-30.sunboy.flac16.json|description
+1 number kept: 100 Million md_BHS1984-08-14.BHS1984-08-14.json|description
+1 number kept: 22 Going On 23 md_BHS1984-08-14.BHS1984-08-14.json|description
+1 number kept: 02 FRIEND OF THE DEVIL md_DSO2010-12-31.json|description
+1 number kept: 03 OPERATOR md_DSO2010-12-31.json|description
+1 number kept: 04 SWING LOW SWEET CHARIOT md_DSO2010-12-31.json|description
+1 number kept: 05 ON THE ROAD AGAIN md_DSO2010-12-31.json|description
+1 number kept: 06 HE WAS A FRIEND OF MINE md_DSO2010-12-31.json|description
+1 number kept: 07 HAPPY BIRTHDAY md_DSO2010-12-31.json|description
+1 number kept: 08 STIR IT UP md_DSO2010-12-31.json|description
+1 number kept: 09 JACK A ROE md_DSO2010-12-31.json|description
+1 number kept: 10 WHEN I PAINT MY MASTERPIECE md_DSO2010-12-31.json|description
+1 number kept: 11 COCAINE BLUES md_DSO2010-12-31.json|description
+1 number kept: 12 BIG IRON md_DSO2010-12-31.json|description
+1 number kept: 13 CALIFORNIA EARTHQUAKE md_DSO2010-12-31.json|description
+1 number kept: 14 OH BOY md_DSO2010-12-31.json|description
+1 number kept: 15 RIPPLE md_DSO2010-12-31.json|description
+1 number kept: 17 PROMISED LAND md_DSO2010-12-31.json|description
+1 number kept: 18 BERTHA md_DSO2010-12-31.json|description
+1 number kept: 19 MAM TRIED md_DSO2010-12-31.json|description
+1 number kept: 20 THEY LOVE EACH OTHER md_DSO2010-12-31.json|description
+1 number kept: 21 LOOKS LIKE RAIN md_DSO2010-12-31.json|description
+1 number kept: 22 DEAL md_DSO2010-12-31.json|description
+1 number kept: 24 PLAYIN IN THE BAND md_DSO2010-12-31.json|description
+1 number kept: 25 NEW YEARS COUNTDOWN md_DSO2010-12-31.json|description
+1 number kept: 26 SUGAR MAGNOLIA md_DSO2010-12-31.json|description
+1 number kept: 27 SUNSHINE DAYDREAM md_DSO2010-12-31.json|description
+1 number kept: 28 EYES OF THE WORLD md_DSO2010-12-31.json|description
+1 number kept: 29 WHARF RAT md_DSO2010-12-31.json|description
+1 number kept: 30 GOOD LOVIN md_DSO2010-12-31.json|description
+1 number kept: 31 SAMSON AND DELILAH md_DSO2010-12-31.json|description
+1 number kept: 32 SCARLET BEGONIAS md_DSO2010-12-31.json|description
+1 number kept: 33 AROUND AND AROUND md_DSO2010-12-31.json|description
+1 number kept: 34 HELP ON THE WAY md_DSO2010-12-31.json|description
+1 number kept: 35 NOT FADE AWAY md_DSO2010-12-31.json|description
+1 number kept: 36 MORNING DEW md_DSO2010-12-31.json|description
+1 number kept: 38 SATURDAY NIGHT md_DSO2010-12-31.json|description
+1 number kept: 39 UNCLE JOHNS BAND md_DSO2010-12-31.json|description
+1 number kept: 40 WE BID YOU GOODNIGHT md_DSO2010-12-31.json|description
+1 number kept: 18 WhartRat md_DSO2011-07-20.json|description
+1 number kept: 12 Gates To The City md_EilenJewelSellersvilleTheatreSellersvillePa.json|description
+1 number kept: 78 Stone Wobble md_Gomez1999-10-01.json|description
+1 number kept: 01 - Track 1 md_RRE2012-03-10.RailroadEarthFillmoreSanFranciscoCa.json|description
+1 number kept: 02 - Track 2 md_RRE2012-03-10.RailroadEarthFillmoreSanFranciscoCa.json|description
+1 number kept: 03 - Track 3 md_RRE2012-03-10.RailroadEarthFillmoreSanFranciscoCa.json|description
+1 number kept: 04 - Track 4 md_RRE2012-03-10.RailroadEarthFillmoreSanFranciscoCa.json|description
+1 number kept: 05 - Track 5 md_RRE2012-03-10.RailroadEarthFillmoreSanFranciscoCa.json|description
+1 number kept: 06 - RRE Fillmore SF Ca 3-10-12 set 1 track 6 md_RRE2012-03-10.RailroadEarthFillmoreSanFranciscoCa.json|description
+1 number kept: 07 - RRE Fillmore SF Ca 3-10-12 set track 7 md_RRE2012-03-10.RailroadEarthFillmoreSanFranciscoCa.json|description
+1 number kept: 08 - mighty river RRE Fillmore SF Ca3-10-12 md_RRE2012-03-10.RailroadEarthFillmoreSanFranciscoCa.json|description
+1 number kept: 09 - warhead boogie RREFillmore SF Ca 3-10-12 md_RRE2012-03-10.RailroadEarthFillmoreSanFranciscoCa.json|description
+1 OTHER 'congoman chant RRE Fillmore SF Ca 3-10-12' -> '10.congoman chant RRE Fillmore SF Ca 3-10-12' md_RRE2012-03-10.RailroadEarthFillmoreSanFranciscoCa.json|description
+1 number kept: 25 or 6 to 4 md_TND2006-07-19.skm184.retracked.json|notes
+1 number kept: 45 Degrees md_aod2006-08-18.km184.flac16.json|description
+1 number kept: 12 Days Of Christmas md_bfft2009-12-12.H4n.MyTallMicStand.flac.json|notes
+1 number kept: 10 Degrees Or Colder md_billystrings2020-02-21.dpa4011.json|description
+1 number kept: 9 to 5 md_bk402007-01-12.json|description
+1 number kept: 2 x 4 md_blindmelon2008-06-24.flac16.json|description
+1 number kept: 107 Degrees (w/ Alice Smith) md_citizencope2009-10-05.flac16.json|description
+1 number kept: 01 - Every Waking Moment md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 02 - Salvation md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 03 - More Than It Seems md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 04 - Bullet And A Target md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 05 - Out On The Weekend md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 06 - Holdin' On md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 07 - All Dressed Up md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 08 - Lifeline md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 09 - Healing Hands md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 10 - Keep Asking md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 11 - Pablo Picasso md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 12 - D'Artagnan's Theme md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 13 - 200 md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 14 - If There's Love md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 15 - Comin' Back md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 16 - One Lovely Day md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 17 - Sons Gonna Rise md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 18 - Sideways md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 19 - Hurricane Waters md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 20 - Hands of the Saints md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 21 - My Way Home md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 22 - Left For Dead md_citizencope2010-11-26.citizencope2010-11-26.json|description
+1 number kept: 200 More Miles md_cowboy.junkies2017-11-05.mk4v.flac16.json|description
+1 number kept: 18 Wheels Of Love md_dbt2008-03-15.mk4v.flac16.json|description
+1 number kept: 72 (This Highway's Mean) md_dbt2011-02-19.json|description
+1 number kept: 40 Acres and a Fool md_delmccoury2010-09-05.dpasax.flacf16.json|description
+1 number kept: 40 Acres And A Fool md_delmccouryband2011-08-27.json|description
+1 number kept: 40 Days & 40 Nights md_donna2004-12-04.matrix.flac16.json|description
+1 number kept: 40 Days and 40 Nights md_donna2011-01-28.json|description
+1 number kept: 7 Hills Of Gold md_furthur2010-07-03.neumann-km184.clarke.108615.flac16.json|description
+1 number kept: 420 Long Years md_gat2010-07-16.aud.flac16.json|description
+1 number kept: 50 Ways To Leave Your Lover md_glove2011-03-19.sbd.flac16.json|description
+1 number kept: 200 Miles To Montana md_gsbg2014-02-28.mk4.json|description
+1 number kept: 7 Months md_hankIII2005-08-21.483.flac16.json|description
+1 number kept: 5 Shots of Whiskey md_hankIII2005-08-21.483.flac16.json|description
+1 number kept: 3 AM md_heavypets2015-06-19.m934b_24bit.json|description
+1 number kept: 3 Shades of Black md_hw32010-09-14.json|description
+1 number kept: 40 West md_is2008-12-06.flac16.aud.json|description
+1 number kept: 3 days in July md_isd2009-10-17.json|description
+1 number kept: 24 Hour Break-Up Session md_localh2008-05-13.json|description
+1 number kept: 33 (A Fine Year To Die) md_mastersounds2010-06-04.akg483-flac16.json|description
+1 number kept: 32 Things^^ md_moe2005-09-03.481.flac16.json|description
+1 number kept: 32 Things (2) md_moe2008-08-31.mk4.nbox.r09.16bit.json|description
+1 number kept: 6 Ways md_mofro2007-04-10.mk41v.flac16.json|description
+1 number kept: 2 Rights Make 1 Wrong (9:58) md_mogwai2009-03-05.crankingamps.json|description
+1 number kept: 3 On the B md_nm2011-04-22.akg483.flac16.json|description
+1 number kept: 51 Phantom md_nma2010-03-11.24bit.json|description
+1 number kept: 6 Underground md_nms2009-09-04.km184.flac16.json|description
+1 number kept: 15 Days md_nrps2005-12-16.flac16.json|description
+1 number kept: 3 Weeks md_pg2008-09-17.mimna.adk-tl.flac16.json|description
+1 number kept: 53 More Things to do In Zero Gravity md_pgroove2005-04-01.flac16.json|description
+1 number kept: 53 Things to Do in Zero Gravity md_pgroove2006-05-27.flac16.json|description
+1 number kept: 53 More Things to do in Zero Gravity md_pgroove2007-05-26.flac16.json|description
+1 number kept: 7 Devils md_rad2006-0210.km140s.flac16.json|description
+1 number kept: 7 story mountain (encore) md_rre2006-03-27.flac16.json|description
+1 number kept: 50 Ways to Leave Your Lover # md_scc2006-08-18.km184.flac16.json|description
+1 number kept: 100 Year Flood md_sci2000-10-27.matrix.flac16.json|description
+1 number kept: 100 year flood md_sci2011-11-26.flac16.json|description
+1 number kept: 986 ft. Tall Trees md_sts9-2003-06-13fixO0o.o0O.shnf.json|description
+1 number kept: 986 Foot Tall Trees 				09:44 md_sts92006-12-29.sts9_2006-12-29.splitADKtl.flac16.json|description
+1 number kept: 303 Improv 13:32 md_sts92006-12-30.sts9_2006-12-30.SplitADKtl.flac16.json|description
+1 number kept: 7 Shades of Black md_tsp2007-07-16.dpa4061.mt.flac16.json|description
+1 number kept: 2 x 2 md_um2004-10-19matrix.shnf.json|description
+1 number kept: 87 Southbound md_wh2004-04-08.shnf.json|description
+1 number kept: 2 person chair md_wu2006-05-28.multi.flac16.json|description
+1 number kept: 2 Hits & The Joint Turned Brown md_ymsb2002-02-16.shnf.json|description
+1 number kept: 2 Hits & Joint Turned Brown md_ymsb2002-04-20.flac16.sbd.json|description
+1 number kept: 40 miles from denver md_ymsb2005-04-27.sbd.flac16.json|description
+1 number kept: 100 Years From Now # md_ymsb2006-01-28.sbd.flac16.json|description
+1 number kept: 100 Years From Now @# md_ymsb2006-06-16.sbd.flac16.json|description
+1 number kept: 2 Hits and The Joint Turned Brown #^@+ md_ymsb2007-06-20.sbd.flac16.json|description
+1 number kept: 6 In The Morning md_zdeputy2009-06-14.set7.json|description

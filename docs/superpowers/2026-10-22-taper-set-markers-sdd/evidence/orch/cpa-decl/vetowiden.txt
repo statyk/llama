@@ -1,0 +1,10 @@
+## encor typo: 1
+   ('darkstarorchestra-2013-12-29', 'encore folded', "und /  / Encor: / 22. Uncle John's Band / 2")
+## glued NE.: 1
+   ('railroadearth-2011-10-30', 'encore folded', ' (A) / 9E.Wayfaring Stranger')
+## E<space>Song line: 2
+   ('ratdog-2014-02-14', 'encore folded', 'Away / E Ripple /  / @ Acoustic')
+   ('shakedownband-2013-08-24', None, ' Dew / 24. E Ripple')
+## E~ / -e- item: 2
+   ('soundtribesector9-2003-11-01', 'encore folded', 'hanks,-e- Freq.1>2')
+   ('soundtribesector9-2004-10-31', 'encore folded', 'ap In, E~ Twilight, Really Wut')

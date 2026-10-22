@@ -1,0 +1,385 @@
+[
+ {
+  "id": "a",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "        if not is_filler(t.title) or not _counts(t):",
+  "new": "        if not _counts(t):",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_non_filler_between_is_unplaced"
+  ],
+  "collateral": [],
+  "note": ""
+ },
+ {
+  "id": "b",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "    if len(a_hits) != 1:",
+  "new": "    if not a_hits:",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_missing_or_ambiguous_match_is_unplaced"
+  ],
+  "collateral": [],
+  "note": ""
+ },
+ {
+  "id": "c1",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "    if any(fuzzy_title_eq(x, n) for x in a_all for n in right_norms):",
+  "new": "    if False:",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_repeated_title_across_boundary_is_unplaced"
+  ],
+  "collateral": [],
+  "note": "brief (c), the a-side half of the repeated-title check"
+ },
+ {
+  "id": "c2",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "    if any(fuzzy_title_eq(x, n) for x in b_all for n in left_norms):",
+  "new": "    if False:",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_repeated_title_across_boundary_is_unplaced"
+  ],
+  "collateral": [],
+  "note": "brief (c), the b-side half of the repeated-title check"
+ },
+ {
+  "id": "d",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "    elif number > s.current + 1:",
+  "new": "    elif False:",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_void_rules_synthetic[Set 1:\\nBertha\\nSet 3:\\nSugaree\\n-void: skipped set number]"
+  ],
+  "collateral": [],
+  "note": "brief predicted `test_void_rules`; the skip case lives in its parametrized sibling test_void_rules_synthetic"
+ },
+ {
+  "id": "d2",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "        else:\n            s.set_void(\"skipped set number\")",
+  "new": "        else:\n            pass",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_void_rules_synthetic[Set 2:\\nSugaree\\nSet 1:\\nRipple\\n-void: skipped set number]"
+  ],
+  "collateral": [],
+  "note": "extra: the first-header half of the set-number rule (a first marker of 2 with no leading block, or 3)"
+ },
+ {
+  "id": "e",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "        s.set_void(\"numbered marker after the encore\")",
+  "new": "        pass",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_void_rules",
+   "packages/llama/tests/test_taper.py::test_void_rules_synthetic[Set 1:\\nBertha\\nSet 2:\\nSugaree\\nE: Ripple\\nSet 3:\\nMorning Dew\\n-void: numbered marker after the encore]"
+  ],
+  "collateral": [],
+  "note": ""
+ },
+ {
+  "id": "f",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "        reason = f\"cross-check: {', '.join(missing)}\" if missing else None",
+  "new": "        reason = None",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_cross_check_against_parse_setlist",
+   "packages/llama/tests/test_taper.py::test_set_i_prose_is_not_a_marker",
+   "packages/llama/tests/test_replay.py::test_cross_check_failure_keeps_stored_llm_needs_llm"
+  ],
+  "collateral": [],
+  "note": ""
+ },
+ {
+  "id": "g",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "        if taper.encore_like:",
+  "new": "        if False:",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_encore_like_text_anywhere_vetoes[*]",
+   "packages/llama/tests/test_taper.py::test_veto_gap_real_cases_are_not_owned[*]",
+   "packages/llama/tests/test_taper.py::test_encore_like_veto_reason_wins_over_set_like"
+  ],
+  "collateral": [],
+  "note": ""
+ },
+ {
+  "id": "h",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "        if any(_ENCORE_MARKER.search(t.title) for t in tracks):",
+  "new": "        if False:",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_track_title_encore_vetoes",
+   "packages/llama/tests/test_stage_gather.py::test_track_title_veto_is_exactly_today",
+   "packages/llama/tests/test_replay.py::test_track_title_veto_keeps_stored_llm_needs_llm"
+  ],
+  "collateral": [],
+  "note": ""
+ },
+ {
+  "id": "i",
+  "file": "packages/llama/src/llama/replay.py",
+  "old": "            and not gathered.taper_owned):",
+  "new": "            and not (not gathered.needs_llm)):",
+  "predicted": [
+   "packages/llama/tests/test_replay.py::test_stored_llm_deterministic_candidate_stays_needs_llm",
+   "packages/llama/tests/test_replay.py::test_stored_llm_anchored_candidate_stays_needs_llm",
+   "packages/llama/tests/test_replay.py::test_track_title_veto_keeps_stored_llm_needs_llm"
+  ],
+  "collateral": [
+   "packages/llama/tests/test_replay.py::test_stored_llm_alignment_is_needs_llm",
+   "packages/llama/tests/test_replay.py::test_cross_check_failure_keeps_stored_llm_needs_llm",
+   "packages/llama/tests/test_reapply.py::* (a held show with stored llm alignment whose replay gather needs no LLM)"
+  ],
+  "note": ""
+ },
+ {
+  "id": "j1",
+  "file": "packages/llama/src/llama/replay.py",
+  "old": "            and not gathered.taper_owned):",
+  "new": "            and True):",
+  "predicted": [
+   "packages/llama/tests/test_replay.py::test_stored_llm_taper_owned_is_replayable"
+  ],
+  "collateral": [
+   "packages/llama/tests/test_reapply.py::* (an owned show with stored llm alignment)"
+  ],
+  "note": ""
+ },
+ {
+  "id": "j2",
+  "file": "packages/llama/src/llama/replay.py",
+  "old": "            and not gathered.taper_owned):",
+  "new": "            and False):",
+  "predicted": [
+   "packages/llama/tests/test_replay.py::test_stored_llm_alignment_is_needs_llm",
+   "packages/llama/tests/test_replay.py::test_stored_llm_deterministic_candidate_stays_needs_llm",
+   "packages/llama/tests/test_replay.py::test_stored_llm_anchored_candidate_stays_needs_llm",
+   "packages/llama/tests/test_replay.py::test_cross_check_failure_keeps_stored_llm_needs_llm",
+   "packages/llama/tests/test_replay.py::test_track_title_veto_keeps_stored_llm_needs_llm"
+  ],
+  "collateral": [
+   "packages/llama/tests/test_reapply.py::* (stored llm alignment expected to stay needs-llm)"
+  ],
+  "note": ""
+ },
+ {
+  "id": "k",
+  "file": "packages/llama/src/llama/stages/gather.py",
+  "old": "        if agrees:",
+  "new": "        if False:",
+  "predicted": [
+   "packages/llama/tests/test_stage_gather.py::test_closer_flag_stays_hard_when_taper_text_agrees",
+   "packages/llama/tests/test_stage_gather.py::test_closer_agreement_uses_fuzzy_song_matching[*]",
+   "packages/llama/tests/test_stage_gather.py::test_duplicate_closer_flags_consume_sets_in_order"
+  ],
+  "collateral": [],
+  "note": ""
+ },
+ {
+  "id": "l",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "    rf\"(?:{_E_DECOR}$|[~*=\\s]*(?::|[-–—]+(?=\\s|$))\\s*(?P<rest>.*)$)\",",
+  "new": "    rf\"(?:{_E_DECOR}$|[~*=\\s]*(?::|\\.|[-–—]+(?=\\s|$))\\s*(?P<rest>.*)$)\",",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_title_lookalikes_are_not_markers[E.Ville-E.Ville-True]",
+   "packages/llama/tests/test_taper.py::test_title_lookalikes_are_not_markers[E. Rutherford, NJ-E. Rutherford-True]",
+   "packages/llama/tests/test_taper.py::test_title_lookalikes_are_not_markers[E.-E.-True]",
+   "packages/llama/tests/test_taper.py::test_encore_like_text_anywhere_vetoes[Set 1: Bertha, Let It Grow\\nSet 2: Scarlet Begonias, Truckin\\nE. Box Of Rain\\n]"
+  ],
+  "collateral": [
+   "any real-case fixture with a line starting `E.` (its encore would now start there)"
+  ],
+  "note": "brief predicted `test_unrecognised_forms_are_not_markers`, which does not exist; the E. lookalikes are pinned by test_title_lookalikes_are_not_markers"
+ },
+ {
+  "id": "m",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "    r\"(?:set\\s*(?P<tok>one|two|three|iii|ii|i|[123])(?!\\w)\"",
+  "new": "    r\"(?:(?:set\\s*|(?=[123]:))(?P<tok>one|two|three|iii|ii|i|[123])(?!\\w)\"",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_n_colon_tracklists_are_not_markers[*]",
+   "packages/llama/tests/test_taper.py::test_signalpath_n_colon_is_not_a_marker",
+   "packages/llama/tests/test_taper.py::test_dso_bare_digit_disc_lines_are_not_markers[*]",
+   "packages/llama/tests/test_taper.py::test_dso_bare_digit_lines_with_worded_set_two"
+  ],
+  "collateral": [
+   "any fixture with a line starting `1:`/`2:`/`3:` (now a set header)",
+   "any numbered-set item containing a word-bounded `[123]:` (now set-like, e.g. a time `1:08`)"
+  ],
+  "note": "brief predicted `test_unrecognised_forms_are_not_markers`, which does not exist"
+ },
+ {
+  "id": "n",
+  "file": "packages/llama/src/llama/stages/gather.py",
+  "old": "            shipped_sets = list(decision.placement.sets)",
+  "new": "            shipped_sets = list(anchored) if anchored is not None else list(decision.placement.sets)",
+  "predicted": [
+   "packages/llama/tests/test_stage_gather.py::test_taper_beats_jerrybase_anchoring"
+  ],
+  "collateral": [
+   "packages/llama/tests/test_stage_gather.py::test_set_count_note_excludes_the_taper_encore",
+   "packages/llama/tests/test_stage_gather.py::test_set_count_disagreement_is_a_note_when_taper_text_disagrees",
+   "other Task 5 jerrybase-enabled gather tests on which anchoring succeeds with labels differing from the taper's"
+  ],
+  "note": ""
+ },
+ {
+  "id": "o",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "    r\"(?:set\\s*(?P<tok>one|two|three|iii|ii|i|[123])(?!\\w)\"",
+  "new": "    r\"(?:set\\s*(?P<tok>one|two|three|iii|ii|i|[123])\"",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_set_like_negatives[Set In Stone]"
+  ],
+  "collateral": [
+   "real-case ownership tests whose numbered-set items contain `Set I...`/`Set 1x` words (now set-like)"
+  ],
+  "note": "brief predicted `test_unrecognised_forms_are_not_markers` (does not exist) on `Set Intro` reading as set 1. Predicted instead: the header regexes need `:`/dash/decoration/line end straight after the token, so `(?!\\w)` is redundant there and `Set Intro` stays a (filler) song; the boundary is load-bearing only in `_SET_LIKE`, so test_set_intro_is_not_set_one_and_set_iv_voids is predicted GREEN"
+ },
+ {
+  "id": "p",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "            if on_left and on_right:",
+  "new": "            if False:",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_merged_track_spanning_the_boundary_is_unplaced"
+  ],
+  "collateral": [],
+  "note": ""
+ },
+ {
+  "id": "q",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "    if taper.set_like:",
+  "new": "    if False:",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_set_like_real_cases_are_not_owned[*]",
+   "packages/llama/tests/test_taper.py::test_set_like_tokens_in_a_numbered_set_item[*]",
+   "packages/llama/tests/test_taper.py::test_set_like_veto_applies_with_a_marked_encore",
+   "packages/llama/tests/test_taper.py::test_split_ordinal_header_is_set_like",
+   "packages/llama/tests/test_taper.py::test_bare_set_item_real_case_is_not_owned",
+   "packages/llama/tests/test_taper.py::test_set_like_token_in_a_set_three_item"
+  ],
+  "collateral": [],
+  "note": ""
+ },
+ {
+  "id": "r",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "        if item.title.strip(_ITEM_DECOR).lower() == \"set\":",
+  "new": "        if False:",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_split_ordinal_header_is_set_like",
+   "packages/llama/tests/test_taper.py::test_bare_set_item_is_set_like[*]",
+   "packages/llama/tests/test_taper.py::test_bare_set_item_real_case_is_not_owned"
+  ],
+  "collateral": [],
+  "note": ""
+ },
+ {
+  "id": "s",
+  "file": "packages/llama/src/llama/taper.py",
+  "old": "            if str(number) == item.set and _CONT_AFTER.match(item.title[m.end():]):",
+  "new": "            if False:",
+  "predicted": [
+   "packages/llama/tests/test_taper.py::test_set_like_negatives[Set 2 con't]",
+   "packages/llama/tests/test_taper.py::test_set_like_negatives[Set II (con't.)]",
+   "packages/llama/tests/test_taper.py::test_set_like_negatives[Set 2(con't)-]",
+   "packages/llama/tests/test_taper.py::test_set_like_negatives[Set 2 (con\\u2019t):]"
+  ],
+  "collateral": [
+   "real-case ownership tests whose texts carry a same-set con't item"
+  ],
+  "note": ""
+ },
+ {
+  "id": "t",
+  "file": "packages/llama/src/llama/stages/gather.py",
+  "old": "        taper_n = len({i.set for i in taper.items if i.set != \"encore\"})",
+  "new": "        taper_n = len({i.set for i in taper.items})",
+  "predicted": [
+   "packages/llama/tests/test_stage_gather.py::test_set_count_note_excludes_the_taper_encore"
+  ],
+  "collateral": [],
+  "note": "Task 5 M5"
+ },
+ {
+  "id": "u",
+  "file": "packages/llama/src/llama/stages/gather.py",
+  "old": "        agrees = bool(songs) and fuzzy_title_eq(fuzzy_norm_title(songs[-1], aliases),\n                                                fuzzy_norm_title(st.closer, aliases))",
+  "new": "        agrees = bool(songs) and songs[-1] == st.closer and (songs[-1],\n                                                fuzzy_norm_title(st.closer, aliases))",
+  "predicted": [
+   "packages/llama/tests/test_stage_gather.py::test_closer_agreement_uses_fuzzy_song_matching[*]"
+  ],
+  "collateral": [],
+  "note": "Task 5 M6"
+ },
+ {
+  "id": "v",
+  "file": "packages/llama/src/llama/stages/gather.py",
+  "old": "        songs = [i.title for i in taper.items if i.set == st.name]",
+  "new": "        songs = sorted({j.set: j.title for j in taper.items}.values(), key=lambda t: fuzzy_title_eq(fuzzy_norm_title(t, aliases), fuzzy_norm_title(st.closer, aliases)))",
+  "predicted": [
+   "packages/llama/tests/test_stage_gather.py::test_closer_maps_to_the_taper_set_of_the_same_number",
+   "packages/llama/tests/test_stage_gather.py::test_duplicate_closer_flags_consume_sets_in_order"
+  ],
+  "collateral": [],
+  "note": "Task 5 M2, one-line form: songs[-1] is a set's last song matching the closer when any set's does"
+ },
+ {
+  "id": "w",
+  "file": "packages/llama/src/llama/stages/gather.py",
+  "old": "if n not in used and m is not None and st.closer == m.group(1)",
+  "new": "if m is not None and st.closer == m.group(1)",
+  "predicted": [
+   "packages/llama/tests/test_stage_gather.py::test_duplicate_closer_flags_consume_sets_in_order"
+  ],
+  "collateral": [],
+  "note": "Task 5 M3"
+ },
+ {
+  "id": "x",
+  "file": "packages/llama/src/llama/stages/gather.py",
+  "old": "                   if not is_filler(t.title)):",
+  "new": "                   if True):",
+  "predicted": [
+   "packages/llama/tests/test_stage_gather.py::test_filler_only_label_difference_keeps_step_one_alignment"
+  ],
+  "collateral": [],
+  "note": "Task 4 M4"
+ },
+ {
+  "id": "y1",
+  "file": "packages/llama/src/llama/stages/gather.py",
+  "old": "            if (canonical.items and anchored is None and result.coverage < threshold",
+  "new": "            if (anchored is None and result.coverage < threshold",
+  "predicted": [
+   "packages/llama/tests/test_stage_gather.py::test_owned_low_confidence_needs_canonical_items"
+  ],
+  "collateral": [],
+  "note": ""
+ },
+ {
+  "id": "y2",
+  "file": "packages/llama/src/llama/stages/gather.py",
+  "old": "            if (canonical.items and anchored is None and result.coverage < threshold",
+  "new": "            if (canonical.items and result.coverage < threshold",
+  "predicted": [
+   "packages/llama/tests/test_stage_gather.py::test_owned_low_confidence_needs_no_anchoring"
+  ],
+  "collateral": [],
+  "note": ""
+ },
+ {
+  "id": "y3",
+  "file": "packages/llama/src/llama/stages/gather.py",
+  "old": "            if (canonical.items and anchored is None and result.coverage < threshold",
+  "new": "            if (canonical.items and anchored is None",
+  "predicted": [
+   "packages/llama/tests/test_stage_gather.py::test_owned_low_confidence_needs_weak_step_one"
+  ],
+  "collateral": [],
+  "note": ""
+ }
+]

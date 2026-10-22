@@ -1,0 +1,362 @@
+==========================================================================================
+furthur-2010-05-29 furthur2010-05-29.nak300.gilmore.108047.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Set I
+1. Box of Rain
+2. Friend of the Devil %
+3. Sugar Magnolia >
+4. Operator
+5. Candyman
+6. Ripple @
+7. Brokedown Palace %
+8. Till The Morning Comes # *
+9. Attics of my Life # *
+10.Truckin' *
+ Set II
+1. Uncle John's Band >
+2. High Time
+3. Dire Wolf
+4. New Speedway Boogie > *
+5. Cumberland Blues *
+6. Black Peter > *
+7. Easy Wind *
+8. Casey Jones *
+  Set III
+1. That's It for the Other One >
+2. Cryptical Envelopment >
+3. New Potato Caboose >
+4. Born Cross-Eyed >
+5. Alligator >
+6. Caution (Do Not Step on Tracks) >
+7. Donor Rap
+E1: Muli Guli > $
+E2: One More Saturday Night
+--- ITEMS: 1:Box of Rain | 1:Friend of the Devil % | 1:Sugar Magnolia | 1:Operator | 1:Candyman | 1:Ripple @ | 1:Brokedown Palace % | 1:Till The Morning Comes # | 1:Attics of my Life # | 1:Truckin' | 2:Uncle John's Band | 2:High Time | 2:Dire Wolf | 2:New Speedway Boogie | 2:Cumberland Blues | 2:Black Peter | 2:Easy Wind | 2:Casey Jones | 3:That's It for the Other One | 3:Cryptical Envelopment | 3:New Potato Caboose | 3:Born Cross-Eyed | 3:Alligator | 3:Caution (Do Not Step on Tracks) | 3:Donor Rap | encore:Muli Guli | encore:One More Saturday Night
+has_encore True encore_like False
+   8 1       1       tags             Till The Morning Comes # *
+   9 1       1       tags             Attics of my Life # *
+* 10 2       1       tags             Truckin' *
+  11 2       2       tags             Uncle John's Band >
+  12 2       2       tags             High Time
+   ...
+  23 3       3       tags             Alligator >
+  24 3       3       tags             Caution (Do Not Step on Tracks) >
+* 25 encore  3       tags             Donor Rap
+  26 encore  encore  tags             E1: Muli Guli > $
+  27 encore  encore  tags             E2: One More Saturday Night
+   (27 tracks)
+==========================================================================================
+furthur-2010-06-26 furthur2010-06-26.audiotechnica815b.davis.108485.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Set 1:
+China Cat Sunflower > I Know You Rider, Black Throated Wind, Muly Guly, High Time, Loose Lucy > Throwing Stones > One More Saturday Night
+Set 2: 
+Shakedown Street > Caution (Do Not Step On Tracks) > Jack Straw > Playing In The Band > Dark Star (v1) > St. Stephen > The Eleven > Dark Star(v2)> Lady with a Fan* > Terrapin Station* > At a Siding* > Terrapin Flyer*, Donor Rap, E: Brokedown Palace, Fireworks
+--- ITEMS: 1:China Cat Sunflower | 1:I Know You Rider | 1:Black Throated Wind | 1:Muly Guly | 1:High Time | 1:Loose Lucy | 1:Throwing Stones | 1:One More Saturday Night | 2:Shakedown Street | 2:Caution (Do Not Step On Tracks) | 2:Jack Straw | 2:Playing In The Band | 2:Dark Star (v1) | 2:St. Stephen | 2:The Eleven | 2:Dark Star(v2) | 2:Lady with a Fan | 2:Terrapin Station | 2:At a Siding | 2:Terrapin Flyer | 2:Donor Rap | encore:Brokedown Palace | encore:Fireworks
+has_encore True encore_like False
+  17 2       2       tags             Lady With A Fan
+  18 2       2       tags             Terrapin Station
+* 19 encore  2       tags             At A Siding
+* 20 encore  2       tags             Terrapin Flyer
+* 21 encore  2       tags             Donor Rap
+  22 encore  encore  tags             Brokedown Palace
+   (22 tracks)
+==========================================================================================
+furthur-2010-06-27 furthur2010-06-27.audio-technica815b.davis.108484.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Set 1:
+Golden Road > Good Lovin', The Music Never Stopped, Sugar Magnolia > Dear Mr Fantasy > Scarlet Begonias > Magnolia Mountain > Uncle John's Band
+Set 2: 
+Unbroken Chain, Let It Grow, Fire On the Mountain > The Other One > Cryptical Envelopment > Blues For Allah, Morning Dew, Eyes Of The World, Help On The Way > Slipknot! > Franklin's Tower, Donor Rap, E: Box Of Rain, Fireworks
+--- ITEMS: 1:Golden Road | 1:Good Lovin' | 1:The Music Never Stopped | 1:Sugar Magnolia | 1:Dear Mr Fantasy | 1:Scarlet Begonias | 1:Magnolia Mountain | 1:Uncle John's Band | 2:Unbroken Chain | 2:Let It Grow | 2:Fire On the Mountain | 2:The Other One | 2:Cryptical Envelopment | 2:Blues For Allah | 2:Morning Dew | 2:Eyes Of The World | 2:Help On The Way | 2:Slipknot! | 2:Franklin's Tower | 2:Donor Rap | encore:Box Of Rain | encore:Fireworks
+has_encore True encore_like False
+  18 2       2       tags             Slipknot!
+  19 2       2       tags             Franklin's Tower
+* 20 encore  2       tags             Donor Rap
+  21 encore  encore  tags             Box Of Rain
+   (21 tracks)
+==========================================================================================
+furthur-2010-07-05 furthur2010-07-05.schoepsmk41.wklitz.108827.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Set 1:
+01 Tuning
+02 Scarlet Begonias>
+03 Shakedown Street>
+04 Promised Land
+05 Candyman
+06 Playin' In The Band>
+07 The Eleven>
+08 Colors Of The Rain>
+09 Playin' In The Band>
+10 Throwing Stones
+Set 2: 
+01 China Doll>
+02 Fire On The Mountain>
+03 The Other One>
+04 Time/Breathe Reprise>
+05 Death Don't Have No Mercy
+06 Unbroken Chain
+07 The Music Never Stopped>
+08 China Cat Sunflower>
+09 I Know You Rider
+10 Donor Rap
+11 E: Box Of Rain
+--- ITEMS: 1:Scarlet Begonias | 1:Shakedown Street | 1:Promised Land | 1:Candyman | 1:Playin' In The Band | 1:The Eleven | 1:Colors Of The Rain | 1:Playin' In The Band | 1:Throwing Stones | 2:China Doll | 2:Fire On The Mountain | 2:The Other One | 2:Time/Breathe Reprise | 2:Death Don't Have No Mercy | 2:Unbroken Chain | 2:The Music Never Stopped | 2:China Cat Sunflower | 2:I Know You Rider | 2:Donor Rap | encore:Box Of Rain
+has_encore True encore_like False
+  18 2       2       tags             China Cat Sunflower>
+  19 2       2       tags             I Know You Rider
+* 20 encore  2       tags             Donor Rap
+  21 encore  encore  tags             Box Of Rain
+   (21 tracks)
+==========================================================================================
+furthur-2011-02-13 further2011-02-13.mbho.keijzer.111978.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Set 1/Disk 1:
+01. Intro
+02. New Minglewood Blues
+03. Sugaree
+04. On the Road Again
+05. Pride of Cucamonga
+06. C.C. Rider
+07. Tennessee Jed
+08. Bertha
+09. Women are Smarter
+Set 2/Disk 2:
+01. Intro
+02. Colors of the Rain > 
+03. Scarlet Begonias > 
+04. Fire On The Mountain > 
+05. Estimated Prophet > 
+06. Eyes of the World > 
+07. The Wheel >
+Set 2 (cont.)/Disk 3:
+01. Not Fade Away > 
+02. Wharf Rat > 
+03. Sugar Magnolia 
+04. Doner Rap
+ENCORE:
+05. Revolution > 
+06. Satisfaction
+--- ITEMS: 1:New Minglewood Blues | 1:Sugaree | 1:On the Road Again | 1:Pride of Cucamonga | 1:C.C. Rider | 1:Tennessee Jed | 1:Bertha | 1:Women are Smarter | 2:Colors of the Rain | 2:Scarlet Begonias | 2:Fire On The Mountain | 2:Estimated Prophet | 2:Eyes of the World | 2:The Wheel | 2:Not Fade Away | 2:Wharf Rat | 2:Sugar Magnolia | 2:Doner Rap | encore:Revolution | encore:Satisfaction
+has_encore True encore_like False
+  18 2       2       tags             Wharf Rat >
+  19 2       2       tags             Sugar Magnolia
+* 20 encore  2       tags             Doner Rap
+  21 encore  encore  tags             Revolution >
+  22 encore  encore  tags             Satisfaction
+   (22 tracks)
+==========================================================================================
+furthur-2011-03-11 furthur2011-03-11.akg-c460b.spyder9.113408.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Set 1: (1:09:06)
+101. Jam >
+102. Greatest Story Ever Told
+103. Doin' That Rag
+104. Black Throated Wind
+105. Dupree's Diamond Blues
+106. Big Bad Blues
+107. I Want You (She's So Heavy)    1
+108. Loser >
+109. Jack Straw
+Set 2: (1:52:03)
+201. Box of Rain >
+202. Estimated Prophet >
+203. Dark Star >
+204. Bird Song >
+205. Dark Star >
+206. The Eleven >
+207. Black Peter >
+208. Dear Mr. Fantasy >
+209. Hey Jude! (reprise) >     
+210. Around & Around
+211. Donor Rap
+212. E: Like A Rolling Stone
+--- ITEMS: 1:Jam | 1:Greatest Story Ever Told | 1:Doin' That Rag | 1:Black Throated Wind | 1:Dupree's Diamond Blues | 1:Big Bad Blues | 1:I Want You (She's So Heavy)    1 | 1:Loser | 1:Jack Straw | 2:Box of Rain | 2:Estimated Prophet | 2:Dark Star | 2:Bird Song | 2:Dark Star | 2:The Eleven | 2:Black Peter | 2:Dear Mr. Fantasy | 2:Hey Jude! (reprise) | 2:Around & Around | 2:Donor Rap | encore:Like A Rolling Stone
+has_encore True encore_like False
+   8 1       1       tags             Loser
+   9 1       1       tags             Jack Straw
+* 10 1       2       tags             Box of Rain
+* 11 1       2       tags             Estimated Prophet
+* 12 1       2       tags             Dark Star
+* 13 1       2       tags             Bird Song
+* 14 1       2       tags             Dark Star
+* 15 1       2       tags             The Eleven
+* 16 1       2       tags             Black Peter
+* 17 1       2       tags             Dear Mr. Fantasy
+* 18 1       2       tags             Around & Around
+* 19 encore  2       tags             Donor Rap
+  20 encore  encore  tags             Like A Rolling Stone
+   (20 tracks)
+==========================================================================================
+furthur-2011-09-23 furthur2011-09-23.adk-tl.larson.116124.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Set 1
+1. Crowd
+2. Feel Like A Stranger
+3. Shakedown Street
+4. Minglewood Blues
+5. Dire Wolf
+6. It Takes A Lot To Laugh, It Takes A Train To Cry
+7. Cumberland Blues
+8. Pride Of Cucamonga
+9. Cassidy
+Set 2
+1. Crowd
+2. The Music Never Stopped
+3. Golden Road To Unlimited Devotion
+4. Strawberry Fields Forever
+5. The Other One
+6. Wharf Rat > The Wheel 	
+7. Uncle John's Band
+8. Help On The Way
+9. Slipknot
+10. Franklin's Tower
+11. Donor Rap
+Encore:
+12. Ripple
+--- ITEMS: 1:Feel Like A Stranger | 1:Shakedown Street | 1:Minglewood Blues | 1:Dire Wolf | 1:It Takes A Lot To Laugh, It Takes A Train To Cry | 1:Cumberland Blues | 1:Pride Of Cucamonga | 1:Cassidy | 2:The Music Never Stopped | 2:Golden Road To Unlimited Devotion | 2:Strawberry Fields Forever | 2:The Other One | 2:Wharf Rat | 2:The Wheel | 2:Uncle John's Band | 2:Help On The Way | 2:Slipknot | 2:Franklin's Tower | 2:Donor Rap | encore:Ripple
+has_encore True encore_like False
+  16 2       2       tags             Slipknot
+  17 2       2       tags             Franklin's Tower
+* 18 encore  2       tags             Donor Rap
+  19 encore  encore  tags             Ripple
+   (19 tracks)
+==========================================================================================
+philleshandfriends-2006-07-03 paf2006-07-03.neumann.clarke.35457.sbeok.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+Phil Lesh & Friends 
+July 3, 2006 
+NE Dodge Music Center
+Hartford CT
+source:  Neumann km184> v2> sbm-1 (44.1 kHz)> optical 7pin> JB3
+          [DIN 90*  DFC tapers section, Lawn]
+transfer:  JB3> firewire> Sound Forge 6.0> cdWave> FLAC Frontend
+taped/transfered by  Rob Clarke   RobClarke.km184  -AT- gmail.com
+disc 1 (set 1) 
+01.  Passenger -> 
+02.  Pride of Cucamonga 
+03.  Big Boss Man 
+04.  They Love Each Other -> 
+05.  Good Lovin 
+     - set 2 * -
+06.  Shakedown St. ->  
+07.  Feedback > Caution > Feedback 
+disc 2 (set 2 cont.)
+01.  Candyman -> 
+02.  Candyman (Garcia, Hunter version) 
+03.  Voila Lee v1 -> 
+04.  Shakedown on 9th St -> 
+05.  Voila v2 -> 
+06.  Bertha -> 
+07.  Viola v3
+08.  crowd
+09.  Donor Rap / Band introductions
+10.  encore: Midnight Hour
+* Trey Anastasio plays entire 2nd set and encore (no Barry)
+--- ITEMS: 1:Passenger | 1:Pride of Cucamonga | 1:Big Boss Man | 1:They Love Each Other | 1:Good Lovin | 2:Shakedown St. | 2:Feedback | 2:Caution | 2:Feedback | 2:Candyman | 2:Candyman (Garcia, Hunter version) | 2:Voila Lee v1 | 2:Shakedown on 9th St | 2:Voila v2 | 2:Bertha | 2:Viola v3 | 2:Donor Rap / Band introductions | encore:Midnight Hour | encore:Trey Anastasio plays entire 2nd set and encore (no Barry)
+has_encore True encore_like True
+  12 2       2       tags             Voila v2 ->
+  13 2       2       tags             Bertha ->
+* 14 encore  2       tags             Viola v3
+* 15 encore  2       tags           F crowd
+* 16 encore  2       tags             Donor Rap / Band introductions
+  17 encore  encore  tags             encore: Midnight Hour
+   (17 tracks)
+==========================================================================================
+radiators-2006-02-10 Rad2006-02-10.flac16 src= description reason= None align= llm ssrc= lma:rad2006-0210.km140s.flac16
+--- TEXT
+disc 1 set 1:
+01  tunin/intro
+02  Monkey Meet
+03  Deep In My Voodoo
+04  Life On Mars
+05  Death of the Blues
+06  Wrestlin with the Angel
+07  Last Getaway
+disc 2 set 1:
+01  Dreamin Out Loud
+02  River Run
+03  My Whole World Flies Apart
+04  Doctor Dr.
+05  Go Down Hannah
+06  outro
+disc 3 set 2:
+01  tunin/intro
+02  Burnin Down the House
+03  Somethin You Got
+04  Man Who Lost His Head
+05  Girl with the Golden Eyes
+06  For What Its Worth
+07  7 Devils
+08  Slip Away
+09  Wild & Free
+10  callin em back
+encores:
+11  Junco Partner
+12  Look A Py Py
+13  outro
+
+--- ITEMS: 1:Monkey Meet | 1:Deep In My Voodoo | 1:Life On Mars | 1:Death of the Blues | 1:Wrestlin with the Angel | 1:Last Getaway | 1:Dreamin Out Loud | 1:River Run | 1:My Whole World Flies Apart | 1:Doctor Dr. | 1:Go Down Hannah | 2:Burnin Down the House | 2:Somethin You Got | 2:Man Who Lost His Head | 2:Girl with the Golden Eyes | 2:For What Its Worth | 2:7 Devils | 2:Slip Away | 2:Wild & Free | 2:callin em back | encore:Junco Partner | encore:Look A Py Py
+has_encore True encore_like False
+  19 2       2       tags             Slip Away
+  20 2       2       tags             Wild & Free
+* 21 encore  2       tags             callin em back
+  22 encore  encore  tags             Junco Partner
+  23 encore  encore  tags             Look A Py Py
+   (24 tracks)
+==========================================================================================
+thedead-2009-04-25 thedead2009-04-25.jwmod.akg.469.v2.sd722.suraci.sbeok.flac16 src= description reason= None align= jerrybase ssrc= setlist.fm
+--- TEXT
+The Dead
+Madison Square Garden
+New York, New York
+April 25, 2009
+7:30 PM
+Source: JW Mod Akg469's>Lunatec V2>Sound Devices 722@24/48
+Location: OTS, Stand at 12 feet
+Transfer: SD722>Adobe Aud.>16/44>cdwav>flac16
+Taped, transfered and uploaded by Tony Suraci
+Disc One/Set One:
+Intro
+Cosmic Charlie
+China Cat
+Shakedown Street
+Ship of Fools
+He's Gone
+Cassidy
+Disc Two/Set Two:
+Sugaree
+- end of set one
+Drums/Space
+Crypitical Envelopment
+The Other One
+Born Cross Eyed
+St Stephen
+The Eleven
+Disc Three/Set Two Cont:
+Uncle John's Band
+Unbroken Chain
+Gimme Shelter
+One More Saturday Night
+Donor Rap
+E: Brokedown Palace
+The Band:
+Phil Lesh
+Bob Weir
+Bill Kruetzman
+Mickey Hart
+Warren Haynes
+Jeff Chimenti
+--- ITEMS: 1:Cosmic Charlie | 1:China Cat | 1:Shakedown Street | 1:Ship of Fools | 1:He's Gone | 1:Cassidy | 2:Sugaree | 2:- end of set one | 2:Drums/Space | 2:Crypitical Envelopment | 2:The Other One | 2:Born Cross Eyed | 2:St Stephen | 2:The Eleven | 2:Uncle John's Band | 2:Unbroken Chain | 2:Gimme Shelter | 2:One More Saturday Night | 2:Donor Rap | encore:Brokedown Palace | encore:The Band: | encore:Phil Lesh | encore:Bob Weir | encore:Bill Kruetzman | encore:Mickey Hart | encore:Warren Haynes | encore:Jeff Chimenti
+has_encore True encore_like False
+   5 1       1       tags             He's Gone
+   6 1       1       tags             Cassidy
+*  7 1       2       tags             Sugaree
+   8 2       2       tags             Drums>Space
+   9 2       2       tags             Cryptical
+   ...
+  16 2       2       tags             Gimme Shelter
+  17 2       2       tags             One More Saturday Night
+* 18 encore  2       tags             Donor Rap
+  19 encore  encore  tags             Brokedown Palace
+   (19 tracks)

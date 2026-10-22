@@ -1,0 +1,5 @@
+word 439 399
+start 97 88
+R4ac-item 14 14
+R4b-end 9 9
+set+enc 1 1

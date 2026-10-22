@@ -1,0 +1,207 @@
+==========================================================================================
+railroadearth-2004-03-27 rre2004-03-27.shnf src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+Disc 1:
+    Set I: 
+ 1. Tuning
+ 2. Lordy Lordy
+ 3. Sing For //Me
+ 4. Seven Story Mountain
+ 5. Mighty River
+ 6. Give That Boy A Hand
+ 7. Luxury Liner
+ 8. Storms 
+    Set II: 
+ 9. Tuning
+10. Drag Him Down
+11. Colorado
+Disc 2:
+    Set II cont:
+ 1. Bird In A House
+ 2. Little Rabbit
+ 3. Any Road
+ 4. Like A Buddha  
+ 5. Mess
+ 6. Cold Water
+ 7. Fiddlee 
+    Encores: 
+ 8. El //Cumbanchero
+ 9. Long Way To Go
+10. Fire On The Mountain
+--- ITEMS: 1:Lordy Lordy | 1:Sing For //Me | 1:Seven Story Mountain | 1:Mighty River | 1:Give That Boy A Hand | 1:Luxury Liner | 1:Storms | 2:Drag Him Down | 2:Colorado | 2:Bird In A House | 2:Little Rabbit | 2:Any Road | 2:Like A Buddha | 2:Mess | 2:Cold Water | 2:Fiddlee | encore:El //Cumbanchero | encore:Long Way To Go | encore:Fire On The Mountain
+has_encore True encore_like False
+  15 2       2       tags             Cold Water
+  16 2       2       tags             Fiddlee
+* 17 2       encore  tags             El Cumbanchero
+* 18 2       encore  tags             Long Way To Go
+* 19 2       encore  tags             Fire On The Mountain
+   (19 tracks)
+==========================================================================================
+railroadearth-2008-03-01 rre2008-03-01.mk4.nbox.flac16 src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+Set 1:
+01. Chains
+02. Lordy. Lordy
+03. Shockenaw Mountain Breakdown
+04. Like a Buddha *
+05. Give That Boy a Hand
+06. Stillwater Getaway
+07. Crossing the Gap
+Set 2:
+01. My Sisters and Brothers *
+02. Black Bear
+03. Head *
+04. Way of the Buffalo *
+05. 1759
+06. Long Way To Go
+07. For Love
+08. Cuckoo's Medley
+Encores:
+09. Bird in a House
+10. Little Rabbit
+* with Len Mooney on accordion
+--- ITEMS: 1:Chains | 1:Lordy. Lordy | 1:Shockenaw Mountain Breakdown | 1:Like a Buddha | 1:Give That Boy a Hand | 1:Stillwater Getaway | 1:Crossing the Gap | 2:My Sisters and Brothers | 2:Black Bear | 2:Head | 2:Way of the Buffalo | 2:1759 | 2:Long Way To Go | 2:For Love | 2:Cuckoo's Medley | encore:Bird in a House | encore:Little Rabbit | encore:with Len Mooney on accordion
+has_encore True encore_like False
+  14 2       2       tags             For Love
+  15 2       2       tags             Cuckoo's Medley
+* 16 2       encore  tags             Bird in a House
+* 17 2       encore  tags             Little Rabbit
+   (17 tracks)
+==========================================================================================
+railroadearth-2009-08-22 rre2009-08-22 src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+Railroad Earth
+August 22, 2009
+Hemp Hoe Down
+Lolo Hot Springs
+Lolo, Montana
+Taped by Dave McKearney
+ADK TL > Warm plus UA-5 > JB3 > WaveLab > CDWave
+Set 1:
+01 Where Songs Begin
+02 Carrying Coal to Newcastle
+03 Birds of America
+04 A Day on the Sand
+05 Magic Foot -->
+06 Luxury Liner
+07 Walk Beside Me
+08 Ragtime Annie Lee
+Set 2:
+01 Long Way To Go
+02 Give That Boy a Hand
+03 Bowling Green
+04 I am a Mess
+05 All Alone
+06 Right in Tune
+07 Reuben's Train
+01 Goat
+02 Old Man and the Land
+03 The Wheel
+04 Head
+Encore:
+05 Railroad Earth
+Many thanks to MS and PP for the setlist
+--- ITEMS: 1:Where Songs Begin | 1:Carrying Coal to Newcastle | 1:Birds of America | 1:A Day on the Sand | 1:Magic Foot - | 1:Luxury Liner | 1:Walk Beside Me | 1:Ragtime Annie Lee | 2:Long Way To Go | 2:Give That Boy a Hand | 2:Bowling Green | 2:I am a Mess | 2:All Alone | 2:Right in Tune | 2:Reuben's Train | 2:Goat | 2:Old Man and the Land | 2:The Wheel | 2:Head | encore:Railroad Earth
+has_encore True encore_like False
+  18 2       2       tags             The Wheel
+  19 2       2       tags             Head
+* 20 2       encore  tags             Railroad Earth
+   (20 tracks)
+==========================================================================================
+railroadearth-2013-07-12 rre2013-07-12 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set I: Black Elk Speaks> The Jupiter and the 119, Happy Song, Saddle of the Sun> Mourning Flies> Lone Croft Farewell, Storms, Head
+Set II: Potter's Field> Old Man and the Land, Colorado, Crossing the Gap, Untitled #12, Warhead Boogie> Black Bear> Stillwater Getaway, The Forecast> River Intro Jam> Mighty River> Peace on Earth, Seven Story Mountain
+Encore: Railroad Earth
+--- ITEMS: 1:Black Elk Speaks | 1:The Jupiter and the 119 | 1:Happy Song | 1:Saddle of the Sun | 1:Mourning Flies | 1:Lone Croft Farewell | 1:Storms | 1:Head | 2:Potter's Field | 2:Old Man and the Land | 2:Colorado | 2:Crossing the Gap | 2:Untitled #12 | 2:Warhead Boogie | 2:Black Bear | 2:Stillwater Getaway | 2:The Forecast | 2:Mighty River | 2:Peace on Earth | 2:Seven Story Mountain | encore:Railroad Earth
+has_encore True encore_like False
+  20 2       2       tags             Peace on Earth
+  21 2       2       tags             Seven Story Mountain
+* 22 2       encore  tags             Railroad Earth
+   (22 tracks)
+==========================================================================================
+soundtribesector9-2005-02-11 sts9-2005-02-11.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+SET 1
+Intro
+By The AM Sun 
+Mischief of a Sleepwalker
+Peoples
+ROYGBIV
+Kaya >
+Open E
+Today
+GloGLI
+SET 2
+Tap In
+F Word
+Music, Us
+Ramone & Emiglio
+Twilight
+4 Year Puma
+Grow
+E:
+ASAA
+
+--- ITEMS: 1:By The AM Sun | 1:Mischief of a Sleepwalker | 1:Peoples | 1:ROYGBIV | 1:Kaya | 1:Open E | 1:Today | 1:GloGLI | 2:Tap In | 2:F Word | 2:Music | 2:Us | 2:Ramone & Emiglio | 2:Twilight | 2:4 Year Puma | 2:Grow | encore:ASAA
+has_encore True encore_like True
+  14 2       2       tags             4 Year Puma
+  15 2       2       tags             Grow
+* 16 2       encore  tags             ASAA
+   (16 tracks)
+==========================================================================================
+soundtribesector9-2007-04-26 sts9-2007-04-26.mk4.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1: Abcees, F. Word, From Now On, Move My Peeps, Today, Arigato, Kamuy
+Set 2: Tokyo, Breathe In, Lo Swaga, We'll Meet In Our Dreams, Mischief Of A Sleepwalker, Circus
+Encore: Really Wut?
+--- ITEMS: 1:Abcees | 1:F. Word | 1:From Now On | 1:Move My Peeps | 1:Today | 1:Arigato | 1:Kamuy | 2:Tokyo | 2:Breathe In | 2:Lo Swaga | 2:We'll Meet In Our Dreams | 2:Mischief Of A Sleepwalker | 2:Circus | encore:Really Wut?
+has_encore True encore_like False
+  12 2       2       tags             Mischief Of A Sleepwalker
+  13 2       2       tags             Circus
+* 14 2       encore  tags             Really Wut?
+   (14 tracks)
+==========================================================================================
+stringcheeseincident-2004-12-31 sci2004-12-31.dpa4023.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1: This Must Be the Place (Naive Melody) > San Jose, Miss Brown's Teahouse, Doin' My Time, One Step Closer¹ > Mouna Bowa¹, Eye Know Why, Birdland > Desert Dawn
+Set 2:  Drums¹ > Way Back Home > Reelin' in the Years > Land's End Reprise > Way Back Home, Rollover > Rivertrance, Rhythm of the Road, Joyful Sound > Dirk, Black Clouds
+Encore: Boogie on Reggae Woman, Good Times Around the Bend
+--- ITEMS: 1:This Must Be the Place (Naive Melody) | 1:San Jose | 1:Miss Brown's Teahouse | 1:Doin' My Time | 1:One Step Closer¹ | 1:Mouna Bowa¹ | 1:Eye Know Why | 1:Birdland | 1:Desert Dawn | 2:Drums¹ | 2:Way Back Home | 2:Reelin' in the Years | 2:Land's End Reprise | 2:Way Back Home | 2:Rollover | 2:Rivertrance | 2:Rhythm of the Road | 2:Joyful Sound | 2:Dirk | 2:Black Clouds | encore:Boogie on Reggae Woman | encore:Good Times Around the Bend
+has_encore True encore_like False
+  19 2       2       tags             Dirk
+  20 2       2       tags             Black Clouds
+* 21 2       encore  tags           F Crowd
+* 22 2       encore  tags             E: Boogie On Reggae Woman
+* 23 2       encore  tags             E: Good Times Around The Bend
+   (23 tracks)
+==========================================================================================
+stringcheeseincident-2006-07-20 sci2006-07-20 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Set 1: 
+Disc 1:
+Texas> 
+Johnny Cash, 
+Solution, 
+The Joker, 
+San Jose, 
+Looking Glass> 
+Bam 
+Set 2:
+Disc 2: 
+Under African Skies > 
+Rivertrance, 
+Howard, 
+Sometimes A River, 
+Disc 3:
+Rain, 
+Jellyfish > 
+Dirk > 
+Black Clouds
+E: Travis Drums > On the Road
+--- ITEMS: 1:Texas | 1:Johnny Cash | 1:Solution | 1:The Joker | 1:San Jose | 1:Looking Glass | 1:Bam | 2:Under African Skies | 2:Rivertrance | 2:Howard | 2:Sometimes A River | 2:Rain | 2:Jellyfish | 2:Dirk | 2:Black Clouds | encore:Travis Drums | encore:On the Road
+has_encore True encore_like False
+  14 2       2       tags             Dirk >
+  15 2       2       tags             Black Clouds
+* 16 2       encore  tags             Travis Drums > On the Road
+   (16 tracks)

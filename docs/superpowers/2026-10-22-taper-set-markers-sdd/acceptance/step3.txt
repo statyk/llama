@@ -1,0 +1,7 @@
+title diffs 0
+owned 627 (run2 628 ) lost ['joerussosalmostdead-2019-09-28'] gained []
+   joerussosalmostdead-2019-09-28 veto: step-1 break before set 1 clean
+not-owned diffs 0 positive control 139
+rows differing run2->run3: 1 ['joerussosalmostdead-2019-09-28']
+newly held 8
+stripped stevekimockband-2000-03-31: veto: step-1 break before set 1

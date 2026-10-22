@@ -1,0 +1,315 @@
+B hit lines 425 items 221
+C hit lines 623 items 294
+
+== B: distinct cores by shape (digits->9)
+   60 Set One (9:99PM - 9:99PM):
+   30 Disc 9  Set 9 (99:99)
+   27 Set Two (99:99PM - 99:99AM):
+   26 Set Two (99:99PM - 99:99PM):
+   23 Set One (9:99PM - 99:99PM):
+   15 Set 9 (9:99PM - 99:99PM):
+   13 Set 9 (99:99)
+   12 Set Two (9:99PM - 99:99PM):
+   10 9st Set (99:99)
+    9 Disc 9  Set 9 cont (99:99)
+    8 9nd Set (999:99)
+    8 Set Two (99:99PM - 9:99AM):
+    7 Set 9 cont...
+    7 Set 9  (99:99)
+    6 Set 9 (9:99PM - 99:99PM)
+    6 Set One (9:99pm - 99:99pm):
+    5 Set Two (9:99PM - 9:99PM):
+    4 Set 9 (99:99):
+    4 set one (99:99)
+    4 Set One (9:99pm - 9:99pm):
+    4 Set One (9:99PM - 9:99PM)
+    3 Disc 9 (set 9 continued...)
+    3 Disc 9 (Set 9 continued...)
+    3 Set One (9:99PM - 99:99PM)
+    3 SET TWO (9:99:99)
+    3 set two (99:99)
+    3 Set Two (9:99PM - 99:99PM)
+    3 Set 9  (99:99)
+    2 SET ONE (99:99)
+    2 Disc Two - Set Two (99:99)
+    2 set two (999:99)
+    2 Set I (99:99)
+    2 9nd Set (99:99)
+    2 Set One (99:99)
+    2 Set Two (99:99)
+    2 Set 9 (99:99:99)
+    2 Set Two (99:99pm - 9:99am):
+    2 Set 9 (9:99pm):
+    2 Set 9 (99:99pm):
+    2 Set 9 (99:99PM - 99:99AM):
+    2 Set 9 (99:99PM - 99:99PM):
+    2 Set Two (99:99pm - 99:99am):
+    2 Set 9 (9:99PM - 9:99PM):
+    2 Set One (99:99PM - 99:99PM):
+    2 Set 9 (99:99pm - 99:99am):
+    2 Set Two (9:99pm - 99:99pm):
+    2 Set One (9:99pm - 9:99PM):
+    2 Set Two (99:99pm - 99:99PM)
+    2 Set Two (9:99pm - 99:99am):
+    2 Set Two (99:99PM - 99:99AM?):
+    2 Set Two  (9:99PM - 99:99PM):
+    2 Set Two (9:99PM):
+    2 Set 9  (99:99:99)
+    2 Set 9 (9:99:99)
+    2 Disc 9-Set 9 cont...
+    2 Disc 9  Set 9 (99:99)
+    2 Set 9  (999:99)
+    2 Disc 9 - Set I...
+    2 set 9 (99:99)
+    2 set 9 (999:99)
+    2 set 9  (99:99)
+    2 set 9  (99:99)
+    2 Disc 9 - Set 9 (99:99):
+    1 Disc 9 9nd Set (99:99)
+    1 Set I (99:99:99)
+    1 Set II (99:99:99)
+    1 Set Two (99:99PM - 99:99AM)
+    1 Disc 9 - Set II...
+    1 9st set(99:99)
+    1 9nd Set(999:99)
+    1 Set II Cont...
+    1 Disc One - Set One (99:99)
+    1 Set 9 (9:99-9:99):
+    1 Set 9 (99:99-99:99):
+    1 Set II (999:99)
+    1 Set One cont...
+    1 Set Two cont...
+    1 Disc One - Set One & Encore (99:99)
+    1 Disc One - First Set & Encore (99:99)
+    1 Disc Two - Second Set (99:99)
+    1 Set 9 (99:99.99)
+    1 Set One (99:99AM - 9:99AM):
+    1 Set Two (9:99AM - 9:99AM):
+    1 Set 9 (99:99PM - 9:99AM):
+    1 Set One (9:99pm - 9:99pm)
+    1 Set Two (9:99pm - 99:99pm)
+    1 Set Two (9:99PM- 99:99PM):
+    1 Set Two (99:99PM - 99:99PM)
+    1 set one (999:99)
+    1 SET I  (9:99:99)
+    1 SET II  (9:99:99)
+    1 SET I (99:99)
+    1 SET II (9:99:99)
+    1 Disc 9 Set 9         (99:99)
+    1 Disc 9  Set 9 cont (99:99)
+    1 SET ONE (9:99:99)
+    1 DISC TWO - SET TWO (99:99)
+    1 DISC THREE - SET THREE (99:99)
+    1 Disc Two- Set Two  (99:99)
+    1 Disc 9/ Set 9 Cont...
+    1 Disc 9-Set I (99:99)
+    1 Disc 9-Set II (99:99)
+    1 Set II (99:99)
+    1 Set III (999:99)
+    1 Set One (99:99):
+    1 Set Two (99:99):
+    1 Disc 9 - Set 9 & Encore (99:99):
+    1 Set 9 (9:99pm - 99:99pm)
+    1 Set 9 (99:99am - 9:99am)
+
+== C: distinct cores by shape (digits->9)
+   49 Set 9 Disc 9
+   37 Disc I 9st Set
+   37 Set 9/Disc 9:
+   35 Disc II 9nd Set
+   30 Disc 9  Set 9 (99:99)
+   24 ~Disc 9: Set 9~
+   21 set 9 disc 9
+   12 Set 9 / Disc 9
+   11 Set 9 Disc 9:
+   11 Set 9/Disc 9
+    9 Disc 9  Set 9 cont (99:99)
+    9 Disc 99 [Set I]
+    8 Disc 99 [Set II]
+    8 Set II Disc 9:
+    7 Disc 9 : 9st Set
+    7 Set 9/Disk 9:
+    7 CD 9 - Set 9
+    6 Set I Disc I
+    6 Disc 9 Set 9
+    6 Disc 9 Set 9 (cont):
+    6 Set I Disc 9:
+    5 Disk 9 Set 9
+    5 Disc 9 : 9nd Set
+    5 Disc 9, Set 9
+    5 ~Disc 9: Set 9(Cont.)~
+    4 Set II Disc II
+    4 Set 9 CD 9
+    4 disc 99 [Set I]
+    4 Disc 9: Set 9
+    4 set 9/Disc 9
+    3 set 9 disc 9:
+    3 Set 9 disc 9
+    3 Disc/Set9
+    3 Disc I, Set I
+    3 Disc II, Set II
+    3 Disc/Set 9:
+    3 Set I Disc 9
+    3 CD 9 (set 9):
+    3 Set 9 / Disc 9:
+    3 Set One / Disc One
+    3 Set Two / Disc Two
+    3 Set Two / Disc Three
+    3 Disk 9:  Set 9
+    3 Set 9/ Disc 9
+    3 Disk 9/Set 9
+    2 Set9 disc 9
+    2 Disc 9 set I
+    2 Disc 9 set II
+    2 SET 9 / DISC 9
+    2 Disk 9: Set 9
+    2 Disk 9/Set I:
+    2 Disk 9/Set II:
+    2 set one/disc one:
+    2 set two/disc two:
+    2 Disc 9: Set I
+    2 disc 99 [Set II]
+    2 Set 9 cont. Disc 9
+    2 Set9/CD9
+    2 Set 9 (cont.)/Disk 9:
+    2 disc 99	[Set II]
+    2 Set 9/Disc 9:(99:99)
+    2 Set II/Disc 9
+    2 disc 9 : 9nd set
+    2 Set I Disc I:
+    2 Set II Disc II:
+    2 Set 9 Disk9:
+    2 disc 9 set 9
+    2 disc 9 : 9st set
+    2 Disc 9  Set 9 (99:99)
+    2 Disc 9 Set II cont
+    2 Disc # 9  Set 9 cont.
+    2 9st set disc 9:
+    2 9nd set disc 9:
+    2 9rd set disc 9:
+    2 9st Set disc 9:
+    2 CD9 / set 9
+    2 Disc 9 Set II Cont'd: 99:99
+    2 Set 9-Disc 9
+    2 Set I Cont'd Disc 9:
+    2 Set II Cont'd Disc 9:
+    2 Disc 9 Set Two cont:
+    2 Set One/Disc 9
+    1 -Disk Two (Set I cont.)-
+    1 Disc 9 9nd Set (99:99)
+    1 Set I Disc II
+    1 Set II Disc III
+    1 Set II + Encore Disc IV
+    1 Set 9-Disk 9
+    1 9st set disc one:
+    1 9nd set disc two:
+    1 Disc 9: Set II
+    1 Disc 9 set 9 continued
+    1 DISC 9 SET ONE
+    1 DISC 9 SET TWO
+    1 Disc #9 Set I
+    1 Disc # 9 Set II  cont.
+    1 CD#9: First set: 99 tracks 99:99
+    1 CD#9: Second set: 99 tracks 99:99
+    1 Disk II (set 9 cont)
+    1 Disc Three, Set 9, cont.
+    1 Disc 9  Set 9
+    1 Disc 9   Set 9
+    1 Disc 9    Set 9 cont.
+    1 Disc III 9st Set
+    1 Set 9 (cont) Disc 9:
+    1 Disc One Set I
+    1 Disc Two Set II
+    1 Set I Disc 9 - 99:99
+    1 Set I cont'd Disc 9 - 99:99
+    1 Set II Disc 9 - 99:99
+    1 Set II cont'd Disc 9 - 99:99
+    1 set 9 / disc 9
+    1 Disk One- First Set
+    1 Disk Two- Second Set
+    1 Disc 9: Set I cont.
+    1 Disc 9: Set II cont.
+    1 Set II Disc 9
+    1 Disc 99	[Set II]
+    1 Set 9 Cont.  Disc 9:
+    1 Disc 9 Set I
+    1 Disc 9 Set II
+    1 Disc 9 Set II Cont'd.
+    1 Disc I: 9st Set
+    1 Disc II: 9nd Set
+    1 Set II  Disc 9
+    1 Set  II  Disc  9
+    1 Disc 9 Set 9 (continued):
+    1 Disk 9 (set 9):
+    1 Disc 99 Set II (cont):
+    1 Set one Disc 9
+    1 Set two Disc 9
+    1 Set 9/CD 9:
+    1 disc one, set one
+    1 disc two, set two
+    1 SET ONE/ DISC ONE
+    1 SET TWO/DISC TWO
+    1 SET TWO CONT./DISC THREE
+    1 CD 9/Set 9:
+    1 Disc 9: Set 9 cont'd: [99:99]
+    1 ~Disc 9: Set 9+Encore~
+    1 CD 9 Set 9
+    1 CD 9 Set 9 continued/encores
+    1 CD 9 (set 9 cont.):
+    1 set one disc 9
+    1 Set 9/disc 9:
+    1 Disk 9 set 9 cont.:
+    1 Disc 9 Set 9         (99:99)
+    1 disc 9 : 9nd  set
+    1 disc9 : 9st set
+    1 Disc 9  Set 9 cont (99:99)
+    1 Disc 9 : 9nd set
+    1 cd9 set 9
+    1 Set One Disc One
+    1 Set One Disc Two
+    1 Set Two Disc Two
+    1 9nd Set disc 9:
+    1 Disc I Set 9
+    1 Disc II Set 9
+    1 Disc 9 Set I Cont'd: 99:99
+    1 Set I Disc 9: 99:99
+    1 Set II Disc 9: 99:99
+    1 CD 9 Set 9 continued
+    1 DISC 99:SET I :
+    1 DISC 99:SET II
+    1 DISC 99:SET II (cont'd)
+    1 Disc One  Set One
+    1 Disc Two  Set Two
+    1 Disc 9, Set 9, cont.:
+    1 9st set Disc9
+    1 9nd Set Disc9
+    1 CD9 Set 9
+    1 Disc 9: Set 9 cont'd
+    1 Set 9/Disc9:
+    1 Set I / Disc I:
+    1 Set II / Disc II:
+    1 cd 9/set I:
+    1 cd 9/set II:
+    1 SET 9 DISC 9
+    1 DISC TWO, SET II (cont.):
+    1 Disc Three Set II cont:
+    1 Disc Three Set 9 cont:
+    1 Set One Disc 9:
+    1 Set One cont. Disc 9:
+    1 Set Two cont. Disc 9:
+    1 Set I/Disc I
+    1 Set II/Disc II
+    1 Set II/Disc III
+    1 Set Two/Disc 9
+    1 Disc 9  9st Set
+    1 Disc 9  9nd Set
+    1 Disc III, Set II (cont'd)
+    1 set9/disc 9:
+    1 set 9/disc 9:
+    1 DISC ONE, 9ST SET
+    1 DISC TWO, 9ND SET
+    1 DISC THREE, 9ND SET (cont.)
+    1 SET ONE/DISC ONE:
+    1 SET TWO/DISC TWO:
+    1 Disk 9/ Set 9
+    1 Disk 9/Set 9 cont.

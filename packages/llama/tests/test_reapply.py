@@ -1095,3 +1095,31 @@ def test_reapply_on_refused_overrides_raises_and_writes_nothing(tmp_path, monkey
     with pytest.raises(LlamaError, match="overrides\\.(encore_after|set_breaks)"):
         _run(config, ledger, entry)
     assert _snapshot(entry.ws) == before
+
+
+def test_reapply_processes_a_taper_owned_stored_llm_show(tmp_path, monkeypatch):
+    # Piece 2 spec section 7: a stored `llm` alignment is no longer needs-LLM when
+    # the candidate is taper-owned. Its structure changes (the taper's markers
+    # relabel the tape), so it is refused without --allow-structure-change.
+    from fixture_library import IDENT
+    root, config, ledger, entry, _ = _env(tmp_path)
+    cache = root / "cache" / f"md_{IDENT}.json"
+    md = json.loads(cache.read_text())
+    md["metadata"]["description"] = ("Set 1:\nMorning Dew\nChina Cat Sunflower > I Know You Rider\n\n"
+                                     "Set 2:\nDark Star > Eyes of the World\nJohnny B. Goode\n")
+    cache.write_text(json.dumps(md))
+    show = read_model(entry.ws.show, Show)
+    show.structure = show.structure.model_copy(update={"alignment": "llm"})
+    write_artifact(entry.ws.show, show)
+    calls = _stub_package(monkeypatch)
+    _stale(entry.ws)
+    before = _snapshot(entry.ws)
+    out = _run(config, ledger, entry)
+    assert out.outcome == "skipped: structure changed" and out.written == []
+    assert _snapshot(entry.ws) == before and calls == []
+    ok = json.dumps(dict(context="c", significance="s", per_set={"1": ["a"], "2": ["b"]}))
+    done = reapply_show(config, object(), ledger, entry, providers=_providers(ok), row=None,
+                        dry_run=False, echo=lambda s: None, allow_structure_change=True)
+    assert done.outcome == "cleared" and calls
+    final = read_model(entry.ws.show, Show)
+    assert final.structure.taper_owned is True and final.structure.alignment != "llm"

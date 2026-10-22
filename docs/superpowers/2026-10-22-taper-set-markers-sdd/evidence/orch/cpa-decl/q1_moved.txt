@@ -1,0 +1,300 @@
+jerrybase: skipped 117 malformed rows
+==========================================================================================
+darkstarorchestra-2001-12-15 src description align jerrybase ssrc setlist.fm
+  markers: [Set 1:]->Bucket ; [Set 2:]->Help> ; [Set 2 (cont):]->Wheel> ; [Encore: Baby Blue]->Filler: Sisters and Brothers*
+  reader groups: 1:Bucket..Don't Ease | 2:Help..Lovelight | encore:Baby Blue..Filler: Sisters and Brothers
+    19 2      2       tags       Hey Jude Finale>
+    20 2      2       tags       Death Don't Have No Mercy>
+  * 21 encore 2       tags       Lovelight
+    22 encore encore  tags       Baby Blue
+    23 encore encore  tags       Sisters and Brothers
+==========================================================================================
+darkstarorchestra-2006-11-29 src description align jerrybase ssrc setlist.fm
+  markers: [Set One]->d1t01 Promised Land ; [Set Two]->d2t03 He's Gone> ; [Encore: Saturday Night]->d3t06 Show announcement
+  reader groups: 1:Promised Land..Casey Jones | 2:He's Gone..Sugar Magnolia | encore:Saturday Night..Filler: Baby Blue
+    21 2      2       tags       Other One>
+    22 2      2       tags       Sugar Magnolia
+  * 23 2      encore  tags       One More Saturday Night
+    24 encore encore  tags       It's All Over Now Baby Blue
+==========================================================================================
+discobiscuits-2002-03-06 src description align deterministic ssrc setlist.fm
+  markers: [Set 1: Triumph > Vassillios > I-Man, Rea]->Set 2: Sound 1, Spaga > Pygmy  ; [Set 2: Sound 1, Spaga > Pygmy Twylyte > ]->Encore: King Of The World ; [Encore: King Of The World]->
+  reader groups: 1:Triumph..Little Betty Boop | 2:Sound 1..Home Again | encore:King Of The World..King Of The World
+     4 1      1       tags       Reactor
+     5 1      1       tags       Little Betty Boop
+  *  6 1      2       tags       Sound 1
+     7 2      2       tags       Spaga
+     8 2      2       tags       Pygmy Twylyte
+==========================================================================================
+furthur-2009-12-13 src description align jerrybase ssrc setlist.fm
+  markers: [Set 1:]->01. intro ; [Set 2:]->01. intro > ; [E: US Blues]->
+  reader groups: 1:Box Of Rain..Cumberland Blues | 2:Lost Sailor..Phil's Donor Rap | encore:US Blues..US Blues
+    18 2      2       tags       Slipknot >
+    19 2      2       tags       Franklins Tower
+  * 20 encore 2       tags       Phil's Donor Rap
+    21 encore encore  tags       US Blues
+==========================================================================================
+furthur-2010-05-29 src description align jerrybase ssrc setlist.fm
+  markers: [Set I]->1. Box of Rain ; [Set II]->1. Uncle John's Band > ; [Set III]->1. That's It for the Other One ; [E1: Muli Guli > $]->E2: One More Saturday Night ; [E2: One More Saturday Night]->
+  reader groups: 1:Box of Rain..Truckin' | 2:Uncle John's Band..Casey Jones | 3:That's It for the Other One..Donor Rap | encore:Muli Guli..One More Saturday Night
+     8 1      1       tags       Till The Morning Comes # *
+     9 1      1       tags       Attics of my Life # *
+  * 10 2      1       tags       Truckin' *
+    11 2      2       tags       Uncle John's Band >
+    12 2      2       tags       High Time
+    13 2      2       tags       Dire Wolf
+    14 2      2       tags       New Speedway Boogie > *
+    15 2      2       tags       Cumberland Blues *
+    16 2      2       tags       Black Peter > *
+    17 2      2       tags       Easy Wind *
+    18 2      2       tags       Casey Jones *
+    19 3      3       tags       That's It for the Other One >
+    20 3      3       tags       Cryptical Envelopment >
+    21 3      3       tags       New Potato Caboose >
+    22 3      3       tags       Born Cross-Eyed >
+    23 3      3       tags       Alligator >
+    24 3      3       tags       Caution (Do Not Step on Tracks) >
+  * 25 encore 3       tags       Donor Rap
+    26 encore encore  tags       E1: Muli Guli > $
+    27 encore encore  tags       E2: One More Saturday Night
+==========================================================================================
+furthur-2010-06-26 src description align jerrybase ssrc setlist.fm
+  markers: [Set 1:]->China Cat Sunflower > I Know Y ; [Set 2:]->Shakedown Street > Caution (Do ; [E: Brokedown Palace, Fireworks]->
+  reader groups: 1:China Cat Sunflower..One More Saturday Night | 2:Shakedown Street..Donor Rap | encore:Brokedown Palace..Fireworks
+    17 2      2       tags       Lady With A Fan
+    18 2      2       tags       Terrapin Station
+  * 19 encore 2       tags       At A Siding
+  * 20 encore 2       tags       Terrapin Flyer
+  * 21 encore 2       tags       Donor Rap
+    22 encore encore  tags       Brokedown Palace
+==========================================================================================
+furthur-2010-06-27 src description align jerrybase ssrc setlist.fm
+  markers: [Set 1:]->Golden Road > Good Lovin', The ; [Set 2:]->Unbroken Chain, Let It Grow, F ; [E: Box Of Rain, Fireworks]->
+  reader groups: 1:Golden Road..Uncle John's Band | 2:Unbroken Chain..Donor Rap | encore:Box Of Rain..Fireworks
+    18 2      2       tags       Slipknot!
+    19 2      2       tags       Franklin's Tower
+  * 20 encore 2       tags       Donor Rap
+    21 encore encore  tags       Box Of Rain
+==========================================================================================
+furthur-2010-07-05 src description align jerrybase ssrc setlist.fm
+  markers: [Set 1:]->01 Tuning ; [Set 2:]->01 China Doll> ; [E: Box Of Rain]->
+  reader groups: 1:Scarlet Begonias..Throwing Stones | 2:China Doll..Donor Rap | encore:Box Of Rain..Box Of Rain
+    18 2      2       tags       China Cat Sunflower>
+    19 2      2       tags       I Know You Rider
+  * 20 encore 2       tags       Donor Rap
+    21 encore encore  tags       Box Of Rain
+==========================================================================================
+furthur-2011-09-23 src description align jerrybase ssrc setlist.fm
+  markers: [Set 1]->1. Crowd ; [Set 2]->1. Crowd ; [Encore:]->12. Ripple
+  reader groups: 1:Feel Like A Stranger..Cassidy | 2:The Music Never Stopped..Donor Rap | encore:Ripple..Ripple
+    16 2      2       tags       Slipknot
+    17 2      2       tags       Franklin's Tower
+  * 18 encore 2       tags       Donor Rap
+    19 encore encore  tags       Ripple
+==========================================================================================
+gratefuldead-1974-07-19 src description align jerrybase ssrc setlist.fm
+  markers: [Set 1:]->d1t02 - Bertha ; [Set 2:]->d2t03 - Brown Eyed Women
+  reader groups: 1:Bertha..Seastones | 2:Brown Eyed Women..One More Saturday Night
+    10 1      1       tags       Tennessee Jed
+    11 1      1       tags       Playing In The Band
+  * 12 2      1       tags       Seastones
+    13 2      2       tags       Brown Eyed Women
+    14 2      2       tags       Me And My Uncle
+==========================================================================================
+joerussosalmostdead-2013-12-27 src description align deterministic ssrc setlist.fm
+  markers: [Set One:]->01.  intro/crowd ; [Set Two:]->01.  Space -> ; [Encore:]->10.  Brokedown Palace
+  reader groups: 1:Cream Puff War..Shakedown Street | 2:Space..Terrapin Transit/At A Siding/Terrapin Flyer | encore:Brokedown Palace..Brokedown Palace
+     7 1      1       tags       Easy Wind ->
+     8 1      1       tags       Shakedown Street
+  *  9 1      2       tags       Space ->
+    10 2      2       tags       Scarlet Begonias ->
+    11 2      2       tags       Fire On The Mountain
+==========================================================================================
+joerussosalmostdead-2017-04-29 src description align deterministic ssrc setlist.fm
+  markers: [SET ONE]->Shelter from the Storm-> ; [SET TWO]->Morfbeats-> ; [ENCORE 1]->One More Saturday Night ; [ENCORE 2]->Ripple
+  reader groups: 1:Shelter from the Storm..Shakedown Street | 2:Morfbeats..Eyes of the World | encore:One More Saturday Night..Born to Run
+     8 1      1       tags       Gonesville
+     9 1      1       tags       Shakedown Street
+  * 10 1      2       tags       Morfbeats
+    11 2      2       tags       Dark Star
+    12 2      2       tags       Mississippi Half Step Uptown Toodleloo
+==========================================================================================
+kellerwilliams-2005-02-12 src description align deterministic ssrc setlist.fm
+  markers: [Set 2]->Disc 2 ; [E:]->17. Drum Loup >
+  reader groups: 1:Shinjuku..One More Saturday night | 2:Shapes Of M&Ms..Vacate | encore:Drum Loup..Boob job
+    17 1      1       tags       Gatecrashers Suck
+    18 1      1       tags       One More Saturday night
+  * 19 1      2       tags       Shapes Of M&Ms >
+    20 2      2       tags       Breathe >
+    21 2      2       tags       Up in my Cadillac >
+==========================================================================================
+mermen-2003-07-19 src description align deterministic ssrc setlist.fm
+  markers: [Set 1: Intro > Quiet Surf, Latina, Emmyl]->Set 2: Batman tease, Casbah, T ; [Set 2: Batman tease, Casbah, To Be Naked]->
+  reader groups: 1:Quiet Surf..Jam | 2:Batman tease..Burn
+    14 1      1       tags       Be My Noir >
+    15 1      1       tags       Jam
+  * 16 1      2       tags       Batman tease
+    17 2      2       tags       Casbah
+    18 2      2       tags       To Be Naked And French
+==========================================================================================
+moe-2006-10-06 src description align deterministic ssrc setlist.fm
+  markers: [Set I: Understand, Stranger Than Fiction]->Set II: Bullet> Brent Black, R ; [Set II: Bullet> Brent Black, Rebubula, N]->Encore: Godzilla, The Ghost Of ; [Encore: Godzilla, The Ghost Of Ralph's M]->
+  reader groups: 1:Understand..McBain | 2:Bullet..32 Things | encore:Godzilla..The Ghost Of Ralph's Mom
+    11 2      2       tags       Wormwood>
+    12 2      2       tags       32 Things
+  * 13 2      encore  tags       Crowd
+  * 14 2      encore  tags       Godzilla (Encore)
+    15 encore encore  tags       The Ghost Of Ralph's Mom (Encore)
+==========================================================================================
+moe-2009-03-29 src description align deterministic ssrc setlist.fm
+  markers: [Set I: Tuning]->Understand ; [Set II: Tuning]->Cathedral> ; [Encore:]->Alnouncements
+  reader groups: 1:Understand..Plane Crash | 2:Cathedral..Rebubula | encore:Alnouncements..Akimbo
+    14 2      2       tags       Yodelittle>
+    15 2      2       tags       Rebubula
+  * 16 2      encore  tags       *Alnouncements
+    17 encore encore  tags       *Good Trip>
+    18 encore encore  tags       *Akimbo
+==========================================================================================
+moe-2009-04-04 src description align deterministic ssrc setlist.fm
+  markers: [Set 1]->1.  The Ghost of Ralph's Mom > ; [Set 2]->1.  Blue Jeans Pizza ; [Encore]->1.  Crowd
+  reader groups: 1:The Ghost of Ralph's Mom..The Road | 2:Blue Jeans Pizza..Rebubula | encore:AlNouncements..Plane Crash
+    11 2      2       tags       Big World >
+    12 2      2       tags       Rebubula
+  * 13 2      encore  tags       Crowd
+  * 14 2      encore  tags       AlNouncements
+    15 encore encore  tags       Plane Crash
+==========================================================================================
+philleshandfriends-2006-07-03 src description align jerrybase ssrc setlist.fm
+  markers: [disc 1 (set 1)]->01.  Passenger -> ; [- set 2 * -]->06.  Shakedown St. -> ; [disc 2 (set 2 cont.)]->01.  Candyman -> ; [encore: Midnight Hour]->* Trey Anastasio plays entire 
+  reader groups: 1:Passenger..Good Lovin | 2:Shakedown St...Donor Rap / Band introductions | encore:Midnight Hour..Trey Anastasio plays entire 2nd set and encore (no Barry)
+    12 2      2       tags       Voila v2 ->
+    13 2      2       tags       Bertha ->
+  * 14 encore 2       tags       Viola v3
+  * 15 encore 2       tags       crowd
+  * 16 encore 2       tags       Donor Rap / Band introductions
+    17 encore encore  tags       encore: Midnight Hour
+==========================================================================================
+radiators-1997-04-12 src description align deterministic ssrc setlist.fm
+  markers: [Set 1:]->01. Last Getaway ; [Set 2:]->03. Smokin' Hole ; [Encore:]->07. calling them back
+  reader groups: 1:Last Getaway..Take Your Dead Ass Home | 2:Smokin' Hole..Sympathy for the Devil | encore:calling them back..Brown-Eyed Girl
+    22 2      2       tags       Jump Back
+    23 2      2       tags       Sympathy for the Devil
+  * 24 2      encore  tags       calling them back
+    25 encore encore  tags       Junco Partner
+    26 encore encore  tags       Brown-Eyed Girl
+==========================================================================================
+radiators-2006-02-10 src description align llm ssrc lma:rad2006-0210.km140s.flac16
+  markers: [set 1:]->01  tunin/intro ; [set 1:]->01  Dreamin Out Loud ; [set 2:]->01  tunin/intro ; [encores:]->11  Junco Partner
+  reader groups: 1:Monkey Meet..Go Down Hannah | 2:Burnin Down the House..callin em back | encore:Junco Partner..Look A Py Py
+    19 2      2       tags       Slip Away
+    20 2      2       tags       Wild & Free
+  * 21 encore 2       tags       callin em back
+    22 encore encore  tags       Junco Partner
+    23 encore encore  tags       Look A Py Py
+==========================================================================================
+soundtribesector9-2004-12-31 src description align deterministic ssrc setlist.fm
+  markers: [Set 1:Nautilus, Squares & Cubes, Reemerg]->Set 2: Tribal Jam*^, Alien Fun ; [Set 2: Tribal Jam*^, Alien Funk*^, Peopl]->Encore: Improv Jam*, Havona As ; [Encore: Improv Jam*, Havona Ascent**, Br]->
+  reader groups: 1:Nautilus..What Is Love? | 2:Tribal Jam*^..Tokyo | encore:Improv Jam..Breathe In
+    16 2      2       tags       Mischief of a Sleepwalker
+    17 2      2       tags       Tokyo
+  * 18 2      encore  tags       Improv Jam
+    19 encore encore  tags       Havona Ascent
+    20 encore encore  tags       Breathe In
+==========================================================================================
+stringcheeseincident-2000-01-31 src description align deterministic ssrc setlist.fm
+  markers: [Set 1:  Land's End > Lonesome Road Blues]->Set 2:  (acoustic) Think What  ; [Set 2:  (acoustic) Think What You've Don]->Encore:  Under African Skies^  ; [Encore:  Under African Skies^ > Whiskey ]->
+  reader groups: 1:Land's End..Rhythm of the Road | 2:(acoustic) Think What You've Done..Restless Wind | encore:Under African Skies^..Whiskey Before Breakfast
+     6 1      1       tags       Sand Dollar
+     7 1      1       tags       Rhythm Of The Road
+  *  8 1      2       tags       Think What You've Done
+     9 2      2       tags       Take Five
+    10 2      2       tags       I've Just Seen A Face
+==========================================================================================
+stringcheeseincident-2000-10-27 src description align deterministic ssrc setlist.fm
+  markers: [Set 1:  Rhum 'n' Zouc, 100 Year Flood > ]->Set 2:  Tom Thumb's Blues > Ja ; [Set 2:  Tom Thumb's Blues > Jam > Rivert]->Encore:  Ramble On^ ; [Encore:  Ramble On^]->
+  reader groups: 1:Rhum 'n' Zouc..Smile | 2:Tom Thumb's Blues..Rollover | encore:Ramble On^..Ramble On^
+     7 1      1       tags       Land's End Reprise >
+     8 1      1       tags       Smile
+  *  9 1      2       tags       Tom Thumb's Blues > Jam >
+    10 2      2       tags       Rivertrance
+    11 2      2       tags       Water
+==========================================================================================
+stringcheeseincident-2004-11-26 src description align deterministic ssrc setlist.fm
+  markers: [Set 1:  Round the Wheel, One Step Closer]->Set 2:  Dirk, Under African Sk ; [Set 2:  Dirk, Under African Skies > Dese]->Encore:  On the Road² > Give I ; [Encore:  On the Road² > Give It Away]->
+  reader groups: 1:Round the Wheel..Outside Inside¹ | 2:Dirk..It Is What It Is | encore:On the Road²..Give It Away
+    13 2      2       tags       Miss Brown's Teahouse
+    14 2      2       tags       It Is What It Is
+  * 15 2      encore  tags       On the Road # >
+    16 encore encore  tags       Give It Away
+==========================================================================================
+stringcheeseincident-2007-07-28 src description align deterministic ssrc setlist.fm
+  markers: [Disc 1 (Set 1)]->1. Down a River* ; [Disc 2 (Set 2)]->1. Tom Thumb's Blues ; [Disc 3 (Set 3)]->1. Ritual Jam> ; [E: Best Feeling^^^]->
+  reader groups: 1:Down a River..Could You Be Loved | 2:Tom Thumb's Blues..Ramble On | 3:Ritual Jam..Round the Wheel | encore:Best Feeling^^^..Best Feeling^^^
+    18 2      2       tags       Hotel Window
+    19 2      2       tags       Ramble On
+  * 20 2      3       tags       Ritual Jam>
+  * 21 2      3       tags       Chillout Jam>
+    22 3      3       tags       Texas
+    23 3      3       tags       Vocal Jam w/ Paulina Lamb>
+==========================================================================================
+tealeafgreen-2005-03-11 src description align deterministic ssrc setlist.fm
+  markers: [(set II)]->15) Bouncin' Betty ; [(set II cont.)]->01) Cherry Red Guitar ; [(encore)]->11) Freedom**
+  reader groups: 1:Warmup..Professor's Blues | 2:Bouncin' Betty..Sex in the 70's | encore:Freedom..Freedom
+    12 1      1       tags       My Bastard Brother
+    13 1      1       tags       Professor's Blues
+  * 14 1      2       tags       Bouncin' Betty
+    15 2      2       tags       Cherry Red Guitar
+    16 2      2       tags       Earth and Sky
+==========================================================================================
+tedeschitrucksband-2018-10-13 src description align deterministic ssrc setlist.fm
+  markers: [Set 1:]->1. Are You Ready> ; [Set 2:]->1. Sitting Here In Limbo ; [E: With A Little Help From My Friends#]->
+  reader groups: 1:Are You Ready..Idle Wind | 2:Sitting Here In Limbo..In Memory Of Elizabeth Reed# | encore:With A Little Help From My Friends#..With A Little Help From My Friends#
+     9 1      1       tags       Misunderstood
+    10 1      1       tags       Idle Wind>Drums>Idle Wind
+  * 11 1      2       tags       Sitting Here In Limbo
+    12 2      2       tags       Show Me
+    13 2      2       tags       Let Me Get By
+==========================================================================================
+tedeschitrucksband-2022-03-26 src description align deterministic ssrc setlist.fm
+  markers: [Set I]->101-s1t01 - Signs, High Times ; [Set II]->201-s2t01 - Soul Serenade/Suga ; [Encore]->211-s2t11 - Trophy Presentatio
+  reader groups: 1:101-s1t01 - Signs..109-s1t09 - The Storm | 2:201-s2t01 - Soul Serenade/Sugaree..210-s2t10 - Band Introductions | encore:211-s2t11 - Trophy Presentation..A few seconds missing from beginning of song. Crossfade applied.
+    18 2      2       tags       Bound for Glory
+    19 2      2       tags       Band Introductions
+  * 20 2      encore  tags       Trophy Presentation
+    21 encore encore  tags       I Pity The Fool
+==========================================================================================
+tedeschitrucksband-2023-03-31 src description align deterministic ssrc setlist.fm
+  markers: [Set 1:]->101. Rainy Day ; [Set 2:]->201. Suzanne ; [Encore:]->210. Sweet Soul Song
+  reader groups: 1:Rainy Day..How Blue Can You Get? | 2:Suzanne..Bound For Glory | encore:Sweet Soul Song..Enjoy!!
+    15 2      2       tags       Keep On Growing
+    16 2      2       tags       Bound For Glory
+  * 17 2      encore  tags       Sweet Soul Song
+    18 encore encore  tags       More And More
+==========================================================================================
+thedead-2009-04-25 src description align jerrybase ssrc setlist.fm
+  markers: [Disc One/Set One:]->Intro ; [Disc Two/Set Two:]->Sugaree ; [Disc Three/Set Two Cont:]->Uncle John's Band ; [E: Brokedown Palace]->The Band:
+  reader groups: 1:Cosmic Charlie..Cassidy | 2:Sugaree..Donor Rap | encore:Brokedown Palace..Jeff Chimenti
+     5 1      1       tags       He's Gone
+     6 1      1       tags       Cassidy
+  *  7 1      2       tags       Sugaree
+     8 2      2       tags       Drums>Space
+     9 2      2       tags       Cryptical
+    10 2      2       tags       The Other One
+    11 2      2       tags       Born Cross Eyed
+    12 2      2       tags       St Stephen
+    13 2      2       tags       The Eleven
+    14 2      2       tags       Uncle John's Band
+    15 2      2       tags       Unbroken Chain
+    16 2      2       tags       Gimme Shelter
+    17 2      2       tags       One More Saturday Night
+  * 18 encore 2       tags       Donor Rap
+    19 encore encore  tags       Brokedown Palace
+==========================================================================================
+thedead-2009-05-01 src description align jerrybase ssrc setlist.fm
+  markers: [Set I:]->01 Playin' In The Band> ; [Set II:]->01 Jack Straw ; [Encore:]->10 Donor Rap
+  reader groups: 1:Playin' In The Band..Playin' reprise | 2:Jack Straw..Sugar Magnolia | encore:Donor Rap..Box Of Rain
+     6 1      1       tags       Hard To Handle
+     7 1      1       tags       Friend Of The Devil>
+  *  8 2      1       tags       Playin' reprise
+     9 2      2       tags       Jack Straw
+    10 2      2       tags       Alligator>

@@ -1,0 +1,104 @@
+##### darkstarorchestra-2009-07-03  ident=DSO2009-07-03.akg481.16bit src=description ntracks=19
+  today: ['9:1>2', '17:2>encore']
+  HEAD : ['9:1>2', '17:2>encore'] (9, 17)
+  noItem: NOT OWNED unplaced: 1|2 first song "01: Truckin'" matches 0 tracks
+  boundary 1|2: 'Touch of Grey' | "Truckin'"
+  boundary 2|encore: 'Liberty' | 'Mr.Charlie'
+   placed after t9: 'Touch of Grey' | "Truckin' >"
+   placed after t17: 'Liberty' | 'E: Mr.Charlie >'
+##### darkstarorchestra-2010-04-23  ident=DSO2010-04-23.Nak300.flac16 src=description ntracks=23
+  today: ['10:1>2', '21:2>encore']
+  HEAD : ['10:1>2', '21:2>encore'] (10, 21)
+  noItem: NOT OWNED unplaced: 1|2 first song '(total 1h 57 min)' matches 0 tracks
+  boundary 1|2: 'Let It Grow' | 'Hell In A Bucket'
+  boundary 2|encore: "Good Lovin'" | "Don't Ease Me In"
+   placed after t10: 'Let It Grow' | 'Hell In A Bucket'
+   placed after t21: "Good Lovin'" | "Encore: Don't Ease Me In"
+##### darkstarorchestra-2015-09-24  ident=dso2015-09-24.cp4-cp1.flac16 src=description ntracks=18
+  today: ['10:1>2', '17:2>encore']
+  HEAD : ['10:1>2', '17:2>encore'] (10, 17)
+  noItem: NOT OWNED unplaced: 1|2 first song '------' matches 0 tracks
+  boundary 1|2: 'Cumberland Blues' | 'Feel Like a Stranger'
+  boundary 2|encore: 'Morning Dew' | 'Box of Rain'
+   placed after t10: 'Cumberland Blues' | 'Feel Like a Stranger'
+   placed after t17: 'Morning Dew' | 'Box of Rain'
+##### darkstarorchestra-2017-02-10  ident=dso2017-02-10.km184.flac24 src=description ntracks=25
+  today: ['12:1>encore']
+  HEAD : ['12:1>2', '23:2>encore'] (12, 23)
+  noItem: NOT OWNED unplaced: 1|2 first song '-----' matches 0 tracks
+  boundary 1|2: 'Deal' | 'Greatest Story Ever Told'
+  boundary 2|encore: "Good Lovin'" | 'Brokedown Palace'
+   placed after t12: 'Deal' | 'Greatest Story Ever Told'
+   placed after t23: "Good Lovin'" | 'Brokedown Palace'
+##### derektrucksband-2003-12-26  ident=dtb2003-12-26.flac16 src=description ntracks=18
+  today: ['16:1>encore']
+  HEAD : ['8:1>2', '16:2>encore'] (8, 16)
+  noItem: NOT OWNED unplaced: 2|encore first song 'Blues' matches 0 tracks
+  boundary 1|2: "Kickin' Bach" | 'Soul Stew'
+  boundary 2|encore: 'Joyful Noise' | '44 Blues'
+   placed after t8: "Kickin' Bach" | 'Soul Stew'
+   placed after t16: 'Joyful Noise' | '44 Blues'
+##### gratefuldead-1985-06-14  ident=gd1985-06-14.matrix.chappell.85831.sbeok.flac16 src=description ntracks=21
+  today: ['10:1>2', '20:2>encore']
+  HEAD : ['10:1>2', '20:2>encore'] (10, 20)
+  noItem: NOT OWNED unplaced: 1|2 last song 's1t11 - Deal' matches 0 tracks
+  boundary 1|2: 'Deal' | 'Morning Dew'
+  boundary 2|encore: 'Sugar Magnolia' | 'Day Job'
+   placed after t10: 'Deal' | 'MorningDew ->'
+   placed after t20: 'Sugar Magnolia' | 'Keep Your Day Job'
+##### jackiegreene-2010-12-31  ident=jg2010-12-31-Schoepsmk4 src=description ntracks=22
+  today: ['9:1>2']
+  HEAD : ['9:1>2'] (9,)
+  noItem: NOT OWNED unplaced: 1|2 last song 'Goodby' matches 0 tracks
+  boundary 1|2: 'Farewll, solong, Goodby' | 'Mexican Girl'
+   placed after t9: 'Farewll, solong, Goodby' | 'Mexican Girl'
+##### larrykeel-2006-05-05  ident=lknb2006-05-05.matrix.flac16 src=description ntracks=15
+  today: ['10:1>2']
+  HEAD : ['10:1>2'] (10,)
+  noItem: NOT OWNED unplaced: 1|2 last song '==============' matches 0 tracks
+  boundary 1|2: "Somebody Loves You Darlin'" | 'Critters'
+   placed after t10: "Somebody Loves You Darlin'" | 'Intro'
+##### motherhips-2000-10-06  ident=mh2000-10-06 src=description ntracks=30
+  today: ['15:1>2', '29:2>encore']
+  HEAD : ['15:1>2', '29:2>encore'] (15, 29)
+  noItem: NOT OWNED unplaced: 1|2 first song 'Disc 1:' matches 0 tracks
+  boundary 1|2: 'Kansas City Southern' | 'Precious Opal'
+  boundary 2|encore: "Can't Sleep At All" | 'Lady Be Cool'
+   placed after t15: 'Kansas City Southern' | 'Precious Opal'
+   placed after t29: "Can't Sleep At All" | 'E: Lady Be Cool'
+##### railroadearth-2005-02-19  ident=rre2005-02-19.SchoepsCMC6.flac src=description ntracks=20
+  today: ['19:1>encore']
+  HEAD : ['7:1>2', '19:2>encore'] (7, 19)
+  noItem: NOT OWNED unplaced: 1|2 first song 'Disc 2:' matches 0 tracks
+  boundary 1|2: 'Bread & Water' | 'Old Man & the Land'
+  boundary 2|encore: 'Dandelion Wine' | 'El Cumbancharo'
+   placed after t7: 'Bread & Water' | 'Old Man & the Land'
+   placed after t19: 'Dandelion Wine' | 'El Cumbancharo >'
+##### ratdog-2007-11-03  ident=rd2007-11-03.km184.flac16 src=description ntracks=18
+  today: ['9:1>2', '17:2>encore']
+  HEAD : ['9:1>2', '17:2>encore'] (9, 17)
+  noItem: NOT OWNED unplaced: 1|2 last song '-' matches 0 tracks
+  boundary 1|2: 'Eyes of the World' | 'Peggy-O @'
+  boundary 2|encore: 'Terrapin Flyer' | 'One More Saturday Night'
+   placed after t9: 'Eyes of the World' | 'Peggy-O @'
+   placed after t17: 'At A Siding> Terrapin Flyer' | 'E: One More Saturday Night'
+##### robertwalters20thcongress-2004-01-02  ident=RWTC04-01-02.shnf src=description ntracks=17
+  today: ['9:1>2']
+  HEAD : ['9:1>2', '15:2>encore'] (9, 15)
+  noItem: NOT OWNED unplaced: 1|2 first song '-Disk 2' matches 0 tracks
+  boundary 1|2: 'Freshman 10' | 'El Cuervo'
+  boundary 2|encore: 'Be Yourself' | 'Instant Karma'
+   placed after t9: 'Freshman 10 (Pete McNeil on Drums)' | 'El Cuervo (Live Debut)'
+   placed after t15: 'Be Yourself' | 'Instant Karma'
+##### ryanadams-2008-10-05  ident=ryanadams2008-10-05.sbd.flac16 src=description ntracks=30
+  today: ['15:1>2']
+  HEAD : ['15:1>2'] (15,)
+  noItem: NOT OWNED unplaced: 1|2 last song 'Etc' matches 0 tracks
+  boundary 1|2: 'Oh My God Whatever, Etc' | 'Crossed Out Name'
+   placed after t15: 'Oh My God Whatever, Etc' | 'Crossed Out Name'
+##### yondermountainstringband-2008-07-19  ident=yondermountainstringband2008-07-19.soundboard.flac16 src=description ntracks=22
+  today: ['15:1>2']
+  HEAD : ['15:1>2'] (15,)
+  noItem: NOT OWNED unplaced: 1|2 last song '%' matches 0 tracks
+  boundary 1|2: 'Up on the Hill' | 'Out Of The Blue'
+   placed after t15: 'Intro' | 'Out Of The Blue'

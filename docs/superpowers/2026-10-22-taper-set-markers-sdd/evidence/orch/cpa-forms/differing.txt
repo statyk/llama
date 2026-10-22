@@ -1,0 +1,397 @@
+== aquariumrescueunit-1992-07-07 [filler only] src=description stored=['11:1>2', '23:2>encore'] taper=['10:1>2', '23:2>encore']
+   s 'Set II'                                                                 | prev '10) Compared to What' | next '11) Band Intros > Jam'
+   e 'Encore'                                                                 | prev "10) Ain't // Nothing You Can Do" | next '11) Swing'
+== assemblyofdust-2004-12-31 [sets merged or split] src=description stored=['7:1>2', '16:2>encore', '20:encore>3'] taper=['7:1>2', '16:2>encore']
+   s 'Set 1'                                                                  | prev 'Disc 1' | next '01. Rachel'
+   s 'Set2'                                                                   | prev 'Disc 2' | next '01. Corpus Christi'
+   e 'Encore 1:'                                                              | prev '09. Harrower' | next '01. Crest Of My Wing***'
+   e 'Encore 2:'                                                              | prev "04.  Love The One You're With^" | next '01. Songs We Sing'
+== bigdaddybluegrassband-2004-01-10 [sets merged or split] src=description stored=[] taper=['12:1>2']
+   s 'Disc 1/Set 1:'                                                          | prev '' | next '1. Instrumental'
+   s 'Disc 2/Set 2:'                                                          | prev '12. Dear Old Dixie' | next '1. Hillbilly Hot Tub'
+== chuckprophet-2012-01-08 [encore added] src=description stored=['10:1>2'] taper=['10:1>2', '20:2>encore']
+   s 'Set 1'                                                                  | prev '1-8-12, Armondos, Martinez, CA' | next 'Styrofoam Woman->Credit->James Intro->So'
+   s 'Set 2'                                                                  | prev 'Styrofoam Woman->Credit->James Intro->So' | next 'Look Both Ways, Temple Beautiful, Automa'
+   e 'E:Hot Tramp*, Goodtime Crowd*'                                          | prev 'Look Both Ways, Temple Beautiful, Automa' | next '*W/Brad Brooks'
+== darkstarorchestra-2001-12-15 [songs moved] src=description stored=['9:1>2', '20:2>encore'] taper=['9:1>2', '21:2>encore']
+   s 'Set 1:'                                                                 | prev '' | next 'Bucket'
+   s 'Set 2:'                                                                 | prev "Don't Ease" | next 'Help>'
+   s 'Set 2 (cont):'                                                          | prev 'Drumz>' | next 'Wheel>'
+   e 'Encore: Baby Blue'                                                      | prev 'Lovelight' | next 'Filler: Sisters and Brothers*'
+== darkstarorchestra-2005-10-06 [encore folded] src=description stored=['13:1>2', '24:2>encore'] taper=['13:1>2']
+   s '[Set I]'                                                                | prev 'Disc 01' | next '01. Tuning / Warmup'
+   s '[Set II]'                                                               | prev '02. Playing In The Band' | next '03. Tuning / Warmup'
+== darkstarorchestra-2006-11-29 [songs moved] src=description stored=['13:1>2', '23:2>encore'] taper=['13:1>2', '22:2>encore']
+   s 'Set One'                                                                | prev '' | next 'd1t01 Promised Land'
+   s 'Set Two'                                                                | prev 'd2t02 Casey Jones' | next "d2t03 He's Gone>"
+   e 'Encore: Saturday Night'                                                 | prev 'd3t05' | next 'd3t06 Show announcement'
+== darkstarorchestra-2007-07-07 [encore added] src=description stored=['10:1>2'] taper=['10:1>2', '20:2>encore']
+   s 'set 1'                                                                  | prev '' | next 'disc 1'
+   s 'set 2'                                                                  | prev '10. music never stopped' | next 'disc 2'
+   s 'set 2 continued'                                                        | prev 'disc 3' | next 'Encore:'
+   e 'Encore:'                                                                | prev 'set 2 continued' | next '11. Brokedown Palace +'
+== darkstarorchestra-2013-12-29 [encore folded] src=description stored=['8:1>2', '19:2>encore'] taper=['8:1>2']
+   s 'Set 1:'                                                                 | prev '' | next '01. Intro Set 1'
+   s 'Set 2:'                                                                 | prev '09. Music Never Stopped' | next '10. Intro Set 2'
+== derektrucksband-2004-04-15 [sets merged or split] src=description stored=['16:1>encore'] taper=['8:1>2', '16:2>encore']
+   s 'Set I:'                                                                 | prev '' | next '1. Jackson Soul Stew'
+   s 'Set II:'                                                                | prev '8. Vol. Slavery' | next '1. Hey Driver **'
+   e 'encore'                                                                 | prev '8. Afro Blue' | next '9. Gonna Move'
+== derektrucksband-2006-01-22 [encore added] src=description stored=[] taper=['8:1>2', '18:2>encore']
+   s 'set 1'                                                                  | prev 'disc 1' | next '1.   Mahjoun >'
+   s 'set 2'                                                                  | prev 'disc 2' | next '1.   Key To The Highway'
+   e 'E: Hook & Sling'                                                        | prev '12.' | next ''
+== discobiscuits-2000-08-26 [encore folded] src=description stored=['7:1>2', '14:2>encore'] taper=['7:1>2']
+   s 'Set I'                                                                  | prev 'Disc 1' | next '1.  Intros'
+   s 'Set II'                                                                 | prev 'Disc 3' | next "1.  DJ Mauricio's set (end only)"
+== discobiscuits-2002-03-06 [songs moved] src=description stored=['6:1>2', '10:2>encore'] taper=['5:1>2', '10:2>encore']
+   s 'Set 1: Triumph > Vassillios > I-Man, Reactor, Little Betty Boop'        | prev '' | next 'Set 2: Sound 1, Spaga > Pygmy Twylyte > '
+   s 'Set 2: Sound 1, Spaga > Pygmy Twylyte > Basis For A Day, Home Again'    | prev 'Set 1: Triumph > Vassillios > I-Man, Rea' | next 'Encore: King Of The World'
+   e 'Encore: King Of The World'                                              | prev 'Set 2: Sound 1, Spaga > Pygmy Twylyte > ' | next ''
+== discobiscuits-2009-07-01 [encore folded] src=description stored=['6:1>2', '14:2>encore'] taper=['6:1>2']
+   s 'Set 1'                                                                  | prev '' | next 'Disc 1'
+   s 'Set 2'                                                                  | prev '07.  Caterpillar  (3)' | next 'Disc 2'
+== furthur-2009-12-13 [songs moved] src=description stored=['9:1>2', '19:2>encore'] taper=['9:1>2', '20:2>encore']
+   s 'Set 1:'                                                                 | prev '' | next '01. intro'
+   s 'Set 2:'                                                                 | prev '09. Cumberland Blues' | next '01. intro >'
+   e 'E: US Blues'                                                            | prev '12.' | next ''
+== furthur-2010-05-29 [songs moved] src=description stored=['9:1>2', '18:2>3', '24:3>encore'] taper=['10:1>2', '18:2>3', '25:3>encore']
+   s 'Set I'                                                                  | prev '' | next '1. Box of Rain'
+   s 'Set II'                                                                 | prev "10.Truckin' *" | next "1. Uncle John's Band >"
+   s 'Set III'                                                                | prev '8. Casey Jones *' | next "1. That's It for the Other One >"
+   e 'E1: Muli Guli > $'                                                      | prev '7. Donor Rap' | next 'E2: One More Saturday Night'
+   e 'E2: One More Saturday Night'                                            | prev 'E1: Muli Guli > $' | next ''
+== furthur-2010-06-26 [songs moved] src=description stored=['8:1>2', '18:2>encore'] taper=['8:1>2', '21:2>encore']
+   s 'Set 1:'                                                                 | prev '' | next 'China Cat Sunflower > I Know You Rider, '
+   s 'Set 2:'                                                                 | prev 'China Cat Sunflower > I Know You Rider, ' | next 'Shakedown Street > Caution (Do Not Step '
+   e 'E: Brokedown Palace, Fireworks'                                         | prev 'Shakedown Street > Caution (Do Not Step ' | next ''
+== furthur-2010-06-27 [songs moved] src=description stored=['8:1>2', '19:2>encore'] taper=['8:1>2', '20:2>encore']
+   s 'Set 1:'                                                                 | prev '' | next "Golden Road > Good Lovin', The Music Nev"
+   s 'Set 2:'                                                                 | prev "Golden Road > Good Lovin', The Music Nev" | next 'Unbroken Chain, Let It Grow, Fire On the'
+   e 'E: Box Of Rain, Fireworks'                                              | prev 'Unbroken Chain, Let It Grow, Fire On the' | next ''
+== furthur-2010-07-05 [songs moved] src=description stored=['10:1>2', '19:2>encore'] taper=['10:1>2', '20:2>encore']
+   s 'Set 1:'                                                                 | prev '' | next '01 Tuning'
+   s 'Set 2:'                                                                 | prev '10 Throwing Stones' | next '01 China Doll>'
+   e 'E: Box Of Rain'                                                         | prev '11' | next ''
+== furthur-2011-03-11 [sets merged or split] src=description stored=['18:1>encore'] taper=['9:1>2', '19:2>encore']
+   s 'Set 1: (1:09:06)'                                                       | prev '' | next '101. Jam >'
+   s 'Set 2: (1:52:03)'                                                       | prev '109. Jack Straw' | next '201. Box of Rain >'
+   e 'E: Like A Rolling Stone'                                                | prev '212.' | next ''
+== furthur-2011-03-29 [encore folded] src=description stored=['8:1>2', '20:2>encore'] taper=['8:1>2']
+   s 'Set One:'                                                               | prev '' | next 'Passenger(fades in)'
+   s 'Set Two:'                                                               | prev 'Bertha' | next 'Jam'
+== furthur-2011-07-28 [encore folded] src=description stored=['8:1>2', '22:2>encore'] taper=['8:1>2']
+   s 'Set 1:'                                                                 | prev 'Source: JB-Mod Teac ME-80 (Nakamichi CP-' | next '01. Intro/Tuning'
+   s 'Set 2:'                                                                 | prev '08. A Hard Rain’s Gonna Fall' | next '09. Good Lovin’'
+== furthur-2011-09-23 [songs moved] src=description stored=['8:1>2', '17:2>encore'] taper=['8:1>2', '18:2>encore']
+   s 'Set 1'                                                                  | prev '' | next '1. Crowd'
+   s 'Set 2'                                                                  | prev '9. Cassidy' | next '1. Crowd'
+   e 'Encore:'                                                                | prev '11. Donor Rap' | next '12. Ripple'
+== gratefuldead-1972-11-17 [encore folded] src=description stored=['15:1>2', '23:2>encore'] taper=['15:1>2']
+   s 'Set 1'                                                                  | prev '' | next 'The Promised Land'
+   s 'Set 2'                                                                  | prev 'Casey Jones' | next 'Cumberland Blues'
+== gratefuldead-1973-03-28 [encore folded] src=description stored=['17:1>2', '29:2>encore'] taper=['17:1>2']
+   s 'Set 1:'                                                                 | prev '' | next 'd1t01 - Cumberland Blues'
+   s 'Set 2:'                                                                 | prev 'd2t04 - I Know You Rider' | next 'd2t05 - The Promised Land'
+== gratefuldead-1974-07-19 [songs moved] src=description stored=['11:1>2'] taper=['12:1>2']
+   s 'Set 1:'                                                                 | prev 'd1t01 - Jam' | next 'd1t02 - Bertha'
+   s 'Set 2:'                                                                 | prev 'd2t02 - Seastones' | next 'd2t03 - Brown Eyed Women'
+== gratefuldead-1974-09-18 [sets merged or split] src=description stored=['12:1>2', '25:2>encore'] taper=['12:1>2', '13:2>3', '25:3>encore']
+   s 'Set One:'                                                               | prev '' | next 'd1t01 - Uncle John?s Band'
+   s 'Set Two:'                                                               | prev 'd2t01 - Playin? In The Band' | next 'd2t02 - Phil And ned'
+   s 'Set Three:'                                                             | prev 'd2t02 - Phil And ned' | next 'd2t03 - Loose Lucy'
+   e 'Encore:'                                                                | prev 'd3t08 - Johnny B. Goode' | next 'd3t09 - U.S. Blues'
+== gratefuldead-1982-09-11 [encore folded] src=description stored=['10:1>2', '21:2>encore'] taper=['10:1>2']
+   s 'Set I'                                                                  | prev '' | next 'New Minglewood Blues'
+   s 'Set II'                                                                 | prev 'Let It Grow' | next 'Scarlet Begonias >'
+== greatamericantaxi-2010-03-13 [encore added] src=description stored=['12:1>2'] taper=['12:1>2', '26:2>encore']
+   s 'Set I'                                                                  | prev '' | next "01. Sittin' On Top Of The World"
+   s 'Set II'                                                                 | prev '12. Good Night To Boogie' | next '01. Lumpy Beanpole & Dirt'
+   e 'E: Maud'                                                                | prev '15.' | next ''
+== greenskybluegrass-2006-05-16 [sets merged or split] src=description stored=['36:1>encore'] taper=['11:1>2', '23:2>3', '36:3>encore']
+   s 'disc1/set1'                                                             | prev '' | next "01: bont's breakdown"
+   s 'disc2/set2'                                                             | prev '11:do it twice > blackberry rag' | next '01:radio blues'
+   s 'disc3/set3'                                                             | prev '12:king of the hill' | next '01: crowd intro'
+   e 'encore'                                                                 | prev '13:katy daly' | next '14: i love the women'
+== jackiegreene-2011-02-12 [encore folded] src=description stored=['7:1>2', '16:2>encore'] taper=['7:1>2']
+   s 'Set 1'                                                                  | prev '2-12-11' | next "1.Don't Let the Devil Take your mind."
+   s 'Set 2'                                                                  | prev '7.Heard it through the grapevine-Brick i' | next '8. Funky Time'
+== jackiegreene-2011-12-31 [encore folded] src=description stored=['8:1>2', '17:2>encore'] taper=['8:1>2']
+   s 'Set 1'                                                                  | prev '' | next "01. I Don't Live in a Dream"
+   s 'Set 2'                                                                  | prev '09. Spooky Tina' | next '01. Jam'
+== joerussosalmostdead-2013-12-27 [songs moved] src=description stored=['9:1>2', '17:2>encore'] taper=['8:1>2', '17:2>encore']
+   s 'Set One:'                                                               | prev "Joe Russo's Almost Dead" | next '01.  intro/crowd'
+   s 'Set Two:'                                                               | prev '09.  Shakedown Street' | next '01.  Space ->'
+   e 'Encore:'                                                                | prev '09.  encore break/crowd' | next '10.  Brokedown Palace'
+== joerussosalmostdead-2014-10-11 [encore added] src=description stored=['6:1>2'] taper=['6:1>2', '12:2>encore']
+   s '-SET I-'                                                                | prev '' | next '01. The Music Never Stopped ->'
+   s '-SET II-'                                                               | prev '06. Not Fade Away' | next '01. Shakedown Street ->'
+   e '-ENCORE-'                                                               | prev '06. Stella Blue' | next '07. Brokedown Palace'
+== joerussosalmostdead-2016-02-10 [labels renamed] src=notes stored=['7:1>2', '14:2>3'] taper=['7:1>2', '14:2>encore']
+   s 'Set one:'                                                               | prev 'Recorded by Peter Costello - FOH mix and' | next '01.  intro/crowd'
+   s 'Set Two:'                                                               | prev '08.  Tennessee Jed (TH)' | next '01.  Scarlet Begonias (TH) ->'
+   e 'Encore:'                                                                | prev '07.  Bird Song $ (TM)' | next '08.  Big Railroad Blues (TH)'
+== joerussosalmostdead-2017-04-29 [songs moved] src=description stored=['10:1>2', '17:2>encore'] taper=['9:1>2', '17:2>encore']
+   s 'SET ONE'                                                                | prev '' | next 'Shelter from the Storm->'
+   s 'SET TWO'                                                                | prev 'Shakedown Street' | next 'Morfbeats->'
+   e 'ENCORE 1'                                                               | prev 'Eyes of the World' | next 'One More Saturday Night'
+   e 'ENCORE 2'                                                               | prev 'Not Fade Away' | next 'Ripple'
+== joerussosalmostdead-2022-04-30 [labels renamed] src=description stored=['7:1>2', '14:2>3'] taper=['7:1>2', '14:2>encore']
+   s 'Set One:'                                                               | prev 'A Team Dirty South Recording' | next '01. Intro'
+   s 'Set Two:'                                                               | prev "08. Truckin'" | next '01. Intro'
+   e 'Encore:'                                                                | prev '09. Samson and Delilah' | next '10. Absolutely Sweet Marie >'
+== kellerwilliams-2005-02-12 [songs moved] src=description stored=['19:1>2', '34:2>encore'] taper=['18:1>2', '34:2>encore']
+   s 'Set 2'                                                                  | prev '20. One More Saturday night' | next 'Disc 2'
+   e 'E:'                                                                     | prev '16. Crowd' | next '17. Drum Loup >'
+== lotus-2008-08-02 [sets merged or split] src=description stored=['14:1>encore'] taper=['7:1>2', '14:2>encore']
+   s '~Set 1~'                                                                | prev '' | next '01. Set 1 Intro'
+   s '~Set 2~'                                                                | prev '08. Age Of Inexperience' | next '01. Set 2 Intro'
+   e 'Encore'                                                                 | prev '08. Flower Sermon' | next '09. Hammerstrike'
+== mermen-2003-07-19 [songs moved] src=description stored=['16:1>2'] taper=['15:1>2']
+   s 'Set 1: Intro > Quiet Surf, Latina, Emmylou > Ghost Riders > Emmylou, W' | prev '' | next 'Set 2: Batman tease, Casbah, To Be Naked'
+   s 'Set 2: Batman tease, Casbah, To Be Naked And French..., Here Kitty Kit' | prev 'Set 1: Intro > Quiet Surf, Latina, Emmyl' | next ''
+== moe-2006-10-06 [songs moved] src=description stored=['6:1>2', '14:2>encore'] taper=['6:1>2', '12:2>encore']
+   s 'Set I: Understand, Stranger Than Fiction, Wind it up, George> Lazarus>' | prev '' | next 'Set II: Bullet> Brent Black, Rebubula, N'
+   s 'Set II: Bullet> Brent Black, Rebubula, Not Coming Down> Wormwood> 32 T' | prev 'Set I: Understand, Stranger Than Fiction' | next "Encore: Godzilla, The Ghost Of Ralph's M"
+   e "Encore: Godzilla, The Ghost Of Ralph's Mom"                             | prev 'Set II: Bullet> Brent Black, Rebubula, N' | next ''
+== moe-2009-03-29 [songs moved] src=description stored=['8:1>2', '16:2>encore'] taper=['8:1>2', '15:2>encore']
+   s 'Set I: Tuning'                                                          | prev '' | next 'Understand'
+   s 'Set II: Tuning'                                                         | prev 'Plane Crash' | next 'Cathedral>'
+   e 'Encore:'                                                                | prev 'Rebubula' | next 'Alnouncements'
+== moe-2009-04-04 [songs moved] src=description stored=['6:1>2', '14:2>encore'] taper=['6:1>2', '12:2>encore']
+   s 'Set 1'                                                                  | prev 'Setlist' | next "1.  The Ghost of Ralph's Mom >"
+   s 'Set 2'                                                                  | prev '6.  The Road' | next '1.  Blue Jeans Pizza'
+   e 'Encore'                                                                 | prev '6.  Rebubula' | next '1.  Crowd'
+== moe-2010-12-04 [encore folded] src=description stored=['8:1>2', '16:2>encore'] taper=['8:1>2']
+   s 'SET I'                                                                  | prev '' | next '01.\t-set I intro-'
+   s 'SET II'                                                                 | prev '09.\tEarache My Eye (3)' | next '01.\t-set II intro-'
+== motherhips-1995-08-06 [sets merged or split] src=notes stored=[] taper=['14:1>2']
+   s 'set two- (1:16:39)'                                                     | prev 'Whiskey River\t6:20' | next 'Precious Opal\t9:34'
+== mymorningjacket-2018-03-05 [sets merged or split] src=description stored=['14:1>2', '24:2>3', '34:3>encore'] taper=['14:1>2', '34:2>encore']
+   s 'Set 1'                                                                  | prev '' | next '01: Intro'
+   s 'Set 2'                                                                  | prev "14: Touch Me I'm Going To Scream Pt. 2" | next '01: Intro'
+   e 'encore'                                                                 | prev '21: Only Memories Remain' | next '22: Thanks'
+== newridersofthepurplesage-2006-04-08 [encore folded] src=description stored=['11:1>2', '22:2>encore'] taper=['11:1>2']
+   s 'Set 1:'                                                                 | prev 'Disc 1' | next '1. Panama Red'
+   s 'Set 2:'                                                                 | prev '11.Dead Flowers' | next '1. Lonesome L.A. Cowboy'
+== perpetualgroove-2006-12-29 [sets merged or split] src=description stored=['12:1>encore'] taper=['6:1>2', '12:2>encore']
+   s 'Disc 1 - Set I'                                                         | prev '' | next '1. Sundog'
+   s 'Disc 2 - Set II'                                                        | prev '6. Playground' | next '1. Crowded Tub'
+   s 'Disc 3 - Set II cont'                                                   | prev '4. Breeze' | next '1. Robot Waltz'
+   e 'E:'                                                                     | prev '2. Macumba' | next "3. Walkin' in Place"
+== perpetualgroove-2007-08-18 [sets merged or split] src=description stored=['13:1>encore'] taper=['7:1>2', '13:2>encore']
+   s 'Disc 1 - Set I'                                                         | prev '' | next '1. Pentium Groove Processor->'
+   s 'Disc 2 - Set II'                                                        | prev '7. Robot Waltz' | next '1. Teakwood Betz'
+   s 'Disc 3 - Set II cont'                                                   | prev '4. Breeze' | next '1. It Starts Where it Ends'
+   e 'E:'                                                                     | prev '2. Mr Transistor' | next "3. I'm Afraid of Americans"
+== perpetualgroove-2008-05-03 [sets merged or split] src=description stored=['13:1>encore'] taper=['7:1>2', '13:2>encore']
+   s 'Disc 1 - Set I'                                                         | prev '' | next '1. Gorilla Monsoon'
+   s 'Disc 2 - Set II'                                                        | prev '7. Space Paranoids' | next '1. Teakwood Betz'
+   s 'Disc 3 - Set II cont'                                                   | prev '4. TSMM' | next '1. All Night Long'
+   e 'E:'                                                                     | prev '2. Speed Queen' | next '3. Orange Wedge*'
+== philleshandfriends-2005-02-12 [encore folded] src=description stored=['13:1>2', '27:2>encore'] taper=['13:1>2']
+   s 'Set 1:'                                                                 | prev 'DISC 1' | next '1)~^Party'
+   s 'Set 2:'                                                                 | prev 'DISC 3' | next '1) ~#^Carnival Time>'
+== philleshandfriends-2006-02-26 [encore folded] src=description stored=['7:1>2', '18:2>encore'] taper=['7:1>2']
+   s 'Set 2:'                                                                 | prev '1. Reuben and Cerise' | next '2. Gimme Shelter'
+== philleshandfriends-2006-07-03 [songs moved] src=description stored=['5:1>2', '13:2>encore'] taper=['5:1>2', '16:2>encore']
+   s 'disc 1 (set 1)'                                                         | prev 'taped/transfered by  Rob Clarke   RobCla' | next '01.  Passenger ->'
+   s '- set 2 * -'                                                            | prev '05.  Good Lovin' | next '06.  Shakedown St. ->'
+   s 'disc 2 (set 2 cont.)'                                                   | prev '07.  Feedback > Caution > Feedback' | next '01.  Candyman ->'
+   e 'encore: Midnight Hour'                                                  | prev '10.' | next '* Trey Anastasio plays entire 2nd set an'
+== radiators-1981-07-11 [sets merged or split] src=description stored=['27:1>encore'] taper=['18:1>2', '27:2>encore']
+   s '(Set 1)'                                                                | prev '-DISC ONE-' | next '01) One Eyed Jack'
+   s '(Set 1, cont.)'                                                         | prev '-DISC TWO-' | next '01) Red Dress'
+   s '(Set 2)'                                                                | prev '06) Lovelight' | next '07) Haunted House'
+   s '(Set 2, cont.)'                                                         | prev '-DISC THREE-' | next '01) Spanish Moon'
+   e '-Encore'                                                                | prev "08) Goin' Down The Road Feelin' Bad" | next '09) Chevy 39'
+== radiators-1997-04-12 [songs moved] src=description stored=['12:1>2', '24:2>encore'] taper=['12:1>2', '23:2>encore']
+   s 'Set 1:'                                                                 | prev '[Disc 1]' | next '01. Last Getaway'
+   s 'Set 2:'                                                                 | prev '02. Take Your Dead Ass Home' | next "03. Smokin' Hole"
+   e 'Encore:'                                                                | prev '06. Sympathy for the Devil *' | next '07. calling them back'
+== radiators-2005-07-03 [encore added] src=description stored=['14:1>2'] taper=['14:1>2', '23:2>encore']
+   s 'set1:'                                                                  | prev 'disc 1' | next '01  tuning/intro'
+   s 'set 1:'                                                                 | prev 'disc2' | next '01  Like Dreamers Do'
+   s 'set 2:'                                                                 | prev '01  Like Dreamers Do' | next '02  intro'
+   e 'encores:'                                                               | prev '13  callin em back' | next '14  Texas Chainsaw Massacre >'
+== radiators-2006-02-10 [songs moved] src=description stored=['12:1>2', '20:2>encore'] taper=['12:1>2', '21:2>encore']
+   s 'set 1:'                                                                 | prev 'disc 1' | next '01  tunin/intro'
+   s 'set 1:'                                                                 | prev 'disc 2' | next '01  Dreamin Out Loud'
+   s 'set 2:'                                                                 | prev 'disc 3' | next '01  tunin/intro'
+   e 'encores:'                                                               | prev '10  callin em back' | next '11  Junco Partner'
+== radiators-2007-03-30 [encore folded] src=description stored=['12:1>2', '28:2>encore'] taper=['12:1>2']
+   s 'Set 1 - 57:24'                                                          | prev '' | next 'Disc 1'
+   s 'Set 2 - 74:22'                                                          | prev '13- Ooh Las Vegas' | next 'Disc 2'
+== radiators-2010-06-05 [encore folded] src=description stored=['12:1>2', '21:2>encore'] taper=['12:1>2']
+   s 'Set One:'                                                               | prev '' | next '01. tuning > Mackies intro>'
+   s 'Set Two:'                                                               | prev "13. Kenny's outro" | next "14. tuning > Kenny's intro > tuning"
+== railroadearth-2004-03-27 [encore added] src=description stored=['7:1>2'] taper=['7:1>2', '16:2>encore']
+   s 'Set I:'                                                                 | prev 'Disc 1:' | next '1. Tuning'
+   s 'Set II:'                                                                | prev '8. Storms' | next '9. Tuning'
+   s 'Set II cont:'                                                           | prev 'Disc 2:' | next '1. Bird In A House'
+   e 'Encores:'                                                               | prev '7. Fiddlee' | next '8. El //Cumbanchero'
+== railroadearth-2008-03-01 [encore added] src=description stored=['7:1>2'] taper=['7:1>2', '15:2>encore']
+   s 'Set 1:'                                                                 | prev '' | next '01. Chains'
+   s 'Set 2:'                                                                 | prev '07. Crossing the Gap' | next '01. My Sisters and Brothers *'
+   e 'Encores:'                                                               | prev "08. Cuckoo's Medley" | next '09. Bird in a House'
+== railroadearth-2009-08-22 [encore added] src=description stored=['8:1>2'] taper=['8:1>2', '19:2>encore']
+   s 'Set 1:'                                                                 | prev 'ADK TL > Warm plus UA-5 > JB3 > WaveLab ' | next '01 Where Songs Begin'
+   s 'Set 2:'                                                                 | prev '08 Ragtime Annie Lee' | next '01 Long Way To Go'
+   e 'Encore:'                                                                | prev '04 Head' | next '05 Railroad Earth'
+== railroadearth-2011-10-30 [encore folded] src=description stored=['9:1>2', '17:2>encore'] taper=['9:1>2']
+   s 'Set I'                                                                  | prev '' | next '1. Long Way To Go'
+   s 'Set II'                                                                 | prev '9. Mourning Flies' | next '1. Like a Buddha'
+== railroadearth-2013-07-12 [encore added] src=description stored=['8:1>2'] taper=['8:1>2', '21:2>encore']
+   s 'Set I: Black Elk Speaks> The Jupiter and the 119, Happy Song, Saddle o' | prev '' | next "Set II: Potter's Field> Old Man and the "
+   s "Set II: Potter's Field> Old Man and the Land, Colorado, Crossing the G" | prev 'Set I: Black Elk Speaks> The Jupiter and' | next 'Encore: Railroad Earth'
+   e 'Encore: Railroad Earth'                                                 | prev "Set II: Potter's Field> Old Man and the " | next ''
+== ratdog-2014-02-14 [encore folded] src=description stored=['8:1>2', '15:2>encore'] taper=['8:1>2']
+   s 'Set 1'                                                                  | prev '' | next 'The Music Never Stopped >'
+   s 'Set 2'                                                                  | prev 'Let It Grow' | next 'Friend of the Devil@ >'
+== ryanadams-2007-07-21 [sets merged or split] src=description stored=[] taper=['9:1>2']
+   s 'Set 1'                                                                  | prev 'Disc 1 (76:15)' | next '1.\tWhat Sin'
+   s 'Set 2'                                                                  | prev '9.\tMagnolia Mountain' | next '10.\tPearls On A String'
+== ryanadams-2007-10-14 [labels renamed] src=description stored=['13:1>encore'] taper=['13:1>2']
+   s 'Set I:'                                                                 | prev 'Disc I -' | next '01. Goodnight Rose'
+   s 'Set II:'                                                                | prev 'Disc II -' | next '14. Two'
+== ryanadams-2008-01-19 [sets merged or split] src=description stored=['4:1>2', '16:2>3'] taper=['16:1>2']
+   s 'Set 1:'                                                                 | prev '' | next 'Ryan Solo'
+   s 'Set 2:'                                                                 | prev '16.The Sun Also Sets' | next '01.A Kiss Before I Go>'
+== ryanadams-2008-01-25 [encore folded] src=description stored=['19:1>encore'] taper=['15:1>2']
+   s 'Set 1'                                                                  | prev '1/25/2008' | next '(disc 1)'
+   s 'Set 2'                                                                  | prev '4. I See Monsters' | next '5. Elizabeth'
+== ryanadams-2008-01-29 [sets merged or split] src=description stored=['18:1>encore'] taper=['10:1>2', '18:2>encore']
+   s 'Set 1'                                                                  | prev 'Disc 1 (59:18)' | next '01.\tPeaceful Valley->'
+   s 'Set 2'                                                                  | prev 'Disc 2 (69:56)' | next '01.\tWhy Do They Leave'
+   e 'Encore:'                                                                | prev '08.\tEasy Plateau' | next '09.\tMagnolia Mountain'
+== ryanadams-2008-09-29 [encore folded] src=description stored=['22:1>2', '33:2>encore'] taper=['20:1>2']
+   s 'SET ONE'                                                                | prev 'Editing: Sound Forge: normalization to p' | next 'Intro'
+   s 'SET TWO'                                                                | prev 'Let It Ride' | next "'banter'"
+== smashingpumpkins-1998-05-19 [encore folded] src=description stored=['9:1>2', '13:2>3', '17:3>encore'] taper=['12:1>2']
+   s 'Set 2'                                                                  | prev '11. The Tale of Dusty and Pistol Pete' | next '1. Stumbeline'
+== soundtribesector9-2003-11-01 [encore folded] src=description stored=['7:1>2', '15:2>encore'] taper=['7:1>2']
+   s "Set 1: l1nqs>, Circus, Gobnugget, Surreality, Today, King Pharoh's Tom" | prev '' | next 'Set 2: ISB, ASAA, Grow, Not in our name,'
+   s 'Set 2: ISB, ASAA, Grow, Not in our name, Baraka, 4 year puma, Jebez, J' | prev 'Set 1: l1nqs>, Circus, Gobnugget, Surrea' | next ''
+== soundtribesector9-2004-03-04 [encore folded] src=description stored=['7:1>2', '13:2>encore'] taper=['7:1>2']
+   s 'Set 1'                                                                  | prev '' | next 'Freq. 2>3, Movments>4 My Peeps, Mishchie'
+   s 'Set 2'                                                                  | prev 'Freq. 2>3, Movments>4 My Peeps, Mishchie' | next 'Grow, Luma Daylight, What Is Love, Tokyo'
+== soundtribesector9-2004-06-25 [encore folded] src=description stored=['7:1>2', '13:2>encore'] taper=['7:1>2']
+   s 'Set One: Just Thanks, Posiedon, STS9, Mobsters>Surrealty>EB, Improv F,' | prev '' | next 'Set Two: Tap In, Glogli, What is Love, L'
+   s 'Set Two: Tap In, Glogli, What is Love, LSB, Moonsocket, Orbital  E~ Wa' | prev 'Set One: Just Thanks, Posiedon, STS9, Mo' | next ''
+== soundtribesector9-2004-10-31 [encore folded] src=description stored=['11:1>2', '19:2>encore'] taper=['11:1>2']
+   s 'Set 1*:Intro, Peoples, Arigato, Artifact, 102.4, Since 7th, Providing ' | prev '' | next 'Set 2: Ramone & Emiglio, And Some Are An'
+   s 'Set 2: Ramone & Emiglio, And Some Are Angels, Inspire Strikes Back, Be' | prev 'Set 1*:Intro, Peoples, Arigato, Artifact' | next ''
+== soundtribesector9-2004-12-31 [songs moved] src=description stored=['8:1>2', '18:2>encore'] taper=['8:1>2', '17:2>encore']
+   s 'Set 1:Nautilus, Squares & Cubes, Reemergence^, Open E, Crystal Instrum' | prev '' | next 'Set 2: Tribal Jam*^, Alien Funk*^, Peopl'
+   s 'Set 2: Tribal Jam*^, Alien Funk*^, Peoples, Possibilities^, Tap In, Na' | prev 'Set 1:Nautilus, Squares & Cubes, Reemerg' | next 'Encore: Improv Jam*, Havona Ascent**, Br'
+   e 'Encore: Improv Jam*, Havona Ascent**, Breathe In'                       | prev 'Set 2: Tribal Jam*^, Alien Funk*^, Peopl' | next ''
+== soundtribesector9-2005-02-11 [encore added] src=description stored=['8:1>2'] taper=['8:1>2', '15:2>encore']
+   s 'SET 1'                                                                  | prev '' | next 'Intro'
+   s 'SET 2'                                                                  | prev 'GloGLI' | next 'Tap In'
+   e 'E:'                                                                     | prev 'Grow' | next 'ASAA'
+== soundtribesector9-2007-04-26 [encore added] src=description stored=['7:1>2'] taper=['7:1>2', '13:2>encore']
+   s 'Set 1: Abcees, F. Word, From Now On, Move My Peeps, Today, Arigato, Ka' | prev '' | next "Set 2: Tokyo, Breathe In, Lo Swaga, We'l"
+   s "Set 2: Tokyo, Breathe In, Lo Swaga, We'll Meet In Our Dreams, Mischief" | prev 'Set 1: Abcees, F. Word, From Now On, Mov' | next 'Encore: Really Wut?'
+   e 'Encore: Really Wut?'                                                    | prev "Set 2: Tokyo, Breathe In, Lo Swaga, We'l" | next ''
+== stringcheeseincident-2000-01-31 [songs moved] src=description stored=['8:1>2', '16:2>encore'] taper=['7:1>2', '16:2>encore']
+   s "Set 1:  Land's End > Lonesome Road Blues, Come as You Are, Drifting Aw" | prev '' | next "Set 2:  (acoustic) Think What You've Don"
+   s "Set 2:  (acoustic) Think What You've Done, Take Five, I've Just Seen a" | prev "Set 1:  Land's End > Lonesome Road Blues" | next 'Encore:  Under African Skies^ > Whiskey '
+   e 'Encore:  Under African Skies^ > Whiskey Before Breakfast'               | prev "Set 2:  (acoustic) Think What You've Don" | next ''
+== stringcheeseincident-2000-10-27 [songs moved] src=description stored=['9:1>2', '15:2>encore'] taper=['8:1>2', '15:2>encore']
+   s "Set 1:  Rhum 'n' Zouc, 100 Year Flood > MLT* > Drums* > MLT*, Up the C" | prev '' | next "Set 2:  Tom Thumb's Blues > Jam > Rivert"
+   s "Set 2:  Tom Thumb's Blues > Jam > Rivertrance, Water, Sittin' On Top o" | prev "Set 1:  Rhum 'n' Zouc, 100 Year Flood > " | next 'Encore:  Ramble On^'
+   e 'Encore:  Ramble On^'                                                    | prev "Set 2:  Tom Thumb's Blues > Jam > Rivert" | next ''
+== stringcheeseincident-2004-11-26 [songs moved] src=description stored=['7:1>2', '15:2>encore'] taper=['7:1>2', '14:2>encore']
+   s 'Set 1:  Round the Wheel, One Step Closer > What I Know, Suntan, 45th o' | prev '' | next 'Set 2:  Dirk, Under African Skies > Dese'
+   s 'Set 2:  Dirk, Under African Skies > Desert Dawn, Sand Dollar > Sirens,' | prev 'Set 1:  Round the Wheel, One Step Closer' | next 'Encore:  On the Road² > Give It Away'
+   e 'Encore:  On the Road² > Give It Away'                                   | prev 'Set 2:  Dirk, Under African Skies > Dese' | next ''
+== stringcheeseincident-2004-12-31 [encore added] src=description stored=['10:1>2'] taper=['10:1>2', '20:2>encore']
+   s "Set 1: This Must Be the Place (Naive Melody) > San Jose, Miss Brown's " | prev '' | next "Set 2:  Drums¹ > Way Back Home > Reelin'"
+   s "Set 2:  Drums¹ > Way Back Home > Reelin' in the Years > Land's End Rep" | prev 'Set 1: This Must Be the Place (Naive Mel' | next 'Encore: Boogie on Reggae Woman, Good Tim'
+   e 'Encore: Boogie on Reggae Woman, Good Times Around the Bend'             | prev "Set 2:  Drums¹ > Way Back Home > Reelin'" | next ''
+== stringcheeseincident-2006-07-20 [encore added] src=description stored=['7:1>2'] taper=['7:1>2', '15:2>encore']
+   s 'Set 1:'                                                                 | prev '' | next 'Disc 1:'
+   s 'Set 2:'                                                                 | prev 'Bam' | next 'Disc 2:'
+   e 'E: Travis Drums > On the Road'                                          | prev 'Black Clouds' | next ''
+== stringcheeseincident-2007-07-28 [songs moved] src=description stored=['10:1>2', '21:2>3', '26:3>encore'] taper=['10:1>2', '19:2>3', '26:3>encore']
+   s 'Disc 1 (Set 1)'                                                         | prev '' | next '1. Down a River*'
+   s 'Disc 2 (Set 2)'                                                         | prev '10.Could You Be Loved' | next "1. Tom Thumb's Blues"
+   s 'Disc 3 (Set 3)'                                                         | prev '9. Ramble On' | next '1. Ritual Jam>'
+   e 'E: Best Feeling^^^'                                                     | prev '3.' | next ''
+== stringcheeseincident-2010-07-30 [encore added] src=description stored=['9:1>2'] taper=['9:1>2', '19:2>encore']
+   s 'Set 1:'                                                                 | prev '' | next 'Disc 1:'
+   s 'Set 2:'                                                                 | prev "09 Miss Brown's Teahouse*" | next 'Disc 2:'
+   e 'Encore:'                                                                | prev '06 Restless Wind' | next '07 Hey Pocky Way*'
+== tealeafgreen-2005-03-11 [songs moved] src=description stored=['14:1>2', '24:2>encore'] taper=['13:1>2', '24:2>encore']
+   s '(set II)'                                                               | prev "14) Professor's Blues" | next "15) Bouncin' Betty"
+   s '(set II cont.)'                                                         | prev 'Disc 2' | next '01) Cherry Red Guitar'
+   e '(encore)'                                                               | prev "10) Sex in the 70's" | next '11) Freedom**'
+== tedeschitrucksband-2018-02-09 [encore folded] src=description stored=['8:1>2', '15:2>encore'] taper=['8:1>2']
+   s 'Set One'                                                                | prev '' | next "01. Don't Let Me Slide"
+   s 'Set Two'                                                                | prev '08. Drums > Let Me Get By' | next '09. Statesboro Blues'
+== tedeschitrucksband-2018-10-13 [songs moved] src=description stored=['11:1>2', '20:2>encore'] taper=['10:1>2', '20:2>encore']
+   s 'Set 1:'                                                                 | prev '' | next '1. Are You Ready>'
+   s 'Set 2:'                                                                 | prev '10. Idle Wind>Drums>Idle Wind' | next '1. Sitting Here In Limbo'
+   e 'E: With A Little Help From My Friends#'                                 | prev '11.' | next ''
+== tedeschitrucksband-2019-11-15 [encore added] src=description stored=['9:1>2', '14:2>3', '20:3>4'] taper=['9:1>2', '20:2>encore']
+   s 'set i'                                                                  | prev 'Recorded from row k left side' | next '01 - Laugh About It'
+   s 'set ii'                                                                 | prev '09 - Idle Wind' | next '10 - Keep Your Lamp Trimmed and Burning'
+   e 'encore'                                                                 | prev '21 - crowd' | next '22 - I Walk on Guilded Splinters'
+== tedeschitrucksband-2020-02-21 [sets merged or split] src=description stored=['9:1>2', '13:2>3', '19:3>encore'] taper=['9:1>2', '19:2>encore']
+   s 'Set One'                                                                | prev 'Recorded by Alex Leary' | next "01. Don't Let Me Slide"
+   s 'Set Two'                                                                | prev '09. Sweet Inspiration' | next '10. Calling Out To You'
+   e 'E: Made Up Mind'                                                        | prev '20.' | next 'Notes:'
+== tedeschitrucksband-2022-03-26 [songs moved] src=description stored=['9:1>2', '20:2>encore'] taper=['9:1>2', '19:2>encore']
+   s 'Set I'                                                                  | prev 'Recorded by David Perez' | next '101-s1t01 - Signs, High Times'
+   s 'Set II'                                                                 | prev '109-s1t09 - The Storm' | next '201-s2t01 - Soul Serenade/Sugaree'
+   e 'Encore'                                                                 | prev '210-s2t10 - Band Introductions' | next '211-s2t11 - Trophy Presentation'
+== tedeschitrucksband-2023-03-31 [songs moved] src=description stored=['7:1>2', '17:2>encore'] taper=['7:1>2', '16:2>encore']
+   s 'Set 1:'                                                                 | prev '** 24-bit / 48 kHz recording **' | next '101. Rainy Day'
+   s 'Set 2:'                                                                 | prev '107. How Blue Can You Get?' | next '201. Suzanne'
+   e 'Encore:'                                                                | prev '209. Bound For Glory' | next '210. Sweet Soul Song'
+== thebrew-2009-04-18 [encore added] src=description stored=['11:1>2'] taper=['11:1>2', '20:2>encore']
+   s 'Set 1:'                                                                 | prev 'Disc 1:' | next '01 Intro'
+   s 'Set 2:'                                                                 | prev 'Disc 2:' | next '01 Intro'
+   e 'Enc:'                                                                   | prev "10 Hunter's Moon" | next '11 Kiss#'
+== thedead-2009-04-21 [encore folded] src=description stored=['8:1>2', '9:2>encore'] taper=['8:1>2']
+   s 'Set 1:'                                                                 | prev '' | next '01 Tuning'
+   s 'Set 2:'                                                                 | prev '09 Big River' | next '01 Tuning'
+== thedead-2009-04-22 [encore folded] src=description stored=['8:1>2', '16:2>encore'] taper=['8:1>2']
+   s 'Set One'                                                                | prev 'Recorded & uploaded by Robert Krall' | next '01.Jam > Mr. Charlie'
+   s 'Set 2'                                                                  | prev '08.Dire Wolf' | next '01.Golden Road to Unlimited Devotion >'
+== thedead-2009-04-25 [songs moved] src=description stored=['7:1>2', '17:2>encore'] taper=['6:1>2', '18:2>encore']
+   s 'Disc One/Set One:'                                                      | prev 'Taped, transfered and uploaded by Tony S' | next 'Intro'
+   s 'Disc Two/Set Two:'                                                      | prev 'Cassidy' | next 'Sugaree'
+   s 'Disc Three/Set Two Cont:'                                               | prev 'The Eleven' | next "Uncle John's Band"
+   e 'E: Brokedown Palace'                                                    | prev 'Donor Rap' | next 'The Band:'
+== thedead-2009-04-28 [encore folded] src=description stored=['7:1>2', '14:2>encore'] taper=['7:1>2']
+   s 'FIRST SET:'                                                             | prev 'Recorded by Robert Krall & Scott Reese' | next '01.US Blues'
+   s 'SECOND SET:'                                                            | prev '07.Lovelight*' | next '01.New Potato caboose* >'
+== thedead-2009-05-01 [songs moved] src=description stored=['7:1>2', '17:2>encore'] taper=['8:1>2', '17:2>encore']
+   s 'Set I:'                                                                 | prev '' | next "01 Playin' In The Band>"
+   s 'Set II:'                                                                | prev "08 Playin' reprise" | next '01 Jack Straw'
+   e 'Encore:'                                                                | prev '09 Sugar Magnolia' | next '10 Donor Rap'
+== thedead-2009-05-10 [encore folded] src=description stored=['6:1>2', '13:2>encore'] taper=['6:1>2']
+   s 'Set 2:'                                                                 | prev 'Disc 2' | next '1. crowd, tuning'
+== thedead-2009-05-16 [encore folded] src=description stored=['8:1>2', '17:2>encore'] taper=['8:1>2']
+   s 'set I'                                                                  | prev '' | next '1.tuning'
+   s 'set II'                                                                 | prev '9.man smart, woman smarter' | next '1.tuning'
+== thedead-2015-06-28 [encore folded] src=description stored=['9:1>2', '17:2>encore'] taper=['9:1>2']
+   s 'Set 1'                                                                  | prev "Location: OTS ~ 10'" | next 'Tuning'
+   s 'Set 2'                                                                  | prev 'Hell In A Bucket' | next 'Tuning'
+== umphreysmcgee-2005-04-15 [encore added] src=description stored=['8:1>2'] taper=['8:1>2', '19:2>encore']
+   s 'Set One :'                                                              | prev 'Disc 1' | next '1.  August >'
+   s 'Set Two:'                                                               | prev 'Disc 2' | next "1.  Miss Tinkle's Overture * >"
+   e 'Encore:'                                                                | prev "1.  Mulche's Odyssey" | next '2.  A 5th of Beethoven'
+== yondermountainstringband-2006-07-04 [encore added] src=description stored=[] taper=['12:1>2', '25:2>encore']
+   s 'Set 1:'                                                                 | prev '' | next 'Disc 1:'
+   s 'Set 2:'                                                                 | prev 'Sidewalk Stars' | next 'Disc 2:'
+   e 'Encore:Two Hits and the Joint Turns Brown'                              | prev 'Traffic Jam' | next ''
+== yondermountainstringband-2007-06-20 [encore added] src=description stored=['11:1>2'] taper=['11:1>2', '18:2>encore']
+   s 'Set 1:'                                                                 | prev '' | next '1.  Intro'
+   s 'Set 2:'                                                                 | prev '12. Ruby> Sidewalk Stars' | next '1.  Kentucky Mandolin #+'
+   e 'Encore:'                                                                | prev '7.  Years With Rose> Robot Jam> Years Wi' | next '8.  2 Hits and The Joint Turned Brown #^'
+== yondermountainstringband-2008-02-09 [encore added] src=description stored=['15:1>2'] taper=['15:1>2', '29:2>encore']
+   s 'Set 1:'                                                                 | prev '' | next 'd1t01: Get Me Outta This City,'
+   s 'Set 2:'                                                                 | prev 'd2t05: Only A Northern Song' | next 'd2t06: Out Of The Blue,'
+   e 'ENC:'                                                                   | prev "d3t08: Ramblin' Reprise" | next "d3t09: Holdin',"

@@ -1,0 +1,414 @@
+##### deadandcompany-2016-06-21  ident=dac2016-06-21 src=description ntracks=18
+  today: ['7:1>2', '16:2>encore']
+  HEAD : ['7:1>2', '16:2>encore'] (7, 16)
+  noB: NOT OWNED one set
+  L0 DIFF head=set1 var=song: '1st Set (80:21)'
+       prev=[]
+       next=['', 'Tuning Up']
+  L11 DIFF head=set2 var=song: '2nd Set (112:15)'
+       prev=['Deal', '']
+       next=['', 'Iko Iko']
+  boundary 1|2: 'Deal' | 'Iko Iko'
+  boundary 2|encore: 'Good Lovin' | 'Brokedown Palace'
+   placed after t7: 'Deal' | 'Iko Iko'
+   placed after t16: 'Good Lovin' | 'Brokedown Palace'
+##### deadandcompany-2017-06-20  ident=deadandco2017-06-20 src=description ntracks=18
+  today: ['8:1>2', '17:2>encore']
+  HEAD : ['8:1>2', '17:2>encore'] (8, 17)
+  noB: NOT OWNED one set
+  L1 DIFF head=set1 var=song: '1st set(70:57)'
+       prev=['']
+       next=['', 'Hell In a Bucket']
+  L12 DIFF head=set2 var=song: '2nd Set(110:22)'
+       prev=['Saint Of Circumstance', '']
+       next=['', 'China Cat Sunflower>']
+  boundary 1|2: 'Saint Of Circumstance' | 'China Cat Sunflower'
+  boundary 2|encore: 'I Know You Rider' | 'Going Down The Road Feeling Bad'
+   placed after t8: 'Saint Of Circumstance' | 'China Cat Sunflower'
+   placed after t17: 'I Know You Rider' | 'Going Down The Road Feeling Bad'
+##### furthur-2011-04-03  ident=furthur2011-04-03.schoeps-mk4.hatcher.112854.flac16 src=description ntracks=23
+  today: ['9:1>2', '22:2>encore']
+  HEAD : ['9:1>2', '21:2>encore'] (9, 21)
+  noB: NOT OWNED one set
+  L0 DIFF head=set1 var=song: 'Set I (68:48)'
+       prev=[]
+       next=['01. Tuning', '02. Hell in a Bucket']
+  L11 DIFF head=set2 var=song: 'Set II (111:56)'
+       prev=['09. Deal', '']
+       next=['01. Tuning', '02. Iko Iko']
+  boundary 1|2: 'Deal' | 'Iko Iko'
+  boundary 2|encore: 'Terrapin Flyer' | 'Phil Donor Rap'
+   placed after t9: 'Deal' | 'Iko Iko'
+   placed after t21: 'Terrapin Flyer' | 'Phil Donor Rap'
+##### greenskybluegrass-2013-05-04  ident=GSBG2013-05-04 src=description ntracks=21
+  today: []
+  HEAD : ['8:1>2'] (8,)
+  noB: NOT OWNED no markers
+  L5 DIFF head=set1 var=song: 'Set I (66:47:02)'
+       prev=['May 4, 2013', '']
+       next=['d1t01-Intro', 'd1t02-Dustbowl Overtures']
+  L16 DIFF head=set2 var=song: 'Set II (78:42:08)'
+       prev=['d1t09-Leap Year', '']
+       next=['d2t01-Intro', 'd2t02-Through the Trees']
+  boundary 1|2: 'Leap Year' | 'Through the Trees'
+   placed after t8: 'Greensky Bluegrass - d1t09-Leap Year' | 'Greensky Bluegrass - d2t01-Intro'
+##### joerussosalmostdead-2015-12-12  ident=jrad2015-12-12.cmc621.sbd.matrix.flac24 src=notes ntracks=16
+  today: ['6:1>2', '12:2>encore']
+  HEAD : ['6:1>2', '12:2>encore'] (6, 12)
+  noB: NOT OWNED one set
+  L15 DIFF head=set1 var=song: 'Set 1 (8:21pm):'
+       prev=['Recording and FOH mix by Peter Costello - Edited, mixed and mastered by Eric McRoberts 08/18/2016', '']
+       next=['01.  Greatest Story Ever Told (SM)', '02.  Scarlet Begonias (TH) ->']
+  L23 DIFF head=set2 var=song: 'Set 2 (10:20pm):'
+       prev=['06.  One More Saturday Night (SM)', '']
+       next=['01.  China Cat Sunflower (TH) ->', '02.  I Know You Rider (All) >']
+  boundary 1|2: 'One More Saturday Night (SM)' | 'China Cat Sunflower (TH)'
+  boundary 2|encore: 'Terrapin Suite &' | 'Not Fade Away'
+   placed after t6: 'One More Saturday Night (SM)' | 'China Cat Sunflower (TH) ->'
+   placed after t12: 'Terrapin Suite &' | 'Not Fade Away'
+##### joerussosalmostdead-2017-01-12  ident=jrad2017-01-12.cmc621.cmc64.sbd.matrix.flac24 src=notes ntracks=16
+  today: ['5:1>2', '14:2>encore']
+  HEAD : ['5:1>2', '14:2>encore'] (5, 14)
+  noB: NOT OWNED one set
+  L16 DIFF head=set1 var=song: 'Set 1 (7:51PM - 9:08PM):'
+       prev=['Costello & McRoberts Ultra Mix - Recording and FOH mix by Peter Costello - Monitors by Aaron Gittleman - Edited, mixed and mastered by Eric McRoberts 02/26-27/2017', '']
+       next=['01.  intro/crowd', "02.  Truckin' (SM) ->"]
+  L24 DIFF head=set2 var=song: 'Set 2 (9:47PM - 11:30PM):'
+       prev=['06.  Brown Eyed Women (TH)', '']
+       next=['01.  Help On The Way (TH) ->', '02.  Slipknot! $ ->']
+  boundary 1|2: 'Brown Eyed Women (TH)' | 'Help On The Way (TH)'
+  boundary 2|encore: 'Terrapin Station * (TH)' | 'GDTRFB (All with NA)'
+   placed after t5: 'Brown Eyed Women (TH)' | 'Help On The Way (TH) ->'
+   placed after t14: 'Terrapin Station * (TH)' | 'GDTRFB (All with NA) ->'
+##### joerussosalmostdead-2017-03-16  ident=jrad2017-03-16.cmc621.cmc641vxt.sbd.matrix.flac16 src=notes ntracks=16
+  today: ['8:1>2', '15:2>encore']
+  HEAD : ['8:1>2', '15:2>encore'] (8, 15)
+  noB: NOT OWNED one set
+  L10 DIFF head=set1 var=song: 'Set One (8:45PM - 9:57PM):'
+       prev=['Costello & McRoberts Ultra Mix - Recorded by Peter Costello & Eric McRoberts - FOH mix by Peter Costello - Monitors by Aaron Gittleman - Lights by Jason Liggy Liggett - Video by Sean Smith - Edited, mixed and mastered by Eric McRoberts 04/01-05/2017', '']
+       next=['01.  Jam @ ->', '02.  The Other One @& (SM) ->']
+  L19 DIFF head=set2 var=song: 'Set Two (10:31PM - 11:53PM):'
+       prev=['07.  Shakedown Street #+ (TH)', '']
+       next=['01.  intro/crowd', '02.  King Solomon’s Marbles @']
+  boundary 1|2: 'Shakedown Street #+ (TH)' | 'King Solomon’s Marbles @'
+  boundary 2|encore: 'Born Cross Eyed Jam' | 'Born To Run @ (TH)'
+   placed after t8: 'intro/crowd' | 'King Solomon’s Marbles @'
+   placed after t15: 'Born Cross Eyed Jam' | 'Born To Run @ (TH)'
+##### joerussosalmostdead-2017-05-06  ident=jrad2017-05-06.cmc621.cmc64.sbd.matrix.flac24 src=notes ntracks=14
+  today: ['7:1>2', '13:2>3']
+  HEAD : ['7:1>2', '13:2>encore'] (7, 13)
+  noB: NOT OWNED one set
+  L14 DIFF head=set1 var=song: 'Set One (10:00PM - 11:22PM):'
+       prev=['Recording and FOH mix by Peter Costello - Mixed & mastered by Micah Gordon - Edited, retracked & posted by Eric McRoberts 05/11-12/2017', '']
+       next=['01.  Greatest Story >', '02.  Scarlet Begonias ->']
+  L23 DIFF head=set2 var=song: 'Set Two (11:38PM - 12:56AM):'
+       prev=['07.  Not Fade Away', '']
+       next=['01.  Lost Sailor @ ->', '02.  Saint Of Circumstance #']
+  boundary 1|2: 'Not Fade Away' | 'Lost Sailor @'
+  boundary 2|encore: 'Tennessee Jed %' | 'Bertha'
+   placed after t7: 'Not Fade Away' | 'Lost Sailor @ ->'
+   placed after t13: 'Tennessee Jed %' | 'Bertha'
+##### joerussosalmostdead-2017-10-07  ident=jrad2017-10-07.cmc621.cmc641vxt.sbd.matrix.flac24 src=notes ntracks=13
+  today: ['8:1>2', '12:2>encore']
+  HEAD : ['8:1>2', '12:2>encore'] (8, 12)
+  noB: NOT OWNED one set
+  L16 DIFF head=set1 var=song: 'Set One (9:34PM - 11:03PM):'
+       prev=['Costello & McRoberts Ultra Mix - Recorded by Peter Costello & Eric McRoberts - FOH Mix by Peter Costello - Monitors by Aaron Gittleman - Lights by Victor Cornette - Video by Sean Smith - Audio edited, mixed and mastered by Eric McRoberts 10/15-21/2017', '']
+       next=['01.  Jam ->', '02.  I Need A Miracle ->']
+  L26 DIFF head=set2 var=song: 'Set Two (11:36PM - 1:01AM):'
+       prev=['10.  Stella Blue Jam', '']
+       next=['01.  Uncle John’s Band @#$ +', '02.  The Other One @ ++ >']
+  boundary 1|2: 'Stella Blue Jam' | 'Uncle John’s Band @#$ +'
+  boundary 2|encore: 'Terrapin Station Suite @#$ ##' | 'Samson & Delilah @'
+   placed after t8: 'Stella Blue Jam' | 'Uncle John’s Band @#$ +'
+   placed after t12: 'Terrapin Station Suite @#$ ##' | 'Samson & Delilah @ *'
+##### joerussosalmostdead-2018-01-14  ident=jrad2018-01-14.cmc621.cmc641vxt.sbd.matrix.flac24 src=notes ntracks=16
+  today: ['7:1>2', '14:2>encore']
+  HEAD : ['7:1>2', '14:2>encore'] (7, 14)
+  noB: NOT OWNED one set
+  L16 DIFF head=set1 var=song: 'Set One (9:00PM - 10:14PM):'
+       prev=['Costello & McRoberts Ultra Mix - Recording by Peter Costello & Eric McRoberts - FOH mix by Peter Costello - Monitors by Aaron Gittleman - Audio edited, mixed and mastered by Eric McRoberts 01/27-28/2018', '']
+       next=['01.  Samson & Delilah', '02.  China Cat Sunflower ->']
+  L25 DIFF head=set2 var=song: 'Set Two (10:52PM - 12:30AM):'
+       prev=['07.  Greatest Story Ever Told ^', '']
+       next=['01.  Man Smart, Woman Smarter $', '02.  Bertha @^ >']
+  boundary 1|2: 'Greatest Story Ever Told ^' | 'Man Smart, Woman Smarter $'
+  boundary 2|encore: 'Dancing In The Streets @$ @@' | 'She Does It Right ##'
+   placed after t7: 'Greatest Story Ever Told ^' | 'Man Smart, Woman Smarter $'
+   placed after t14: 'Dancing In The Streets @$ @@' | 'She Does It Right ##'
+##### joerussosalmostdead-2018-04-21  ident=jrad2018-04-21.cmc621.cmc64.sbd.matrix.flac24 src=notes ntracks=15
+  today: ['6:1>2']
+  HEAD : ['6:1>2'] (6,)
+  noB: NOT OWNED no markers
+  L16 DIFF head=set1 var=song: 'Set One (5:12PM - 6:13PM):'
+       prev=['Costello & McRoberts Ultra Mix - Recording and FOH mix by Peter Costello - Monitors by Aaron Gittleman - Video by Sean Smith - Audio edited, mixed and mastered by Eric McRoberts 05/08-09/2018', '']
+       next=['01.  Jam ->', '02.  Cats Under The Stars ->']
+  L24 DIFF head=set2 var=song: 'Set Two (6:42PM - 7:58PM):'
+       prev=['06.  He’s Gone %', '']
+       next=['01.  Shakedown Street ^ ->', '02.  ’73 Changes (Eyes) Jam & ->']
+  boundary 1|2: 'He’s Gone %' | 'Shakedown Street ^'
+   placed after t6: 'He’s Gone %' | 'Shakedown Street ^ ->'
+##### joerussosalmostdead-2018-05-04  ident=jrad2018-05-04.cmc621.cmc64.sbd.matrix.flac16 src=notes ntracks=17
+  today: ['9:1>2', '16:2>encore']
+  HEAD : ['8:1>2', '16:2>encore'] (8, 16)
+  noB: NOT OWNED one set
+  L10 DIFF head=set1 var=song: 'Set One (9:30PM - 10:33PM):'
+       prev=['Costello & McRoberts Ultra Mix - Recording and FOH mix by Peter Costello - Monitors by Aaron Gittleman - Video by Sean Smith - Audio edited, mixed and mastered by Eric McRoberts 06/23-24/2018', '']
+       next=['01.  Jam ->', '02.  Man Smart, Woman Smarter @ >']
+  L20 DIFF head=set2 var=song: 'Set Two (11:01PM - 12:44AM):'
+       prev=['08.  I Need A Miracle', '']
+       next=['01.  Marco Solo - >', '02.  Yazoo Street Scandal ^ ->']
+  boundary 1|2: 'I Need A Miracle' | 'Marco Solo -'
+  boundary 2|encore: 'Morning Dew $$' | 'Bertha'
+   placed after t8: 'I Need A Miracle' | 'Marco Solo - >'
+   placed after t16: 'Morning Dew $$' | 'Bertha'
+##### joerussosalmostdead-2018-10-25  ident=jrad2018-10-25.cmc621.cmc64.sbd.matrix.flac24 src=notes ntracks=12
+  today: ['5:1>2']
+  HEAD : ['5:1>2', '11:2>encore'] (5, 11)
+  noB: NOT OWNED one set
+  L16 DIFF head=set1 var=song: 'Set One (8:31PM - 9:34PM):'
+       prev=['Costello & McRoberts Ultra Mix - Recording and FOH mix by Peter Costello - Monitors by Aaron Gittleman - Audio edited, mixed and mastered by Eric McRoberts 12/26-27/2018', '']
+       next=['01.  The Eleven ->', '02.  New Speedway Boogie @ ->']
+  L23 DIFF head=set2 var=song: 'Set Two (10:00PM - 11:26PM):'
+       prev=['05.  Jack Straw', '']
+       next=['01.  The Music Never Stopped $ ->', '02.  Brown Eyed Women']
+  boundary 1|2: 'Jack Straw' | 'The Music Never Stopped $'
+  boundary 2|encore: 'Cumberland Blues ^' | 'Deal &'
+   placed after t5: 'Jack Straw' | 'The Music Never Stopped $ ->'
+   placed after t11: 'Cumberland Blues ^' | 'Deal &'
+##### joerussosalmostdead-2018-11-11  ident=jrad2018-11-11.cmc621.cmc64.sbd.matrix.flac24 src=description ntracks=10
+  today: ['4:1>2', '9:2>encore']
+  HEAD : ['4:1>2', '9:2>encore'] (4, 9)
+  noB: NOT OWNED one set
+  L27 DIFF head=set1 var=song: 'Set One (7:31PM - 8:32PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Jam ->']
+  L42 DIFF head=set2 var=song: 'Set Two (9:06PM - 10:45PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Good Lovin ->']
+  boundary 1|2: 'Refrain $' | 'Good Lovin'
+  boundary 2|encore: 'Morning Dew &' | 'Not Fade Away'
+   placed after t4: 'Terrapin -> Terrapin Transit -> At a Siding -> Terrapin Flyer -> Refrain $' | 'Good Lovin ->'
+   placed after t9: 'Morning Dew &' | 'Not Fade Away *'
+##### joerussosalmostdead-2019-01-19  ident=jrad2019-01-19.cmc621.cmc65xt.sbd.matrix.flac16 src=description ntracks=17
+  today: ['9:1>2', '16:2>encore']
+  HEAD : ['9:1>2', '16:2>encore'] (9, 16)
+  noB: NOT OWNED one set
+  L27 DIFF head=set1 var=song: 'Set One (8:58PM - 10:02PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Stagger Lee @']
+  L52 DIFF head=set2 var=song: 'Set Two (10:31PM - 12:11AM):'
+       prev=['', '']
+       next=['', '01.\xa0 Blues For Allah * ->']
+  boundary 1|2: 'Brown Eyed Women' | 'Blues For Allah'
+  boundary 2|encore: 'One More Saturday Night $$' | 'Drumz %%'
+   placed after t9: 'Brown Eyed Women' | 'Blues For Allah * ->'
+   placed after t16: 'Red Baraat March through the Crowd %% ->' | 'Drumz %% -> Not Fade Away %% -> Drumz %% -> Not Fade Away %%'
+##### joerussosalmostdead-2019-03-02  ident=jrad2019-03-02.cmc621.cmc64.sbd.matrix.flac24 src=description ntracks=17
+  today: ['8:1>2', '15:2>encore']
+  HEAD : ['7:1>2', '14:2>encore'] (7, 14)
+  noB: NOT OWNED one set
+  L52 DIFF head=set1 var=song: 'Set One (8:11PM - 9:27PM):'
+       prev=['', '']
+       next=['', '01.\xa0 BIODTL @ ->']
+  L73 DIFF head=set2 var=song: 'Set Two (10:03PM - 11:39PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Jam ->']
+  boundary 1|2: 'Uncle John’s Band' | 'Jam'
+  boundary 2|encore: 'I Know You Rider' | 'Marco Solo'
+   placed after t7: 'Uncle John’s Band' | 'Jam ->'
+   placed after t14: 'I Know You Rider' | 'Marco Solo ->'
+##### joerussosalmostdead-2019-03-13  ident=jrad2019-03-13.cmc621.cmc64.sbd.matrix.flac24 src=description ntracks=16
+  today: ['7:1>2', '15:2>encore']
+  HEAD : ['7:1>2', '15:2>encore'] (7, 15)
+  noB: NOT OWNED one set
+  L46 DIFF head=set1 var=song: 'Set One (8:15PM - 9:38PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Jam ->']
+  L69 DIFF head=set2 var=song: 'Set Two (10:08PM - 11:54PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Man Smart Woman Smarter >']
+  boundary 1|2: 'Stella Blue' | 'Man Smart Woman Smarter'
+  boundary 2|encore: 'Terrapin Station +' | 'Big Railroad Blues'
+   placed after t7: 'Stella Blue' | 'Man Smart Woman Smarter >'
+   placed after t15: 'Lady with a Fan -> Marco Solo * -> Terrapin Station +' | 'Big Railroad Blues'
+##### joerussosalmostdead-2019-03-16  ident=jrad2019-03-16.cmc621.cmc64.sbd.matrix.flac24 src=description ntracks=15
+  today: ['6:1>2', '13:2>encore']
+  HEAD : ['6:1>2', '13:2>encore'] (6, 13)
+  noB: NOT OWNED one set
+  L44 DIFF head=set1 var=song: 'Set One (8:05PM - 9:25PM):'
+       prev=['', '']
+       next=['', '01.\xa0 St. Stephen @']
+  L65 DIFF head=set2 var=song: 'Set Two (10:06PM - 11:44PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Shakedown Street # >']
+  boundary 1|2: 'I Know You Rider' | 'Shakedown Street #'
+  boundary 2|encore: 'Dancing In The Streets &' | 'Look Out Cleveland'
+   placed after t6: 'I Know You Rider' | 'Shakedown Street # >'
+   placed after t13: 'Dancing In The Streets &' | 'Look Out Cleveland * >'
+##### joerussosalmostdead-2019-09-26  ident=jrad2019-09-26.cmc621.cmc64.sbd.matrix.flac24 src=description ntracks=15
+  today: ['6:1>2', '14:2>encore']
+  HEAD : ['6:1>2', '14:2>encore'] (6, 14)
+  noB: NOT OWNED one set
+  L42 DIFF head=set1 var=song: 'Set One (9:03PM - 10:13PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Jam ->']
+  L61 DIFF head=set2 var=song: 'Set Two (10:50PM - 12:17AM):'
+       prev=['', '']
+       next=['', '01.\xa0 Atlantic City $$ >']
+  boundary 1|2: 'Here Comes Sunshine %' | 'Atlantic City $$'
+  boundary 2|encore: "Franklin's Tower @@" | 'It’s All Over Now Baby Blue ##'
+   placed after t6: 'Here Comes Sunshine %' | 'Atlantic City $$ >'
+   placed after t14: "Franklin's Tower @@" | 'It’s All Over Now Baby Blue ##'
+##### joerussosalmostdead-2019-09-28  ident=jrad2019-09-28.cmc621.cmc64.sbd.matrix.flac16 src=description ntracks=18
+  today: ['4:1>2', '15:2>3']
+  HEAD : ['8:1>2', '15:2>encore'] (8, 15)
+  noB: NOT OWNED one set
+  L27 DIFF head=set1 var=song: 'Set One (8:20PM - 9:32PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Jam ->']
+  L50 DIFF head=set2 var=song: 'Set Two (10:02PM - 11:38PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Alligator $ ->']
+  boundary 1|2: '(Turn On Your) Lovelight #' | 'Alligator $'
+  boundary 2|encore: 'Black Muddy River' | 'The Weight +'
+   placed after t8: 'MB Solo -> (Turn On Your) Lovelight #' | 'Alligator $ ->'
+   placed after t15: 'Black Muddy River *' | 'The Weight +'
+##### joerussosalmostdead-2020-02-23  ident=jrad2020-02-23.cmc621.cmc641v.sbd.matrix.flac16 src=description ntracks=15
+  today: ['7:1>2', '14:2>encore']
+  HEAD : ['7:1>2', '14:2>encore'] (7, 14)
+  noB: NOT OWNED one set
+  L27 DIFF head=set1 var=song: 'Set One (8:17PM - 9:26PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Jam @ ->']
+  L48 DIFF head=set2 var=song: 'Set Two (9:57PM - 11:23PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Romeo & Juliet & ->']
+  boundary 1|2: 'Wharf Rat ^' | 'Romeo & Juliet &'
+  boundary 2|encore: 'Not Fade Away %%' | "Fuckin' Up ^^"
+   placed after t7: 'Wharf Rat ^' | 'Romeo & Juliet & ->'
+   placed after t14: 'Not Fade Away %%' | "Fuckin' Up ^^"
+##### joerussosalmostdead-2021-05-30  ident=jrad2021-05-30.cmc621.cmc65xt.sbd.matrix.flac24 src=description ntracks=15
+  today: ['8:1>2', '14:2>encore']
+  HEAD : ['8:1>2', '14:2>encore'] (8, 14)
+  noB: NOT OWNED one set
+  L46 DIFF head=set1 var=song: 'Set One (5:30PM - 6:49PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Jam (SBT) ->']
+  L69 DIFF head=set2 var=song: 'Set Two (7:19PM - 8:40PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Scarlet Begonias (SBT) & ->']
+  boundary 1|2: 'Franklin’s Tower (SBT) ^' | 'Scarlet Begonias (SBT) &'
+  boundary 2|encore: 'Samson & Delilah (SBTF)' | 'Born To Run (SBT) @@'
+   placed after t8: 'Franklin’s Tower (SBT) ^' | 'Scarlet Begonias (SBT) & ->'
+   placed after t14: 'Samson & Delilah (SBTF)' | 'Born To Run (SBT) @@'
+##### joerussosalmostdead-2021-12-03  ident=jrad2021-12-03.cmc621.cmc64.sbd.matrix.flac16 src=description ntracks=16
+  today: ['6:1>2', '15:2>encore']
+  HEAD : ['6:1>2', '15:2>encore'] (6, 15)
+  noB: NOT OWNED one set
+  L27 DIFF head=set1 var=song: 'Set One (8:11PM - 9:39PM):'
+       prev=['', '']
+       next=['', '01.\xa0 I Need A Miracle @ ->']
+  L46 DIFF head=set2 var=song: 'Set Two (10:29PM - 12:19AM):'
+       prev=['', '']
+       next=['', "01.\xa0 Where's Sly & ->"]
+  boundary 1|2: 'St. Stephen ^' | "Where's Sly &"
+  boundary 2|encore: 'The Other One' | 'I Got A Feeling %%'
+   placed after t6: 'St. Stephen ^' | "Where's Sly & ->"
+   placed after t15: 'The Other One' | 'I Got A Feeling %%'
+##### joerussosalmostdead-2022-07-21  ident=jrad2022-07-21.cmc621.cmc64.sbd.matrix.flac24 src=description ntracks=15
+  today: ['8:1>2', '14:2>encore']
+  HEAD : ['8:1>2', '14:2>encore'] (8, 14)
+  noB: NOT OWNED one set
+  L46 DIFF head=set1 var=song: 'Set One (8:00PM - 9:19PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Jam ->']
+  L69 DIFF head=set2 var=song: 'Set Two (9:47PM - 11:28PM):'
+       prev=['', '']
+       next=['', '01.\xa0 The Golden Road >']
+  boundary 1|2: 'Saint of Circumstance $' | 'The Golden Road'
+  boundary 2|encore: 'Brokedown Palace @@' | 'Sugar Magnolia/Sunshine Daydream'
+   placed after t8: 'Saint of Circumstance $' | 'The Golden Road >'
+   placed after t14: 'Brokedown Palace @@' | 'Sugar Magnolia/Sunshine Daydream'
+##### joerussosalmostdead-2023-01-26  ident=jrad2023-01-26.cmc621.cmc65xt.sbd.matrix.flac24 src=description ntracks=14
+  today: ['6:1>2', '13:2>encore']
+  HEAD : ['6:1>2', '13:2>encore'] (6, 13)
+  noB: NOT OWNED one set
+  L46 DIFF head=set1 var=song: 'Set One (8:15PM - 9:38PM):'
+       prev=['', '']
+       next=['', '01.\xa0 Jam @ ->']
+  L65 DIFF head=set2 var=song: 'Set Two (10:15PM - 12:20AM):'
+       prev=['', '']
+       next=['', '01.\xa0 Shakedown Street ^ ->']
+  boundary 1|2: 'Let It Grow' | 'Shakedown Street ^'
+  boundary 2|encore: 'Terrapin Station SBT' | "Just Like Tom Thumb's Blues %%"
+   placed after t6: 'Jam -> Let It Grow' | 'Shakedown Street ^ ->'
+   placed after t13: 'Lady with a Fan SBT -> Terrapin Station SBT' | "Just Like Tom Thumb's Blues %%"
+##### joerussosalmostdead-2023-06-04  ident=jrad2023-06-04.cmc621.cmc64.sbd.matrix.flac16 src=description ntracks=18
+  today: ['8:1>2', '17:2>encore']
+  HEAD : ['8:1>2', '17:2>encore'] (8, 17)
+  noB: NOT OWNED one set
+  L28 DIFF head=set1 var=song: 'Set One (6:40PM - 8:00PM):'
+       prev=['', '']
+       next=['', '']
+  L53 DIFF head=set2 var=song: 'Set Two (8:28PM - 10:21PM):'
+       prev=['', '']
+       next=['', '']
+  boundary 1|2: 'Deal' | 'Jam %'
+  boundary 2|encore: 'Terrapin' | 'Sugar Magnolia/SSDD'
+   placed after t8: 'Deal' | 'Jam % ->'
+   placed after t17: 'Lady With A Fan %% -> Terrapin Station -> Terrapin' | 'Sugar Magnolia/SSDD -> WBYGN (Instrumental)'
+##### johnkadlecik-2014-03-28  ident=jkb2014-03-28.akg src=description ntracks=21
+  today: ['9:1>2', '20:2>encore']
+  HEAD : ['9:1>2', '20:2>encore'] (9, 20)
+  noB: NOT OWNED one set
+  L8 DIFF head=set1 var=song: 'Set 1 (01:14:40)'
+       prev=['Table 51 front of Soundboard: ~20’ from stage; 10’ right of center; 8’ height', '']
+       next=['', '01 Tuning (03:26)']
+  L20 DIFF head=set2 var=song: 'Set 2 (01:41:02)'
+       prev=['09 Feel Like Dynamite (07:21)', '']
+       next=['', '01 Tuning (04:23)']
+  boundary 1|2: 'Feel Like Dynamite (07:21)' | 'Got To Get Better in a Little While (12:09)'
+  boundary 2|encore: "What's Become of Mary (10:06)" | 'How Sweet It Is (08:22)'
+   placed after t9: 'Feel Like Dynamite' | 'Tuning'
+   placed after t20: "What's Become of Mary" | 'E: How Sweet It Is'
+##### tedeschitrucksband-2019-11-11  ident=ttb2019-11-11.mk41v.edtyre src=description ntracks=19
+  today: ['9:1>2', '18:2>encore']
+  HEAD : ['9:1>2', '18:2>encore'] (9, 18)
+  noB: NOT OWNED one set
+  L23 DIFF head=set1 var=song: 'Set 1\xa0 (58:24)'
+       prev=['', '']
+       next=['', '']
+  L52 DIFF head=set2 var=song: 'Set 2\xa0 (76:35)'
+       prev=['', '']
+       next=['', '']
+  boundary 1|2: 'Idle Wind' | 'Keep Your Lamp Trimmed and Burning'
+  boundary 2|encore: 'How Blue Can You Get?' | 'Space Captain'
+   placed after t9: 'Idle Wind' | 'Keep Your Lamp Trimmed and Burning'
+   placed after t18: 'How Blue Can You Get?' | 'Space Captain'
+##### thegourds-2008-04-15  ident=gourds2008-04-15.tascam.flac16 src=description ntracks=26
+  today: ['10:1>2', '23:2>encore']
+  HEAD : ['10:1>2', '23:2>encore'] (10, 23)
+  noB: NOT OWNED one set
+  L0 DIFF head=set1 var=song: 'Set One (46:20)'
+       prev=[]
+       next=['01 When Wine Was Cheap', '02 Caledonia']
+  L12 DIFF head=set2 var=song: 'Set Two (76:03)'
+       prev=['10 Mister Betty', '']
+       next=['01 Jesus Christ', '02 Burn the Honeysuckle']
+  boundary 1|2: 'Mister Betty' | 'Jesus Christ'
+  boundary 2|encore: 'Lower 48' | 'Tomorrow Is A Long Time (Dylan)'
+   placed after t10: 'Mister Betty' | 'Jesus Christ'
+   placed after t23: 'Lower 48' | 'Tomorrow Is A Long Time (Dylan)'
+##### zero-2008-08-08  ident=zero2008-08-08.flac16 src=description ntracks=16
+  today: ['9:1>2']
+  HEAD : ['9:1>2'] (9,)
+  noB: NOT OWNED no markers
+  L5 DIFF head=set1 var=song: 'Set 1 (9:45pm - 11:20pm)'
+       prev=['2. Wavy Gravy banter', '']
+       next=['', '1. Severe Tire Damage (Top 8 band members)']
+  L17 DIFF head=set2 var=song: 'Set 2 (12:00am - 1:50am)'
+       prev=['7. Home On The Range (+ Judge & Donna. Bobby Vega in for TS on bass)', '']
+       next=['', "1. Gregg's Eggs (Top 8 band members + Heidi Anton on percussion)"]
+  boundary 1|2: 'Home On The Range (+ Judge & Donna. Bobby Vega in for TS on bass)' | "Gregg's Eggs (Top 8 band members + Heidi Anton on percussion)"
+   placed after t9: 'Home On The Range (+ Judge & Donna. Bobby Vega in for TS on bass)' | "Gregg's Eggs (Top 8 band members + Heidi Anton on percussion)"

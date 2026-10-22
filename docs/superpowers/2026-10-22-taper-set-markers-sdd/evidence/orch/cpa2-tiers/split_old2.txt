@@ -1,0 +1,256 @@
+==========================================================================================
+perpetualgroove-2006-12-29 pgroove2006-12-29.flac16 src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+Disc 1 - Set I
+1. Sundog
+2. Space Oddity
+3. La Casa Bien
+4. TSMM
+5. AIM
+6. Playground
+Disc 2 - Set II
+1. Crowded Tub
+2. Space Paranoids
+3. Diamonds on the Soles of Her Shoes
+4. Breeze
+Disc 3 - Set II cont
+1. Robot Waltz
+2. Macumba
+E:
+3. Walkin' in Place
+--- ITEMS: 1:Sundog | 1:Space Oddity | 1:La Casa Bien | 1:TSMM | 1:AIM | 1:Playground | 2:Space Paranoids | 2:Diamonds on the Soles of Her Shoes | 2:Breeze | 2:Robot Waltz | 2:Macumba | encore:Walkin' in Place
+has_encore True encore_like False
+   5 1       1       tags             AIM
+   6 1       1       tags             Playground
+*  7 1       2       tags           F Crowded Tub
+*  8 1       2       tags             Space Paranoids
+*  9 1       2       tags             Diamonds on the Soles of Her Shoes
+* 10 1       2       tags             Breeze
+* 11 1       2       tags             Robot Waltz
+* 12 1       2       tags             Macumba
+  13 encore  encore  tags             Walkin' in Place
+   (13 tracks)
+==========================================================================================
+perpetualgroove-2007-08-18 pgroove2007-08-18.flac16 src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+Disc 1 - Set I
+1. Pentium Groove Processor->
+2. MOTA
+3. The Golden Path
+4. Space Paranoids
+5. Mayday
+6. Too Close to the Sun
+7. Robot Waltz
+Disc 2 - Set II
+1. Teakwood Betz
+2. Don't Come Around Here No More->
+3. Crapshoot
+4. Breeze
+Disc 3 - Set II cont
+1. It Starts Where it Ends
+2. Mr Transistor
+E:
+3. I'm Afraid of Americans
+--- ITEMS: 1:Pentium Groove Processor | 1:MOTA | 1:The Golden Path | 1:Space Paranoids | 1:Mayday | 1:Too Close to the Sun | 1:Robot Waltz | 2:Teakwood Betz | 2:Don't Come Around Here No More | 2:Crapshoot | 2:Breeze | 2:It Starts Where it Ends | 2:Mr Transistor | encore:I'm Afraid of Americans
+has_encore True encore_like False
+   6 1       1       tags             Too Close to the Sun
+   7 1       1       tags             Robot Waltz
+*  8 1       2       tags             Teakwood Betz
+*  9 1       2       tags             Don't Come Around Here No More->
+* 10 1       2       tags             Crapshoot
+* 11 1       2       tags             Breeze
+* 12 1       2       tags             It Starts Where it Ends
+* 13 1       2       tags             Mr Transistor
+  14 encore  encore  tags             I'm Afraid of Americans
+   (14 tracks)
+==========================================================================================
+perpetualgroove-2008-05-03 pgroove2008-05-03.flac16 src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+Disc 1 - Set I
+1. Gorilla Monsoon
+2. A Day the Way
+3. Jam
+4. Free Ride to the Show
+5. Diamonds on the Soles of Her Shoes
+6. All This Everything Part I->
+7. Space Paranoids
+Disc 2 - Set II
+1. Teakwood Betz
+2. Crapshoot
+3. Mota
+4. TSMM
+Disc 3 - Set II cont
+1. All Night Long
+2. Speed Queen
+E:
+3. Orange Wedge*
+--- ITEMS: 1:Gorilla Monsoon | 1:A Day the Way | 1:Jam | 1:Free Ride to the Show | 1:Diamonds on the Soles of Her Shoes | 1:All This Everything Part I | 1:Space Paranoids | 2:Teakwood Betz | 2:Crapshoot | 2:Mota | 2:TSMM | 2:All Night Long | 2:Speed Queen | encore:Orange Wedge
+has_encore True encore_like False
+   6 1       1       tags             All This Everything Part I->
+   7 1       1       tags             Space Paranoids
+*  8 1       2       tags             Teakwood Betz
+*  9 1       2       tags             Crapshoot
+* 10 1       2       tags             Mota
+* 11 1       2       tags             TSMM
+* 12 1       2       tags             All Night Long
+* 13 1       2       tags             Speed Queen
+  14 encore  encore  tags             Orange Wedge*
+   (14 tracks)
+==========================================================================================
+radiators-1981-07-11 rad1981-07-11.shnf src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+-DISC ONE-
+(Set 1)
+01) One Eyed Jack
+02) Tell Me How Do You Feel
+03) Hard To Tell
+04) End Of Your Rope
+05) House Of Blue Lights
+06) I'd Rather Waste You (Than See You Wasted On Somebody Else)
+07) Deep In the Night
+08) Moving Day
+09) Hardcore-> Trouble Every Day-> Hardcore
+10) Nail Your Heart To Mine
+11) My Whole World Flies Apart->
+12) Hot Lube
+-DISC TWO-
+(Set 1, cont.)
+01) Red Dress
+02) Heat Generation Medley
+03) Automatic
+04) Low Life//
+05) //Honey Bee ->
+06) Lovelight
+(Set 2)
+07) Haunted House
+-DISC THREE-
+(Set 2, cont.)
+01) Spanish Moon
+02) Killing Floor
+03) Slip Away
+04) Monkey In Her Heart
+05) Stealin' A Feelin'
+06) Good Morning Miss Brown
+07) Dixie Chicken ->
+08) Goin' Down The Road Feelin' Bad
+-Encore
+09) Chevy 39
+--- ITEMS: 1:One Eyed Jack | 1:Tell Me How Do You Feel | 1:Hard To Tell | 1:End Of Your Rope | 1:House Of Blue Lights | 1:I'd Rather Waste You (Than See You Wasted On Somebody Else) | 1:Deep In the Night | 1:Moving Day | 1:Hardcore | 1:Trouble Every Day | 1:Hardcore | 1:Nail Your Heart To Mine | 1:My Whole World Flies Apart | 1:Hot Lube | 1:Red Dress | 1:Heat Generation Medley | 1:Automatic | 1:Low Life// | 1://Honey Bee | 1:Lovelight | 2:Haunted House | 2:Spanish Moon | 2:Killing Floor | 2:Slip Away | 2:Monkey In Her Heart | 2:Stealin' A Feelin' | 2:Good Morning Miss Brown | 2:Dixie Chicken | 2:Goin' Down The Road Feelin' Bad | encore:Chevy 39
+has_encore True encore_like False
+  17 1       1       tags             Honey Bee>
+  18 1       1       tags             Lovelight
+* 19 1       2       tags             Haunted House
+* 20 1       2       tags             Spanish Moon
+* 21 1       2       tags             Killing Floor
+* 22 1       2       tags             Slip Away
+* 23 1       2       tags             Monkey In Her Heart
+* 24 1       2       tags             Stealin A Feelin
+* 25 1       2       tags             Good Morning Miss Brown
+* 26 1       2       tags             Dixie Chicken>
+* 27 1       2       tags             Goin Down The Road Feelin Bad
+  28 encore  encore  tags             Chevy 39
+   (28 tracks)
+==========================================================================================
+ryanadams-2007-07-21 ra2007-07-21 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Ryan Adams and The Cardinals
+2007-07-21
+The Catalyst
+Santa Cruz, California
+Disc 1 (76:15)
+Set 1
+1.	What Sin
+2. 	Please Don't Let Me Go
+3.	Dear Chicago
+4.	Goodnight Rose
+5.	Cold Roses
+6.	Mockingbird >
+7.	Beautiful Sorta
+8.	Bartering Lines
+9.	Magnolia Mountain
+Set 2
+10.	Pearls On A String
+11.	Peaceful Valley
+12.	Trouble On Wheels
+13.	Arkham Asylum
+Disc 2 (69:12)
+14.	I See Monsters
+15. Games
+16. A Kiss Before I Go
+17.	Oh My God, Whatever, Etc
+18.	Dear John
+19.	The End
+20.	Blue Hotel
+21.   Wild Flowers
+22.	Band Introductions
+23.	Let It Ride
+24.	Easy Plateau >
+25.	I Taught Myself How To Grow Old
+--- ITEMS: 1:What Sin | 1:Please Don't Let Me Go | 1:Dear Chicago | 1:Goodnight Rose | 1:Cold Roses | 1:Mockingbird | 1:Beautiful Sorta | 1:Bartering Lines | 1:Magnolia Mountain | 2:Pearls On A String | 2:Peaceful Valley | 2:Trouble On Wheels | 2:Arkham Asylum | 2:I See Monsters | 2:Games | 2:A Kiss Before I Go | 2:Oh My God, Whatever, Etc | 2:Dear John | 2:The End | 2:Blue Hotel | 2:Wild Flowers | 2:Band Introductions | 2:Let It Ride | 2:Easy Plateau | 2:I Taught Myself How To Grow Old
+has_encore False encore_like False
+   8 1       1       tags             Bartering Lines
+   9 1       1       tags             Magnolia Mountain
+* 10 1       2       tags             Pearls On A String
+* 11 1       2       tags             Peaceful Valley
+* 12 1       2       tags             Trouble On Wheels
+* 13 1       2       tags             Arkham Asylum
+* 14 1       2       tags             I See Monsters
+* 15 1       2       tags             Games
+* 16 1       2       tags             A Kiss Before I Go
+* 17 1       2       tags             Oh My God, Whatever, Etc
+* 18 1       2       tags             Dear John
+* 19 1       2       tags             The End
+* 20 1       2       tags             Blue Hotel
+* 21 1       2       tags             Wild Flowers
+* 22 1       2       tags             Band Introductions
+* 23 1       2       tags             Let It Ride
+* 24 1       2       tags             Easy Plateau
+* 25 1       2       tags             I Taught Myself How To Grow Old
+   (25 tracks)
+==========================================================================================
+ryanadams-2008-01-29 ra2008-01-29.sbd.flac16 src= description reason= None align= deterministic ssrc= setlist.fm
+--- TEXT
+Ryan Adams and The Cardinals
+2008-01-29
+The Catalyst
+Santa Cruz, California
+Disc 1 (59:18)
+Set 1
+01.	Peaceful Valley->
+02.	Beautiful Sorta
+03.	Shakedown On 9th Street
+04.	Bartering Lines
+05.	A Kiss Before I Go
+06.	Cold Roses
+07.	Freeway To The Canyon
+08.	Wildflowers
+09.	Mockingbird->
+10.	Off Broadway
+Disc 2 (69:56) 
+Set 2
+01.	Why Do They Leave
+02.	Everybody Knows
+03.	I See Monsters
+04.	The End
+05.	Please Do Not Let Me Go
+06.	Goodnight Rose
+07.	"Casserole and meatloaf"
+08.	Easy Plateau
+Encore:
+09.	Magnolia Mountain
+10.	Blue Hotel
+--- ITEMS: 1:Peaceful Valley | 1:Beautiful Sorta | 1:Shakedown On 9th Street | 1:Bartering Lines | 1:A Kiss Before I Go | 1:Cold Roses | 1:Freeway To The Canyon | 1:Wildflowers | 1:Mockingbird | 1:Off Broadway | 2:Why Do They Leave | 2:Everybody Knows | 2:I See Monsters | 2:The End | 2:Please Do Not Let Me Go | 2:Goodnight Rose | 2:"Casserole and meatloaf" | 2:Easy Plateau | encore:Magnolia Mountain | encore:Blue Hotel
+has_encore True encore_like False
+   9 1       1       tags             Mockingbird->
+  10 1       1       tags             Off Broadway
+* 11 1       2       tags             Why Do They Leave
+* 12 1       2       tags             Everybody Knows
+* 13 1       2       tags             I See Monsters
+* 14 1       2       tags             The End
+* 15 1       2       tags             Please Do Not Let Me Go
+* 16 1       2       tags             Goodnight Rose
+* 17 1       2       tags             Casserole and meatloaf
+* 18 1       2       tags             Easy Plateau
+  19 encore  encore  tags             Magnolia Mountain
+  20 encore  encore  tags             Blue Hotel
+   (20 tracks)

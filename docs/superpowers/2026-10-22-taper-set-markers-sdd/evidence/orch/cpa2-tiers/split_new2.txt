@@ -1,0 +1,138 @@
+==========================================================================================
+lotus-2006-02-18 lotus2006-02-18.481 src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+~Disc 1: Set 1~
+01. Intro
+02. Livingston Storm
+03. Point/Electric Counterpoint
+04. Bubonic Tonic
+05. When H Binds to O
+06. Jump Off
+~Disc 2: Set 2~
+01. Intro
+02. Wax
+03. Keesey Seed
+04. Nematode
+05. Flower Sermon
+--- ITEMS: 1:Livingston Storm | 1:Point/Electric Counterpoint | 1:Bubonic Tonic | 1:When H Binds to O | 1:Jump Off | 2:Wax | 2:Keesey Seed | 2:Nematode | 2:Flower Sermon
+has_encore False encore_like False
+   4 1       1       tags             When H Binds to O
+   5 1       1       tags             Jump Off
+*  6 1       2       tags             Wax
+*  7 1       2       tags             Keesey Seed
+*  8 1       2       tags             Nematode
+*  9 1       2       tags             Flower Sermon
+   (9 tracks)
+==========================================================================================
+railroadearth-2005-02-19 rre2005-02-19.SchoepsCMC6.flac src= description reason= None align= deterministic ssrc= lma:RRE2005-02-19flac.16
+--- TEXT
+Set 1: Disc 1: 
+01. Peace on Earth
+02. Head
+03. Came Up Smilin'
+04. Mighty River
+05. Hardwick Road
+06. Butterfly & the Tree
+07. Bread & Water
+Set 2: Disc 2: 
+01. Old Man & the Land
+02. Long Way to Go
+03. Goat >
+04. Ethereal jam >
+05. Mountain Time
+06. Real Love
+07. Birds of America >
+08. Stillwater Getaway
+Disc 3: 
+01. Fisherman's Blues >
+02. Seven Story Mountain
+03. Sing For Me
+04. Dandelion Wine
+Encore: 
+05. El Cumbancharo >
+06. St.Anne's Reel
+--- ITEMS: 1:Peace on Earth | 1:Head | 1:Came Up Smilin' | 1:Mighty River | 1:Hardwick Road | 1:Butterfly & the Tree | 1:Bread & Water | 2:Old Man & the Land | 2:Long Way to Go | 2:Goat | 2:Ethereal jam | 2:Mountain Time | 2:Real Love | 2:Birds of America | 2:Stillwater Getaway | 2:Fisherman's Blues | 2:Seven Story Mountain | 2:Sing For Me | 2:Dandelion Wine | encore:El Cumbancharo | encore:St.Anne's Reel
+has_encore True encore_like False
+   6 1       1       tags             Butterfly & the Tree
+   7 1       1       tags             Bread & Water
+*  8 1       2       tags             Old Man & the Land
+*  9 1       2       tags             Long Way to Go
+* 10 1       2       tags             Goat >
+* 11 1       2       tags             Ethereal jam >
+* 12 1       2       tags             Mountain Time
+* 13 1       2       tags             Real Love
+* 14 1       2       tags             Birds of America >
+* 15 1       2       tags             Stillwater Getaway
+* 16 1       2       tags             Fisherman's Blues >
+* 17 1       2       tags             Seven Story Mountain
+* 18 1       2       tags             Sing For Me
+* 19 1       2       tags             Dandelion Wine
+  20 encore  encore  tags             El Cumbancharo >
+   (20 tracks)
+==========================================================================================
+soulive-2001-12-15 Soulive2001-12-15sbd.shn src= description reason= None align= llm ssrc= setlist.fm
+--- TEXT
+Set 1 disc 1
+1. steppin'
+2. cannonball
+3. 1 in 7 (techno intro remix) 
+4. azucar
+5. hurry up... and wait
+Set 2 disc 2
+1. uncle jr.
+2. it's your thing
+3. lenny->
+4. turn it out
+--- ITEMS: 1:steppin' | 1:cannonball | 1:azucar | 1:hurry up... and wait | 2:uncle jr. | 2:it's your thing | 2:lenny | 2:turn it out
+has_encore False encore_like False
+   4 1       1       tags             Azucar
+   5 1       1       tags             Hurry Up... and Wait
+*  6 1       2       tags             uncle jr
+*  7 1       2       tags             it's your thing
+*  8 1       2       tags             lenny->
+*  9 1       2       tags             turn it out
+* 10 1       2       unresolved       soulive2001-12-15d2.shnf/soulive2001-12-15d2t05.mp3
+   (10 tracks)
+==========================================================================================
+yondermountainstringband-2006-06-14 ymsb2006-06-14.sbd.flac16 src= description reason= None align= deterministic ssrc= chosen
+--- TEXT
+Disk 1/Set I:
+1.  Intro
+2.  Let Me Fall
+3.  East Nashville Easter
+4.  River
+5.  If I Wait too Long I may forget you
+6.  Death Trip *
+7.  Good News Blues *
+8.  Girlfriend Is Better> *
+9.  Steep Grade Sharp Curves *
+10. Holding *
+Disk 2/Set II:
+1.  Intro
+2.  Lord Only Knows (Part One)
+3.  Only A Northern Song
+4.  Coming 'Round the Bend
+5.  Get Me Outta This City
+6.  Everybody Knows This Is Nowhere
+7.  Jesus On The Mainline> Elzic's Farewell> Jesus On The Mainline #%
+8.  Yes She Do (No She Don't) %
+9.  Keep on Going %$
+Encore:
+10. Steam Powered Aereoplane %
+11. Red Bird %
+--- ITEMS: 1:Let Me Fall | 1:East Nashville Easter | 1:River | 1:If I Wait too Long I may forget you | 1:Death Trip | 1:Good News Blues | 1:Girlfriend Is Better | 1:Steep Grade Sharp Curves | 1:Holding | 2:Lord Only Knows (Part One) | 2:Only A Northern Song | 2:Coming 'Round the Bend | 2:Get Me Outta This City | 2:Everybody Knows This Is Nowhere | 2:Jesus On The Mainline | 2:Elzic's Farewell | 2:Jesus On The Mainline #% | 2:Yes She Do (No She Don't) % | 2:Keep on Going %$ | encore:Steam Powered Aereoplane % | encore:Red Bird %
+has_encore True encore_like False
+   9 1       1       tags             Steep Grade Sharp Curves
+  10 1       1       tags             Holding
+* 11 1       2       tags           F Intro
+* 12 1       2       tags             Lord Only Knows (Part One)
+* 13 1       2       tags             Only A Northern Song
+* 14 1       2       tags             Coming 'Round the Bend
+* 15 1       2       tags             Get Me Outta This City
+* 16 1       2       tags             Everybody Knows This Is Nowhere
+* 17 1       2       tags             Jesus On The Mainline> Elzic's Farewell> Jesus On The Mainline
+* 18 1       2       tags             Yes She Do (No She Don't)
+* 19 1       2       tags             Keep on Going
+  20 encore  encore  tags             Steam Powered Aereoplane
+  21 encore  encore  tags             Red Bird
+   (21 tracks)

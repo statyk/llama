@@ -7,24 +7,25 @@ from typing import NamedTuple
 
 from herder import HerderError, TaskFailed, run_json_task
 from herder.limits import RateLimited
-from llama import jerrybase
+from llama import jerrybase, taper
 from llama.config import StructureConfig
 from llama.errors import LlamaError
 from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
 from llama.ia_client import IAError
-from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
+from llama.models import (AlignedStructure, JerrybaseEvent, Candidate, ParsedSetlist, SetlistItem, Show,
                           ShowNotes, SourcedParse, StructureInfo, Track)
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
 from llama.siblings import DonorTape, cplus_filter, propose_rows, rate_alignment
-from llama.songs import GD_SHORTHAND
+from llama.songs import GD_SHORTHAND, normalize_song
 from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align,
                              apply_llm_alignment, blend_segues, cities_compatible, encore_lost,
                              from_setlistfm,
-                             fuzzy_norm_title, norm_title, rank_parses,
+                             fuzzy_norm_title, fuzzy_title_eq, is_filler, norm_title, rank_parses,
                              structure_guard, venues_equivalent,
                              _venues_equivalent_pre1b)
 from llama.placeholders import is_junk_tag
+from llama.taper import TaperDecision
 from llama.titles import (_GLUED_NUM_PREFIX, _JOINED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
                           is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, shipped_short_tag, tag_core,
                           tag_layer, title_fraction)
@@ -81,6 +82,51 @@ def _breaks_of(sets: list[str]) -> list[int]:
     """Inverse of _sets_from_breaks: the 1-based track numbers a break falls
     after, given per-track set labels."""
     return [i + 1 for i in range(len(sets) - 1) if sets[i + 1] != sets[i]]
+
+
+_CLOSER_FLAG = re.compile(r"^jerrybase set closer '(.*)' is not at a set break$")
+
+
+def demote_jerrybase_flags(hard: list[str], count_flag: str | None,
+                           event: JerrybaseEvent, taper: "taper.TaperText",
+                           aliases: dict[str, str] | None = None
+                           ) -> tuple[list[str], str | None, list[str]]:
+    """(kept hard flags, kept count flag, op notes). On a taper-owned show a
+    jerrybase disagreement with the taper's OWN text is an operator note, not a
+    hold (spec 2026-10-22-taper-set-markers section 5). Jerrybase numbered set k
+    maps to the taper's set k and its `encore` to the taper's encore; a closer
+    flag is demoted when the taper has no such set or its last song there
+    differs from jerrybase's closer, and otherwise stays hard (it then catches
+    llama's placement, not the taper's text). The set-count flag is demoted
+    when the taper's numbered set count differs from jerrybase's."""
+    notes: list[str] = []
+    kept_count = count_flag
+    if count_flag is not None:
+        taper_n = len({i.set for i in taper.items if i.set != "encore"})
+        jb_n = len({s.name for s in event.sets if s.name != "encore"})
+        if taper_n != jb_n:
+            notes.append(f"{count_flag} (taper's markers)")
+            kept_count = None
+    kept: list[str] = []
+    used: set[int] = set()
+    for flag in hard:
+        m = _CLOSER_FLAG.match(flag)
+        k = next((n for n, st in enumerate(event.sets)
+                  if n not in used and m is not None and st.closer == m.group(1)), None)
+        if k is None:
+            kept.append(flag)
+            continue
+        used.add(k)
+        st = event.sets[k]
+        songs = [i.title for i in taper.items if i.set == st.name]
+        agrees = bool(songs) and fuzzy_title_eq(fuzzy_norm_title(songs[-1], aliases),
+                                                fuzzy_norm_title(st.closer, aliases))
+        if agrees:
+            kept.append(flag)
+        else:
+            notes.append(f"jerrybase set closer '{st.closer}' is not at a set break "
+                         f"(taper's markers)")
+    return kept, kept_count, notes
 
 
 _EVENT_SUFFIX = re.compile(r"/e(\d+)$")
@@ -936,11 +982,22 @@ class GatherResult(NamedTuple):
     `needs_llm` names each LLM touchpoint gather reached but could not take
     for want of a provider -- `"extract_setlist"`, `"align_structure"`, each
     at most once, in that order. Empty when providers were passed: with
-    providers gather behaves exactly as it always has."""
+    providers gather behaves exactly as it always has.
+
+    The last three fields are in-process only, never persisted (held-backlog
+    piece 2, spec 2026-10-22-taper-set-markers sections 4 and 7):
+    `taper_owned` is True when the taper's own markers own the shipped
+    structure (the one predicate `replay` may key on); `taper` is the
+    `decide_taper` result, None on the structure-override path; and
+    `step1_alignment` is today's mechanism before the taper step
+    (`deterministic`/`jerrybase`), None on the override path."""
     show: Show
     reviews: list[dict]
     notes: list[str]
     needs_llm: tuple[str, ...]
+    taper_owned: bool = False
+    taper: TaperDecision | None = None
+    step1_alignment: str | None = None
 
 
 # Slice 1 1d's hold (Contracts "Exact note and flag strings"); an operator
@@ -1269,6 +1326,8 @@ def compute_gather(
     op_notes += short_notes
 
     flags = []
+    # The taper step's outputs; the structure-override path never runs it.
+    taper_owned, decision, step1_alignment = False, None, None
     if overrides.set_breaks is not None or overrides.encore_after is not None:
         breaks_in = list(overrides.set_breaks or [])
         _validate_structure_override(len(tracks), breaks_in, overrides.encore_after)
@@ -1293,6 +1352,7 @@ def compute_gather(
         # anchor and not one show that already anchored changes.
         anchored = (jerrybase.anchor_breaks(tracks, event, aligned_sets=result.sets)
                     if event is not None else None)
+        anchor_note = None
         if anchored is not None:
             # Record what anchoring overrode. Anchoring now wins on
             # high-coverage shows AND suppresses the closer tripwire when it
@@ -1300,11 +1360,63 @@ def compute_gather(
             was = _breaks_of(result.sets)
             result = result.model_copy(update={"sets": anchored})
             alignment = "jerrybase"
-            note = "set breaks anchored from jerrybase"
+            anchor_note = "set breaks anchored from jerrybase"
             if was != _breaks_of(anchored):
-                note += f" (was {was})"
-            notes.append(note)
-        elif canonical.items and result.coverage < structure_cfg.align_coverage_threshold:
+                anchor_note += f" (was {was})"
+
+        # Held-backlog piece 2 (spec 2026-10-22-taper-set-markers section 4):
+        # the alignment and anchoring above are STEP 1, today's structure and
+        # the reference for every "was" note. Step 2 reads the taper's own
+        # set/encore markers and places them exactly; when every boundary
+        # places, the taper owns the structure and exactly its labels ship
+        # (no merge with step 1). Called through the module so tests can
+        # patch `llama.taper.decide_taper`. `today_sets` must be parallel to
+        # `tracks`: `decide_taper` silently ignores a short list, and the
+        # keep-today's-encore veto reads it.
+        step1_alignment = alignment
+        step1_sets = list(result.sets)
+        assert len(step1_sets) == len(tracks), "step-1 labels must be parallel to tracks"
+        threshold = structure_cfg.align_coverage_threshold
+        # THE "today's path would reach the LLM branch" predicate, computed once:
+        # canonical items, no jerrybase anchoring, step-1 coverage under the
+        # threshold. It decides the not-owned LLM branch below, the owned show's
+        # low-confidence flag, and ruling (d)'s no-encore veto inside
+        # `decide_taper` (llama-db reading of operator ruling (d), 2026-10-22:
+        # with no taper encore marker on that path, the taper owns nothing).
+        today_llm = bool(canonical.items) and anchored is None and result.coverage < threshold
+        decision = taper.decide_taper(tracks, meta, aliases=family_aliases,
+                                      today_sets=step1_sets, today_reaches_llm=today_llm)
+        taper_owned = decision.placement is not None
+        shipped_sets = None
+        if taper_owned:
+            # Step 3. No `align_structure` call, as successful anchoring skips
+            # it today. The anchoring note is dropped (it would reach the
+            # briefing contradicting the shipped labels). Coverage is the
+            # reader's items aligned against the tape, and it is what
+            # `StructureInfo.coverage` records. The low-confidence flag is
+            # raised only where today's path would have reached the LLM branch
+            # (canonical items, no anchoring, step-1 coverage under the
+            # threshold) AND the reader's coverage is under it too.
+            reader = ParsedSetlist(items=[
+                SetlistItem(title=i.title, normalized=normalize_song(i.title), set=i.set)
+                for i in decision.taper.items])
+            reader_coverage = align(tracks, reader, aliases=family_aliases).coverage
+            if today_llm and reader_coverage < threshold:
+                flags.append("low-confidence structure alignment")
+            shipped_sets = list(decision.placement.sets)
+            # `alignment` becomes "taper" only when the taper's labels differ
+            # from step 1's at song level (filler excluded); a label rename at
+            # the same positions counts, so the note cites labels too.
+            if any(new != old for t, new, old in zip(tracks, shipped_sets, step1_sets)
+                   if not is_filler(t.title)):
+                alignment = "taper"
+                op_notes.append(f"set breaks from the taper's markers (was "
+                                f"{_breaks_of(step1_sets)} {list(dict.fromkeys(step1_sets))})")
+        elif anchor_note is not None:
+            # Not owned (step 4): exactly today's path from here on -- the
+            # anchoring note, else the LLM branch below, then every flag.
+            notes.append(anchor_note)
+        elif today_llm:
             # No usable jerrybase evidence and the alignment is weak: fall back
             # to LLM realignment, then to a review flag.
             llm_result = None
@@ -1358,12 +1470,18 @@ def compute_gather(
         # from coverage as tautological while still reporting matched=True,
         # the same models.py:158-160 violation the whole ruling exists to
         # prevent, just on the other rung).
+        # On a taper-owned show only the labels are the taper's: segues and
+        # `matched` stay step 1's, unchanged.
         tracks = [t.model_copy(update={
             "set": s, "segue": g,
             "matched": None if t.title_source in TAUTOLOGICAL_TITLE_SOURCES else m})
-                  for t, s, g, m in zip(tracks, result.sets, result.segues, result.matched)]
+                  for t, s, g, m in zip(tracks,
+                                        result.sets if shipped_sets is None else shipped_sets,
+                                        result.segues, result.matched)]
         breaks = set_breaks(tracks)
         coverage, conflicts = result.coverage, result.conflicts
+        if taper_owned:
+            coverage = reader_coverage
         # merge_conflicts has three different lifecycles, same exposure as
         # the `conflicts` trade-off noted above: it SURVIVES jerrybase
         # anchoring via the `model_copy` above (anchoring only replaces
@@ -1373,8 +1491,10 @@ def compute_gather(
         # LLM realignment wins, because `apply_llm_alignment` never
         # populates it; and it is never computed at all on the override
         # branch. Left as-is - whether an anchoring-overridden flag should
-        # still fire is a later call, not this one's.
-        if result.merge_conflicts:
+        # still fire is a later call, not this one's. Dropped on a
+        # taper-owned show: placement already excludes a merged track at a
+        # taper boundary (spec section 5).
+        if result.merge_conflicts and not taper_owned:
             nums = ", ".join(str(n) for n in result.merge_conflicts)
             flags.append(f"merged track(s) {nums} span a set break")
 
@@ -1484,8 +1604,14 @@ def compute_gather(
 
     # Closer tripwire (single-event, non-anchored alignments; anchoring places
     # breaks at closers by construction, so it cannot contradict itself).
-    if event is not None and alignment != "jerrybase":
+    # The skip keys on ownership plus mechanism: only when the taper does not
+    # own the structure AND the shipped breaks came from jerrybase anchoring.
+    if event is not None and (taper_owned or alignment != "jerrybase"):
         hard, soft = jerrybase.closer_contradictions(tracks, event)
+        if taper_owned:
+            hard, _, closer_notes = demote_jerrybase_flags(
+                hard, None, event, decision.taper, family_aliases)
+            op_notes += closer_notes
         flags += hard
         notes += soft
         # 5c.1: closers excused because only filler follows them; operator
@@ -1505,6 +1631,10 @@ def compute_gather(
                             evidence_sets=evidence,
                             min_minutes=structure_cfg.guard_min_minutes,
                             expected_set_count=expected_sets)
+    if guard and guard.startswith("structure has ") and taper_owned and event is not None:
+        _, guard, count_notes = demote_jerrybase_flags(
+            [], guard, event, decision.taper, family_aliases)
+        op_notes += count_notes
     if guard:
         flags.append(guard)
 
@@ -1519,11 +1649,13 @@ def compute_gather(
     if overrides.set_breaks is not None or overrides.encore_after is not None:
         structure_info = StructureInfo(source="override", alignment="override",
                                        coverage=1.0, conflicts=[])
-    elif canonical_source is not None or notes:
+    elif canonical_source is not None or notes or taper_owned:
+        # A taper-owned structure is recorded even with no canonical source.
         source = canonical_source if canonical_source is not None else "none"
         structure_info = StructureInfo(source=source, alignment=alignment,
                                        coverage=coverage,
-                                       conflicts=_dedupe_ordered(conflicts + notes))
+                                       conflicts=_dedupe_ordered(conflicts + notes),
+                                       taper_owned=taper_owned)
 
     date, date_source, item_date = candidate.date, "item", None
     if overrides.date is not None:
@@ -1568,7 +1700,8 @@ def compute_gather(
     needs_llm = tuple(name for name, hit in (("extract_setlist", cb.needs_llm),
                                              ("align_structure", needs_align)) if hit)
     return GatherResult(show=show, reviews=md.get("reviews", []), notes=op_notes,
-                        needs_llm=needs_llm)
+                        needs_llm=needs_llm, taper_owned=taper_owned, taper=decision,
+                        step1_alignment=step1_alignment)
 
 
 def run_gather(

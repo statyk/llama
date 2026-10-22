@@ -1,0 +1,25 @@
+structure-changed shows:
+corblund-2004-11-04  would be: needs-brief
+  set_changes: [{"index": 13, "new": "2", "old": "1"}, {"index": 14, "new": "2", "old": "1"}, {"index": 15, "new": "2", "old": "1"}, {"index": 16, "new": "2", "old": "1"}, {"index": 17, "new": "2", "old": "1"}, {"index": 18, "new": "2", "old": "1"}, {"index": 19, "new": "2", "old": "1"}, {"index": 20, "new": "2", "old": "1"}, {"index": 21, "new": "2", "old": "1"}, {"index": 22, "new": "2", "old": "1"}, {"index": 23, "new": "2", "old": "1"}, {"index": 24, "new": "2", "old": "1"}, {"index": 25, "new": "2", "old": "1"}, {"index": 26, "new": "2", "old": "1"}, {"index": 27, "new": "3", "old": "1"}, {"index": 28, "new": "3", "old": "1"}, {"index": 29, "new": "3", "old": "1"}, {"index": 30, "new": "3", "old": "1"}, {"index": 31, "new": "3", "old": "1"}, {"index": 32, "new": "3", "old": "1"}, {"index": 33, "new": "3", "old": "1"}, {"index": 34, "new": "3", "old": "1"}, {"index": 35, "new": "3", "old": "1"}, {"index": 36, "new": "3", "old": "1"}, {"index": 37, "new": "3", "old": "1"}]
+  segue_changes: []
+  set_breaks: {"new": [12, 26], "old": []}
+  alignment: {"new": "taper", "old": "deterministic"}
+  description: The Corb Lund Band Live At The Times Change High And Lonesome Club Winnipeg, Manitoba November 5, 2004 Three Sets Taped from the front row & Transferred by Redseed Mobile  EMC709->MT-877  Transfer done with a wicked soundcard at my buddy's studio  Sound is excellent, especially for rig used  Disc/Se
+derektrucksband-2004-04-15  would be: needs-brief
+  set_changes: [{"index": 9, "new": "2", "old": "1"}, {"index": 10, "new": "2", "old": "1"}, {"index": 11, "new": "2", "old": "1"}, {"index": 12, "new": "2", "old": "1"}, {"index": 13, "new": "2", "old": "1"}, {"index": 14, "new": "2", "old": "1"}, {"index": 15, "new": "2", "old": "1"}, {"index": 16, "new": "2", "old": "1"}]
+  segue_changes: []
+  set_breaks: {"new": [8, 16], "old": [16]}
+  alignment: {"new": "taper", "old": "llm"}
+  description:   Set I: 1. Jackson Soul Stew 2. Everything is Everything 3. Soul Serenade 4. I'll Find My Way 5. Feel So Bad 6. Rastaman Chant 7. For My Brother 8. Vol. Slavery  Set II: 1. Hey Driver ** 2. Joyful Noise 3. Lonely Avenger 4. Preachin Blues 5. I Wish I Knew 6. To Know You 7. Leavin Trunk 8. Afro Blue
+derektrucksband-2008-10-23  would be: needs-brief
+  set_changes: [{"index": 10, "new": "2", "old": "1"}, {"index": 11, "new": "2", "old": "1"}, {"index": 12, "new": "2", "old": "1"}, {"index": 13, "new": "2", "old": "1"}, {"index": 14, "new": "2", "old": "1"}, {"index": 15, "new": "2", "old": "1"}, {"index": 16, "new": "2", "old": "1"}]
+  segue_changes: []
+  set_breaks: {"new": [9, 16], "old": [16]}
+  alignment: {"new": "taper", "old": "llm"}
+  description: Disk 1 Set 1 1. Volunteered Slavery 2. I Know  3. Don't Miss Me 4. Band intros 5. These Days 6. Done Got Over 7. I'll Find My Way 8. Down In The Flood 9. Drums > 10. My Favorite Things  Disk 2 Set 2 1 Chicken Robber 2 Already Free 3 Meet Me At The Bottom 4 Soul Serenade 5 Get Out My Life 6 Down Don'
+yondermountainstringband-2006-07-04  would be: needs-brief
+  set_changes: [{"index": 13, "new": "2", "old": "1"}, {"index": 14, "new": "2", "old": "1"}, {"index": 15, "new": "2", "old": "1"}, {"index": 16, "new": "2", "old": "1"}, {"index": 17, "new": "2", "old": "1"}, {"index": 18, "new": "2", "old": "1"}, {"index": 19, "new": "2", "old": "1"}, {"index": 20, "new": "2", "old": "1"}, {"index": 21, "new": "2", "old": "1"}, {"index": 22, "new": "2", "old": "1"}, {"index": 23, "new": "2", "old": "1"}, {"index": 24, "new": "2", "old": "1"}, {"index": 25, "new": "2", "old": "1"}, {"index": 26, "new": "encore", "old": "1"}]
+  segue_changes: []
+  set_breaks: {"new": [12, 25], "old": []}
+  alignment: {"new": "taper", "old": "deterministic"}
+  description: Set 1: Disc 1:  Intro Get Me Outta this City Night Out Hill Country Girl> High Cross Junction  Lord Woncha Help me High on the Hilltop Fathers Arms Red Bird Postcard to my Son from Jail Free to Run > Sidewalk Stars    Set 2: Disc 2:   Chit-Chat It's All Too Much> Troubled Mind Steep Grade, Sharp Cur

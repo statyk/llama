@@ -1,0 +1,21 @@
+base reproduces 133/146 (held, not needs-LLM; gate skipped: --no-repro-gate)
+needs-LLM held: base 192, cand 188
+briefing guard reproduces 3/4
+drift.txt: 196 show(s)
+briefings.txt: 0 stored_brief_guard difference(s), 36 suppressed set-count/ordinal match(es)
+flags.txt: 2 famil(ies)
+newly cleared: 0
+packaged_exposure.txt: 105 entr(ies)
+venue_changes.txt: 0 show(s), 0 with a flag change
+title_sources.txt: 1 row(s)
+structure_changed.txt: 4 show(s)
+hand_check_sample.txt: 0 show(s)
+closest_calls.txt: 786 row(s)
+needs_llm.txt: base 697, cand 651
+notes.txt: 591 note(s)
+taper_cleared.txt: 8 show(s)
+taper_changes.txt: songs moved 78, labels renamed 0, filler labels only 7, segues changed 30, provenance only 498, needs-llm not owned 459, unreplayable 0, stored-llm moved 45
+voiced check: delivery_path /Volumes/media/lma-radio/delivered
+predicted_list.json: 4 row(s)
+structure_changed_list.json: 4 row(s)
+pilot_list.json: 4 row(s)

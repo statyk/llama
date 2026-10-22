@@ -1,0 +1,9672 @@
+[
+ {
+  "slug": "acousticsyndicate-2005-05-29",
+  "kind": "fix",
+  "t_breaks": [
+   17
+  ],
+  "t_enc": 37,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 41,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   17
+  ],
+  "a_enc": 37,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "antibalasmusic-2005-03-05",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 18,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "aquariumrescueunit-1997-11-08",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 17,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 17,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "bandofheathens-2009-02-06",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 32,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "belafleckandtheflecktones-2003-02-11",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 14,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": 13,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 18,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": null,
+  "a_cov": 0.71
+ },
+ {
+  "slug": "belafleckandtheflecktones-2003-02-21",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 14,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 20,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "belafleckandtheflecktones-2003-04-12",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 13,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": 13,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "belafleckandtheflecktones-2003-06-08",
+  "kind": "fix",
+  "t_breaks": [
+   5
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 17,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 16,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "bigheadtoddandthemonsters-2005-02-09",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": 27,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 27,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 30,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 27,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "billystrings-2018-05-26",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 28,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "billystrings-2023-06-10",
+  "kind": "fix",
+  "t_breaks": [
+   12
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   13
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [
+   13
+  ],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "blackberry-smoke-2011-04-17",
+  "kind": "hold",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 6,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 30,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "bobweir-2013-03-01",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 26,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 17,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "brokemountainbluegrassband-2005-05-13",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 32,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": false
+ },
+ {
+  "slug": "brotherspast-2006-02-18",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 18,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "buckethead-2006-03-15",
+  "kind": "hold",
+  "t_breaks": null,
+  "t_enc": 21,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 34,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "campervanbeethoven-1986-09-27",
+  "kind": "fix",
+  "t_breaks": [
+   14
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 23,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "campervanbeethoven-2003-01-18",
+  "kind": "hold",
+  "t_breaks": [
+   21
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 45,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "campervanbeethoven-2004-06-13",
+  "kind": "fix",
+  "t_breaks": [
+   13
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 22,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "campervanbeethoven-2006-01-20",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 27,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 65,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "campervanbeethoven-2008-11-22",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 28,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 44,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": false
+ },
+ {
+  "slug": "charliehunter-2001-12-08",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 17,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 9,
+  "a_cov": 0.88
+ },
+ {
+  "slug": "charliehunter-2004-05-22",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 15,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "citizencope-2007-12-29",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 13,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 8,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "clubdelf-2000-04-20",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 17,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "clubdelf-2004-05-20",
+  "kind": "fix",
+  "t_breaks": [
+   5
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 23,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   5
+  ],
+  "a_enc": null,
+  "a_cov": 0.67
+ },
+ {
+  "slug": "clubdelf-2008-03-13",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 22,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "corblund-2004-11-04",
+  "kind": "fix",
+  "t_breaks": [
+   12,
+   26
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 52,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "cowboyjunkies-2009-10-05",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 23,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 24,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 33,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true
+ },
+ {
+  "slug": "cowboyjunkies-2012-04-26",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 20,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 26,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 20,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "cracker-2004-06-13",
+  "kind": "fix",
+  "t_breaks": [
+   13
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 22,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "cracker-2006-11-12",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 17,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 17,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "darkstarorchestra-2001-11-09",
+  "kind": "fix",
+  "t_breaks": [
+   7,
+   14
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": 15,
+  "a_cov": 0.94
+ },
+ {
+  "slug": "darkstarorchestra-2002-04-13",
+  "kind": "fix",
+  "t_breaks": [
+   11,
+   23
+  ],
+  "t_enc": 34,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   12,
+   23
+  ],
+  "s_enc": 34,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 41,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 34,
+  "a_cov": 0.59
+ },
+ {
+  "slug": "darkstarorchestra-2004-04-17",
+  "kind": "hold",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   10
+  ],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 22,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "darkstarorchestra-2004-05-06",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   10
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 23,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "darkstarorchestra-2004-12-04",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 22,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   10
+  ],
+  "s_enc": 23,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 23,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   11
+  ],
+  "a_enc": 23,
+  "a_cov": 0.96
+ },
+ {
+  "slug": "darkstarorchestra-2005-05-30",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   9
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "darkstarorchestra-2005-06-04",
+  "kind": "fix",
+  "t_breaks": [
+   12
+  ],
+  "t_enc": 19,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   12
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 22,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "darkstarorchestra-2005-11-16",
+  "kind": "fix",
+  "t_breaks": [
+   14
+  ],
+  "t_enc": 26,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   14
+  ],
+  "s_enc": 25,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 31,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "darkstarorchestra-2006-04-06",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 19,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "darkstarorchestra-2007-05-08",
+  "kind": "fix",
+  "t_breaks": [
+   15
+  ],
+  "t_enc": 23,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   16
+  ],
+  "s_enc": 22,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 30,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   15
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "darkstarorchestra-2007-05-17",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 17,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 23,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 16,
+  "a_cov": 0.84
+ },
+ {
+  "slug": "darkstarorchestra-2007-07-06",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": 14,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 14,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 17,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   6
+  ],
+  "a_enc": null,
+  "a_cov": 0.73
+ },
+ {
+  "slug": "darkstarorchestra-2007-08-06",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 17,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [
+   9
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 24,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 18,
+  "a_cov": 0.95
+ },
+ {
+  "slug": "darkstarorchestra-2008-02-17",
+  "kind": "hold",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 30,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "darkstarorchestra-2008-07-12",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": 14,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [
+   6
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 17,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 14,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "darkstarorchestra-2008-08-31",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   10
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 23,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 18,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "darkstarorchestra-2009-01-31",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 18,
+  "a_cov": 0.95
+ },
+ {
+  "slug": "darkstarorchestra-2009-02-27",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": 20,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 28,
+  "desc_conf": "medium",
+  "fn_marker": true,
+  "tag_marker": true,
+  "raw_marker": false
+ },
+ {
+  "slug": "darkstarorchestra-2010-07-02",
+  "kind": "hold",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": null,
+  "alignment": null,
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [],
+  "desc_items": 0,
+  "desc_conf": "low",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "darkstarorchestra-2010-07-04",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 19,
+  "renum": false,
+  "source": null,
+  "alignment": null,
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [],
+  "desc_items": 0,
+  "desc_conf": "low",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "darkstarorchestra-2010-08-12",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": 23,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   13
+  ],
+  "s_enc": 23,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 36,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   12
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "darkstarorchestra-2011-04-15",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 22,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   10
+  ],
+  "s_enc": 21,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 44,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "darkstarorchestra-2011-07-31",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": 21,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 28,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   10
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "darkstarorchestra-2013-05-24",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": 23,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 32,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "darkstarorchestra-2014-07-31",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 24,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": null,
+  "a_cov": 0.95
+ },
+ {
+  "slug": "davealvin-2016-03-19",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 14,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 26,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 14,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "davidnelsonband-2004-10-22",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 14,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 18,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 14,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "davidnelsonband-2009-06-26",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 15,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 31,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 15,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "deadandcompany-2018-06-16",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 19,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 30,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "deepbananablackout-2006-03-18",
+  "kind": "fix",
+  "t_breaks": [
+   17
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   15
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "derektrucksband-1996-10-15",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 16,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "derektrucksband-1998-03-05",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 15,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "derektrucksband-2003-11-26",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 12,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 13,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 16,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 14,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "derektrucksband-2003-12-26",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 17,
+  "a_cov": 0.88
+ },
+ {
+  "slug": "derektrucksband-2004-01-22",
+  "kind": "hold",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 19,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "derektrucksband-2004-04-01",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 16,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "derektrucksband-2004-04-15",
+  "kind": "hold",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 17,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 16,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "derektrucksband-2004-09-10",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 13,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 15,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "derektrucksband-2004-11-26",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 14,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 14,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": 14,
+  "a_cov": 0.88
+ },
+ {
+  "slug": "derektrucksband-2005-01-08",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 11,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 14,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 11,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "derektrucksband-2005-01-09",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 15,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "derektrucksband-2005-02-17",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 14,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 18,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "derektrucksband-2005-03-04",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 21,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "derektrucksband-2005-04-09",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 18,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 17,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "derektrucksband-2005-09-04",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 16,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "derektrucksband-2005-12-28",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 15,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 19,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "derektrucksband-2006-01-25",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 16,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "derektrucksband-2006-12-31",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 15,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 16,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "derektrucksband-2007-05-17",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 17,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 16,
+  "a_cov": 0.94
+ },
+ {
+  "slug": "derektrucksband-2007-05-25",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 15,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 15,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 22,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": 15,
+  "a_cov": 0.93
+ },
+ {
+  "slug": "derektrucksband-2007-05-26",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 14,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": 13,
+  "a_cov": 0.93
+ },
+ {
+  "slug": "derektrucksband-2007-12-31",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 15,
+  "renum": false,
+  "source": "lma:ttb2007-12-31.flac16schoepsmk4",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 23,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": false
+ },
+ {
+  "slug": "derektrucksband-2008-09-11",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": 23,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 27,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 20,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "derektrucksband-2008-09-19",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 17,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 16,
+  "a_cov": 0.88
+ },
+ {
+  "slug": "derektrucksband-2008-11-02",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "lma:dtb2008-11-02.at4041.flac16",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 17,
+  "desc_labels": [],
+  "desc_items": 0,
+  "desc_conf": "low",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "discobiscuits-1999-12-31",
+  "kind": "fix",
+  "t_breaks": [
+   6,
+   13,
+   16
+  ],
+  "t_enc": 24,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   6,
+   15,
+   17
+  ],
+  "s_enc": 24,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   6,
+   13
+  ],
+  "a_enc": 24,
+  "a_cov": 0.83
+ },
+ {
+  "slug": "discobiscuits-2002-10-04",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 16,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 16,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "discobiscuits-2004-12-29",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 14,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   6
+  ],
+  "a_enc": null,
+  "a_cov": 0.86
+ },
+ {
+  "slug": "discobiscuits-2007-05-27",
+  "kind": "fix",
+  "t_breaks": [
+   4,
+   14
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   5,
+   14
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "3"
+  ],
+  "desc_items": 34,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   5,
+   14
+  ],
+  "a_enc": null,
+  "a_cov": 0.82
+ },
+ {
+  "slug": "discobiscuits-2007-06-26",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 10,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 13,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "discobiscuits-2009-06-03",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": 13,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   2,
+   6
+  ],
+  "s_enc": 14,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   6
+  ],
+  "a_enc": 14,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "discobiscuits-2009-07-18",
+  "kind": "fix",
+  "t_breaks": [
+   9,
+   16
+  ],
+  "t_enc": 24,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   9,
+   18
+  ],
+  "s_enc": 24,
+  "desc_labels": [
+   "1",
+   "2",
+   "3"
+  ],
+  "desc_items": 50,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   9,
+   16
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "drive-bytruckers-2007-04-27",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 15,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 23,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 15,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "drive-bytruckers-2007-04-28",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 20,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 28,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 20,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "dupreesdiamonds-2013-11-08",
+  "kind": "fix",
+  "t_breaks": [
+   12
+  ],
+  "t_enc": 21,
+  "renum": true,
+  "source": "lma:dd2013-11-08.bsc-1.artpre",
+  "alignment": "deterministic",
+  "s_breaks": [
+   11
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 45,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   11
+  ],
+  "a_enc": 20,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "ekoostikhookah-1994-05-19",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 21,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 22,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "ekoostikhookah-2009-05-24",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 19,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 24,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 19,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "ekoostikhookah-2009-12-31",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "lma:eh2009-12-31.dubsbd",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 43,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 58,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 43,
+  "a_cov": 0.98
+ },
+ {
+  "slug": "elliottsmith-1997-05-06",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 9,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "eotoband-2008-03-24",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": 11,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 16,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "ericmcfadden-2005-10-06",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 19,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "fugazi-2002-07-01",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 16,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 17,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 18,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 16,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "furthur-2010-05-30",
+  "kind": "fix",
+  "t_breaks": [
+   9,
+   17
+  ],
+  "t_enc": 23,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9,
+   17
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 31,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9,
+   17
+  ],
+  "a_enc": null,
+  "a_cov": 0.84
+ },
+ {
+  "slug": "furthur-2010-07-30",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 19,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 22,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 19,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "furthur-2010-09-17",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 15,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 18,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 15,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "furthur-2011-02-11",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 19,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   11
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 21,
+  "desc_conf": "medium",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "furthur-2012-07-08",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 17,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "garajmahal-2007-06-02",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": null,
+  "a_cov": 0.79
+ },
+ {
+  "slug": "garciabirthdayband-2011-05-07",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 33,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "garciagrass-2010-10-23",
+  "kind": "fix",
+  "t_breaks": [
+   12
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 20,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 34,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 20,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "giantpandaguerilladubsquad-2006-11-11",
+  "kind": "fix",
+  "t_breaks": [
+   14
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 32,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "godspeedyoublackemperor-2003-03-04",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 6,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 8,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "gracepotterandthenocturnals-2008-11-08",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 17,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 22,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "gratefuldead-1966-11-19",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 10,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 11,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "gratefuldead-1968-08-21",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 15,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 12,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 10,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 12,
+  "a_cov": 0.54
+ },
+ {
+  "slug": "gratefuldead-1969-03-28",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 10,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   6
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "gratefuldead-1970-01-02-spans",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 26,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "gratefuldead-1970-02-11-spans",
+  "kind": "fix",
+  "t_breaks": [
+   4
+  ],
+  "t_enc": 12,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 12,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 13,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 12,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "gratefuldead-1970-02-13-spans",
+  "kind": "fix",
+  "t_breaks": [
+   9,
+   15,
+   21
+  ],
+  "t_enc": 24,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   4,
+   21
+  ],
+  "s_enc": 24,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 11,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   21
+  ],
+  "a_enc": 24,
+  "a_cov": 0.28
+ },
+ {
+  "slug": "gratefuldead-1970-05-02",
+  "kind": "fix",
+  "t_breaks": [
+   13,
+   26,
+   34
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "lma:gd1970-05-02.sbd-fm-aud.unknown.108955.flac16",
+  "alignment": "deterministic",
+  "s_breaks": [
+   13,
+   26
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "3"
+  ],
+  "desc_items": 30,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   26,
+   34
+  ],
+  "a_enc": null,
+  "a_cov": 0.57
+ },
+ {
+  "slug": "gratefuldead-1970-05-14",
+  "kind": "fix",
+  "t_breaks": [
+   6,
+   18
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   18
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 54,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "gratefuldead-1970-05-15-e2",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": 69,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 27,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 69,
+  "a_cov": 0.16
+ },
+ {
+  "slug": "gratefuldead-1970-05-15-spans",
+  "kind": "hold",
+  "t_breaks": [
+   9,
+   16
+  ],
+  "t_enc": 22,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   16
+  ],
+  "s_enc": 22,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 27,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 62,
+  "a_cov": 0.22
+ },
+ {
+  "slug": "gratefuldead-1970-06-06",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 19,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "gratefuldead-1970-08-18",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 24,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [
+   12
+  ],
+  "a_enc": null,
+  "a_cov": 0.79
+ },
+ {
+  "slug": "gratefuldead-1970-11-08",
+  "kind": "fix",
+  "t_breaks": [
+   11,
+   24
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 47,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "gratefuldead-1974-10-19",
+  "kind": "fix",
+  "t_breaks": [
+   14
+  ],
+  "t_enc": 30,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   15
+  ],
+  "s_enc": 30,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 30,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 30,
+  "a_cov": 0.88
+ },
+ {
+  "slug": "gratefuldead-1978-12-19",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   10
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.9
+ },
+ {
+  "slug": "gratefuldead-1980-10-10",
+  "kind": "fix",
+  "t_breaks": [
+   9,
+   19
+  ],
+  "t_enc": 32,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [
+   19
+  ],
+  "s_enc": 32,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 35,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9,
+   19
+  ],
+  "a_enc": 32,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "gratefuldead-1980-10-14",
+  "kind": "fix",
+  "t_breaks": [
+   10,
+   21
+  ],
+  "t_enc": 33,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [
+   21
+  ],
+  "s_enc": 33,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 32,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 33,
+  "a_cov": 0.89
+ },
+ {
+  "slug": "gratefuldead-1980-10-31",
+  "kind": "fix",
+  "t_breaks": [
+   9,
+   18
+  ],
+  "t_enc": 31,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9,
+   18
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 26,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.79
+ },
+ {
+  "slug": "gratefuldead-1981-12-31",
+  "kind": "hold",
+  "t_breaks": [
+   10,
+   22
+  ],
+  "t_enc": 25,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [
+   10
+  ],
+  "s_enc": 22,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 26,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "gratefuldead-1984-12-31",
+  "kind": "fix",
+  "t_breaks": [
+   7,
+   17
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": 17,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 18,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "gratefuldead-1989-07-19",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 18,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   18
+  ],
+  "s_enc": 36,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 18,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "gratefuldead-1990-09-15",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": null,
+  "a_cov": 0.9
+ },
+ {
+  "slug": "gratefuldead-1990-09-19",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.81
+ },
+ {
+  "slug": "greatamericantaxi-2009-11-03",
+  "kind": "fix",
+  "t_breaks": [
+   13
+  ],
+  "t_enc": 24,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   12
+  ],
+  "s_enc": 23,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 29,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   12
+  ],
+  "a_enc": null,
+  "a_cov": 0.91
+ },
+ {
+  "slug": "greenskybluegrass-2007-03-03",
+  "kind": "fix",
+  "t_breaks": [
+   17
+  ],
+  "t_enc": 27,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 34,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "greenskybluegrass-2010-06-17",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 18,
+  "desc_conf": "medium",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "greenskybluegrass-2013-01-03",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 25,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 29,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   13
+  ],
+  "a_enc": 25,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "greenskybluegrass-2013-06-08",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 22,
+  "desc_conf": "medium",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "greenskybluegrass-2013-08-02",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 21,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9
+  ],
+  "s_enc": 21,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 26,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 21,
+  "a_cov": 0.96
+ },
+ {
+  "slug": "greenskybluegrass-2014-02-28",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": 24,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [
+   11
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 28,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   11
+  ],
+  "a_enc": null,
+  "a_cov": 0.77
+ },
+ {
+  "slug": "greyboyallstars-2012-04-20",
+  "kind": "fix",
+  "t_breaks": [
+   8,
+   16
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   13
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "3"
+  ],
+  "desc_items": 33,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8,
+   16
+  ],
+  "a_enc": null,
+  "a_cov": 0.96
+ },
+ {
+  "slug": "guster-2012-04-21",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 31,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 32,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 37,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "hankwilliamsiii-2006-03-21",
+  "kind": "fix",
+  "t_breaks": [
+   22,
+   27
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "lma:hw3-2006-03-21.flac16",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 42,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "hankwilliamsiii-2006-04-08",
+  "kind": "fix",
+  "t_breaks": [
+   22,
+   28
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 50,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "heavypets-2010-04-11",
+  "kind": "fix",
+  "t_breaks": [
+   12
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 12,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 22,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "hollybowling-2019-09-12",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 17,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 42,
+  "desc_conf": "medium",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "infamousstringdusters-2008-12-06",
+  "kind": "fix",
+  "t_breaks": [
+   14
+  ],
+  "t_enc": 30,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   14
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 39,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   14
+  ],
+  "a_enc": null,
+  "a_cov": 0.86
+ },
+ {
+  "slug": "infamousstringdusters-2009-10-17",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 23,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 45,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "infamousstringdusters-2012-01-11",
+  "kind": "fix",
+  "t_breaks": [
+   13
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 10,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.04
+ },
+ {
+  "slug": "infamousstringdusters-2012-03-16",
+  "kind": "fix",
+  "t_breaks": [
+   13
+  ],
+  "t_enc": 29,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   13
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 34,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   13
+  ],
+  "a_enc": null,
+  "a_cov": 0.89
+ },
+ {
+  "slug": "infamousstringdusters-2012-03-17",
+  "kind": "fix",
+  "t_breaks": [
+   12
+  ],
+  "t_enc": 28,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   13
+  ],
+  "s_enc": 28,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 32,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   13
+  ],
+  "a_enc": 28,
+  "a_cov": 0.93
+ },
+ {
+  "slug": "infamousstringdusters-2014-03-15",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 26,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 26,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 46,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "jackiegreene-2009-10-10",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": 19,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 27,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": 19,
+  "a_cov": 0.95
+ },
+ {
+  "slug": "jackiegreene-2011-12-31",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 18,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": 17,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 22,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": null,
+  "a_cov": 0.88
+ },
+ {
+  "slug": "jeffaustinandchriscastino-2004-03-18",
+  "kind": "fix",
+  "t_breaks": [
+   12
+  ],
+  "t_enc": 25,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 34,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "jimillerband-2014-08-09",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 24,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "joerussosalmostdead-2015-02-05",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 15,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": 15,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "joerussosalmostdead-2015-02-07",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 17,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   6
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "joerussosalmostdead-2015-12-19",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": null,
+  "desc_labels": [],
+  "desc_items": 0,
+  "desc_conf": "low",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "joerussosalmostdead-2016-11-12",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   9,
+   16
+  ],
+  "s_enc": 27,
+  "desc_labels": [],
+  "desc_items": 0,
+  "desc_conf": "low",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "joerussosalmostdead-2017-03-11",
+  "kind": "fix",
+  "t_breaks": [
+   13
+  ],
+  "t_enc": 22,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   10
+  ],
+  "s_enc": 17,
+  "desc_labels": [],
+  "desc_items": 0,
+  "desc_conf": "low",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "joerussosalmostdead-2018-02-15",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 13,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   7,
+   13
+  ],
+  "s_enc": null,
+  "desc_labels": [],
+  "desc_items": 0,
+  "desc_conf": "low",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "joerussosalmostdead-2018-02-18",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 12,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7,
+   12
+  ],
+  "s_enc": null,
+  "desc_labels": [],
+  "desc_items": 0,
+  "desc_conf": "low",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "joerussosalmostdead-2018-08-10",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7,
+   14
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "joerussosalmostdead-2019-03-03",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": 14,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 47,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [
+   6
+  ],
+  "a_enc": 14,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "joerussosalmostdead-2019-11-25",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 15,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   5,
+   13
+  ],
+  "s_enc": 19,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 51,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [
+   13
+  ],
+  "a_enc": 19,
+  "a_cov": 0.8
+ },
+ {
+  "slug": "joerussosalmostdead-2023-10-13",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "lma:jrad2023-10-13.481.m148.F8nPro.2496",
+  "alignment": "deterministic",
+  "s_breaks": [
+   6
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 3,
+  "desc_conf": "low",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "joerussosalmostdead-2026-08-23",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 2,
+  "desc_conf": "low",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "johnkadlecik-2011-04-28",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 17,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 18,
+  "a_cov": 0.58
+ },
+ {
+  "slug": "johnkadlecik-2011-09-02",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": 25,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 30,
+  "desc_conf": "medium",
+  "fn_marker": true,
+  "tag_marker": true,
+  "raw_marker": false
+ },
+ {
+  "slug": "johnkadlecik-2016-04-30",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 19,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 23,
+  "desc_conf": "medium",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "johnkadlecik-2016-10-22",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.89
+ },
+ {
+  "slug": "karldensonstinyuniverse-2005-08-03",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 12,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 16,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "kellerwilliams-2004-07-09",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 23,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 30,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "kellerwilliams-2005-01-14",
+  "kind": "hold",
+  "t_breaks": [
+   18
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 2,
+  "desc_conf": "low",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "kellerwilliams-2006-06-10",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 20,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 22,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "kellerwilliams-2007-02-23",
+  "kind": "fix",
+  "t_breaks": [
+   14
+  ],
+  "t_enc": 27,
+  "renum": false,
+  "source": "lma:kw2007-02-23.mc930.flac16",
+  "alignment": "llm",
+  "s_breaks": [
+   13
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 6,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "kellerwilliams-2008-02-02",
+  "kind": "fix",
+  "t_breaks": [
+   13
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 42,
+  "desc_conf": "medium",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "kinggizzardandthelizardwizard-2023-06-08",
+  "kind": "fix",
+  "t_breaks": [
+   13
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 36,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "kungfuband-2010-07-22",
+  "kind": "hold",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [],
+  "desc_items": 0,
+  "desc_conf": "low",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "leftoversalmon-1996-08-09",
+  "kind": "hold",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   3,
+   4,
+   5,
+   6,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   21,
+   23,
+   25,
+   29
+  ],
+  "s_enc": 20,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 41,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": 20,
+  "a_cov": 0.27
+ },
+ {
+  "slug": "leftoversalmon-1996-08-10",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 46,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "lettuce-2002-07-13",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 15,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 16,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "littlefeat-1973-04-15",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 11,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 11,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 12,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "littlefeat-1973-07-19",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   11
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 24,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "littlefeat-2002-08-22",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 19,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 38,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "littlefeat-2005-07-01",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 13,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 13,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 24,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 11,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "littlefeat-2012-09-02",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   11
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 13,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 11,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "lotus-2003-01-25",
+  "kind": "fix",
+  "t_breaks": [
+   4
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 2,
+  "desc_conf": "low",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "lotus-2003-05-10",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 14,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "lotus-2008-04-05",
+  "kind": "fix",
+  "t_breaks": [
+   5
+  ],
+  "t_enc": 9,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 9,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 14,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 9,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "magnoliaelectricco-2008-11-03",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 13,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 23,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 13,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "missionofburma-2004-10-16",
+  "kind": "fix",
+  "t_breaks": [
+   12
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "moe-1996-04-21",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 34,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "moe-2004-01-31",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 17,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 24,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "moe-2004-02-21",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": 14,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 13,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": 15,
+  "a_cov": 0.86
+ },
+ {
+  "slug": "moe-2004-09-04",
+  "kind": "fix",
+  "t_breaks": [
+   8,
+   13
+  ],
+  "t_enc": 21,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9
+  ],
+  "s_enc": 22,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 22,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9,
+   14
+  ],
+  "a_enc": 22,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "moe-2004-10-31",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   14
+  ],
+  "s_enc": 35,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 33,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   22,
+   27
+  ],
+  "a_enc": null,
+  "a_cov": 0.41
+ },
+ {
+  "slug": "moe-2004-12-31",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   6
+  ],
+  "s_enc": 18,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 19,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "moe-2005-09-03",
+  "kind": "fix",
+  "t_breaks": [
+   10,
+   19
+  ],
+  "t_enc": 27,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": 25,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   10,
+   18
+  ],
+  "a_enc": 26,
+  "a_cov": 0.68
+ },
+ {
+  "slug": "moe-2005-11-26",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": 14,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 15,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 14,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": 15,
+  "a_cov": 0.86
+ },
+ {
+  "slug": "moe-2006-01-19",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 16,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 17,
+  "a_cov": 0.81
+ },
+ {
+  "slug": "moe-2007-02-10",
+  "kind": "fix",
+  "t_breaks": [
+   8,
+   15
+  ],
+  "t_enc": 24,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": 25,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   8,
+   16
+  ],
+  "a_enc": 25,
+  "a_cov": 0.91
+ },
+ {
+  "slug": "moe-2007-07-14",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 9,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 12,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 9,
+  "a_cov": 0.9
+ },
+ {
+  "slug": "moe-2007-09-01",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": 21,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 32,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   7,
+   13
+  ],
+  "a_enc": 21,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "moe-2007-12-31",
+  "kind": "fix",
+  "t_breaks": [
+   3,
+   9
+  ],
+  "t_enc": 18,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   3
+  ],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 18,
+  "a_cov": 0.83
+ },
+ {
+  "slug": "moe-2009-06-13",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 26,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   20
+  ],
+  "s_enc": 25,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 28,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 26,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "mogwai-2001-06-19",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 8,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 12,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "motherhips-2013-06-21",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 14,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 18,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": false
+ },
+ {
+  "slug": "mountaingoats-2008-10-21",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 17,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 1,
+  "desc_conf": "low",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "mountaingoats-2009-12-01",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 30,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   15,
+   23
+  ],
+  "s_enc": 30,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 38,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true
+ },
+ {
+  "slug": "mountaingoats-2012-01-31",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 18,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   7,
+   10
+  ],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 44,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "mymorningjacket-2007-03-10",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 18,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 22,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "mymorningjacket-2008-09-27",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 21,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 23,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 29,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "mymorningjacket-2008-12-31",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 25,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 35,
+  "desc_conf": "medium",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "newmastersounds-2007-06-01",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 23,
+  "renum": false,
+  "source": "lma:nms2007-06-01.mk21.flac16",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 23,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 24,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "newmastersounds-2007-06-02",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 24,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 24,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "newmastersounds-2009-09-04",
+  "kind": "fix",
+  "t_breaks": [
+   12,
+   25
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   12
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "3"
+  ],
+  "desc_items": 40,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "newridersofthepurplesage-1970-06-24",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 24,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "newridersofthepurplesage-1970-07-30",
+  "kind": "fix",
+  "t_breaks": [
+   12
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   12
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "newridersofthepurplesage-2005-12-16",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": 22,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 23,
+  "a_cov": 0.96
+ },
+ {
+  "slug": "newridersofthepurplesage-2007-01-24",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": 22,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 31,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   11
+  ],
+  "a_enc": 22,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "newridersofthepurplesage-2007-12-31",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 19,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   10,
+   19
+  ],
+  "s_enc": 24,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 29,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   15
+  ],
+  "a_enc": 24,
+  "a_cov": 0.96
+ },
+ {
+  "slug": "papadosio-2012-08-18",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 33,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "papagrowsfunk-2004-01-23",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 18,
+  "a_cov": 0.95
+ },
+ {
+  "slug": "particle-2003-12-29",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 11,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 16,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   11
+  ],
+  "a_enc": null,
+  "a_cov": 0.79
+ },
+ {
+  "slug": "perpetualgroove-2005-04-01",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 13,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 16,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 13,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "perpetualgroove-2005-12-31",
+  "kind": "fix",
+  "t_breaks": [
+   5,
+   9
+  ],
+  "t_enc": 19,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 17,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 17,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "perpetualgroove-2006-01-21",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": 12,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 12,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 13,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 12,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "perpetualgroove-2006-03-02",
+  "kind": "fix",
+  "t_breaks": [
+   5
+  ],
+  "t_enc": 10,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 10,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 11,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 10,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "perpetualgroove-2007-02-10",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 17,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 17,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 17,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "perpetualgroove-2007-05-26",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 35,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "perpetualgroove-2008-05-25",
+  "kind": "fix",
+  "t_breaks": [
+   8,
+   15,
+   19
+  ],
+  "t_enc": 25,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 29,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "philleshandfriends-2000-10-27",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 16,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 16,
+  "a_cov": 0.94
+ },
+ {
+  "slug": "philleshandfriends-2001-02-17",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 17,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 18,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 17,
+  "a_cov": 0.83
+ },
+ {
+  "slug": "philleshandfriends-2001-02-18",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": 15,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": 13,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 35,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   6
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "philleshandfriends-2001-12-31",
+  "kind": "fix",
+  "t_breaks": [
+   9,
+   16
+  ],
+  "t_enc": 22,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 44,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [
+   16
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "philleshandfriends-2004-12-17",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 47,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 20,
+  "a_cov": 0.82
+ },
+ {
+  "slug": "philleshandfriends-2005-12-04",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": 16,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "philleshandfriends-2005-12-29",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 15,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": 15,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 16,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 15,
+  "a_cov": 0.82
+ },
+ {
+  "slug": "philleshandfriends-2007-07-21",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 28,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": 18,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "philleshandfriends-2007-09-23",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 19,
+  "renum": false,
+  "source": "lma:paf2007-09-23.Aud.Fraser.87787.Flac16",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 19,
+  "desc_labels": [
+   "2"
+  ],
+  "desc_items": 7,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "philleshandfriends-2007-09-28",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 19,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 19,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "philleshandfriends-2007-10-07",
+  "kind": "fix",
+  "t_breaks": [
+   6,
+   11
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": 19,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7,
+   11
+  ],
+  "a_enc": 20,
+  "a_cov": 0.8
+ },
+ {
+  "slug": "philleshandfriends-2008-07-04",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 17,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": 17,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 22,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "philleshandfriends-2008-07-06",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 21,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 26,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 21,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "philleshandfriends-2008-10-31",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 21,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 35,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   11
+  ],
+  "a_enc": 20,
+  "a_cov": 0.68
+ },
+ {
+  "slug": "philleshandfriends-2008-11-18",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "jerrybase",
+  "s_breaks": [],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 30,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 20,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "playingdeadlive-2007-07-26",
+  "kind": "fix",
+  "t_breaks": [
+   15
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 24,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "pnuma-2005-05-09",
+  "kind": "narration-vague",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 15,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "pnuma-2006-02-07",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 15,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 9,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": false
+ },
+ {
+  "slug": "pnuma-2006-04-14",
+  "kind": "hold",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   6
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   6
+  ],
+  "a_enc": null,
+  "a_cov": 0.95
+ },
+ {
+  "slug": "purejerryband-2013-10-25",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 23,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "radiators-1984-09-07",
+  "kind": "fix",
+  "t_breaks": [
+   10,
+   18
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 32,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "radiators-1985-05-08",
+  "kind": "fix",
+  "t_breaks": [
+   8,
+   13
+  ],
+  "t_enc": 19,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 33,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "radiators-1990-07-29",
+  "kind": "fix",
+  "t_breaks": [
+   23
+  ],
+  "t_enc": 34,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 43,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "radiators-1993-04-24",
+  "kind": "fix",
+  "t_breaks": [
+   16
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   17
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 30,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   17
+  ],
+  "a_enc": null,
+  "a_cov": 0.83
+ },
+ {
+  "slug": "radiators-1999-02-13",
+  "kind": "fix",
+  "t_breaks": [
+   15,
+   27
+  ],
+  "t_enc": 35,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 35,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 41,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 35,
+  "a_cov": 0.86
+ },
+ {
+  "slug": "radiators-2003-03-14",
+  "kind": "fix",
+  "t_breaks": [
+   15
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 36,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "radiators-2003-05-01",
+  "kind": "fix",
+  "t_breaks": [
+   17
+  ],
+  "t_enc": 29,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 26,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 28,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 26,
+  "a_cov": 0.96
+ },
+ {
+  "slug": "radiators-2004-04-11",
+  "kind": "fix",
+  "t_breaks": [
+   14
+  ],
+  "t_enc": 24,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 24,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 31,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 24,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "radiators-2008-01-25",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 45,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "radiators-2010-07-17",
+  "kind": "hold",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 24,
+  "desc_conf": "medium",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "railroadearth-2004-08-15",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 20,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 24,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "railroadearth-2004-08-28",
+  "kind": "fix",
+  "t_breaks": [
+   10,
+   23
+  ],
+  "t_enc": 32,
+  "renum": false,
+  "source": "lma:rre2004-08-28",
+  "alignment": "llm",
+  "s_breaks": [
+   10,
+   23
+  ],
+  "s_enc": 31,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 41,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "railroadearth-2004-12-30",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 21,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "railroadearth-2005-02-18",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 23,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 18,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "railroadearth-2005-03-04",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 14,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 14,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 16,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 14,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "railroadearth-2005-03-17",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 19,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": null,
+  "a_cov": 0.95
+ },
+ {
+  "slug": "railroadearth-2005-08-20",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 23,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 18,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "railroadearth-2006-02-18",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 18,
+  "a_cov": 0.84
+ },
+ {
+  "slug": "railroadearth-2006-03-11",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 17,
+  "renum": false,
+  "source": "lma:rre2006-03-11mk4.flac16",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 17,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 17,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "railroadearth-2007-04-25",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 13,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 18,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "railroadearth-2007-05-19",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 22,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "railroadearth-2007-09-29",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "lma:rre2007-09-29.flac16",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "railroadearth-2007-12-31",
+  "kind": "fix",
+  "t_breaks": [
+   9,
+   20
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 22,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "railroadearth-2008-02-01",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 24,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "railroadearth-2008-05-02",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": 15,
+  "renum": false,
+  "source": "lma:rre2008-05-02.spyder9.flac16",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 15,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   6
+  ],
+  "a_enc": 15,
+  "a_cov": 0.94
+ },
+ {
+  "slug": "railroadearth-2008-06-19",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 20,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "railroadearth-2009-01-15",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 16,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 16,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "railroadearth-2009-02-19",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 27,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "railroadearth-2009-03-20",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 18,
+  "a_cov": 0.84
+ },
+ {
+  "slug": "railroadearth-2009-03-21",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 24,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "railroadearth-2009-11-28",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": null,
+  "a_cov": 0.94
+ },
+ {
+  "slug": "railroadearth-2010-03-06",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 18,
+  "a_cov": 0.95
+ },
+ {
+  "slug": "railroadearth-2010-07-01",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 13,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 18,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "railroadearth-2014-11-28",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 21,
+  "renum": true,
+  "source": "lma:RRE2014-11-28",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 22,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 34,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 22,
+  "a_cov": 0.95
+ },
+ {
+  "slug": "ratdog-2008-11-16",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   10
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   10
+  ],
+  "a_enc": 18,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "robertrandolphandthefamilyband-2004-02-18",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 15,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 21,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "robertrandolphandthefamilyband-2004-06-13",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 15,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 23,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "robertrandolphandthefamilyband-2005-04-30",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 15,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 20,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "robertrandolphandthefamilyband-2008-08-01",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 13,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 15,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 18,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 13,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "robertwalters20thcongress-2003-07-03",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 15,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 17,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "robertwalters20thcongress-2003-10-23",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 15,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 21,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "robertwalters20thcongress-2004-01-02",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 16,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": null,
+  "a_cov": 0.94
+ },
+ {
+  "slug": "robertwalters20thcongress-2009-04-29",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "robertwalterssuperheavyorgan-2006-03-17",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 12,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 17,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "rosehilldrive-2008-12-31",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 17,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 21,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": false
+ },
+ {
+  "slug": "ryanadams-2005-06-10",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 26,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "ryanadams-2006-10-23",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 22,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   22
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 52,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 22,
+  "a_cov": 0.97
+ },
+ {
+  "slug": "ryanadams-2007-07-14",
+  "kind": "fix",
+  "t_breaks": [
+   15
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 44,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "ryanadams-2007-10-27",
+  "kind": "fix",
+  "t_breaks": [
+   15
+  ],
+  "t_enc": 29,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 30,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   15
+  ],
+  "a_enc": 29,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "ryanadams-2008-01-30",
+  "kind": "fix",
+  "t_breaks": [
+   14
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 43,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "ryanadams-2008-10-04",
+  "kind": "fix",
+  "t_breaks": [
+   17
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 38,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "ryanadams-2008-11-10",
+  "kind": "fix",
+  "t_breaks": [
+   15
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 15,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 23,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "ryanadams-2008-11-13",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 33,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "ryanadams-2009-02-21",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 29,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   16
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "samkiningerband-2008-06-26",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "lma:samkb2006-06-26.matrix.flac",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 11,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 11,
+  "a_cov": 0.91
+ },
+ {
+  "slug": "soulcoughing-1998-10-25",
+  "kind": "hold",
+  "t_breaks": null,
+  "t_enc": 8,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   12,
+   13
+  ],
+  "s_enc": 8,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 15,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 8,
+  "a_cov": 0.93
+ },
+ {
+  "slug": "soulive-2001-12-15",
+  "kind": "fix",
+  "t_breaks": [
+   5
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 9,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   5
+  ],
+  "a_enc": null,
+  "a_cov": 0.8
+ },
+ {
+  "slug": "soulive-2003-08-07",
+  "kind": "hold",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 18,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "soulive-2005-11-05",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 18,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 17,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 21,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 17,
+  "a_cov": 0.82
+ },
+ {
+  "slug": "soundtribesector9-2002-07-19",
+  "kind": "fix",
+  "t_breaks": [
+   5,
+   10
+  ],
+  "t_enc": 15,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 15,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 16,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 15,
+  "a_cov": 0.81
+ },
+ {
+  "slug": "soundtribesector9-2003-06-20",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 1,
+  "desc_conf": "low",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "soundtribesector9-2005-01-21",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 7,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 10,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 7,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "soundtribesector9-2005-02-05",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 17,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 19,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 16,
+  "a_cov": 0.94
+ },
+ {
+  "slug": "soundtribesector9-2005-06-11",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 22,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 18,
+  "a_cov": 0.95
+ },
+ {
+  "slug": "soundtribesector9-2005-10-29",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": 20,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 20,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 21,
+  "a_cov": 0.55
+ },
+ {
+  "slug": "soundtribesector9-2007-07-08",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "lma:sts92007-07-08.akg482split",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": 13,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": null,
+  "a_cov": 0.94
+ },
+ {
+  "slug": "soundtribesector9-2012-06-30",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 15,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 30,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "splinteredsunlight-2001-02-10",
+  "kind": "fix",
+  "t_breaks": [
+   8,
+   16
+  ],
+  "t_enc": 28,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 28,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 50,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "stantonmoore-2001-11-20",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": 12,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 16,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": null,
+  "a_cov": 0.42
+ },
+ {
+  "slug": "stantonmoore-2008-09-11",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 41,
+  "desc_conf": "medium",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "stantonmoore-2010-05-06",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 18,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "steelydead-2019-06-14",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 5,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 24,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "steepcanyonrangers-2004-05-21",
+  "kind": "fix",
+  "t_breaks": [
+   15
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 31,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "stevekimockband-2000-03-31",
+  "kind": "fix",
+  "t_breaks": [
+   6,
+   13
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   6,
+   12
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 14,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   12
+  ],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "stevekimockband-2000-12-01",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": 17,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 17,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": false
+ },
+ {
+  "slug": "stevekimockband-2002-04-20",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   5
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 12,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   6
+  ],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "stevekimockband-2002-04-25",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 13,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "stevekimockband-2002-08-09",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 12,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 11,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.82
+ },
+ {
+  "slug": "stevekimockband-2003-03-04",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 19,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "stevekimockband-2003-03-11",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 15,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": null,
+  "a_cov": 0.91
+ },
+ {
+  "slug": "stevekimockband-2003-12-27",
+  "kind": "fix",
+  "t_breaks": [
+   6
+  ],
+  "t_enc": null,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "strangefolk-2002-09-01",
+  "kind": "fix",
+  "t_breaks": [
+   10,
+   18
+  ],
+  "t_enc": 30,
+  "renum": false,
+  "source": "lma:sf2002-09-01.MVBAKGHD",
+  "alignment": "llm",
+  "s_breaks": [
+   8,
+   9,
+   11,
+   14,
+   17,
+   18,
+   25
+  ],
+  "s_enc": 13,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 39,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   18,
+   25
+  ],
+  "a_enc": null,
+  "a_cov": 0.31
+ },
+ {
+  "slug": "stringcheeseincident-2004-10-31",
+  "kind": "fix",
+  "t_breaks": [
+   11,
+   25
+  ],
+  "t_enc": 38,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   17,
+   25
+  ],
+  "s_enc": 37,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 28,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   17,
+   25
+  ],
+  "a_enc": 37,
+  "a_cov": 0.63
+ },
+ {
+  "slug": "stringcheeseincident-2005-03-26",
+  "kind": "fix",
+  "t_breaks": [
+   14,
+   22
+  ],
+  "t_enc": 31,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 30,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   15,
+   22
+  ],
+  "a_enc": 32,
+  "a_cov": 0.87
+ },
+ {
+  "slug": "stringcheeseincident-2005-08-06",
+  "kind": "fix",
+  "t_breaks": [
+   9,
+   10
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   10
+  ],
+  "s_enc": 16,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 18,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "stringcheeseincident-2011-07-02",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8,
+   16
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 24,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": 16,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "stuallenandmarshotel-2013-11-13",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 19,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "stuallenandmarshotel-2017-02-03",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 24,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 26,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "tealeafgreen-2002-11-21",
+  "kind": "fix",
+  "t_breaks": [
+   11,
+   20
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 61,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "tealeafgreen-2004-07-09",
+  "kind": "fix",
+  "t_breaks": [
+   5,
+   16
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "lma:tlg2004-07-09bsbd.flac16",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 26,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "tealeafgreen-2005-01-20",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 39,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "tealeafgreen-2005-05-14",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 22,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 27,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true
+ },
+ {
+  "slug": "tealeafgreen-2008-01-12",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 19,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "tedeschitrucksband-2016-03-05",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 19,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   6
+  ],
+  "s_enc": 15,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 35,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "tedeschitrucksband-2016-09-17",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 19,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": 18,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 21,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "tedeschitrucksband-2019-09-28",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 21,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9,
+   13
+  ],
+  "s_enc": 21,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 24,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 21,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "tedeschitrucksband-2022-07-08",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 14,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   5,
+   9,
+   10,
+   17,
+   21
+  ],
+  "s_enc": 15,
+  "desc_labels": [],
+  "desc_items": 0,
+  "desc_conf": "low",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "tedeschitrucksband-2022-10-01",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7,
+   9
+  ],
+  "s_enc": 19,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 19,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "theblacklillies-2013-06-21",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 28,
+  "desc_conf": "medium",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "thebrew-2008-04-05",
+  "kind": "fix",
+  "t_breaks": [
+   9,
+   19
+  ],
+  "t_enc": 28,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 28,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 32,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 28,
+  "a_cov": 0.93
+ },
+ {
+  "slug": "thecodetalkers-2003-10-31",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 10,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 12,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 10,
+  "a_cov": 0.73
+ },
+ {
+  "slug": "thecodetalkers-2006-09-02",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 14,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "thedead-2009-04-15",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   13
+  ],
+  "a_enc": null,
+  "a_cov": 0.53
+ },
+ {
+  "slug": "thedead-2009-04-24",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 17,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": 18,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 22,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   8
+  ],
+  "a_enc": null,
+  "a_cov": 0.95
+ },
+ {
+  "slug": "thedead-2009-04-29",
+  "kind": "fix",
+  "t_breaks": [
+   7
+  ],
+  "t_enc": 15,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   7
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 18,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [
+   7
+  ],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "thegrassisdead-2006-01-04",
+  "kind": "fix",
+  "t_breaks": [
+   8,
+   14
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 21,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "themotet-2013-04-20",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 13,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 39,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "thenewdeal-2003-02-20",
+  "kind": "fix",
+  "t_breaks": [
+   4
+  ],
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 32,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.75
+ },
+ {
+  "slug": "thenewdeal-2004-10-30",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 16,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 24,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "thenewdeal-2005-04-29",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 21,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "llm",
+  "s_breaks": [
+   10
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   10
+  ],
+  "a_enc": null,
+  "a_cov": 0.73
+ },
+ {
+  "slug": "tonyfurtadoband-2005-03-09",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 17,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 17,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 20,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 17,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "trampledbyturtles-2007-07-20",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 23,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 51,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "u-melt-2007-06-22",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 16,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 15,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 23,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 15,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "umphreysmcgee-2003-10-10",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 21,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 23,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   10
+  ],
+  "a_enc": 21,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "umphreysmcgee-2004-02-26",
+  "kind": "fix",
+  "t_breaks": [
+   11
+  ],
+  "t_enc": 22,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   16
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 27,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "umphreysmcgee-2005-04-16",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 19,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   10
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 25,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 20,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "umphreysmcgee-2005-10-28",
+  "kind": "fix",
+  "t_breaks": [
+   8
+  ],
+  "t_enc": 16,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [
+   8
+  ],
+  "s_enc": 15,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 22,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "umphreysmcgee-2006-08-31",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 10,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 18,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": false
+ },
+ {
+  "slug": "umphreysmcgee-2006-11-16",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 18,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   9,
+   19
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 31,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 19,
+  "a_cov": 0.95
+ },
+ {
+  "slug": "umphreysmcgee-2006-12-31",
+  "kind": "fix",
+  "t_breaks": [
+   7,
+   14
+  ],
+  "t_enc": 22,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   8,
+   15
+  ],
+  "s_enc": 26,
+  "desc_labels": [
+   "1",
+   "2",
+   "3",
+   "encore"
+  ],
+  "desc_items": 37,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": true,
+  "a_breaks": [
+   8,
+   15
+  ],
+  "a_enc": 26,
+  "a_cov": 0.92
+ },
+ {
+  "slug": "umphreysmcgee-2007-06-30",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 15,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 16,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 40,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.0
+ },
+ {
+  "slug": "waynehancock-2004-04-08",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 29,
+  "renum": true,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 32,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "whitedenim-2012-08-13",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": 23,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 26,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": true,
+  "raw_marker": false
+ },
+ {
+  "slug": "yondermountainstringband-2000-11-02",
+  "kind": "hold",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 27,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": null,
+  "a_cov": 0.23
+ },
+ {
+  "slug": "yondermountainstringband-2002-03-16",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": 26,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 27,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 27,
+  "a_cov": 0.88
+ },
+ {
+  "slug": "yondermountainstringband-2004-11-05",
+  "kind": "fix",
+  "t_breaks": [
+   14
+  ],
+  "t_enc": 32,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 32,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 32,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 32,
+  "a_cov": 0.94
+ },
+ {
+  "slug": "yondermountainstringband-2005-02-04",
+  "kind": "fix",
+  "t_breaks": null,
+  "t_enc": null,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 30,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 32,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 30,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "yondermountainstringband-2005-04-19",
+  "kind": "fix",
+  "t_breaks": [
+   10
+  ],
+  "t_enc": 18,
+  "renum": false,
+  "source": "lma:ymsb2005-04-19.dpa4022.flac16",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 30,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "yondermountainstringband-2005-10-13",
+  "kind": "fix",
+  "t_breaks": [
+   12,
+   25
+  ],
+  "t_enc": 29,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 29,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 33,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false,
+  "a_breaks": [],
+  "a_enc": 29,
+  "a_cov": 0.9
+ },
+ {
+  "slug": "yondermountainstringband-2006-02-24",
+  "kind": "fix",
+  "t_breaks": [
+   12
+  ],
+  "t_enc": 24,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 25,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "yondermountainstringband-2006-02-25",
+  "kind": "fix",
+  "t_breaks": [
+   13
+  ],
+  "t_enc": 26,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "llm",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1"
+  ],
+  "desc_items": 27,
+  "desc_conf": "medium",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": false
+ },
+ {
+  "slug": "yondermountainstringband-2006-07-04",
+  "kind": "fix",
+  "t_breaks": [
+   12
+  ],
+  "t_enc": 26,
+  "renum": true,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 29,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   12
+  ],
+  "a_enc": 25,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "yondermountainstringband-2007-02-23",
+  "kind": "fix",
+  "t_breaks": [
+   15
+  ],
+  "t_enc": 29,
+  "renum": false,
+  "source": "lma:ymsb2007-02-23.at4041.flac16",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 29,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 37,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   15
+  ],
+  "a_enc": 29,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "yondermountainstringband-2008-02-17",
+  "kind": "fix",
+  "t_breaks": [
+   13
+  ],
+  "t_enc": 22,
+  "renum": false,
+  "source": "chosen",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 22,
+  "desc_labels": [
+   "1",
+   "encore"
+  ],
+  "desc_items": 27,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [],
+  "a_enc": 22,
+  "a_cov": 0.96
+ },
+ {
+  "slug": "yondermountainstringband-2008-07-20",
+  "kind": "fix",
+  "t_breaks": [
+   9
+  ],
+  "t_enc": 17,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [],
+  "s_enc": 19,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 30,
+  "desc_conf": "high",
+  "fn_marker": true,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   9
+  ],
+  "a_enc": 17,
+  "a_cov": 1.0
+ },
+ {
+  "slug": "zero-1986-09-06",
+  "kind": "fix",
+  "t_breaks": [
+   4
+  ],
+  "t_enc": 10,
+  "renum": false,
+  "source": "setlist.fm",
+  "alignment": "deterministic",
+  "s_breaks": [
+   4
+  ],
+  "s_enc": null,
+  "desc_labels": [
+   "1",
+   "2",
+   "encore"
+  ],
+  "desc_items": 12,
+  "desc_conf": "high",
+  "fn_marker": false,
+  "tag_marker": false,
+  "raw_marker": true,
+  "a_breaks": [
+   4
+  ],
+  "a_enc": 10,
+  "a_cov": 0.0
+ }
+]

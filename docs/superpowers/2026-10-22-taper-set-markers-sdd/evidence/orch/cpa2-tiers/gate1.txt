@@ -1,0 +1,228 @@
+==========================================================================================
+joerussosalmostdead-2017-03-11 jrad2017-03-11.cmc621.cmc641vxt.sbd.matrix.flac16 src= notes reason= None renum= True t_breaks= [13] t_enc= 22
+--- TEXT
+Joe Russo's Almost Dead 03/11/2017 Brooklyn Bowl, Brooklyn, NY
+Source 1: Schoeps cmc621 (On Stage, Split 20') -> Sonosax SX-M2 -> Sound Devices 788T -> WAV (@24/96);
+Source 2: Schoeps cmc641v xt (PAS in FOH booth) -> Sonosax SX-M2 -> Sound Devices 788T -> WAV (@24/96);
+Source 3: SBD (Digidesign/Avid Profile) -> Sound Devices 788T -> WAV (@24/96);
+Transfer: WAVs -> SoundForge Pro 11.0 (EQ, Time Align, normalize) -> Vegas Pro 13.0 (mix/render) -> SoundForge Pro 11.0 (EQ, normalize, fades, 96->44.1 iZotope 64-Bit SRC; 24->16 bit iZotope MBIT+ Dither) -> CDWav -> FLAC
+Costello & McRoberts Ultra Mix - Recorded by Peter Costello & Eric McRoberts - FOH mix by Peter Costello - Monitors by Aaron Gittleman - Lights by Jason Liggy Liggett - Video by Sean Smith - Edited, mixed and mastered by Eric McRoberts 03/12/2017
+	Set One (9:30PM - 10:46PM):
+01.  Jam @ ->
+02.  Cassidy # (SM) ->
+03.  Let It Grow Jam ->
+04.  Born Cross Eyed Jam $ ->
+05.  Tennessee Jed % (TH) ->
+06.  Jam %% ->
+07.  Chuckles ^ ->
+08.  Tequila & ->
+09.  Chuckles Reprise ^ ->
+10.  Big River (SM) >
+11.  Box Of Rain (JR)
+12.  Althea (TH) * >
+13.  Throwing Stones (SM)
+	Set Two (11:18PM - 12:41AM):
+01.  Deal (TH) >
+02.  Good Lovin + (SM) ->
+03.  Summer Nights Jam @@ ->
+04.  Good Lovin’ Reprise (SM) ->
+05.  Heartbreaker Jam ## ->
+06.  Cumberland Blues $$ (All) ->
+07.  Terrapin Station (TH) ->
+08.  The Other One Jam ->
+09.  Terrapin Suite (TH/JR) ^^
+	Encore: 
+10.  One More Saturday Night (SM)
+@ - With a China>Rider Transition Jam Tease (TH)
+# - Unfinished
+$ - With “Rainy Day Women #12 & 35” (Bob Dylan) Teases (Band)
+% - With a Spoonful Tease (SM) & a lengthy Marco Solo that included “Chopsticks”
+%% - With “Big River” teases
+^ - WOLF!! Original, First Time Played By Almost Dead
+& - The Champs Original, First Time Played By Almost Dead
+* - With a “So What” (Miles Davis) Tease (SM) & a full band “All of my Love” (Led Zeppelin) Jam
++ - With a back & forth between Marco & Scott that teased numerous jazz standards including “St. Thomas” (Sonny Rollins) & “Four” (Miles Davis)
+@@ - Olivia Newton-John & John Travolta / Grease Soundtrack Original, (AKA Summer Lovin’ - written by Jim Jacobs and Warren Casey). First Time Played By Almost Dead
+## - Led Zeppelin Original, First Time Played By Almost Dead
+$$ - With a “Heartbreaker” (Led Zeppelin) Tease (DD) & a Slipknot! Jam (Band)
+^^ - This is probably the 1st "split" Terrapin Suite, making me think that I should reassess how I note the full version of the song, vs. when 
+--- ITEMS: 1:Jam @ | 1:Cassidy # (SM) | 1:Let It Grow Jam | 1:Born Cross Eyed Jam $ | 1:Tennessee Jed % (TH) | 1:Jam %% | 1:Chuckles ^ | 1:Tequila & | 1:Chuckles Reprise ^ | 1:Big River (SM) | 1:Box Of Rain (JR) | 1:Althea (TH) | 1:Throwing Stones (SM) | 2:Deal (TH) | 2:Good Lovin + (SM) | 2:Summer Nights Jam @@ | 2:Good Lovin’ Reprise (SM) | 2:Heartbreaker Jam ## | 2:Cumberland Blues $$ (All) | 2:Terrapin Station (TH) | 2:The Other One Jam | 2:Terrapin Suite (TH/JR) ^^ | encore:One More Saturday Night (SM) | encore:@ - With a China | encore:Rider Transition Jam Tease (TH) | encore:# - Unfinished | encore:$ - With “Rainy Day Women #12 & 35” (Bob Dylan) Teases (Band) | encore:% - With a Spoonful Tease (SM) & a lengthy Marco Solo that included “Chopsticks” | encore:%% - With “Big River” teases | encore:^ - WOLF!! Original | encore:First Time Played By Almost Dead | encore:& - The Champs Original | encore:First Time Played By Almost Dead | encore:@@ - Olivia Newton-John & John Travolta / Grease Soundtrack Original | encore:## - Led Zeppelin Original | encore:First Time Played By Almost Dead | encore:$$ - With a “Heartbreaker” (Led Zeppelin) Tease (DD) & a Slipknot! Jam (Band) | encore:^^ - This is probably the 1st "split" Terrapin Suite | encore:making me think that I should reassess how I note the full version of the song | encore:vs. when they just play the first part that the GD usually played live... | encore:between sets & after. | encore:There is a higher quality 24 bit version of th
+    1 today=1       taper=1       target=1       tags           Jam @ ->
+    2 today=1       taper=1       target=1       tags           Cassidy # (SM) ->
+    3 today=1       taper=1       target=1       tags           Let It Grow Jam ->
+    4 today=1       taper=1       target=1       tags           Tennessee Jed % (TH) ->
+    5 today=1       taper=1       target=1       tags           Jam %% ->
+    6 today=1       taper=1       target=1       tags           Big River (SM) >
+    7 today=1       taper=1       target=1       tags           Box Of Rain (JR)
+    8 today=1       taper=1       target=1       tags           Althea (TH) * >
+    9 today=1       taper=1       target=1       tags           Throwing Stones (SM)
+*! 10 today=1       taper=2       target=1       tags           Deal (TH) >
+ ! 11 today=2       taper=2       target=1       tags           Good Lovin + (SM) ->
+ ! 12 today=2       taper=2       target=1       tags           Good Lovin’ Reprise (SM) ->
+ ! 13 today=2       taper=2       target=1       tags           Heartbreaker Jam ## ->
+   14 today=2       taper=2       target=2       tags           Cumberland Blues $$ (All) ->
+   15 today=2       taper=2       target=2       tags           Terrapin Station (TH) ->
+   16 today=2       taper=2       target=2       tags           The Other One Jam ->
+   17 today=2       taper=2       target=2       tags           Terrapin Suite (TH/JR) ^^
+ ! 18 today=encore  taper=encore  target=2       tags           One More Saturday Night (SM)
+==========================================================================================
+robertwalters20thcongress-2004-01-02 RWTC04-01-02.shnf src= description reason= None renum= True t_breaks= [10] t_enc= 16
+--- TEXT
+Set 1-Disk 1 
+1. Bygones Be
+2. Aquafresh
+3. Circle Limit
+4. Corry's Snail and Slug Death
+5. Rack and Pinion
+6. Greyboy
+7. Nautilus->
+8. Rapture (blondie)->
+9. Nautilus
+10.Freshman 10 
+Set 2:-Disk 2 
+1. El Cuervo 
+2. 2% Body Fat
+3. Shemp Time
+4. X->
+5. Planet of the Superkids
+6. Be Yourself
+==Encores==
+7. Instant Karma
+8. Instant Death
+--- ITEMS: 1:Bygones Be | 1:Aquafresh | 1:Circle Limit | 1:Corry's Snail and Slug Death | 1:Rack and Pinion | 1:Greyboy | 1:Nautilus | 1:Rapture (blondie) | 1:Nautilus | 1:Freshman 10 | 2:El Cuervo | 2:2% Body Fat | 2:Shemp Time | 2:X | 2:Planet of the Superkids | 2:Be Yourself | encore:Instant Karma | encore:Instant Death
+    1 today=1       taper=1       target=1       tags           Bygones Be
+    2 today=1       taper=1       target=1       tags           Aquafresh
+    3 today=1       taper=1       target=1       tags           Circle Limit
+    4 today=1       taper=1       target=1       tags           Corry's Snail and Slug Death
+    5 today=1       taper=1       target=1       tags           Rack and Pinion
+    6 today=1       taper=1       target=1       tags           Greyboy
+    7 today=1       taper=1       target=1       tags           Nautilus >
+    8 today=1       taper=1       target=1       tags           Nautilus
+    9 today=1       taper=1       target=1       tags           Freshman 10 (Pete McNeil on Drums)
+ ! 10 today=2       taper=2       target=1       tags           El Cuervo (Live Debut)
+   11 today=2       taper=2       target=2       tags           2% Body Fat
+   12 today=2       taper=2       target=2       tags           Shemp Time
+   13 today=2       taper=2       target=2       unresolved     RWTC04-01-02d2.shnf/RW2C04-01-02d2t04.mp3
+   14 today=2       taper=2       target=2       tags           Planet of the Superkids
+   15 today=2       taper=2       target=2       tags           Be Yourself
+*! 16 today=2       taper=encore  target=2       tags           Instant Karma
+*  17 today=2       taper=encore  target=encore  tags           Instant Death
+==========================================================================================
+derektrucksband-2003-12-26 dtb2003-12-26.flac16 src= description reason= None renum= False t_breaks= None t_enc= None
+--- TEXT
+Disc 1
+Set I
+01. Voluntary Slavery
+02. Gonna Move
+03. Sahib Teri/Maki Madni
+04. Preachin' Blues
+05. For My Brother
+06. Like Anyone Else
+07. I Wish I Knew
+08. Kickin' Bach 
+Disc 2
+Set II
+01. Soul Stew
+02. Everything
+03. Intro Angola
+04. Feel So Bad
+05. 7/4
+06. Leavin' Trunk
+Disc 3
+Set II (Cont.)
+01. Afro Blue
+02. Goin' Down Slow
+03. Joyful Noise
+Encore:
+04. 44 Blues
+05. Freddie's Dead
+
+--- ITEMS: 1:Voluntary Slavery | 1:Gonna Move | 1:Sahib Teri/Maki Madni | 1:Preachin' Blues | 1:For My Brother | 1:Like Anyone Else | 1:I Wish I Knew | 1:Kickin' Bach | 2:Soul Stew | 2:Everything | 2:Feel So Bad | 2:7/4 | 2:Leavin' Trunk | 2:Afro Blue | 2:Goin' Down Slow | 2:Joyful Noise | encore:44 Blues | encore:Freddie's Dead
+    1 today=1       taper=1       target=?       tags           Voluntary Slavery
+    2 today=1       taper=1       target=?       tags           Gonna Move
+    3 today=1       taper=1       target=?       tags           Sahib Teri/Maki Madni
+    4 today=1       taper=1       target=?       tags           Preachin' Blues
+    5 today=1       taper=1       target=?       tags           For My Brother
+    6 today=1       taper=1       target=?       tags           Like Anyone Else
+    7 today=1       taper=1       target=?       tags           I Wish I Knew
+    8 today=1       taper=1       target=?       tags           Kickin' Bach
+*   9 today=1       taper=2       target=?       tags           Soul Stew
+*  10 today=1       taper=2       target=?       tags           Everything
+*  11 today=1       taper=2       target=?       tags         F Intro Angola
+*  12 today=1       taper=2       target=?       tags           Feel So Bad
+*  13 today=1       taper=2       target=?       unresolved     dtb2003-12-26d2t05.mp3
+*  14 today=1       taper=2       target=?       tags           Afro Blue
+*  15 today=1       taper=2       target=?       tags           Goin' Down Slow
+*  16 today=1       taper=2       target=?       tags           Joyful Noise
+   17 today=encore  taper=encore  target=?       tags           44 Blues
+   18 today=encore  taper=encore  target=?       tags           Freddie's Dead
+==========================================================================================
+soundtribesector9-2007-07-08 sts92007-07-08.mk4.flac16 src= description reason= None renum= False t_breaks= None t_enc= None
+--- TEXT
+Set 1/Disc 1:
+01 - Intro/Murph
+02 - Instantly 
+03 - Move my Peeps
+04 - Velez *
+05 - Unquestionable Supremacy
+06 - Ramone & Emiglio
+07 - The Rabble
+08 - Open e
+Set 2/Disc 2:
+01 - Lo Swaga
+02 - 1103
+03 - One a Day
+04 - 303* >  
+05 - Hip-hop* >Surreality* > Eb* 
+06 - Blu Mood
+Set 2/Disc 3:
+Encore 1
+01 - Baraka
+02 - Evasive Maneuvers > Kamuy
+Encore 2
+03 - Grow
+--- ITEMS: 1:- Instantly | 1:- Move my Peeps | 1:- Velez | 1:- Unquestionable Supremacy | 1:- Ramone & Emiglio | 1:- The Rabble | 1:- Open e | 2:- Lo Swaga | 2:- 1103 | 2:- One a Day | 2:- 303 | 2:- Hip-hop | 2:Surreality | 2:Eb | 2:- Blu Mood | encore:- Baraka | encore:- Evasive Maneuvers | encore:Kamuy | encore:- Grow
+    1 today=1       taper=1       target=?       tags           Instantly
+    2 today=1       taper=1       target=?       tags           Move my Peeps
+    3 today=1       taper=1       target=?       tags           Velez *
+    4 today=1       taper=1       target=?       tags           Unquestionable Supremacy
+    5 today=1       taper=1       target=?       tags           Ramone & Emiglio
+    6 today=1       taper=1       target=?       tags           The Rabble
+    7 today=1       taper=1       target=?       tags           Open e
+*   8 today=1       taper=2       target=?       tags           Lo Swaga
+    9 today=2       taper=2       target=?       tags           1103
+   10 today=2       taper=2       target=?       tags           One a Day
+   11 today=2       taper=2       target=?       sibling-align   303 Improv*
+   12 today=2       taper=2       target=?       tags           Hip-hop* >Surreality* > Eb*
+   13 today=2       taper=2       target=?       tags           Blu Mood
+   14 today=encore  taper=encore  target=?       tags           Baraka
+   15 today=encore  taper=encore  target=?       tags           Evasive Maneuvers > Kamuy
+   16 today=encore  taper=encore  target=?       tags           Grow
+==========================================================================================
+thecodetalkers-2003-10-31 codetalkers2003-10-31.flac16 src= description reason= None renum= False t_breaks= None t_enc= None
+--- TEXT
+DISC 1 SET ONE
+01 Nash
+02 I'm So Glad
+03 Lima
+04 Basically Frightened*
+05 Body in the Lake
+06 When The World Comes Tumbling Down
+DISC 2 SET TWO
+01 Saturn!
+02 Turn On Your Lovelight
+03 Get to Know You Better >>
+04 Fixin' to Die  
+05 ENCORE: Diggin' Up Bones
+--- ITEMS: 1:Nash | 1:I'm So Glad | 1:Lima | 1:Basically Frightened | 1:Body in the Lake | 1:When The World Comes Tumbling Down | 2:Saturn! | 2:Turn On Your Lovelight | 2:Get to Know You Better | 2:Fixin' to Die | encore:Diggin' Up Bones
+    1 today=1       taper=1       target=?       tags           Nash (7:53)
+    2 today=1       taper=1       target=?       tags           I'm So Glad (8:19)
+    3 today=1       taper=1       target=?       tags           Lima (14:50)
+    4 today=1       taper=1       target=?       tags           Basically Frightened* (10:18)
+    5 today=1       taper=1       target=?       tags           Body in the Lake (8:37)
+    6 today=1       taper=1       target=?       tags           When The World Comes Tumbling Down (11:40)
+*   7 today=1       taper=2       target=?       tags           Saturn! (10:50)
+*   8 today=1       taper=2       target=?       tags           Turn On Your Lovelight (10:41)
+*   9 today=1       taper=2       target=?       tags           Get to Know You Better >> (10:04)
+*  10 today=1       taper=2       target=?       tags           Fixin' to Die (9:17)
+   11 today=encore  taper=encore  target=?       tags           ENCORE: Diggin' Up Bones (6:54)
