@@ -3559,3 +3559,89 @@ def test_shapes_the_ruling_does_not_admit(line):
     assert label(tt, "Sugaree") == "1"
     assert label(tt, "Ripple") == "2"
     assert tt.has_encore is False
+
+
+# Item 7, ruling (d), keep today's encore: no taper encore marker, and today's structure has
+# an encore after the taper's last placed numbered boundary, so the taper owns nothing.
+# gratefuldead-1968-12-07: md_gd1968-12-07.sbd.miller.88674.sbeok.flac16.json (description)
+GD_1968_12_07 = (
+    'Set 1\n'
+    '\n'
+    'Dark Star  ->\n'
+    'Saint Stephen  ->\n'
+    'The Eleven  \n'
+    "% Death Don't Have No Mercy  \n"
+    '% Cryptical Envelopment  ->\n'
+    'Drums  ->\n'
+    'The Other One  ->\n'
+    'Cryptical Envelopment  ->\n'
+    'Jam ->\n'
+    'New Potato Caboose  \n'
+    '%   \n'
+    '\n'
+    'Set 2\n'
+    '\n'
+    'Rosemary  \n'
+    '\n'
+    'He Was A Friend Of Mine  \n'
+    '\n'
+    'It Hurts Me Too  \n'
+    '\n'
+    'Morning Dew  ->\n'
+    'And We Bid You Good Night'
+)
+GD_1968_12_07_TRACKS = ['Dark Star >', 'St Stephen ->', 'The Eleven', "Death Don't Have No Mercy", "That's It For The Other One ->", 'New Potato Caboose', 'Rosemary', 'He Was A Friend Of Mine', 'It Hurts Me Too', 'Morning Dew ->', 'And We Bid You Goodnight']
+GD_1968_12_07_TODAY = ['1', '1', '1', '1', '1', '1', '2', '2', '2', '2', 'encore']
+
+
+def test_todays_encore_real_case_is_kept():
+    # The taper wrote Set 1 / Set 2 and no encore; today ships `And We Bid You Goodnight` as
+    # the encore. Owning would fold it into set 2.
+    tracks = _mk_today(GD_1968_12_07_TRACKS, GD_1968_12_07_TODAY)
+    d = decide_taper(tracks, {"description": GD_1968_12_07}, aliases=GD_SHORTHAND,
+                     today_sets=GD_1968_12_07_TODAY)
+    assert d.placement is None and d.reason == "veto: today's encore"
+    # The same tape with today's encore relabelled set 2: the taper owns it as before.
+    flat = ["1"] * 6 + ["2"] * 5
+    d = decide_taper(tracks, {"description": GD_1968_12_07}, aliases=GD_SHORTHAND,
+                     today_sets=flat)
+    assert d.placement is not None and d.placement.boundaries == (6,)
+
+
+TODAY_ENC_TRACKS = ["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin", "Ripple"]
+
+
+@pytest.mark.parametrize("today, owned", [
+    (["1", "1", "2", "2", "encore"], False),       # today's encore after the last break
+    (["1", "1", "encore", "encore", "encore"], False),  # ... starting right at it
+    (["1", "1", "2", "2", "2"], True),             # no encore today
+    (["1", "1", "1", "1", "1"], True),
+    (["encore", "1", "2", "2", "2"], True),        # today's encore before the last break
+])
+def test_todays_encore_rule_directions(today, owned):
+    text = "Set 1: Bertha, Let It Grow\nSet 2: Scarlet Begonias, Truckin, Ripple\n"
+    d = decide_taper(mk(TODAY_ENC_TRACKS), {"description": text}, aliases={}, today_sets=today)
+    assert (d.placement is not None) is owned, d.reason
+    if not owned:
+        assert d.reason == "veto: today's encore"
+    else:
+        assert d.placement.boundaries == (2,)
+
+
+def test_todays_encore_rule_off_when_the_taper_marks_an_encore():
+    text = "Set 1: Bertha, Let It Grow\nSet 2: Scarlet Begonias, Truckin\nEncore: Ripple\n"
+    d = decide_taper(mk(TODAY_ENC_TRACKS), {"description": text}, aliases={},
+                     today_sets=["1", "1", "2", "encore", "encore"])
+    assert d.placement is not None and d.placement.boundaries == (2, 4)
+
+
+def test_todays_encore_rule_uses_the_last_of_three_sets():
+    text = "Set 1: Bertha\nSet 2: Let It Grow, Scarlet Begonias\nSet 3: Truckin, Ripple\n"
+    tracks = mk(TODAY_ENC_TRACKS)
+    # today's encore sits inside the taper's set 2, before the last break (after track 3)
+    d = decide_taper(tracks, {"description": text}, aliases={},
+                     today_sets=["1", "2", "encore", "3", "3"])
+    assert d.placement is not None and d.placement.boundaries == (1, 3)
+    d = decide_taper(tracks, {"description": text}, aliases={},
+                     today_sets=["1", "2", "2", "3", "encore"])
+    assert d.placement is None and d.reason == "veto: today's encore"

@@ -581,7 +581,8 @@ class TaperDecision:
     placement: TaperPlacement | None  # None when not owned
     taper: TaperText
     source: str  # "description" | "notes" | "none"
-    reason: str | None  # why not owned
+    reason: str | None  # why not owned (the reader's reason, "veto: track title",
+    # "veto: encore-like text", a placement decline, or "veto: today's encore")
 
 
 def _counts(track: Track) -> bool:
@@ -689,4 +690,10 @@ def decide_taper(tracks: list[Track], meta: dict, *, aliases: dict[str, str],
     placed = place_taper_structure(tracks, taper, aliases=aliases, today_sets=today_sets)
     if isinstance(placed, str):
         return TaperDecision(None, taper, source, placed)
+    if not taper.has_encore and "encore" in today_sets[placed.boundaries[-1]:]:
+        # Operator ruling 2026-10-22 (Checkpoint A, (d)), keep today's encore: the taper
+        # marks no encore, and today's structure has one after the taper's last numbered
+        # boundary. Owning would fold it into the last set; the show is computed as today.
+        # This only turns ownership off: the two structures are never merged.
+        return TaperDecision(None, taper, source, "veto: today's encore")
     return TaperDecision(placed, taper, source, None)
