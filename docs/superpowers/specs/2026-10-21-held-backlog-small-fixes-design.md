@@ -74,9 +74,11 @@ Invariants:
   stripped, as the swap arm strips it. No new normalization.
 - The tie-break applies only when the selected recording's venue string and the
   vote's are `venues_equivalent` (one name, spelled or phrased two ways). Owner
-  ruling, measured 2026-10-21: about 38 of 234 ties were different names, where
-  the selected string was no better on average ("9:30 Club" -> "Nightclub"),
-  so those ship the vote unchanged.
+  ruling, measured 2026-10-21: 58 of 234 ties were not `venues_equivalent`,
+  where the selected string was no better on average ("9:30 Club" ->
+  "Nightclub"), so those ship the vote unchanged. About 20 of the 58 are one
+  venue spelled in a way the predicate does not fold (`1st`/`First Avenue`,
+  `Ironhorse`/`Iron Horse`); they keep the vote, as before this change.
 - The tie-break applies only when the selected recording's city is blank or
   `cities_compatible` with the vote's city; otherwise the vote ships
   unchanged, venue and city both. When it applies, the city is
