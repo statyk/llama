@@ -10,6 +10,8 @@ gather). Two subcommands, both writing only under `--out`:
          library show (tracks from its `show.json`).
   forms  per recognised form / void / veto rule, the matching lines over every cached
          `md_*.json` description and notes field, plus a sample file for review.
+  delta  compare two `gate` output dirs (`--old`, `--new`): rows newly owned and newly not
+         owned, each with its reason, for the gate rows and the library pass.
 
 Run it with the tree's own interpreter: `./.venv/bin/python scripts/taper_probe.py gate
 --out ~/.llama-harness/piece2/gate`. The library, the cache and the bundles are only read;
@@ -455,12 +457,33 @@ def _set_form(m: re.Match) -> str:
     return "set header: Set N/one/I"
 
 
+# Checkpoint A additions (ruling (b)'s annotation, the veto gap).
+_ANNOTATED = re.compile(r"\(\s*\d{1,3}:\d{2}|\.{2,}|…")
+
+
+def _header_form(core: str):
+    """(form name, match) for the numbered-set header regex matching `core`, if any."""
+    m = taper._SET_HEADER.match(core)
+    if m:
+        return _set_form(m), m
+    m = taper._DISC_SET_HEADER.match(core)
+    if m:
+        return "set header: Disc N + Set M (disc first)", m
+    m = taper._SET_DISC_HEADER.match(core)
+    if m:
+        return "set header: Set M + Disc N (set first, ruling c)", m
+    return None, None
+
+
 def line_hits(text: str) -> list[tuple[str, str]]:
     """(form or rule, line) hits for one text: marker forms and veto rules per line."""
     hits: list[tuple[str, str]] = []
     cleaned = html.unescape(_clean(text))
     for ln in cleaned.splitlines():
-        if len(_INLINE_MARKER.findall(ln)) > 0:
+        held = taper._split_set_and_encore(ln.strip())
+        if held:
+            hits.append(("rule: set-and-encore header held before the inline split", ln.strip()))
+        if len(_INLINE_MARKER.findall(held[1] if held else ln)) > 0:
             hits.append(("inline-split marker (mid-line Set/E/Encore)", ln.strip()))
     lines = taper._preprocess(text)
     enumerated = _enumerated_prefix(lines)
@@ -472,18 +495,19 @@ def line_hits(text: str) -> list[tuple[str, str]]:
         core = _TRACK_PREFIX.sub("", line)
         if enumerated:
             core = _NUM_PREFIX.sub("", core)
-        m = taper._SET_HEADER.match(core)
-        d = taper._DISC_SET_HEADER.match(core) if not m else None
-        e = taper._ENCORE_HEADER.match(core)
-        eh = taper._E_HEADER.match(core)
+        form, mm = _header_form(core)
+        e = taper._ENCORE_HEADER.match(core) if not mm else None
+        eh = taper._E_HEADER.match(core) if not (mm or e) else None
         rest = core
-        if m or d:
-            mm = m or d
-            hits.append((_set_form(mm) if m else "set header: Disc N (Set M)", line))
+        if mm:
+            hits.append((form, line))
             if mm.group("cont"):
                 hits.append(("rule: continuation header (Set N cont.)", line))
             if mm.group("andenc"):
                 hits.append(("rule: header naming set and encore", line))
+            head = core[:mm.start("rest")] if mm.group("rest") is not None else core
+            if _ANNOTATED.search(head):
+                hits.append(("rule: header + (duration|time) or ... (ruling b)", line))
             rest = mm.group("rest") or ""
         elif e:
             ordinal = re.match(r"^[-–—*~=\[\]()\s]*(?:1st|2nd|3rd|first|second|third)", core, re.I)
@@ -494,7 +518,9 @@ def line_hits(text: str) -> list[tuple[str, str]]:
             word = re.match(r"^[-–—*~=\s]*(enc)(?!\w)", core, re.I)
             hits.append(("encore header: ENC" if word else "encore header: E/E<digit>", line))
             rest = eh.group("rest") or ""
-        song_side = not (m or d or e or eh)
+        if (e or eh) and taper._ENCORE_NONE.match(rest):
+            hits.append(("void input: encore none / no encore / n/a", line))
+        song_side = not (mm or e or eh)
         probe = core if song_side else rest
         # `_scan` tests a song line's encore words on the whole line, a marker line's on the rest.
         if taper._ENCORE_WORDS.search(line if song_side else rest):
@@ -509,6 +535,10 @@ def line_hits(text: str) -> list[tuple[str, str]]:
         if any(taper._ENCORE_LIKE_ITEM.match(t.strip(taper._ITEM_DECOR))
                for t, _ in _split_songs(p)):
             hits.append(("veto R4(a,c): split item exactly E / E<digit> / ENC", line))
+        if (re.search(r"\bencor\b", line if song_side else rest, re.I)
+                or taper._ENCORE_GLUED.match(p) or taper._ENCORE_E_SPACE.match(p)
+                or taper._ENCORE_DECORATED_E.search(p)):
+            hits.append(("veto Checkpoint A gap: Encor / 9E. / E Title / E~ / -e-", line))
     return hits
 
 
@@ -577,6 +607,68 @@ def forms_outputs(root: Path) -> tuple[str, str]:
     return "\n".join(summ) + "\n", "\n".join(samples) + "\n"
 
 
+# --- delta (two gate runs) ---
+
+def _rows_by_slug(path: Path) -> dict[str, dict]:
+    return {r["slug"]: r for r in read_jsonl(path)} if path.exists() else {}
+
+
+def _owned(r: dict | None) -> bool:
+    return bool(r) and r.get("status") == "owned"
+
+
+def _why(r: dict | None) -> str:
+    if not r:
+        return "absent"
+    return r.get("reason") or r.get("status") or ""
+
+
+def delta_rows(old: dict[str, dict], new: dict[str, dict], scope_only: bool = False):
+    """(newly owned, newly not owned, owned in both with different labels)."""
+    slugs = sorted(set(old) | set(new))
+    if scope_only:
+        slugs = [s for s in slugs if (new.get(s) or old.get(s) or {}).get("in_scope")]
+    gained = [(s, _why(old.get(s)), new[s]) for s in slugs
+              if _owned(new.get(s)) and not _owned(old.get(s))]
+    lost = [(s, _why(new.get(s)), old[s]) for s in slugs
+            if _owned(old.get(s)) and not _owned(new.get(s))]
+    moved = [(s, old[s], new[s]) for s in slugs if _owned(old.get(s)) and _owned(new.get(s))
+             and old[s].get("taper") != new[s].get("taper")]
+    return gained, lost, moved
+
+
+def delta_summary(old_dir: Path, new_dir: Path) -> str:
+    out = [f"# taper probe delta: {old_dir} -> {new_dir}"]
+    og, ng = _rows_by_slug(old_dir / "gate_rows.jsonl"), _rows_by_slug(new_dir / "gate_rows.jsonl")
+    o_scope = {s for s, r in og.items() if r.get("in_scope")}
+    n_scope = {s for s, r in ng.items() if r.get("in_scope")}
+    out.append(f"in-scope rows: old {len(o_scope)}, new {len(n_scope)}, "
+               f"identical set: {o_scope == n_scope}")
+    for title, old, new, scope_only in (
+            ("gate rows, in scope", og, ng, True), ("gate rows, all yes/partial", og, ng, False),
+            ("library", _rows_by_slug(old_dir / "library_rows.jsonl"),
+             _rows_by_slug(new_dir / "library_rows.jsonl"), False)):
+        gained, lost, moved = delta_rows(old, new, scope_only)
+        out += ["", f"## {title}: newly owned {len(gained)}, newly not owned {len(lost)}, "
+                    f"owned in both with different labels {len(moved)}"]
+        out.append("### newly not owned, by reason")
+        for k, v in sorted(Counter(w for _, w, _ in lost).items(), key=lambda kv: -kv[1]):
+            out.append(f"  {v:4d}  {k}")
+        out.append("### newly owned, by old reason")
+        for k, v in sorted(Counter(w for _, w, _ in gained).items(), key=lambda kv: -kv[1]):
+            out.append(f"  {v:4d}  {k}")
+        out.append("### newly owned rows")
+        for s, w, r in gained:
+            extra = f" [{r['tier']}]" if r.get("tier") else ""
+            extra += f" match={r['match']}" if r.get("match") else ""
+            out.append(f"  {s}{extra}  (was: {w})")
+        out.append("### newly not owned rows")
+        out += [f"  {s}  ({w})" for s, w, _ in lost]
+        out.append("### owned in both, labels changed")
+        out += [f"  {s}  [{o.get('tier')}] -> [{n.get('tier')}]" for s, o, n in moved]
+    return "\n".join(out) + "\n"
+
+
 # --- CLI ---
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
@@ -585,7 +677,9 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("cmd", choices=("gate", "forms"))
+    ap.add_argument("cmd", choices=("gate", "forms", "delta"))
+    ap.add_argument("--old", type=Path, help="delta: the earlier gate output dir")
+    ap.add_argument("--new", type=Path, help="delta: the later gate output dir")
     ap.add_argument("--root", type=Path, default=DEFAULT_ROOT)
     ap.add_argument("--bundles", type=Path, default=DEFAULT_BUNDLES)
     ap.add_argument("--evidence", type=Path, default=DEFAULT_EVIDENCE)
@@ -607,6 +701,13 @@ def main(argv: list[str] | None = None) -> int:
         _write_jsonl(out / "library_rows.jsonl", lib)
         (out / "library_summary.txt").write_text(library_summary(lib))
         print((out / "gate_summary.txt").read_text().split("## counts by primary")[0])
+    elif args.cmd == "delta":
+        if not (args.old and args.new):
+            print("delta needs --old and --new", file=sys.stderr)
+            return 2
+        text = delta_summary(args.old.expanduser(), args.new.expanduser())
+        (out / "delta_summary.txt").write_text(text)
+        print(text.split("### newly owned rows")[0])
     else:
         summ, samples = forms_outputs(root)
         (out / "forms_summary.txt").write_text(summ)

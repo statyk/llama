@@ -147,3 +147,63 @@ def test_probe_refuses_out_inside_library(world, capsys):
                   "--evidence", str(ev), "--out", str(root / "shows" / "x")])
     assert rc == 2
     assert not (root / "shows").exists()
+
+
+def test_forms_counts_the_checkpoint_a_forms_and_rules(tmp_path):
+    root = tmp_path / "root"
+    (root / "cache").mkdir(parents=True)
+    desc = ("Set I Disc 1: 74:16\nAlpha\nDisk 2: Set 2\nBravo\nSET THREE (50:28)\nCharlie\n"
+            "Set 3 & Encore: Delta\nEncore: none\n9E.Echo\n")
+    (root / "cache" / "md_x.json").write_text(json.dumps({"metadata": {"description": desc}}))
+    _, lines, _, _, _ = tp.forms_scan(root)
+    assert lines["set header: Set M + Disc N (set first, ruling c)"] == 1
+    assert lines["set header: Disc N + Set M (disc first)"] == 1
+    assert lines["rule: header + (duration|time) or ... (ruling b)"] == 1
+    assert lines["rule: set-and-encore header held before the inline split"] == 1
+    assert lines["void input: encore none / no encore / n/a"] == 1
+    assert lines["veto Checkpoint A gap: Encor / 9E. / E Title / E~ / -e-"] == 1
+    # the held set-and-encore line is no inline split: only its rest could be
+    assert lines["inline-split marker (mid-line Set/E/Encore)"] == 0
+
+
+def _gate_dir(path: Path, gate: list[dict], lib: list[dict]) -> Path:
+    path.mkdir(parents=True)
+    tp._write_jsonl(path / "gate_rows.jsonl", gate)
+    tp._write_jsonl(path / "library_rows.jsonl", lib)
+    return path
+
+
+def test_delta_lists_newly_owned_and_newly_not_owned(tmp_path):
+    old = _gate_dir(tmp_path / "old", [
+        {"slug": "g1", "in_scope": True, "status": "not-asserted(one set)", "reason": "one set"},
+        {"slug": "g2", "in_scope": True, "status": "owned", "reason": None},
+        {"slug": "g3", "in_scope": False, "status": "owned", "reason": None},
+    ], [
+        {"slug": "l1", "status": "owned", "reason": None, "taper": ["1", "2"], "tier": None},
+        {"slug": "l2", "status": "unplaced(x)", "reason": "unplaced: x"},
+    ])
+    new = _gate_dir(tmp_path / "new", [
+        {"slug": "g1", "in_scope": True, "status": "owned", "reason": None, "match": "match"},
+        {"slug": "g2", "in_scope": True, "status": "not-asserted(veto: today's encore)",
+         "reason": "veto: today's encore"},
+        {"slug": "g3", "in_scope": False, "status": "owned", "reason": None},
+    ], [
+        {"slug": "l1", "status": "owned", "reason": None, "taper": ["1", "1"],
+         "tier": "sets merged"},
+        {"slug": "l2", "status": "owned", "reason": None, "taper": ["1", "2"],
+         "tier": "sets split"},
+    ])
+    text = tp.delta_summary(old, new)
+    assert "in-scope rows: old 2, new 2, identical set: True" in text
+    scope = text.split("## gate rows, in scope")[1].split("## gate rows, all")[0]
+    assert "newly owned 1, newly not owned 1" in scope
+    assert "  g1 match=match  (was: one set)" in scope
+    assert "  g2  (veto: today's encore)" in scope
+    lib = text.split("## library")[1]
+    assert "newly owned 1, newly not owned 0, owned in both with different labels 1" in lib
+    assert "  l2 [sets split]  (was: unplaced: x)" in lib
+    assert "  l1  [None] -> [sets merged]" in lib
+    out = tmp_path / "out"
+    assert tp.main(["delta", "--old", str(old), "--new", str(new), "--out", str(out),
+                    "--root", str(tmp_path / "root"), "--bundles", str(tmp_path / "b")]) == 0
+    assert (out / "delta_summary.txt").read_text() == text
