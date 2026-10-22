@@ -613,6 +613,22 @@ def _before_labels(b: dict, stored: list) -> list:
     return _apply_set_changes(stored, b.get("set_changes"))
 
 
+def _is_encore(label) -> bool:
+    return str(label).lower() in ("encore", "e")
+
+
+def _runs(labels: list) -> str:
+    """Compact label runs: ['1','1','2','encore'] -> '1x2 2x1 encorex1'."""
+    out, i = [], 0
+    while i < len(labels):
+        j = i
+        while j < len(labels) and labels[j] == labels[i]:
+            j += 1
+        out.append(f"{labels[i]}x{j - i}")
+        i = j
+    return " ".join(out) or "-"
+
+
 def _tier(before: list, after: list, filler: list, base_owned: bool, cand_owned: bool) -> str | None:
     if before == after:
         return "provenance only" if cand_owned and not base_owned else None
@@ -622,6 +638,8 @@ def _tier(before: list, after: list, filler: list, base_owned: bool, cand_owned:
     b, a = [before[i] for i in keep], [after[i] for i in keep]
     if _label_breaks(b) != _label_breaks(a):
         return "songs moved"
+    if [_is_encore(x) for x in b] != [_is_encore(x) for x in a]:
+        return "songs moved"           # a set became (or stopped being) the encore: a boundary kind changed
     return "labels renamed" if b != a else "filler labels only"
 
 
@@ -633,16 +651,13 @@ def _is_voiced(delivery: Path | None, slug: str) -> bool:
 
 
 def _delivery_path(config_path: Path | None) -> Path | None:
-    if config_path is not None and not config_path.exists():
-        raise Refusal(f"no such config: {config_path}")
     return load_config(config_path or DEFAULT_ROOT / "config.toml").delivery_path   # as `run`
 
 
 TAPER_TIERS = ("songs moved", "labels renamed", "filler labels only", "provenance only")
 
 
-def _taper_changes(base: dict, cand: dict, root: Path, config_path: Path | None) -> tuple[list[str], dict]:
-    delivery, delivery_read = None, False
+def _taper_changes(base: dict, cand: dict, root: Path, delivery: Path | None) -> tuple[list[str], dict]:
     tiers: dict[str, list[str]] = {t: [] for t in TAPER_TIERS}
     not_owned_nl = 0
     for slug, c in sorted(cand["shows"].items()):
@@ -660,14 +675,14 @@ def _taper_changes(base: dict, cand: dict, root: Path, config_path: Path | None)
             continue
         state = str(c.get("state"))
         if state == "delivered":
-            if not delivery_read:
-                delivery, delivery_read = _delivery_path(config_path), True
             if _is_voiced(delivery, slug):
                 state = "voiced"
+        step1 = ("overruled" if before != after else "step1")   # nothing was overruled when labels agree
         tiers[tier].append(
             f"  {slug}  [{state}]  before {_j(_label_breaks(before))} after {_j(_label_breaks(after))} "
-            f"stored {_j(_label_breaks(stored))}  source: {c.get('taper_source')}  "
-            f"overruled: {c.get('step1_alignment')}")
+            f"stored {_j(_label_breaks(stored))}  labels: before {_runs(before)} | after {_runs(after)} "
+            f"| stored {_runs(stored)}  source: {c.get('taper_source')}  "
+            f"{step1}: {c.get('step1_alignment')}")
     out = [f"needs-LLM in the candidate and not taper-owned (unchanged by this piece, not listed): "
            f"{not_owned_nl}", ""]
     for t in TAPER_TIERS:
@@ -687,7 +702,8 @@ def _taper_changes(base: dict, cand: dict, root: Path, config_path: Path | None)
     moved = []
     for slug, c in sorted(cand["shows"].items()):
         b = base["shows"][slug]
-        if "stored alignment llm" in (b.get("needs_llm") or []) and c.get("outcome") != "needs-llm":
+        if ("stored alignment llm" in (b.get("needs_llm") or [])
+                and c.get("outcome") not in ("needs-llm", "unreplayable")):
             moved.append(f"  {slug}  [{c.get('state')}]  taper_owned: {_j(c.get('taper_owned'))}  "
                          f"segue changes: {_j(c.get('segue_changes'))}")
     out += _lines(f"== stored-llm shows now replayable ({len(moved)})", moved)
@@ -949,6 +965,10 @@ def _write(out: Path, name: str, lines: list[str]) -> None:
 
 def compare(args: argparse.Namespace) -> int:
     base, cand = _load_arm(args.base), _load_arm(args.cand)
+    config_arg = getattr(args, "config", None)
+    if config_arg is not None and not config_arg.exists():    # before anything is written, as `run`
+        raise Refusal(f"no such config: {config_arg}")
+    delivery = _delivery_path(config_arg)      # a malformed config also refuses before any write
     _gates(base, cand)
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
@@ -994,7 +1014,7 @@ def compare(args: argparse.Namespace) -> int:
     tc, tcounts = _taper_cleared(base, cand), {}
     if not stripped:   # a stripped arm replays without the operator's overrides: not the shipped library
         _write(out, "taper_cleared.txt", _lines("shows held in base and cleared (or structure-changed) in cand:", tc))
-        tch, tcounts = _taper_changes(base, cand, root, getattr(args, "config", None))
+        tch, tcounts = _taper_changes(base, cand, root, delivery)
         _write(out, "taper_changes.txt", tch)
     (out / "narration_candidates.html").write_text(_narration_page(cand, root), encoding="utf-8")
 
@@ -1033,6 +1053,8 @@ def compare(args: argparse.Namespace) -> int:
     ] + (["taper reports: not written (arms replayed with --strip-structure-overrides)"] if stripped else [
         f"taper_cleared.txt: {sum(1 for x in tc if not x.startswith(' '))} show(s)",
         "taper_changes.txt: " + ", ".join(f"{k} {v}" for k, v in tcounts.items()),
+        f"voiced check: delivery_path {delivery}" if delivery is not None
+        else "voiced check: off (no delivery_path in config)",
     ]) + ([f"apply lists: not written (arms replayed with --strip-structure-overrides)"] if stripped else [
         f"predicted_list.json: {len(predicted)} row(s)",
         f"structure_changed_list.json: {len(sclist)} row(s)",
