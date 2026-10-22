@@ -3724,3 +3724,101 @@ def test_tripwire_runs_on_owned_show_agreeing_with_anchoring(tmp_path, monkeypat
     assert res.show.structure.alignment == "jerrybase"
     assert calls == [1]
     assert _closer_flags(res) == []
+
+
+# --- Held-backlog piece 2, Task 8 (orchestrator ruling R14): killing tests for
+# mutants the Task 4/5 reviews found surviving. The mutation record
+# (docs/superpowers/2026-10-22-taper-set-markers-sdd/mutation.md) cites each.
+
+from llama.stages.gather import _CLOSER_FLAG
+
+
+def _closer_flag(closer):
+    flag = f"jerrybase set closer '{closer}' is not at a set break"
+    assert _CLOSER_FLAG.match(flag)          # the helper parses it, so `kept` is a verdict
+    return flag
+
+
+def test_set_count_note_excludes_the_taper_encore(tmp_path, monkeypatch):
+    """Task 5 M5: the taper's numbered set count leaves its encore out. Two
+    numbered sets plus an encore against jerrybase's three numbered sets
+    disagree, so the count flag is a note; counting the encore would make
+    the counts agree and keep the hold."""
+    _jb(monkeypatch, ("Charlie", "1"), ("Echo", "2"), ("Foxtrot", "3"))
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC), jerrybase_enabled=True)
+    assert res.taper_owned is True
+    assert res.taper.taper.has_encore is True
+    assert _count_flags(res) == []
+    assert "structure has 2 sets but jerrybase shows 3 (taper's markers)" in res.notes
+
+
+@pytest.mark.parametrize("taper_closer, jb_closer", [
+    ("charlie brown", "Charlie Brown"),                                    # case
+    ("Me & My Uncle", "Me and My Uncle"),                                  # & / and
+    ("Mississippi Half Step", "Mississippi Half-Step Uptown Toodeloo"),    # dropped subtitle
+])
+def test_closer_agreement_uses_fuzzy_song_matching(taper_closer, jb_closer):
+    """Task 5 M6: the taper's set-k last song is compared with jerrybase's
+    closer by the fuzzy song matcher, so a spelling-only difference agrees
+    and the flag stays hard (it is then about llama's placement)."""
+    taper = taper_mod.read_taper_structure(
+        f"Set 1:\nAlpha\nBravo\n{taper_closer}\nSet 2:\nDelta\nEcho\nFoxtrot\nEncore:\nGolf")
+    assert [i.title for i in taper.items if i.set == "1"][-1] == taper_closer
+    event = _jb_event([(jb_closer, "1"), ("Foxtrot", "2")])
+    flag = _closer_flag(jb_closer)
+    kept, count, notes = demote_jerrybase_flags([flag], None, event, taper)
+    assert kept == [flag] and count is None and notes == []
+
+
+def test_closer_maps_to_the_taper_set_of_the_same_number():
+    """Task 5 M2: jerrybase set 1's closer is compared with the taper's SET 1
+    last song, not with the last song of any taper set. Foxtrot closes the
+    taper's set 2, so jerrybase's set-1 closer Foxtrot disagrees: a note."""
+    taper = taper_mod.read_taper_structure(TP_DESC)
+    event = _jb_event([("Foxtrot", "1"), ("Golf", "2")])
+    flag = _closer_flag("Foxtrot")
+    kept, count, notes = demote_jerrybase_flags([flag], None, event, taper)
+    assert kept == [] and count is None
+    assert notes == ["jerrybase set closer 'Foxtrot' is not at a set break (taper's markers)"]
+
+
+def test_duplicate_closer_flags_consume_sets_in_order():
+    """Task 5 M3: two jerrybase sets with the same closer give two identical
+    flags; the first maps to set 1 and the second to set 2. The taper's set 1
+    ends on Charlie (disagrees: a note) and its set 2 on Foxtrot (agrees:
+    stays hard). Mapping both to set 1 would demote both."""
+    taper = taper_mod.read_taper_structure(TP_DESC)
+    event = _jb_event([("Foxtrot", "1"), ("Foxtrot", "2")])
+    flag = _closer_flag("Foxtrot")
+    kept, count, notes = demote_jerrybase_flags([flag, flag], None, event, taper)
+    assert kept == [flag] and count is None
+    assert notes == ["jerrybase set closer 'Foxtrot' is not at a set break (taper's markers)"]
+
+
+def test_filler_only_label_difference_keeps_step_one_alignment(tmp_path, monkeypatch):
+    """Task 4 M4: an owned decision whose labels differ from step 1's ONLY on a
+    filler track is not a structure change: `alignment` stays step 1's and no
+    "was" note is written. `decide_taper` is patched, since the real one
+    cannot produce a filler-only difference while Task 2's filler rule holds."""
+    titles = ["Alpha", "Bravo", "Charlie", "Tuning", "Delta", "Echo", "Foxtrot"]
+    md = _tp_md(titles, "Set 1:\nAlpha\nBravo\nCharlie\nSet 2:\nDelta\nEcho\nFoxtrot")
+    seen = {}
+
+    def filler_only(tracks, meta, *, aliases, today_sets):
+        labels = list(today_sets)
+        assert gather_mod.is_filler(tracks[3].title)
+        labels[3] = "2" if labels[3] == "1" else "1"
+        seen["step1"], seen["shipped"] = list(today_sets), labels
+        bounds = tuple(i + 1 for i in range(len(labels) - 1) if labels[i] != labels[i + 1])
+        return taper_mod.TaperDecision(
+            taper_mod.TaperPlacement(sets=tuple(labels), boundaries=bounds),
+            taper_mod.read_taper_structure(meta["description"]), "description", None)
+
+    monkeypatch.setattr(taper_mod, "decide_taper", filler_only)
+    res = _tp_gather(tmp_path, md)
+    assert res.taper_owned is True
+    assert seen["shipped"] != seen["step1"]                   # the labels do differ ...
+    assert [i for i, (a, b) in enumerate(zip(seen["shipped"], seen["step1"])) if a != b] == [3]
+    assert _labels(res) == seen["shipped"]                    # ... and ship
+    assert res.show.structure.alignment == res.step1_alignment == "deterministic"
+    assert _was_notes(res) == []
