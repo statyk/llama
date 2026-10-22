@@ -1,4 +1,4 @@
-"""The taper's own set/encore markers, read for STRUCTURE ONLY (held-backlog piece 2).
+r"""The taper's own set/encore markers, read for STRUCTURE ONLY (held-backlog piece 2).
 
 Spec: `docs/superpowers/specs/2026-10-22-taper-set-markers-design.md`, sections 1 and 2.
 
@@ -25,8 +25,32 @@ Recognised forms are EXACTLY the spec's section 1 list, and nothing else:
 
 Everything else (bare digits `1:`/`[1]`, bare roman numerals, `S1`, `E.`, `(E)`, a trailing
 `enc`, parenthetical `(set II)` mid-line, `Early`/`Late`/`Acoustic Set`, `Early Show`, act
-headers) is not a marker. Encore-like text outside a recognised marker sets
-`TaperText.encore_like`, the input to section 2's veto.
+headers) is not a marker.
+
+Encore-like text sets `TaperText.encore_like`, the input to section 2's veto (when there is
+no recognised encore marker, the taper owns nothing). It never starts an encore. It is
+matched on song lines and on the song text after a marker, never on the marker itself:
+
+- `\bencores?\b` or `\benc\b` anywhere (`encore break`, `Ripple (Encore)`, prose);
+- a song line starting `E.`, `E)`, `E` plus a digit or `(E)`, after the track-prefix strip
+  and also after an unconditional leading `\d{1,3}\s+` strip, so `14 E. Playin' Reprise`
+  counts on a text that is not enumerated (ruling R4 (d));
+- a split song item that is exactly `E`, `E<digit>` or `ENC` once decoration is stripped
+  (`... Day Tripper, E`, an own-line `[E]` or `(E)`; ruling R4 (a), (c));
+- a song line ending ` E`, ` (E)`, ` [E]` or `, E` (`Traffic Jam E`, `US Blues (E)`; ruling
+  R4 (b)). Accepted collateral: a title such as `D to E` also counts. It only makes the
+  taper own less;
+- a header naming both a set and the encore (`Set 2 + Encore`), which names an encore it
+  does not start.
+
+Beyond section 2's void rules (decreasing, restarting or skipping set numbers, set 4 or
+higher, a numbered marker after the encore, an empty set), three own-less voids are this
+module's own reading:
+
+- a continuation header (`Set 2 cont.`) whose set never started under its own header;
+- an empty set at the END of the text (`... Encore:` with nothing after it), not only one
+  followed directly by another header;
+- a set holding only filler (`Set 1:` then `Tuning`) counts as empty.
 """
 
 from __future__ import annotations
@@ -145,6 +169,13 @@ _TIMESTAMP_ONLY = re.compile(rf"^{_TIMESTAMP}$")
 _ENCORE_WORDS = re.compile(r"\bencores?\b|\benc\b", re.I)
 # A song line (after track-prefix stripping) starting `E.`, `E)`, `E` plus a digit, `(E)`.
 _ENCORE_LIKE_START = re.compile(r"^(?:e[.)]|e\d|\(e\))", re.I)
+# The same test is also made after this unconditional bare-number strip (ruling R4 (d)).
+_LEADING_NUMBER = re.compile(r"^\d{1,3}\s+")
+# A song line ending ` E`, ` (E)`, ` [E]` or `, E` (ruling R4 (b)).
+_ENCORE_LIKE_END = re.compile(r"\s(?:e|\(e\)|\[e\])$|,\s*e$", re.I)
+# A split song item that is only `E`, `E<digit>` or `ENC` (ruling R4 (a), (c)).
+_ENCORE_LIKE_ITEM = re.compile(r"^(?:e\d?|enc)$", re.I)
+_ITEM_DECOR = "-–—*~=[]() \t"
 
 
 def _preprocess(text: str) -> list[str]:
@@ -206,7 +237,21 @@ class _Scan:
         return self.songs.get(lab, 0) == 0
 
 
+def _encore_like(song_text: str) -> bool:
+    """Section 2's encore-like rules (plus ruling R4) on one piece of song text: a song
+    line after its track-prefix strip, or the song text after a marker."""
+    text = song_text.strip()
+    if _ENCORE_WORDS.search(text) or _ENCORE_LIKE_END.search(text):
+        return True
+    if _ENCORE_LIKE_START.match(text) or _ENCORE_LIKE_START.match(_LEADING_NUMBER.sub("", text)):
+        return True
+    return any(_ENCORE_LIKE_ITEM.match(title.strip(_ITEM_DECOR)) for title, _ in _split_songs(text))
+
+
 def _song_titles(rest: str, enumerated: bool) -> list[str]:
+    """Song items from the text after a marker, or from a whole (unstripped) song line.
+    The track prefix is stripped exactly ONCE here, as `_emit_items` strips it: stripping
+    it twice would turn `02 100 Years` into `Years` on an enumerated text."""
     rest = _TRACK_PREFIX.sub("", rest)
     if enumerated:
         rest = _NUM_PREFIX.sub("", rest)
@@ -236,14 +281,16 @@ def _scan(text: str) -> _Scan:
             core = _NUM_PREFIX.sub("", core)
         kind, number, cont, and_encore, rest = _classify(core)
         if kind == "song":
-            if _ENCORE_WORDS.search(line) or _ENCORE_LIKE_START.match(core):
+            if _ENCORE_WORDS.search(line) or _encore_like(core):
                 s.encore_like = True
             if _NOISE.search(line):
                 continue
+            # The whole line, unstripped: `_song_titles` does the one prefix strip.
+            rest = line
         else:
             s.saw_marker = True
-            # The rest of a marker line is song text, so encore-like words there count.
-            if _ENCORE_WORDS.search(rest):
+            # The rest of a marker line is song text, so encore-like text there counts.
+            if _encore_like(rest):
                 s.encore_like = True
         if kind == "set":
             _numbered(s, number, cont, and_encore)

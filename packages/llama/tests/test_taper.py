@@ -1303,6 +1303,63 @@ CALEXICO_2003_04_25 = (
 )
 
 
+# a sibling recording of gratefuldead-1985-03-31: md_gd1985-03-31.sonyecm220t.keshavan.miller.106791.flac16.json (description)
+GD_1985_03_31 = (
+    'Set 1\n'
+    '\n'
+    'The Music Never Stopped, Candyman-> CC Rider-> Loser, Beat It On Down The Line,'
+    " Dupree's Diamond Blues, It's All Over Now-> Don't Ease Me In\n"
+    '\n'
+    'Set 2\n'
+    '\n'
+    "Iko Iko-> Samson & Delilah-> He's Gone-> I Need A Miracle-> China Doll-> Drums-> The"
+    " Wheel-> Playin' In The Band-> Day Tripper, E"
+)
+
+# Yonder Mountain String Band 2007-10-05 (not in the library): md_ymsb2007-10-05.Analog_Nagra_Reel_to_Reel.flac.json (description)
+YMSB_2007_10_05 = (
+    'Yonder Mountain String Band\n'
+    '  SET 1:\n'
+    '\n'
+    ' \n'
+    'Looking Back Over My Shoulder\n'
+    'Southbound\n'
+    'Damned If The Right One\n'
+    'Night Out\n'
+    'Cupid Shot Me Twice\n'
+    'Jesus On The Mainline\n'
+    'Things Youre Selling\n'
+    'Boatmans Dance\n'
+    '*Stealin\n'
+    '*Ophelia\n'
+    'Cuckoos Nest\n'
+    'Dawn’s Early Light\n'
+    'East Nashville Easter\n'
+    '\n'
+    '\n'
+    'SET 2: \n'
+    '\n'
+    '\n'
+    'Ruby\n'
+    'Follow Me Down To The Riverside\n'
+    'Ruby\n'
+    'Mothers Only Son\n'
+    'Not Far Away\n'
+    'New Horizons\n'
+    'Holdin\n'
+    'New Horizons\n'
+    'Belle Parker\n'
+    'Troubled Mind\n'
+    '20 Eyes\n'
+    'Troubled Mind\n'
+    'Sidewalk Stars\n'
+    'Traffic Jam E\n'
+    'Dim Lights Thick Smoke\n'
+    '\n'
+    '\n'
+    '* The Wood Brothers on bass, guitar & vocals'
+)
+
 
 # ---------------------------------------------------------------------------------------
 # Tests
@@ -1657,26 +1714,40 @@ def test_parenthesised_e_footnote_is_not_a_marker():
 
 
 @pytest.mark.parametrize(
-    "line, title",
+    "line, title, encore_like",
     [
-        ("E.Ville", "E.Ville"),
-        ("B. E. Women", "B. E. Women"),
-        ("E. Rutherford, NJ", "E. Rutherford"),
-        ("I Know You Rider", "I Know You Rider"),
-        ("J", "J"),
-        ("Untitled #12", "Untitled #12"),
-        ("E-Bow the Letter", "E-Bow the Letter"),
-        ("(E)", "(E)"),
-        ("[E]", "[E]"),
-        ("E.", "E."),
+        ("E.Ville", "E.Ville", True),  # a line starting "E." is encore-like (veto input)
+        ("B. E. Women", "B. E. Women", False),
+        ("E. Rutherford, NJ", "E. Rutherford", True),
+        ("I Know You Rider", "I Know You Rider", False),
+        ("J", "J", False),
+        ("Untitled #12", "Untitled #12", False),
+        ("E-Bow the Letter", "E-Bow the Letter", False),
+        ("(E)", "(E)", True),
+        # Ruling R4 (c): an own-line "[E]" is still no marker and still a set-1 title,
+        # but it is now encore-like (was pinned as a plain title before fix round 1).
+        ("[E]", "[E]", True),
+        ("E.", "E.", True),
     ],
 )
-def test_title_lookalikes_are_not_markers(line, title):
+def test_title_lookalikes_are_not_markers(line, title, encore_like):
     tt = read_taper_structure(f"Set 1:\nBertha\n{line}\nSet 2:\nSugaree\n")
     assert tt.asserts is True
     assert tt.has_encore is False
     assert runs(tt) == ["1", "2"]
     assert label(tt, title) == "1"
+    assert tt.encore_like is encore_like
+
+
+def test_enumerated_digit_leading_title_keeps_its_number():
+    # The track prefix is stripped ONCE, as `_emit_items` strips it: "02 100 Years" is
+    # "100 Years", not "Years" (fix round 1, finding 1).
+    text = ("Set 1:\n01 Bertha\n02 100 Years\n03 Sugaree\n"
+            "Set 2:\n04 72 (This Highway's Mean)\n05 Ripple\n")
+    tt = read_taper_structure(text)
+    assert titles(tt) == [i.title for i in parse_setlist(text).items]
+    assert label(tt, "100 Years") == "1"
+    assert label(tt, "72 (This Highway's Mean)") == "2"
 
 
 def test_duration_lookalike_is_not_a_marker():
@@ -1735,6 +1806,59 @@ def test_encore_like_flag_real_case():
     assert tt.encore_like is True
     assert tt.asserts is True  # the veto itself is applied at placement, not here
     assert label(tt, "E. Playin' Reprise") == "2"
+
+
+def test_encore_like_bare_e_item():
+    # Ruling R4 (a): a split song item that is exactly "E" ("... Day Tripper, E").
+    tt = read_taper_structure(GD_1985_03_31)
+    assert tt.has_encore is False
+    assert tt.encore_like is True
+    assert tt.items[-1] == TaperItem("E", "2")  # still an item, and no encore starts
+
+
+@pytest.mark.parametrize("tail", ["Sugaree, E2\n", "Sugaree, ENC\n", "Sugaree > enc\n",
+                                  "[E]\n", "Sugaree, e\n"])
+def test_encore_like_bare_e_item_forms(tail):
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nScarlet Begonias\n" + tail)
+    assert tt.has_encore is False and tt.encore_like is True
+
+
+def test_encore_like_trailing_e_on_a_song_line():
+    # Ruling R4 (b): a song line ending " E" ("Traffic Jam E").
+    tt = read_taper_structure(YMSB_2007_10_05)
+    assert tt.has_encore is False
+    assert tt.encore_like is True
+    assert label(tt, "Traffic Jam E") == "2"
+
+
+@pytest.mark.parametrize("tail", ["US Blues (E)\n", "US Blues [E]\n", "US Blues E\n",
+                                  "US Blues,E\n"])
+def test_encore_like_trailing_e_forms(tail):
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\n" + tail)
+    assert tt.has_encore is False and tt.encore_like is True
+
+
+def test_encore_like_trailing_e_collateral_is_accepted():
+    # Ruling R4 (b) collateral, accepted: a title ending " E" ("D to E") raises the veto
+    # input too. It only makes the taper own less.
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nD to E\nSugaree\n")
+    assert tt.has_encore is False and tt.encore_like is True
+    assert tt.asserts is True and label(tt, "D to E") == "2"
+
+
+def test_encore_like_line_start_after_a_bare_track_number():
+    # Ruling R4 (d): "14 E. Playin' Reprise" on a NON-enumerated text (one numbered line,
+    # so `_NUM_PREFIX` does not apply) is encore-like too.
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\n14 E. Playin' Reprise\n")
+    assert tt.has_encore is False and tt.encore_like is True
+    assert label(tt, "14 E. Playin' Reprise") == "2"
+
+
+def test_encore_like_new_rules_negatives():
+    assert read_taper_structure("Set 1:\nBertha\nSet 2:\nE-Bow the Letter\n").encore_like is False
+    assert read_taper_structure(
+        "Set 1:\nBertha\nSet 2:\nEyes of the World\nGrateful Dawg\n").encore_like is False
+    assert read_taper_structure(DTB_2006_01_25).encore_like is False
 
 
 def test_encore_like_flag_false_on_a_clean_text():
