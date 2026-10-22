@@ -66,6 +66,15 @@ matched on song lines and on the song text after a marker, never on the marker i
 - a header naming both a set and the encore (`Set 2 + Encore`), which names an encore it
   does not start.
 
+Set-like text sets `TaperText.set_like`, the input to the own-less set-like veto (llama-db
+ruling, Checkpoint A2, 2026-10-22): an item of a numbered set (`1`/`2`/`3`, never the
+encore, whose items are the notes after the encore songs) holding a word-bounded numbered-set
+token, any spelling `_SET_TOKEN` reads (`Set 1.5:`, `- end of set one`, `Cardinals Set 1 CD 2`,
+`set one-(1:05:59)`), means the taper owns nothing: `decide_taper` declines with
+`veto: set-like text`. A continuation of the item's own set (`Set 2 con't` inside set 2) is
+not set-like. Recognised markers are not items, so they never count, and nothing here makes a
+marker. Like the encore-like veto, it only makes the taper own less.
+
 Song items get reader-local cleaning `parse_setlist` does not do (Checkpoint A, R-ITEM; see
 `_song_titles`): at most ONE leading prefix is stripped from a title (`_TRACK_PREFIX`, a
 `s2t01:` token or an `08:` colon number, else the enumerated `_NUM_PREFIX`), so
@@ -130,6 +139,7 @@ class TaperText:
     encore_like: bool  # encore-like text outside a recognised marker (veto input)
     reason: str | None  # why asserts is False: "no markers", "one set",
     # "void: <rule>", "cross-check: <label>", None when asserts
+    set_like: bool = False  # a numbered set's item names a set (veto input)
 
 
 # --- Marker regexes (spec section 1). All are matched against a line AFTER the inline
@@ -277,6 +287,14 @@ _ENCORE_E_SPACE = re.compile(r"^(?:\d+\.?\s+)?E\s+[A-Z]")
 # `Just thanks,-e- Freq.1>2`).
 _ENCORE_DECORATED_E = re.compile(r"(?<![a-z0-9])e~|-e-", re.I)
 _ITEM_DECOR = "-–—*~=[]() \t"
+
+# --- Set-like text (llama-db ruling, Checkpoint A2, 2026-10-22), the own-less veto's input:
+# `_SET_TOKEN` (any spelling the reader reads as a numbered set), word-bounded on the left
+# too, found INSIDE an item of a numbered set (`Set 1.5:`, `- end of set one`,
+# `Cardinals Set 1 CD 2`). It never makes a marker.
+_SET_LIKE = re.compile(rf"\b{_SET_TOKEN}", re.I)
+# A continuation of the item's own set (`Set 2 con't` inside set 2): not set-like.
+_CONT_AFTER = re.compile(r"^\s*[,(]?\s*con(?:'|’)?t", re.I)
 
 
 _HELD = re.compile(r"^\x00\d+\x00$")
@@ -520,6 +538,22 @@ def _numbered(s: _Scan, number: int, cont: bool, and_encore: bool) -> None:
     s.current = number
 
 
+def _set_like(items: tuple[TaperItem, ...]) -> bool:
+    """An item of a numbered set holds a set token (`_SET_LIKE`) that is not a continuation
+    of that same set. Encore items are skipped: they are the notes after the encore songs
+    (`Trey Anastasio plays entire 2nd set and encore`)."""
+    for item in items:
+        if item.set == "encore":
+            continue
+        for m in _SET_LIKE.finditer(item.title):
+            token = (m.group("tok") or m.group("ord") or m.group("ordn")).lower()
+            number = _TOKEN_NUM.get(token) or int(token)
+            if str(number) == item.set and _CONT_AFTER.match(item.title[m.end():]):
+                continue
+            return True
+    return False
+
+
 def read_taper_structure(text: str) -> TaperText:
     """Read the taper's set/encore markers from one text (a description or notes).
 
@@ -545,7 +579,7 @@ def read_taper_structure(text: str) -> TaperText:
         missing = sorted({i.set for i in parse_setlist(text).items} - own)
         reason = f"cross-check: {', '.join(missing)}" if missing else None
     return TaperText(items=items, asserts=reason is None, has_encore=s.has_encore,
-                     encore_like=s.encore_like, reason=reason)
+                     encore_like=s.encore_like, reason=reason, set_like=_set_like(items))
 
 
 def _field_text(value: object) -> str:
@@ -589,7 +623,8 @@ class TaperDecision:
     taper: TaperText
     source: str  # "description" | "notes" | "none"
     reason: str | None  # why not owned (the reader's reason, "veto: track title",
-    # "veto: encore-like text", a placement decline, or "veto: today's encore")
+    # "veto: encore-like text", "veto: set-like text", a placement decline, or
+    # "veto: today's encore")
 
 
 def _counts(track: Track) -> bool:
@@ -725,6 +760,11 @@ def decide_taper(tracks: list[Track], meta: dict, *, aliases: dict[str, str],
             return TaperDecision(None, taper, source, "veto: track title")
         if taper.encore_like:
             return TaperDecision(None, taper, source, "veto: encore-like text")
+    if taper.set_like:
+        # llama-db ruling, Checkpoint A2, 2026-10-22: set-like text the reader does not
+        # recognise (a set token inside an item of a numbered set) means the taper owns
+        # nothing, as the encore-like veto does for an unrecognised encore.
+        return TaperDecision(None, taper, source, "veto: set-like text")
     placed = place_taper_structure(tracks, taper, aliases=aliases, today_sets=today_sets)
     if isinstance(placed, str):
         return TaperDecision(None, taper, source, placed)
