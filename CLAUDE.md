@@ -58,11 +58,15 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   the setlist correspondence and writes them all on confirmation;
   `[i]nclude dropped`, offered only when the show has `excluded_files`,
   re-admits by x-handle or filename and shares `fix --include`'s
-  operator-excluded routing via `_split_include_targets`), `llama
+  operator-excluded routing via `_split_include_targets`; each edit is one
+  unit like `fix`'s -- a failure prints `error: …` (no "updated" line: those print only after the unit succeeds), restores the show and
+  returns to the same show's prompt -- except `changed by another command`, which re-captures the view, then re-resolves, and re-prints the show before its prompt, so a retry works -- and Ctrl-C ends the walkthrough after the
+  restore), `llama
   fix <name> <edit-flags>` (overrides/hold editor, auto-redoes;
   `--suggest-titles` is the same title-proposal resolution, one
   invocation, one confirmation, refuses to combine with
-  `--exclude`/`--unexclude`/`--include`), `llama redo <name> --from <stage>`,
+  `--exclude`/`--unexclude`/`--include`). **One unit (2026-10-21):** `fix`, triage's edits and `redo` (single and batch, per show) each run as one unit under the show lock. `fix` and triage ask any prompts first with no lock held, then take the lock and refuse with `changed by another command; run it again` if `overrides.json`/`show.json` changed since (or `the show was removed`). `redo` shows nothing, so it reads the show once it holds the lock: it waits behind another writer rather than refusing, and refuses only a show removed meanwhile. Each unit snapshots every file outside `package/audio/` into `<show>/.txn/`, then does the work. Any exception, including Ctrl-C, restores those files byte-identical and removes new audio. A single `fix`/`redo` then exits 1 with the error. A stale `.txn/` (SIGKILL) is deleted, never restored, by the next unit. With no `show.json`, `fix` still accepts `--set-*`/`--clear-*` and filename `--exclude`/`--unexclude`. Every other flag refuses and names `llama redo <show> --from gather`, which is also the repair for any show left part-way. `--no-run` validates nothing: a later redo that refuses the overrides rolls back and names the field.
+  `llama redo <name> --from <stage>` (one unit, above),
   `llama deliver <name>` (refuses to overwrite an emcee-voiced destination
   unless `--replace-voiced`, which replaces the destination wholesale and
   discards its DJ script and audio; a batch confirmation marks or counts the
@@ -620,6 +624,7 @@ scheduler and the full player are phases 3–4).
   **5c.2 (numbered-set anchoring when only the encore closer is missing) was
   built, measured wrong on 5 structures and DROPPED at Checkpoint F: do not
   re-add it.**
+  **Venue tie-break** (`gather.venue_tie_break`, spec `2026-10-21-held-backlog-small-fixes-design.md` slice B): on a tied grouping vote (raw strings, counted as `grouping._make_candidate` counts) the selected recording's own stripped venue ships, with `sel_city or vote_city`. It applies only when the two strings are `venues_equivalent` (measured 2026-10-21: 58 of 234 ties were not equivalent, e.g. "9:30 Club" vs "Nightclub", where the selected string was no better; those ship the vote, including ~20 unfolded spellings of one venue such as `1st`/`First Avenue`), never under an operator venue override, and only when its city is blank or `cities_compatible` with the vote's, and only in the arms that ship the vote unflagged: no event, unflagged 1a, and step 1 when the selected string passes step 1's full test. It never adds or removes a flag, `venue_source` stays `item`, and `provenance.json` is unchanged.
 - **Two modes:** one-off queries, and standing criteria profiles for recurring
   segments, deduped against the on-disk show library ∪ a `ledger.jsonl`
   history keyed by performance identity (artist + date + venue), not
@@ -775,7 +780,9 @@ scheduler and the full player are phases 3–4).
   `docs/superpowers/specs/2026-08-01-jerrybase-anchoring-design.md`.
   **`align()` matches fuzzily, at the matching layer only**: it normalizes both
   the track and the setlist item at compare time via `fuzzy_norm_title`
-  (bypassing the precomputed `SetlistItem.normalized`), folding `&`→`and`,
+  (bypassing the precomputed `SetlistItem.normalized`), folding `&`→`and`, and
+  curly apostrophes (`’`/`‘`) to `'` (`structure.fold_curly_apostrophes`, also
+  applied by vet_research's and brief's song matchers on both sides),
   tolerating dropped subtitles, matching merged tracks as consecutive runs, and
   dropping credit-only parentheticals. **`songs.normalize_song` and
   `DEFAULT_ALIASES` are deliberately NOT part of this** — folding there would
@@ -944,7 +951,7 @@ scheduler and the full player are phases 3–4).
   any other `HerderError` → `transport`; `IADownloadError` → `download`; any other
   `IAError` → `archive`; else `other`. The order is load-bearing (several subclass
   `HerderError`). `at` is the UTC ISO time. The sweep re-spends only on `download`
-  and `archive`. The records are persisted state and stay permissive: a legacy
+  and `archive`. A per-show `LlamaError` (e.g. gather refusing the show's overrides) is a per-show failure of kind `other`, not a run abort. The records are persisted state and stay permissive: a legacy
   record without `kind` reads as `download` when `error` starts with `download of `,
   else `other` (`failure_kind`).
 - Track filenames (`gd73-06-10d1t04.mp3`) don't carry song titles; disc/track

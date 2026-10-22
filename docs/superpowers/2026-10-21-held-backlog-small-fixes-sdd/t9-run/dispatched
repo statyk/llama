@@ -1,0 +1,4 @@
+budget-min: 150
+role: impl
+model: sonnet
+what: Task 9: replay harness base+cand arms, compare, acceptance numbers

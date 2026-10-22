@@ -16,7 +16,7 @@ from llama.errors import LlamaError
 from llama.ia_client import IAError
 from llama.ledger import Ledger
 from llama.locks import Locked, file_lock
-from llama.models import Briefing, LedgerEntry, Show, ShowNotes, VettingResult
+from llama.models import Overrides, Briefing, LedgerEntry, Show, ShowNotes, VettingResult
 from llama.reapply import ReapplyOutcome, reapply_show
 from llama.replay import input_digests
 from llama.stages.brief import normalize_briefing, render_briefing_md
@@ -1086,3 +1086,12 @@ def test_a_cleared_outcome_is_not_dropped(tmp_path, monkeypatch):
     out = _run(config, ledger, entry)
     assert out.outcome == "cleared" and "drop:brief" not in out.written
     assert entry.ws.briefing_json.exists()
+
+
+def test_reapply_on_refused_overrides_raises_and_writes_nothing(tmp_path, monkeypatch):   # (pin)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    write_artifact(entry.ws.overrides, Overrides(set_breaks=[2, 4], encore_after=4))
+    before = _snapshot(entry.ws)
+    with pytest.raises(LlamaError, match="overrides\\.(encore_after|set_breaks)"):
+        _run(config, ledger, entry)
+    assert _snapshot(entry.ws) == before

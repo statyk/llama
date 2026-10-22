@@ -1,0 +1,309 @@
+# Review package: aa9d278..HEAD
+
+## Commits
+1fe9109 feat(show_unit): snapshot-and-restore unit under the show lock (slice C core)
+
+## Files changed
+ packages/llama/src/llama/show_unit.py  | 137 +++++++++++++++++++++++++++++++++
+ packages/llama/tests/helpers.py        |   8 ++
+ packages/llama/tests/test_show_unit.py | 125 ++++++++++++++++++++++++++++++
+ 3 files changed, 270 insertions(+)
+
+## Diff
+diff --git a/packages/llama/src/llama/show_unit.py b/packages/llama/src/llama/show_unit.py
+new file mode 100644
+index 0000000..62f21e1
+--- /dev/null
++++ b/packages/llama/src/llama/show_unit.py
+@@ -0,0 +1,137 @@
++"""One edit of a show as a unit: snapshot, run, restore on any failure.
++
++`show_unit` takes the show lock, verifies the show is still what the caller
++saw, snapshots every file outside `package/audio/` into `<show>/.txn/`, and on
++any exception (BaseException, so KeyboardInterrupt too) restores those files
++byte-identical, deletes the snapshot and re-raises.
++
++Documented limitations (spec C2):
++  1. Audio retagged in place by a failed package stage stays retagged: audio
++     is never copied, and only audio files the unit ADDED are removed.
++  2. A racing `rm` can leave a `.lock`-only husk of the show directory.
++  3. SIGKILL (or a restore that itself fails) leaves a stale `.txn/`. The next
++     unit deletes it WITHOUT restoring; `llama redo <show> --from gather`
++     repairs the show.
++  4. The unit protects the workspace it is given, while `process_show` writes
++     to `show_ws(prov.performance_id)`; a show directory whose name is not
++     `slugify(performance_id)` (renamed by hand) is outside the guarantee, as
++     it is today.
++Directories are not restored: an empty directory a failed unit created stays.
++"""
++from __future__ import annotations
++
++import json
++import os
++import shutil
++from contextlib import contextmanager
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Iterator
++
++from llama.errors import LlamaError
++from llama.locks import file_lock
++from llama.workspace import ShowWorkspace, atomic_write_bytes
++
++TXN_DIR = ".txn"
++_INDEX = "index.json"
++
++
++@dataclass(frozen=True)
++class ShowView:
++    provenance: bool
++    overrides: bytes | None
++    show: bytes | None
++
++
++class ShowChanged(LlamaError):
++    """The show changed (or was removed) between what the caller saw and the lock."""
++
++
++def _read(path: Path) -> bytes | None:
++    try:
++        return path.read_bytes()
++    except FileNotFoundError:
++        return None
++
++
++def capture_view(show_ws: ShowWorkspace) -> ShowView:
++    return ShowView(provenance=show_ws.provenance.exists(),
++                    overrides=_read(show_ws.overrides),
++                    show=_read(show_ws.show))
++
++
++def _tracked_files(show_ws: ShowWorkspace) -> Iterator[str]:
++    """Posix relpaths of every file outside the top-level `.lock`, `.txn/` and
++    `package/audio/`."""
++    root = show_ws.dir
++    for dirpath, dirnames, filenames in os.walk(root):
++        rel_dir = Path(dirpath).relative_to(root)
++        if rel_dir == Path("."):
++            dirnames[:] = [d for d in dirnames if d != TXN_DIR]
++        elif rel_dir == Path("package"):
++            dirnames[:] = [d for d in dirnames if d != "audio"]
++        for name in filenames:
++            rel = (rel_dir / name).as_posix()
++            if rel != ".lock":
++                yield rel
++
++
++def _audio_names(show_ws: ShowWorkspace) -> list[str]:
++    audio = show_ws.package_dir / "audio"
++    if not audio.is_dir():
++        return []
++    return sorted(p.name for p in audio.iterdir() if p.is_file())
++
++
++def take_snapshot(show_ws: ShowWorkspace) -> None:
++    txn = show_ws.dir / TXN_DIR
++    for rel in _tracked_files(show_ws):
++        atomic_write_bytes(txn / "files" / rel, (show_ws.dir / rel).read_bytes())
++    atomic_write_bytes(txn / _INDEX,
++                       json.dumps({"audio": _audio_names(show_ws)}).encode())
++
++
++def restore_snapshot(show_ws: ShowWorkspace) -> None:
++    txn = show_ws.dir / TXN_DIR
++    files = txn / "files"
++    saved = {p.relative_to(files).as_posix() for p in files.rglob("*") if p.is_file()} \
++        if files.is_dir() else set()
++    keep_audio = set(json.loads((txn / _INDEX).read_text())["audio"])
++    for rel in list(_tracked_files(show_ws)):          # (a) drop files the unit created
++        if rel not in saved:
++            (show_ws.dir / rel).unlink()
++    for rel in sorted(saved):                          # (b) put the originals back
++        atomic_write_bytes(show_ws.dir / rel, (files / rel).read_bytes())
++    for name in _audio_names(show_ws):                 # (c) drop audio the unit added
++        if name not in keep_audio:
++            (show_ws.package_dir / "audio" / name).unlink()
++
++
++def discard_snapshot(show_ws: ShowWorkspace) -> None:
++    shutil.rmtree(show_ws.dir / TXN_DIR, ignore_errors=True)
++
++
++@contextmanager
++def show_unit(show_ws: ShowWorkspace, expect: ShowView | None) -> Iterator[None]:
++    with file_lock(show_ws.lock):
++        now = capture_view(show_ws)
++        if expect is None:
++            expect = now
++        if now != expect:
++            slug = show_ws.dir.name
++            if expect.provenance and not now.provenance:
++                raise ShowChanged(f"{slug}: the show was removed; nothing changed")
++            raise ShowChanged(f"{slug}: changed by another command; run it again")
++        discard_snapshot(show_ws)          # a leftover is deleted, never restored
++        try:
++            take_snapshot(show_ws)
++        except BaseException:
++            discard_snapshot(show_ws)
++            raise
++        try:
++            yield
++        except BaseException:
++            restore_snapshot(show_ws)      # if this raises, .txn/ stays; original is __context__
++            discard_snapshot(show_ws)
++            raise
++        discard_snapshot(show_ws)
+diff --git a/packages/llama/tests/helpers.py b/packages/llama/tests/helpers.py
+index 8477461..8ae8610 100644
+--- a/packages/llama/tests/helpers.py
++++ b/packages/llama/tests/helpers.py
+@@ -31,10 +31,18 @@ def build_ready(root: Path, slug: str = "gratefuldead-1973-06-10", *,
+                 "show": {"artist": "Grateful Dead", "date": "1973-06-10",
+                         "venue": "Some Venue", "city": None, "context": ""},
+                 "source": {"performance_id": "GratefulDead/1973-06-10"},
+                 "tracks": [{"index": 1, "set": "1", "title": "Morning Dew",
+                             "filename": "01 - Morning Dew.mp3"}],
+                 "set_breaks": [], "total_duration_sec": 0, "set_durations_sec": {}}
+     write_artifact(ws.package_dir / "manifest.json", manifest)
+     if not drop_audio:
+         write_artifact(ws.package_dir / "audio" / "01 - Morning Dew.mp3", "x")
+     return ws
++
++
++def tree_bytes(d: Path) -> dict[str, bytes]:
++    """Every file under `d` (posix path relative to `d`) -> its bytes, except
++    the top-level `.lock`."""
++    return {p.relative_to(d).as_posix(): p.read_bytes()
++            for p in sorted(d.rglob("*"))
++            if p.is_file() and p.relative_to(d).as_posix() != ".lock"}
+diff --git a/packages/llama/tests/test_show_unit.py b/packages/llama/tests/test_show_unit.py
+new file mode 100644
+index 0000000..6de1a43
+--- /dev/null
++++ b/packages/llama/tests/test_show_unit.py
+@@ -0,0 +1,125 @@
++import pytest
++
++import llama.show_unit as show_unit_mod
++from helpers import tree_bytes
++from llama.errors import LlamaError
++from llama.locks import Locked, file_lock
++from llama.show_unit import ShowChanged, capture_view, show_unit
++from llama.workspace import ShowWorkspace, atomic_write_bytes, write_artifact
++
++
++def _show(tmp_path):
++    ws = ShowWorkspace(tmp_path / "shows" / "s")
++    write_artifact(ws.provenance, {"performance_id": "x/1"})
++    write_artifact(ws.overrides, {"venue": "V"})
++    write_artifact(ws.show, {"title": "t"})
++    write_artifact(ws.reviews, {"r": 1})
++    write_artifact(ws.package_dir / "manifest.json", {"v": 3})
++    atomic_write_bytes(ws.package_dir / "audio" / "a.mp3", b"A")
++    return ws
++
++
++def _fail_inside(ws, exc, body):
++    view = capture_view(ws)
++    with pytest.raises(type(exc)):
++        with show_unit(ws, view):
++            body()
++            raise exc
++
++
++def test_a_failed_unit_restores_every_file_byte_identical(tmp_path):
++    ws = _show(tmp_path); before = tree_bytes(ws.dir)
++    def body():
++        write_artifact(ws.show, {"changed": True}); ws.reviews.unlink()
++        write_artifact(ws.research, "new"); write_artifact(ws.package_dir / "manifest.json", {"v": 9})
++        atomic_write_bytes(ws.package_dir / "audio" / "new.mp3", b"N")
++    _fail_inside(ws, LlamaError("refused"), body)
++    assert tree_bytes(ws.dir) == before
++    assert not (ws.dir / ".txn").exists() and ws.lock.exists()
++
++
++def test_keyboard_interrupt_restores_and_re_raises(tmp_path):
++    ws = _show(tmp_path); before = tree_bytes(ws.dir)
++    _fail_inside(ws, KeyboardInterrupt(), lambda: ws.show.unlink())
++    assert tree_bytes(ws.dir) == before
++
++
++def test_a_successful_unit_keeps_its_writes_and_removes_the_snapshot(tmp_path):
++    ws = _show(tmp_path)
++    with show_unit(ws, capture_view(ws)):
++        write_artifact(ws.research, "kept")
++    assert ws.research.read_text() == "kept" and not (ws.dir / ".txn").exists()
++
++
++def test_a_unit_with_no_expected_view_reads_the_show_under_the_lock(tmp_path):
++    ws = _show(tmp_path); write_artifact(ws.overrides, {"other": "command"})
++    with show_unit(ws, None):
++        write_artifact(ws.research, "kept")
++    assert ws.research.read_text() == "kept"
++
++
++def test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn(tmp_path, monkeypatch):
++    ws = _show(tmp_path)
++    def broken(show_ws):
++        raise OSError("disk full")
++    monkeypatch.setattr(show_unit_mod, "restore_snapshot", broken)
++    with pytest.raises(OSError) as info:
++        with show_unit(ws, capture_view(ws)):
++            write_artifact(ws.research, "half")
++            raise LlamaError("boom")
++    assert isinstance(info.value.__context__, LlamaError) and (ws.dir / ".txn").exists()
++    monkeypatch.undo()
++    with show_unit(ws, capture_view(ws)):
++        pass
++    assert ws.research.read_text() == "half" and not (ws.dir / ".txn").exists()
++
++
++def test_files_outside_the_known_artifacts_are_restored_and_new_ones_removed(tmp_path):
++    ws = _show(tmp_path); (ws.dir / "llm-failure.txt").write_text("old"); (ws.dir / "notes.json.1.tmp").write_text("t")
++    before = tree_bytes(ws.dir)
++    def body():
++        (ws.dir / "llm-failure.txt").write_text("new"); (ws.dir / "stray.tmp").write_text("s")
++    _fail_inside(ws, LlamaError("x"), body)
++    assert tree_bytes(ws.dir) == before
++
++
++def test_existing_audio_is_never_snapshotted_or_rewritten(tmp_path):
++    ws = _show(tmp_path)
++    _fail_inside(ws, LlamaError("x"), lambda: (ws.package_dir / "audio" / "a.mp3").write_bytes(b"RETAGGED"))
++    assert (ws.package_dir / "audio" / "a.mp3").read_bytes() == b"RETAGGED"
++    assert not (ws.dir / ".txn" / "files" / "package" / "audio").exists()
++
++
++def test_a_leftover_snapshot_is_deleted_not_restored(tmp_path):
++    ws = _show(tmp_path); current = ws.show.read_bytes()
++    atomic_write_bytes(ws.dir / ".txn" / "files" / "show.json", b"STALE")
++    with show_unit(ws, capture_view(ws)):
++        pass
++    assert ws.show.read_bytes() == current and not (ws.dir / ".txn").exists()
++
++
++@pytest.mark.parametrize("change", ["overrides", "show"])
++def test_a_changed_show_refuses_and_changes_nothing(tmp_path, change):
++    ws = _show(tmp_path); view = capture_view(ws)
++    write_artifact(getattr(ws, change), {"other": "command"}); before = tree_bytes(ws.dir)
++    with pytest.raises(ShowChanged, match="s: changed by another command; run it again"):
++        with show_unit(ws, view):
++            raise AssertionError("the body must not run")
++    assert tree_bytes(ws.dir) == before
++
++
++def test_a_removed_show_refuses_with_the_removed_message(tmp_path):
++    ws = _show(tmp_path); view = capture_view(ws); ws.provenance.unlink()
++    with pytest.raises(ShowChanged, match="s: the show was removed; nothing changed"):
++        with show_unit(ws, view):
++            pass
++
++
++def test_the_lock_is_held_inside_the_unit_and_released_after(tmp_path):
++    ws = _show(tmp_path)
++    with show_unit(ws, capture_view(ws)):
++        with pytest.raises(Locked):
++            with file_lock(ws.lock, blocking=False):
++                pass
++    with file_lock(ws.lock, blocking=False):
++        pass

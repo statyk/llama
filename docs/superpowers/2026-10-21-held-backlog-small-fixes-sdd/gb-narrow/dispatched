@@ -1,0 +1,4 @@
+budget-min: 75
+role: impl
+model: sonnet
+what: Slice B narrowing: venues_equivalent gate, tests, mutant, docs, cand re-measure

@@ -510,3 +510,23 @@ def test_unannotated_comma_titles_never_split():
     b = _briefing(per_set={"1": ["x"]}, mentioned_songs=["Again"])
     assert briefing_guard(b, _merged_show("Talk To Me Devil, Again")) == [
         "briefing mentions unknown song: Again"]
+
+
+def _tape(*titles):
+    return Show(performance_id="GratefulDead/1973-06-10", identifier="gd73", artist="Grateful Dead",
+                date="1973-06-10", tracks=[Track(index=i, set="1", title=t, filename=f"t{i}.mp3",
+                                                 title_source="tags") for i, t in enumerate(titles, 1)])
+
+
+@pytest.mark.parametrize("track,mention", [("Don’t Ease Me In", "Don't Ease Me In"),
+                                           ("Don't Ease Me In", "Don’t Ease Me In")])
+def test_guard_matches_curly_and_straight_apostrophes_both_ways(track, mention):
+    problems = briefing_guard(_briefing(per_set={"1": ["x"]}, mentioned_songs=[mention]), _tape(track))
+    assert not any("unknown song" in p for p in problems)
+
+
+def test_guard_folds_curly_apostrophes_inside_segue_chains():
+    problems = briefing_guard(_briefing(per_set={"1": ["x"]}, mentioned_songs=["He's Gone", "Truckin'"]),
+                              _tape("He’s Gone > Truckin’"))
+    assert not any("unknown song" in p for p in problems)
+    assert song_components("E: He’s Gone >") == ["hes gone"]

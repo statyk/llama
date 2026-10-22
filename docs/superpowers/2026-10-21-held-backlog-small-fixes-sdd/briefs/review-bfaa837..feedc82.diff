@@ -1,0 +1,437 @@
+# Review package: bfaa837..HEAD
+
+## Commits
+feedc82 feat(match): fold curly apostrophes at the matching layer (slice D)
+
+## Files changed
+ CLAUDE.md                                       |  2 +-
+ packages/llama/src/llama/stages/brief.py        | 11 ++++++---
+ packages/llama/src/llama/stages/vet_research.py | 16 ++++++++-----
+ packages/llama/src/llama/structure.py           | 11 +++++++--
+ packages/llama/tests/test_stage_brief.py        | 20 +++++++++++++++++
+ packages/llama/tests/test_stage_vet.py          | 30 +++++++++++++++++++++++++
+ packages/llama/tests/test_structure.py          | 17 ++++++++++++++
+ 7 files changed, 95 insertions(+), 12 deletions(-)
+
+## Diff
+diff --git a/CLAUDE.md b/CLAUDE.md
+index eb0f82f..8286953 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -768,21 +768,21 @@ scheduler and the full player are phases 3–4).
+   evidence and wins whenever it resolves** — it is not gated on
+   `align_coverage_threshold`, which now only triggers the LLM realignment
+   fallback and the low-confidence flag. Closers match merged tracks on their
+   last component and tolerate `&`/`and` and dropped subtitles; a repeated
+   closer resolves to its latest occurrence before the next set's closer; a
+   trailing encore jerrybase has no row for is preserved, not absorbed. The
+   closer tripwire only speaks when anchoring declines. Design:
+   `docs/superpowers/specs/2026-08-01-jerrybase-anchoring-design.md`.
+   **`align()` matches fuzzily, at the matching layer only**: it normalizes both
+   the track and the setlist item at compare time via `fuzzy_norm_title`
+-  (bypassing the precomputed `SetlistItem.normalized`), folding `&`→`and`,
++  (bypassing the precomputed `SetlistItem.normalized`), folding `&`→`and`, and curly apostrophes (`’`/`‘`) to `'` (`structure.fold_curly_apostrophes`, also applied by vet_research's and brief's song matchers on both sides),
+   tolerating dropped subtitles, matching merged tracks as consecutive runs, and
+   dropping credit-only parentheticals. **`songs.normalize_song` and
+   `DEFAULT_ALIASES` are deliberately NOT part of this** — folding there would
+   also move `grouping`/`vet_research`/`brief`/`setlistfm`, two of which generate
+   holds, so don't "simplify" it down a layer. Dead-canon shorthand
+   (`songs.GD_SHORTHAND`: `scarlet`→`scarlet begonias`, `chinacat`, …) is
+   **gated on artist family** — `jerrybase.is_family_artist`, derived from the
+   vendored CSV's own artist keys plus a small extras set — because `scarlet`,
+   `help`, `dew`, `eyes` and `saint` are ordinary English words off-family; the
+   jerrybase closer path applies it ungated since an event only exists for
+diff --git a/packages/llama/src/llama/stages/brief.py b/packages/llama/src/llama/stages/brief.py
+index 1a442c6..4440043 100644
+--- a/packages/llama/src/llama/stages/brief.py
++++ b/packages/llama/src/llama/stages/brief.py
+@@ -1,17 +1,18 @@
+ import re
+ import string
+ 
+ from herder import run_json_task
+ from llama.models import Briefing, Show, VettingResult
+ from llama.prompts import load_prompt
+ from llama.songs import normalize_song
++from llama.structure import fold_curly_apostrophes
+ from llama.util import reviews_digest
+ from llama.workspace import (ShowWorkspace, read_model, read_overrides,
+                              should_run, write_artifact)
+ 
+ # Every briefing-guard review flag starts with this (see `briefing_guard`).
+ FLAG_PREFIX = "briefing "
+ 
+ _VAGUE_NOTE = (
+     "IMPORTANT — uncertain setlist: this show's song list is incomplete and the "
+     "available sources conflict. Do NOT name specific songs, do NOT assert a set "
+@@ -102,30 +103,34 @@ def render_briefing_md(briefing: Briefing, show: Show) -> str:
+ 
+ 
+ def normalize_briefing(b: Briefing) -> Briefing:
+     """3a: a copy of `b` with every empty `per_set` entry removed; everything
+     else identical. An empty `per_set` dict stays empty (no talking points at
+     all is still a guard problem)."""
+     return b.model_copy(deep=True,
+                         update={"per_set": {k: list(v) for k, v in b.per_set.items() if v}})
+ 
+ 
++def _song_norm(s: str) -> str:
++    return normalize_song(fold_curly_apostrophes(s))
++
++
+ def song_components(title: str) -> list[str]:
+     """3b: a title's segue components, normalised. Strips a leading structure
+     prefix (`E:`, `E1:`, `Encore:`), trailing segue/footnote markers and one
+     trailing parenthetical (then trailing markers again), splits on segues,
+     `normalize_song`s each part and drops empties."""
+     t = _BRIEF_STRUCTURE_PREFIX.sub("", title)
+     t = _BRIEF_TRAILING.sub("", t)
+     t = _BRIEF_PAREN.sub("", t)
+     t = _BRIEF_TRAILING.sub("", t)
+-    return [c for c in (normalize_song(p) for p in _BRIEF_SEGUE.split(t)) if c]
++    return [c for c in (_song_norm(p) for p in _BRIEF_SEGUE.split(t)) if c]
+ 
+ 
+ def song_comma_components(title: str) -> list[str]:
+     """A merged-tease title (`A (tease), B (tease), C (tease)`) is one track
+     carrying several songs: split on commas OUTSIDE parentheses and return the
+     `song_components` of each part, in order. Fewer than two non-blank parts
+     (no top-level comma) returns `[]`. This only ever ADDS known components to
+     the guard's set; mentions are never split on commas.
+ 
+     Splits only when EVERY top-level comma part ends in its own parenthetical
+@@ -148,21 +153,21 @@ def song_comma_components(title: str) -> list[str]:
+     parts = [p for p in parts if p.strip()]
+     if len(parts) < 2 or not all(_BRIEF_PAREN.search(_BRIEF_TRAILING.sub("", p)) for p in parts):
+         return []
+     return [c for p in parts for c in song_components(p)]
+ 
+ 
+ def known_song(song: str, exact: set[str], components: set[str]) -> bool:
+     """3b: today's exact test first, so the matcher is a superset of today's;
+     else known when the song has components and EVERY one is a known
+     component. No fuzzy, loose or subphrase matching."""
+-    if normalize_song(song) in exact:
++    if _song_norm(song) in exact:
+         return True
+     cs = song_components(song)
+     return bool(cs) and all(c in components for c in cs)
+ 
+ 
+ def _words_before(prose: str, start: int, n: int) -> list[str]:
+     """The last `n` words before `start`, within its own clause and field."""
+     clause = _CLAUSE_BREAK.split(prose[:start])[-1]
+     toks = (t.strip(string.punctuation).lower() for t in clause.split())
+     return [t for t in toks if t][-n:]
+@@ -216,21 +221,21 @@ def _guard_prose(b: Briefing) -> str:
+     them the vague branch, are unchanged -- except the `of` lookahead, which
+     stops at the newline (fw4)."""
+     return "\n".join([b.context, b.significance, b.review_sentiment, *b.notable_moments,
+                       *(p for pts in b.per_set.values() for p in pts)])
+ 
+ 
+ def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
+     """A briefing that misnames songs or sets — or breaks the vague-narration
+     contract — must never ship; cross-check against show.json."""
+     problems: list[str] = []
+-    exact = {normalize_song(t.title) for t in show.tracks}
++    exact = {_song_norm(t.title) for t in show.tracks}
+     components = (exact | {c for t in show.tracks for c in song_components(t.title)}
+                   | {" ".join(song_components(t.title)) for t in show.tracks}
+                   | {c for t in show.tracks for c in song_comma_components(t.title)})
+     for song in briefing.mentioned_songs:
+         if not known_song(song, exact, components):
+             problems.append(f"briefing mentions unknown song: {song}")
+     sets = {t.set for t in show.tracks}
+     for s in briefing.per_set:
+         if s not in sets:
+             problems.append(f"briefing references nonexistent set: {s}")
+diff --git a/packages/llama/src/llama/stages/vet_research.py b/packages/llama/src/llama/stages/vet_research.py
+index b6d2967..7cba6ec 100644
+--- a/packages/llama/src/llama/stages/vet_research.py
++++ b/packages/llama/src/llama/stages/vet_research.py
+@@ -1,19 +1,19 @@
+ import re
+ from datetime import date as _date
+ from typing import NamedTuple
+ 
+ from herder import run_json_task
+ from llama.models import ResearchVetting, Show, ShowNotes, VettingResult
+ from llama.prompts import load_prompt
+ from llama.songs import normalize_song
+-from llama.structure import TAUTOLOGICAL_TITLE_SOURCES, is_filler
++from llama.structure import TAUTOLOGICAL_TITLE_SOURCES, fold_curly_apostrophes, is_filler
+ from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
+ 
+ # Every deterministic grounding flag starts with this prefix, so a re-vet can strip
+ # its own prior flags without disturbing flags from other stages (duration, guard).
+ _VET_FLAG_PREFIX = "research asserts "
+ 
+ # Slice 4 - 4b (spec "New constants"): another asserted full date within this
+ # many days of the show's own asserted full date is context, not a contradiction.
+ ADJACENT_DAY_WINDOW = 1
+ 
+@@ -105,43 +105,47 @@ def normalize_date(text: str) -> str | None:
+ 
+ def day_unknown_date(text: str) -> str | None:
+     """"YYYY-MM-00" when `text` is a full date, month 1..12, whose day is exactly
+     0 (an asserted "day unknown", Checkpoint E); None otherwise."""
+     return _parse_date(text, True)
+ 
+ 
+ _SEGUE_SPLIT = re.compile(r"\s*(?:->|>|→)\s*")
+ 
+ 
++def _song_tokens(name: str) -> list[str]:
++    return normalize_song(fold_curly_apostrophes(name)).split()
++
++
+ def _run_contained(short: list[str], long: list[str]) -> bool:
+     n = len(short)
+     return 0 < n <= len(long) and any(long[i:i + n] == short for i in range(len(long) - n + 1))
+ 
+ 
+ def _title_match(name: str, known: list[list[str]]) -> bool:
+     """Prose titles are loose: "Caution" for "Caution (Do Not Step on
+     Tracks)", "One More Saturday Night" for a track titled "Saturday Night".
+     Match when either side's tokens appear as a contiguous run in the other."""
+-    tokens = normalize_song(name).split()
++    tokens = _song_tokens(name)
+     return bool(tokens) and any(
+         _run_contained(tokens, k) or _run_contained(k, tokens) for k in known
+     )
+ 
+ 
+ def _known_song(name: str, known: list[list[str]]) -> bool:
+     """Research prose asserts songs in standard live notation: single titles,
+     segue chains ("China Cat Sunflower > I Know You Rider"), and comma-joined
+     runs. Exact whole match first (a merged track may be titled with the full
+     chain, and titles may contain commas); then a chain is known only if
+     EVERY part is. Loose containment applies only to atomic titles - a chain
+     must never pass just because one real song appears in it."""
+-    tokens = normalize_song(name).split()
++    tokens = _song_tokens(name)
+     if any(tokens == k for k in known):
+         return True
+     parts = [p for p in _SEGUE_SPLIT.split(name) if p.strip()]
+     if len(parts) > 1:
+         return all(_known_song(p, known) for p in parts)
+     parts = [p for p in name.split(",") if p.strip()]
+     if len(parts) > 1:
+         return all(_known_song(p, known) for p in parts)
+     return _title_match(name, known)
+ 
+@@ -179,29 +183,29 @@ def _date_flags(
+ 
+ 
+ def right_show_gate(
+     vetting: ResearchVetting, show: Show, *, date_flags_raw: list[str],
+ ) -> tuple[bool, dict]:
+     """Slice 4 - 4a: do the tape and the research demonstrably describe the same
+     show? Only then may unknown-song flags become a vet note. Tautological titles
+     (their text IS the canonical's) count on neither side; the date flags are the
+     ones read BEFORE 4b's adjacent-day window; the own date must be a full date,
+     year included. Returns (holds, info) with info's counts for the note."""
+-    research_known = [normalize_song(s).split() for s in vetting.asserted_songs]
++    research_known = [_song_tokens(s) for s in vetting.asserted_songs]
+     resolved = [
+         t for t in show.tracks
+         if t.title_source != "unresolved"
+         and not is_filler(t.title)
+         and t.title_source not in TAUTOLOGICAL_TITLE_SOURCES
+     ]
+     asserted = [t for t in resolved if _known_song(t.title, research_known)]
+-    tape_known = [normalize_song(t.title).split() for t in show.tracks]
++    tape_known = [_song_tokens(t.title) for t in show.tracks]
+     unknown = [s for s in vetting.asserted_songs if not _known_song(s, tape_known)]
+     unresolved_n = sum(1 for t in show.tracks if t.title_source == "unresolved")
+     date_text = next(
+         (d for d in vetting.asserted_dates if normalize_date(d) == show.date), None
+     )
+     own_full = date_text is not None
+     holds = (
+         len(resolved) > 0
+         and len(asserted) >= RIGHT_SHOW_MIN_TAPE_FRACTION * len(resolved)
+         and len(asserted) >= RIGHT_SHOW_MIN_ASSERTED
+@@ -224,21 +228,21 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
+     """Deterministic check: research contradicting this show flags for review.
+     The gate exists to catch wrong-show research, so a couple of unmatched
+     titles (tracklist gaps, odd variants) pass; a mostly-unmatched set, or a
+     date that belongs to a different show, blocks. One exception: an archive
+     year-only placeholder date (YYYY-01-01) contradicted by unanimous,
+     well-grounded research is corrected, not flagged - returns the adopted
+     date as the second element; the third is the vet notes (operator-facing,
+     never flags). Zero tokens."""
+     flags: list[str] = []
+     notes: list[str] = []
+-    known = [normalize_song(t.title).split() for t in show.tracks]
++    known = [_song_tokens(t.title) for t in show.tracks]
+     unknown = [s for s in vetting.asserted_songs if not _known_song(s, known)]
+     songs_grounded = not (len(unknown) >= 2 and len(unknown) * 3 > len(vetting.asserted_songs))
+ 
+     full: dict[str, str] = {}      # normalized YYYY-MM-DD -> first surface text
+     yearless: dict[str, str] = {}  # normalized --MM-DD -> first surface text
+     for text in vetting.asserted_dates:
+         norm = normalize_date(text)
+         if norm is None:
+             continue  # can't verify is not a contradiction; kept in vetting.json
+         (yearless if norm.startswith("--") else full).setdefault(norm, text)
+diff --git a/packages/llama/src/llama/structure.py b/packages/llama/src/llama/structure.py
+index 1f5d1e0..8bc9f4a 100644
+--- a/packages/llama/src/llama/structure.py
++++ b/packages/llama/src/llama/structure.py
+@@ -52,33 +52,40 @@ def norm_title(title: str) -> str:
+ # component, which is what a jerrybase set closer has to be compared against.
+ _SEGUE_SEP = re.compile(r"\s*(?:->|>|→)\s*")
+ 
+ # A trailing parenthetical on a component is a taper's credit or lineage note
+ # ("(Cripe)", "(SBD)", "(Tape Flip)", "(w/ Rick Danko)"), or a canonical
+ # subtitle the taper kept ("(to Take My Man)"). Neither is a song, and a
+ # credit-only component would otherwise form a spurious merge run.
+ _TRAILING_PAREN = re.compile(r"\s*\([^)]*\)\s*$")
+ 
+ 
++def fold_curly_apostrophes(text: str) -> str:
++    """Replace U+2019 and U+2018 with "'" and change nothing else."""
++    return text.replace("\u2019", "'").replace("\u2018", "'")
++
++
+ def fuzzy_norm_title(title: str, aliases: dict[str, str] | None = None) -> str:
+     """`norm_title` with "&" folded to "and" first, then an optional
+     caller-supplied shorthand table applied to the result.
+ 
+     `normalize_song`'s punctuation strip turns "&" into whitespace, so
+     "Me & My Uncle" and "Me and My Uncle" normalize differently. Folding
+     beforehand collapses them. Deliberately kept out of `normalize_song`
+     itself: folding there would also change grouping, vet_research, brief and
+-    setlist.fm artist matching, none of which was measured.
++    setlist.fm artist matching, none of which was measured. Curly apostrophes
++    are folded to "'" first, which lives here for the same reason the "&"
++    fold does.
+ 
+     `aliases` is `songs.GD_SHORTHAND` for Garcia-universe artists and empty for
+     everyone else — see that table's comment for why it cannot be global."""
+-    norm = norm_title(title.replace("&", " and "))
++    norm = norm_title(fold_curly_apostrophes(title).replace("&", " and "))
+     return (aliases or {}).get(norm, norm)
+ 
+ 
+ def title_components(title: str, aliases: dict[str, str] | None = None) -> list[str]:
+     """Normalized components of a possibly-merged track title, in order.
+ 
+     A trailing separator yields no empty component, so a dangling ">" stays a
+     segue marker rather than becoming a phantom song. A component that is
+     nothing but a parenthetical credit is dropped entirely, which is what stops
+     "Lazy Lightning -> (Cripe)" forming a two-song run. When every component
+diff --git a/packages/llama/tests/test_stage_brief.py b/packages/llama/tests/test_stage_brief.py
+index 6005911..9b9377d 100644
+--- a/packages/llama/tests/test_stage_brief.py
++++ b/packages/llama/tests/test_stage_brief.py
+@@ -503,10 +503,30 @@ def test_single_part_title_has_no_comma_components():
+     assert song_comma_components("Ripple (reprise)") == []
+     assert song_comma_components("Ripple,") == []
+ 
+ 
+ def test_unannotated_comma_titles_never_split():
+     assert song_comma_components("Talk To Me Devil, Again") == []
+     assert song_comma_components("Lawyers, Guns and Money (Warren Zevon)") == []
+     b = _briefing(per_set={"1": ["x"]}, mentioned_songs=["Again"])
+     assert briefing_guard(b, _merged_show("Talk To Me Devil, Again")) == [
+         "briefing mentions unknown song: Again"]
++
++
++def _tape(*titles):
++    return Show(performance_id="GratefulDead/1973-06-10", identifier="gd73", artist="Grateful Dead",
++                date="1973-06-10", tracks=[Track(index=i, set="1", title=t, filename=f"t{i}.mp3",
++                                                 title_source="tags") for i, t in enumerate(titles, 1)])
++
++
++@pytest.mark.parametrize("track,mention", [("Don’t Ease Me In", "Don't Ease Me In"),
++                                           ("Don't Ease Me In", "Don’t Ease Me In")])
++def test_guard_matches_curly_and_straight_apostrophes_both_ways(track, mention):
++    problems = briefing_guard(_briefing(per_set={"1": ["x"]}, mentioned_songs=[mention]), _tape(track))
++    assert not any("unknown song" in p for p in problems)
++
++
++def test_guard_folds_curly_apostrophes_inside_segue_chains():
++    problems = briefing_guard(_briefing(per_set={"1": ["x"]}, mentioned_songs=["He's Gone", "Truckin'"]),
++                              _tape("He’s Gone > Truckin’"))
++    assert not any("unknown song" in p for p in problems)
++    assert song_components("E: He’s Gone >") == ["hes gone"]
+diff --git a/packages/llama/tests/test_stage_vet.py b/packages/llama/tests/test_stage_vet.py
+index f47f7c6..8dccd27 100644
+--- a/packages/llama/tests/test_stage_vet.py
++++ b/packages/llama/tests/test_stage_vet.py
+@@ -752,10 +752,40 @@ def test_date_flags_order_is_mismatched_then_day_unknown_then_yearless():
+ def test_day_unknown_date_reads_0_5_08_day_first_as_2008_05_00():
+     # 4c's month-first reading is invalid (month 0), so the day-first swap applies.
+     assert day_unknown_date("0/5/08") == "2008-05-00"
+     assert normalize_date("0/5/08") is None
+ 
+ 
+ def test_day00_entries_dedupe_on_the_first_surface_text():
+     flags, _, _ = grounding_flags(
+         _vet(["1973-06-10", "September 0, 1973", "1973-09-00"]), make_show())
+     assert flags == ["research asserts wrong date: September 0, 1973"]
++
++
++def _curly_show(titles):
++    return Show(performance_id="GratefulDead/1973-06-10", identifier="gd73", artist="Grateful Dead",
++                date="1973-06-10", tracks=[Track(index=i, set="1", title=t, filename=f"t{i}.mp3",
++                                                 title_source="tags") for i, t in enumerate(titles, 1)])
++
++
++@pytest.mark.parametrize("tape,research", [
++    (["He’s Gone", "Don’t Ease Me In"], ["He's Gone", "Don't Ease Me In"]),   # curly on tape
++    (["He's Gone", "Don't Ease Me In"], ["He’s Gone", "Don’t Ease Me In"]),   # curly in research
++])
++def test_vet_matches_curly_and_straight_apostrophes_both_ways(tape, research):
++    v = ResearchVetting(asserted_songs=research, asserted_dates=["1973-06-10"], context="")
++    flags, _, _ = grounding_flags(v, _curly_show(tape))
++    assert not any("unknown song" in f for f in flags)
++
++
++def test_vet_folds_curly_apostrophes_in_a_tape_segue_chain():
++    v = ResearchVetting(asserted_songs=["He's Gone", "Don't Ease Me In", "Truckin'"], asserted_dates=[], context="")
++    flags, _, _ = grounding_flags(v, _curly_show(["He’s Gone > Truckin’", "Don’t Ease Me In"]))
++    assert not any("unknown song" in f for f in flags)
++
++
++def test_right_show_gate_counts_a_curly_tape_title_as_asserted():
++    tape = ["He’s Gone", "Don’t Ease Me In", "Truckin’", "Sugar Magnolia"]
++    v = ResearchVetting(asserted_songs=["He's Gone", "Don't Ease Me In", "Truckin'", "Sugar Magnolia"],
++                        asserted_dates=["1973-06-10"], context="")
++    _, info = right_show_gate(v, _curly_show(tape), date_flags_raw=[])
++    assert info["asserted"] == 4 and info["unknown"] == []
+diff --git a/packages/llama/tests/test_structure.py b/packages/llama/tests/test_structure.py
+index 50415d7..6595cb3 100644
+--- a/packages/llama/tests/test_structure.py
++++ b/packages/llama/tests/test_structure.py
+@@ -2064,10 +2064,27 @@ def test_encore_lost_is_false_without_an_encore_item_or_when_it_matched():
+                            _encore_items(("A", "1"), ("B", "2"), ("Willin'", "encore")))
+ 
+ 
+ def test_encore_lost_on_an_unmatched_encore_item_or_a_marked_track():
+     assert encore_lost(_titled_tracks("A", "B"), _encore_items(("A", "1"), ("B", "2"), ("Willin'", "encore")))
+     assert encore_lost(_titled_tracks("A", "B", "E] Willin' >"),
+                        _encore_items(("A", "1"), ("B", "2"), ("Willin'", "encore")))
+     assert encore_lost(_titled_tracks("A", "E: Rilly Wut?"), _encore_items(("A", "1"), ("Rilly Wut?", "encore")))
+     assert encore_lost(_titled_tracks("A", "Crowd Encore Call > B"), _encore_items(("A", "1"), ("B", "encore")))
+     assert not encore_lost(_titled_tracks("A", "Encore Call > B"), _encore_items(("A", "1"), ("B", "2")))
++
++
++from llama.structure import contains_sequence, fold_curly_apostrophes  # noqa: E402
++
++
++def test_fuzzy_norm_title_folds_curly_apostrophes():
++    assert fuzzy_norm_title("Don’t Ease Me In") == fuzzy_norm_title("Don't Ease Me In")
++    assert fuzzy_norm_title("‘Round And Round") == fuzzy_norm_title("'Round And Round")
++    assert fold_curly_apostrophes("a’b‘c“d") == "a'b'c“d"   # only the two
++
++
++def test_normalize_song_still_splits_on_a_curly_apostrophe():   # (pin) the strict list
++    assert normalize_song("Don’t Ease Me In") == "don t ease me in"
++
++
++def test_contains_sequence_matches_a_curly_description():
++    assert contains_sequence("Bertha &gt; Don’t Ease Me In", ["Don't Ease Me In"])

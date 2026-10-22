@@ -1,0 +1,280 @@
+PREDICT BASE: 
+SHADOW BASE: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-v4gniga0/tree/packages/llama/src/llama/__init__.py
+RESULT BASE: ............                                                             [100%]
+BASE green=True
+PREDICT BASE: 
+SHADOW BASE: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-apaczl27/tree/packages/llama/src/llama/__init__.py
+RESULT BASE: 372 passed in 8.62s
+BASE green=True
+PREDICT B1: test_stage_gather.py::test_a_majority_keeps_the_consensus
+APPLIED B1 (packages/llama/src/llama/stages/gather.py):
+963c963
+<     if n == 0 or n != counts.get(candidate.venue, 0) or sel.venue == candidate.venue:
+---
+>     if n == 0 or sel.venue == candidate.venue:
+SHADOW B1: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-zp4x8b1u/tree/packages/llama/src/llama/__init__.py
+RESULT B1: 3 failed, 165 passed in 1.84s
+VERDICT B1: predicted=HIT failing=['test_stage_gather.py::test_1d_does_not_fire_without_a_selected_city_or_with_compatible_cities', 'test_stage_gather.py::test_a_majority_keeps_the_consensus', 'test_stage_gather.py::test_venue_tie_break_unit_cases']
+PREDICT B2: test_stage_gather.py::test_a_tie_whose_selected_city_is_incompatible_ships_the_vote_unchanged
+APPLIED B2 (packages/llama/src/llama/stages/gather.py):
+966,967d965
+<     if sel_city is not None and not cities_compatible(sel_city, candidate.city):
+<         return None
+SHADOW B2: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-lqri1nyt/tree/packages/llama/src/llama/__init__.py
+RESULT B2: 2 failed, 166 passed in 2.01s
+VERDICT B2: predicted=HIT failing=['test_stage_gather.py::test_1d_does_not_fire_when_the_selected_venue_is_the_votes_hall', 'test_stage_gather.py::test_a_tie_whose_selected_city_is_incompatible_ships_the_vote_unchanged']
+PREDICT B3: test_stage_gather.py::test_a_tie_with_a_blank_selected_city_keeps_the_vote_city
+APPLIED B3 (packages/llama/src/llama/stages/gather.py):
+968c968
+<     return _stripped(sel.venue), sel_city or candidate.city
+---
+>     return _stripped(sel.venue), sel_city
+SHADOW B3: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-oxxcuapt/tree/packages/llama/src/llama/__init__.py
+RESULT B3: 2 failed, 166 passed in 2.00s
+VERDICT B3: predicted=HIT failing=['test_stage_gather.py::test_a_tie_with_a_blank_selected_city_keeps_the_vote_city', 'test_stage_gather.py::test_venue_tie_break_unit_cases']
+PREDICT B4: test_stage_gather.py::test_tie_ships_the_selected_recordings_string_without_jerrybase
+APPLIED B4 (packages/llama/src/llama/stages/gather.py):
+968c968
+<     return _stripped(sel.venue), sel_city or candidate.city
+---
+>     return sel.venue, sel_city or candidate.city
+SHADOW B4: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-_wzuwezz/tree/packages/llama/src/llama/__init__.py
+RESULT B4: 2 failed, 166 passed in 1.61s
+VERDICT B4: predicted=HIT failing=['test_stage_gather.py::test_tie_ships_the_selected_recordings_string_without_jerrybase', 'test_stage_gather.py::test_venue_tie_break_unit_cases']
+PREDICT B5: test_stage_gather.py::test_a_whitespace_only_selected_venue_never_ships
+APPLIED B5 (packages/llama/src/llama/stages/gather.py):
+959c959
+<     if sel is None or not _stripped(sel.venue):
+---
+>     if sel is None or not sel.venue:
+SHADOW B5: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-breocubw/tree/packages/llama/src/llama/__init__.py
+RESULT B5: 1 failed, 167 passed in 1.53s
+VERDICT B5: predicted=HIT failing=['test_stage_gather.py::test_a_whitespace_only_selected_venue_never_ships']
+PREDICT B6: test_stage_gather.py::test_tie_ships_the_selected_recordings_string_without_jerrybase
+APPLIED B6 (packages/llama/src/llama/stages/gather.py):
+1451,1452c1451,1452
+<     elif tie is not None:
+<         venue, city = tie                       # slice B: no event
+---
+>     elif False:
+>         venue, city = tie
+SHADOW B6: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-ainxl2xq/tree/packages/llama/src/llama/__init__.py
+RESULT B6: 2 failed, 166 passed in 1.62s
+VERDICT B6: predicted=HIT failing=['test_stage_gather.py::test_a_tie_with_a_blank_selected_city_keeps_the_vote_city', 'test_stage_gather.py::test_tie_ships_the_selected_recordings_string_without_jerrybase']
+PREDICT B7: test_stage_gather.py::test_1a_tie_ships_the_selected_string_when_cities_agree
+APPLIED B7 (packages/llama/src/llama/stages/gather.py):
+1421c1421
+<                 elif tie is not None:
+---
+>                 elif False:
+SHADOW B7: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-zkdjuw33/tree/packages/llama/src/llama/__init__.py
+RESULT B7: 1 failed, 167 passed in 1.63s
+VERDICT B7: predicted=HIT failing=['test_stage_gather.py::test_1a_tie_ships_the_selected_string_when_cities_agree']
+PREDICT B8: test_stage_gather.py::test_1a_tie_keeps_the_vote_when_the_cities_conflict
+APPLIED B8 (packages/llama/src/llama/stages/gather.py):
+1420a1421,1422
+>                     if tie is not None:
+>                         venue, city = tie
+SHADOW B8: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-nxf6bi7l/tree/packages/llama/src/llama/__init__.py
+RESULT B8: 1 failed, 167 passed in 1.67s
+VERDICT B8: predicted=HIT failing=['test_stage_gather.py::test_1a_tie_keeps_the_vote_when_the_cities_conflict']
+PREDICT B9: test_stage_gather.py::test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string
+APPLIED B9 (packages/llama/src/llama/stages/gather.py):
+1430,1432c1430
+<                 if (tie is not None and venues_equivalent(tie[0], event.venue)
+<                         and (_venues_equivalent_pre1b(tie[0], event.venue)
+<                              or cities_compatible(archive_city, jb_city))):
+---
+>                 if tie is not None:
+SHADOW B9: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-gzzaobz3/tree/packages/llama/src/llama/__init__.py
+RESULT B9: 2 failed, 166 passed in 1.65s
+VERDICT B9: predicted=HIT failing=['test_stage_gather.py::test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string', 'test_stage_gather.py::test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_and_cities_conflict']
+PREDICT B10: test_stage_gather.py::test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_and_cities_conflict
+APPLIED B10 (packages/llama/src/llama/stages/gather.py):
+1430,1432c1430
+<                 if (tie is not None and venues_equivalent(tie[0], event.venue)
+<                         and (_venues_equivalent_pre1b(tie[0], event.venue)
+<                              or cities_compatible(archive_city, jb_city))):
+---
+>                 if (tie is not None and venues_equivalent(tie[0], event.venue)):
+SHADOW B10: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-_n28cz08/tree/packages/llama/src/llama/__init__.py
+RESULT B10: 1 failed, 167 passed in 2.12s
+VERDICT B10: predicted=HIT failing=['test_stage_gather.py::test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_and_cities_conflict']
+PREDICT B11: test_stage_gather.py::test_the_signature_blocks_the_swap_when_the_selected_tape_agrees_with_jerrybase
+APPLIED B11 (packages/llama/src/llama/stages/gather.py):
+1441a1442,1443
+>                 if tie is not None:
+>                     venue, city = tie
+SHADOW B11: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-lig_8tg6/tree/packages/llama/src/llama/__init__.py
+RESULT B11: 1 failed, 167 passed in 1.58s
+VERDICT B11: predicted=HIT failing=['test_stage_gather.py::test_the_signature_blocks_the_swap_when_the_selected_tape_agrees_with_jerrybase']
+PREDICT B12: test_stage_gather.py::test_venue_tie_break_unit_cases
+APPLIED B12 (packages/llama/src/llama/stages/gather.py):
+963c963
+<     if n == 0 or n != counts.get(candidate.venue, 0) or sel.venue == candidate.venue:
+---
+>     if n != counts.get(candidate.venue, 0) or sel.venue == candidate.venue:
+SHADOW B12: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-9jblqs5f/tree/packages/llama/src/llama/__init__.py
+RESULT B12: 1 failed, 167 passed in 1.52s
+VERDICT B12: predicted=HIT failing=['test_stage_gather.py::test_venue_tie_break_unit_cases']
+PREDICT C1: test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+APPLIED C1 (packages/llama/src/llama/show_unit.py):
+101c101
+<         if rel not in saved:
+---
+>         if rel not in saved and False:
+SHADOW C1: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-aspgkls2/tree/packages/llama/src/llama/__init__.py
+RESULT C1: 9 failed, 195 passed in 6.68s
+VERDICT C1: predicted=HIT failing=['test_fix.py::test_a_failed_first_edit_removes_the_overrides_file_it_created', 'test_fix.py::test_a_multi_flag_fix_whose_redo_fails_leaves_nothing_of_the_first_edits', 'test_fix.py::test_failed_accept_vague_restores_the_hold_and_the_overrides', 'test_fix.py::test_untitled_failure_after_the_overrule_restores_everything', 'test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical', 'test_show_unit.py::test_files_outside_the_known_artifacts_are_restored_and_new_ones_removed', 'test_triage.py::test_a_failed_metadata_edit_restores_the_overrides', 'test_triage.py::test_a_failed_untitled_resolution_restores_and_returns_to_the_prompt', 'test_triage.py::test_ctrl_c_in_a_triage_edit_restores_and_ends_the_walkthrough']
+PREDICT C2: test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+APPLIED C2 (packages/llama/src/llama/show_unit.py):
+104c104
+<         atomic_write_bytes(show_ws.dir / rel, (files / rel).read_bytes())
+---
+>         pass
+SHADOW C2: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-9cl46b84/tree/packages/llama/src/llama/__init__.py
+RESULT C2: 16 failed, 188 passed in 6.39s
+VERDICT C2: predicted=HIT failing=['test_fix.py::test_a_multi_flag_fix_whose_redo_fails_leaves_nothing_of_the_first_edits', 'test_fix.py::test_a_refused_structure_fix_leaves_every_file_byte_identical', 'test_fix.py::test_failed_accept_vague_restores_the_hold_and_the_overrides', 'test_fix.py::test_failed_overrule_restores_every_file', 'test_fix.py::test_no_run_stages_bad_overrides_and_the_redo_restores_and_names_the_field', 'test_fix.py::test_untitled_failure_after_the_overrule_restores_everything', 'test_redo_cmd.py::test_failed_redo_from_brief_restores_every_file', 'test_redo_cmd.py::test_keyboard_interrupt_after_the_drop_restores_and_re_raises', 'test_redo_cmd.py::test_package_failure_on_purged_audio_removes_new_audio_and_restores_manifest', 'test_redo_cmd.py::test_redo_batch_restores_a_failed_show_and_continues', 'test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical', 'test_show_unit.py::test_files_outside_the_known_artifacts_are_restored_and_new_ones_removed', 'test_show_unit.py::test_keyboard_interrupt_restores_and_re_raises', 'test_triage.py::test_a_failed_triage_edit_prints_the_error_restores_and_returns_to_the_prompt', 'test_triage.py::test_a_retry_after_a_failed_edit_applies_against_the_restored_show', 'test_triage.py::test_ctrl_c_in_a_triage_edit_restores_and_ends_the_walkthrough']
+PREDICT C3: test_redo_cmd.py::test_package_failure_on_purged_audio_removes_new_audio_and_restores_manifest
+APPLIED C3 (packages/llama/src/llama/show_unit.py):
+106c106
+<         if name not in keep_audio:
+---
+>         if False:
+SHADOW C3: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-1l8ksyae/tree/packages/llama/src/llama/__init__.py
+RESULT C3: 2 failed, 202 passed in 5.33s
+VERDICT C3: predicted=HIT failing=['test_redo_cmd.py::test_package_failure_on_purged_audio_removes_new_audio_and_restores_manifest', 'test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical']
+PREDICT C5a: test_show_unit.py::test_keyboard_interrupt_restores_and_re_raises
+APPLIED C5a (packages/llama/src/llama/show_unit.py):
+142c142
+<         except BaseException:
+---
+>         except Exception:
+SHADOW C5a: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-6_cbvchs/tree/packages/llama/src/llama/__init__.py
+RESULT C5a: 3 failed, 201 passed in 6.10s
+VERDICT C5a: predicted=HIT failing=['test_redo_cmd.py::test_keyboard_interrupt_after_the_drop_restores_and_re_raises', 'test_show_unit.py::test_keyboard_interrupt_restores_and_re_raises', 'test_triage.py::test_ctrl_c_in_a_triage_edit_restores_and_ends_the_walkthrough']
+PREDICT C5b: test_show_unit.py::test_a_failing_take_snapshot_discards_and_re_raises[KeyboardInterrupt]
+APPLIED C5b (packages/llama/src/llama/show_unit.py):
+137c137
+<         except BaseException:
+---
+>         except Exception:
+SHADOW C5b: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-8xwhx2t2/tree/packages/llama/src/llama/__init__.py
+RESULT C5b: 1 failed, 203 passed in 5.30s
+VERDICT C5b: predicted=HIT failing=['test_show_unit.py::test_a_failing_take_snapshot_discards_and_re_raises[KeyboardInterrupt]']
+PREDICT C6: test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+APPLIED C6 (packages/llama/src/llama/show_unit.py):
+145d144
+<             raise
+SHADOW C6: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-wmqa0i5a/tree/packages/llama/src/llama/__init__.py
+RESULT C6: 28 failed, 176 passed in 5.76s
+VERDICT C6: predicted=HIT failing=['test_fix.py::test_a_failed_first_edit_removes_the_overrides_file_it_created', 'test_fix.py::test_a_multi_flag_fix_whose_redo_fails_leaves_nothing_of_the_first_edits', 'test_fix.py::test_a_refused_structure_fix_leaves_every_file_byte_identical', 'test_fix.py::test_a_track_number_exclude_without_show_json_refuses_and_changes_nothing', 'test_fix.py::test_a_typer_exit_inside_the_unit_leaves_the_show_byte_identical', 'test_fix.py::test_exclude_out_of_range_errors', 'test_fix.py::test_failed_accept_vague_restores_the_hold_and_the_overrides', 'test_fix.py::test_failed_overrule_restores_every_file', 'test_fix.py::test_no_run_stages_bad_overrides_and_the_redo_restores_and_names_the_field', 'test_fix.py::test_out_of_range_handle_errors', 'test_fix.py::test_same_file_in_both_flags_errors', 'test_fix.py::test_untitled_failure_after_the_overrule_restores_everything', 'test_redo_cmd.py::test_a_failed_redo_leaves_the_show_held', 'test_redo_cmd.py::test_a_redo_of_a_show_removed_while_it_waited_refuses_with_the_removed_message', 'test_redo_cmd.py::test_failed_redo_from_brief_restores_every_file', 'test_redo_cmd.py::test_keyboard_interrupt_after_the_drop_restores_and_re_raises', 'test_redo_cmd.py::test_package_failure_on_purged_audio_removes_new_audio_and_restores_manifest', 'test_redo_cmd.py::test_redo_batch_restores_a_failed_show_and_continues', 'test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical', 'test_show_unit.py::test_a_leftover_snapshot_file_is_not_resurrected_by_a_failed_unit', 'test_show_unit.py::test_existing_audio_is_never_snapshotted_or_rewritten', 'test_show_unit.py::test_files_outside_the_known_artifacts_are_restored_and_new_ones_removed', 'test_show_unit.py::test_keyboard_interrupt_restores_and_re_raises', 'test_show_unit.py::test_the_lock_file_is_never_touched_by_a_failed_unit', 'test_triage.py::test_a_failed_metadata_edit_restores_the_overrides', 'test_triage.py::test_a_failed_triage_edit_prints_the_error_restores_and_returns_to_the_prompt', 'test_triage.py::test_a_failed_untitled_resolution_restores_and_returns_to_the_prompt', 'test_triage.py::test_a_retry_after_a_failed_edit_applies_against_the_restored_show']
+PREDICT C7: test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+APPLIED C7 (packages/llama/src/llama/show_unit.py):
+143,144c143
+<             restore_snapshot(show_ws)      # if this raises, .txn/ stays; original is __context__
+<             discard_snapshot(show_ws)
+---
+>             restore_snapshot(show_ws)
+SHADOW C7: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-jx9o6mm3/tree/packages/llama/src/llama/__init__.py
+RESULT C7: 20 failed, 184 passed in 6.19s
+VERDICT C7: predicted=HIT failing=['test_fix.py::test_a_multi_flag_fix_whose_redo_fails_leaves_nothing_of_the_first_edits', 'test_fix.py::test_a_refused_structure_fix_leaves_every_file_byte_identical', 'test_fix.py::test_a_track_number_exclude_without_show_json_refuses_and_changes_nothing', 'test_fix.py::test_a_typer_exit_inside_the_unit_leaves_the_show_byte_identical', 'test_fix.py::test_failed_accept_vague_restores_the_hold_and_the_overrides', 'test_fix.py::test_failed_overrule_restores_every_file', 'test_fix.py::test_no_run_stages_bad_overrides_and_the_redo_restores_and_names_the_field', 'test_fix.py::test_untitled_failure_after_the_overrule_restores_everything', 'test_redo_cmd.py::test_a_redo_of_a_show_removed_while_it_waited_refuses_with_the_removed_message', 'test_redo_cmd.py::test_failed_redo_from_brief_restores_every_file', 'test_redo_cmd.py::test_keyboard_interrupt_after_the_drop_restores_and_re_raises', 'test_redo_cmd.py::test_package_failure_on_purged_audio_removes_new_audio_and_restores_manifest', 'test_redo_cmd.py::test_redo_batch_restores_a_failed_show_and_continues', 'test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical', 'test_show_unit.py::test_a_leftover_snapshot_file_is_not_resurrected_by_a_failed_unit', 'test_show_unit.py::test_files_outside_the_known_artifacts_are_restored_and_new_ones_removed', 'test_show_unit.py::test_keyboard_interrupt_restores_and_re_raises', 'test_triage.py::test_a_failed_triage_edit_prints_the_error_restores_and_returns_to_the_prompt', 'test_triage.py::test_a_failed_untitled_resolution_restores_and_returns_to_the_prompt', 'test_triage.py::test_ctrl_c_in_a_triage_edit_restores_and_ends_the_walkthrough']
+PREDICT C8: test_show_unit.py::test_a_leftover_snapshot_is_deleted_not_restored, test_show_unit.py::test_a_leftover_snapshot_file_is_not_resurrected_by_a_failed_unit
+APPLIED C8 (packages/llama/src/llama/show_unit.py):
+134c134,139
+<         _discard_leftover(show_ws)         # a leftover is deleted, never restored
+---
+>         _lf = show_ws.dir / TXN_DIR / "files"
+>         if _lf.is_dir():
+>             for _p in _lf.rglob("*"):
+>                 if _p.is_file():
+>                     atomic_write_bytes(show_ws.dir / _p.relative_to(_lf), _p.read_bytes())
+>         _discard_leftover(show_ws)
+SHADOW C8: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-bss4n7xe/tree/packages/llama/src/llama/__init__.py
+RESULT C8: 3 failed, 201 passed in 6.32s
+VERDICT C8: predicted=HIT failing=['test_redo_cmd.py::test_a_leftover_txn_is_deleted_not_restored_by_the_next_redo', 'test_show_unit.py::test_a_leftover_snapshot_file_is_not_resurrected_by_a_failed_unit', 'test_show_unit.py::test_a_leftover_snapshot_is_deleted_not_restored']
+PREDICT C8b: test_show_unit.py::test_a_leftover_snapshot_is_deleted_not_restored, test_show_unit.py::test_a_leftover_snapshot_file_is_not_resurrected_by_a_failed_unit, test_show_unit.py::test_a_leftover_that_cannot_be_removed_refuses_before_anything_is_written
+APPLIED C8b (packages/llama/src/llama/show_unit.py):
+134c134
+<         _discard_leftover(show_ws)         # a leftover is deleted, never restored
+---
+>         pass
+SHADOW C8b: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-0ys4up50/tree/packages/llama/src/llama/__init__.py
+RESULT C8b: 2 failed, 202 passed in 6.46s
+VERDICT C8b: predicted=HIT failing=['test_show_unit.py::test_a_leftover_snapshot_file_is_not_resurrected_by_a_failed_unit', 'test_show_unit.py::test_a_leftover_that_cannot_be_removed_refuses_before_anything_is_written']
+PREDICT C9: test_show_unit.py::test_existing_audio_is_never_snapshotted_or_rewritten
+APPLIED C9 (packages/llama/src/llama/show_unit.py):
+71c71
+<         elif rel_dir == Path("package"):
+---
+>         elif False:
+SHADOW C9: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-c3_9glnm/tree/packages/llama/src/llama/__init__.py
+RESULT C9: 1 failed, 203 passed in 6.35s
+VERDICT C9: predicted=HIT failing=['test_show_unit.py::test_existing_audio_is_never_snapshotted_or_rewritten']
+PREDICT C10: test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+APPLIED C10 (packages/llama/src/llama/show_unit.py):
+102a103
+>     (show_ws.dir / '.lock').unlink(missing_ok=True)
+SHADOW C10: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-sdfbi1b1/tree/packages/llama/src/llama/__init__.py
+RESULT C10: 3 failed, 201 passed in 5.44s
+VERDICT C10: predicted=HIT failing=['test_redo_cmd.py::test_a_redo_of_a_show_removed_while_it_waited_refuses_with_the_removed_message', 'test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical', 'test_show_unit.py::test_the_lock_file_is_never_touched_by_a_failed_unit']
+PREDICT C10b: test_show_unit.py::test_the_lock_file_is_never_touched_by_a_failed_unit
+APPLIED C10b (packages/llama/src/llama/show_unit.py):
+75c75
+<             if rel != ".lock":
+---
+>             if True:
+SHADOW C10b: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-vb5el72n/tree/packages/llama/src/llama/__init__.py
+RESULT C10b: 1 failed, 203 passed in 5.76s
+VERDICT C10b: predicted=HIT failing=['test_show_unit.py::test_the_lock_file_is_never_touched_by_a_failed_unit']
+PREDICT C11: test_show_unit.py::test_a_changed_show_refuses_and_changes_nothing[overrides]
+APPLIED C11 (packages/llama/src/llama/show_unit.py):
+59c59
+<                     overrides=_read(show_ws.overrides),
+---
+>                     overrides=None,
+SHADOW C11: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-ww_9guzv/tree/packages/llama/src/llama/__init__.py
+RESULT C11: 3 failed, 201 passed in 6.50s
+VERDICT C11: predicted=HIT failing=['test_fix.py::test_fix_refuses_when_the_show_changed_after_the_prompt', 'test_show_unit.py::test_a_changed_show_refuses_and_changes_nothing[overrides]', 'test_triage.py::test_a_triage_edit_whose_show_changed_meanwhile_refuses_and_changes_nothing']
+PREDICT C12: test_show_unit.py::test_a_changed_show_refuses_and_changes_nothing[show]
+APPLIED C12 (packages/llama/src/llama/show_unit.py):
+60c60
+<                     show=_read(show_ws.show))
+---
+>                     show=None)
+SHADOW C12: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-2u2d63e6/tree/packages/llama/src/llama/__init__.py
+RESULT C12: 1 failed, 203 passed in 6.35s
+VERDICT C12: predicted=HIT failing=['test_show_unit.py::test_a_changed_show_refuses_and_changes_nothing[show]']
+PREDICT C13: test_show_unit.py::test_a_removed_show_refuses_with_the_removed_message
+APPLIED C13 (packages/llama/src/llama/show_unit.py):
+58c58
+<     return ShowView(provenance=show_ws.provenance.exists(),
+---
+>     return ShowView(provenance=False,
+SHADOW C13: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-hwogj68o/tree/packages/llama/src/llama/__init__.py
+RESULT C13: 1 failed, 203 passed in 7.03s
+VERDICT C13: predicted=HIT failing=['test_show_unit.py::test_a_removed_show_refuses_with_the_removed_message']
+PREDICT C14: test_fix.py::test_fix_refuses_when_the_show_changed_after_the_prompt
+APPLIED C14 (packages/llama/src/llama/cli.py):
+3160a3161
+>     view = capture_view(sws)
+SHADOW C14: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-0gud4paq/tree/packages/llama/src/llama/__init__.py
+RESULT C14: 1 failed, 203 passed in 5.43s
+VERDICT C14: predicted=HIT failing=['test_fix.py::test_fix_refuses_when_the_show_changed_after_the_prompt']
+PREDICT C15: test_triage.py::test_a_triage_edit_whose_show_changed_meanwhile_refuses_and_changes_nothing
+APPLIED C15 (packages/llama/src/llama/cli.py):
+1964a1965
+>             view = capture_view(entry.ws)
+SHADOW C15: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-2_0cz_al/tree/packages/llama/src/llama/__init__.py
+RESULT C15: 1 failed, 203 passed in 5.61s
+VERDICT C15: predicted=HIT failing=['test_triage.py::test_a_triage_edit_whose_show_changed_meanwhile_refuses_and_changes_nothing']
+PREDICT C16: test_show_unit.py::test_a_leftover_that_cannot_be_removed_refuses_before_anything_is_written
+APPLIED C16 (packages/llama/src/llama/show_unit.py):
+119c119
+<     if txn.exists():
+---
+>     if False:
+SHADOW C16: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8/work/mut-a3wq1xvl/tree/packages/llama/src/llama/__init__.py
+RESULT C16: 1 failed, 203 passed in 5.28s
+VERDICT C16: predicted=HIT failing=['test_show_unit.py::test_a_leftover_that_cannot_be_removed_refuses_before_anything_is_written']
+C4: retired by the plan (skipped)

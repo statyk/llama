@@ -1,0 +1,112 @@
+progress: scratch copy made
+=== M0_none
+................F.LEFT: ['.lock']
+PASSED ../M0_none/packages/llama/tests/test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+PASSED ../M0_none/packages/llama/tests/test_show_unit.py::test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn
+PASSED ../M0_none/packages/llama::test_probe_sentinel
+PASSED ../M0_none/packages/llama::test_probe_failed_snapshot_discards_and_reraises
+FAILED ../M0_none/packages/llama::test_probe_symlink_survives_restore - Asser...
+1 failed, 18 passed in 2.97s
+=== M1_no_initial_discard
+.............F..F.LEFT: ['.lock']
+PASSED ../M1_no_initial_discard/packages/llama/tests/test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+PASSED ../M1_no_initial_discard/packages/llama/tests/test_show_unit.py::test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn
+PASSED ../M1_no_initial_discard/packages/llama::test_probe_sentinel
+PASSED ../M1_no_initial_discard/packages/llama::test_probe_failed_snapshot_discards_and_reraises
+FAILED ../M1_no_initial_discard/packages/llama::test_probe_leftover_extra_file_not_resurrected
+FAILED ../M1_no_initial_discard/packages/llama::test_probe_symlink_survives_restore
+2 failed, 17 passed in 0.48s
+=== M2_lock_tracked
+..............F.F.LEFT: ['.lock']
+PASSED ../M2_lock_tracked/packages/llama/tests/test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+PASSED ../M2_lock_tracked/packages/llama/tests/test_show_unit.py::test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn
+PASSED ../M2_lock_tracked/packages/llama::test_probe_sentinel
+PASSED ../M2_lock_tracked/packages/llama::test_probe_failed_snapshot_discards_and_reraises
+FAILED ../M2_lock_tracked/packages/llama::test_probe_lock_inode_unchanged_by_restore
+FAILED ../M2_lock_tracked/packages/llama::test_probe_symlink_survives_restore
+2 failed, 17 passed in 3.25s
+=== M3_no_snapshot_handler
+...............FF.LEFT: ['.lock']
+_______________ test_probe_failed_snapshot_discards_and_reraises _______________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1485/test_probe_failed_snapshot_dis0')
+    def test_probe_failed_snapshot_discards_and_reraises(tmp_path, monkeypatch):
+PASSED ../M3_no_snapshot_handler/packages/llama/tests/test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+PASSED ../M3_no_snapshot_handler/packages/llama/tests/test_show_unit.py::test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn
+PASSED ../M3_no_snapshot_handler/packages/llama::test_probe_sentinel
+FAILED ../M3_no_snapshot_handler/packages/llama::test_probe_failed_snapshot_discards_and_reraises
+FAILED ../M3_no_snapshot_handler/packages/llama::test_probe_symlink_survives_restore
+2 failed, 17 passed in 0.44s
+=== M3b_snapshot_handler_Exception
+...............FF.LEFT: ['.lock']
+_______________ test_probe_failed_snapshot_discards_and_reraises _______________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1486/test_probe_failed_snapshot_dis0')
+    def test_probe_failed_snapshot_discards_and_reraises(tmp_path, monkeypatch):
+PASSED ../M3b_snapshot_handler_Exception/packages/llama/tests/test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+PASSED ../M3b_snapshot_handler_Exception/packages/llama/tests/test_show_unit.py::test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn
+PASSED ../M3b_snapshot_handler_Exception/packages/llama::test_probe_sentinel
+FAILED ../M3b_snapshot_handler_Exception/packages/llama::test_probe_failed_snapshot_discards_and_reraises
+FAILED ../M3b_snapshot_handler_Exception/packages/llama::test_probe_symlink_survives_restore
+2 failed, 17 passed in 0.37s
+=== M4_yield_Exception
+.F..............F.LEFT: ['.lock']
+PASSED ../M4_yield_Exception/packages/llama/tests/test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+PASSED ../M4_yield_Exception/packages/llama/tests/test_show_unit.py::test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn
+PASSED ../M4_yield_Exception/packages/llama::test_probe_sentinel
+PASSED ../M4_yield_Exception/packages/llama::test_probe_failed_snapshot_discards_and_reraises
+FAILED ../M4_yield_Exception/packages/llama/tests/test_show_unit.py::test_keyboard_interrupt_restores_and_re_raises
+FAILED ../M4_yield_Exception/packages/llama::test_probe_symlink_survives_restore
+2 failed, 17 passed in 0.44s
+=== M5_audio_snapshotted
+......F.........F.LEFT: ['.lock']
+PASSED ../M5_audio_snapshotted/packages/llama/tests/test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+PASSED ../M5_audio_snapshotted/packages/llama/tests/test_show_unit.py::test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn
+PASSED ../M5_audio_snapshotted/packages/llama::test_probe_sentinel
+PASSED ../M5_audio_snapshotted/packages/llama::test_probe_failed_snapshot_discards_and_reraises
+FAILED ../M5_audio_snapshotted/packages/llama/tests/test_show_unit.py::test_existing_audio_is_never_snapshotted_or_rewritten
+FAILED ../M5_audio_snapshotted/packages/llama::test_probe_symlink_survives_restore
+2 failed, 17 passed in 0.42s
+=== M6_no_discard_after_restore
+FF...F.......F..F.LEFT: ['.lock']
+____________ test_a_failed_unit_restores_every_file_byte_identical _____________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1489/test_a_failed_unit_restores_ev0')
+    def test_a_failed_unit_restores_every_file_byte_identical(tmp_path):
+PASSED ../M6_no_discard_after_restore/packages/llama/tests/test_show_unit.py::test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn
+PASSED ../M6_no_discard_after_restore/packages/llama::test_probe_sentinel
+PASSED ../M6_no_discard_after_restore/packages/llama::test_probe_failed_snapshot_discards_and_reraises
+FAILED ../M6_no_discard_after_restore/packages/llama/tests/test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+FAILED ../M6_no_discard_after_restore/packages/llama/tests/test_show_unit.py::test_keyboard_interrupt_restores_and_re_raises
+FAILED ../M6_no_discard_after_restore/packages/llama/tests/test_show_unit.py::test_files_outside_the_known_artifacts_are_restored_and_new_ones_removed
+FAILED ../M6_no_discard_after_restore/packages/llama::test_probe_leftover_extra_file_not_resurrected
+FAILED ../M6_no_discard_after_restore/packages/llama::test_probe_symlink_survives_restore
+5 failed, 14 passed in 0.38s
+=== M7_step_a_removed
+F....F..........F.LEFT: ['.lock']
+____________ test_a_failed_unit_restores_every_file_byte_identical _____________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1490/test_a_failed_unit_restores_ev0')
+    def test_a_failed_unit_restores_every_file_byte_identical(tmp_path):
+PASSED ../M7_step_a_removed/packages/llama/tests/test_show_unit.py::test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn
+PASSED ../M7_step_a_removed/packages/llama::test_probe_sentinel
+PASSED ../M7_step_a_removed/packages/llama::test_probe_failed_snapshot_discards_and_reraises
+FAILED ../M7_step_a_removed/packages/llama/tests/test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+FAILED ../M7_step_a_removed/packages/llama/tests/test_show_unit.py::test_files_outside_the_known_artifacts_are_restored_and_new_ones_removed
+FAILED ../M7_step_a_removed/packages/llama::test_probe_symlink_survives_restore
+3 failed, 16 passed in 0.45s
+=== M8_step_c_removed
+F...............F.LEFT: ['.lock']
+____________ test_a_failed_unit_restores_every_file_byte_identical _____________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1491/test_a_failed_unit_restores_ev0')
+    def test_a_failed_unit_restores_every_file_byte_identical(tmp_path):
+PASSED ../M8_step_c_removed/packages/llama/tests/test_show_unit.py::test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn
+PASSED ../M8_step_c_removed/packages/llama::test_probe_sentinel
+PASSED ../M8_step_c_removed/packages/llama::test_probe_failed_snapshot_discards_and_reraises
+FAILED ../M8_step_c_removed/packages/llama/tests/test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+FAILED ../M8_step_c_removed/packages/llama::test_probe_symlink_survives_restore
+2 failed, 17 passed in 0.40s
+=== M9_removed_msg_cond
+................F.LEFT: ['.lock']
+PASSED ../M9_removed_msg_cond/packages/llama/tests/test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical
+PASSED ../M9_removed_msg_cond/packages/llama/tests/test_show_unit.py::test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn
+PASSED ../M9_removed_msg_cond/packages/llama::test_probe_sentinel
+PASSED ../M9_removed_msg_cond/packages/llama::test_probe_failed_snapshot_discards_and_reraises
+FAILED ../M9_removed_msg_cond/packages/llama::test_probe_symlink_survives_restore
+1 failed, 18 passed in 0.39s

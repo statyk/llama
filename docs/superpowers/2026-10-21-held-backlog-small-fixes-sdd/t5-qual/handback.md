@@ -1,0 +1,28 @@
+# t5-qual: CODE-QUALITY review, Task 5 (slice C: redo as a restoring unit; `_execute` catches per-show LlamaError), c9d770c..4284fa5
+
+### Strengths
+- `_redo_show` / `_redo_show_locked` split is clean (cli.py:2459-2511): the wrapper is three lines, the body is today's body minus `file_lock`, and the positional shape `(config, ia, ledger, entry, stage, **kw)` keeps every existing stub working.
+- Provenance is now read under the caller's lock (`read_model(show_ws.provenance, Provenance)`), which closes the stale pre-lock-provenance hole. The removed-vs-never-had distinction (`entry.provenance is not None`) is correct and matches the global fixed string exactly.
+- Echo placement is correct at every call site. Each `_redo_show` caller (cli.py:1818/1823, 1940, 3188, 3262, 3356) echoes `packaged:`/`still held:` only after `_redo_show` returns, so outside the unit. Inside the unit, `process_show` writes progress only through `status.step`, which goes to stderr or a log, and it never prints to stdout. The global "no stdout after the last show write" constraint holds.
+- The lock rules hold: `process_show` is unchanged and lock-free; the show lock is taken once, in `show_unit`; `_redo_show_locked` takes none.
+- The tests exercise the real unit, not mocks. The batch test stubs `_redo_show_locked`, so the real `_redo_show` → `show_unit` path runs. The restore tests drive a real fake-backend `get` and then a real redo, and compare whole-tree bytes, including `provenance.json`'s `processed_at` (rewritten at pipeline.py:137). The KeyboardInterrupt test sensibly goes through the function, because click would turn the interrupt into "Aborted!".
+- No do-not-retune name appears in the diff (grep of the full c9d770c..4284fa5 diff for all names in global-constraints.md: no hits).
+
+### Named-risk checks (one focused check each)
+1. **Could widening `_execute._process`'s catch to `LlamaError` swallow a run-level abort?** `_process` (cli.py:571-600) wraps only `process_show`. I grepped every module that raises a `LlamaError`-family exception: artist_index, catalog, cli, config, ia_client, profiles, reapply, replay, show_unit, stages/gather, stages/package. `pipeline.py` imports none of artist_index, profiles, catalog, replay, reapply or show_unit. What `process_show` can raise is gather's override refusals (gather.py:66/71/74/1206), package's "requires a briefing" (package.py:76) and IAError, all per-show. ConfigError is raised only at config load. Herder raises no LlamaError, and lazy provider construction fails as `HerderError`, which was already caught per-show. `Locked` and `RunMissing` subclass plain `Exception` (locks.py:11,43), so the outer `except Locked` deferral is not intercepted. `RateLimited` still sits above the tuple. Verdict: nothing that should abort a run is swallowed. The one behaviour change is that `redo --run` / `run resume` on a show with refused overrides now ends the run `incomplete` with kind `other` instead of exiting 1. That is the intended spec C behaviour, and the sweep correctly treats it as needs-attention.
+2. **Are the new tests hermetic?** conftest.py has autouse fixtures that delete `SETLISTFM_API_KEY` (so `make_client` returns None) and patch `cli.read_usage` (so no `claude -p /usage`). `packaged_gd73` patches `cli.make_providers` to `fake_providers` and `cli.IAClient` to `FakeIA`. Those patches stay in force for the redo that follows in each test. `pipeline.run_brief` is imported into pipeline's namespace by name (pipeline.py:11), so patching `pipeline.run_brief` takes effect. The batch test stubs `_redo_show_locked`. No test reaches archive.org, `claude -p` or a real redo.
+
+### Issues
+#### Critical
+None.
+#### Important
+None.
+#### Minor
+1. **cli.py:3262-3266 (`_redo_batch`), unchanged code, new reachability.** `ShowChanged` messages already carry the slug, so a show removed during a batch prints `FAILED gratefuldead-1973-06-10: gratefuldead-1973-06-10: the show was removed; nothing changed`, with the slug twice. The same tuple's `IAError` is now redundant beside `LlamaError` (pre-existing). Cosmetic. Optionally print `str(exc)` alone when `isinstance(exc, ShowChanged)`, or leave it.
+2. **test_redo_cmd.py: `test_redo_batch_restores_a_failed_show_and_continues`.** It asserts that `aready` was restored but not that `bready`'s write was committed. A unit that always restored would still pass this test (`done == ["bready"]` holds either way). Task 4's tests probably cover commit-on-success; adding `assert read_artifact(b.dir / "show.json") == {"half": "written"}` (keeping `b` from `build`) would close it locally.
+3. **cli.py:2459-2511 and cli.py:3349-3352.** The single `redo` command still pre-checks `entry.provenance is None` before the unit, with the same message `_redo_show_locked` raises. This is now two copies of one string, but the duplication is harmless: the pre-check gives a clean exit-1 without taking the lock. No action needed. Noted for the final branch review.
+4. **Import hygiene in tests.** test_redo_cmd.py:21 and :23 have two separate `from llama.workspace import` statements, and `from helpers import ...` (line 10) sits among the third-party imports. test_reapply.py breaks alphabetical order with `from llama.models import Overrides, Briefing, ...`. Polish only.
+
+### Assessment
+**Task quality:** Approved
+**Reasoning:** The split is minimal and correct: lock taken once, provenance read under the lock, stdout writes outside the unit. Widening the catch to `LlamaError` exposes only per-show refusals from inside `process_show`, and the new tests run the real unit against the fake backend and FakeIA, hermetically. The remaining items are cosmetic or strengthen tests that already work.

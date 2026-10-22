@@ -1,0 +1,19 @@
+mutant C14 check: start
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/mut/packages/llama/src/llama/__init__.py
+
+    def test_fix_refuses_when_the_show_changed_after_the_prompt(tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path); ws = _held_show(tmp_path); calls = _stub_redo(monkeypatch)
+        def other_command_meanwhile(ia, config, entry, show):
+            write_artifact(entry.ws.overrides, Overrides(venue="Elsewhere")); return {1: "Dew"}
+        monkeypatch.setattr(cli, "_propose_and_confirm_titles", other_command_meanwhile)
+        r = cli_invoke(cfg, "fix", "gratefuldead", "--suggest-titles")
+>       assert r.exit_code == 1 and "changed by another command; run it again" in str(r.exception)
+E       assert (0 == 1)
+E        +  where 0 = <Result okay>.exit_code
+
+packages/llama/tests/test_fix.py:941: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_fix.py::test_fix_refuses_when_the_show_changed_after_the_prompt
+1 failed, 1 passed, 90 deselected in 1.40s
+................                                                         [100%]
+16 passed, 76 deselected in 0.76s

@@ -6,7 +6,7 @@ from herder import run_json_task
 from llama.models import ResearchVetting, Show, ShowNotes, VettingResult
 from llama.prompts import load_prompt
 from llama.songs import normalize_song
-from llama.structure import TAUTOLOGICAL_TITLE_SOURCES, is_filler
+from llama.structure import TAUTOLOGICAL_TITLE_SOURCES, fold_curly_apostrophes, is_filler
 from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
 
 # Every deterministic grounding flag starts with this prefix, so a re-vet can strip
@@ -112,6 +112,10 @@ def day_unknown_date(text: str) -> str | None:
 _SEGUE_SPLIT = re.compile(r"\s*(?:->|>|→)\s*")
 
 
+def _song_tokens(name: str) -> list[str]:
+    return normalize_song(fold_curly_apostrophes(name)).split()
+
+
 def _run_contained(short: list[str], long: list[str]) -> bool:
     n = len(short)
     return 0 < n <= len(long) and any(long[i:i + n] == short for i in range(len(long) - n + 1))
@@ -121,7 +125,7 @@ def _title_match(name: str, known: list[list[str]]) -> bool:
     """Prose titles are loose: "Caution" for "Caution (Do Not Step on
     Tracks)", "One More Saturday Night" for a track titled "Saturday Night".
     Match when either side's tokens appear as a contiguous run in the other."""
-    tokens = normalize_song(name).split()
+    tokens = _song_tokens(name)
     return bool(tokens) and any(
         _run_contained(tokens, k) or _run_contained(k, tokens) for k in known
     )
@@ -134,7 +138,7 @@ def _known_song(name: str, known: list[list[str]]) -> bool:
     chain, and titles may contain commas); then a chain is known only if
     EVERY part is. Loose containment applies only to atomic titles - a chain
     must never pass just because one real song appears in it."""
-    tokens = normalize_song(name).split()
+    tokens = _song_tokens(name)
     if any(tokens == k for k in known):
         return True
     parts = [p for p in _SEGUE_SPLIT.split(name) if p.strip()]
@@ -186,7 +190,7 @@ def right_show_gate(
     (their text IS the canonical's) count on neither side; the date flags are the
     ones read BEFORE 4b's adjacent-day window; the own date must be a full date,
     year included. Returns (holds, info) with info's counts for the note."""
-    research_known = [normalize_song(s).split() for s in vetting.asserted_songs]
+    research_known = [_song_tokens(s) for s in vetting.asserted_songs]
     resolved = [
         t for t in show.tracks
         if t.title_source != "unresolved"
@@ -194,7 +198,7 @@ def right_show_gate(
         and t.title_source not in TAUTOLOGICAL_TITLE_SOURCES
     ]
     asserted = [t for t in resolved if _known_song(t.title, research_known)]
-    tape_known = [normalize_song(t.title).split() for t in show.tracks]
+    tape_known = [_song_tokens(t.title) for t in show.tracks]
     unknown = [s for s in vetting.asserted_songs if not _known_song(s, tape_known)]
     unresolved_n = sum(1 for t in show.tracks if t.title_source == "unresolved")
     date_text = next(
@@ -231,7 +235,7 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
     never flags). Zero tokens."""
     flags: list[str] = []
     notes: list[str] = []
-    known = [normalize_song(t.title).split() for t in show.tracks]
+    known = [_song_tokens(t.title) for t in show.tracks]
     unknown = [s for s in vetting.asserted_songs if not _known_song(s, known)]
     songs_grounded = not (len(unknown) >= 2 and len(unknown) * 3 > len(vetting.asserted_songs))
 

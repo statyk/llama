@@ -1,0 +1,122 @@
+# Review package: feedc82..HEAD
+
+## Commits
+158619f test(match): gate curly fold both ways; tidy (slice D review)
+
+## Files changed
+ CLAUDE.md                              |  4 +++-
+ packages/llama/tests/test_stage_vet.py | 12 ++++++++----
+ packages/llama/tests/test_structure.py |  6 ++----
+ 3 files changed, 13 insertions(+), 9 deletions(-)
+
+## Diff
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 8286953..a1555ad 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -768,21 +768,23 @@ scheduler and the full player are phases 3–4).
+   evidence and wins whenever it resolves** — it is not gated on
+   `align_coverage_threshold`, which now only triggers the LLM realignment
+   fallback and the low-confidence flag. Closers match merged tracks on their
+   last component and tolerate `&`/`and` and dropped subtitles; a repeated
+   closer resolves to its latest occurrence before the next set's closer; a
+   trailing encore jerrybase has no row for is preserved, not absorbed. The
+   closer tripwire only speaks when anchoring declines. Design:
+   `docs/superpowers/specs/2026-08-01-jerrybase-anchoring-design.md`.
+   **`align()` matches fuzzily, at the matching layer only**: it normalizes both
+   the track and the setlist item at compare time via `fuzzy_norm_title`
+-  (bypassing the precomputed `SetlistItem.normalized`), folding `&`→`and`, and curly apostrophes (`’`/`‘`) to `'` (`structure.fold_curly_apostrophes`, also applied by vet_research's and brief's song matchers on both sides),
++  (bypassing the precomputed `SetlistItem.normalized`), folding `&`→`and`, and
++  curly apostrophes (`’`/`‘`) to `'` (`structure.fold_curly_apostrophes`, also
++  applied by vet_research's and brief's song matchers on both sides),
+   tolerating dropped subtitles, matching merged tracks as consecutive runs, and
+   dropping credit-only parentheticals. **`songs.normalize_song` and
+   `DEFAULT_ALIASES` are deliberately NOT part of this** — folding there would
+   also move `grouping`/`vet_research`/`brief`/`setlistfm`, two of which generate
+   holds, so don't "simplify" it down a layer. Dead-canon shorthand
+   (`songs.GD_SHORTHAND`: `scarlet`→`scarlet begonias`, `chinacat`, …) is
+   **gated on artist family** — `jerrybase.is_family_artist`, derived from the
+   vendored CSV's own artist keys plus a small extras set — because `scarlet`,
+   `help`, `dew`, `eyes` and `saint` are ordinary English words off-family; the
+   jerrybase closer path applies it ungated since an event only exists for
+diff --git a/packages/llama/tests/test_stage_vet.py b/packages/llama/tests/test_stage_vet.py
+index 8dccd27..e54af46 100644
+--- a/packages/llama/tests/test_stage_vet.py
++++ b/packages/llama/tests/test_stage_vet.py
+@@ -776,16 +776,20 @@ def test_vet_matches_curly_and_straight_apostrophes_both_ways(tape, research):
+     flags, _, _ = grounding_flags(v, _curly_show(tape))
+     assert not any("unknown song" in f for f in flags)
+ 
+ 
+ def test_vet_folds_curly_apostrophes_in_a_tape_segue_chain():
+     v = ResearchVetting(asserted_songs=["He's Gone", "Don't Ease Me In", "Truckin'"], asserted_dates=[], context="")
+     flags, _, _ = grounding_flags(v, _curly_show(["He’s Gone > Truckin’", "Don’t Ease Me In"]))
+     assert not any("unknown song" in f for f in flags)
+ 
+ 
+-def test_right_show_gate_counts_a_curly_tape_title_as_asserted():
+-    tape = ["He’s Gone", "Don’t Ease Me In", "Truckin’", "Sugar Magnolia"]
+-    v = ResearchVetting(asserted_songs=["He's Gone", "Don't Ease Me In", "Truckin'", "Sugar Magnolia"],
+-                        asserted_dates=["1973-06-10"], context="")
++@pytest.mark.parametrize("tape,research", [
++    (["He’s Gone", "Don’t Ease Me In", "Truckin’", "Sugar Magnolia"],
++     ["He's Gone", "Don't Ease Me In", "Truckin'", "Sugar Magnolia"]),   # curly on tape
++    (["He's Gone", "Don't Ease Me In", "Truckin'", "Sugar Magnolia"],
++     ["He’s Gone", "Don’t Ease Me In", "Truckin’", "Sugar Magnolia"]),   # curly in research
++])
++def test_right_show_gate_counts_curly_and_straight_apostrophes_both_ways(tape, research):
++    v = ResearchVetting(asserted_songs=research, asserted_dates=["1973-06-10"], context="")
+     _, info = right_show_gate(v, _curly_show(tape), date_flags_raw=[])
+     assert info["asserted"] == 4 and info["unknown"] == []
+diff --git a/packages/llama/tests/test_structure.py b/packages/llama/tests/test_structure.py
+index 6595cb3..6149a7a 100644
+--- a/packages/llama/tests/test_structure.py
++++ b/packages/llama/tests/test_structure.py
+@@ -12,21 +12,22 @@ from llama.structure import (
+     from_setlistfm,
+     is_filler,
+     norm_title,
+     rank_parses,
+     structure_guard,
+ )
+ from llama.models import AlignedStructure, AlignedTrack
+ from llama.structure import apply_llm_alignment
+ import pytest
+ from llama.structure import venues_equivalent
+-from llama.structure import fuzzy_norm_title, fuzzy_title_eq, title_components
++from llama.structure import (contains_sequence, fold_curly_apostrophes, fuzzy_norm_title,
++                             fuzzy_title_eq, title_components)
+ from llama.songs import GD_SHORTHAND
+ import inspect
+ from llama.models import ParsedSetlist, SetlistItem, Track
+ from llama.structure import adopt_gap_titles, hygienic_title
+ from llama.structure import LOOSE_TITLE_RATIO, loosely_same_title
+ from llama.structure import _one_edit, cities_compatible
+ from llama.structure import encore_lost
+ 
+ 
+ def sp(source, sets_titles, confidence="high"):
+@@ -2066,23 +2067,20 @@ def test_encore_lost_is_false_without_an_encore_item_or_when_it_matched():
+ 
+ def test_encore_lost_on_an_unmatched_encore_item_or_a_marked_track():
+     assert encore_lost(_titled_tracks("A", "B"), _encore_items(("A", "1"), ("B", "2"), ("Willin'", "encore")))
+     assert encore_lost(_titled_tracks("A", "B", "E] Willin' >"),
+                        _encore_items(("A", "1"), ("B", "2"), ("Willin'", "encore")))
+     assert encore_lost(_titled_tracks("A", "E: Rilly Wut?"), _encore_items(("A", "1"), ("Rilly Wut?", "encore")))
+     assert encore_lost(_titled_tracks("A", "Crowd Encore Call > B"), _encore_items(("A", "1"), ("B", "encore")))
+     assert not encore_lost(_titled_tracks("A", "Encore Call > B"), _encore_items(("A", "1"), ("B", "2")))
+ 
+ 
+-from llama.structure import contains_sequence, fold_curly_apostrophes  # noqa: E402
+-
+-
+ def test_fuzzy_norm_title_folds_curly_apostrophes():
+     assert fuzzy_norm_title("Don’t Ease Me In") == fuzzy_norm_title("Don't Ease Me In")
+     assert fuzzy_norm_title("‘Round And Round") == fuzzy_norm_title("'Round And Round")
+     assert fold_curly_apostrophes("a’b‘c“d") == "a'b'c“d"   # only the two
+ 
+ 
+ def test_normalize_song_still_splits_on_a_curly_apostrophe():   # (pin) the strict list
+     assert normalize_song("Don’t Ease Me In") == "don t ease me in"
+ 
+ 

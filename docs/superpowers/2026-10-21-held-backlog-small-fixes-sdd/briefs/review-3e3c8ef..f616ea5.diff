@@ -1,0 +1,164 @@
+# Review package: 3e3c8ef..HEAD
+
+## Commits
+f616ea5 test(fix): pin failure paths and in-unit refusals; CLAUDE.md label (slice C review)
+
+## Files changed
+ CLAUDE.md                        |  4 ++--
+ packages/llama/tests/test_fix.py | 28 +++++++++++++++++++++++++---
+ 2 files changed, 27 insertions(+), 5 deletions(-)
+
+## Diff
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 3bbdf1e..1bd23e4 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -55,21 +55,22 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
+   `would pause: <reason>`), `llama triage` (interactive
+   held-show walkthrough -- `[t] suggest titles`, offered only on a hold
+   flagged "unresolved track titles", proposes a full set of titles from
+   the setlist correspondence and writes them all on confirmation;
+   `[i]nclude dropped`, offered only when the show has `excluded_files`,
+   re-admits by x-handle or filename and shares `fix --include`'s
+   operator-excluded routing via `_split_include_targets`), `llama
+   fix <name> <edit-flags>` (overrides/hold editor, auto-redoes;
+   `--suggest-titles` is the same title-proposal resolution, one
+   invocation, one confirmation, refuses to combine with
+-  `--exclude`/`--unexclude`/`--include`), `llama redo <name> --from <stage>` (one unit: see `llama fix` below),
++  `--exclude`/`--unexclude`/`--include`). **One unit (2026-10-21):** `fix`, triage's edits and `redo` (single and batch, per show) each run as one unit under the show lock. `fix` and triage ask any prompts first with no lock held, then take the lock and refuse with `changed by another command; run it again` if `overrides.json`/`show.json` changed since (or `the show was removed`). `redo` shows nothing, so it reads the show once it holds the lock: it waits behind another writer rather than refusing, and refuses only a show removed meanwhile. Each unit snapshots every file outside `package/audio/` into `<show>/.txn/`, then does the work. Any exception, including Ctrl-C, restores those files byte-identical and removes new audio. A single `fix`/`redo` then exits 1 with the error. A stale `.txn/` (SIGKILL) is deleted, never restored, by the next unit. With no `show.json`, `fix` still accepts `--set-*`/`--clear-*` and filename `--exclude`/`--unexclude`. Every other flag refuses and names `llama redo <show> --from gather`, which is also the repair for any show left part-way. `--no-run` validates nothing: a later redo that refuses the overrides rolls back and names the field.
++  `llama redo <name> --from <stage>` (one unit, above),
+   `llama deliver <name>` (refuses to overwrite an emcee-voiced destination
+   unless `--replace-voiced`, which replaces the destination wholesale and
+   discards its DJ script and audio; a batch confirmation marks or counts the
+   voiced destinations; after a successful copy it **purges the library's
+   `package/audio/*`** — only once `catalog.purge_package_audio` verifies the
+   station copy holds every manifest track at the same size and as a different
+   file (a hardlink or a `delivery_path` inside the library deletes nothing);
+   a skipped or partial purge only warns. A purged show re-delivers via
+   `llama redo <name> --from package`, which re-downloads what is missing —
+   the deliver gate's "audio files missing" refusal already points there; so
+@@ -174,21 +175,20 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
+   show's cost, so size waves from the pilot's `meter: 5h A% -> B%` lines, not
+   `llama pacing`.**
+ - `llama fix <show> --untitled` / triage `[u]`: offered only when EVERY track is
+   `unresolved`; lists filenames, then ONE confirmation writes `Untitled (track
+   N)` titles, `narration=vague`, `set_breaks=[]`, clears any
+   `overrides.encore_after`, redoes from `gather`, overrules any remaining flag
+   and continues from `brief`. It refuses every other edit flag. Route for a
+   delivered all-`Track NN` tape (`eotoband-2007-10-09`): `llama redo <show>
+   --from gather` (2b demotes the tags), `llama fix <show> --untitled`, `llama
+   deliver <show>`.
+-- **`llama fix` is one unit (2026-10-21):** `fix`, triage's edits and `redo` (single and batch, per show) each run as one unit under the show lock. `fix` and triage ask any prompts first with no lock held, then take the lock and refuse with `changed by another command; run it again` if `overrides.json`/`show.json` changed since (or `the show was removed`). `redo` shows nothing, so it reads the show once it holds the lock: it waits behind another writer rather than refusing, and refuses only a show removed meanwhile. Each unit snapshots every file outside `package/audio/` into `<show>/.txn/`, then does the work. Any exception, including Ctrl-C, restores those files byte-identical and removes new audio. A single `fix`/`redo` then exits 1 with the error. A stale `.txn/` (SIGKILL) is deleted, never restored, by the next unit. With no `show.json`, `fix` still accepts `--set-*`/`--clear-*` and filename `--exclude`/`--unexclude`. Every other flag refuses and names `llama redo <show> --from gather`, which is also the repair for any show left part-way. `--no-run` validates nothing: a later redo that refuses the overrides rolls back and names the field.
+ - `scripts/replay_holds.py run --out <arm.json> [--held|--all|--slugs F]`
+   replays holds read-only under THIS tree's code (use that tree's own
+   interpreter; it exits 2 unless `llama.__file__` is inside the tree, and
+   refuses an `--out` or `--scratch` overlapping the library; put output outside
+   `~/.llama`, e.g. `~/.llama-harness`). `compare <base> <cand> --out <dir>
+   [--no-repro-gate]` writes the reports in `replay_holds.OUTPUT_FILES`,
+   including `predicted_list.json`, `structure_changed_list.json` (hand-check
+   each, then apply with `reapply --from-list <it> --allow-structure-change`) and
+   `pilot_list.json`; it exits 2 when the arms differ (digests, config
+   fingerprint, setlist.fm configuration, show set) and 3 below 99% baseline
+diff --git a/packages/llama/tests/test_fix.py b/packages/llama/tests/test_fix.py
+index b784a37..926f563 100644
+--- a/packages/llama/tests/test_fix.py
++++ b/packages/llama/tests/test_fix.py
+@@ -894,35 +894,37 @@ def test_failed_accept_vague_restores_the_hold_and_the_overrides(tmp_path, monke
+     cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
+     monkeypatch.setattr(pipeline, "run_brief", lambda *a, **k: (_ for _ in ()).throw(RateLimited("limit")))
+     r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague")
+     assert r.exit_code == 1 and isinstance(r.exception, RateLimited)
+     assert tree_bytes(ws.dir) == before and read_model(ws.show, Show).needs_review is True
+ 
+ 
+ def test_failed_overrule_restores_every_file(tmp_path, monkeypatch):
+     cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
+     monkeypatch.setattr(pipeline, "run_package", lambda *a, **k: (_ for _ in ()).throw(IAError("archive down")))
+-    assert cli_invoke(cfg, "fix", "gratefuldead", "--overrule").exit_code == 1
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--overrule")
++    assert r.exit_code == 1 and isinstance(r.exception, IAError) and "archive down" in str(r.exception)
+     assert tree_bytes(ws.dir) == before
+ 
+ 
+ def test_a_multi_flag_fix_whose_redo_fails_leaves_nothing_of_the_first_edits(tmp_path, monkeypatch):
+     cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
+     r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague", "--set-breaks", "2,4", "--set-encore", "4")
+     assert r.exit_code == 1 and "encore_after" in str(r.exception)
+     assert tree_bytes(ws.dir) == before            # no narration, no cleared hold, no breaks
+ 
+ 
+ def test_a_failed_first_edit_removes_the_overrides_file_it_created(tmp_path, monkeypatch):   # Review Focus 2
+     cfg = _cfg(tmp_path); ws = _held_show(tmp_path); assert not ws.overrides.exists()
+     monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
+-    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall").exit_code == 1
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall")
++    assert r.exit_code == 1 and "boom" in str(r.exception)
+     assert not ws.overrides.exists()
+ 
+ 
+ def test_fix_writes_overrides_under_the_show_lock(tmp_path, monkeypatch):
+     cfg = _cfg(tmp_path); ws = _held_show(tmp_path); seen = []; real = cli._edit_overrides
+     def probe(show_ws, **kw):
+         try:
+             with file_lock(show_ws.lock, blocking=False): seen.append("free")
+         except Locked:
+             seen.append("held")
+@@ -937,37 +939,57 @@ def test_fix_refuses_when_the_show_changed_after_the_prompt(tmp_path, monkeypatc
+     def other_command_meanwhile(ia, config, entry, show):
+         write_artifact(entry.ws.overrides, Overrides(venue="Elsewhere")); return {1: "Dew"}
+     monkeypatch.setattr(cli, "_propose_and_confirm_titles", other_command_meanwhile)
+     r = cli_invoke(cfg, "fix", "gratefuldead", "--suggest-titles")
+     assert r.exit_code == 1 and "changed by another command; run it again" in str(r.exception)
+     assert read_overrides(ws) == Overrides(venue="Elsewhere") and calls == []
+ 
+ 
+ def test_untitled_failure_after_the_overrule_restores_everything(tmp_path, monkeypatch):
+     cfg = _cfg(tmp_path); ws = _all_unresolved_show(tmp_path); before = tree_bytes(ws.dir)
++    stages = []
+     def fake(config, ia, ledger, e, stage, **kw):
++        stages.append(stage)
+         if stage == "gather":
+             s = read_model(e.ws.show, Show); s.needs_review = True; s.review_flags = ["x"]; write_artifact(e.ws.show, s)
+             return None
+         raise LlamaError("brief failed")
+     monkeypatch.setattr(cli, "_redo_show_locked", fake)
+     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+-    assert r.exit_code == 1 and tree_bytes(ws.dir) == before
++    assert r.exit_code == 1 and stages == ["gather", "brief"] and "brief failed" in str(r.exception)
++    assert tree_bytes(ws.dir) == before
+ 
+ 
+ def test_fix_on_a_show_with_no_show_json_takes_metadata_and_filename_edits(tmp_path, monkeypatch):
+     cfg = _cfg(tmp_path)
+     ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
+     write_artifact(ws.overrides, Overrides(set_breaks=[10, 20], encore_after=20))
+     assert cli_invoke(cfg, "fix", "gratefuldead", "--clear-encore", "--no-run").exit_code == 0
+     assert read_overrides(ws).encore_after is None
+     assert cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "junk.mp3", "--no-run").exit_code == 0
+     calls = _stub_redo(monkeypatch)
+     assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall").exit_code == 0 and calls == ["gather"]
+ 
+ 
+ @pytest.mark.parametrize("args", [["--overrule"], ["--narration", "vague"], ["--include", "junk.mp3"],
+                                   ["--suggest-titles"], ["--untitled"]])
+ def test_fix_on_a_show_with_no_show_json_refuses_the_rest_and_names_the_remedy(tmp_path, args):
+     cfg = _cfg(tmp_path); build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
+     r = cli_invoke(cfg, "fix", "gratefuldead", *args)
+     assert r.exit_code == 1 and "rebuild it with: llama redo gratefuldead-1973-06-10 --from gather" in r.output
++
++
++def test_a_typer_exit_inside_the_unit_leaves_the_show_byte_identical(tmp_path):   # clash
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
++    before = tree_bytes(ws.dir)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "a.mp3", "--include", "a.mp3")
++    assert r.exit_code == 1 and "name the same file(s): a.mp3" in r.output
++    assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()
++
++
++def test_a_track_number_exclude_without_show_json_refuses_and_changes_nothing(tmp_path):
++    cfg = _cfg(tmp_path)
++    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
++    before = tree_bytes(ws.dir)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "3")
++    assert r.exit_code == 1 and "resolving a track number needs show.json" in r.output
++    assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()

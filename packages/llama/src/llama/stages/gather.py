@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+from collections import Counter
 from collections.abc import Sequence
 from typing import NamedTuple
 
@@ -951,6 +952,27 @@ def _stripped(s: str | None) -> str | None:
     return (s or "").strip() or None
 
 
+def venue_tie_break(candidate: Candidate, sel) -> tuple[str, str | None] | None:
+    """Slice B: on a tied grouping vote the selected recording's own stripped
+    venue ships. Raw strings are counted as `grouping._make_candidate` counts
+    them. It applies only when the two strings are `venues_equivalent` (one name,
+    spelled or phrased two ways); different names ship the vote (measured
+    2026-10-21: the selected string was no better). Returns `(venue, city)`,
+    or None when the tie-break does not apply."""
+    if sel is None or not _stripped(sel.venue):
+        return None
+    counts = Counter(r.venue for r in candidate.recordings if r.venue)
+    n = counts.get(sel.venue, 0)
+    if n == 0 or n != counts.get(candidate.venue, 0) or sel.venue == candidate.venue:
+        return None
+    if not venues_equivalent(_stripped(sel.venue), candidate.venue):
+        return None
+    sel_city = _stripped(sel.coverage)
+    if sel_city is not None and not cities_compatible(sel_city, candidate.city):
+        return None
+    return _stripped(sel.venue), sel_city or candidate.city
+
+
 def jerrybase_city(event) -> str:
     """A jerrybase event's place as one "City, State" string, the shape
     `cities_compatible` compares (spec Slice 1, "City compatibility")."""
@@ -1385,6 +1407,9 @@ def compute_gather(
     sel_city = _stripped(sel.coverage) if sel is not None else None
     vote_venue, vote_city = candidate.venue, candidate.city
     venue, city, venue_source = vote_venue, vote_city, "item"
+    # slice B: a tied vote ships the selected string; an operator venue override
+    # chooses the venue itself, so it takes no tie-break (and no tie-break city)
+    tie = venue_tie_break(candidate, sel) if overrides.venue is None else None
     if event is not None:
         if not (venue and venue.strip()):
             # Enrichment, byte-identical to before except 1a: a blank
@@ -1400,6 +1425,8 @@ def compute_gather(
                 # cities say this is not the place.
                 if not cities_compatible(archive_city, jb_city):
                     flags.append(mismatch)
+                elif tie is not None:
+                    venue, city = tie
             elif venues_equivalent(venue, event.venue) and (
                     _venues_equivalent_pre1b(venue, event.venue)
                     or cities_compatible(archive_city, jb_city)):
@@ -1407,7 +1434,10 @@ def compute_gather(
                 # decision, 2026-10-19): a pair equivalent before slice 1
                 # passes on equivalence alone; only a pair 1b NEWLY made
                 # equivalent must also have compatible cities.
-                pass
+                if (tie is not None and venues_equivalent(tie[0], event.venue)
+                        and (_venues_equivalent_pre1b(tie[0], event.venue)
+                             or cities_compatible(archive_city, jb_city))):
+                    venue, city = tie           # slice B, on step 1's full test
             elif (sel_venue and venues_equivalent(sel_venue, event.venue)
                   and cities_compatible(sel_city or vote_city, jb_city)
                   and not two_venue_signature(candidate)):
@@ -1425,6 +1455,8 @@ def compute_gather(
                 venue, city = sel_venue, sel_city or vote_city
             else:
                 flags.append(mismatch)
+    elif tie is not None:
+        venue, city = tie                       # slice B: no event
 
     # 1d, every show, jerrybase or not, after the swap: a selected recording
     # whose city is known to conflict with the vote's ships its own venue and

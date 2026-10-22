@@ -759,3 +759,37 @@ def test_day00_entries_dedupe_on_the_first_surface_text():
     flags, _, _ = grounding_flags(
         _vet(["1973-06-10", "September 0, 1973", "1973-09-00"]), make_show())
     assert flags == ["research asserts wrong date: September 0, 1973"]
+
+
+def _curly_show(titles):
+    return Show(performance_id="GratefulDead/1973-06-10", identifier="gd73", artist="Grateful Dead",
+                date="1973-06-10", tracks=[Track(index=i, set="1", title=t, filename=f"t{i}.mp3",
+                                                 title_source="tags") for i, t in enumerate(titles, 1)])
+
+
+@pytest.mark.parametrize("tape,research", [
+    (["He’s Gone", "Don’t Ease Me In"], ["He's Gone", "Don't Ease Me In"]),   # curly on tape
+    (["He's Gone", "Don't Ease Me In"], ["He’s Gone", "Don’t Ease Me In"]),   # curly in research
+])
+def test_vet_matches_curly_and_straight_apostrophes_both_ways(tape, research):
+    v = ResearchVetting(asserted_songs=research, asserted_dates=["1973-06-10"], context="")
+    flags, _, _ = grounding_flags(v, _curly_show(tape))
+    assert not any("unknown song" in f for f in flags)
+
+
+def test_vet_folds_curly_apostrophes_in_a_tape_segue_chain():
+    v = ResearchVetting(asserted_songs=["He's Gone", "Don't Ease Me In", "Truckin'"], asserted_dates=[], context="")
+    flags, _, _ = grounding_flags(v, _curly_show(["He’s Gone > Truckin’", "Don’t Ease Me In"]))
+    assert not any("unknown song" in f for f in flags)
+
+
+@pytest.mark.parametrize("tape,research", [
+    (["He’s Gone", "Don’t Ease Me In", "Truckin’", "Sugar Magnolia"],
+     ["He's Gone", "Don't Ease Me In", "Truckin'", "Sugar Magnolia"]),   # curly on tape
+    (["He's Gone", "Don't Ease Me In", "Truckin'", "Sugar Magnolia"],
+     ["He’s Gone", "Don’t Ease Me In", "Truckin’", "Sugar Magnolia"]),   # curly in research
+])
+def test_right_show_gate_counts_curly_and_straight_apostrophes_both_ways(tape, research):
+    v = ResearchVetting(asserted_songs=research, asserted_dates=["1973-06-10"], context="")
+    _, info = right_show_gate(v, _curly_show(tape), date_flags_raw=[])
+    assert info["asserted"] == 4 and info["unknown"] == []

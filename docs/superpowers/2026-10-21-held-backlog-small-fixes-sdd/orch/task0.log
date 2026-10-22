@@ -1,0 +1,10 @@
+
+[notice] A new release of pip is available: 26.2.1 -> 26.2.2
+[notice] To update, run: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-small-fixes/.venv/bin/python3.14 -m pip install --upgrade pip
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-small-fixes/packages/llama/src/llama/__init__.py
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=28410) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3964 passed, 1 skipped, 8 deselected, 26 warnings in 70.53s (0:01:10)
+rc=0

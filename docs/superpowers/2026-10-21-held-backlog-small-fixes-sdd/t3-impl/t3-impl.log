@@ -1,0 +1,11 @@
+replayed 2 show(s): clean=1, still-held=1
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-small-fixes/packages/llama/src/llama/__init__.py
+replayed 2 show(s): clean=1, still-held=1
+compare: wrote /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1477/test_venue_changes_ignores_an_0/cmp
+=========================== short test summary info ============================
+FAILED scripts/test_replay_holds.py::test_venue_changes_lists_both_strings_and_delivery
+FAILED scripts/test_replay_holds.py::test_venue_changes_ignores_an_identical_diff_and_counts_a_flag_change
+2 failed, 53 deselected in 0.98s
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3988 passed, 1 skipped, 8 deselected, 26 warnings in 53.38s

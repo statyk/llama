@@ -1,0 +1,117 @@
+start Wed Oct 21 19:44:58 EDT 2026
+BASELINE (git archive HEAD copy)
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/base/tree/packages/llama/src/llama/__init__.py
+........................................................................ [ 96%]
+............                                                             [100%]
+372 passed in 5.82s
+PREDICT B9: ['test_stage_gather.py::test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string']
+APPLIED B9:
+1430,1432c1430
+<                 if (tie is not None and venues_equivalent(tie[0], event.venue)
+<                         and (_venues_equivalent_pre1b(tie[0], event.venue)
+<                              or cities_compatible(archive_city, jb_city))):
+---
+>                 if tie is not None:
+SHADOW B9: ['/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-B9-61vie7of/tree/packages/llama/src/llama/__init__.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-B9-61vie7of/tree/packages/llama/src/llama/show_unit.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-B9-61vie7of/tree/packages/llama/src/llama/stages/gather.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-B9-61vie7of/tree/packages/llama/src/llama/cli.py']
+RESULT B9: 2 failed, 166 passed in 1.34s
+VERDICT B9: HIT failing=['test_stage_gather.py::test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string', 'test_stage_gather.py::test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_and_cities_conflict']
+PREDICT B1: ['test_stage_gather.py::test_a_majority_keeps_the_consensus']
+APPLIED B1:
+963c963
+<     if n == 0 or n != counts.get(candidate.venue, 0) or sel.venue == candidate.venue:
+---
+>     if n < 1 or sel.venue == candidate.venue:
+SHADOW B1: ['/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-B1-ovsla39b/tree/packages/llama/src/llama/__init__.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-B1-ovsla39b/tree/packages/llama/src/llama/show_unit.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-B1-ovsla39b/tree/packages/llama/src/llama/stages/gather.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-B1-ovsla39b/tree/packages/llama/src/llama/cli.py']
+RESULT B1: 3 failed, 165 passed in 3.80s
+VERDICT B1: HIT failing=['test_stage_gather.py::test_1d_does_not_fire_without_a_selected_city_or_with_compatible_cities', 'test_stage_gather.py::test_a_majority_keeps_the_consensus', 'test_stage_gather.py::test_venue_tie_break_unit_cases']
+PREDICT C8: ['test_show_unit.py::test_a_leftover_snapshot_is_deleted_not_restored']
+APPLIED C8:
+134c134,138
+<         _discard_leftover(show_ws)         # a leftover is deleted, never restored
+---
+>         _old = show_ws.dir / TXN_DIR / 'files'
+>         for _q in (sorted(_old.rglob('*')) if _old.is_dir() else []):
+>             if _q.is_file():
+>                 atomic_write_bytes(show_ws.dir / _q.relative_to(_old).as_posix(), _q.read_bytes())
+>         _discard_leftover(show_ws)
+SHADOW C8: ['/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C8-8e9jpd45/tree/packages/llama/src/llama/__init__.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C8-8e9jpd45/tree/packages/llama/src/llama/show_unit.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C8-8e9jpd45/tree/packages/llama/src/llama/stages/gather.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C8-8e9jpd45/tree/packages/llama/src/llama/cli.py']
+RESULT C8: 3 failed, 201 passed in 5.04s
+VERDICT C8: HIT failing=['test_redo_cmd.py::test_a_leftover_txn_is_deleted_not_restored_by_the_next_redo', 'test_show_unit.py::test_a_leftover_snapshot_file_is_not_resurrected_by_a_failed_unit', 'test_show_unit.py::test_a_leftover_snapshot_is_deleted_not_restored']
+PREDICT C8b: ['test_show_unit.py::test_a_leftover_snapshot_file_is_not_resurrected_by_a_failed_unit']
+APPLIED C8b:
+134c134
+<         _discard_leftover(show_ws)         # a leftover is deleted, never restored
+---
+>         pass
+SHADOW C8b: ['/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C8b-aol9vufb/tree/packages/llama/src/llama/__init__.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C8b-aol9vufb/tree/packages/llama/src/llama/show_unit.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C8b-aol9vufb/tree/packages/llama/src/llama/stages/gather.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C8b-aol9vufb/tree/packages/llama/src/llama/cli.py']
+RESULT C8b: 2 failed, 202 passed in 4.68s
+VERDICT C8b: HIT failing=['test_show_unit.py::test_a_leftover_snapshot_file_is_not_resurrected_by_a_failed_unit', 'test_show_unit.py::test_a_leftover_that_cannot_be_removed_refuses_before_anything_is_written']
+PREDICT C10b: ['test_show_unit.py::test_the_lock_file_is_never_touched_by_a_failed_unit']
+APPLIED C10b:
+75,76c75
+<             if rel != ".lock":
+<                 yield rel
+---
+>             yield rel
+SHADOW C10b: ['/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C10b-ngtmx_82/tree/packages/llama/src/llama/__init__.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C10b-ngtmx_82/tree/packages/llama/src/llama/show_unit.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C10b-ngtmx_82/tree/packages/llama/src/llama/stages/gather.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C10b-ngtmx_82/tree/packages/llama/src/llama/cli.py']
+RESULT C10b: 1 failed, 203 passed in 5.14s
+VERDICT C10b: HIT failing=['test_show_unit.py::test_the_lock_file_is_never_touched_by_a_failed_unit']
+PREDICT C14: ['test_fix.py::test_fix_refuses_when_the_show_changed_after_the_prompt']
+APPLIED C14:
+3160a3161
+>     view = capture_view(sws)
+SHADOW C14: ['/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C14-38dutc3d/tree/packages/llama/src/llama/__init__.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C14-38dutc3d/tree/packages/llama/src/llama/show_unit.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C14-38dutc3d/tree/packages/llama/src/llama/stages/gather.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C14-38dutc3d/tree/packages/llama/src/llama/cli.py']
+RESULT C14: 1 failed, 203 passed in 4.87s
+VERDICT C14: HIT failing=['test_fix.py::test_fix_refuses_when_the_show_changed_after_the_prompt']
+PREDICT C15: ['test_triage.py::test_a_triage_edit_whose_show_changed_meanwhile_refuses_and_changes_nothing']
+APPLIED C15:
+1966a1967
+>             view = capture_view(entry.ws)
+SHADOW C15: ['/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C15-mh2ie5lq/tree/packages/llama/src/llama/__init__.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C15-mh2ie5lq/tree/packages/llama/src/llama/show_unit.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C15-mh2ie5lq/tree/packages/llama/src/llama/stages/gather.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-C15-mh2ie5lq/tree/packages/llama/src/llama/cli.py']
+RESULT C15: 1 failed, 203 passed in 4.97s
+VERDICT C15: HIT failing=['test_triage.py::test_a_triage_edit_whose_show_changed_meanwhile_refuses_and_changes_nothing']
+PREDICT X1-txn-prune: ['test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical']
+APPLIED X1-txn-prune:
+70c70
+<             dirnames[:] = [d for d in dirnames if d != TXN_DIR]
+---
+>             pass
+SHADOW X1-txn-prune: ['/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X1-txn-prune-dkwoth34/tree/packages/llama/src/llama/__init__.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X1-txn-prune-dkwoth34/tree/packages/llama/src/llama/show_unit.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X1-txn-prune-dkwoth34/tree/packages/llama/src/llama/stages/gather.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X1-txn-prune-dkwoth34/tree/packages/llama/src/llama/cli.py']
+RESULT X1-txn-prune: 25 failed, 179 passed in 5.41s
+VERDICT X1-txn-prune: HIT failing=['test_fix.py::test_a_failed_first_edit_removes_the_overrides_file_it_created', 'test_fix.py::test_a_multi_flag_fix_whose_redo_fails_leaves_nothing_of_the_first_edits', 'test_fix.py::test_a_refused_structure_fix_leaves_every_file_byte_identical', 'test_fix.py::test_a_track_number_exclude_without_show_json_refuses_and_changes_nothing', 'test_fix.py::test_a_typer_exit_inside_the_unit_leaves_the_show_byte_identical', 'test_fix.py::test_failed_accept_vague_restores_the_hold_and_the_overrides', 'test_fix.py::test_failed_overrule_restores_every_file', 'test_fix.py::test_no_run_stages_bad_overrides_and_the_redo_restores_and_names_the_field', 'test_fix.py::test_untitled_failure_after_the_overrule_restores_everything', 'test_redo_cmd.py::test_a_failed_redo_leaves_the_show_held', 'test_redo_cmd.py::test_failed_redo_from_brief_restores_every_file', 'test_redo_cmd.py::test_keyboard_interrupt_after_the_drop_restores_and_re_raises', 'test_redo_cmd.py::test_package_failure_on_purged_audio_removes_new_audio_and_restores_manifest', 'test_redo_cmd.py::test_redo_batch_restores_a_failed_show_and_continues', 'test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical', 'test_show_unit.py::test_a_leftover_snapshot_file_is_not_resurrected_by_a_failed_unit', 'test_show_unit.py::test_existing_audio_is_never_snapshotted_or_rewritten', 'test_show_unit.py::test_files_outside_the_known_artifacts_are_restored_and_new_ones_removed', 'test_show_unit.py::test_keyboard_interrupt_restores_and_re_raises', 'test_show_unit.py::test_the_lock_file_is_never_touched_by_a_failed_unit', 'test_triage.py::test_a_failed_metadata_edit_restores_the_overrides', 'test_triage.py::test_a_failed_triage_edit_prints_the_error_restores_and_returns_to_the_prompt', 'test_triage.py::test_a_failed_untitled_resolution_restores_and_returns_to_the_prompt', 'test_triage.py::test_a_retry_after_a_failed_edit_applies_against_the_restored_show', 'test_triage.py::test_ctrl_c_in_a_triage_edit_restores_and_ends_the_walkthrough']
+PREDICT X2-same-venue-leg: ['test_stage_gather.py::test_venue_tie_break_unit_cases']
+APPLIED X2-same-venue-leg:
+963c963
+<     if n == 0 or n != counts.get(candidate.venue, 0) or sel.venue == candidate.venue:
+---
+>     if n == 0 or n != counts.get(candidate.venue, 0):
+SHADOW X2-same-venue-leg: ['/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X2-same-venue-leg-lx1xjglg/tree/packages/llama/src/llama/__init__.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X2-same-venue-leg-lx1xjglg/tree/packages/llama/src/llama/show_unit.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X2-same-venue-leg-lx1xjglg/tree/packages/llama/src/llama/stages/gather.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X2-same-venue-leg-lx1xjglg/tree/packages/llama/src/llama/cli.py']
+RESULT X2-same-venue-leg: 1 failed, 167 passed in 1.24s
+VERDICT X2-same-venue-leg: HIT failing=['test_stage_gather.py::test_venue_tie_break_unit_cases']
+PREDICT X3-sel-none: ['test_stage_gather.py::test_venue_tie_break_unit_cases']
+APPLIED X3-sel-none:
+959c959
+<     if sel is None or not _stripped(sel.venue):
+---
+>     if not _stripped(sel.venue):
+SHADOW X3-sel-none: ['/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X3-sel-none-jje_udl_/tree/packages/llama/src/llama/__init__.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X3-sel-none-jje_udl_/tree/packages/llama/src/llama/show_unit.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X3-sel-none-jje_udl_/tree/packages/llama/src/llama/stages/gather.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X3-sel-none-jje_udl_/tree/packages/llama/src/llama/cli.py']
+RESULT X3-sel-none: 2 failed, 166 passed in 1.40s
+VERDICT X3-sel-none: HIT failing=['test_stage_gather.py::test_selected_recording_missing_from_candidate_is_no_swap_and_no_1d', 'test_stage_gather.py::test_venue_tie_break_unit_cases']
+PREDICT X4-removed-branch: ['test_show_unit.py::test_a_removed_show_refuses_with_the_removed_message']
+APPLIED X4-removed-branch:
+131c131
+<             if expect.provenance and not now.provenance:
+---
+>             if False:
+SHADOW X4-removed-branch: ['/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X4-removed-branch-oo67v6t8/tree/packages/llama/src/llama/__init__.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X4-removed-branch-oo67v6t8/tree/packages/llama/src/llama/show_unit.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X4-removed-branch-oo67v6t8/tree/packages/llama/src/llama/stages/gather.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X4-removed-branch-oo67v6t8/tree/packages/llama/src/llama/cli.py']
+RESULT X4-removed-branch: 1 failed, 203 passed in 4.90s
+VERDICT X4-removed-branch: HIT failing=['test_show_unit.py::test_a_removed_show_refuses_with_the_removed_message']
+PREDICT X5-sel-city-none-half: ['test_stage_gather.py::test_a_tie_with_a_blank_selected_city_keeps_the_vote_city']
+APPLIED X5-sel-city-none-half:
+966c966
+<     if sel_city is not None and not cities_compatible(sel_city, candidate.city):
+---
+>     if not cities_compatible(sel_city, candidate.city):
+SHADOW X5-sel-city-none-half: ['/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X5-sel-city-none-half-a1rx3eej/tree/packages/llama/src/llama/__init__.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X5-sel-city-none-half-a1rx3eej/tree/packages/llama/src/llama/show_unit.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X5-sel-city-none-half-a1rx3eej/tree/packages/llama/src/llama/stages/gather.py', '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/t8v/work/v-X5-sel-city-none-half-a1rx3eej/tree/packages/llama/src/llama/cli.py']
+RESULT X5-sel-city-none-half: 2 failed, 166 passed in 1.19s
+VERDICT X5-sel-city-none-half: HIT failing=['test_stage_gather.py::test_a_tie_with_a_blank_selected_city_keeps_the_vote_city', 'test_stage_gather.py::test_venue_tie_break_unit_cases']

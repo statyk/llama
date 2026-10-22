@@ -1,0 +1,6 @@
+scratch extracted
+
+packages/llama/tests/test_triage.py:757: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_triage.py::test_a_failed_untitled_resolution_restores_and_returns_to_the_prompt
+1 failed in 0.60s

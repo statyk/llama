@@ -1,0 +1,2 @@
+check atomic_write_bytes/file_lock/drop_stage_artifacts
+report written

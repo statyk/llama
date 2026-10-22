@@ -1,0 +1,29 @@
+
+packages/llama/tests/test_triage.py:735: AssertionError
+______________ test_a_failed_metadata_edit_restores_the_overrides ______________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1523/test_a_failed_metadata_edit_re0')
+tty = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ca1a190>
+
+    def test_a_failed_metadata_edit_restores_the_overrides(tmp_path, tty, monkeypatch):
+        cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
+        monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("refused")))
+        r = cli_invoke(cfg, "triage", input="m\nNew Hall\n\n\n\n\ns\n")
+>       assert "error: refused" in r.output and not ws.overrides.exists()
+E       AssertionError: assert ('error: refused' in 'Grateful Dead  1973-06-10\nrecording: gd73  (1 tracks)\n  https://archive.org/details/gd73\nstate: held   path: /priv... comma-separated) []: \nset breaks after tracks (e.g. 9,17) []: \ngratefuldead-1973-06-10: metadata override updated\n')
+E        +  where 'Grateful Dead  1973-06-10\nrecording: gd73  (1 tracks)\n  https://archive.org/details/gd73\nstate: held   path: /priv... comma-separated) []: \nset breaks after tracks (e.g. 9,17) []: \ngratefuldead-1973-06-10: metadata override updated\n' = <Result LlamaError('refused')>.output
+
+packages/llama/tests/test_triage.py:743: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_triage.py::test_a_failed_triage_edit_prints_the_error_restores_and_returns_to_the_prompt
+FAILED packages/llama/tests/test_triage.py::test_a_triage_edit_whose_show_changed_meanwhile_refuses_and_changes_nothing
+FAILED packages/llama/tests/test_triage.py::test_ctrl_c_in_a_triage_edit_restores_and_ends_the_walkthrough
+FAILED packages/llama/tests/test_triage.py::test_a_retry_after_a_failed_edit_applies_against_the_restored_show
+FAILED packages/llama/tests/test_triage.py::test_a_show_removed_before_its_turn_is_reported_and_skipped
+FAILED packages/llama/tests/test_triage.py::test_a_failed_metadata_edit_restores_the_overrides
+6 failed, 42 passed in 1.59s
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4040 passed, 1 skipped, 8 deselected, 26 warnings in 59.13s

@@ -1,0 +1,702 @@
+# Review package: 4284fa5..HEAD
+
+## Commits
+3e3c8ef feat(fix): one restoring unit per invocation; edits on a show with no show.json (slice C)
+287c20f test(fix,triage): stub _redo_show_locked (slice C prep)
+
+## Files changed
+ CLAUDE.md                           |   1 +
+ packages/llama/src/llama/cli.py     | 199 ++++++++++++++++++++----------------
+ packages/llama/tests/test_fix.py    | 144 +++++++++++++++++++++++++-
+ packages/llama/tests/test_triage.py |   2 +-
+ 4 files changed, 253 insertions(+), 93 deletions(-)
+
+## Diff
+diff --git a/CLAUDE.md b/CLAUDE.md
+index bb0d5c6..3bbdf1e 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -174,20 +174,21 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
+   show's cost, so size waves from the pilot's `meter: 5h A% -> B%` lines, not
+   `llama pacing`.**
+ - `llama fix <show> --untitled` / triage `[u]`: offered only when EVERY track is
+   `unresolved`; lists filenames, then ONE confirmation writes `Untitled (track
+   N)` titles, `narration=vague`, `set_breaks=[]`, clears any
+   `overrides.encore_after`, redoes from `gather`, overrules any remaining flag
+   and continues from `brief`. It refuses every other edit flag. Route for a
+   delivered all-`Track NN` tape (`eotoband-2007-10-09`): `llama redo <show>
+   --from gather` (2b demotes the tags), `llama fix <show> --untitled`, `llama
+   deliver <show>`.
++- **`llama fix` is one unit (2026-10-21):** `fix`, triage's edits and `redo` (single and batch, per show) each run as one unit under the show lock. `fix` and triage ask any prompts first with no lock held, then take the lock and refuse with `changed by another command; run it again` if `overrides.json`/`show.json` changed since (or `the show was removed`). `redo` shows nothing, so it reads the show once it holds the lock: it waits behind another writer rather than refusing, and refuses only a show removed meanwhile. Each unit snapshots every file outside `package/audio/` into `<show>/.txn/`, then does the work. Any exception, including Ctrl-C, restores those files byte-identical and removes new audio. A single `fix`/`redo` then exits 1 with the error. A stale `.txn/` (SIGKILL) is deleted, never restored, by the next unit. With no `show.json`, `fix` still accepts `--set-*`/`--clear-*` and filename `--exclude`/`--unexclude`. Every other flag refuses and names `llama redo <show> --from gather`, which is also the repair for any show left part-way. `--no-run` validates nothing: a later redo that refuses the overrides rolls back and names the field.
+ - `scripts/replay_holds.py run --out <arm.json> [--held|--all|--slugs F]`
+   replays holds read-only under THIS tree's code (use that tree's own
+   interpreter; it exits 2 unless `llama.__file__` is inside the tree, and
+   refuses an `--out` or `--scratch` overlapping the library; put output outside
+   `~/.llama`, e.g. `~/.llama-harness`). `compare <base> <cand> --out <dir>
+   [--no-repro-gate]` writes the reports in `replay_holds.OUTPUT_FILES`,
+   including `predicted_list.json`, `structure_changed_list.json` (hand-check
+   each, then apply with `reapply --from-list <it> --allow-structure-change`) and
+   `pilot_list.json`; it exits 2 when the arms differ (digests, config
+   fingerprint, setlist.fm configuration, show set) and 3 below 99% baseline
+diff --git a/packages/llama/src/llama/cli.py b/packages/llama/src/llama/cli.py
+index 1f1a49e..f326a41 100644
+--- a/packages/llama/src/llama/cli.py
++++ b/packages/llama/src/llama/cli.py
+@@ -40,20 +40,21 @@ from llama.pipeline import (choose_entries, count_llm_calls, make_providers,
+                             process_show)
+ from llama.profiles import (
+     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
+ )
+ from llama.sessions import (KIND_OTHER, STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
+                             STATE_PAUSED, STATE_RUNNING, attention_sessions,
+                             mark_awaiting, mark_complete, failure_record,
+                             mark_incomplete, mark_paused, read_request,
+                             session_state, sweep_verdict)
+ from llama.setlistfm import make_client
++from llama.show_unit import ShowView, capture_view, show_unit
+ from llama.stages.discover import run_discover
+ from llama.stages.interpret import run_interpret
+ from llama.stages.search import run_search
+ from llama.stages.winnow import run_winnow
+ from llama.status import configure_logging
+ from llama.util import parse_performance_id, slugify
+ from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
+                              read_model, read_model_list, write_artifact)
+ 
+ VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "brief", "package"}
+@@ -1786,49 +1787,55 @@ def _metadata_editor(entry) -> bool:
+ 
+ 
+ def _untitled_counts(show: Show) -> tuple[int, int]:
+     """(resolved, total) over the track list; a track is unresolved iff its
+     `title_source == "unresolved"`. `--untitled` / `[u]` apply only when
+     resolved == 0 and total > 0 (spec Slice 7)."""
+     n = len(show.tracks)
+     return sum(1 for t in show.tracks if t.title_source != "unresolved"), n
+ 
+ 
+-def _untitled_resolution(config, ia, ledger, entry, show: Show
++def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
+                          ) -> tuple[Literal["declined", "held", "packaged"], Path | None]:
+     """The operator route for a tape with no resolved titles (spec Slice 7).
+ 
+     Lists the tracks, asks ONE confirmation, and only on yes writes
+     `overrides.json` (titles `Untitled (track N)`, narration vague, one set via
+     `set_breaks=[]`), redoes from gather and -- if the re-gather still holds the
+     show -- overrules the remaining flags and continues from brief. The
+-    confirmation precedes every write. Returns `(status, package)`: "declined"
+-    (nothing written), "held" (written, still held) or "packaged"."""
++    confirmation precedes every write and happens with no lock held. The writes
++    and both redos then run as ONE `show_unit(entry.ws, view)`: a refusal or
++    failure anywhere restores every file. Returns `(status, package)`:
++    "declined" (nothing written), "held" (written, still held) or "packaged"."""
+     typer.echo("tracks on this tape (no resolved titles):")
+     for t in show.tracks:
+         typer.echo(f"  {t.index:2d}  {t.filename}")
+     if not typer.confirm(
+             "Title every track 'Untitled (track N)', set narration vague, one set, "
+             "and overrule any remaining flags?", default=False):
+         return "declined", None
+-    _edit_overrides(entry.ws,
+-                    set_titles={n: f"Untitled (track {n})"
+-                                for n in range(1, len(show.tracks) + 1)},
+-                    narration="vague", set_breaks=[], clear_encore=True)
+-    typer.echo(f"{entry.slug}: untitled resolution written")
+-    pkg = _redo_show(config, ia, ledger,
+-                     _resolve_show(config, ledger, entry.slug), "gather")
+-    if pkg is None:
+-        _clear_hold(entry.ws)
+-        typer.echo(f"{entry.slug}: remaining flags overruled")
+-        pkg = _redo_show(config, ia, ledger,
+-                         _resolve_show(config, ledger, entry.slug), "brief")
++    lines = []   # printed after the unit: nothing writes to stdout inside it
++    with show_unit(entry.ws, view):
++        _edit_overrides(entry.ws,
++                        set_titles={n: f"Untitled (track {n})"
++                                    for n in range(1, len(show.tracks) + 1)},
++                        narration="vague", set_breaks=[], clear_encore=True)
++        lines.append(f"{entry.slug}: untitled resolution written")
++        pkg = _redo_show_locked(config, ia, ledger,
++                                _resolve_show(config, ledger, entry.slug), "gather")
++        if pkg is None:
++            _clear_hold(entry.ws)
++            lines.append(f"{entry.slug}: remaining flags overruled")
++            pkg = _redo_show_locked(config, ia, ledger,
++                                    _resolve_show(config, ledger, entry.slug), "brief")
++    for line in lines:
++        typer.echo(line)
+     return ("packaged", pkg) if pkg else ("held", None)
+ 
+ 
+ def _interactive_resolve(config, ia, ledger, entry) -> None:
+     _print_show_entry(entry)
+     if entry.state != "held":
+         return
+     # Task 8: offered only on a hold this feature can actually help with --
+     # `entry.flags` is `derive_state`'s (== `show.review_flags`) for a held
+     # show, so this reads it the same way `test_held_beats_everything`
+@@ -1920,22 +1927,23 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
+             # `_propose_titles_for_show`'s docstring), so there is no
+             # already-titled track a same-invocation human edit could be
+             # racing against here the way `fix --set-title` can race a
+             # proposal on the same track; and `_edit_overrides(set_titles=
+             # ...)` itself MERGES into the existing `overrides.titles` dict
+             # rather than replacing it (see `_edit_overrides`), so no prior
+             # override this show may already carry is lost either.
+             _edit_overrides(entry.ws, set_titles=picks)
+             stage = "gather"
+         elif choice == "u" and untitled_offered:
++            view = capture_view(entry.ws)   # Task 7 replaces this with the session's view
+             status, pkg = _untitled_resolution(config, ia, ledger, entry,
+-                                               read_model(entry.ws.show, Show))
++                                               read_model(entry.ws.show, Show), view)
+             if status == "declined":
+                 continue   # declined: nothing written, back to the prompt
+             typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+             return
+         else:
+             typer.echo("unrecognized; skipping")
+             return
+         fresh = _resolve_show(config, ledger, entry.slug)
+         pkg = _redo_show(config, ia, ledger, fresh, stage)
+         typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+@@ -2945,20 +2953,26 @@ def fix(
+         False, "--overrule", help="Overrule a held show: clear needs-review and its flags"),
+     no_run: bool = typer.Option(
+         False, "--no-run", help="Stage the resolving redo instead of running it now"),
+ ):
+     """Edit one show's overrides.json / resolve its hold, then auto-run the
+     correct redo (earliest-affected stage wins on combos). --no-run stages
+     the redo instead of running it."""
+     config, ia, ledger = _setup()
+     entry = _resolve_show(config, ledger, name)
+     sws = entry.ws
++    view = capture_view(sws)   # what every check and prompt below is judged against
++
++    def refuse_no_show_json():
++        typer.echo(f"no show.json in {sws.dir} (state: {entry.state}); "
++                   f"rebuild it with: llama redo {entry.slug} --from gather", err=True)
++        raise typer.Exit(1)
+ 
+     if untitled:
+         # Spec Slice 7. Every refusal precedes the confirmation prompt and any
+         # write. `--no-run` is refused because it would stage a route that
+         # stops at the first hold with no overrule; the venue/city/date edits
+         # and the --clear-* flags are refused because they would be silently
+         # dropped (or fight the one-set, all-untitled result).
+         for flag, given in (
+                 ("--suggest-titles", suggest_titles), ("--exclude", exclude),
+                 ("--unexclude", unexclude), ("--include", include),
+@@ -2966,33 +2980,32 @@ def fix(
+                 ("--set-encore", set_encore), ("--narration", narration),
+                 ("--overrule", overrule), ("--no-run", no_run),
+                 ("--clear-set-breaks", clear_set_breaks),
+                 ("--clear-encore", clear_encore), ("--clear-title", clear_title),
+                 ("--set-venue", set_venue), ("--set-city", set_city),
+                 ("--set-date", set_date)):
+             if given:
+                 typer.echo(f"--untitled cannot be combined with {flag}", err=True)
+                 raise typer.Exit(1)
+         if not sws.show.exists():
+-            typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
+-            raise typer.Exit(1)
++            refuse_no_show_json()
+         if entry.provenance is None:
+             typer.echo(f"no provenance.json in {entry.ws.dir} - "
+                        "reprocess it via its run first", err=True)
+             raise typer.Exit(1)
+         show = read_model(sws.show, Show)
+         resolved, total = _untitled_counts(show)
+         if total == 0 or resolved:
+             typer.echo(f"{entry.slug}: --untitled applies only when every track is "
+                        f"unresolved ({resolved} of {total} resolved)", err=True)
+             raise typer.Exit(1)
+-        status, pkg = _untitled_resolution(config, ia, ledger, entry, show)
++        status, pkg = _untitled_resolution(config, ia, ledger, entry, show, view)
+         if status == "declined":
+             typer.echo("declined; nothing written")
+             return
+         typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+         return
+ 
+     parsed_titles = {}
+     for spec in (set_title or []):
+         n, sep, t = spec.partition("=")
+         if not sep or not n.strip().isdigit():
+@@ -3049,22 +3062,21 @@ def fix(
+             typer.echo(
+                 "--suggest-titles cannot be combined with "
+                 "--exclude/--unexclude/--include: "
+                 "a file edit in the same invocation renumbers tracks before the "
+                 "proposal's numbering would apply. Run the file edit first and let "
+                 f"it redo (`llama fix {entry.slug} {typed}` without --no-run, "
+                 f"or `--no-run` followed by `llama redo {entry.slug} --from gather`), "
+                 "then --suggest-titles as a separate invocation.", err=True)
+             raise typer.Exit(1)
+         if not sws.show.exists():
+-            typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
+-            raise typer.Exit(1)
++            refuse_no_show_json()
+         if entry.provenance is None:
+             # M7 (review round 1): match the two nearest analogues --
+             # _redo_show (raises LlamaError, caught by callers) and triage's
+             # own guard -- rather than an unguarded AttributeError on
+             # `entry.provenance.candidate` inside the helper below.
+             typer.echo(f"no provenance.json in {entry.ws.dir} - "
+                        "reprocess it via its run first", err=True)
+             raise typer.Exit(1)
+         show = read_model(sws.show, Show)
+         # I1 (review round 1): the outcomes handled inside
+@@ -3101,98 +3113,107 @@ def fix(
+     did_meta = bool(set_venue or set_city or set_date or parsed_titles
+                     or clear_title_nums or set_breaks or clear_set_breaks
+                     or set_encore or clear_encore)
+     did_narration = narration is not None
+ 
+     if not (did_files or did_meta or did_narration or overrule):
+         typer.echo("nothing to fix: give an edit flag (see --help), or inspect with: "
+                    f"llama show {entry.slug}", err=True)
+         raise typer.Exit(1)
+ 
+-    if not sws.show.exists():
+-        typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
+-        raise typer.Exit(1)
++    # Slice C4: with no show.json the metadata edits and filename exclusions
++    # still work (they only write overrides.json); everything that reads the
++    # show refuses and names the repair. Refusals that write nothing stay
++    # before the lock: the unit's view check re-verifies what they judged.
++    if not sws.show.exists() and (narration is not None or overrule or include):
++        refuse_no_show_json()
+ 
++    stage = "gather" if (did_files or did_meta) else ("brief" if did_narration else "package")
+     real_edit = False
+-    if did_files:
+-        try:
+-            add = _resolve_exclude_tokens(sws, exclude or [])
+-            rm = _resolve_exclude_tokens(sws, unexclude or [])
+-            inc = _resolve_include_tokens(sws, include or [])
+-        except LlamaError as exc:
+-            typer.echo(str(exc), err=True)
+-            raise typer.Exit(1)
+-        clash = sorted(set(add) & set(inc))
+-        if clash:
+-            typer.echo("--exclude and --include name the same file(s): "
+-                       f"{', '.join(clash)}", err=True)
+-            raise typer.Exit(1)
+-        undo, readmit = _split_include_targets(sws, inc)
+-        ov = _edit_overrides(sws, add_exclude=add, rm_exclude=list(rm) + undo,
+-                             add_include=readmit)
+-        if undo:
+-            # The operator typed --include and would otherwise be told only that
+-            # overrides.EXCLUDE changed -- true, but it does not answer "what did
+-            # my flag do?". Name the folded-in --unexclude routing explicitly.
+-            typer.echo(f"{entry.slug}: {_unexclude_routing_note(undo)}")
+-        # Gated on what the operator TYPED, not on what it resolved to: an
+-        # exclude-side flag that resolves to nothing (`--exclude ,`) is still
+-        # an exclude-side request, still redoes from gather, and printed the
+-        # list before this feature existed. Gating on `add or rm` silenced it
+-        # (whole-branch review M2). `undo` is here because `--include` on an
+-        # operator-excluded row edits overrides.exclude.
+-        if exclude or unexclude or undo:
+-            typer.echo(f"{entry.slug}: overrides.exclude = {ov.exclude} "
+-                       "(the hold clears itself if a clean re-gather results)")
+-        if readmit:
+-            typer.echo(f"{entry.slug}: overrides.include = {ov.include} "
+-                       "(the hold clears itself if a clean re-gather results)")
+-        real_edit = True
+-    if narration == NarrationMode.vague:
+-        _edit_overrides(sws, narration="vague")
+-        _clear_hold(sws)
+-        typer.echo(f"{entry.slug}: narration = vague; hold cleared")
+-        real_edit = True
+-    if narration == NarrationMode.full:
+-        _edit_overrides(sws, narration="full")
+-        typer.echo(f"{entry.slug}: narration = full")
+-        real_edit = True
+-    if overrule:
+-        if entry.state == "held":
++    lines: list[str] = []   # printed after the unit: nothing writes to stdout inside it
++    pkg = None
++    with show_unit(sws, view):
++        if did_files:
++            try:
++                add = _resolve_exclude_tokens(sws, exclude or [])
++                rm = _resolve_exclude_tokens(sws, unexclude or [])
++                inc = _resolve_include_tokens(sws, include or [])
++            except LlamaError as exc:
++                typer.echo(str(exc), err=True)
++                raise typer.Exit(1)
++            clash = sorted(set(add) & set(inc))
++            if clash:
++                typer.echo("--exclude and --include name the same file(s): "
++                           f"{', '.join(clash)}", err=True)
++                raise typer.Exit(1)
++            # Only with --include: it reads show.json, which may be absent.
++            undo, readmit = _split_include_targets(sws, inc) if inc else ([], [])
++            ov = _edit_overrides(sws, add_exclude=add, rm_exclude=list(rm) + undo,
++                                 add_include=readmit)
++            if undo:
++                # The operator typed --include and would otherwise be told only that
++                # overrides.EXCLUDE changed -- true, but it does not answer "what did
++                # my flag do?". Name the folded-in --unexclude routing explicitly.
++                lines.append(f"{entry.slug}: {_unexclude_routing_note(undo)}")
++            # Gated on what the operator TYPED, not on what it resolved to: an
++            # exclude-side flag that resolves to nothing (`--exclude ,`) is still
++            # an exclude-side request, still redoes from gather, and printed the
++            # list before this feature existed. Gating on `add or rm` silenced it
++            # (whole-branch review M2). `undo` is here because `--include` on an
++            # operator-excluded row edits overrides.exclude.
++            if exclude or unexclude or undo:
++                lines.append(f"{entry.slug}: overrides.exclude = {ov.exclude} "
++                             "(the hold clears itself if a clean re-gather results)")
++            if readmit:
++                lines.append(f"{entry.slug}: overrides.include = {ov.include} "
++                             "(the hold clears itself if a clean re-gather results)")
++            real_edit = True
++        if narration == NarrationMode.vague:
++            _edit_overrides(sws, narration="vague")
+             _clear_hold(sws)
+-            typer.echo(f"{entry.slug}: hold cleared")
++            lines.append(f"{entry.slug}: narration = vague; hold cleared")
+             real_edit = True
+-        else:
+-            typer.echo(f"{entry.slug}: not held; nothing to overrule")
+-    if did_meta:
+-        _edit_overrides(sws,
+-            venue=set_venue if set_venue is not None else _UNSET,
+-            city=set_city if set_city is not None else _UNSET,
+-            date=set_date if set_date is not None else _UNSET,
+-            set_titles=parsed_titles or None,
+-            clear_titles=clear_title_nums,
+-            set_breaks=breaks_val if set_breaks else _UNSET,
+-            clear_set_breaks=clear_set_breaks,
+-            encore_after=encore_val if set_encore else _UNSET,
+-            clear_encore=clear_encore)
+-        typer.echo(f"{entry.slug}: metadata override updated")
+-        real_edit = True
++        if narration == NarrationMode.full:
++            _edit_overrides(sws, narration="full")
++            lines.append(f"{entry.slug}: narration = full")
++            real_edit = True
++        if overrule:
++            if entry.state == "held":
++                _clear_hold(sws)
++                lines.append(f"{entry.slug}: hold cleared")
++                real_edit = True
++            else:
++                lines.append(f"{entry.slug}: not held; nothing to overrule")
++        if did_meta:
++            _edit_overrides(sws,
++                venue=set_venue if set_venue is not None else _UNSET,
++                city=set_city if set_city is not None else _UNSET,
++                date=set_date if set_date is not None else _UNSET,
++                set_titles=parsed_titles or None,
++                clear_titles=clear_title_nums,
++                set_breaks=breaks_val if set_breaks else _UNSET,
++                clear_set_breaks=clear_set_breaks,
++                encore_after=encore_val if set_encore else _UNSET,
++                clear_encore=clear_encore)
++            lines.append(f"{entry.slug}: metadata override updated")
++            real_edit = True
++        if real_edit and not no_run:
++            pkg = _redo_show_locked(config, ia, ledger,
++                                    _resolve_show(config, ledger, entry.slug), stage)
+ 
++    for line in lines:
++        typer.echo(line)
+     if not real_edit:
+         return   # e.g. a lone --overrule on a show that was never held
+-
+-    stage = "gather" if (did_files or did_meta) else ("brief" if did_narration else "package")
+     if no_run:
+         typer.echo(f"staged; next: llama redo {entry.slug} --from {stage}")
+         return
+-    entry2 = _resolve_show(config, ledger, entry.slug)
+-    pkg = _redo_show(config, ia, ledger, entry2, stage)
+     typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+ 
+ 
+ @app.command(rich_help_panel="Fix & ship",
+              short_help="Interactively resolve shows (default: held) -- the walkthrough.")
+ def triage(
+     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
+     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
+     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
+     state: list[ShowState] = typer.Option(
+diff --git a/packages/llama/tests/test_fix.py b/packages/llama/tests/test_fix.py
+index 16ef5ba..b784a37 100644
+--- a/packages/llama/tests/test_fix.py
++++ b/packages/llama/tests/test_fix.py
+@@ -3,27 +3,34 @@
+ Plan B Task 2: `fix` absorbs the old `show` edit flags under clearer names
+ and, by default, runs the correct redo itself (`--no-run` stages instead).
+ `show`'s edit flags stay in place until Task 4 removes them.
+ """
+ import json
+ from pathlib import Path
+ 
+ import pytest
+ 
+ import llama.cli as cli
++import llama.pipeline as pipeline
+ from conftest import cli_invoke
+ from herder import FakeProvider
++from herder.limits import RateLimited
++from llama.errors import LlamaError
++from llama.ia_client import IAError
++from llama.locks import Locked, file_lock
+ from llama.models import Overrides, Show, Track
+ from llama.stages.gather import compute_gather
+ from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
+ 
++from helpers import packaged_gd73, tree_bytes
+ from test_catalog import build
++from test_cli import _staged_ymsb_show
+ from test_stage_gather import IDENT, StubIA, make_candidate
+ 
+ 
+ def _cfg(tmp_path: Path) -> Path:
+     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+     return tmp_path / "config.toml"
+ 
+ 
+ def _held_show(tmp_path: Path):
+     return build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"},
+@@ -31,21 +38,21 @@ def _held_show(tmp_path: Path):
+ 
+ 
+ def _gathered_show(tmp_path: Path):
+     return build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+ 
+ 
+ def _stub_redo(monkeypatch, picked=None, result=Path("/pkg")):
+     """Stub `_redo_show` so no real pipeline work happens; records the stage
+     it was called with (or nothing if never called)."""
+     calls = []
+-    monkeypatch.setattr(cli, "_redo_show",
++    monkeypatch.setattr(cli, "_redo_show_locked",
+                         lambda config, ia, ledger, e, stage, **kw: (
+                             calls.append(stage), result)[1])
+     return calls
+ 
+ 
+ # --- bare invocation / missing edit flag ---
+ 
+ def test_bare_fix_errors(tmp_path):
+     cfg = _cfg(tmp_path)
+     _gathered_show(tmp_path)
+@@ -302,21 +309,21 @@ def test_apply_prints_packaged_or_still_held(tmp_path, monkeypatch):
+     _held_show(tmp_path)
+     _stub_redo(monkeypatch, result=Path("/tmp/pkg"))
+     r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague")
+     assert r.exit_code == 0, r.output
+     assert "packaged: /tmp/pkg" in r.output
+ 
+ 
+ def test_apply_prints_still_held_when_redo_returns_none(tmp_path, monkeypatch):
+     cfg = _cfg(tmp_path)
+     _held_show(tmp_path)
+-    monkeypatch.setattr(cli, "_redo_show",
++    monkeypatch.setattr(cli, "_redo_show_locked",
+                         lambda config, ia, ledger, e, stage, **kw: None)
+     r = cli_invoke(cfg, "fix", "gratefuldead", "--overrule")
+     assert r.exit_code == 0, r.output
+     assert "still held: gratefuldead-1973-06-10" in r.output
+ 
+ 
+ # --- --no-run stages instead of applying ---
+ 
+ def test_no_run_fires_nothing_and_prints_staged_hint(tmp_path, monkeypatch):
+     cfg = _cfg(tmp_path)
+@@ -794,21 +801,21 @@ def test_untitled_overrules_remaining_flags_then_continues_from_brief(tmp_path,
+     calls = []
+ 
+     def fake_redo(config, ia, ledger, e, stage, **kw):
+         calls.append(stage)
+         if stage == "gather":   # the re-gather raises a flag, as the spec expects
+             s = read_model(e.ws.show, Show)
+             s.needs_review = True
+             s.review_flags = ["single-set structure for a long show (160 min)"]
+             write_artifact(e.ws.show, s)
+         return next(outcomes)
+-    monkeypatch.setattr(cli, "_redo_show", fake_redo)
++    monkeypatch.setattr(cli, "_redo_show_locked", fake_redo)
+     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+     assert calls == ["gather", "brief"]
+     assert "remaining flags overruled" in r.output and "packaged: /pkg" in r.output
+     assert read_model(ws.show, Show).needs_review is False
+ 
+ 
+ def test_untitled_gather_makes_no_align_structure_call(tmp_path):
+     # the override path (set_breaks=[]) skips align(): run the real gather on gd73 with an align provider
+     # that would fail if called
+     ws = ShowWorkspace(tmp_path / "s")
+@@ -826,10 +833,141 @@ def test_untitled_gather_makes_no_align_structure_call(tmp_path):
+ def test_untitled_is_refused_when_only_some_tracks_are_resolved(tmp_path, monkeypatch):
+     cfg = _cfg(tmp_path)
+     ws = _all_unresolved_show(tmp_path, n=3)
+     show = read_model(ws.show, Show)
+     show.tracks[1] = show.tracks[1].model_copy(update={"title_source": "tags", "title": "Dew"})
+     write_artifact(ws.show, show)
+     calls = _stub_redo(monkeypatch)
+     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+     assert r.exit_code != 0 and "(1 of 3 resolved)" in r.output
+     assert not ws.overrides.exists() and calls == []
++
++
++# --- slice C: fix is one restoring unit ---
++
++def _billy_shape(tmp_path, monkeypatch):
++    """The billystrings-2021-12-04 sequence on a real 24-track tape: overrides already
++    carrying edits, then the bad structure fix (pre-repair overrides set_breaks [10, 20],
++    encore_after 20)."""
++    from test_pipeline import fake_providers
++    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
++    # the dir name must be slugify(performance_id): process_show writes there
++    sws = _staged_ymsb_show(tmp_path, monkeypatch, slug="yondermountainstringband-2005-12-31")
++    write_artifact(sws.selection, {"identifier": "ymsb2005-12-31.flac16.wav"})
++    write_artifact(sws.overrides, Overrides(narration="vague", titles={1: "Kirby Hill"}))
++    monkeypatch.setattr(cli, "make_providers", fake_providers)
++    return tmp_path / "config.toml", sws
++
++
++def test_a_refused_structure_fix_leaves_every_file_byte_identical(tmp_path, monkeypatch):
++    cfg, sws = _billy_shape(tmp_path, monkeypatch); before = tree_bytes(sws.dir)
++    r = cli_invoke(cfg, "fix", "yonder", "--set-breaks", "10,20", "--set-encore", "20")
++    assert r.exit_code == 1 and isinstance(r.exception, LlamaError)
++    assert "overrides.encore_after (20) must be greater than every set break [10, 20]" in str(r.exception)
++    assert tree_bytes(sws.dir) == before            # provenance.json and overrides.json included
++    r2 = cli_invoke(cfg, "fix", "yonder", "--clear-encore", "--no-run")   # still editable afterwards
++    assert r2.exit_code == 0, r2.output
++
++
++def test_no_run_stages_bad_overrides_and_the_redo_restores_and_names_the_field(tmp_path, monkeypatch):   # C3
++    cfg, sws = _billy_shape(tmp_path, monkeypatch)
++    assert cli_invoke(cfg, "fix", "yonder", "--set-breaks", "10,20", "--set-encore", "20", "--no-run").exit_code == 0
++    assert read_overrides(sws).encore_after == 20
++    before = tree_bytes(sws.dir)
++    r = cli_invoke(cfg, "redo", "yonder", "--from", "gather")
++    assert r.exit_code == 1 and "encore_after" in str(r.exception) and tree_bytes(sws.dir) == before
++
++
++def test_a_fix_adding_one_override_keeps_the_others(tmp_path, monkeypatch):   # (pin)
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _stub_redo(monkeypatch)
++    write_artifact(ws.overrides, Overrides(exclude=["junk.mp3"], venue="Hall", titles={2: "Dew"}, narration="vague"))
++    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-city", "Austin, TX").exit_code == 0
++    ov = read_overrides(ws)
++    assert (ov.exclude, ov.venue, ov.titles, ov.narration, ov.city) == (["junk.mp3"], "Hall", {2: "Dew"}, "vague", "Austin, TX")
++
++
++def _held(ws):
++    s = read_model(ws.show, Show); s.needs_review = True; s.review_flags = ["research asserts wrong date: 1974-01-01"]
++    write_artifact(ws.show, s)
++
++
++def test_failed_accept_vague_restores_the_hold_and_the_overrides(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
++    monkeypatch.setattr(pipeline, "run_brief", lambda *a, **k: (_ for _ in ()).throw(RateLimited("limit")))
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague")
++    assert r.exit_code == 1 and isinstance(r.exception, RateLimited)
++    assert tree_bytes(ws.dir) == before and read_model(ws.show, Show).needs_review is True
++
++
++def test_failed_overrule_restores_every_file(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
++    monkeypatch.setattr(pipeline, "run_package", lambda *a, **k: (_ for _ in ()).throw(IAError("archive down")))
++    assert cli_invoke(cfg, "fix", "gratefuldead", "--overrule").exit_code == 1
++    assert tree_bytes(ws.dir) == before
++
++
++def test_a_multi_flag_fix_whose_redo_fails_leaves_nothing_of_the_first_edits(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague", "--set-breaks", "2,4", "--set-encore", "4")
++    assert r.exit_code == 1 and "encore_after" in str(r.exception)
++    assert tree_bytes(ws.dir) == before            # no narration, no cleared hold, no breaks
++
++
++def test_a_failed_first_edit_removes_the_overrides_file_it_created(tmp_path, monkeypatch):   # Review Focus 2
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); assert not ws.overrides.exists()
++    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
++    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall").exit_code == 1
++    assert not ws.overrides.exists()
++
++
++def test_fix_writes_overrides_under_the_show_lock(tmp_path, monkeypatch):
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); seen = []; real = cli._edit_overrides
++    def probe(show_ws, **kw):
++        try:
++            with file_lock(show_ws.lock, blocking=False): seen.append("free")
++        except Locked:
++            seen.append("held")
++        return real(show_ws, **kw)
++    monkeypatch.setattr(cli, "_edit_overrides", probe)
++    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall", "--no-run").exit_code == 0
++    assert seen == ["held"]
++
++
++def test_fix_refuses_when_the_show_changed_after_the_prompt(tmp_path, monkeypatch):
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); calls = _stub_redo(monkeypatch)
++    def other_command_meanwhile(ia, config, entry, show):
++        write_artifact(entry.ws.overrides, Overrides(venue="Elsewhere")); return {1: "Dew"}
++    monkeypatch.setattr(cli, "_propose_and_confirm_titles", other_command_meanwhile)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--suggest-titles")
++    assert r.exit_code == 1 and "changed by another command; run it again" in str(r.exception)
++    assert read_overrides(ws) == Overrides(venue="Elsewhere") and calls == []
++
++
++def test_untitled_failure_after_the_overrule_restores_everything(tmp_path, monkeypatch):
++    cfg = _cfg(tmp_path); ws = _all_unresolved_show(tmp_path); before = tree_bytes(ws.dir)
++    def fake(config, ia, ledger, e, stage, **kw):
++        if stage == "gather":
++            s = read_model(e.ws.show, Show); s.needs_review = True; s.review_flags = ["x"]; write_artifact(e.ws.show, s)
++            return None
++        raise LlamaError("brief failed")
++    monkeypatch.setattr(cli, "_redo_show_locked", fake)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
++    assert r.exit_code == 1 and tree_bytes(ws.dir) == before
++
++
++def test_fix_on_a_show_with_no_show_json_takes_metadata_and_filename_edits(tmp_path, monkeypatch):
++    cfg = _cfg(tmp_path)
++    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
++    write_artifact(ws.overrides, Overrides(set_breaks=[10, 20], encore_after=20))
++    assert cli_invoke(cfg, "fix", "gratefuldead", "--clear-encore", "--no-run").exit_code == 0
++    assert read_overrides(ws).encore_after is None
++    assert cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "junk.mp3", "--no-run").exit_code == 0
++    calls = _stub_redo(monkeypatch)
++    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall").exit_code == 0 and calls == ["gather"]
++
++
++@pytest.mark.parametrize("args", [["--overrule"], ["--narration", "vague"], ["--include", "junk.mp3"],
++                                  ["--suggest-titles"], ["--untitled"]])
++def test_fix_on_a_show_with_no_show_json_refuses_the_rest_and_names_the_remedy(tmp_path, args):
++    cfg = _cfg(tmp_path); build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
++    r = cli_invoke(cfg, "fix", "gratefuldead", *args)
++    assert r.exit_code == 1 and "rebuild it with: llama redo gratefuldead-1973-06-10 --from gather" in r.output
+diff --git a/packages/llama/tests/test_triage.py b/packages/llama/tests/test_triage.py
+index 116e537..a1d89f1 100644
+--- a/packages/llama/tests/test_triage.py
++++ b/packages/llama/tests/test_triage.py
+@@ -43,21 +43,21 @@ def _held_show(tmp_path: Path, slug="gratefuldead-1973-06-10"):
+ 
+ 
+ def _packaged_show(tmp_path: Path, slug="other-1974-01-01"):
+     return build(tmp_path, slug,
+                 stages={"select", "gather", "research", "vet", "package"},
+                 pid="OtherBand/1974-01-01")
+ 
+ 
+ def _stub_redo(monkeypatch, result=Path("/pkg")):
+     calls = []
+-    monkeypatch.setattr(cli, "_redo_show",
++    monkeypatch.setattr(cli, "_redo_show_locked",
+                         lambda config, ia, ledger, e, stage, **kw: (
+                             calls.append(stage), result)[1])
+     return calls
+ 
+ 
+ # --- TTY gate ---
+ 
+ def test_off_tty_errors_with_exact_message(tmp_path):
+     cfg = _cfg(tmp_path)
+     _held_show(tmp_path)

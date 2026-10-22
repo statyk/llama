@@ -1,0 +1,2747 @@
+# Review package: bfaa837..HEAD
+
+## Commits
+36473d8 test(triage): pin [u] failure, tighten tests; view before re-resolve (slice C review)
+acdb255 feat(triage): edits run as restoring units and a failure returns to the prompt (slice C)
+f616ea5 test(fix): pin failure paths and in-unit refusals; CLAUDE.md label (slice C review)
+3e3c8ef feat(fix): one restoring unit per invocation; edits on a show with no show.json (slice C)
+287c20f test(fix,triage): stub _redo_show_locked (slice C prep)
+4284fa5 feat(redo): every redo is a restoring unit; a refused show no longer aborts a run (slice C)
+c9d770c fix(show_unit): pin .lock and leftover discard; harden restore (slice C review)
+1fe9109 feat(show_unit): snapshot-and-restore unit under the show lock (slice C core)
+aa9d278 feat(harness): venue_changes.txt lists shipped venue/city changes between arms
+fcbddf0 feat(gather): a tied venue vote ships the selected recording's string (slice B)
+158619f test(match): gate curly fold both ways; tidy (slice D review)
+feedc82 feat(match): fold curly apostrophes at the matching layer (slice D)
+
+## Files changed
+ CLAUDE.md                                       |  15 +-
+ packages/llama/src/llama/cli.py                 | 351 ++++++++++++++----------
+ packages/llama/src/llama/show_unit.py           | 146 ++++++++++
+ packages/llama/src/llama/stages/brief.py        |  11 +-
+ packages/llama/src/llama/stages/gather.py       |  27 +-
+ packages/llama/src/llama/stages/vet_research.py |  16 +-
+ packages/llama/src/llama/structure.py           |  11 +-
+ packages/llama/tests/helpers.py                 |  28 ++
+ packages/llama/tests/test_fix.py                | 166 ++++++++++-
+ packages/llama/tests/test_pace_loop.py          |  13 +
+ packages/llama/tests/test_reapply.py            |  11 +-
+ packages/llama/tests/test_redo_cmd.py           | 100 +++++++
+ packages/llama/tests/test_show_unit.py          | 170 ++++++++++++
+ packages/llama/tests/test_stage_brief.py        |  20 ++
+ packages/llama/tests/test_stage_gather.py       | 116 ++++++++
+ packages/llama/tests/test_stage_vet.py          |  34 +++
+ packages/llama/tests/test_structure.py          |  17 +-
+ packages/llama/tests/test_triage.py             | 106 ++++++-
+ scripts/replay_holds.py                         |  41 ++-
+ scripts/test_replay_holds.py                    |  37 +++
+ 20 files changed, 1268 insertions(+), 168 deletions(-)
+
+## Diff
+diff --git a/CLAUDE.md b/CLAUDE.md
+index eb0f82f..5e70b2f 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -51,25 +51,29 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
+   session rollups), `llama show <name>` (read-only), `llama pipeline`
+   (static stage/state teaching command), `llama pacing` (read-only:
+   the usage meters, the learned per-show cost, how many shows fit
+   before the reset, and the verdict — `would proceed`, or
+   `would pause: <reason>`), `llama triage` (interactive
+   held-show walkthrough -- `[t] suggest titles`, offered only on a hold
+   flagged "unresolved track titles", proposes a full set of titles from
+   the setlist correspondence and writes them all on confirmation;
+   `[i]nclude dropped`, offered only when the show has `excluded_files`,
+   re-admits by x-handle or filename and shares `fix --include`'s
+-  operator-excluded routing via `_split_include_targets`), `llama
++  operator-excluded routing via `_split_include_targets`; each edit is one
++  unit like `fix`'s -- a failure prints `error: …`, restores the show and
++  returns to the same show's prompt, and Ctrl-C ends the walkthrough after the
++  restore), `llama
+   fix <name> <edit-flags>` (overrides/hold editor, auto-redoes;
+   `--suggest-titles` is the same title-proposal resolution, one
+   invocation, one confirmation, refuses to combine with
+-  `--exclude`/`--unexclude`/`--include`), `llama redo <name> --from <stage>`,
++  `--exclude`/`--unexclude`/`--include`). **One unit (2026-10-21):** `fix`, triage's edits and `redo` (single and batch, per show) each run as one unit under the show lock. `fix` and triage ask any prompts first with no lock held, then take the lock and refuse with `changed by another command; run it again` if `overrides.json`/`show.json` changed since (or `the show was removed`). `redo` shows nothing, so it reads the show once it holds the lock: it waits behind another writer rather than refusing, and refuses only a show removed meanwhile. Each unit snapshots every file outside `package/audio/` into `<show>/.txn/`, then does the work. Any exception, including Ctrl-C, restores those files byte-identical and removes new audio. A single `fix`/`redo` then exits 1 with the error. A stale `.txn/` (SIGKILL) is deleted, never restored, by the next unit. With no `show.json`, `fix` still accepts `--set-*`/`--clear-*` and filename `--exclude`/`--unexclude`. Every other flag refuses and names `llama redo <show> --from gather`, which is also the repair for any show left part-way. `--no-run` validates nothing: a later redo that refuses the overrides rolls back and names the field.
++  `llama redo <name> --from <stage>` (one unit, above),
+   `llama deliver <name>` (refuses to overwrite an emcee-voiced destination
+   unless `--replace-voiced`, which replaces the destination wholesale and
+   discards its DJ script and audio; a batch confirmation marks or counts the
+   voiced destinations; after a successful copy it **purges the library's
+   `package/audio/*`** — only once `catalog.purge_package_audio` verifies the
+   station copy holds every manifest track at the same size and as a different
+   file (a hardlink or a `delivery_path` inside the library deletes nothing);
+   a skipped or partial purge only warns. A purged show re-delivers via
+   `llama redo <name> --from package`, which re-downloads what is missing —
+   the deliver gate's "audio files missing" refusal already points there; so
+@@ -613,20 +617,21 @@ scheduler and the full player are phases 3–4).
+   `normalize_date` range-checks and reads a slash form day-first only when the
+   swap is the valid one; `day_unknown_date` keeps a day-`00` date flagging. 4d:
+   prompt wording, unmeasured offline; `reapply` never re-extracts, so it
+   changes nothing in the backlog. 5a: `evidence_sets` counts numbered sets only,
+   except `encore_lost` keeps the flag. 5c.1: a closer is not hard-flagged when
+   only `is_filler` tracks follow it (`filler_tail_closers` makes it a note).
+   5c.3: a leading-parenthetical fold is a fallback tier of closer matching.
+   **5c.2 (numbered-set anchoring when only the encore closer is missing) was
+   built, measured wrong on 5 structures and DROPPED at Checkpoint F: do not
+   re-add it.**
++  **Venue tie-break** (`gather.venue_tie_break`, spec `2026-10-21-held-backlog-small-fixes-design.md` slice B): on a tied grouping vote (raw strings, counted as `grouping._make_candidate` counts) the selected recording's own stripped venue ships, with `sel_city or vote_city`. It applies only when its city is blank or `cities_compatible` with the vote's, and only in the arms that ship the vote unflagged: no event, unflagged 1a, and step 1 when the selected string passes step 1's full test. It never adds or removes a flag, `venue_source` stays `item`, and `provenance.json` is unchanged.
+ - **Two modes:** one-off queries, and standing criteria profiles for recurring
+   segments, deduped against the on-disk show library ∪ a `ledger.jsonl`
+   history keyed by performance identity (artist + date + venue), not
+   archive.org item id — winnow skips anything already in the library or
+   logged played/rejected. A date carrying two performances (early/late show)
+   splits at grouping time into one show per jerrybase event, keyed
+   `collection/date/eN` (e1 = first show); single-event dates and dates with
+   no jerrybase data are unchanged. There is deliberately NO ledger migration
+   and NO legacy-id compatibility for pre-split `collection/date` rows — purge
+   and re-run. Run names auto-unique: a same-day collision gets a `-2`/`-3`
+@@ -768,21 +773,23 @@ scheduler and the full player are phases 3–4).
+   evidence and wins whenever it resolves** — it is not gated on
+   `align_coverage_threshold`, which now only triggers the LLM realignment
+   fallback and the low-confidence flag. Closers match merged tracks on their
+   last component and tolerate `&`/`and` and dropped subtitles; a repeated
+   closer resolves to its latest occurrence before the next set's closer; a
+   trailing encore jerrybase has no row for is preserved, not absorbed. The
+   closer tripwire only speaks when anchoring declines. Design:
+   `docs/superpowers/specs/2026-08-01-jerrybase-anchoring-design.md`.
+   **`align()` matches fuzzily, at the matching layer only**: it normalizes both
+   the track and the setlist item at compare time via `fuzzy_norm_title`
+-  (bypassing the precomputed `SetlistItem.normalized`), folding `&`→`and`,
++  (bypassing the precomputed `SetlistItem.normalized`), folding `&`→`and`, and
++  curly apostrophes (`’`/`‘`) to `'` (`structure.fold_curly_apostrophes`, also
++  applied by vet_research's and brief's song matchers on both sides),
+   tolerating dropped subtitles, matching merged tracks as consecutive runs, and
+   dropping credit-only parentheticals. **`songs.normalize_song` and
+   `DEFAULT_ALIASES` are deliberately NOT part of this** — folding there would
+   also move `grouping`/`vet_research`/`brief`/`setlistfm`, two of which generate
+   holds, so don't "simplify" it down a layer. Dead-canon shorthand
+   (`songs.GD_SHORTHAND`: `scarlet`→`scarlet begonias`, `chinacat`, …) is
+   **gated on artist family** — `jerrybase.is_family_artist`, derived from the
+   vendored CSV's own artist keys plus a small extras set — because `scarlet`,
+   `help`, `dew`, `eyes` and `saint` are ordinary English words off-family; the
+   jerrybase closer path applies it ungated since an event only exists for
+@@ -937,21 +944,21 @@ scheduler and the full player are phases 3–4).
+   dribbling just above the stall timeout holds its slot until it finishes; a file
+   whose every copy fails the integrity check (removed or darked item, stale cached
+   md5) fails as `download` on every sweep pass, so the sweep keeps listing it and
+   exits 1 until cleared by hand.
+ - **Failure records carry `kind` and `at`** (`sessions.failure_record`, spec §3).
+   `kind`, first match wins: `RateLimited` → `rate-limited` (recorded only under
+   `--no-pacing`); `TaskFailed` → `llm`; herder `ResearchNotSupported` → `other`;
+   any other `HerderError` → `transport`; `IADownloadError` → `download`; any other
+   `IAError` → `archive`; else `other`. The order is load-bearing (several subclass
+   `HerderError`). `at` is the UTC ISO time. The sweep re-spends only on `download`
+-  and `archive`. The records are persisted state and stay permissive: a legacy
++  and `archive`. A per-show `LlamaError` (e.g. gather refusing the show's overrides) is a per-show failure of kind `other`, not a run abort. The records are persisted state and stay permissive: a legacy
+   record without `kind` reads as `download` when `error` starts with `download of `,
+   else `other` (`failure_kind`).
+ - Track filenames (`gd73-06-10d1t04.mp3`) don't carry song titles; disc/track
+   numbering doesn't map to sets. Titles resolve via cascade: recovered-format
+   tags → own tags → setlist parsed from the item description → **sibling
+   recordings of the same performance (`sibling-align`)** → **setlist-gap** →
+   unresolved, with `title_source` recording which fired. Never guess — flag
+   unresolved.
+   **`setlist-gap`** fills a run of unresolved tracks ONLY when it is
+   count-forced (the gap's canonical-item count exactly equals its file count,
+diff --git a/packages/llama/src/llama/cli.py b/packages/llama/src/llama/cli.py
+index b81c9db..6c2a665 100644
+--- a/packages/llama/src/llama/cli.py
++++ b/packages/llama/src/llama/cli.py
+@@ -40,20 +40,21 @@ from llama.pipeline import (choose_entries, count_llm_calls, make_providers,
+                             process_show)
+ from llama.profiles import (
+     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
+ )
+ from llama.sessions import (KIND_OTHER, STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
+                             STATE_PAUSED, STATE_RUNNING, attention_sessions,
+                             mark_awaiting, mark_complete, failure_record,
+                             mark_incomplete, mark_paused, read_request,
+                             session_state, sweep_verdict)
+ from llama.setlistfm import make_client
++from llama.show_unit import ShowView, capture_view, show_unit
+ from llama.stages.discover import run_discover
+ from llama.stages.interpret import run_interpret
+ from llama.stages.search import run_search
+ from llama.stages.winnow import run_winnow
+ from llama.status import configure_logging
+ from llama.util import parse_performance_id, slugify
+ from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
+                              read_model, read_model_list, write_artifact)
+ 
+ VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "brief", "package"}
+@@ -581,21 +582,21 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
+         except RateLimited as exc:
+             # Caught BEFORE the HerderError arm below, which it subclasses.
+             # Not a failure: nothing is wrong with this show. Its finished
+             # stages are on disk and a resume redoes only what is missing.
+             if not pace.enabled:
+                 typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
+                 failures.append(failure_record(entry.candidate.performance_id, exc))
+                 return
+             limited = exc
+             return
+-        except (TaskFailed, HerderError, IAError) as exc:
++        except (TaskFailed, HerderError, LlamaError) as exc:
+             if isinstance(exc, TaskFailed) and exc.raw_output:
+                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
+                 failure_path.parent.mkdir(parents=True, exist_ok=True)
+                 failure_path.write_text(exc.raw_output)
+             typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
+             failures.append(failure_record(entry.candidate.performance_id, exc))
+             return
+         if pkg:
+             typer.echo(f"packaged: {pkg}")
+             packaged += 1
+@@ -1716,27 +1717,27 @@ def _resolve_prompt(*, titles: bool = False, include: bool = False,
+     return text
+ 
+ 
+ # Must stay byte-for-byte in sync with the literal `gather.py` appends to
+ # `review_flags` (`stages/gather.py`, ~line 819) -- there is no shared named
+ # constant on that side, only the inline string, so this comment is the only
+ # thing keeping the two from drifting apart silently.
+ UNRESOLVED_TITLES_FLAG = "unresolved track titles"
+ 
+ 
+-def _metadata_editor(entry) -> bool:
++def _metadata_editor(entry) -> dict | None:
+     """The `[m]etadata` mini-editor: sequential prompts for the gather-consumed
+     override fields, each defaulting to (and so, on bare Enter, keeping) the
+-    current effective value. Validation mirrors `fix`'s flags. Returns True
+-    iff any field actually changed (and the overrides were written); False
+-    means nothing changed, so the caller should return to the prompt rather
+-    than redo anything."""
++    current effective value. Validation mirrors `fix`'s flags. Writes nothing:
++    returns the `_edit_overrides` keyword arguments (everything but `show_ws`)
++    for the caller to apply inside its unit, or None when nothing changed or
++    the input was invalid, so the caller returns to the prompt."""
+     from llama.workspace import read_overrides
+ 
+     sws = entry.ws
+     s = read_model(sws.show, Show)
+     ov = read_overrides(sws)
+ 
+     cur_venue = ov.venue if ov.venue is not None else (s.venue or "")
+     cur_city = ov.city if ov.city is not None else (s.city or "")
+     cur_date = ov.date if ov.date is not None else (s.date or "")
+     cur_titles = ", ".join(f"{n}={t}" for n, t in sorted(ov.titles.items()))
+@@ -1746,93 +1747,107 @@ def _metadata_editor(entry) -> bool:
+     city = typer.prompt("city", default=cur_city, show_default=True)
+     show_date = typer.prompt("date (YYYY-MM-DD)", default=cur_date, show_default=True)
+     titles_in = typer.prompt("title overrides (N=Title, comma-separated)",
+                              default=cur_titles, show_default=True)
+     breaks_in = typer.prompt("set breaks after tracks (e.g. 9,17)", default=cur_breaks, show_default=True)
+ 
+     titles_changed = titles_in != cur_titles
+     breaks_changed = breaks_in != cur_breaks
+     if (venue == cur_venue and city == cur_city and show_date == cur_date
+             and not titles_changed and not breaks_changed):
+-        return False
++        return None
+ 
+     parsed_titles = {}
+     if titles_changed:
+         for spec in (p.strip() for p in titles_in.split(",")):
+             if not spec:
+                 continue
+             n, sep, t = spec.partition("=")
+             if not sep or not n.strip().isdigit():
+                 typer.echo(f"title overrides expects N=Title, got {spec!r}")
+-                return False
++                return None
+             parsed_titles[int(n.strip())] = t
+ 
+     breaks_val = None
+     if breaks_changed:
+         parts = [x.strip() for x in breaks_in.split(",") if x.strip()]
+         if not all(p.isdigit() for p in parts):
+             typer.echo(f"set breaks expects comma-separated track numbers, got {breaks_in!r}")
+-            return False
++            return None
+         breaks_val = [int(p) for p in parts]
+ 
+-    _edit_overrides(sws,
+-                    venue=venue if venue != cur_venue else _UNSET,
+-                    city=city if city != cur_city else _UNSET,
+-                    date=show_date if show_date != cur_date else _UNSET,
+-                    set_titles=parsed_titles if titles_changed else None,
+-                    clear_titles=list(ov.titles.keys()) if titles_changed else [],
+-                    set_breaks=breaks_val if breaks_changed else _UNSET)
+-    typer.echo(f"{entry.slug}: metadata override updated")
+-    return True
++    return dict(venue=venue if venue != cur_venue else _UNSET,
++                city=city if city != cur_city else _UNSET,
++                date=show_date if show_date != cur_date else _UNSET,
++                set_titles=parsed_titles if titles_changed else None,
++                clear_titles=list(ov.titles.keys()) if titles_changed else [],
++                set_breaks=breaks_val if breaks_changed else _UNSET)
+ 
+ 
+ def _untitled_counts(show: Show) -> tuple[int, int]:
+     """(resolved, total) over the track list; a track is unresolved iff its
+     `title_source == "unresolved"`. `--untitled` / `[u]` apply only when
+     resolved == 0 and total > 0 (spec Slice 7)."""
+     n = len(show.tracks)
+     return sum(1 for t in show.tracks if t.title_source != "unresolved"), n
+ 
+ 
+-def _untitled_resolution(config, ia, ledger, entry, show: Show
++def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
+                          ) -> tuple[Literal["declined", "held", "packaged"], Path | None]:
+     """The operator route for a tape with no resolved titles (spec Slice 7).
+ 
+     Lists the tracks, asks ONE confirmation, and only on yes writes
+     `overrides.json` (titles `Untitled (track N)`, narration vague, one set via
+     `set_breaks=[]`), redoes from gather and -- if the re-gather still holds the
+     show -- overrules the remaining flags and continues from brief. The
+-    confirmation precedes every write. Returns `(status, package)`: "declined"
+-    (nothing written), "held" (written, still held) or "packaged"."""
++    confirmation precedes every write and happens with no lock held. The writes
++    and both redos then run as ONE `show_unit(entry.ws, view)`: a refusal or
++    failure anywhere restores every file. Returns `(status, package)`:
++    "declined" (nothing written), "held" (written, still held) or "packaged"."""
+     typer.echo("tracks on this tape (no resolved titles):")
+     for t in show.tracks:
+         typer.echo(f"  {t.index:2d}  {t.filename}")
+     if not typer.confirm(
+             "Title every track 'Untitled (track N)', set narration vague, one set, "
+             "and overrule any remaining flags?", default=False):
+         return "declined", None
+-    _edit_overrides(entry.ws,
+-                    set_titles={n: f"Untitled (track {n})"
+-                                for n in range(1, len(show.tracks) + 1)},
+-                    narration="vague", set_breaks=[], clear_encore=True)
+-    typer.echo(f"{entry.slug}: untitled resolution written")
+-    pkg = _redo_show(config, ia, ledger,
+-                     _resolve_show(config, ledger, entry.slug), "gather")
+-    if pkg is None:
+-        _clear_hold(entry.ws)
+-        typer.echo(f"{entry.slug}: remaining flags overruled")
+-        pkg = _redo_show(config, ia, ledger,
+-                         _resolve_show(config, ledger, entry.slug), "brief")
++    lines = []   # printed after the unit: nothing writes to stdout inside it
++    with show_unit(entry.ws, view):
++        _edit_overrides(entry.ws,
++                        set_titles={n: f"Untitled (track {n})"
++                                    for n in range(1, len(show.tracks) + 1)},
++                        narration="vague", set_breaks=[], clear_encore=True)
++        lines.append(f"{entry.slug}: untitled resolution written")
++        pkg = _redo_show_locked(config, ia, ledger,
++                                _resolve_show(config, ledger, entry.slug), "gather")
++        if pkg is None:
++            _clear_hold(entry.ws)
++            lines.append(f"{entry.slug}: remaining flags overruled")
++            pkg = _redo_show_locked(config, ia, ledger,
++                                    _resolve_show(config, ledger, entry.slug), "brief")
++    for line in lines:
++        typer.echo(line)
+     return ("packaged", pkg) if pkg else ("held", None)
+ 
+ 
+ def _interactive_resolve(config, ia, ledger, entry) -> None:
++    # Every successful edit leaves the show, so this session-long view stays valid.
++    # Taken BEFORE the re-resolve: anything that changes after it makes the unit refuse.
++    view = capture_view(entry.ws)
++    try:
++        # Re-resolve by path (an exact match while the directory exists; a
++        # removed show matches nothing) so the held check and the offers below
++        # read the show as it is now, not as the listing saw it.
++        entry = _resolve_show(config, ledger, str(entry.ws.dir))
++    except LlamaError as exc:
++        typer.echo(f"error: {exc}", err=True)
++        return
+     _print_show_entry(entry)
+     if entry.state != "held":
+         return
+     # Task 8: offered only on a hold this feature can actually help with --
+     # `entry.flags` is `derive_state`'s (== `show.review_flags`) for a held
+     # show, so this reads it the same way `test_held_beats_everything`
+     # pins it, no extra I/O. Read once per show, not re-derived per loop
+     # iteration: the only branch that mutates `review_flags` in a way that
+     # could change this (a `[t]` adoption) always redoes-and-returns rather
+     # than looping back, so it can never go stale within one show's session
+@@ -1852,57 +1867,63 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
+         untitled_offered = total > 0 and resolved == 0
+     prompt_text = _resolve_prompt(titles=suggest_titles_offered,
+                                   include=include_offered,
+                                   untitled=untitled_offered)
+     while True:
+         choice = typer.prompt(prompt_text, default="s", show_default=False).strip().lower()
+         if choice in ("", "s"):
+             return
+         if choice == "q":
+             raise typer.Exit()
++        edit = None
++        lines: list[str] = []   # echoed inside the unit, before the redo's writes
+         if choice == "e":
+             files, wrong_mode = _pick_excludes(read_model(entry.ws.show, Show))
+             if wrong_mode:
+                 continue   # back to the prompt, where [i]nclude is waiting
+             if not files:
+                 typer.echo("nothing selected; skipping")
+                 return
+-            _edit_overrides(entry.ws, add_exclude=files)
++            edit = lambda: _edit_overrides(entry.ws, add_exclude=files)  # noqa: E731
+             stage = "gather"
+         elif choice == "i" and include_offered:
+             try:
+                 targets = _pick_includes(entry.ws, read_model(entry.ws.show, Show))
+             except LlamaError as exc:
+                 typer.echo(str(exc), err=True)
+                 continue   # a bad handle is a typo, not a reason to leave the show
+             if not targets:
+                 typer.echo("nothing selected; skipping")
+                 return
+             # Routing shared with `fix --include` (`_split_include_targets`), not
+             # reimplemented: an operator-excluded row un-excludes rather than
+             # appending to overrides.include, and two surfaces deciding that
+             # separately would diverge on the next change to it.
+             undo, readmit = _split_include_targets(entry.ws, targets)
+-            _edit_overrides(entry.ws, rm_exclude=undo, add_include=readmit)
++            edit = lambda: _edit_overrides(entry.ws, rm_exclude=undo, add_include=readmit)  # noqa: E731
+             if undo:
+-                typer.echo(_unexclude_routing_note(undo))
++                lines.append(_unexclude_routing_note(undo))
+             stage = "gather"
+         elif choice == "m":
+-            if not _metadata_editor(entry):
++            kwargs = _metadata_editor(entry)
++            if kwargs is None:
+                 continue   # nothing changed - back to the prompt, same show
++            edit = lambda: _edit_overrides(entry.ws, **kwargs)  # noqa: E731
++            lines.append(f"{entry.slug}: metadata override updated")
+             stage = "gather"
+         elif choice == "v":
+-            _edit_overrides(entry.ws, narration="vague")
+-            _clear_hold(entry.ws)
++            def edit():
++                _edit_overrides(entry.ws, narration="vague")
++                _clear_hold(entry.ws)
+             stage = "brief"
+         elif choice == "o":
+-            _clear_hold(entry.ws)
++            edit = lambda: _clear_hold(entry.ws)  # noqa: E731
+             stage = "package"
+         elif choice == "t" and suggest_titles_offered:
+             # Shares `_propose_and_confirm_titles`/`_propose_titles_for_show`
+             # with `fix --suggest-titles` (Task 8) -- deliberately, so this
+             # surface and that one can never silently diverge (see both
+             # functions' docstrings). `entry.provenance`/`entry.ws.show`
+             # guards mirror `fix`'s M7 guard rather than risking an
+             # unguarded AttributeError; a held show is normally gathered,
+             # but this is defensive, not load-bearing.
+             if entry.provenance is None or not entry.ws.show.exists():
+@@ -1917,34 +1938,48 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
+             # own adoption -- and that is not a hole (M3, task-8 review
+             # round 1): `_propose_and_confirm_titles` only ever returns
+             # picks for tracks still `title_source == "unresolved"` (see
+             # `_propose_titles_for_show`'s docstring), so there is no
+             # already-titled track a same-invocation human edit could be
+             # racing against here the way `fix --set-title` can race a
+             # proposal on the same track; and `_edit_overrides(set_titles=
+             # ...)` itself MERGES into the existing `overrides.titles` dict
+             # rather than replacing it (see `_edit_overrides`), so no prior
+             # override this show may already carry is lost either.
+-            _edit_overrides(entry.ws, set_titles=picks)
++            edit = lambda: _edit_overrides(entry.ws, set_titles=picks)  # noqa: E731
+             stage = "gather"
+         elif choice == "u" and untitled_offered:
+-            status, pkg = _untitled_resolution(config, ia, ledger, entry,
+-                                               read_model(entry.ws.show, Show))
++            try:
++                status, pkg = _untitled_resolution(config, ia, ledger, entry,
++                                                   read_model(entry.ws.show, Show), view)
++            except (LlamaError, HerderError) as exc:
++                typer.echo(f"error: {exc}", err=True)
++                continue   # restored; back to the same show's prompt
+             if status == "declined":
+                 continue   # declined: nothing written, back to the prompt
+             typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+             return
+         else:
+             typer.echo("unrecognized; skipping")
+             return
+-        fresh = _resolve_show(config, ledger, entry.slug)
+-        pkg = _redo_show(config, ia, ledger, fresh, stage)
++        try:
++            # The prompts above ran with no lock; edit and redo are one unit, so
++            # a failure restores the show. Call only `_redo_show_locked` here.
++            with show_unit(entry.ws, view):
++                edit()
++                for line in lines:
++                    typer.echo(line)
++                pkg = _redo_show_locked(config, ia, ledger,
++                                        _resolve_show(config, ledger, entry.slug), stage)
++        except (LlamaError, HerderError) as exc:
++            typer.echo(f"error: {exc}", err=True)
++            continue   # restored; back to the same show's prompt
+         typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+         return
+ 
+ 
+ def _stage_ages(sws) -> list[tuple[str, float | None]]:
+     """(label, age_days|None) per show-level artifact, shallowest to deepest.
+     Shared by the text stage table and `--json`'s `stages` block."""
+     artifacts = [("selection.json", sws.selection), ("show.json", sws.show),
+                  ("research.md", sws.research), ("vetting.json", sws.vetting),
+                  ("briefing.json", sws.briefing_json),
+@@ -2450,50 +2485,65 @@ def deliver(
+                              artist=artist, run=run, profiles=profile)
+     except LlamaError as exc:
+         typer.echo(str(exc), err=True)
+         raise typer.Exit(1)
+     _note_unknown_profiles(config, profile)
+     _deliver_batch(config, ledger, sel, dest, yes, replace_voiced)
+ 
+ 
+ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
+                with_research: bool = False) -> Path | None:
+-    """Re-run one resolved show from `from_stage` onward; returns the package
+-    path, or None if the show was held/skipped. Raises LlamaError on a
+-    hand-built show with no provenance."""
+-    from llama.models import QualityAssessment
+-    from llama.workspace import drop_stage_artifacts
++    """Re-run one resolved show from `from_stage` onward as one restoring unit
++    (see `show_unit`); returns the package path, or None if the show was
++    held/skipped. A redo shows no content, so its view is read under the lock
++    (`expect=None`): it waits behind another writer instead of refusing."""
++    from llama.show_unit import show_unit
++
++    with show_unit(entry.ws, None):
++        return _redo_show_locked(config, ia, ledger, entry, from_stage,
++                                 with_research=with_research)
++
++
++def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
++                      with_research: bool = False) -> Path | None:
++    """`_redo_show`'s body. The caller must already be inside a `show_unit`
++    for `entry.ws` (this takes no lock). Raises LlamaError on a hand-built
++    show with no provenance, ShowChanged if the show was removed meanwhile."""
++    from llama.models import Provenance, QualityAssessment
++    from llama.show_unit import ShowChanged
++    from llama.workspace import drop_stage_artifacts, read_model
+ 
+-    if entry.provenance is None:
++    show_ws = entry.ws
++    if not show_ws.provenance.exists():
++        if entry.provenance is not None:      # it existed when the entry was resolved
++            raise ShowChanged(f"{entry.slug}: the show was removed; nothing changed")
+         raise LlamaError(f"no provenance.json in {entry.ws.dir} - "
+                          "reprocess it via its run first")
+-    prov = entry.provenance
++    prov = read_model(show_ws.provenance, Provenance)   # under the caller's lock
+     keep_research = not with_research and from_stage in ("select", "gather")
+-    show_ws = entry.ws
+-    with file_lock(show_ws.lock):
+-        drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
+-        # Keep the winnow assessment (quality_score + recording_complaints) so
+-        # select-recording still avoids complained-about recordings; override only
+-        # the rationale so the dossier round-trip stays stable (it already carries
+-        # the external-reputation suffix). Fall back to a zero stub for pre-fix
+-        # provenance.json files that predate the assessment field.
+-        assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
+-                      if prov.assessment is not None
+-                      else QualityAssessment(performance_id=prov.performance_id,
+-                                             quality_score=0.0, rationale=prov.dossier))
+-        shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
+-        ws = RunWorkspace(config.root, prov.run)
+-        return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
+-                            prov.run, config.audio_format,
+-                            setlistfm=make_client(config), structure_cfg=config.structure,
+-                            jerrybase_enabled=config.jerrybase.enabled,
+-                            selection_cfg=config.selection, profile=prov.profile)
++    drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
++    # Keep the winnow assessment (quality_score + recording_complaints) so
++    # select-recording still avoids complained-about recordings; override only
++    # the rationale so the dossier round-trip stays stable (it already carries
++    # the external-reputation suffix). Fall back to a zero stub for pre-fix
++    # provenance.json files that predate the assessment field.
++    assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
++                  if prov.assessment is not None
++                  else QualityAssessment(performance_id=prov.performance_id,
++                                         quality_score=0.0, rationale=prov.dossier))
++    shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
++    ws = RunWorkspace(config.root, prov.run)
++    return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
++                        prov.run, config.audio_format,
++                        setlistfm=make_client(config), structure_cfg=config.structure,
++                        jerrybase_enabled=config.jerrybase.enabled,
++                        selection_cfg=config.selection, profile=prov.profile)
+ 
+ 
+ class NarrationMode(str, Enum):
+     vague = "vague"
+     full = "full"
+ 
+ 
+ def _format_proposal_row(r) -> str:
+     """Render one `ProposalRow` for `_propose_titles_for_show`'s proposal
+     table. Extracted into its own function (Task 8 review finding A3) so
+@@ -2930,20 +2980,26 @@ def fix(
+         False, "--overrule", help="Overrule a held show: clear needs-review and its flags"),
+     no_run: bool = typer.Option(
+         False, "--no-run", help="Stage the resolving redo instead of running it now"),
+ ):
+     """Edit one show's overrides.json / resolve its hold, then auto-run the
+     correct redo (earliest-affected stage wins on combos). --no-run stages
+     the redo instead of running it."""
+     config, ia, ledger = _setup()
+     entry = _resolve_show(config, ledger, name)
+     sws = entry.ws
++    view = capture_view(sws)   # what every check and prompt below is judged against
++
++    def refuse_no_show_json():
++        typer.echo(f"no show.json in {sws.dir} (state: {entry.state}); "
++                   f"rebuild it with: llama redo {entry.slug} --from gather", err=True)
++        raise typer.Exit(1)
+ 
+     if untitled:
+         # Spec Slice 7. Every refusal precedes the confirmation prompt and any
+         # write. `--no-run` is refused because it would stage a route that
+         # stops at the first hold with no overrule; the venue/city/date edits
+         # and the --clear-* flags are refused because they would be silently
+         # dropped (or fight the one-set, all-untitled result).
+         for flag, given in (
+                 ("--suggest-titles", suggest_titles), ("--exclude", exclude),
+                 ("--unexclude", unexclude), ("--include", include),
+@@ -2951,33 +3007,32 @@ def fix(
+                 ("--set-encore", set_encore), ("--narration", narration),
+                 ("--overrule", overrule), ("--no-run", no_run),
+                 ("--clear-set-breaks", clear_set_breaks),
+                 ("--clear-encore", clear_encore), ("--clear-title", clear_title),
+                 ("--set-venue", set_venue), ("--set-city", set_city),
+                 ("--set-date", set_date)):
+             if given:
+                 typer.echo(f"--untitled cannot be combined with {flag}", err=True)
+                 raise typer.Exit(1)
+         if not sws.show.exists():
+-            typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
+-            raise typer.Exit(1)
++            refuse_no_show_json()
+         if entry.provenance is None:
+             typer.echo(f"no provenance.json in {entry.ws.dir} - "
+                        "reprocess it via its run first", err=True)
+             raise typer.Exit(1)
+         show = read_model(sws.show, Show)
+         resolved, total = _untitled_counts(show)
+         if total == 0 or resolved:
+             typer.echo(f"{entry.slug}: --untitled applies only when every track is "
+                        f"unresolved ({resolved} of {total} resolved)", err=True)
+             raise typer.Exit(1)
+-        status, pkg = _untitled_resolution(config, ia, ledger, entry, show)
++        status, pkg = _untitled_resolution(config, ia, ledger, entry, show, view)
+         if status == "declined":
+             typer.echo("declined; nothing written")
+             return
+         typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+         return
+ 
+     parsed_titles = {}
+     for spec in (set_title or []):
+         n, sep, t = spec.partition("=")
+         if not sep or not n.strip().isdigit():
+@@ -3034,22 +3089,21 @@ def fix(
+             typer.echo(
+                 "--suggest-titles cannot be combined with "
+                 "--exclude/--unexclude/--include: "
+                 "a file edit in the same invocation renumbers tracks before the "
+                 "proposal's numbering would apply. Run the file edit first and let "
+                 f"it redo (`llama fix {entry.slug} {typed}` without --no-run, "
+                 f"or `--no-run` followed by `llama redo {entry.slug} --from gather`), "
+                 "then --suggest-titles as a separate invocation.", err=True)
+             raise typer.Exit(1)
+         if not sws.show.exists():
+-            typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
+-            raise typer.Exit(1)
++            refuse_no_show_json()
+         if entry.provenance is None:
+             # M7 (review round 1): match the two nearest analogues --
+             # _redo_show (raises LlamaError, caught by callers) and triage's
+             # own guard -- rather than an unguarded AttributeError on
+             # `entry.provenance.candidate` inside the helper below.
+             typer.echo(f"no provenance.json in {entry.ws.dir} - "
+                        "reprocess it via its run first", err=True)
+             raise typer.Exit(1)
+         show = read_model(sws.show, Show)
+         # I1 (review round 1): the outcomes handled inside
+@@ -3086,98 +3140,107 @@ def fix(
+     did_meta = bool(set_venue or set_city or set_date or parsed_titles
+                     or clear_title_nums or set_breaks or clear_set_breaks
+                     or set_encore or clear_encore)
+     did_narration = narration is not None
+ 
+     if not (did_files or did_meta or did_narration or overrule):
+         typer.echo("nothing to fix: give an edit flag (see --help), or inspect with: "
+                    f"llama show {entry.slug}", err=True)
+         raise typer.Exit(1)
+ 
+-    if not sws.show.exists():
+-        typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
+-        raise typer.Exit(1)
++    # Slice C4: with no show.json the metadata edits and filename exclusions
++    # still work (they only write overrides.json); everything that reads the
++    # show refuses and names the repair. Refusals that write nothing stay
++    # before the lock: the unit's view check re-verifies what they judged.
++    if not sws.show.exists() and (narration is not None or overrule or include):
++        refuse_no_show_json()
+ 
++    stage = "gather" if (did_files or did_meta) else ("brief" if did_narration else "package")
+     real_edit = False
+-    if did_files:
+-        try:
+-            add = _resolve_exclude_tokens(sws, exclude or [])
+-            rm = _resolve_exclude_tokens(sws, unexclude or [])
+-            inc = _resolve_include_tokens(sws, include or [])
+-        except LlamaError as exc:
+-            typer.echo(str(exc), err=True)
+-            raise typer.Exit(1)
+-        clash = sorted(set(add) & set(inc))
+-        if clash:
+-            typer.echo("--exclude and --include name the same file(s): "
+-                       f"{', '.join(clash)}", err=True)
+-            raise typer.Exit(1)
+-        undo, readmit = _split_include_targets(sws, inc)
+-        ov = _edit_overrides(sws, add_exclude=add, rm_exclude=list(rm) + undo,
+-                             add_include=readmit)
+-        if undo:
+-            # The operator typed --include and would otherwise be told only that
+-            # overrides.EXCLUDE changed -- true, but it does not answer "what did
+-            # my flag do?". Name the folded-in --unexclude routing explicitly.
+-            typer.echo(f"{entry.slug}: {_unexclude_routing_note(undo)}")
+-        # Gated on what the operator TYPED, not on what it resolved to: an
+-        # exclude-side flag that resolves to nothing (`--exclude ,`) is still
+-        # an exclude-side request, still redoes from gather, and printed the
+-        # list before this feature existed. Gating on `add or rm` silenced it
+-        # (whole-branch review M2). `undo` is here because `--include` on an
+-        # operator-excluded row edits overrides.exclude.
+-        if exclude or unexclude or undo:
+-            typer.echo(f"{entry.slug}: overrides.exclude = {ov.exclude} "
+-                       "(the hold clears itself if a clean re-gather results)")
+-        if readmit:
+-            typer.echo(f"{entry.slug}: overrides.include = {ov.include} "
+-                       "(the hold clears itself if a clean re-gather results)")
+-        real_edit = True
+-    if narration == NarrationMode.vague:
+-        _edit_overrides(sws, narration="vague")
+-        _clear_hold(sws)
+-        typer.echo(f"{entry.slug}: narration = vague; hold cleared")
+-        real_edit = True
+-    if narration == NarrationMode.full:
+-        _edit_overrides(sws, narration="full")
+-        typer.echo(f"{entry.slug}: narration = full")
+-        real_edit = True
+-    if overrule:
+-        if entry.state == "held":
++    lines: list[str] = []   # printed after the unit: nothing writes to stdout inside it
++    pkg = None
++    with show_unit(sws, view):
++        if did_files:
++            try:
++                add = _resolve_exclude_tokens(sws, exclude or [])
++                rm = _resolve_exclude_tokens(sws, unexclude or [])
++                inc = _resolve_include_tokens(sws, include or [])
++            except LlamaError as exc:
++                typer.echo(str(exc), err=True)
++                raise typer.Exit(1)
++            clash = sorted(set(add) & set(inc))
++            if clash:
++                typer.echo("--exclude and --include name the same file(s): "
++                           f"{', '.join(clash)}", err=True)
++                raise typer.Exit(1)
++            # Only with --include: it reads show.json, which may be absent.
++            undo, readmit = _split_include_targets(sws, inc) if inc else ([], [])
++            ov = _edit_overrides(sws, add_exclude=add, rm_exclude=list(rm) + undo,
++                                 add_include=readmit)
++            if undo:
++                # The operator typed --include and would otherwise be told only that
++                # overrides.EXCLUDE changed -- true, but it does not answer "what did
++                # my flag do?". Name the folded-in --unexclude routing explicitly.
++                lines.append(f"{entry.slug}: {_unexclude_routing_note(undo)}")
++            # Gated on what the operator TYPED, not on what it resolved to: an
++            # exclude-side flag that resolves to nothing (`--exclude ,`) is still
++            # an exclude-side request, still redoes from gather, and printed the
++            # list before this feature existed. Gating on `add or rm` silenced it
++            # (whole-branch review M2). `undo` is here because `--include` on an
++            # operator-excluded row edits overrides.exclude.
++            if exclude or unexclude or undo:
++                lines.append(f"{entry.slug}: overrides.exclude = {ov.exclude} "
++                             "(the hold clears itself if a clean re-gather results)")
++            if readmit:
++                lines.append(f"{entry.slug}: overrides.include = {ov.include} "
++                             "(the hold clears itself if a clean re-gather results)")
++            real_edit = True
++        if narration == NarrationMode.vague:
++            _edit_overrides(sws, narration="vague")
+             _clear_hold(sws)
+-            typer.echo(f"{entry.slug}: hold cleared")
++            lines.append(f"{entry.slug}: narration = vague; hold cleared")
+             real_edit = True
+-        else:
+-            typer.echo(f"{entry.slug}: not held; nothing to overrule")
+-    if did_meta:
+-        _edit_overrides(sws,
+-            venue=set_venue if set_venue is not None else _UNSET,
+-            city=set_city if set_city is not None else _UNSET,
+-            date=set_date if set_date is not None else _UNSET,
+-            set_titles=parsed_titles or None,
+-            clear_titles=clear_title_nums,
+-            set_breaks=breaks_val if set_breaks else _UNSET,
+-            clear_set_breaks=clear_set_breaks,
+-            encore_after=encore_val if set_encore else _UNSET,
+-            clear_encore=clear_encore)
+-        typer.echo(f"{entry.slug}: metadata override updated")
+-        real_edit = True
++        if narration == NarrationMode.full:
++            _edit_overrides(sws, narration="full")
++            lines.append(f"{entry.slug}: narration = full")
++            real_edit = True
++        if overrule:
++            if entry.state == "held":
++                _clear_hold(sws)
++                lines.append(f"{entry.slug}: hold cleared")
++                real_edit = True
++            else:
++                lines.append(f"{entry.slug}: not held; nothing to overrule")
++        if did_meta:
++            _edit_overrides(sws,
++                venue=set_venue if set_venue is not None else _UNSET,
++                city=set_city if set_city is not None else _UNSET,
++                date=set_date if set_date is not None else _UNSET,
++                set_titles=parsed_titles or None,
++                clear_titles=clear_title_nums,
++                set_breaks=breaks_val if set_breaks else _UNSET,
++                clear_set_breaks=clear_set_breaks,
++                encore_after=encore_val if set_encore else _UNSET,
++                clear_encore=clear_encore)
++            lines.append(f"{entry.slug}: metadata override updated")
++            real_edit = True
++        if real_edit and not no_run:
++            pkg = _redo_show_locked(config, ia, ledger,
++                                    _resolve_show(config, ledger, entry.slug), stage)
+ 
++    for line in lines:
++        typer.echo(line)
+     if not real_edit:
+         return   # e.g. a lone --overrule on a show that was never held
+-
+-    stage = "gather" if (did_files or did_meta) else ("brief" if did_narration else "package")
+     if no_run:
+         typer.echo(f"staged; next: llama redo {entry.slug} --from {stage}")
+         return
+-    entry2 = _resolve_show(config, ledger, entry.slug)
+-    pkg = _redo_show(config, ia, ledger, entry2, stage)
+     typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+ 
+ 
+ @app.command(rich_help_panel="Fix & ship",
+              short_help="Interactively resolve shows (default: held) -- the walkthrough.")
+ def triage(
+     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
+     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
+     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
+     state: list[ShowState] = typer.Option(
+diff --git a/packages/llama/src/llama/show_unit.py b/packages/llama/src/llama/show_unit.py
+new file mode 100644
+index 0000000..61f8268
+--- /dev/null
++++ b/packages/llama/src/llama/show_unit.py
+@@ -0,0 +1,146 @@
++"""One edit of a show as a unit: snapshot, run, restore on any failure.
++
++`show_unit` takes the show lock, verifies the show is still what the caller
++saw, snapshots every file outside `package/audio/` into `<show>/.txn/`, and on
++any exception (BaseException, so KeyboardInterrupt too) restores those files
++byte-identical, deletes the snapshot and re-raises.
++
++Documented limitations (spec C2):
++  1. Audio retagged in place by a failed package stage stays retagged: audio
++     is never copied, and only audio files the unit ADDED are removed.
++  2. A racing `rm` can leave a `.lock`-only husk of the show directory.
++  3. SIGKILL (or a restore that itself fails) leaves a stale `.txn/`. The next
++     unit deletes it WITHOUT restoring; `llama redo <show> --from gather`
++     repairs the show.
++  4. The unit protects the workspace it is given, while `process_show` writes
++     to `show_ws(prov.performance_id)`; a show directory whose name is not
++     `slugify(performance_id)` (renamed by hand) is outside the guarantee, as
++     it is today.
++Directories are not restored: an empty directory a failed unit created stays.
++"""
++from __future__ import annotations
++
++import json
++import os
++import shutil
++from contextlib import contextmanager
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Iterator
++
++from llama.errors import LlamaError
++from llama.locks import file_lock
++from llama.workspace import ShowWorkspace, atomic_write_bytes
++
++TXN_DIR = ".txn"
++_INDEX = "index.json"
++
++
++@dataclass(frozen=True)
++class ShowView:
++    provenance: bool
++    overrides: bytes | None
++    show: bytes | None
++
++
++class ShowChanged(LlamaError):
++    """The show changed (or was removed) between what the caller saw and the lock."""
++
++
++def _read(path: Path) -> bytes | None:
++    try:
++        return path.read_bytes()
++    except FileNotFoundError:
++        return None
++
++
++def capture_view(show_ws: ShowWorkspace) -> ShowView:
++    return ShowView(provenance=show_ws.provenance.exists(),
++                    overrides=_read(show_ws.overrides),
++                    show=_read(show_ws.show))
++
++
++def _tracked_files(show_ws: ShowWorkspace) -> Iterator[str]:
++    """Posix relpaths of every file outside the top-level `.lock`, `.txn/` and
++    `package/audio/`."""
++    root = show_ws.dir
++    for dirpath, dirnames, filenames in os.walk(root):
++        rel_dir = Path(dirpath).relative_to(root)
++        if rel_dir == Path("."):
++            dirnames[:] = [d for d in dirnames if d != TXN_DIR]
++        elif rel_dir == Path("package"):
++            dirnames[:] = [d for d in dirnames if d != "audio"]
++        for name in filenames:
++            rel = (rel_dir / name).as_posix()
++            if rel != ".lock":
++                yield rel
++
++
++def _audio_names(show_ws: ShowWorkspace) -> list[str]:
++    audio = show_ws.package_dir / "audio"
++    if not audio.is_dir():
++        return []
++    return sorted(p.name for p in audio.iterdir() if p.is_file())
++
++
++def take_snapshot(show_ws: ShowWorkspace) -> None:
++    txn = show_ws.dir / TXN_DIR
++    for rel in _tracked_files(show_ws):
++        atomic_write_bytes(txn / "files" / rel, (show_ws.dir / rel).read_bytes())
++    atomic_write_bytes(txn / _INDEX,
++                       json.dumps({"audio": _audio_names(show_ws)}).encode())
++
++
++def restore_snapshot(show_ws: ShowWorkspace) -> None:
++    txn = show_ws.dir / TXN_DIR
++    files = txn / "files"
++    saved = {p.relative_to(files).as_posix() for p in files.rglob("*") if p.is_file()} \
++        if files.is_dir() else set()
++    keep_audio = set(json.loads((txn / _INDEX).read_text())["audio"])
++    for rel in list(_tracked_files(show_ws)):          # (a) drop files the unit created
++        if rel not in saved:
++            (show_ws.dir / rel).unlink(missing_ok=True)
++    for rel in sorted(saved):                          # (b) put the originals back
++        atomic_write_bytes(show_ws.dir / rel, (files / rel).read_bytes())
++    for name in _audio_names(show_ws):                 # (c) drop audio the unit added
++        if name not in keep_audio:
++            (show_ws.package_dir / "audio" / name).unlink(missing_ok=True)
++
++
++def discard_snapshot(show_ws: ShowWorkspace) -> None:
++    shutil.rmtree(show_ws.dir / TXN_DIR, ignore_errors=True)
++
++
++def _discard_leftover(show_ws: ShowWorkspace) -> None:
++    """Entry discard: a leftover that cannot be removed would be mixed into the
++    new snapshot, so refuse before anything is written."""
++    discard_snapshot(show_ws)
++    txn = show_ws.dir / TXN_DIR
++    if txn.exists():
++        raise LlamaError(f"{show_ws.dir.name}: cannot remove leftover snapshot {txn}")
++
++
++@contextmanager
++def show_unit(show_ws: ShowWorkspace, expect: ShowView | None) -> Iterator[None]:
++    with file_lock(show_ws.lock):
++        now = capture_view(show_ws)
++        if expect is None:
++            expect = now
++        if now != expect:
++            slug = show_ws.dir.name
++            if expect.provenance and not now.provenance:
++                raise ShowChanged(f"{slug}: the show was removed; nothing changed")
++            raise ShowChanged(f"{slug}: changed by another command; run it again")
++        _discard_leftover(show_ws)         # a leftover is deleted, never restored
++        try:
++            take_snapshot(show_ws)
++        except BaseException:
++            discard_snapshot(show_ws)
++            raise
++        try:
++            yield
++        except BaseException:
++            restore_snapshot(show_ws)      # if this raises, .txn/ stays; original is __context__
++            discard_snapshot(show_ws)
++            raise
++        discard_snapshot(show_ws)
+diff --git a/packages/llama/src/llama/stages/brief.py b/packages/llama/src/llama/stages/brief.py
+index 1a442c6..4440043 100644
+--- a/packages/llama/src/llama/stages/brief.py
++++ b/packages/llama/src/llama/stages/brief.py
+@@ -1,17 +1,18 @@
+ import re
+ import string
+ 
+ from herder import run_json_task
+ from llama.models import Briefing, Show, VettingResult
+ from llama.prompts import load_prompt
+ from llama.songs import normalize_song
++from llama.structure import fold_curly_apostrophes
+ from llama.util import reviews_digest
+ from llama.workspace import (ShowWorkspace, read_model, read_overrides,
+                              should_run, write_artifact)
+ 
+ # Every briefing-guard review flag starts with this (see `briefing_guard`).
+ FLAG_PREFIX = "briefing "
+ 
+ _VAGUE_NOTE = (
+     "IMPORTANT — uncertain setlist: this show's song list is incomplete and the "
+     "available sources conflict. Do NOT name specific songs, do NOT assert a set "
+@@ -102,30 +103,34 @@ def render_briefing_md(briefing: Briefing, show: Show) -> str:
+ 
+ 
+ def normalize_briefing(b: Briefing) -> Briefing:
+     """3a: a copy of `b` with every empty `per_set` entry removed; everything
+     else identical. An empty `per_set` dict stays empty (no talking points at
+     all is still a guard problem)."""
+     return b.model_copy(deep=True,
+                         update={"per_set": {k: list(v) for k, v in b.per_set.items() if v}})
+ 
+ 
++def _song_norm(s: str) -> str:
++    return normalize_song(fold_curly_apostrophes(s))
++
++
+ def song_components(title: str) -> list[str]:
+     """3b: a title's segue components, normalised. Strips a leading structure
+     prefix (`E:`, `E1:`, `Encore:`), trailing segue/footnote markers and one
+     trailing parenthetical (then trailing markers again), splits on segues,
+     `normalize_song`s each part and drops empties."""
+     t = _BRIEF_STRUCTURE_PREFIX.sub("", title)
+     t = _BRIEF_TRAILING.sub("", t)
+     t = _BRIEF_PAREN.sub("", t)
+     t = _BRIEF_TRAILING.sub("", t)
+-    return [c for c in (normalize_song(p) for p in _BRIEF_SEGUE.split(t)) if c]
++    return [c for c in (_song_norm(p) for p in _BRIEF_SEGUE.split(t)) if c]
+ 
+ 
+ def song_comma_components(title: str) -> list[str]:
+     """A merged-tease title (`A (tease), B (tease), C (tease)`) is one track
+     carrying several songs: split on commas OUTSIDE parentheses and return the
+     `song_components` of each part, in order. Fewer than two non-blank parts
+     (no top-level comma) returns `[]`. This only ever ADDS known components to
+     the guard's set; mentions are never split on commas.
+ 
+     Splits only when EVERY top-level comma part ends in its own parenthetical
+@@ -148,21 +153,21 @@ def song_comma_components(title: str) -> list[str]:
+     parts = [p for p in parts if p.strip()]
+     if len(parts) < 2 or not all(_BRIEF_PAREN.search(_BRIEF_TRAILING.sub("", p)) for p in parts):
+         return []
+     return [c for p in parts for c in song_components(p)]
+ 
+ 
+ def known_song(song: str, exact: set[str], components: set[str]) -> bool:
+     """3b: today's exact test first, so the matcher is a superset of today's;
+     else known when the song has components and EVERY one is a known
+     component. No fuzzy, loose or subphrase matching."""
+-    if normalize_song(song) in exact:
++    if _song_norm(song) in exact:
+         return True
+     cs = song_components(song)
+     return bool(cs) and all(c in components for c in cs)
+ 
+ 
+ def _words_before(prose: str, start: int, n: int) -> list[str]:
+     """The last `n` words before `start`, within its own clause and field."""
+     clause = _CLAUSE_BREAK.split(prose[:start])[-1]
+     toks = (t.strip(string.punctuation).lower() for t in clause.split())
+     return [t for t in toks if t][-n:]
+@@ -216,21 +221,21 @@ def _guard_prose(b: Briefing) -> str:
+     them the vague branch, are unchanged -- except the `of` lookahead, which
+     stops at the newline (fw4)."""
+     return "\n".join([b.context, b.significance, b.review_sentiment, *b.notable_moments,
+                       *(p for pts in b.per_set.values() for p in pts)])
+ 
+ 
+ def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
+     """A briefing that misnames songs or sets — or breaks the vague-narration
+     contract — must never ship; cross-check against show.json."""
+     problems: list[str] = []
+-    exact = {normalize_song(t.title) for t in show.tracks}
++    exact = {_song_norm(t.title) for t in show.tracks}
+     components = (exact | {c for t in show.tracks for c in song_components(t.title)}
+                   | {" ".join(song_components(t.title)) for t in show.tracks}
+                   | {c for t in show.tracks for c in song_comma_components(t.title)})
+     for song in briefing.mentioned_songs:
+         if not known_song(song, exact, components):
+             problems.append(f"briefing mentions unknown song: {song}")
+     sets = {t.set for t in show.tracks}
+     for s in briefing.per_set:
+         if s not in sets:
+             problems.append(f"briefing references nonexistent set: {s}")
+diff --git a/packages/llama/src/llama/stages/gather.py b/packages/llama/src/llama/stages/gather.py
+index efedef6..c64c526 100644
+--- a/packages/llama/src/llama/stages/gather.py
++++ b/packages/llama/src/llama/stages/gather.py
+@@ -1,13 +1,14 @@
+ import datetime
+ import logging
+ import re
++from collections import Counter
+ from collections.abc import Sequence
+ from typing import NamedTuple
+ 
+ from herder import HerderError, TaskFailed, run_json_task
+ from herder.limits import RateLimited
+ from llama import jerrybase
+ from llama.config import StructureConfig
+ from llama.errors import LlamaError
+ from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
+ from llama.ia_client import IAError
+@@ -944,20 +945,36 @@ class GatherResult(NamedTuple):
+ 
+ # Slice 1 1d's hold (Contracts "Exact note and flag strings"); an operator
+ # venue or city override removes it.
+ _CITY_CONFLICT_FLAG = "recordings of this date disagree on city"
+ 
+ 
+ def _stripped(s: str | None) -> str | None:
+     return (s or "").strip() or None
+ 
+ 
++def venue_tie_break(candidate: Candidate, sel) -> tuple[str, str | None] | None:
++    """Slice B: on a tied grouping vote the selected recording's own stripped
++    venue ships. Raw strings are counted as `grouping._make_candidate` counts
++    them. Returns `(venue, city)`, or None when the tie-break does not apply."""
++    if sel is None or not _stripped(sel.venue):
++        return None
++    counts = Counter(r.venue for r in candidate.recordings if r.venue)
++    n = counts.get(sel.venue, 0)
++    if n == 0 or n != counts.get(candidate.venue, 0) or sel.venue == candidate.venue:
++        return None
++    sel_city = _stripped(sel.coverage)
++    if sel_city is not None and not cities_compatible(sel_city, candidate.city):
++        return None
++    return _stripped(sel.venue), sel_city or candidate.city
++
++
+ def jerrybase_city(event) -> str:
+     """A jerrybase event's place as one "City, State" string, the shape
+     `cities_compatible` compares (spec Slice 1, "City compatibility")."""
+     return f"{event.city}, {event.state}" if event.state else event.city
+ 
+ 
+ def two_venue_signature(candidate: Candidate) -> bool:
+     """True when two of the candidate's recordings name venues that are not
+     equivalent in one (compatible) city: the same-city two-performance shape
+     of `gratefuldead-1978-11-17` (spec Slice 1, step 2). It also fires on two
+@@ -1378,60 +1395,68 @@ def compute_gather(
+     # Venue enrichment + the jerrybase venue tripwire (spec Slice 1). The arms
+     # are ONE chain, in this order: enrichment, 1a, step 1 (the vote agrees),
+     # step 2 (the swap), the two-venue signature, 1c, else today's flag. `sel`
+     # is the selected recording's own entry in the candidate (absent after a
+     # hand-edit or an older grouping: then no swap, no 1c, no 1d).
+     sel = next((r for r in candidate.recordings if r.identifier == identifier), None)
+     sel_venue = _stripped(sel.venue) if sel is not None else None
+     sel_city = _stripped(sel.coverage) if sel is not None else None
+     vote_venue, vote_city = candidate.venue, candidate.city
+     venue, city, venue_source = vote_venue, vote_city, "item"
++    tie = venue_tie_break(candidate, sel)       # slice B: a tied vote ships the selected string
+     if event is not None:
+         if not (venue and venue.strip()):
+             # Enrichment, byte-identical to before except 1a: a blank
+             # jerrybase venue neither enriches nor flags.
+             if event.venue.strip():
+                 venue, city, venue_source = event.venue, event.city, "jerrybase"
+         else:
+             jb_city = jerrybase_city(event)
+             archive_city = sel_city or vote_city
+             mismatch = f"venue mismatch: archive '{venue}' vs jerrybase '{event.venue}'"
+             if not event.venue.strip():
+                 # 1a: a blank jerrybase venue is no evidence, unless the
+                 # cities say this is not the place.
+                 if not cities_compatible(archive_city, jb_city):
+                     flags.append(mismatch)
++                elif tie is not None:
++                    venue, city = tie
+             elif venues_equivalent(venue, event.venue) and (
+                     _venues_equivalent_pre1b(venue, event.venue)
+                     or cities_compatible(archive_city, jb_city)):
+                 # Step 1: the vote ships. Narrowing S (Checkpoint C operator
+                 # decision, 2026-10-19): a pair equivalent before slice 1
+                 # passes on equivalence alone; only a pair 1b NEWLY made
+                 # equivalent must also have compatible cities.
+-                pass
++                if (tie is not None and venues_equivalent(tie[0], event.venue)
++                        and (_venues_equivalent_pre1b(tie[0], event.venue)
++                             or cities_compatible(archive_city, jb_city))):
++                    venue, city = tie           # slice B, on step 1's full test
+             elif (sel_venue and venues_equivalent(sel_venue, event.venue)
+                   and cities_compatible(sel_city or vote_city, jb_city)
+                   and not two_venue_signature(candidate)):
+                 # Step 2, the swap: the selected recording and jerrybase agree.
+                 op_notes.append(f"venue taken from the selected recording: '{sel_venue}' agrees "
+                                 f"with jerrybase '{event.venue}' (vote was '{vote_venue}')")
+                 venue, city = sel_venue, sel_city or vote_city
+             elif two_venue_signature(candidate):
+                 flags.append(mismatch)                  # a same-city double keeps the hold
+             elif (len(events) == 1 and sel_venue
+                   and cities_compatible(sel_city or vote_city, jb_city)):
+                 # 1c: same place, different name, on a single-event date.
+                 op_notes.append(f"venue differs from jerrybase: archive '{sel_venue}' "
+                                 f"vs '{event.venue}' (same city)")
+                 venue, city = sel_venue, sel_city or vote_city
+             else:
+                 flags.append(mismatch)
++    elif tie is not None:
++        venue, city = tie                       # slice B: no event
+ 
+     # 1d, every show, jerrybase or not, after the swap: a selected recording
+     # whose city is known to conflict with the vote's ships its own venue and
+     # city, held (the other recordings may be a different performance). An
+     # unknown city on either side is no conflict, so a blank vote city is None.
+     # Narrowing V (Checkpoint C operator decision, 2026-10-19): it fires only on
+     # a genuine second venue -- the selected recording's venue not equivalent
+     # to the vote's (the venue the chain started from, never the swapped one or
+     # jerrybase's). Two recordings naming one hall in "different" cities is
+     # locality noise. A blank vote venue is no evidence of the same hall, so it
+diff --git a/packages/llama/src/llama/stages/vet_research.py b/packages/llama/src/llama/stages/vet_research.py
+index b6d2967..7cba6ec 100644
+--- a/packages/llama/src/llama/stages/vet_research.py
++++ b/packages/llama/src/llama/stages/vet_research.py
+@@ -1,19 +1,19 @@
+ import re
+ from datetime import date as _date
+ from typing import NamedTuple
+ 
+ from herder import run_json_task
+ from llama.models import ResearchVetting, Show, ShowNotes, VettingResult
+ from llama.prompts import load_prompt
+ from llama.songs import normalize_song
+-from llama.structure import TAUTOLOGICAL_TITLE_SOURCES, is_filler
++from llama.structure import TAUTOLOGICAL_TITLE_SOURCES, fold_curly_apostrophes, is_filler
+ from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
+ 
+ # Every deterministic grounding flag starts with this prefix, so a re-vet can strip
+ # its own prior flags without disturbing flags from other stages (duration, guard).
+ _VET_FLAG_PREFIX = "research asserts "
+ 
+ # Slice 4 - 4b (spec "New constants"): another asserted full date within this
+ # many days of the show's own asserted full date is context, not a contradiction.
+ ADJACENT_DAY_WINDOW = 1
+ 
+@@ -105,43 +105,47 @@ def normalize_date(text: str) -> str | None:
+ 
+ def day_unknown_date(text: str) -> str | None:
+     """"YYYY-MM-00" when `text` is a full date, month 1..12, whose day is exactly
+     0 (an asserted "day unknown", Checkpoint E); None otherwise."""
+     return _parse_date(text, True)
+ 
+ 
+ _SEGUE_SPLIT = re.compile(r"\s*(?:->|>|→)\s*")
+ 
+ 
++def _song_tokens(name: str) -> list[str]:
++    return normalize_song(fold_curly_apostrophes(name)).split()
++
++
+ def _run_contained(short: list[str], long: list[str]) -> bool:
+     n = len(short)
+     return 0 < n <= len(long) and any(long[i:i + n] == short for i in range(len(long) - n + 1))
+ 
+ 
+ def _title_match(name: str, known: list[list[str]]) -> bool:
+     """Prose titles are loose: "Caution" for "Caution (Do Not Step on
+     Tracks)", "One More Saturday Night" for a track titled "Saturday Night".
+     Match when either side's tokens appear as a contiguous run in the other."""
+-    tokens = normalize_song(name).split()
++    tokens = _song_tokens(name)
+     return bool(tokens) and any(
+         _run_contained(tokens, k) or _run_contained(k, tokens) for k in known
+     )
+ 
+ 
+ def _known_song(name: str, known: list[list[str]]) -> bool:
+     """Research prose asserts songs in standard live notation: single titles,
+     segue chains ("China Cat Sunflower > I Know You Rider"), and comma-joined
+     runs. Exact whole match first (a merged track may be titled with the full
+     chain, and titles may contain commas); then a chain is known only if
+     EVERY part is. Loose containment applies only to atomic titles - a chain
+     must never pass just because one real song appears in it."""
+-    tokens = normalize_song(name).split()
++    tokens = _song_tokens(name)
+     if any(tokens == k for k in known):
+         return True
+     parts = [p for p in _SEGUE_SPLIT.split(name) if p.strip()]
+     if len(parts) > 1:
+         return all(_known_song(p, known) for p in parts)
+     parts = [p for p in name.split(",") if p.strip()]
+     if len(parts) > 1:
+         return all(_known_song(p, known) for p in parts)
+     return _title_match(name, known)
+ 
+@@ -179,29 +183,29 @@ def _date_flags(
+ 
+ 
+ def right_show_gate(
+     vetting: ResearchVetting, show: Show, *, date_flags_raw: list[str],
+ ) -> tuple[bool, dict]:
+     """Slice 4 - 4a: do the tape and the research demonstrably describe the same
+     show? Only then may unknown-song flags become a vet note. Tautological titles
+     (their text IS the canonical's) count on neither side; the date flags are the
+     ones read BEFORE 4b's adjacent-day window; the own date must be a full date,
+     year included. Returns (holds, info) with info's counts for the note."""
+-    research_known = [normalize_song(s).split() for s in vetting.asserted_songs]
++    research_known = [_song_tokens(s) for s in vetting.asserted_songs]
+     resolved = [
+         t for t in show.tracks
+         if t.title_source != "unresolved"
+         and not is_filler(t.title)
+         and t.title_source not in TAUTOLOGICAL_TITLE_SOURCES
+     ]
+     asserted = [t for t in resolved if _known_song(t.title, research_known)]
+-    tape_known = [normalize_song(t.title).split() for t in show.tracks]
++    tape_known = [_song_tokens(t.title) for t in show.tracks]
+     unknown = [s for s in vetting.asserted_songs if not _known_song(s, tape_known)]
+     unresolved_n = sum(1 for t in show.tracks if t.title_source == "unresolved")
+     date_text = next(
+         (d for d in vetting.asserted_dates if normalize_date(d) == show.date), None
+     )
+     own_full = date_text is not None
+     holds = (
+         len(resolved) > 0
+         and len(asserted) >= RIGHT_SHOW_MIN_TAPE_FRACTION * len(resolved)
+         and len(asserted) >= RIGHT_SHOW_MIN_ASSERTED
+@@ -224,21 +228,21 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
+     """Deterministic check: research contradicting this show flags for review.
+     The gate exists to catch wrong-show research, so a couple of unmatched
+     titles (tracklist gaps, odd variants) pass; a mostly-unmatched set, or a
+     date that belongs to a different show, blocks. One exception: an archive
+     year-only placeholder date (YYYY-01-01) contradicted by unanimous,
+     well-grounded research is corrected, not flagged - returns the adopted
+     date as the second element; the third is the vet notes (operator-facing,
+     never flags). Zero tokens."""
+     flags: list[str] = []
+     notes: list[str] = []
+-    known = [normalize_song(t.title).split() for t in show.tracks]
++    known = [_song_tokens(t.title) for t in show.tracks]
+     unknown = [s for s in vetting.asserted_songs if not _known_song(s, known)]
+     songs_grounded = not (len(unknown) >= 2 and len(unknown) * 3 > len(vetting.asserted_songs))
+ 
+     full: dict[str, str] = {}      # normalized YYYY-MM-DD -> first surface text
+     yearless: dict[str, str] = {}  # normalized --MM-DD -> first surface text
+     for text in vetting.asserted_dates:
+         norm = normalize_date(text)
+         if norm is None:
+             continue  # can't verify is not a contradiction; kept in vetting.json
+         (yearless if norm.startswith("--") else full).setdefault(norm, text)
+diff --git a/packages/llama/src/llama/structure.py b/packages/llama/src/llama/structure.py
+index 1f5d1e0..8bc9f4a 100644
+--- a/packages/llama/src/llama/structure.py
++++ b/packages/llama/src/llama/structure.py
+@@ -52,33 +52,40 @@ def norm_title(title: str) -> str:
+ # component, which is what a jerrybase set closer has to be compared against.
+ _SEGUE_SEP = re.compile(r"\s*(?:->|>|→)\s*")
+ 
+ # A trailing parenthetical on a component is a taper's credit or lineage note
+ # ("(Cripe)", "(SBD)", "(Tape Flip)", "(w/ Rick Danko)"), or a canonical
+ # subtitle the taper kept ("(to Take My Man)"). Neither is a song, and a
+ # credit-only component would otherwise form a spurious merge run.
+ _TRAILING_PAREN = re.compile(r"\s*\([^)]*\)\s*$")
+ 
+ 
++def fold_curly_apostrophes(text: str) -> str:
++    """Replace U+2019 and U+2018 with "'" and change nothing else."""
++    return text.replace("\u2019", "'").replace("\u2018", "'")
++
++
+ def fuzzy_norm_title(title: str, aliases: dict[str, str] | None = None) -> str:
+     """`norm_title` with "&" folded to "and" first, then an optional
+     caller-supplied shorthand table applied to the result.
+ 
+     `normalize_song`'s punctuation strip turns "&" into whitespace, so
+     "Me & My Uncle" and "Me and My Uncle" normalize differently. Folding
+     beforehand collapses them. Deliberately kept out of `normalize_song`
+     itself: folding there would also change grouping, vet_research, brief and
+-    setlist.fm artist matching, none of which was measured.
++    setlist.fm artist matching, none of which was measured. Curly apostrophes
++    are folded to "'" first, which lives here for the same reason the "&"
++    fold does.
+ 
+     `aliases` is `songs.GD_SHORTHAND` for Garcia-universe artists and empty for
+     everyone else — see that table's comment for why it cannot be global."""
+-    norm = norm_title(title.replace("&", " and "))
++    norm = norm_title(fold_curly_apostrophes(title).replace("&", " and "))
+     return (aliases or {}).get(norm, norm)
+ 
+ 
+ def title_components(title: str, aliases: dict[str, str] | None = None) -> list[str]:
+     """Normalized components of a possibly-merged track title, in order.
+ 
+     A trailing separator yields no empty component, so a dangling ">" stays a
+     segue marker rather than becoming a phantom song. A component that is
+     nothing but a parenthetical credit is dropped entirely, which is what stops
+     "Lazy Lightning -> (Cripe)" forming a two-song run. When every component
+diff --git a/packages/llama/tests/helpers.py b/packages/llama/tests/helpers.py
+index 8477461..6e86b9a 100644
+--- a/packages/llama/tests/helpers.py
++++ b/packages/llama/tests/helpers.py
+@@ -31,10 +31,38 @@ def build_ready(root: Path, slug: str = "gratefuldead-1973-06-10", *,
+                 "show": {"artist": "Grateful Dead", "date": "1973-06-10",
+                         "venue": "Some Venue", "city": None, "context": ""},
+                 "source": {"performance_id": "GratefulDead/1973-06-10"},
+                 "tracks": [{"index": 1, "set": "1", "title": "Morning Dew",
+                             "filename": "01 - Morning Dew.mp3"}],
+                 "set_breaks": [], "total_duration_sec": 0, "set_durations_sec": {}}
+     write_artifact(ws.package_dir / "manifest.json", manifest)
+     if not drop_audio:
+         write_artifact(ws.package_dir / "audio" / "01 - Morning Dew.mp3", "x")
+     return ws
++
++
++def tree_bytes(d: Path) -> dict[str, bytes]:
++    """Every file under `d` (posix path relative to `d`) -> its bytes, except
++    the top-level `.lock`."""
++    return {p.relative_to(d).as_posix(): p.read_bytes()
++            for p in sorted(d.rglob("*"))
++            if p.is_file() and p.relative_to(d).as_posix() != ".lock"}
++
++
++def packaged_gd73(tmp_path: Path, monkeypatch):
++    """Run a real `get "GD 1973"` against the fake backend and FakeIA; returns
++    (config path, ShowWorkspace) for the packaged gratefuldead-1973-06-10."""
++    from typer.testing import CliRunner
++
++    import llama.cli as cli
++    import test_pipeline
++
++    cfg = tmp_path / "config.toml"
++    cfg.write_text(f'root = "{tmp_path}"\n[jerrybase]\nenabled = false\n')
++    monkeypatch.setattr(cli, "make_providers", test_pipeline.fake_providers)
++    monkeypatch.setattr(cli, "IAClient", test_pipeline.FakeIA)
++    r = CliRunner().invoke(cli.app, ["--config", str(cfg), "get", "GD 1973",
++                                     "--auto", "--name", "r"])
++    assert r.exit_code == 0, r.output
++    ws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
++    assert (ws.package_dir / "manifest.json").exists()
++    return cfg, ws
+diff --git a/packages/llama/tests/test_fix.py b/packages/llama/tests/test_fix.py
+index 16ef5ba..926f563 100644
+--- a/packages/llama/tests/test_fix.py
++++ b/packages/llama/tests/test_fix.py
+@@ -3,27 +3,34 @@
+ Plan B Task 2: `fix` absorbs the old `show` edit flags under clearer names
+ and, by default, runs the correct redo itself (`--no-run` stages instead).
+ `show`'s edit flags stay in place until Task 4 removes them.
+ """
+ import json
+ from pathlib import Path
+ 
+ import pytest
+ 
+ import llama.cli as cli
++import llama.pipeline as pipeline
+ from conftest import cli_invoke
+ from herder import FakeProvider
++from herder.limits import RateLimited
++from llama.errors import LlamaError
++from llama.ia_client import IAError
++from llama.locks import Locked, file_lock
+ from llama.models import Overrides, Show, Track
+ from llama.stages.gather import compute_gather
+ from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
+ 
++from helpers import packaged_gd73, tree_bytes
+ from test_catalog import build
++from test_cli import _staged_ymsb_show
+ from test_stage_gather import IDENT, StubIA, make_candidate
+ 
+ 
+ def _cfg(tmp_path: Path) -> Path:
+     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+     return tmp_path / "config.toml"
+ 
+ 
+ def _held_show(tmp_path: Path):
+     return build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"},
+@@ -31,21 +38,21 @@ def _held_show(tmp_path: Path):
+ 
+ 
+ def _gathered_show(tmp_path: Path):
+     return build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+ 
+ 
+ def _stub_redo(monkeypatch, picked=None, result=Path("/pkg")):
+     """Stub `_redo_show` so no real pipeline work happens; records the stage
+     it was called with (or nothing if never called)."""
+     calls = []
+-    monkeypatch.setattr(cli, "_redo_show",
++    monkeypatch.setattr(cli, "_redo_show_locked",
+                         lambda config, ia, ledger, e, stage, **kw: (
+                             calls.append(stage), result)[1])
+     return calls
+ 
+ 
+ # --- bare invocation / missing edit flag ---
+ 
+ def test_bare_fix_errors(tmp_path):
+     cfg = _cfg(tmp_path)
+     _gathered_show(tmp_path)
+@@ -302,21 +309,21 @@ def test_apply_prints_packaged_or_still_held(tmp_path, monkeypatch):
+     _held_show(tmp_path)
+     _stub_redo(monkeypatch, result=Path("/tmp/pkg"))
+     r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague")
+     assert r.exit_code == 0, r.output
+     assert "packaged: /tmp/pkg" in r.output
+ 
+ 
+ def test_apply_prints_still_held_when_redo_returns_none(tmp_path, monkeypatch):
+     cfg = _cfg(tmp_path)
+     _held_show(tmp_path)
+-    monkeypatch.setattr(cli, "_redo_show",
++    monkeypatch.setattr(cli, "_redo_show_locked",
+                         lambda config, ia, ledger, e, stage, **kw: None)
+     r = cli_invoke(cfg, "fix", "gratefuldead", "--overrule")
+     assert r.exit_code == 0, r.output
+     assert "still held: gratefuldead-1973-06-10" in r.output
+ 
+ 
+ # --- --no-run stages instead of applying ---
+ 
+ def test_no_run_fires_nothing_and_prints_staged_hint(tmp_path, monkeypatch):
+     cfg = _cfg(tmp_path)
+@@ -794,21 +801,21 @@ def test_untitled_overrules_remaining_flags_then_continues_from_brief(tmp_path,
+     calls = []
+ 
+     def fake_redo(config, ia, ledger, e, stage, **kw):
+         calls.append(stage)
+         if stage == "gather":   # the re-gather raises a flag, as the spec expects
+             s = read_model(e.ws.show, Show)
+             s.needs_review = True
+             s.review_flags = ["single-set structure for a long show (160 min)"]
+             write_artifact(e.ws.show, s)
+         return next(outcomes)
+-    monkeypatch.setattr(cli, "_redo_show", fake_redo)
++    monkeypatch.setattr(cli, "_redo_show_locked", fake_redo)
+     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+     assert calls == ["gather", "brief"]
+     assert "remaining flags overruled" in r.output and "packaged: /pkg" in r.output
+     assert read_model(ws.show, Show).needs_review is False
+ 
+ 
+ def test_untitled_gather_makes_no_align_structure_call(tmp_path):
+     # the override path (set_breaks=[]) skips align(): run the real gather on gd73 with an align provider
+     # that would fail if called
+     ws = ShowWorkspace(tmp_path / "s")
+@@ -826,10 +833,163 @@ def test_untitled_gather_makes_no_align_structure_call(tmp_path):
+ def test_untitled_is_refused_when_only_some_tracks_are_resolved(tmp_path, monkeypatch):
+     cfg = _cfg(tmp_path)
+     ws = _all_unresolved_show(tmp_path, n=3)
+     show = read_model(ws.show, Show)
+     show.tracks[1] = show.tracks[1].model_copy(update={"title_source": "tags", "title": "Dew"})
+     write_artifact(ws.show, show)
+     calls = _stub_redo(monkeypatch)
+     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+     assert r.exit_code != 0 and "(1 of 3 resolved)" in r.output
+     assert not ws.overrides.exists() and calls == []
++
++
++# --- slice C: fix is one restoring unit ---
++
++def _billy_shape(tmp_path, monkeypatch):
++    """The billystrings-2021-12-04 sequence on a real 24-track tape: overrides already
++    carrying edits, then the bad structure fix (pre-repair overrides set_breaks [10, 20],
++    encore_after 20)."""
++    from test_pipeline import fake_providers
++    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
++    # the dir name must be slugify(performance_id): process_show writes there
++    sws = _staged_ymsb_show(tmp_path, monkeypatch, slug="yondermountainstringband-2005-12-31")
++    write_artifact(sws.selection, {"identifier": "ymsb2005-12-31.flac16.wav"})
++    write_artifact(sws.overrides, Overrides(narration="vague", titles={1: "Kirby Hill"}))
++    monkeypatch.setattr(cli, "make_providers", fake_providers)
++    return tmp_path / "config.toml", sws
++
++
++def test_a_refused_structure_fix_leaves_every_file_byte_identical(tmp_path, monkeypatch):
++    cfg, sws = _billy_shape(tmp_path, monkeypatch); before = tree_bytes(sws.dir)
++    r = cli_invoke(cfg, "fix", "yonder", "--set-breaks", "10,20", "--set-encore", "20")
++    assert r.exit_code == 1 and isinstance(r.exception, LlamaError)
++    assert "overrides.encore_after (20) must be greater than every set break [10, 20]" in str(r.exception)
++    assert tree_bytes(sws.dir) == before            # provenance.json and overrides.json included
++    r2 = cli_invoke(cfg, "fix", "yonder", "--clear-encore", "--no-run")   # still editable afterwards
++    assert r2.exit_code == 0, r2.output
++
++
++def test_no_run_stages_bad_overrides_and_the_redo_restores_and_names_the_field(tmp_path, monkeypatch):   # C3
++    cfg, sws = _billy_shape(tmp_path, monkeypatch)
++    assert cli_invoke(cfg, "fix", "yonder", "--set-breaks", "10,20", "--set-encore", "20", "--no-run").exit_code == 0
++    assert read_overrides(sws).encore_after == 20
++    before = tree_bytes(sws.dir)
++    r = cli_invoke(cfg, "redo", "yonder", "--from", "gather")
++    assert r.exit_code == 1 and "encore_after" in str(r.exception) and tree_bytes(sws.dir) == before
++
++
++def test_a_fix_adding_one_override_keeps_the_others(tmp_path, monkeypatch):   # (pin)
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _stub_redo(monkeypatch)
++    write_artifact(ws.overrides, Overrides(exclude=["junk.mp3"], venue="Hall", titles={2: "Dew"}, narration="vague"))
++    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-city", "Austin, TX").exit_code == 0
++    ov = read_overrides(ws)
++    assert (ov.exclude, ov.venue, ov.titles, ov.narration, ov.city) == (["junk.mp3"], "Hall", {2: "Dew"}, "vague", "Austin, TX")
++
++
++def _held(ws):
++    s = read_model(ws.show, Show); s.needs_review = True; s.review_flags = ["research asserts wrong date: 1974-01-01"]
++    write_artifact(ws.show, s)
++
++
++def test_failed_accept_vague_restores_the_hold_and_the_overrides(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
++    monkeypatch.setattr(pipeline, "run_brief", lambda *a, **k: (_ for _ in ()).throw(RateLimited("limit")))
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague")
++    assert r.exit_code == 1 and isinstance(r.exception, RateLimited)
++    assert tree_bytes(ws.dir) == before and read_model(ws.show, Show).needs_review is True
++
++
++def test_failed_overrule_restores_every_file(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
++    monkeypatch.setattr(pipeline, "run_package", lambda *a, **k: (_ for _ in ()).throw(IAError("archive down")))
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--overrule")
++    assert r.exit_code == 1 and isinstance(r.exception, IAError) and "archive down" in str(r.exception)
++    assert tree_bytes(ws.dir) == before
++
++
++def test_a_multi_flag_fix_whose_redo_fails_leaves_nothing_of_the_first_edits(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague", "--set-breaks", "2,4", "--set-encore", "4")
++    assert r.exit_code == 1 and "encore_after" in str(r.exception)
++    assert tree_bytes(ws.dir) == before            # no narration, no cleared hold, no breaks
++
++
++def test_a_failed_first_edit_removes_the_overrides_file_it_created(tmp_path, monkeypatch):   # Review Focus 2
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); assert not ws.overrides.exists()
++    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall")
++    assert r.exit_code == 1 and "boom" in str(r.exception)
++    assert not ws.overrides.exists()
++
++
++def test_fix_writes_overrides_under_the_show_lock(tmp_path, monkeypatch):
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); seen = []; real = cli._edit_overrides
++    def probe(show_ws, **kw):
++        try:
++            with file_lock(show_ws.lock, blocking=False): seen.append("free")
++        except Locked:
++            seen.append("held")
++        return real(show_ws, **kw)
++    monkeypatch.setattr(cli, "_edit_overrides", probe)
++    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall", "--no-run").exit_code == 0
++    assert seen == ["held"]
++
++
++def test_fix_refuses_when_the_show_changed_after_the_prompt(tmp_path, monkeypatch):
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); calls = _stub_redo(monkeypatch)
++    def other_command_meanwhile(ia, config, entry, show):
++        write_artifact(entry.ws.overrides, Overrides(venue="Elsewhere")); return {1: "Dew"}
++    monkeypatch.setattr(cli, "_propose_and_confirm_titles", other_command_meanwhile)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--suggest-titles")
++    assert r.exit_code == 1 and "changed by another command; run it again" in str(r.exception)
++    assert read_overrides(ws) == Overrides(venue="Elsewhere") and calls == []
++
++
++def test_untitled_failure_after_the_overrule_restores_everything(tmp_path, monkeypatch):
++    cfg = _cfg(tmp_path); ws = _all_unresolved_show(tmp_path); before = tree_bytes(ws.dir)
++    stages = []
++    def fake(config, ia, ledger, e, stage, **kw):
++        stages.append(stage)
++        if stage == "gather":
++            s = read_model(e.ws.show, Show); s.needs_review = True; s.review_flags = ["x"]; write_artifact(e.ws.show, s)
++            return None
++        raise LlamaError("brief failed")
++    monkeypatch.setattr(cli, "_redo_show_locked", fake)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
++    assert r.exit_code == 1 and stages == ["gather", "brief"] and "brief failed" in str(r.exception)
++    assert tree_bytes(ws.dir) == before
++
++
++def test_fix_on_a_show_with_no_show_json_takes_metadata_and_filename_edits(tmp_path, monkeypatch):
++    cfg = _cfg(tmp_path)
++    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
++    write_artifact(ws.overrides, Overrides(set_breaks=[10, 20], encore_after=20))
++    assert cli_invoke(cfg, "fix", "gratefuldead", "--clear-encore", "--no-run").exit_code == 0
++    assert read_overrides(ws).encore_after is None
++    assert cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "junk.mp3", "--no-run").exit_code == 0
++    calls = _stub_redo(monkeypatch)
++    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall").exit_code == 0 and calls == ["gather"]
++
++
++@pytest.mark.parametrize("args", [["--overrule"], ["--narration", "vague"], ["--include", "junk.mp3"],
++                                  ["--suggest-titles"], ["--untitled"]])
++def test_fix_on_a_show_with_no_show_json_refuses_the_rest_and_names_the_remedy(tmp_path, args):
++    cfg = _cfg(tmp_path); build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
++    r = cli_invoke(cfg, "fix", "gratefuldead", *args)
++    assert r.exit_code == 1 and "rebuild it with: llama redo gratefuldead-1973-06-10 --from gather" in r.output
++
++
++def test_a_typer_exit_inside_the_unit_leaves_the_show_byte_identical(tmp_path):   # clash
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
++    before = tree_bytes(ws.dir)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "a.mp3", "--include", "a.mp3")
++    assert r.exit_code == 1 and "name the same file(s): a.mp3" in r.output
++    assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()
++
++
++def test_a_track_number_exclude_without_show_json_refuses_and_changes_nothing(tmp_path):
++    cfg = _cfg(tmp_path)
++    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
++    before = tree_bytes(ws.dir)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "3")
++    assert r.exit_code == 1 and "resolving a track number needs show.json" in r.output
++    assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()
+diff --git a/packages/llama/tests/test_pace_loop.py b/packages/llama/tests/test_pace_loop.py
+index 4d3f938..3cdd86d 100644
+--- a/packages/llama/tests/test_pace_loop.py
++++ b/packages/llama/tests/test_pace_loop.py
+@@ -13,20 +13,21 @@ from datetime import datetime, timedelta, timezone
+ from pathlib import Path
+ 
+ import pytest
+ from herder import HerderError, TaskFailed
+ from herder.fake import FakeProvider
+ from herder.limits import RateLimited
+ 
+ import llama.cli as cli
+ from llama import pacing, pacing_state
+ from llama.config import Config, LLMTaskConfig, PacingConfig
++from llama.errors import LlamaError
+ from llama.locks import Locked
+ from llama.models import Candidate, Criteria, QualityAssessment, ShortlistEntry
+ from llama.sessions import (STATE_COMPLETE, STATE_INCOMPLETE, STATE_PAUSED,
+                             iter_sessions)
+ from llama.workspace import RunWorkspace
+ 
+ NOW = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
+ RESET_5H = NOW + timedelta(hours=2)
+ RESET_7D = NOW + timedelta(days=3)
+ 
+@@ -1642,10 +1643,22 @@ def test_count_llm_calls_wraps_defaultdict_and_ladders():
+     assert wrapped["none"] is None
+     wrapped["single"].complete("p")
+     wrapped["single"].research("p")
+     assert calls() == 2
+     assert wrapped["lazy-missing-key"][0].complete("p") == "x"   # defaultdict
+     assert calls() == 3
+     with pytest.raises(HerderError):
+         wrapped["boom"][0].complete("p")
+     assert calls() == 4                                           # raising counts
+     assert isinstance(wrapped["boom"], list)
++
++
++def test_a_show_refusing_its_overrides_is_a_per_show_failure_and_the_run_continues(tmp_path, monkeypatch):
++    def _process(pid):
++        if pid == "a":
++            raise LlamaError("overrides.encore_after (20) must be greater than every set break [10, 20]")
++        return f"{pid}/pkg"
++    _, seen = _drive(tmp_path, monkeypatch, _process, ["a", "b"])
++    assert seen == ["a", "b"]
++    s = iter_sessions(tmp_path)[0]
++    assert s.state == STATE_INCOMPLETE
++    assert [(f["show"], f["kind"]) for f in s.failures] == [("a", "other")]
+diff --git a/packages/llama/tests/test_reapply.py b/packages/llama/tests/test_reapply.py
+index 1672cc3..ab39791 100644
+--- a/packages/llama/tests/test_reapply.py
++++ b/packages/llama/tests/test_reapply.py
+@@ -9,21 +9,21 @@ import pytest
+ sys.path.insert(0, str(Path(__file__).resolve().parent))
+ from fixture_library import build_library
+ 
+ import llama.reapply as reapply_mod
+ from herder import FakeProvider
+ from llama.config import load_config
+ from llama.errors import LlamaError
+ from llama.ia_client import IAError
+ from llama.ledger import Ledger
+ from llama.locks import Locked, file_lock
+-from llama.models import Briefing, LedgerEntry, Show, ShowNotes, VettingResult
++from llama.models import Overrides, Briefing, LedgerEntry, Show, ShowNotes, VettingResult
+ from llama.reapply import ReapplyOutcome, reapply_show
+ from llama.replay import input_digests
+ from llama.stages.brief import normalize_briefing, render_briefing_md
+ from llama.workspace import read_model, write_artifact
+ from llama.reapply import STOP_AFTER_LLM_FAILURES, batch_dir, load_list, read_progress
+ from llama.replay import config_fingerprint
+ 
+ HELD = "gratefuldead-1973-06-10"
+ 
+ 
+@@ -1079,10 +1079,19 @@ def test_a_reused_briefing_is_not_dropped(tmp_path, monkeypatch):
+     assert "drop:brief" not in out.written
+ 
+ 
+ def test_a_cleared_outcome_is_not_dropped(tmp_path, monkeypatch):
+     # case (d)
+     root, config, ledger, entry, _ = _env(tmp_path)
+     _stub_package(monkeypatch)
+     out = _run(config, ledger, entry)
+     assert out.outcome == "cleared" and "drop:brief" not in out.written
+     assert entry.ws.briefing_json.exists()
++
++
++def test_reapply_on_refused_overrides_raises_and_writes_nothing(tmp_path, monkeypatch):   # (pin)
++    root, config, ledger, entry, _ = _env(tmp_path)
++    write_artifact(entry.ws.overrides, Overrides(set_breaks=[2, 4], encore_after=4))
++    before = _snapshot(entry.ws)
++    with pytest.raises(LlamaError, match="overrides\\.(encore_after|set_breaks)"):
++        _run(config, ledger, entry)
++    assert _snapshot(entry.ws) == before
+diff --git a/packages/llama/tests/test_redo_cmd.py b/packages/llama/tests/test_redo_cmd.py
+index f9543e8..19ad6c1 100644
+--- a/packages/llama/tests/test_redo_cmd.py
++++ b/packages/llama/tests/test_redo_cmd.py
+@@ -1,24 +1,37 @@
+ """`llama redo`: the single re-execution verb -- positional show, selector
+ batch, and `--run SESSION` session scope (absorbing the old
+ `run --stage X --force` run-wide re-execution). Plan B Task 6."""
+ import json
++import shutil
+ from pathlib import Path
+ 
++import pytest
++from herder import TaskFailed
++from helpers import packaged_gd73, tree_bytes
+ from typer.testing import CliRunner
+ 
+ import llama.cli as cli
++import llama.pipeline as pipeline
++from llama.config import load_config
++from llama.errors import LlamaError
++from llama.ia_client import IAError
++from llama.ledger import Ledger
++from llama.locks import Locked, file_lock
++from llama.show_unit import ShowChanged
++from llama.workspace import atomic_write_bytes
+ from llama.models import Criteria, Provenance, QualityAssessment, Show, ShortlistEntry, Track
+ from llama.workspace import (
+     RunWorkspace, ShowWorkspace, read_model, read_model_list, write_artifact,
+ )
+ 
++from test_catalog import build
+ from test_cli_commands import _approved_run, _seed_show, make_entries
+ 
+ runner = CliRunner()
+ 
+ 
+ # ---------------------------------------------------------------------------
+ # Three-form grammar: positional show | --run SESSION | selectors -- exactly one.
+ # ---------------------------------------------------------------------------
+ 
+ def test_redo_batch_requires_target(tmp_path: Path):
+@@ -665,10 +678,97 @@ def test_redo_from_package_clears_a_duration_hold(tmp_path: Path, monkeypatch):
+ 
+ 
+ def test_redo_from_package_keeps_a_briefing_flag(tmp_path: Path, monkeypatch):
+     # package does not re-run the briefing guard, so its verdict stands.
+     flag = "briefing claims 2 sets but structure has 1"
+     show_dir = _held_packaged_show(tmp_path, monkeypatch, [flag])
+     r = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+         "redo", "gratefuldead-1973-06-10", "--from", "package"])
+     assert r.exit_code == 0, r.output
+     assert read_model(show_dir / "show.json", Show).review_flags == [flag]
++
++
++def test_failed_redo_from_brief_restores_every_file(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch); before = tree_bytes(ws.dir)
++    monkeypatch.setattr(pipeline, "run_brief", lambda *a, **k: (_ for _ in ()).throw(TaskFailed("boom")))
++    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "brief"])
++    assert r.exit_code == 1 and isinstance(r.exception, TaskFailed)
++    assert tree_bytes(ws.dir) == before            # provenance.json's processed_at included
++
++
++def test_package_failure_on_purged_audio_removes_new_audio_and_restores_manifest(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
++    for f in (ws.package_dir / "audio").iterdir():
++        f.unlink()                                  # as `deliver` purges
++    before = tree_bytes(ws.dir)
++    from test_pipeline import FakeIA
++    class SecondFails(FakeIA):
++        n = 0
++        def download_file(self, identifier, filename, dest, md5=None):
++            SecondFails.n += 1
++            if SecondFails.n == 2:
++                raise IAError("download of x failed")
++            return super().download_file(identifier, filename, dest, md5)
++    monkeypatch.setattr(cli, "IAClient", SecondFails)
++    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "package"])
++    assert r.exit_code == 1 and isinstance(r.exception, IAError)
++    assert tree_bytes(ws.dir) == before and list((ws.package_dir / "audio").iterdir()) == []
++
++
++def test_keyboard_interrupt_after_the_drop_restores_and_re_raises(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch); before = tree_bytes(ws.dir)
++    monkeypatch.setattr(pipeline, "run_brief", lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()))
++    # through the function, not the runner: click turns KeyboardInterrupt into "Aborted!"
++    config = load_config(cfg); ledger = Ledger(config.root / "ledger.jsonl")
++    entry = cli._resolve_show(config, ledger, "gratefuldead")
++    with pytest.raises(KeyboardInterrupt):
++        cli._redo_show(config, cli.IAClient(), ledger, entry, "brief")
++    assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()
++
++
++def test_a_redo_of_a_show_removed_while_it_waited_refuses_with_the_removed_message(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
++    config = load_config(cfg); ledger = Ledger(config.root / "ledger.jsonl")
++    entry = cli._resolve_show(config, ledger, "gratefuldead")
++    shutil.rmtree(ws.dir)                           # `llama rm` ran while this redo waited for the lock
++    with pytest.raises(ShowChanged, match="gratefuldead-1973-06-10: the show was removed; nothing changed"):
++        cli._redo_show(config, cli.IAClient(), ledger, entry, "brief")
++    assert [p.name for p in ws.dir.iterdir()] == [".lock"]   # spec C2's documented husk
++
++
++def test_a_leftover_txn_is_deleted_not_restored_by_the_next_redo(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
++    atomic_write_bytes(ws.dir / ".txn" / "files" / "show.json", b"STALE")
++    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "package"])
++    assert r.exit_code == 0, r.output
++    assert ws.show.read_bytes() != b"STALE" and not (ws.dir / ".txn").exists()
++
++
++def test_redo_runs_the_pipeline_inside_the_show_lock(tmp_path, monkeypatch):   # (pin)
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch); seen = []
++    def probe(*a, **k):
++        try:
++            with file_lock(ws.lock, blocking=False):
++                seen.append("free")
++        except Locked:
++            seen.append("held")
++        raise TaskFailed("stop")
++    monkeypatch.setattr(pipeline, "run_brief", probe)
++    runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "brief"])
++    assert seen == ["held"]
++
++
++def test_redo_batch_restores_a_failed_show_and_continues(tmp_path, monkeypatch):
++    cfg = tmp_path / "config.toml"; cfg.write_text(f'root = "{tmp_path}"\n')
++    a = build(tmp_path, "aready", stages={"select", "gather", "research", "vet", "package"})
++    build(tmp_path, "bready", stages={"select", "gather", "research", "vet", "package"})
++    before, done = tree_bytes(a.dir), []
++    def fake(config, ia, ledger, e, stage, **kw):
++        write_artifact(e.ws.show, {"half": "written"})
++        if e.slug == "aready":
++            raise LlamaError("boom")
++        done.append(e.slug)
++        return e.ws.package_dir
++    monkeypatch.setattr(cli, "_redo_show_locked", fake)
++    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "--packaged", "--from", "package", "--yes"])
++    assert r.exit_code == 0 and "FAILED aready: boom" in r.output and done == ["bready"]
++    assert tree_bytes(a.dir) == before
+diff --git a/packages/llama/tests/test_show_unit.py b/packages/llama/tests/test_show_unit.py
+new file mode 100644
+index 0000000..8107eaf
+--- /dev/null
++++ b/packages/llama/tests/test_show_unit.py
+@@ -0,0 +1,170 @@
++import pytest
++
++import llama.show_unit as show_unit_mod
++from helpers import tree_bytes
++from llama.errors import LlamaError
++from llama.locks import Locked, file_lock
++from llama.show_unit import ShowChanged, capture_view, show_unit
++from llama.workspace import ShowWorkspace, atomic_write_bytes, write_artifact
++
++
++def _show(tmp_path):
++    ws = ShowWorkspace(tmp_path / "shows" / "s")
++    write_artifact(ws.provenance, {"performance_id": "x/1"})
++    write_artifact(ws.overrides, {"venue": "V"})
++    write_artifact(ws.show, {"title": "t"})
++    write_artifact(ws.reviews, {"r": 1})
++    write_artifact(ws.package_dir / "manifest.json", {"v": 3})
++    atomic_write_bytes(ws.package_dir / "audio" / "a.mp3", b"A")
++    return ws
++
++
++def _fail_inside(ws, exc, body):
++    view = capture_view(ws)
++    with pytest.raises(type(exc)):
++        with show_unit(ws, view):
++            body()
++            raise exc
++
++
++def test_a_failed_unit_restores_every_file_byte_identical(tmp_path):
++    ws = _show(tmp_path); before = tree_bytes(ws.dir)
++    def body():
++        write_artifact(ws.show, {"changed": True}); ws.reviews.unlink()
++        write_artifact(ws.research, "new"); write_artifact(ws.package_dir / "manifest.json", {"v": 9})
++        atomic_write_bytes(ws.package_dir / "audio" / "new.mp3", b"N")
++    _fail_inside(ws, LlamaError("refused"), body)
++    assert tree_bytes(ws.dir) == before
++    assert not (ws.dir / ".txn").exists() and ws.lock.exists()
++
++
++def test_keyboard_interrupt_restores_and_re_raises(tmp_path):
++    ws = _show(tmp_path); before = tree_bytes(ws.dir)
++    _fail_inside(ws, KeyboardInterrupt(), lambda: ws.show.unlink())
++    assert tree_bytes(ws.dir) == before
++
++
++def test_a_successful_unit_keeps_its_writes_and_removes_the_snapshot(tmp_path):
++    ws = _show(tmp_path)
++    with show_unit(ws, capture_view(ws)):
++        write_artifact(ws.research, "kept")
++    assert ws.research.read_text() == "kept" and not (ws.dir / ".txn").exists()
++
++
++def test_a_unit_with_no_expected_view_reads_the_show_under_the_lock(tmp_path):
++    ws = _show(tmp_path); write_artifact(ws.overrides, {"other": "command"})
++    with show_unit(ws, None):
++        write_artifact(ws.research, "kept")
++    assert ws.research.read_text() == "kept"
++
++
++def test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn(tmp_path, monkeypatch):
++    ws = _show(tmp_path)
++    def broken(show_ws):
++        raise OSError("disk full")
++    monkeypatch.setattr(show_unit_mod, "restore_snapshot", broken)
++    with pytest.raises(OSError) as info:
++        with show_unit(ws, capture_view(ws)):
++            write_artifact(ws.research, "half")
++            raise LlamaError("boom")
++    assert isinstance(info.value.__context__, LlamaError) and (ws.dir / ".txn").exists()
++    monkeypatch.undo()
++    with show_unit(ws, capture_view(ws)):
++        pass
++    assert ws.research.read_text() == "half" and not (ws.dir / ".txn").exists()
++
++
++def test_files_outside_the_known_artifacts_are_restored_and_new_ones_removed(tmp_path):
++    ws = _show(tmp_path); (ws.dir / "llm-failure.txt").write_text("old"); (ws.dir / "notes.json.1.tmp").write_text("t")
++    before = tree_bytes(ws.dir)
++    def body():
++        (ws.dir / "llm-failure.txt").write_text("new"); (ws.dir / "stray.tmp").write_text("s")
++    _fail_inside(ws, LlamaError("x"), body)
++    assert tree_bytes(ws.dir) == before
++
++
++def test_existing_audio_is_never_snapshotted_or_rewritten(tmp_path):
++    ws = _show(tmp_path)
++    def body():
++        (ws.package_dir / "audio" / "a.mp3").write_bytes(b"RETAGGED")
++        assert not (ws.dir / ".txn" / "files" / "package" / "audio").exists()
++    _fail_inside(ws, LlamaError("x"), body)
++    assert (ws.package_dir / "audio" / "a.mp3").read_bytes() == b"RETAGGED"
++
++
++def test_a_leftover_snapshot_is_deleted_not_restored(tmp_path):
++    ws = _show(tmp_path); current = ws.show.read_bytes()
++    atomic_write_bytes(ws.dir / ".txn" / "files" / "show.json", b"STALE")
++    with show_unit(ws, capture_view(ws)):
++        pass
++    assert ws.show.read_bytes() == current and not (ws.dir / ".txn").exists()
++
++
++@pytest.mark.parametrize("change", ["overrides", "show"])
++def test_a_changed_show_refuses_and_changes_nothing(tmp_path, change):
++    ws = _show(tmp_path); view = capture_view(ws)
++    write_artifact(getattr(ws, change), {"other": "command"}); before = tree_bytes(ws.dir)
++    with pytest.raises(ShowChanged, match="s: changed by another command; run it again"):
++        with show_unit(ws, view):
++            raise AssertionError("the body must not run")
++    assert tree_bytes(ws.dir) == before
++
++
++def test_a_removed_show_refuses_with_the_removed_message(tmp_path):
++    ws = _show(tmp_path); view = capture_view(ws); ws.provenance.unlink()
++    with pytest.raises(ShowChanged, match="s: the show was removed; nothing changed"):
++        with show_unit(ws, view):
++            pass
++
++
++def test_the_lock_is_held_inside_the_unit_and_released_after(tmp_path):
++    ws = _show(tmp_path)
++    with show_unit(ws, capture_view(ws)):
++        with pytest.raises(Locked):
++            with file_lock(ws.lock, blocking=False):
++                pass
++    with file_lock(ws.lock, blocking=False):
++        pass
++
++
++def test_the_lock_file_is_never_touched_by_a_failed_unit(tmp_path):
++    ws = _show(tmp_path); ws.lock.touch(); ino = ws.lock.stat().st_ino
++    _fail_inside(ws, LlamaError("x"), lambda: write_artifact(ws.research, "n"))
++    assert ws.lock.stat().st_ino == ino
++
++
++def test_a_leftover_snapshot_file_is_not_resurrected_by_a_failed_unit(tmp_path):
++    ws = _show(tmp_path); before = tree_bytes(ws.dir)
++    atomic_write_bytes(ws.dir / ".txn" / "files" / "ghost.json", b"G")
++    _fail_inside(ws, LlamaError("x"), lambda: None)
++    assert tree_bytes(ws.dir) == before
++
++
++def test_a_leftover_that_cannot_be_removed_refuses_before_anything_is_written(tmp_path, monkeypatch):
++    ws = _show(tmp_path)
++    atomic_write_bytes(ws.dir / ".txn" / "files" / "ghost.json", b"G")
++    monkeypatch.setattr(show_unit_mod.shutil, "rmtree", lambda *a, **k: None)
++    ran = []
++    with pytest.raises(LlamaError, match="leftover snapshot"):
++        with show_unit(ws, capture_view(ws)):
++            ran.append(1)
++    assert not ran and not (ws.dir / ".txn" / "index.json").exists()
++
++
++@pytest.mark.parametrize("exc", [KeyboardInterrupt, OSError])
++def test_a_failing_take_snapshot_discards_and_re_raises(tmp_path, monkeypatch, exc):
++    ws = _show(tmp_path); before = tree_bytes(ws.dir)
++    real = show_unit_mod.atomic_write_bytes; calls = []
++    def flaky(path, data):
++        calls.append(path)
++        if len(calls) == 2:
++            raise exc("mid-snapshot")
++        real(path, data)
++    monkeypatch.setattr(show_unit_mod, "atomic_write_bytes", flaky)
++    ran = []
++    with pytest.raises(exc):
++        with show_unit(ws, capture_view(ws)):
++            ran.append(1)
++    assert not ran and not (ws.dir / ".txn").exists()
++    monkeypatch.undo()
++    assert tree_bytes(ws.dir) == before
+diff --git a/packages/llama/tests/test_stage_brief.py b/packages/llama/tests/test_stage_brief.py
+index 6005911..9b9377d 100644
+--- a/packages/llama/tests/test_stage_brief.py
++++ b/packages/llama/tests/test_stage_brief.py
+@@ -503,10 +503,30 @@ def test_single_part_title_has_no_comma_components():
+     assert song_comma_components("Ripple (reprise)") == []
+     assert song_comma_components("Ripple,") == []
+ 
+ 
+ def test_unannotated_comma_titles_never_split():
+     assert song_comma_components("Talk To Me Devil, Again") == []
+     assert song_comma_components("Lawyers, Guns and Money (Warren Zevon)") == []
+     b = _briefing(per_set={"1": ["x"]}, mentioned_songs=["Again"])
+     assert briefing_guard(b, _merged_show("Talk To Me Devil, Again")) == [
+         "briefing mentions unknown song: Again"]
++
++
++def _tape(*titles):
++    return Show(performance_id="GratefulDead/1973-06-10", identifier="gd73", artist="Grateful Dead",
++                date="1973-06-10", tracks=[Track(index=i, set="1", title=t, filename=f"t{i}.mp3",
++                                                 title_source="tags") for i, t in enumerate(titles, 1)])
++
++
++@pytest.mark.parametrize("track,mention", [("Don’t Ease Me In", "Don't Ease Me In"),
++                                           ("Don't Ease Me In", "Don’t Ease Me In")])
++def test_guard_matches_curly_and_straight_apostrophes_both_ways(track, mention):
++    problems = briefing_guard(_briefing(per_set={"1": ["x"]}, mentioned_songs=[mention]), _tape(track))
++    assert not any("unknown song" in p for p in problems)
++
++
++def test_guard_folds_curly_apostrophes_inside_segue_chains():
++    problems = briefing_guard(_briefing(per_set={"1": ["x"]}, mentioned_songs=["He's Gone", "Truckin'"]),
++                              _tape("He’s Gone > Truckin’"))
++    assert not any("unknown song" in p for p in problems)
++    assert song_components("E: He’s Gone >") == ["hes gone"]
+diff --git a/packages/llama/tests/test_stage_gather.py b/packages/llama/tests/test_stage_gather.py
+index 5f6fe26..e49a75f 100644
+--- a/packages/llama/tests/test_stage_gather.py
++++ b/packages/llama/tests/test_stage_gather.py
+@@ -3023,10 +3023,126 @@ def test_5c1_filler_tail_note_goes_to_notes_json_never_to_structure_conflicts(tm
+     monkeypatch.setattr(gather_mod.jerrybase, "lookup", lambda artist, date: [event])
+     monkeypatch.setattr(gather_mod.jerrybase, "is_filler", lambda title: title == "I Know You Rider")
+     res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(), FakeProvider(), make_candidate(), IDENT,
+                          jerrybase_enabled=True)
+     assert res.show.structure.alignment == "deterministic"
+     note = "jerrybase set closer 'China Cat Sunflower' is followed only by filler before the set break"
+     assert note in res.notes
+     assert note not in res.show.structure.conflicts
+     assert "jerrybase set closer 'Not On This Tape' not found in tracks" in res.show.structure.conflicts
+     assert not any(f.startswith("jerrybase set closer") for f in res.show.review_flags)
++
++
++# --- slice B: venue tie-break ---
++
++from llama.grouping import _make_candidate
++from llama.stages.gather import venue_tie_break
++
++
++def _cand(pid, coll, date, *specs):   # specs: (identifier, venue, coverage)
++    return _make_candidate(pid, coll, [RecordingSummary(identifier=i, date=date, venue=v, coverage=c)
++                                       for i, v, c in specs])
++
++
++def _gd(tmp_path, cand):
++    return compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(), None, cand, IDENT, jerrybase_enabled=False)
++
++
++def _venue_flags(show):
++    return [f for f in show.review_flags if f.startswith(("venue mismatch", "recordings of this date disagree"))]
++
++
++def test_tie_ships_the_selected_recordings_string_without_jerrybase(tmp_path):
++    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
++                 ("gd73-other", "R.F.K. Stadium", "Washington"), (IDENT, " RFK Stadium ", "Washington, DC"))
++    assert cand.venue == "R.F.K. Stadium"                         # listing order won the 1-1 tie
++    res = _gd(tmp_path, cand)
++    assert (res.show.venue, res.show.city, res.show.venue_source) == ("RFK Stadium", "Washington, DC", "item")
++    assert _venue_flags(res.show) == []
++
++
++def test_a_majority_keeps_the_consensus(tmp_path):   # (pin)
++    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
++                 ("a", "R.F.K. Stadium", "Washington, DC"), ("b", "R.F.K. Stadium", "Washington, DC"),
++                 (IDENT, "RFK Stadium", "Washington, DC"))
++    assert _gd(tmp_path, cand).show.venue == "R.F.K. Stadium"
++
++
++def test_a_tie_whose_selected_city_is_incompatible_ships_the_vote_unchanged(tmp_path):   # (pin)
++    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
++                 ("gd73-other", "RFK Stadium", "Washington, DC"), (IDENT, "RFK Stadium ", "Baltimore, MD"))
++    res = _gd(tmp_path, cand)
++    assert (res.show.venue, res.show.city) == ("RFK Stadium", "Washington, DC")
++
++
++def test_a_tie_with_a_blank_selected_city_keeps_the_vote_city(tmp_path):
++    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
++                 ("gd73-other", "R.F.K. Stadium", "Washington, DC"), (IDENT, "RFK Stadium", None))
++    assert (lambda s: (s.venue, s.city))(_gd(tmp_path, cand).show) == ("RFK Stadium", "Washington, DC")
++
++
++def test_a_whitespace_only_selected_venue_never_ships(tmp_path):   # (pin) Review Focus 3
++    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
++                 ("gd73-other", "RFK Stadium", "Washington, DC"), (IDENT, "   ", "Washington, DC"))
++    assert _gd(tmp_path, cand).show.venue == "RFK Stadium"
++
++
++def test_step_1_tie_ships_the_selected_string_jerrybase_corroborates(tmp_path, monkeypatch):
++    _penns_landing_event(monkeypatch)
++    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
++                 ("ds-other", "Penn's Landing", "Philadelphia, PA"), (DSO_IDENT, "Penns Landing", "Philadelphia, PA"))
++    assert cand.venue == "Penn's Landing"
++    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
++    assert res.show.venue == "Penns Landing" and _venue_flags(res.show) == []
++
++
++def test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_and_cities_conflict(tmp_path, monkeypatch):   # (pin)
++    # Narrowing S: the vote passes step 1 on pre-1b equivalence alone; the selected string is
++    # equivalent only under 1b, and Camden is not jerrybase's Philadelphia, so it fails step 1's full test.
++    _penns_landing_event(monkeypatch)
++    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
++                 ("ds-other", "Penn's Landing", "Camden, NJ"), (DSO_IDENT, "Penns Landing", "Camden, NJ"))
++    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
++    assert res.show.venue == "Penn's Landing" and _venue_flags(res.show) == []
++
++
++def test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string(tmp_path):   # (pin)
++    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
++                 ("ds-other", "Barrymore Theatre", "Madison, WI"), (DSO_IDENT, "Orpheum Theater", "Madison, WI"))
++    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
++    assert res.show.venue == "Barrymore Theatre" and _venue_flags(res.show) == []
++
++
++def _blank_venue_event(monkeypatch, city="Philadelphia", state="PA"):
++    from llama.models import JerrybaseEvent
++    ev = JerrybaseEvent(event_id="e1", venue="", city=city, state=state)
++    monkeypatch.setattr(gather_mod.jerrybase, "lookup", lambda artist, date: [ev])
++
++
++def test_1a_tie_ships_the_selected_string_when_cities_agree(tmp_path, monkeypatch):
++    _blank_venue_event(monkeypatch)
++    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
++                 ("ds-other", "Penn's Landing", "Philadelphia, PA"), (DSO_IDENT, "Penns Landing", "Philadelphia, PA"))
++    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
++    assert res.show.venue == "Penns Landing" and _venue_flags(res.show) == []
++
++
++def test_1a_tie_keeps_the_vote_when_the_cities_conflict(tmp_path, monkeypatch):   # (pin)
++    _blank_venue_event(monkeypatch)
++    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
++                 ("ds-other", "Penn's Landing", "Camden, NJ"), (DSO_IDENT, "Penns Landing", "Camden, NJ"))
++    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
++    assert res.show.venue == "Penn's Landing"
++    assert "venue mismatch: archive 'Penn's Landing' vs jerrybase ''" in res.show.review_flags
++
++
++def test_venue_tie_break_unit_cases():
++    recs = [RecordingSummary(identifier="a", venue="X Hall", coverage="Austin, TX"),
++            RecordingSummary(identifier="b", venue="X Hall ", coverage=None)]
++    cand = _make_candidate("A/2000-01-01", "A", recs)
++    assert venue_tie_break(cand, recs[1]) == ("X Hall", "Austin, TX")   # raw strings counted apart
++    assert venue_tie_break(cand, recs[0]) is None                        # the selected string IS the vote
++    assert venue_tie_break(cand, None) is None
++    odd = cand.model_copy(update={"venue": "Elsewhere"})                 # a vote no recording carries
++    assert venue_tie_break(odd, recs[1]) is None
++    stray = RecordingSummary(identifier="z", venue="Y Hall", coverage=None)
++    assert venue_tie_break(odd, stray) is None                           # 0 == 0 is not a tie
+diff --git a/packages/llama/tests/test_stage_vet.py b/packages/llama/tests/test_stage_vet.py
+index f47f7c6..e54af46 100644
+--- a/packages/llama/tests/test_stage_vet.py
++++ b/packages/llama/tests/test_stage_vet.py
+@@ -752,10 +752,44 @@ def test_date_flags_order_is_mismatched_then_day_unknown_then_yearless():
+ def test_day_unknown_date_reads_0_5_08_day_first_as_2008_05_00():
+     # 4c's month-first reading is invalid (month 0), so the day-first swap applies.
+     assert day_unknown_date("0/5/08") == "2008-05-00"
+     assert normalize_date("0/5/08") is None
+ 
+ 
+ def test_day00_entries_dedupe_on_the_first_surface_text():
+     flags, _, _ = grounding_flags(
+         _vet(["1973-06-10", "September 0, 1973", "1973-09-00"]), make_show())
+     assert flags == ["research asserts wrong date: September 0, 1973"]
++
++
++def _curly_show(titles):
++    return Show(performance_id="GratefulDead/1973-06-10", identifier="gd73", artist="Grateful Dead",
++                date="1973-06-10", tracks=[Track(index=i, set="1", title=t, filename=f"t{i}.mp3",
++                                                 title_source="tags") for i, t in enumerate(titles, 1)])
++
++
++@pytest.mark.parametrize("tape,research", [
++    (["He’s Gone", "Don’t Ease Me In"], ["He's Gone", "Don't Ease Me In"]),   # curly on tape
++    (["He's Gone", "Don't Ease Me In"], ["He’s Gone", "Don’t Ease Me In"]),   # curly in research
++])
++def test_vet_matches_curly_and_straight_apostrophes_both_ways(tape, research):
++    v = ResearchVetting(asserted_songs=research, asserted_dates=["1973-06-10"], context="")
++    flags, _, _ = grounding_flags(v, _curly_show(tape))
++    assert not any("unknown song" in f for f in flags)
++
++
++def test_vet_folds_curly_apostrophes_in_a_tape_segue_chain():
++    v = ResearchVetting(asserted_songs=["He's Gone", "Don't Ease Me In", "Truckin'"], asserted_dates=[], context="")
++    flags, _, _ = grounding_flags(v, _curly_show(["He’s Gone > Truckin’", "Don’t Ease Me In"]))
++    assert not any("unknown song" in f for f in flags)
++
++
++@pytest.mark.parametrize("tape,research", [
++    (["He’s Gone", "Don’t Ease Me In", "Truckin’", "Sugar Magnolia"],
++     ["He's Gone", "Don't Ease Me In", "Truckin'", "Sugar Magnolia"]),   # curly on tape
++    (["He's Gone", "Don't Ease Me In", "Truckin'", "Sugar Magnolia"],
++     ["He’s Gone", "Don’t Ease Me In", "Truckin’", "Sugar Magnolia"]),   # curly in research
++])
++def test_right_show_gate_counts_curly_and_straight_apostrophes_both_ways(tape, research):
++    v = ResearchVetting(asserted_songs=research, asserted_dates=["1973-06-10"], context="")
++    _, info = right_show_gate(v, _curly_show(tape), date_flags_raw=[])
++    assert info["asserted"] == 4 and info["unknown"] == []
+diff --git a/packages/llama/tests/test_structure.py b/packages/llama/tests/test_structure.py
+index 50415d7..6149a7a 100644
+--- a/packages/llama/tests/test_structure.py
++++ b/packages/llama/tests/test_structure.py
+@@ -12,21 +12,22 @@ from llama.structure import (
+     from_setlistfm,
+     is_filler,
+     norm_title,
+     rank_parses,
+     structure_guard,
+ )
+ from llama.models import AlignedStructure, AlignedTrack
+ from llama.structure import apply_llm_alignment
+ import pytest
+ from llama.structure import venues_equivalent
+-from llama.structure import fuzzy_norm_title, fuzzy_title_eq, title_components
++from llama.structure import (contains_sequence, fold_curly_apostrophes, fuzzy_norm_title,
++                             fuzzy_title_eq, title_components)
+ from llama.songs import GD_SHORTHAND
+ import inspect
+ from llama.models import ParsedSetlist, SetlistItem, Track
+ from llama.structure import adopt_gap_titles, hygienic_title
+ from llama.structure import LOOSE_TITLE_RATIO, loosely_same_title
+ from llama.structure import _one_edit, cities_compatible
+ from llama.structure import encore_lost
+ 
+ 
+ def sp(source, sets_titles, confidence="high"):
+@@ -2064,10 +2065,24 @@ def test_encore_lost_is_false_without_an_encore_item_or_when_it_matched():
+                            _encore_items(("A", "1"), ("B", "2"), ("Willin'", "encore")))
+ 
+ 
+ def test_encore_lost_on_an_unmatched_encore_item_or_a_marked_track():
+     assert encore_lost(_titled_tracks("A", "B"), _encore_items(("A", "1"), ("B", "2"), ("Willin'", "encore")))
+     assert encore_lost(_titled_tracks("A", "B", "E] Willin' >"),
+                        _encore_items(("A", "1"), ("B", "2"), ("Willin'", "encore")))
+     assert encore_lost(_titled_tracks("A", "E: Rilly Wut?"), _encore_items(("A", "1"), ("Rilly Wut?", "encore")))
+     assert encore_lost(_titled_tracks("A", "Crowd Encore Call > B"), _encore_items(("A", "1"), ("B", "encore")))
+     assert not encore_lost(_titled_tracks("A", "Encore Call > B"), _encore_items(("A", "1"), ("B", "2")))
++
++
++def test_fuzzy_norm_title_folds_curly_apostrophes():
++    assert fuzzy_norm_title("Don’t Ease Me In") == fuzzy_norm_title("Don't Ease Me In")
++    assert fuzzy_norm_title("‘Round And Round") == fuzzy_norm_title("'Round And Round")
++    assert fold_curly_apostrophes("a’b‘c“d") == "a'b'c“d"   # only the two
++
++
++def test_normalize_song_still_splits_on_a_curly_apostrophe():   # (pin) the strict list
++    assert normalize_song("Don’t Ease Me In") == "don t ease me in"
++
++
++def test_contains_sequence_matches_a_curly_description():
++    assert contains_sequence("Bertha &gt; Don’t Ease Me In", ["Don't Ease Me In"])
+diff --git a/packages/llama/tests/test_triage.py b/packages/llama/tests/test_triage.py
+index 116e537..0e947bd 100644
+--- a/packages/llama/tests/test_triage.py
++++ b/packages/llama/tests/test_triage.py
+@@ -1,26 +1,30 @@
+ """Tests for `llama triage` — the named interactive held-show walkthrough.
+ 
+ Plan B Task 3: promotes the flagless `show`'s `_interactive_resolve` loop into
+ its own command, adding a `[m]etadata` mini-editor and renaming `[c]lear` to
+ `[o]verrule`. `show`'s own walkthrough stays in place until Task 4 strips it.
+ """
+ import json
++import shutil
+ from pathlib import Path
+ 
+ import pytest
+ import typer.testing as typer_testing
+ 
+ import llama.cli as cli
+ from conftest import cli_invoke, output_without_paths
++from helpers import tree_bytes
+ from herder import FakeProvider
+-from llama.models import Provenance, RecordingSummary, Show
++from llama.errors import LlamaError
++from llama.locks import file_lock
++from llama.models import Overrides, Provenance, RecordingSummary, Show
+ from llama.stages.gather import run_gather
+ from llama.workspace import (ShowWorkspace, read_model, read_overrides,
+                              write_artifact)
+ 
+ from test_catalog import build
+ from test_cli import (ANCHORED_GAPS, FIXTURES, MultiIA, _staged_anchored_ymsb_show,
+                       _staged_ymsb_show, _ymsb_candidate, _ymsb_sibling_donor)
+ 
+ PROMPT = "[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip / [q]uit"
+ 
+@@ -43,21 +47,21 @@ def _held_show(tmp_path: Path, slug="gratefuldead-1973-06-10"):
+ 
+ 
+ def _packaged_show(tmp_path: Path, slug="other-1974-01-01"):
+     return build(tmp_path, slug,
+                 stages={"select", "gather", "research", "vet", "package"},
+                 pid="OtherBand/1974-01-01")
+ 
+ 
+ def _stub_redo(monkeypatch, result=Path("/pkg")):
+     calls = []
+-    monkeypatch.setattr(cli, "_redo_show",
++    monkeypatch.setattr(cli, "_redo_show_locked",
+                         lambda config, ia, ledger, e, stage, **kw: (
+                             calls.append(stage), result)[1])
+     return calls
+ 
+ 
+ # --- TTY gate ---
+ 
+ def test_off_tty_errors_with_exact_message(tmp_path):
+     cfg = _cfg(tmp_path)
+     _held_show(tmp_path)
+@@ -648,10 +652,108 @@ def test_triage_u_confirmed_but_still_held_says_still_held(tmp_path, tty, monkey
+ def test_triage_u_not_offered_when_one_of_several_tracks_is_resolved(tmp_path, tty):
+     cfg = _cfg(tmp_path)
+     ws = _held_show(tmp_path)
+     show = read_model(ws.show, Show)
+     base = show.tracks[0]
+     show.tracks = [base.model_copy(update={"index": i, "title_source": "unresolved" if i > 1 else "tags"})
+                    for i in (1, 2, 3)]
+     write_artifact(ws.show, show)
+     r = cli_invoke(cfg, "triage", "gratefuldead", input="s\n")
+     assert "[u]ntitled" not in r.output
++
++
++# --- Slice C: edits as restoring units ---
++
++def test_a_failed_triage_edit_prints_the_error_restores_and_returns_to_the_prompt(tmp_path, tty, monkeypatch):
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); before = tree_bytes(ws.dir)
++    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
++    r = cli_invoke(cfg, "triage", input="o\ns\n")
++    assert r.exit_code == 0, r.output
++    assert "error: boom" in r.output and r.output.count(PROMPT) == 2
++    assert tree_bytes(ws.dir) == before            # still held
++
++
++def test_a_triage_edit_whose_show_changed_meanwhile_refuses_and_changes_nothing(tmp_path, tty, monkeypatch):
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); calls = _stub_redo(monkeypatch)
++    def picker(show):
++        write_artifact(ws.overrides, Overrides(exclude=["other.mp3"])); return ["a.mp3"], False
++    monkeypatch.setattr(cli, "_pick_excludes", picker)
++    r = cli_invoke(cfg, "triage", input="e\ns\n")
++    assert "changed by another command; run it again" in r.output
++    assert read_overrides(ws).exclude == ["other.mp3"] and calls == []
++
++
++def test_triage_prompts_are_answered_without_the_show_lock(tmp_path, tty, monkeypatch):
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _stub_redo(monkeypatch); seen = []
++    def picker(show):
++        with file_lock(ws.lock, blocking=False):
++            seen.append("free")
++        return ["a.mp3"], False
++    monkeypatch.setattr(cli, "_pick_excludes", picker)
++    assert cli_invoke(cfg, "triage", input="e\n").exit_code == 0 and seen == ["free"]
++
++
++def _second_held_show(tmp_path):
++    return build(tmp_path, "gratefuldead-1974-01-01", stages={"select", "gather"}, needs_review=True,
++                 pid="GratefulDead/1974-01-01")
++
++
++def test_ctrl_c_in_a_triage_edit_restores_and_ends_the_walkthrough(tmp_path, tty, monkeypatch):
++    cfg = _cfg(tmp_path); shows = [_held_show(tmp_path), _second_held_show(tmp_path)]
++    before = [tree_bytes(ws.dir) for ws in shows]
++    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()))
++    r = cli_invoke(cfg, "triage", input="v\ns\n")
++    assert r.exit_code != 0 and r.output.count(PROMPT) == 1      # the second show is never offered
++    assert [tree_bytes(ws.dir) for ws in shows] == before
++
++
++def test_a_successful_triage_edit_moves_on_to_the_next_show(tmp_path, tty, monkeypatch):
++    cfg = _cfg(tmp_path); _held_show(tmp_path); _second_held_show(tmp_path); calls = _stub_redo(monkeypatch)
++    r = cli_invoke(cfg, "triage", input="o\ns\n")
++    assert r.exit_code == 0, r.output
++    assert r.output.count(PROMPT) == 2 and calls == ["package"]
++
++
++def test_a_retry_after_a_failed_edit_applies_against_the_restored_show(tmp_path, tty, monkeypatch):
++    cfg = _cfg(tmp_path); _held_show(tmp_path); outcomes = iter([LlamaError("boom"), Path("/pkg")])
++    def fake(config, ia, ledger, e, stage, **kw):
++        out = next(outcomes)
++        if isinstance(out, Exception):
++            raise out
++        return out
++    monkeypatch.setattr(cli, "_redo_show_locked", fake)
++    r = cli_invoke(cfg, "triage", input="o\no\n")
++    assert "error: boom" in r.output and "packaged: /pkg" in r.output
++    assert "changed by another command" not in r.output
++
++
++def test_a_show_removed_before_its_turn_is_reported_and_skipped(tmp_path, tty, monkeypatch):
++    cfg = _cfg(tmp_path); _held_show(tmp_path); second = _second_held_show(tmp_path)
++    def fake(config, ia, ledger, e, stage, **kw):
++        shutil.rmtree(second.dir); return Path("/pkg")   # another command removes the next show
++    monkeypatch.setattr(cli, "_redo_show_locked", fake)
++    r = cli_invoke(cfg, "triage", input="o\n")
++    assert r.exit_code == 0, r.output
++    assert "no show matches" in r.output and "gratefuldead-1974-01-01" in r.output
++    assert r.output.count(PROMPT) == 1
++
++
++def test_a_failed_metadata_edit_restores_the_overrides(tmp_path, tty, monkeypatch):
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
++    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("refused")))
++    r = cli_invoke(cfg, "triage", input="m\nNew Hall\n\n\n\n\ns\n")
++    assert r.exit_code == 0, r.output
++    assert "error: refused" in r.output and r.output.count(PROMPT) == 2
++    assert not ws.overrides.exists()
++
++
++def test_a_failed_untitled_resolution_restores_and_returns_to_the_prompt(tmp_path, tty, monkeypatch):
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
++    show = read_model(ws.show, Show)
++    show.tracks = [t.model_copy(update={"title_source": "unresolved"}) for t in show.tracks]
++    write_artifact(ws.show, show)
++    before = tree_bytes(ws.dir)
++    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
++    r = cli_invoke(cfg, "triage", input="u\ny\ns\n")
++    assert r.exit_code == 0, r.output
++    assert "error: boom" in r.output and r.output.count("[u]ntitled") == 2
++    assert tree_bytes(ws.dir) == before
+diff --git a/scripts/replay_holds.py b/scripts/replay_holds.py
+index 9025174..3bff5ed 100644
+--- a/scripts/replay_holds.py
++++ b/scripts/replay_holds.py
+@@ -174,21 +174,21 @@ NOTE_GROUPS = (   # (Contracts id, fixed leading words)
+     ("2a", "accepted short tag title:"),
+     ("2b", "placeholder tag title:"),
+     ("2c", "stripped glued track number:"),
+     ("2d", "stripped joined track number:"),
+     ("5c.1", "jerrybase set closer "),
+     ("4a", "unknown-song flags suppressed by the right-show gate:"),
+     ("format sibling tagged", "format sibling tagged"),
+ )
+ NONE = "  (none)"
+ OUTPUT_FILES = ("summary.txt", "drift.txt", "flags.txt", "outcomes.txt", "packaged_exposure.txt",
+-                "title_sources.txt", "structure_changed.txt", "hand_check_sample.txt",
++                "venue_changes.txt", "title_sources.txt", "structure_changed.txt", "hand_check_sample.txt",
+                 "closest_calls.txt", "needs_llm.txt", "notes.txt", "briefings.txt",
+                 "narration_candidates.html", "predicted_list.json",
+                 "structure_changed_list.json", "pilot_list.json")
+ 
+ 
+ def _load_arm(path: Path) -> dict:
+     try:
+         arm = json.loads(path.read_text())
+         if not isinstance(arm.get("shows"), dict):
+             raise ValueError("no shows")
+@@ -362,20 +362,56 @@ def _exposure(base: dict, cand: dict) -> tuple[list[str], int]:
+         b = base["shows"][slug]
+         if c.get("state") in NON_HELD and c.get("outcome") == "newly-held" and b.get("outcome") != "newly-held":
+             m += 1
+             added = [f for f in _all_flags(c) if f not in _all_flags(b)]
+             out.append(f"{slug}  [{c.get('state')}]  added: {'; '.join(added)}")
+     if m == 0:
+         out.append(NONE)
+     return out, n + m
+ 
+ 
++def _shipped(field: str, own: dict, other: dict):
++    """An arm's shipped value of venue/city: the diff's `new`, else the stored
++    value (null means the replay equals it), which is `old` of whichever arm has a diff."""
++    d = own.get(field)
++    if d:
++        return d.get("new")
++    o = other.get(field)
++    return o.get("old") if o else None
++
++
++def _venue_changes(base: dict, cand: dict) -> tuple[list[str], int, int]:
++    rows, n, m, skipped = [], 0, 0, 0
++    for slug, c in sorted(cand["shows"].items()):
++        b = base["shows"][slug]
++        if b.get("outcome") == "unreplayable" or c.get("outcome") == "unreplayable":
++            skipped += 1
++            continue
++        bv, cv = _shipped("venue", b, c), _shipped("venue", c, b)
++        bc, cc = _shipped("city", b, c), _shipped("city", c, b)
++        if bv == cv and bc == cc:
++            continue
++        n += 1
++        rows.append(f"{slug}  [{c.get('state')}]" + ("  DELIVERED" if c.get("state") == "delivered" else ""))
++        rows.append(f"  venue: {_j(bv)} -> {_j(cv)}")
++        rows.append(f"  city: {_j(bc)} -> {_j(cc)}")
++        bf, cf = set(_all_flags(b)), set(_all_flags(c))
++        if bf == cf:
++            rows.append("  flags: unchanged")
++        else:
++            m += 1
++            rows.append(f"  flags CHANGED: added {_j(sorted(cf - bf))}; removed {_j(sorted(bf - cf))}")
++    head = ["shows whose shipped venue or city differs (base -> cand):",
++            f"skipped {skipped} unreplayable show(s) (fields absent)"]
++    return head + (rows or [NONE]), n, m
++
++
+ def _would_clear(r: dict) -> bool:
+     return r.get("outcome") in CLEARING + ("structure-changed",)
+ 
+ 
+ def _title_sources(cand: dict) -> list[str]:
+     out = []
+     for slug, r in sorted(cand["shows"].items()):
+         if _would_clear(r):
+             for t in r.get("title_changes") or []:
+                 out.append(f"{slug}  #{t.get('index')}: {t.get('old')!r} ({t.get('old_source')}) -> "
+@@ -733,20 +769,22 @@ def compare(args: argparse.Namespace) -> int:
+ 
+     brief_lines, n_brief = _briefings(base, cand)
+     arm_root = cand.get("root") or base.get("root")
+     supp_lines, n_supp = _suppressed_claims(Path(arm_root) if arm_root else None)
+     _write(out, "briefings.txt", brief_lines + supp_lines)
+     flag_lines = _flag_counts(base, cand)
+     _write(out, "flags.txt", flag_lines)
+     _write(out, "outcomes.txt", _outcomes(base, cand))
+     exp, n_exp = _exposure(base, cand)
+     _write(out, "packaged_exposure.txt", exp)
++    vc, n_vc, m_vc = _venue_changes(base, cand)
++    _write(out, "venue_changes.txt", vc)
+     ts = _title_sources(cand)
+     _write(out, "title_sources.txt", _lines("title changes of would-clear shows:", ts))
+     sc = _structure_changed(cand, root)
+     _write(out, "structure_changed.txt", _lines("structure-changed shows:", sc))
+     hc = _hand_check(base, cand)
+     _write(out, "hand_check_sample.txt", _lines("hand-check sample (newly cleared, sha1 order):", hc))
+     cc, n_cc = _closest(base, cand, root)
+     _write(out, "closest_calls.txt", cc)
+     nl, nb, nc_ = _needs_llm(base, cand)
+     _write(out, "needs_llm.txt", nl)
+@@ -770,20 +808,21 @@ def compare(args: argparse.Namespace) -> int:
+         f"base reproduces {ok}/{len(denom)} (held, not needs-LLM"
+         + ("; gate skipped: --no-repro-gate)" if skipped else ")"),
+         f"needs-LLM held: base {held_nl(base)}, cand {held_nl(cand)}",
+         bl_ok,
+         f"drift.txt: {len(drift)} show(s)",
+         f"briefings.txt: {n_brief} stored_brief_guard difference(s), "
+         f"{n_supp} suppressed set-count/ordinal match(es)",
+         f"flags.txt: {len(flag_lines)} famil(ies)",
+         f"newly cleared: {len(_newly_cleared(base, cand))}",
+         f"packaged_exposure.txt: {n_exp} entr(ies)",
++        f"venue_changes.txt: {n_vc} show(s), {m_vc} with a flag change",
+         f"title_sources.txt: {len(ts)} row(s)",
+         f"structure_changed.txt: {len(sclist)} show(s)",
+         f"hand_check_sample.txt: {len(hc_rows(base, cand))} show(s)",
+         f"closest_calls.txt: {n_cc} row(s)",
+         f"needs_llm.txt: base {nb}, cand {nc_}",
+         f"notes.txt: {n_notes} note(s)",
+         f"predicted_list.json: {len(predicted)} row(s)",
+         f"structure_changed_list.json: {len(sclist)} row(s)",
+         f"pilot_list.json: {len(pilot)} row(s)",
+     ])
+diff --git a/scripts/test_replay_holds.py b/scripts/test_replay_holds.py
+index ce41b7b..3a4e732 100644
+--- a/scripts/test_replay_holds.py
++++ b/scripts/test_replay_holds.py
+@@ -775,10 +775,47 @@ def test_closest_calls_5c_subsections_list_the_stored_tracks_rows(tmp_path):
+     text = (out / "closest_calls.txt").read_text()
+     assert ("  gratefuldead-1973-06-10: closer 'Sugar Magnolia': candidates "
+             '["(Part 1) Sugar Magnolia", "(Part 2) Sugar Magnolia"]') in text
+     assert "5c.1 short-track arm (not adopted): 1 show(s)" in text
+     assert ("  gratefuldead-1973-06-10: closer 'Playing In The Band': followed by "
+             "'Me And My Uncle' 180s, 'Tuning' 60s") in text
+     show["tracks"][1]["duration_sec"] = 420.0                    # not under 7 min: not in the arm
+     path.write_text(json.dumps(show))
+     assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+     assert "5c.1 short-track arm (not adopted): 0 show(s)" in (out / "closest_calls.txt").read_text()
++
++
++def _venue(arm, slug, new, state=None, old="RFK Stadium"):
++    s = arm["shows"][slug]
++    s["venue"] = {"old": old, "new": new}
++    if state:
++        s["state"] = state
++
++
++def test_venue_changes_lists_both_strings_and_delivery(tmp_path):
++    slug = "gratefuldead-1973-06-11"
++    base, cand = _two_arms(tmp_path, mutate_cand=lambda a: _venue(a, slug, "R.F.K. Stadium", "delivered"),
++                           mutate_base=lambda a: a["shows"][slug].update(state="delivered"))
++    out = tmp_path / "cmp"
++    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
++    text = (out / "venue_changes.txt").read_text()
++    assert f"{slug}  [delivered]  DELIVERED" in text
++    assert 'venue: "RFK Stadium" -> "R.F.K. Stadium"' in text and "flags: unchanged" in text
++    assert "venue_changes.txt: 1 show(s), 0 with a flag change" in (out / "summary.txt").read_text()
++    assert "venue_changes.txt" in rh.OUTPUT_FILES
++
++
++def test_venue_changes_ignores_an_identical_diff_and_counts_a_flag_change(tmp_path):
++    slug = "gratefuldead-1973-06-11"
++    def both(a): _venue(a, slug, "R.F.K. Stadium")
++    def cand_m(a):
++        both(a)
++        a["shows"][slug]["city"] = {"old": "Washington, DC", "new": "Washington, D.C."}
++        a["shows"][slug]["gather_flags"] = ["venue mismatch: archive 'A' vs jerrybase 'B'"]
++    base, cand = _two_arms(tmp_path, mutate_cand=cand_m, mutate_base=both)
++    out = tmp_path / "cmp"
++    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
++    text = (out / "venue_changes.txt").read_text()
++    assert "R.F.K. Stadium" in text                                   # unchanged venue still shown on the row
++    assert 'city: "Washington, DC" -> "Washington, D.C."' in text
++    assert "flags CHANGED: added" in text
++    assert "venue_changes.txt: 1 show(s), 1 with a flag change" in (out / "summary.txt").read_text()

@@ -1,0 +1,455 @@
+# Review package: c9d770c..HEAD
+
+## Commits
+4284fa5 feat(redo): every redo is a restoring unit; a refused show no longer aborts a run (slice C)
+
+## Files changed
+ CLAUDE.md                              |   4 +-
+ packages/llama/src/llama/cli.py        |  69 ++++++++++++++---------
+ packages/llama/tests/helpers.py        |  20 +++++++
+ packages/llama/tests/test_pace_loop.py |  13 +++++
+ packages/llama/tests/test_reapply.py   |  11 +++-
+ packages/llama/tests/test_redo_cmd.py  | 100 +++++++++++++++++++++++++++++++++
+ 6 files changed, 187 insertions(+), 30 deletions(-)
+
+## Diff
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 6a9444b..bb0d5c6 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -55,21 +55,21 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
+   `would pause: <reason>`), `llama triage` (interactive
+   held-show walkthrough -- `[t] suggest titles`, offered only on a hold
+   flagged "unresolved track titles", proposes a full set of titles from
+   the setlist correspondence and writes them all on confirmation;
+   `[i]nclude dropped`, offered only when the show has `excluded_files`,
+   re-admits by x-handle or filename and shares `fix --include`'s
+   operator-excluded routing via `_split_include_targets`), `llama
+   fix <name> <edit-flags>` (overrides/hold editor, auto-redoes;
+   `--suggest-titles` is the same title-proposal resolution, one
+   invocation, one confirmation, refuses to combine with
+-  `--exclude`/`--unexclude`/`--include`), `llama redo <name> --from <stage>`,
++  `--exclude`/`--unexclude`/`--include`), `llama redo <name> --from <stage>` (one unit: see `llama fix` below),
+   `llama deliver <name>` (refuses to overwrite an emcee-voiced destination
+   unless `--replace-voiced`, which replaces the destination wholesale and
+   discards its DJ script and audio; a batch confirmation marks or counts the
+   voiced destinations; after a successful copy it **purges the library's
+   `package/audio/*`** — only once `catalog.purge_package_audio` verifies the
+   station copy holds every manifest track at the same size and as a different
+   file (a hardlink or a `delivery_path` inside the library deletes nothing);
+   a skipped or partial purge only warns. A purged show re-delivers via
+   `llama redo <name> --from package`, which re-downloads what is missing —
+   the deliver gate's "audio files missing" refusal already points there; so
+@@ -940,21 +940,21 @@ scheduler and the full player are phases 3–4).
+   dribbling just above the stall timeout holds its slot until it finishes; a file
+   whose every copy fails the integrity check (removed or darked item, stale cached
+   md5) fails as `download` on every sweep pass, so the sweep keeps listing it and
+   exits 1 until cleared by hand.
+ - **Failure records carry `kind` and `at`** (`sessions.failure_record`, spec §3).
+   `kind`, first match wins: `RateLimited` → `rate-limited` (recorded only under
+   `--no-pacing`); `TaskFailed` → `llm`; herder `ResearchNotSupported` → `other`;
+   any other `HerderError` → `transport`; `IADownloadError` → `download`; any other
+   `IAError` → `archive`; else `other`. The order is load-bearing (several subclass
+   `HerderError`). `at` is the UTC ISO time. The sweep re-spends only on `download`
+-  and `archive`. The records are persisted state and stay permissive: a legacy
++  and `archive`. A per-show `LlamaError` (e.g. gather refusing the show's overrides) is a per-show failure of kind `other`, not a run abort. The records are persisted state and stay permissive: a legacy
+   record without `kind` reads as `download` when `error` starts with `download of `,
+   else `other` (`failure_kind`).
+ - Track filenames (`gd73-06-10d1t04.mp3`) don't carry song titles; disc/track
+   numbering doesn't map to sets. Titles resolve via cascade: recovered-format
+   tags → own tags → setlist parsed from the item description → **sibling
+   recordings of the same performance (`sibling-align`)** → **setlist-gap** →
+   unresolved, with `title_source` recording which fired. Never guess — flag
+   unresolved.
+   **`setlist-gap`** fills a run of unresolved tracks ONLY when it is
+   count-forced (the gap's canonical-item count exactly equals its file count,
+diff --git a/packages/llama/src/llama/cli.py b/packages/llama/src/llama/cli.py
+index b81c9db..1f1a49e 100644
+--- a/packages/llama/src/llama/cli.py
++++ b/packages/llama/src/llama/cli.py
+@@ -581,21 +581,21 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
+         except RateLimited as exc:
+             # Caught BEFORE the HerderError arm below, which it subclasses.
+             # Not a failure: nothing is wrong with this show. Its finished
+             # stages are on disk and a resume redoes only what is missing.
+             if not pace.enabled:
+                 typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
+                 failures.append(failure_record(entry.candidate.performance_id, exc))
+                 return
+             limited = exc
+             return
+-        except (TaskFailed, HerderError, IAError) as exc:
++        except (TaskFailed, HerderError, LlamaError) as exc:
+             if isinstance(exc, TaskFailed) and exc.raw_output:
+                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
+                 failure_path.parent.mkdir(parents=True, exist_ok=True)
+                 failure_path.write_text(exc.raw_output)
+             typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
+             failures.append(failure_record(entry.candidate.performance_id, exc))
+             return
+         if pkg:
+             typer.echo(f"packaged: {pkg}")
+             packaged += 1
+@@ -2450,50 +2450,65 @@ def deliver(
+                              artist=artist, run=run, profiles=profile)
+     except LlamaError as exc:
+         typer.echo(str(exc), err=True)
+         raise typer.Exit(1)
+     _note_unknown_profiles(config, profile)
+     _deliver_batch(config, ledger, sel, dest, yes, replace_voiced)
+ 
+ 
+ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
+                with_research: bool = False) -> Path | None:
+-    """Re-run one resolved show from `from_stage` onward; returns the package
+-    path, or None if the show was held/skipped. Raises LlamaError on a
+-    hand-built show with no provenance."""
+-    from llama.models import QualityAssessment
+-    from llama.workspace import drop_stage_artifacts
++    """Re-run one resolved show from `from_stage` onward as one restoring unit
++    (see `show_unit`); returns the package path, or None if the show was
++    held/skipped. A redo shows no content, so its view is read under the lock
++    (`expect=None`): it waits behind another writer instead of refusing."""
++    from llama.show_unit import show_unit
++
++    with show_unit(entry.ws, None):
++        return _redo_show_locked(config, ia, ledger, entry, from_stage,
++                                 with_research=with_research)
++
++
++def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
++                      with_research: bool = False) -> Path | None:
++    """`_redo_show`'s body. The caller must already be inside a `show_unit`
++    for `entry.ws` (this takes no lock). Raises LlamaError on a hand-built
++    show with no provenance, ShowChanged if the show was removed meanwhile."""
++    from llama.models import Provenance, QualityAssessment
++    from llama.show_unit import ShowChanged
++    from llama.workspace import drop_stage_artifacts, read_model
+ 
+-    if entry.provenance is None:
++    show_ws = entry.ws
++    if not show_ws.provenance.exists():
++        if entry.provenance is not None:      # it existed when the entry was resolved
++            raise ShowChanged(f"{entry.slug}: the show was removed; nothing changed")
+         raise LlamaError(f"no provenance.json in {entry.ws.dir} - "
+                          "reprocess it via its run first")
+-    prov = entry.provenance
++    prov = read_model(show_ws.provenance, Provenance)   # under the caller's lock
+     keep_research = not with_research and from_stage in ("select", "gather")
+-    show_ws = entry.ws
+-    with file_lock(show_ws.lock):
+-        drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
+-        # Keep the winnow assessment (quality_score + recording_complaints) so
+-        # select-recording still avoids complained-about recordings; override only
+-        # the rationale so the dossier round-trip stays stable (it already carries
+-        # the external-reputation suffix). Fall back to a zero stub for pre-fix
+-        # provenance.json files that predate the assessment field.
+-        assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
+-                      if prov.assessment is not None
+-                      else QualityAssessment(performance_id=prov.performance_id,
+-                                             quality_score=0.0, rationale=prov.dossier))
+-        shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
+-        ws = RunWorkspace(config.root, prov.run)
+-        return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
+-                            prov.run, config.audio_format,
+-                            setlistfm=make_client(config), structure_cfg=config.structure,
+-                            jerrybase_enabled=config.jerrybase.enabled,
+-                            selection_cfg=config.selection, profile=prov.profile)
++    drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
++    # Keep the winnow assessment (quality_score + recording_complaints) so
++    # select-recording still avoids complained-about recordings; override only
++    # the rationale so the dossier round-trip stays stable (it already carries
++    # the external-reputation suffix). Fall back to a zero stub for pre-fix
++    # provenance.json files that predate the assessment field.
++    assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
++                  if prov.assessment is not None
++                  else QualityAssessment(performance_id=prov.performance_id,
++                                         quality_score=0.0, rationale=prov.dossier))
++    shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
++    ws = RunWorkspace(config.root, prov.run)
++    return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
++                        prov.run, config.audio_format,
++                        setlistfm=make_client(config), structure_cfg=config.structure,
++                        jerrybase_enabled=config.jerrybase.enabled,
++                        selection_cfg=config.selection, profile=prov.profile)
+ 
+ 
+ class NarrationMode(str, Enum):
+     vague = "vague"
+     full = "full"
+ 
+ 
+ def _format_proposal_row(r) -> str:
+     """Render one `ProposalRow` for `_propose_titles_for_show`'s proposal
+     table. Extracted into its own function (Task 8 review finding A3) so
+diff --git a/packages/llama/tests/helpers.py b/packages/llama/tests/helpers.py
+index 8ae8610..6e86b9a 100644
+--- a/packages/llama/tests/helpers.py
++++ b/packages/llama/tests/helpers.py
+@@ -39,10 +39,30 @@ def build_ready(root: Path, slug: str = "gratefuldead-1973-06-10", *,
+         write_artifact(ws.package_dir / "audio" / "01 - Morning Dew.mp3", "x")
+     return ws
+ 
+ 
+ def tree_bytes(d: Path) -> dict[str, bytes]:
+     """Every file under `d` (posix path relative to `d`) -> its bytes, except
+     the top-level `.lock`."""
+     return {p.relative_to(d).as_posix(): p.read_bytes()
+             for p in sorted(d.rglob("*"))
+             if p.is_file() and p.relative_to(d).as_posix() != ".lock"}
++
++
++def packaged_gd73(tmp_path: Path, monkeypatch):
++    """Run a real `get "GD 1973"` against the fake backend and FakeIA; returns
++    (config path, ShowWorkspace) for the packaged gratefuldead-1973-06-10."""
++    from typer.testing import CliRunner
++
++    import llama.cli as cli
++    import test_pipeline
++
++    cfg = tmp_path / "config.toml"
++    cfg.write_text(f'root = "{tmp_path}"\n[jerrybase]\nenabled = false\n')
++    monkeypatch.setattr(cli, "make_providers", test_pipeline.fake_providers)
++    monkeypatch.setattr(cli, "IAClient", test_pipeline.FakeIA)
++    r = CliRunner().invoke(cli.app, ["--config", str(cfg), "get", "GD 1973",
++                                     "--auto", "--name", "r"])
++    assert r.exit_code == 0, r.output
++    ws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
++    assert (ws.package_dir / "manifest.json").exists()
++    return cfg, ws
+diff --git a/packages/llama/tests/test_pace_loop.py b/packages/llama/tests/test_pace_loop.py
+index 4d3f938..3cdd86d 100644
+--- a/packages/llama/tests/test_pace_loop.py
++++ b/packages/llama/tests/test_pace_loop.py
+@@ -13,20 +13,21 @@ from datetime import datetime, timedelta, timezone
+ from pathlib import Path
+ 
+ import pytest
+ from herder import HerderError, TaskFailed
+ from herder.fake import FakeProvider
+ from herder.limits import RateLimited
+ 
+ import llama.cli as cli
+ from llama import pacing, pacing_state
+ from llama.config import Config, LLMTaskConfig, PacingConfig
++from llama.errors import LlamaError
+ from llama.locks import Locked
+ from llama.models import Candidate, Criteria, QualityAssessment, ShortlistEntry
+ from llama.sessions import (STATE_COMPLETE, STATE_INCOMPLETE, STATE_PAUSED,
+                             iter_sessions)
+ from llama.workspace import RunWorkspace
+ 
+ NOW = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
+ RESET_5H = NOW + timedelta(hours=2)
+ RESET_7D = NOW + timedelta(days=3)
+ 
+@@ -1642,10 +1643,22 @@ def test_count_llm_calls_wraps_defaultdict_and_ladders():
+     assert wrapped["none"] is None
+     wrapped["single"].complete("p")
+     wrapped["single"].research("p")
+     assert calls() == 2
+     assert wrapped["lazy-missing-key"][0].complete("p") == "x"   # defaultdict
+     assert calls() == 3
+     with pytest.raises(HerderError):
+         wrapped["boom"][0].complete("p")
+     assert calls() == 4                                           # raising counts
+     assert isinstance(wrapped["boom"], list)
++
++
++def test_a_show_refusing_its_overrides_is_a_per_show_failure_and_the_run_continues(tmp_path, monkeypatch):
++    def _process(pid):
++        if pid == "a":
++            raise LlamaError("overrides.encore_after (20) must be greater than every set break [10, 20]")
++        return f"{pid}/pkg"
++    _, seen = _drive(tmp_path, monkeypatch, _process, ["a", "b"])
++    assert seen == ["a", "b"]
++    s = iter_sessions(tmp_path)[0]
++    assert s.state == STATE_INCOMPLETE
++    assert [(f["show"], f["kind"]) for f in s.failures] == [("a", "other")]
+diff --git a/packages/llama/tests/test_reapply.py b/packages/llama/tests/test_reapply.py
+index 1672cc3..ab39791 100644
+--- a/packages/llama/tests/test_reapply.py
++++ b/packages/llama/tests/test_reapply.py
+@@ -9,21 +9,21 @@ import pytest
+ sys.path.insert(0, str(Path(__file__).resolve().parent))
+ from fixture_library import build_library
+ 
+ import llama.reapply as reapply_mod
+ from herder import FakeProvider
+ from llama.config import load_config
+ from llama.errors import LlamaError
+ from llama.ia_client import IAError
+ from llama.ledger import Ledger
+ from llama.locks import Locked, file_lock
+-from llama.models import Briefing, LedgerEntry, Show, ShowNotes, VettingResult
++from llama.models import Overrides, Briefing, LedgerEntry, Show, ShowNotes, VettingResult
+ from llama.reapply import ReapplyOutcome, reapply_show
+ from llama.replay import input_digests
+ from llama.stages.brief import normalize_briefing, render_briefing_md
+ from llama.workspace import read_model, write_artifact
+ from llama.reapply import STOP_AFTER_LLM_FAILURES, batch_dir, load_list, read_progress
+ from llama.replay import config_fingerprint
+ 
+ HELD = "gratefuldead-1973-06-10"
+ 
+ 
+@@ -1079,10 +1079,19 @@ def test_a_reused_briefing_is_not_dropped(tmp_path, monkeypatch):
+     assert "drop:brief" not in out.written
+ 
+ 
+ def test_a_cleared_outcome_is_not_dropped(tmp_path, monkeypatch):
+     # case (d)
+     root, config, ledger, entry, _ = _env(tmp_path)
+     _stub_package(monkeypatch)
+     out = _run(config, ledger, entry)
+     assert out.outcome == "cleared" and "drop:brief" not in out.written
+     assert entry.ws.briefing_json.exists()
++
++
++def test_reapply_on_refused_overrides_raises_and_writes_nothing(tmp_path, monkeypatch):   # (pin)
++    root, config, ledger, entry, _ = _env(tmp_path)
++    write_artifact(entry.ws.overrides, Overrides(set_breaks=[2, 4], encore_after=4))
++    before = _snapshot(entry.ws)
++    with pytest.raises(LlamaError, match="overrides\\.(encore_after|set_breaks)"):
++        _run(config, ledger, entry)
++    assert _snapshot(entry.ws) == before
+diff --git a/packages/llama/tests/test_redo_cmd.py b/packages/llama/tests/test_redo_cmd.py
+index f9543e8..19ad6c1 100644
+--- a/packages/llama/tests/test_redo_cmd.py
++++ b/packages/llama/tests/test_redo_cmd.py
+@@ -1,24 +1,37 @@
+ """`llama redo`: the single re-execution verb -- positional show, selector
+ batch, and `--run SESSION` session scope (absorbing the old
+ `run --stage X --force` run-wide re-execution). Plan B Task 6."""
+ import json
++import shutil
+ from pathlib import Path
+ 
++import pytest
++from herder import TaskFailed
++from helpers import packaged_gd73, tree_bytes
+ from typer.testing import CliRunner
+ 
+ import llama.cli as cli
++import llama.pipeline as pipeline
++from llama.config import load_config
++from llama.errors import LlamaError
++from llama.ia_client import IAError
++from llama.ledger import Ledger
++from llama.locks import Locked, file_lock
++from llama.show_unit import ShowChanged
++from llama.workspace import atomic_write_bytes
+ from llama.models import Criteria, Provenance, QualityAssessment, Show, ShortlistEntry, Track
+ from llama.workspace import (
+     RunWorkspace, ShowWorkspace, read_model, read_model_list, write_artifact,
+ )
+ 
++from test_catalog import build
+ from test_cli_commands import _approved_run, _seed_show, make_entries
+ 
+ runner = CliRunner()
+ 
+ 
+ # ---------------------------------------------------------------------------
+ # Three-form grammar: positional show | --run SESSION | selectors -- exactly one.
+ # ---------------------------------------------------------------------------
+ 
+ def test_redo_batch_requires_target(tmp_path: Path):
+@@ -665,10 +678,97 @@ def test_redo_from_package_clears_a_duration_hold(tmp_path: Path, monkeypatch):
+ 
+ 
+ def test_redo_from_package_keeps_a_briefing_flag(tmp_path: Path, monkeypatch):
+     # package does not re-run the briefing guard, so its verdict stands.
+     flag = "briefing claims 2 sets but structure has 1"
+     show_dir = _held_packaged_show(tmp_path, monkeypatch, [flag])
+     r = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+         "redo", "gratefuldead-1973-06-10", "--from", "package"])
+     assert r.exit_code == 0, r.output
+     assert read_model(show_dir / "show.json", Show).review_flags == [flag]
++
++
++def test_failed_redo_from_brief_restores_every_file(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch); before = tree_bytes(ws.dir)
++    monkeypatch.setattr(pipeline, "run_brief", lambda *a, **k: (_ for _ in ()).throw(TaskFailed("boom")))
++    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "brief"])
++    assert r.exit_code == 1 and isinstance(r.exception, TaskFailed)
++    assert tree_bytes(ws.dir) == before            # provenance.json's processed_at included
++
++
++def test_package_failure_on_purged_audio_removes_new_audio_and_restores_manifest(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
++    for f in (ws.package_dir / "audio").iterdir():
++        f.unlink()                                  # as `deliver` purges
++    before = tree_bytes(ws.dir)
++    from test_pipeline import FakeIA
++    class SecondFails(FakeIA):
++        n = 0
++        def download_file(self, identifier, filename, dest, md5=None):
++            SecondFails.n += 1
++            if SecondFails.n == 2:
++                raise IAError("download of x failed")
++            return super().download_file(identifier, filename, dest, md5)
++    monkeypatch.setattr(cli, "IAClient", SecondFails)
++    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "package"])
++    assert r.exit_code == 1 and isinstance(r.exception, IAError)
++    assert tree_bytes(ws.dir) == before and list((ws.package_dir / "audio").iterdir()) == []
++
++
++def test_keyboard_interrupt_after_the_drop_restores_and_re_raises(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch); before = tree_bytes(ws.dir)
++    monkeypatch.setattr(pipeline, "run_brief", lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()))
++    # through the function, not the runner: click turns KeyboardInterrupt into "Aborted!"
++    config = load_config(cfg); ledger = Ledger(config.root / "ledger.jsonl")
++    entry = cli._resolve_show(config, ledger, "gratefuldead")
++    with pytest.raises(KeyboardInterrupt):
++        cli._redo_show(config, cli.IAClient(), ledger, entry, "brief")
++    assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()
++
++
++def test_a_redo_of_a_show_removed_while_it_waited_refuses_with_the_removed_message(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
++    config = load_config(cfg); ledger = Ledger(config.root / "ledger.jsonl")
++    entry = cli._resolve_show(config, ledger, "gratefuldead")
++    shutil.rmtree(ws.dir)                           # `llama rm` ran while this redo waited for the lock
++    with pytest.raises(ShowChanged, match="gratefuldead-1973-06-10: the show was removed; nothing changed"):
++        cli._redo_show(config, cli.IAClient(), ledger, entry, "brief")
++    assert [p.name for p in ws.dir.iterdir()] == [".lock"]   # spec C2's documented husk
++
++
++def test_a_leftover_txn_is_deleted_not_restored_by_the_next_redo(tmp_path, monkeypatch):
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
++    atomic_write_bytes(ws.dir / ".txn" / "files" / "show.json", b"STALE")
++    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "package"])
++    assert r.exit_code == 0, r.output
++    assert ws.show.read_bytes() != b"STALE" and not (ws.dir / ".txn").exists()
++
++
++def test_redo_runs_the_pipeline_inside_the_show_lock(tmp_path, monkeypatch):   # (pin)
++    cfg, ws = packaged_gd73(tmp_path, monkeypatch); seen = []
++    def probe(*a, **k):
++        try:
++            with file_lock(ws.lock, blocking=False):
++                seen.append("free")
++        except Locked:
++            seen.append("held")
++        raise TaskFailed("stop")
++    monkeypatch.setattr(pipeline, "run_brief", probe)
++    runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "brief"])
++    assert seen == ["held"]
++
++
++def test_redo_batch_restores_a_failed_show_and_continues(tmp_path, monkeypatch):
++    cfg = tmp_path / "config.toml"; cfg.write_text(f'root = "{tmp_path}"\n')
++    a = build(tmp_path, "aready", stages={"select", "gather", "research", "vet", "package"})
++    build(tmp_path, "bready", stages={"select", "gather", "research", "vet", "package"})
++    before, done = tree_bytes(a.dir), []
++    def fake(config, ia, ledger, e, stage, **kw):
++        write_artifact(e.ws.show, {"half": "written"})
++        if e.slug == "aready":
++            raise LlamaError("boom")
++        done.append(e.slug)
++        return e.ws.package_dir
++    monkeypatch.setattr(cli, "_redo_show_locked", fake)
++    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "--packaged", "--from", "package", "--yes"])
++    assert r.exit_code == 0 and "FAILED aready: boom" in r.output and done == ["bready"]
++    assert tree_bytes(a.dir) == before

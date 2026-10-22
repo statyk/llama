@@ -782,3 +782,40 @@ def test_closest_calls_5c_subsections_list_the_stored_tracks_rows(tmp_path):
     path.write_text(json.dumps(show))
     assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
     assert "5c.1 short-track arm (not adopted): 0 show(s)" in (out / "closest_calls.txt").read_text()
+
+
+def _venue(arm, slug, new, state=None, old="RFK Stadium"):
+    s = arm["shows"][slug]
+    s["venue"] = {"old": old, "new": new}
+    if state:
+        s["state"] = state
+
+
+def test_venue_changes_lists_both_strings_and_delivery(tmp_path):
+    slug = "gratefuldead-1973-06-11"
+    base, cand = _two_arms(tmp_path, mutate_cand=lambda a: _venue(a, slug, "R.F.K. Stadium", "delivered"),
+                           mutate_base=lambda a: a["shows"][slug].update(state="delivered"))
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "venue_changes.txt").read_text()
+    assert f"{slug}  [delivered]  DELIVERED" in text
+    assert 'venue: "RFK Stadium" -> "R.F.K. Stadium"' in text and "flags: unchanged" in text
+    assert "venue_changes.txt: 1 show(s), 0 with a flag change" in (out / "summary.txt").read_text()
+    assert "venue_changes.txt" in rh.OUTPUT_FILES
+
+
+def test_venue_changes_ignores_an_identical_diff_and_counts_a_flag_change(tmp_path):
+    slug = "gratefuldead-1973-06-11"
+    def both(a): _venue(a, slug, "R.F.K. Stadium")
+    def cand_m(a):
+        both(a)
+        a["shows"][slug]["city"] = {"old": "Washington, DC", "new": "Washington, D.C."}
+        a["shows"][slug]["gather_flags"] = ["venue mismatch: archive 'A' vs jerrybase 'B'"]
+    base, cand = _two_arms(tmp_path, mutate_cand=cand_m, mutate_base=both)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "venue_changes.txt").read_text()
+    assert "R.F.K. Stadium" in text                                   # unchanged venue still shown on the row
+    assert 'city: "Washington, DC" -> "Washington, D.C."' in text
+    assert "flags CHANGED: added" in text
+    assert "venue_changes.txt: 1 show(s), 1 with a flag change" in (out / "summary.txt").read_text()

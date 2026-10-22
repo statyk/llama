@@ -1,0 +1,78 @@
+gb-narrow start
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_a_tie_between_different_names_ships_the_vote_unchanged __________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1589/test_a_tie_between_different_n0')
+
+    def test_a_tie_between_different_names_ships_the_vote_unchanged(tmp_path):
+        # Owner ruling 2026-10-21: the tie-break applies only to venues_equivalent strings.
+        cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
+                     ("gd73-other", "9:30 Club", "Washington, DC"), (IDENT, "Nightclub", "Washington, DC"))
+        assert cand.venue == "9:30 Club"
+        res = _gd(tmp_path, cand)
+>       assert (res.show.venue, res.show.city) == ("9:30 Club", "Washington, DC")
+E       AssertionError: assert ('Nightclub',...shington, DC') == ('9:30 Club',...shington, DC')
+E         
+E         At index 0 diff: 'Nightclub' != '9:30 Club'
+E         Use -v to get more diff
+
+packages/llama/tests/test_stage_gather.py:3069: AssertionError
+----------------------------- Captured stderr call -----------------------------
+jerrybase: skipped 117 malformed rows
+------------------------------ Captured log call -------------------------------
+WARNING  llama:jerrybase.py:126 jerrybase: skipped 117 malformed rows
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_stage_gather.py::test_a_tie_between_different_names_ships_the_vote_unchanged
+1 failed, 170 deselected in 0.87s
+PREDICTION: mutant (drop venues_equivalent check) turns red test_a_tie_between_different_names_ships_the_vote_unchanged (and possibly the reshaped step_1 Madison test's venue_tie_break assertion stays green)
+E         Use -v to get more diff
+
+packages/llama/tests/test_stage_gather.py:3069: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_stage_gather.py::test_a_tie_between_different_names_ships_the_vote_unchanged
+1 failed, 170 passed in 3.75s
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-small-fixes/packages/llama/src/llama/__init__.py
+replayed 100/3983
+replayed 200/3983
+replayed 300/3983
+replayed 400/3983
+replayed 500/3983
+replayed 600/3983
+replayed 700/3983
+replayed 800/3983
+replayed 900/3983
+replayed 1000/3983
+replayed 1100/3983
+replayed 1200/3983
+replayed 1300/3983
+replayed 1400/3983
+replayed 1500/3983
+replayed 1600/3983
+replayed 1700/3983
+replayed 1800/3983
+replayed 1900/3983
+replayed 2000/3983
+replayed 2100/3983
+replayed 2200/3983
+replayed 2300/3983
+replayed 2400/3983
+replayed 2500/3983
+replayed 2600/3983
+replayed 2700/3983
+replayed 2800/3983
+replayed 2900/3983
+replayed 3000/3983
+replayed 3100/3983
+replayed 3200/3983
+replayed 3300/3983
+replayed 3400/3983
+replayed 3500/3983
+replayed 3600/3983
+replayed 3700/3983
+replayed 3800/3983
+replayed 3900/3983
+replayed 3983 show(s): clean=2830, clean-changed=126, needs-brief=5, needs-llm=697, newly-held=183, still-held=141, still-held-package=1
+baseline reproduces 134/147 held shows that are not needs-LLM (gate skipped: --no-repro-gate)
+jerrybase: skipped 117 malformed rows
+compare: wrote /Users/shawn/.llama-harness/small-fixes/cmp-norepro-2

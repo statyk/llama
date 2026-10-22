@@ -1,0 +1,23 @@
+progress: read spec, constraints, show_unit, cli diff, slice B/D; starting full suite
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-small-fixes/packages/llama/src/llama/__init__.py
+........................................................................ [ 96%]
+......................................s................................. [ 97%]
+........................................................................ [ 99%]
+..........                                                               [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=43567) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4041 passed, 1 skipped, 8 deselected, 26 warnings in 55.78s
+rc=0
+jerrybase: skipped 117 malformed rows
+none -> RFK Stadium | washington, dc | item
+override -> Operator Hall | washington, dc | override
+progress: review complete; writing handback
+progress: handback written; touching done
