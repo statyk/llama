@@ -3736,3 +3736,16 @@ def test_trailing_dots_are_not_an_annotation():
     for h1, h2 in (("Disc 1 - Set I...", "Disc 2 - Set II..."), ("Set 1...", "Set 2…")):
         tt = read_taper_structure(f"{h1}\nBertha\nSugaree\n{h2}\nScarlet Begonias\nRipple\n")
         assert tt.asserts is False, (h1, tt)
+
+
+def test_comma_inside_parentheses_is_no_song_separator():
+    # joerussosalmostdead-2015-05-09's credits: `Dancing In The Streets @ (SM, NA)` and
+    # `Music Never Stopped (SM,NA)` on opposite sides of the break. A comma inside the
+    # parenthetical credit splits no song, so `NA)` is not a title repeated across it.
+    text = ("Set One:\n01. Dancing In The Streets @ (SM, NA)\n02. Cassidy (SM, NA)\n"
+            "03. Not Fade Away ^ # (All)\nSet Two:\n04. Music Never Stopped (SM,NA)\n"
+            "05. Morning Dew (TH)\n")
+    tracks = mk(["Dancing In The Streets", "Cassidy", "Not Fade Away", "Music Never Stopped",
+                 "Morning Dew"])
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5)
+    assert d.placement is not None and d.placement.boundaries == (3,), d.reason

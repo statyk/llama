@@ -597,10 +597,19 @@ def _counts(track: Track) -> bool:
 
 
 def _comma_parts(title: str) -> list[str]:
-    """The comma parts of an item the comma rule kept whole, else []."""
-    if "," not in title:
-        return []
-    return [p.strip() for p in title.split(",") if p.strip()]
+    """The comma parts of an item the comma rule kept whole, else []. Only a comma outside
+    brackets separates parts: one inside a credit, `(SM, NA)`, splits no song."""
+    parts, depth, cur = [], 0, ""
+    for ch in title:
+        depth += ch in "([" and 1 or ch in ")]" and -1 or 0
+        if ch == "," and depth <= 0:
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    parts.append(cur)
+    parts = [p.strip() for p in parts if p.strip()]
+    return parts if len(parts) > 1 else []
 
 
 def _place_boundary(tracks: list[Track], left: list[TaperItem], right: list[TaperItem],
