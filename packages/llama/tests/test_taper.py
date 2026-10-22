@@ -3265,13 +3265,7 @@ ANNOTATED_CASES = {
 }
 
 
-# joerussosalmostdead-2017-03-11 opens set 1 with `Jam @`, which matches several tracks, so
-# B4's uniqueness rule (llama-db ruling, 2026-10-22) declines it; its headers still read
-# (`test_b4_ambiguous_real_cases_decline`).
-B4_AMBIGUOUS_ANNOTATED = {"joerussosalmostdead-2017-03-11"}
-
-
-@pytest.mark.parametrize("slug", sorted(set(ANNOTATED_CASES) - B4_AMBIGUOUS_ANNOTATED))
+@pytest.mark.parametrize("slug", sorted(ANNOTATED_CASES))
 def test_annotated_header_real_cases_own(slug):
     text, names, today, field = ANNOTATED_CASES[slug]
     d = decide_taper(_mk_today(names, today), {field: text}, aliases={}, today_sets=today,
@@ -4277,24 +4271,14 @@ def test_step1_break_before_set_1_real_case_declines():
     # `Happy Hour Set:` is no marker, so the reader drops its six songs as header text before
     # `Set 1:`; owning would fold them into set 1 and erase step 1's break after track 6.
     tracks = _mk_today(SKB_2000_03_31_TRACKS, SKB_2000_03_31_STEP1)
-    # Its set-1 opener `Severe Tire Damage` is on the tape twice (tracks 7 and 9), so since
-    # the uniqueness rule (llama-db ruling, 2026-10-22) it declines on that, before the
-    # break test; with or without step 1's break there, the taper owns nothing.
-    for today in (SKB_2000_03_31_STEP1, ["1"] * 13 + ["2"] * 6):
-        d = decide_taper(tracks, {"description": SKB_2000_03_31}, aliases={},
-                         today_sets=today, today_reaches_llm=False)
-        assert d.placement is None
-        assert d.reason == "veto: set 1's first song matches several tracks"
-    # With the repeat renamed, the unique hit is track 7 and the break test decides: step 1's
-    # break after track 6 declines; a flat step 1 is owned.
-    names = list(SKB_2000_03_31_TRACKS)
-    assert names[8] == "Severe Tire Damage"
-    names[8] = "Zed Reprise"
-    unique = _mk_today(names, SKB_2000_03_31_STEP1)
-    d = decide_taper(unique, {"description": SKB_2000_03_31}, aliases={},
+    # Its set-1 opener `Severe Tire Damage` is on the tape twice (tracks 7 and 9): B4 checks
+    # the LATEST hit (llama-db ruling, 2026-10-22, narrowed the same day), and step 1's break
+    # after track 6 lies before it.
+    d = decide_taper(tracks, {"description": SKB_2000_03_31}, aliases={},
                      today_sets=SKB_2000_03_31_STEP1, today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: step-1 break before set 1"
-    d = decide_taper(unique, {"description": SKB_2000_03_31}, aliases={},
+    # The same tape with no step-1 break before either hit: the taper owns it.
+    d = decide_taper(tracks, {"description": SKB_2000_03_31}, aliases={},
                      today_sets=["1"] * 13 + ["2"] * 6, today_reaches_llm=False)
     assert d.placement is not None and d.placement.boundaries == (13,)
 
@@ -4414,48 +4398,49 @@ def test_taper_encore_marked_stays_owned_on_todays_llm_path():
     assert d.placement is not None and d.placement.boundaries == (2, 4), d.reason
 
 
-def test_set_1_first_song_matching_several_tracks_declines():
-    # llama-db ruling, 2026-10-22: a repeated `Jam`-style opener has no one hit to check,
-    # so B4 declines, whatever step 1 says (placement's uniqueness rule).
+@pytest.mark.parametrize("today, owned", [
+    # a step-1 break between the earliest and the latest hit: the latest hit sees it
+    (["1", "2", "2", "2", "3", "3"], False),
+    # no step-1 break in set 1's window
+    (["1", "1", "1", "1", "2", "2"], True),
+])
+def test_repeated_set_1_opener_checks_the_latest_hit(today, owned):
+    # llama-db ruling, 2026-10-22, narrowed the same day: a repeated `Jam`-style opener is
+    # checked against its latest hit in set 1's window.
     text = "Set 1: Jam, Sugaree, Jam, Jack Straw\nSet 2: Scarlet Begonias, Truckin\n"
     names = ["Jam", "Sugaree", "Jam", "Jack Straw", "Scarlet Begonias", "Truckin"]
-    for today in (["1", "2", "2", "2", "3", "3"], ["1", "1", "1", "1", "2", "2"]):
-        d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
-                         today_sets=today, today_reaches_llm=False)
-        assert d.placement is None
-        assert d.reason == "veto: set 1's first song matches several tracks"
+    d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
+                     today_sets=today, today_reaches_llm=False)
+    assert (d.placement is not None) is owned, d.reason
+    if not owned:
+        assert d.reason == "veto: step-1 break before set 1"
 
 
-def test_a_repeat_after_set_1_does_not_make_the_hit_ambiguous():
-    # The window is set 1's: a set-1 opener heard again only after set 1's boundary still has
-    # one hit there.
+def test_a_repeat_after_set_1_is_outside_the_window():
+    # The opener `Jam` is heard again only after set 1's boundary (track 6). The latest hit
+    # in set 1's window is track 1, so step 1's break after it does not count.
     text = "Set 1: Jam, Sugaree, Jack Straw\nSet 2: Scarlet Begonias, Truckin\n"
     names = ["Jam", "Sugaree", "Jack Straw", "Scarlet Begonias", "Truckin", "Jam"]
-    today = ["1", "1", "1", "2", "2", "2"]
+    today = ["1", "2", "2", "3", "3", "3"]
     d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
                      today_sets=today, today_reaches_llm=False)
     assert d.placement is not None and d.placement.boundaries == (3,), d.reason
 
 
-def test_uniqueness_applies_to_the_item_that_stands_in():
-    # My call (scope note): set 1's first item `Zed` has no hit, so `Jam` stands in, and it
-    # matches two tracks in set 1's window.
+@pytest.mark.parametrize("today, owned", [
+    (["1", "2", "2", "2", "3", "3"], False),
+    (["1", "1", "1", "1", "2", "2"], True),
+])
+def test_the_stand_in_item_uses_its_latest_hit(today, owned):
+    # My call (scope note): set 1's first item `Zed` has no hit, so `Jam` stands in, and its
+    # latest hit in set 1's window (track 3) is checked.
     text = "Set 1: Zed, Jam, Sugaree, Jam, Jack Straw\nSet 2: Scarlet Begonias, Truckin\n"
     names = ["Jam", "Sugaree", "Jam", "Jack Straw", "Scarlet Begonias", "Truckin"]
-    today = ["1", "1", "1", "1", "2", "2"]
     d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
                      today_sets=today, today_reaches_llm=False)
-    assert d.placement is None
-    assert d.reason == "veto: set 1's first song matches several tracks"
-
-
-def test_b4_ambiguous_real_cases_decline():
-    text, names, today, field = ANNOTATED_CASES["joerussosalmostdead-2017-03-11"]
-    assert read_taper_structure(text).asserts is True       # its annotated headers read
-    d = decide_taper(_mk_today(names, today), {field: text}, aliases={}, today_sets=today,
-                     today_reaches_llm=False)
-    assert d.placement is None
-    assert d.reason == "veto: set 1's first song matches several tracks"
+    assert (d.placement is not None) is owned, d.reason
+    if not owned:
+        assert d.reason == "veto: step-1 break before set 1"
 
 
 def test_today_reaches_llm_is_required():

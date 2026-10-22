@@ -261,9 +261,7 @@ named line or text asserts no structure:
 and not song items, while the same texts' worded `Set 2:`/`E:` still assert a structure
 (2005-11-16 then declines at placement on its repeated `NFA`); in `umphreysmcgee-2004-04-14`
 and `lotus-2005-10-15` the set-and-encore disc line asserts nothing and the later `e:` still
-starts the encore (umphreysmcgee-2004-04-14 asserts that structure and is computed
-identically to today; since the B4 uniqueness rule below it is not taper-owned, because its
-set-1 opener `The Fuzz` is on the tape twice in set 1);
+starts the encore (umphreysmcgee-2004-04-14 is taper-owned, identical to today);
 `davidnelsonband-2007-09-07` (its `encore: Box Of Rain (set 2)` line, after track-prefix
 stripping, is followed by `set 2`, a numbered marker after the encore, so the structure is
 void); `moe-1997-02-21` (`Encore 1:` is recognised, and its encore boundary does not place, so
@@ -349,15 +347,17 @@ the taper's structure keeps it); a `Disc 2 (Set 2)` show; a notes-only show.
   fold the Happy Hour songs into set 1 and erase step 1's break after track 6 (step 1 [6, 13]).
   A break at the hit itself (between the hit and the next track) does not count, and leading
   filler, intro or pre-show tracks with no step-1 break before set 1 stay owned. The hit is
-  searched among the tracks at or before set 1's placed boundary. It must be unique, as
-  placement requires of a boundary song: when set 1's first song matches more than one of those
-  tracks (a repeated `Jam`-style opener), the taper owns nothing
-  (`veto: set 1's first song matches several tracks`; llama-db ruling, 2026-10-22). A unique
-  hit is checked as above. (My call: when set 1's first song item matches none of those
-  tracks, the next set-1 item stands in, and the uniqueness test applies to it.) Measured
-  declines, from the real-case tests: joerussosalmostdead-2017-03-11 (`Jam @`),
-  umphreysmcgee-2004-04-14 (`The Fuzz`) and stevekimockband-2000-03-31 itself
-  (`Severe Tire Damage`, tracks 7 and 9).
+  searched among the tracks at or before set 1's placed boundary. When set 1's first song
+  matches more than one of those tracks (a repeated `Jam`-style opener), the break test is made
+  against the LATEST of them, the own-less reading, so a step-1 break the earliest hit would
+  hide still declines; with no step-1 break in that window the taper still owns the structure
+  (llama-db ruling, 2026-10-22, narrowed the same day). (My call: when set 1's first song item
+  matches none of those tracks, the next set-1 item stands in, and its latest hit in the window
+  is the one checked.) Illustrations from the real-case test fixtures, not a population
+  measurement: stevekimockband-2000-03-31 itself (`Severe Tire Damage`, tracks 7 and 9) declines
+  against its latest hit; umphreysmcgee-2004-04-14 (`The Fuzz`) and
+  joerussosalmostdead-2017-03-11 (`Jam @`) have no step-1 break in the window and stay
+  owned.
 - The shipped labels are always the taper's: 1..n, and `encore` if it marks one.
 
 ### 3. Placing the taper's structure on the tape

@@ -3586,11 +3586,9 @@ def _um_md():
             "files": files, "reviews": []}
 
 
-def test_umphreys_2004_04_14_identical_to_today(tmp_path, monkeypatch):
-    # Its reader reading is pinned in test_taper (`Disc 3 - Set 2 + Encore` asserts nothing,
-    # `e:` starts the encore). Since the llama-db ruling of 2026-10-22 on B4 it is NOT
-    # taper-owned: its set-1 opener `The Fuzz` is on the tape twice in set 1, so B4 declines,
-    # and the show is computed exactly as today, which ships the same structure.
+def test_umphreys_2004_04_14_taper_owned_identical_to_today(tmp_path, monkeypatch):
+    # Its set-1 opener `The Fuzz` is on the tape twice in set 1; B4 checks the latest hit
+    # (llama-db ruling, 2026-10-22, narrowed the same day), and step 1 has no break before it.
     cand = Candidate(performance_id="UmphreysMcGee/2004-04-14", collection="UmphreysMcGee",
                      date="2004-04-14", venue="Cervante's Masterpiece", city="Denver, CO",
                      recordings=[RecordingSummary(identifier=UM_IDENT)])
@@ -3599,10 +3597,8 @@ def test_umphreys_2004_04_14_identical_to_today(tmp_path, monkeypatch):
                      setlistfm=_FakeSetlistFM(*UM_SLFM, encore=True))
     oracle = _oracle(tmp_path, monkeypatch, md, cand=cand, ident=UM_IDENT,
                      setlistfm=_FakeSetlistFM(*UM_SLFM, encore=True))
-    assert res.taper.source == "description" and res.taper.taper.asserts is True
-    assert res.taper_owned is False
-    assert res.taper.reason == "veto: set 1's first song matches several tracks"
-    assert _sans_taper(res) == _sans_taper(oracle)
+    assert res.taper.source == "description"
+    assert res.taper_owned is True
     assert _labels(res) == _labels(oracle)
     assert res.show.set_breaks == oracle.show.set_breaks == [11, 18]
     assert _labels(res)[-2:] == ["encore", "encore"]
