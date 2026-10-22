@@ -155,6 +155,76 @@ def test_stored_llm_alignment_is_needs_llm(tmp_path):
     assert classify(legs, "held") == ("needs-llm", None)
 
 
+_PLACING = ("Set 1:\nMorning Dew\nChina Cat Sunflower > I Know You Rider\n\n"
+            "Set 2:\nDark Star > Eyes of the World\n")
+_NO_MARKERS = "Morning Dew\nChina Cat Sunflower > I Know You Rider\nDark Star > Eyes of the World\n"
+# paf2007-10-12.schoeps.taraszki.barfield.87850.flac24 (cache excerpt): `set 3, disc 2`
+# is a label only `parse_setlist` reads, so the taper reader declines (cross-check).
+_CROSS_CHECK = ("set 1 & 2, disc 1\n1 - good morning little schoolgirl\n2 - deal > jam >\n"
+                "3 - mexican girl > jam >\n4 - scarlet begonias >\n5 - i'm so gone\n"
+                "6 - turn on your lovelight\nset 2\n7 - lost highway\n8 - tell me mama\n"
+                "9 - deep elem blues\n10- friend of the devil >\n11- big mon\n\n"
+                "set 3, disc 2\n1 - playin' in the band >\n2 - cumberland blues >\n"
+                "3 - uncle john's band > jam >\n4 - mountains of the moon >\n"
+                "5 - terrapin station >\n6 - i know you rider\n7 - e: donor rap/intros\n"
+                "8 - help on the way > slipknot! >\n9 - franklins tower")
+
+
+def test_stored_llm_taper_owned_is_replayable(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm", description=_PLACING)
+    legs = _legs(tmp_path, ws)
+    assert legs.gather.taper_owned is True
+    assert "stored alignment llm" not in legs.needs_llm
+    assert legs.needs_llm == []
+
+
+def test_stored_llm_deterministic_candidate_stays_needs_llm(tmp_path):
+    # (pin) the candidate aligns deterministically with no LLM call, but the taper
+    # does not own it: the relaxation keys on taper_owned, not on "no LLM needed".
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm", description=_NO_MARKERS)
+    legs = _legs(tmp_path, ws)
+    assert legs.gather.taper_owned is False and legs.gather.needs_llm == ()
+    assert legs.gather.show.structure.alignment == "deterministic"
+    assert "stored alignment llm" in legs.needs_llm
+
+
+def test_stored_llm_anchored_candidate_stays_needs_llm(tmp_path, monkeypatch):
+    from llama import jerrybase
+    from llama.jerrybase import JerrybaseEvent, JerrybaseSet
+    ev = JerrybaseEvent(event_id="1", venue="V", city="C", state="ST", sets=[
+        JerrybaseSet(name="1", closer="I Know You Rider", break_length="long"),
+        JerrybaseSet(name="2", closer="Eyes of the World", break_length="long")])
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [ev])
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm", description=_NO_MARKERS)
+    legs = compute_legs(ws, config=Config(root=tmp_path), ia=CacheOnlyIA(tmp_path / "cache"),
+                        slfm=None, scratch=tmp_path / "scratch" / ws.dir.name)
+    assert legs.gather.taper_owned is False
+    assert legs.gather.show.structure.alignment == "jerrybase"
+    assert "stored alignment llm" in legs.needs_llm
+
+
+def test_cross_check_failure_keeps_stored_llm_needs_llm(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm", description=_CROSS_CHECK)
+    legs = _legs(tmp_path, ws)
+    assert legs.gather.taper.reason.startswith("cross-check:")
+    assert legs.gather.taper_owned is False
+    assert "stored alignment llm" in legs.needs_llm
+
+
+def test_track_title_veto_keeps_stored_llm_needs_llm(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm", description=_PLACING)
+    cache = tmp_path / "cache" / f"md_{IDENT}.json"
+    md = json.loads(cache.read_text())
+    for f in md["files"]:
+        if f.get("title") == "Eyes of the World":
+            f["title"] = "Encore: Eyes of the World"
+    cache.write_text(json.dumps(md))
+    legs = _legs(tmp_path, ws)
+    assert legs.gather.taper.reason == "veto: track title"
+    assert legs.gather.taper_owned is False
+    assert "stored alignment llm" in legs.needs_llm
+
+
 def test_missing_vetting_json_is_needs_llm(tmp_path):
     ws, _ = _library_show(tmp_path, held=True, with_vetting=False)
     legs = _legs(tmp_path, ws)

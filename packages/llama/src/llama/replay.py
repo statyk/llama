@@ -326,7 +326,8 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
         audio_format=config.audio_format, align_provider=None, setlistfm=slfm,
         structure_cfg=config.structure, jerrybase_enabled=config.jerrybase.enabled)
     needs_llm = list(gathered.needs_llm)
-    if stored.structure is not None and stored.structure.alignment == "llm":
+    if (stored.structure is not None and stored.structure.alignment == "llm"
+            and not gathered.taper_owned):
         needs_llm.append("stored alignment llm")
 
     vet: VetOutcome | None = None
