@@ -1,0 +1,4 @@
+budget-min: 40
+role: impl
+model: sonnet
+what: Task 9: compare --no-repro-gate into cmp-norepro, Step 4 acceptance + Step 5 report

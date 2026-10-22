@@ -1,0 +1,4 @@
+budget-min: 25
+role: reviewer
+model: opus
+what: Task 1 code-quality review

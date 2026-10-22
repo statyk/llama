@@ -1,0 +1,240 @@
+llama from /Users/shawn/projects/llama/.claude/worktrees/held-backlog-small-fixes/packages/llama/src/llama/__init__.py
+base 6ba3be2245a9274bd1651a98afb2c0dab54925eb 3f1af9a82e0f 3983
+cand 36473d829356c2ce41a648d3a0ce2ac64b03cc3c 3f1af9a82e0f 3983
+cand2 ba8c964c7d1b0f8aeafe76aa919e4f1073273a43 3f1af9a82e0f 3983
+
+== base vs cand-2: venue/city rows 175 (skipped 0)
+ venue changed: 175  city changed: 50  city-only: 0  DELIVERED: 119
+ non-equivalent venue rows: 0
+ shows with venue/city flag set differing: 0 []
+ shows with ANY flag set differing: 8
+ outcome differences: 123 Counter({('clean', 'clean-changed'): 121, ('newly-held', 'clean'): 1, ('still-held', 'needs-brief'): 1})
+
+== base vs cand (pre-narrowing): venue/city rows 234 (skipped 0)
+ venue changed: 233  city changed: 65  city-only: 1  DELIVERED: 154
+ non-equivalent venue rows: 58
+    ('aquariumrescueunit-2006-11-12', 'delivered', 'Down on the Farm music festival', 'Down on the Farm Festival III', None, None)
+    ('belafleckandtheflecktones-1995-08-25', 'delivered', 'Green Acres Music Hall', 'Green Acres Music Park', None, None)
+    ('belafleckandtheflecktones-2002-08-10', 'delivered', 'Grassroots Festival, Oregon Ridge Park', 'Grassroots Music Festival', None, None)
+    ('belafleckandtheflecktones-2007-06-29', 'packaged', 'Syracuse Jazz Fest-Main Stage', 'Onondaga Community College', None, None)
+    ('billystrings-2020-02-21', 'delivered', 'WinterWonderGrass Steamboat Resort', 'WinterWonderGrass - Main Stage', None, None)
+    ('bluegroundundergrass-2005-05-27', 'delivered', 'smilefest XI', 'Smilefest-Mainstage', None, None)
+    ('campervanbeethoven-2004-10-24', 'delivered', 'Mad City Music Exchange', "Luther's Blues", 'Madison, Wisconsin USA', 'Madison, Wisconsin')
+    ('charliehunter-2008-02-16', 'held', 'Iron Horse Music Hall', 'Ironhorse', None, None)
+    ('cracker-2006-11-12', 'packaged', 'Knaack Klub', 'Knaack Club', None, None)
+    ('darkstarorchestra-2007-07-12', 'held', 'All Good Music Festival', "All Good Festival - Marvin's Mountaintop", 'Masontown, West Virginia', 'Masontown, WV')
+    ('derektrucksband-2001-12-31', 'packaged', 'Henry J Kaiser Auditorium', 'Henry J Kaiser Arena', None, None)
+    ('derektrucksband-2002-04-05', 'delivered', '103.5 The Fox', 'Bluebird', None, None)
+    ('derektrucksband-2005-12-02', 'held', 'Headliners', 'WFPK Radio', 'Louisville, Ky', 'Louisville, KY')
+    ('derektrucksband-2009-08-15', 'delivered', 'Oregon Ridge Park', 'Hot August Blues Festival', None, None)
+    ('discobiscuits-2000-08-26', 'delivered', 'Saw Mill Ski Area', 'Camp Bisco, Ski Sawmill', None, None)
+    ('discobiscuits-2008-06-07', 'packaged', 'Starscape Festival - Fort Armistead Park', 'Ft Armistead Park', None, None)
+    ('dumpstaphunk-2009-11-14', 'delivered', 'Spirit of the Sawanee Music Park ****24 BIT FILE SET****', 'Big IV Amphitheater - Bear Creek Music & Art Festival - Spirit of the Suwannee Music Park', None, None)
+    ('fennario-2010-09-17', 'delivered', 'Wormtown Music Festival - Vernville Stage', 'Wormtown Music Festival - Camp Kee-Wanee', None, None)
+    ('furthur-2010-02-19', 'delivered', 'The Mullins center @ Umass', 'Mullins Center, University of Massachusetts', 'Amherst, MA', 'Amhearst, MA')
+    ('godspeedyoublackemperor-1999-09-04', 'packaged', '9:30 Club', 'Nightclub', 'Washington, District of Columbia', 'Washington, DC')
+    ('gracepotterandthenocturnals-2009-07-24', 'packaged', 'Dreaming Creek Main Stage, Floydfest', 'Floydfest 8', None, None)
+    ('gratefuldead-1970-01-02-spans', 'held', 'Fillmore East (show b- Late?)', 'Fillmore East (Early and Late Shows)', None, None)
+    ('greenskybluegrass-2010-05-29', 'held', 'Allegany County Fairgrounds', 'DelFest - Potomac Stage', None, None)
+    ('guster-2003-09-28', 'packaged', 'Gray Cage, Bates College', 'Clifton Daggett Gray Athletic Building, Bates College', None, None)
+    ('jeffaustinband-2018-04-28', 'delivered', 'Charm City Bluegrass Festival', '8x10', 'Baltimore, Md', 'Baltimore, MD')
+    ('jjgreyandmofro-2007-02-16', 'delivered', 'CD Connection', 'Florida Theatre', 'Jacksonville Beach, FL', 'Jacksonville, FL')
+    ('jjgreyandmofro-2008-04-11', 'packaged', 'Wanee @ Spirit of the Suwanee', 'Peach Stage, Spirit of the Suwanee Music Park', None, None)
+    ('joerussosalmostdead-2015-04-22', 'delivered', 'First Avenue', '1st Avenue', None, None)
+    ('karldensonstinyuniverse-2005-07-03', 'delivered', 'High Sierra Music Festival', 'Grandstand Stage, HSMF', None, None)
+    ('lettuce-2009-11-14', 'delivered', 'Spirit of the Sawanee Music Park', 'Bear Creek Music Festival - Amphitheater', None, None)
+    ('littlefeat-2012-09-02', 'packaged', 'Music In The Zoo', 'Weesner Amphitheater, Minnesota Zoo', None, None)
+    ('meatpuppets-2013-07-13', 'packaged', 'Harriet Tap Room', 'TC Roots, Rock & Deep Blues - Harriett Brewing stage', 'Minneapolis, MN.', 'Minneapolis, MN')
+    ('mekons-1989-12-02', 'delivered', 'Wax Trax', 'Metro', None, None)
+    ('minutemen-1983-12-16', 'packaged', 'Love Hall', 'The Love Club', None, None)
+    ('minutemen-1985-11-30', 'held', 'WREK Air Studio', 'Georgia Institute Of Technology', None, None)
+    ('moe-2005-02-27', 'delivered', 'Mountainlair Ballroom @ West Virginia University', 'WVU Mountainlair Ballroom', None, None)
+    ('moe-2007-03-24', 'delivered', 'Herb Brooks Arena', 'Olympic Center', None, None)
+    ('moe-2008-01-30', 'delivered', 'Promowest Pavillion', 'Lifestyle Communities Pavilion', None, None)
+    ('moe-2008-07-04', 'delivered', 'Stone Pony backyard', 'Stone Pony (Outdoor Stage)', None, None)
+    ('moe-2009-02-27', 'delivered', 'Riviera Th. Chicago, Ill.', 'Riviera Theatre', None, None)
+    ('mymorningjacket-2005-06-23', 'delivered', 'Festival Peir', "Penn's Landing", 'Philadelphia,PA', 'Philadelphia, PA')
+    ('particle-2003-12-29', 'packaged', 'The Ice Palace Sound Stages', 'The Ice Palace Sound Stage', None, None)
+    ('pnuma-2006-05-19', 'packaged', 'Snipes Farm, Barn Stage', 'Dancing Wu Li Festival (Snipes Farm)', None, None)
+    ('railroadearth-2008-07-03', 'packaged', 'Rothbury Music Festival', 'Sherwood Court - Rothbury Festival', 'Rothbury, Michigan', 'Rothbury, MI')
+    ('ryanadams-2007-06-18', 'delivered', 'Cities 97 - Studio C', 'The Cedar', None, None)
+    ('smashingpumpkins-1993-06-29', 'delivered', 'Studio 10S', 'Studio 105', None, None)
+    ('soundtribesector9-2002-07-06', 'packaged', "Funk 'n Jam House - High Sierra Music Festival", "High Sierra Music Festival - Funkin' Jamhouse", None, None)
+    ('soundtribesector9-2004-06-18', 'delivered', 'Wakarusa Music Festival', 'Wakarusa Music Fest', 'Lawrence, KS', 'Lawrence , KS')
+    ('stevekimock-2005-05-21', 'delivered', 'Oakly Farm', 'Haymaker Festival', None, None)
+    ('stevekimockband-2004-03-27', 'delivered', 'BB King Blues Club (16bit)', 'BB King Blues Club (24bit)', None, None)
+    ('strangefolk-2002-09-01', 'packaged', 'Garden of Eden, Haystack Mtn at Mount Snow', 'The Garden of Eden Festival (Haystack Mountain)', None, None)
+    ('tedeschitrucksband-2015-04-18', 'delivered', 'Blue Ridge Ampletheatre', "Blue Ridge Bowl at Lockn' Farm", None, None)
+    ('tedeschitrucksband-2018-07-17', 'delivered', 'Artpark Amphitheater', 'Artpark Lewiston, NY (Wheels Of Soul)', None, None)
+    ('tedeschitrucksband-2019-08-24', 'delivered', 'Arrington Virginia', "Lockn'", 'Arrington, Virginia', 'Arrington, VA')
+    ('thegourds-2009-12-05', 'delivered', 'Texas Union Ballroom', "Jovita's", 'Austin, Tx', 'Austin, TX')
+    ('thetravelinmccourys-2015-05-23', 'delivered', 'DelFest Grand Stage', 'DelFest - Allegany County Fairgrounds', None, None)
+    ('whitedenim-2013-07-04', 'packaged', 'High Sierra Music Festival-Grand Stand', 'Grandstand Stage - High Sierra Music Festival', 'Quincy, Ca', 'Quincy, CA')
+    ('yondermountainstringband-2006-06-11', 'delivered', 'Wakarusa Music Festival - Sun Up Stage', 'Sun-Down Stage, Wakarusa Festival', None, None)
+ shows with venue/city flag set differing: 0 []
+ shows with ANY flag set differing: 8
+ outcome differences: 165 Counter({('clean', 'clean-changed'): 163, ('newly-held', 'clean'): 1, ('still-held', 'needs-brief'): 1})
+
+== cand vs cand-2: venue/city rows 59 (skipped 0)
+ venue changed: 58  city changed: 15  city-only: 1  DELIVERED: 35
+ non-equivalent venue rows: 58
+    ('aquariumrescueunit-2006-11-12', 'delivered', 'Down on the Farm Festival III', 'Down on the Farm music festival', None, None)
+    ('belafleckandtheflecktones-1995-08-25', 'delivered', 'Green Acres Music Park', 'Green Acres Music Hall', None, None)
+    ('belafleckandtheflecktones-2002-08-10', 'delivered', 'Grassroots Music Festival', 'Grassroots Festival, Oregon Ridge Park', None, None)
+    ('belafleckandtheflecktones-2007-06-29', 'packaged', 'Onondaga Community College', 'Syracuse Jazz Fest-Main Stage', None, None)
+    ('billystrings-2020-02-21', 'delivered', 'WinterWonderGrass - Main Stage', 'WinterWonderGrass Steamboat Resort', None, None)
+    ('bluegroundundergrass-2005-05-27', 'delivered', 'Smilefest-Mainstage', 'smilefest XI', None, None)
+    ('campervanbeethoven-2004-10-24', 'delivered', "Luther's Blues", 'Mad City Music Exchange', 'Madison, Wisconsin', 'Madison, Wisconsin USA')
+    ('charliehunter-2008-02-16', 'held', 'Ironhorse', 'Iron Horse Music Hall', None, None)
+    ('cracker-2006-11-12', 'packaged', 'Knaack Club', 'Knaack Klub', None, None)
+    ('darkstarorchestra-2007-07-12', 'held', "All Good Festival - Marvin's Mountaintop", 'All Good Music Festival', 'Masontown, WV', 'Masontown, West Virginia')
+    ('derektrucksband-2001-12-31', 'packaged', 'Henry J Kaiser Arena', 'Henry J Kaiser Auditorium', None, None)
+    ('derektrucksband-2002-04-05', 'delivered', 'Bluebird', '103.5 The Fox', None, None)
+    ('derektrucksband-2005-12-02', 'held', 'WFPK Radio', 'Headliners', 'Louisville, KY', 'Louisville, Ky')
+    ('derektrucksband-2009-08-15', 'delivered', 'Hot August Blues Festival', 'Oregon Ridge Park', None, None)
+    ('discobiscuits-2000-08-26', 'delivered', 'Camp Bisco, Ski Sawmill', 'Saw Mill Ski Area', None, None)
+    ('discobiscuits-2008-06-07', 'packaged', 'Ft Armistead Park', 'Starscape Festival - Fort Armistead Park', None, None)
+    ('dumpstaphunk-2009-11-14', 'delivered', 'Big IV Amphitheater - Bear Creek Music & Art Festival - Spirit of the Suwannee Music Park', 'Spirit of the Sawanee Music Park ****24 BIT FILE SET****', None, None)
+    ('fennario-2010-09-17', 'delivered', 'Wormtown Music Festival - Camp Kee-Wanee', 'Wormtown Music Festival - Vernville Stage', None, None)
+    ('furthur-2010-02-19', 'delivered', 'Mullins Center, University of Massachusetts', 'The Mullins center @ Umass', 'Amhearst, MA', 'Amherst, MA')
+    ('godspeedyoublackemperor-1999-09-04', 'packaged', 'Nightclub', '9:30 Club', 'Washington, DC', 'Washington, District of Columbia')
+    ('gracepotterandthenocturnals-2009-07-24', 'packaged', 'Floydfest 8', 'Dreaming Creek Main Stage, Floydfest', None, None)
+    ('gratefuldead-1970-01-02-spans', 'held', 'Fillmore East (Early and Late Shows)', 'Fillmore East (show b- Late?)', None, None)
+    ('greenskybluegrass-2010-05-29', 'held', 'DelFest - Potomac Stage', 'Allegany County Fairgrounds', None, None)
+    ('guster-2003-09-28', 'packaged', 'Clifton Daggett Gray Athletic Building, Bates College', 'Gray Cage, Bates College', None, None)
+    ('jeffaustinband-2018-04-28', 'delivered', '8x10', 'Charm City Bluegrass Festival', 'Baltimore, MD', 'Baltimore, Md')
+    ('jjgreyandmofro-2007-02-16', 'delivered', 'Florida Theatre', 'CD Connection', 'Jacksonville, FL', 'Jacksonville Beach, FL')
+    ('jjgreyandmofro-2008-04-11', 'packaged', 'Peach Stage, Spirit of the Suwanee Music Park', 'Wanee @ Spirit of the Suwanee', None, None)
+    ('joerussosalmostdead-2015-04-22', 'delivered', '1st Avenue', 'First Avenue', None, None)
+    ('karldensonstinyuniverse-2005-07-03', 'delivered', 'Grandstand Stage, HSMF', 'High Sierra Music Festival', None, None)
+    ('lettuce-2009-11-14', 'delivered', 'Bear Creek Music Festival - Amphitheater', 'Spirit of the Sawanee Music Park', None, None)
+    ('littlefeat-2012-09-02', 'packaged', 'Weesner Amphitheater, Minnesota Zoo', 'Music In The Zoo', None, None)
+    ('meatpuppets-2013-07-13', 'packaged', 'TC Roots, Rock & Deep Blues - Harriett Brewing stage', 'Harriet Tap Room', 'Minneapolis, MN', 'Minneapolis, MN.')
+    ('mekons-1989-12-02', 'delivered', 'Metro', 'Wax Trax', None, None)
+    ('minutemen-1983-12-16', 'packaged', 'The Love Club', 'Love Hall', None, None)
+    ('minutemen-1985-11-30', 'held', 'Georgia Institute Of Technology', 'WREK Air Studio', None, None)
+    ('moe-2005-02-27', 'delivered', 'WVU Mountainlair Ballroom', 'Mountainlair Ballroom @ West Virginia University', None, None)
+    ('moe-2007-03-24', 'delivered', 'Olympic Center', 'Herb Brooks Arena', None, None)
+    ('moe-2008-01-30', 'delivered', 'Lifestyle Communities Pavilion', 'Promowest Pavillion', None, None)
+    ('moe-2008-07-04', 'delivered', 'Stone Pony (Outdoor Stage)', 'Stone Pony backyard', None, None)
+    ('moe-2009-02-27', 'delivered', 'Riviera Theatre', 'Riviera Th. Chicago, Ill.', None, None)
+    ('mymorningjacket-2005-06-23', 'delivered', "Penn's Landing", 'Festival Peir', 'Philadelphia, PA', 'Philadelphia,PA')
+    ('particle-2003-12-29', 'packaged', 'The Ice Palace Sound Stage', 'The Ice Palace Sound Stages', None, None)
+    ('pnuma-2006-05-19', 'packaged', 'Dancing Wu Li Festival (Snipes Farm)', 'Snipes Farm, Barn Stage', None, None)
+    ('railroadearth-2008-07-03', 'packaged', 'Sherwood Court - Rothbury Festival', 'Rothbury Music Festival', 'Rothbury, MI', 'Rothbury, Michigan')
+    ('ryanadams-2007-06-18', 'delivered', 'The Cedar', 'Cities 97 - Studio C', None, None)
+    ('smashingpumpkins-1993-06-29', 'delivered', 'Studio 105', 'Studio 10S', None, None)
+    ('soundtribesector9-2002-07-06', 'packaged', "High Sierra Music Festival - Funkin' Jamhouse", "Funk 'n Jam House - High Sierra Music Festival", None, None)
+    ('soundtribesector9-2004-06-18', 'delivered', 'Wakarusa Music Fest', 'Wakarusa Music Festival', 'Lawrence , KS', 'Lawrence, KS')
+    ('stevekimock-2005-05-21', 'delivered', 'Haymaker Festival', 'Oakly Farm', None, None)
+    ('stevekimockband-2004-03-27', 'delivered', 'BB King Blues Club (24bit)', 'BB King Blues Club (16bit)', None, None)
+    ('strangefolk-2002-09-01', 'packaged', 'The Garden of Eden Festival (Haystack Mountain)', 'Garden of Eden, Haystack Mtn at Mount Snow', None, None)
+    ('tedeschitrucksband-2015-04-18', 'delivered', "Blue Ridge Bowl at Lockn' Farm", 'Blue Ridge Ampletheatre', None, None)
+    ('tedeschitrucksband-2018-07-17', 'delivered', 'Artpark Lewiston, NY (Wheels Of Soul)', 'Artpark Amphitheater', None, None)
+    ('tedeschitrucksband-2019-08-24', 'delivered', "Lockn'", 'Arrington Virginia', 'Arrington, VA', 'Arrington, Virginia')
+    ('thegourds-2009-12-05', 'delivered', "Jovita's", 'Texas Union Ballroom', 'Austin, TX', 'Austin, Tx')
+    ('thetravelinmccourys-2015-05-23', 'delivered', 'DelFest - Allegany County Fairgrounds', 'DelFest Grand Stage', None, None)
+    ('whitedenim-2013-07-04', 'packaged', 'Grandstand Stage - High Sierra Music Festival', 'High Sierra Music Festival-Grand Stand', 'Quincy, CA', 'Quincy, Ca')
+    ('yondermountainstringband-2006-06-11', 'delivered', 'Sun-Down Stage, Wakarusa Festival', 'Wakarusa Music Festival - Sun Up Stage', None, None)
+ shows with venue/city flag set differing: 0 []
+ shows with ANY flag set differing: 0
+ outcome differences: 42 Counter({('clean-changed', 'clean'): 42})
+
+== cand vs cand-2 rows detail:
+  ODD aquariumrescueunit-2006-11-12 delivered 'Down on the Farm Festival III' -> 'Down on the Farm music festival' None -> None eq False other
+  ODD belafleckandtheflecktones-1995-08-25 delivered 'Green Acres Music Park' -> 'Green Acres Music Hall' None -> None eq False other
+  ODD belafleckandtheflecktones-2002-08-10 delivered 'Grassroots Music Festival' -> 'Grassroots Festival, Oregon Ridge Park' None -> None eq False other
+  ODD belafleckandtheflecktones-2007-06-29 packaged 'Onondaga Community College' -> 'Syracuse Jazz Fest-Main Stage' None -> None eq False other
+  ODD billystrings-2020-02-21 delivered 'WinterWonderGrass - Main Stage' -> 'WinterWonderGrass Steamboat Resort' None -> None eq False other
+  ODD bluegroundundergrass-2005-05-27 delivered 'Smilefest-Mainstage' -> 'smilefest XI' None -> None eq False other
+  ODD campervanbeethoven-2004-10-24 delivered "Luther's Blues" -> 'Mad City Music Exchange' 'Madison, Wisconsin' -> 'Madison, Wisconsin USA' eq False other
+  ODD charliehunter-2008-02-16 held 'Ironhorse' -> 'Iron Horse Music Hall' None -> None eq False other
+  ODD cracker-2006-11-12 packaged 'Knaack Club' -> 'Knaack Klub' None -> None eq False other
+  ODD darkstarorchestra-2007-07-12 held "All Good Festival - Marvin's Mountaintop" -> 'All Good Music Festival' 'Masontown, WV' -> 'Masontown, West Virginia' eq False other
+  ODD derektrucksband-2001-12-31 packaged 'Henry J Kaiser Arena' -> 'Henry J Kaiser Auditorium' None -> None eq False other
+  ODD derektrucksband-2002-04-05 delivered 'Bluebird' -> '103.5 The Fox' None -> None eq False other
+  ODD derektrucksband-2005-12-02 held 'WFPK Radio' -> 'Headliners' 'Louisville, KY' -> 'Louisville, Ky' eq False other
+  ODD derektrucksband-2009-08-15 delivered 'Hot August Blues Festival' -> 'Oregon Ridge Park' None -> None eq False other
+  ODD discobiscuits-2000-08-26 delivered 'Camp Bisco, Ski Sawmill' -> 'Saw Mill Ski Area' None -> None eq False other
+  ODD discobiscuits-2008-06-07 packaged 'Ft Armistead Park' -> 'Starscape Festival - Fort Armistead Park' None -> None eq False other
+  ODD dumpstaphunk-2009-11-14 delivered 'Big IV Amphitheater - Bear Creek Music & Art Festival - Spirit of the Suwannee Music Park' -> 'Spirit of the Sawanee Music Park ****24 BIT FILE SET****' None -> None eq False other
+  ODD fennario-2010-09-17 delivered 'Wormtown Music Festival - Camp Kee-Wanee' -> 'Wormtown Music Festival - Vernville Stage' None -> None eq False other
+  ODD furthur-2010-02-19 delivered 'Mullins Center, University of Massachusetts' -> 'The Mullins center @ Umass' 'Amhearst, MA' -> 'Amherst, MA' eq False other
+  ODD godspeedyoublackemperor-1999-09-04 packaged 'Nightclub' -> '9:30 Club' 'Washington, DC' -> 'Washington, District of Columbia' eq False other
+  ODD gracepotterandthenocturnals-2009-07-24 packaged 'Floydfest 8' -> 'Dreaming Creek Main Stage, Floydfest' None -> None eq False other
+  ODD gratefuldead-1970-01-02-spans held 'Fillmore East (Early and Late Shows)' -> 'Fillmore East (show b- Late?)' None -> None eq False other
+  ODD greenskybluegrass-2010-05-29 held 'DelFest - Potomac Stage' -> 'Allegany County Fairgrounds' None -> None eq False other
+  ODD guster-2003-09-28 packaged 'Clifton Daggett Gray Athletic Building, Bates College' -> 'Gray Cage, Bates College' None -> None eq False other
+  ODD jackiegreene-2010-05-29 packaged None -> None 'angels camp, california' -> 'Angels Camp, California' eq None other
+  ODD jeffaustinband-2018-04-28 delivered '8x10' -> 'Charm City Bluegrass Festival' 'Baltimore, MD' -> 'Baltimore, Md' eq False other
+  ODD jjgreyandmofro-2007-02-16 delivered 'Florida Theatre' -> 'CD Connection' 'Jacksonville, FL' -> 'Jacksonville Beach, FL' eq False other
+  ODD jjgreyandmofro-2008-04-11 packaged 'Peach Stage, Spirit of the Suwanee Music Park' -> 'Wanee @ Spirit of the Suwanee' None -> None eq False other
+  ODD joerussosalmostdead-2015-04-22 delivered '1st Avenue' -> 'First Avenue' None -> None eq False other
+  ODD karldensonstinyuniverse-2005-07-03 delivered 'Grandstand Stage, HSMF' -> 'High Sierra Music Festival' None -> None eq False other
+  ODD lettuce-2009-11-14 delivered 'Bear Creek Music Festival - Amphitheater' -> 'Spirit of the Sawanee Music Park' None -> None eq False other
+  ODD littlefeat-2012-09-02 packaged 'Weesner Amphitheater, Minnesota Zoo' -> 'Music In The Zoo' None -> None eq False other
+  ODD meatpuppets-2013-07-13 packaged 'TC Roots, Rock & Deep Blues - Harriett Brewing stage' -> 'Harriet Tap Room' 'Minneapolis, MN' -> 'Minneapolis, MN.' eq False other
+  ODD mekons-1989-12-02 delivered 'Metro' -> 'Wax Trax' None -> None eq False other
+  ODD minutemen-1983-12-16 packaged 'The Love Club' -> 'Love Hall' None -> None eq False other
+  ODD minutemen-1985-11-30 held 'Georgia Institute Of Technology' -> 'WREK Air Studio' None -> None eq False other
+  ODD moe-2005-02-27 delivered 'WVU Mountainlair Ballroom' -> 'Mountainlair Ballroom @ West Virginia University' None -> None eq False other
+  ODD moe-2007-03-24 delivered 'Olympic Center' -> 'Herb Brooks Arena' None -> None eq False other
+  ODD moe-2008-01-30 delivered 'Lifestyle Communities Pavilion' -> 'Promowest Pavillion' None -> None eq False other
+  ODD moe-2008-07-04 delivered 'Stone Pony (Outdoor Stage)' -> 'Stone Pony backyard' None -> None eq False other
+  ODD moe-2009-02-27 delivered 'Riviera Theatre' -> 'Riviera Th. Chicago, Ill.' None -> None eq False other
+  ODD mymorningjacket-2005-06-23 delivered "Penn's Landing" -> 'Festival Peir' 'Philadelphia, PA' -> 'Philadelphia,PA' eq False other
+  ODD particle-2003-12-29 packaged 'The Ice Palace Sound Stage' -> 'The Ice Palace Sound Stages' None -> None eq False other
+  ODD pnuma-2006-05-19 packaged 'Dancing Wu Li Festival (Snipes Farm)' -> 'Snipes Farm, Barn Stage' None -> None eq False other
+  ODD railroadearth-2008-07-03 packaged 'Sherwood Court - Rothbury Festival' -> 'Rothbury Music Festival' 'Rothbury, MI' -> 'Rothbury, Michigan' eq False other
+  ODD ryanadams-2007-06-18 delivered 'The Cedar' -> 'Cities 97 - Studio C' None -> None eq False other
+  ODD smashingpumpkins-1993-06-29 delivered 'Studio 105' -> 'Studio 10S' None -> None eq False other
+  ODD soundtribesector9-2002-07-06 packaged "High Sierra Music Festival - Funkin' Jamhouse" -> "Funk 'n Jam House - High Sierra Music Festival" None -> None eq False other
+  ODD soundtribesector9-2004-06-18 delivered 'Wakarusa Music Fest' -> 'Wakarusa Music Festival' 'Lawrence , KS' -> 'Lawrence, KS' eq False other
+  ODD stevekimock-2005-05-21 delivered 'Haymaker Festival' -> 'Oakly Farm' None -> None eq False other
+  ODD stevekimockband-2004-03-27 delivered 'BB King Blues Club (24bit)' -> 'BB King Blues Club (16bit)' None -> None eq False other
+  ODD strangefolk-2002-09-01 packaged 'The Garden of Eden Festival (Haystack Mountain)' -> 'Garden of Eden, Haystack Mtn at Mount Snow' None -> None eq False other
+  ODD tedeschitrucksband-2015-04-18 delivered "Blue Ridge Bowl at Lockn' Farm" -> 'Blue Ridge Ampletheatre' None -> None eq False other
+  ODD tedeschitrucksband-2018-07-17 delivered 'Artpark Lewiston, NY (Wheels Of Soul)' -> 'Artpark Amphitheater' None -> None eq False other
+  ODD tedeschitrucksband-2019-08-24 delivered "Lockn'" -> 'Arrington Virginia' 'Arrington, VA' -> 'Arrington, Virginia' eq False other
+  ODD thegourds-2009-12-05 delivered "Jovita's" -> 'Texas Union Ballroom' 'Austin, TX' -> 'Austin, Tx' eq False other
+  ODD thetravelinmccourys-2015-05-23 delivered 'DelFest - Allegany County Fairgrounds' -> 'DelFest Grand Stage' None -> None eq False other
+  ODD whitedenim-2013-07-04 packaged 'Grandstand Stage - High Sierra Music Festival' -> 'High Sierra Music Festival-Grand Stand' 'Quincy, CA' -> 'Quincy, Ca' eq False other
+  ODD yondermountainstringband-2006-06-11 delivered 'Sun-Down Stage, Wakarusa Festival' -> 'Wakarusa Music Festival - Sun Up Stage' None -> None eq False other
+ cats: Counter({(False, 'other'): 58, (None, 'other'): 1})
+ outcome diffs cand->cand2: [('aquariumrescueunit-2006-11-12', 'clean-changed', 'clean'), ('belafleckandtheflecktones-1995-08-25', 'clean-changed', 'clean'), ('belafleckandtheflecktones-2007-06-29', 'clean-changed', 'clean'), ('billystrings-2020-02-21', 'clean-changed', 'clean'), ('bluegroundundergrass-2005-05-27', 'clean-changed', 'clean'), ('campervanbeethoven-2004-10-24', 'clean-changed', 'clean'), ('cracker-2006-11-12', 'clean-changed', 'clean'), ('derektrucksband-2001-12-31', 'clean-changed', 'clean'), ('derektrucksband-2002-04-05', 'clean-changed', 'clean'), ('derektrucksband-2009-08-15', 'clean-changed', 'clean'), ('discobiscuits-2008-06-07', 'clean-changed', 'clean'), ('fennario-2010-09-17', 'clean-changed', 'clean'), ('furthur-2010-02-19', 'clean-changed', 'clean'), ('gracepotterandthenocturnals-2009-07-24', 'clean-changed', 'clean'), ('guster-2003-09-28', 'clean-changed', 'clean'), ('jackiegreene-2010-05-29', 'clean-changed', 'clean'), ('jeffaustinband-2018-04-28', 'clean-changed', 'clean'), ('jjgreyandmofro-2007-02-16', 'clean-changed', 'clean'), ('karldensonstinyuniverse-2005-07-03', 'clean-changed', 'clean'), ('littlefeat-2012-09-02', 'clean-changed', 'clean')]
+ any-flag diffs cand->cand2: []
+ cand vs cand2 per-key differing counts: Counter({'venue': 58, 'outcome': 42, 'briefing': 42, 'city': 15})
+ digests differing cand vs cand2: 0  base vs cand2: 0
+cand vs cand2 venue/city slugs: 59
+ of which cand2 record == base record for venue & city: 59
+base None None clean True furthur festival, furthur stage angels camp, california
+cand None {'old': 'Angels Camp, California', 'new': 'angels camp, california'} clean-changed True furthur festival, furthur stage angels camp, california
+cand2 None None clean True furthur festival, furthur stage angels camp, california
+
+base vs cand2 any-flag diffs:
+  joerussosalmostdead-2016-02-12 added [] removed ['low-confidence structure alignment'] needs-llm -> needs-llm
+  joerussosalmostdead-2017-10-07 added [] removed ["research asserts unknown song: Uncle John's Band"] newly-held -> newly-held
+  joerussosalmostdead-2017-11-09 added [] removed ["research asserts unknown song: He's Gone"] needs-llm -> needs-llm
+  joerussosalmostdead-2019-03-03 added [] removed ["research asserts unknown song: Don't Ease Me In", "research asserts unknown song: Good Lovin'", 'research asserts unknown song: Here Comes Sunshine', "research asserts unknown song: King Solomon's Marbles", 'research asserts unknown song: Scarlet Begonias', 'research asserts unknown song: Serpentine Fire', 'research asserts unknown song: The Champ', 'research asserts unknown song: The Tramp', 'research asserts unknown song: Whipping Post'] newly-held -> clean
+  joerussosalmostdead-2019-06-15 added [] removed ["research asserts unknown song: He's Gone"] newly-held -> newly-held
+  joerussosalmostdead-2022-07-21 added [] removed ["research asserts unknown song: He's Gone"] newly-held -> newly-held
+  johnkadlecik-2021-11-28 added [] removed ["research asserts unknown song: Ain't No Bread In The Breadbox", "research asserts unknown song: Don't Let Go", "research asserts unknown song: He Ain't Give You None", "research asserts unknown song: What's Become Of Mary"] still-held -> needs-brief
+  thetravelinmccourys-2014-05-24 added [] removed ['low-confidence structure alignment'] needs-llm -> needs-llm
+base outcomes [('clean', 2950), ('clean-changed', 5), ('needs-brief', 4), ('needs-llm', 697), ('newly-held', 184), ('still-held', 142), ('still-held-package', 1)]
+cand outcomes [('clean', 2788), ('clean-changed', 168), ('needs-brief', 5), ('needs-llm', 697), ('newly-held', 183), ('still-held', 141), ('still-held-package', 1)]
+cand2 outcomes [('clean', 2830), ('clean-changed', 126), ('needs-brief', 5), ('needs-llm', 697), ('newly-held', 183), ('still-held', 141), ('still-held-package', 1)]
+cand2 held-ish outcome where base was not: []
+newly-held in cand2 not in base: []
+shows with overrides.json: 663
+extracted
+PREDICTION m1 (delete venues_equivalent check in venue_tie_break): red = test_a_tie_between_different_names_ships_the_vote_unchanged only
+PREDICTION m2 (step-1 tie condition reduced to 'tie is not None'): red = test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string (also likely ..._newly_equivalent_...)
+m0 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/ebe57100-b9d1-4f05-a3b0-c4b5afb1ad48/scratchpad/rr2/m0/packages/llama/src/llama/__init__.py
+171 passed in 1.17s
+m1 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/ebe57100-b9d1-4f05-a3b0-c4b5afb1ad48/scratchpad/rr2/m1/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_a_tie_between_different_names_ships_the_vote_unchanged
+1 failed, 170 passed in 3.83s
+m2 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/ebe57100-b9d1-4f05-a3b0-c4b5afb1ad48/scratchpad/rr2/m2/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_and_cities_conflict
+FAILED packages/llama/tests/test_stage_gather.py::test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string
+2 failed, 169 passed in 1.25s

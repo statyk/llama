@@ -1,0 +1,14 @@
+# t6-impl handback
+Status: DONE (one fixture deviation, below).
+Commits: 287c20f test(fix,triage): stub _redo_show_locked (slice C prep); then feat(fix): one restoring unit per invocation (see git log).
+Implemented: fix() reordered per brief (view = capture_view right after resolve; refusals/prompts lock-free; C4 gate refuses --narration/--overrule/--include (and --untitled/--suggest-titles) without show.json with the "; rebuild it with: llama redo <slug> --from gather" suffix; all writes + _redo_show_locked inside `with show_unit(sws, view)`; edit lines collected and printed after). _split_include_targets only when inc non-empty. _untitled_resolution(config, ia, ledger, entry, show, view) now one show_unit with both redos via _redo_show_locked. Triage [u] passes capture_view(entry.ws) (Task 7 replaces). Stubs retargeted in test_fix.py and test_triage.py. CLAUDE.md bullet added (after the --untitled bullet; the existing "see `llama fix` below" pointer now resolves).
+Tests: full suite 4030 passed, 1 skipped, 8 deselected (was 4014; +16 new).
+RED: before the change 14 of the new tests fail on HEAD cli.py (checked by temporarily reverting cli.py): byte-identical/restore, lock, changed-view, no-show.json cases; the C3 --no-run test and the pin pass on old code (redo restore is Task 5's).
+Brief mismatches: (1) _billy_shape used slug "ymsb2005-12-31" but process_show writes to slugify(performance_id) = "yondermountainstringband-2005-12-31" (show_unit limitation #4); with the brief's slug gather read an empty overrides and hit the align_structure LLM. Fixed by passing slug="yondermountainstringband-2005-12-31" and invoking with "yonder". (2) CLAUDE.md had no literal "llama fix <name> <edit-flags>" description to extend for the unit text; added it as a new bullet. Other signatures matched (_propose_and_confirm_titles(ia, config, entry, show) etc.).
+Existing tests: none changed outcome. Also note test_redo_cmd/test_profile_selector still stub `_redo_show` (Task 8 territory).
+Commit trailer: used global-constraints.md's (Opus 5.5 / session 01YRaw...) rather than the harness reminder's.
+
+## Fix round 1
+Strengthened the three failure tests (IAError/"archive down"; stages == ["gather","brief"] and "brief failed"; "boom"). Added two typer.Exit-inside-unit pins (clash; track-number --exclude with no show.json): byte-identical, no .txn/. CLAUDE.md text moved under the existing `fix <name> <edit-flags>` entry with label "**One unit (2026-10-21):**", body unchanged.
+Tests: `./.venv/bin/python -m pytest packages/llama/tests/test_fix.py packages/llama/tests/test_triage.py -q` 134 passed; full suite 4032 passed, 1 skipped, 8 deselected.
+Note: round 1's red check reverted cli.py in the live worktree (restored, git clean); I also removed the red/green scratch files I had left in $D/t6-impl.

@@ -1,0 +1,27 @@
+progress: scratch RED check
+                     (IDENT, "Frogs Hall Theatre", "angels camp, california"))
+        sws = ShowWorkspace(tmp_path / "s")
+        write_artifact(sws.overrides, Overrides(venue="Operator Venue"))
+        res = compute_gather(sws, StubIA(), None, cand, IDENT, jerrybase_enabled=False)
+>       assert (res.show.venue, res.show.city, res.show.venue_source) == (
+            "Operator Venue", "Angels Camp, California", "override")
+E       AssertionError: assert ('Operator Ve...', 'override') == ('Operator Ve...', 'override')
+E         
+E         At index 1 diff: 'angels camp, california' != 'Angels Camp, California'
+E         Use -v to get more diff
+
+packages/llama/tests/test_stage_gather.py:3146: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_stage_gather.py::test_an_operator_venue_override_takes_no_tie_break_city
+1 failed, 2 passed, 220 deselected in 1.04s
+______________ test_a_failed_metadata_edit_restores_the_overrides ______________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1587/test_a_failed_metadata_edit_re0')
+    def test_a_failed_metadata_edit_restores_the_overrides(tmp_path, tty, monkeypatch):
+______ test_a_failed_include_that_un_excludes_does_not_claim_the_routing _______
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1587/test_a_failed_include_that_un_0')
+    def test_a_failed_include_that_un_excludes_does_not_claim_the_routing(tmp_path, tty, monkeypatch):
+FAILED packages/llama/tests/test_triage.py::test_a_failed_metadata_edit_restores_the_overrides
+FAILED packages/llama/tests/test_triage.py::test_a_failed_include_that_un_excludes_does_not_claim_the_routing
+FAILED packages/llama/tests/test_triage.py::test_a_changed_show_refuses_once_then_the_retry_on_the_reprinted_prompt_applies
+FAILED packages/llama/tests/test_fix.py::test_a_track_number_exclude_without_show_json_refuses_and_changes_nothing
+4 failed, 49 passed in 1.48s

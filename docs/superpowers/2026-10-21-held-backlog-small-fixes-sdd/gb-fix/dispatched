@@ -1,0 +1,4 @@
+budget-min: 60
+role: impl
+model: sonnet
+what: GATE B fix wave: override tie-break, triage retry, echo order, C4 remedy, docs

@@ -1,0 +1,4 @@
+budget-min: 30
+role: review
+model: opus
+what: GATE B scoped re-review of fix wave 36473d8..a9d9c78

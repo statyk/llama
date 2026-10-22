@@ -1,0 +1,7 @@
+mutant run t1-rr1
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-small-fixes/9847639b-42e2-4b9c-a407-cb7d6c8a5ada/scratchpad/mut1/packages/llama/src/llama/__init__.py
+
+packages/llama/tests/test_stage_vet.py:795: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_stage_vet.py::test_right_show_gate_counts_curly_and_straight_apostrophes_both_ways[tape1-research1]
+1 failed, 1 passed, 95 deselected in 0.36s

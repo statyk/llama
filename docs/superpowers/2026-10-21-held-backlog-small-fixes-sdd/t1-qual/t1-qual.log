@@ -1,0 +1,24 @@
+start grep checks
+E       assert not True
+E        +  where True = any(<generator object test_guard_folds_curly_apostrophes_inside_segue_chains.<locals>.<genexpr> at 0x10c4c7ed0>)
+
+packages/llama/tests/test_stage_brief.py:531: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_structure.py::test_fuzzy_norm_title_folds_curly_apostrophes
+FAILED packages/llama/tests/test_structure.py::test_contains_sequence_matches_a_curly_description
+FAILED packages/llama/tests/test_stage_vet.py::test_vet_matches_curly_and_straight_apostrophes_both_ways[tape0-research0]
+FAILED packages/llama/tests/test_stage_vet.py::test_vet_matches_curly_and_straight_apostrophes_both_ways[tape1-research1]
+FAILED packages/llama/tests/test_stage_vet.py::test_vet_folds_curly_apostrophes_in_a_tape_segue_chain
+FAILED packages/llama/tests/test_stage_vet.py::test_right_show_gate_counts_a_curly_tape_title_as_asserted
+FAILED packages/llama/tests/test_stage_brief.py::test_guard_matches_curly_and_straight_apostrophes_both_ways[Don\u2019t Ease Me In-Don't Ease Me In]
+FAILED packages/llama/tests/test_stage_brief.py::test_guard_matches_curly_and_straight_apostrophes_both_ways[Don't Ease Me In-Don\u2019t Ease Me In]
+FAILED packages/llama/tests/test_stage_brief.py::test_guard_folds_curly_apostrophes_inside_segue_chains
+9 failed, 1 passed, 382 deselected in 0.58s
+== mutant rk
+........................................................................ [ 84%]
+...........................                                              [100%]
+171 passed in 1.80s
+== mutant kse
+........................................................................ [ 84%]
+...........................                                              [100%]
+171 passed in 2.95s

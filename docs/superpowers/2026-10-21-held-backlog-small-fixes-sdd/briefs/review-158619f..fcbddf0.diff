@@ -1,0 +1,295 @@
+# Review package: 158619f..HEAD
+
+## Commits
+fcbddf0 feat(gather): a tied venue vote ships the selected recording's string (slice B)
+
+## Files changed
+ CLAUDE.md                                 |   1 +
+ packages/llama/src/llama/stages/gather.py |  27 ++++++-
+ packages/llama/tests/test_stage_gather.py | 116 ++++++++++++++++++++++++++++++
+ 3 files changed, 143 insertions(+), 1 deletion(-)
+
+## Diff
+diff --git a/CLAUDE.md b/CLAUDE.md
+index a1555ad..6a9444b 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -613,20 +613,21 @@ scheduler and the full player are phases 3–4).
+   `normalize_date` range-checks and reads a slash form day-first only when the
+   swap is the valid one; `day_unknown_date` keeps a day-`00` date flagging. 4d:
+   prompt wording, unmeasured offline; `reapply` never re-extracts, so it
+   changes nothing in the backlog. 5a: `evidence_sets` counts numbered sets only,
+   except `encore_lost` keeps the flag. 5c.1: a closer is not hard-flagged when
+   only `is_filler` tracks follow it (`filler_tail_closers` makes it a note).
+   5c.3: a leading-parenthetical fold is a fallback tier of closer matching.
+   **5c.2 (numbered-set anchoring when only the encore closer is missing) was
+   built, measured wrong on 5 structures and DROPPED at Checkpoint F: do not
+   re-add it.**
++  **Venue tie-break** (`gather.venue_tie_break`, spec `2026-10-21-held-backlog-small-fixes-design.md` slice B): on a tied grouping vote (raw strings, counted as `grouping._make_candidate` counts) the selected recording's own stripped venue ships, with `sel_city or vote_city`. It applies only when its city is blank or `cities_compatible` with the vote's, and only in the arms that ship the vote unflagged: no event, unflagged 1a, and step 1 when the selected string passes step 1's full test. It never adds or removes a flag, `venue_source` stays `item`, and `provenance.json` is unchanged.
+ - **Two modes:** one-off queries, and standing criteria profiles for recurring
+   segments, deduped against the on-disk show library ∪ a `ledger.jsonl`
+   history keyed by performance identity (artist + date + venue), not
+   archive.org item id — winnow skips anything already in the library or
+   logged played/rejected. A date carrying two performances (early/late show)
+   splits at grouping time into one show per jerrybase event, keyed
+   `collection/date/eN` (e1 = first show); single-event dates and dates with
+   no jerrybase data are unchanged. There is deliberately NO ledger migration
+   and NO legacy-id compatibility for pre-split `collection/date` rows — purge
+   and re-run. Run names auto-unique: a same-day collision gets a `-2`/`-3`
+diff --git a/packages/llama/src/llama/stages/gather.py b/packages/llama/src/llama/stages/gather.py
+index efedef6..c64c526 100644
+--- a/packages/llama/src/llama/stages/gather.py
++++ b/packages/llama/src/llama/stages/gather.py
+@@ -1,13 +1,14 @@
+ import datetime
+ import logging
+ import re
++from collections import Counter
+ from collections.abc import Sequence
+ from typing import NamedTuple
+ 
+ from herder import HerderError, TaskFailed, run_json_task
+ from herder.limits import RateLimited
+ from llama import jerrybase
+ from llama.config import StructureConfig
+ from llama.errors import LlamaError
+ from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
+ from llama.ia_client import IAError
+@@ -944,20 +945,36 @@ class GatherResult(NamedTuple):
+ 
+ # Slice 1 1d's hold (Contracts "Exact note and flag strings"); an operator
+ # venue or city override removes it.
+ _CITY_CONFLICT_FLAG = "recordings of this date disagree on city"
+ 
+ 
+ def _stripped(s: str | None) -> str | None:
+     return (s or "").strip() or None
+ 
+ 
++def venue_tie_break(candidate: Candidate, sel) -> tuple[str, str | None] | None:
++    """Slice B: on a tied grouping vote the selected recording's own stripped
++    venue ships. Raw strings are counted as `grouping._make_candidate` counts
++    them. Returns `(venue, city)`, or None when the tie-break does not apply."""
++    if sel is None or not _stripped(sel.venue):
++        return None
++    counts = Counter(r.venue for r in candidate.recordings if r.venue)
++    n = counts.get(sel.venue, 0)
++    if n == 0 or n != counts.get(candidate.venue, 0) or sel.venue == candidate.venue:
++        return None
++    sel_city = _stripped(sel.coverage)
++    if sel_city is not None and not cities_compatible(sel_city, candidate.city):
++        return None
++    return _stripped(sel.venue), sel_city or candidate.city
++
++
+ def jerrybase_city(event) -> str:
+     """A jerrybase event's place as one "City, State" string, the shape
+     `cities_compatible` compares (spec Slice 1, "City compatibility")."""
+     return f"{event.city}, {event.state}" if event.state else event.city
+ 
+ 
+ def two_venue_signature(candidate: Candidate) -> bool:
+     """True when two of the candidate's recordings name venues that are not
+     equivalent in one (compatible) city: the same-city two-performance shape
+     of `gratefuldead-1978-11-17` (spec Slice 1, step 2). It also fires on two
+@@ -1378,60 +1395,68 @@ def compute_gather(
+     # Venue enrichment + the jerrybase venue tripwire (spec Slice 1). The arms
+     # are ONE chain, in this order: enrichment, 1a, step 1 (the vote agrees),
+     # step 2 (the swap), the two-venue signature, 1c, else today's flag. `sel`
+     # is the selected recording's own entry in the candidate (absent after a
+     # hand-edit or an older grouping: then no swap, no 1c, no 1d).
+     sel = next((r for r in candidate.recordings if r.identifier == identifier), None)
+     sel_venue = _stripped(sel.venue) if sel is not None else None
+     sel_city = _stripped(sel.coverage) if sel is not None else None
+     vote_venue, vote_city = candidate.venue, candidate.city
+     venue, city, venue_source = vote_venue, vote_city, "item"
++    tie = venue_tie_break(candidate, sel)       # slice B: a tied vote ships the selected string
+     if event is not None:
+         if not (venue and venue.strip()):
+             # Enrichment, byte-identical to before except 1a: a blank
+             # jerrybase venue neither enriches nor flags.
+             if event.venue.strip():
+                 venue, city, venue_source = event.venue, event.city, "jerrybase"
+         else:
+             jb_city = jerrybase_city(event)
+             archive_city = sel_city or vote_city
+             mismatch = f"venue mismatch: archive '{venue}' vs jerrybase '{event.venue}'"
+             if not event.venue.strip():
+                 # 1a: a blank jerrybase venue is no evidence, unless the
+                 # cities say this is not the place.
+                 if not cities_compatible(archive_city, jb_city):
+                     flags.append(mismatch)
++                elif tie is not None:
++                    venue, city = tie
+             elif venues_equivalent(venue, event.venue) and (
+                     _venues_equivalent_pre1b(venue, event.venue)
+                     or cities_compatible(archive_city, jb_city)):
+                 # Step 1: the vote ships. Narrowing S (Checkpoint C operator
+                 # decision, 2026-10-19): a pair equivalent before slice 1
+                 # passes on equivalence alone; only a pair 1b NEWLY made
+                 # equivalent must also have compatible cities.
+-                pass
++                if (tie is not None and venues_equivalent(tie[0], event.venue)
++                        and (_venues_equivalent_pre1b(tie[0], event.venue)
++                             or cities_compatible(archive_city, jb_city))):
++                    venue, city = tie           # slice B, on step 1's full test
+             elif (sel_venue and venues_equivalent(sel_venue, event.venue)
+                   and cities_compatible(sel_city or vote_city, jb_city)
+                   and not two_venue_signature(candidate)):
+                 # Step 2, the swap: the selected recording and jerrybase agree.
+                 op_notes.append(f"venue taken from the selected recording: '{sel_venue}' agrees "
+                                 f"with jerrybase '{event.venue}' (vote was '{vote_venue}')")
+                 venue, city = sel_venue, sel_city or vote_city
+             elif two_venue_signature(candidate):
+                 flags.append(mismatch)                  # a same-city double keeps the hold
+             elif (len(events) == 1 and sel_venue
+                   and cities_compatible(sel_city or vote_city, jb_city)):
+                 # 1c: same place, different name, on a single-event date.
+                 op_notes.append(f"venue differs from jerrybase: archive '{sel_venue}' "
+                                 f"vs '{event.venue}' (same city)")
+                 venue, city = sel_venue, sel_city or vote_city
+             else:
+                 flags.append(mismatch)
++    elif tie is not None:
++        venue, city = tie                       # slice B: no event
+ 
+     # 1d, every show, jerrybase or not, after the swap: a selected recording
+     # whose city is known to conflict with the vote's ships its own venue and
+     # city, held (the other recordings may be a different performance). An
+     # unknown city on either side is no conflict, so a blank vote city is None.
+     # Narrowing V (Checkpoint C operator decision, 2026-10-19): it fires only on
+     # a genuine second venue -- the selected recording's venue not equivalent
+     # to the vote's (the venue the chain started from, never the swapped one or
+     # jerrybase's). Two recordings naming one hall in "different" cities is
+     # locality noise. A blank vote venue is no evidence of the same hall, so it
+diff --git a/packages/llama/tests/test_stage_gather.py b/packages/llama/tests/test_stage_gather.py
+index 5f6fe26..e49a75f 100644
+--- a/packages/llama/tests/test_stage_gather.py
++++ b/packages/llama/tests/test_stage_gather.py
+@@ -3023,10 +3023,126 @@ def test_5c1_filler_tail_note_goes_to_notes_json_never_to_structure_conflicts(tm
+     monkeypatch.setattr(gather_mod.jerrybase, "lookup", lambda artist, date: [event])
+     monkeypatch.setattr(gather_mod.jerrybase, "is_filler", lambda title: title == "I Know You Rider")
+     res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(), FakeProvider(), make_candidate(), IDENT,
+                          jerrybase_enabled=True)
+     assert res.show.structure.alignment == "deterministic"
+     note = "jerrybase set closer 'China Cat Sunflower' is followed only by filler before the set break"
+     assert note in res.notes
+     assert note not in res.show.structure.conflicts
+     assert "jerrybase set closer 'Not On This Tape' not found in tracks" in res.show.structure.conflicts
+     assert not any(f.startswith("jerrybase set closer") for f in res.show.review_flags)
++
++
++# --- slice B: venue tie-break ---
++
++from llama.grouping import _make_candidate
++from llama.stages.gather import venue_tie_break
++
++
++def _cand(pid, coll, date, *specs):   # specs: (identifier, venue, coverage)
++    return _make_candidate(pid, coll, [RecordingSummary(identifier=i, date=date, venue=v, coverage=c)
++                                       for i, v, c in specs])
++
++
++def _gd(tmp_path, cand):
++    return compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(), None, cand, IDENT, jerrybase_enabled=False)
++
++
++def _venue_flags(show):
++    return [f for f in show.review_flags if f.startswith(("venue mismatch", "recordings of this date disagree"))]
++
++
++def test_tie_ships_the_selected_recordings_string_without_jerrybase(tmp_path):
++    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
++                 ("gd73-other", "R.F.K. Stadium", "Washington"), (IDENT, " RFK Stadium ", "Washington, DC"))
++    assert cand.venue == "R.F.K. Stadium"                         # listing order won the 1-1 tie
++    res = _gd(tmp_path, cand)
++    assert (res.show.venue, res.show.city, res.show.venue_source) == ("RFK Stadium", "Washington, DC", "item")
++    assert _venue_flags(res.show) == []
++
++
++def test_a_majority_keeps_the_consensus(tmp_path):   # (pin)
++    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
++                 ("a", "R.F.K. Stadium", "Washington, DC"), ("b", "R.F.K. Stadium", "Washington, DC"),
++                 (IDENT, "RFK Stadium", "Washington, DC"))
++    assert _gd(tmp_path, cand).show.venue == "R.F.K. Stadium"
++
++
++def test_a_tie_whose_selected_city_is_incompatible_ships_the_vote_unchanged(tmp_path):   # (pin)
++    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
++                 ("gd73-other", "RFK Stadium", "Washington, DC"), (IDENT, "RFK Stadium ", "Baltimore, MD"))
++    res = _gd(tmp_path, cand)
++    assert (res.show.venue, res.show.city) == ("RFK Stadium", "Washington, DC")
++
++
++def test_a_tie_with_a_blank_selected_city_keeps_the_vote_city(tmp_path):
++    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
++                 ("gd73-other", "R.F.K. Stadium", "Washington, DC"), (IDENT, "RFK Stadium", None))
++    assert (lambda s: (s.venue, s.city))(_gd(tmp_path, cand).show) == ("RFK Stadium", "Washington, DC")
++
++
++def test_a_whitespace_only_selected_venue_never_ships(tmp_path):   # (pin) Review Focus 3
++    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
++                 ("gd73-other", "RFK Stadium", "Washington, DC"), (IDENT, "   ", "Washington, DC"))
++    assert _gd(tmp_path, cand).show.venue == "RFK Stadium"
++
++
++def test_step_1_tie_ships_the_selected_string_jerrybase_corroborates(tmp_path, monkeypatch):
++    _penns_landing_event(monkeypatch)
++    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
++                 ("ds-other", "Penn's Landing", "Philadelphia, PA"), (DSO_IDENT, "Penns Landing", "Philadelphia, PA"))
++    assert cand.venue == "Penn's Landing"
++    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
++    assert res.show.venue == "Penns Landing" and _venue_flags(res.show) == []
++
++
++def test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_and_cities_conflict(tmp_path, monkeypatch):   # (pin)
++    # Narrowing S: the vote passes step 1 on pre-1b equivalence alone; the selected string is
++    # equivalent only under 1b, and Camden is not jerrybase's Philadelphia, so it fails step 1's full test.
++    _penns_landing_event(monkeypatch)
++    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
++                 ("ds-other", "Penn's Landing", "Camden, NJ"), (DSO_IDENT, "Penns Landing", "Camden, NJ"))
++    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
++    assert res.show.venue == "Penn's Landing" and _venue_flags(res.show) == []
++
++
++def test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string(tmp_path):   # (pin)
++    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
++                 ("ds-other", "Barrymore Theatre", "Madison, WI"), (DSO_IDENT, "Orpheum Theater", "Madison, WI"))
++    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
++    assert res.show.venue == "Barrymore Theatre" and _venue_flags(res.show) == []
++
++
++def _blank_venue_event(monkeypatch, city="Philadelphia", state="PA"):
++    from llama.models import JerrybaseEvent
++    ev = JerrybaseEvent(event_id="e1", venue="", city=city, state=state)
++    monkeypatch.setattr(gather_mod.jerrybase, "lookup", lambda artist, date: [ev])
++
++
++def test_1a_tie_ships_the_selected_string_when_cities_agree(tmp_path, monkeypatch):
++    _blank_venue_event(monkeypatch)
++    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
++                 ("ds-other", "Penn's Landing", "Philadelphia, PA"), (DSO_IDENT, "Penns Landing", "Philadelphia, PA"))
++    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
++    assert res.show.venue == "Penns Landing" and _venue_flags(res.show) == []
++
++
++def test_1a_tie_keeps_the_vote_when_the_cities_conflict(tmp_path, monkeypatch):   # (pin)
++    _blank_venue_event(monkeypatch)
++    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
++                 ("ds-other", "Penn's Landing", "Camden, NJ"), (DSO_IDENT, "Penns Landing", "Camden, NJ"))
++    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
++    assert res.show.venue == "Penn's Landing"
++    assert "venue mismatch: archive 'Penn's Landing' vs jerrybase ''" in res.show.review_flags
++
++
++def test_venue_tie_break_unit_cases():
++    recs = [RecordingSummary(identifier="a", venue="X Hall", coverage="Austin, TX"),
++            RecordingSummary(identifier="b", venue="X Hall ", coverage=None)]
++    cand = _make_candidate("A/2000-01-01", "A", recs)
++    assert venue_tie_break(cand, recs[1]) == ("X Hall", "Austin, TX")   # raw strings counted apart
++    assert venue_tie_break(cand, recs[0]) is None                        # the selected string IS the vote
++    assert venue_tie_break(cand, None) is None
++    odd = cand.model_copy(update={"venue": "Elsewhere"})                 # a vote no recording carries
++    assert venue_tie_break(odd, recs[1]) is None
++    stray = RecordingSummary(identifier="z", venue="Y Hall", coverage=None)
++    assert venue_tie_break(odd, stray) is None                           # 0 == 0 is not a tie

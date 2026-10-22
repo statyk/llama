@@ -1,0 +1,90 @@
+# Review package: acdb255..HEAD
+
+## Commits
+36473d8 test(triage): pin [u] failure, tighten tests; view before re-resolve (slice C review)
+
+## Files changed
+ packages/llama/src/llama/cli.py     |  5 +++--
+ packages/llama/tests/test_triage.py | 20 ++++++++++++++++++--
+ 2 files changed, 21 insertions(+), 4 deletions(-)
+
+## Diff
+diff --git a/packages/llama/src/llama/cli.py b/packages/llama/src/llama/cli.py
+index 9ad0dc6..6c2a665 100644
+--- a/packages/llama/src/llama/cli.py
++++ b/packages/llama/src/llama/cli.py
+@@ -1823,30 +1823,31 @@ def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
+             _clear_hold(entry.ws)
+             lines.append(f"{entry.slug}: remaining flags overruled")
+             pkg = _redo_show_locked(config, ia, ledger,
+                                     _resolve_show(config, ledger, entry.slug), "brief")
+     for line in lines:
+         typer.echo(line)
+     return ("packaged", pkg) if pkg else ("held", None)
+ 
+ 
+ def _interactive_resolve(config, ia, ledger, entry) -> None:
++    # Every successful edit leaves the show, so this session-long view stays valid.
++    # Taken BEFORE the re-resolve: anything that changes after it makes the unit refuse.
++    view = capture_view(entry.ws)
+     try:
+         # Re-resolve by path (an exact match while the directory exists; a
+         # removed show matches nothing) so the held check and the offers below
+         # read the show as it is now, not as the listing saw it.
+         entry = _resolve_show(config, ledger, str(entry.ws.dir))
+     except LlamaError as exc:
+         typer.echo(f"error: {exc}", err=True)
+         return
+-    # Every successful edit leaves the show, so this session-long view stays valid.
+-    view = capture_view(entry.ws)
+     _print_show_entry(entry)
+     if entry.state != "held":
+         return
+     # Task 8: offered only on a hold this feature can actually help with --
+     # `entry.flags` is `derive_state`'s (== `show.review_flags`) for a held
+     # show, so this reads it the same way `test_held_beats_everything`
+     # pins it, no extra I/O. Read once per show, not re-derived per loop
+     # iteration: the only branch that mutates `review_flags` in a way that
+     # could change this (a `[t]` adoption) always redoes-and-returns rather
+     # than looping back, so it can never go stale within one show's session
+diff --git a/packages/llama/tests/test_triage.py b/packages/llama/tests/test_triage.py
+index 47b29b3..0e947bd 100644
+--- a/packages/llama/tests/test_triage.py
++++ b/packages/llama/tests/test_triage.py
+@@ -726,18 +726,34 @@ def test_a_retry_after_a_failed_edit_applies_against_the_restored_show(tmp_path,
+     assert "changed by another command" not in r.output
+ 
+ 
+ def test_a_show_removed_before_its_turn_is_reported_and_skipped(tmp_path, tty, monkeypatch):
+     cfg = _cfg(tmp_path); _held_show(tmp_path); second = _second_held_show(tmp_path)
+     def fake(config, ia, ledger, e, stage, **kw):
+         shutil.rmtree(second.dir); return Path("/pkg")   # another command removes the next show
+     monkeypatch.setattr(cli, "_redo_show_locked", fake)
+     r = cli_invoke(cfg, "triage", input="o\n")
+     assert r.exit_code == 0, r.output
+-    assert "error: " in r.output and r.output.count(PROMPT) == 1
++    assert "no show matches" in r.output and "gratefuldead-1974-01-01" in r.output
++    assert r.output.count(PROMPT) == 1
+ 
+ 
+ def test_a_failed_metadata_edit_restores_the_overrides(tmp_path, tty, monkeypatch):
+     cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
+     monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("refused")))
+     r = cli_invoke(cfg, "triage", input="m\nNew Hall\n\n\n\n\ns\n")
+-    assert "error: refused" in r.output and not ws.overrides.exists()
++    assert r.exit_code == 0, r.output
++    assert "error: refused" in r.output and r.output.count(PROMPT) == 2
++    assert not ws.overrides.exists()
++
++
++def test_a_failed_untitled_resolution_restores_and_returns_to_the_prompt(tmp_path, tty, monkeypatch):
++    cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
++    show = read_model(ws.show, Show)
++    show.tracks = [t.model_copy(update={"title_source": "unresolved"}) for t in show.tracks]
++    write_artifact(ws.show, show)
++    before = tree_bytes(ws.dir)
++    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
++    r = cli_invoke(cfg, "triage", input="u\ny\ns\n")
++    assert r.exit_code == 0, r.output
++    assert "error: boom" in r.output and r.output.count("[u]ntitled") == 2
++    assert tree_bytes(ws.dir) == before

@@ -1,0 +1,5 @@
+# t2-impl handback
+Status: DONE. Slice B implemented: gather.venue_tie_break (after _stripped) + `tie = venue_tie_break(candidate, sel)` computed before the venue chain in compute_gather. Applied in three places: (1) `elif tie is not None` on `if event is not None:` (no event); (2) `elif tie is not None` after the `if not cities_compatible(...)` flag in unflagged 1a; (3) inside step 1's branch (replacing `pass`), guarded by venues_equivalent(tie[0], event.venue) and (pre1b or cities_compatible(archive_city, jb_city)). Added `from collections import Counter`. CLAUDE.md sentence added after the 5c.2 line in the Tier 1 bullet.
+RED: `./.venv/bin/python -m pytest packages/llama/tests/test_stage_gather.py -q -k "tie or majority or whitespace_only"` -> collection ImportError (venue_tie_break missing), expected.
+GREEN: same command -> 20 passed. Full: `./.venv/bin/python -m pytest -q` -> 3986 passed, 1 skipped, 8 deselected (3975 + 11 new). No existing test edited or changed outcome.
+Brief tests used verbatim (placed at end of test_stage_gather.py; imports added inline in the section); no signature adaptations needed.

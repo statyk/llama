@@ -1,0 +1,3 @@
+baseline reproduces 134/147 held shows that are not needs-LLM (gate skipped: --no-repro-gate)
+jerrybase: skipped 117 malformed rows
+compare: wrote /Users/shawn/.llama-harness/small-fixes/cmp-norepro
