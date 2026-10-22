@@ -696,7 +696,9 @@ def _taper_changes(base: dict, cand: dict, root: Path, delivery: Path | None) ->
         if state == "delivered":
             if _is_voiced(delivery, slug):
                 state = "voiced"
-        step1 = ("overruled" if before != after else "step1")   # nothing was overruled when labels agree
+        # Step 1's MECHANISM (deterministic/jerrybase), not its quality (rescreen2 O1);
+        # nothing was overruled when labels agree.
+        step1 = "overruled step1 mechanism" if before != after else "step1 mechanism"
         tiers[tier].append(
             f"  {slug}  [{state}]  before {_j(_label_breaks(before))} after {_j(_label_breaks(after))} "
             f"stored {_j(_label_breaks(stored))}  labels: before {_runs(before)} | after {_runs(after)} "

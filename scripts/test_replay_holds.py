@@ -1010,7 +1010,7 @@ def test_taper_changes_report_tiers_and_states(tmp_path):
     assert "show-fill" in sec["filler labels only"]
     assert "show-prov" in sec["provenance only"]
     moved = [l for l in sec["songs moved"].splitlines() if "show-moved" in l][0]
-    assert "voiced" in moved and "notes" in moved and "jerrybase" in moved
+    assert "voiced" in moved and "notes" in moved and "overruled step1 mechanism: jerrybase" in moved
     assert "before [3]" in moved and "after [2]" in moved and "stored [3]" in moved
     assert "packaged" in sec["labels renamed"] and "voiced" not in sec["labels renamed"]
     assert "description" in sec["labels renamed"]
@@ -1190,7 +1190,8 @@ def test_provenance_only_row_says_step1_not_overruled(tmp_path):
     out = tmp_path / "cmp"
     assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
     row = [l for l in (out / "taper_changes.txt").read_text().splitlines() if slug in l][0]
-    assert "step1: jerrybase" in row and "overruled" not in row
+    assert "step1 mechanism: jerrybase" in row and "overruled" not in row
+    assert "step1: " not in row
 
 
 def test_stored_llm_section_excludes_an_unreplayable_candidate(tmp_path):
@@ -1237,8 +1238,11 @@ def test_taper_changes_segues_changed_tier(tmp_path):
         (root / "shows" / slug / "show.json").write_text(json.dumps(
             {"tracks": [{"index": i + 1, "set": s} for i, s in enumerate(["1", "1", "2"])]}))
         _owned(_row(c, slug), ["1", "1", "2"])
-    # a stored-llm show: the base is needs-LLM, so "before" is stored (no segue change)
+    # a stored-llm show: the base is needs-LLM, so "before" is stored (no segue change).
+    # Its row still carries the step-1 segue diff `compute_legs` computed before marking it
+    # needs-LLM, the same one as the candidate's: the realistic shape (t9-rev, M1).
     _row(b, "seg-llm").update(outcome="needs-llm", needs_llm=["stored alignment llm"])
+    _row(b, "seg-llm")["segue_changes"] = lost
     _row(c, "seg-llm")["segue_changes"] = lost
     # a replayed base whose segues differ from the candidate's
     _row(b, "seg-det")["sets"] = ["1", "1", "2"]
