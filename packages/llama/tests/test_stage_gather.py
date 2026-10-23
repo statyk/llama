@@ -3881,3 +3881,89 @@ def test_g1_needs_weak_step_one(tmp_path):
                      setlistfm=_FakeSetlistFM(TP_SONGS))
     assert res.step1_alignment == "deterministic"
     assert res.taper_owned is True, res.taper.reason
+
+
+# --- Title hygiene (piece 3), Task 11: additive seams --------------------------------------
+
+def test_accept_short_tags_per_track_sources():
+    """`tag_sources` stamps each accepted track with ITS layer source (slice 3 may mix
+    `tags` and `sibling-format` on one tape); the single `tag_source` is then unused."""
+    tracks = [Track(index=i, set="1", title=f"t{i}.mp3", filename=f"t{i}.mp3",
+                    title_source="unresolved") for i in (1, 2)]
+    corroboration = {fuzzy_norm_title("FF"): ("setlist.fm",), fuzzy_norm_title("42"): ("lma:x",)}
+    out, notes = accept_short_tags(tracks, ["FF>", "42"], "tags", corroboration=corroboration,
+                                   metadata_norms=set(), demoted=frozenset(),
+                                   tag_sources=["tags", "sibling-format"])
+    assert [(t.title, t.title_source) for t in out] == [("FF", "tags"), ("42", "sibling-format")]
+    assert len(notes) == 2
+
+
+def test_accept_short_tags_default_sources_unchanged():
+    """(pin) `tag_sources=None` returns exactly today's tracks and notes, and so does a
+    per-track list that repeats the single source."""
+    tracks = [Track(index=i, set="1", title=f"t{i}.mp3", filename=f"t{i}.mp3",
+                    title_source="unresolved") for i in range(1, 5)]
+    tags = ["FF>", "? >", "42", "NY"]
+    corroboration = {fuzzy_norm_title("FF"): ("setlist.fm",), fuzzy_norm_title("?"): ("lma:x",),
+                     fuzzy_norm_title("42"): ("lma:x", "setlist.fm"),
+                     fuzzy_norm_title("NY"): ("lma:x",)}
+    kw = dict(corroboration=corroboration, metadata_norms={fuzzy_norm_title("NY")},
+              demoted=frozenset())
+    today = accept_short_tags(tracks, tags, "sibling-format", **kw)
+    explicit = accept_short_tags(tracks, tags, "sibling-format", tag_sources=None, **kw)
+    repeated = accept_short_tags(tracks, tags, "sibling-format",
+                                 tag_sources=["sibling-format"] * 4, **kw)
+    for got in (explicit, repeated):
+        assert [t.model_dump() for t in got[0]] == [t.model_dump() for t in today[0]]
+        assert got[1] == today[1]
+    assert [(t.title, t.title_source) for t in today[0]] == [
+        ("FF", "sibling-format"), ("t2.mp3", "unresolved"), ("42", "sibling-format"),
+        ("t4.mp3", "unresolved")]
+    assert today[1] == ["accepted short tag title: track 1 'FF' corroborated by setlist.fm",
+                        "accepted short tag title: track 3 '42' corroborated by lma:x, setlist.fm"]
+
+
+def _gd74_target(blank: list[int]):
+    md = gd74_ia().metadata(W_IDENT)
+    kept, _, _ = filter_files(md["files"], want_format=gather_mod.FORMAT_BY_AUDIO["mp3"])
+    tracks = gather_mod.resolve_titles(kept, ParsedSetlist())
+    return [t.model_copy(update={"title": t.filename, "title_source": "unresolved"})
+            if i in blank else t for i, t in enumerate(tracks)]
+
+
+def test_sibling_transfer_split_is_identical():
+    """`_sibling_transfer` returns exactly what it returned before the split (literals
+    captured from the pre-split code on these fixtures), and `_sibling_transfer_full`'s
+    third element is `best_donor`'s `(donor, rows)`, None with no donor."""
+    want = gather_mod.FORMAT_BY_AUDIO["mp3"]
+    ia, cand = gd74_ia(), gd74_candidate()
+    norms = gather_mod.show_metadata_norms("Grateful Dead", cand, ia.metadata(W_IDENT)["metadata"], [])
+
+    # Auto band: tracks 4-6 blanked, bracketed by anchors, filled from Miller.
+    target = _gd74_target([3, 4, 5])
+    out, notes = gather_mod._sibling_transfer(ia, cand, W_IDENT, want, target, norms)
+    assert notes == []
+    assert [(t.title, t.title_source) for t in out[3:6]] == [
+        ("Beat It On Down The Line", "sibling-align"), ("Candyman", "sibling-align"),
+        ("Jack Straw", "sibling-align")]
+    assert [t.model_dump() for i, t in enumerate(out) if i not in (3, 4, 5)] == \
+        [t.model_dump() for i, t in enumerate(target) if i not in (3, 4, 5)]
+    full = gather_mod._sibling_transfer_full(ia, cand, W_IDENT, want, target, norms)
+    assert ([t.model_dump() for t in full[0]], full[1]) == ([t.model_dump() for t in out], notes)
+    donor, rows, _, _ = gather_mod.best_donor(ia, cand, W_IDENT, want, target, norms)
+    assert full[2] is not None and full[2][0] == donor and full[2][1] == rows
+    assert donor.identifier == M_IDENT
+
+    # No anchors: the pair routes to `no-anchors`; the donor is still returned.
+    target = _gd74_target(list(range(27)))
+    out, notes = gather_mod._sibling_transfer(ia, cand, W_IDENT, want, target, norms)
+    assert notes == [f"sibling alignment skipped ({M_IDENT}): tape has no independent anchors"]
+    assert [t.model_dump() for t in out] == [t.model_dump() for t in target]
+    full = gather_mod._sibling_transfer_full(ia, cand, W_IDENT, want, target, norms)
+    assert full[1] == notes and full[2] is not None and full[2][0].identifier == M_IDENT
+
+    # No donor at all.
+    alone = cand.model_copy(update={"recordings": cand.recordings[:1]})
+    out, notes = gather_mod._sibling_transfer(ia, alone, W_IDENT, want, target, norms)
+    assert notes == [] and [t.model_dump() for t in out] == [t.model_dump() for t in target]
+    assert gather_mod._sibling_transfer_full(ia, alone, W_IDENT, want, target, norms)[2] is None

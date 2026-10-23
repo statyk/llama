@@ -745,3 +745,46 @@ def test_footnote_strip_is_only_on_the_glued_path():
     assert clean_tag_titles(files)[4] == "Cuckoo #"
     files = _files(["20The Cuckoo #", "Dew", "Star"])
     assert clean_tag_titles(files) == ["20The Cuckoo #", "Dew", "Star"]
+
+
+# --- Title hygiene (piece 3), Task 11: the `layer` / `setlist_fills` seams ----------------
+
+from llama.titles import TagLayer
+
+
+def test_resolve_titles_defaults_unchanged():
+    """(pin) `layer=None, setlist_fills=None` is exactly today's call: the tag layer is
+    recomputed from the files, 2b demotes `tmp`, and the whole-tape setlist rung fills
+    every other non-real position."""
+    files = make_files(["Morning Dew", "tmp", None, "Dark Star", None, None])
+    base = resolve_titles(files, make_setlist())
+    explicit = resolve_titles(files, make_setlist(), layer=None, setlist_fills=None)
+    assert [t.model_dump() for t in explicit] == [t.model_dump() for t in base]
+    assert [(t.title, t.title_source) for t in base] == [
+        ("Morning Dew", "tags"), ("d1t02.mp3", "unresolved"), ("I Know You Rider", "setlist"),
+        ("Dark Star", "tags"), ("Eyes of the World", "setlist"), ("Johnny B. Goode", "setlist")]
+
+
+def test_resolve_titles_layer_and_fills():
+    """A layer stands in for the tag layer: its titles are judged (the files' own tags
+    are not read), its per-track sources are stamped, and its `demoted` set is the 2b
+    set. `setlist_fills` replaces the whole-tape rung: it fills only its own positions,
+    and only where today's S branch is reached (not demoted, tag not real)."""
+    files = make_files(["Morning Dew", "Never Read", None, "Dark Star", None, None])
+    layer = TagLayer(titles=["Morning Dew", "China Cat Sunflower", "", "Dark Star", "", "tmp"],
+                     sources=["tags", "sibling-format", "tags", "tags", "tags", "tags"],
+                     demoted=frozenset({5}))
+    tracks = resolve_titles(files, make_setlist(), layer=layer, setlist_fills={2: "X"})
+    assert [(t.title, t.title_source) for t in tracks] == [
+        ("Morning Dew", "tags"), ("China Cat Sunflower", "sibling-format"), ("X", "setlist"),
+        ("Dark Star", "tags"), ("d2t02.mp3", "unresolved"), ("d3t01.mp3", "unresolved")]
+    # A fill at a real-tag position or a demoted one is never reached.
+    tracks = resolve_titles(files, make_setlist(), layer=layer,
+                            setlist_fills={0: "Y", 4: "W", 5: "Z"})
+    assert [(t.title, t.title_source) for t in tracks] == [
+        ("Morning Dew", "tags"), ("China Cat Sunflower", "sibling-format"),
+        ("d1t03.mp3", "unresolved"), ("Dark Star", "tags"), ("W", "setlist"),
+        ("d3t01.mp3", "unresolved")]
+    # Empty fills: no S fill at all, even on a count-matched canonical.
+    tracks = resolve_titles(files, make_setlist(), layer=layer, setlist_fills={})
+    assert [t.title_source for t in tracks].count("setlist") == 0

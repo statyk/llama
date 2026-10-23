@@ -16,7 +16,7 @@ from llama.models import (AlignedStructure, JerrybaseEvent, Candidate, ParsedSet
                           ShowNotes, SourcedParse, StructureInfo, Track)
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
-from llama.siblings import DonorTape, cplus_filter, propose_rows, rate_alignment
+from llama.siblings import DonorTape, SiblingRow, cplus_filter, propose_rows, rate_alignment
 from llama.songs import GD_SHORTHAND, normalize_song
 from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align,
                              apply_llm_alignment, blend_segues, cities_compatible, encore_lost,
@@ -293,9 +293,23 @@ def best_donor(ia, candidate: Candidate, identifier: str, want: str | Sequence[s
     return donor, rows, res, notes
 
 
+DonorRows = tuple[DonorTape, list[SiblingRow]]
+
+
 def _sibling_transfer(ia, candidate: Candidate, identifier: str,
                       want: str | Sequence[str], tracks: list,
                       metadata_norms: set[str]) -> tuple[list, list[str]]:
+    """`_sibling_transfer_full`'s first two elements, byte-identical to before the
+    split (title hygiene, Task 11). See `_sibling_transfer_full`."""
+    new_tracks, notes, _ = _sibling_transfer_full(ia, candidate, identifier, want,
+                                                  tracks, metadata_norms)
+    return new_tracks, notes
+
+
+def _sibling_transfer_full(ia, candidate: Candidate, identifier: str,
+                           want: str | Sequence[str], tracks: list,
+                           metadata_norms: set[str]
+                           ) -> tuple[list, list[str], DonorRows | None]:
     """The guarded duration-alignment title transfer. Loads every non-self
     sibling recording, aligns each against `tracks`' own durations
     (`siblings.propose_rows`), rates the pair (`siblings.rate_alignment`),
@@ -303,7 +317,10 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
     running `siblings.cplus_filter` -- fills `unresolved` tracks with the
     surviving `adopt` rows, stamped `title_source="sibling-align"`.
 
-    Returns `(tracks, notes)`. `tracks` is always a NEW list -- inputs are
+    Returns `(tracks, notes, donor_rows)`. `donor_rows` is the winning donor's
+    `(donor, rows)` from `best_donor` whatever the band, None when no donor
+    qualified: title hygiene's D rung reads it for its sibling-duration check
+    rather than re-running `best_donor` (Task 11). `tracks` is always a NEW list -- inputs are
     never mutated in place, on every return path including "no candidate
     donor at all" -- and `notes` carries pair-level declines (why the
     winning donor's band was not `auto`, or why a donor could not be fetched
@@ -339,7 +356,7 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
     same show before this function ever runs."""
     donor, rows, res, notes = best_donor(ia, candidate, identifier, want, tracks, metadata_norms)
     if donor is None:
-        return list(tracks), notes
+        return list(tracks), notes, None
     new_tracks = list(tracks)
 
     if res.band != "auto":
@@ -351,7 +368,7 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
         else:                                     # "no-anchors"
             notes.append(f"sibling alignment skipped ({donor.identifier}): "
                          "tape has no independent anchors")
-        return new_tracks, notes
+        return new_tracks, notes, (donor, rows)
 
     filtered = cplus_filter(rows, tracks)          # C+ is auto-band only (concern #3)
     seen_reasons: set[str] = set()
@@ -367,7 +384,7 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
         elif row.reason and row.reason not in seen_reasons:
             seen_reasons.add(row.reason)
             notes.append(f"sibling alignment ({donor.identifier}): {row.reason}")
-    return new_tracks, notes
+    return new_tracks, notes, (donor, rows)
 
 
 # Recovery fires below this and requires the sibling to clear the second
@@ -920,7 +937,8 @@ _SEGUE_SPLIT = re.compile(r"\s*(?:->|>)\s*")
 def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: str, *,
                       corroboration: dict[str, tuple[str, ...]],
                       metadata_norms: set[str],
-                      demoted: frozenset[int]) -> tuple[list[Track], list[str]]:
+                      demoted: frozenset[int],
+                      tag_sources: Sequence[str] | None = None) -> tuple[list[Track], list[str]]:
     """Held-backlog slice 2a (spec "2a. Corroborated short tags"; ruling 2:
     a NEW predicate beside `is_real_title`, which is untouched).
 
@@ -948,7 +966,11 @@ def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: st
     off, plus Task 11b's cosmetics: `M80,`, `E: 2x2`, `42(1)`) with
     `title_source=tag_source` (`tags`, or `sibling-format` when format
     recovery fired); `matched` is untouched. Returns a NEW list and one
-    operator note per accepted track (Contracts id 2a; notes.json only)."""
+    operator note per accepted track (Contracts id 2a; notes.json only).
+
+    `tag_sources` (title hygiene, slice 3: the tag layer may mix sources per track)
+    stamps each accepted track with its own source; None, the default, stamps
+    `tag_source` on every track, exactly as before."""
     out = list(tracks)
     notes: list[str] = []
     for i, t in enumerate(tracks):
@@ -967,7 +989,8 @@ def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: st
         if fuzzy_norm_title(core) in metadata_norms:
             continue
         title = shipped_short_tag(tag)
-        out[i] = t.model_copy(update={"title": title, "title_source": tag_source})
+        source = tag_source if tag_sources is None else tag_sources[i]
+        out[i] = t.model_copy(update={"title": title, "title_source": source})
         sources = sorted({src for k in keys for src in corroboration[k]})
         notes.append(f"accepted short tag title: track {t.index} '{title}' "
                      f"corroborated by {', '.join(sources)}")

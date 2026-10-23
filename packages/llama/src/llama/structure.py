@@ -1146,7 +1146,12 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 8,
 # setlist (the tape's own tags, a sibling recording's tags, or an
 # operator's judgement made via `llama fix`), so a match against one of
 # those is real evidence and must stay in the denominator.
-TAUTOLOGICAL_TITLE_SOURCES = frozenset({"setlist-gap", "setlist"})
+#
+# `desc-position` (title hygiene, piece 3, slice 2: the D rung) copies an entry of the
+# selected recording's own description list by position; a fill copied from a list proves
+# nothing when matched back against a list, so it joins the one definition here. Its
+# agreement with the canonical is checked once, explicitly, by D's agreement check.
+TAUTOLOGICAL_TITLE_SOURCES = frozenset({"setlist-gap", "setlist", "desc-position"})
 
 
 def _songish_coverage(tracks: list["Track"], matched: list[bool]) -> float:
@@ -1377,7 +1382,8 @@ def hygienic_title(title: str, metadata_norms: set[str], *,
 
 def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
                      metadata_norms: set[str],
-                     aliases: dict[str, str] | None = None) -> list["Track"]:
+                     aliases: dict[str, str] | None = None,
+                     declined: frozenset[int] = frozenset()) -> list["Track"]:
     """Fill runs of unresolved tracks that are COUNT-FORCED between
     tag-verified anchors.
 
@@ -1415,6 +1421,11 @@ def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
 
     `metadata_norms` is passed in rather than imported: it is built in
     stages/gather.py, and structure.py must not depend on a stage.
+
+    `declined` (0-based positions; title hygiene, slice 1, "Declines bind
+    setlist-gap"): the S rung's declined and deferred positions. A run containing
+    one is not filled, so setlist-gap cannot fill from the same canonical what the
+    S gate refused. The default reproduces today's behaviour.
     """
     # Function-local, like `hygienic_title`'s imports: titles.py and
     # placeholders.py both import this module at load time (a cycle at top).
@@ -1426,6 +1437,8 @@ def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
 
     out = list(tracks)
     for lo, hi in unresolved_runs(tracks):
+        if any(lo <= p <= hi for p in declined):
+            continue
         span = gap_span(anchors, lo, hi, len(tracks))
         if span is None:
             continue
