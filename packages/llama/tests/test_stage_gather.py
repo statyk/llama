@@ -1437,26 +1437,30 @@ def test_gather_drops_setlist_items_that_are_the_artist_name(tmp_path: Path):
 
 
 def test_gather_artist_item_does_not_block_title_resolution(tmp_path: Path):
-    """The artist header must be dropped BEFORE `resolve_titles`, not merely
+    """The artist header must be dropped BEFORE the title rungs, not merely
     before `align`.
 
     With no title tags — the common case for exactly the rows this targets —
-    the setlist is the only title source (this candidate has no sibling
-    recording). `titles.resolve_titles` only trusts it when the item count
-    equals the track count, so the surviving header item makes 7 != 6 and every
-    title falls through to "unresolved", holding the show for review and
-    leaving all six real songs stranded in conflicts. Dropping the header at
-    the point the data enters fixes THAT cascade -- no "unresolved track
-    titles" flag, every song resolved, no orphaned conflicts.
+    the description is the only title source (this candidate has no sibling
+    recording). Since title hygiene (piece 3) the description's own list is
+    read by reader (ii), which exempts the artist line, and D fills all six
+    tracks as `desc-position` (spec slice 1 "S with a `chosen` canonical",
+    slice 2, Q1). The `enabled_slices=frozenset()` arm at the end keeps
+    guarding `build_canonical`'s artist drop: there the whole-tape `setlist`
+    rung fills only when the canonical's item count equals the track count, so
+    a surviving header item (7 != 6) would leave every title "unresolved".
+    (At the head of the list `_strip_head_banner` already removes it, since
+    the artist is in `metadata_norms`; removing `_drop_artist_items` alone
+    leaves this test green, removing both reddens it -- measured, Task 16
+    fix round 1.)
 
-    `needs_review` itself is no longer False here, and that is a SEPARATE,
-    correctly-ruled consequence of Important 2 (title_source=="setlist" is
-    TAUTOLOGICAL_TITLE_SOURCES), not a regression of the fix this test
-    targets: every track here is "setlist"-sourced, so the independent-
-    evidence set _songish_coverage computes over is empty, coverage is the
-    safe-direction 0.0, and "low-confidence structure alignment" correctly
-    fires -- this show's titles came entirely from the setlist it is being
-    checked against, which is exactly the case that flag exists to catch.
+    `needs_review` is not False here, a SEPARATE, correctly-ruled consequence
+    of Important 2 (`desc-position`, like `setlist`, is in
+    TAUTOLOGICAL_TITLE_SOURCES): the independent-evidence set
+    _songish_coverage computes over is empty, coverage is the safe-direction
+    0.0, and "low-confidence structure alignment" fires -- this show's titles
+    came entirely from the list it is being checked against. (Task 17, Q2,
+    changes that for a self-filled tape.)
 
     Round 2 (review): `matched` is ALSO None on every track now, not just
     excluded from coverage's denominator -- gather.py's final assembly
@@ -1483,6 +1487,15 @@ def test_gather_artist_item_does_not_block_title_resolution(tmp_path: Path):
     assert show.review_flags == ["low-confidence structure alignment"]
     assert show.needs_review is True
     assert all(t.matched is None for t in show.tracks)
+
+    # Today's rungs (no slices): the S rung fills all six from the canonical, which it
+    # can only do because build_canonical dropped the artist item (7 != 6 otherwise;
+    # see the docstring for which cleaning step drops it here).
+    today = compute_gather(ShowWorkspace(tmp_path / "today"), StubIA(_mccoury_md(tagged=False)),
+                           FakeProvider(), make_candidate(), IDENT,
+                           enabled_slices=frozenset())
+    assert [(t.title, t.title_source) for t in today.show.tracks] == [
+        (s, "setlist") for s in MCCOURY_SONGS]
 
 
 # --- Head-banner guard (spec 1b) -------------------------------------------
@@ -4114,3 +4127,57 @@ def test_title_paths_reported(tmp_path: Path):
     assert res.self_filled is True
     assert res.title_record.d is not None and res.title_record.d.failed == ()
     assert "title_paths" not in res.show.model_dump_json()
+
+
+def test_cascade_op_notes_lead_gather_notes(tmp_path: Path):
+    """Brief Task 16 Step 3, notes order (op notes): the cascade's operator notes are the
+    FIRST entries of `GatherResult.notes`, and notes raised after it (here the taper's
+    `set breaks from the taper's markers`) follow them. Every tag carries a joined track
+    number, so 2d writes a cascade note per track; the taper's markers own the structure."""
+    md = _tp_md([f"{i:02d}-{t}" for i, t in enumerate(TP_SONGS, 1)], TP_DESC)
+    res = _tp_gather(tmp_path, md, setlistfm=_FakeSetlistFM(TP_SONGS))
+    cascade = [f"stripped joined track number: track {i} '{i:02d}-{t}' -> '{t}'"
+               for i, t in enumerate(TP_SONGS, 1)]
+    assert [t.title for t in res.show.tracks] == TP_SONGS
+    assert res.notes[:len(cascade)] == cascade
+    taper_note = "set breaks from the taper's markers (was [] ['1'])"
+    assert taper_note in res.notes[len(cascade):]
+
+
+def test_canonical_notes_precede_sibling_notes_in_conflicts(tmp_path: Path):
+    """Brief Task 16 Step 3, notes order (structure notes): the canonical build's notes
+    come first in `structure.conflicts`, sibling-align's after them. A third recording
+    fails its first fetch (`build_canonical`'s note) and then serves an empty item, which
+    `load_donor_tapes` skips silently, so each note has exactly one source. The donor
+    recording is the operator-band shape of
+    test_operator_band_run_stays_unresolved_even_though_cplus_would_bracket_it."""
+    from llama.ia_client import IAError
+    flaky = "gd73-06-10.flaky.once"
+
+    class FlakyOnceIA(MultiIA):
+        def __init__(self, mapping):
+            super().__init__(mapping)
+            self.failed = False
+
+        def metadata(self, identifier):
+            if identifier == flaky:
+                if not self.failed:
+                    self.failed = True
+                    raise IAError("boom 503")
+                return {"metadata": {}, "files": []}
+            return super().metadata(identifier)
+
+    md = json.loads(FIXTURE.read_text())
+    chosen = {"metadata": dict(md["metadata"], description=""),
+              "files": [dict(f) for f in md["files"]]}
+    by_name = {f["name"]: f for f in chosen["files"]}
+    for name in ("gd73-06-10d1t03.mp3", "gd73-06-10d2t01.mp3"):
+        by_name[name].pop("title", None)
+    by_name["gd73-06-10d3t01.mp3"]["title"] = "Bertha"
+    ia = FlakyOnceIA({IDENT: chosen, SIB_ID: _gd73_donor(md, REAL_TITLES)})
+    cand = make_candidate()
+    cand.recordings += [RecordingSummary(identifier=SIB_ID), RecordingSummary(identifier=flaky)]
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, IDENT)
+    assert res.show.structure.conflicts == [
+        f"could not fetch sibling {flaky}: boom 503",
+        "sibling alignment needs operator review (anchor agreement 75%)"]

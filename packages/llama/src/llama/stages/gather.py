@@ -300,6 +300,8 @@ def best_donor(ia, candidate: Candidate, identifier: str, want: str | Sequence[s
 DonorRows = tuple[DonorTape, list[SiblingRow]]
 
 
+# Off the production path since Task 16 (gather calls `_sibling_transfer_full` through
+# `title_inputs`); kept for its pin test and the title-hygiene gate probe.
 def _sibling_transfer(ia, candidate: Candidate, identifier: str,
                       want: str | Sequence[str], tracks: list,
                       metadata_norms: set[str]) -> tuple[list, list[str]]:
