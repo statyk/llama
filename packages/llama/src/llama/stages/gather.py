@@ -15,6 +15,7 @@ from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
 from llama.ia_client import IAError
 from llama.desc_list import DescRead, drop_leading_artist_items, read_desc_list
 from llama.lossless_titles import LosslessResult, apply_lossless
+from llama.title_cosmetics import cosmetic_strip
 from llama.title_hygiene import DDecision, SetlistPlan
 from llama.models import (AlignedStructure, JerrybaseEvent, Candidate, Overrides, ParsedSetlist,
                           SetlistItem, Show, ShowNotes, SourcedParse, StructureInfo, Track)
@@ -1998,6 +1999,18 @@ def compute_gather(
         for t in tracks:
             t.included = t.filename in forced
 
+    # Slice 5: cosmetic strip of the FINAL titles, after every flag, set label and
+    # structure above was computed from the pre-strip titles (spec "Slice 5").
+    title_paths = cascade.paths
+    if "slice5" in enabled_slices:
+        tracks, strip_notes, changed = cosmetic_strip(tracks)
+        op_notes += strip_notes
+        if changed:
+            paths = list(title_paths)
+            for pos in changed:
+                paths[pos] += "+5"
+            title_paths = tuple(paths)
+
     show = Show(
         performance_id=candidate.performance_id,
         identifier=identifier,
@@ -2024,7 +2037,7 @@ def compute_gather(
     return GatherResult(show=show, reviews=md.get("reviews", []), notes=op_notes,
                         needs_llm=needs_llm, taper_owned=taper_owned, taper=decision,
                         step1_alignment=step1_alignment, self_filled=cascade.self_filled,
-                        title_paths=cascade.paths, title_record=cascade.record)
+                        title_paths=title_paths, title_record=cascade.record)
 
 
 def run_gather(

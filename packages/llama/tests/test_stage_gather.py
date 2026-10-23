@@ -4288,3 +4288,52 @@ def test_today_reaches_llm_unchanged_for_self_filled(tmp_path, monkeypatch):
                          None, make_candidate(), IDENT)
     assert res.self_filled is True
     assert seen["llm"] is True
+
+
+# --- Title hygiene (piece 3), Task 18: slice 5 wired before `Show` is built ------------------
+
+def _slice5_md(include_stamp: bool = False) -> dict:
+    md = json.loads(FIXTURE.read_text())
+    for f in md["files"]:
+        if f["name"] == "gd73-06-10d1t02.mp3":
+            f["title"] = "06:58 - China Cat Sunflower"
+    return md
+
+
+def test_cosmetic_strip_runs_after_flags(tmp_path: Path):
+    """Slice 5 ships `06:58 - China Cat Sunflower` as `China Cat Sunflower`, with one note
+    at the END of the notes and a `+5` path, while flags and set labels equal the same gather
+    with slice 5 off (computed from the pre-strip titles)."""
+    on = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(_slice5_md()), None,
+                        make_candidate(), IDENT)
+    off = compute_gather(ShowWorkspace(tmp_path / "b"), StubIA(_slice5_md()), None,
+                         make_candidate(), IDENT,
+                         enabled_slices=title_hygiene.ALL_SLICES - {"slice5"})
+    assert off.show.tracks[1].title == "06:58 - China Cat Sunflower"
+    assert on.show.tracks[1].title == "China Cat Sunflower"
+    assert on.show.tracks[1].title_source == "tags"
+    assert on.show.review_flags == off.show.review_flags
+    assert [t.set for t in on.show.tracks] == [t.set for t in off.show.tracks]
+    note = "cosmetic title strip: track 2 '06:58 - China Cat Sunflower' -> 'China Cat Sunflower'"
+    assert on.notes[-1] == note and on.notes[:-1] == off.notes
+    assert off.title_paths[1] == "" and on.title_paths[1] == "+5"
+    assert on.title_paths[0] == off.title_paths[0] == ""
+    assert on.title_paths[2:] == off.title_paths[2:]
+
+
+def test_cosmetic_strip_keeps_included_stamp(tmp_path: Path):
+    """The strip copies tracks, so the operator `include` stamp (applied just before) rides
+    along on the stripped track."""
+    ws = ShowWorkspace(tmp_path / "s")
+    write_artifact(ws.overrides, Overrides(include=["gd73-06-10d1t02.mp3"]))
+    res = compute_gather(ws, StubIA(_slice5_md()), None, make_candidate(), IDENT)
+    t = res.show.tracks[1]
+    assert t.title == "China Cat Sunflower" and t.included is True
+    assert res.show.tracks[0].included is False
+
+
+def test_cosmetic_strip_off_when_slice5_disabled(tmp_path: Path):
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_slice5_md()), None,
+                         make_candidate(), IDENT, enabled_slices=frozenset())
+    assert res.show.tracks[1].title == "06:58 - China Cat Sunflower"
+    assert not any(n.startswith("cosmetic title strip") for n in res.notes)
