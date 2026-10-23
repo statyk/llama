@@ -1,0 +1,8 @@
+docs-final: DONE. Commit 1494e94 (docs only; 7 files).
+Edits:
+- spec 2026-10-22-title-hygiene-design.md lines 57 and 290: "It adds no holds." -> ruled text ("It raises no flag of its own; it moves alignment coverage both ways (measured: 1 hold added, 6 as-is / 9 fresh-get low-confidence holds removed)."). The spec has no C-1 description, so no C-1 edit there.
+- acceptance.md: status line -> "no open items", both rulings dated 2026-10-23 with section pointers; both kinggizzard rows -> "accepted cost (operator ruling 2026-10-23)" (cause/evidence kept; "contradicts the spec" sentences changed to "amended by the ruling"); (d) summary: pending row -> "accepted cost, by ruling (operator ruling 2026-10-23)"; "by ruling" row label corrected per accept-rr1; "pending ruling" mentions (good-shows block, B4 row) updated; M-8 gate table gets the `other` row (14/12/0/0); C-1 heading "(ruled 2026-10-23)" and Status paragraph replaced (approval, 3751735, pins, 4 shows zero differing keys, numbers stand, remaining limit); Suite section: 4787 passed, 1 skipped, 8 deselected at 3751735.
+- CLAUDE.md Title hygiene bullet: C-1 narrowed rule; C-1 limitation -> uncorroborated shifted set ships as tagged; C2/coverage clause = ruled wording + accepted cost (operator ruling 2026-10-23).
+- SDD record: orch-r3/final-rulings.md, verdicts/c1n.md, verdicts/t22-fix2.md copied; README lists final-rulings.md beside the checkpoint rulings.
+(d) summary counts: as-is 10 stop / 4 accepted cost by ruling (3 Q1/B3 + 1 kinggizzard) / 0 other (14 rows); fresh-get 11 / 4 / 0 (15 rows).
+acceptance.md sha256: fc31e126db6ac24a105d60297278a17a4a3c114f3efda239d2f338c3d86e3444
