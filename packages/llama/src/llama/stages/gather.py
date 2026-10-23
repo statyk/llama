@@ -1732,7 +1732,13 @@ def compute_gather(
             # Not owned (step 4): exactly today's path from here on -- the
             # anchoring note, else the LLM branch below, then every flag.
             notes.append(anchor_note)
-        elif today_llm:
+        elif today_llm and not cascade.self_filled:
+            # (A self-filled tape -- every song-like track `desc-position` and D passed
+            # all its checks -- never gets here: spec Q2, operator ruling "let them
+            # ship". No align_structure call, no needs_align verdict, no low-confidence
+            # flag; labels come from jerrybase anchoring when it resolved, else from
+            # the deterministic align() above. `today_llm` itself, as passed to
+            # `decide_taper`, is unchanged.)
             # No usable jerrybase evidence and the alignment is weak: fall back
             # to LLM realignment, then to a review flag.
             llm_result = None

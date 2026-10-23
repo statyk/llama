@@ -466,7 +466,8 @@ def test_show_replay_to_dict_has_the_contract_keys_plus_date():
         "reproduces", "title_changes", "venue", "city", "date", "selected_venue", "selected_city",
         "set_changes", "segue_changes", "set_breaks", "alignment", "notes", "digests",
         "slfm_miss", "unreplayable", "taper_owned", "sets", "filler", "taper_source",
-        "taper_reason", "step1_alignment"]
+        "taper_reason", "step1_alignment", "self_filled", "desc_position", "titles",
+        "title_sources", "title_paths", "cascade"]
     assert r.to_dict()["date"] is None
 
 
@@ -740,3 +741,88 @@ def test_record_carries_taper_fields(tmp_path):
     assert plain.taper_source == "none" and plain.taper_reason
     assert plain.sets and len(plain.filler) == len(plain.sets)
     assert plain.step1_alignment == "deterministic"
+
+
+# --- Title hygiene (piece 3), Task 17: Q2 self-filled tapes and the replay record ----------
+
+_SF_NAMES = ["gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+             "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+_SF_SONGS = ["Morning Dew", "Dark Star", "Blue Side of Town",
+             "Get Down On Your Knees and Pray", "All Aboard", "Salty Dog"]
+
+
+def _untag(root, description, *, tag_first=None, tag_names=()):
+    """Rewrite the cached item so its six mp3s carry no title tag and its description is
+    `description` (a self-filled-tape fixture for the stored gd73 show)."""
+    cache = root / "cache" / f"md_{IDENT}.json"
+    md = json.loads(cache.read_text())
+    md["metadata"]["description"] = description
+    for f in md["files"]:
+        if f.get("name") in _SF_NAMES:
+            f.pop("title", None)
+            if tag_first and f["name"] == _SF_NAMES[0]:
+                f["title"] = tag_first
+            if f["name"] in tag_names:
+                f["title"] = _SF_SONGS[_SF_NAMES.index(f["name"])]
+    cache.write_text(json.dumps(md))
+
+
+def test_stored_llm_self_filled_is_replayable(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm")
+    _untag(tmp_path, "\n".join(_SF_SONGS) + "\n")
+    legs = _legs(tmp_path, ws)
+    assert legs.gather.self_filled is True and legs.gather.taper_owned is False
+    assert "stored alignment llm" not in legs.needs_llm
+    assert legs.needs_llm == []
+
+
+def test_stored_llm_not_self_filled_stays_needs_llm(tmp_path):
+    # (pin) one independent song-like title (not on the list) keeps today's rule.
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm")
+    _untag(tmp_path, "\n".join(_SF_SONGS) + "\n", tag_first="Zebra Stripes")
+    legs = _legs(tmp_path, ws)
+    assert legs.gather.self_filled is False
+    assert "stored alignment llm" in legs.needs_llm
+
+
+_CASCADE_KEYS = ["s_mode", "s_fills", "s_declined", "deferred_applied", "d_fills", "d_failed",
+                 "d_track_declines", "c_changed", "c_declined", "short4", "short4_declined",
+                 "gap_filled"]
+
+
+def test_record_carries_title_fields(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True)
+    _untag(tmp_path, "\n".join(_SF_SONGS) + "\n")
+    r = _replay(tmp_path, ws)
+    assert r.self_filled is True and r.desc_position == 6
+    assert r.titles == _SF_SONGS
+    assert r.title_sources == ["desc-position"] * 6
+    assert r.title_paths == ["D"] * 6
+    assert list(r.cascade) == _CASCADE_KEYS
+    assert r.cascade["d_fills"] == [1, 2, 3, 4, 5, 6] and r.cascade["d_failed"] is None
+    json.dumps(r.to_dict())                       # the arm is JSON
+    # a D-declined show: an annotation entry declines every fill (check 1)
+    ws2, _ = _library_show(tmp_path, held=True, date="1973-06-11")
+    # (tagged tracks keep it off today's LLM branch, so the row is not needs-LLM)
+    _untag(tmp_path, "\n".join(_SF_SONGS[:5] + ["w/ Bob Weir"]) + "\n",
+           tag_names=_SF_NAMES[:5])
+    r2 = _replay(tmp_path, ws2)
+    assert r2.self_filled is False and r2.desc_position == 0
+    assert r2.cascade["d_fills"] == [] and r2.cascade["d_failed"] == "hygiene:annotation"
+    # an unreplayable row carries an empty record
+    (tmp_path / "cache" / f"md_{IDENT}.json").unlink()
+    assert _replay(tmp_path, ws).cascade == {}
+
+
+def test_compute_legs_threads_enabled_slices(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True)
+    _untag(tmp_path, "\n".join(_SF_SONGS) + "\n")
+    kw = dict(config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"), slfm=None)
+    off = compute_legs(ws, scratch=tmp_path / "s0", enabled_slices=frozenset(), **kw)
+    assert {t.title_source for t in off.gather.show.tracks} == {"setlist"}
+    assert [t.title for t in off.gather.show.tracks] == _SF_SONGS       # today's titles
+    on = compute_legs(ws, scratch=tmp_path / "s1", **kw)
+    assert {t.title_source for t in on.gather.show.tracks} == {"desc-position"}
+    r = replay_show(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"), slfm=None,
+                    scratch=tmp_path / "s2", delivered=set(), enabled_slices=frozenset())
+    assert r.self_filled is False and r.title_sources == ["setlist"] * 6

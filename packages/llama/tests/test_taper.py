@@ -4457,3 +4457,18 @@ def test_today_reaches_llm_is_required():
     with pytest.raises(TypeError):
         decide_taper(mk(TODAY_ENC_TRACKS), {"description": TWO_SETS}, aliases={},
                      today_sets=["1"] * 5)
+
+
+def test_taper_never_owns_a_self_filled_tape():
+    """Spec Q2 (defensive): `_counts` excludes tautological sources, so a tape whose every
+    track is `desc-position` is never taper-owned, markers placeable or not."""
+    songs = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"]
+    tracks = mk(songs, {i: "desc-position" for i in range(1, 7)})
+    desc = "Set 1:\nAlpha\nBravo\nCharlie\nSet 2:\nDelta\nEcho\nFoxtrot\n"
+    d = decide_taper(tracks, {"description": desc}, aliases={}, today_sets=["1"] * 6,
+                     today_reaches_llm=False)
+    assert d.placement is None
+    # control: the same tape with tag titles is owned
+    d2 = decide_taper(mk(songs), {"description": desc}, aliases={}, today_sets=["1"] * 6,
+                      today_reaches_llm=False)
+    assert d2.placement is not None

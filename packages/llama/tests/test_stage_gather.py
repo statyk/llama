@@ -1454,13 +1454,11 @@ def test_gather_artist_item_does_not_block_title_resolution(tmp_path: Path):
     leaves this test green, removing both reddens it -- measured, Task 16
     fix round 1.)
 
-    `needs_review` is not False here, a SEPARATE, correctly-ruled consequence
-    of Important 2 (`desc-position`, like `setlist`, is in
-    TAUTOLOGICAL_TITLE_SOURCES): the independent-evidence set
-    _songish_coverage computes over is empty, coverage is the safe-direction
-    0.0, and "low-confidence structure alignment" fires -- this show's titles
-    came entirely from the list it is being checked against. (Task 17, Q2,
-    changes that for a self-filled tape.)
+    `matched` is None on every track (`desc-position`, like `setlist`, is in
+    TAUTOLOGICAL_TITLE_SOURCES): the independent-evidence set _songish_coverage computes
+    over is empty and coverage is the safe-direction 0.0. Before Task 17 that raised
+    "low-confidence structure alignment" (the titles came entirely from the list the tape is
+    checked against); spec Q2 now exempts a self-filled tape, so the show ships clean.
 
     Round 2 (review): `matched` is ALSO None on every track now, not just
     excluded from coverage's denominator -- gather.py's final assembly
@@ -1484,8 +1482,10 @@ def test_gather_artist_item_does_not_block_title_resolution(tmp_path: Path):
     assert show.structure is not None
     assert show.structure.conflicts == []
     assert show.structure.coverage == 0.0
-    assert show.review_flags == ["low-confidence structure alignment"]
-    assert show.needs_review is True
+    # Spec Q2 (Task 17): every song-like track is `desc-position` and D passed, so the tape
+    # is self-filled: no low-confidence flag, no hold.
+    assert show.review_flags == []
+    assert show.needs_review is False
     assert all(t.matched is None for t in show.tracks)
 
     # Today's rungs (no slices): the S rung fills all six from the canonical, which it
@@ -4181,3 +4181,82 @@ def test_canonical_notes_precede_sibling_notes_in_conflicts(tmp_path: Path):
     assert res.show.structure.conflicts == [
         f"could not fetch sibling {flaky}: boom 503",
         "sibling alignment needs operator review (anchor agreement 75%)"]
+
+
+# --- Title hygiene (piece 3), Task 17: Q2 self-filled tapes ship ------------------------
+
+class _NoAlignProvider:
+    """An `align_provider` that fails the test if the `align_structure` LLM branch calls it."""
+
+    def __getattr__(self, name):
+        raise AssertionError(f"align_structure LLM branch reached ({name})")
+
+
+def _mccoury_one_tagged():
+    md = _mccoury_md(tagged=False)
+    for f in md["files"]:
+        if f.get("name") == "gd73-06-10d1t01.mp3":
+            f["title"] = "Zebra Stripes"      # independent, and not on the list: coverage 0
+    return md
+
+
+def test_self_filled_tape_skips_align_structure_and_the_flag(tmp_path):
+    """Spec Q2: every song-like track `desc-position` and D passed -> no align_structure
+    call, no needs_align verdict, no low-confidence flag; labels are deterministic align()'s."""
+    res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(_mccoury_md(tagged=False)),
+                         _NoAlignProvider(), make_candidate(), IDENT)
+    assert res.self_filled is True
+    assert "low-confidence structure alignment" not in res.show.review_flags
+    # today's path for the same tape (slices off) does reach the flag
+    today = compute_gather(ShowWorkspace(tmp_path / "t"), StubIA(_mccoury_md(tagged=False)),
+                           None, make_candidate(), IDENT, enabled_slices=frozenset())
+    assert today.self_filled is False
+    # no provider: the needs-LLM verdict is not recorded either
+    res2 = compute_gather(ShowWorkspace(tmp_path / "b"), StubIA(_mccoury_md(tagged=False)),
+                          None, make_candidate(), IDENT)
+    assert res2.self_filled is True
+    assert "align_structure" not in res2.needs_llm
+    assert [t.set for t in res2.show.tracks] == [t.set for t in res.show.tracks]
+    assert res2.show.structure.alignment == "deterministic"
+
+
+def test_one_independent_title_keeps_low_confidence(tmp_path):
+    """(pin) Spec Q2's exception is narrow: ANY independent song-like title keeps today's
+    LLM branch and flag."""
+    res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(_mccoury_one_tagged()),
+                         None, make_candidate(), IDENT)
+    assert res.self_filled is False
+    assert "align_structure" in res.needs_llm
+    assert "low-confidence structure alignment" in res.show.review_flags
+
+
+def test_jerrybase_anchoring_still_labels_a_self_filled_family_tape(tmp_path, monkeypatch):
+    songs = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"]
+    md = _mccoury_md(tagged=False)
+    md["metadata"]["creator"] = "Grateful Dead"
+    md["metadata"]["description"] = "\n".join(songs) + "\n"
+    monkeypatch.setattr(jerrybase, "lookup",
+                        lambda a, d: [_jb_event([("Charlie", "1"), ("Foxtrot", "2")])])
+    res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(md), _NoAlignProvider(),
+                         make_candidate(), IDENT, jerrybase_enabled=True)
+    assert res.self_filled is True
+    assert res.show.structure.alignment == "jerrybase"
+    assert [t.set for t in res.show.tracks] == ["1", "1", "1", "2", "2", "2"]
+    assert "low-confidence structure alignment" not in res.show.review_flags
+
+
+def test_today_reaches_llm_unchanged_for_self_filled(tmp_path, monkeypatch):
+    """The value passed to `decide_taper` is today's predicate, not suppressed by Q2."""
+    seen = {}
+    real = taper_mod.decide_taper
+
+    def spy(tracks, meta, *, aliases, today_sets, today_reaches_llm):
+        seen["llm"] = today_reaches_llm
+        return real(tracks, meta, aliases=aliases, today_sets=today_sets,
+                    today_reaches_llm=today_reaches_llm)
+
+    monkeypatch.setattr(taper_mod, "decide_taper", spy)
+    res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(_mccoury_md(tagged=False)),
+                         None, make_candidate(), IDENT)
+    assert res.self_filled is True
+    assert seen["llm"] is True

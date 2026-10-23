@@ -1123,3 +1123,24 @@ def test_reapply_processes_a_taper_owned_stored_llm_show(tmp_path, monkeypatch):
     assert done.outcome == "cleared" and calls
     final = read_model(entry.ws.show, Show)
     assert final.structure.taper_owned is True and final.structure.alignment != "llm"
+
+
+def test_reapply_processes_a_self_filled_stored_llm_show(tmp_path, monkeypatch):
+    """Title hygiene (Task 17, spec Q2): a stored-`llm` show the new gather finds self-filled
+    is replayable, so reapply processes it; its structure changed, so it needs the flag."""
+    from test_replay import _SF_SONGS, _untag
+    root, config, ledger, entry, _ = _env(tmp_path)
+    show = read_model(entry.ws.show, Show)
+    show.structure = show.structure.model_copy(update={"alignment": "llm"})
+    write_artifact(entry.ws.show, show)
+    _untag(root, "\n".join(_SF_SONGS) + "\n")
+    _stub_package(monkeypatch)
+    before = _snapshot(entry.ws)
+    out = _run(config, ledger, entry)
+    assert out.outcome == "skipped: structure changed"          # refused without the flag
+    assert _snapshot(entry.ws) == before
+    ok = json.dumps(dict(context="c", significance="s", per_set={"1": ["a"]}))
+    out = reapply_show(config, object(), ledger, entry, providers=_providers(ok), row=None,
+                       dry_run=False, echo=lambda s: None, allow_structure_change=True)
+    assert out.outcome == "cleared" and "show.json" in out.written
+    assert {t.title_source for t in read_model(entry.ws.show, Show).tracks} == {"desc-position"}

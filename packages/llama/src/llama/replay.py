@@ -18,12 +18,13 @@ from pathlib import Path
 import llama
 from llama.catalog import derive_state
 from llama.config import Config
+from llama import title_hygiene
 from llama.errors import LlamaError
 from llama.models import Briefing, Overrides, Provenance, Show, VettingResult
 from llama.setlistfm import _pick, cache_key
 from llama.stages import brief as brief_stage, package as package_stage
 from llama.stages.brief import briefing_guard, normalize_briefing
-from llama.stages.gather import GatherResult, compute_gather
+from llama.stages.gather import CascadeRecord, GatherResult, compute_gather
 from llama.stages.vet_research import VetOutcome, apply_vet
 from llama.structure import is_filler
 from llama.workspace import ShowWorkspace, read_model, read_overrides
@@ -295,7 +296,8 @@ class Legs:
 
 
 def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlistFM | None",
-                 scratch: Path) -> Legs:
+                 scratch: Path,
+                 enabled_slices: frozenset[str] = title_hygiene.ENABLED_SLICES) -> Legs:
     """Replay one library show into `scratch` (recreated empty, then given a
     copy of `overrides.json` and nothing else); `ws.dir` is only read.
 
@@ -325,10 +327,13 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
     gathered = compute_gather(
         ShowWorkspace(scratch), ia, None, prov.candidate, stored.identifier,
         audio_format=config.audio_format, align_provider=None, setlistfm=slfm,
-        structure_cfg=config.structure, jerrybase_enabled=config.jerrybase.enabled)
+        structure_cfg=config.structure, jerrybase_enabled=config.jerrybase.enabled,
+        enabled_slices=enabled_slices)
     needs_llm = list(gathered.needs_llm)
     if (stored.structure is not None and stored.structure.alignment == "llm"
-            and not gathered.taper_owned):
+            and not gathered.taper_owned and not gathered.self_filled):
+        # Piece 2 relaxation (taper_owned) extended by piece 3 (self_filled, spec Q2): neither
+        # makes an align_structure call, so the stored `llm` alignment is replayable.
         needs_llm.append("stored alignment llm")
 
     vet: VetOutcome | None = None
@@ -426,9 +431,43 @@ class ShowReplay:
     taper_source: str | None = None
     taper_reason: str | None = None
     step1_alignment: str | None = None
+    # Piece 3 (title hygiene). Base-arm rows lack these keys. `titles`, `title_sources` and
+    # `title_paths` are per track of `gathered.show`, before vet; `cascade` is the record of
+    # the cascade (`_cascade_dict`), positions 1-based, `{}` on an unreplayable or needs-LLM row.
+    self_filled: bool = False
+    desc_position: int = 0
+    titles: list[str] = dataclasses.field(default_factory=list)
+    title_sources: list[str] = dataclasses.field(default_factory=list)
+    title_paths: list[str] = dataclasses.field(default_factory=list)
+    cascade: dict = dataclasses.field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
+
+
+def _cascade_dict(rec: CascadeRecord | None) -> dict:
+    """The cascade's fills and declines for the harness (positions 1-based; the dict keys of
+    `d_track_declines` and `short4_declined` are strings so an arm survives a JSON round trip)."""
+    if rec is None:
+        return {}
+    one = lambda xs: sorted(p + 1 for p in xs)   # noqa: E731
+    d, c = rec.d, rec.lossless
+    return {
+        "s_mode": rec.s_plan.mode,
+        "s_fills": one(rec.s_plan.fills),
+        "s_declined": one(rec.s_plan.declined),
+        "deferred_applied": one(rec.deferred_applied),
+        "d_fills": one(d.fills) if d is not None else [],
+        "d_failed": d.failed[0][0] if d is not None and d.failed else None,
+        "d_track_declines": ({str(p + 1): v for p, v in sorted(d.track_declines.items())}
+                             if d is not None else {}),
+        "c_changed": ({str(p + 1): v for p, v in sorted(c.changed.items())}
+                      if c is not None else {}),
+        "c_declined": c.declined if c is not None else None,
+        "short4": one(rec.short4),
+        "short4_declined": {str(p + 1): v for p, v in sorted(rec.short4_declined.items())},
+        "gap_filled": one(rec.gap_filled),
+    }
 
 
 class _OverridesUnreadable(Exception):
@@ -445,7 +484,8 @@ def _selected(prov: Provenance, identifier: str) -> tuple[str | None, str | None
 
 
 def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlistFM | None",
-                scratch: Path, delivered: set[str]) -> ShowReplay:
+                scratch: Path, delivered: set[str],
+                enabled_slices: frozenset[str] = title_hygiene.ENABLED_SLICES) -> ShowReplay:
     """One show's arm row (plan "Contracts": ShowReplay). Never raises for a
     per-show failure: a cache miss, an unreadable `overrides.json` or any
     other exception is recorded as `outcome="unreplayable"`, so one bad show
@@ -475,7 +515,8 @@ def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlis
                 r.selected_venue, r.selected_city = _selected(
                     read_model(ws.provenance, Provenance), stored.identifier)
 
-        legs = compute_legs(ws, config=config, ia=ia, slfm=slfm, scratch=scratch)
+        legs = compute_legs(ws, config=config, ia=ia, slfm=slfm, scratch=scratch,
+                            enabled_slices=enabled_slices)
         r.gather_flags = list(legs.gather.show.review_flags)
         r.vet_flags = list(legs.vet.result.flags) if legs.vet is not None else []
         r.brief_flags = list(legs.brief_flags)
@@ -495,6 +536,12 @@ def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlis
         r.taper_source = g.taper.source if g.taper is not None else None
         r.taper_reason = g.taper.reason if g.taper is not None else None
         r.step1_alignment = g.step1_alignment
+        r.self_filled = bool(g.self_filled)
+        r.desc_position = sum(1 for t in g.show.tracks if t.title_source == "desc-position")
+        r.titles = [t.title for t in g.show.tracks]
+        r.title_sources = [t.title_source for t in g.show.tracks]
+        r.title_paths = list(g.title_paths)
+        r.cascade = {} if r.needs_llm else _cascade_dict(g.title_record)
     except CacheMiss as err:
         r.outcome, r.unreplayable = "unreplayable", str(err)
     except _OverridesUnreadable:
