@@ -10,9 +10,11 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from llama.desc_list import Cleaned, clean_one, is_header_shape
+from llama.desc_list import Cleaned, DescList, clean_one, is_header_shape, written_seconds
 from llama.placeholders import is_placeholder, is_residue, is_timestamp, looks_like_filename
+from llama.models import ParsedSetlist, Track
 from llama.setlist import MAX_TITLE_LEN
+from llama.siblings import MIN_ANCHORS
 from llama.structure import (
     fuzzy_norm_title,
     fuzzy_title_eq,
@@ -132,3 +134,89 @@ def judge(c: Cleaned, *, track_no: int, first: bool, stem: str, own_core: str,
             return _show("hygiene:over length")
         return _show("hygiene:junk title")
     return _OK
+
+
+def _has_title(t: Track) -> bool:
+    return t.title_source != "unresolved" and bool(t.title.strip())
+
+
+def adjacent_duplicate(cands: dict[int, str], tracks: list[Track]) -> tuple[int, str, str] | None:
+    """Check 2. `cands` maps a 0-BASED position to its candidate; a neighbour is its own
+    candidate if it has one, else its current title when not unresolved. First hit."""
+    for pos in sorted(cands):
+        for nb in (pos - 1, pos + 1):
+            if nb < 0 or nb >= len(tracks):
+                continue
+            if nb in cands:
+                other = cands[nb]
+            elif _has_title(tracks[nb]):
+                other = tracks[nb].title
+            else:
+                continue
+            if duplicate(cands[pos], other):
+                return pos, cands[pos], other
+    return None
+
+
+def position_agreement(track: Track, c: Cleaned) -> str:
+    """Check 3's judgement of one position, on the entry's cleaned text (a `Filler:`
+    marker is already stripped; `filler_marked` plays no part). No aliases."""
+    if track.title_source not in INDEPENDENT_SOURCES:
+        return "skip"
+    tf, ef = is_filler(track.title), is_filler(c.text)
+    if tf and ef:
+        return "neutral"
+    if tf != ef:
+        return "disagree"
+    return "agree" if agrees(track.title, c.text) else "disagree"
+
+
+def tape_disagreement(tracks: list[Track], dl: DescList) -> tuple[int, str, str] | None:
+    """Check 3: the first position (0-based) whose independent title disagrees with the
+    list entry there, as (pos, title, entry text)."""
+    for pos in range(min(len(tracks), len(dl.cleaned))):
+        if position_agreement(tracks[pos], dl.cleaned[pos]) == "disagree":
+            return pos, tracks[pos].title, dl.cleaned[pos].text
+    return None
+
+
+def written_duration_mismatch(tracks: list[Track], dl: DescList) -> tuple[int, float, float] | None:
+    """Written durations: with at least `WRITTEN_DURATION_MIN_SHARE` of the entries carrying
+    one, the first position (0-based) whose file length is off by more than
+    max(TOL_SEC, TOL_FRAC * written), as (pos, file, written). A track with no length is
+    skipped."""
+    n = len(dl.cleaned)
+    if not n:
+        return None
+    written = [written_seconds(c) for c in dl.cleaned]
+    if sum(1 for w in written if w is not None) < WRITTEN_DURATION_MIN_SHARE * n:
+        return None
+    for pos in range(min(len(tracks), n)):
+        w, f = written[pos], tracks[pos].duration_sec
+        if w is None or f is None:
+            continue
+        if abs(f - w) > max(WRITTEN_DURATION_TOL_SEC, WRITTEN_DURATION_TOL_FRAC * w):
+            return pos, f, w
+    return None
+
+
+def agreement_share(dl: DescList, canonical: ParsedSetlist,
+                    aliases: dict[str, str]) -> float | None:
+    """Share of the list's song-like entries that some canonical item matches (order-free,
+    whole list). The ONE place `GD_SHORTHAND` is expanded: the caller passes it for a
+    family artist, `{}` otherwise."""
+    if not canonical.items:
+        return None
+    songs = [c.text for c in dl.cleaned if not c.filler_marked and not is_filler(c.text)]
+    if not songs:
+        return None
+    hit = sum(1 for e in songs if any(agrees(e, it.title, aliases) for it in canonical.items))
+    return hit / len(songs)
+
+
+def wholly_untagged(tag_titles: list[str], demoted: frozenset[int]) -> bool:
+    """Fewer than `MIN_ANCHORS` song-like real tag titles (0-based positions in `demoted`
+    are 2b-demoted and do not count)."""
+    real = sum(1 for i, t in enumerate(tag_titles)
+               if i not in demoted and not is_filler(t) and is_real_title(t))
+    return real < MIN_ANCHORS
