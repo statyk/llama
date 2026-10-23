@@ -173,11 +173,14 @@ def _lines(desc: str) -> list[str]:
     return html.unescape(text).splitlines()
 
 
-# Checkpoint A ruling R16: an encore header ALONE on its line is a block boundary by default.
+# Checkpoint A ruling R16: an encore header ALONE on its line is a block boundary, and (R16
+# clarification) so is anything the taper's own encore-header grammar reads (`Encore 1:`,
+# `(encore)`, `Encore: Disc 3:`). `encore_header=False` keeps only the narrow lone-line form:
+# the pre-clarification behaviour, which the gate probe uses as its R16 baseline.
 _ENCORE_ONLY_LINE = re.compile(r"^\s*(?:encore\s*:?|enc\s*:|e\s*:)\s*$", re.I)
 
 
-def _header_kind(line: str, encore_header: bool) -> str | None:
+def _header_kind(line: str, encore_header: bool = True) -> str | None:
     for rx in taper._SET_HEADERS:
         if rx.match(line):
             return "set"
@@ -190,7 +193,7 @@ def _header_kind(line: str, encore_header: bool) -> str | None:
     return None
 
 
-def read_numbered(desc: str, *, encore_header: bool = False) -> DescList | str:
+def read_numbered(desc: str, *, encore_header: bool = True) -> DescList | str:
     """The taper's numbered lines as one list with blocks, or a reason string."""
     # (kind of header seen since the previous entry, disc, num, text)
     items: list[tuple[str | None, int | None, int, str]] = []

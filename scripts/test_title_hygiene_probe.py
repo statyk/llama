@@ -206,6 +206,9 @@ def test_alternatives_present(tmp_path):
             assert key in r, (r["slug"], key)
     n = next(r for r in rows if r["slug"] == NUMBERED)
     assert n["alt_encore_restart"]["default"] == "admitted"
+    # the narrow baseline can only be stricter than the default reader
+    assert n["alt_encore_restart"]["narrow"] == "admitted"
+    assert not n["alt_encore_restart"]["admits_new"]
     assert n["alt_hygiene_all_entries"] is not None
     assert n["alt_encore_fold"] is not None
 
@@ -451,7 +454,7 @@ def test_alternative_rows_read_the_dump(tmp_path):
     a["alt_hygiene_all_entries"] = {"d_ran": True, "candidates": [0], "failures": [],
                                     "extra": [{"pos": 5, "check": "hygiene:timestamp",
                                                "text": "12:00", "candidate": False}]}
-    a["alt_encore_restart"] = {"default": "non-contiguous at 9", "encore_header": "admitted",
+    a["alt_encore_restart"] = {"default": "admitted", "encore_header": "admitted", "narrow": "non-contiguous at 9",
                                "admits_new": True, "count_matched": True}
     c["alt_c1"] = {"declined": "C1 unconfirmed", "c_holds": None,
                    "targets": [{"pos": 0, "a": True, "b": None, "adopted": False},

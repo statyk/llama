@@ -440,14 +440,20 @@ def _alternatives(v: dict) -> dict:
             "d_ran": rec.d is not None, "candidates": pre_d_open, "failures": fails,
             "extra": [f for f in fails if not f["candidate"]]}
 
-    # R16: a numbering restart after an `Encore` header.
+    # R16: a numbering restart after an `Encore` header. Since the R16 clarification the taper's
+    # encore-header grammar is the DEFAULT, so `default` is the shipped reader; the alternative
+    # is the narrow lone-line grammar (`encore_header=False`), the pre-clarification reader.
+    # "admits_new" therefore means: admitted by the default but not by the narrow reader. On a
+    # tree before the clarification both are identical and nothing is reported.
     desc = G._description(v["meta"])
-    default, enc = read_numbered(desc), read_numbered(desc, encore_header=True)
+    default = read_numbered(desc)
+    narrow = read_numbered(desc, encore_header=False)
     alt["alt_encore_restart"] = {
         "default": "admitted" if isinstance(default, DescList) else default,
-        "encore_header": "admitted" if isinstance(enc, DescList) else enc,
-        "admits_new": isinstance(enc, DescList) and not isinstance(default, DescList),
-        "count_matched": isinstance(enc, DescList) and len(enc.raws) == n}
+        "encore_header": "admitted" if isinstance(default, DescList) else default,
+        "narrow": "admitted" if isinstance(narrow, DescList) else narrow,
+        "admits_new": isinstance(default, DescList) and not isinstance(narrow, DescList),
+        "count_matched": isinstance(default, DescList) and len(default.raws) == n}
 
     # R17: C1's per-target verdicts and the (c) adoptions where (a) or (b) disagreed.
     ll = rec.lossless

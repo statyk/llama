@@ -128,11 +128,37 @@ def test_restart_after_encore_line():
     for hdr in ("Encore:", "Encore", "E:", "Enc:", "ENCORE"):
         d = read_numbered(f"1. A\n2. B\n{hdr}\n1. C")
         assert d.boundaries == ("encore",) and d.blocks == (0, 0, 1), hdr
-    # the broader taper._ENCORE_HEADER alternative stays behind the parameter
-    s = "1. A\n2. B\nEncore 2:\n1. C"
-    assert read_numbered(s) == "non-contiguous at 1"
-    d = read_numbered(s, encore_header=True)
-    assert d.boundaries == ("encore",) and d.blocks == (0, 0, 1)
+    # Checkpoint A R16 clarification: the taper's own encore-header grammar is recognised by
+    # default too (`Encore 2:`), not only a lone `Encore:` line.
+    for hdr in ("Encore 2:", "Encore 1:", "(encore)", "Encore: Disc 3:", "1st Encore:"):
+        d = read_numbered(f"1. A\n2. B\n{hdr}\n1. C")
+        assert d.boundaries == ("encore",) and d.blocks == (0, 0, 1), hdr
+    # `encore_header=False` is the pre-clarification narrow grammar (the probe's baseline)
+    assert read_numbered("1. A\n2. B\nEncore 2:\n1. C", encore_header=False) \
+        == "non-contiguous at 1"
+    assert read_numbered("1. A\n2. B\nEncore:\n1. C", encore_header=False).blocks == (0, 0, 1)
+
+
+def test_r16_clarification_real_descriptions():
+    # excerpts of the cached item descriptions (aod: the 4a/4b lines omitted)
+    aod = ("Disc 1\nSet 1\n01. Rachel\n02. Bus Driver\n03. Westerly\n04. Grand Design*\n"
+           "05. The Time Of Deeds\n06. Fountain**\n07. Stone Choir\n\nDisc 2\nSet2\n"
+           "01. Corpus Christi\n02. Champagne Supernova^\n03. Man With A Plan\n"
+           "04. Cabin John->\n05. Sinner\n06. Love Junkie\n07. Weekhawken Ferry\n"
+           "08. Speculator->\n\nDisc 3\n09. Harrower\nEncore 1:\n01. Crest Of My Wing***\n"
+           "02. Up On Cripple Creek^\n03. Valhalla\n04.  Love The One You're With^\n"
+           "Encore 2:\n01. Songs We Sing")
+    d = read_numbered(aod)
+    assert d.raws[-1] == "Songs We Sing" and d.boundaries[-2:] == ("encore", "encore")
+    mog = ("*CD1*\n01. Intro\n02. Hunted By a Freak\n\n*CD2*\n(encore)\n"
+           "01. Ithica 27o9\n02. We're No Here")
+    d = read_numbered(mog)
+    assert d.raws[-2:] == ("Ithica 27o9", "We're No Here") and d.boundaries[-1] == "encore"
+    rre = ("Set 1: Disc 1: \n01. Lordy Lordy \n02. Chains \n\nSet 2: Disc 2: \n"
+           "01. //Long Way To Go \n02. The Wheel \n\nEncore: Disc 3: \n1. Bird In A House \n"
+           "2. Railroad Earth")
+    d = read_numbered(rre)
+    assert d.raws[-1] == "Railroad Earth" and d.boundaries[-1] == "encore"
 
 
 def test_restart_after_encore_header_real_case():
