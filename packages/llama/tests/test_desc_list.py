@@ -124,10 +124,24 @@ def test_header_with_text_is_a_boundary_not_an_entry():
 
 
 def test_restart_after_encore_line():
-    s = "1. A\n2. B\nEncore:\n1. C"
+    # Checkpoint A ruling R16: a header alone on its line is a boundary by default.
+    for hdr in ("Encore:", "Encore", "E:", "Enc:", "ENCORE"):
+        d = read_numbered(f"1. A\n2. B\n{hdr}\n1. C")
+        assert d.boundaries == ("encore",) and d.blocks == (0, 0, 1), hdr
+    # the broader taper._ENCORE_HEADER alternative stays behind the parameter
+    s = "1. A\n2. B\nEncore 2:\n1. C"
     assert read_numbered(s) == "non-contiguous at 1"
     d = read_numbered(s, encore_header=True)
     assert d.boundaries == ("encore",) and d.blocks == (0, 0, 1)
+
+
+def test_restart_after_encore_header_real_case():
+    # moe-2009-02-27 (R16 list): blank lines between header and entries
+    desc = ("Set 1\n\n1.  St. Augustine\n2.  Bring it Back Home\n\nSet 2\n\n1.  Big World\n"
+            "2.  Time Ed\n\nEncore\n\n1.  Crowd\n2.  Alnouncements\n3.  Not Coming Down")
+    d = read_numbered(desc)
+    assert d.raws[-3:] == ("Crowd", "Alnouncements", "Not Coming Down")
+    assert d.boundaries == ("set", "encore")
 
 
 def test_disc_prefix_change_is_a_restart():

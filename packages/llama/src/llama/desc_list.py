@@ -173,12 +173,18 @@ def _lines(desc: str) -> list[str]:
     return html.unescape(text).splitlines()
 
 
+# Checkpoint A ruling R16: an encore header ALONE on its line is a block boundary by default.
+_ENCORE_ONLY_LINE = re.compile(r"^\s*(?:encore\s*:?|enc\s*:|e\s*:)\s*$", re.I)
+
+
 def _header_kind(line: str, encore_header: bool) -> str | None:
     for rx in taper._SET_HEADERS:
         if rx.match(line):
             return "set"
     if taper._DISC_LABEL.match(line) or _DISC_TRACK_HEADER.match(line):
         return "disc"
+    if _ENCORE_ONLY_LINE.match(line):
+        return "encore"
     if encore_header and taper._ENCORE_HEADER.match(line):
         return "encore"
     return None
