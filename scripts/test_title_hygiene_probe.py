@@ -119,11 +119,17 @@ def test_gate0_parity_on_fixtures(tmp_path):
     assert meta["_meta"]["n"] == len(rows) == 4
     for r in rows:
         assert r["unreplayable"] is None, r["slug"]
-        assert r["gate0"] is True, (r["slug"], r["gate0_diff"])
-        assert r["gate0_as_is"] is True, (r["slug"], r["gate0_as_is_diff"])
+        # The `gate0`/`gate0_as_is` asserts are gone (plan Task 16, orchestrator ruling):
+        # gate 0 was the PRE-WIRING proof that title_inputs + title_cascade with no slices
+        # reproduce compute_gather's own title block, measured 3983/3983 on both views at
+        # Checkpoint A. Since Task 16 compute_gather runs the cascade itself (all slices);
+        # on this tree `today` is not the old block and gate 0 measures nothing.
     # Not vacuous: D fills on the numbered show, sibling-align ran on gd74, S on gd73.
     by = {r["slug"]: r for r in rows}
-    assert "sibling-align" in {t["source"] for t in by[GD74]["today"]}
+    # Read from arm `none` (Task 16): on the wired tree `today` is the all-slices gather, where
+    # slice 3 (spec "Placement: the tag layer, per track") fills Windsor's blanked tracks from
+    # the item's own lossless copy before sibling-align runs.
+    assert "sibling-align" in {t["source"] for t in by[GD74]["arms"]["none"]["tracks"]}
     assert "setlist" in {t["source"] for t in by["gratefuldead-1973-06-10"]["today"]}
     assert "D" in by[NUMBERED]["arms"]["all"]["paths"]
     assert by[NUMBERED]["desc"]["used"] == "numbered"

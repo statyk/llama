@@ -19,6 +19,13 @@ from the same cached metadata, overrides, candidate and events, with `build` cal
 Gate 0 (`gate0`, `gate0_as_is`): arm `none` equals today on that view in per-track titles
 and sources, operator notes and sibling notes; `gate0_diff` names the first difference.
 
+`dump` measures a PRE-WIRING tree: one whose `compute_gather` does not call the cascade
+(e.g. commit 89fd787, where gate 0 held on 3983/3983 shows on both views at Checkpoint A).
+On a wired tree (plan Task 16 on) `compute_gather` IS the cascade with every enabled slice,
+so the `today` capture is the all-slices gather at 2a, and its sibling notes are not
+captured (gather reaches sibling-align through `_sibling_transfer_full`); gate 0 then
+measures nothing and is expected to fail.
+
 Every arm containing `slice5` gets `cosmetic_strip` over the cascade's tracks, last; a
 position it changed carries a `+5` suffix on its path.
 

@@ -1470,7 +1470,12 @@ def test_gather_artist_item_does_not_block_title_resolution(tmp_path: Path):
     show = run_gather(sws, StubIA(_mccoury_md(tagged=False)), FakeProvider(),
                       make_candidate(), IDENT)
     assert [t.title for t in show.tracks] == MCCOURY_SONGS
-    assert all(t.title_source == "setlist" for t in show.tracks)
+    # Title hygiene (piece 3): spec slice 1 "S with a `chosen` canonical", slice 2 (D) and
+    # operator ruling Q1. The description's one-per-line list is admissible (reader (ii),
+    # the artist line exempt) and count-matched, so S no longer fills; D does, all six,
+    # as `desc-position` (also tautological, so `matched` stays None below). The
+    # low-confidence assertion below changes only with Q2 (Task 17).
+    assert all(t.title_source == "desc-position" for t in show.tracks)
     assert not any("unresolved" in f for f in show.review_flags)
     assert show.structure is not None
     assert show.structure.conflicts == []
@@ -1939,7 +1944,9 @@ def test_adopted_tracks_report_matched_none(tmp_path: Path):
     assert show.needs_review is False
     assert show.review_flags == []
 
-    def identity_adopt(tracks, canonical, *, metadata_norms, aliases):
+    # Title hygiene slice 1 "Declines bind setlist-gap": the cascade passes S's declined
+    # positions as `declined=`, so the stand-in accepts it.
+    def identity_adopt(tracks, canonical, *, metadata_norms, aliases, declined=frozenset()):
         return tracks
 
     md2, sws2 = _mixed_show_gap_setup(tmp_path, "show-unwired")
@@ -2413,11 +2420,14 @@ def test_2b_recomputes_fetch_siblings_over_demoted_titles(tmp_path):
     sws = ShowWorkspace(tmp_path / "s")
     seen = []
 
+    # Title hygiene slice 2 "Wholly untagged tapes" (b): gather reaches sibling-align
+    # through `_sibling_transfer_full` (its donor is reused by D's sibling-duration check),
+    # so that is the name patched; it returns the donor as a third element.
     def fake_transfer(ia, candidate, identifier, want, tracks, metadata_norms):
         seen.append(len(tracks))
-        return list(tracks), []
+        return list(tracks), [], None
 
-    with patch.object(gather_mod, "_sibling_transfer", side_effect=fake_transfer):
+    with patch.object(gather_mod, "_sibling_transfer_full", side_effect=fake_transfer):
         compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
                        F_IDENT, jerrybase_enabled=False)
     assert seen and seen[0] > 0

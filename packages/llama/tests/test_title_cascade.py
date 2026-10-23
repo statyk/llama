@@ -1,10 +1,10 @@
 """Title hygiene (piece 3), Task 11: the unwired builder `gather.title_inputs` and the
 orchestrator `gather.title_cascade`.
 
-`test_cascade_with_no_slices_equals_todays_gather` is the in-suite form of the gate probe's
-gate 0: with every slice off, the builder and the orchestrator reproduce today's
-`compute_gather` title block on the gather fixtures, as-is and with title and exclude
-overrides. The other tests place each slice where the spec puts it.
+`test_gather_threads_enabled_slices_to_the_cascade` was the in-suite form of the gate
+probe's gate 0 (as `test_cascade_with_no_slices_equals_todays_gather`) until Task 16 wired
+the cascade into `compute_gather`; it now pins the wiring (see its docstring). The other
+tests place each slice where the spec puts it.
 """
 
 import json
@@ -53,11 +53,13 @@ def _inputs_like_gather(sws: ShowWorkspace, ia, cand: Candidate, ident: str, *, 
 
 
 def _today(sws: ShowWorkspace, ia, cand: Candidate, ident: str):
-    """`compute_gather`'s tracks just after 2a (before alignment), its operator notes up
-    to that point, and the sibling-align notes, captured by wrapping `accept_short_tags`
-    and `_sibling_transfer` (the note prefix is read from the caller's `op_notes`)."""
+    """`compute_gather(..., enabled_slices=frozenset())`'s tracks just after 2a (before
+    alignment), its operator notes up to that point, and the sibling-align notes, captured
+    by wrapping `accept_short_tags` and `_sibling_transfer_full` (the note prefix is read
+    from the caller's `op_notes`, which since Task 16 is the cascade's). Asserts that the
+    wired `GatherResult.notes` begins with those notes, in order (Task 16 Step 3)."""
     cap: dict = {"sib": []}
-    orig_short, orig_sib = gather_mod.accept_short_tags, gather_mod._sibling_transfer
+    orig_short, orig_sib = gather_mod.accept_short_tags, gather_mod._sibling_transfer_full
 
     def short(tracks, *a, **kw):
         cap["prefix"] = list(sys._getframe(1).f_locals["op_notes"])
@@ -66,13 +68,13 @@ def _today(sws: ShowWorkspace, ia, cand: Candidate, ident: str):
         return out, notes
 
     def sib(*a, **kw):
-        out, notes = orig_sib(*a, **kw)
+        out, notes, donor = orig_sib(*a, **kw)
         cap["sib"] = list(notes)
-        return out, notes
+        return out, notes, donor
 
     with patch.object(gather_mod, "accept_short_tags", short), \
-            patch.object(gather_mod, "_sibling_transfer", sib):
-        res = compute_gather(sws, ia, None, cand, ident)
+            patch.object(gather_mod, "_sibling_transfer_full", sib):
+        res = compute_gather(sws, ia, None, cand, ident, enabled_slices=NONE)
     notes = cap["prefix"] + cap["short"]
     assert res.notes[:len(notes)] == notes
     return cap["tracks"], notes, cap["sib"]
@@ -145,7 +147,14 @@ def _cases():
 
 @pytest.mark.parametrize("with_overrides", [False, True], ids=["as-is", "overrides"])
 @pytest.mark.parametrize("case", list(_cases()))
-def test_cascade_with_no_slices_equals_todays_gather(tmp_path: Path, case, with_overrides):
+def test_gather_threads_enabled_slices_to_the_cascade(tmp_path: Path, case, with_overrides):
+    """Renamed from `test_cascade_with_no_slices_equals_todays_gather` (Task 16): before the
+    wiring this compared the cascade with compute_gather's own copy of the title block (gate
+    0). Task 16 deleted that copy, so the old name would claim a comparison that no longer
+    exists. What it pins now: `compute_gather(enabled_slices=frozenset())` runs the cascade
+    with no slices (tracks and notes equal a direct `title_cascade(enabled=frozenset())`),
+    sibling-align's notes reach it, and `GatherResult.notes` begins with the cascade's
+    op_notes in order (asserted in `_today`)."""
     ia, cand, ident = _cases()[case]
     sws = ShowWorkspace(tmp_path / "s")
     if with_overrides:

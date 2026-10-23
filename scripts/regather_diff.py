@@ -19,7 +19,7 @@ Task 7 (Phase C) generalises it to three ARMS, same harness, same rule --
 turn ONE thing off, re-gather, and enumerate every track that moves:
 
   --arm gap       `structure.adopt_gap_titles` off  (the original M2 check)
-  --arm sibling   `gather._sibling_transfer` off    (Phase C's new rung)
+  --arm sibling   `gather._sibling_transfer_full` off (Phase C's new rung)
   --arm numeric   `titles.is_real_title`'s 4-digit clause off (the widening
                   that also opened `structure._hygienic`, the pipeline's
                   only silent adopter -- Task 7 Step 6)
@@ -132,13 +132,13 @@ def _no_four_digit(cleaned: str) -> bool:
 
 def _gather(candidate, identifier, wired):
     arm = _arm()
-    saved = (gather_mod.adopt_gap_titles, gather_mod._sibling_transfer,
+    saved = (gather_mod.adopt_gap_titles, gather_mod._sibling_transfer_full,
              titles_mod.is_real_title)
     if not wired:
         if arm == "gap":
             gather_mod.adopt_gap_titles = lambda tracks, *a, **k: tracks
         elif arm == "sibling":
-            gather_mod._sibling_transfer = lambda ia, c, i, w, t, n: (list(t), [])
+            gather_mod._sibling_transfer_full = lambda ia, c, i, w, t, n: (list(t), [], None)
         elif arm == "numeric":
             titles_mod.is_real_title = _no_four_digit
         else:
@@ -151,7 +151,7 @@ def _gather(candidate, identifier, wired):
                               FakeProvider(), candidate, identifier,
                               setlistfm=None, jerrybase_enabled=True)
     finally:
-        (gather_mod.adopt_gap_titles, gather_mod._sibling_transfer,
+        (gather_mod.adopt_gap_titles, gather_mod._sibling_transfer_full,
          titles_mod.is_real_title) = saved
 
 
