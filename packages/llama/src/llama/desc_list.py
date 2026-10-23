@@ -9,10 +9,21 @@ from __future__ import annotations
 
 import html
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from llama import taper
+from llama import jerrybase, taper
+from llama.models import ParsedSetlist
+from llama.setlist import (
+    _ENCORE_LINE,
+    _LABELED_SET_LINE,
+    _NOISE,
+    _RECOVER_FLOOR,
+    _SET_LINE,
+    _emit_items,
+    _may_start_a_show,
+    parse_setlist,
+)
 from llama.titles import _ENUMERATED_MIN_COVERAGE, _ENUMERATED_MIN_FILES
 
 _T = r"\d{1,3}(?::\d{2}){1,2}"  # m:ss or h:mm:ss (minutes may be 3 digits)
@@ -228,3 +239,127 @@ def read_numbered(desc: str, *, encore_header: bool = False) -> DescList | str:
         prev_track = track
     return DescList("numbered", tuple(raws), tuple(clean_entries(raws)), tuple(blocks),
                     tuple(boundaries))
+
+
+# --- Reader (ii): parse_setlist's own items, judged per raw line ---------------------------
+
+Cleaner = Callable[[ParsedSetlist], tuple[ParsedSetlist, frozenset[int]]]
+"""(cleaned parse, removed_indices): indices into the INPUT items that the cleaner removed
+(banner strip, artist drop inside the banner span). A rewrite such as a footnote-marker
+strip is never a removal. The cleaned items are the input items minus the removed ones,
+in order."""
+
+
+def drop_leading_artist_items(parsed: ParsedSetlist, artist: str) -> ParsedSetlist:
+    """Drop the LEADING run of items that are just the performing artist's name.
+
+    Unlike gather's `_drop_artist_items`, which drops them anywhere, a self-titled song
+    further down the list (railroadearth-2004-04-09's `Railroad Earth`) stays."""
+    key = jerrybase.artist_key(artist)
+    if not key:
+        return parsed
+    n = 0
+    while n < len(parsed.items) and jerrybase.artist_key(parsed.items[n].title) == key:
+        n += 1
+    if not n:
+        return parsed
+    return parsed.model_copy(update={"items": parsed.items[n:]})
+
+
+def _parsed_lines(desc: str) -> list[str]:
+    """The lines `parse_setlist` itself parses: its preprocessing, then its header
+    truncation (mirrored from `parse_setlist`, which is not changed)."""
+    text = re.sub(r"<br\s*/?>", "\n", desc, flags=re.I)
+    text = re.sub(r"<[^>]+>", "\n", text)
+    raw_lines = [ln.strip() for ln in html.unescape(text).splitlines()]
+    first_marker = next(
+        (i for i, ln in enumerate(raw_lines)
+         if _SET_LINE.match(ln) or _LABELED_SET_LINE.match(ln) or _ENCORE_LINE.match(ln)),
+        None,
+    )
+    if first_marker is not None and not _may_start_a_show(raw_lines[first_marker]):
+        above = [ln for ln in raw_lines[:first_marker] if ln]
+        if len(_emit_items(above)[0]) >= _RECOVER_FLOOR:
+            first_marker = None
+    if first_marker is not None:
+        raw_lines = raw_lines[first_marker:]
+    return raw_lines
+
+
+def _is_marker(line: str) -> bool:
+    return bool(_SET_LINE.match(line) or _LABELED_SET_LINE.match(line)
+                or _ENCORE_LINE.match(line))
+
+
+def _blocks(sets: Sequence[str]) -> tuple[tuple[int, ...], tuple[str, ...]]:
+    blocks: list[int] = []
+    boundaries: list[str] = []
+    for i, s in enumerate(sets):
+        if i and s != sets[i - 1]:
+            boundaries.append("encore" if s == "encore" else "set")
+        blocks.append(len(boundaries))
+    return tuple(blocks), tuple(boundaries)
+
+
+def read_parse(desc: str, *, artist: str, clean: Cleaner) -> DescList | str:
+    """`parse_setlist`'s items for the selected description as one list, or a reason.
+
+    Each raw line `parse_setlist` parses is judged ON ITS OWN (`_emit_items([line])`, so no
+    document-level number strip): it must yield exactly one item unless it is exempt --
+    a header-only marker line, a `_NOISE` line, or the line of an item the cleaner (or the
+    leading-artist drop) removed. Lines above the first marker that header truncation
+    removes never reach the parse and are exempt by construction. The per-line counts
+    must sum to `parse_setlist`'s own item count, which is what ties each item to its
+    line."""
+    if any(_EMPTY_NUMBERED.match(ln) for ln in _lines(desc)):
+        return "empty entry"
+    parsed = parse_setlist(desc or "")
+    lines = [ln for ln in _parsed_lines(desc or "") if ln]
+    counts = [len(_emit_items([ln])[0]) for ln in lines]
+    if sum(counts) != len(parsed.items):
+        return "per-line count disagrees"
+    if not parsed.items:
+        return "no items"
+    line_of = [k for k, c in enumerate(counts) for _ in range(c)]
+
+    cleaned, removed = clean(parsed)
+    removed = set(removed)
+    kept = [i for i in range(len(parsed.items)) if i not in removed]
+    consistent = len(kept) == len(cleaned.items)
+    if consistent:
+        dropped = drop_leading_artist_items(cleaned, artist)
+        removed |= set(kept[: len(cleaned.items) - len(dropped.items)])
+        cleaned = dropped
+
+    exempt = {line_of[i] for i in removed if 0 <= i < len(line_of)}
+    for k, (ln, c) in enumerate(zip(lines, counts)):
+        if c == 1 or k in exempt:
+            continue
+        if c == 0 and (_is_marker(ln) or _NOISE.search(ln)):
+            continue
+        return f"line yields {c} items: {ln}"
+    if not consistent:
+        return "cleaner count disagrees"
+    if not cleaned.items:
+        return "no items"
+
+    raws = tuple(it.title for it in cleaned.items)
+    blocks, boundaries = _blocks([it.set for it in cleaned.items])
+    return DescList("parse", raws, tuple(clean_entries(raws)), blocks, boundaries)
+
+
+@dataclass(frozen=True)
+class DescRead:
+    used: DescList | None  # the count-matched admissible list, (i) preferred
+    numbered: DescList | str
+    parsed: DescList | str
+
+
+def read_desc_list(desc: str, n_tracks: int, *, artist: str, clean: Cleaner) -> DescRead:
+    """Both readers over the selected description; `used` is the first of (i), (ii) that
+    is admissible and has exactly `n_tracks` entries."""
+    numbered = read_numbered(desc)
+    parsed = read_parse(desc, artist=artist, clean=clean)
+    used = next((d for d in (numbered, parsed)
+                 if isinstance(d, DescList) and len(d.raws) == n_tracks), None)
+    return DescRead(used, numbered, parsed)
