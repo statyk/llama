@@ -1347,7 +1347,8 @@ def gap_span(anchors: dict[int, tuple[int, int]], lo: int, hi: int,
     return None
 
 
-def hygienic_title(title: str, metadata_norms: set[str]) -> bool:
+def hygienic_title(title: str, metadata_norms: set[str], *,
+                   require_real: bool = True) -> bool:
     """A title fit to be adopted onto a track. Deliberately strict: the rungs
     that call this are the pipeline's silent adopters.
 
@@ -1357,14 +1358,19 @@ def hygienic_title(title: str, metadata_norms: set[str]) -> bool:
     An earlier cut of `siblings.py` re-composed the same four predicates from
     the same imports and pinned the two compositions equal by a table; adding a
     clause to one of them left the table green, so the pin could not see the
-    drift it existed to catch. Hence one definition, imported."""
+    drift it existed to catch. Hence one definition, imported.
+
+    `require_real=False` skips ONLY the `is_real_title` clause (title hygiene's
+    check 1, which tests `is_real_title`'s rejects separately); every other
+    clause is the same expression. The default is pinned by a test."""
     from llama.setlist import MAX_TITLE_LEN, is_junk_title
     from llama.titles import is_real_title
     t = title.strip()
     # No `aliases` here, deliberately: metadata_norms is built aliaslessly by
     # gather's `_place_norms`/`_date_norms`, so threading aliases into only
     # this side would break the comparison's symmetry.
-    return (bool(t) and is_real_title(t) and not is_junk_title(t)
+    return (bool(t) and (not require_real or is_real_title(t))
+            and not is_junk_title(t)
             and len(t) <= MAX_TITLE_LEN and not t.endswith(":")
             and fuzzy_norm_title(t) not in metadata_norms)
 
