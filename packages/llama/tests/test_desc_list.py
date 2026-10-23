@@ -83,3 +83,87 @@ def test_header_shape():
         assert is_header_shape(t), t
     for t in ["Set 2: Bertha", '"Set" 1:', "Settle Down", "Jam"]:
         assert not is_header_shape(t), t
+
+
+from llama.desc_list import read_numbered  # noqa: E402
+
+
+def test_reads_a_plain_numbered_list():
+    d = read_numbered("1. Bertha\n2. Jack Straw\n3) Deal")
+    assert d.raws == ("Bertha", "Jack Straw", "Deal")
+    assert set(d.blocks) == {0} and d.boundaries == ()
+    assert d.reader == "numbered"
+    assert tuple(c.text for c in d.cleaned) == d.raws
+
+
+def test_br_separated_entries():
+    d = read_numbered("1. Bertha<br />2. Jack Straw<br/>3) Deal")
+    assert d.raws == ("Bertha", "Jack Straw", "Deal")
+
+
+def test_set_header_restart_is_a_new_block():
+    d = read_numbered("Set 1:\n1. A\n2. B\nSet 2:\n=====\n1. C")
+    assert d.raws == ("A", "B", "C")
+    assert d.blocks == (0, 0, 1) and d.boundaries == ("set",)
+
+
+def test_numbering_continuing_across_a_header_is_one_list_two_blocks():
+    body = "\n".join(f"{i}. S{i}" for i in range(1, 11))
+    d = read_numbered(f"{body}\nDisc 2\n11. K")
+    assert len(d.raws) == 11
+    assert d.blocks == (0,) * 10 + (1,) and d.boundaries == ("disc",)
+    assert read_numbered("1. A\n2. B\n1. C") == "non-contiguous at 1"
+
+
+def test_header_with_text_is_a_boundary_not_an_entry():
+    d = read_numbered("1. A\n2. B\nSet 2: Bertha\n3. C")
+    assert d.raws == ("A", "B", "C")
+    assert d.blocks == (0, 0, 1) and d.boundaries == ("set",)
+    d = read_numbered("1. A\n2. B\nSet 2:\n3. C")
+    assert d.blocks == (0, 0, 1)
+
+
+def test_restart_after_encore_line():
+    s = "1. A\n2. B\nEncore:\n1. C"
+    assert read_numbered(s) == "non-contiguous at 1"
+    d = read_numbered(s, encore_header=True)
+    assert d.boundaries == ("encore",) and d.blocks == (0, 0, 1)
+
+
+def test_disc_prefix_change_is_a_restart():
+    d = read_numbered("d1t01- A\nd1t02- B\nd2t01- C")
+    assert d.raws == ("A", "B", "C")
+    assert d.blocks == (0, 0, 1) and d.boundaries == ("disc",)
+
+
+def test_three_digit_numbers_read_as_disc_prefixed():
+    d = read_numbered("101 A\n102 B\n201 C")
+    assert d.blocks == (0, 0, 1) and d.boundaries == ("disc",)
+
+
+def test_gaps_are_inadmissible():
+    assert read_numbered("1. A\n2. B\n4. D") == "non-contiguous at 4"
+
+
+def test_empty_numbered_line_is_inadmissible():
+    assert read_numbered("1. A\n07) \n3. C") == "empty entry"
+    d = read_numbered("1. A\n2:\n2. B")
+    assert d.raws == ("A", "B")
+
+
+def test_timestamp_lines_are_not_entries():
+    d = read_numbered("12:30 tuning\n1. A\n2. B")
+    assert d.raws == ("A", "B")
+    assert read_numbered("12:30 tuning") == "no numbered lines"
+
+
+def test_run_on_line_yields_no_list():
+    # furthur-2012-04-21 (selected description, verbatim excerpt): one run-on line.
+    desc = (
+        "Tuning, Playing in the Band> China Cat> Estimated Prophet> Ramble On Rose, "
+        "Birdsong, Sugar Magnolia> Playing in the Band Help on the Way> Slipknot> "
+        "Franklins Tower> Cryptical Envelopment> The Other One> Shakedown Street> "
+        "Viola Lee Blues> Bertha> Viola Lee Blues> Wharf Rat> Viola Lee Blues, "
+        "Stella Blue> I Know You Rider, Donor Rap. U.S. Blues"
+    )
+    assert isinstance(read_numbered(desc), str)
