@@ -1639,3 +1639,17 @@ def test_title_rows_records_the_arm_view(tmp_path):
     out = tmp_path / "cmp"
     assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
     assert json.loads((out / "title_rows.json").read_text())["view"].startswith("as-is")
+
+
+def test_summary_states_the_disabled_slices_of_both_arms(tmp_path):
+    """Final review minor (Task 19): the summary names each arm's disabled slices, so a
+    slice-ablation compare (base slice5 off, cand all on) no longer misstates its base."""
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    b["disabled_slices"], c["disabled_slices"] = ["slice5"], []
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    summary = (out / "summary.txt").read_text()
+    assert 'disabled slices: base ["slice5"], cand []' in summary.splitlines()

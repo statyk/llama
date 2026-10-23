@@ -455,7 +455,7 @@ def resolve_titles(
     recording copied onto the target file-for-file) lived here and is GONE --
     it transferred titles with zero content verification, and a same-count
     donor with shifted content shipped wrong titles at coverage 1.0. Its
-    replacement (`llama.siblings` + `gather._sibling_transfer`) is a guarded
+    replacement (`llama.siblings` + `gather._sibling_transfer_full`) is a guarded
     duration-alignment pass that runs in `gather`, after this function and
     after the `overrides.titles` loop, and stamps `title_source="sibling-align"`
     directly onto the resolved tracks it fills. See titles.py's `is_real_title`

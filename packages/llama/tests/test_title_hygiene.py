@@ -225,13 +225,6 @@ def test_agreement_share():
     assert agreement_share(_dl("Tuning"), c, {}) is None  # no song-like entries
 
 
-def test_agreement_exactly_at_floor_passes():
-    dl = _dl("One Way", "Two Way")
-    share = agreement_share(dl, _canon("One Way", "Other Song"), {})
-    assert share == 0.5
-    assert not share < AGREEMENT_FLOOR
-
-
 def test_wholly_untagged_predicate():
     assert wholly_untagged(["Bertha", "Tuning", ""], frozenset())
     assert not wholly_untagged(["Bertha", "Dark Star"], frozenset())
@@ -622,6 +615,8 @@ def test_decide_d_agreement_exactly_at_floor_passes():
     dl = _dl("Bertha", "Jack Straw")
     canon = _canon("Bertha", "Other Song")
     assert agreement_share(dl, canon, {}) == AGREEMENT_FLOOR == 0.5
+    # (folded from the former test_agreement_exactly_at_floor_passes)
+    assert agreement_share(_dl("One Way", "Two Way"), _canon("One Way", "Other Song"), {}) == 0.5
     d = _d(tr, dl, canonical=canon)
     assert d.failed == () and d.fills == {1: "Jack Straw"}
 

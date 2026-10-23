@@ -173,7 +173,7 @@ def _dedupe_ordered(items: list[str]) -> list[str]:
     carries meaning, so a plain `set()` (or `sorted(set(...))`) is wrong here
     -- it would scramble the order the rest of `run_gather` builds `flags`/
     `notes` in. This exists because `_collect_parses` (via `build_canonical`,
-    always run first) and `load_donor_tapes` (via `_sibling_transfer`, run
+    always run first) and `load_donor_tapes` (via `_sibling_transfer_full`, run
     only when the sibling-align gate fires) each independently retry and
     independently catch/note the exact same `IAError` for the exact same
     donor identifier -- `IAClient` never caches a failed fetch, so nothing
@@ -217,9 +217,10 @@ def load_donor_tapes(ia, candidate: Candidate, identifier: str,
                      want: str | Sequence[str]) -> tuple[list[DonorTape], list[str]]:
     """Load every non-self recording in `candidate.recordings` as a
     `DonorTape` -- the ONE definition of "qualifying donor", shared by
-    `_sibling_transfer` (gather's automatic pass) and `cli._propose_titles_for_show`
-    / triage's `[t]` (the operator surface, Task 6). Extracted out of
-    `_sibling_transfer` rather than reimplemented CLI-side: a second
+    `_sibling_transfer_full` (gather's automatic pass, reached through `title_inputs`'
+    `sibling_step`) and `cli._propose_titles_for_show` / triage's `[t]` (the operator
+    surface, Task 6). Extracted out of the transfer pass (then `_sibling_transfer`)
+    rather than reimplemented CLI-side: a second
     "which recordings count as donors" would be invisible when it drifted,
     exactly the class of duplication this module's docstrings keep warning
     about.
@@ -227,7 +228,7 @@ def load_donor_tapes(ia, candidate: Candidate, identifier: str,
     A recording qualifies when: it is not `identifier` itself, its metadata
     fetches without error, `filter_files` leaves at least one kept file, and
     every kept file has a real (non-`None`) duration -- the same three
-    conditions `_sibling_transfer` checked inline before this extraction.
+    conditions the transfer pass checked inline before this extraction.
 
     Returns `(donors, notes)`. `notes` carries one message per sibling whose
     metadata could not be fetched (`IAError`); a sibling that fetches fine
@@ -268,7 +269,7 @@ def best_donor(ia, candidate: Candidate, identifier: str, want: str | Sequence[s
     `tracks`' own durations, rate the pair, and return the single winner --
     highest anchor agreement, then lowest DP cost, then identifier
     (`_donor_key`'s tie-break). ONE definition of "who wins", shared by
-    `_sibling_transfer` (gather's automatic pass) and
+    `_sibling_transfer_full` (gather's automatic pass) and
     `cli._sibling_proposal` (the operator surface) -- fix round 1 on Task 6:
     the two used to re-implement this four-step loop (propose_rows -> skip
     None -> rate_alignment -> `_donor_key` -> sort -> `[0]`) verbatim, and a

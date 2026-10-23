@@ -1337,7 +1337,8 @@ def compare(args: argparse.Namespace) -> int:
         f"notes.txt: {n_notes} note(s)",
         f"holds_delta.txt: {n_cleared} cleared, {n_added} added",
         "title_changes.txt: " + ", ".join(f"{k} {v}" for k, v in tccounts.items()),
-        f"disabled slices: {_j(cand.get('disabled_slices') or [])}",
+        f"disabled slices: base {_j(base.get('disabled_slices') or [])}, "
+        f"cand {_j(cand.get('disabled_slices') or [])}",
     ] + (["taper reports: not written (arms replayed with --strip-structure-overrides)"] if stripped else [
         f"taper_cleared.txt: {sum(1 for x in tc if not x.startswith(' '))} show(s)",
         "taper_changes.txt: " + ", ".join(f"{k} {v}" for k, v in tcounts.items()),

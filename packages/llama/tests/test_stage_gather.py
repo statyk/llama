@@ -320,8 +320,8 @@ def test_gather_llm_alignment_garbage_falls_back_and_flags(tmp_path: Path):
 # GONE -- see test_shifted_fully_tagged_sibling_does_not_transfer_positionally
 # below, the test the old rung could never pass. Its replacement is
 # `llama.siblings` (a pure duration-alignment DP + two guards) wired here via
-# `gather._sibling_transfer`, which runs after the `overrides.titles` loop and
-# before `adopt_gap_titles`.
+# `gather._sibling_transfer_full` (through `title_inputs`' `sibling_step`), which runs
+# after the `overrides.titles` loop and before `adopt_gap_titles`.
 # ============================================================================
 
 SIB_ID = "gd73-06-10.aud.sibling"
@@ -399,7 +399,7 @@ def test_operator_band_run_stays_unresolved_even_though_cplus_would_bracket_it(t
 
 
 def test_a_sibling_fetch_failure_is_noted_not_fatal(tmp_path: Path):
-    """FIX ROUND 1, I2: `ia.metadata` inside `_sibling_transfer` was
+    """FIX ROUND 1, I2: `ia.metadata` inside the sibling transfer pass was
     unguarded, so one sibling recording raising `IAError` (a real archive.org
     failure mode) aborted the entire gather stage instead of degrading
     gracefully -- unlike `_collect_parses`, which already catches exactly
@@ -408,7 +408,7 @@ def test_a_sibling_fetch_failure_is_noted_not_fatal(tmp_path: Path):
 
     DUPLICATE-NOTE GUARD (deferred minor, final whole-branch review): both
     `_collect_parses` (called first, unconditionally, via `build_canonical`)
-    and `load_donor_tapes` (called only when `_sibling_transfer` fires)
+    and `load_donor_tapes` (called only when `_sibling_transfer_full` fires)
     independently catch this exact `IAError` on this exact identifier
     (`IAClient` never caches a failed fetch, so both really do retry) and
     each append their own byte-identical note -- so this note used to reach
@@ -437,7 +437,7 @@ def test_a_sibling_fetch_failure_is_noted_not_fatal(tmp_path: Path):
 
     # d3t01 (track 6) deliberately left untagged, matching the base fixture:
     # title_fraction is 5/6 < 1.0, so the fetch gate still fires and
-    # `_sibling_transfer` actually attempts (and must survive) the failing
+    # `_sibling_transfer_full` actually attempts (and must survive) the failing
     # donor fetch -- a fully-tagged target would skip the gate entirely and
     # never exercise the fix.
     md = json.loads(FIXTURE.read_text())
@@ -4334,6 +4334,7 @@ def test_cosmetic_strip_keeps_included_stamp(tmp_path: Path):
 
 def test_cosmetic_strip_off_when_slice5_disabled(tmp_path: Path):
     res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_slice5_md()), None,
-                         make_candidate(), IDENT, enabled_slices=frozenset())
+                         make_candidate(), IDENT,
+                         enabled_slices=title_hygiene.ALL_SLICES - {"slice5"})
     assert res.show.tracks[1].title == "06:58 - China Cat Sunflower"
     assert not any(n.startswith("cosmetic title strip") for n in res.notes)

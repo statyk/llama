@@ -2684,7 +2684,7 @@ def _sibling_run_reasons(prop_rows) -> list[tuple[int, int, str]]:
 def _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical):
     """Task 6's entry seam: the sibling-transfer arm of
     `_propose_titles_for_show`, attempted BEFORE the canonical correspondence
-    DP. Loads donors exactly as `gather._sibling_transfer` does and picks the
+    DP. Loads donors exactly as `gather._sibling_transfer_full` does and picks the
     same winner it would (`gather.best_donor` -- fix round 1, I5: this used
     to re-derive "which donor wins" with its own copy of `propose_rows` ->
     `rate_alignment` -> `_donor_key` -> sort, and a reviewer mutation that

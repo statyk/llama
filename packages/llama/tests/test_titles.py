@@ -57,7 +57,7 @@ def test_resolve_titles_no_longer_has_a_sibling_fallback():
     A count-mismatched, untagged setlist now falls straight through to
     unresolved, the same as any other cascade miss. Sibling-recording titles
     are transferred by the guarded duration-alignment pass
-    (`llama.siblings` + `gather._sibling_transfer`), which runs later in
+    (`llama.siblings` + `gather._sibling_transfer_full`), which runs later in
     `gather`, not here.
 
     FIX ROUND 1, m1: the assertions below never pass `sibling_titles`, so
