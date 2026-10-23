@@ -2,7 +2,7 @@
 
 Record of the subagent-driven build of "piece 3: title hygiene" (branch held-backlog-title-hygiene). Spec: docs/superpowers/specs/2026-10-22-title-hygiene-design.md. Plan: docs/superpowers/plans/2026-10-23-title-hygiene.md. Acceptance write-up (with the (d) table of added holds): docs/superpowers/2026-10-22-title-hygiene-evidence/acceptance.md.
 
-The cycle was run by four successive peer orchestrator sessions, whose parent was llama-db: orch (f6d9aa57), orch-r1 (24bca8e3), orch-r2 (3400e369) and orch-r3 (7d23a593). Each dispatched the implementer, reviewer, fix and measurement subagents named below. Review mode was Fable: the final branch review (`verdicts/final-rev.md`) was a Fable reviewer; every other reviewer was Opus. Implementers were Sonnet or Opus per task (see the ledgers).
+The cycle was run by four successive peer orchestrator sessions, whose parent was llama-db: orch (f6d9aa57), orch-r1 (24bca8e3), orch-r2 (3400e369) and orch-r3 (7d23a593). Each dispatched the implementer, reviewer, fix and measurement subagents named below. Review mode was Fable: the final branch review (`verdicts/final-rev.md`) was a Fable reviewer; every other reviewer was Opus, except the Checkpoint B hand-check checkers (`cpb-k01` to `cpb-k13`, `u4check`), which were Sonnet, and the spec/plan reviews, which also had a Fable seat. Implementers were Sonnet or Opus per task (see the ledgers).
 
 Contents:
 
