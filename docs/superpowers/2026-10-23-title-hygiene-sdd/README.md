@@ -9,6 +9,7 @@ Contents:
 - `orch/`, `orch-r1/`, `orch-r2/`, `orch-r3/`: each orchestrator's `ledger.md`, copied byte for byte. orch-r3's ledger was still being written when this record was committed (it was copied as it stood at Task 22); the orchestrator re-syncs it at the finish, so the final ledger is the one in the finish commit, not necessarily this copy.
 - `orch-r1/checkpoint-a-rulings.md`, `orch-r1/checkpoint-a.md`: the Checkpoint A packet and the operator's rulings (relayed by llama-db), including the R16 clarification.
 - `orch-r2/checkpoint-b-rulings.md`, `orch-r2/checkpoint-b.md`: the Checkpoint B packet and the operator's rulings; `orch-r2/final-review-minors.md` is the final review's minor findings and their disposition.
+- `orch-r3/final-rulings.md`: the operator's 2026-10-23 rulings (C-1 narrowing; kinggizzard accepted as a cost), relayed by llama-db.
 - `verdicts/<task>.md`: the `handback.md` report of every subagent task dir under the run's `.superpowers/sdd/title-hygiene/` that has one, copied unedited: implementers (`t*`), reviewers (`*-rev`, `*-rr*`), fixes (`t6fix`, `t15b`, `fixwave`), the Checkpoint pre-screens (`prescreen`, `cpb-prescreen`), the Checkpoint B hand-check checkers (`cpb-k01` to `cpb-k13`), the acceptance runs (`accept-*`), `kg-why` (why kinggizzardandthelizardwizard-2022-10-22 gains a hold), `u4check`, `t21arms*` and the final branch review `final-rev`. Every task dir had a `handback.md`; none is missing.
 - `mutation.md`: the mutation record (written earlier, left as committed).
 

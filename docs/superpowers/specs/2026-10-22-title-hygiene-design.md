@@ -54,7 +54,7 @@ The payoff is judged mainly by **future `llama get`s**. Most of today's held sho
 
 1. **Fill unresolved tracks automatically when a trustworthy source names them,** so the show is not held for `unresolved track titles`. The three fills are D, C1 and A_rev.
 2. **Stop the positional rungs from shipping junk or shifted titles silently.** This covers S, and gives D the same protection. A track that fails the check stays `unresolved`, as it would have without the rung.
-3. **Replace a stale lossy-derivative title with the item's own lossless title** when the evidence favours it (C2). It adds no holds.
+3. **Replace a stale lossy-derivative title with the item's own lossless title** when the evidence favours it (C2). It raises no flag of its own; it moves alignment coverage both ways (measured: 1 hold added, 6 as-is / 9 fresh-get low-confidence holds removed).
 4. Add-on, smaller and separately sliced: narrow cosmetic stripping of timestamp and filename junk from otherwise-right titles (slice 5).
 
 ## Non-goals
@@ -287,7 +287,7 @@ Per stem:
   - (c) failing both, the show's own consistent tags: on at least `MIN_ANCHORS` comparison stems the delivered and lossless tags agree (Definitions), and on none do they disagree. The comparison stems are those that are not C1 targets: both tags real, neither a placeholder.
 
   Otherwise C1 declines for the show. Ship the lossless title, `title_source=sibling-format`. This is the furthur/DSO `tmp` class: 18 shows, and with the blank-MP3 class, 36 more (census counts, before the scope and agreement rules). It clears holds where a count-matched reference or consistent tags exist; the yield gate counts the rest.
-- **C2, replace.** Both tags are real (or the delivered one has the 2a shape, as above) and differ substantively (not case, punctuation, whitespace or `normalizes-equal`), and the lossless tag agrees with the reference while the delivered tag does not. "Agrees" means `loosely_same_title` (cores under 3 letters: `fuzzy_norm_title` equality) against the same-position entry of a count-matched admissible list, or the canonical item at the same position when the canonical count equals the file count. With neither available, C2 does not fire. Whole-text containment is never used. Ship the lossless title. It adds no holds. It fixes silent errors like radiators-1991-11-01 (`No Skin Off My Back` on what is `Mood To Move`).
+- **C2, replace.** Both tags are real (or the delivered one has the 2a shape, as above) and differ substantively (not case, punctuation, whitespace or `normalizes-equal`), and the lossless tag agrees with the reference while the delivered tag does not. "Agrees" means `loosely_same_title` (cores under 3 letters: `fuzzy_norm_title` equality) against the same-position entry of a count-matched admissible list, or the canonical item at the same position when the canonical count equals the file count. With neither available, C2 does not fire. Whole-text containment is never used. Ship the lossless title. It raises no flag of its own; it moves alignment coverage both ways (measured: 1 hold added, 6 as-is / 9 fresh-get low-confidence holds removed). It fixes silent errors like radiators-1991-11-01 (`No Skin Off My Back` on what is `Mood To Move`).
 - **Never** take a lossless tag that is:
   - bracketed (`[Banter]`, `[John's Still Got Some Gas…]`);
   - ending in `:` or `(m:ss):`;
