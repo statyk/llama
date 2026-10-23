@@ -306,8 +306,8 @@ def read_parse(desc: str, *, artist: str, clean: Cleaner) -> DescList | str:
 
     Each raw line `parse_setlist` parses is judged ON ITS OWN (`_emit_items([line])`, so no
     document-level number strip): it must yield exactly one item unless it is exempt --
-    a header-only marker line, a `_NOISE` line, or the line of an item the cleaner (or the
-    leading-artist drop) removed. Lines above the first marker that header truncation
+    a header-only marker line, a `_NOISE` line, or a line ALL of whose items the cleaner
+    (or the leading-artist drop) removed. Lines above the first marker that header truncation
     removes never reach the parse and are exempt by construction. The per-line counts
     must sum to `parse_setlist`'s own item count, which is what ties each item to its
     line."""
@@ -331,7 +331,15 @@ def read_parse(desc: str, *, artist: str, clean: Cleaner) -> DescList | str:
         removed |= set(kept[: len(cleaned.items) - len(dropped.items)])
         cleaned = dropped
 
-    exempt = {line_of[i] for i in removed if 0 <= i < len(line_of)}
+    # Spec slice 2 (ii): exempt are "the banner or artist lines the cleaning removes", and
+    # a line that yields several items makes the list inadmissible. So a line is exempt
+    # only when EVERY one of its items was removed: `_strip_head_banner` can end part-way
+    # through a `,`-split banner line, and its leftover fragment must not enter the list.
+    removed_per_line = [0] * len(lines)
+    for i in removed:
+        if 0 <= i < len(line_of):
+            removed_per_line[line_of[i]] += 1
+    exempt = {k for k, c in enumerate(counts) if c and removed_per_line[k] == c}
     for k, (ln, c) in enumerate(zip(lines, counts)):
         if c == 1 or k in exempt:
             continue

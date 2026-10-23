@@ -229,11 +229,12 @@ def test_removed_indices_exempt_their_lines():
     # Line 0 is a banner line yielding two items (`Fox Theatre`, `Boulder CO`).
     desc = "Fox Theatre, Boulder CO\nBertha\nDeal\nRipple"
     assert len(parse_setlist(desc).items) == 5
-    d = read_parse(desc, artist="X", clean=_removing({0}, frozenset({0})))
-    assert isinstance(d, DescList)
-    # The line is exempt; what the cleaner kept stays in the list (the cleaner decides).
-    assert d.raws == ("Boulder CO", "Bertha", "Deal", "Ripple")
+    # Only part of the line removed: not exempt (spec (ii)), so it still yields two items.
+    r = read_parse(desc, artist="X", clean=_removing({0}, frozenset({0})))
+    assert r == "line yields 2 items: Fox Theatre, Boulder CO"
+    # Every item of the line removed: exempt.
     d = read_parse(desc, artist="X", clean=_removing({0, 1}, frozenset({0, 1})))
+    assert isinstance(d, DescList)
     assert d.raws == ("Bertha", "Deal", "Ripple")
     r = read_parse(desc, artist="X", clean=_removing({0}, frozenset()))
     assert r == "line yields 2 items: Fox Theatre, Boulder CO"
