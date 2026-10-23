@@ -93,3 +93,12 @@ The shipped title carries a timestamp, filename residue, a track number, a set/d
   - `strip-not-enough`: the remaining text is still not the right title, e.g. a bare `01.` leaves nothing;
   - `strip-would-damage`: the "junk" is actually part of a real title, like `20 Eyes` or `3 AM`;
   - `cant-tell`.
+
+## Class U: effectively untagged tape, description list matches the file count
+The tape has fewer than 2 real track tags. The selected description gives a list with exactly as many entries as there are files. The candidate fix copies entry N onto track N (the `positional candidate` column). The fear: the taper split or merged songs across files differently from the list (a song spanning two files, two songs in one file, a set-break or banter file the list omits, or a list entry with no file). The counts still match by coincidence, so every title after the mismatch lands one or more tracks late. The packets include up to three TAGGED sibling recordings of the same show, from other tapers, with per-file titles and durations. Use them: line up durations (a sibling's `A > B` file can equal the sum of two files here, and a set-break or banter file has a short or crowd-only duration), together with the description's own notes (e.g. "I did the best I could on tracking").
+- **`tracks`:** EVERY track. `candidate` = the positional candidate. Is it the song on that file? `correct_title` is your best reading.
+- **`show_verdict`:** `all-right` / `shifted` (titles systematically off by one or more from some track on) / `some-wrong-not-shift` / `cant-tell`.
+- **`note`:**
+  - the first wrong track number, if any;
+  - whether a tagged sibling was available and decisive;
+  - one line on what deterministic check would have caught a wrong case. Candidates: sibling duration alignment, description set sizes vs filename disc boundaries, a written duration on the list, a list line the files lack.
