@@ -776,13 +776,30 @@ def test_stored_llm_self_filled_is_replayable(tmp_path):
     assert legs.needs_llm == []
 
 
+class _PartialSlfm:
+    """A setlist.fm client whose canonical agrees with 4 of the list's 6 items (D's agreement
+    check passes) and shares no item with the first tag, so coverage is 0."""
+    misses: list = []
+
+    def setlist(self, artist, date, *, venue=None, city=None):
+        names = ["Zebra Stripes"] + _SF_SONGS[1:4] + ["Ostrich Dance", "Salty Dog"]
+        return {"sets": {"set": [{"song": [{"name": n} for n in names]}]}}
+
+
 def test_stored_llm_not_self_filled_stays_needs_llm(tmp_path):
-    # (pin) one independent song-like title (not on the list) keeps today's rule.
+    # (pin) Q2's narrow exception: D PASSES (the one tag agrees with list entry 1) but one
+    # track keeps an independent tag, so today's rule holds and the row is needs-LLM.
     ws, _ = _library_show(tmp_path, held=True, alignment="llm")
-    _untag(tmp_path, "\n".join(_SF_SONGS) + "\n", tag_first="Zebra Stripes")
-    legs = _legs(tmp_path, ws)
-    assert legs.gather.self_filled is False
-    assert "stored alignment llm" in legs.needs_llm
+    _untag(tmp_path, "\n".join(_SF_SONGS) + "\n", tag_names=_SF_NAMES[:1])
+    kw = dict(config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"), slfm=_PartialSlfm())
+    legs = compute_legs(ws, scratch=tmp_path / "scratch" / "x", **kw)
+    g = legs.gather
+    assert g.title_record.d is not None and g.title_record.d.failed == ()
+    assert [t.title_source for t in g.show.tracks] == ["tags"] + ["desc-position"] * 5
+    assert g.self_filled is False
+    assert "stored alignment llm" in legs.needs_llm and "align_structure" in legs.needs_llm
+    r = replay_show(ws, scratch=tmp_path / "scratch" / "y", delivered=set(), **kw)
+    assert r.cascade == {}                      # a needs-LLM row carries an empty record
 
 
 _CASCADE_KEYS = ["s_mode", "s_fills", "s_declined", "deferred_applied", "d_fills", "d_failed",
@@ -801,14 +818,16 @@ def test_record_carries_title_fields(tmp_path):
     assert list(r.cascade) == _CASCADE_KEYS
     assert r.cascade["d_fills"] == [1, 2, 3, 4, 5, 6] and r.cascade["d_failed"] is None
     json.dumps(r.to_dict())                       # the arm is JSON
-    # a D-declined show: an annotation entry declines every fill (check 1)
+    # a D-declined show: check-1 entries decline every fill
     ws2, _ = _library_show(tmp_path, held=True, date="1973-06-11")
     # (tagged tracks keep it off today's LLM branch, so the row is not needs-LLM)
-    _untag(tmp_path, "\n".join(_SF_SONGS[:5] + ["w/ Bob Weir"]) + "\n",
-           tag_names=_SF_NAMES[:5])
+    # two show-level failures: entry 5 is filename residue, entry 6 an annotation; `d_failed`
+    # is the FIRST in check order.
+    _untag(tmp_path, "\n".join(_SF_SONGS[:4] + ["gd73-06-10d2t02.mp3", "w/ Bob Weir"]) + "\n",
+           tag_names=_SF_NAMES[:4])
     r2 = _replay(tmp_path, ws2)
     assert r2.self_filled is False and r2.desc_position == 0
-    assert r2.cascade["d_fills"] == [] and r2.cascade["d_failed"] == "hygiene:annotation"
+    assert r2.cascade["d_fills"] == [] and r2.cascade["d_failed"] == "hygiene:filename residue"
     # an unreplayable row carries an empty record
     (tmp_path / "cache" / f"md_{IDENT}.json").unlink()
     assert _replay(tmp_path, ws).cascade == {}

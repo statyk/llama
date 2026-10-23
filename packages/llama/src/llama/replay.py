@@ -447,7 +447,7 @@ class ShowReplay:
 
 def _cascade_dict(rec: CascadeRecord | None) -> dict:
     """The cascade's fills and declines for the harness (positions 1-based; the dict keys of
-    `d_track_declines` and `short4_declined` are strings so an arm survives a JSON round trip)."""
+    `d_track_declines`, `c_changed` and `short4_declined` are strings so an arm survives a JSON round trip)."""
     if rec is None:
         return {}
     one = lambda xs: sorted(p + 1 for p in xs)   # noqa: E731

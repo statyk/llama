@@ -16,7 +16,7 @@ from llama.songs import normalize_song
 from llama.stages.gather import (_HEAD_CHATTER, _drop_artist_items,
                                  _strip_footnote_markers, _strip_head_banner,
                                  run_gather)
-from llama.structure import fuzzy_norm_title
+from llama.structure import align, fuzzy_norm_title
 from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 from llama import jerrybase
 from llama.models import JerrybaseEvent, JerrybaseSet
@@ -4192,39 +4192,66 @@ class _NoAlignProvider:
         raise AssertionError(f"align_structure LLM branch reached ({name})")
 
 
-def _mccoury_one_tagged():
+def _mccoury_one_tagged(tag="Rain and Snow"):
+    """One independent title that AGREES with list entry 1 (so D passes check 3)."""
     md = _mccoury_md(tagged=False)
     for f in md["files"]:
         if f.get("name") == "gd73-06-10d1t01.mp3":
-            f["title"] = "Zebra Stripes"      # independent, and not on the list: coverage 0
+            f["title"] = tag
     return md
+
+
+def _partial_slfm():
+    """A setlist.fm canonical agreeing with 4 of the list's 6 items: D's agreement check
+    passes (>= 0.5), and the canonical is not the description's own."""
+    songs = list(MCCOURY_SONGS)
+    return _FakeSetlistFM(["Zebra Stripes"] + songs[1:4] + ["Ostrich Dance", "All Aboard"])
 
 
 def test_self_filled_tape_skips_align_structure_and_the_flag(tmp_path):
     """Spec Q2: every song-like track `desc-position` and D passed -> no align_structure
-    call, no needs_align verdict, no low-confidence flag; labels are deterministic align()'s."""
-    res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(_mccoury_md(tagged=False)),
-                         _NoAlignProvider(), make_candidate(), IDENT)
-    assert res.self_filled is True
-    assert "low-confidence structure alignment" not in res.show.review_flags
+    call, no needs_align verdict, no low-confidence flag; labels are deterministic align()'s.
+    Both a chosen canonical and a partial setlist.fm one ("whatever the canonical")."""
+    for sub, slfm in (("chosen", None), ("slfm", _partial_slfm())):
+        res = compute_gather(ShowWorkspace(tmp_path / sub), StubIA(_mccoury_md(tagged=False)),
+                             None, make_candidate(), IDENT, setlistfm=slfm,
+                             align_provider=_NoAlignProvider())    # raises if called
+        assert res.self_filled is True, sub
+        assert res.needs_llm == (), sub
+        assert "low-confidence structure alignment" not in res.show.review_flags
+        # labels are deterministic align()'s of the shipped titles over the canonical
+        canon_titles = (MCCOURY_SONGS if slfm is None
+                        else ["Zebra Stripes"] + MCCOURY_SONGS[1:4] + ["Ostrich Dance", "All Aboard"])
+        canon = ParsedSetlist(items=[SetlistItem(title=t, normalized=normalize_song(t), set="1")
+                                     for t in canon_titles])
+        assert [t.set for t in res.show.tracks] == align(res.show.tracks, canon).sets, sub
+        assert res.show.structure.alignment == "deterministic"
     # today's path for the same tape (slices off) does reach the flag
     today = compute_gather(ShowWorkspace(tmp_path / "t"), StubIA(_mccoury_md(tagged=False)),
                            None, make_candidate(), IDENT, enabled_slices=frozenset())
     assert today.self_filled is False
-    # no provider: the needs-LLM verdict is not recorded either
-    res2 = compute_gather(ShowWorkspace(tmp_path / "b"), StubIA(_mccoury_md(tagged=False)),
-                          None, make_candidate(), IDENT)
-    assert res2.self_filled is True
-    assert "align_structure" not in res2.needs_llm
-    assert [t.set for t in res2.show.tracks] == [t.set for t in res.show.tracks]
-    assert res2.show.structure.alignment == "deterministic"
+    assert "align_structure" in today.needs_llm
 
 
 def test_one_independent_title_keeps_low_confidence(tmp_path):
-    """(pin) Spec Q2's exception is narrow: ANY independent song-like title keeps today's
-    LLM branch and flag."""
+    """(pin) Spec Q2's exception is narrow: D PASSES (the tag agrees with the list, the
+    canonical agrees 4 of 6) but ONE track keeps an independent tag, so today's LLM branch
+    and flag stay."""
     res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(_mccoury_one_tagged()),
+                         None, make_candidate(), IDENT, setlistfm=_partial_slfm())
+    assert res.title_record.d is not None and res.title_record.d.failed == ()
+    assert [t.title_source for t in res.show.tracks] == ["tags"] + ["desc-position"] * 5
+    assert res.self_filled is False
+    assert res.needs_llm == ("align_structure",)
+    assert "low-confidence structure alignment" in res.show.review_flags
+
+
+def test_d_declined_tape_with_a_disagreeing_tag_is_not_self_filled(tmp_path):
+    """The D-declined case: a tag that DISAGREES with list entry 1 fails check 3."""
+    res = compute_gather(ShowWorkspace(tmp_path / "a"),
+                         StubIA(_mccoury_one_tagged("Zebra Stripes")),
                          None, make_candidate(), IDENT)
+    assert res.title_record.d is not None and res.title_record.d.failed
     assert res.self_filled is False
     assert "align_structure" in res.needs_llm
     assert "low-confidence structure alignment" in res.show.review_flags
@@ -4237,8 +4264,9 @@ def test_jerrybase_anchoring_still_labels_a_self_filled_family_tape(tmp_path, mo
     md["metadata"]["description"] = "\n".join(songs) + "\n"
     monkeypatch.setattr(jerrybase, "lookup",
                         lambda a, d: [_jb_event([("Charlie", "1"), ("Foxtrot", "2")])])
-    res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(md), _NoAlignProvider(),
-                         make_candidate(), IDENT, jerrybase_enabled=True)
+    res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(md), None,
+                         make_candidate(), IDENT, jerrybase_enabled=True,
+                         align_provider=_NoAlignProvider())
     assert res.self_filled is True
     assert res.show.structure.alignment == "jerrybase"
     assert [t.set for t in res.show.tracks] == ["1", "1", "1", "2", "2", "2"]
