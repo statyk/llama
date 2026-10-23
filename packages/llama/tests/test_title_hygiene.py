@@ -219,3 +219,426 @@ def test_wholly_untagged_predicate():
     assert not wholly_untagged(["Bertha", "Dark Star"], frozenset())
     assert wholly_untagged(["Bertha", "Dark Star"], frozenset({1}))
     assert wholly_untagged(["Tuning", "Banter"], frozenset())
+
+
+# ---- Task 6: the untagged checks and the D decision (slice 2) ----
+
+from llama.desc_list import read_numbered, read_parse  # noqa: E402
+from llama.siblings import DonorTape, SiblingRow  # noqa: E402
+from llama.title_hygiene import (  # noqa: E402
+    DESC_POSITION,
+    SHIFT_CHECKS,
+    DDecision,
+    apply_d,
+    block_size_mismatch,
+    d_notes,
+    decide_d,
+    is_self_filled,
+    sibling_disagreement,
+)
+
+_EMPTY = ParsedSetlist(items=[], confidence="high")
+_IDENTITY = lambda p: (p, frozenset())  # noqa: E731
+
+
+def _u(n, filename=None, dur=300.0):
+    return Track(index=n, set="1", filename=filename or f"x2001-01-01d1t{n:02d}.mp3", title="",
+                 title_source="unresolved", duration_sec=dur)
+
+
+def _blocked(blocks, *raws, boundaries=()):
+    return DescList("numbered", tuple(raws), tuple(clean_entries(list(raws))), tuple(blocks),
+                    tuple(boundaries))
+
+
+def _d(tracks, dl, *, tag_titles=None, canonical=_EMPTY, norms=None, aliases=None,
+       untagged=False, donor=None):
+    return decide_d(tracks, dl, tag_titles=tag_titles or ["" for _ in tracks],
+                    canonical=canonical, metadata_norms=norms or set(), aliases=aliases or {},
+                    wholly_untagged=untagged, donor=donor or (lambda: None))
+
+
+def test_shift_checks_are_every_show_level_name_not_hygiene():
+    """(pin)"""
+    assert SHIFT_CHECKS == frozenset({"adjacent duplicate", "tape agreement", "written durations",
+                                      "block size", "sibling durations", "agreement"})
+
+
+def test_d_fills_unresolved_and_never_touches_resolved():
+    tr = [_t("Bertha", n=1), _u(2), _t("Sugaree", n=3), _u(4)]
+    d = _d(tr, _dl("Bertha", "Jack Straw", "Sugaree", "Ripple"))
+    assert d.fills == {1: "Jack Straw", 3: "Ripple"}
+    assert d.failed == () and d.track_declines == {} and not d.shift
+    out = apply_d(tr, d)
+    assert [(t.title, t.title_source) for t in out] == [
+        ("Bertha", "tags"), ("Jack Straw", DESC_POSITION), ("Sugaree", "tags"),
+        ("Ripple", DESC_POSITION)]
+    assert tr[1].title_source == "unresolved"  # input untouched
+
+
+def test_d_never_touches_an_override():
+    tr = [_t("My Own Title", "override", n=1), _u(2)]
+    d = _d(tr, _dl("My Own Title", "Jack Straw"))
+    assert d.fills == {1: "Jack Straw"}
+    assert apply_d(tr, d)[0].title_source == "override"
+
+
+def test_d_does_not_fire_without_count_match_or_unresolved():
+    tr = [_u(1), _u(2), _u(3), _u(4)]
+    assert _d(tr, _dl("A Song", "B Song", "C Song", "D Song", "E Song")) is None
+    tagged = [_t("A Song", n=1), _t("B Song", n=2)]
+    assert _d(tagged, _dl("A Song", "B Song")) is None
+
+
+def test_d_may_fill_a_2b_demoted_position():
+    tr = [_t("Bertha", n=1), _t("Sugaree", n=2), _u(3)]
+    d = _d(tr, _dl("Bertha", "Sugaree", "Jack Straw"),
+           tag_titles=["Bertha", "Sugaree", "Track 03"])
+    assert d.fills == {2: "Jack Straw"}
+
+
+def test_check2_one_duplicate_declines_every_fill():
+    tr = [_t("Bertha", n=1), _u(2), _u(3), _u(4)]
+    d = _d(tr, _dl("Bertha", "Bertha", "Jack Straw", "Ripple"))
+    assert d.fills == {}
+    assert d.failed[0][0] == "adjacent duplicate"
+    assert d.shift
+
+
+# rosehilldrive-2008-12-31 (rhd2008-12-31.akg483.flac16): description verbatim.
+_RHD_DESC = (
+    "Disc 1\n\n(05:12) 01-?\n(03:43) 02-Sneak Out\n(04:06) 03-Man On Fire\n(11:23) 04-Reptilian"
+    " Blues\n(05:50) 05-One Night Stand\n(03:58) 06-Laughing in the Streets\n(08:10) 07-8th"
+    " Wonder\n(01:46) 08-NYE Countdown\n\n(44:11) Disc 1 Total\n\nDisc 2\n\n(06:30) 01-Whole"
+    " Lotta Love\n(04:44) 02-What is and What Should Never Be\n(06:35) 03-The Lemon Song\n"
+    "(06:21) 04-Thank You\n(06:02) 05-Heartbreaker\n(03:33) 06-Living Loving Maid (She's Just"
+    " a Woman)\n(05:02) 07-Ramble On\n(05:50) 08-Moby Dick\n(09:46) 09-Bring It on Home\n"
+    "(01:41) 10-encore break\n(03:27) 11-?\n(05:13) 12-Do You Want to Get High\n(04:59)"
+    " 13-I'm On to You\n\n(1:09:49) Disc 2 Total"
+)
+_RHD_FILES = [f"rhd2008-12-31.akg483.d1t{i}.mp3" for i in range(1, 9)] + [
+    f"rhd2008-12-31.akg483.d2t{i:02d}.mp3" for i in range(1, 14)]
+_RHD_DURS = [312, 223, 246, 682, 349, 238, 490, 106, 390, 284, 395, 381, 362, 213, 302, 350,
+             586, 101, 206, 313, 299]
+
+
+def test_slot_placeholders_decline_per_track():
+    dl = read_parse(_RHD_DESC, artist="Rose Hill Drive", clean=_IDENTITY)
+    assert isinstance(dl, DescList) and len(dl.raws) == 21
+    tr = [_u(i + 1, f, float(s)) for i, (f, s) in enumerate(zip(_RHD_FILES, _RHD_DURS))]
+    d = _d(tr, dl, untagged=True)
+    assert d.failed == ()
+    assert d.track_declines == {0: "slot placeholder", 18: "slot placeholder"}
+    assert set(d.fills) == set(range(21)) - {0, 18}
+    assert d.fills[1] == "Sneak Out"
+    assert d_notes(d, dl) == [
+        "positional fill declined: desc-position track 1 slot placeholder '?'",
+        "positional fill declined: desc-position track 19 slot placeholder '?'",
+    ]
+
+
+def test_bare_number_list_equal_to_track_numbers_declines_every_position():
+    tr = [_u(i) for i in range(1, 5)]
+    d = _d(tr, _dl("1", "2", "3", "4"))
+    assert d.fills == {}
+    assert d.track_declines == {0: "slot placeholder", 1: "slot placeholder",
+                                2: "slot placeholder", 3: "slot placeholder"}
+    shifted = _d(tr, _dl("2", "3", "4", "5"))
+    assert shifted.track_declines == {}
+
+
+def test_filler_marked_entry_is_never_filled():
+    tr = [_u(1), _u(2), _u(3)]
+    d = _d(tr, _dl("Bertha", "Filler: Dark Star", "Jack Straw"))
+    assert d.track_declines == {1: "filler entry"}
+    assert d.fills == {0: "Bertha", 2: "Jack Straw"}
+    assert d.failed == ()
+
+
+# belafleckandtheflecktones-2003-06-08 (bfft20030608.shnf): description verbatim.
+_BFFT_DESC = (
+    '"Set" 1:\nNext\nEarth Jam\nBig Country\nBil Mon\n"Set" 2:\nStomping Grounds\nBela jam->\n'
+    "Mudslingers of the Milky Way\nVic Loop jam->\nJam intro->\nSleeper\nFlight of the Cosmic"
+    " Hippo [feat. power outage Coffin jam]\nA Moment So Close\nBela solos\nBach: Prelude from"
+    " Partita No.3 for solo violin\nEncore: Hoedown"
+)
+_BFFT_FILES = [f"bfft20030608d1t{i:02d}.mp3" for i in (1, 2, 3, 4, 5, 7, 8, 9, 10)] + [
+    f"bfft20030608d2t{i:02d}.mp3" for i in (1, 2, 3, 4, 5, 7, 8, 11)]
+
+
+def test_show_level_hygiene_is_not_a_shift():
+    dl = read_parse(_BFFT_DESC, artist="Bela Fleck and the Flecktones", clean=_IDENTITY)
+    assert isinstance(dl, DescList) and len(dl.raws) == 17
+    tr = [_u(i + 1, f) for i, f in enumerate(_BFFT_FILES)]
+    d = _d(tr, dl, untagged=True)
+    assert d.failed[0] == ("hygiene:trailing colon", "track 1 '\"Set\" 1:'")
+    assert ("hygiene:trailing colon", "track 6 '\"Set\" 2:'") in d.failed
+    assert d.fills == {}
+    assert not d.shift
+
+
+# billystrings-2023-06-10 (BMFS2023-06-10.BMFS): description verbatim.
+_BMFS_DESC = (
+    "<div><br /></div><div>Billy Strings</div><div>TCU Amphitheater At White River State Park"
+    "</div><div>Indianapolis, IN</div><div>2023-06-10</div><div><br /></div><div>Source: "
+    "(Inside SBD Cage/7' high)</div><div>Schoeps MK4 (DIN) &gt; Naint PFA &gt; Sound Devices"
+    " MixPre 6 II @ 32/96</div><div><br /></div><div>Transfer: Soundforge 17.0 Pro &gt; CD"
+    " Wave &gt; FLAC (level 8)</div><div><br /></div><div>Recorded By: Adam Huston / Wild West"
+    " Recordings</div><div><br /></div><div>Transfer: Brian Lee (blee421@hotmail.com)</div>"
+    "<div><br /></div><div>I did the best I could on tracking.\xa0</div><div><br /></div><div>"
+    "SET 1</div><div><br /></div><div>The Fire on My Tongue</div><div>John Hardy\xa0\xa0</div>"
+    "<div>Away From the Mire</div><div>Long Forgotten Dream</div><div>Morning Light</div><div>"
+    "All Time Low\xa0\xa0</div><div>End of the Rainbow\xa0\xa0</div><div>Ice Bridges</div><div>"
+    "My Alice</div><div>Doin' My Time\xa0\xa0</div><div>Libby Phillips Rag</div><div>I'm Still"
+    " Here\xa0\xa0</div><div>Dealing Despair</div><div><br /></div><div>SET 2</div><div><br />"
+    "</div><div>I'll Be Gone a Long Time</div><div>Run Down &gt;\xa0\xa0</div><div>Pretty"
+    " Daughter\xa0\xa0</div><div>All of Tomorrow</div><div>Home</div><div>Good Ole Mountain"
+    " Dew\xa0\xa0</div><div>I've Lived a Lot in My Time\xa0\xa0</div><div>I've Just Seen the"
+    " Rock of Ages\xa0\xa0</div><div>Psycho &gt;\xa0\xa0</div><div>Thunder\xa0\xa0</div><div>"
+    "Nights in White Satin\xa0\xa0</div><div>Turmoil &amp; Tinfoil</div>"
+)
+_BMFS_FILES = [f"BMFS2023-06-10D1T{i:02d}.mp3" for i in range(1, 13)] + [
+    f"BMFS2023-06-10D2T{i:02d}.mp3" for i in range(1, 14)]
+
+# derektrucksband-2003-11-26 (dtb2003-11-26.shnf): description verbatim.
+_DTB_DESC = (
+    'Disc 1\n1. Volunteered Slavery\n2. So Close So Far\n3. Feel So Bad Sahib>Maki>Sahib\n4. To'
+    " Know You Is To Love You\n5. Leavin Trunk\n6. Like Anyone Else\n7. Willisee>\n8. Angola\n"
+    '9. For My Brother \n\nDisc 2 \n1. Gonna Move* \n2. Kam-a-lay** \n3. Crowd\n4. E:'
+    ' "Philadelphia" Soul Stew>\n5. Joyful Noise**\n'
+)
+_DTB_FILES = [f"dtb2003-11-26d1t{i:02d}.mp3" for i in range(1, 11)] + [
+    f"dtb2003-11-26d2t{i:02d}.mp3" for i in (1, 2, 4, 5)]
+
+
+def test_block_size_catches_the_two_shifted_untagged_shows():
+    bmfs = read_parse(_BMFS_DESC, artist="Billy Strings", clean=_IDENTITY)
+    assert isinstance(bmfs, DescList) and len(bmfs.raws) == 25
+    assert block_size_mismatch(_BMFS_FILES, bmfs) == "track 1 'The Fire on My Tongue'"
+    d = _d([_u(i + 1, f) for i, f in enumerate(_BMFS_FILES)], bmfs, untagged=True)
+    assert "block size" in [c for c, _ in d.failed] and d.shift and d.fills == {}
+
+    dtb = read_numbered(_DTB_DESC)
+    assert isinstance(dtb, DescList) and len(dtb.raws) == 14
+    assert block_size_mismatch(_DTB_FILES, dtb) == "track 1 'Volunteered Slavery'"
+    d = _d([_u(i + 1, f) for i, f in enumerate(_DTB_FILES)], dtb, untagged=True)
+    assert "block size" in [c for c, _ in d.failed] and d.shift
+
+
+def test_block_size_matching_counts_pass():
+    files = [f"x2001-01-01d1t{i:02d}.flac" for i in range(1, 4)] + [
+        f"x2001-01-01d2t{i:02d}.flac" for i in range(1, 3)]
+    assert block_size_mismatch(files, _blocked((0, 0, 0, 1, 1), *"ABCDE",
+                                               boundaries=("disc",))) is None
+    assert block_size_mismatch(files, _blocked((0, 0, 1, 1, 1), *"ABCDE",
+                                               boundaries=("disc",))) == "track 1 'A'"
+
+
+def test_block_size_inert_without_index_or_matching_count():
+    dl = _blocked((0, 0, 0, 1, 1), *"ABCDE", boundaries=("disc",))
+    no_index = [f"x2001-01-01_{i:02d}.flac" for i in range(1, 6)]
+    assert block_size_mismatch(no_index, dl) is None
+    one_missing = [f"x2001-01-01d1t{i:02d}.flac" for i in range(1, 5)] + ["x2001-01-01_05.flac"]
+    assert block_size_mismatch(one_missing, dl) is None
+    three = ["x-d1t01.flac", "x-d1t02.flac", "x-d2t01.flac", "x-d2t02.flac", "x-d3t01.flac"]
+    assert block_size_mismatch(three, dl) is None
+    single = _blocked((0, 0, 0, 0, 0), *"ABCDE")
+    assert block_size_mismatch(["x-d1t01.flac"] * 5, single) is None
+    interleaved = ["x-d1t01.flac", "x-d2t01.flac", "x-d1t02.flac", "x-d2t02.flac", "x-d2t03.flac"]
+    assert block_size_mismatch(interleaved, dl) is None
+
+
+def test_disc_index_grammar():
+    """`sbd`, `dsbd` and words never read as a disc index; the token must precede a track
+    token. (pin)"""
+    dl = _blocked((0, 1), "A", "B", boundaries=("disc",))
+    assert block_size_mismatch(["gd77.dsbd.d1t01.shn", "gd77.dsbd.d2t01.shn"], dl) is None
+    assert block_size_mismatch(["bt1997-10-13cd1t03.flac", "bt1997-10-13cd2t01.flac"],
+                               dl) is None
+    assert block_size_mismatch(["sbd.t01.flac", "sbd.t02.flac"], dl) is None  # inert
+    assert block_size_mismatch(["bt1997-10-13cd1t03.flac", "bt1997-10-13cd1t04.flac"],
+                               dl) is None  # one disc value vs two blocks: inert
+    dl3 = _blocked((0, 1, 1), "A", "B", "C", boundaries=("disc",))
+    assert block_size_mismatch(["show_disc_1_track_01.flac", "show_disc_1_track_02.flac",
+                                "show_disc_2_track_01.flac"], dl3) == "track 1 'A'"
+
+
+def test_encore_block_folds_into_the_preceding_block():
+    dl = _blocked((0,) * 5 + (1,) * 4 + (2,), *"ABCDEFGHIJ", boundaries=("set", "encore"))
+    discs = ([f"x-d1t{i:02d}.flac" for i in range(1, 6)]
+             + [f"x-d2t{i:02d}.flac" for i in range(1, 6)])
+    assert block_size_mismatch(discs, dl) is None
+    assert block_size_mismatch(discs, dl, fold_encore=False) is None  # 3 blocks vs 2 discs
+    off = [f"x-d1t{i:02d}.flac" for i in range(1, 7)] + [f"x-d2t{i:02d}.flac" for i in range(1, 5)]
+    assert block_size_mismatch(off, dl) == "track 1 'A'"
+    assert block_size_mismatch(off, dl, fold_encore=False) is None
+    three = ([f"x-d1t{i:02d}.flac" for i in range(1, 7)] + [f"x-d2t{i:02d}.flac" for i in (1, 2, 3)]
+             + ["x-d3t01.flac"])
+    assert block_size_mismatch(three, dl) is None  # folded: 2 blocks vs 3 discs, inert
+    assert block_size_mismatch(three, dl, fold_encore=False) == "track 1 'A'"
+
+
+def test_set_headers_use_set_index():
+    # Artificial names: every file carries `d1`, so the disc index alone would be inert.
+    dl = _blocked((0,) * 5 + (1,) * 4, *"ABCDEFGHI", boundaries=("set",))
+    ok = [f"x.d1t{i:02d}.s1t{i:02d}.flac" for i in range(1, 6)] + [
+        f"x.d1t{i:02d}.s2t{i:02d}.flac" for i in range(6, 10)]
+    assert block_size_mismatch(ok, dl) is None
+    off = [f"x.d1t{i:02d}.s1t{i:02d}.flac" for i in range(1, 5)] + [
+        f"x.d1t{i:02d}.s2t{i:02d}.flac" for i in range(5, 10)]
+    assert block_size_mismatch(off, dl) == "track 1 'A'"
+    # A disc boundary keeps the disc index, so the same files are inert.
+    disc_dl = _blocked((0,) * 5 + (1,) * 4, *"ABCDEFGHI", boundaries=("disc",))
+    assert block_size_mismatch(off, disc_dl) is None
+    # Set boundaries but no set index on every file: the disc index is used.
+    gd = [f"gd77-05-08d1t{i:02d}.shn" for i in range(1, 5)] + [
+        f"gd77-05-08d2t{i:02d}.shn" for i in range(1, 6)]
+    assert block_size_mismatch(gd, dl) == "track 1 'A'"
+    gd77 = [f"gd77-05-08s1t{i:02d}.shn" for i in range(1, 5)] + [
+        f"gd77-05-08s2t{i:02d}.shn" for i in range(1, 6)]
+    assert block_size_mismatch(gd77, dl) == "track 1 'A'"
+
+
+def _donor(titles, rows_spans):
+    donor = DonorTape("sib", [f"s{i}" for i in range(len(titles))], [300.0] * len(titles),
+                      list(titles))
+    rows = [SiblingRow(i + 1, None, span, 0.0, 100.0, "adopt") for i, span in
+            enumerate(rows_spans)]
+    return donor, rows
+
+
+def test_sibling_check_catches_a_shift():
+    cands = {0: "Bertha", 1: "Jack Straw", 2: "Sugaree", 3: "Ripple"}
+    # The donor reads one song later: every 1:1 pair disagrees.
+    donor = _donor(["Opening Song", "Bertha", "Jack Straw", "Sugaree"],
+                   [(0, 1), (1, 2), (2, 3), (3, 4)])
+    assert sibling_disagreement(cands, donor) == (0, "Bertha", "Opening Song")
+    tr = [_u(i) for i in range(1, 5)]
+    d = _d(tr, _dl("Bertha", "Jack Straw", "Sugaree", "Ripple"), untagged=True,
+           donor=lambda: donor)
+    assert [c for c, _ in d.failed] == ["sibling durations"]
+    assert d.failed[0][1] == "track 1 'Bertha'"
+    assert d.shift and d.fills == {}
+    agreeing = _donor(["Bertha", "Jack Straw", "Sugaree", "Ripple"],
+                      [(0, 1), (1, 2), (2, 3), (3, 4)])
+    assert sibling_disagreement(cands, agreeing) is None
+
+
+def test_sibling_check_inert_without_durations():
+    cands = {0: "Bertha", 1: "Jack Straw", 2: "Sugaree"}
+    assert sibling_disagreement(cands, None) is None
+    # Only track 1 pairs one-to-one: a merged span, a split (shared) span, an unpaired row.
+    one = _donor(["Nope", "A", "B", "C"], [(0, 1), (1, 3), None])
+    assert sibling_disagreement(cands, one) is None
+    split = _donor(["Nope", "Other"], [(0, 1), (1, 2), (1, 2)])
+    assert sibling_disagreement(cands, split) is None
+    tr = [_u(i) for i in range(1, 4)]
+    d = _d(tr, _dl("Bertha", "Jack Straw", "Sugaree"), untagged=True, donor=lambda: None)
+    assert d.failed == () and len(d.fills) == 3
+
+
+def test_sibling_pairs_need_a_real_donor_title_and_ignore_filler():
+    cands = {0: "Bertha", 1: "Jack Straw", 2: "Tuning", 3: "Ripple"}
+    # Untitled donor rows never count; filler on either side is neutral and is not a pair.
+    donor = _donor(["", "", "Dark Star", "Ripple"], [(0, 1), (1, 2), (2, 3), (3, 4)])
+    assert sibling_disagreement(cands, donor) is None
+    donor2 = _donor(["Banter", "Wrong", "Dark Star", "Ripple"], [(0, 1), (1, 2), (2, 3), (3, 4)])
+    assert sibling_disagreement(cands, donor2) == (1, "Jack Straw", "Wrong")
+    # A row with no candidate (a resolved position) is not a pair: one pair left, inert.
+    assert sibling_disagreement({1: "Jack Straw", 2: "Tuning"}, donor2) is None
+
+
+def test_untagged_checks_only_on_wholly_untagged():
+    bmfs = read_parse(_BMFS_DESC, artist="Billy Strings", clean=_IDENTITY)
+    tr = [_u(i + 1, f) for i, f in enumerate(_BMFS_FILES)]
+    calls = []
+
+    def donor():
+        calls.append(1)
+        return None
+
+    d = _d(tr, bmfs, untagged=False, donor=donor)
+    assert "block size" not in [c for c, _ in d.failed]
+    assert calls == []
+    _d(tr, bmfs, untagged=True, donor=donor)
+    assert calls == [1]
+
+
+def test_donor_not_called_without_candidates():
+    calls = []
+    tr = [_u(1), _u(2)]
+    _d(tr, _dl("?", "Filler: Tuning"), untagged=True, donor=lambda: calls.append(1))
+    assert calls == []
+
+
+def test_agreement_check_declines_below_floor():
+    tr = [_t("Bertha", n=1), _u(2), _u(3)]
+    dl = _dl("Bertha", "Jack Straw", "Sugaree")
+    d = _d(tr, dl, canonical=_canon("Dark Star", "Ripple"))
+    assert [c for c, _ in d.failed] == ["agreement"]
+    assert d.failed[0][1] == "track 1 'Bertha'"
+    assert d.shift and d.fills == {}
+    ok = _d(tr, dl, canonical=_canon("Bertha", "Jack Straw", "Other"))
+    assert ok.failed == () and ok.fills == {1: "Jack Straw", 2: "Sugaree"}
+    # aliases reach the agreement check
+    sc = _canon("China Cat Sunflower")
+    assert _d([_u(1)], _dl("Chinacat"), canonical=sc).failed[0][0] == "agreement"
+    assert _d([_u(1)], _dl("Chinacat"), canonical=sc, aliases=GD_SHORTHAND).failed == ()
+
+
+def test_check_order_and_all_failures_recorded():
+    tr = [_t("Bertha", n=1), _u(2), _u(3), _u(4)]
+    dl = _dl("Sugaree (5:00)", "w/ Eric Johnson (5:00)", "Jack Straw (5:00)", "Jack Straw")
+    tr = [t.model_copy(update={"duration_sec": 100.0}) for t in tr]
+    d = _d(tr, dl, canonical=_canon("Dark Star"))
+    assert [c for c, _ in d.failed] == ["hygiene:annotation", "adjacent duplicate",
+                                        "tape agreement", "written durations", "agreement"]
+    assert d.failed[1] == ("adjacent duplicate", "track 3 'Jack Straw'")
+    assert d.failed[2] == ("tape agreement", "track 1 'Sugaree'")
+    assert d.failed[3] == ("written durations", "track 1 'Sugaree'")
+
+
+def test_ships_cleaned_text():
+    tr = [_u(1), _u(2), _u(3)]
+    d = _d(tr, _dl("Pyramid County (1) > Little Maggie", "E: Ripple", "“Sugaree”"))
+    assert d.fills == {0: "Pyramid County > Little Maggie", 1: "Ripple", 2: "Sugaree"}
+
+
+def _filled(*titles_sources):
+    return [Track(index=i + 1, set="1", filename=f"f{i}.mp3", title=t, title_source=s)
+            for i, (t, s) in enumerate(titles_sources)]
+
+
+def test_self_filled_requires_d_to_pass_every_check():
+    passed = DDecision(fills={0: "A", 1: "B"}, failed=(), track_declines={})
+    tr = _filled(("Tuning", "tags"), ("Bertha", DESC_POSITION), ("Sugaree", DESC_POSITION))
+    assert is_self_filled(tr, passed)
+    failed = DDecision(fills={}, failed=(("agreement", "track 1 'A'"),), track_declines={})
+    assert not is_self_filled(tr, failed)
+    assert not is_self_filled(tr, None)
+    mixed = _filled(("Bertha", "tags"), ("Sugaree", DESC_POSITION))
+    assert not is_self_filled(mixed, passed)
+    declined = _filled(("", "unresolved"), ("Sugaree", DESC_POSITION))
+    assert not is_self_filled(declined, passed)
+    assert not is_self_filled(_filled(("Tuning", "tags")), passed)
+
+
+def test_self_filled_end_to_end():
+    tr = [_u(1), _u(2), _t("Tuning", n=3)]
+    d = _d(tr, _dl("Bertha", "Sugaree", "Tuning"), untagged=True)
+    assert is_self_filled(apply_d(tr, d), d)
+
+
+def test_notes_one_per_show_decline_and_per_track():
+    tr = [_t("Bertha", n=1), _u(2), _u(3), _u(4)]
+    dl = _dl("Sugaree", "w/ Eric Johnson", "?", "Jack Straw")
+    d = _d(tr, dl)
+    assert [c for c, _ in d.failed] == ["hygiene:annotation", "tape agreement"]
+    assert d.track_declines == {2: "slot placeholder"}
+    assert d_notes(d, dl) == [
+        "positional fill declined: desc-position hygiene:annotation (track 2 'w/ Eric Johnson')",
+        "positional fill declined: desc-position track 3 slot placeholder '?'",
+    ]
+    assert d.shift
+    ok = _d([_u(1)], _dl("Bertha"))
+    assert d_notes(ok, _dl("Bertha")) == []

@@ -1,4 +1,4 @@
-"""Title hygiene (piece 3): definitions, comparators and check 1.
+"""Title hygiene (piece 3): definitions, comparators, the checks and the D decision.
 
 Pure: no IO, no gather wiring. Check 1 (`judge`) calls `structure.hygienic_title` with
 `require_real=False` and never re-composes its clauses; the class a note names for a
@@ -7,14 +7,16 @@ Pure: no IO, no gather wiring. Check 1 (`judge`) calls `structure.hygienic_title
 
 from __future__ import annotations
 
+import os
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from llama.desc_list import Cleaned, DescList, clean_one, is_header_shape, written_seconds
 from llama.placeholders import is_placeholder, is_residue, is_timestamp, looks_like_filename
 from llama.models import ParsedSetlist, Track
 from llama.setlist import MAX_TITLE_LEN
-from llama.siblings import MIN_ANCHORS
+from llama.siblings import MIN_ANCHORS, DonorTape, SiblingRow
 from llama.structure import (
     fuzzy_norm_title,
     fuzzy_title_eq,
@@ -22,7 +24,7 @@ from llama.structure import (
     is_filler,
     loosely_same_title,
 )
-from llama.titles import is_real_title
+from llama.titles import is_real_title, tag_core
 
 # Independent titles (spec, Definitions). NOT `siblings.INDEPENDENT_TITLE_SOURCES`.
 INDEPENDENT_SOURCES = frozenset({"tags", "sibling-format", "override", "sibling-align"})
@@ -200,18 +202,27 @@ def written_duration_mismatch(tracks: list[Track], dl: DescList) -> tuple[int, f
     return None
 
 
+def _agreement(dl: DescList, canonical: ParsedSetlist,
+               aliases: dict[str, str]) -> tuple[float, int | None] | None:
+    """`agreement_share`'s computation: (share, 0-based position of the first song-like
+    entry no canonical item matches, or None)."""
+    if not canonical.items:
+        return None
+    songs = [i for i, c in enumerate(dl.cleaned) if not c.filler_marked and not is_filler(c.text)]
+    if not songs:
+        return None
+    misses = [i for i in songs
+              if not any(agrees(dl.cleaned[i].text, it.title, aliases) for it in canonical.items)]
+    return (len(songs) - len(misses)) / len(songs), (misses[0] if misses else None)
+
+
 def agreement_share(dl: DescList, canonical: ParsedSetlist,
                     aliases: dict[str, str]) -> float | None:
     """Share of the list's song-like entries that some canonical item matches (order-free,
     whole list). The ONE place `GD_SHORTHAND` is expanded: the caller passes it for a
     family artist, `{}` otherwise."""
-    if not canonical.items:
-        return None
-    songs = [c.text for c in dl.cleaned if not c.filler_marked and not is_filler(c.text)]
-    if not songs:
-        return None
-    hit = sum(1 for e in songs if any(agrees(e, it.title, aliases) for it in canonical.items))
-    return hit / len(songs)
+    got = _agreement(dl, canonical, aliases)
+    return None if got is None else got[0]
 
 
 def wholly_untagged(tag_titles: list[str], demoted: frozenset[int]) -> bool:
@@ -220,3 +231,220 @@ def wholly_untagged(tag_titles: list[str], demoted: frozenset[int]) -> bool:
     real = sum(1 for i, t in enumerate(tag_titles)
                if i not in demoted and not is_filler(t) and is_real_title(t))
     return real < MIN_ANCHORS
+
+
+# ---- Slice 2: the untagged checks and the D decision -------------------------------------
+
+# Every show-level check name not starting `hygiene:`: a decline on one of these is a shift
+# signature, and S (deferred) declines with D.
+SHIFT_CHECKS = frozenset({"adjacent duplicate", "tape agreement", "written durations",
+                          "block size", "sibling durations", "agreement"})
+
+# Filename stem (basename minus extension), last match wins. The token must sit directly
+# before a track token, after a non-letter, so `sbd`, `dsbd` and words stay out.
+_DISC_INDEX = re.compile(
+    r"(?<![a-z])(?:cd|disc|disk|d)[\s_\-]*0?(\d{1,2})[\s_\-.]*(?:t|tr|trk|track)[\s_\-]*\d{1,3}",
+    re.I)
+_SET_INDEX = re.compile(
+    r"(?<![a-z])(?:set|s)[\s_\-]*0?(\d{1,2})[\s_\-.]*(?:t|tr|trk|track)[\s_\-]*\d{1,3}",
+    re.I)
+
+
+def _stem(filename: str) -> str:
+    return os.path.splitext(os.path.basename(filename))[0]
+
+
+def _index(rx: re.Pattern, filename: str) -> int | None:
+    found = list(rx.finditer(_stem(filename)))
+    return int(found[-1].group(1)) if found else None
+
+
+def _detail(pos: int, text: str) -> str:
+    """The note's `(track <n> '<text>')` payload; `pos` is 0-based."""
+    return f"track {pos + 1} '{text}'"
+
+
+def block_size_mismatch(filenames: list[str], dl: DescList, *,
+                        fold_encore: bool = True) -> str | None:
+    """Untagged check (a). Each block's entry count must equal its disc's (or set's) file
+    count; returns the first mismatched block's first entry as a note detail, or None
+    (passed or inert). Inert unless the list has 2+ blocks after folding, every filename
+    yields the index, the index takes exactly as many values as there are blocks, and the
+    files are grouped by index in play order. `fold_encore=False` is the probe's
+    alternative (row R10); gather never passes it."""
+    # Fold: block b starts at boundary b-1; an `encore` block joins the one before it.
+    fid = [0]
+    kept: list[str] = []
+    for b in dl.boundaries:
+        if fold_encore and b == "encore":
+            fid.append(fid[-1])
+        else:
+            fid.append(fid[-1] + 1)
+            kept.append(b)
+    blocks = [fid[b] for b in dl.blocks]
+    n_blocks = len(kept) + 1
+    if n_blocks < 2 or not filenames:
+        return None
+    sets = [_index(_SET_INDEX, f) for f in filenames]
+    if all(b == "set" for b in kept) and all(s is not None for s in sets):
+        idx = sets
+    else:
+        idx = [_index(_DISC_INDEX, f) for f in filenames]
+        if any(i is None for i in idx):
+            return None
+    groups: list[int] = []  # file counts per index value, in play order
+    seen: list[int] = []
+    for i in idx:
+        if seen and seen[-1] == i:
+            groups[-1] += 1
+            continue
+        if i in seen:
+            return None  # not grouped by index in play order
+        seen.append(i)
+        groups.append(1)
+    if len(groups) != n_blocks:
+        return None
+    sizes = [blocks.count(k) for k in range(n_blocks)]
+    for k in range(n_blocks):
+        if sizes[k] != groups[k]:
+            first = blocks.index(k) if sizes[k] else sum(sizes[:k])
+            if first >= len(dl.cleaned):
+                return _detail(len(dl.cleaned) - 1, dl.cleaned[-1].text)
+            return _detail(first, dl.cleaned[first].text)
+    return None
+
+
+def sibling_disagreement(cands: dict[int, str],
+                         donor: tuple[DonorTape, list[SiblingRow]] | None
+                         ) -> tuple[int, str, str] | None:
+    """Untagged check (b). `cands` keys are 0-BASED positions; `SiblingRow.track` is 1-BASED.
+    A pair is a row whose `donor_span` has length 1 and is shared by no other row, whose
+    donor title passes `is_real_title`, and whose position has a candidate; filler on either
+    side is neutral and not a pair. Check 3's comparator, no aliases. Fewer than
+    `MIN_ANCHORS` pairs is inert. Returns the first disagreement (pos, candidate, donor
+    title)."""
+    if donor is None:
+        return None
+    tape, rows = donor
+    spans = [r.donor_span for r in rows if r.donor_span is not None]
+    pairs: list[tuple[int, str, str]] = []
+    for r in sorted(rows, key=lambda r: r.track):
+        span = r.donor_span
+        if span is None or span[1] - span[0] != 1 or spans.count(span) != 1:
+            continue
+        pos = r.track - 1
+        if pos not in cands or not 0 <= span[0] < len(tape.titles):
+            continue
+        title = tape.titles[span[0]].strip()
+        if not title or not is_real_title(title):
+            continue
+        if is_filler(title) or is_filler(cands[pos]):
+            continue
+        pairs.append((pos, cands[pos], title))
+    if len(pairs) < MIN_ANCHORS:
+        return None
+    for pos, cand, title in pairs:
+        if not agrees(cand, title):
+            return pos, cand, title
+    return None
+
+
+@dataclass(frozen=True)
+class DDecision:
+    fills: dict[int, str]                    # 0-based -> shipped text; empty on a show decline
+    failed: tuple[tuple[str, str], ...]      # every show-level failure (check, detail), in order
+    track_declines: dict[int, str]           # 0-based -> per-track check
+
+    @property
+    def shift(self) -> bool:
+        return any(check in SHIFT_CHECKS for check, _ in self.failed)
+
+
+def decide_d(tracks: list[Track], dl: DescList, *, tag_titles: list[str],
+             canonical: ParsedSetlist, metadata_norms: set[str], aliases: dict[str, str],
+             wholly_untagged: bool,
+             donor: Callable[[], tuple[DonorTape, list[SiblingRow]] | None]
+             ) -> DDecision | None:
+    """The D rung's decision over a count-matched admissible list. None when the entry count
+    differs from the track count or no track is `unresolved`. Every show-level check runs
+    and is recorded in `failed`, in check order; any one declines every fill."""
+    if len(dl.raws) != len(tracks) or len(dl.cleaned) != len(tracks):
+        return None
+    open_ = [i for i, t in enumerate(tracks) if t.title_source == "unresolved"]
+    if not open_:
+        return None
+
+    failed: list[tuple[str, str]] = []
+    track_declines: dict[int, str] = {}
+    cands: dict[int, str] = {}
+    # Check 1, over the candidates (the entries at unresolved positions).
+    for i in open_:
+        c = dl.cleaned[i]
+        tag = tag_titles[i] if i < len(tag_titles) else ""
+        h = judge(c, track_no=i + 1, first=i == 0, stem=_stem(tracks[i].filename),
+                  own_core=tag_core(tag or ""), metadata_norms=metadata_norms)
+        if h.scope == "track":
+            track_declines[i] = h.check
+            continue
+        if h.scope == "show":
+            failed.append((h.check, _detail(i, c.text)))
+        cands[i] = c.text
+    # Check 2.
+    dup = adjacent_duplicate(cands, tracks)
+    if dup is not None:
+        failed.append(("adjacent duplicate", _detail(dup[0], dup[1])))
+    # Check 3.
+    dis = tape_disagreement(tracks, dl)
+    if dis is not None:
+        failed.append(("tape agreement", _detail(dis[0], dis[2])))
+    # Written durations.
+    wd = written_duration_mismatch(tracks, dl)
+    if wd is not None:
+        failed.append(("written durations", _detail(wd[0], dl.cleaned[wd[0]].text)))
+    # The untagged checks.
+    if wholly_untagged:
+        bs = block_size_mismatch([t.filename for t in tracks], dl)
+        if bs is not None:
+            failed.append(("block size", bs))
+        if cands:
+            sib = sibling_disagreement(cands, donor())
+            if sib is not None:
+                failed.append(("sibling durations", _detail(sib[0], sib[1])))
+    # The agreement check (the only place `aliases` reaches).
+    ag = _agreement(dl, canonical, aliases)
+    if ag is not None and ag[0] < AGREEMENT_FLOOR and ag[1] is not None:
+        failed.append(("agreement", _detail(ag[1], dl.cleaned[ag[1]].text)))
+
+    fills = {} if failed else dict(cands)
+    return DDecision(fills, tuple(failed), track_declines)
+
+
+def apply_d(tracks: list[Track], d: DDecision) -> list[Track]:
+    """D's fills, stamped `desc-position`, on still-`unresolved` positions only."""
+    out = list(tracks)
+    for pos, text in d.fills.items():
+        if 0 <= pos < len(out) and out[pos].title_source == "unresolved":
+            out[pos] = out[pos].model_copy(update={"title": text,
+                                                   "title_source": DESC_POSITION})
+    return out
+
+
+def d_notes(d: DDecision, dl: DescList) -> list[str]:
+    """ONE note for a show-level decline, naming `failed[0]`; one per per-track decline."""
+    notes: list[str] = []
+    if d.failed:
+        check, detail = d.failed[0]
+        notes.append(f"positional fill declined: {DESC_POSITION} {check} ({detail})")
+    for pos in sorted(d.track_declines):
+        notes.append(f"positional fill declined: {DESC_POSITION} track {pos + 1} "
+                     f"{d.track_declines[pos]} '{dl.cleaned[pos].text}'")
+    return notes
+
+
+def is_self_filled(tracks: list[Track], d: DDecision | None) -> bool:
+    """Slice 2, "Self-filled tapes": D passed every check and every song-like track is
+    `desc-position` (and there is at least one)."""
+    if d is None or d.failed:
+        return False
+    songs = [t for t in tracks if not is_filler(t.title)]
+    return bool(songs) and all(t.title_source == DESC_POSITION for t in songs)
