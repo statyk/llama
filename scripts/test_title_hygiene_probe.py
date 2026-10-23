@@ -772,3 +772,19 @@ def test_packets_siblings_and_name_refusals(tmp_path, capsys):
     for bad in ("x/y=" + str(tmp_path / "f"), "slice4=" + str(tmp_path / "f"), "nofile"):
         assert thp.main(["packets", "--cmp", str(cmp_dir), "--dump", str(dump),
                          "--out", str(tmp_path / "q"), "--extra", bad]) == 2
+
+
+def test_packets_and_parity_refuse_an_out_inside_the_library(tmp_path, capsys):
+    cmp_dir, dump, root = _packets_setup(tmp_path, {"a": _titles_row(d=3)},
+                                         [_dump_row("a", [("T0", "x")] * 3, wholly=True)])
+    assert thp.main(["packets", "--cmp", str(cmp_dir), "--dump", str(dump),
+                     "--out", str(root / "p")]) == 2
+    arm = tmp_path / "arm.json"
+    arm.write_text(json.dumps({"root": str(root), "shows": {}}))
+    assert thp.main(["parity", "--arm", str(arm), "--dump", str(dump), "--out", str(root / "q")]) == 2
+    assert "overlaps the library root" in capsys.readouterr().err
+    assert not (root / "p").exists() and not (root / "q").exists()
+    # a packet states where its candidate titles came from
+    out = tmp_path / "ok"
+    assert thp.main(["packets", "--cmp", str(cmp_dir), "--dump", str(dump), "--out", str(out)]) == 0
+    assert "candidate title source: the compare arm" in (out / "wholly_untagged_d3" / "a.md").read_text()

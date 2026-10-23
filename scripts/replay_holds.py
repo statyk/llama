@@ -154,10 +154,10 @@ def _replay_stripped(d: Path, *, shadow_root: Path, keys: tuple[str, ...], **kw)
 
 def _parse_disabled(spec: str | None) -> frozenset[str]:
     names = frozenset(x.strip() for x in (spec or "").split(",") if x.strip())
-    bad = sorted(names - title_hygiene.ALL_SLICES)
+    bad = sorted(names - title_hygiene.ENABLED_SLICES)
     if bad:
-        raise Refusal(f"unknown slice(s) in --disable-slices: {', '.join(bad)} "
-                      f"(known: {', '.join(sorted(title_hygiene.ALL_SLICES))})")
+        raise Refusal(f"slice(s) in --disable-slices that are not enabled: {', '.join(bad)} "
+                      f"(enabled: {', '.join(sorted(title_hygiene.ENABLED_SLICES))})")
     return names
 
 
@@ -1009,6 +1009,7 @@ def _pilot(rows: list[dict]) -> list[dict]:
 
 # --- piece 3 (title hygiene) reports: holds delta, title changes, D and needs-LLM ---
 
+CURRENT_BUCKET = "currently shipped (packaged/briefed/delivered/voiced)"
 HOLDING = ("still-held", "still-held-package", "newly-held")
 UNREPLAYED = ("needs-llm", "unreplayable", "")
 SLICE_OF_FILL = (("c_changed", "slice3"), ("short4", "slice4"), ("d_fills", "slice2"),
@@ -1019,7 +1020,14 @@ SLICE_OF_DECLINE = (("s_declined", "slice1"), ("d_failed", "slice2"),
 
 
 def _holding(r: dict) -> bool:
-    return r.get("outcome") in HOLDING or (r.get("outcome") == "needs-llm" and r.get("state") == "held")
+    """Held, in any state: a needs-LLM outcome counts as held (spec Acceptance 2)."""
+    return r.get("outcome") in HOLDING or r.get("outcome") == "needs-llm"
+
+
+def _cleared(b: dict, c: dict) -> bool:
+    """The one clear predicate: held in the base arm, replayable and not held in the candidate.
+    Used by holds_delta and by `title_rows.newly_cleared` (the packets' population)."""
+    return _holding(b) and _replayed(c) and not _holding(c)
 
 
 def _replayed(r: dict) -> bool:
@@ -1031,6 +1039,15 @@ def _slices(r: dict, table) -> list[str]:
     absent record (a base-arm row) attributes nothing."""
     c = r.get("cascade") or {}
     return sorted({sl for key, sl in table if c.get(key)})
+
+
+def _fill_slices(r: dict) -> list[str]:
+    """A cleared hold's slices: the cascade's fills; failing those, slice 5 when a title path
+    carries `+5` (the cascade record has no slice-5 entry); else none."""
+    sl = _slices(r, SLICE_OF_FILL)
+    if not sl and any("+5" in p for p in r.get("title_paths") or []):
+        return ["slice5"]
+    return sl
 
 
 def _state_label(delivery: Path | None, slug: str, state) -> str:
@@ -1046,28 +1063,29 @@ def _delta_kind(c: dict) -> str:
         return "held now"
     if c.get("stripped"):
         return "would-hold on a fresh get"
-    return "currently packaged"
+    return CURRENT_BUCKET
 
 
 def _holds_delta(base: dict, cand: dict, delivery: Path | None) -> tuple[list[str], int, int]:
     cleared, added = [], []
     for slug, c in sorted(cand["shows"].items()):
         b = base["shows"][slug]
-        if _holding(b) and _replayed(c) and not _holding(c):
+        if _cleared(b, c):
             cleared.append((slug, b, c))
         elif not _holding(b) and _replayed(b) and _holding(c):
             added.append((slug, b, c))
     out = [f"== holds cleared ({len(cleared)})"]
-    kinds = ("held now", "would-hold on a fresh get", "currently packaged")
+    kinds = ("held now", "would-hold on a fresh get", CURRENT_BUCKET)
+    llm = lambda r: "  (needs-llm)" if r.get("outcome") == "needs-llm" else ""   # noqa: E731
     for k in kinds:
         rows = [(s, b, c) for s, b, c in cleared if _delta_kind(c) == k]
         out += _lines(f"-- {k} ({len(rows)})",
                       [f"  {s}  [{_state_label(delivery, s, c.get('state'))}]  slices: "
-                       f"{', '.join(_slices(c, SLICE_OF_FILL)) or 'unattributed'}  "
-                       f"{b.get('outcome')} -> {c.get('outcome')}" for s, b, c in rows])
+                       f"{', '.join(_fill_slices(c)) or 'unattributed'}  "
+                       f"{b.get('outcome')} -> {c.get('outcome')}{llm(b)}" for s, b, c in rows])
     by_slice: dict[str, list[str]] = {}
     for s, b, c in cleared:
-        for sl in _slices(c, SLICE_OF_FILL) or ["unattributed"]:
+        for sl in _fill_slices(c) or ["unattributed"]:
             by_slice.setdefault(sl, []).append(s)
     out += ["== holds cleared by slice (a show with several is listed under each)"]
     for sl, v in sorted(by_slice.items()):
@@ -1082,7 +1100,7 @@ def _holds_delta(base: dict, cand: dict, delivery: Path | None) -> tuple[list[st
     for st in sorted(states):
         out += _lines(f"-- {st} ({len(states[st])})",
                       [f"  {s}  flags: {'; '.join(f for f in _all_flags(c) if f not in _all_flags(b)) or '(none)'}"
-                       f"  slices: {', '.join(_slices(c, SLICE_OF_DECLINE)) or 'unattributed'}"
+                       f"  slices: {', '.join(_slices(c, SLICE_OF_DECLINE)) or 'unattributed'}{llm(c)}"
                        for s, b, c in states[st]])
     if not added:
         out += [NONE, ""]
@@ -1125,6 +1143,8 @@ def _arm_titles(r: dict, root: Path, slug: str) -> list[tuple[str, str | None]] 
 def _diff_titles(b: dict, c: dict, root: Path, slug: str) -> list[dict]:
     """Per position where base and candidate titles differ: `kind` is `text` when the title
     text differs, `source` when only the source label does; `path` the candidate's."""
+    if "unreplayable" in (b.get("outcome"), c.get("outcome")):
+        return []     # as `_taper_changes`: an unreplayable row's titles are the stored ones
     bt, ct = _arm_titles(b, root, slug), _arm_titles(c, root, slug)
     if bt is None or ct is None:
         return []
@@ -1189,7 +1209,7 @@ def _d_reach(cand: dict) -> list[str]:
 def _title_rows(base: dict, cand: dict, root: Path, delivery: Path | None) -> dict:
     """The machine-readable input of `title_hygiene_probe.py packets`: per show that was newly
     cleared, changed a title or has a slice-4 path, its state, candidate titles and changes."""
-    cleared = set(_newly_cleared(base, cand))
+    cleared = {s for s, c in cand["shows"].items() if _cleared(base["shows"][s], c)}
     shows = {}
     for slug, c in sorted(cand["shows"].items()):
         b = base["shows"][slug]
@@ -1313,9 +1333,12 @@ def compare(args: argparse.Namespace) -> int:
     ] + (["taper reports: not written (arms replayed with --strip-structure-overrides)"] if stripped else [
         f"taper_cleared.txt: {sum(1 for x in tc if not x.startswith(' '))} show(s)",
         "taper_changes.txt: " + ", ".join(f"{k} {v}" for k, v in tcounts.items()),
+    ]) + [
         f"voiced check: delivery_path {delivery}" if delivery is not None
         else "voiced check: off (no delivery_path in config)",
-    ]) + (["apply lists: not written (arms replayed with --strip-structure-overrides or --strip-title-overrides)"]
+        "holds_delta.txt: 'would-hold on a fresh get' is empty in an as-is arm by construction "
+        "(only an overrides-stripped arm records `stripped`)",
+    ] + (["apply lists: not written (arms replayed with --strip-structure-overrides or --strip-title-overrides)"]
       if stripped or title_stripped else [
         f"predicted_list.json: {len(predicted)} row(s)",
         f"structure_changed_list.json: {len(sclist)} row(s)",

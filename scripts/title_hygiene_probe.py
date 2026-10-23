@@ -1827,6 +1827,8 @@ def parity(args: argparse.Namespace) -> int:
         shows = arm["shows"]
     except (OSError, ValueError, KeyError, TypeError) as err:
         raise replay_holds.Refusal(f"cannot read arm {args.arm}: {err}")
+    if arm.get("root") and replay_holds._overlaps(args.out, Path(arm["root"])):
+        raise replay_holds.Refusal(f"refusing --out {args.out}: it overlaps the library root {arm['root']}")
     meta, rows = load_dump(args.dump)
     by = {r["slug"]: r for r in rows}
     head = [f"parity of {args.arm.name} against the `all` arm of {args.dump}",
@@ -1917,6 +1919,11 @@ def _changed(trow: dict | None, drow: dict | None) -> list[tuple[int, str]]:
 
 def _packet(slug: str, stratum: str, trow: dict | None, drow: dict | None, root: Path) -> str:
     md = [f"# {slug}  (stratum {stratum})", ""]
+    wired = bool(trow and trow.get("titles"))
+    md += ["candidate title source: " + (
+        "the compare arm's titles (title_rows.json; the view the arm was run on, fresh-get if it was "
+        "run with both strip flags)" if wired else
+        "the dump's PRE-WIRING `all` arm, fresh-get view (this show is not in title_rows.json)"), ""]
     if trow is not None:
         md.append(f"state {trow.get('state')}; base {trow.get('base_outcome')} -> cand "
                   f"{trow.get('cand_outcome')}; self-filled {trow.get('self_filled')}; "
@@ -1933,7 +1940,7 @@ def _packet(slug: str, stratum: str, trow: dict | None, drow: dict | None, root:
     paths = (trow or {}).get("title_paths") or allarm.get("paths") or []
     mark = {n for n, _ in changed}
     md += ["## Tracks (candidate = the wired fresh-get title; `*` = changed against today)", "",
-           "| # | file | dur | today | candidate | source | path | raw tag |", "|---|---|---|---|---|---|---|---|"]
+           "| # | file | dur | today (pre-wiring dump) | candidate | source | path | raw tag |", "|---|---|---|---|---|---|---|---|"]
     esc = lambda x: str(x if x is not None else "").replace("|", "/")      # noqa: E731
     for i in range(max(len(today), len(titles))):
         t = today[i] if i < len(today) else {}
@@ -1998,6 +2005,8 @@ def packets(args: argparse.Namespace) -> int:
         raise replay_holds.Refusal(f"no usable title_rows.json in {args.cmp} (run compare first)")
     trows = tr["shows"]
     root = args.root or Path(tr.get("root") or ".")
+    if replay_holds._overlaps(args.out, root):
+        raise replay_holds.Refusal(f"refusing --out {args.out}: it overlaps the library root {root}")
     _, drows = load_dump(args.dump)
     dby = {r["slug"]: r for r in drows}
     wholly = lambda s: bool(_rec(dby[s]).get("wholly_untagged")) if s in dby else False   # noqa: E731
