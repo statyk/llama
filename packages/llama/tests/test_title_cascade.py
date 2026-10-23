@@ -483,3 +483,60 @@ def test_exclusion_changes_the_count_d_sees(tmp_path: Path):
     assert (out.tracks[4].title, out.tracks[4].title_source) == ("Eyes of the World",
                                                                 "desc-position")
     assert out.paths == ("", "", "", "", "D")
+
+
+def _dso_2014_07_31():
+    from test_lossless_titles import (DSO_2014_07_31_DESC, DSO_2014_07_31_ID,
+                                      dso_2014_07_31_files)
+    md = {"metadata": {"identifier": DSO_2014_07_31_ID, "creator": "Dark Star Orchestra",
+                       "date": "2014-07-31", "description": DSO_2014_07_31_DESC},
+          "files": dso_2014_07_31_files(), "reviews": []}
+    cand = Candidate(performance_id="DarkStarOrchestra/2014-07-31",
+                     collection="DarkStarOrchestra", date="2014-07-31",
+                     venue="Gathering of the Vibes", city="Bridgeport, CT",
+                     recordings=[RecordingSummary(identifier=DSO_2014_07_31_ID)])
+    return StubIA(md), cand, DSO_2014_07_31_ID
+
+
+_DSO_FLAC_4_20 = ["Dupree's Diamond Blues", "Black Throated Wind", "Cats Under The Stars",
+                  "Cassidy", "Loser", "The Music Never Stopped",
+                  "Bird Sing W/ Stanley Jordan-> OTher One-> Bird Song", "Tuning", "China Cat",
+                  "Hey Pocky Way", "I Know You Rider", "Playin' In The Band", "Viola Lee Blues",
+                  "Drumz/Space", "Alligator", "Uncle John's Band", "Playin' In The Band"]
+
+
+def test_shifted_mp3_tag_set_darkstarorchestra_2014_07_31(tmp_path: Path):
+    """Final review C-1, ruling 1: darkstarorchestra-2014-07-31's MP3 tags are shifted one
+    early from track 3. Track 3 no longer ships `Duprees Diamond Blues` (the duplicate of
+    track 4); the show is not cleared silently; tracks 4-20 keep the C2 corrections."""
+    ia, cand, ident = _dso_2014_07_31()
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, ident)
+    t = res.show.tracks
+    assert fuzzy_norm_title(t[2].title) != fuzzy_norm_title("Duprees Diamond Blues")
+    assert t[2].title_source in ("unresolved", "desc-position", "setlist")
+    shipped_unconfirmed = [x for x in t if x.title_source == "tags"
+                           and x.index not in (1, 2)]
+    assert res.show.needs_review or res.show.review_flags or not shipped_unconfirmed
+    assert [x.title for x in t[3:20]] == _DSO_FLAC_4_20
+    assert all(x.title_source == "sibling-format" for x in t[3:20])
+    assert res.title_paths[3:20] == ("C2",) * 17
+    assert ("lossless titles: shifted delivered tag set; unconfirmed tags demoted: "
+            "tracks 3") in res.notes
+    # Today (slice 3 off) the tape ships as tagged, shifted throughout.
+    off = compute_gather(ShowWorkspace(tmp_path / "off"), ia, None, cand, ident,
+                         enabled_slices=ALL_SLICES - {"slice3"})
+    assert off.show.tracks[2].title == "Duprees Diamond Blues"
+
+
+def test_shifted_set_demotion_never_touches_an_override(tmp_path: Path):
+    """Review Focus 2: an `overrides.titles` position is never demoted and never named in
+    the note; with every demoted position overridden, there is no note."""
+    ia, cand, ident = _dso_2014_07_31()
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.overrides, Overrides(titles={3: "Greatest Story Ever Told"}))
+    res = compute_gather(sws, ia, None, cand, ident)
+    t = res.show.tracks
+    assert (t[2].title, t[2].title_source) == ("Greatest Story Ever Told", "override")
+    assert res.title_record.lossless.demoted == ()
+    assert not any(n.startswith("lossless titles: shifted") for n in res.notes)
+    assert [x.title for x in t[3:20]] == _DSO_FLAC_4_20

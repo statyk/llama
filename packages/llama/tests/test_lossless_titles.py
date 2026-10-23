@@ -381,3 +381,153 @@ def test_c_ships_the_lossless_title_without_its_trailing_taper_marker():
     assert r.titles[5] == "Morning Dew"
     assert "lossless title: track 4 'tmp' -> 'Dark Star' (C1)" in r.notes
 
+
+
+# --- C-1 (Checkpoint B ruling 1): a shifted DELIVERED tag set ----------------------------
+
+# darkstarorchestra-2014-07-31, `dso2014-07-31.461.bsc1.littlebox`: the MP3 tags are shifted
+# one early from track 3 on; the FLAC tags and the taper's 21-entry list are right. Copied
+# verbatim from the cached item metadata (description, then per stem: MP3 title, FLAC title,
+# MP3 length, FLAC length).
+DSO_2014_07_31_ID = "dso2014-07-31.461.bsc1.littlebox"
+DSO_2014_07_31_DESC = (
+    "Dark Star Orchestra\nJuly 31, 2014\nGathering of the Vibes\nSeaside Park, Bridgeport, CT\n"
+    "Taped/Transfered By: Cam Keough\n"
+    "Source 1: Busman BSC-1(Omnis)-> Naiant Littlebox(OT)-> Tascam DR-680(24/48)\n"
+    "Source 2: Akg 460/CK61-> Naiant Littlebox(OT)-> DR-680\n"
+    "Lineage: DR-680-> Ext. HD-> Vegas-> Soundforge-> CD Wav-> NCH Switch-> TLH\n\n"
+    "Set 1 Disc 1:\n01 Tuning\n02 Shakedown Street\n03 ?\n04 Duprees Diamond Blues\n"
+    "05 Black Throated Wind\n06 Cats Under the Stars\n07 Cassidy\n08 Loser\n"
+    "09 The Music Never Stopped\n10 Bird Sing W/ Stanley Jordan-> OTher One-> Bird Song\n\n"
+    "Set 2 Disc 2\n01 Tuning\n02 China Cat->\n03 Hey Pocky Way->\n04 I Know You Rider\n"
+    "05 Playin' in The Band\n06 Viola Lee Blues->\n07 Drumz/Space\n08 Alligator\n"
+    "09 Uncle Johns Band->\n10 Playin' in The Band\n11 E. Black Muddy River")
+DSO_2014_07_31_ROWS = [
+    ("dso2014-07-31d1t01", 'Tuning', 'Tuning', "04:00", "240.95"),
+    ("dso2014-07-31d1t02", 'Shakedown Street', 'Shakedown Street', "16:21", "981.12"),
+    ("dso2014-07-31d1t03", 'Duprees Diamond Blues', 'Greatest Story Ever Told', "06:45", "405.85"),
+    ("dso2014-07-31d1t04", 'Black Throated Wind', "Dupree's Diamond Blues", "08:18", "498.49"),
+    ("dso2014-07-31d1t05", 'Cats Under the Stars', 'Black Throated Wind', "06:45", "405.69"),
+    ("dso2014-07-31d1t06", 'Cassidy', 'Cats Under The Stars', "09:41", "581.07"),
+    ("dso2014-07-31d1t07", 'Loser', 'Cassidy', "10:58", "657.99"),
+    ("dso2014-07-31d1t08", 'The Music Never Stopped', 'Loser', "08:45", "525.36"),
+    ("dso2014-07-31d1t09", 'Bird Sing W/ Stanley Jordan-> OTher One-> Bird Song',
+     'The Music Never Stopped', "11:20", "680.24"),
+    ("dso2014-07-31d1t10", 'Tuning', 'Bird Sing W/ Stanley Jordan-> OTher One-> Bird Song',
+     "15:35", "935.56"),
+    ("dso2014-07-31d2t01", 'China Cat->', 'Tuning', "03:18", "198.67"),
+    ("dso2014-07-31d2t02", 'Hey Pocky Way->', 'China Cat', "06:20", "380.04"),
+    ("dso2014-07-31d2t03", 'I Know You Rider', 'Hey Pocky Way', "08:56", "535.99"),
+    ("dso2014-07-31d2t04", "Playin' in The Band", 'I Know You Rider', "08:37", "517.25"),
+    ("dso2014-07-31d2t05", 'Viola Lee Blues->', "Playin' In The Band", "08:38", "518.39"),
+    ("dso2014-07-31d2t06", 'Drumz/Space', 'Viola Lee Blues', "13:22", "802.6"),
+    ("dso2014-07-31d2t07", 'Alligator', 'Drumz/Space', "19:59", "1199.93"),
+    ("dso2014-07-31d2t08", 'Uncle Johns Band->', 'Alligator', "10:25", "625.96"),
+    ("dso2014-07-31d2t09", "Playin' in The Band", "Uncle John's Band", "09:55", "595.76"),
+    ("dso2014-07-31d2t10", 'E. Black Muddy River', "Playin' In The Band", "06:19", "379.85"),
+    ("dso2014-07-31d2t11", None, 'E. Black Muddy River', "06:14", "374.94"),
+]
+
+
+def dso_2014_07_31_files() -> list[dict]:
+    """The item's MP3 and FLAC entries, as archive.org lists them (verbatim fields)."""
+    files: list[dict] = []
+    for i, (stem, mt, lt, ml, ll) in enumerate(DSO_2014_07_31_ROWS, 1):
+        mp3 = {"name": f"{stem}.mp3", "source": "derivative", "creator": "Dark Star Orchestra",
+               "track": f"{i:02d}", "album": "2014-07-31 - Gathering of The Vibes",
+               "length": ml, "format": "VBR MP3", "original": f"{stem}.flac"}
+        if mt is not None:
+            mp3["title"] = mt
+        flac = {"name": f"{stem}.flac", "source": "original", "format": "Flac", "length": ll,
+                "title": lt, "creator": "Dark Star Orchestra",
+                "album": "2014-07-31 - Gathering of The Vibes", "track": f"{i:02d}"}
+        files += [flac, mp3]
+    return files
+
+
+_DSO_DEMOTED_NOTE = ("lossless titles: shifted delivered tag set; unconfirmed tags demoted: "
+                     "tracks 3")
+
+
+def test_shifted_delivered_set_demotes_the_unconfirmed_tag_darkstarorchestra_2014_07_31():
+    """Final review C-1 / ruling 1 (preferred fix): 18 delivered tags agree with the list at
+    +/-1 and not at their own position, so C2's confirmed replacements stand and the one
+    delivered real tag C could not confirm (track 3, list entry `?`) is demoted to blank."""
+    files = dso_2014_07_31_files()
+    kept = [f for f in files if f["format"] == "VBR MP3"]
+    desc = read_numbered(DSO_2014_07_31_DESC)
+    assert isinstance(desc, DescList) and len(desc.cleaned) == 21
+    r = _run(files=files, kept=kept, desc=desc)
+    assert r.changed == {**{i: "C2" for i in range(3, 20)}, 20: "C1"}
+    assert r.titles[2] == "" and r.sources[2] == "tags"
+    assert r.demoted == (2,)
+    assert r.titles[:2] == ["Tuning", "Shakedown Street"]          # agree with the list
+    assert r.titles[3] == "Dupree's Diamond Blues"
+    assert r.notes.count(_DSO_DEMOTED_NOTE) == 1 and r.notes[-1] == _DSO_DEMOTED_NOTE
+
+
+def test_shifted_delivered_set_demotes_every_other_unconfirmed_real_tag():
+    desc = _dl("Bertha", "Sugaree", "Deal", "Loser", "Jack Straw")
+    pairs = [("Bertha", "Bertha"), ("Deal", "Sugaree"), ("Loser", "Deal"),
+             ("Big River", "Big River"), ("Jack Straw", "Jack Straw")]
+    r = _run(pairs, desc=desc)
+    assert r.changed == {1: "C2", 2: "C2"}
+    assert r.titles == ["Bertha", "Sugaree", "Deal", "", "Jack Straw"]
+    assert r.demoted == (3,)
+    assert r.notes[-1] == ("lossless titles: shifted delivered tag set; unconfirmed tags "
+                           "demoted: tracks 4")
+
+
+def test_one_shifted_delivered_tag_changes_nothing():
+    # Threshold 2: a single delivered tag agreeing with a neighbour's entry is not a shift.
+    desc = _dl("Bertha", "Sugaree", "Deal", "Loser", "Jack Straw")
+    pairs = [("Bertha", "Bertha"), ("Deal", "Sugaree"), ("Big River", "Big River"),
+             ("Loser", "Loser"), ("Jack Straw", "Jack Straw")]
+    r = _run(pairs, desc=desc)
+    assert r.changed == {1: "C2"}
+    assert r.demoted == ()
+    assert r.titles[2] == "Big River"
+    assert not any(n.startswith("lossless titles: shifted") for n in r.notes)
+
+
+def test_shifted_delivered_set_keeps_filler_and_unreal_tags():
+    # A filler tag and a placeholder are never demoted; only real, non-filler tags are.
+    desc = _dl("Bertha", "Sugaree", "Deal", "Loser", "Jack Straw", "Stella Blue")
+    pairs = [("Bertha", "Bertha"), ("Deal", "Sugaree"), ("Loser", "Deal"),
+             ("Tuning", "Tuning"), ("tmp", ""), ("Morning Dew", "Morning Dew")]
+    r = _run(pairs, desc=desc)
+    assert r.changed == {1: "C2", 2: "C2"}
+    assert r.titles[3] == "Tuning" and r.titles[4] == "tmp" and r.titles[5] == ""
+    assert r.demoted == (5,)
+    assert r.notes[-1].endswith("demoted: tracks 6")
+
+
+def test_no_reference_no_delivered_shift_demotion():
+    pairs = [("Bertha", "Bertha"), ("Deal", "Sugaree"), ("Loser", "Deal"),
+             ("Big River", "Big River")]
+    r = _run(pairs)
+    assert r.demoted == () and r.titles[3] == "Big River"
+
+
+def test_lossless_off_by_one_skip_wins_over_the_delivered_shift():
+    # Judgement call: C skipped for the show (the lossless tags are shifted) changes
+    # nothing, so it demotes nothing either, even when the delivered set is shifted too.
+    desc = _dl("Bertha", "Sugaree", "Deal", "Loser", "Jack Straw")
+    pairs = [("Sugaree", "Sugaree"), ("Deal", "Deal"), ("Loser", "Loser"),
+             ("Big River", "Big River"), ("Jack Straw", "Jack Straw")]
+    r = _run(pairs, desc=desc)
+    assert r.declined == "off by one"
+    assert r.demoted == () and r.titles == [p[0] for p in pairs]
+
+
+def test_readmitted_file_tag_is_demoted_on_a_shifted_set():
+    # Judgement call: a re-admitted file (no lossless counterpart) still carries a delivered
+    # tag; on a shifted delivered set an unconfirmed one is demoted like any other.
+    desc = _dl("Bertha", "Sugaree", "Deal", "Loser", "Jack Straw")
+    files, kept = _tape([("Bertha", "Bertha"), ("Deal", "Sugaree"), ("Loser", "Deal"),
+                         ("Big River", "Big River"), ("Jack Straw", "Jack Straw")])
+    basis = [f for f in kept if f["name"] != kept[3]["name"]]
+    files = [f for f in files if f["name"] != kept[3]["original"]]
+    r = _run(files=files, kept=kept, basis=basis, desc=desc)
+    assert r.changed == {1: "C2", 2: "C2"}
+    assert r.titles[3] == "" and r.demoted == (3,)

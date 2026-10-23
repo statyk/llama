@@ -22,6 +22,14 @@ This is the one rung that REPLACES a tag (C2), so it is strict:
   only trailing `@ ^ * #`.
 - **Show-level skip:** two or more lossless tags each agreeing with the reference at
   position +/-1 but not at their own (builttospill-1997-10-13).
+- **Shifted delivered set** (final review C-1, Checkpoint B ruling 1): two or more
+  DELIVERED real tags each agreeing with the reference at position +/-1 but not at their
+  own (darkstarorchestra-2014-07-31). C's confirmed C1/C2 changes stand; every other
+  delivered real, non-filler tag that does not agree with the reference at its own
+  position is unconfirmed on a shifted set, so it is demoted to the tag layer's blank
+  (`resolve_titles` reads it as `unresolved`; the hold, D or the gated S rung decides it),
+  with one note per show. Only when C runs (not under the skip above); the caller undoes
+  it at an `overrides.titles` position (`gather._without_override_positions`).
 
 "Agree" is `title_hygiene.agrees` with no aliases: cleaned copies, `loosely_same_title`
 unmodified, short cores by `fuzzy_norm_title` equality.
@@ -40,7 +48,7 @@ from llama.junk import LOSSLESS_TITLE_FORMATS, filter_files
 from llama.models import ParsedSetlist
 from llama.placeholders import is_junk_tag
 from llama.siblings import MIN_ANCHORS
-from llama.structure import fuzzy_norm_title, hygienic_title
+from llama.structure import fuzzy_norm_title, hygienic_title, is_filler
 from llama.title_hygiene import agrees
 from llama.titles import (
     is_placeholder_text,
@@ -70,6 +78,15 @@ class LosslessResult:
     c1_verdicts: dict[int, tuple[bool | None, bool | None]]
     # per C1 target (0-based): agrees with (a), with (b); None when that reference is absent
     c_holds: bool | None            # (c) for the show; None when no target needed it
+    demoted: tuple[int, ...] = ()   # 0-based, ascending: delivered tags blanked (C-1)
+
+
+SHIFTED_DELIVERED_NOTE = "lossless titles: shifted delivered tag set; unconfirmed tags demoted"
+
+
+def demoted_note(positions) -> str:
+    """The one per-show note for the shifted-delivered-set demotion (1-based, ascending)."""
+    return f"{SHIFTED_DELIVERED_NOTE}: tracks {', '.join(str(i + 1) for i in sorted(positions))}"
 
 
 def _real(tag: str) -> bool:
@@ -119,9 +136,10 @@ def apply_lossless(kept: list[dict], tag_titles: list[str], tag_source: str, *, 
     titles = list(tag_titles)
     sources = [tag_source] * n
 
-    def result(changed=None, declined=None, notes=(), verdicts=None, c_holds=None):
+    def result(changed=None, declined=None, notes=(), verdicts=None, c_holds=None,
+               demoted=()):
         return LosslessResult(titles, sources, changed or {}, declined, tuple(notes),
-                              verdicts or {}, c_holds)
+                              verdicts or {}, c_holds, tuple(demoted))
 
     if not in_scope:
         return result(declined=OUT_OF_SCOPE)
@@ -212,4 +230,21 @@ def apply_lossless(kept: list[dict], tag_titles: list[str], tag_source: str, *, 
                      f"'{new}' ({changed[i]})")
         titles[i] = new
         sources[i] = SIBLING_FORMAT
-    return result(changed, declined, c1_notes + notes, verdicts, c_holds)
+
+    # Shifted delivered set (C-1): 2+ delivered real tags agreeing with the reference at
+    # +/-1, not at their own. Every other unconfirmed delivered real, non-filler tag is
+    # demoted to blank; C's confirmed changes and tags agreeing at their own position stay.
+    demoted: list[int] = []
+    if ref is not None:
+        delivered_shift = [i for i, dt in enumerate(tag_titles)
+                           if _real(dt) and not agrees(dt, ref[i])
+                           and any(0 <= j < n and agrees(dt, ref[j]) for j in (i - 1, i + 1))]
+        if len(delivered_shift) >= 2:
+            demoted = [i for i, dt in enumerate(tag_titles)
+                       if i not in changed and _real(dt) and not is_filler(dt)
+                       and not agrees(dt, ref[i])]
+            for i in demoted:
+                titles[i] = ""
+            if demoted:
+                notes.append(demoted_note(demoted))
+    return result(changed, declined, c1_notes + notes, verdicts, c_holds, demoted)

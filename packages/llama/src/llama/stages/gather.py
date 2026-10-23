@@ -14,7 +14,8 @@ from llama.errors import LlamaError
 from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
 from llama.ia_client import IAError
 from llama.desc_list import DescRead, drop_leading_artist_items, read_desc_list
-from llama.lossless_titles import LosslessResult, apply_lossless
+from llama.lossless_titles import (SHIFTED_DELIVERED_NOTE, LosslessResult, apply_lossless,
+                                   demoted_note)
 from llama.title_cosmetics import cosmetic_strip
 from llama.title_hygiene import DDecision, SetlistPlan
 from llama.models import (AlignedStructure, JerrybaseEvent, Candidate, Overrides, ParsedSetlist,
@@ -1212,18 +1213,25 @@ def _filled(before: list[Track], after: list[Track], source: str) -> tuple[int, 
 def _without_override_positions(res: LosslessResult, overridden: set[int],
                                 delivered: list[str], delivered_source: str) -> LosslessResult:
     """Slice 3 never touches an override (Constraints, "Ordering"): at an `overrides.titles`
-    position its change is undone, uncounted and unnoted (the override replaces the title
-    anyway, so a note there would be false)."""
+    position its change, or its shifted-set demotion (C-1), is undone, uncounted and
+    unnoted (the override replaces the title anyway, so a note there would be false)."""
     hit = {i for i in res.changed if i in overridden}
-    if not hit:
+    hit_demoted = {i for i in res.demoted if i in overridden}
+    if not hit and not hit_demoted:
         return res
     titles, sources = list(res.titles), list(res.sources)
-    for i in hit:
+    for i in hit | hit_demoted:
         titles[i], sources[i] = delivered[i], delivered_source
+    demoted = tuple(i for i in res.demoted if i not in hit_demoted)
     prefixes = tuple(f"lossless title: track {i + 1} '" for i in hit)
+    notes = [n for n in res.notes
+             if not (prefixes and n.startswith(prefixes))
+             and not n.startswith(SHIFTED_DELIVERED_NOTE)]
+    if demoted:
+        notes.append(demoted_note(demoted))
     return replace(res, titles=titles, sources=sources,
                    changed={i: c for i, c in res.changed.items() if i not in hit},
-                   notes=tuple(n for n in res.notes if not n.startswith(prefixes)))
+                   notes=tuple(notes), demoted=demoted)
 
 
 def title_cascade(inp: TitleInputs, *,
