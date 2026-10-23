@@ -473,7 +473,10 @@ def test_q1_declines_need_a_non_empty_decline(tmp_path):
     quiet["slug"] = "q-2000-01-04"
     quiet["arms"]["all"]["record"]["s_plan"] = {"mode": "untagged", "fills": {}, "deferred": {},
                                                 "declined": [], "notes": []}
-    d, hdir = _write_gate_inputs(tmp_path, [*rows, quiet], _hc())
+    notes_only = copy.deepcopy(quiet)
+    notes_only["slug"] = "n-2000-01-05"
+    notes_only["arms"]["all"]["record"]["s_plan"]["notes"] = ["positional fill declined: x"]
+    d, hdir = _write_gate_inputs(tmp_path, [*rows, quiet, notes_only], _hc())
     out = tmp_path / "out"
     assert thp.main(["gate", "--dump", str(d), "--handcheck", str(hdir),
                      "--census", str(tmp_path / "none.jsonl"), "--out", str(out)]) == 0
@@ -527,3 +530,89 @@ def test_notes_section_reads_the_dump(tmp_path):
     assert n["reader_ii_reasons"] == {"per-line count disagrees": 1}
     assert n["parse_with_noncontiguous_numbered"]["shows"] == 1
     assert n["c1_via_c_disagreed"]["shows"] == 1
+
+
+def _gate(tmp_path, rows, hc):
+    d, hdir = _write_gate_inputs(tmp_path, rows, hc)
+    out = tmp_path / "out"
+    assert thp.main(["gate", "--dump", str(d), "--handcheck", str(hdir),
+                     "--census", str(tmp_path / "none.jsonl"), "--out", str(out)]) == 0
+    data = {json.loads(ln)["row"]: json.loads(ln)["data"]
+            for ln in (out / "gate_rows.jsonl").read_text().splitlines()}
+    return data, (out / "gate_table.md").read_text()
+
+
+def test_ablation_counts_only_positions_where_the_slice_arm_differs(tmp_path):
+    data, table = _gate(tmp_path, _three_rows(), _hc())     # every all-<slice> equals `all`
+    for s in ("slice1", "slice2", "slice3", "slice4", "slice5"):
+        assert data["R1"]["ablation"][s]["score"]["tracks"] == 0, s
+    rows = _three_rows()
+    rows[0]["arms"]["all-slice2"]["tracks"][1] = {"title": "02.mp3", "source": "unresolved"}
+    (tmp_path / "b").mkdir()
+    data, _ = _gate(tmp_path / "b", rows, _hc())
+    assert data["R1"]["ablation"]["slice2"]["score"]["tracks"] == 1
+    assert data["R1"]["ablation"]["slice1"]["score"]["tracks"] == 0
+    assert "residual" in table
+
+
+def test_changed_means_different_from_today(tmp_path):
+    rows = _three_rows()
+    same = _row("s-2000-01-06", [("X", "setlist")], [("X", "setlist")], ["S"],
+                rec=_rec(s_positions=[0]))
+    data, _ = _gate(tmp_path, [*rows, same], _hc())
+    assert data["R5"]["ships_silently"]["slice1"]["changed_shows"] == 1   # b only (removed S)
+    assert data["R1"]["ablation"]["slice1"]["path_shows"] == 1
+
+
+def test_removed_fills_keep_judged_and_inferred_apart(tmp_path):
+    rows = _three_rows()
+    hc = _hc()
+    hc["S0"] = [_hc_row("S", "b-2000-01-02", [(1, "X", "wrong", "Z"), (2, "Other", "wrong", "Q")],
+                        "shifted")]
+    data, table = _gate(tmp_path, rows, hc)
+    rem = data["R1"]["removed"]["S removed"]
+    assert (rem["judged_wrong"], rem["inferred_wrong"], rem["unjudged"]) == (1, 1, 0)
+    assert "wrong+inferred" not in table
+
+
+def test_slice1_bar_counts_newly_held_non_q1_good_shows(tmp_path):
+    lost = _row("g-2000-01-07", [("X", "setlist")], [("g.mp3", "unresolved")], [""],
+                rec=_rec(s_plan={"mode": "gated", "fills": {}, "deferred": {}, "declined": [0],
+                                 "notes": []}))
+    already = _row("h-2000-01-08", [("X", "setlist")], [("h.mp3", "unresolved")], [""],
+                   flags=["unresolved track titles"],
+                   rec=_rec(s_plan={"mode": "gated", "fills": {}, "deferred": {},
+                                    "declined": [0], "notes": []}))
+    hc = _hc()
+    hc["S1"] = [_hc_row("S", "g-2000-01-07", [(1, "X", "right", "X")], "all-right"),
+                _hc_row("S", "h-2000-01-08", [(1, "X", "right", "X")], "all-right")]
+    data, table = _gate(tmp_path, [lost, already], hc)
+    assert data["R2"]["good_lost_other"] == 2
+    assert data["R2"]["bar_newly_held_non_q1_good"] == 1
+
+
+def test_r11_splits_d_from_non_d(tmp_path):
+    d_row = _row("d-2000-01-09", [("a", "unresolved")], [("A", "desc-position")], ["D"],
+                 flags=[thp.LOWC_FLAG],
+                 rec=_rec(d={"fills": {"0": "A"}, "failed": [], "track_declines": {}}))
+    d_row["arms"]["all"]["self_filled"] = True
+    no_d = _row("e-2000-01-10", [("a", "tags")], [("a", "tags")], [""], flags=[thp.LOWC_FLAG])
+    no_d["arms"]["all"]["self_filled"] = True
+    data, _ = _gate(tmp_path, [d_row, no_d], {})
+    assert data["R11"]["newly_above"] == 2 and data["R11"]["with_d"] == 1
+    assert sum(data["R11"]["by_denominator"].values()) == 1
+
+
+def test_r4_good_shows_exclude_already_held(tmp_path):
+    held = _row("k-2000-01-11", [("X", "setlist")], [("k.mp3", "unresolved")], [""],
+                alt_bracketed_s={"applies": True, "fills": [0], "remain": [], "dropped": [0],
+                                 "remain_both_sides": [], "dropped_both_sides": [0], "runs": []})
+    hc = {"S0": [_hc_row("S", "k-2000-01-11", [(1, "X", "right", "X")], "all-right")]}
+    data, _ = _gate(tmp_path, [held], hc)
+    assert data["R4"]["gap_span"]["shows_with_drops"] == 1
+    assert data["R4"]["gap_span"]["good_lost"] == 0
+
+
+def test_note_four_names_dates(tmp_path):
+    _, table = _gate(tmp_path, _three_rows(), _hc())
+    assert "dates" in table.split("## Notes for Checkpoint A")[1]

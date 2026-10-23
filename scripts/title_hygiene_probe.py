@@ -838,10 +838,10 @@ def _plan(row: dict) -> dict:
 
 
 def is_q1_decline(row: dict) -> bool:
-    """Q1: plan mode `untagged` WITH a non-empty declined list or notes (a wholly untagged tape
+    """Q1: plan mode `untagged` WITH a non-empty declined list (a wholly untagged tape
     with no S position takes the mode and declines nothing)."""
     p = _plan(row)
-    return p.get("mode") == "untagged" and bool(p.get("declined") or p.get("notes"))
+    return p.get("mode") == "untagged" and bool(p.get("declined"))
 
 
 def _d(row: dict) -> dict | None:
@@ -937,23 +937,23 @@ class Gate:
     def score_cells(c: dict) -> list:
         jw, jr = c["judged_wrong"], c["judged_right"]
         return [c["tracks"], jr, jw, c["judged_cant_tell"], c["inferred_right"],
-                c["inferred_wrong"], c["unjudged"], pct(jw, jr + jw),
-                pct(jw + c["inferred_wrong"], c["tracks"])]
+                c["inferred_wrong"], c["unjudged"], pct(jw, jr + jw)]
 
     SCORE_HEAD = ["tracks", "judged right", "judged wrong", "judged cant-tell", "inferred right",
-                  "inferred wrong", "unjudged", "wrong / judged (R+W)", "wrong+inferred / tracks"]
+                  "inferred wrong", "unjudged", "wrong / judged (R+W)"]
 
-    def attributed(self, r: dict, ref: str, arm: str = "all"):
+    def attributed(self, r: dict, ref: str, arm: str = "all", changed_only: bool = False):
         """(i, kind, tokens) for every position where `arm` differs from `ref` or carries a path
         token. kind `fill`: the arm ships a title there; `removed`: the arm leaves a position
-        `unresolved` that `ref` had filled (tokens: `S removed` when `ref` was today's S rung)."""
+        `unresolved` that `ref` had filled (tokens: `S removed` when `ref` was today's S rung).
+        `changed_only` keeps only positions where the title or source differs."""
         x, y = _titles(r, ref), _titles(r, arm)
         if x is None or y is None or len(x) != len(y):
             return []
         out = []
         for i, (p, q) in enumerate(zip(x, y)):
             toks = _tok(_path(r, i)) if arm == "all" else []
-            if p == q and not toks:
+            if p == q and (changed_only or not toks):
                 continue
             if q[1] == "unresolved" and p[1] != "unresolved":
                 out.append((i, "removed", ["S removed" if p[1] == "setlist" else "removed"]))
@@ -965,18 +965,19 @@ class Gate:
 
     def score_removed(self, items, classes_of) -> dict:
         """items: (slug, n, old_title): was the title that the arm no longer ships right?"""
-        c = dict(removed=0, was_right=0, was_wrong=0, cant_tell=0, unjudged=0)
+        c = dict(removed=0, judged_right=0, judged_wrong=0, judged_cant_tell=0,
+                 inferred_right=0, inferred_wrong=0, unjudged=0)
         for it in items:
             c["removed"] += 1
             kind, v = self.hc.judge(it[0], it[1], it[2], classes_of(it))
             if v is None:
                 c["unjudged"] += 1
             else:
-                c[{"right": "was_right", "wrong": "was_wrong", "cant-tell": "cant_tell"}[v]] += 1
+                c[f"{kind}_{v.replace('-', '_')}"] += 1
         return c
 
-    REMOVED_HEAD = ["fills removed", "was right (cost)", "was wrong (benefit)", "cant-tell",
-                    "unjudged"]
+    REMOVED_HEAD = ["fills removed", "was right: judged (cost)", "was wrong: judged (benefit)",
+                    "judged cant-tell", "was right: inferred", "was wrong: inferred", "unjudged"]
 
 
 # -- R0 ------------------------------------------------------------------------------------------
@@ -1067,6 +1068,8 @@ def r1(g: Gate) -> None:
     data["pooled"] = pooled
     rows.append(["pooled (unique tracks)", *g.score_cells(pooled)])
     lines += md_table(["path", *Gate.SCORE_HEAD], rows)
+    lines += ["", "The S row is S's residual (fills identical to today's included): what it still "
+                  "ships, not damage slice 1 adds."]
     lines += ["", "Fills removed (today's title now `unresolved`), scored on the removed title:"]
     rrows = []
     for t, its in sorted(removed.items()):
@@ -1083,7 +1086,7 @@ def r1(g: Gate) -> None:
         fl, rm = [], []
         for r in g.rows:
             a = _arm(r, "all")
-            for i, kind, _ in g.attributed(r, f"all-{s}", "all"):
+            for i, kind, _ in g.attributed(r, f"all-{s}", "all", changed_only=True):
                 if kind == "fill":
                     fl.append((r["slug"], i + 1, a["tracks"][i]["title"]))
                 else:
@@ -1094,7 +1097,7 @@ def r1(g: Gate) -> None:
                   and g.held(r) and not g.held(r, f"all-{s}")]
         touched = {}
         for r in g.rows:
-            for i, kind, toks in g.attributed(r, "today"):
+            for i, kind, toks in g.attributed(r, "today", changed_only=True):
                 if any(_slice_of(t) == s for t in toks):
                     touched[r["slug"]] = r
         nh_path = [r for r in touched.values() if g.held(r) and not held_today(r)]
@@ -1139,7 +1142,7 @@ def r2(g: Gate) -> None:
     s_rows = {r["slug"]: r for r in g.rows}
     hc_s = [h for h in g.hc.rows if h["class"] == "S"]
     byk: dict[tuple, dict] = {}
-    caught, uncaught, lost_q1, lost_other = [], [], [], []
+    caught, uncaught, lost_q1, lost_other, bar = [], [], [], [], []
     for h in hc_s:
         r = s_rows.get(h["slug"])
         if r is None:
@@ -1155,14 +1158,20 @@ def r2(g: Gate) -> None:
             drop = [t["n"] for t in h["tracks"] if t["verdict"] in ("right", "right-partial")
                     and not _s_shipped(r, t["n"], t["candidate"])]
             if drop:
+                nh = g.held(r) and not held_today(r)
                 (lost_q1 if is_q1_decline(r) else lost_other).append(
-                    f"{h['slug']} (newly held: {g.held(r) and not held_today(r)})")
+                    f"{h['slug']} (newly held: {nh})")
+                if nh and not is_q1_decline(r):
+                    bar.append(h["slug"])
     lines += ["", "Hand-checked S shows (the 128 S rows) by canonical source and plan mode:"]
     lines += md_table(["canonical", "S plan mode", "good", "bad", "neutral", "cant-tell"],
                       [[*k, *c.values()] for k, c in sorted(byk.items(), key=str)])
     lines += ["", f"After Q1 and the split: bad shows caught {len(caught)}, uncaught "
-                  f"{len(uncaught)}; good shows that lose S fills: Q1 declines {len(lost_q1)} "
-                  f"(reported separately), other {len(lost_other)} (the bar allows 2).",
+                  f"{len(uncaught)}.",
+              f"Slice-1 bar (holds no more than 2 hand-checked-good S shows, excluding Q1 "
+              f"declines): newly held, non-Q1, good S shows = {len(bar)} ({examples(bar)}).",
+              f"Separately, good shows that lose S fills (held or not): Q1 declines "
+              f"{len(lost_q1)} (reported separately), other {len(lost_other)}.",
               f"- uncaught bad: {examples(uncaught)}",
               f"- good shows losing fills, other than Q1: {examples(lost_other)}",
               f"- good shows losing fills, Q1: {examples(lost_q1)}"]
@@ -1172,7 +1181,8 @@ def r2(g: Gate) -> None:
           {"cells": {f"{k[0]}|{k[1]}": c for k, c in cells.items()},
            "hand_checked": {f"{k[0]}|{k[1]}": c for k, c in byk.items()},
            "caught": len(caught), "uncaught": len(uncaught), "good_lost_other": len(lost_other),
-           "good_lost_q1": len(lost_q1)})
+           "good_lost_q1": len(lost_q1),
+           "bar_newly_held_non_q1_good": len(bar)})
 
 
 def r2b(g: Gate) -> None:
@@ -1267,7 +1277,7 @@ def r4(g: Gate) -> None:
                 wrong = [t["n"] - 1 for t in h["tracks"] if t["verdict"] == "wrong"]
                 if all(p in drop for p in wrong):
                     bad_stopped.append(r["slug"])
-            if grp == "good":
+            if grp == "good" and not g.held(r):
                 good_lost.append(r["slug"])
         data[name] = {"shows_with_drops": len(shows), "dropped": dropped, "added_holds": added,
                       "by_group": tally_groups(groups), "bad_stopped": len(bad_stopped),
@@ -1303,7 +1313,7 @@ def r5(g: Gate) -> None:
     for s in SLICES:
         classes = SLICE_CLASSES[s]
         sh = [r for r in g.rows if any(_slice_of(t) == s
-                                       for _, _, toks in g.attributed(r, "today")
+                                       for _, _, toks in g.attributed(r, "today", changed_only=True)
                                        for t in toks)]
         un = [r for r in sh if not held_today(r)]
         ship[s] = {"changed_shows": len(sh), "unheld_today": len(un), "verdicts": g.tally(un, classes)}
@@ -1418,8 +1428,9 @@ def r11(g: Gate) -> None:
         if LOWC_FLAG in (r.get("today_flags") or []) and (
                 a.get("self_filled") or (a.get("coverage") or 0.0) >= g.thr):
             new.append(r)
+    with_d = [r for r in new if _d_fills(r)]
     buckets: dict[str, list[dict]] = {}
-    for r in new:
+    for r in with_d:
         n = _indep_denominator(r)
         buckets.setdefault("0" if n == 0 else "1" if n == 1 else "2" if n == 2 else "3+",
                            []).append(r)
@@ -1429,14 +1440,16 @@ def r11(g: Gate) -> None:
                 if any(str(n).startswith("unknown-song flags suppressed")
                        for n in r.get("today_notes") or []) and _d_fills(r)]
     lines = [f"Shows newly above the coverage threshold (low-confidence flag today, self-filled "
-             f"or covered now): {len(new)}, by independent-denominator size:"]
+             f"or covered now): {len(new)}, of which {len(with_d)} have a D fill and "
+             f"{len(new) - len(with_d)} do not (their coverage rose through C, slice 4 or "
+             f"slice 5). The D shows, by independent-denominator size:"]
     lines += md_table(["denominator", "shows", "of which self-filled", *GROUPS], rows)
     lines += ["", f"Shows with a 4a suppression note today and a D fill now (upper bound on "
                   f"consequence (2)): {len(suppress)} ({examples(r['slug'] for r in suppress)})."]
     g.sample("r11_newly_above", [f"{r['slug']}\t{_indep_denominator(r)}" for r in new])
     g.sample("r11_4a_and_d", [r["slug"] for r in suppress])
     g.add("R11", "Coverage consequences of D-filled tracks", lines,
-          {"newly_above": len(new), "by_denominator": {k: len(v) for k, v in buckets.items()},
+          {"newly_above": len(new), "with_d": len(with_d), "by_denominator": {k: len(v) for k, v in buckets.items()},
            "suppress_and_d": len(suppress)})
 
 
@@ -1674,7 +1687,8 @@ def notes(g: Gate) -> None:
         for pos, t in sorted(_d_fills(r).items(), key=lambda kv: int(kv[0])):
             if LEAD_NUM_RE.match(t):
                 lead.append((r["slug"], f"track {int(pos) + 1} '{t}'"))
-    put("d_leading_track_number", "(4) D fills whose shipped text starts with a track number",
+    put("d_leading_track_number", "(4) D fills whose shipped text starts with a track number (the regex also "
+        "catches dates such as `12.28.99`)",
         lead)
     # (5) would-decline by rung with cleaned neighbours
     by_rung: dict[str, list] = {}
