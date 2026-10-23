@@ -3967,3 +3967,140 @@ def test_sibling_transfer_split_is_identical():
     out, notes = gather_mod._sibling_transfer(ia, alone, W_IDENT, want, target, norms)
     assert notes == [] and [t.model_dump() for t in out] == [t.model_dump() for t in target]
     assert gather_mod._sibling_transfer_full(ia, alone, W_IDENT, want, target, norms)[2] is None
+
+
+# --- Title hygiene (piece 3), Task 16: title_inputs + title_cascade wired into gather ---------
+#
+# Spec docs/superpowers/specs/2026-10-22-title-hygiene-design.md. These drive the WIRED
+# `compute_gather`; `test_title_cascade.py` places each slice on the cascade alone.
+
+from llama import title_hygiene  # noqa: E402
+from llama.stages.gather import CanonicalBuild  # noqa: E402
+
+
+def _numbered(titles) -> str:
+    return "\n".join(f"{i}. {t}" for i, t in enumerate(titles, 1))
+
+
+def _untagged_gd73(description: str) -> dict:
+    """The gd73 fixture with every title tag removed (wholly untagged) and the given
+    description."""
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["description"] = description
+    for f in md["files"]:
+        f.pop("title", None)
+    return md
+
+
+def _setlistfm(titles):
+    """Stands in for `build_canonical`: a count-matched setlist.fm canonical."""
+    canon = ParsedSetlist(items=[SetlistItem(title=t, normalized=normalize_song(t), set="1")
+                                 for t in titles], confidence="high")
+
+    def build(*a, **kw):
+        return CanonicalBuild(setlist=canon, notes=[], source="setlist.fm")
+    return build
+
+
+def test_gather_fills_from_the_taper_list(tmp_path: Path):
+    """Slice 2 (D): an untagged tape whose own description is a count-matched numbered list
+    ships the list's entries as `desc-position`, each `matched=None` (Tautology), and the
+    titles are no longer unresolved."""
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_untagged_gd73(
+        _numbered(REAL_TITLES))), None, make_candidate(), IDENT)
+    tracks = res.show.tracks
+    assert [t.title for t in tracks] == REAL_TITLES
+    assert all(t.title_source == "desc-position" for t in tracks)
+    assert all(t.matched is None for t in tracks)
+    assert "unresolved track titles" not in res.show.review_flags
+
+
+def test_compute_gather_enabled_slices_kwarg(tmp_path: Path):
+    """`enabled_slices=frozenset()` is today's gather: on the same tape the chosen canonical
+    fills every track through the S rung (`setlist`), and no `desc-position` ships. The
+    keyword never rebinds the module's `ENABLED_SLICES`."""
+    before = title_hygiene.ENABLED_SLICES
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_untagged_gd73(
+        _numbered(REAL_TITLES))), None, make_candidate(), IDENT, enabled_slices=frozenset())
+    assert [(t.title, t.title_source) for t in res.show.tracks] == [
+        (t, "setlist") for t in REAL_TITLES]
+    assert title_hygiene.ENABLED_SLICES is before
+    assert title_hygiene.ENABLED_SLICES == title_hygiene.ALL_SLICES
+    assert res.title_paths == ("S",) * 6 and res.self_filled is False
+
+
+def test_gather_s_withdrawn_when_list_count_matched(tmp_path: Path):
+    """Slice 1, "S with any other canonical", when the selected description yields a
+    count-matched list: S makes no fill and D fills from the taper's own list, so the
+    taper's wording ships, not setlist.fm's."""
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["description"] = _numbered(REAL_TITLES[:4] + ["Eyes Of The World",
+                                                                 "Johnny B. Goode"])
+    for f in md["files"]:
+        if f["name"] == "gd73-06-10d2t02.mp3":
+            f["title"] = None
+    sfm = _setlistfm(REAL_TITLES[:4] + ["Eyes of the World (setlist.fm)", "Johnny B. Goode"])
+    with patch.object(gather_mod, "build_canonical", side_effect=sfm):
+        res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(md), None,
+                             make_candidate(), IDENT)
+    t = res.show.tracks
+    assert [(x.title, x.title_source) for x in t[4:]] == [
+        ("Eyes Of The World", "desc-position"), ("Johnny B. Goode", "desc-position")]
+    assert not any(x.title_source == "setlist" for x in t)
+    assert res.title_paths == ("", "", "", "", "D", "D")
+    with patch.object(gather_mod, "build_canonical", side_effect=sfm):
+        today = compute_gather(ShowWorkspace(tmp_path / "t"), StubIA(md), None,
+                               make_candidate(), IDENT, enabled_slices=frozenset())
+    assert today.show.tracks[4].title == "Eyes of the World (setlist.fm)"
+
+
+def test_gather_q1_untagged_setlistfm_stays_unresolved(tmp_path: Path):
+    """Operator ruling Q1: the S rung never fires on a wholly untagged tape. With a
+    count-matched setlist.fm canonical and no taper list, every track stays unresolved,
+    the show is held, and one operator note says why."""
+    md = _untagged_gd73("An amazing night of music, seeded with love.")
+    sfm = _setlistfm(REAL_TITLES)
+    with patch.object(gather_mod, "build_canonical", side_effect=sfm):
+        res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(md), None,
+                             make_candidate(), IDENT)
+    assert all(t.title_source == "unresolved" for t in res.show.tracks)
+    assert "unresolved track titles" in res.show.review_flags
+    assert "positional fill declined: setlist wholly untagged tape" in res.notes
+    conflicts = res.show.structure.conflicts if res.show.structure else []
+    assert not any(c.startswith("positional fill declined") for c in conflicts)
+
+
+def test_gather_c1_fills_tmp_tape(tmp_path: Path):
+    """Slice 3 (C1): every mp3 is tagged `tmp` (a 2b placeholder) while the Shorten copy of
+    the same item is tagged; a count-matched list confirms each lossless title, so they ship
+    per track as `sibling-format`, with one note each and no 2b demotion note."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()), tag_mp3=True)
+    for f in md["files"]:
+        if f.get("format") == "VBR MP3" and f["name"].startswith("gd73-06-10d"):
+            f["title"] = "tmp"
+    md["metadata"]["description"] = _numbered(_LOSSLESS_TITLES.values())
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(md), None, make_candidate(),
+                         IDENT)
+    assert [(t.title, t.title_source) for t in res.show.tracks] == [
+        (t, "sibling-format") for t in _LOSSLESS_TITLES.values()]
+    assert res.notes[0] == "lossless title: track 1 'tmp' -> 'Morning Dew' (C1)"
+    assert sum(n.startswith("lossless title: ") for n in res.notes) == 6
+    assert not any(n.startswith(("placeholder tag title", "format sibling tagged"))
+                   for n in res.notes)
+    assert "unresolved track titles" not in res.show.review_flags
+
+
+def test_title_paths_reported(tmp_path: Path):
+    """`GatherResult.title_paths`, `self_filled` and `title_record` carry the cascade's
+    record (in-process only): the gd73 fixture's encore is S's fill; the untagged tape with
+    a taper list is D's on every track."""
+    res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(), None, make_candidate(), IDENT)
+    assert res.title_paths == ("", "", "", "", "", "S")
+    assert res.self_filled is False
+    assert res.title_record is not None and res.title_record.s_plan.mode == "gated"
+    res = compute_gather(ShowWorkspace(tmp_path / "b"), StubIA(_untagged_gd73(
+        _numbered(REAL_TITLES))), None, make_candidate(), IDENT)
+    assert res.title_paths == ("D",) * 6
+    assert res.self_filled is True
+    assert res.title_record.d is not None and res.title_record.d.failed == ()
+    assert "title_paths" not in res.show.model_dump_json()

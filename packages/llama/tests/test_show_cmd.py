@@ -533,3 +533,18 @@ def test_json_carries_notes_and_empty_lists_without_notes_json(tmp_path):
     write_artifact(ws.notes, {"gather": ["g"], "vet": ["v"]})
     r = cli_invoke(cfg, "show", "gratefuldead", "--json")
     assert json.loads(r.output)["notes"] == {"gather": ["g"], "vet": ["v"]}
+
+
+def test_show_tracks_prints_desc_position():
+    """(pin) Title hygiene slice 2: `desc-position` is 13 characters and prints in full in
+    the 14-character source column, with the duration column still aligned."""
+    from llama.cli import _format_tracks
+    from llama.models import Track
+    sources = ["desc-position", "sibling-format", "tags"]
+    tracks = [Track(index=i, set="1", title="Dark Star", filename=f"t{i:02d}.mp3",
+                    duration_sec=300, segue=False, title_source=s)
+              for i, s in enumerate(sources, 1)]
+    lines = _format_tracks(
+        SimpleNamespace(tracks=tracks, excluded_files=[]))[1:1 + len(tracks)]
+    assert "desc-position " in lines[0], lines[0]
+    assert len({line.index(" 5:00") for line in lines}) == 1
