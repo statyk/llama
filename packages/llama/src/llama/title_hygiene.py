@@ -20,7 +20,7 @@ from llama.desc_list import (
     is_header_shape,
     written_seconds,
 )
-from llama.placeholders import is_placeholder, is_residue, is_timestamp, looks_like_filename
+from llama.placeholders import is_junk_tag, is_placeholder, is_residue, is_timestamp, looks_like_filename
 from llama.models import ParsedSetlist, Track
 from llama.setlist import MAX_TITLE_LEN
 from llama.siblings import MIN_ANCHORS, DonorTape, SiblingRow
@@ -31,7 +31,7 @@ from llama.structure import (
     is_filler,
     loosely_same_title,
 )
-from llama.titles import is_placeholder_text, is_real_title, tag_core
+from llama.titles import is_placeholder_text, is_real_title, shipped_short_tag, tag_core
 
 # Independent titles (spec, Definitions). NOT `siblings.INDEPENDENT_TITLE_SOURCES`.
 INDEPENDENT_SOURCES = frozenset({"tags", "sibling-format", "override", "sibling-align"})
@@ -607,3 +607,59 @@ def apply_deferred_setlist(tracks: list[Track], plan: SetlistPlan, d: DDecision 
     for p, text in fills.items():
         out[p] = out[p].model_copy(update={"title": text, "title_source": SETLIST})
     return out, _s_notes(failed, track_declines)
+
+
+def confirm_short_tags(tracks: list[Track], tag_titles: list[str], tag_sources: list[str], *,
+                       desc: DescList | None, demoted: frozenset[int], metadata_norms: set[str]
+                       ) -> tuple[list[Track], list[str], list[int], dict[int, str]]:
+    """Slice 4: a short real tag that fails `is_real_title` is accepted when the taper's own
+    count-matched list confirms it at the same position. Returns (tracks, notes, accepted
+    0-based positions, declined 0-based position -> first failed rule).
+
+    A candidate is a still-`unresolved`, not-demoted position with a non-empty tag failing
+    `is_real_title`. Rules, in order: `entry` (the tag's core equals the WHOLE cleaned entry
+    by `fuzzy_norm_title`); `no neighbour` / `neighbour disagrees` (among independent
+    titles within `SHORT_TAG_WINDOW`, at least one agrees with its entry and none
+    disagrees, by `position_agreement`, no aliases); `stem` (the core, at least
+    `STEM_SUBSTRING_MIN` characters, is a case-insensitive substring of the filename stem);
+    `veto` (no alphanumeric core, `is_junk_tag`, or a `metadata_norms` hit, as 2a).
+    Neighbours are judged on the tracks as passed in, so one slice-4 accept never
+    confirms another. Ships `shipped_short_tag(tag)` with the per-track tag source."""
+    out = list(tracks)
+    notes: list[str] = []
+    accepted: list[int] = []
+    declined: dict[int, str] = {}
+    if desc is None or len(desc.raws) != len(tracks) or len(tag_titles) != len(tracks):
+        return out, notes, accepted, declined
+    for i, t in enumerate(tracks):
+        if t.title_source != "unresolved" or i in demoted:
+            continue
+        tag = tag_titles[i]
+        if not tag.strip() or is_real_title(tag):
+            continue
+        core = tag_core(tag)
+        title = shipped_short_tag(tag)
+        entry = fuzzy_norm_title(desc.cleaned[i].text)
+        if entry not in (fuzzy_norm_title(core), fuzzy_norm_title(title)):
+            declined[i] = "entry"
+            continue
+        verdicts = [position_agreement(tracks[j], desc.cleaned[j])
+                    for j in range(max(0, i - SHORT_TAG_WINDOW),
+                                   min(len(tracks), i + SHORT_TAG_WINDOW + 1)) if j != i]
+        if "disagree" in verdicts:
+            declined[i] = "neighbour disagrees"
+            continue
+        if "agree" not in verdicts:
+            declined[i] = "no neighbour"
+            continue
+        if len(core) >= STEM_SUBSTRING_MIN and core.lower() in _stem(t.filename).lower():
+            declined[i] = "stem"
+            continue
+        if (not any(ch.isalnum() for ch in core) or is_junk_tag(core)
+                or fuzzy_norm_title(core) in metadata_norms):
+            declined[i] = "veto"
+            continue
+        out[i] = t.model_copy(update={"title": title, "title_source": tag_sources[i]})
+        accepted.append(i)
+        notes.append(f"short tag title confirmed by the taper's list: track {t.index} '{title}'")
+    return out, notes, accepted, declined

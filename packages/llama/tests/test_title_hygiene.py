@@ -944,3 +944,128 @@ def test_deferred_apply_is_a_no_op_outside_deferred_mode():
     assert apply_deferred_setlist(tracks, gated, None, tag_titles=_DEFERRED_TAGS,
                                   metadata_norms=set()) == (tracks, [])
     assert isinstance(gated, SetlistPlan)
+
+
+# ---- Task 9: short tags confirmed by the taper's list (slice 4) ----
+
+from llama.title_hygiene import confirm_short_tags  # noqa: E402
+
+
+def _s4(titles, entries, *, sources=None, filenames=None, tag_sources=None, demoted=(),
+        norms=None, desc=True, resolved=()):
+    """Tracks whose tag-layer title is `titles[i]`; positions in `resolved` carry it as a
+    `tags` title, the rest are `unresolved`. Independent neighbours are given as real
+    titles in `resolved`."""
+    tracks = []
+    for i, t in enumerate(titles):
+        src = "tags" if i in resolved else "unresolved"
+        fn = filenames[i] if filenames else f"f{i}.mp3"
+        tracks.append(Track(index=i + 1, set="1", filename=fn, title=(t if i in resolved else fn),
+                            title_source=src))
+    dl = _dl(*entries) if desc else None
+    return confirm_short_tags(
+        tracks, list(titles), tag_sources or ["tags"] * len(titles), desc=dl,
+        demoted=frozenset(demoted), metadata_norms=norms or set())
+
+
+def test_short_tag_confirmed_by_whole_entry_and_neighbour():
+    # thenewdeal-2004-12-31 shape
+    out, notes, acc, declined = _s4(["Gone", "J", "Bubble"], ["Gone", "J", "Bubble"],
+                                    resolved={0, 2})
+    assert acc == [1] and declined == {}
+    assert (out[1].title, out[1].title_source) == ("J", "tags")
+    assert notes == ["short tag title confirmed by the taper's list: track 2 'J'"]
+
+
+def test_short_tag_needs_an_agreeing_neighbour():
+    # no independent neighbour within +-2
+    out, notes, acc, declined = _s4(["J", "Real Two", "Real Three"], ["J", "Real Two", "Real Three"])
+    assert acc == [] and out[0].title_source == "unresolved" and declined == {0: "no neighbour"}
+    # a disagreeing neighbour (zwan scramble shape)
+    out, _, acc, declined = _s4(["Gone", "J", "Bubble"], ["Gone", "J", "Other"], resolved={0, 2})
+    assert acc == [] and declined == {1: "neighbour disagrees"}
+    # an agreeing neighbour does not outvote a disagreeing one
+    out, _, acc, declined = _s4(["Gone", "J", "Bubble"], ["Gone", "J", "Other"], resolved={0, 2})
+    assert out[1].title_source == "unresolved"
+    # an independent neighbour three away is outside the window
+    _, _, acc, declined = _s4(["Gone", "Real Two", "Real Three", "J"],
+                              ["Gone", "Real Two", "Real Three", "J"], resolved={0})
+    assert acc == [] and declined == {3: "no neighbour"}
+
+
+def test_whole_entry_only():
+    out, _, acc, declined = _s4(["Gone", "VA", "Bubble"], ["Gone", "Quantico, VA", "Bubble"],
+                                resolved={0, 2})
+    assert acc == [] and declined == {1: "entry"} and out[1].title_source == "unresolved"
+
+
+def test_core_inside_the_stem_is_refused():
+    fns = ["jg2011-12-31d201.mp3", "jg2011-12-31d206.mp3", "jg2011-12-31d203.mp3"]
+    out, _, acc, declined = _s4(["Gone", "d206", "Bubble"], ["Gone", "d206", "Bubble"],
+                                filenames=fns, resolved={0, 2})
+    assert acc == [] and declined == {1: "stem"}
+
+
+def test_junk_and_metadata_vetoes_still_apply():
+    for tag in ["12-28-99", "2:22"]:
+        _, _, acc, declined = _s4(["Gone", tag, "Bubble"], ["Gone", tag, "Bubble"],
+                                  resolved={0, 2})
+        assert acc == [] and declined == {1: "veto"}, tag
+    _, _, acc, declined = _s4(["Gone", "M80", "Bubble"], ["Gone", "M80", "Bubble"],
+                              resolved={0, 2}, norms={"m80"})
+    assert acc == [] and declined == {1: "veto"}
+
+
+def test_ships_shipped_short_tag():
+    out, _, acc, _ = _s4(["Gone", "415 ->", "Bubble"], ["Gone", "415", "Bubble"], resolved={0, 2})
+    assert out[1].title == "415"
+    out, _, acc, _ = _s4(["Gone", "7-11 (3)>", "Bubble"], ["Gone", "7-11", "Bubble"],
+                         resolved={0, 2})
+    assert acc == [1] and out[1].title == "7-11"
+
+
+def test_fills_only_unresolved_and_never_demoted():
+    # moe-2008-01-26 shape: a resolved track and a 2b-demoted one are untouched
+    titles = ["Gone", "J", "K", "Bubble"]
+    tracks = [
+        Track(index=1, set="1", filename="a", title="Gone", title_source="tags"),
+        Track(index=2, set="1", filename="b", title="Better Song", title_source="setlist"),
+        Track(index=3, set="1", filename="c", title="c", title_source="unresolved"),
+        Track(index=4, set="1", filename="d", title="Bubble", title_source="tags"),
+    ]
+    out, _, acc, declined = confirm_short_tags(
+        tracks, titles, ["tags"] * 4, desc=_dl("Gone", "J", "K", "Bubble"),
+        demoted=frozenset({2}), metadata_norms=set())
+    assert acc == [] and declined == {}
+    assert out == tracks
+
+
+def test_sibling_format_source_kept():
+    out, _, acc, _ = _s4(["Gone", "J", "Bubble"], ["Gone", "J", "Bubble"], resolved={0, 2},
+                         tag_sources=["sibling-format"] * 3)
+    assert out[1].title_source == "sibling-format"
+
+
+def test_declines_recorded_with_reason():
+    fns = [f"x-d20{i}.mp3" for i in range(1, 6)]
+    titles = ["Gone", "VA", "d203", "12-28-99", "Bubble"]
+    entries = ["Gone", "Quantico, VA", "d203", "12-28-99", "Bubble"]
+    _, _, acc, declined = _s4(titles, entries, filenames=fns, resolved={0, 4})
+    assert acc == []
+    assert declined[1] == "entry" and declined[2] == "stem" and declined[3] == "veto"
+    _, _, _, d2 = _s4(["J", "Real Two"], ["J", "Real Two"])
+    assert d2 == {0: "no neighbour"}
+
+
+def test_no_desc_or_not_count_matched_fires_nothing():
+    out, notes, acc, declined = _s4(["Gone", "J", "Bubble"], [], desc=False, resolved={0, 2})
+    assert (acc, declined) == ([], {}) and notes == []
+    out, notes, acc, declined = _s4(["Gone", "J", "Bubble"], ["Gone", "J"], resolved={0, 2})
+    assert (acc, declined) == ([], {})
+
+
+def test_footnoted_tag_matches_entry_on_its_shipped_form():
+    # judgement call: `7-11 (3)>` has core `7-11 (3)`; the list says `7-11`
+    out, _, acc, _ = _s4(["Gone", "7-11 (3)>", "Bubble"], ["Gone", "7-11", "Bubble"],
+                         resolved={0, 2})
+    assert acc == [1]
