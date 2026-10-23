@@ -48,6 +48,8 @@ SHORT_TAG_WINDOW = 2
 STEM_SUBSTRING_MIN = 2
 
 _QUESTION_ONLY = re.compile(r"^[?\s,;.]*\?[?\s,;.]*$")
+# Checkpoint A ruling P2: one leading set/encore prefix, stripped for the ?-only test only.
+_SET_PREFIX = re.compile(r"^\s*(?:set\s*)?(?:\d{1,2}|[ivx]{1,4}|e|enc|encore)\s*:\s*", re.I)
 _UNKNOWN = re.compile(r"^\s*(?:unknown|unk|\(unknown\))\s*$", re.I)
 _BARE_NUMBER = re.compile(r"^\d+[.\-)]?$")
 _ANNOTATION = re.compile(r"^\s*w/\s|\bopened\b", re.I)
@@ -106,7 +108,8 @@ def judge(c: Cleaned, *, track_no: int, first: bool, stem: str, own_core: str,
     if c.filler_marked:
         return _track("filler entry")
     # Per-track: slot placeholders keep the list 1:1.
-    if _QUESTION_ONLY.match(text) or is_placeholder(text) or _UNKNOWN.match(text):
+    if (_QUESTION_ONLY.match(text) or _QUESTION_ONLY.match(_SET_PREFIX.sub("", text, count=1))
+            or is_placeholder(text) or _UNKNOWN.match(text)):
         return _track("slot placeholder")
     if _BARE_NUMBER.match(text):
         digits = re.sub(r"\D", "", text)
@@ -172,6 +175,8 @@ def position_agreement(track: Track, c: Cleaned) -> str:
     marker is already stripped; `filler_marked` plays no part). No aliases."""
     if track.title_source not in INDEPENDENT_SOURCES:
         return "skip"
+    if _QUESTION_ONLY.match(c.text):
+        return "neutral"  # Checkpoint A ruling P1: a `?` slot placeholder is no evidence
     tf, ef = is_filler(track.title), is_filler(c.text)
     if tf and ef:
         return "neutral"

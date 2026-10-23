@@ -40,6 +40,15 @@ def test_spec_decline_fixtures():
     assert _j("Unknown").scope == "track"
 
 
+def test_set_prefixed_question_mark_is_a_slot_placeholder():
+    # ericmcfadden-2005-10-06 (Checkpoint A ruling P2): description 'II: ?, Put it Down, ...'
+    for raw in ("II: ?", "Set 2: ?", "E: ?", "enc: ??", "2: ?"):
+        h = _j(raw)
+        assert (h.ok, h.scope, h.check) == (False, "track", "slot placeholder"), raw
+    # only ONE prefix is stripped, and only before the ?-only test
+    assert _j("II: Put it Down").ok
+
+
 def test_bare_number_rules():
     assert _j("5", track_no=5).scope == "track"
     assert _j("05", track_no=9).scope == "track"
@@ -128,6 +137,15 @@ def test_check3_disagreement_declines():
     assert tape_disagreement(tr, dl)[0] == 0
     ok = _dl("Some Kind of Ride", "Joey", "Tooth Brush and My Table >", "Big White Gate")
     assert tape_disagreement(tr, ok) is None
+
+
+def test_slot_placeholder_entry_is_neutral_in_check3():
+    # gomez-2008-07-05 (Checkpoint A ruling P1): description
+    # '01 Intro > Get Miles \n02 Hamoa Beach \n03 ???\n04 See the World ...\n07 ??? \n08 In Our Gun'
+    dl = _dl("Intro > Get Miles", "Hamoa Beach", "???", "See the World")
+    tr = _tracks("Intro > Get Miles", "Hamoa Beach", "Mix", "See the World", source="sibling-align")
+    assert position_agreement(tr[2], dl.cleaned[2]) == "neutral"
+    assert tape_disagreement(tr, dl) is None
 
 
 def test_filler_tag_against_song_entry_disagrees():
