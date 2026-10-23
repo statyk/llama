@@ -47,10 +47,16 @@ def test_leader_stripped_only_under_the_vote():
 
 
 def test_date_shaped_entries_keep_their_numbers():
-    base = ["01-A", "02-B", "03-C", "04-D"]
     odd = ["09-15-00", "12.28.99", "01.", "01-"]
+    for x in odd:
+        c = clean_one(x, strip_leader=True)
+        assert c.text == x and not c.leader_stripped
+    # a list where the vote demonstrably passes: 16 numbered of 20 = 0.8
+    base = [f"{i:02d}-Song{chr(65 + i)}" for i in range(1, 17)]
     out = clean_entries(base + odd)
-    assert [c.text for c in out][4:] == odd
+    assert all(c.leader_stripped for c in out[:16])
+    assert [c.text for c in out][16:] == odd
+    assert not any(c.leader_stripped for c in out[16:])
 
 
 def test_markers_and_encore_and_quotes():
