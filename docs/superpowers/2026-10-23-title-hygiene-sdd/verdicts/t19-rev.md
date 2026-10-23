@@ -1,0 +1,48 @@
+### Spec Compliance
+- ❌ Issues found:
+  - **The packets' "newly cleared" set is not the set holds_delta reports as cleared, and the gap falls on the strata Acceptance 3 depends on.** `_title_rows` (scripts/replay_holds.py, the `cleared = set(_newly_cleared(base, cand))` line in `_title_rows`) reuses `_newly_cleared`, which uses `CLEARING = ("clears", "needs-brief")` (replay_holds.py:244, 417-419). `packets` builds `wholly_untagged_d3` and `newly_cleared_sample` only from rows whose `newly_cleared` is true (title_hygiene_probe.py, `cleared = sorted(s for s, r in trows.items() if r.get("newly_cleared"))`). Two kinds of cleared show never get that flag (Important 1 below):
+    - (a) a held show that clears with a structure change. `classify` returns `structure-changed` for these, not `clears` (replay.py:383-385). Piece 2's `_taper_cleared` counts them as clears explicitly (replay_holds.py:590-592).
+    - (b) every fresh-get clear on a packaged or delivered show (base `newly-held` -> cand `clean`/`clean-changed`). That is exactly the "would-hold on a fresh get" bucket of holds_delta, and the "future gets through the fresh-get view" that Acceptance 3 names.
+
+    Both kinds land in no stratum, and nothing reports it. Probe (pure functions, logged in t19-rev.log): base `still-held` -> cand `structure-changed` with self_filled and 2 D fills, plus a packaged base `newly-held` -> cand `clean-changed`. `_holds_delta` reports `cleared 2`, while `_newly_cleared` returns `[]` and neither row gets `newly_cleared`.
+  - **Spec Acceptance 2, bullet 4 says needs-LLM outcomes are "counted as held".** `_holding` (replay_holds.py, `_holding`) counts `needs-llm` as holding only when `state == "held"`. A packaged or delivered show that piece 3 moves from `clean` to `needs-llm` is therefore not a hold added (Important 2). Probe: base packaged `clean` -> cand `needs-llm` with `desc_position=3` gives `added 0`.
+- ⚠️ Cannot verify from diff:
+  - The meaning of the three-way split (judgement call 1: `stripped` non-empty -> "would-hold on a fresh get"). It is a defensible reading, but the controller or operator should rule on it. It is always empty in an as-is arm, and it uses "overrides were stripped" as a stand-in for "the overrides were masking the hold".
+  - The sample round-robins over path signatures, which is not proportional (judgement call 5). Acceptance.md should say so, so that nobody reads a sample rate as a population rate.
+  - Test-order pollution between the two script test modules (logging left disabled by the probe's `_init`). The handback says it predates this diff. I did not check that, since it is outside the diff.
+  - Protected-names grep over the diff: clean. Only `scripts/` is touched, so setlist.py is untouched.
+
+### Strengths
+- `--disable-slices` is validated against `ALL_SLICES` (unknown names refuse with exit 2). It is threaded as `enabled_slices=` through both the plain and stripped `replay_show` paths and stamped `disabled_slices` on the arm (replay_holds.py, `_parse_disabled`, `run`). The test spies on `replay_show`'s kwargs and asserts the module global is unchanged (`test_disable_slices_stamped_and_applied`).
+- Slice attribution reads the `cascade` record as the brief tables specify: fills for cleared holds, declines for added holds (`SLICE_OF_FILL`/`SLICE_OF_DECLINE`). The `d_failed`-only, empty-`title_paths` case is pinned (`test_added_hold_attributed_from_declines`).
+- Base-row title reconstruction (`_arm_titles`) matches `shipped_diff`'s `title_changes` format on both trees. I checked replay.py:197-218 and `git show 11dbffb:…/replay.py`: the same `index/old/new/old_source/new_source`, and the count-change branch's `new: None` entries are dropped correctly. Vet does not rewrite titles, so comparing post-vet base titles with pre-vet cand titles is sound.
+- `_d_reach` works on real needs-LLM rows: `replay_show` fills `desc_position` and `notes` on them and empties only `cascade` (replay.py:535-544). Its note-prefix match `positional fill declined: desc-position agreement` cannot catch `tape agreement`.
+- Parity and packets handle the real gate-r16 row format. All 3983 rows have `arms.all.tracks[{title, source}]` and `arms.all.record.wholly_untagged` (202 true), and `canonical` is always a dict. `_packet` renders a real wholly-untagged row correctly, read-only, output to stdout.
+- Everything is deterministic: sorted outputs, `sort_keys`, one `random.Random(20261023)` shuffling groups in sorted order, with a byte-for-byte rerun test. `--extra` refuses bad or duplicate or reserved names (`test_packets_siblings_and_name_refusals`).
+
+### Issues
+#### Critical (Must Fix)
+None.
+
+#### Important (Should Fix)
+1. **scripts/replay_holds.py `_title_rows` (`cleared = set(_newly_cleared(base, cand))`), consumed by scripts/title_hygiene_probe.py `packets` (`cleared = …newly_cleared`). Acceptance 3's population silently omits structure-changed clears and fresh-get clears.**
+   - **What goes wrong:** see Spec Compliance (a) and (b). (a) hits the 100% stratum hardest. A Q2 self-filled tape switches from the LLM path to the deterministic `align()`. When its stored show was LLM-aligned (the population piece 3's replay relaxation exists for, replay.py:334), `diff["alignment"]` changes and the outcome is `structure-changed`. Its set labels also move. So the "all self-filled tapes included" shows are the likeliest of all to drop out of `wholly_untagged_d3`. (b) drops every packaged-today/held-on-fresh-get show from both strata.
+   - **Why it matters:** the brief and spec call these reports the acceptance instrument for the strict surface ("a cleared hold is the strict surface"). A stratum that should be 100% and misses shows reports nothing about the miss.
+   - **Fix:** factor the clear predicate that `_holds_delta` uses (`_holding(b) and _replayed(c) and not _holding(c)`) into one `_cleared(b, c)`. Use it both for `_holds_delta` and for `title_rows.newly_cleared`, or else make the two definitions agree explicitly and print the difference. Add tests in which a base `still-held` -> cand `structure-changed` self-filled show lands in `wholly_untagged_d3`, and a packaged base `newly-held` -> cand `clean-changed` show is eligible for the sample.
+2. **scripts/replay_holds.py `_holding` (`… or (outcome == "needs-llm" and state == "held")`). A non-held show that newly needs the LLM is not counted as a hold added.**
+   - **What goes wrong:** spec Acceptance 2 counts needs-LLM outcomes as held. Holds added are strict surface (d). A packaged or delivered show pushed onto the LLM branch by piece 3 is plausible: C1/C2 replacing tags can lower align coverage, and the spec asks for exactly the "D shows reaching … the LLM branch". Such a show appears only in needs_llm.txt's raw `cand:` list, never in `holds added` or its count.
+   - **Fix:** treat `needs-llm` as holding in any state. Keep base needs-llm out of the added side (already done by `_replayed(b)`). Mark these rows `(needs-llm)` in both the cleared and the added listings so they are "listed separately". Add a test with a packaged base `clean` -> cand `needs-llm`.
+
+#### Minor (Nice to Have)
+- replay_holds.py `_title_changes` / `_title_rows` / `_diff_titles`: a base row that is `unreplayable` has empty `title_changes`, so its reconstructed titles are the stored ones. Every stored-vs-cand difference is then reported as a piece-3 change. `_taper_changes` skips unreplayable rows on either side (replay_holds.py:707); do the same here.
+- replay_holds.py `_delta_kind`: "currently packaged" also collects delivered, voiced and `briefed` shows (21 `briefed` rows in the real dump). The state label is printed, but the bucket name misleads. Consider "not held now (packaged/delivered)".
+- replay_holds.py `compare` summary: the `voiced check: delivery_path …/off` line is printed only for unstripped arms. holds_delta and title_changes now depend on voiced labelling in the fresh-get arms too, so print it unconditionally.
+- title_hygiene_probe.py `packets`/`parity`: unlike `run`, they have no `_overlaps(--out, library root)` refusal, and `packets` unlinks `*.md` under `--out/<stratum>`. Add the refusal against `root`, so that "nothing written under ~/.llama" is enforced and does not depend on discipline.
+- title_hygiene_probe.py `_packet`: the table header says "candidate = the wired fresh-get title". For an `--extra` slug outside `title_rows.json` it shows the dump's pre-wiring `all` arm, and for an as-is compare it shows the as-is title. `packets` also reads `wholly_untagged` from the dump's fresh-view `arms`, even for an as-is compare. State the source per packet.
+- replay_holds.py `_parse_disabled`: naming a slice that is not in `ENABLED_SLICES` (possible after Checkpoint A) stamps it as disabled when it was never on. Refuse it or warn.
+- scripts/test_replay_holds.py: `_lines(path)` is defined but never used, and `_p3`'s `root` parameter is unused. Some assertions slice text fragilely (`by.split("slice2")[1].split("slice")[0]`, `"fresh " in l + " "`).
+- Slice 5 is absent from `SLICE_OF_FILL`, so a hold cleared only by a cosmetic strip (e.g. an unknown-song flag clearing after `06:58 - Song` -> `Song`) prints `unattributed`. The brief's table omits it too. Note it, or attribute it from a `+5` path.
+
+### Assessment
+**Task quality:** Needs fixes
+**Reasoning:** The reports are well built, deterministic, and correct on the real dump format. But the packets' "newly cleared" population leaves out structure-changed clears (likely most Q2 self-filled tapes) and every fresh-get clear on a shipped show, and holds-added leaves out non-held shows that newly need the LLM. Both are silent omissions in the acceptance instruments for the strict surface.
