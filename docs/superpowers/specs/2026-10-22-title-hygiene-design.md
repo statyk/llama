@@ -41,7 +41,7 @@ The payoff is judged mainly by **future `llama get`s**. Most of today's held sho
 | Class | Population (current code, title overrides stripped) | Hand-check result |
 |---|---|---|
 | **D. Description is a numbered list, one line per file** | 85 shows; 698 unresolved tracks; 570 would get a hygienic title (both upper bounds) | 30 shows sampled. All-right 17, some-wrong 9, shifted 4. The gate blocks 12 of the 13 bad shows; furthur-2012-04-21 is among them, because no reader admits its run-on description. It also declined one all-right fill, darkstarorchestra-2014-07-31, whose own tags are shifted, a hold the checker judged justified. The one leak is godspeedyoublackemperor-2011-03-15: `12-28-99` passes hygiene, and the file is mostly Gathering Storm. That is an accepted limitation. |
-| **U. Effectively untagged tape with a count-matched description list** | 202 of 3,980 shows (5.1%) have fewer than 2 independent song-like titles; 50 (1.3%) also have a count-matched description list | **All 50** checked. All-right 34; 12 lists that are not titles, declined by hygiene; 1 with set-header lines, declined by the header rule; 1 run-on (furthur-2012-04-21), declined; 2 shifted, both caught by slice 2's block-size check. Neither untagged check fired on a right show. |
+| **U. Effectively untagged tape with a count-matched description list** | 202 of 3,980 shows (5.1%) have fewer than 2 independent song-like titles; 50 (1.3%) also have a count-matched description list | **All 50** checked. All-right 34; 10 lists that are not titles, declined by hygiene; 2 real lists with `?` entries (rosehilldrive-2008-12-31, dumpstaphunk-2009-07-11), held by per-track `?` declines; 1 with set-header lines, declined by check 1's trailing-`:` test; 1 run-on (furthur-2012-04-21), declined; 2 shifted, both caught by slice 2's block-size check. Neither untagged check fired on a right show. |
 | **C. Same item: lossless original vs MP3 derivative tags disagree** (format recovery did not fire) | 119 shows with different words (65 ship silently); 18 with an MP3 placeholder vs a real lossless title (furthur/DSO `tmp`); 36 with a blank MP3 vs a real lossless title | 30 sampled. Fix helps 19, neutral 8, hurts 3. All 3 hurts have a tell: bracketed banter labels, footnote markers, description fragments ending `(0:25):`. |
 | **A_rev. Real short tags thrown away** (`J`, `420`, `M80`, `I-55`) | 74 shows, 95 tracks. 93 fail `is_real_title`, and 2a does not rescue them because the selected recording's own description is not a witness (2a ruling 3). The operator later set the same title by hand on 62 tracks. | 30 sampled. Keeping the tag: right 24, wrong 5. All 5 wrong are blocked by the gate in slice 4. |
 | **S. Whole-tape `setlist` rung** (canonical count = file count and parse confidence not `low`; copy item N to track N; the only content check refuses `is_placeholder_text` items, `titles.py:475-502`; 93 of 128 canonicals from setlist.fm) | 128 shows; 77 ship unflagged | **All 128** checked. All-right 85, some-wrong 28, shifted 9, cant-tell 6. 16 bad shows ship silently. On 76 single-track fills the rung usually rescues a short real tag (`42`, `405`, `118`): right 60 of 76. |
@@ -95,13 +95,14 @@ The payoff is judged mainly by **future `llama get`s**. Most of today's held sho
 ## The design
 
 **Definitions.** These terms mean the same thing everywhere below.
-- **Independent title:** a title from `tags`, `sibling-format`, `override` or `sibling-align`, or a short tag accepted by 2a or slice 4.
+- **Independent title:** a title whose `title_source` is in a NEW constant in the new module, holding `tags`, `sibling-format`, `override` and `sibling-align`. A short tag accepted by 2a or slice 4 is stamped `tags` or `sibling-format`, so it counts. `siblings.INDEPENDENT_TITLE_SOURCES` (`{tags, sibling-format, override}`, `siblings.py:357-363`) is a different set, unchanged here, and must never be extended.
 - **Real tag:** a tag that passes `is_real_title` and is not `is_placeholder_text`.
 - **2a shape:** a tag whose `tag_core` is alphanumeric, is not `is_junk_tag`, and is not a placeholder (the short real tags `J`, `42`, `M80`).
 - **Song-like:** not `is_filler`.
 - **Admissible list:** a list read from the selected recording's description by slice 2's reader (i) or (ii). A **count-matched** admissible list also has exactly as many entries as the tape has kept tracks; every positional use below (D, the S rung's yield, C's same-position references and its show-level decline) needs a count-matched one.
 - **Entry** (slice 4): a list entry after slice 1's cleanup.
-- **Wholly untagged:** fewer than `siblings.MIN_ANCHORS` (2) independent song-like titles at the tag layer. Slice-4 tags do not count here, nor in Acceptance's 100% hand-check stratum. This reuses an existing constant; it is never retuned.
+- **Wholly untagged:** fewer than `siblings.MIN_ANCHORS` (2) song-like titles that are real tags (passing `is_real_title`, not 2b-demoted) or `sibling-format` titles. It is evaluated once, from the tag layer (after slice 3) and before `resolve_titles`; 2a and slice-4 tags never count. The Q1 S boundary, D's untagged checks and Acceptance's 100% hand-check stratum all use this one evaluation. This reuses an existing constant; it is never retuned.
+- **Header grammar:** reader (i)'s set and disc headers, `taper._SET_HEADERS` plus `taper._DISC_LABEL`. Check 1's header shape is this grammar plus one `disc N[,:] track N` pattern (`Disc 1, Track 10`), fixed before measurement.
 - **Self-filled:** the predicate defined under slice 2, "Self-filled tapes".
 - **Real-tagged neighbour** (slice 4): a track carrying an independent title.
 - **Agree** (C1(c)): the two tags are equal under case, punctuation or `normalizes-equal`, or `loosely_same_title` holds; cores under 3 letters compare by equality only.
@@ -109,15 +110,11 @@ The payoff is judged mainly by **future `llama get`s**. Most of today's held sho
 ### Slice 1. One positional gate, and where the S rung fires
 
 **The S rung splits by canonical source.**
-- **S with a `chosen` canonical** (the canonical came from the selected recording's own description) no longer fires inside `resolve_titles`. That is the same evidence as D, and the D rung (slice 2) handles it with reader (ii). Those fills move from `resolve_titles` to D's slot, after slice 4 and before `align()`. The yield gate re-counts the S population under this placement.
-- **S with any other canonical** (setlist.fm, a sibling item's description, an `extract_setlist`/LLM canonical) stays inside `resolve_titles`, at its current place. It is gated by check 1 (hygiene) and check 2 (adjacent duplicate), with check 2 evaluated against the tag-layer titles and the other S candidates, which is what exists at that point. It has two more firing conditions:
-  - **When the selected description yields a count-matched admissible list, S fills only where D does not.** The operator presumes the taper's list more reliable than setlist.fm. S's fills on such a show are settled once D has decided:
-    - if D fills, S yields to it;
-    - if D declined on a shift signature (check 2, check 3, written durations, either untagged check, or the agreement check), S declines too, and the show is held;
-    - if D declined only on hygiene or admissibility grounds, S's own gates decide.
-
-    The yield gate attributes the shows where S was withdrawn.
-  - **It never fires on a wholly untagged tape** (operator ruling Q1).
+- **S with a `chosen` canonical** (the canonical came from the selected recording's own description) no longer fires inside `resolve_titles`. That is the same evidence as D, and the D rung (slice 2) handles it with reader (ii). Those fills move from `resolve_titles` to D's slot, after slice 4 and before `align()`. On a partly tagged tape with a chosen canonical, setlist-gap and sibling-align still run before D, as today; a count-forced setlist-gap fill there is not withdrawn when D declines, and the yield gate attributes those fills to setlist-gap. The yield gate re-counts the S population under this placement.
+- **S with any other canonical** (setlist.fm, a sibling item's description, an `extract_setlist`/LLM canonical). Before `resolve_titles`, gather decides once whether the selected description yields a count-matched admissible list. The operator presumes the taper's list more reliable than setlist.fm.
+  - **When it does,** `resolve_titles` makes NO S fills, whatever the canonical; it records S's candidates. Those positions go to `adopt_gap_titles` as declined, so setlist-gap cannot fill them from the same canonical; sibling-align, which is cross-source and duration-guarded, may still fill them. After D (still before `align()`), S's recorded candidates are applied, with checks 1 and 2 re-run against the current neighbours, only on positions still `unresolved`, and only when D declined on hygiene grounds (check 1). A position D left `unresolved` for a `Filler:` entry stays `unresolved`. When D declined on a shift signature (check 2, check 3, written durations, block size, sibling durations, or the agreement check), S declines too, and the show is held. The yield gate attributes the shows where S was withdrawn.
+  - **When it does not,** S runs inside `resolve_titles` at its current place, as today. It is gated by check 1 (hygiene) and check 2 (adjacent duplicate), with check 2 evaluated against the tag-layer titles and the other S candidates, which is what exists at that point.
+  - Either way, **it never fires on a wholly untagged tape** (operator ruling Q1).
 
   The yield gate also reports, for the operator, a stricter alternative: non-chosen S fills only runs bracketed on both sides by independent song-like titles (`gap_span`'s rule). It reports that alternative's added holds and the bad shows it would stop, but does not adopt it.
 
@@ -131,44 +128,52 @@ The payoff is judged mainly by **future `llama get`s**. Most of today's held sho
 - a timestamp-shaped entry;
 - an over-length entry.
 
-Such an entry takes a slot, so the list is not 1:1 with the files. Only slot placeholders keep the list 1:1, so they decline per track: `?`-only, 2b vocabulary (`Track N`, `track seventeen`, `tmp`), `unknown`/`unk`/`(unknown)`, and a bare number that is zero-led or equals the position. A `metadata_norms` hit on any entry but the first also declines per track: it may be a self-titled or city-named song. Every other check-1 failure (`is_junk_title`, a trailing `:`, and the shapes above) is show-level. Checks 2 and 3, the written-duration check, the agreement check and the untagged checks are show-level.
+Such an entry takes a slot, so the list is not 1:1 with the files. Only slot placeholders keep the list 1:1, so they decline per track: `?`-only, 2b vocabulary (`Track N`, `track seventeen`, `tmp`), `unknown`/`unk`/`(unknown)`, and a bare number that is zero-led or equals the position. A `metadata_norms` hit on any entry but the first also declines per track: it may be a self-titled or city-named song. An entry marked `Filler:` is not filled either, per track: the taper says its file is not that night's music, and stripping the marker would present the song as played. Every other check-1 failure (`is_junk_title`, a trailing `:`, and the shapes above) is show-level. Checks 2 and 3, the written-duration check, the agreement check and the untagged checks are show-level.
 
 **The checks.**
 
-1. **Candidate hygiene.** Before every test, strip written durations and taper markers. A written duration is stripped wherever it sits: bracketed or trailing (`[4:47]`, `(6:40)`, tab plus `4:47`) or leading (`(05:12) `, `05:12 - `), so `1. (05:12) Bertha` yields `Bertha`. Taper markers are `>`, `->`, `*`, `@` and footnote parentheticals. The candidate is declined when it is any of these:
+1. **Candidate hygiene.** Every list entry (reader (i) and (ii)) and every S candidate is cleaned in this order:
+   1. Strip written durations, in any of these forms: bracketed (`[4:47]`, `(6:40)`), trailing, tab-separated (tab plus `4:47`), leading `(m:ss) ` or `m:ss - ` (`(05:12) `, `05:12 - `), and a trailing `m.ss` after two or more spaces or a tab (`Shot Shot  3.00`, gomez-2006-10-06). So `1. (05:12) Bertha` yields `Bertha`.
+   2. Strip ONE leading track number (`NN-`, `NN.`, `NN)`, `.NN`, as in motherhips-2010-10-16's `.01  I'm No Good`), only when the list passes the vote 2c/2d use, reused and not retuned: at least `titles._ENUMERATED_MIN_FILES` (3) entries, and at least `titles._ENUMERATED_MIN_COVERAGE` (0.8) of them, carry such a leader. The leader must be followed by a character that is not a digit, as with 2d's `_JOINED_NUM_PREFIX`, so `09-15-00`, `12.28.99` and a bare `01.` are never cut.
+   3. Strip taper markers (`>`, `->`, `*`, `@` and footnote parentheticals) and a leading `E:`/`EN:`/`Encore:` marker.
+   4. Run the tests below on what remains.
+
+   The candidate is declined when it is any of these:
    - over `MAX_TITLE_LEN`, `is_junk_title`, ending in `:`, or in `metadata_norms`: `hygienic_title`'s parts except its `is_real_title` requirement;
    - `is_placeholder_text`: 2b's vocabulary, a bare timestamp, or pure filename residue (`is_residue`, gated on `is_real_title` as that predicate already is);
    - filename residue (`looks_like_filename`), or equal to the file's own stem;
    - a leading `m:ss` (or `h:mm:ss`) followed by `)`, `]` or ` - `, with an optional leading `(`, when nothing title-like remains after the duration strip;
    - empty, or containing no letter or digit after cleanup;
    - `unknown`, `unk` or `(unknown)`;
-   - a set or disc header (`"Set" 1:`, `Set 2`, `Disc 1, Track 10`);
+   - a set or disc header, by check 1's header shape (Definitions): `Set 2`, `CD 2`, `Disc 1, Track 10`. (`"Set" 1:` is outside that grammar and declines by its trailing `:`.)
    - an annotation line: `w/ …`, or a line containing `opened` (support-act notes);
    - a bare number, `^\d+[.\-)]?$` (so `01.` and `01-` are bare numbers, and `09-15-00` and `12.28.99` are not), unless it equals the track's own raw tag core (`tag_core`). Otherwise a bare number declines when it is zero-led or equals the position.
 
    `is_junk_tag` is NOT used: its leading-timestamp and date arms decline the real titles `2:45 AM` and `09-15-00`, which the hand-check rated right on elliottsmith-1998-06-02 and -1998-10-11 and on GY!BE 2002-01-22, 2002-04-03 and 2003-03-27.
 
-   Fixtures that must PASS: `2:45 AM`, `09-15-00`, `12.28.99`, `42`, `405`, `118`, `420`, `J`, `1 in 7`. Fixtures that must DECLINE: `?`, `??,  [4:47]`, `01.`, `01-`, `"Set" 1:`, `Disc 1, Track 10`, `s1t07:`, `(05:12) 01-`, `w/ Eric Johnson`, `Fruit Bats opened`, `Unknown`, `soulive2012-02-24-d1t01`.
+   Fixtures that must PASS: `2:45 AM`, `09-15-00`, `12.28.99`, `42`, `405`, `118`, `420`, `J`, `1 in 7`. Fixtures that must DECLINE: `?`, `??,  [4:47]`, `01.`, `01-`, `"Set" 1:`, `Disc 1, Track 10`, `s1t07:`, `w/ Eric Johnson`, `Fruit Bats opened`, `Unknown`, `soulive2012-02-24-d1t01`.
+
+   Cleaning fixtures, from real lists: rosehilldrive-2008-12-31's `(05:12) 01-?` cleans to `?`, a per-track slot-placeholder decline, and its `(03:43) 02-Sneak Out` cleans to `Sneak Out`, which passes; `.01  I'm No Good` cleans to `I'm No Good`; `Shot Shot  3.00` cleans to `Shot Shot`.
 
    A crude bare-number test fired on 9 hand-checked-good S shows. The rule above declines a bare number only when it is zero-led or equals the position, and never when it is the track's own tag core. The builder must re-measure that rule against all 128 S rows before relying on it. The `metadata_norms` exclusion stays, so there is one definition; the yield gate counts the self-titled songs it declines (`Railroad Earth`).
 
    **One definition.** `structure.py:1350-1361` requires every silent adopter to share `hygienic_title`. This check reuses its parts. The builder may parameterize `hygienic_title` or compose a sibling predicate over its parts, but must not fork the parts. The S rung's existing `is_placeholder_text` refusal and `confidence != "low"` gate stay; this check is a superset of them. The new shapes apply to S and D only. setlist-gap and sibling-align keep `hygienic_title` as it is, since their adoptions were measured under it, so `w/ Eric Johnson` in a count-forced gap remains a documented limitation.
 2. **No adjacent duplicate (per show).** No positional candidate may match the title of the track before or after it. This is the shift signature (robertrandolph-2005-05-29, particle-2003-06-14, gratefuldead-1972-04-26, railroadearth-2007-01-28). **One hit declines EVERY fill that rung would make on the show,** not just the duplicate track. On a shift, the rest of the run is wrong too; declining only the duplicate would leave one-late titles in place for the operator to inherit (operator, 2026-10-22: an off-by-one where all tracks are wrong "is worth holding"). A song genuinely split across two files also trips it, and holding that is acceptable: darkstarorchestra-2004-08-31's `Jam`/`Jam` across a disc change is such a hold, counted at the yield gate.
    - `is_filler` titles are exempt on both sides.
-   - Two titles match when their `fuzzy_norm_title` forms are equal or `structure.fuzzy_title_eq` holds. There is no containment arm: `Truckin'` and `Truckin' Jam` must not match.
+   - Two titles match when their `fuzzy_norm_title` forms are equal or `structure.fuzzy_title_eq` holds. `fuzzy_title_eq`'s subphrase rule is containment when the shorter title has 2 or more words: `Dark Star` and `Dark Star Jam` match, while `Truckin'` and `Truckin' Jam` do not. A matching X/X Jam pair declines the show, the accepted split-song hold; the yield gate counts these holds.
    - The comparator does NOT match `Sailing On`/`Sailin On` (`fuzzy_title_eq` is False on that pair; measured). That miss is accepted: on derektrucksband-2007-05-27, the one hand-checked case, slice 3 fills track 1 with its lossless `Announcements/crowd` before S runs. No spelling fold is added.
 3. **Tape agreement (per show, D only).** Every song-like track carrying an independent title must agree with the list entry at its position. One disagreeing track declines every D fill on the show. This catches D's shifted and scrambled shows (gracepotter-2009-07-26, gratefuldead-1983-09-04, zwan-2001-12-13). The census's crude count (28 of 85 D shows with at least one disagreement) is an upper bound under strict string equality; the Checkpoint A yield gate measures the real figure.
-   - **Neutral:** `setlist-gap` and `setlist` titles, and a filler track whose entry is filler too.
+   - **Neutral:** `setlist-gap` titles, and a filler track whose entry is filler too. (A `setlist` title cannot co-occur with a D fill: on a show with a count-matched list, S fills only after D.)
    - **Disagreement:** a filler tag against a song entry counts as a disagreement; it is a shift signature.
    - **Comparison:** cores under 3 letters compare by `fuzzy_norm_title` equality only, because `loosely_same_title("J", "Jack Straw")` is True. Otherwise `loosely_same_title`, unmodified.
    - The comparison runs on cleaned copies: umphreysmcgee-2004-03-17 `Joel Piano Solo (02:05)` vs `piano solo^` must not fail it.
    - It is not applied to S. On a setlist.fm canonical it would misfire on about 8 good S shows, because setlist.fm names differ from the taper's (GY!BE aliases, spelled-out numbers).
 
-**Written durations (per show, D only).** When at least half of the list's entries carry a written duration, compare every position whose entry carries one, filled or tagged, and decline the show if any of those tracks' file length differs from its entry's duration by more than `WRITTEN_DURATION_TOL`. An entry with more than one duration counts as having none. `WRITTEN_DURATION_TOL` is a new constant, fixed before measurement; the builder proposes a value with its rationale (for example 15 s or 10%, whichever is larger). On an untagged tape the shift detectors are written durations and slice 2's two untagged checks (block size and sibling durations).
+**Written durations (per show, D only).** When at least half of the list's entries carry a written duration, compare every position whose entry carries one, filled or tagged, and decline the show if any of those tracks' file length differs from its entry's duration by more than `WRITTEN_DURATION_TOL`. An entry with more than one duration counts as having none. Every form check 1's first cleaning step strips counts as a written duration here, the trailing `m.ss` included. `WRITTEN_DURATION_TOL` is a new constant, fixed before measurement; the builder proposes a value with its rationale (for example 15 s or 10%, whichever is larger). On an untagged tape the shift detectors are written durations and slice 2's two untagged checks (block size and sibling durations).
 
-**A track that fails the gate stays `unresolved`.** That is the state it would have been in without the rung, so the existing `unresolved track titles` hold catches it, and no new flag string is needed. Each declined track writes one operator note (rung, position, which check fired, the candidate).
+**A track that fails the gate stays `unresolved`.** That is the state it would have been in without the rung, so the existing `unresolved track titles` hold catches it, and no new flag string is needed. A show-level decline writes ONE operator note (rung, check, triggering entry). A per-track decline writes one note per declined track (rung, position, which check fired, the candidate).
 
-**Declines bind setlist-gap.** `adopt_gap_titles` receives S's declined positions; a run containing a declined position is not filled. D and slice 4 run after it and need nothing here.
+**Declines bind setlist-gap.** `adopt_gap_titles` receives S's declined positions, and the positions whose S candidates are held for after D; a run containing such a position is not filled. D and slice 4 run after it and need nothing here.
 
 **Expected S effect:** the yield gate recomputes S's caught and uncaught bad shows after Q1 and the split by canonical source.
 
@@ -177,13 +182,14 @@ Such an entry takes a slot, so the list is not 1:1 with the files. Only slot pla
 **Source.** The SELECTED recording's own description. The taper's list is the evidence; setlist.fm is never the source here. The rung reads a list of entries from it, and there are two admissible lists:
 - **(i) numbered lines:** lines or `<br />`-separated entries read by the census reader's grammar (`NUMLINE` and the timestamp-line exclusion in `numbered_lines`, `docs/superpowers/2026-10-22-title-hygiene-evidence/census.py`): an optional disc or track prefix, a number of 1-3 digits, optional punctuation, then the text.
   - The numbers run 1..N within each block. Contiguity is there to catch blank or missing entries (alabamashakes-2012-01-13, delmccouryband-2004-06-12).
-  - A restart at 1 begins a new block only after a recognised header: `taper.py`'s set and disc header grammar (`_SET_HEADER`, `_DISC_SET_HEADER` and the rest of `_SET_HEADERS`), or a bare disc label (`CD 2`, `Disc Two`). Blank lines, decoration (`=====`) and non-numbered lines may sit between the header and the restart. So a numbered footnote or lineage block never reads as a new set.
+  - A restart at 1 begins a new block only after a recognised header, by the header grammar (Definitions): `taper.py`'s `_SET_HEADERS` (`_SET_HEADER`, `_DISC_SET_HEADER`, `_SET_DISC_HEADER`), or a bare disc label (`_DISC_LABEL`: `CD 2`, `Disc Two`). Blank lines, decoration (`=====`) and non-numbered lines may sit between the header and the restart. So a numbered footnote or lineage block never reads as a new set.
   - A change of inline disc prefix (`d1t10-` → `d2t01-`) is a restart.
   - 3-digit `1NN`/`2NN` numbering reads as disc-prefixed.
 
   This is the taper's own numbering; the rung never compares entry numbers against file numbers, because S0 found that misfires on derektrucksband-2004-11-20.
-- **(ii) `parse_setlist`'s own items** for the selected description, cleaned exactly as `build_canonical` cleans them (banner strip, artist drop). Admissibility is judged over the lines that contribute to the cleaned list:
-  - header-only lines (`Set 1:`, `Encore:`) and the banner or artist lines that `build_canonical`'s cleaning removes are exempt;
+- **(ii) `parse_setlist`'s own items** for the selected description, cleaned as `build_canonical` cleans them (head-banner strip, footnote markers) with one difference: `build_canonical` drops artist-named items anywhere (`_drop_artist_items`), while reader (ii) drops them only inside the banner span. A self-titled song elsewhere in the list (railroadearth-2004-04-09) stays, and the per-track `metadata_norms` rule decides it. Admissibility is judged over the lines that contribute to the cleaned list:
+  - header-only lines (`Set 1:`, `Encore:`) and the banner or artist lines the cleaning removes are exempt;
+  - so are the lines `parse_setlist` itself discards (`_NOISE` lineage and credit lines, and the text above the first set marker that header truncation removes), judged on the raw line;
   - every other non-empty line, judged on the raw line before any number-prefix strip, must yield exactly one item. A line split on `>`, `,` or `;` into two items makes the list inadmissible.
 
   This needs a per-line reader beside `parse_setlist`; the builder writes it. `parse_setlist`'s outputs and every consumer of them stay byte-identical. In the D sample, six of the 11 all-right untagged shows came through `parse_setlist` items, not numbered lines, which is why (ii) is admissible.
@@ -197,47 +203,55 @@ The census's 85 shows and 570 tracks are an upper bound: they were computed with
 **When it fires.** The entry count equals the kept track count, and the show has at least one still-`unresolved` track after every earlier rung. It runs after `adopt_gap_titles`, 2a (`accept_short_tags`) and slice 4, before `align()`. Slice 4 goes first because it ships an independent title, which check 3 can then use. D never touches a resolved track or an override. It may fill a 2b-demoted position: it is a gated positional rung. This amends 2b's ruling that only setlist-gap and sibling-align may title such a track (guard-fixes spec, "2b"); see "Amendments confirmed by the operator".
 
 **What it ships.**
-- The entry text for each unresolved track that passes slice 1's gate, cleaned: taper markers and a trailing segue marker removed, an interior footnote parenthetical (`(1)`) removed, written durations removed wherever they sit, and a leading `E:`/`EN:`/`Encore:`/`Filler:` marker and wrapping quote marks removed, in the way `shipped_short_tag` strips a leading encore marker for 2a. `(GA)`-style initials stay, per "taper wording ships". The S rung never shipped `E:` (`parse_setlist` consumes the marker), and the taper reads the description's markers itself.
+- The entry text for each unresolved track that passes slice 1's gate, cleaned in check 1's order: written durations, then one leading track number under the vote, then taper markers, a trailing segue marker, an interior footnote parenthetical (`(1)`), a leading `E:`/`EN:`/`Encore:` marker (in the way `shipped_short_tag` strips a leading encore marker for 2a) and wrapping quote marks. A `Filler:` entry is never shipped (slice 1). `(GA)`-style initials stay, per "taper wording ships". The S rung never shipped `E:` (`parse_setlist` consumes the marker), and the taper reads the description's markers itself.
 - A compound entry keeps its interior `>`: `Pyramid County (1) > Little Maggie` ships as `Pyramid County > Little Maggie`. Only reader (i) yields such entries, since (ii) splits them.
 - The new `title_source` is `desc-position`. At 13 characters it fits the 14-character column `llama show --tracks` prints (`cli.py:1583-1591`).
 
-**Tautology.** `desc-position` joins `TAUTOLOGICAL_TITLE_SOURCES`. That is one definition, so `_songish_coverage`, `align`, `apply_llm_alignment`, gather's final assembly (`matched=None`), `taper._counts`, `right_show_gate` and replay's source listing all treat it correctly with no change of their own. A fill copied from a list proves nothing when matched back against a list. Its agreement with a canonical from elsewhere is checked once, explicitly, by the agreement check below.
+**Tautology.** `desc-position` joins `TAUTOLOGICAL_TITLE_SOURCES`. That is one definition, so `_songish_coverage`, `align`, `apply_llm_alignment`, gather's final assembly (`matched=None`), `taper._counts`, `right_show_gate` and replay's source listing all treat it correctly with no change of their own. A fill copied from a list proves nothing when matched back against a list. Its agreement with the canonical is checked once, explicitly, by the agreement check below.
+
+**Limitation:** `anchor_spans` treats `desc-position` (and, as today, `setlist`/`setlist-gap`) titles as anchors on the `fix --suggest-titles`/triage `[t]` proposal path. That path is operator-confirmed, so it is not changed here.
 
 Two consequences:
-- (1) On a partly tagged tape, D-filled tracks leave `_songish_coverage`'s denominator, where today their unresolved filenames count as misses. Coverage over the remaining independent tracks may therefore rise and clear `low-confidence structure alignment` flags. The yield gate counts these.
+- (1) On a partly tagged tape, D-filled tracks leave `_songish_coverage`'s denominator, where today their unresolved filenames count as misses. On a tape with one or two independent titles that can turn a flagged show (1/21, say) into an unflagged one (1/1), which `_songish_coverage`'s docstring calls the dangerous direction. The protection is check 3 on those independent titles, plus the untagged checks when fewer than `MIN_ANCHORS` remain (a wholly untagged tape). The yield gate reports the newly unflagged shows by independent-denominator size (1, 2, 3 or more).
 - (2) vet's 4a (`right_show_gate`) does not count D-filled tracks as resolved, so unknown-song flags on mostly D-filled tapes are not rescued by 4a. That is a limitation, and the yield gate counts it.
 
 On a wholly description-filled tape the independent set is empty and coverage reads 0.0. Without Q2, what happens next depends on the branch (`gather.py:1361-1456`):
 - **Jerrybase anchoring resolves** (Garcia-family shows; `anchor_breaks` matches closers whatever the `title_source`, `jerrybase.py:257`), or the canonical is empty: no structure flag, and the hold clears. 12 of the census's 85 D shows are family shows.
 - **Otherwise** (`today_llm`, `gather.py:1386`): gather spends one `align_structure` LLM call. That call cannot win, because `apply_llm_alignment` also excludes tautological tracks (`structure.py:1248`). Gather then raises `low-confidence structure alignment` and the show stays held.
 
-**Agreement check (per show).** When there is a canonical and it did not come from the selected description (setlist.fm, a sibling item, an LLM extraction), D computes `align()` of its filled titles against the canonical, treating them as independent for this one computation only. If that coverage, over song-like filled tracks, is below `align_coverage_threshold`, D declines every fill on the show: the tracks stay `unresolved`, and the show is held as today. This is the operator's rule for a list that substantially disagrees with the canonical (see "Amendments confirmed by the operator").
+**Agreement check (per show).** It applies whenever there is a canonical, a `chosen` one included: a chosen canonical comes from `parse_setlist`, which can truncate where reader (i) did not.
+- **What it measures:** the share of the count-matched list's song-like entries that some canonical item matches. Matching is `loosely_same_title`, unmodified (cores under 3 letters: `fuzzy_norm_title` equality), with `songs.GD_SHORTHAND` expanded on both sides first for a Garcia-family artist (`jerrybase.is_family_artist`), since `loosely_same_title` takes no aliases. It is order-free and computed over the WHOLE list, not only the filled tracks.
+- **When it declines:** D declines every fill on the show when that share is below `AGREEMENT_FLOOR = 0.5`, a new constant. The tracks stay `unresolved`, and the show is held as today. This is the operator's rule for a list that "substantially" disagrees with the canonical (see "Amendments confirmed by the operator"); reading "substantially" as "most entries match nothing" is the author's call.
+- **Why not `align()`:** an `align()` coverage test at `align_coverage_threshold` (0.8) would decline 8 of the 21 hand-checked-right untagged tapes with a setlist.fm canonical, on taper shorthand (`Aiko`, `SOTM`, `Esau`), reprises and spellings (two independent probes, `probes/r3-agree*.py` and `probes/r3work-agree.py` in the evidence dir). The yield gate reports this check's declines on hand-checked-right shows as its own row.
 
-The agreement check is NOT a shift detector. `align()` is order-preserving, so a list shifted against the files still agrees with setlist.fm (billystrings-2023-06-10 scores 1.00). The shift detectors are checks 2 and 3, written durations and the untagged checks below.
+The agreement check is NOT a shift detector. It compares which songs the list names, not where they sit against the files, so a list shifted against the files still agrees with setlist.fm (billystrings-2023-06-10 agrees at 1.00). The shift detectors are checks 2 and 3, written durations and the untagged checks below.
 
 **Self-filled tapes (operator ruling Q2).** A tape is **self-filled** when every song-like track is `desc-position` and D passed all its checks, including the agreement check when it applies. On a self-filled tape, whatever the canonical:
-- gather skips the `align_structure` LLM call;
+- gather skips the `align_structure` LLM call, and records neither that call nor the `align_structure` needs-LLM verdict (`needs_align`, `gather.py:1446-1450`), so replay and reapply do not mark the show needs-LLM;
 - gather does not raise `low-confidence structure alignment` on the not-owned branch (`today_llm`);
 - the `today_reaches_llm` value passed to `decide_taper` is unchanged.
 
 The owned-path flag site (`today_llm and reader_coverage < threshold`) is unreachable: `taper._counts` excludes tautological sources, so the taper never owns a self-filled tape. A defensive test pins that, instead of a suppression at that site. Set labels come from jerrybase anchoring when it resolves, else from the deterministic `align()` of the D titles against the canonical. `GatherResult` carries a `self_filled` boolean.
 
-**Replay.** Piece 2's relaxation (`replay.py:330-332`) extends, keyed on `self_filled`: a stored-`llm` show that the new gather finds self-filled is replayable, because no LLM call is made.
+**Replay.** Piece 2's relaxation (`replay.py:330-332`) extends, keyed on `self_filled`: a stored-`llm` show that the new gather finds self-filled is replayable, because no LLM call is made. `ShowReplay` gains `self_filled` and a `desc-position` count, and `Track.title_source`'s enumeration (its comment, `models.py:161`) names `desc-position`.
 
-**Wholly untagged tapes.** D may fill them (operator ruling Q1). Check 3 is vacuous on these tapes, so D runs two more checks on them. Either one failing declines every D fill on the show.
+**Wholly untagged tapes.** D may fill them (operator ruling Q1). Check 3 has fewer than `MIN_ANCHORS` tag-layer titles to work with on these tapes, so D runs two more checks on them. Either one failing declines every D fill on the show.
 - **(a) Block size.** It fires only when both hold:
   - the list has 2 or more blocks, separated by recognised set or disc headers or by a numbering restart (reader (i));
-  - the filenames carry a disc index (a `dN`/`cdN`/`discN` token before the track number) giving the same number of discs as there are blocks.
+  - the filenames carry a disc index (a `dN`/`cdN`/`discN` token before the track number) giving the same number of discs as there are blocks. When the list's blocks are set headers and the filenames carry an `sN` set index, the set index is used instead of the disc index.
 
-  Then each block's entry count must equal its disc's file count. With a different block or disc count, or no disc index, the check is inert.
+  Then each block's entry count must equal its disc's (or set's) file count. With a different block and disc (or set) count, or no disc or set index, the check is inert.
+
+  **Accepted hold:** a two-set show cut onto discs at the disc-length limit rather than at the set break can trip the disc check on a right list. The yield gate counts these library-wide (0 of the 34 right shows in the sample).
 - **(b) Sibling durations.** Gather already loads donors for sibling-align on these tapes (`fetch_siblings` is true). When a tagged sibling recording is available (the donors sibling-align uses), run `siblings.py`'s duration alignment of the target against the best donor. Every track the alignment pairs one-to-one must have its D candidate agree with the donor's title, by check 3's comparator, with filler neutral. Any disagreement declines the show. When no donor exists, or the alignment pairs fewer than `MIN_ANCHORS` tracks, the check is inert.
 
 Their constants and the disc-index grammar are fixed before measurement.
 
 **Measured (class U).** 202 of 3,980 shows (5.1%) have fewer than 2 independent song-like titles. 50 of them (1.3%) also have a count-matched description list, and all 50 were hand-checked (`handcheck/U0`–`U3`):
 - 34 all-right;
-- 12 lists that are not titles (bare numbers, durations, filename stems, `?`, `track one`…), declined by hygiene;
-- 1 with set-header lines, declined by the header rule;
+- 10 lists that are not titles (bare numbers, durations, filename stems, all-`?`, `track one`…), declined by hygiene;
+- 2 real lists with `?` entries (rosehilldrive-2008-12-31, dumpstaphunk-2009-07-11), held by per-track `?` declines;
+- 1 with set-header lines (belafleckandtheflecktones-2003-06-08), declined by check 1: its `"Set" 1:` lines end in `:`;
 - 1 run-on (furthur-2012-04-21), which no reader admits;
 - 2 shifted (billystrings-2023-06-10, derektrucksband-2003-11-26). Both are caught by (a): Set 1 has 13 entries against 12 disc-1 files, and discs of 9 + 5 entries against 10 + 4 files. Billy Strings is caught by (b) as well.
 
@@ -256,6 +270,7 @@ Neither check fired on any of the 34 right shows; 14 of the 50 have a tagged sib
 **Per-track source.** `tag_layer` returns a per-track source list. These consumers must use it:
 - `resolve_titles` stamping;
 - `accept_short_tags` stamping;
+- the 2b demotion recomputed inside `resolve_titles` (`titles.py:483-485`), which is computed from the delivered layer;
 - the 2c/2d stripped-number notes, which skip C-changed positions;
 - 2b's "format sibling tagged … filed, not acted on" note, which is not written when C acted.
 
@@ -300,7 +315,7 @@ It ships `shipped_short_tag(tag)`, as 2a does today, which strips segue arrows a
 
 ### Slice 5 (add-on). Cosmetic junk stripping
 
-Slice 5 is a cosmetic pass on the FINAL resolved title strings. It runs after every gather flag is computed, immediately before `Show` is built, so after structure is decided and after every recording-level gate (`title_fraction`, format recovery, `fetch_siblings`, the enumerated-tape votes, 2b). It never runs inside `clean_tag_title`/`clean_tag_titles`.
+Slice 5 is a cosmetic pass on the FINAL resolved title strings. It rewrites only titles whose `title_source` is `tags`, `sibling-format`, `setlist`, `setlist-gap`, `desc-position` or `sibling-align`. It never rewrites an `override`, or an `unresolved` track, whose title is its filename (`phish1995-12-31d2t05.flac` must not become `phish`). It runs after every gather flag is computed, immediately before `Show` is built, so after structure is decided and after every recording-level gate (`title_fraction`, format recovery, `fetch_siblings`, the enumerated-tape votes, 2b). It never runs inside `clean_tag_title`/`clean_tag_titles`.
 
 Strip only these shapes:
 - a leading `m:ss` or `h:mm:ss` followed by `)`, `]` or ` - `;
@@ -323,12 +338,15 @@ All measurements use the replay harness and the census tooling from the merged t
 
    Also report:
    - the S population re-counted under the split by canonical source, and S's caught and uncaught bad shows after Q1 and that split;
-   - the shows where S was withdrawn because D declined (slice 1);
+   - the shows where S was withdrawn because D declined (slice 1), and the setlist-gap fills on chosen-canonical tapes that D then declines, attributed to setlist-gap;
    - the stricter non-chosen S alternative (`gap_span`-bracketed runs only): its added holds and the bad shows it would stop, for the operator, not adopted;
    - Q1's trade and the "ships silently" counts on the fresh-get view;
    - the self-titled songs the `metadata_norms` exclusion declines;
-   - check 2's holds on songs genuinely split across files (`Jam`/`Jam`);
-   - the `low-confidence structure alignment` flags cleared by D-filled tracks leaving coverage's denominator, and the unknown-song flags 4a no longer rescues (slice 2's consequences (1) and (2));
+   - the tracks left `unresolved` by `Filler:` entries;
+   - check 2's holds on songs genuinely split across files (`Jam`/`Jam`, X/X Jam);
+   - the agreement check's declines on hand-checked-right shows, as its own row;
+   - the block-size check's holds on right lists whose discs are not cut at the set break;
+   - the shows newly unflagged by D-filled tracks leaving coverage's denominator, by independent-denominator size (1, 2, 3 or more), and the unknown-song flags 4a no longer rescues (slice 2's consequences (1) and (2));
    - D's residual on untagged tapes with no disc structure, no tagged sibling and no written durations;
    - a hand check of every wholly untagged show with a count-matched list (50 in the census view; all hand-checked as class U), recounted under the Definitions predicate.
 
@@ -336,7 +354,7 @@ All measurements use the replay harness and the census tooling from the merged t
 2. **Per slice, after wiring, over the whole library** (`--all`, on the fresh-get view AND as-is):
    - **holds cleared**, split three ways: held now / would-hold on a fresh get / currently packaged;
    - **holds added**, their flag, split by state;
-   - **titles changed on shows that stay unheld**, split by state (packaged / delivered / voiced);
+   - **titles changed on shows that stay unheld**, split by state (packaged / delivered / voiced), with title-text changes separated from source-only changes (a `setlist` → `desc-position` relabel with identical text);
    - **needs-LLM outcomes**, counted as held and listed separately, with how many D shows reach the agreement check's decline or the LLM branch.
 3. **Hand check** by Sonnet with an Opus pre-screen. It covers changed titles, fills and replacements alike, on packaged, delivered and voiced shows, and on future gets through the fresh-get view:
    - every newly cleared wholly untagged show (Definitions) where D filled 3 or more tracks, all self-filled tapes included;
@@ -353,28 +371,31 @@ All measurements use the replay harness and the census tooling from the merged t
 ## Operator rulings (2026-10-22)
 
 - **Q1. Wholly untagged tapes.** The **taper's own description list may fill a wholly untagged tape by position** (slice 2), under the count match, the readers' admissibility rules, slice 1's gate, the written-duration check and the untagged checks. The **S rung may NOT fill a wholly untagged tape** when its canonical did not come from the selected recording's own description (setlist.fm, a sibling item's description, an LLM canonical). There every S candidate is declined, and the tracks stay `unresolved`. In the hand-check, those fills were 18 right of 38 whole-tape fills, against D's 11 of 15. The census view suggests about 15 holds, 8 on hand-checked-good shows and 2 cant-tell, to stop 5 silent bad shows; this is recomputed on the fresh-get view at the yield gate. When S's canonical IS the selected description (`chosen`), the fill is made by D.
-- **Q2. Self-filled tapes ship.** The operator: "Let them ship. I consider the setlist in the item description more reliable than track tags, as the uploader is probably more likely to revise and correct the description than the file tags." The case is a self-filled tape (slice 2): every song-like track is `desc-position` and D passed all its checks, including the agreement check when the canonical came from elsewhere. On such a tape, whatever the canonical, gather neither spends the `align_structure` LLM call nor raises `low-confidence structure alignment`. Set labels come from jerrybase anchoring when it resolves, else from the deterministic `align()` against the canonical. The exception is deliberately narrow: a tape with ANY independent song-like title keeps today's coverage rule and flag. A list that substantially disagrees with a canonical from elsewhere is held by D's agreement check (see below).
+- **Q2. Self-filled tapes ship.** The operator: "Let them ship. I consider the setlist in the item description more reliable than track tags, as the uploader is probably more likely to revise and correct the description than the file tags." The case is a self-filled tape (slice 2): every song-like track is `desc-position` and D passed all its checks, including the agreement check when there is a canonical. On such a tape, whatever the canonical, gather neither spends the `align_structure` LLM call nor raises `low-confidence structure alignment`. Set labels come from jerrybase anchoring when it resolves, else from the deterministic `align()` against the canonical. The exception is deliberately narrow: a tape with ANY independent song-like title keeps today's coverage rule and flag. A list that substantially disagrees with the canonical is held by D's agreement check (see below).
 - **Q3. A short name in the taper's list confirms the same short tag** (slice 4), at the same position with an agreeing neighbour. The operator: "yes, of course." This relaxes 2a's ruling 3 for that positional condition only. 2a's cross-source rule is unchanged otherwise.
 - **Q4. Accuracy bar accepted:** at most 2% wrong among automatically filled tracks, and zero shifted shows among those newly cleared.
 - **Q5. Untagged tapes get deterministic shift checks, not a confirmation band.** The operator chose deterministic shift checks for wholly untagged tapes (slice 2's block-size and sibling-duration checks) and rejected a band held for confirmation: "there isn't a world where I have time to manually clear hundreds or thousands of shows." A show's routes are deterministic checks, an LLM adjudicator later, air, or don't air.
 - **Review mode: Fable** (operator, "Opus/Fable for this round"): one Opus reviewer and one Fable reviewer on spec and plan; the Fable seat also reviews the final branch. For this run that overrides "never silently upgrade".
-- **Standing principle recorded with Q2:** where the selected description and the tape's own tags disagree about a title, the description is presumed the more reliable of the two. This piece applies it in three places: the S rung yields when D fills from a count-matched admissible list of the selected description, and declines with D when D finds a shift; check 3 still DECLINES a D fill on any disagreement, because a disagreement at a position is the signature of a shifted list, not evidence about which title is right; and C2 prefers the lossless tag only when it agrees with the taper's list or the canonical at that position.
+- **Standing principle recorded with Q2:** where the selected description and the tape's own tags disagree about a title, the description is presumed the more reliable of the two. This piece applies it in three places: on a show with a count-matched admissible list of the selected description, the S rung fills only after D and only where D declined on hygiene, and declines with D when D finds a shift; check 3 still DECLINES a D fill on any disagreement, because a disagreement at a position is the signature of a shifted list, not evidence about which title is right; and C2 prefers the lossless tag only when it agrees with the taper's list or the canonical at that position.
 
 ### Amendments confirmed by the operator (2026-10-22)
 
 - **D may fill a 2b-demoted position** (slice 2). This amends 2b's ruling that only setlist-gap and sibling-align may title such a track. Operator: "Yes".
-- **A D list that substantially disagrees with a canonical from elsewhere holds the show** (slice 2, "Agreement check"). Against setlist.fm's, a sibling's or an LLM's canonical, D declines its fills when the agreement check fails. Operator: "when they substantially disagree, hold the show." The operator approved carrying this as a local check inside D. Note on which canonical a show gets: `structure.rank_parses` ranks `p.source == "setlist.fm"` first (`structure.py:532-566`), so whenever setlist.fm returns a setlist it IS the canonical, whatever the descriptions say; a `chosen` canonical therefore occurs only when setlist.fm has nothing for the show (or is not configured), and the agreement check applies to most D shows. The taper's segue marks are blended onto a setlist.fm canonical (`blend_segues`), and piece 2's taper markers still own set structure when they place exactly.
+- **A D list that substantially disagrees with a canonical from elsewhere holds the show** (slice 2, "Agreement check"). Against setlist.fm's, a sibling's or an LLM's canonical, D declines its fills when the agreement check fails. Operator: "when they substantially disagree, hold the show." The operator approved carrying this as a local check inside D. The check also runs against a `chosen` canonical (slice 2). Note on which canonical a show gets: `structure.rank_parses` ranks `p.source == "setlist.fm"` first (`structure.py:532-566`), so whenever setlist.fm returns a setlist it IS the canonical, whatever the descriptions say; a `chosen` canonical therefore occurs only when setlist.fm has nothing for the show (or is not configured). The taper's segue marks are blended onto a setlist.fm canonical (`blend_segues`), and piece 2's taper markers still own set structure when they place exactly.
 
 ## Author's calls (settled after the builder check; the operator may overrule)
 
 - C sits at the tag layer and beats later positional and cross-item rungs on its stems (slice 3). It runs only at or above `_RECOVER_BELOW`, and a C1 fill needs agreement with the taper's list, the canonical, or the show's own consistent tags.
-- The S rung splits by canonical source: a `chosen` canonical is D's job; any other canonical fills only where D does not, declines with D on a shift signature, and never fills a wholly untagged tape, defined by `siblings.MIN_ANCHORS`.
-- A check-1 failure declines per track only for a slot placeholder or a `metadata_norms` hit off the first entry; every other failure declines the show. Hygiene is composed from `hygienic_title`'s parts without its `is_real_title` requirement, plus `is_placeholder_text`, the filename and file-stem tests and the timestamp shape; it never uses `is_junk_tag`. setlist-gap and sibling-align keep `hygienic_title` unchanged.
-- An adjacent duplicate declines every positional fill on the show, not just the one track (check 2). It compares by `fuzzy_norm_title` equality or `fuzzy_title_eq`, with no containment arm.
+- The S rung splits by canonical source: a `chosen` canonical is D's job. With any other canonical, when the selected description yields a count-matched admissible list, S makes no fills in `resolve_titles`, holds its positions back from setlist-gap, and fills after D only positions D declined on hygiene; it declines with D on a shift signature. It never fills a wholly untagged tape, defined by `siblings.MIN_ANCHORS`.
+- A check-1 failure declines per track only for a slot placeholder, a `metadata_norms` hit off the first entry, or a `Filler:` entry (below); every other failure declines the show. Cleaning strips one leading track number only under 2c/2d's enumerated vote. Hygiene is composed from `hygienic_title`'s parts without its `is_real_title` requirement, plus `is_placeholder_text`, the filename and file-stem tests and the timestamp shape; it never uses `is_junk_tag`. setlist-gap and sibling-align keep `hygienic_title` unchanged.
+- An adjacent duplicate declines every positional fill on the show, not just the one track (check 2). It compares by `fuzzy_norm_title` equality or `fuzzy_title_eq`, whose two-word subphrase rule makes an X/X Jam pair (`Dark Star`/`Dark Star Jam`) a match and so a hold.
 - Check 3 applies to D only, counts the independent sources in Definitions, treats filler against filler as neutral and a filler tag against a song entry as a disagreement, and compares cores under 3 letters by equality only.
 - D's reader (i) is the census `NUMLINE` grammar with contiguity within each block, a new block starting only after a recognised header or at a disc-prefix change; reader (ii) admits `parse_setlist` items only when every contributing raw line yields one item. Numbering is the taper's own, never compared with file numbers.
-- `desc-position` is always tautological, by one definition; D's agreement check, not coverage, compares the list with a canonical from elsewhere.
-- D ships titles without a leading `E:`/`EN:`/`Encore:`/`Filler:` marker or wrapping quote marks.
+- `desc-position` is always tautological, by one definition; D's agreement check, not coverage, compares the list with the canonical.
+- The agreement check declines below `AGREEMENT_FLOOR = 0.5`, reading the operator's "substantially disagree" as "most entries match nothing". The operator should confirm this reading.
+- D ships titles without a leading `E:`/`EN:`/`Encore:` marker or wrapping quote marks.
+- A `Filler:` entry is not filled: the track stays `unresolved`, since its song is not that night's music.
+- The block-size check uses an `sN` set index instead of the disc index when the list's blocks are set headers and the filenames carry one.
 - Slice 4 runs before D, and needs at least one agreeing real-tagged neighbour within ±2. It keeps 2a's date and timestamp veto, which knowingly keeps out GY!BE `12.28.99` and `2:22`.
 - Slice 5 runs on final titles only, immediately before `Show` is built, and never strips `E:` or set markers.
 
@@ -384,7 +405,7 @@ All measurements use the replay harness and the census tooling from the merged t
 - Whether reader (i) is new or a `parse_setlist` additive field, and the per-line reader that reader (ii) needs.
 - `WRITTEN_DURATION_TOL`'s value, proposed with its rationale.
 - The disc-index grammar and the untagged checks' constants, fixed before measurement.
-- Constant values the spec does not fix. Fix them before measurement and record them.
+- Constant values the spec does not fix. Fix them before measurement and record them. The spec fixes `AGREEMENT_FLOOR` (0.5) and the header grammar (Definitions); neither is the builder's.
 - Note wording.
 - Slice order inside the plan, with one fixed rule: slice 1 lands before or with slice 2.
-- Test fixtures, from the hand-check's named shows and slice 1's named PASS/DECLINE strings. Captured real metadata, offline. They include a fixture pinning that check 2's comparator does not match `Truckin'`/`Truckin' Jam`, and the defensive test that the taper never owns a self-filled tape.
+- Test fixtures, from the hand-check's named shows and slice 1's named PASS/DECLINE strings. Captured real metadata, offline. They include fixtures pinning that check 2's comparator does not match `Truckin'`/`Truckin' Jam` and does match the two-word subphrase `Dark Star`/`Dark Star Jam`, and the defensive test that the taper never owns a self-filled tape.
