@@ -625,3 +625,150 @@ def test_r4_good_shows_exclude_already_held(tmp_path):
 def test_note_four_names_dates(tmp_path):
     _, table = _gate(tmp_path, _three_rows(), _hc())
     assert "dates" in table.split("## Notes for Checkpoint A")[1]
+
+
+# --- Task 19: parity and packets ----------------------------------------------------------------
+
+def _dump_row(slug, titles, *, wholly=False, desc="1. A\n2. B", paths=None, ident=None):
+    tr = [{"title": t, "source": s} for t, s in titles]
+    return {"slug": slug, "unreplayable": None, "state": "held", "identifier": ident or f"id-{slug}",
+            "description": desc, "canonical": {"source": "chosen", "items": []},
+            "today": [{"n": i + 1, "title": "Track %02d" % (i + 1), "source": "unresolved",
+                       "duration": 100.0 + i, "filename": f"f{i + 1}.mp3", "raw_tag": None}
+                      for i in range(len(titles))],
+            "arms": {"all": {"tracks": tr, "paths": paths or [""] * len(tr),
+                             "record": {"wholly_untagged": wholly}}}}
+
+
+def _write_dump(path, rows):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(json.dumps(x) for x in [{"_meta": {"sha": "s", "n": len(rows)}}, *rows]) + "\n")
+
+
+def test_parity_lists_mismatches(tmp_path):
+    dump = tmp_path / "gate" / "dump.jsonl"
+    _write_dump(dump, [
+        _dump_row("same", [("A", "tags"), ("B", "desc-position")]),
+        _dump_row("diff", [("A", "tags"), ("B", "desc-position")]),
+        _dump_row("short", [("A", "tags")]),
+        _dump_row("gone", [("A", "tags")]),
+    ])
+    rows = {"same": [("A", "tags"), ("B", "desc-position")],
+            "diff": [("A", "tags"), ("Bee", "desc-position")],
+            "short": [("A", "tags"), ("Z", "setlist")]}
+    shows = {s: {"outcome": "clean", "titles": [t for t, _ in v], "title_sources": [x for _, x in v]}
+             for s, v in rows.items()}
+    shows["gone"] = {"outcome": "unreplayable", "titles": [], "title_sources": []}
+    arm = tmp_path / "cand.json"
+    arm.write_text(json.dumps({"title_overrides_stripped": True, "structure_overrides_stripped": True,
+                               "disabled_slices": [], "shows": shows}))
+    out = tmp_path / "out"
+    assert thp.main(["parity", "--arm", str(arm), "--dump", str(dump), "--out", str(out)]) == 1
+    text = (out / "parity.txt").read_text()
+    assert "compared 3, matching 1, mismatching 2" in text
+    assert "diff  #2: dump ('B', 'desc-position') vs arm ('Bee', 'desc-position')" in text
+    assert "short  track count: dump 1 vs arm 2" in text
+    assert "same" not in text.split("== mismatches")[1]
+    assert "gone" in text and "skipped" in text      # unreplayable arm row is skipped, not compared
+    # a clean arm exits 0, and a non-fresh-get arm is flagged
+    arm.write_text(json.dumps({"shows": {"same": shows["same"]}}))
+    assert thp.main(["parity", "--arm", str(arm), "--dump", str(dump), "--out", str(out)]) == 0
+    assert "WARNING: arm is not a fresh-get arm" in (out / "parity.txt").read_text()
+
+
+def _titles_row(state="held", cleared=True, d=0, self_filled=False, paths=None, changes=None,
+                slice4=False, n=3):
+    return {"state": state, "base_outcome": "still-held", "cand_outcome": "clears",
+            "newly_cleared": cleared, "self_filled": self_filled, "d_fills": d, "slice4": slice4,
+            "titles": [f"T{i}" for i in range(n)], "title_sources": ["desc-position"] * n,
+            "title_paths": paths or ["D"] * n,
+            "changes": changes if changes is not None else
+            [{"index": i + 1, "old": "Track", "new": f"T{i}", "old_source": "unresolved",
+              "new_source": "desc-position", "path": "D", "kind": "text"} for i in range(n)]}
+
+
+def _packets_setup(tmp_path, shows, dump_rows):
+    cmp_dir = tmp_path / "cmp"
+    cmp_dir.mkdir()
+    root = tmp_path / "lib"
+    (root / "cache").mkdir(parents=True)
+    (cmp_dir / "title_rows.json").write_text(json.dumps({"cand_sha": "x", "root": str(root),
+                                                        "shows": shows}))
+    dump = tmp_path / "gate" / "dump.jsonl"
+    _write_dump(dump, dump_rows)
+    return cmp_dir, dump, root
+
+
+def test_packets_strata(tmp_path):
+    shows, rows = {}, []
+    # stratum 1: wholly untagged, newly cleared, 3+ D fills; and a self-filled one with 2 fills
+    shows["wu3"] = _titles_row(d=3)
+    shows["wu-self"] = _titles_row(d=2, self_filled=True)
+    shows["wu2"] = _titles_row(d=2)            # fewer than 3 D fills and not self-filled: the sample
+    for s in ("wu3", "wu-self", "wu2"):
+        rows.append(_dump_row(s, [("T0", "desc-position")] * 3, wholly=True))
+    # 70 other newly cleared shows over two path signatures
+    for i in range(70):
+        s = f"oth{i:02d}"
+        shows[s] = _titles_row(paths=["C1" if i % 2 else "D"] * 3)
+        rows.append(_dump_row(s, [("T0", "tags")] * 3))
+    # every changed title on a delivered show (text only); a source-only change is not listed
+    shows["del-text"] = _titles_row(state="delivered", cleared=False)
+    shows["del-src"] = _titles_row(state="delivered", cleared=False, changes=[
+        {"index": 1, "old": "A", "new": "A", "old_source": "setlist", "new_source": "desc-position",
+         "path": "D", "kind": "source"}])
+    shows["pk"] = _titles_row(state="packaged", cleared=False)        # not delivered: in no stratum
+    shows["s4"] = _titles_row(state="packaged", cleared=False, slice4=True, paths=["", "4", ""],
+                              changes=[{"index": 2, "old": "J", "new": "J", "old_source": "unresolved",
+                                        "new_source": "tags", "path": "4", "kind": "source"}])
+    for s in ("del-text", "del-src", "pk", "s4"):
+        rows.append(_dump_row(s, [("T0", "tags")] * 3))
+    extra = tmp_path / "enc.txt"
+    extra.write_text("pk\n\nnot-in-dump\n")
+    cmp_dir, dump, root = _packets_setup(tmp_path, shows, rows)
+    out = tmp_path / "packets"
+    args = ["packets", "--cmp", str(cmp_dir), "--dump", str(dump), "--out", str(out),
+            "--extra", f"r16-encore={extra}"]
+    assert thp.main(args) == 0
+    ls = lambda d: sorted(p.stem for p in (out / d).glob("*.md"))     # noqa: E731
+    assert ls("wholly_untagged_d3") == ["wu-self", "wu3"]
+    sample = ls("newly_cleared_sample")
+    assert len(sample) == 60
+    assert not set(sample) & {"wu3", "wu-self"}
+    assert ls("delivered_changes") == ["del-text"]
+    assert ls("slice4") == ["s4"]
+    assert ls("r16-encore") == ["not-in-dump", "pk"]
+    idx = (out / "strata_index.txt").read_text().splitlines()
+    assert "s4\tslice4\t#2 4" in idx
+    assert "wu3\twholly_untagged_d3\t#1 D; #2 D; #3 D" in idx
+    # both path signatures are in the sample (stratified, not a prefix of the sorted list)
+    assert any(s in sample for s in (f"oth{i:02d}" for i in range(1, 70, 2)))
+    assert any(s in sample for s in (f"oth{i:02d}" for i in range(0, 70, 2)))
+    # deterministic: a second run reproduces the sample and the index byte for byte
+    out2 = tmp_path / "packets2"
+    assert thp.main(["packets", "--cmp", str(cmp_dir), "--dump", str(dump), "--out", str(out2),
+                     "--extra", f"r16-encore={extra}"]) == 0
+    assert (out2 / "strata_index.txt").read_text() == (out / "strata_index.txt").read_text()
+    # a packet carries description, per-file titles/durations and the changed positions
+    pkt = (out / "wholly_untagged_d3" / "wu3.md").read_text()
+    assert "1. A" in pkt and "f1.mp3" in pkt and "T0" in pkt and "100s" in pkt
+    assert "not in the dump" in (out / "r16-encore" / "not-in-dump.md").read_text()
+
+
+def test_packets_siblings_and_name_refusals(tmp_path, capsys):
+    shows = {"a": _titles_row(d=3)}
+    cmp_dir, dump, root = _packets_setup(tmp_path, shows, [_dump_row("a", [("T0", "x")] * 3, wholly=True)])
+    (root / "shows" / "a").mkdir(parents=True)
+    (root / "shows" / "a" / "selection.json").write_text(json.dumps({"scores": {
+        "id-a": {"title_fraction": 0.0}, "sib1": {"title_fraction": 0.95, "score": 3, "kept_tracks": 2},
+        "sib2": {"title_fraction": 0.2, "score": 2}}}))
+    (root / "cache" / "md_sib1.json").write_text(json.dumps({"files": [
+        {"name": "s1.mp3", "title": "Sugaree", "length": "301.5"},
+        {"name": "s2.mp3", "title": "Deal", "length": "4:10"}]}))
+    out = tmp_path / "p"
+    assert thp.main(["packets", "--cmp", str(cmp_dir), "--dump", str(dump), "--out", str(out)]) == 0
+    pkt = (out / "wholly_untagged_d3" / "a.md").read_text()
+    assert "sib1" in pkt and "Sugaree" in pkt and "250s" in pkt and "sib2" not in pkt
+    for bad in ("x/y=" + str(tmp_path / "f"), "slice4=" + str(tmp_path / "f"), "nofile"):
+        assert thp.main(["packets", "--cmp", str(cmp_dir), "--dump", str(dump),
+                         "--out", str(tmp_path / "q"), "--extra", bad]) == 2

@@ -1355,3 +1355,209 @@ def test_taper_changes_segues_changed_tier(tmp_path):
     assert 'segue changes: before [] after [{"index": 2' in row
     assert "segue changes" not in prov
     assert "segues changed 2" in (out / "summary.txt").read_text()
+
+
+# --- Task 19 (piece 3): acceptance reports -----------------------------------------------------
+
+def _stored(root, slug, titles):
+    d = root / "shows" / slug
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "show.json").write_text(json.dumps({"tracks": [
+        {"index": i + 1, "title": t, "title_source": "tags"} for i, t in enumerate(titles)]}))
+
+
+def _p3(arm, root, slug, src, state, **row):
+    """A clone of the clean row in `arm` standing for a piece-3 row."""
+    _clone(arm, src, slug, state)
+    r = _row(arm, slug)
+    r.update(outcome="clean", set_changes=[], segue_changes=[], title_changes=[], notes=[],
+             gather_flags=[], vet_flags=[], brief_flags=[], needs_llm=[], cascade={},
+             titles=[], title_sources=[], title_paths=[])
+    r.update(row)
+    return r
+
+
+def _lines(path):
+    return path.read_text().splitlines()
+
+
+def test_holds_delta_three_way_split(tmp_path):
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    # held now: base still-held -> cand clears (slice 2 fills); fresh-get: a shipped show whose
+    # overrides masked a hold in the stripped arm; currently packaged: a packaged show with a hold.
+    for arm, out in ((b, "still-held"), (c, "clears")):
+        _p3(arm, root, "held-now", CLEAN_SLUG, "held", outcome=out,
+            cascade={"d_fills": [1, 2]} if arm is c else {})
+    for arm, out in ((b, "newly-held"), (c, "clean")):
+        _p3(arm, root, "fresh", CLEAN_SLUG, "packaged", outcome=out, stripped={"titles": {"1": "x"}},
+            gather_flags=["unresolved track titles"] if arm is b else [],
+            cascade={"c_changed": {"2": "T"}} if arm is c else {})
+        _p3(arm, root, "pkg", CLEAN_SLUG, "packaged", outcome=out,
+            gather_flags=["unresolved track titles"] if arm is b else [],
+            cascade={"short4": [3], "s_fills": [1]} if arm is c else {})
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "holds_delta.txt").read_text()
+    sec = {}
+    cur = None
+    for ln in text.splitlines():
+        if ln.startswith("-- "):
+            cur = ln[3:].split(" (")[0]
+            sec[cur] = []
+        elif cur and ln.startswith("  "):
+            sec[cur].append(ln)
+    assert any("held-now" in l and "slice2" in l for l in sec["held now"])
+    assert any("fresh " in l + " " and "slice3" in l for l in sec["would-hold on a fresh get"])
+    assert any("pkg" in l and "slice1" in l and "slice4" in l for l in sec["currently packaged"])
+    assert not any("pkg" in l for l in sec["held now"])
+    assert "holds cleared" in text
+
+
+def test_holds_added_by_flag_and_state(tmp_path):
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    for slug, state in (("add-pkg", "packaged"), ("add-del", "delivered")):
+        _p3(b, root, slug, CLEAN_SLUG, state)
+        _p3(c, root, slug, CLEAN_SLUG, state, outcome="newly-held",
+            gather_flags=["unresolved track titles"], cascade={"d_failed": "tape agreement"})
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "holds_delta.txt").read_text()
+    added = text.split("== holds added")[1]
+    assert "-- packaged (1)" in added and "-- delivered (1)" in added
+    row = [l for l in added.splitlines() if "add-pkg" in l][0]
+    assert "unresolved track titles" in row
+
+
+def test_added_hold_attributed_from_declines(tmp_path):
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    _p3(b, root, "decl", CLEAN_SLUG, "packaged")
+    _p3(c, root, "decl", CLEAN_SLUG, "packaged", outcome="newly-held", title_paths=[],
+        gather_flags=["unresolved track titles"], cascade={"d_failed": "tape agreement"})
+    _p3(b, root, "multi", CLEAN_SLUG, "packaged")
+    _p3(c, root, "multi", CLEAN_SLUG, "packaged", outcome="newly-held", title_paths=[],
+        gather_flags=["unresolved track titles"],
+        cascade={"s_declined": [2], "c_declined": "x", "short4_declined": {"3": "nb"}})
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "holds_delta.txt").read_text()
+    by = text.split("== holds added by slice")[1]
+    s2 = by.split("slice2")[1].split("slice")[0]
+    assert "decl" in s2
+    for s in ("slice1", "slice3", "slice4"):
+        assert "multi" in by.split(s)[1].split("slice")[0]
+
+
+def test_title_changes_text_vs_source_only(tmp_path):
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    _stored(root, "chg", ["Track 01", "Same", "Foo"])
+    _p3(b, root, "chg", CLEAN_SLUG, "packaged")
+    _p3(c, root, "chg", CLEAN_SLUG, "packaged", outcome="clean-changed",
+        titles=["Dark Star", "Same", "Foo"], title_sources=["desc-position", "tags", "setlist"],
+        title_paths=["D", "", "S+5"])
+    # stored 'Foo' came from 'tags'; replayed 'Foo' now 'setlist' -> source only
+    out = tmp_path / "cmp"
+    _write(base, b)
+    _write(cand, c)
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "title_changes.txt").read_text()
+    text_part, src_part = text.split("-- source only")
+    assert "chg" in text_part and "'Track 01'" in text_part and "'Dark Star'" in text_part
+    assert "chg" in src_part and "'Foo'" in src_part and "'Track 01'" not in src_part
+    assert "by path" in text and "D 1" in text
+
+
+def test_voiced_marked_from_station_manifest(tmp_path):
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    st = tmp_path / "station"
+    for slug, voiced in (("v-yes", True), ("v-no", False)):
+        _stored(root, slug, ["A"])
+        _p3(b, root, slug, CLEAN_SLUG, "delivered")
+        _p3(c, root, slug, CLEAN_SLUG, "delivered", outcome="clean-changed", titles=["B"],
+            title_sources=["tags"], title_paths=["C1"])
+        (st / slug).mkdir(parents=True)
+        (st / slug / "manifest.json").write_text(json.dumps({"dj_audio": {"x": 1} if voiced else None}))
+    cfg = tmp_path / "c.toml"
+    cfg.write_text(f'delivery_path = "{st}"\n')
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out), "--config", str(cfg)]) == 0
+    text = (out / "title_changes.txt").read_text()
+    assert "== voiced" in text and "== delivered" in text
+    voiced_part = text.split("== voiced")[1].split("== delivered")[0]
+    assert "v-yes" in voiced_part and "v-no" not in voiced_part
+    assert "v-no" in text.split("== delivered")[1]
+
+
+def test_needs_llm_counts_d_agreement_and_llm_branch(tmp_path):
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    _p3(b, root, "agree", CLEAN_SLUG, "held", outcome="still-held")
+    _p3(c, root, "agree", CLEAN_SLUG, "held", outcome="still-held",
+        cascade={"d_failed": "agreement"})
+    _p3(b, root, "llmb", CLEAN_SLUG, "held", outcome="needs-llm", needs_llm=["align_structure"])
+    _p3(c, root, "llmb", CLEAN_SLUG, "held", outcome="needs-llm", needs_llm=["align_structure"],
+        desc_position=4)
+    _p3(b, root, "plain", CLEAN_SLUG, "held", outcome="needs-llm", needs_llm=["align_structure"])
+    _p3(c, root, "plain", CLEAN_SLUG, "held", outcome="needs-llm", needs_llm=["align_structure"])
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "needs_llm.txt").read_text()
+    d = text.split("D shows reaching")[1]
+    assert "agreement decline: 1" in d and "LLM branch: 1" in d
+    assert "agree" in d and "llmb" in d and "plain" not in d
+    assert "needs_llm.txt: base" in (out / "summary.txt").read_text()
+
+
+def test_note_groups_for_piece3():
+    names = [g for g, _ in rh.NOTE_GROUPS]
+    for g in ("positional", "lossless", "short4", "cosmetic"):
+        assert g in names
+    arm = {"shows": {"s": {"notes": [
+        "positional fill declined: desc-position tape agreement (track 3 'x')",
+        "lossless title: track 2 'a' -> 'b' (C1)", "lossless titles declined: no sibling",
+        "short tag title confirmed by the taper's list: track 4 'J'",
+        "cosmetic title strip: track 1 'a' -> 'b'", "something else"]}}}
+    g = rh._notes_by_group(arm)
+    assert len(g["positional"]) == 1 and len(g["lossless"]) == 2
+    assert len(g["short4"]) == 1 and len(g["cosmetic"]) == 1 and len(g["other"]) == 1
+
+
+def test_disable_slices_stamped_and_applied(tmp_path, monkeypatch):
+    root = tmp_path / "lib"
+    build_library(root)
+    seen = []
+    real = rh.replay_show
+
+    def spy(ws, **kw):
+        seen.append(kw.get("enabled_slices"))
+        return real(ws, **kw)
+
+    monkeypatch.setattr(rh, "replay_show", spy)
+    before = rh.title_hygiene.ENABLED_SLICES
+    out = tmp_path / "arm.json"
+    cfg = str(root / "config.toml")
+    assert rh.main(["run", "--out", str(out), "--all", "--config", cfg,
+                    "--disable-slices", "slice5,slice4"]) == 0
+    assert seen and all(s == before - {"slice4", "slice5"} for s in seen)
+    assert rh.title_hygiene.ENABLED_SLICES == before      # no module global rebound
+    assert json.loads(out.read_text())["disabled_slices"] == ["slice4", "slice5"]
+    out2 = tmp_path / "arm2.json"
+    assert rh.main(["run", "--out", str(out2), "--all", "--config", cfg]) == 0
+    assert json.loads(out2.read_text())["disabled_slices"] == []
+    assert seen[-1] == before
+    assert rh.main(["run", "--out", str(tmp_path / "x.json"), "--all", "--config", cfg,
+                    "--disable-slices", "slice9"]) == 2

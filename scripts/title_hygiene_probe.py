@@ -1809,6 +1809,228 @@ def gate(args: argparse.Namespace) -> int:
     return 0
 
 
+# --- Task 19: acceptance reports over a wired arm (parity, hand-check packets) ------------------
+
+NONE = "  (none)"
+PACKET_SEED = 20261023
+PACKET_SAMPLE = 60
+STRATA = ("wholly_untagged_d3", "newly_cleared_sample", "delivered_changes", "slice4")
+_NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+
+def parity(args: argparse.Namespace) -> int:
+    """Per show, the wired fresh-get arm's titles and sources against the gate dump's `all`
+    arm (`dump` measured the cascade unwired; this proves the wiring is the same code path).
+    Exit 1 when any compared show differs. Writes `<out>/parity.txt` (sorted, deterministic)."""
+    try:
+        arm = json.loads(args.arm.read_text())
+        shows = arm["shows"]
+    except (OSError, ValueError, KeyError, TypeError) as err:
+        raise replay_holds.Refusal(f"cannot read arm {args.arm}: {err}")
+    meta, rows = load_dump(args.dump)
+    by = {r["slug"]: r for r in rows}
+    head = [f"parity of {args.arm.name} against the `all` arm of {args.dump}",
+            f"dump sha {meta.get('sha')}; arm disabled_slices {json.dumps(arm.get('disabled_slices') or [])}"]
+    if not (arm.get("title_overrides_stripped") and arm.get("structure_overrides_stripped")):
+        head.append("WARNING: arm is not a fresh-get arm (run with --strip-title-overrides "
+                    "--strip-structure-overrides); its titles are not the dump's view")
+    if arm.get("disabled_slices"):
+        head.append("WARNING: the arm has disabled slices; the dump's `all` arm has none")
+    compared, bad, skipped = 0, [], []
+    for slug in sorted(set(shows) & set(by)):
+        r, d = shows[slug], by[slug]
+        a = ((d.get("arms") or {}).get("all") or {}).get("tracks")
+        if d.get("unreplayable") or a is None:
+            skipped.append(f"  {slug}  skipped: dump row unreplayable or without an `all` arm")
+            continue
+        if r.get("outcome") == "unreplayable" or "titles" not in r:
+            skipped.append(f"  {slug}  skipped: arm row "
+                           + ("unreplayable" if r.get("outcome") == "unreplayable" else "has no titles"))
+            continue
+        compared += 1
+        want = [(t["title"], t["source"]) for t in a]
+        got = list(zip(r["titles"], r.get("title_sources") or [None] * len(r["titles"])))
+        if len(want) != len(got):
+            bad.append(f"  {slug}  track count: dump {len(want)} vs arm {len(got)}")
+            continue
+        bad += [f"  {slug}  #{i + 1}: dump {w!r} vs arm {g!r}"
+                for i, (w, g) in enumerate(zip(want, got)) if w != g]
+    only_arm = sorted(set(shows) - set(by))
+    n_bad = len({ln.split()[0] for ln in bad})
+    out = [*head, f"compared {compared}, matching {compared - n_bad}, mismatching {n_bad}; "
+           f"skipped {len(skipped)}; arm only {len(only_arm)}; dump only {len(set(by) - set(shows))}",
+           "", "== mismatches", *(bad or [NONE]), "", "== skipped", *(skipped or [NONE]), "",
+           "== in the arm but not the dump", *([f"  {s}" for s in only_arm] or [NONE])]
+    args.out.mkdir(parents=True, exist_ok=True)
+    (args.out / "parity.txt").write_text("\n".join(out) + "\n", encoding="utf-8")
+    print(f"parity: {compared} compared, {n_bad} mismatching ({args.out / 'parity.txt'})", file=sys.stderr)
+    return 1 if n_bad else 0
+
+
+def _sec(v) -> str:
+    try:
+        if v and ":" in str(v):
+            s = 0.0
+            for x in str(v).split(":"):
+                s = s * 60 + float(x)
+            return f"{s:.0f}s"
+        return f"{float(v):.0f}s" if v else "?"
+    except ValueError:
+        return str(v)
+
+
+def _read(path: Path):
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def stratified_sample(keys: dict[str, str], k: int, seed: int) -> list[str]:
+    """`k` slugs of `keys` (slug -> stratum key), round-robin over the keys in sorted order,
+    each key's members shuffled once by `random.Random(seed)` from a sorted list: reproducible,
+    every key represented before any is repeated."""
+    import random
+    rng = random.Random(seed)
+    groups: dict[str, list[str]] = {}
+    for s in sorted(keys):
+        groups.setdefault(keys[s], []).append(s)
+    for g in sorted(groups):
+        rng.shuffle(groups[g])
+    picked: list[str] = []
+    while len(picked) < k and any(groups.values()):
+        for g in sorted(groups):
+            if groups[g] and len(picked) < k:
+                picked.append(groups[g].pop())
+    return sorted(picked)
+
+
+def _changed(trow: dict | None, drow: dict | None) -> list[tuple[int, str]]:
+    """(1-based position, path) of the positions the candidate changed: the compare's own
+    list where it has one, else today's titles against the dump's `all` arm."""
+    if trow is not None:
+        return sorted((c["index"], c.get("path") or "") for c in trow.get("changes") or [])
+    if drow is not None:
+        return [(i + 1, _path(drow, i)) for i in changed_positions(drow, "today", "all")]
+    return []
+
+
+def _packet(slug: str, stratum: str, trow: dict | None, drow: dict | None, root: Path) -> str:
+    md = [f"# {slug}  (stratum {stratum})", ""]
+    if trow is not None:
+        md.append(f"state {trow.get('state')}; base {trow.get('base_outcome')} -> cand "
+                  f"{trow.get('cand_outcome')}; self-filled {trow.get('self_filled')}; "
+                  f"D fills {trow.get('d_fills')}")
+    changed = _changed(trow, drow)
+    md += ["changed: " + ("; ".join(f"#{n} {p or '(unattributed)'}" for n, p in changed) or "(none)"), ""]
+    if drow is None:
+        md += ["(this show is not in the dump: no description, per-file data or siblings)", ""]
+        return "\n".join(md) + "\n"
+    today = drow.get("today") or []
+    allarm = (drow.get("arms") or {}).get("all") or {}
+    titles = (trow or {}).get("titles") or [t["title"] for t in allarm.get("tracks") or []]
+    srcs = (trow or {}).get("title_sources") or [t["source"] for t in allarm.get("tracks") or []]
+    paths = (trow or {}).get("title_paths") or allarm.get("paths") or []
+    mark = {n for n, _ in changed}
+    md += ["## Tracks (candidate = the wired fresh-get title; `*` = changed against today)", "",
+           "| # | file | dur | today | candidate | source | path | raw tag |", "|---|---|---|---|---|---|---|---|"]
+    esc = lambda x: str(x if x is not None else "").replace("|", "/")      # noqa: E731
+    for i in range(max(len(today), len(titles))):
+        t = today[i] if i < len(today) else {}
+        md.append(f"| {i + 1}{'*' if i + 1 in mark else ''} | {esc(t.get('filename'))} | "
+                  f"{_sec(t.get('duration'))} | {esc(t.get('title'))} ({esc(t.get('source'))}) | "
+                  f"{esc(titles[i] if i < len(titles) else '')} | {esc(srcs[i] if i < len(srcs) else '')} | "
+                  f"{esc(paths[i] if i < len(paths) else '')} | {esc(t.get('raw_tag'))} |")
+    canon = drow.get("canonical") or {}
+    md += ["", f"## Canonical setlist (source {canon.get('source')})", "",
+           ", ".join(f"[{c.get('set')}] {c.get('title')}" for c in canon.get("items") or []) or "(empty)",
+           "", "## Tagged sibling recordings of the same performance (titles and durations from archive.org metadata)"]
+    scores = (_read(root / "shows" / slug / "selection.json") or {}).get("scores") or {}
+    sibs = sorted(((i, s) for i, s in scores.items()
+                   if i != drow.get("identifier") and (s.get("title_fraction") or 0) >= 0.9),
+                  key=lambda kv: (-(kv[1].get("score") or 0), kv[0]))
+    if not sibs:
+        md.append("\n(none with title_fraction >= 0.9)")
+    for ident, s in sibs[:3]:
+        md.append(f"\n### {ident} (https://archive.org/details/{ident}; kept_tracks "
+                  f"{s.get('kept_tracks')}, lineage {s.get('lineage')})\n")
+        meta = _read(root / "cache" / f"md_{ident}.json")
+        if meta is None:
+            md.append("(metadata not cached)")
+            continue
+        files = [f for f in meta.get("files", []) if str(f.get("name", "")).lower().endswith(
+            (".mp3", ".flac", ".shn"))]
+        mp3 = [f for f in files if f["name"].lower().endswith(".mp3")]
+        md += ["| # | file | dur | title |", "|---|---|---|---|"]
+        md += [f"| {i} | {f['name']} | {_sec(f.get('length'))} | {esc(f.get('title'))} |"
+               for i, f in enumerate(sorted(mp3 or files, key=lambda f: f["name"]), 1)]
+    md += ["", "## Selected item description (verbatim)", "", drow.get("description") or "(none)"]
+    return "\n".join(md) + "\n"
+
+
+def _extra_strata(specs: list[str]) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = {}
+    for spec in specs or []:
+        name, eq, file = spec.partition("=")
+        if not eq or not _NAME.match(name) or name in STRATA or name in out:
+            raise replay_holds.Refusal(
+                f"bad --extra {spec!r}: want NAME=FILE with a new NAME of letters, digits, _ . - "
+                f"(not one of {', '.join(STRATA)})")
+        try:
+            lines = Path(file).read_text().splitlines()
+        except OSError as err:
+            raise replay_holds.Refusal(f"cannot read --extra file {file}: {err}")
+        out[name] = sorted({ln.strip() for ln in lines if ln.strip() and not ln.startswith("#")})
+    return out
+
+
+def packets(args: argparse.Namespace) -> int:
+    """Hand-check packets for Acceptance 3, from `compare`'s `title_rows.json` and the gate
+    dump. Strata (a directory each under --out): `wholly_untagged_d3` (newly cleared, wholly
+    untagged, D filled 3+ tracks or self-filled), `newly_cleared_sample` (a stratified 60 of
+    the other newly cleared, seed 20261023, round-robin over the path signature),
+    `delivered_changes` (every show with a changed title TEXT on a delivered or voiced show),
+    `slice4` (any title path starting 4), and each `--extra NAME=FILE` (no sampling).
+    Also `strata_index.txt` / `.json`: slug, stratum, changed positions and their paths."""
+    extras = _extra_strata(args.extra)
+    tr = _read(args.cmp / "title_rows.json")
+    if not isinstance(tr, dict) or not isinstance(tr.get("shows"), dict):
+        raise replay_holds.Refusal(f"no usable title_rows.json in {args.cmp} (run compare first)")
+    trows = tr["shows"]
+    root = args.root or Path(tr.get("root") or ".")
+    _, drows = load_dump(args.dump)
+    dby = {r["slug"]: r for r in drows}
+    wholly = lambda s: bool(_rec(dby[s]).get("wholly_untagged")) if s in dby else False   # noqa: E731
+    cleared = sorted(s for s, r in trows.items() if r.get("newly_cleared"))
+    strata: dict[str, list[str]] = {}
+    strata["wholly_untagged_d3"] = [s for s in cleared if wholly(s) and (
+        trows[s].get("d_fills", 0) >= 3 or trows[s].get("self_filled"))]
+    rest = [s for s in cleared if s not in set(strata["wholly_untagged_d3"])]
+    key = lambda s: "+".join(sorted({p.split("+")[0] for p in trows[s].get("title_paths") or [] if p})) or "(none)"  # noqa: E731
+    strata["newly_cleared_sample"] = stratified_sample({s: key(s) for s in rest}, PACKET_SAMPLE, PACKET_SEED)
+    strata["delivered_changes"] = sorted(
+        s for s, r in trows.items() if r.get("state") in ("delivered", "voiced")
+        and any(c.get("kind") == "text" for c in r.get("changes") or []))
+    strata["slice4"] = sorted(s for s, r in trows.items() if r.get("slice4"))
+    strata.update(extras)
+    index, lines = [], []
+    for stratum, slugs in strata.items():
+        d = args.out / stratum
+        d.mkdir(parents=True, exist_ok=True)
+        for old in d.glob("*.md"):
+            old.unlink()
+        for s in slugs:
+            (d / f"{s}.md").write_text(_packet(s, stratum, trows.get(s), dby.get(s), root), encoding="utf-8")
+            ch = _changed(trows.get(s), dby.get(s))
+            index.append({"slug": s, "stratum": stratum, "changed": [{"index": n, "path": p} for n, p in ch]})
+            lines.append(f"{s}\t{stratum}\t" + ("; ".join(f"#{n} {p}".rstrip() for n, p in ch) or "(none)"))
+    args.out.mkdir(parents=True, exist_ok=True)
+    (args.out / "strata_index.txt").write_text("".join(x + "\n" for x in lines), encoding="utf-8")
+    (args.out / "strata_index.json").write_text(json.dumps(index, indent=1, sort_keys=True) + "\n")
+    print("packets: " + ", ".join(f"{k} {len(v)}" for k, v in strata.items()), file=sys.stderr)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1822,10 +2044,25 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--handcheck", type=Path, default=EVIDENCE / "handcheck")
     g.add_argument("--census", type=Path, default=DEFAULT_CENSUS)
     g.add_argument("--out", type=Path, required=True)
+    pa = sub.add_parser("parity", help="a wired fresh-get arm's titles against the dump's `all` arm")
+    pa.add_argument("--arm", type=Path, required=True)
+    pa.add_argument("--dump", type=Path, required=True)
+    pa.add_argument("--out", type=Path, required=True)
+    pk = sub.add_parser("packets", help="Acceptance 3 hand-check packets from a compare directory")
+    pk.add_argument("--cmp", type=Path, required=True, help="a `replay_holds.py compare` output directory")
+    pk.add_argument("--dump", type=Path, required=True)
+    pk.add_argument("--out", type=Path, required=True)
+    pk.add_argument("--root", type=Path, default=None, help="library root (default: the one compare recorded)")
+    pk.add_argument("--extra", action="append", default=[], metavar="NAME=FILE",
+                    help="an extra stratum: FILE is a newline list of slugs (repeatable, no sampling)")
     args = ap.parse_args(argv)
     try:
         if args.cmd == "gate":
             return gate(args)
+        if args.cmd == "parity":
+            return parity(args)
+        if args.cmd == "packets":
+            return packets(args)
         return dump(args)
     except replay_holds.Refusal as e:
         print(f"error: {e}", file=sys.stderr)
