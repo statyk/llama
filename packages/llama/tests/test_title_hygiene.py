@@ -616,6 +616,25 @@ def test_agreement_check_declines_below_floor():
     assert _d([_u(1)], _dl("Chinacat"), canonical=sc, aliases=GD_SHORTHAND).failed == ()
 
 
+def test_decide_d_agreement_exactly_at_floor_passes():
+    """Share exactly AGREEMENT_FLOOR through decide_d: no `agreement` decline (`<`, not `<=`)."""
+    tr = [_t("Bertha", n=1), _u(2)]
+    dl = _dl("Bertha", "Jack Straw")
+    canon = _canon("Bertha", "Other Song")
+    assert agreement_share(dl, canon, {}) == AGREEMENT_FLOOR == 0.5
+    d = _d(tr, dl, canonical=canon)
+    assert d.failed == () and d.fills == {1: "Jack Straw"}
+
+
+def test_apply_d_guard_skips_a_resolved_position():
+    """A hand-built decision with a fill at a non-unresolved position: apply_d leaves it."""
+    tr = [_t("Bertha", n=1), _u(2)]
+    d = DDecision({0: "Wrong Title", 1: "Jack Straw"}, (), {})
+    out = apply_d(tr, d)
+    assert (out[0].title, out[0].title_source) == ("Bertha", "tags")
+    assert (out[1].title, out[1].title_source) == ("Jack Straw", DESC_POSITION)
+
+
 def test_check_order_and_all_failures_recorded():
     tr = [_t("Bertha", n=1), _u(2), _u(3), _u(4)]
     dl = _dl("Sugaree (5:00)", "w/ Eric Johnson (5:00)", "Jack Straw (5:00)", "Jack Straw")
