@@ -252,3 +252,33 @@ def test_c2_containment_flags_agreement_only_through_containment():
     assert thp.c2_arms("Mood To Move", "Mood To Move")["strict"] is True
     arms = thp.c2_arms("Jam", "Dark Star Jam")
     assert arms["strict"] is False and arms["containment"] is True
+
+
+def test_bracketed_s_both_sides_excludes_the_leading_edge_run():
+    tracks = [_t(0, "A", "setlist"), _t(1, "Bertha"), _t(2, "Loser")]
+    got = thp.bracketed_s(tracks, ["S", "", ""])
+    assert got["remain"] == [0]                    # gap_span's one-sided leading branch
+    assert got["remain_both_sides"] == [] and got["dropped_both_sides"] == [0]
+    both = thp.bracketed_s([_t(0, "Bertha"), _t(1, "A", "setlist"), _t(2, "Loser")],
+                           ["", "S", ""])
+    assert both["remain_both_sides"] == [1]
+
+
+def test_c2_containment_only_is_the_containment_arm_alone():
+    assert thp.c2_arms("Jam", "Dark Star Jam")["containment_only"] is True
+    assert thp.c2_arms("Mood To Move", "Mood To Move")["containment_only"] is False
+    # containment AND a ratio at or over LOOSE_TITLE_RATIO is not containment-only
+    assert thp.c2_arms("Dark Star Jam", "Dark Star Jams")["containment_only"] is False
+    # the ratio arm alone, no containment
+    assert thp.c2_arms("Mister Charlie", "Mr Charlie")["containment_only"] is False
+    # a short core never uses the containment arm
+    assert thp.c2_arms("Me", "Me And My Uncle")["containment_only"] is False
+
+
+def test_gate0_failures_counts_none_on_replayable_rows():
+    assert thp.gate0_failures({"unreplayable": None, "gate0": None,
+                               "unreplayable_as_is": None, "gate0_as_is": True}) == 1
+    assert thp.gate0_failures({"unreplayable": "x", "gate0": None,
+                               "unreplayable_as_is": "x", "gate0_as_is": None}) == 0
+    assert thp.gate0_failures({"unreplayable": None, "gate0": False,
+                               "unreplayable_as_is": None, "gate0_as_is": False}) == 2

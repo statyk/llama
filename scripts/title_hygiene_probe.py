@@ -56,8 +56,8 @@ from llama.models import Provenance, Show
 from llama.replay import (CacheOnlyIA, classify, code_identity, compute_legs, config_fingerprint,
                           setlistfm_client, setlistfm_configured)
 from llama.stages import gather as G
-from llama.structure import (align, fuzzy_norm_title, fuzzy_title_eq, gap_span, is_filler,
-                             unresolved_runs)
+from llama.structure import (LOOSE_TITLE_RATIO, align, fuzzy_norm_title, fuzzy_title_eq,
+                             gap_span, is_filler, unresolved_runs)
 from llama.title_cosmetics import cosmetic_strip
 from llama.title_hygiene import (ALL_SLICES, INDEPENDENT_SOURCES, block_size_mismatch, duplicate,
                                  judge)
@@ -191,28 +191,39 @@ def bracketed_s(tracks, paths) -> dict:
            for i, t in enumerate(tracks)]
     anchors = {i: (0, 0) for i, t in enumerate(pre)
                if t.title_source in INDEPENDENT_SOURCES and not is_filler(t.title)}
-    runs, remain = [], []
+    runs, remain, remain_both = [], [], []
     for lo, hi in unresolved_runs(pre):
         inside = [i for i in fills if lo <= i <= hi]
         if not inside:
             continue
         closed = gap_span(anchors, lo, hi, len(pre)) is not None
+        both = (lo - 1) in anchors and (hi + 1) in anchors
         runs.append({"lo": lo, "hi": hi, "left": (lo - 1) in anchors,
-                     "right": (hi + 1) in anchors, "closed": closed})
+                     "right": (hi + 1) in anchors, "closed": closed, "both_sides": both})
         if closed:
             remain += inside
+        if both:
+            remain_both += inside
     return {"fills": fills, "remain": remain,
-            "dropped": [i for i in fills if i not in remain], "runs": runs}
+            "dropped": [i for i in fills if i not in remain], "runs": runs,
+            "remain_both_sides": remain_both,
+            "dropped_both_sides": [i for i in fills if i not in remain_both]}
 
 
 def c2_arms(a: str, b: str) -> dict:
     """Which of `loosely_same_title`'s arms make two titles agree, on cleaned copies.
-    `strict` is core equality or `fuzzy_title_eq`; `containment` its containment arm."""
+    `strict` is core equality or `fuzzy_title_eq`; `containment` its containment arm.
+    `containment_only`: the titles agree ONLY through that arm (containment, cores differ,
+    ratio below LOOSE_TITLE_RATIO, both cores of 3+ letters)."""
     na, nb = fuzzy_norm_title(clean_one(a).text), fuzzy_norm_title(clean_one(b).text)
     from difflib import SequenceMatcher
+    ratio = SequenceMatcher(None, na, nb).ratio() if na and nb else None
+    containment = bool(na and nb and (na in nb or nb in na))
+    only = (containment and na != nb and ratio < LOOSE_TITLE_RATIO
+            and not title_hygiene._short_core(na) and not title_hygiene._short_core(nb))
     return {"strict": bool(na and nb and (na == nb or fuzzy_title_eq(na, nb))),
-            "containment": bool(na and nb and (na in nb or nb in na)),
-            "ratio": round(SequenceMatcher(None, na, nb).ratio(), 4) if na and nb else None,
+            "containment": containment, "containment_only": only,
+            "ratio": round(ratio, 4) if ratio is not None else None,
             "agrees": title_hygiene.agrees(a, b)}
 
 
@@ -482,7 +493,7 @@ def _alternatives(v: dict) -> dict:
                          "reference": "list" if ref_a is not None else "canonical", **arms})
         alt["alt_c2_containment"] = {"c2": rows,
                                      "containment_only": [r["pos"] for r in rows
-                                                          if not r["strict"]]}
+                                                          if r["containment_only"]]}
 
     # Slice-4 confirmations whose entry was `Filler:`-marked.
     if used is not None:
@@ -638,11 +649,18 @@ def dump(args: argparse.Namespace) -> int:
     return 0
 
 
+def gate0_failures(row: dict) -> int:
+    """Views of a row that fail gate 0: on a replayable view, anything but `True` (None is not
+    passing)."""
+    return ((row.get("unreplayable") is None and row.get("gate0") is not True)
+            + (row.get("unreplayable_as_is") is None and row.get("gate0_as_is") is not True))
+
+
 def _write(fh, rows, total: int) -> None:
     bad = 0
     for i, row in enumerate(rows, 1):
         fh.write(json.dumps(row, sort_keys=True) + "\n")
-        bad += (row.get("gate0") is False) + (row.get("gate0_as_is") is False)
+        bad += gate0_failures(row)
         if i % PROGRESS_EVERY == 0:
             print(f"dumped {i}/{total} (gate0 false so far: {bad})", file=sys.stderr, flush=True)
     print(f"dumped {total} show(s); gate0 false: {bad}", file=sys.stderr, flush=True)
