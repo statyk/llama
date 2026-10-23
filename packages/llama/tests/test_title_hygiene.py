@@ -661,3 +661,286 @@ def test_notes_one_per_show_decline_and_per_track():
     assert d.shift
     ok = _d([_u(1)], _dl("Bertha"))
     assert d_notes(ok, _dl("Bertha")) == []
+
+
+# ---- Task 7: the S plan and the deferred S fill (slice 1 placement) ----------------------
+
+from llama.desc_list import read_desc_list  # noqa: E402
+from llama.title_hygiene import SetlistPlan, apply_deferred_setlist, plan_setlist_rung  # noqa: E402
+from llama.titles import (  # noqa: E402
+    is_real_title,
+    placeholder_positions,
+    resolve_titles,
+    tag_layer,
+)
+
+_Q1 = "positional fill declined: setlist wholly untagged tape"
+_Q1_CHOSEN = ("positional fill declined: setlist wholly untagged tape "
+              "(chosen canonical, no admissible taper list)")
+
+
+def _plan(items, tags, *, source="setlist.fm", s_positions=None, desc_used=False,
+          untagged=False, slice1=True, slice2=True, confidence="high", norms=None):
+    canonical = ParsedSetlist(items=[SetlistItem(title=t, normalized=t.lower(), set="1")
+                                     for t in items], confidence=confidence)
+    real = [is_real_title(t) for t in tags]
+    if s_positions is None:
+        s_positions = [i for i, r in enumerate(real) if not r]
+    return plan_setlist_rung(
+        canonical=canonical, canonical_source=source, s_positions=s_positions,
+        tag_titles=list(tags), tag_real=real,
+        filenames=[f"x2001-01-01d1t{i + 1:02d}.flac" for i in range(len(tags))],
+        metadata_norms=norms or set(), desc_used=desc_used, wholly_untagged=untagged,
+        slice1=slice1, slice2=slice2)
+
+
+def test_today_mode_is_todays_rung():
+    """(pin) `slice1` off reproduces today's S rung in `resolve_titles` exactly."""
+    files = [{"name": f"x2001-01-01d1t{i + 1:02d}.flac", "title": t, "length": "300"}
+             for i, t in enumerate(["Bertha", "", "", "d1t04", "Ripple"])]
+    items = ["Bertha", "Jack Straw", "Track 03", "Sugaree", "Ripple"]
+    canonical = ParsedSetlist(items=[SetlistItem(title=t, normalized=t.lower(), set="1")
+                                     for t in items], confidence="high")
+    today = {t.index - 1: t.title for t in resolve_titles(files, canonical)
+             if t.title_source == "setlist"}
+    assert today == {1: "Jack Straw", 3: "Sugaree"}  # the placeholder item refused
+    tags, _ = tag_layer(files, None, None)
+    demoted = set(placeholder_positions(tags, corroboration=frozenset(), item_title=None))
+    s_positions = [i for i, t in enumerate(tags) if i not in demoted and not is_real_title(t)]
+    plan = plan_setlist_rung(
+        canonical=canonical, canonical_source="setlist.fm", s_positions=s_positions,
+        tag_titles=tags, tag_real=[is_real_title(t) for t in tags],
+        filenames=[f["name"] for f in files], metadata_norms=set(), desc_used=True,
+        wholly_untagged=False, slice1=False, slice2=True)
+    assert plan.mode == "today"
+    assert plan.fills == today
+    assert (plan.deferred, plan.declined, plan.notes) == ({}, frozenset(), ())
+
+
+def test_today_mode_ignores_q1_and_hygiene():
+    """(pin) today's rung has neither Q1 nor checks 1 and 2."""
+    plan = _plan(["Set 2", "Jack Straw"], ["", ""], untagged=True, slice1=False)
+    assert plan.mode == "today" and plan.fills == {0: "Set 2", 1: "Jack Straw"}
+
+
+def test_no_count_matched_canonical_is_none():
+    assert _plan(["Bertha"], ["", ""]).mode == "none"
+    low = _plan(["Bertha", "Ripple"], ["", ""], confidence="low")
+    assert low.mode == "none"
+    assert (low.fills, low.deferred, low.declined, low.notes) == ({}, {}, frozenset(), ())
+    assert _plan(["Bertha"], ["", ""], slice1=False).mode == "none"
+
+
+def test_s_never_fills_a_wholly_untagged_tape():
+    plan = _plan(["Bertha", "Jack Straw", "Sugaree"], ["", "", ""], untagged=True)
+    assert plan.mode == "untagged"
+    assert plan.fills == {} and plan.deferred == {}
+    assert plan.declined == frozenset({0, 1, 2})
+    assert plan.notes == (_Q1,)
+    # Q1 holds whether or not a taper's list exists (non-chosen canonical).
+    assert _plan(["Bertha", "Jack Straw"], ["", ""], untagged=True,
+                 desc_used=True).mode == "untagged"
+
+
+def test_untagged_with_no_s_positions_writes_no_note():
+    """Judgement call: nothing for S to withdraw means no Q1 note."""
+    plan = _plan(["Bertha", "Jack Straw"], ["", ""], untagged=True, s_positions=[])
+    assert plan.mode == "untagged"
+    assert (plan.fills, plan.declined, plan.notes) == ({}, frozenset(), ())
+
+
+def test_chosen_canonical_with_a_list_moves_to_d():
+    plan = _plan(["Bertha", "Jack Straw", "Sugaree"], ["Bertha", "", ""], source="chosen",
+                 desc_used=True)
+    assert plan.mode == "chosen"
+    assert (plan.fills, plan.deferred, plan.declined, plan.notes) == ({}, {}, frozenset(), ())
+    off = _plan(["Bertha", "Jack Straw", "Sugaree"], ["Bertha", "", ""], source="chosen",
+                desc_used=True, slice2=False)
+    assert off.mode == "gated"
+    assert off.fills == {1: "Jack Straw", 2: "Sugaree"}
+
+
+def test_chosen_canonical_untagged_tape_writes_no_q1_note():
+    plan = _plan(["Bertha", "Jack Straw"], ["", ""], source="chosen", desc_used=True,
+                 untagged=True)
+    assert plan.mode == "chosen"
+    assert plan.notes == ()
+    assert plan.declined == frozenset() and plan.fills == {}
+
+
+# gd73-06-10 (tests/fixtures/gd73_metadata.json), the selected recording's description,
+# verbatim: a segue line yields two items, and there are no numbered lines.
+_GD73_DESC = ("Set 1:\nMorning Dew\nChina Cat Sunflower > I Know You Rider\n\nSet 2:\n"
+              "Dark Star > Eyes of the World\n\nEncore:\nJohnny B. Goode")
+_GD73_ITEMS = ["Morning Dew", "China Cat Sunflower", "I Know You Rider", "Dark Star",
+               "Eyes of the World", "Johnny B. Goode"]
+
+
+def test_chosen_canonical_without_admissible_list_stays_gated():
+    read = read_desc_list(_GD73_DESC, 6, artist="Grateful Dead",
+                          clean=lambda p: (p, frozenset()))
+    assert read.used is None
+    tags = _GD73_ITEMS[:5] + [""]
+    plan = _plan(_GD73_ITEMS, tags, source="chosen", desc_used=False, s_positions=[5])
+    assert plan.mode == "gated"
+    assert plan.fills == {5: "Johnny B. Goode"}
+    assert (plan.deferred, plan.declined, plan.notes) == ({}, frozenset(), ())
+
+
+def test_chosen_canonical_untagged_without_list_declines():
+    plan = _plan(_GD73_ITEMS, [""] * 6, source="chosen", desc_used=False, untagged=True)
+    assert plan.mode == "untagged"
+    assert plan.fills == {}
+    assert plan.declined == frozenset(range(6))
+    assert plan.notes == (_Q1_CHOSEN,)
+
+
+def test_count_matched_list_defers_s():
+    plan = _plan(["Bertha", "Jack Straw", "Sugaree", "Ripple"], ["Bertha", "", "", "Ripple"],
+                 desc_used=True)
+    assert plan.mode == "deferred"
+    assert plan.fills == {}
+    assert plan.deferred == {1: "Jack Straw", 2: "Sugaree"}
+    assert plan.declined == frozenset({1, 2})
+    assert plan.notes == ()
+
+
+def test_copied_sibling_description_canonical_defers_to_d():
+    plan = _plan(["Bertha", "Jack Straw", "Sugaree"], ["Bertha", "", ""], source="lma:x",
+                 desc_used=True)
+    assert plan.mode == "deferred"
+    assert plan.fills == {}
+    assert plan.deferred == {1: "Jack Straw", 2: "Sugaree"}
+    assert plan.declined == frozenset({1, 2})
+
+
+def test_gated_mode_runs_checks_1_and_2():
+    hdr = _plan(["Bertha", "Set 2", "Jack Straw", "Ripple"], ["Bertha", "", "", "Ripple"])
+    assert hdr.mode == "gated"
+    assert hdr.fills == {} and hdr.declined == frozenset({1, 2})
+    assert hdr.notes == ("positional fill declined: setlist hygiene:header (track 2 'Set 2')",)
+    dup = _plan(["Jack Straw", "Jack Straw", "Sugaree", "Ripple"],
+                ["Jack Straw", "", "", "Ripple"])
+    assert dup.fills == {} and dup.declined == frozenset({1, 2})
+    assert dup.notes == (
+        "positional fill declined: setlist adjacent duplicate (track 2 'Jack Straw')",)
+    q = _plan(["Bertha", "?", "Sugaree", "Ripple"], ["Bertha", "", "", "Ripple"])
+    assert q.fills == {2: "Sugaree"}
+    assert q.declined == frozenset({1})
+    assert q.notes == ("positional fill declined: setlist track 2 slot placeholder '?'",)
+
+
+def test_gated_check_2_compares_candidates_with_each_other():
+    plan = _plan(["Bertha", "Sugaree", "Sugaree >", "Ripple"], ["Bertha", "", "", "Ripple"])
+    assert plan.fills == {} and plan.declined == frozenset({1, 2})
+    assert plan.notes[0].startswith("positional fill declined: setlist adjacent duplicate")
+
+
+def test_gated_check_2_ignores_an_unreal_tag():
+    """A tag that fails `is_real_title` is no neighbour for check 2 (a 2b-demoted
+    position 2 here, so not an S position either)."""
+    tags = ["Bertha", "", "Sugaree"]
+    real = [True, False, False]
+    canonical = ParsedSetlist(items=[SetlistItem(title=t, normalized=t.lower(), set="1")
+                                     for t in ["Bertha", "Sugaree", "Ripple"]],
+                              confidence="high")
+    plan = plan_setlist_rung(
+        canonical=canonical, canonical_source="setlist.fm", s_positions=[1],
+        tag_titles=tags, tag_real=real, filenames=["a.flac", "b.flac", "c.flac"],
+        metadata_norms=set(), desc_used=False, wholly_untagged=False, slice1=True,
+        slice2=True)
+    assert plan.fills == {1: "Sugaree"}
+
+
+def test_gated_ships_todays_item_text_and_keeps_the_placeholder_refusal():
+    plan = _plan(["Bertha", "Sugaree >", "Track 03", "Ripple"], ["Bertha", "", "", "Ripple"])
+    assert plan.mode == "gated"
+    assert plan.fills == {1: "Sugaree >"}
+    assert 2 not in plan.fills
+
+
+def _dd(failed=(), track_declines=None):
+    return DDecision(fills={}, failed=tuple(failed), track_declines=track_declines or {})
+
+
+_DEFERRED_TAGS = ["Bertha", "", "", "Ripple"]
+
+
+def _deferred_plan():
+    plan = _plan(["Bertha", "Jack Straw", "Sugaree", "Ripple"], _DEFERRED_TAGS, desc_used=True)
+    assert plan.mode == "deferred"
+    return plan
+
+
+def _deferred_tracks():
+    return [_t("Bertha", n=1), _u(2), _u(3), _t("Ripple", n=4)]
+
+
+def test_deferred_s_fills_after_a_hygiene_decline():
+    d = _dd([("hygiene:annotation", "track 2 'w/ Eric Johnson'")])
+    out, notes = apply_deferred_setlist(_deferred_tracks(), _deferred_plan(), d,
+                                        tag_titles=_DEFERRED_TAGS, metadata_norms=set())
+    assert [(t.title, t.title_source) for t in out] == [
+        ("Bertha", "tags"), ("Jack Straw", "setlist"), ("Sugaree", "setlist"),
+        ("Ripple", "tags")]
+    assert notes == []
+
+
+def test_deferred_s_fills_a_per_track_hygiene_decline_of_a_passing_d():
+    d = _dd(track_declines={1: "slot placeholder"})
+    out, _ = apply_deferred_setlist(_deferred_tracks(), _deferred_plan(), d,
+                                    tag_titles=_DEFERRED_TAGS, metadata_norms=set())
+    assert out[1].title == "Jack Straw" and out[1].title_source == "setlist"
+
+
+def test_deferred_s_declines_with_d_on_a_shift():
+    d = _dd([("hygiene:annotation", "track 2 'w/ X'"), ("tape agreement", "track 1 'Sugaree'")])
+    tracks = _deferred_tracks()
+    out, notes = apply_deferred_setlist(tracks, _deferred_plan(), d,
+                                        tag_titles=_DEFERRED_TAGS, metadata_norms=set())
+    assert out == tracks
+    assert notes == ["positional fill declined: setlist tape agreement (track 1 'Sugaree')"]
+
+
+def test_deferred_s_skips_filler_entry_positions():
+    d = _dd(track_declines={2: "filler entry"})
+    out, _ = apply_deferred_setlist(_deferred_tracks(), _deferred_plan(), d,
+                                    tag_titles=_DEFERRED_TAGS, metadata_norms=set())
+    assert out[1].title_source == "setlist"
+    assert out[2].title_source == "unresolved"
+
+
+def test_deferred_s_fills_only_unresolved():
+    tracks = _deferred_tracks()
+    tracks[1] = _t("Jack Straw Jam", source="sibling-align", n=2)
+    d = _dd([("hygiene:annotation", "track 2 'w/ X'")])
+    out, _ = apply_deferred_setlist(tracks, _deferred_plan(), d,
+                                    tag_titles=_DEFERRED_TAGS, metadata_norms=set())
+    assert (out[1].title, out[1].title_source) == ("Jack Straw Jam", "sibling-align")
+    assert (out[2].title, out[2].title_source) == ("Sugaree", "setlist")
+
+
+def test_deferred_s_rechecks_against_current_tracks():
+    # Check 2 against a neighbour resolved since the plan: the whole fill declines.
+    tracks = _deferred_tracks()
+    tracks[2] = _t("Jack Straw", source="sibling-align", n=3)
+    d = _dd([("hygiene:annotation", "track 3 'w/ X'")])
+    out, notes = apply_deferred_setlist(tracks, _deferred_plan(), d,
+                                        tag_titles=_DEFERRED_TAGS, metadata_norms=set())
+    assert out[1].title_source == "unresolved"
+    assert notes == [
+        "positional fill declined: setlist adjacent duplicate (track 2 'Jack Straw')"]
+    # Check 1, per track.
+    plan = _plan(["Bertha", "?", "Sugaree", "Ripple"], _DEFERRED_TAGS, desc_used=True)
+    out, notes = apply_deferred_setlist(_deferred_tracks(), plan, d,
+                                        tag_titles=_DEFERRED_TAGS, metadata_norms=set())
+    assert [t.title_source for t in out] == ["tags", "unresolved", "setlist", "tags"]
+    assert notes == ["positional fill declined: setlist track 2 slot placeholder '?'"]
+
+
+def test_deferred_apply_is_a_no_op_outside_deferred_mode():
+    tracks = _deferred_tracks()
+    gated = _plan(["Bertha", "Jack Straw", "Sugaree", "Ripple"], _DEFERRED_TAGS)
+    assert apply_deferred_setlist(tracks, gated, None, tag_titles=_DEFERRED_TAGS,
+                                  metadata_norms=set()) == (tracks, [])
+    assert isinstance(gated, SetlistPlan)

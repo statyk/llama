@@ -12,7 +12,14 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from llama.desc_list import Cleaned, DescList, clean_one, is_header_shape, written_seconds
+from llama.desc_list import (
+    Cleaned,
+    DescList,
+    clean_entries,
+    clean_one,
+    is_header_shape,
+    written_seconds,
+)
 from llama.placeholders import is_placeholder, is_residue, is_timestamp, looks_like_filename
 from llama.models import ParsedSetlist, Track
 from llama.setlist import MAX_TITLE_LEN
@@ -24,7 +31,7 @@ from llama.structure import (
     is_filler,
     loosely_same_title,
 )
-from llama.titles import is_real_title, tag_core
+from llama.titles import is_placeholder_text, is_real_title, tag_core
 
 # Independent titles (spec, Definitions). NOT `siblings.INDEPENDENT_TITLE_SOURCES`.
 INDEPENDENT_SOURCES = frozenset({"tags", "sibling-format", "override", "sibling-align"})
@@ -452,3 +459,151 @@ def is_self_filled(tracks: list[Track], d: DDecision | None) -> bool:
         return False
     songs = [t for t in tracks if not is_filler(t.title)]
     return bool(songs) and all(t.title_source == DESC_POSITION for t in songs)
+
+
+# ---- Slice 1: the S plan and the deferred S fill -----------------------------------------
+
+SETLIST = "setlist"
+_Q1_NOTE = "positional fill declined: setlist wholly untagged tape"
+_Q1_CHOSEN_NOTE = ("positional fill declined: setlist wholly untagged tape "
+                   "(chosen canonical, no admissible taper list)")
+
+
+def _s_check(raw: dict[int, str], judge_at: list[int], neighbours: list[Track], *,
+             tag_titles: list[str], metadata_norms: set[str]
+             ) -> tuple[dict[int, str], list[tuple[str, str]], dict[int, tuple[str, str]]]:
+    """Checks 1 and 2 over the S candidates at `judge_at` (0-based). `raw` holds EVERY S
+    candidate (today's item text), in whose position order the cleaning's leader vote is
+    taken; the checks run on the cleaned form, the fills ship the raw item text. Check 2
+    compares against `neighbours` and the other candidates. Today's `is_placeholder_text`
+    refusal stays, silent and per track, after check 1. Returns (fills, show-level failures
+    in check order, per-track declines as pos -> (check, cleaned text))."""
+    order = sorted(raw)
+    cleaned = dict(zip(order, clean_entries([raw[p] for p in order])))
+    failed: list[tuple[str, str]] = []
+    track_declines: dict[int, tuple[str, str]] = {}
+    cands: dict[int, str] = {}
+    for p in sorted(judge_at):
+        c = cleaned[p]
+        h = judge(c, track_no=p + 1, first=p == 0,
+                  stem=_stem(neighbours[p].filename) if p < len(neighbours) else "",
+                  own_core=tag_core(tag_titles[p] if p < len(tag_titles) else ""),
+                  metadata_norms=metadata_norms)
+        if h.scope == "track":
+            track_declines[p] = (h.check, c.text)
+            continue
+        if h.scope == "show":
+            failed.append((h.check, _detail(p, c.text)))
+        elif is_placeholder_text(raw[p]):
+            continue  # today's refusal: unresolved, no note, not declined
+        cands[p] = c.text
+    dup = adjacent_duplicate(cands, neighbours)
+    if dup is not None:
+        failed.append(("adjacent duplicate", _detail(dup[0], dup[1])))
+    fills = {} if failed else {p: raw[p] for p in cands}
+    return fills, failed, track_declines
+
+
+def _s_notes(failed: list[tuple[str, str]],
+             track_declines: dict[int, tuple[str, str]]) -> list[str]:
+    """ONE note for a show-level decline, naming the first failed check; then one per
+    per-track decline."""
+    notes: list[str] = []
+    if failed:
+        check, detail = failed[0]
+        notes.append(f"positional fill declined: {SETLIST} {check} ({detail})")
+    for p in sorted(track_declines):
+        check, text = track_declines[p]
+        notes.append(f"positional fill declined: {SETLIST} track {p + 1} {check} '{text}'")
+    return notes
+
+
+@dataclass(frozen=True)
+class SetlistPlan:
+    mode: str                     # "none" | "today" | "untagged" | "chosen" | "deferred" | "gated"
+    fills: dict[int, str]         # made inside resolve_titles (today's item text)
+    deferred: dict[int, str]      # held for after D ("deferred" mode)
+    declined: frozenset[int]      # passed to adopt_gap_titles
+    notes: tuple[str, ...]
+
+
+def _plan(mode: str, fills: dict[int, str] | None = None, deferred: dict[int, str] | None = None,
+          declined=frozenset(), notes=()) -> SetlistPlan:
+    return SetlistPlan(mode, fills or {}, deferred or {}, frozenset(declined), tuple(notes))
+
+
+def plan_setlist_rung(*, canonical: ParsedSetlist, canonical_source: str | None,
+                      s_positions: list[int], tag_titles: list[str], tag_real: list[bool],
+                      filenames: list[str], metadata_norms: set[str], desc_used: bool,
+                      wholly_untagged: bool, slice1: bool, slice2: bool) -> SetlistPlan:
+    """Where the S rung fires (slice 1, "The S rung splits by canonical source").
+
+    `s_positions` (0-based) reach today's S branch (not 2b-demoted, tag fails
+    `is_real_title`) and are not `overrides.titles` positions; `tag_real[i]` is True when
+    position i resolves from its tag. Modes, first match wins:
+    - `none`: no count-matched canonical with confidence not `low`;
+    - `today`: slice 1 off, exactly today's rung (every S position whose item is not
+      `is_placeholder_text`);
+    - `chosen`: the canonical is the selected description and D (slice 2) has its
+      count-matched list, so D makes these fills; S does nothing;
+    - `untagged`: operator ruling Q1, no fills, every S position declined, one note (none
+      when there is no S position);
+    - `deferred`: a count-matched admissible list beside any other canonical; S holds its
+      items for after D (`apply_deferred_setlist`) and declines them to setlist-gap;
+    - `gated`: today's place, under checks 1 and 2 (check 2 against the real tags and the
+      other candidates). A show-level failure fills nothing and declines every S position.
+    """
+    items = canonical.items
+    if canonical.confidence == "low" or len(items) != len(filenames):
+        return _plan("none")
+    raw = {p: items[p].title for p in s_positions}
+    if not slice1:
+        return _plan("today", fills={p: t for p, t in raw.items()
+                                     if not is_placeholder_text(t)})
+    chosen = canonical_source == "chosen"
+    if chosen and desc_used and slice2:
+        return _plan("chosen")
+    if wholly_untagged:
+        note = _Q1_CHOSEN_NOTE if chosen else _Q1_NOTE
+        return _plan("untagged", declined=s_positions, notes=(note,) if s_positions else ())
+    if desc_used and slice2:
+        return _plan("deferred", deferred=raw, declined=s_positions)
+    neighbours = [
+        Track(index=i + 1, set="1", filename=f,
+              title=tag_titles[i] if tag_real[i] else "",
+              title_source="tags" if tag_real[i] else "unresolved")
+        for i, f in enumerate(filenames)
+    ]
+    fills, failed, track_declines = _s_check(raw, list(raw), neighbours,
+                                             tag_titles=tag_titles,
+                                             metadata_norms=metadata_norms)
+    declined = s_positions if failed else track_declines
+    return _plan("gated", fills=fills, declined=declined,
+                 notes=_s_notes(failed, track_declines))
+
+
+def apply_deferred_setlist(tracks: list[Track], plan: SetlistPlan, d: DDecision | None, *,
+                           tag_titles: list[str], metadata_norms: set[str]
+                           ) -> tuple[list[Track], list[str]]:
+    """The deferred S fill, after D and before `align()`. Fills only still-`unresolved`
+    positions, never one D declined as a `filler entry`, and nothing when D failed on a
+    shift signature (S declines with D: one note naming D's first shift check). Checks 1
+    and 2 re-run against the current tracks. Source `setlist`, today's item text."""
+    if plan.mode != "deferred" or not plan.deferred:
+        return tracks, []
+    if d is not None and d.shift:
+        check, detail = next((c, x) for c, x in d.failed if c in SHIFT_CHECKS)
+        return tracks, [f"positional fill declined: {SETLIST} {check} ({detail})"]
+    filler = {p for p, c in (d.track_declines.items() if d else ()) if c == "filler entry"}
+    open_ = [p for p in plan.deferred
+             if 0 <= p < len(tracks) and tracks[p].title_source == "unresolved"
+             and p not in filler]
+    if not open_:
+        return tracks, []
+    fills, failed, track_declines = _s_check(plan.deferred, open_, tracks,
+                                             tag_titles=tag_titles,
+                                             metadata_norms=metadata_norms)
+    out = list(tracks)
+    for p, text in fills.items():
+        out[p] = out[p].model_copy(update={"title": text, "title_source": SETLIST})
+    return out, _s_notes(failed, track_declines)
