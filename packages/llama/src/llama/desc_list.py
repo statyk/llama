@@ -33,11 +33,20 @@ _TAB_TIME = re.compile(rf"(?<=\S)\t+\s*({_T})\s*$")
 _TRAIL_DOT = re.compile(r"(?<=\S)(?:\t+|\s{2,})(\d{1,3}\.\d{2})\s*$")
 _TRAIL_TIME = re.compile(rf"(?<=\S)\s+({_T})\s*$")
 _WHOLE_TIME = re.compile(rf"^\s*{_T}\s*$")
+# Checkpoint B ruling 5: a written duration glued straight after `)` (`Playing In The
+# Band(reprise)6:51`, darkstarorchestra-2011-04-15). Only after `)`: a number that is part
+# of a title is never preceded by one.
+_PAREN_TIME = re.compile(rf"(?<=\))({_T})\s*$")
 
 _ENTRY_LEADER = re.compile(r"^(?:\.\d{1,3}|\d{1,3}[-.)])\s*(?=[^\d\s])")
 _FILLER_MARK = re.compile(r"^\s*filler\s*:\s*", re.I)
 _FOOTNOTE = re.compile(r"\s*\(\s*(?:\d{1,2}|[*#^+~@$%]+)\s*\)")
-_TRAIL_MARKERS = re.compile(r"(?:\s*(?:=>|->|>|\*+|@+))+\s*$")
+# Trailing taper markers; `^`/`$` added by Checkpoint B ruling 5 (mymorningjacket-2004-06-18
+# `cobra          $`, deepbananablackout-2004-04-01 `Boot!^`). ONE definition: the C-title
+# strip (Checkpoint A ruling h, `lossless_titles`) imports it.
+_TRAIL_MARKERS = re.compile(r"(?:\s*(?:=>|->|>|\*+|@+|\^+|\$+))+\s*$")
+# A leading segue marker (`--> Take the Time`, deepbananablackout-2004-04-01; ruling 5).
+_LEAD_SEGUE = re.compile(r"^\s*(?:-->|->|=>|>)\s*")
 _ENCORE_MARK = re.compile(r"^\s*(?:e|en|enc|encore)\s*:\s*", re.I)
 _DISC_TRACK_HEADER = re.compile(
     r"^\s*(?:disc|disk|cd)\s*\d{1,2}\s*[,:]\s*track\s*\d{1,3}\s*$", re.I
@@ -78,7 +87,7 @@ def _strip_durations(s: str) -> tuple[str, list[float], bool]:
 
     out = _BRACKETED.sub(take, out)
     out = _LEAD_DASH.sub(take, out)
-    for rx in (_TAB_TIME, _TRAIL_DOT):
+    for rx in (_TAB_TIME, _TRAIL_DOT, _PAREN_TIME):
         out = rx.sub(take, out)
     before = len(durs)
     out = _TRAIL_TIME.sub(take, out)
@@ -90,6 +99,7 @@ def _strip_durations(s: str) -> tuple[str, list[float], bool]:
 
 
 def _finish(text: str) -> tuple[str, bool]:
+    text = _LEAD_SEGUE.sub("", text, count=1)
     filler = bool(_FILLER_MARK.match(text))
     text = _FILLER_MARK.sub("", text, count=1)
     text = _FOOTNOTE.sub("", text)

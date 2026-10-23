@@ -2011,7 +2011,7 @@ def compute_gather(
     # structure above was computed from the pre-strip titles (spec "Slice 5").
     title_paths = cascade.paths
     if "slice5" in enabled_slices:
-        tracks, strip_notes, changed = cosmetic_strip(tracks)
+        tracks, strip_notes, changed = cosmetic_strip(tracks, artist=artist)
         op_notes += strip_notes
         if changed:
             paths = list(title_paths)

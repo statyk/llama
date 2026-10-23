@@ -1106,3 +1106,20 @@ def test_footnoted_tag_matches_entry_on_its_shipped_form():
     out, _, acc, _ = _s4(["Gone", "7-11 (3)>", "Bubble"], ["Gone", "7-11", "Bubble"],
                          resolved={0, 2})
     assert acc == [1]
+
+
+def test_lone_encore_setbreak_intermission_are_header_shapes():
+    """Final review M-1, Checkpoint B ruling 5: a whole entry that is only `Encore` (with an
+    optional trailing `:`), `Set Break`/`Setbreak` or `Intermission` is a check-1 header."""
+    for raw in ["Encore", "encore", "ENCORE", "Set Break", "set break", "Setbreak",
+                "SETBREAK", "Intermission", " intermission "]:
+        h = _j(raw)
+        assert (h.ok, h.scope, h.check) == (False, "show", "hygiene:header"), raw
+    # Judgement call: `Encore:` reaches check 1 already emptied by the cleaner's leading
+    # encore marker, so it keeps today's show-level `no alnum` decline (same outcome).
+    for raw in ["Encore:", "Encore :"]:
+        h = _j(raw)
+        assert (h.ok, h.scope, h.check) == (False, "show", "hygiene:no alnum"), raw
+    for raw in ["Encore Break", "Intermission Jam", "Set Break Jam", "Encores Galore",
+                "The Intermission"]:
+        assert _j(raw).check != "hygiene:header", raw

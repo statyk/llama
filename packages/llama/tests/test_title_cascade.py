@@ -540,3 +540,17 @@ def test_shifted_set_demotion_never_touches_an_override(tmp_path: Path):
     assert res.title_record.lossless.demoted == ()
     assert not any(n.startswith("lossless titles: shifted") for n in res.notes)
     assert [x.title for x in t[3:20]] == _DSO_FLAC_4_20
+
+
+def test_cosmetic_strip_receives_the_show_artist(tmp_path: Path):
+    """Ruling 5: compute_gather threads the show's artist into slice 5, so a leading
+    `<artist> - ` strips (greenskybluegrass-2013-05-04's tag shape on the gd73 fixture)."""
+    md = json.loads(FIXTURE.read_text())
+    for f in md["files"]:
+        if f["name"] == "gd73-06-10d1t01.mp3":
+            f["title"] = "Grateful Dead - " + f["title"]
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(md), None, make_candidate(),
+                         IDENT)
+    assert res.show.tracks[0].title == "Morning Dew"
+    assert ("cosmetic title strip: track 1 'Grateful Dead - Morning Dew' -> 'Morning Dew'"
+            in res.notes)

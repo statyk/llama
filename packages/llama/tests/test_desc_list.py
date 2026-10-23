@@ -428,3 +428,59 @@ def test_per_line_counts_must_sum_to_the_parse():
     desc = "1 Bertha\n2 Deal\n3 Ripple\n04 3:45"
     assert len(parse_setlist(desc).items) == 3
     assert read_parse(desc, artist="X", clean=_ident) == "per-line count disagrees"
+
+
+# --- Checkpoint B ruling 5: D cleaning constants -----------------------------------------
+
+# deepbananablackout-2004-04-01 (`dbb2004-04-01.shnf`), verbatim description excerpt.
+_DBB_2004_04_01 = ("Disc 1:\n1. Anesthetic Highway\n2. --> Take the Time\n3. Bump & Sway\n"
+                   "4. --> Homo Lingo\n5. Dr. Feelgood\n6. Dazz\n7. --> Breakfast at Volos\n"
+                   "8. --> Rocker\n9.  --> Escapism/Good to Your Earhole\n\nDisc 2:\n"
+                   "1. Maggot Brain\n2. --> Brunch \n3. --> Getchall 2004\n4. Memphis Train\n"
+                   "5. --> TUG\n6. Hear My Song\n7. Soul Sacrifice\n8. Ascension\n"
+                   "9. Red Hot Mama*\n\nDisc 3:\n1. New Day\n2. Ballade\n"
+                   "3. Just Kissed My Baby\n4. Groove is Here\n5. Encore: Street Viper\n"
+                   "6. Encore: Boot!^")
+
+
+def test_leading_segue_marker_is_stripped_deepbananablackout_2004_04_01():
+    dl = read_numbered(_DBB_2004_04_01)
+    texts = [c.text for c in dl.cleaned]
+    assert texts[1] == "Take the Time" and texts[3] == "Homo Lingo"
+    assert texts[8] == "Escapism/Good to Your Earhole"
+    assert texts[10] == "Brunch" and texts[13] == "TUG"
+    for raw in ["-> Song", "=> Song", "> Song", ">Song", "  -->Song"]:
+        assert clean_one(raw).text == "Song", raw
+
+
+def test_trailing_caret_and_dollar_markers_are_stripped():
+    # deepbananablackout-2004-04-01 `Encore: Boot!^` (above) and mymorningjacket-2004-06-18
+    # (`mmj2004-06-18.shnf`), verbatim Disc 2 excerpt.
+    assert [c.text for c in read_numbered(_DBB_2004_04_01).cleaned][-1] == "Boot!"
+    mmj = ("Disc 2\n\n01 o is the one that is real\n02 cobra          $         \n"
+           "03 dancefloors    $         \n04 mahgeetah                \n")
+    assert [c.text for c in read_numbered(mmj).cleaned] == [
+        "o is the one that is real", "cobra", "dancefloors", "mahgeetah"]
+    assert clean_one("Song ^^").text == "Song" and clean_one("Song$$").text == "Song"
+
+
+def test_c_title_strip_shares_the_trailing_marker_set():
+    # ONE definition: Checkpoint A (h)'s C-title strip uses the same constant.
+    import llama.lossless_titles as lt
+    from llama import desc_list
+    assert lt._TRAIL_MARKERS is desc_list._TRAIL_MARKERS
+    assert lt._TRAIL_MARKERS.sub("", "Boot!^").strip() == "Boot!"
+
+
+def test_duration_glued_after_a_parenthesis_darkstarorchestra_2011_04_15():
+    # darkstarorchestra-2011-04-15 (`DSO2011-04-15`) Disc 3, verbatim excerpt; #22 overall.
+    dso = ("  Disc 3  Set 2 cont (78:18) \n  01 Playing In The Band > \t 9:41\n"
+           "  02 Drums > Space\t\t15:54\n  07 Shakedown Street > \t15:40\n"
+           "  08 Playing In The Band(reprise)6:51\n  09 Encore: Forever Young \t11:07")
+    c = clean_one("Playing In The Band(reprise)6:51")
+    assert c.text == "Playing In The Band(reprise)" and c.durations == (411.0,)
+    assert "08 Playing In The Band(reprise)6:51" in dso
+    # A number that is part of a title is not glued after `)`: the rule never fires there.
+    assert clean_one("1 Samuel 15:23").text == "1 Samuel"          # today's rule, unchanged
+    assert clean_one("Psalm 23").text == "Psalm 23"
+    assert clean_one("(4:20)Polka").text == "Polka"                 # bracketed, as today

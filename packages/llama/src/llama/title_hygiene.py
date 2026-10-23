@@ -54,6 +54,11 @@ _UNKNOWN = re.compile(r"^\s*(?:unknown|unk|\(unknown\))\s*$", re.I)
 _BARE_NUMBER = re.compile(r"^\d+[.\-)]?$")
 _ANNOTATION = re.compile(r"^\s*w/\s|\bopened\b", re.I)
 _LEAD_TIME = re.compile(r"^\s*\(?\s*\d{1,3}:\d{2}(?::\d{2})?\s*(?:[)\]]|\s-\s)")
+# Final review M-1, Checkpoint B ruling 5: a lone `Encore` (optional `:`), `Set Break`,
+# `Setbreak` or `Intermission`, as the whole entry, is a header shape in check 1. An
+# addition beside the fixed grammar (`desc_list.is_header_shape`); `taper._SET_HEADERS` is
+# not edited.
+_LONE_MARKER = re.compile(r"^\s*(?:encore\s*:?|set ?break|intermission)\s*$", re.I)
 
 
 def _short_core(norm: str) -> bool:
@@ -124,7 +129,7 @@ def judge(c: Cleaned, *, track_no: int, first: bool, stem: str, own_core: str,
     # Show-level: such an entry takes a slot, so the list is not 1:1 with the files.
     if meta_hit and first:
         return _show("hygiene:banner")
-    if is_header_shape(text):
+    if is_header_shape(text) or _LONE_MARKER.match(text):
         return _show("hygiene:header")
     if _ANNOTATION.search(text):
         return _show("hygiene:annotation")
