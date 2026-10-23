@@ -799,12 +799,29 @@ def test_stored_llm_not_self_filled_stays_needs_llm(tmp_path):
     assert g.self_filled is False
     assert "stored alignment llm" in legs.needs_llm and "align_structure" in legs.needs_llm
     r = replay_show(ws, scratch=tmp_path / "scratch" / "y", delivered=set(), **kw)
-    assert r.cascade == {}                      # a needs-LLM row carries an empty record
+    # Checkpoint B ruling 4 (final review I-1): a needs-LLM row carries the cascade record
+    # too (every title is final before the LLM branch), so its holds can be attributed.
+    assert r.outcome == "needs-llm"
+    assert list(r.cascade) == _CASCADE_KEYS
+    assert r.cascade["d_fills"] == [2, 3, 4, 5, 6] and r.cascade["d_failed"] is None
 
 
 _CASCADE_KEYS = ["s_mode", "s_fills", "s_declined", "deferred_applied", "d_fills", "d_failed",
-                 "d_track_declines", "c_changed", "c_declined", "short4", "short4_declined",
-                 "gap_filled"]
+                 "d_track_declines", "c_changed", "c_declined", "c_demoted", "short4",
+                 "short4_declined", "gap_filled"]
+
+
+def test_cascade_record_carries_the_shifted_set_demotions(tmp_path):
+    """C-1 (ruling 1) demotions are slice 3's declines; the record names them, 1-based."""
+    from llama.replay import _cascade_dict
+    from llama.stages.gather import compute_gather
+    from llama.workspace import ShowWorkspace
+    from test_title_cascade import _dso_2014_07_31
+    ia, cand, ident = _dso_2014_07_31()
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, ident)
+    rec = _cascade_dict(res.title_record)
+    assert rec["c_demoted"] == [3]
+    assert rec["c_changed"]["4"] == "C2" and rec["c_changed"]["21"] == "C1"
 
 
 def test_record_carries_title_fields(tmp_path):

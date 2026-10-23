@@ -1017,7 +1017,7 @@ SLICE_OF_FILL = (("c_changed", "slice3"), ("short4", "slice4"), ("d_fills", "sli
                  ("s_fills", "slice1"), ("deferred_applied", "slice1"))
 SLICE_OF_DECLINE = (("s_declined", "slice1"), ("d_failed", "slice2"),
                     ("d_track_declines", "slice2"), ("c_declined", "slice3"),
-                    ("short4_declined", "slice4"))
+                    ("c_demoted", "slice3"), ("short4_declined", "slice4"))
 
 
 def _holding(r: dict) -> bool:
@@ -1193,8 +1193,10 @@ def _title_changes(base: dict, cand: dict, root: Path, delivery: Path | None) ->
 
 
 def _d_reach(cand: dict) -> list[str]:
-    """D shows that reach the agreement check's decline or the LLM branch. A needs-LLM row's
-    `cascade` is empty, so there D is read from `desc_position` (a D fill) or a desc-position note."""
+    """D shows that reach the agreement check's decline or the LLM branch. The note and
+    `desc_position` arms stay although a needs-LLM row now carries its `cascade` (ruling 4):
+    an arm written before that change has `{}` there, and `compare` still reads such arms;
+    on a current arm they agree with the record (the show-level note names `d_failed`)."""
     agree, llm = [], []
     for slug, r in sorted(cand["shows"].items()):
         notes = [n for n in r.get("notes") or [] if "desc-position" in n]

@@ -433,7 +433,10 @@ class ShowReplay:
     step1_alignment: str | None = None
     # Piece 3 (title hygiene). Base-arm rows lack these keys. `titles`, `title_sources` and
     # `title_paths` are per track of `gathered.show`, before vet; `cascade` is the record of
-    # the cascade (`_cascade_dict`), positions 1-based, `{}` on an unreplayable or needs-LLM row.
+    # the cascade (`_cascade_dict`), positions 1-based, `{}` on an unreplayable row. A
+    # needs-LLM row carries it too (Checkpoint B ruling 4, final review I-1; a deviation from
+    # the plan's Task 17 contract): every title is final before the LLM branch, which
+    # touches structure only, so the record is what attributes those rows' holds.
     self_filled: bool = False
     desc_position: int = 0
     titles: list[str] = dataclasses.field(default_factory=list)
@@ -447,7 +450,8 @@ class ShowReplay:
 
 def _cascade_dict(rec: CascadeRecord | None) -> dict:
     """The cascade's fills and declines for the harness (positions 1-based; the dict keys of
-    `d_track_declines`, `c_changed` and `short4_declined` are strings so an arm survives a JSON round trip)."""
+    `d_track_declines`, `c_changed` and `short4_declined` are strings so an arm survives a JSON round trip).
+    `c_demoted` lists slice 3's shifted-delivered-set demotions (final review C-1)."""
     if rec is None:
         return {}
     one = lambda xs: sorted(p + 1 for p in xs)   # noqa: E731
@@ -464,6 +468,7 @@ def _cascade_dict(rec: CascadeRecord | None) -> dict:
         "c_changed": ({str(p + 1): v for p, v in sorted(c.changed.items())}
                       if c is not None else {}),
         "c_declined": c.declined if c is not None else None,
+        "c_demoted": one(c.demoted) if c is not None else [],
         "short4": one(rec.short4),
         "short4_declined": {str(p + 1): v for p, v in sorted(rec.short4_declined.items())},
         "gap_filled": one(rec.gap_filled),
@@ -541,7 +546,7 @@ def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlis
         r.titles = [t.title for t in g.show.tracks]
         r.title_sources = [t.title_source for t in g.show.tracks]
         r.title_paths = list(g.title_paths)
-        r.cascade = {} if r.needs_llm else _cascade_dict(g.title_record)
+        r.cascade = _cascade_dict(g.title_record)
     except CacheMiss as err:
         r.outcome, r.unreplayable = "unreplayable", str(err)
     except _OverridesUnreadable:

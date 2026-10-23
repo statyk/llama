@@ -1440,6 +1440,10 @@ def test_added_hold_attributed_from_declines(tmp_path):
     _p3(c, "multi", CLEAN_SLUG, "packaged", outcome="newly-held", title_paths=[],
         gather_flags=["unresolved track titles"],
         cascade={"s_declined": [2], "c_declined": "x", "short4_declined": {"3": "nb"}})
+    # C-1 (ruling 1): a shifted-set demotion is slice 3's decline.
+    _p3(b, "demote", CLEAN_SLUG, "packaged")
+    _p3(c, "demote", CLEAN_SLUG, "packaged", outcome="newly-held", title_paths=[],
+        gather_flags=["unresolved track titles"], cascade={"c_demoted": [3]})
     _write(base, b)
     _write(cand, c)
     out = tmp_path / "cmp"
@@ -1450,6 +1454,8 @@ def test_added_hold_attributed_from_declines(tmp_path):
     assert "decl" in s2
     for s in ("slice1", "slice3", "slice4"):
         assert "multi" in by.split(s)[1].split("slice")[0]
+    assert "demote" in by.split("slice3")[1].split("slice")[0]
+    assert "unattributed" not in text.split("== holds added")[1].split("demote")[1].split("\n")[0]
 
 
 def test_title_changes_text_vs_source_only(tmp_path):
