@@ -788,3 +788,31 @@ def test_packets_and_parity_refuse_an_out_inside_the_library(tmp_path, capsys):
     out = tmp_path / "ok"
     assert thp.main(["packets", "--cmp", str(cmp_dir), "--dump", str(dump), "--out", str(out)]) == 0
     assert "candidate title source: the compare arm" in (out / "wholly_untagged_d3" / "a.md").read_text()
+
+
+def test_packet_states_the_view_and_the_dump_fallback(tmp_path):
+    cmp_dir, dump, root = _packets_setup(tmp_path, {"a": _titles_row(d=3)},
+                                         [_dump_row("a", [("T0", "x")] * 3, wholly=True),
+                                          _dump_row("b", [("T0", "x")] * 3)])
+    tr = json.loads((cmp_dir / "title_rows.json").read_text())
+    tr["view"] = "as-is (no overrides stripped)"
+    (cmp_dir / "title_rows.json").write_text(json.dumps(tr))
+    extra = tmp_path / "x.txt"
+    extra.write_text("b\n")
+    out = tmp_path / "o"
+    assert thp.main(["packets", "--cmp", str(cmp_dir), "--dump", str(dump), "--out", str(out),
+                     "--extra", f"ex={extra}"]) == 0
+    a = (out / "wholly_untagged_d3" / "a.md").read_text()
+    assert "view: as-is (no overrides stripped)" in a and "wired fresh-get" not in a
+    b = (out / "ex" / "b.md").read_text()
+    assert "PRE-WIRING `all` arm" in b and "wired fresh-get" not in b
+
+
+def test_packets_refuses_when_no_root_is_recorded(tmp_path, capsys):
+    cmp_dir, dump, root = _packets_setup(tmp_path, {"a": _titles_row(d=3)},
+                                         [_dump_row("a", [("T0", "x")] * 3)])
+    tr = json.loads((cmp_dir / "title_rows.json").read_text())
+    del tr["root"]
+    (cmp_dir / "title_rows.json").write_text(json.dumps(tr))
+    assert thp.main(["packets", "--cmp", str(cmp_dir), "--dump", str(dump), "--out", str(tmp_path / "o")]) == 2
+    assert "pass --root" in capsys.readouterr().err

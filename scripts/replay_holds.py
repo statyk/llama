@@ -152,12 +152,13 @@ def _replay_stripped(d: Path, *, shadow_root: Path, keys: tuple[str, ...], **kw)
     return row
 
 
-def _parse_disabled(spec: str | None) -> frozenset[str]:
+def _parse_disabled(spec: str | None, enabled: frozenset[str] | None = None) -> frozenset[str]:
+    enabled = title_hygiene.ENABLED_SLICES if enabled is None else enabled
     names = frozenset(x.strip() for x in (spec or "").split(",") if x.strip())
-    bad = sorted(names - title_hygiene.ENABLED_SLICES)
+    bad = sorted(names - enabled)
     if bad:
         raise Refusal(f"slice(s) in --disable-slices that are not enabled: {', '.join(bad)} "
-                      f"(enabled: {', '.join(sorted(title_hygiene.ENABLED_SLICES))})")
+                      f"(enabled: {', '.join(sorted(enabled))})")
     return names
 
 
@@ -1058,7 +1059,7 @@ def _state_label(delivery: Path | None, slug: str, state) -> str:
 
 def _delta_kind(c: dict) -> str:
     """Where a cleared hold sits: held now / would-hold on a fresh get (a shipped show whose
-    overrides, stripped in a fresh-get arm, were masking the hold) / currently packaged."""
+    overrides, stripped in a fresh-get arm, were masking the hold) / currently shipped (any non-held state)."""
     if c.get("state") == "held":
         return "held now"
     if c.get("stripped"):
@@ -1226,7 +1227,12 @@ def _title_rows(base: dict, cand: dict, root: Path, delivery: Path | None) -> di
             "slice4": slice4, "titles": list(c.get("titles") or []),
             "title_sources": list(c.get("title_sources") or []), "title_paths": paths,
             "changes": ch}
-    return {"cand_sha": cand.get("sha"), "root": str(root), "shows": shows}
+    t, st = bool(cand.get("title_overrides_stripped")), bool(cand.get("structure_overrides_stripped"))
+    view = ("fresh-get (title and structure overrides stripped)" if t and st else
+            "as-is (no overrides stripped)" if not t and not st else
+            "partly stripped (" + ("title overrides" if t else "structure overrides") + " only)")
+    return {"cand_sha": cand.get("sha"), "root": str(root), "view": view,
+            "disabled_slices": list(cand.get("disabled_slices") or []), "shows": shows}
 
 
 def _write(out: Path, name: str, lines: list[str]) -> None:

@@ -1917,12 +1917,12 @@ def _changed(trow: dict | None, drow: dict | None) -> list[tuple[int, str]]:
     return []
 
 
-def _packet(slug: str, stratum: str, trow: dict | None, drow: dict | None, root: Path) -> str:
+def _packet(slug: str, stratum: str, trow: dict | None, drow: dict | None, root: Path,
+            view: str = "unknown view") -> str:
     md = [f"# {slug}  (stratum {stratum})", ""]
     wired = bool(trow and trow.get("titles"))
     md += ["candidate title source: " + (
-        "the compare arm's titles (title_rows.json; the view the arm was run on, fresh-get if it was "
-        "run with both strip flags)" if wired else
+        f"the compare arm's wired titles (title_rows.json); view: {view}" if wired else
         "the dump's PRE-WIRING `all` arm, fresh-get view (this show is not in title_rows.json)"), ""]
     if trow is not None:
         md.append(f"state {trow.get('state')}; base {trow.get('base_outcome')} -> cand "
@@ -1939,7 +1939,7 @@ def _packet(slug: str, stratum: str, trow: dict | None, drow: dict | None, root:
     srcs = (trow or {}).get("title_sources") or [t["source"] for t in allarm.get("tracks") or []]
     paths = (trow or {}).get("title_paths") or allarm.get("paths") or []
     mark = {n for n, _ in changed}
-    md += ["## Tracks (candidate = the wired fresh-get title; `*` = changed against today)", "",
+    md += ["## Tracks (candidate = see the source line above; `*` = changed against today)", "",
            "| # | file | dur | today (pre-wiring dump) | candidate | source | path | raw tag |", "|---|---|---|---|---|---|---|---|"]
     esc = lambda x: str(x if x is not None else "").replace("|", "/")      # noqa: E731
     for i in range(max(len(today), len(titles))):
@@ -2004,7 +2004,9 @@ def packets(args: argparse.Namespace) -> int:
     if not isinstance(tr, dict) or not isinstance(tr.get("shows"), dict):
         raise replay_holds.Refusal(f"no usable title_rows.json in {args.cmp} (run compare first)")
     trows = tr["shows"]
-    root = args.root or Path(tr.get("root") or ".")
+    if not args.root and not tr.get("root"):
+        raise replay_holds.Refusal("no library root is recorded in title_rows.json; pass --root")
+    root = args.root or Path(tr["root"])
     if replay_holds._overlaps(args.out, root):
         raise replay_holds.Refusal(f"refusing --out {args.out}: it overlaps the library root {root}")
     _, drows = load_dump(args.dump)
@@ -2029,7 +2031,7 @@ def packets(args: argparse.Namespace) -> int:
         for old in d.glob("*.md"):
             old.unlink()
         for s in slugs:
-            (d / f"{s}.md").write_text(_packet(s, stratum, trows.get(s), dby.get(s), root), encoding="utf-8")
+            (d / f"{s}.md").write_text(_packet(s, stratum, trows.get(s), dby.get(s), root, tr.get("view") or "unknown view"), encoding="utf-8")
             ch = _changed(trows.get(s), dby.get(s))
             index.append({"slug": s, "stratum": stratum, "changed": [{"index": n, "path": p} for n, p in ch]})
             lines.append(f"{s}\t{stratum}\t" + ("; ".join(f"#{n} {p}".rstrip() for n, p in ch) or "(none)"))

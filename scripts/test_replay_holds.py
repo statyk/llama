@@ -1622,9 +1622,14 @@ def test_cosmetic_only_clear_is_slice5_and_unreplayable_rows_are_skipped(tmp_pat
     assert "voiced check" in s and "empty in an as-is arm" in s
 
 
-def test_disable_slices_refuses_a_slice_not_enabled(tmp_path, monkeypatch):
-    monkeypatch.setattr(rh.title_hygiene, "ENABLED_SLICES", frozenset({"slice1"}))
-    root = tmp_path / "lib"
-    build_library(root)
-    assert rh.main(["run", "--out", str(tmp_path / "a.json"), "--all", "--config",
-                    str(root / "config.toml"), "--disable-slices", "slice2"]) == 2
+def test_disable_slices_refuses_a_slice_not_enabled():
+    assert rh._parse_disabled("slice1", enabled=frozenset({"slice1"})) == frozenset({"slice1"})
+    with pytest.raises(rh.Refusal, match="not enabled"):
+        rh._parse_disabled("slice2", enabled=frozenset({"slice1"}))
+
+
+def test_title_rows_records_the_arm_view(tmp_path):
+    base, cand, root = _clone_slugs(tmp_path, None)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    assert json.loads((out / "title_rows.json").read_text())["view"].startswith("as-is")
