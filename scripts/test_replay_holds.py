@@ -918,6 +918,93 @@ def test_compare_refuses_mixed_strip_arms_and_writes_no_lists_for_stripped(tmp_p
     assert "apply lists: not written" in (out / "summary.txt").read_text()
 
 
+# --- piece 3: --strip-title-overrides ---
+
+def _run_strip(tmp_path, monkeypatch, flags):
+    root = tmp_path / "lib"
+    shows = build_library(root)
+    live = shows["gratefuldead-1973-06-10"].overrides
+    live.write_text(json.dumps(_OVERRIDES))
+    live_bytes = live.read_bytes()
+    seen = {}
+    real = rh.replay_show
+
+    def spy(ws, **kw):
+        if ws.dir.name == "gratefuldead-1973-06-10":
+            seen["overrides"] = json.loads(ws.overrides.read_text())
+        return real(ws, **kw)
+
+    monkeypatch.setattr(rh, "replay_show", spy)
+    out = tmp_path / "arm.json"
+    assert rh.main(["run", "--out", str(out), "--all", *flags,
+                    "--config", str(root / "config.toml"),
+                    "--scratch", str(tmp_path / "scratch")]) == 0
+    assert live.read_bytes() == live_bytes
+    return seen["overrides"], json.loads(out.read_text())
+
+
+def test_strip_titles_removes_only_titles(tmp_path, monkeypatch):
+    seen, arm = _run_strip(tmp_path, monkeypatch, ["--strip-title-overrides"])
+    assert seen == {"exclude": ["nonexistent-track.mp3"], "set_breaks": [3], "encore_after": 5}
+    assert arm["title_overrides_stripped"] is True
+    assert arm["structure_overrides_stripped"] is False
+    assert arm["shows"]["gratefuldead-1973-06-10"]["stripped"] == {"titles": {"1": "Forced Title"}}
+
+
+def test_both_strip_flags_together(tmp_path, monkeypatch):
+    seen, arm = _run_strip(tmp_path, monkeypatch,
+                           ["--strip-title-overrides", "--strip-structure-overrides"])
+    assert seen == {"exclude": ["nonexistent-track.mp3"]}
+    assert arm["title_overrides_stripped"] is True and arm["structure_overrides_stripped"] is True
+    assert arm["shows"]["gratefuldead-1973-06-10"]["stripped"] == {
+        "titles": {"1": "Forced Title"}, "set_breaks": [3], "encore_after": 5}
+
+
+def test_shadow_takes_the_keys_as_a_contract(tmp_path):
+    root = tmp_path / "lib"
+    shows = build_library(root)
+    d = shows["gratefuldead-1973-06-10"].dir
+    d.joinpath("overrides.json").write_text(json.dumps(_OVERRIDES))
+    ws, stripped = rh._shadow(d, tmp_path / "sh", ("titles", "set_breaks", "encore_after"))
+    assert json.loads(ws.overrides.read_text()) == {"exclude": ["nonexistent-track.mp3"]}
+    assert set(stripped) == {"titles", "set_breaks", "encore_after"}
+
+
+def _title_arms(tmp_path, base_flag, cand_flag):
+    root = tmp_path / "lib"
+    build_library(root, held_for_real=True)
+    cfg = str(root / "config.toml")
+    paths = []
+    for name, flag in (("base", base_flag), ("cand", cand_flag)):
+        p = tmp_path / f"{name}.json"
+        assert rh.main(["run", "--out", str(p), "--all", "--config", cfg]
+                       + (["--strip-title-overrides"] if flag else [])) == 0
+        paths.append(p)
+    return paths
+
+
+def test_compare_refuses_mixed_title_strip_arms(tmp_path, capsys):
+    base, cand = _title_arms(tmp_path, False, True)
+    assert rh.main(["compare", str(base), str(cand), "--out", str(tmp_path / "m")]) == 2
+    assert "title_overrides_stripped differs" in capsys.readouterr().err
+    assert rh.main(["compare", str(cand), str(base), "--out", str(tmp_path / "m2")]) == 2
+    arm = json.loads(base.read_text())
+    del arm["title_overrides_stripped"]          # a pre-piece-3 arm reads as unstripped
+    base.write_text(json.dumps(arm))
+    assert rh.main(["compare", str(base), str(base), "--out", str(tmp_path / "ok")]) == 0
+
+
+def test_no_apply_lists_for_title_stripped_arms(tmp_path):
+    sb, sc = _title_arms(tmp_path, True, True)
+    out = tmp_path / "stripped"
+    out.mkdir()
+    for name in ("predicted_list.json", "structure_changed_list.json", "pilot_list.json"):
+        (out / name).write_text("stale")
+    assert rh.main(["compare", str(sb), str(sc), "--out", str(out)]) == 0
+    assert not list(out.glob("*_list.json"))
+    assert "apply lists: not written" in (out / "summary.txt").read_text()
+
+
 # --- Piece 2 (taper markers): taper_cleared / taper_changes / the `taper` note group ---
 
 HELD_SLUG = "gratefuldead-1973-06-10"
