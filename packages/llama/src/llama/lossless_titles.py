@@ -35,7 +35,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from llama.desc_list import DescList
+from llama.desc_list import _TRAIL_MARKERS, DescList
 from llama.junk import LOSSLESS_TITLE_FORMATS, filter_files
 from llama.models import ParsedSetlist
 from llama.placeholders import is_junk_tag
@@ -205,8 +205,11 @@ def apply_lossless(kept: list[dict], tag_titles: list[str], tag_source: str, *, 
                 changed[i] = "C2"
 
     for i in sorted(changed):
+        # Checkpoint A ruling (h): ship the title without its taper segue/footnote marker,
+        # after the adoption decision; an all-marker title ships as it is.
+        new = _TRAIL_MARKERS.sub("", lossless[i]).strip() or lossless[i]
         notes.append(f"lossless title: track {i + 1} '{tag_titles[i]}' -> "
-                     f"'{lossless[i]}' ({changed[i]})")
-        titles[i] = lossless[i]
+                     f"'{new}' ({changed[i]})")
+        titles[i] = new
         sources[i] = SIBLING_FORMAT
     return result(changed, declined, c1_notes + notes, verdicts, c_holds)

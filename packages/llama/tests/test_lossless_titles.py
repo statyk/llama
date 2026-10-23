@@ -368,3 +368,16 @@ def test_lossless_tag_agreeing_at_its_own_position_is_not_shifted():
              desc=_dl("Jam", "Jam", "Jam", "Deal"))
     assert r.declined is None
     assert r.changed == {0: "C1", 1: "C1", 2: "C1", 3: "C1"}
+
+
+def test_c_ships_the_lossless_title_without_its_trailing_taper_marker():
+    # darkstarorchestra-2012-10-13 (Checkpoint A ruling h): the FLAC tags read
+    # 'Dark Star->' beside a description that lists 'Dark Star->'.
+    names = ["Jack Straw", "Here Comes Sunshine", "Feel Like a Stranger", "Dark Star->",
+             "Playin in the Band->", "Morning Dew*"]
+    r = _run([("tmp", t) for t in names], desc=_dl(*names))
+    assert r.changed == {i: "C1" for i in range(6)}
+    assert r.titles[3] == "Dark Star" and r.titles[4] == "Playin in the Band"
+    assert r.titles[5] == "Morning Dew"
+    assert "lossless title: track 4 'tmp' -> 'Dark Star' (C1)" in r.notes
+
