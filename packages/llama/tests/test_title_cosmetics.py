@@ -59,3 +59,14 @@ def test_residue_only_title_left_alone():
 def test_other_sources_are_stripped():
     for s in ["sibling-format", "setlist", "setlist-gap", "desc-position", "sibling-align"]:
         assert _run("Song.wav", s)[0] == "Song"
+
+
+def test_keep_rule_refuses_placeholder_results():
+    for t in ["track01.flac", "d1t01 Track 1", "06:58 - Track 03", "tmp.wav",
+              "gd1977-05-08.sbd.flac"]:
+        assert _run(t)[0] == t, t
+
+
+def test_keep_rule_2a_arm_accepts_short_tag_and_vetoes_junk():
+    assert _run("06:58 - 42")[0] == "42"
+    assert _run("06:58 - 12/31/95")[0] == "06:58 - 12/31/95"
