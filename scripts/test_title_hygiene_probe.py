@@ -282,3 +282,248 @@ def test_gate0_failures_counts_none_on_replayable_rows():
                                "unreplayable_as_is": "x", "gate0_as_is": None}) == 0
     assert thp.gate0_failures({"unreplayable": None, "gate0": False,
                                "unreplayable_as_is": None, "gate0_as_is": False}) == 2
+
+
+# --- the gate table (plan Task 14) -------------------------------------------------------------
+
+import copy  # noqa: E402
+
+HEADINGS = [f"R{i}" for i in range(20)] + ["R2b", "Notes for Checkpoint A"]
+
+
+def _rec(**kw):
+    base = {"wholly_untagged": False, "fetch_siblings": False, "s_positions": [], "lossless": None,
+            "s_plan": {"mode": "none", "fills": {}, "deferred": {}, "declined": [], "notes": []},
+            "d": None, "short4": [], "short4_declined": {}, "gap_filled": [],
+            "deferred_applied": []}
+    base.update(kw)
+    return base
+
+
+def _arm(titles, sources, paths=None, *, rec=None, cov=1.0, self_filled=False, notes=()):
+    return {"tracks": [{"title": t, "source": s} for t, s in zip(titles, sources)],
+            "paths": list(paths or [""] * len(titles)), "coverage": cov,
+            "self_filled": self_filled, "op_notes": list(notes), "struct_notes": [],
+            "record": rec or _rec()}
+
+
+def _row(slug, today, new, paths, *, flags=(), rec=None, canon="setlist.fm", **kw):
+    """today / new: [(title, source)]."""
+    none = _arm([t for t, _ in today], [s for _, s in today])
+    allarm = _arm([t for t, _ in new], [s for _, s in new], paths, rec=rec)
+    arms = {"none": none, "all": allarm}
+    for s in ("slice1", "slice2", "slice3", "slice4", "slice5"):
+        arms[f"all-{s}"] = copy.deepcopy(allarm)
+    row = {"slug": slug, "today": [{"n": i + 1, "title": t, "source": s}
+                                   for i, (t, s) in enumerate(today)],
+           "today_flags": list(flags), "today_notes": [], "arms": arms, "arms_as_is": {"none": none},
+           "canonical": {"source": canon, "confidence": "high", "needs_llm": False, "items": []},
+           "desc": {"used": None}, "structure_override": False, "title_override": False,
+           "gate0": True, "gate0_as_is": True, "unreplayable": None, "unreplayable_as_is": None,
+           "s_candidates": [], "alt_bare_number": [], "alt_hygiene_all_entries": None,
+           "alt_encore_restart": None, "alt_c1": None, "alt_bracketed_s": {"applies": False},
+           "alt_encore_fold": None, "alt_check2_cleaned": {"calls": [], "would_decline": {}},
+           "alt_c2_containment": None, "alt_filler_confirm": []}
+    row.update(kw)
+    return row
+
+
+def _hc_row(cls, slug, tracks, verdict):
+    return {"slug": slug, "class": cls, "show_verdict": verdict, "note": "",
+            "tracks": [{"n": n, "candidate": c, "verdict": v, "correct_title": ct, "why": ""}
+                       for n, c, v, ct in tracks]}
+
+
+def _write_gate_inputs(tmp_path, rows, hc):
+    d = tmp_path / "dump.jsonl"
+    meta = {"_meta": {"sha": "x", "config_fingerprint": "f", "setlistfm_configured": True,
+                      "n": len(rows), "align_coverage_threshold": 0.8}}
+    d.write_text("\n".join(json.dumps(x) for x in [meta, *rows]) + "\n")
+    hdir = tmp_path / "handcheck"
+    for cls, items in hc.items():
+        (hdir / cls).mkdir(parents=True)
+        (hdir / cls / "rows.jsonl").write_text("\n".join(json.dumps(i) for i in items) + "\n")
+    return d, hdir
+
+
+def _three_rows():
+    d_rec = _rec(wholly_untagged=True,
+                 d={"fills": {"0": "Bertha", "1": "Loser"}, "failed": [], "track_declines": {},
+                    "shift": False})
+    a = _row("a-2000-01-01", [("01.mp3", "unresolved"), ("02.mp3", "unresolved")],
+             [("Bertha", "desc-position"), ("Loser", "desc-position")], ["D", "D"], rec=d_rec,
+             flags=["unresolved track titles"])
+    a["arms"]["all"]["self_filled"] = True
+    b = _row("b-2000-01-02", [("X", "setlist"), ("Y", "setlist")],
+             [("X", "unresolved"), ("Y", "unresolved")], ["", ""], canon="chosen",
+             rec=_rec(s_plan={"mode": "untagged", "fills": {}, "deferred": {}, "declined": [0, 1],
+                              "notes": ["positional fill declined: setlist wholly untagged tape"]}))
+    c = _row("c-2000-01-03", [("Dark Star.wav", "tags"), ("Jam", "tags")],
+             [("Dark Star", "tags"), ("Jam", "tags")], ["+5", ""])
+    return [a, b, c]
+
+
+def _hc():
+    return {"D": [_hc_row("D", "a-2000-01-01", [(1, "Bertha", "right", "Bertha"),
+                                                 (2, "Loser", "wrong", "Row Jimmy")],
+                          "some-wrong-not-shift")],
+            "S0": [_hc_row("S", "b-2000-01-02", [(1, "X", "wrong", "Z")], "shifted")],
+            "A": [_hc_row("A", "c-2000-01-03", [(1, "Dark Star", "right-partial", "Dark Star")],
+                          "strip-fixes-it")]}
+
+
+def test_judged_vs_inferred_vs_unjudged(tmp_path):
+    _, hdir = _write_gate_inputs(tmp_path, [], {"D": [_hc_row(
+        "D", "s", [(1, "Bertha", "right", "Bertha"), (2, "Loser", "wrong", "Row Jimmy"),
+                   (3, "Jam", "cant-tell", None), (4, "X", "wrong", "Dark Star")], "all-right")]})
+    hc = thp.HandCheck.load(hdir)
+    assert hc.judge("s", 1, "Bertha") == ("judged", "right")
+    assert hc.judge("s", 2, "Loser") == ("judged", "wrong")
+    assert hc.judge("s", 3, "Jam") == ("judged", "cant-tell")
+    # a candidate that differs from the new title: inferred from correct_title via agrees()
+    assert hc.judge("s", 4, "Dark Star") == ("inferred", "right")
+    assert hc.judge("s", 4, "Eyes of the World") == ("inferred", "wrong")
+    assert hc.judge("s", 3, "Something Else") == ("unjudged", None)   # no correct_title
+    assert hc.judge("s", 9, "Nope") == ("unjudged", None)
+    assert hc.judge("s", 1, "Bertha", classes={"S"}) == ("unjudged", None)  # another class
+
+
+def test_show_verdict_mapping():
+    g = thp.verdict_group
+    assert [g(v) for v in ("all-right", "fix-helps", "strip-fixes-it")] == ["good"] * 3
+    assert [g(v) for v in ("shifted", "some-wrong-not-shift", "fix-hurts", "mixed",
+                           "strip-would-damage", "strip-not-enough")] == ["bad"] * 6
+    assert g("fix-neutral") == "neutral" and g("cant-tell") == "cant-tell"
+    # never pooled: the tally keeps its own columns
+    t = thp.tally_groups(["good", "bad", "neutral", "cant-tell", None])
+    assert t == {"good": 1, "bad": 1, "neutral": 1, "cant-tell": 1, "unchecked": 1}
+
+
+def test_newly_held_approximation():
+    r = _row("h", [("a", "unresolved")], [("a", "desc-position")], ["D"],
+             flags=["unresolved track titles", "low-confidence structure alignment"])
+    # today's flags minus the two, plus low-confidence unless self-filled or covered, plus
+    # `unresolved track titles` when any track is unresolved
+    assert thp.held_arm(r, "all", 0.8) is False           # coverage 1.0 reaches the threshold
+    r["arms"]["all"]["coverage"] = 0.5
+    assert thp.held_arm(r, "all", 0.8) is True
+    r["arms"]["all"]["self_filled"] = True
+    assert thp.held_arm(r, "all", 0.8) is False
+    r["arms"]["all"]["tracks"][0]["source"] = "unresolved"
+    assert thp.held_arm(r, "all", 0.8) is True
+    r["arms"]["all"]["tracks"][0]["source"] = "tags"
+    r["today_flags"] = ["research asserts 2 sets but structure has 1"]
+    assert thp.held_arm(r, "all", 0.8) is True
+    assert thp.held_today(r) is True
+
+
+def test_untagged_unchecked_list(tmp_path):
+    rows = _three_rows()
+    for slug, wholly in (("a-2000-01-01", True), ("b-2000-01-02", True), ("c-2000-01-03", True)):
+        r = next(x for x in rows if x["slug"] == slug)
+        r["arms"]["all"]["record"]["wholly_untagged"] = wholly
+        n = len(r["arms"]["all"]["tracks"])
+        r["desc"] = {"used": "numbered", "numbered": {"n": n}}
+    rows[2]["desc"] = {"used": "numbered", "numbered": {"n": 5}}        # not count-matched
+    d, hdir = _write_gate_inputs(tmp_path, rows, {
+        "U0": [_hc_row("U", "a-2000-01-01", [(1, "Bertha", "right", "Bertha")], "all-right")]})
+    out = tmp_path / "out"
+    assert thp.main(["gate", "--dump", str(d), "--handcheck", str(hdir),
+                     "--census", str(tmp_path / "none.jsonl"), "--out", str(out)]) == 0
+    assert (out / "untagged_unchecked.txt").read_text().split() == ["b-2000-01-02"]
+    table = (out / "gate_table.md").read_text()
+    assert "R13" in table
+
+
+def test_alternative_rows_read_the_dump(tmp_path):
+    rows = _three_rows()
+    a, b, c = rows
+    b["alt_bracketed_s"] = {"applies": True, "fills": [0, 1], "remain": [0], "dropped": [1],
+                            "remain_both_sides": [], "dropped_both_sides": [0, 1], "runs": []}
+    a["alt_bare_number"] = [{"pos": 0, "text": "7", "own_core": "", "judge": {"ok": False},
+                             "exemption_decided": True}]
+    a["alt_hygiene_all_entries"] = {"d_ran": True, "candidates": [0], "failures": [],
+                                    "extra": [{"pos": 5, "check": "hygiene:timestamp",
+                                               "text": "12:00", "candidate": False}]}
+    a["alt_encore_restart"] = {"default": "non-contiguous at 9", "encore_header": "admitted",
+                               "admits_new": True, "count_matched": True}
+    c["alt_c1"] = {"declined": "C1 unconfirmed", "c_holds": None,
+                   "targets": [{"pos": 0, "a": True, "b": None, "adopted": False},
+                               {"pos": 1, "a": False, "b": False, "adopted": False}],
+                   "would_pass_alone": 1, "via_c_where_ab_disagreed": []}
+    d, hdir = _write_gate_inputs(tmp_path, rows, _hc())
+    out = tmp_path / "out"
+    assert thp.main(["gate", "--dump", str(d), "--handcheck", str(hdir),
+                     "--census", str(tmp_path / "none.jsonl"), "--out", str(out)]) == 0
+    data = {json.loads(ln)["row"]: json.loads(ln)["data"]
+            for ln in (out / "gate_rows.jsonl").read_text().splitlines()}
+    assert data["R4"]["gap_span"]["shows_with_drops"] == 1
+    assert data["R4"]["gap_span"]["dropped"] == 1
+    assert data["R4"]["both_sides"]["dropped"] == 2
+    assert data["R14"]["shows"] == 1
+    assert data["R15"]["shows_with_extra"] == 1
+    assert data["R16"]["admits_new"] == 1
+    assert data["R17"]["declined_shows"] == 1
+    assert data["R17"]["targets"] == 2 and data["R17"]["would_pass_alone"] == 1
+
+
+def test_q1_declines_need_a_non_empty_decline(tmp_path):
+    rows = _three_rows()
+    quiet = copy.deepcopy(rows[1])
+    quiet["slug"] = "q-2000-01-04"
+    quiet["arms"]["all"]["record"]["s_plan"] = {"mode": "untagged", "fills": {}, "deferred": {},
+                                                "declined": [], "notes": []}
+    d, hdir = _write_gate_inputs(tmp_path, [*rows, quiet], _hc())
+    out = tmp_path / "out"
+    assert thp.main(["gate", "--dump", str(d), "--handcheck", str(hdir),
+                     "--census", str(tmp_path / "none.jsonl"), "--out", str(out)]) == 0
+    data = {json.loads(ln)["row"]: json.loads(ln)["data"]
+            for ln in (out / "gate_rows.jsonl").read_text().splitlines()}
+    assert data["R5"]["q1"]["shows"] == 1            # the mode-only show is not a Q1 decline
+    assert data["R5"]["q1"]["tracks"] == 2
+    assert data["R5"]["q1"]["verdicts"]["bad"] == 1
+
+
+def test_gate0_row_treats_none_as_failing(tmp_path):
+    rows = _three_rows()
+    rows[0]["gate0"] = None
+    d, hdir = _write_gate_inputs(tmp_path, rows, _hc())
+    out = tmp_path / "out"
+    assert thp.main(["gate", "--dump", str(d), "--handcheck", str(hdir),
+                     "--census", str(tmp_path / "none.jsonl"), "--out", str(out)]) == 0
+    data = {json.loads(ln)["row"]: json.loads(ln)["data"]
+            for ln in (out / "gate_rows.jsonl").read_text().splitlines()}
+    assert data["R0"]["fresh"] == {"pass": 2, "total": 3}
+
+
+def test_every_row_heading_present(tmp_path):
+    d, hdir = _write_gate_inputs(tmp_path, _three_rows(), _hc())
+    out = tmp_path / "out"
+    assert thp.main(["gate", "--dump", str(d), "--handcheck", str(hdir),
+                     "--census", str(tmp_path / "none.jsonl"), "--out", str(out)]) == 0
+    table = (out / "gate_table.md").read_text()
+    for h in HEADINGS:
+        assert f"## {h}" in table or f"## {h}." in table or f"## {h} " in table, h
+    assert (out / "samples").is_dir() and (out / "untagged_unchecked.txt").exists()
+    assert table.index("## R19") < table.index("## Notes for Checkpoint A")
+
+
+def test_notes_section_reads_the_dump(tmp_path):
+    rows = _three_rows()
+    rows[0]["desc"] = {"used": "parse", "numbered": {"reason": "non-contiguous at 9"},
+                       "parse": {"reason": None, "reader": "parse", "n": 2, "entries": []}}
+    rows[1]["desc"] = {"used": None, "numbered": {"reason": "no numbered lines"},
+                       "parse": {"reason": "per-line count disagrees"}}
+    rows[0]["alt_c1"] = {"declined": None, "c_holds": True, "targets": [],
+                         "would_pass_alone": 0, "via_c_where_ab_disagreed": [3]}
+    d, hdir = _write_gate_inputs(tmp_path, rows, _hc())
+    out = tmp_path / "out"
+    assert thp.main(["gate", "--dump", str(d), "--handcheck", str(hdir),
+                     "--census", str(tmp_path / "none.jsonl"), "--out", str(out)]) == 0
+    data = {json.loads(ln)["row"]: json.loads(ln)["data"]
+            for ln in (out / "gate_rows.jsonl").read_text().splitlines()}
+    n = data["NOTES"]
+    assert n["reader_i_reasons"] == {"no numbered lines": 1, "non-contiguous at N": 1}
+    assert n["reader_ii_reasons"] == {"per-line count disagrees": 1}
+    assert n["parse_with_noncontiguous_numbered"]["shows"] == 1
+    assert n["c1_via_c_disagreed"]["shows"] == 1
