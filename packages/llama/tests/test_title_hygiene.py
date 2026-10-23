@@ -545,7 +545,19 @@ def test_sibling_pairs_need_a_real_donor_title_and_ignore_filler():
     donor2 = _donor(["Banter", "Wrong", "Dark Star", "Ripple"], [(0, 1), (1, 2), (2, 3), (3, 4)])
     assert sibling_disagreement(cands, donor2) == (1, "Jack Straw", "Wrong")
     # A row with no candidate (a resolved position) is not a pair: one pair left, inert.
-    assert sibling_disagreement({1: "Jack Straw", 2: "Tuning"}, donor2) is None
+    assert sibling_disagreement({1: "Jack Straw"}, donor2) is None
+
+
+def test_filler_sibling_pair_counts_toward_min_anchors_as_neutral():
+    # One disagreeing song pair plus one filler pair: two pairs, so the check is live.
+    donor = _donor(["Jack Straw", "Tuning"], [(0, 1), (1, 2)])
+    assert sibling_disagreement({0: "Bertha", 1: "Tuning"}, donor) == (0, "Bertha", "Jack Straw")
+    # Filler on either side is neutral: it never disagrees.
+    assert sibling_disagreement({0: "Jack Straw", 1: "Dark Star"}, donor) is None
+    tr = [_u(1), _u(2)]
+    d = _d(tr, _dl("Bertha", "Tuning"), untagged=True, donor=lambda: donor)
+    assert d.failed == (("sibling durations", "track 1 'Bertha'"),)
+    assert d.shift and d.fills == {}
 
 
 def test_untagged_checks_only_on_wholly_untagged():
@@ -621,6 +633,13 @@ def test_self_filled_requires_d_to_pass_every_check():
     declined = _filled(("", "unresolved"), ("Sugaree", DESC_POSITION))
     assert not is_self_filled(declined, passed)
     assert not is_self_filled(_filled(("Tuning", "tags")), passed)
+
+
+def test_unresolved_track_blocks_self_filled_even_with_a_filler_looking_filename():
+    passed = DDecision(fills={1: "Sugaree"}, failed=(), track_declines={0: "filler entry"})
+    # An unresolved track's title is its filename; `is_filler` reads `Tuning` in it.
+    tr = _filled(("d1t01 Tuning.flac", "unresolved"), ("Sugaree", DESC_POSITION))
+    assert not is_self_filled(tr, passed)
 
 
 def test_self_filled_end_to_end():

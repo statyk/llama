@@ -319,8 +319,9 @@ def sibling_disagreement(cands: dict[int, str],
                          ) -> tuple[int, str, str] | None:
     """Untagged check (b). `cands` keys are 0-BASED positions; `SiblingRow.track` is 1-BASED.
     A pair is a row whose `donor_span` has length 1 and is shared by no other row, whose
-    donor title passes `is_real_title`, and whose position has a candidate; filler on either
-    side is neutral and not a pair. Check 3's comparator, no aliases. Fewer than
+    donor title passes `is_real_title`, and whose position has a candidate; a pair with filler
+    on either side counts toward `MIN_ANCHORS` but is neutral (never disagrees). Check 3's
+    comparator, no aliases. Fewer than
     `MIN_ANCHORS` pairs is inert. Returns the first disagreement (pos, candidate, donor
     title)."""
     if donor is None:
@@ -338,12 +339,12 @@ def sibling_disagreement(cands: dict[int, str],
         title = tape.titles[span[0]].strip()
         if not title or not is_real_title(title):
             continue
-        if is_filler(title) or is_filler(cands[pos]):
-            continue
         pairs.append((pos, cands[pos], title))
     if len(pairs) < MIN_ANCHORS:
         return None
     for pos, cand, title in pairs:
+        if is_filler(title) or is_filler(cand):
+            continue  # neutral: counted as a pair, never a disagreement
         if not agrees(cand, title):
             return pos, cand, title
     return None
@@ -443,8 +444,11 @@ def d_notes(d: DDecision, dl: DescList) -> list[str]:
 
 def is_self_filled(tracks: list[Track], d: DDecision | None) -> bool:
     """Slice 2, "Self-filled tapes": D passed every check and every song-like track is
-    `desc-position` (and there is at least one)."""
+    `desc-position` (and there is at least one). Any `unresolved` track blocks it: its title
+    is its filename, which `is_filler` may read as filler (`d1t01 Tuning.flac`)."""
     if d is None or d.failed:
+        return False
+    if any(t.title_source == "unresolved" for t in tracks):
         return False
     songs = [t for t in tracks if not is_filler(t.title)]
     return bool(songs) and all(t.title_source == DESC_POSITION for t in songs)
