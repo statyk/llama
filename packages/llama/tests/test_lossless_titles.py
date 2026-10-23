@@ -554,3 +554,17 @@ def test_c1_two_confirmed_signature_positions_demote():
     r = _run(pairs, desc=desc)
     assert r.changed == {1: "C2", 2: "C2"}
     assert r.demoted == (3,) and r.titles[3] == ""
+
+
+def test_c1_counts_confirmed_signature_positions_not_any_c_change():
+    # Pins "at signature positions" against "any C change": the signature is {2, 3}, only
+    # track 2 is C2-confirmed, and track 5 carries a second C2 change that is NOT a
+    # signature position (its delivered tag agrees with no reference entry). len(changed)
+    # is 2 but confirmed signature positions are 1, so nothing is demoted.
+    desc = _dl("Bertha", "Sugaree", "Deal", "Loser", "Jack Straw")
+    pairs = [("Bertha", "Bertha"), ("Deal", "Sugaree"), ("Loser", "Loser"),
+             ("Big River", "Big River"), ("Xyzzy Blues", "Jack Straw")]
+    r = _run(pairs, desc=desc)
+    assert r.changed == {1: "C2", 4: "C2"}
+    assert r.demoted == () and r.titles[3] == "Big River"
+    assert not any(n.startswith("lossless titles: shifted") for n in r.notes)
