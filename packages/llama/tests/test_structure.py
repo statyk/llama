@@ -2086,3 +2086,37 @@ def test_normalize_song_still_splits_on_a_curly_apostrophe():   # (pin) the stri
 
 def test_contains_sequence_matches_a_curly_description():
     assert contains_sequence("Bertha &gt; Don’t Ease Me In", ["Don't Ease Me In"])
+
+
+def test_hygienic_title_require_real():
+    """(pin for the default) require_real=False skips only the is_real_title clause."""
+    from llama.structure import hygienic_title
+    assert hygienic_title("J", set()) is False
+    assert hygienic_title("J", set(), require_real=False) is True
+    assert hygienic_title("Set 1:", set(), require_real=False) is False
+
+
+# --- Title hygiene (piece 3), Task 11 -----------------------------------------------------
+
+def test_declined_positions_bind_setlist_gap():
+    """A count-forced gap containing a declined position (0-based) stays unresolved;
+    without `declined` (the default, pinned) the same gap fills, and a declined position
+    outside the run does not bind it."""
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False),
+                           ("Charlie", "1", False), ("Delta", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"),
+                         ("f3.mp3", "unresolved"), ("Delta", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set(), declined=frozenset({2}))
+    assert [t.title_source for t in out] == ["tags", "unresolved", "unresolved", "tags"]
+    default = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert [t.title for t in default] == ["Alpha", "Bravo", "Charlie", "Delta"]
+    outside = adopt_gap_titles(tracks, canonical, metadata_norms=set(), declined=frozenset({0}))
+    assert [t.title_source for t in outside] == ["tags", "setlist-gap", "setlist-gap", "tags"]
+
+
+def test_desc_position_is_tautological():
+    """`desc-position` (D, slice 2) copies a list entry, so a match against a list proves
+    nothing: it is in the one constant and leaves `_songish_coverage`'s denominator."""
+    assert "desc-position" in structure.TAUTOLOGICAL_TITLE_SOURCES
+    tracks = _gap_tracks(("Alpha", "tags"), ("Bravo", "desc-position"), ("f3.mp3", "tags"))
+    assert structure._songish_coverage(tracks, [True, True, False]) == 0.5

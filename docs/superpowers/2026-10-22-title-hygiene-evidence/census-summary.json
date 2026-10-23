@@ -1,0 +1,599 @@
+{
+ "meta": {
+  "sha": "11dbffbd87acacb9c92c82babae50f4a43f4647d",
+  "config_fingerprint": "3f1af9a82e0fd74af2f14b61a6efb142f4a386fd7dead930f0a8d391491b2757",
+  "setlistfm_configured": true,
+  "n": 3983
+ },
+ "basis": {
+  "replay": 3288,
+  "replay(needs-llm:structure-only)": 692,
+  "replay(needs-llm:extract_setlist)": 3
+ },
+ "n_shows": 3983,
+ "states": {
+  "delivered": 2566,
+  "packaged": 842,
+  "voiced": 220,
+  "held": 334,
+  "briefed": 21
+ },
+ "A": {
+  "shows": 86,
+  "tracks": 741,
+  "by_state": {
+   "delivered": 45,
+   "packaged": 25,
+   "held": 14,
+   "voiced": 2
+  },
+  "not_held_now": 72,
+  "silent_under_current_code": 35,
+  "family": 16,
+  "by_shape": {
+   "leading-timestamp+text": 379,
+   "stem/date-residue-inside": 236,
+   "bare-number(=position or 0-led)": 45,
+   "joined-num-prefix(=position)": 23,
+   "spaced-num-prefix(=position)": 19,
+   "2b:placeholder-vocab": 15,
+   "filename-stem": 14,
+   "set-prefix+text": 6,
+   "audio-extension-inside": 3,
+   "disc-prefix+text": 1
+  },
+  "by_shape_src": {
+   "leading-timestamp+text | tags": 355,
+   "stem/date-residue-inside | tags": 236,
+   "bare-number(=position or 0-led) | setlist": 45,
+   "leading-timestamp+text | setlist": 24,
+   "joined-num-prefix(=position) | tags": 23,
+   "spaced-num-prefix(=position) | tags": 15,
+   "2b:placeholder-vocab | tags": 15,
+   "filename-stem | tags": 14,
+   "set-prefix+text | tags": 5,
+   "spaced-num-prefix(=position) | setlist": 4,
+   "audio-extension-inside | tags": 3,
+   "disc-prefix+text | tags": 1,
+   "set-prefix+text | sibling-format": 1
+  },
+  "shapes_by_state": {
+   "leading-timestamp+text": {
+    "packaged": 5,
+    "delivered": 20,
+    "voiced": 1,
+    "held": 3
+   },
+   "stem/date-residue-inside": {
+    "delivered": 7,
+    "packaged": 10,
+    "held": 1
+   },
+   "bare-number(=position or 0-led)": {
+    "held": 4
+   },
+   "joined-num-prefix(=position)": {
+    "delivered": 4
+   },
+   "spaced-num-prefix(=position)": {
+    "delivered": 7,
+    "held": 3,
+    "voiced": 1,
+    "packaged": 7
+   },
+   "2b:placeholder-vocab": {
+    "held": 3,
+    "packaged": 1
+   },
+   "filename-stem": {
+    "delivered": 1
+   },
+   "set-prefix+text": {
+    "delivered": 4,
+    "packaged": 1
+   },
+   "audio-extension-inside": {
+    "delivered": 1,
+    "packaged": 1
+   },
+   "disc-prefix+text": {
+    "delivered": 1
+   }
+  },
+  "silent_by_shape": {
+   "set-prefix+text": 6,
+   "stem/date-residue-inside": 60,
+   "disc-prefix+text": 1,
+   "leading-timestamp+text": 80,
+   "joined-num-prefix(=position)": 22,
+   "spaced-num-prefix(=position)": 11,
+   "audio-extension-inside": 3
+  }
+ },
+ "A_rev": {
+  "shows": 74,
+  "tracks": 95,
+  "by_state": {
+   "packaged": 49,
+   "held": 15,
+   "delivered": 10
+  },
+  "not_held_now": 59,
+  "silent_under_current_code": 8,
+  "family": 0,
+  "by_kind": {
+   "not-real-title(no 2a rescue)": 93,
+   "2b-demoted": 2
+  },
+  "by_shape": {
+   "numeric": 26,
+   "short": 69
+  },
+  "now_src": {
+   "unresolved": 80,
+   "setlist": 12,
+   "sibling-align": 1,
+   "setlist-gap": 2
+  },
+  "witness_sources": {
+   "own-desc-text": 84,
+   "own-parse": 74,
+   "canonical": 61,
+   "operator-override-same-position": 62,
+   "donor": 17,
+   "corroboration": 9
+  },
+  "operator_confirmed": 62,
+  "top_cores": {
+   "J": 19,
+   "12-28-99": 4,
+   "12.28.99": 3,
+   "VA": 3,
+   "420": 3,
+   "Dm": 2,
+   "2:22": 2,
+   "RV": 2,
+   "3.2": 2,
+   "I-55": 2,
+   "1 in 7": 2,
+   "FM": 2,
+   "#2": 1,
+   "3/4": 1,
+   "9 x 9": 1,
+   "2x4": 1,
+   "07:22 - IB49": 1,
+   "51-7": 1,
+   "7/4": 1,
+   "44": 1,
+   "42 (><)": 1,
+   "7-11 (5)": 1,
+   "M80": 1,
+   "42": 1,
+   "7-11 (3)": 1,
+   "I'm 18": 1,
+   "45 am": 1,
+   "Ol' 55": 1,
+   "6:15": 1,
+   "E1:3-4-4-3": 1
+  }
+ },
+ "A_ambiguous": {
+  "shows": 378,
+  "tracks": 418,
+  "by_state": {
+   "delivered": 256,
+   "packaged": 91,
+   "held": 21,
+   "voiced": 5,
+   "briefed": 5
+  },
+  "not_held_now": 357,
+  "silent_under_current_code": 282,
+  "family": 3,
+  "by_shape": {
+   "ambiguous:number-led-title": 326,
+   "ambiguous:date-like": 17,
+   "ambiguous:bare-number": 36,
+   "ambiguous:joined-number-led": 5,
+   "ambiguous:artist-name": 34
+  }
+ },
+ "B": {
+  "shows": 266,
+  "tracks": 3539,
+  "by_state": {
+   "delivered": 3,
+   "packaged": 130,
+   "held": 130,
+   "briefed": 3
+  },
+  "not_held_now": 136,
+  "silent_under_current_code": 0,
+  "family": 52,
+  "flag_classes": {
+   "echo-plausible": 2194,
+   "unwitnessed-untitled-tape": 456,
+   "witnessed-but-no-unresolved": 608,
+   "unwitnessed": 281
+  },
+  "shows_any_echo": 145,
+  "shows_all_echo": 89,
+  "held_only_echo_plus_unresolved": 39,
+  "held_only_echo_plus_unresolved_lowconf": 64,
+  "with_unresolved": 172
+ },
+ "C": {
+  "shows": 269,
+  "tracks": 2107,
+  "by_state": {
+   "delivered": 154,
+   "packaged": 85,
+   "held": 17,
+   "voiced": 12,
+   "briefed": 1
+  },
+  "not_held_now": 252,
+  "silent_under_current_code": 152,
+  "family": 51,
+  "recovered_shows": 49,
+  "by_cat_not_recovered": {
+   "other-wraps-delivered": 11,
+   "substantive": 388,
+   "delivered-blank": 71,
+   "normalizes-equal": 87,
+   "delivered-not-real": 32,
+   "case/punct/space": 138,
+   "other-blank": 312,
+   "one-side-placeholder": 219,
+   "delivered-wraps-other(prefix/suffix junk)": 24,
+   "other-not-real": 2
+  },
+  "by_cat_recovered": {
+   "delivered-blank": 820,
+   "substantive": 3
+  },
+  "witness_side_substantive": {
+   "other": 191,
+   "both": 183,
+   "delivered": 5,
+   "neither": 9
+  },
+  "witness_side_delivered_blank_or_not_real": {
+   "neither": 11,
+   "other": 92
+  },
+  "shipped_src_delivered_blank": {
+   "unresolved": 64,
+   "setlist-gap": 15,
+   "sibling-align": 5,
+   "setlist": 19
+  },
+  "shows_with_substantive": 119,
+  "shows_delivered_placeholder_other_real": 18,
+  "tracks_delivered_placeholder_other_real": 218,
+  "shows_with_delivered_blank": 36
+ },
+ "D": {
+  "shows": 85,
+  "tracks": 698,
+  "by_state": {
+   "delivered": 5,
+   "packaged": 49,
+   "held": 30,
+   "briefed": 1
+  },
+  "not_held_now": 55,
+  "silent_under_current_code": 0,
+  "family": 12,
+  "list_used": {
+   "own_parse": 25,
+   "numbered_lines": 60
+  },
+  "tracks_gainable_hygienic": 570,
+  "tag_agree": 748,
+  "tag_disagree": 156,
+  "override_agree": 561,
+  "override_disagree": 48,
+  "shows_with_tags_all_agree": 26,
+  "shows_with_tags_some_disagree": 28,
+  "wholly_untagged": 31,
+  "setlist_rung_blocked_by": {
+   "canonical source setlist.fm": 40,
+   "canonical N items != N tracks": 78,
+   "parse_setlist kept N of N numbered lines": 60,
+   "canonical source lma:dalewatsonN-N-N.galaxybarnstage.neumannN.flacN": 1,
+   "(rung conditions met: demoted-Nb or placeholder item)": 5,
+   "canonical source lma:delN-N-N.akN.mkN.flacN": 1,
+   "canonical source lma:gsbgN-N-N.CA-N.flacN": 1
+  },
+  "tag_position_agreement_rate": 0.827,
+  "override_position_agreement_rate": 0.921
+ },
+ "D_offby1": {
+  "shows": 80,
+  "by_state": {
+   "packaged": 48,
+   "held": 31,
+   "briefed": 1
+  },
+  "unresolved_tracks": 609
+ },
+ "union": {
+  "shows": 646,
+  "not_held_now": 477,
+  "silent": 192
+ },
+ "overlaps": {
+  "A&A_rev": 1,
+  "A&B": 18,
+  "A&C": 11,
+  "A&D": 0,
+  "A_rev&B": 2,
+  "A_rev&C": 4,
+  "A_rev&D": 23,
+  "B&C": 35,
+  "B&D": 35,
+  "C&D": 18
+ },
+ "seed_crosscheck": {
+  "A": {
+   "tag": "placeholder-titles-shipped",
+   "tagged": 144,
+   "in_library": 144,
+   "tagged_and_in_class": 24,
+   "tagged_not_in_class": [
+    "backyardtirefire-2006-02-18",
+    "belafleckandtheflecktones-2002-06-08",
+    "belafleckandtheflecktones-2003-04-12",
+    "beneventorusso-2005-08-31",
+    "bigheadtoddandthemonsters-1991-01-21",
+    "billystrings-2018-07-20",
+    "blitzentrapper-2013-11-12",
+    "bobschneider-2005-04-19",
+    "buckethead-2004-06-04",
+    "buckethead-2006-03-15",
+    "charliehunter-2001-12-08",
+    "darkstarorchestra-2004-11-14",
+    "darkstarorchestra-2007-05-17",
+    "darkstarorchestra-2012-07-21",
+    "darkstarorchestra-2012-10-13",
+    "darkstarorchestra-2012-11-21",
+    "deadandcompany-2016-07-09",
+    "deadandcompany-2017-06-24",
+    "delmccouryband-2010-07-16",
+    "delmccouryband-2014-03-07",
+    "derektrucksband-2006-04-14",
+    "discobiscuits-2003-08-15",
+    "discobiscuits-2008-12-27",
+    "dumpstaphunk-2004-04-28",
+    "elliottsmith-1997-05-15",
+    "firehose-1992-02-19",
+    "fugazi-1995-04-05",
+    "furthur-2010-05-30",
+    "furthur-2012-07-15",
+    "furthur-2012-09-23",
+    "furthur-2013-07-20",
+    "georgeporterjr-2022-06-03",
+    "godspeedyoublackemperor-2000-10-30",
+    "gratefuldead-1966-03-12",
+    "gratefuldead-1974-10-19",
+    "gratefuldead-1977-05-17",
+    "gratefuldead-1990-07-16",
+    "greatamericantaxi-2009-11-03",
+    "greenskybluegrass-2007-08-05",
+    "greenskybluegrass-2014-02-28"
+   ]
+  },
+  "B": {
+   "tag": "flags-echo-untitled-tape",
+   "tagged": 197,
+   "in_library": 197,
+   "tagged_and_in_class": 174,
+   "tagged_not_in_class": [
+    "cracker-1994-06-17",
+    "deepbananablackout-2004-04-01",
+    "delmccouryband-2003-04-19",
+    "dispatch-1996-04-16",
+    "gratefuldead-1972-11-18",
+    "gratefuldead-1989-07-19",
+    "melvinsparksband-2003-08-23",
+    "moontaxi-2010-04-15",
+    "neworleanssuspects-2013-05-25",
+    "newridersofthepurplesage-2006-06-30",
+    "railroadearth-2013-10-13",
+    "railroadearth-2013-11-30",
+    "railroadearth-2014-02-08",
+    "robertrandolphandthefamilyband-2005-04-30",
+    "robertwalters20thcongress-2003-10-30",
+    "robertwalters20thcongress-2005-04-12",
+    "soundtribesector9-2004-06-24",
+    "stevekimockband-2003-12-27",
+    "thecodetalkers-2005-08-06",
+    "umphreysmcgee-2004-01-30",
+    "umphreysmcgee-2007-10-04",
+    "yondermountainstringband-2007-06-15",
+    "zachdeputy-2008-12-06"
+   ]
+  },
+  "C": {
+   "tag": "same-item-other-format-has-titles",
+   "tagged": 75,
+   "in_library": 75,
+   "tagged_and_in_class": 67,
+   "tagged_not_in_class": [
+    "clubdelf-2000-04-20",
+    "drive-bytruckers-2008-03-15",
+    "gratefuldead-1990-07-16",
+    "hankwilliamsiii-2004-01-17",
+    "lotus-2003-05-10",
+    "robertrandolphandthefamilyband-2005-04-30",
+    "stevekimock-2002-11-24",
+    "thenewdeal-2004-10-30"
+   ]
+  },
+  "D": {
+   "tag": "description-positional-titles",
+   "tagged": 120,
+   "in_library": 120,
+   "tagged_and_in_class": 32,
+   "tagged_not_in_class": [
+    "aquariumrescueunit-1997-11-08",
+    "bandofheathens-2009-07-27",
+    "belafleckandtheflecktones-1985-06-22",
+    "belafleckandtheflecktones-2003-06-08",
+    "billystrings-2023-06-10",
+    "brokemountainbluegrassband-2004-07-16",
+    "buckethead-2004-06-04",
+    "cracker-1994-06-17",
+    "darkstarorchestra-2002-05-21",
+    "darkstarorchestra-2002-12-29",
+    "darkstarorchestra-2004-04-17",
+    "darkstarorchestra-2004-04-20",
+    "darkstarorchestra-2004-05-06",
+    "darkstarorchestra-2005-11-16",
+    "darkstarorchestra-2005-11-18",
+    "darkstarorchestra-2005-12-03",
+    "davealvin-2004-01-10",
+    "deadandcompany-2016-06-16",
+    "deadandcompany-2016-07-09",
+    "deadandcompany-2017-06-17",
+    "deadandcompany-2017-06-18",
+    "deadandcompany-2017-06-24",
+    "deepbananablackout-2004-04-01",
+    "deepbananablackout-2006-03-18",
+    "derektrucksband-2009-09-16",
+    "elliottsmith-1997-05-15",
+    "furthur-2012-09-23",
+    "garajmahal-2006-01-14",
+    "godspeedyoublackemperor-2001-09-28",
+    "godspeedyoublackemperor-2002-03-31",
+    "gratefuldead-1989-07-19",
+    "gratefuldead-1990-09-19",
+    "infamousstringdusters-2012-01-11",
+    "joerussosalmostdead-2023-05-12",
+    "joerussosalmostdead-2023-10-13",
+    "karldensonstinyuniverse-1999-08-16",
+    "karldensonstinyuniverse-2003-06-28",
+    "kellerwilliams-2008-02-02",
+    "kungfuband-2010-07-22",
+    "larrykeel-2007-11-24"
+   ]
+  },
+  "A_rev": {
+   "tagged": 96,
+   "tagged_and_in_class": 45,
+   "tagged_not_in_class": [
+    "bengibbard-2007-05-09",
+    "blindmelon-2008-06-24",
+    "campervanbeethoven-2006-01-20",
+    "charliehunter-2007-03-21",
+    "discobiscuits-2003-08-15",
+    "discobiscuits-2003-10-23",
+    "discobiscuits-2003-11-28",
+    "discobiscuits-2004-12-29",
+    "discobiscuits-2005-03-25",
+    "discobiscuits-2006-06-26",
+    "discobiscuits-2006-07-02",
+    "discobiscuits-2006-08-25",
+    "discobiscuits-2006-12-28",
+    "discobiscuits-2006-12-31",
+    "discobiscuits-2007-02-16",
+    "discobiscuits-2007-10-19",
+    "discobiscuits-2007-12-29",
+    "discobiscuits-2008-12-27",
+    "discobiscuits-2008-12-31",
+    "discobiscuits-2009-02-06",
+    "discobiscuits-2009-02-15",
+    "discobiscuits-2009-04-18",
+    "discobiscuits-2009-05-30",
+    "g-loveandspecialsauce-2003-08-04",
+    "heavypets-2010-04-11",
+    "infamousstringdusters-2012-03-17",
+    "lotus-2012-07-21",
+    "mermen-2002-01-05",
+    "minutemen-1983-12-16",
+    "newmastersounds-2009-11-07",
+    "particle-2003-12-29",
+    "railroadearth-2008-09-05",
+    "railroadearth-2009-11-28",
+    "railroadearth-2010-07-01",
+    "soundtribesector9-2001-03-16",
+    "soundtribesector9-2002-07-06",
+    "soundtribesector9-2002-07-20",
+    "soundtribesector9-2003-07-05",
+    "soundtribesector9-2006-09-30",
+    "soundtribesector9-2008-07-05"
+   ]
+  }
+ },
+ "extras": {
+  "C_substantive": {
+   "shows": 119,
+   "by_state": {
+    "delivered": 71,
+    "packaged": 40,
+    "held": 4,
+    "voiced": 4
+   },
+   "silent_under_current_code": 65,
+   "not_held_now": 115
+  },
+  "C_substantive_other_side_witnessed_only": {
+   "shows": 82,
+   "by_state": {
+    "delivered": 43,
+    "packaged": 33,
+    "held": 3,
+    "voiced": 3
+   },
+   "silent_under_current_code": 41,
+   "not_held_now": 79
+  },
+  "C_delivered_placeholder_other_real": {
+   "shows": 18,
+   "by_state": {
+    "packaged": 13,
+    "held": 4,
+    "delivered": 1
+   },
+   "silent_under_current_code": 3,
+   "not_held_now": 14
+  },
+  "C_delivered_blank_other_real": {
+   "shows": 36,
+   "by_state": {
+    "delivered": 11,
+    "packaged": 20,
+    "held": 4,
+    "voiced": 1
+   },
+   "silent_under_current_code": 5,
+   "not_held_now": 32
+  },
+  "C_cosmetic_only": {
+   "shows": 64,
+   "by_state": {
+    "delivered": 36,
+    "packaged": 18,
+    "voiced": 5,
+    "held": 4,
+    "briefed": 1
+   },
+   "silent_under_current_code": 40,
+   "not_held_now": 60
+  },
+  "B_asis_unknown_flag_shows": 163,
+  "B_shows_with_title_overrides": 108,
+  "D_asis_still_unresolved": 32,
+  "A_rev_silent_tracks_shipped_wrong": 8,
+  "A_silent_shows_by_shape": {
+   "set-prefix+text": 5,
+   "stem/date-residue-inside": 4,
+   "disc-prefix+text": 1,
+   "leading-timestamp+text": 9,
+   "joined-num-prefix(=position)": 3,
+   "spaced-num-prefix(=position)": 11,
+   "audio-extension-inside": 2
+  }
+ }
+}

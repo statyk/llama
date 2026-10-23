@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import llama
-from llama import jerrybase
+from llama import jerrybase, title_hygiene
 from llama.catalog import derive_state
 from llama.config import DEFAULT_ROOT, load_config
 from llama.ledger import Ledger
@@ -96,15 +96,17 @@ def _targets(shows_dir: Path, scope: str, slugs: list[str],
     return out
 
 
-STRIPPED_KEYS = ("set_breaks", "encore_after")
+STRUCTURE_KEYS = ("set_breaks", "encore_after")
+TITLE_KEYS = ("titles",)
 # Copied into a shadow show dir: everything `compute_legs` reads from the show directory
 # besides `overrides.json` (rewritten) and the stored side `replay_show` reads.
 SHADOW_FILES = ("provenance.json", "show.json", "vetting.json", "briefing.json", "briefing.md")
 
 
-def _shadow(d: Path, shadow_root: Path) -> tuple[ShowWorkspace, dict]:
-    """A scratch copy of show dir `d` whose `overrides.json` has `set_breaks` and
-    `encore_after` removed (excludes, includes, titles, narration and the rest kept:
+def _shadow(d: Path, shadow_root: Path, keys: tuple[str, ...]) -> tuple[ShowWorkspace, dict]:
+    """A scratch copy of show dir `d` whose `overrides.json` has the given `keys`
+    removed (`set_breaks`/`encore_after` for the structure strip, `titles` for the title
+    strip; excludes, includes, narration and the rest kept:
     the adjudicator's targets are in post-exclusion numbering). Built under the run's
     scratch root; `d` is only read. An unparsable overrides file is copied unchanged,
     so the replay records it unreplayable as it would unstripped. Also returns what was
@@ -124,17 +126,17 @@ def _shadow(d: Path, shadow_root: Path) -> tuple[ShowWorkspace, dict]:
             shutil.copyfile(ov, sd / "overrides.json")
         else:
             if isinstance(data, dict):
-                for k in STRIPPED_KEYS:
+                for k in keys:
                     if k in data:
                         stripped[k] = data.pop(k)
             (sd / "overrides.json").write_text(json.dumps(data, indent=1) + "\n")
     return ShowWorkspace(sd), stripped
 
 
-def _replay_stripped(d: Path, *, shadow_root: Path, **kw) -> dict:
+def _replay_stripped(d: Path, *, shadow_root: Path, keys: tuple[str, ...], **kw) -> dict:
     """`replay_show` over the shadow of `d`; the row then carries the REAL show's
     state and input digests, so arms stay comparable with an unstripped base."""
-    shadow, stripped = _shadow(d, shadow_root)
+    shadow, stripped = _shadow(d, shadow_root, keys)
     r = replay_show(shadow, **kw)
     real = ShowWorkspace(d)
     try:
@@ -150,6 +152,16 @@ def _replay_stripped(d: Path, *, shadow_root: Path, **kw) -> dict:
     return row
 
 
+def _parse_disabled(spec: str | None, enabled: frozenset[str] | None = None) -> frozenset[str]:
+    enabled = title_hygiene.ENABLED_SLICES if enabled is None else enabled
+    names = frozenset(x.strip() for x in (spec or "").split(",") if x.strip())
+    bad = sorted(names - enabled)
+    if bad:
+        raise Refusal(f"slice(s) in --disable-slices that are not enabled: {', '.join(bad)} "
+                      f"(enabled: {', '.join(sorted(enabled))})")
+    return names
+
+
 def run(args: argparse.Namespace) -> int:
     _check_identity()
     config_path = args.config or DEFAULT_ROOT / "config.toml"   # as `llama` does
@@ -161,6 +173,8 @@ def run(args: argparse.Namespace) -> int:
         raise Refusal(f"refusing --out {args.out}: it overlaps the library root {root}")
     if args.scratch is not None and _overlaps(args.scratch, root):
         raise Refusal(f"refusing scratch {args.scratch}: it overlaps the library root {root}")
+    disabled = _parse_disabled(getattr(args, "disable_slices", None))
+    enabled = title_hygiene.ENABLED_SLICES - disabled    # threaded as a kwarg; no global is rebound
     scope = "slugs" if args.slugs else ("all" if args.all else "held")
     slugs = _read_slugs(args.slugs) if args.slugs else []
 
@@ -173,6 +187,8 @@ def run(args: argparse.Namespace) -> int:
     own_scratch = args.scratch is None
     scratch = Path(tempfile.mkdtemp(prefix="replay-")) if own_scratch else args.scratch
     scratch.mkdir(parents=True, exist_ok=True)
+    keys = ((TITLE_KEYS if args.strip_title_overrides else ())
+            + (STRUCTURE_KEYS if args.strip_structure_overrides else ()))
     rows: dict[str, dict] = {}
     previous = logging.root.manager.disable
     logging.disable(logging.CRITICAL)
@@ -185,9 +201,10 @@ def run(args: argparse.Namespace) -> int:
                 show_scratch = scratch / d.name
                 try:
                     kw = dict(config=config, ia=ia, slfm=slfm, scratch=show_scratch,
-                              delivered=delivered)
-                    rows[d.name] = (_replay_stripped(d, shadow_root=scratch / ".shadow", **kw)
-                                    if args.strip_structure_overrides
+                              delivered=delivered, enabled_slices=enabled)
+                    rows[d.name] = (_replay_stripped(d, shadow_root=scratch / ".shadow",
+                                                     keys=keys, **kw)
+                                    if keys
                                     else replay_show(ShowWorkspace(d), **kw).to_dict())
                 finally:
                     shutil.rmtree(show_scratch, ignore_errors=True)
@@ -205,6 +222,8 @@ def run(args: argparse.Namespace) -> int:
         "setlistfm_configured": setlistfm_configured(config),
         "scope": scope,
         "structure_overrides_stripped": bool(args.strip_structure_overrides),
+        "title_overrides_stripped": bool(args.strip_title_overrides),
+        "disabled_slices": sorted(disabled),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "llama_file": llama.__file__,
         "root": str(root),
@@ -237,12 +256,17 @@ NOTE_GROUPS = (   # (Contracts id, fixed leading words)
     ("5c.1", "jerrybase set closer "),
     ("4a", "unknown-song flags suppressed by the right-show gate:"),
     ("format sibling tagged", "format sibling tagged"),
+    ("positional", "positional fill declined:"),         # piece 3 (title hygiene)
+    ("lossless", "lossless title"),                      # `lossless title:` and `lossless titles declined:`
+    ("short4", "short tag title confirmed by the taper's list:"),
+    ("cosmetic", "cosmetic title strip:"),
 )
 NONE = "  (none)"
 OUTPUT_FILES = ("summary.txt", "drift.txt", "flags.txt", "outcomes.txt", "packaged_exposure.txt",
                 "venue_changes.txt", "title_sources.txt", "structure_changed.txt", "hand_check_sample.txt",
                 "closest_calls.txt", "needs_llm.txt", "notes.txt", "briefings.txt",
-                "taper_cleared.txt", "taper_changes.txt", "narration_candidates.html", "predicted_list.json",
+                "taper_cleared.txt", "taper_changes.txt", "holds_delta.txt", "title_changes.txt",
+                "title_rows.json", "narration_candidates.html", "predicted_list.json",
                 "structure_changed_list.json", "pilot_list.json")
 
 
@@ -290,6 +314,8 @@ def _gates(base: dict, cand: dict) -> None:
         problems.append("config_fingerprint differs")
     if bool(base.get("structure_overrides_stripped")) != bool(cand.get("structure_overrides_stripped")):
         problems.append("structure_overrides_stripped differs")
+    if bool(base.get("title_overrides_stripped")) != bool(cand.get("title_overrides_stripped")):
+        problems.append("title_overrides_stripped differs")
     b, c = base["shows"], cand["shows"]
     for slug in sorted(set(b) - set(c)):
         problems.append(f"{slug} is in the base arm only")
@@ -982,6 +1008,235 @@ def _pilot(rows: list[dict]) -> list[dict]:
     return sorted(chosen, key=lambda r: _skey(r["slug"]))
 
 
+# --- piece 3 (title hygiene) reports: holds delta, title changes, D and needs-LLM ---
+
+CURRENT_BUCKET = "currently shipped (packaged/briefed/delivered/voiced)"
+HOLDING = ("still-held", "still-held-package", "newly-held")
+UNREPLAYED = ("needs-llm", "unreplayable", "")
+SLICE_OF_FILL = (("c_changed", "slice3"), ("short4", "slice4"), ("d_fills", "slice2"),
+                 ("s_fills", "slice1"), ("deferred_applied", "slice1"))
+SLICE_OF_DECLINE = (("s_declined", "slice1"), ("d_failed", "slice2"),
+                    ("d_track_declines", "slice2"), ("c_declined", "slice3"),
+                    ("c_demoted", "slice3"), ("short4_declined", "slice4"))
+
+
+def _holding(r: dict) -> bool:
+    """Held, in any state: a needs-LLM outcome counts as held (spec Acceptance 2)."""
+    return r.get("outcome") in HOLDING or r.get("outcome") == "needs-llm"
+
+
+def _cleared(b: dict, c: dict) -> bool:
+    """The one clear predicate: held in the base arm, replayable and not held in the candidate.
+    Used by holds_delta and by `title_rows.newly_cleared` (the packets' population)."""
+    return _holding(b) and _replayed(c) and not _holding(c)
+
+
+def _replayed(r: dict) -> bool:
+    return r.get("outcome") not in UNREPLAYED
+
+
+def _slices(r: dict, table) -> list[str]:
+    """Slices from the row's `cascade` record (its fills or its declines), by `table`; an
+    absent record (a base-arm row) attributes nothing."""
+    c = r.get("cascade") or {}
+    return sorted({sl for key, sl in table if c.get(key)})
+
+
+def _fill_slices(r: dict) -> list[str]:
+    """A cleared hold's slices: the cascade's fills; failing those, slice 5 when a title path
+    carries `+5` (the cascade record has no slice-5 entry); else none."""
+    sl = _slices(r, SLICE_OF_FILL)
+    if not sl and any("+5" in p for p in r.get("title_paths") or []):
+        return ["slice5"]
+    return sl
+
+
+def _state_label(delivery: Path | None, slug: str, state) -> str:
+    if state == "delivered" and _is_voiced(delivery, slug):
+        return "voiced"
+    return str(state)
+
+
+def _delta_kind(c: dict) -> str:
+    """Where a cleared hold sits: held now / would-hold on a fresh get (a shipped show whose
+    overrides, stripped in a fresh-get arm, were masking the hold) / currently shipped (any non-held state)."""
+    if c.get("state") == "held":
+        return "held now"
+    if c.get("stripped"):
+        return "would-hold on a fresh get"
+    return CURRENT_BUCKET
+
+
+def _holds_delta(base: dict, cand: dict, delivery: Path | None) -> tuple[list[str], int, int]:
+    cleared, added = [], []
+    for slug, c in sorted(cand["shows"].items()):
+        b = base["shows"][slug]
+        if _cleared(b, c):
+            cleared.append((slug, b, c))
+        elif not _holding(b) and _replayed(b) and _holding(c):
+            added.append((slug, b, c))
+    out = [f"== holds cleared ({len(cleared)})"]
+    kinds = ("held now", "would-hold on a fresh get", CURRENT_BUCKET)
+    llm = lambda r: "  (needs-llm)" if r.get("outcome") == "needs-llm" else ""   # noqa: E731
+    for k in kinds:
+        rows = [(s, b, c) for s, b, c in cleared if _delta_kind(c) == k]
+        out += _lines(f"-- {k} ({len(rows)})",
+                      [f"  {s}  [{_state_label(delivery, s, c.get('state'))}]  slices: "
+                       f"{', '.join(_fill_slices(c)) or 'unattributed'}  "
+                       f"{b.get('outcome')} -> {c.get('outcome')}{llm(b)}" for s, b, c in rows])
+    by_slice: dict[str, list[str]] = {}
+    for s, b, c in cleared:
+        for sl in _fill_slices(c) or ["unattributed"]:
+            by_slice.setdefault(sl, []).append(s)
+    out += ["== holds cleared by slice (a show with several is listed under each)"]
+    for sl, v in sorted(by_slice.items()):
+        out += [f"-- {sl} ({len(v)})", *[f"  {s}" for s in v]]
+    if not by_slice:
+        out += [NONE]
+    out += [""]
+    states: dict[str, list] = {}
+    for s, b, c in added:
+        states.setdefault(_state_label(delivery, s, c.get("state")), []).append((s, b, c))
+    out += [f"== holds added ({len(added)})"]
+    for st in sorted(states):
+        out += _lines(f"-- {st} ({len(states[st])})",
+                      [f"  {s}  flags: {'; '.join(f for f in _all_flags(c) if f not in _all_flags(b)) or '(none)'}"
+                       f"  slices: {', '.join(_slices(c, SLICE_OF_DECLINE)) or 'unattributed'}{llm(c)}"
+                       for s, b, c in states[st]])
+    if not added:
+        out += [NONE, ""]
+    ad_slice: dict[str, list[str]] = {}
+    for s, b, c in added:
+        for sl in _slices(c, SLICE_OF_DECLINE) or ["unattributed"]:
+            ad_slice.setdefault(sl, []).append(s)
+    out += ["== holds added by slice (from the declines the cascade recorded)"]
+    for sl, v in sorted(ad_slice.items()):
+        out += [f"-- {sl} ({len(v)})", *[f"  {s}" for s in v]]
+    if not ad_slice:
+        out += [NONE]
+    return out, len(cleared), len(added)
+
+
+def _arm_titles(r: dict, root: Path, slug: str) -> list[tuple[str, str | None]] | None:
+    """A row's per-track (title, source): the recorded `titles` where the row has them, else
+    (a base-arm row) the stored `show.json` with the row's `title_changes` applied."""
+    if r.get("titles"):
+        srcs = r.get("title_sources") or [None] * len(r["titles"])
+        return list(zip(r["titles"], srcs))
+    tracks = _show_json(root, slug).get("tracks")
+    if not isinstance(tracks, list):
+        return None
+    cur = [(t.get("title"), t.get("title_source")) for t in tracks]
+    drop = set()
+    for ch in r.get("title_changes") or []:
+        i = int(ch.get("index", 0)) - 1
+        if i < 0:
+            continue
+        if ch.get("new") is None:
+            drop.add(i)
+            continue
+        while len(cur) <= i:
+            cur.append((None, None))
+        cur[i] = (ch.get("new"), ch.get("new_source"))
+    return [x for i, x in enumerate(cur) if i not in drop]
+
+
+def _diff_titles(b: dict, c: dict, root: Path, slug: str) -> list[dict]:
+    """Per position where base and candidate titles differ: `kind` is `text` when the title
+    text differs, `source` when only the source label does; `path` the candidate's."""
+    if "unreplayable" in (b.get("outcome"), c.get("outcome")):
+        return []     # as `_taper_changes`: an unreplayable row's titles are the stored ones
+    bt, ct = _arm_titles(b, root, slug), _arm_titles(c, root, slug)
+    if bt is None or ct is None:
+        return []
+    paths = c.get("title_paths") or []
+    out = []
+    for i in range(max(len(bt), len(ct))):
+        x = bt[i] if i < len(bt) else (None, None)
+        y = ct[i] if i < len(ct) else (None, None)
+        if x == y:
+            continue
+        out.append({"index": i + 1, "old": x[0], "new": y[0], "old_source": x[1], "new_source": y[1],
+                    "path": paths[i] if i < len(paths) else "", "kind": "text" if x[0] != y[0] else "source"})
+    return out
+
+
+def _title_changes(base: dict, cand: dict, root: Path, delivery: Path | None) -> tuple[list[str], dict]:
+    by_state: dict[str, list] = {}
+    for slug, c in sorted(cand["shows"].items()):
+        b = base["shows"][slug]
+        if c.get("state") not in NON_HELD or c.get("outcome") not in ("clean", "clean-changed"):
+            continue
+        ch = _diff_titles(b, c, root, slug)
+        if ch:
+            by_state.setdefault(_state_label(delivery, slug, c.get("state")), []).append((slug, ch))
+    out = ["titles changed on shows that stay unheld (base -> cand); a path is the cascade's "
+           "(D, C1, C2, S, S-deferred, 4, optional +5); '(unattributed)' = no recorded path", ""]
+    counts = {}
+    for st in ("packaged", "voiced", "delivered"):
+        rows = by_state.get(st, [])
+        counts[st] = sum(len(c) for _, c in rows)
+        if not rows:
+            continue
+        out.append(f"== {st}: {len(rows)} show(s), {counts[st]} position(s)")
+        for kind, label in (("text", "title text"), ("source", "source only")):
+            hits = [(s, x) for s, c in rows for x in c if x["kind"] == kind]
+            tally = Counter(x["path"] or "(unattributed)" for _, x in hits)
+            out.append(f"-- {label} ({len(hits)})")
+            out.append("   by path: " + (", ".join(f"{p} {n}" for p, n in sorted(tally.items())) or "(none)"))
+            out += [f"  {s} #{x['index']}: {x['old']!r} ({x['old_source']}) -> {x['new']!r} "
+                    f"({x['new_source']})  [{x['path'] or '(unattributed)'}]" for s, x in hits] or [NONE]
+        out.append("")
+    if not by_state:
+        out += [NONE]
+    return out, counts
+
+
+def _d_reach(cand: dict) -> list[str]:
+    """D shows that reach the agreement check's decline or the LLM branch. The note and
+    `desc_position` arms stay although a needs-LLM row now carries its `cascade` (ruling 4):
+    an arm written before that change has `{}` there, and `compare` still reads such arms;
+    on a current arm they agree with the record (the show-level note names `d_failed`)."""
+    agree, llm = [], []
+    for slug, r in sorted(cand["shows"].items()):
+        notes = [n for n in r.get("notes") or [] if "desc-position" in n]
+        if (r.get("cascade") or {}).get("d_failed") == "agreement" or any(
+                n.startswith("positional fill declined: desc-position agreement") for n in notes):
+            agree.append(f"  {slug}  [{r.get('state')}]  agreement decline  {r.get('outcome')}")
+        if r.get("outcome") == "needs-llm" and (r.get("desc_position") or notes):
+            llm.append(f"  {slug}  [{r.get('state')}]  LLM branch  {_j(r.get('needs_llm'))}")
+    return [f"D shows reaching the agreement check's decline or the LLM branch "
+            f"(agreement decline: {len(agree)}, LLM branch: {len(llm)})", *(agree + llm or [NONE]), ""]
+
+
+def _title_rows(base: dict, cand: dict, root: Path, delivery: Path | None) -> dict:
+    """The machine-readable input of `title_hygiene_probe.py packets`: per show that was newly
+    cleared, changed a title or has a slice-4 path, its state, candidate titles and changes."""
+    cleared = {s for s, c in cand["shows"].items() if _cleared(base["shows"][s], c)}
+    shows = {}
+    for slug, c in sorted(cand["shows"].items()):
+        b = base["shows"][slug]
+        ch = _diff_titles(b, c, root, slug)
+        paths = list(c.get("title_paths") or [])
+        slice4 = any(p.startswith("4") for p in paths)
+        if not (slug in cleared or ch or slice4):
+            continue
+        shows[slug] = {
+            "state": _state_label(delivery, slug, c.get("state")), "base_outcome": b.get("outcome"),
+            "cand_outcome": c.get("outcome"), "newly_cleared": slug in cleared,
+            "self_filled": bool(c.get("self_filled")),
+            "d_fills": len((c.get("cascade") or {}).get("d_fills") or []),
+            "slice4": slice4, "titles": list(c.get("titles") or []),
+            "title_sources": list(c.get("title_sources") or []), "title_paths": paths,
+            "changes": ch}
+    t, st = bool(cand.get("title_overrides_stripped")), bool(cand.get("structure_overrides_stripped"))
+    view = ("fresh-get (title and structure overrides stripped)" if t and st else
+            "as-is (no overrides stripped)" if not t and not st else
+            "partly stripped (" + ("title overrides" if t else "structure overrides") + " only)")
+    return {"cand_sha": cand.get("sha"), "root": str(root), "view": view,
+            "disabled_slices": list(cand.get("disabled_slices") or []), "shows": shows}
+
+
 def _write(out: Path, name: str, lines: list[str]) -> None:
     (out / name).write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
 
@@ -1031,9 +1286,16 @@ def compare(args: argparse.Namespace) -> int:
     cc, n_cc = _closest(base, cand, root)
     _write(out, "closest_calls.txt", cc)
     nl, nb, nc_ = _needs_llm(base, cand)
-    _write(out, "needs_llm.txt", nl)
+    _write(out, "needs_llm.txt", nl + _d_reach(cand))
+    hd, n_cleared, n_added = _holds_delta(base, cand, delivery)
+    _write(out, "holds_delta.txt", hd)
+    tcl, tccounts = _title_changes(base, cand, root, delivery)
+    _write(out, "title_changes.txt", tcl)
+    (out / "title_rows.json").write_text(json.dumps(_title_rows(base, cand, root, delivery),
+                                                    indent=1, sort_keys=True) + "\n", encoding="utf-8")
     _write(out, "notes.txt", _notes_txt(cand))
     stripped = bool(cand.get("structure_overrides_stripped"))
+    title_stripped = bool(cand.get("title_overrides_stripped"))
     tc, tcounts = _taper_cleared(base, cand), {}
     if not stripped:   # a stripped arm replays without the operator's overrides: not the shipped library
         _write(out, "taper_cleared.txt", _lines("shows held in base and cleared (or structure-changed) in cand:", tc))
@@ -1046,7 +1308,7 @@ def compare(args: argparse.Namespace) -> int:
     sclist = [_list_row(s, r, r.get("would_be")) for s, r in ordered
               if r.get("outcome") == "structure-changed"]
     pilot = _pilot(predicted)
-    if not stripped:   # a stripped arm can never feed `reapply --from-list`
+    if not stripped and not title_stripped:   # a stripped arm can never feed `reapply --from-list`
         for name, rows in (("predicted_list.json", predicted),
                            ("structure_changed_list.json", sclist), ("pilot_list.json", pilot)):
             (out / name).write_text(json.dumps(_list_doc(cand, rows), indent=1) + "\n")
@@ -1073,12 +1335,20 @@ def compare(args: argparse.Namespace) -> int:
         f"closest_calls.txt: {n_cc} row(s)",
         f"needs_llm.txt: base {nb}, cand {nc_}",
         f"notes.txt: {n_notes} note(s)",
+        f"holds_delta.txt: {n_cleared} cleared, {n_added} added",
+        "title_changes.txt: " + ", ".join(f"{k} {v}" for k, v in tccounts.items()),
+        f"disabled slices: base {_j(base.get('disabled_slices') or [])}, "
+        f"cand {_j(cand.get('disabled_slices') or [])}",
     ] + (["taper reports: not written (arms replayed with --strip-structure-overrides)"] if stripped else [
         f"taper_cleared.txt: {sum(1 for x in tc if not x.startswith(' '))} show(s)",
         "taper_changes.txt: " + ", ".join(f"{k} {v}" for k, v in tcounts.items()),
+    ]) + [
         f"voiced check: delivery_path {delivery}" if delivery is not None
         else "voiced check: off (no delivery_path in config)",
-    ]) + ([f"apply lists: not written (arms replayed with --strip-structure-overrides)"] if stripped else [
+        "holds_delta.txt: 'would-hold on a fresh get' is empty in an as-is arm by construction "
+        "(only an overrides-stripped arm records `stripped`)",
+    ] + (["apply lists: not written (arms replayed with --strip-structure-overrides or --strip-title-overrides)"]
+      if stripped or title_stripped else [
         f"predicted_list.json: {len(predicted)} row(s)",
         f"structure_changed_list.json: {len(sclist)} row(s)",
         f"pilot_list.json: {len(pilot)} row(s)",
@@ -1104,6 +1374,12 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--strip-structure-overrides", action="store_true",
                    help="replay each show with overrides.set_breaks/encore_after removed "
                         "(a scratch copy; the arm is stamped and yields no apply lists)")
+    r.add_argument("--strip-title-overrides", action="store_true",
+                   help="replay each show with overrides.titles removed, the fresh-get view "
+                        "(a scratch copy; the arm is stamped and yields no apply lists)")
+    r.add_argument("--disable-slices", default=None, metavar="LIST",
+                   help="comma-separated title-hygiene slices to switch off for this run "
+                        "(e.g. slice5,slice4); stamped on the arm as disabled_slices")
     r.add_argument("--config", type=Path, default=None,
                    help="config file (default ~/.llama/config.toml, as llama)")
     r.add_argument("--scratch", type=Path, default=None,

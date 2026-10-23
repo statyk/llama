@@ -1,0 +1,7 @@
+OPERATOR RULINGS — from llama-db, relaying the operator (2026-10-23: "Approve both").
+
+(1) C-1 false-signature narrowing: YES. The ±1 shift demotion fires only when at least 2 of the signature positions were themselves confirmed by C with a lossless tag (sum(i in changed) >= 2), per the fixwave-rr recommendation. Pin darkstarorchestra-2014-07-31 (unchanged outcome) and the re-reviewer's demo_gather.py repro (no demotion, nothing wrong ships) as tests. One small fix round: Sonnet implementer, then an Opus re-review. No re-measure needed, as measured; confirm with a one-line check that the 4 signature shows' outcomes are unchanged. Update the CLAUDE.md clause accordingly.
+
+(2) kinggizzardandthelizardwizard-2022-10-22: option (a). Accept it as a documented cost. Amend the spec sentences (lines ~57 and ~290) from "adds no holds" to "raises no flag of its own; it moves alignment coverage both ways (measured: 1 hold added, 6 as-is / 9 fresh-get low-confidence holds removed)". In acceptance.md, mark the kinggizzard rows "accepted cost (operator ruling 2026-10-23)", and make the CLAUDE.md clause match.
+
+Record both rulings verbatim in your ledger and the SDD record. Then do the acceptance.md status amendment and the 2 Minors, re-sync your ledger into the SDD record, and run your own suite. STOP at the finish menu with the final commit, the suite line, and acceptance.md's path and sha256.

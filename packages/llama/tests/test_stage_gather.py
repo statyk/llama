@@ -16,7 +16,7 @@ from llama.songs import normalize_song
 from llama.stages.gather import (_HEAD_CHATTER, _drop_artist_items,
                                  _strip_footnote_markers, _strip_head_banner,
                                  run_gather)
-from llama.structure import fuzzy_norm_title
+from llama.structure import align, fuzzy_norm_title
 from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 from llama import jerrybase
 from llama.models import JerrybaseEvent, JerrybaseSet
@@ -320,8 +320,8 @@ def test_gather_llm_alignment_garbage_falls_back_and_flags(tmp_path: Path):
 # GONE -- see test_shifted_fully_tagged_sibling_does_not_transfer_positionally
 # below, the test the old rung could never pass. Its replacement is
 # `llama.siblings` (a pure duration-alignment DP + two guards) wired here via
-# `gather._sibling_transfer`, which runs after the `overrides.titles` loop and
-# before `adopt_gap_titles`.
+# `gather._sibling_transfer_full` (through `title_inputs`' `sibling_step`), which runs
+# after the `overrides.titles` loop and before `adopt_gap_titles`.
 # ============================================================================
 
 SIB_ID = "gd73-06-10.aud.sibling"
@@ -399,7 +399,7 @@ def test_operator_band_run_stays_unresolved_even_though_cplus_would_bracket_it(t
 
 
 def test_a_sibling_fetch_failure_is_noted_not_fatal(tmp_path: Path):
-    """FIX ROUND 1, I2: `ia.metadata` inside `_sibling_transfer` was
+    """FIX ROUND 1, I2: `ia.metadata` inside the sibling transfer pass was
     unguarded, so one sibling recording raising `IAError` (a real archive.org
     failure mode) aborted the entire gather stage instead of degrading
     gracefully -- unlike `_collect_parses`, which already catches exactly
@@ -408,7 +408,7 @@ def test_a_sibling_fetch_failure_is_noted_not_fatal(tmp_path: Path):
 
     DUPLICATE-NOTE GUARD (deferred minor, final whole-branch review): both
     `_collect_parses` (called first, unconditionally, via `build_canonical`)
-    and `load_donor_tapes` (called only when `_sibling_transfer` fires)
+    and `load_donor_tapes` (called only when `_sibling_transfer_full` fires)
     independently catch this exact `IAError` on this exact identifier
     (`IAClient` never caches a failed fetch, so both really do retry) and
     each append their own byte-identical note -- so this note used to reach
@@ -437,7 +437,7 @@ def test_a_sibling_fetch_failure_is_noted_not_fatal(tmp_path: Path):
 
     # d3t01 (track 6) deliberately left untagged, matching the base fixture:
     # title_fraction is 5/6 < 1.0, so the fetch gate still fires and
-    # `_sibling_transfer` actually attempts (and must survive) the failing
+    # `_sibling_transfer_full` actually attempts (and must survive) the failing
     # donor fetch -- a fully-tagged target would skip the gate entirely and
     # never exercise the fix.
     md = json.loads(FIXTURE.read_text())
@@ -1437,26 +1437,28 @@ def test_gather_drops_setlist_items_that_are_the_artist_name(tmp_path: Path):
 
 
 def test_gather_artist_item_does_not_block_title_resolution(tmp_path: Path):
-    """The artist header must be dropped BEFORE `resolve_titles`, not merely
+    """The artist header must be dropped BEFORE the title rungs, not merely
     before `align`.
 
     With no title tags — the common case for exactly the rows this targets —
-    the setlist is the only title source (this candidate has no sibling
-    recording). `titles.resolve_titles` only trusts it when the item count
-    equals the track count, so the surviving header item makes 7 != 6 and every
-    title falls through to "unresolved", holding the show for review and
-    leaving all six real songs stranded in conflicts. Dropping the header at
-    the point the data enters fixes THAT cascade -- no "unresolved track
-    titles" flag, every song resolved, no orphaned conflicts.
+    the description is the only title source (this candidate has no sibling
+    recording). Since title hygiene (piece 3) the description's own list is
+    read by reader (ii), which exempts the artist line, and D fills all six
+    tracks as `desc-position` (spec slice 1 "S with a `chosen` canonical",
+    slice 2, Q1). The `enabled_slices=frozenset()` arm at the end keeps
+    guarding `build_canonical`'s artist drop: there the whole-tape `setlist`
+    rung fills only when the canonical's item count equals the track count, so
+    a surviving header item (7 != 6) would leave every title "unresolved".
+    (At the head of the list `_strip_head_banner` already removes it, since
+    the artist is in `metadata_norms`; removing `_drop_artist_items` alone
+    leaves this test green, removing both reddens it -- measured, Task 16
+    fix round 1.)
 
-    `needs_review` itself is no longer False here, and that is a SEPARATE,
-    correctly-ruled consequence of Important 2 (title_source=="setlist" is
-    TAUTOLOGICAL_TITLE_SOURCES), not a regression of the fix this test
-    targets: every track here is "setlist"-sourced, so the independent-
-    evidence set _songish_coverage computes over is empty, coverage is the
-    safe-direction 0.0, and "low-confidence structure alignment" correctly
-    fires -- this show's titles came entirely from the setlist it is being
-    checked against, which is exactly the case that flag exists to catch.
+    `matched` is None on every track (`desc-position`, like `setlist`, is in
+    TAUTOLOGICAL_TITLE_SOURCES): the independent-evidence set _songish_coverage computes
+    over is empty and coverage is the safe-direction 0.0. Before Task 17 that raised
+    "low-confidence structure alignment" (the titles came entirely from the list the tape is
+    checked against); spec Q2 now exempts a self-filled tape, so the show ships clean.
 
     Round 2 (review): `matched` is ALSO None on every track now, not just
     excluded from coverage's denominator -- gather.py's final assembly
@@ -1470,14 +1472,30 @@ def test_gather_artist_item_does_not_block_title_resolution(tmp_path: Path):
     show = run_gather(sws, StubIA(_mccoury_md(tagged=False)), FakeProvider(),
                       make_candidate(), IDENT)
     assert [t.title for t in show.tracks] == MCCOURY_SONGS
-    assert all(t.title_source == "setlist" for t in show.tracks)
+    # Title hygiene (piece 3): spec slice 1 "S with a `chosen` canonical", slice 2 (D) and
+    # operator ruling Q1. The description's one-per-line list is admissible (reader (ii),
+    # the artist line exempt) and count-matched, so S no longer fills; D does, all six,
+    # as `desc-position` (also tautological, so `matched` stays None below). The
+    # low-confidence assertion below changes only with Q2 (Task 17).
+    assert all(t.title_source == "desc-position" for t in show.tracks)
     assert not any("unresolved" in f for f in show.review_flags)
     assert show.structure is not None
     assert show.structure.conflicts == []
     assert show.structure.coverage == 0.0
-    assert show.review_flags == ["low-confidence structure alignment"]
-    assert show.needs_review is True
+    # Spec Q2 (Task 17): every song-like track is `desc-position` and D passed, so the tape
+    # is self-filled: no low-confidence flag, no hold.
+    assert show.review_flags == []
+    assert show.needs_review is False
     assert all(t.matched is None for t in show.tracks)
+
+    # Today's rungs (no slices): the S rung fills all six from the canonical, which it
+    # can only do because build_canonical dropped the artist item (7 != 6 otherwise;
+    # see the docstring for which cleaning step drops it here).
+    today = compute_gather(ShowWorkspace(tmp_path / "today"), StubIA(_mccoury_md(tagged=False)),
+                           FakeProvider(), make_candidate(), IDENT,
+                           enabled_slices=frozenset())
+    assert [(t.title, t.title_source) for t in today.show.tracks] == [
+        (s, "setlist") for s in MCCOURY_SONGS]
 
 
 # --- Head-banner guard (spec 1b) -------------------------------------------
@@ -1939,7 +1957,9 @@ def test_adopted_tracks_report_matched_none(tmp_path: Path):
     assert show.needs_review is False
     assert show.review_flags == []
 
-    def identity_adopt(tracks, canonical, *, metadata_norms, aliases):
+    # Title hygiene slice 1 "Declines bind setlist-gap": the cascade passes S's declined
+    # positions as `declined=`, so the stand-in accepts it.
+    def identity_adopt(tracks, canonical, *, metadata_norms, aliases, declined=frozenset()):
         return tracks
 
     md2, sws2 = _mixed_show_gap_setup(tmp_path, "show-unwired")
@@ -2413,11 +2433,14 @@ def test_2b_recomputes_fetch_siblings_over_demoted_titles(tmp_path):
     sws = ShowWorkspace(tmp_path / "s")
     seen = []
 
+    # Title hygiene slice 2 "Wholly untagged tapes" (b): gather reaches sibling-align
+    # through `_sibling_transfer_full` (its donor is reused by D's sibling-duration check),
+    # so that is the name patched; it returns the donor as a third element.
     def fake_transfer(ia, candidate, identifier, want, tracks, metadata_norms):
         seen.append(len(tracks))
-        return list(tracks), []
+        return list(tracks), [], None
 
-    with patch.object(gather_mod, "_sibling_transfer", side_effect=fake_transfer):
+    with patch.object(gather_mod, "_sibling_transfer_full", side_effect=fake_transfer):
         compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
                        F_IDENT, jerrybase_enabled=False)
     assert seen and seen[0] > 0
@@ -3881,3 +3904,437 @@ def test_g1_needs_weak_step_one(tmp_path):
                      setlistfm=_FakeSetlistFM(TP_SONGS))
     assert res.step1_alignment == "deterministic"
     assert res.taper_owned is True, res.taper.reason
+
+
+# --- Title hygiene (piece 3), Task 11: additive seams --------------------------------------
+
+def test_accept_short_tags_per_track_sources():
+    """`tag_sources` stamps each accepted track with ITS layer source (slice 3 may mix
+    `tags` and `sibling-format` on one tape); the single `tag_source` is then unused."""
+    tracks = [Track(index=i, set="1", title=f"t{i}.mp3", filename=f"t{i}.mp3",
+                    title_source="unresolved") for i in (1, 2)]
+    corroboration = {fuzzy_norm_title("FF"): ("setlist.fm",), fuzzy_norm_title("42"): ("lma:x",)}
+    out, notes = accept_short_tags(tracks, ["FF>", "42"], "tags", corroboration=corroboration,
+                                   metadata_norms=set(), demoted=frozenset(),
+                                   tag_sources=["tags", "sibling-format"])
+    assert [(t.title, t.title_source) for t in out] == [("FF", "tags"), ("42", "sibling-format")]
+    assert len(notes) == 2
+
+
+def test_accept_short_tags_default_sources_unchanged():
+    """(pin) `tag_sources=None` returns exactly today's tracks and notes, and so does a
+    per-track list that repeats the single source."""
+    tracks = [Track(index=i, set="1", title=f"t{i}.mp3", filename=f"t{i}.mp3",
+                    title_source="unresolved") for i in range(1, 5)]
+    tags = ["FF>", "? >", "42", "NY"]
+    corroboration = {fuzzy_norm_title("FF"): ("setlist.fm",), fuzzy_norm_title("?"): ("lma:x",),
+                     fuzzy_norm_title("42"): ("lma:x", "setlist.fm"),
+                     fuzzy_norm_title("NY"): ("lma:x",)}
+    kw = dict(corroboration=corroboration, metadata_norms={fuzzy_norm_title("NY")},
+              demoted=frozenset())
+    today = accept_short_tags(tracks, tags, "sibling-format", **kw)
+    explicit = accept_short_tags(tracks, tags, "sibling-format", tag_sources=None, **kw)
+    repeated = accept_short_tags(tracks, tags, "sibling-format",
+                                 tag_sources=["sibling-format"] * 4, **kw)
+    for got in (explicit, repeated):
+        assert [t.model_dump() for t in got[0]] == [t.model_dump() for t in today[0]]
+        assert got[1] == today[1]
+    assert [(t.title, t.title_source) for t in today[0]] == [
+        ("FF", "sibling-format"), ("t2.mp3", "unresolved"), ("42", "sibling-format"),
+        ("t4.mp3", "unresolved")]
+    assert today[1] == ["accepted short tag title: track 1 'FF' corroborated by setlist.fm",
+                        "accepted short tag title: track 3 '42' corroborated by lma:x, setlist.fm"]
+
+
+def _gd74_target(blank: list[int]):
+    md = gd74_ia().metadata(W_IDENT)
+    kept, _, _ = filter_files(md["files"], want_format=gather_mod.FORMAT_BY_AUDIO["mp3"])
+    tracks = gather_mod.resolve_titles(kept, ParsedSetlist())
+    return [t.model_copy(update={"title": t.filename, "title_source": "unresolved"})
+            if i in blank else t for i, t in enumerate(tracks)]
+
+
+def test_sibling_transfer_split_is_identical():
+    """`_sibling_transfer` returns exactly what it returned before the split (literals
+    captured from the pre-split code on these fixtures), and `_sibling_transfer_full`'s
+    third element is `best_donor`'s `(donor, rows)`, None with no donor."""
+    want = gather_mod.FORMAT_BY_AUDIO["mp3"]
+    ia, cand = gd74_ia(), gd74_candidate()
+    norms = gather_mod.show_metadata_norms("Grateful Dead", cand, ia.metadata(W_IDENT)["metadata"], [])
+
+    # Auto band: tracks 4-6 blanked, bracketed by anchors, filled from Miller.
+    target = _gd74_target([3, 4, 5])
+    out, notes = gather_mod._sibling_transfer(ia, cand, W_IDENT, want, target, norms)
+    assert notes == []
+    assert [(t.title, t.title_source) for t in out[3:6]] == [
+        ("Beat It On Down The Line", "sibling-align"), ("Candyman", "sibling-align"),
+        ("Jack Straw", "sibling-align")]
+    assert [t.model_dump() for i, t in enumerate(out) if i not in (3, 4, 5)] == \
+        [t.model_dump() for i, t in enumerate(target) if i not in (3, 4, 5)]
+    full = gather_mod._sibling_transfer_full(ia, cand, W_IDENT, want, target, norms)
+    assert ([t.model_dump() for t in full[0]], full[1]) == ([t.model_dump() for t in out], notes)
+    donor, rows, _, _ = gather_mod.best_donor(ia, cand, W_IDENT, want, target, norms)
+    assert full[2] is not None and full[2][0] == donor and full[2][1] == rows
+    assert donor.identifier == M_IDENT
+
+    # No anchors: the pair routes to `no-anchors`; the donor is still returned.
+    target = _gd74_target(list(range(27)))
+    out, notes = gather_mod._sibling_transfer(ia, cand, W_IDENT, want, target, norms)
+    assert notes == [f"sibling alignment skipped ({M_IDENT}): tape has no independent anchors"]
+    assert [t.model_dump() for t in out] == [t.model_dump() for t in target]
+    full = gather_mod._sibling_transfer_full(ia, cand, W_IDENT, want, target, norms)
+    assert full[1] == notes and full[2] is not None and full[2][0].identifier == M_IDENT
+
+    # No donor at all.
+    alone = cand.model_copy(update={"recordings": cand.recordings[:1]})
+    out, notes = gather_mod._sibling_transfer(ia, alone, W_IDENT, want, target, norms)
+    assert notes == [] and [t.model_dump() for t in out] == [t.model_dump() for t in target]
+    assert gather_mod._sibling_transfer_full(ia, alone, W_IDENT, want, target, norms)[2] is None
+
+
+# --- Title hygiene (piece 3), Task 16: title_inputs + title_cascade wired into gather ---------
+#
+# Spec docs/superpowers/specs/2026-10-22-title-hygiene-design.md. These drive the WIRED
+# `compute_gather`; `test_title_cascade.py` places each slice on the cascade alone.
+
+from llama import title_hygiene  # noqa: E402
+from llama.stages.gather import CanonicalBuild  # noqa: E402
+
+
+def _numbered(titles) -> str:
+    return "\n".join(f"{i}. {t}" for i, t in enumerate(titles, 1))
+
+
+def _untagged_gd73(description: str) -> dict:
+    """The gd73 fixture with every title tag removed (wholly untagged) and the given
+    description."""
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["description"] = description
+    for f in md["files"]:
+        f.pop("title", None)
+    return md
+
+
+def _setlistfm(titles):
+    """Stands in for `build_canonical`: a count-matched setlist.fm canonical."""
+    canon = ParsedSetlist(items=[SetlistItem(title=t, normalized=normalize_song(t), set="1")
+                                 for t in titles], confidence="high")
+
+    def build(*a, **kw):
+        return CanonicalBuild(setlist=canon, notes=[], source="setlist.fm")
+    return build
+
+
+def test_gather_fills_from_the_taper_list(tmp_path: Path):
+    """Slice 2 (D): an untagged tape whose own description is a count-matched numbered list
+    ships the list's entries as `desc-position`, each `matched=None` (Tautology), and the
+    titles are no longer unresolved."""
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_untagged_gd73(
+        _numbered(REAL_TITLES))), None, make_candidate(), IDENT)
+    tracks = res.show.tracks
+    assert [t.title for t in tracks] == REAL_TITLES
+    assert all(t.title_source == "desc-position" for t in tracks)
+    assert all(t.matched is None for t in tracks)
+    assert "unresolved track titles" not in res.show.review_flags
+
+
+def test_compute_gather_enabled_slices_kwarg(tmp_path: Path):
+    """`enabled_slices=frozenset()` is today's gather: on the same tape the chosen canonical
+    fills every track through the S rung (`setlist`), and no `desc-position` ships. The
+    keyword never rebinds the module's `ENABLED_SLICES`."""
+    before = title_hygiene.ENABLED_SLICES
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_untagged_gd73(
+        _numbered(REAL_TITLES))), None, make_candidate(), IDENT, enabled_slices=frozenset())
+    assert [(t.title, t.title_source) for t in res.show.tracks] == [
+        (t, "setlist") for t in REAL_TITLES]
+    assert title_hygiene.ENABLED_SLICES is before
+    assert title_hygiene.ENABLED_SLICES == title_hygiene.ALL_SLICES
+    assert res.title_paths == ("S",) * 6 and res.self_filled is False
+
+
+def test_gather_s_withdrawn_when_list_count_matched(tmp_path: Path):
+    """Slice 1, "S with any other canonical", when the selected description yields a
+    count-matched list: S makes no fill and D fills from the taper's own list, so the
+    taper's wording ships, not setlist.fm's."""
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["description"] = _numbered(REAL_TITLES[:4] + ["Eyes Of The World",
+                                                                 "Johnny B. Goode"])
+    for f in md["files"]:
+        if f["name"] == "gd73-06-10d2t02.mp3":
+            f["title"] = None
+    sfm = _setlistfm(REAL_TITLES[:4] + ["Eyes of the World (setlist.fm)", "Johnny B. Goode"])
+    with patch.object(gather_mod, "build_canonical", side_effect=sfm):
+        res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(md), None,
+                             make_candidate(), IDENT)
+    t = res.show.tracks
+    assert [(x.title, x.title_source) for x in t[4:]] == [
+        ("Eyes Of The World", "desc-position"), ("Johnny B. Goode", "desc-position")]
+    assert not any(x.title_source == "setlist" for x in t)
+    assert res.title_paths == ("", "", "", "", "D", "D")
+    with patch.object(gather_mod, "build_canonical", side_effect=sfm):
+        today = compute_gather(ShowWorkspace(tmp_path / "t"), StubIA(md), None,
+                               make_candidate(), IDENT, enabled_slices=frozenset())
+    assert today.show.tracks[4].title == "Eyes of the World (setlist.fm)"
+
+
+def test_gather_q1_untagged_setlistfm_stays_unresolved(tmp_path: Path):
+    """Operator ruling Q1: the S rung never fires on a wholly untagged tape. With a
+    count-matched setlist.fm canonical and no taper list, every track stays unresolved,
+    the show is held, and one operator note says why."""
+    md = _untagged_gd73("An amazing night of music, seeded with love.")
+    sfm = _setlistfm(REAL_TITLES)
+    with patch.object(gather_mod, "build_canonical", side_effect=sfm):
+        res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(md), None,
+                             make_candidate(), IDENT)
+    assert all(t.title_source == "unresolved" for t in res.show.tracks)
+    assert "unresolved track titles" in res.show.review_flags
+    assert "positional fill declined: setlist wholly untagged tape" in res.notes
+    conflicts = res.show.structure.conflicts if res.show.structure else []
+    assert not any(c.startswith("positional fill declined") for c in conflicts)
+
+
+def test_gather_c1_fills_tmp_tape(tmp_path: Path):
+    """Slice 3 (C1): every mp3 is tagged `tmp` (a 2b placeholder) while the Shorten copy of
+    the same item is tagged; a count-matched list confirms each lossless title, so they ship
+    per track as `sibling-format`, with one note each and no 2b demotion note."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()), tag_mp3=True)
+    for f in md["files"]:
+        if f.get("format") == "VBR MP3" and f["name"].startswith("gd73-06-10d"):
+            f["title"] = "tmp"
+    md["metadata"]["description"] = _numbered(_LOSSLESS_TITLES.values())
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(md), None, make_candidate(),
+                         IDENT)
+    assert [(t.title, t.title_source) for t in res.show.tracks] == [
+        (t, "sibling-format") for t in _LOSSLESS_TITLES.values()]
+    assert res.notes[0] == "lossless title: track 1 'tmp' -> 'Morning Dew' (C1)"
+    assert sum(n.startswith("lossless title: ") for n in res.notes) == 6
+    assert not any(n.startswith(("placeholder tag title", "format sibling tagged"))
+                   for n in res.notes)
+    assert "unresolved track titles" not in res.show.review_flags
+
+
+def test_title_paths_reported(tmp_path: Path):
+    """`GatherResult.title_paths`, `self_filled` and `title_record` carry the cascade's
+    record (in-process only): the gd73 fixture's encore is S's fill; the untagged tape with
+    a taper list is D's on every track."""
+    res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(), None, make_candidate(), IDENT)
+    assert res.title_paths == ("", "", "", "", "", "S")
+    assert res.self_filled is False
+    assert res.title_record is not None and res.title_record.s_plan.mode == "gated"
+    res = compute_gather(ShowWorkspace(tmp_path / "b"), StubIA(_untagged_gd73(
+        _numbered(REAL_TITLES))), None, make_candidate(), IDENT)
+    assert res.title_paths == ("D",) * 6
+    assert res.self_filled is True
+    assert res.title_record.d is not None and res.title_record.d.failed == ()
+    assert "title_paths" not in res.show.model_dump_json()
+
+
+def test_cascade_op_notes_lead_gather_notes(tmp_path: Path):
+    """Brief Task 16 Step 3, notes order (op notes): the cascade's operator notes are the
+    FIRST entries of `GatherResult.notes`, and notes raised after it (here the taper's
+    `set breaks from the taper's markers`) follow them. Every tag carries a joined track
+    number, so 2d writes a cascade note per track; the taper's markers own the structure."""
+    md = _tp_md([f"{i:02d}-{t}" for i, t in enumerate(TP_SONGS, 1)], TP_DESC)
+    res = _tp_gather(tmp_path, md, setlistfm=_FakeSetlistFM(TP_SONGS))
+    cascade = [f"stripped joined track number: track {i} '{i:02d}-{t}' -> '{t}'"
+               for i, t in enumerate(TP_SONGS, 1)]
+    assert [t.title for t in res.show.tracks] == TP_SONGS
+    assert res.notes[:len(cascade)] == cascade
+    taper_note = "set breaks from the taper's markers (was [] ['1'])"
+    assert taper_note in res.notes[len(cascade):]
+
+
+def test_canonical_notes_precede_sibling_notes_in_conflicts(tmp_path: Path):
+    """Brief Task 16 Step 3, notes order (structure notes): the canonical build's notes
+    come first in `structure.conflicts`, sibling-align's after them. A third recording
+    fails its first fetch (`build_canonical`'s note) and then serves an empty item, which
+    `load_donor_tapes` skips silently, so each note has exactly one source. The donor
+    recording is the operator-band shape of
+    test_operator_band_run_stays_unresolved_even_though_cplus_would_bracket_it."""
+    from llama.ia_client import IAError
+    flaky = "gd73-06-10.flaky.once"
+
+    class FlakyOnceIA(MultiIA):
+        def __init__(self, mapping):
+            super().__init__(mapping)
+            self.failed = False
+
+        def metadata(self, identifier):
+            if identifier == flaky:
+                if not self.failed:
+                    self.failed = True
+                    raise IAError("boom 503")
+                return {"metadata": {}, "files": []}
+            return super().metadata(identifier)
+
+    md = json.loads(FIXTURE.read_text())
+    chosen = {"metadata": dict(md["metadata"], description=""),
+              "files": [dict(f) for f in md["files"]]}
+    by_name = {f["name"]: f for f in chosen["files"]}
+    for name in ("gd73-06-10d1t03.mp3", "gd73-06-10d2t01.mp3"):
+        by_name[name].pop("title", None)
+    by_name["gd73-06-10d3t01.mp3"]["title"] = "Bertha"
+    ia = FlakyOnceIA({IDENT: chosen, SIB_ID: _gd73_donor(md, REAL_TITLES)})
+    cand = make_candidate()
+    cand.recordings += [RecordingSummary(identifier=SIB_ID), RecordingSummary(identifier=flaky)]
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, IDENT)
+    assert res.show.structure.conflicts == [
+        f"could not fetch sibling {flaky}: boom 503",
+        "sibling alignment needs operator review (anchor agreement 75%)"]
+
+
+# --- Title hygiene (piece 3), Task 17: Q2 self-filled tapes ship ------------------------
+
+class _NoAlignProvider:
+    """An `align_provider` that fails the test if the `align_structure` LLM branch calls it."""
+
+    def __getattr__(self, name):
+        raise AssertionError(f"align_structure LLM branch reached ({name})")
+
+
+def _mccoury_one_tagged(tag="Rain and Snow"):
+    """One independent title that AGREES with list entry 1 (so D passes check 3)."""
+    md = _mccoury_md(tagged=False)
+    for f in md["files"]:
+        if f.get("name") == "gd73-06-10d1t01.mp3":
+            f["title"] = tag
+    return md
+
+
+def _partial_slfm():
+    """A setlist.fm canonical agreeing with 4 of the list's 6 items: D's agreement check
+    passes (>= 0.5), and the canonical is not the description's own."""
+    songs = list(MCCOURY_SONGS)
+    return _FakeSetlistFM(["Zebra Stripes"] + songs[1:4] + ["Ostrich Dance", "All Aboard"])
+
+
+def test_self_filled_tape_skips_align_structure_and_the_flag(tmp_path):
+    """Spec Q2: every song-like track `desc-position` and D passed -> no align_structure
+    call, no needs_align verdict, no low-confidence flag; labels are deterministic align()'s.
+    Both a chosen canonical and a partial setlist.fm one ("whatever the canonical")."""
+    for sub, slfm in (("chosen", None), ("slfm", _partial_slfm())):
+        res = compute_gather(ShowWorkspace(tmp_path / sub), StubIA(_mccoury_md(tagged=False)),
+                             None, make_candidate(), IDENT, setlistfm=slfm,
+                             align_provider=_NoAlignProvider())    # raises if called
+        assert res.self_filled is True, sub
+        assert res.needs_llm == (), sub
+        assert "low-confidence structure alignment" not in res.show.review_flags
+        # labels are deterministic align()'s of the shipped titles over the canonical
+        canon_titles = (MCCOURY_SONGS if slfm is None
+                        else ["Zebra Stripes"] + MCCOURY_SONGS[1:4] + ["Ostrich Dance", "All Aboard"])
+        canon = ParsedSetlist(items=[SetlistItem(title=t, normalized=normalize_song(t), set="1")
+                                     for t in canon_titles])
+        assert [t.set for t in res.show.tracks] == align(res.show.tracks, canon).sets, sub
+        assert res.show.structure.alignment == "deterministic"
+    # today's path for the same tape (slices off) does reach the flag
+    today = compute_gather(ShowWorkspace(tmp_path / "t"), StubIA(_mccoury_md(tagged=False)),
+                           None, make_candidate(), IDENT, enabled_slices=frozenset())
+    assert today.self_filled is False
+    assert "align_structure" in today.needs_llm
+
+
+def test_one_independent_title_keeps_low_confidence(tmp_path):
+    """(pin) Spec Q2's exception is narrow: D PASSES (the tag agrees with the list, the
+    canonical agrees 4 of 6) but ONE track keeps an independent tag, so today's LLM branch
+    and flag stay."""
+    res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(_mccoury_one_tagged()),
+                         None, make_candidate(), IDENT, setlistfm=_partial_slfm())
+    assert res.title_record.d is not None and res.title_record.d.failed == ()
+    assert [t.title_source for t in res.show.tracks] == ["tags"] + ["desc-position"] * 5
+    assert res.self_filled is False
+    assert res.needs_llm == ("align_structure",)
+    assert "low-confidence structure alignment" in res.show.review_flags
+
+
+def test_d_declined_tape_with_a_disagreeing_tag_is_not_self_filled(tmp_path):
+    """The D-declined case: a tag that DISAGREES with list entry 1 fails check 3."""
+    res = compute_gather(ShowWorkspace(tmp_path / "a"),
+                         StubIA(_mccoury_one_tagged("Zebra Stripes")),
+                         None, make_candidate(), IDENT)
+    assert res.title_record.d is not None and res.title_record.d.failed
+    assert res.self_filled is False
+    assert "align_structure" in res.needs_llm
+    assert "low-confidence structure alignment" in res.show.review_flags
+
+
+def test_jerrybase_anchoring_still_labels_a_self_filled_family_tape(tmp_path, monkeypatch):
+    songs = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"]
+    md = _mccoury_md(tagged=False)
+    md["metadata"]["creator"] = "Grateful Dead"
+    md["metadata"]["description"] = "\n".join(songs) + "\n"
+    monkeypatch.setattr(jerrybase, "lookup",
+                        lambda a, d: [_jb_event([("Charlie", "1"), ("Foxtrot", "2")])])
+    res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(md), None,
+                         make_candidate(), IDENT, jerrybase_enabled=True,
+                         align_provider=_NoAlignProvider())
+    assert res.self_filled is True
+    assert res.show.structure.alignment == "jerrybase"
+    assert [t.set for t in res.show.tracks] == ["1", "1", "1", "2", "2", "2"]
+    assert "low-confidence structure alignment" not in res.show.review_flags
+
+
+def test_today_reaches_llm_unchanged_for_self_filled(tmp_path, monkeypatch):
+    """The value passed to `decide_taper` is today's predicate, not suppressed by Q2."""
+    seen = {}
+    real = taper_mod.decide_taper
+
+    def spy(tracks, meta, *, aliases, today_sets, today_reaches_llm):
+        seen["llm"] = today_reaches_llm
+        return real(tracks, meta, aliases=aliases, today_sets=today_sets,
+                    today_reaches_llm=today_reaches_llm)
+
+    monkeypatch.setattr(taper_mod, "decide_taper", spy)
+    res = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(_mccoury_md(tagged=False)),
+                         None, make_candidate(), IDENT)
+    assert res.self_filled is True
+    assert seen["llm"] is True
+
+
+# --- Title hygiene (piece 3), Task 18: slice 5 wired before `Show` is built ------------------
+
+def _slice5_md(include_stamp: bool = False) -> dict:
+    md = json.loads(FIXTURE.read_text())
+    for f in md["files"]:
+        if f["name"] == "gd73-06-10d1t02.mp3":
+            f["title"] = "06:58 - China Cat Sunflower"
+    return md
+
+
+def test_cosmetic_strip_runs_after_flags(tmp_path: Path):
+    """Slice 5 ships `06:58 - China Cat Sunflower` as `China Cat Sunflower`, with one note
+    at the END of the notes and a `+5` path, while flags and set labels equal the same gather
+    with slice 5 off (computed from the pre-strip titles)."""
+    on = compute_gather(ShowWorkspace(tmp_path / "a"), StubIA(_slice5_md()), None,
+                        make_candidate(), IDENT)
+    off = compute_gather(ShowWorkspace(tmp_path / "b"), StubIA(_slice5_md()), None,
+                         make_candidate(), IDENT,
+                         enabled_slices=title_hygiene.ALL_SLICES - {"slice5"})
+    assert off.show.tracks[1].title == "06:58 - China Cat Sunflower"
+    assert on.show.tracks[1].title == "China Cat Sunflower"
+    assert on.show.tracks[1].title_source == "tags"
+    assert on.show.review_flags == off.show.review_flags
+    assert [t.set for t in on.show.tracks] == [t.set for t in off.show.tracks]
+    note = "cosmetic title strip: track 2 '06:58 - China Cat Sunflower' -> 'China Cat Sunflower'"
+    assert on.notes[-1] == note and on.notes[:-1] == off.notes
+    assert off.title_paths[1] == "" and on.title_paths[1] == "+5"
+    assert on.title_paths[0] == off.title_paths[0] == ""
+    assert on.title_paths[2:] == off.title_paths[2:]
+
+
+def test_cosmetic_strip_keeps_included_stamp(tmp_path: Path):
+    """The strip copies tracks, so the operator `include` stamp (applied just before) rides
+    along on the stripped track."""
+    ws = ShowWorkspace(tmp_path / "s")
+    write_artifact(ws.overrides, Overrides(include=["gd73-06-10d1t02.mp3"]))
+    res = compute_gather(ws, StubIA(_slice5_md()), None, make_candidate(), IDENT)
+    t = res.show.tracks[1]
+    assert t.title == "China Cat Sunflower" and t.included is True
+    assert res.show.tracks[0].included is False
+
+
+def test_cosmetic_strip_off_when_slice5_disabled(tmp_path: Path):
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_slice5_md()), None,
+                         make_candidate(), IDENT,
+                         enabled_slices=title_hygiene.ALL_SLICES - {"slice5"})
+    assert res.show.tracks[1].title == "06:58 - China Cat Sunflower"
+    assert not any(n.startswith("cosmetic title strip") for n in res.notes)

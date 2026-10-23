@@ -1,4 +1,6 @@
 import re
+from collections.abc import Mapping
+from dataclasses import dataclass
 
 from llama.models import ParsedSetlist, Track
 from llama.placeholders import is_placeholder, is_residue, is_timestamp, recording_level_junk
@@ -425,6 +427,17 @@ def placeholder_positions(
     return out
 
 
+@dataclass(frozen=True)
+class TagLayer:
+    """The tag layer as title hygiene's cascade computed it (piece 3, slice 3): the titles
+    every later rung reads (after per-track lossless titles), the per-track source each
+    carries (`tags` or `sibling-format`; a manifest may mix them), and the 0-based 2b
+    demotions (computed on the delivered layer, minus the stems slice 3 changed)."""
+    titles: list[str]
+    sources: list[str]
+    demoted: frozenset[int]
+
+
 def resolve_titles(
     kept_files: list[dict],
     setlist: ParsedSetlist,
@@ -433,6 +446,8 @@ def resolve_titles(
     *,
     corroboration: frozenset[str] = frozenset(),
     item_title: str | None = None,
+    layer: TagLayer | None = None,
+    setlist_fills: Mapping[int, str] | None = None,
 ) -> list[Track]:
     """Resolve track titles (tags -> setlist -> unresolved).
 
@@ -440,7 +455,7 @@ def resolve_titles(
     recording copied onto the target file-for-file) lived here and is GONE --
     it transferred titles with zero content verification, and a same-count
     donor with shifted content shipped wrong titles at coverage 1.0. Its
-    replacement (`llama.siblings` + `gather._sibling_transfer`) is a guarded
+    replacement (`llama.siblings` + `gather._sibling_transfer_full`) is a guarded
     duration-alignment pass that runs in `gather`, after this function and
     after the `overrides.titles` loop, and stamps `title_source="sibling-align"`
     directly onto the resolved tracks it fills. See titles.py's `is_real_title`
@@ -457,7 +472,14 @@ def resolve_titles(
 
     Sets and segues are placeholders here; llama.structure.align stamps the
     real values from the canonical performance setlist. Callers pass
-    kept_files in canonical play order (filter_files decides it)."""
+    kept_files in canonical play order (filter_files decides it).
+
+    Title hygiene (piece 3) seams, both defaulting to exactly today's behaviour:
+    `layer` replaces the tag layer this function would compute (titles, per-track
+    sources, 2b demotions; `format_titles`, `gate_basis`, `corroboration` and
+    `item_title` are then unused), and `setlist_fills` (0-based position -> title)
+    replaces the whole-tape rung: a position reaching today's S branch (not demoted,
+    tag not real) takes its fill, if it has one, with source `setlist`."""
     files = kept_files
     n = len(files)
     # The whole-tape setlist rung. MEASURED DEAD: 0 of 2,015 tracks across the
@@ -480,9 +502,13 @@ def resolve_titles(
     # bad and are not consulted at all - a manifest never interleaves two tag
     # sources. A recovered title that is still unusable falls through to the
     # setlist/sibling cascade rather than back to the bad tags.
-    tag_titles, tag_source = tag_layer(files, format_titles, gate_basis)
-    demoted = set(placeholder_positions(tag_titles, corroboration=corroboration,
-                                        item_title=item_title))
+    if layer is None:
+        tag_titles, tag_source = tag_layer(files, format_titles, gate_basis)
+        tag_sources = [tag_source] * n
+        demoted = set(placeholder_positions(tag_titles, corroboration=corroboration,
+                                            item_title=item_title))
+    else:
+        tag_titles, tag_sources, demoted = layer.titles, layer.sources, set(layer.demoted)
 
     tracks: list[Track] = []
     for pos, f in enumerate(files):
@@ -491,7 +517,12 @@ def resolve_titles(
             # which check their own evidence, are the only later ways in.
             title, source = f["name"], "unresolved"
         elif is_real_title(tag_titles[pos]):
-            title, source = tag_titles[pos], tag_source
+            title, source = tag_titles[pos], tag_sources[pos]
+        elif setlist_fills is not None:
+            if pos in setlist_fills:
+                title, source = setlist_fills[pos], "setlist"
+            else:
+                title, source = f["name"], "unresolved"
         elif aligned and not is_placeholder_text(aligned[pos].title):
             # Task 11b: an item that is itself a placeholder (`Track 01` in a
             # description listing its own tags) is never adopted; the position

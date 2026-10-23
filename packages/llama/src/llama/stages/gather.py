@@ -2,21 +2,27 @@ import datetime
 import logging
 import re
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
 from typing import NamedTuple
 
 from herder import HerderError, TaskFailed, run_json_task
 from herder.limits import RateLimited
-from llama import jerrybase, taper
+from llama import desc_list, jerrybase, taper, title_hygiene
 from llama.config import StructureConfig
 from llama.errors import LlamaError
 from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
 from llama.ia_client import IAError
-from llama.models import (AlignedStructure, JerrybaseEvent, Candidate, ParsedSetlist, SetlistItem, Show,
-                          ShowNotes, SourcedParse, StructureInfo, Track)
+from llama.desc_list import DescRead, drop_leading_artist_items, read_desc_list
+from llama.lossless_titles import (SHIFTED_DELIVERED_NOTE, LosslessResult, apply_lossless,
+                                   demoted_note)
+from llama.title_cosmetics import cosmetic_strip
+from llama.title_hygiene import DDecision, SetlistPlan
+from llama.models import (AlignedStructure, JerrybaseEvent, Candidate, Overrides, ParsedSetlist,
+                          SetlistItem, Show, ShowNotes, SourcedParse, StructureInfo, Track)
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
-from llama.siblings import DonorTape, cplus_filter, propose_rows, rate_alignment
+from llama.siblings import DonorTape, SiblingRow, cplus_filter, propose_rows, rate_alignment
 from llama.songs import GD_SHORTHAND, normalize_song
 from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align,
                              apply_llm_alignment, blend_segues, cities_compatible, encore_lost,
@@ -28,7 +34,7 @@ from llama.placeholders import is_junk_tag
 from llama.taper import TaperDecision
 from llama.titles import (_GLUED_NUM_PREFIX, _JOINED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
                           is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, shipped_short_tag, tag_core,
-                          tag_layer, title_fraction)
+                          tag_layer, title_fraction, TagLayer)
 from llama.util import length_seconds
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
 
@@ -167,7 +173,7 @@ def _dedupe_ordered(items: list[str]) -> list[str]:
     carries meaning, so a plain `set()` (or `sorted(set(...))`) is wrong here
     -- it would scramble the order the rest of `run_gather` builds `flags`/
     `notes` in. This exists because `_collect_parses` (via `build_canonical`,
-    always run first) and `load_donor_tapes` (via `_sibling_transfer`, run
+    always run first) and `load_donor_tapes` (via `_sibling_transfer_full`, run
     only when the sibling-align gate fires) each independently retry and
     independently catch/note the exact same `IAError` for the exact same
     donor identifier -- `IAClient` never caches a failed fetch, so nothing
@@ -211,9 +217,10 @@ def load_donor_tapes(ia, candidate: Candidate, identifier: str,
                      want: str | Sequence[str]) -> tuple[list[DonorTape], list[str]]:
     """Load every non-self recording in `candidate.recordings` as a
     `DonorTape` -- the ONE definition of "qualifying donor", shared by
-    `_sibling_transfer` (gather's automatic pass) and `cli._propose_titles_for_show`
-    / triage's `[t]` (the operator surface, Task 6). Extracted out of
-    `_sibling_transfer` rather than reimplemented CLI-side: a second
+    `_sibling_transfer_full` (gather's automatic pass, reached through `title_inputs`'
+    `sibling_step`) and `cli._propose_titles_for_show` / triage's `[t]` (the operator
+    surface, Task 6). Extracted out of the transfer pass (then `_sibling_transfer`)
+    rather than reimplemented CLI-side: a second
     "which recordings count as donors" would be invisible when it drifted,
     exactly the class of duplication this module's docstrings keep warning
     about.
@@ -221,7 +228,7 @@ def load_donor_tapes(ia, candidate: Candidate, identifier: str,
     A recording qualifies when: it is not `identifier` itself, its metadata
     fetches without error, `filter_files` leaves at least one kept file, and
     every kept file has a real (non-`None`) duration -- the same three
-    conditions `_sibling_transfer` checked inline before this extraction.
+    conditions the transfer pass checked inline before this extraction.
 
     Returns `(donors, notes)`. `notes` carries one message per sibling whose
     metadata could not be fetched (`IAError`); a sibling that fetches fine
@@ -262,7 +269,7 @@ def best_donor(ia, candidate: Candidate, identifier: str, want: str | Sequence[s
     `tracks`' own durations, rate the pair, and return the single winner --
     highest anchor agreement, then lowest DP cost, then identifier
     (`_donor_key`'s tie-break). ONE definition of "who wins", shared by
-    `_sibling_transfer` (gather's automatic pass) and
+    `_sibling_transfer_full` (gather's automatic pass) and
     `cli._sibling_proposal` (the operator surface) -- fix round 1 on Task 6:
     the two used to re-implement this four-step loop (propose_rows -> skip
     None -> rate_alignment -> `_donor_key` -> sort -> `[0]`) verbatim, and a
@@ -293,9 +300,25 @@ def best_donor(ia, candidate: Candidate, identifier: str, want: str | Sequence[s
     return donor, rows, res, notes
 
 
+DonorRows = tuple[DonorTape, list[SiblingRow]]
+
+
+# Off the production path since Task 16 (gather calls `_sibling_transfer_full` through
+# `title_inputs`); kept for its pin test and the title-hygiene gate probe.
 def _sibling_transfer(ia, candidate: Candidate, identifier: str,
                       want: str | Sequence[str], tracks: list,
                       metadata_norms: set[str]) -> tuple[list, list[str]]:
+    """`_sibling_transfer_full`'s first two elements, byte-identical to before the
+    split (title hygiene, Task 11). See `_sibling_transfer_full`."""
+    new_tracks, notes, _ = _sibling_transfer_full(ia, candidate, identifier, want,
+                                                  tracks, metadata_norms)
+    return new_tracks, notes
+
+
+def _sibling_transfer_full(ia, candidate: Candidate, identifier: str,
+                           want: str | Sequence[str], tracks: list,
+                           metadata_norms: set[str]
+                           ) -> tuple[list, list[str], DonorRows | None]:
     """The guarded duration-alignment title transfer. Loads every non-self
     sibling recording, aligns each against `tracks`' own durations
     (`siblings.propose_rows`), rates the pair (`siblings.rate_alignment`),
@@ -303,7 +326,10 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
     running `siblings.cplus_filter` -- fills `unresolved` tracks with the
     surviving `adopt` rows, stamped `title_source="sibling-align"`.
 
-    Returns `(tracks, notes)`. `tracks` is always a NEW list -- inputs are
+    Returns `(tracks, notes, donor_rows)`. `donor_rows` is the winning donor's
+    `(donor, rows)` from `best_donor` whatever the band, None when no donor
+    qualified: title hygiene's D rung reads it for its sibling-duration check
+    rather than re-running `best_donor` (Task 11). `tracks` is always a NEW list -- inputs are
     never mutated in place, on every return path including "no candidate
     donor at all" -- and `notes` carries pair-level declines (why the
     winning donor's band was not `auto`, or why a donor could not be fetched
@@ -339,7 +365,7 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
     same show before this function ever runs."""
     donor, rows, res, notes = best_donor(ia, candidate, identifier, want, tracks, metadata_norms)
     if donor is None:
-        return list(tracks), notes
+        return list(tracks), notes, None
     new_tracks = list(tracks)
 
     if res.band != "auto":
@@ -351,7 +377,7 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
         else:                                     # "no-anchors"
             notes.append(f"sibling alignment skipped ({donor.identifier}): "
                          "tape has no independent anchors")
-        return new_tracks, notes
+        return new_tracks, notes, (donor, rows)
 
     filtered = cplus_filter(rows, tracks)          # C+ is auto-band only (concern #3)
     seen_reasons: set[str] = set()
@@ -367,7 +393,7 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
         elif row.reason and row.reason not in seen_reasons:
             seen_reasons.add(row.reason)
             notes.append(f"sibling alignment ({donor.identifier}): {row.reason}")
-    return new_tracks, notes
+    return new_tracks, notes, (donor, rows)
 
 
 # Recovery fires below this and requires the sibling to clear the second
@@ -920,7 +946,8 @@ _SEGUE_SPLIT = re.compile(r"\s*(?:->|>)\s*")
 def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: str, *,
                       corroboration: dict[str, tuple[str, ...]],
                       metadata_norms: set[str],
-                      demoted: frozenset[int]) -> tuple[list[Track], list[str]]:
+                      demoted: frozenset[int],
+                      tag_sources: Sequence[str] | None = None) -> tuple[list[Track], list[str]]:
     """Held-backlog slice 2a (spec "2a. Corroborated short tags"; ruling 2:
     a NEW predicate beside `is_real_title`, which is untouched).
 
@@ -948,7 +975,11 @@ def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: st
     off, plus Task 11b's cosmetics: `M80,`, `E: 2x2`, `42(1)`) with
     `title_source=tag_source` (`tags`, or `sibling-format` when format
     recovery fired); `matched` is untouched. Returns a NEW list and one
-    operator note per accepted track (Contracts id 2a; notes.json only)."""
+    operator note per accepted track (Contracts id 2a; notes.json only).
+
+    `tag_sources` (title hygiene, slice 3: the tag layer may mix sources per track)
+    stamps each accepted track with its own source; None, the default, stamps
+    `tag_source` on every track, exactly as before."""
     out = list(tracks)
     notes: list[str] = []
     for i, t in enumerate(tracks):
@@ -967,11 +998,489 @@ def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: st
         if fuzzy_norm_title(core) in metadata_norms:
             continue
         title = shipped_short_tag(tag)
-        out[i] = t.model_copy(update={"title": title, "title_source": tag_source})
+        source = tag_source if tag_sources is None else tag_sources[i]
+        out[i] = t.model_copy(update={"title": title, "title_source": source})
         sources = sorted({src for k in keys for src in corroboration[k]})
         notes.append(f"accepted short tag title: track {t.index} '{title}' "
                      f"corroborated by {', '.join(sources)}")
     return out, notes
+
+
+# ---- Title hygiene (piece 3): the unwired builder and orchestrator -----------------------
+#
+# Spec `docs/superpowers/specs/2026-10-22-title-hygiene-design.md`; plan Task 11.
+# `title_inputs` is `compute_gather`'s title prelude (filter, include/exclude handling,
+# recovery, the canonical, metadata norms, the tag-gate basis, corroboration) plus the
+# description lists and the two sibling closures; `title_cascade` is its title block (tag
+# layer through 2a) with the new slices placed where the spec puts them, each behind
+# `enabled`. With `enabled=frozenset()` the cascade reproduces the pre-piece-3 title block
+# exactly (gate 0, measured on the whole library before wiring). `compute_gather` calls
+# both (Task 16); they are the only copy of the prelude and the title block.
+
+
+def gather_cleaner(metadata_norms: set[str], artist: str) -> desc_list.Cleaner:
+    """Reader (ii)'s cleaner (spec slice 2 (ii)): `build_canonical`'s cleaning with one
+    difference. `_strip_head_banner`, then `drop_leading_artist_items` (artist items in the
+    leading run only, never mid-list: a self-titled song stays), then
+    `_strip_footnote_markers`. Returns `(cleaned, removed_indices)`: the indices (into the
+    INPUT items) the first two removed. Both remove a leading run, so the indices are a
+    prefix. The footnote strip rewrites titles and removes nothing, so it reports nothing."""
+    def clean(parsed: ParsedSetlist) -> tuple[ParsedSetlist, frozenset[int]]:
+        banner = _strip_head_banner(parsed, metadata_norms)
+        dropped = drop_leading_artist_items(banner, artist)
+        removed = len(parsed.items) - len(dropped.items)
+        return _strip_footnote_markers(dropped), frozenset(range(removed))
+    return clean
+
+
+@dataclass(frozen=True)
+class TitleInputs:
+    """Everything the title cascade reads, computed once by `title_inputs`."""
+    kept: list[dict]
+    excluded: list[dict]
+    files: list[dict]                    # the item's whole file list (slice 3's lossless lookup)
+    ordering: dict
+    recovery_basis: list[dict]
+    tag_gate_basis: list[dict]
+    format_titles: dict[str, str] | None
+    overrides: Overrides
+    cb: CanonicalBuild
+    corroboration: frozenset[str]
+    item_title: str | None
+    metadata_norms: set[str]
+    family_aliases: dict[str, str]
+    desc: DescRead
+    sibling_step: Callable[[list[Track]], tuple[list[Track], list[str], DonorRows | None]]
+    donor_check: Callable[[list[Track]], DonorRows | None]
+
+
+def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, identifier: str,
+                 artist: str, want: Sequence[str], events: list,
+                 build: Callable[[list[dict]], CanonicalBuild]) -> TitleInputs:
+    """`compute_gather`'s title prelude, as one builder (its only copy). It does
+    no IO of its own: the canonical comes through `build` (the caller binds
+    `build_canonical`), called once on the post-exclusion `kept`, and the two closures
+    fetch only when the cascade calls them. `sibling_step` is `_sibling_transfer_full`
+    bound to the show; `donor_check` is `best_donor` bound to the show, returning
+    `(donor, rows)` or None (never raising: a target without durations has no donor)."""
+    meta = md.get("metadata", {})
+    files = md.get("files", [])
+    kept, excluded, ordering = filter_files(
+        files, want_format=want, readmit=frozenset(overrides.include))
+    for missing in sorted(set(overrides.include) - {f["name"] for f in kept}):
+        log.warning("overrides.include entry %r matched no file", missing)
+    # Computed on the unexcluded set, deliberately: it is a filename-keyed map
+    # and resolve_titles only looks up names still in `kept`, so covering files
+    # the operator later drops is harmless, while moving it below the exclusion
+    # would let one dropped file change whether recovery fires at all.
+    #
+    # The guarantee is now SYMMETRIC, and `recovery_basis` is what makes it so.
+    # `kept` is post-re-admission, but `_recover_format_titles` and
+    # `sibling_format_titles` judge the whole RECORDING rather than the
+    # individual file -- the mp3-side title_fraction gate, and the exact-count
+    # bijection against the lossless sibling's own kept set. Left on `kept`,
+    # one re-admitted file flipped title recovery for every track on the tape:
+    # a file with no lossless counterpart breaks the bijection and turns OFF
+    # recovery the other tracks would have had, and an untagged one pushes the
+    # mp3-side fraction below the gate and turns it ON. Measured on the gd73
+    # fixture, both directions (7-vs-6 bijection; 0.43 against a 0.50 gate).
+    #
+    # An operator saying "keep this one track" must not change where a
+    # DIFFERENT track's title came from, so recording-level decisions vote on
+    # the tape minus re-admissions. Note what that costs the re-admitted file
+    # HERE: `sibling_format_titles` keys its map off the basis, so the file is
+    # absent from it and falls through to the ordinary cascade -- no vote AND
+    # no recovered title. (The other gate differs: the enumerated-tape strip
+    # applies to every kept file, so there the re-admitted file loses only the
+    # vote.) This is the same rule as the exclusion guard above, in the other
+    # direction.
+    #
+    # TWO recording-level consumers are deliberately NOT carved out, both
+    # because the re-admission genuinely changes the question they ask:
+    # `fetch_siblings` in `title_cascade` (a re-admitted untagged file really
+    # does mean the tape is no longer fully tagged, and its only adoption
+    # target is that file), and `build_canonical`'s `target_count=len(kept)`
+    # (the tape really does have one more track, though a +/-1 shift there can
+    # change which description wins `rank_parses` and so the whole tape's set
+    # labels).
+    # Filter on what filter_files ACTUALLY re-admitted, never on the raw
+    # `overrides.include` request. An entry naming a file that was never
+    # dropped re-admits nothing, but filtering on the request would still
+    # strip that already-kept file of its vote -- re-entering this very bug
+    # through the front door, and silently, since the "matched no file"
+    # warning above cannot fire for a name that IS in `kept`.
+    readmitted = set(ordering.get("readmitted", ()))
+    recovery_basis = [f for f in kept if f["name"] not in readmitted]
+    format_titles = _recover_format_titles(files, recovery_basis, ordering)
+
+    # Re-admission was applied inside the filter above (where play order is
+    # derived); the exclusion runs AFTER it, so a file named in both lists
+    # ends up excluded.
+    if overrides.exclude:
+        drop = set(overrides.exclude)
+        matched = {f["name"] for f in kept if f["name"] in drop}
+        for missing in sorted(drop - matched):
+            log.warning("overrides.exclude entry %r matched no file", missing)
+        for both in sorted(set(overrides.include) & drop):
+            log.warning("overrides: %r is in both include and exclude; "
+                        "exclude wins", both)
+        excluded += [{"filename": f["name"], "reasons": ["operator-excluded"],
+                      "duration_sec": length_seconds(f.get("length"))}
+                     for f in kept if f["name"] in drop]
+        kept = [f for f in kept if f["name"] not in drop]
+
+    # Canonical performance setlist (`build` is `build_canonical` in gather):
+    # every recording's description, plus setlist.fm when configured, ranked
+    # pick-best, then cleaned (head-banner stripped, artist-only items dropped)
+    # at the point it enters the stage, before anything consumes it --
+    # `resolve_titles` only trusts the setlist when `len(items) == len(tracks)`,
+    # so on an untagged tape one header item costs every title on the show.
+    # `.source` (the winning parse's provenance) is `StructureInfo.source`.
+    cb = build(kept)
+    # Recomputed (not re-fetched) rather than threaded out of build_canonical:
+    # it's a pure function of already-in-scope values, and adopt_gap_titles
+    # needs it independently of the canonical-setlist build.
+    metadata_norms = show_metadata_norms(artist, candidate, meta, events)
+    # The same one-file-must-not-decide-for-the-recording rule as
+    # `recovery_basis` above, applied to the OTHER recording-level gate:
+    # clean_tag_titles' enumerated-tape test, which decides whether a leading
+    # track number is stripped from EVERY title. Computed here rather than
+    # reusing `recovery_basis` -- that one is deliberately PRE-exclusion (see
+    # the guard above it), while this gate must vote over the tracks that
+    # actually ship. Reusing it let operator-excluded files vote, which is the
+    # defect test_readmission_does_not_stop_the_track_number_strip caught.
+    tag_gate_basis = [f for f in kept if f["name"] not in readmitted]
+    # Single-word Dead shorthand ("Scarlet", "Dew", "Help") is only safe
+    # inside the Garcia universe — they are ordinary English words
+    # elsewhere. Non-family shows get an empty table, which makes the
+    # vocabulary a provable no-op on the non-Dead corpus. Shared with
+    # gather's `align()` call.
+    family_aliases = GD_SHORTHAND if jerrybase.is_family_artist(artist) else {}
+    desc = read_desc_list(_description(meta), len(kept), artist=artist,
+                          clean=gather_cleaner(metadata_norms, artist))
+
+    def sibling_step(tracks: list[Track]) -> tuple[list[Track], list[str], DonorRows | None]:
+        return _sibling_transfer_full(ia, candidate, identifier, want, tracks, metadata_norms)
+
+    def donor_check(tracks: list[Track]) -> DonorRows | None:
+        donor, rows, _, _ = best_donor(ia, candidate, identifier, want, tracks, metadata_norms)
+        return None if donor is None else (donor, rows)
+
+    return TitleInputs(
+        kept=kept, excluded=excluded, files=files, ordering=ordering,
+        recovery_basis=recovery_basis, tag_gate_basis=tag_gate_basis,
+        format_titles=format_titles, overrides=overrides, cb=cb,
+        corroboration=frozenset(cb.corroboration), item_title=meta.get("title"),
+        metadata_norms=metadata_norms, family_aliases=family_aliases, desc=desc,
+        sibling_step=sibling_step, donor_check=donor_check)
+
+
+@dataclass(frozen=True)
+class CascadeRecord:
+    """What the cascade decided, for the gate probe and the replay record. Positions are
+    0-based. `lossless` is slice 3's result with any `overrides.titles` position filtered
+    out (never changed, never noted); `d` is None when D did not run or returned None."""
+    wholly_untagged: bool
+    fetch_siblings: bool
+    s_positions: tuple[int, ...]
+    lossless: LosslessResult | None
+    s_plan: SetlistPlan
+    d: DDecision | None
+    short4: tuple[int, ...]
+    short4_declined: dict[int, str]
+    gap_filled: tuple[int, ...]
+    deferred_applied: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class TitleCascade:
+    """`title_cascade`'s result. `tracks` are the titles before alignment; `op_notes` go to
+    notes.json (never `structure.conflicts`); `struct_notes` are sibling-align's notes, which
+    join `cb.notes` on today's `structure.conflicts` path; `paths` is per track `""`, `C1`,
+    `C2`, `S`, `S-deferred`, `D` or `4` (fills only)."""
+    tracks: list[Track]
+    op_notes: list[str]
+    struct_notes: list[str]
+    self_filled: bool
+    paths: tuple[str, ...]
+    record: CascadeRecord
+
+
+def _filled(before: list[Track], after: list[Track], source: str) -> tuple[int, ...]:
+    return tuple(i for i, (b, a) in enumerate(zip(before, after))
+                 if b.title_source != source and a.title_source == source)
+
+
+def _without_override_positions(res: LosslessResult, overridden: set[int],
+                                delivered: list[str], delivered_source: str) -> LosslessResult:
+    """Slice 3 never touches an override (Constraints, "Ordering"): at an `overrides.titles`
+    position its change, or its shifted-set demotion (C-1), is undone, uncounted and
+    unnoted (the override replaces the title anyway, so a note there would be false)."""
+    hit = {i for i in res.changed if i in overridden}
+    hit_demoted = {i for i in res.demoted if i in overridden}
+    if not hit and not hit_demoted:
+        return res
+    titles, sources = list(res.titles), list(res.sources)
+    for i in hit | hit_demoted:
+        titles[i], sources[i] = delivered[i], delivered_source
+    demoted = tuple(i for i in res.demoted if i not in hit_demoted)
+    prefixes = tuple(f"lossless title: track {i + 1} '" for i in hit)
+    notes = [n for n in res.notes
+             if not (prefixes and n.startswith(prefixes))
+             and not n.startswith(SHIFTED_DELIVERED_NOTE)]
+    if demoted:
+        notes.append(demoted_note(demoted))
+    return replace(res, titles=titles, sources=sources,
+                   changed={i: c for i, c in res.changed.items() if i not in hit},
+                   notes=tuple(notes), demoted=demoted)
+
+
+def title_cascade(inp: TitleInputs, *,
+                  enabled: frozenset[str] = title_hygiene.ENABLED_SLICES) -> TitleCascade:
+    """Today's title block (tag layer through 2a), with the new slices at their places
+    (spec: slice 1 placement, slice 2 "When it fires", slice 3 "Placement" and "Per-track
+    source", slice 4 placement, Constraints "Ordering"). Order: tag layer -> C (slice 3)
+    -> 2b on the delivered layer minus C-changed (notes minus overrides) -> 2c/2d notes
+    skipping C-changed -> `fetch_siblings` -> the format-sibling note (not when C acted)
+    -> wholly untagged -> the S plan (slice 1) -> `resolve_titles` -> overrides ->
+    sibling-align -> setlist-gap (S-declined positions bind it) -> 2a -> slice 4 -> D
+    (slice 2) -> the deferred S fill. No rung overwrites a resolved track or an override.
+    With `enabled=frozenset()` the result is exactly today's."""
+    s1, s2, s3, s4 = (f"slice{k}" in enabled for k in (1, 2, 3, 4))
+    kept, overrides, cb = inp.kept, inp.overrides, inp.cb
+    canonical = cb.setlist
+    n = len(kept)
+    overridden = {k - 1 for k in overrides.titles}
+    op_notes: list[str] = []
+    struct_notes: list[str] = []
+
+    # The delivered tag layer, then slice 3 (C) per track on top of it.
+    delivered, delivered_source = tag_layer(kept, inp.format_titles, inp.tag_gate_basis)
+    titles, sources = list(delivered), [delivered_source] * n
+    lossless = None
+    if s3:
+        in_scope = (inp.format_titles is None
+                    and title_fraction(clean_tag_titles(inp.recovery_basis)) >= _RECOVER_BELOW)
+        lossless = _without_override_positions(
+            apply_lossless(kept, delivered, delivered_source, in_scope=in_scope,
+                           files=inp.files, ordering=inp.ordering,
+                           recovery_basis=inp.recovery_basis, desc=inp.desc.used,
+                           canonical=canonical, metadata_norms=inp.metadata_norms),
+            overridden, delivered, delivered_source)
+        titles, sources = list(lossless.titles), list(lossless.sources)
+        op_notes += lossless.notes
+    c_changed = set(lossless.changed) if lossless is not None else set()
+    c_demoted = set(lossless.demoted) if lossless is not None else set()
+
+    # 2b on the delivered layer, minus the stems C changed. `layer_demoted` is what
+    # resolve_titles demotes (overrides included, as today: they are overwritten anyway);
+    # `demoted` drops override positions, as today's notes and 2a do.
+    # Slice 2b (held-backlog spec "2b. Junk-title detector"): placeholder tags
+    # demote to `unresolved` inside resolve_titles. The same positions are
+    # computed here, over the same tag layer, for the notes. An override is
+    # never judged (spec 2b: only `tags`/`sibling-format` titles are), so a
+    # position the overrides loop below replaces gets no note and does not
+    # count as demoted; resolve_titles' demotion there is overwritten anyway.
+    layer_demoted = [i for i in placeholder_positions(delivered, corroboration=inp.corroboration,
+                                                      item_title=inp.item_title)
+                     if i not in c_changed]
+    demoted = [i for i in layer_demoted if (i + 1) not in overrides.titles]
+    for i in demoted:
+        op_notes.append(f"placeholder tag title: track {i + 1} '{delivered[i]}' "
+                        f"demoted to unresolved")
+    # Slice 2c/2d: one note per title the glued/joined-prefix strip changed. Only
+    # on the `tags` layer: under format recovery the tag titles are the lossless
+    # sibling's, and comparing them with this mp3's own tags would note strips
+    # that never happened. An overridden position is never judged (as for 2b).
+    if delivered_source == "tags":
+        for i, f in enumerate(kept):
+            if i in c_changed or i in c_demoted:
+                continue
+            raw = clean_tag_title(f.get("title"))
+            if (delivered[i] != raw and _GLUED_NUM_PREFIX.match(raw)
+                    and (i + 1) not in overrides.titles):
+                op_notes.append(f"stripped glued track number: track {i + 1} "
+                                f"'{raw}' -> '{delivered[i]}'")
+            if (delivered[i] != raw and _JOINED_NUM_PREFIX.match(raw)
+                    and (i + 1) not in overrides.titles):
+                op_notes.append(f"stripped joined track number: track {i + 1} "
+                                f"'{raw}' -> '{delivered[i]}'")
+    # `kept and` is load-bearing: title_fraction is 0.0 on an empty list, so an
+    # exclude-everything tape would otherwise fetch every sibling recording's
+    # metadata to resolve zero titles. The output was never wrong, only the
+    # fetches wasted. Loosened (Task 5): the old count-mismatch/confidence
+    # condition is gone -- the sibling-align pass below is guarded on its
+    # own evidence (anchor agreement), not on how the canonical setlist lined
+    # up, so gating the FETCH on that condition too was never doing anything
+    # but adding false negatives.
+    # Deliberately NO gate_basis, unlike the resolve_titles call below: this is
+    # the fetch_siblings carve-out, and a re-admitted untagged file genuinely
+    # does mean the tape is no longer fully tagged. Same function, same tape,
+    # two different votes -- which is intended, not an oversight (whole-branch
+    # review M4). The flip is only ever 1.0 -> <1.0, and at 1.0 the only
+    # unresolved tracks are slice 2b's demotions (the `or demoted` arm below),
+    # so otherwise the fetch's only adoption target is the re-admitted file.
+    #
+    # Slice 2b: `fetch_siblings` is a fetch gate, not a measured one ("never
+    # wrong, only wasted"), so it is recomputed over post-detector titles: a
+    # `tmp` x 19 tape has title_fraction 1.0 but nothing usable, and
+    # sibling-align gets its guarded chance at the demoted tracks.
+    fetch_siblings = bool(kept and (title_fraction(clean_tag_titles(kept)) < 1.0 or demoted))
+    # Spec 2b: recording-level gates keep `is_real_title`, so `_RECOVER_BELOW`
+    # does not move and a `tmp`-tagged mp3 does not trigger format recovery.
+    # A fully-tagged lossless sibling is filed as a note, not acted on. Only
+    # when recovery did NOT fire (otherwise the tag layer IS that sibling and
+    # "recovery not triggered" would be false), and not when C acted.
+    if demoted and inp.format_titles is None and not c_changed:
+        for fmt in LOSSLESS_TITLE_FORMATS:
+            if fmt == inp.ordering.get("format"):
+                continue
+            other, _, _ = filter_files(inp.files, want_format=fmt)
+            recovered = sibling_format_titles(inp.recovery_basis, other)
+            if recovered is None:
+                continue
+            frac = title_fraction(list(recovered.values()))
+            if frac >= _RECOVER_SIBLING_ABOVE:
+                op_notes.append(f"format sibling tagged: {fmt} title fraction {frac:.2f} "
+                                f"(recovery not triggered; filed, not acted on)")
+                break
+
+    # Wholly untagged: once, from the tag layer after C, before resolve_titles.
+    layer_demoted_set = frozenset(layer_demoted)
+    untagged = title_hygiene.wholly_untagged(titles, layer_demoted_set)
+
+    # Slice 1: where the S rung fires. `s_positions` reach today's S branch.
+    tag_real = [i not in layer_demoted_set and is_real_title(titles[i]) for i in range(n)]
+    s_positions = [i for i in range(n)
+                   if i not in layer_demoted_set and not tag_real[i] and i not in overridden]
+    plan = title_hygiene.plan_setlist_rung(
+        canonical=canonical, canonical_source=cb.source, s_positions=s_positions,
+        tag_titles=titles, tag_real=tag_real, filenames=[f["name"] for f in kept],
+        metadata_norms=inp.metadata_norms, desc_used=inp.desc.used is not None,
+        wholly_untagged=untagged, slice1=s1, slice2=s2)
+    op_notes += plan.notes
+
+    tracks = resolve_titles(kept, canonical, format_titles=inp.format_titles,
+                            gate_basis=inp.tag_gate_basis, corroboration=inp.corroboration,
+                            item_title=inp.item_title,
+                            layer=TagLayer(titles, sources, layer_demoted_set),
+                            setlist_fills=plan.fills)
+    for k, forced in overrides.titles.items():
+        if not (1 <= k <= len(tracks)):
+            raise LlamaError(f"overrides.titles: no track {k} "
+                             f"(show has {len(tracks)} tracks)")
+        tracks[k - 1] = tracks[k - 1].model_copy(
+            update={"title": forced, "title_source": "override"})
+
+    # Guarded duration-alignment sibling transfer. After the overrides loop
+    # (an operator-forced title can anchor the guard) and before
+    # adopt_gap_titles (see that call's own comment for why ordering there
+    # matters to `Track.matched`). `siblings.py` stays pure; all IO is in
+    # `inp.sibling_step`.
+    sibling_ran, kept_donor = False, None
+    if fetch_siblings:
+        tracks, sib_notes, kept_donor = inp.sibling_step(tracks)
+        struct_notes += sib_notes
+        sibling_ran = True
+
+    # Fill count-forced runs of unresolved tracks between tag-verified anchors.
+    # Runs here, after the overrides loop, so an operator-forced title can
+    # ANCHOR a gap as well as survive it. metadata_norms is passed down
+    # because structure.py must not import a stage. S's declined positions
+    # bind it (slice 1, "Declines bind setlist-gap").
+    #
+    # An adopted title *is* the canonical item's own text, so gather's align()
+    # WOULD be guaranteed to match it -- tautologically raising `coverage` and
+    # flipping `Track.matched` to True for tracks that were never
+    # independently matched, which could suppress the "low-confidence
+    # structure alignment" flag on exactly the shows where adoption took the
+    # riskiest action. RULED and DELIBERATELY CORRECTED FOR, not merely
+    # accepted: `structure._songish_coverage` excludes every source in
+    # `structure.TAUTOLOGICAL_TITLE_SOURCES` (`setlist-gap`, the whole-tape
+    # `setlist` rung and `desc-position`) from the coverage denominator, and
+    # gather's final track assembly forces such a track's `matched` to None
+    # (= "not measured", per models.py). See
+    # test_adopted_tracks_report_matched_none and
+    # test_missed_anchor_flags_low_confidence_once_adopted_tracks_are_excluded
+    # in test_stage_gather.py for the pinned corrected behaviour.
+    before = tracks
+    tracks = adopt_gap_titles(tracks, canonical, metadata_norms=inp.metadata_norms,
+                              aliases=inp.family_aliases, declined=plan.declined)
+    gap_filled = _filled(before, tracks, "setlist-gap")
+
+    # Slice 2a (held-backlog spec "2a. Corroborated short tags"): after
+    # sibling-align and setlist-gap, before alignment, so it fills only what
+    # every earlier rung left `unresolved` (`Ramone & Emiglio` from
+    # setlist-gap is never displaced by the tag `R&E`) and never an override
+    # (M9: an `overrides.titles` position is `override` by now, so it is never
+    # judged or noted). Over the same tag layer `resolve_titles` used. Its
+    # notes go to notes.json only (ruling 6), never `structure.conflicts`.
+    tracks, short_notes = accept_short_tags(tracks, titles, delivered_source,
+                                            corroboration=cb.corroboration,
+                                            metadata_norms=inp.metadata_norms,
+                                            demoted=frozenset(demoted), tag_sources=sources)
+    op_notes += short_notes
+
+    short4: tuple[int, ...] = ()
+    short4_declined: dict[int, str] = {}
+    if s4:
+        tracks, notes4, accepted, short4_declined = title_hygiene.confirm_short_tags(
+            tracks, titles, sources, desc=inp.desc.used, demoted=frozenset(demoted),
+            metadata_norms=inp.metadata_norms)
+        short4 = tuple(accepted)
+        op_notes += notes4
+
+    d = None
+    if s2 and inp.desc.used is not None:
+        pre_d = tracks
+        if sibling_ran:
+            def donor() -> DonorRows | None:
+                return kept_donor          # sibling_step's choice; never re-run best_donor
+        else:
+            def donor() -> DonorRows | None:
+                return inp.donor_check(pre_d)
+        d = title_hygiene.decide_d(tracks, inp.desc.used, tag_titles=titles,
+                                   canonical=canonical, metadata_norms=inp.metadata_norms,
+                                   aliases=inp.family_aliases, wholly_untagged=untagged,
+                                   donor=donor)
+        if d is not None:
+            tracks = title_hygiene.apply_d(tracks, d)
+            op_notes += title_hygiene.d_notes(d, inp.desc.used)
+
+    before = tracks
+    tracks, deferred_notes = title_hygiene.apply_deferred_setlist(
+        tracks, plan, d, tag_titles=titles, metadata_norms=inp.metadata_norms)
+    deferred_applied = _filled(before, tracks, "setlist")
+    op_notes += deferred_notes
+
+    record = CascadeRecord(
+        wholly_untagged=untagged, fetch_siblings=fetch_siblings,
+        s_positions=tuple(s_positions), lossless=lossless, s_plan=plan, d=d,
+        short4=short4, short4_declined=dict(short4_declined), gap_filled=gap_filled,
+        deferred_applied=deferred_applied)
+    return TitleCascade(tracks=tracks, op_notes=op_notes, struct_notes=struct_notes,
+                        self_filled=title_hygiene.is_self_filled(tracks, d),
+                        paths=_paths(record, n), record=record)
+
+
+def _paths(record: CascadeRecord, n: int) -> tuple[str, ...]:
+    """Per track, which new path filled it: `C1`/`C2` (slice 3), `S` (the S rung inside
+    resolve_titles), `4` (slice 4), `D` (slice 2), `S-deferred`; `""` otherwise. Each
+    position is filled by at most one of them (no rung overwrites a resolved track)."""
+    paths = [""] * n
+    if record.lossless is not None:
+        for i, c in record.lossless.changed.items():
+            paths[i] = c
+    for i in record.s_plan.fills:
+        paths[i] = "S"
+    for i in record.short4:
+        paths[i] = "4"
+    if record.d is not None:
+        for i in record.d.fills:
+            paths[i] = "D"
+    for i in record.deferred_applied:
+        paths[i] = "S-deferred"
+    return tuple(paths)
 
 
 class GatherResult(NamedTuple):
@@ -990,7 +1499,13 @@ class GatherResult(NamedTuple):
     structure (the one predicate `replay` may key on); `taper` is the
     `decide_taper` result, None on the structure-override path; and
     `step1_alignment` is today's mechanism before the taper step
-    (`deterministic`/`jerrybase`), None on the override path."""
+    (`deterministic`/`jerrybase`), None on the override path.
+
+    Title hygiene (piece 3), also in-process only: `self_filled` is
+    `title_cascade`'s self-filled predicate (spec slice 2, "Self-filled
+    tapes"); `title_paths` is per track which new path filled it (`""`, `C1`,
+    `C2`, `S`, `S-deferred`, `D`, `4`); `title_record` is the cascade's
+    `CascadeRecord` (fills and declines)."""
     show: Show
     reviews: list[dict]
     notes: list[str]
@@ -998,6 +1513,9 @@ class GatherResult(NamedTuple):
     taper_owned: bool = False
     taper: TaperDecision | None = None
     step1_alignment: str | None = None
+    self_filled: bool = False
+    title_paths: tuple[str, ...] = ()
+    title_record: CascadeRecord | None = None
 
 
 # Slice 1 1d's hold (Contracts "Exact note and flag strings"); an operator
@@ -1060,6 +1578,7 @@ def compute_gather(
     setlistfm=None,
     structure_cfg: StructureConfig | None = None,
     jerrybase_enabled: bool = False,
+    enabled_slices: frozenset[str] = title_hygiene.ENABLED_SLICES,
 ) -> GatherResult:
     """Gather without the writes: `run_gather` minus `should_run` and the
     three artifacts. Reads `overrides.json` from `show_ws` and nothing else
@@ -1067,12 +1586,16 @@ def compute_gather(
     only a copy of the overrides. With `provider`/`align_provider` None, the
     LLM touchpoints are recorded in `.needs_llm` instead of called; the
     degraded result (e.g. the `low-confidence structure alignment` flag) is
-    exactly what `run_gather` would have written with no provider."""
+    exactly what `run_gather` would have written with no provider.
+
+    `enabled_slices` is the set of title-hygiene slices `title_cascade` runs
+    (default `title_hygiene.ENABLED_SLICES`); `frozenset()` is the title block
+    as it stood before piece 3. `run_gather` never passes it; harnesses do."""
     structure_cfg = structure_cfg or StructureConfig()
-    # Operator-facing notes for notes.json. Deliberately a SEPARATE list from
-    # the local `notes` below, which keeps flowing into `structure.conflicts`
-    # (and so to the briefing LLM) exactly as before (spec ruling 6).
-    op_notes: list[str] = []
+    # Operator-facing notes for notes.json are `op_notes` below, deliberately a
+    # SEPARATE list from the local `notes`, which keeps flowing into
+    # `structure.conflicts` (and so to the briefing LLM) exactly as before
+    # (spec ruling 6).
     needs_align = False
 
     md = ia.metadata(identifier)
@@ -1081,81 +1604,18 @@ def compute_gather(
     want = FORMAT_BY_AUDIO[audio_format]
     # read_overrides is hoisted above filter_files (it only reads the show dir)
     # so operator re-admission can be applied inside the filter, where play
-    # order is derived. The exclude block below still runs AFTER, so a file
-    # named in both lists ends up excluded.
+    # order is derived (`title_inputs`).
     overrides = read_overrides(show_ws)
-    kept, excluded, ordering = filter_files(
-        md.get("files", []), want_format=want,
-        readmit=frozenset(overrides.include))
-    for missing in sorted(set(overrides.include) - {f["name"] for f in kept}):
-        log.warning("overrides.include entry %r matched no file", missing)
-    # Computed on the unexcluded set, deliberately: it is a filename-keyed map
-    # and resolve_titles only looks up names still in `kept`, so covering files
-    # the operator later drops is harmless, while moving it below the exclusion
-    # would let one dropped file change whether recovery fires at all.
-    #
-    # The guarantee is now SYMMETRIC, and `recovery_basis` is what makes it so.
-    # `kept` is post-re-admission, but `_recover_format_titles` and
-    # `sibling_format_titles` judge the whole RECORDING rather than the
-    # individual file -- the mp3-side title_fraction gate, and the exact-count
-    # bijection against the lossless sibling's own kept set. Left on `kept`,
-    # one re-admitted file flipped title recovery for every track on the tape:
-    # a file with no lossless counterpart breaks the bijection and turns OFF
-    # recovery the other tracks would have had, and an untagged one pushes the
-    # mp3-side fraction below the gate and turns it ON. Measured on the gd73
-    # fixture, both directions (7-vs-6 bijection; 0.43 against a 0.50 gate).
-    #
-    # An operator saying "keep this one track" must not change where a
-    # DIFFERENT track's title came from, so recording-level decisions vote on
-    # the tape minus re-admissions. Note what that costs the re-admitted file
-    # HERE: `sibling_format_titles` keys its map off the basis, so the file is
-    # absent from it and falls through to the ordinary cascade -- no vote AND
-    # no recovered title. (The other gate differs: the enumerated-tape strip
-    # applies to every kept file, so there the re-admitted file loses only the
-    # vote.) This is the same rule as the exclusion guard above, in the other
-    # direction.
-    #
-    # TWO recording-level consumers are deliberately NOT carved out, both
-    # because the re-admission genuinely changes the question they ask:
-    # `fetch_siblings` below (a re-admitted untagged file really does mean the
-    # tape is no longer fully tagged, and its only adoption target is that
-    # file), and `build_canonical`'s `target_count=len(kept)` (the tape really
-    # does have one more track, though a +/-1 shift there can change which
-    # description wins `rank_parses` and so the whole tape's set labels).
-    # Filter on what filter_files ACTUALLY re-admitted, never on the raw
-    # `overrides.include` request. An entry naming a file that was never
-    # dropped re-admits nothing, but filtering on the request would still
-    # strip that already-kept file of its vote -- re-entering this very bug
-    # through the front door, and silently, since the "matched no file"
-    # warning above cannot fire for a name that IS in `kept`.
-    readmitted = set(ordering.get("readmitted", ()))
-    recovery_basis = [f for f in kept if f["name"] not in readmitted]
-    format_titles = _recover_format_titles(md.get("files", []), recovery_basis, ordering)
-
-    if overrides.exclude:
-        drop = set(overrides.exclude)
-        matched = {f["name"] for f in kept if f["name"] in drop}
-        for missing in sorted(drop - matched):
-            log.warning("overrides.exclude entry %r matched no file", missing)
-        for both in sorted(set(overrides.include) & drop):
-            log.warning("overrides: %r is in both include and exclude; "
-                        "exclude wins", both)
-        excluded += [{"filename": f["name"], "reasons": ["operator-excluded"],
-                      "duration_sec": length_seconds(f.get("length"))}
-                     for f in kept if f["name"] in drop]
-        kept = [f for f in kept if f["name"] not in drop]
 
     # Jerrybase structure evidence (no-op for artists absent from the dataset).
     # A per-event candidate (/eN) selects events[N-1] for every evidence check.
-    # Resolved HERE, above the canonical-setlist build below, because
-    # `build_canonical`'s head-banner guard reads the event venues as part of
-    # this show's own metadata; nothing in this block depends on tracks or on
-    # the canonical setlist.
+    # Resolved HERE, above the title prelude below, because `build_canonical`'s
+    # head-banner guard and `show_metadata_norms` read the event venues as part
+    # of this show's own metadata; nothing in this block reads a track or the
+    # canonical setlist.
     events = jerrybase.lookup(artist, candidate.date) if jerrybase_enabled else []
-    # `ev_n`, not `n`: hoisting this block above the overrides loop below put
-    # it in scope of that loop's `for n, forced in ...`, which rebinds `n`.
-    # Harmless today because `ev_n` is consumed immediately, but the hoist
-    # silently removed a guarantee and the distinct name puts it back.
+    # `ev_n`, not `n`: a bare `n` here was once rebound by a later loop's
+    # `for n, forced in ...`; the distinct name keeps the guarantee explicit.
     kind, ev_n = _event_kind(candidate.performance_id)
     if kind == "event" and events and 1 <= ev_n <= len(events):
         event = events[ev_n - 1]
@@ -1166,164 +1626,31 @@ def compute_gather(
     else:
         event = None
 
-    # Canonical performance setlist: every recording's description, plus
-    # setlist.fm when configured, ranked pick-best, then cleaned (head-banner
-    # stripped, artist-only items dropped) at the point it enters the stage,
-    # before anything consumes it -- `resolve_titles` below only trusts the
-    # setlist when `len(items) == len(tracks)`, so on an untagged tape one
-    # header item costs every title on the show. `.source` (the winning
-    # parse's provenance) is used below for `StructureInfo.source`.
-    cb = build_canonical(
-        ia, candidate, identifier, meta, kept, artist, events,
-        setlistfm=setlistfm, provider=provider)
-    canonical, notes, canonical_source = cb.setlist, cb.notes, cb.source
-    # Recomputed (not re-fetched) rather than threaded out of build_canonical:
-    # it's a pure function of already-in-scope values, and adopt_gap_titles
-    # below needs it independently of the canonical-setlist build.
-    metadata_norms = show_metadata_norms(artist, candidate, meta, events)
+    # Titles (title hygiene, piece 3; spec 2026-10-22-title-hygiene-design).
+    # `title_inputs` is the prelude: filter, include/exclude, format recovery,
+    # the canonical setlist, metadata norms, the tag-gate basis and the
+    # selected description's list. Its one IO is the canonical, built here
+    # through `build_canonical` with this call's providers (every recording's
+    # description, plus setlist.fm when configured, ranked pick-best, then
+    # cleaned). `title_cascade` is the title block, tag layer through 2a with
+    # the new slices at their places; `enabled_slices` picks which run.
+    # The comments at each step live in those two functions.
+    def build(kept: list[dict]) -> CanonicalBuild:
+        return build_canonical(ia, candidate, identifier, meta, kept, artist, events,
+                               setlistfm=setlistfm, provider=provider)
 
-    # The same one-file-must-not-decide-for-the-recording rule as
-    # `recovery_basis` above, applied to the OTHER recording-level gate:
-    # clean_tag_titles' enumerated-tape test, which decides whether a leading
-    # track number is stripped from EVERY title. Computed here rather than
-    # reusing `recovery_basis` -- that one is deliberately PRE-exclusion (see
-    # the guard above it), while this gate must vote over the tracks that
-    # actually ship. Reusing it let operator-excluded files vote, which is the
-    # defect test_readmission_does_not_stop_the_track_number_strip caught.
-    tag_gate_basis = [f for f in kept if f["name"] not in readmitted]
-    # Slice 2b (held-backlog spec "2b. Junk-title detector"): placeholder tags
-    # demote to `unresolved` inside resolve_titles. The same positions are
-    # computed here, over the same tag layer, for the notes. An override is
-    # never judged (spec 2b: only `tags`/`sibling-format` titles are), so a
-    # position the overrides loop below replaces gets no note and does not
-    # count as demoted; resolve_titles' demotion there is overwritten anyway.
-    corroboration = frozenset(cb.corroboration)
-    item_title = meta.get("title")
-    tag_titles, tag_source = tag_layer(kept, format_titles, tag_gate_basis)
-    demoted = [i for i in placeholder_positions(tag_titles, corroboration=corroboration,
-                                                item_title=item_title)
-               if (i + 1) not in overrides.titles]
-    for i in demoted:
-        op_notes.append(f"placeholder tag title: track {i + 1} '{tag_titles[i]}' "
-                        f"demoted to unresolved")
-    # Slice 2c: one note per title the glued-prefix strip changed. Only on the
-    # `tags` layer: under format recovery `tag_titles` are the lossless
-    # sibling's, and comparing them with this mp3's own tags would note strips
-    # that never happened. An overridden position is never judged (as for 2b).
-    if tag_source == "tags":
-        for i, f in enumerate(kept):
-            raw = clean_tag_title(f.get("title"))
-            if (tag_titles[i] != raw and _GLUED_NUM_PREFIX.match(raw)
-                    and (i + 1) not in overrides.titles):
-                op_notes.append(f"stripped glued track number: track {i + 1} "
-                                f"'{raw}' -> '{tag_titles[i]}'")
-            if (tag_titles[i] != raw and _JOINED_NUM_PREFIX.match(raw)
-                    and (i + 1) not in overrides.titles):
-                op_notes.append(f"stripped joined track number: track {i + 1} "
-                                f"'{raw}' -> '{tag_titles[i]}'")
-    # `kept and` is load-bearing: title_fraction is 0.0 on an empty list, so an
-    # exclude-everything tape would otherwise fetch every sibling recording's
-    # metadata to resolve zero titles. The output was never wrong, only the
-    # fetches wasted. Loosened (Task 5): the old count-mismatch/confidence
-    # condition is gone -- the new sibling-align pass below is guarded on its
-    # own evidence (anchor agreement), not on how the canonical setlist lined
-    # up, so gating the FETCH on that condition too was never doing anything
-    # but adding false negatives.
-    # Deliberately NO gate_basis, unlike the resolve_titles call below: this is
-    # the fetch_siblings carve-out, and a re-admitted untagged file genuinely
-    # does mean the tape is no longer fully tagged. Same function, same tape,
-    # two different votes -- which is intended, not an oversight (whole-branch
-    # review M4). The flip is only ever 1.0 -> <1.0, and at 1.0 the only
-    # unresolved tracks are slice 2b's demotions (the `or demoted` arm below),
-    # so otherwise the fetch's only adoption target is the re-admitted file.
-    #
-    # Slice 2b: `fetch_siblings` is a fetch gate, not a measured one ("never
-    # wrong, only wasted"), so it is recomputed over post-detector titles: a
-    # `tmp` x 19 tape has title_fraction 1.0 but nothing usable, and
-    # sibling-align gets its guarded chance at the demoted tracks.
-    fetch_siblings = bool(kept and (title_fraction(clean_tag_titles(kept)) < 1.0 or demoted))
-    # Spec 2b: recording-level gates keep `is_real_title`, so `_RECOVER_BELOW`
-    # does not move and a `tmp`-tagged mp3 does not trigger format recovery.
-    # A fully-tagged lossless sibling is filed as a note, not acted on. Only
-    # when recovery did NOT fire: otherwise the tag layer IS that sibling and
-    # "recovery not triggered" would be false.
-    if demoted and format_titles is None:
-        for fmt in LOSSLESS_TITLE_FORMATS:
-            if fmt == ordering.get("format"):
-                continue
-            other, _, _ = filter_files(md.get("files", []), want_format=fmt)
-            recovered = sibling_format_titles(recovery_basis, other)
-            if recovered is None:
-                continue
-            frac = title_fraction(list(recovered.values()))
-            if frac >= _RECOVER_SIBLING_ABOVE:
-                op_notes.append(f"format sibling tagged: {fmt} title fraction {frac:.2f} "
-                                f"(recovery not triggered; filed, not acted on)")
-                break
-    tracks = resolve_titles(kept, canonical, format_titles=format_titles,
-                            gate_basis=tag_gate_basis, corroboration=corroboration,
-                            item_title=item_title)
-    for n, forced in overrides.titles.items():
-        if not (1 <= n <= len(tracks)):
-            raise LlamaError(f"overrides.titles: no track {n} "
-                             f"(show has {len(tracks)} tracks)")
-        tracks[n - 1] = tracks[n - 1].model_copy(
-            update={"title": forced, "title_source": "override"})
-
-    # Guarded duration-alignment sibling transfer. After the overrides loop
-    # (an operator-forced title can anchor the guard) and before
-    # adopt_gap_titles (see that call's own comment for why ordering there
-    # matters to `Track.matched`). `siblings.py` stays pure; all IO is here.
-    if fetch_siblings:
-        tracks, sib_notes = _sibling_transfer(ia, candidate, identifier, want,
-                                              tracks, metadata_norms)
-        notes += sib_notes
-
-    # Single-word Dead shorthand ("Scarlet", "Dew", "Help") is only safe
-    # inside the Garcia universe — they are ordinary English words
-    # elsewhere. Non-family shows get an empty table, which makes the
-    # vocabulary a provable no-op on the non-Dead corpus. Shared with the
-    # `align()` call below.
-    family_aliases = GD_SHORTHAND if jerrybase.is_family_artist(artist) else {}
-
-    # Fill count-forced runs of unresolved tracks between tag-verified anchors.
-    # Runs here, after the overrides loop, so an operator-forced title can
-    # ANCHOR a gap as well as survive it. metadata_norms is passed down
-    # because structure.py must not import a stage.
-    #
-    # An adopted title *is* the canonical item's own text, so align() below
-    # WOULD be guaranteed to match it -- tautologically raising `coverage` and
-    # flipping `Track.matched` to True for tracks that were never
-    # independently matched, which could suppress the "low-confidence
-    # structure alignment" flag (gated on `align_coverage_threshold` below) on
-    # exactly the shows where adoption took the riskiest action. RULED and
-    # DELIBERATELY CORRECTED FOR, not merely accepted: `structure._songish_coverage`
-    # excludes every source in `structure.TAUTOLOGICAL_TITLE_SOURCES`
-    # (`setlist-gap` AND the whole-tape `setlist` rung -- the same tautology,
-    # ruled to be excluded the same way) from the coverage denominator, and
-    # the final track assembly below forces a `setlist-gap` track's `matched`
-    # to None (= "not measured", per models.py:158-160 -- an adopted match is
-    # tautological, never an independent measurement). See
-    # test_adopted_tracks_report_matched_none and
-    # test_missed_anchor_flags_low_confidence_once_adopted_tracks_are_excluded
-    # in test_stage_gather.py for the pinned corrected behaviour.
-    tracks = adopt_gap_titles(
-        tracks, canonical,
-        metadata_norms=metadata_norms,
-        aliases=family_aliases)
-
-    # Slice 2a (held-backlog spec "2a. Corroborated short tags"): after
-    # sibling-align and setlist-gap, before alignment, so it fills only what
-    # every earlier rung left `unresolved` (`Ramone & Emiglio` from
-    # setlist-gap is never displaced by the tag `R&E`) and never an override
-    # (M9: an `overrides.titles` position is `override` by now, so it is never
-    # judged or noted). Over the same tag layer `resolve_titles` used. Its
-    # notes go to notes.json only (ruling 6), never `structure.conflicts`.
-    tracks, short_notes = accept_short_tags(tracks, tag_titles, tag_source,
-                                            corroboration=cb.corroboration,
-                                            metadata_norms=metadata_norms,
-                                            demoted=frozenset(demoted))
-    op_notes += short_notes
+    inp = title_inputs(md, overrides, ia=ia, candidate=candidate, identifier=identifier,
+                       artist=artist, want=want, events=events, build=build)
+    cascade = title_cascade(inp, enabled=enabled_slices)
+    excluded, ordering, cb = inp.excluded, inp.ordering, inp.cb
+    canonical, canonical_source = cb.setlist, cb.source
+    family_aliases = inp.family_aliases
+    tracks = cascade.tracks
+    # The cascade's operator notes are the first entries of `op_notes`; its
+    # sibling-align notes follow the canonical's notes in `notes`, today's
+    # order. A new list: `cb.notes` itself is never extended.
+    op_notes: list[str] = list(cascade.op_notes)
+    notes = cb.notes + cascade.struct_notes
 
     flags = []
     # The taper step's outputs; the structure-override path never runs it.
@@ -1416,7 +1743,13 @@ def compute_gather(
             # Not owned (step 4): exactly today's path from here on -- the
             # anchoring note, else the LLM branch below, then every flag.
             notes.append(anchor_note)
-        elif today_llm:
+        elif today_llm and not cascade.self_filled:
+            # (A self-filled tape -- every song-like track `desc-position` and D passed
+            # all its checks -- never gets here: spec Q2, operator ruling "let them
+            # ship". No align_structure call, no needs_align verdict, no low-confidence
+            # flag; labels come from jerrybase anchoring when it resolved, else from
+            # the deterministic align() above. `today_llm` itself, as passed to
+            # `decide_taper`, is unchanged.)
             # No usable jerrybase evidence and the alignment is weak: fall back
             # to LLM realignment, then to a review flag.
             llm_result = None
@@ -1665,7 +1998,7 @@ def compute_gather(
     # rebuild of `tracks` between there and here can drop it.
     #
     # This reads the REQUEST (`overrides.include`) where the recording-level
-    # bases above deliberately read `ordering["readmitted"]` instead, and the
+    # bases in `title_inputs` deliberately read `ordering["readmitted"]` instead, and the
     # difference is intended (whole-branch review M7). The bases answer "which
     # files must lose their vote", where naming an already-kept file would
     # wrongly disenfranchise it; this answers "which files did the operator
@@ -1675,6 +2008,18 @@ def compute_gather(
         forced = set(overrides.include)
         for t in tracks:
             t.included = t.filename in forced
+
+    # Slice 5: cosmetic strip of the FINAL titles, after every flag, set label and
+    # structure above was computed from the pre-strip titles (spec "Slice 5").
+    title_paths = cascade.paths
+    if "slice5" in enabled_slices:
+        tracks, strip_notes, changed = cosmetic_strip(tracks, artist=artist)
+        op_notes += strip_notes
+        if changed:
+            paths = list(title_paths)
+            for pos in changed:
+                paths[pos] += "+5"
+            title_paths = tuple(paths)
 
     show = Show(
         performance_id=candidate.performance_id,
@@ -1701,7 +2046,8 @@ def compute_gather(
                                              ("align_structure", needs_align)) if hit)
     return GatherResult(show=show, reviews=md.get("reviews", []), notes=op_notes,
                         needs_llm=needs_llm, taper_owned=taper_owned, taper=decision,
-                        step1_alignment=step1_alignment)
+                        step1_alignment=step1_alignment, self_filled=cascade.self_filled,
+                        title_paths=title_paths, title_record=cascade.record)
 
 
 def run_gather(
