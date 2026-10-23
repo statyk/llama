@@ -531,3 +531,26 @@ def test_readmitted_file_tag_is_demoted_on_a_shifted_set():
     r = _run(files=files, kept=kept, basis=basis, desc=desc)
     assert r.changed == {1: "C2", 2: "C2"}
     assert r.titles[3] == "" and r.demoted == (3,)
+
+
+def test_c1_one_confirmed_signature_position_demotes_nothing():
+    # C-1 narrowing (operator ruling): the signature has 2 positions (tracks 2, 3) but C
+    # confirmed only track 2 (track 3's lossless tag does not agree with its entry), so the
+    # signature cannot tell a shifted tape from a shifted list: nothing is demoted.
+    desc = _dl("Bertha", "Sugaree", "Deal", "Loser", "Jack Straw")
+    pairs = [("Bertha", "Bertha"), ("Deal", "Sugaree"), ("Loser", "Loser"),
+             ("Big River", "Big River"), ("Jack Straw", "Jack Straw")]
+    r = _run(pairs, desc=desc)
+    assert r.changed == {1: "C2"}
+    assert r.demoted == () and r.titles[3] == "Big River"
+    assert not any(n.startswith("lossless titles: shifted") for n in r.notes)
+
+
+def test_c1_two_confirmed_signature_positions_demote():
+    # The boundary partner: tracks 2 and 3 are both C2-confirmed signature positions.
+    desc = _dl("Bertha", "Sugaree", "Deal", "Loser", "Jack Straw")
+    pairs = [("Bertha", "Bertha"), ("Deal", "Sugaree"), ("Loser", "Deal"),
+             ("Big River", "Big River"), ("Jack Straw", "Jack Straw")]
+    r = _run(pairs, desc=desc)
+    assert r.changed == {1: "C2", 2: "C2"}
+    assert r.demoted == (3,) and r.titles[3] == ""

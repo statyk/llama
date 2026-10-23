@@ -1270,6 +1270,7 @@ def title_cascade(inp: TitleInputs, *,
         titles, sources = list(lossless.titles), list(lossless.sources)
         op_notes += lossless.notes
     c_changed = set(lossless.changed) if lossless is not None else set()
+    c_demoted = set(lossless.demoted) if lossless is not None else set()
 
     # 2b on the delivered layer, minus the stems C changed. `layer_demoted` is what
     # resolve_titles demotes (overrides included, as today: they are overwritten anyway);
@@ -1293,7 +1294,7 @@ def title_cascade(inp: TitleInputs, *,
     # that never happened. An overridden position is never judged (as for 2b).
     if delivered_source == "tags":
         for i, f in enumerate(kept):
-            if i in c_changed:
+            if i in c_changed or i in c_demoted:
                 continue
             raw = clean_tag_title(f.get("title"))
             if (delivered[i] != raw and _GLUED_NUM_PREFIX.match(raw)

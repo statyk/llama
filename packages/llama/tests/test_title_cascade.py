@@ -554,3 +554,63 @@ def test_cosmetic_strip_receives_the_show_artist(tmp_path: Path):
     assert res.show.tracks[0].title == "Morning Dew"
     assert ("cosmetic title strip: track 1 'Grateful Dead - Morning Dew' -> 'Morning Dew'"
             in res.notes)
+
+
+def _shifted_list_show(mp3_titles, flac_titles, listed, *, ident="xyz2001-01-01.flac16"):
+    """A synthetic one-set tape: `mp3_titles` on the MP3 derivatives, `flac_titles` (None =
+    untitled) on the FLAC originals, and a count-matched numbered description `listed`."""
+    desc = "Some Band\nJan 1 2001\n\n" + "\n".join(
+        f"{i:02d} {t}" for i, t in enumerate(listed, 1))
+    files = []
+    for i, (mt, ft) in enumerate(zip(mp3_titles, flac_titles), 1):
+        s = f"xyz2001-01-01t{i:02d}"
+        flac = {"name": f"{s}.flac", "source": "original", "format": "Flac",
+                "length": "400.0", "track": f"{i:02d}"}
+        if ft is not None:
+            flac["title"] = ft
+        files += [flac, {"name": f"{s}.mp3", "source": "derivative", "format": "VBR MP3",
+                         "length": "06:40", "title": mt, "original": f"{s}.flac",
+                         "track": f"{i:02d}"}]
+    md = {"metadata": {"identifier": ident, "creator": "Some Band", "date": "2001-01-01",
+                       "description": desc}, "files": files, "reviews": []}
+    cand = Candidate(performance_id="SomeBand/2001-01-01", collection="SomeBand",
+                     date="2001-01-01", venue="Hall", city="Town, ST",
+                     recordings=[RecordingSummary(identifier=ident)])
+    return StubIA(md), cand, ident
+
+
+_RIGHT_8 = ["Bertha", "Sugaree", "Deal", "Loser", "Jack Straw", "Stella Blue", "Big River",
+            "Ripple"]
+
+
+def test_shifted_reference_with_right_tags_demotes_nothing_c1_narrowing(tmp_path: Path):
+    """Operator ruling (C-1 narrowing, fixwave-rr finding 1): all 8 MP3 tags are right; the
+    FLAC is titled only on 1 and 8; the count-matched list is shifted over 2-6 (omits
+    Sugaree, adds Mama Tried). The signature is symmetric, so with no C-confirmed signature
+    position (C confirmed nothing) C-1 does not fire: no position is demoted and the
+    shifted reference's titles never ship; the 8 right tags ship as tagged."""
+    lst = ["Bertha", "Deal", "Loser", "Jack Straw", "Stella Blue", "Mama Tried", "Big River",
+           "Ripple"]
+    flac = [t if i in (0, 7) else None for i, t in enumerate(_RIGHT_8)]
+    ia, cand, ident = _shifted_list_show(_RIGHT_8, flac, lst)
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, ident)
+    assert [t.title for t in res.show.tracks] == _RIGHT_8
+    assert not any(t.title_source == "setlist-gap" for t in res.show.tracks)
+    assert res.title_record.lossless.demoted == ()
+    assert not any(n.startswith("lossless titles: shifted") for n in res.notes)
+
+
+def test_c1_demotion_note_loop_skips_demoted_glued_prefix_notes(tmp_path: Path):
+    """fixwave-rr Minor 2: a position C-1 demoted no longer ships its tag, so notes.json
+    carries no 'stripped glued track number' note for it (the shipped ones keep theirs)."""
+    lst = ["Bertha", "Sugaree", "Deal", "Loser", "Jack Straw", "Stella Blue", "Ripple",
+           "Brokedown Palace"]
+    mp3 = ["01Bertha", "02Deal", "03Loser", "04Big River", "05Jack Straw", "06Stella Blue",
+           "07Ripple", "08Brokedown Palace"]
+    flac = ["Bertha", "Sugaree", "Deal", None, None, None, None, "Brokedown Palace"]
+    ia, cand, ident = _shifted_list_show(mp3, flac, lst)
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, ident)
+    assert res.title_record.lossless.demoted == (3,)
+    assert res.show.tracks[3].title != "Big River"
+    glued = [n for n in res.notes if n.startswith("stripped glued track number:")]
+    assert glued and not any("track 4 " in n for n in glued)

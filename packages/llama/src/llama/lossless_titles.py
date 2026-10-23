@@ -232,14 +232,20 @@ def apply_lossless(kept: list[dict], tag_titles: list[str], tag_source: str, *, 
         sources[i] = SIBLING_FORMAT
 
     # Shifted delivered set (C-1): 2+ delivered real tags agreeing with the reference at
-    # +/-1, not at their own. Every other unconfirmed delivered real, non-filler tag is
-    # demoted to blank; C's confirmed changes and tags agreeing at their own position stay.
+    # +/-1, not at their own, AND at least 2 of those signature positions confirmed by C
+    # itself with a lossless tag (operator ruling, fixwave-rr finding 1). The signature
+    # alone is symmetric: it cannot tell delivered tags shifted against a right reference
+    # from a reference shifted against right tags, and demoting on the second reading
+    # ships the shifted reference's titles unflagged. A lossless tag agreeing with the
+    # reference where the delivered one does not is the independent evidence for the first
+    # reading. Then every other unconfirmed delivered real, non-filler tag is demoted to
+    # blank; C's confirmed changes and tags agreeing at their own position stay.
     demoted: list[int] = []
     if ref is not None:
         delivered_shift = [i for i, dt in enumerate(tag_titles)
                            if _real(dt) and not agrees(dt, ref[i])
                            and any(0 <= j < n and agrees(dt, ref[j]) for j in (i - 1, i + 1))]
-        if len(delivered_shift) >= 2:
+        if sum(1 for i in delivered_shift if i in changed) >= 2:
             demoted = [i for i, dt in enumerate(tag_titles)
                        if i not in changed and _real(dt) and not is_filler(dt)
                        and not agrees(dt, ref[i])]
