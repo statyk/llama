@@ -21,7 +21,8 @@ from llama.models import Overrides, Show, Track
 from llama.stages.gather import compute_gather
 from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 
-from helpers import packaged_gd73, tree_bytes
+from helpers import (audio_files, fake_source, packaged_gd73, reuse_gd73, stub_stages,
+                     tree_bytes)
 from test_catalog import build
 from test_cli import _staged_ymsb_show
 from test_stage_gather import IDENT, StubIA, make_candidate
@@ -1372,3 +1373,46 @@ def test_suggest_titles_kept_list_comes_from_final_kept(tmp_path, monkeypatch):
     cli._propose_titles_for_show(StubIA(), cli.load_config(cfg), entry,
                                  read_model(ws.show, Show))
     assert calls == [stored]
+
+
+def test_fix_auto_redo_of_a_delivered_show_reuses_the_station_copy(tmp_path, monkeypatch):
+    import shutil
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    cfg, ws, ia = reuse_gd73(tmp_path, monkeypatch, old, delivery=True)
+    station = tmp_path / "station" / ws.dir.name
+    shutil.copytree(ws.package_dir, station)
+    for p in (ws.package_dir / "audio").iterdir():         # deliver purged the library audio
+        p.unlink()
+    stub_stages(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague")
+    assert r.exit_code == 0, r.output
+    assert ia.downloads == []                              # both files came from the station copy
+    names = audio_files(ws)
+    assert {n: fake_source(ws.package_dir / "audio" / n) for n in names} == {
+        "01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3"}
+    assert sorted(p.name for p in (station / "audio").iterdir()) == ["01 - A.mp3", "02 - B.mp3"]
+
+
+def test_held_regather_then_overrule_never_reuses_old_audio_by_name(tmp_path, monkeypatch):   # Review Focus 6
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0), ("C", "c.mp3", 500.0))
+    cfg, ws, ia = reuse_gd73(tmp_path, monkeypatch, old)
+    # the re-gather renumbers: new 01 'A' and 02 'B' share their old files' names but not their sources
+    new = (("A", "a2.mp3", 310.0), ("B", "b2.mp3", 410.0))
+    ia.lengths.update({"a2.mp3": 310.0, "b2.mp3": 410.0})
+    stub_stages(monkeypatch, new, hold=["research asserts wrong date: 1974-01-01"])
+    r = cli_invoke(cfg, "redo", "gratefuldead", "--from", "gather")
+    assert r.exit_code == 0, r.output
+    assert read_model(ws.show, Show).needs_review is True
+    assert not (ws.package_dir / "manifest.json").exists()
+    assert sorted(audio_files(ws)) == ["01 - A.mp3", "02 - B.mp3", "03 - C.mp3"]   # old audio still in place
+    stub_stages(monkeypatch)
+    from llama.models import Briefing
+    write_artifact(ws.briefing_json, Briefing(context="c", significance="s"))
+    write_artifact(ws.briefing_md, "# Briefing\n")
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--overrule")
+    assert r.exit_code == 0, r.output
+    assert sorted(ia.downloads) == ["a2.mp3", "b2.mp3"]   # nothing re-used by name
+    names = audio_files(ws)
+    assert {n: fake_source(ws.package_dir / "audio" / n) for n in names} == {
+        "01 - A.mp3": "a2.mp3", "02 - B.mp3": "b2.mp3"}   # and no old-numbered file is left
+    assert not (ws.dir / ".audio-aside").exists()

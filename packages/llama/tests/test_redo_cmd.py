@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 from herder import TaskFailed
-from helpers import packaged_gd73, tree_bytes
+from helpers import (audio_files, fake_source, packaged_gd73, reuse_gd73, stub_stages,
+                     tree_bytes)
 from typer.testing import CliRunner
 
 import llama.cli as cli
@@ -772,3 +773,19 @@ def test_redo_batch_restores_a_failed_show_and_continues(tmp_path, monkeypatch):
     r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "--packaged", "--from", "package", "--yes"])
     assert r.exit_code == 0 and "FAILED aready: boom" in r.output and done == ["bready"]
     assert tree_bytes(a.dir) == before
+
+
+def test_redo_from_gather_reuses_library_audio_after_an_insertion(tmp_path, monkeypatch):
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    cfg, ws, ia = reuse_gd73(tmp_path, monkeypatch, old)
+    new = (("Crowd", "s.mp3", 20.0), *old)
+    ia.lengths["s.mp3"] = 20.0
+    stub_stages(monkeypatch, new)
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "gather"])
+    assert r.exit_code == 0, r.output
+    assert ia.downloads == ["s.mp3"]                      # only the new track is fetched
+    names = audio_files(ws)
+    assert sorted(names) == ["01 - Crowd.mp3", "02 - A.mp3", "03 - B.mp3"]   # no old-numbered file left
+    assert {n: fake_source(ws.package_dir / "audio" / n) for n in names} == {
+        "01 - Crowd.mp3": "s.mp3", "02 - A.mp3": "a.mp3", "03 - B.mp3": "b.mp3"}
+    assert not (ws.dir / ".audio-aside").exists()

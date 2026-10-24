@@ -137,9 +137,10 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
 
 
 def run_package(show_ws: ShowWorkspace, ia, show: Show,
-                force: bool = False, profile: str | None = None) -> Path:
+                force: bool = False, profile: str | None = None, *,
+                reuse: audio_reuse.ReusePlan | None = None) -> Path:
     built = force or not (show_ws.package_dir / "manifest.json").exists()
-    pkg, flags = build_package(show_ws, ia, show, force=force, profile=profile)
+    pkg, flags = build_package(show_ws, ia, show, force=force, profile=profile, reuse=reuse)
     if built:
         # Replace this stage's own flags (a redo's stale verdict included).
         current = read_model(show_ws.show, Show)

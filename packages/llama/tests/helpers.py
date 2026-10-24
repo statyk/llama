@@ -8,7 +8,7 @@ each test file that needs a helper here does `import helpers` after pytest adds
 from pathlib import Path
 
 from llama.models import Show, Track
-from llama.workspace import ShowWorkspace, write_artifact
+from llama.workspace import ShowWorkspace, read_model, write_artifact
 
 
 def build_ready(root: Path, slug: str = "gratefuldead-1973-06-10", *,
@@ -149,3 +149,53 @@ def packaged_reuse_show(root: Path, show: Show, *, slug: str = "s") -> ShowWorks
 def audio_files(ws: ShowWorkspace) -> dict[str, bytes]:
     d = ws.package_dir / "audio"
     return {p.name: p.read_bytes() for p in sorted(d.iterdir()) if p.is_file()} if d.is_dir() else {}
+
+
+def reuse_gd73(tmp_path: Path, monkeypatch, old_tracks, *, delivery: bool = False):
+    """`packaged_gd73`'s library with its show re-packaged from `old_tracks`
+    (`reuse_show` tuples) over `ReuseIA`, so every audio file is fake audio
+    that names its source. Returns (config path, ShowWorkspace, ia): `ia` is
+    what `cli.IAClient()` now builds (shared, so its `downloads` are the whole
+    run's) and starts with no downloads recorded. `delivery=True` adds a
+    `delivery_path` to the config."""
+    import shutil
+    import llama.cli as cli
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
+    patch_fake_durations(monkeypatch)
+    shutil.rmtree(ws.package_dir)
+    packaged_reuse_show(tmp_path, reuse_show(*old_tracks), slug=ws.dir.name)
+    if delivery:
+        cfg.write_text(f'root = "{tmp_path}"\ndelivery_path = "{tmp_path / "station"}"\n'
+                       '[jerrybase]\nenabled = false\n')
+    ia = ReuseIA({t[1]: t[2] for t in old_tracks})
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: ia)
+    return cfg, ws, ia
+
+
+def stub_stages(monkeypatch, new_tracks=None, *, hold: list[str] | None = None) -> None:
+    """Replace the pipeline's LLM/gather stages so a re-run re-packages for
+    real: gather writes `reuse_show(*new_tracks)` (held with `hold` flags when
+    given), research and vet do nothing, brief writes a briefing."""
+    import llama.pipeline as pipeline
+    from llama.models import Briefing
+
+    def gather(show_ws, *a, **k):
+        if show_ws.show.exists():                      # as should_run: an existing show.json stands
+            return read_model(show_ws.show, Show)
+        show = reuse_show(*new_tracks)
+        if hold:
+            show = show.model_copy(update={"needs_review": True, "review_flags": list(hold)})
+        write_artifact(show_ws.show, show)
+        return show
+
+    def brief(show_ws, *a, **k):
+        write_artifact(show_ws.briefing_json, Briefing(context="c", significance="s"))
+        write_artifact(show_ws.briefing_md, "# Briefing\n")
+
+    if new_tracks is not None:
+        monkeypatch.setattr(pipeline, "run_gather", gather)
+    else:
+        monkeypatch.setattr(pipeline, "run_gather", lambda show_ws, *a, **k: read_model(show_ws.show, Show))
+    monkeypatch.setattr(pipeline, "run_research", lambda *a, **k: "research")
+    monkeypatch.setattr(pipeline, "run_vet_research", lambda *a, **k: None)
+    monkeypatch.setattr(pipeline, "run_brief", brief)

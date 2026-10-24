@@ -19,6 +19,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
+from llama.audio_reuse import discard_aside, plan_reuse, put_back
 from llama.catalog import CatalogEntry
 from llama.config import Config
 from llama.errors import LlamaError
@@ -140,40 +141,63 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
             write_artifact(path, data)
             written.append(path.name)
 
-        if legs.vet is not None:
-            put(ws.vetting, legs.vet.result)
-        put(ws.notes, ShowNotes(gather=list(legs.gather.notes),
-                                vet=list(legs.vet.notes) if legs.vet is not None else []))
-        if briefing is not None:
-            # Both files from the (normalised) model, on reuse too: a stored
-            # briefing.md is never copied (spec 3a: re-rendered on every reuse).
-            put(ws.briefing_json, briefing)
-            put(ws.briefing_md, render_briefing_md(briefing, final_show))
-        if (briefing is None and flags
-                and (ws.briefing_json.exists() or ws.briefing_md.exists())
-                and any(shipped_diff(stored, final_show).values())):
-            # Held with the briefing leg not run, and the replay moved shipped
-            # fields: the stored briefing was written against the OLD show, and
-            # a later `fix --overrule` -> `redo --from package` would ship it
-            # unchecked (package does not re-run briefing_guard). Drop the
-            # brief stage's artifacts (briefing.json, briefing.md and, as a
-            # redo from brief, package/manifest.json) so the eventual overrule
-            # regenerates the briefing. Last step before the commit marker: a
-            # crash between this drop and show.json leaves a held show with no
-            # briefing, which `redo --from brief` regenerates.
-            drop_stage_artifacts(ws, "brief")
-            written.append("drop:brief")
-        if not flags:
-            # As `redo --from package`: a stale manifest must never short-circuit
-            # the package and let the show be marked cleared over it.
-            drop_stage_artifacts(ws, "package")
-            echo(f"{slug}: packaging")
-            _pkg, pkg_flags = build_package(ws, ia, final_show, force=False, profile=profile)
-            written.append("package")
-            flags += pkg_flags
-        # The commit marker, written once and last.
-        put(ws.show, final_show.model_copy(
-            update={"review_flags": list(flags), "needs_review": bool(flags)}))
+        # Spec 5.4. From here on this call writes. A leftover audio aside is
+        # deleted at entry, as `show_unit` does; the plan pairs the stored
+        # show.json and manifest, both still in place.
+        discard_aside(ws)
+        reuse = plan_reuse(ws, config.delivery_path / ws.dir.name if config.delivery_path else None)
+        audio_dir = ws.package_dir / "audio"
+        kept_audio = {p.name for p in audio_dir.iterdir() if p.is_file()} if audio_dir.is_dir() else set()
+        manifest = ws.package_dir / "manifest.json"
+        old_manifest = manifest.read_bytes() if manifest.exists() else None
+        try:
+            if legs.vet is not None:
+                put(ws.vetting, legs.vet.result)
+            put(ws.notes, ShowNotes(gather=list(legs.gather.notes),
+                                    vet=list(legs.vet.notes) if legs.vet is not None else []))
+            if briefing is not None:
+                # Both files from the (normalised) model, on reuse too: a stored
+                # briefing.md is never copied (spec 3a: re-rendered on every reuse).
+                put(ws.briefing_json, briefing)
+                put(ws.briefing_md, render_briefing_md(briefing, final_show))
+            if (briefing is None and flags
+                    and (ws.briefing_json.exists() or ws.briefing_md.exists())
+                    and any(shipped_diff(stored, final_show).values())):
+                # Held with the briefing leg not run, and the replay moved shipped
+                # fields: the stored briefing was written against the OLD show, and
+                # a later `fix --overrule` -> `redo --from package` would ship it
+                # unchecked (package does not re-run briefing_guard). Drop the
+                # brief stage's artifacts (briefing.json, briefing.md and, as a
+                # redo from brief, package/manifest.json) so the eventual overrule
+                # regenerates the briefing. Last step before the commit marker: a
+                # crash between this drop and show.json leaves a held show with no
+                # briefing, which `redo --from brief` regenerates.
+                drop_stage_artifacts(ws, "brief")
+                written.append("drop:brief")
+            if not flags:
+                # As `redo --from package`: a stale manifest must never short-circuit
+                # the package and let the show be marked cleared over it.
+                drop_stage_artifacts(ws, "package")
+                echo(f"{slug}: packaging")
+                _pkg, pkg_flags = build_package(ws, ia, final_show, force=False, profile=profile,
+                                                reuse=reuse)
+                written.append("package")
+                flags += pkg_flags
+            # The commit marker, written once and last.
+            put(ws.show, final_show.model_copy(
+                update={"review_flags": list(flags), "needs_review": bool(flags)}))
+        except BaseException:
+            # Undo only the audio and manifest this call placed: a rerun starts from
+            # the old audio, as `show_unit` leaves it after a failed unit.
+            if audio_dir.is_dir():
+                for p in audio_dir.iterdir():
+                    if p.is_file() and p.name not in kept_audio:
+                        p.unlink(missing_ok=True)
+            if manifest.exists() and manifest.read_bytes() != old_manifest:
+                manifest.unlink()
+            put_back(ws)
+            raise
+        discard_aside(ws)
         return ReapplyOutcome(slug, "held" if flags else "cleared", legs.brief, list(flags),
                               delivered, written)
 

@@ -27,6 +27,7 @@ from llama.cli_select import ShowState
 from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
 from llama.download_slots import DownloadSlots
 from llama.errors import LlamaError
+from llama.audio_reuse import plan_reuse
 from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
 from llama.locks import Locked, RunMissing, file_lock, run_is_live, run_lock
@@ -2705,6 +2706,10 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
                          "reprocess it via its run first")
     prov = read_model(show_ws.provenance, Provenance)   # under the caller's lock
     keep_research = not with_research and from_stage in ("select", "gather")
+    # Spec 5.4: pair the existing audio with the CURRENT show.json and manifests
+    # before the re-gather rewrites or drops them.
+    reuse = plan_reuse(show_ws, config.delivery_path / show_ws.dir.name
+                       if config.delivery_path else None)
     drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
     # Keep the winnow assessment (quality_score + recording_complaints) so
     # select-recording still avoids complained-about recordings; override only
@@ -2721,7 +2726,8 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
                         prov.run, config.audio_format,
                         setlistfm=make_client(config), structure_cfg=config.structure,
                         jerrybase_enabled=config.jerrybase.enabled,
-                        selection_cfg=config.selection, profile=prov.profile)
+                        selection_cfg=config.selection, profile=prov.profile,
+                        audio_reuse=reuse)
 
 
 class NarrationMode(str, Enum):
