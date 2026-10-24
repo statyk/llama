@@ -21,9 +21,9 @@ from transmitter.config import TransmitterConfig
 from transmitter.deadclock import DeadClockMonitor
 from transmitter.errors import CloudDocumentError, ConfigError, FrameCountDrift, PublishLocked, StationRootError, TransmitterError
 from transmitter.layout import PlanRow
+from transmitter.monitor import MonitorLoop
 from transmitter.planner import read_plan
 from transmitter.state import load_fallback_version, load_publish_state
-from transmitter.monitor import MonitorLoop
 from transmitter.workspace import Workspace, load_epoch, load_or_create_epoch
 
 log = logging.getLogger("transmitter")
@@ -177,7 +177,9 @@ def open_monitor(st: pipeline.Station) -> MonitorLoop | None:
         return None
     a = st.cfg.alerts
     # An unexpected 403 must outlast the guard cache (refreshed every
-    # guard_check_minutes) before it alarms.
+    # guard_check_minutes) before it alarms. Kept unchanged now the monitor
+    # builds its own fresh guard view each pass (spec Part 3: that only makes
+    # the 403 branch more accurate).
     deadclock = DeadClockMonitor(url.rstrip("/") + "/live.m3u8", st.epoch.epoch_us, a.dead_clock_seconds,
                                  a.guard_stale_minutes * 60, math.ceil(st.cfg.publish.guard_check_minutes) + 2)
     return MonitorLoop(deadclock, monitor.R2Reader(make_reader_client(st.cfg), st.cfg.publish.bucket))
