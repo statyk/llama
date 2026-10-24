@@ -447,7 +447,11 @@ snapshot:
 Shows created after the snapshot are listed, not deleted. Then the operator reinstalls v2.17.0
 from the release. A restored show's `show.json` is the old rule's again, so v2.17.0's positional
 edits read the numbering they write against. A listed show is not restored: it keeps the new
-rule's `show.json` and any filename values, and v2.17.0 fails loudly on the latter.
+rule's `show.json` and any filename values, and v2.17.0 fails loudly on the latter. So restore
+prints, for each listed show, the route to take with the new binary before reinstalling v2.17.0:
+`llama fix <show> --clear-title <filename>` / `--clear-set-breaks` / `--clear-encore` for each
+filename value, or `llama rm <show>` (it is re-fetched by a later `get`). A listed show with no
+filename value needs nothing.
 
 Restore does not touch the station. Re-delivered station copies keep the new packages until
 each show is re-delivered from the restored library.
