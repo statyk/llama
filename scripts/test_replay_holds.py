@@ -1,5 +1,6 @@
 """scripts/replay_holds.py run: offline replay of a fixture library, zero writes
 outside the scratch directory, identity check (spec slice 0 acceptance 3)."""
+import hashlib
 import json
 import logging
 import os
@@ -1654,3 +1655,125 @@ def test_summary_states_the_disabled_slices_of_both_arms(tmp_path):
     assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
     summary = (out / "summary.txt").read_text()
     assert 'disabled slices: base ["slice5"], cand []' in summary.splitlines()
+
+
+# --- piece 4: --rekey-overrides and the compare gates ---
+
+SLUG = "gratefuldead-1973-06-10"
+_LEGACY = {"exclude": ["nonexistent-track.mp3"], "titles": {"1": "Forced Title"},
+           "set_breaks": [3], "encore_after": 5}
+
+
+def _rekey_run(tmp_path, monkeypatch, overrides, flags=()):
+    root = tmp_path / "lib"
+    shows = build_library(root)
+    live = shows[SLUG].overrides
+    live.write_text(json.dumps(overrides))
+    live_hash = hashlib.sha256(live.read_bytes()).hexdigest()
+    seen = {}
+    real = rh.replay_show
+
+    def spy(ws, **kw):
+        if ws.dir.name == SLUG:
+            seen["overrides"] = json.loads(ws.overrides.read_text())
+        return real(ws, **kw)
+
+    monkeypatch.setattr(rh, "replay_show", spy)
+    out = tmp_path / "arm.json"
+    assert rh.main(["run", "--out", str(out), "--all", "--rekey-overrides", *flags,
+                    "--config", str(root / "config.toml"),
+                    "--scratch", str(tmp_path / "scratch")]) == 0
+    assert hashlib.sha256(live.read_bytes()).hexdigest() == live_hash    # the library is untouched
+    names = [t["filename"] for t in json.loads(shows[SLUG].show.read_text())["tracks"]]
+    return seen["overrides"], json.loads(out.read_text()), names
+
+
+def test_rekey_shadow_maps_legacy_and_leaves_the_library_alone(tmp_path, monkeypatch):
+    seen, arm, names = _rekey_run(tmp_path, monkeypatch, _LEGACY)
+    assert seen == {"exclude": ["nonexistent-track.mp3"], "titles": {names[0]: "Forced Title"},
+                    "set_breaks": [names[2]], "encore_after": names[4]}
+    row = arm["shows"][SLUG]
+    assert row["rekeyed"] is True and "rekey_error" not in row
+    assert row["unreplayable"] is None
+    assert arm["overrides_rekeyed"] is True
+    assert row["filenames"]                        # the piece-4 record fields ride along
+    # the digests are the REAL (legacy) file's, so the arm stays comparable with a base arm
+    assert row["digests"]["overrides.json"] == hashlib.sha256(
+        json.dumps(_LEGACY).encode()).hexdigest()
+
+
+def test_rekey_then_strip(tmp_path, monkeypatch):
+    seen, arm, names = _rekey_run(tmp_path, monkeypatch, _LEGACY,
+                                  ["--strip-title-overrides", "--strip-structure-overrides"])
+    assert seen == {"exclude": ["nonexistent-track.mp3"]}
+    row = arm["shows"][SLUG]
+    assert row["rekeyed"] is True
+    assert row["stripped"] == {"titles": {names[0]: "Forced Title"}, "set_breaks": [names[2]],
+                               "encore_after": names[4]}
+
+
+def test_rekey_failure_is_recorded_not_raised(tmp_path, monkeypatch):
+    bad = dict(_LEGACY, titles={"99": "Beyond the tape"})
+    seen, arm, names = _rekey_run(tmp_path, monkeypatch, bad)
+    assert seen == bad                              # copied unchanged
+    row = arm["shows"][SLUG]
+    assert row["rekeyed"] is False and "99" in row["rekey_error"]
+    assert row["outcome"] == "unreplayable"          # the legacy refusal surfaces in the replay
+
+
+def test_rekey_leaves_filename_and_empty_overrides_alone(tmp_path, monkeypatch):
+    ov = {"exclude": [], "set_breaks": []}
+    seen, arm, _ = _rekey_run(tmp_path, monkeypatch, ov)
+    assert seen == ov and arm["shows"][SLUG]["rekeyed"] is False
+
+
+def test_unflagged_run_has_no_rekey_stamp(tmp_path):
+    root = tmp_path / "lib"
+    build_library(root)
+    out = tmp_path / "arm.json"
+    assert rh.main(["run", "--out", str(out), "--all", "--config", str(root / "config.toml")]) == 0
+    arm = json.loads(out.read_text())
+    assert not arm.get("overrides_rekeyed") and "rekeyed" not in arm["shows"][SLUG]
+
+
+def test_compare_accepts_rekeyed_candidate_and_writes_no_apply_lists(tmp_path):
+    root = tmp_path / "lib"
+    build_library(root, held_for_real=True)
+    cfg = str(root / "config.toml")
+    base, cand = tmp_path / "base.json", tmp_path / "cand.json"
+    assert rh.main(["run", "--out", str(base), "--all", "--config", cfg]) == 0
+    assert rh.main(["run", "--out", str(cand), "--all", "--rekey-overrides", "--config", cfg]) == 0
+    out = tmp_path / "out"
+    out.mkdir()
+    for name in ("predicted_list.json", "structure_changed_list.json", "pilot_list.json"):
+        (out / name).write_text("stale")
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    assert not list(out.glob("*_list.json"))
+    assert "apply lists: not written" in (out / "summary.txt").read_text()
+    out2 = tmp_path / "out2"                     # either arm rekeyed
+    assert rh.main(["compare", str(cand), str(base), "--out", str(out2)]) == 0
+    assert not list(out2.glob("*_list.json"))
+
+
+@pytest.mark.parametrize("text", [
+    "overrides.json unreadable",
+    "LlamaError: s: overrides.json uses track-number keys; run the migration",
+    "LlamaError: s: overrides.json mixes track-number and filename keys (filename-valued: titles a.mp3)",
+    "LlamaError: s: overrides name files not in the track list: titles a.mp3; clear them with llama fix",
+])
+def test_compare_refuses_an_arm_with_overrides_validation_unreplayable(tmp_path, capsys, text):
+    root = tmp_path / "lib"
+    build_library(root, held_for_real=True)
+    cfg = str(root / "config.toml")
+    base = tmp_path / "base.json"
+    assert rh.main(["run", "--out", str(base), "--all", "--config", cfg]) == 0
+    for who in ("base", "cand"):
+        arm = json.loads(base.read_text())
+        arm["shows"][SLUG]["outcome"] = "unreplayable"
+        arm["shows"][SLUG]["unreplayable"] = text
+        bad = tmp_path / f"bad-{who}.json"
+        bad.write_text(json.dumps(arm))
+        args = ["compare", str(bad), str(base)] if who == "base" else ["compare", str(base), str(bad)]
+        assert rh.main(args + ["--out", str(tmp_path / f"o-{who}")]) == 2
+        err = capsys.readouterr().err
+        assert SLUG in err and "overrides" in err
