@@ -4541,3 +4541,83 @@ def test_filename_title_follows_its_file_across_an_insertion(tmp_path: Path):
     assert [t.set for t in show.tracks][-1] == "encore"
     assert show.tracks[26].filename == "GD_022474_D4_T06.mp3"
     assert show.set_breaks == [27]
+
+
+# --- piece 4 spec 4.2: gather's final kept list is one shared helper ---
+
+_GD73_INCLUDE = "FOLLOW-ME @BYPIKENO.mp3"          # the spam file, junk-dropped
+_GD73_EXCLUDE = "gd73-06-10d2t01.mp3"
+
+
+def test_title_inputs_unchanged_by_final_kept():   # (pin)
+    """`title_inputs`' filter / include / exclude block moved into `final_kept`
+    verbatim: on gd73 with a re-admission and an exclusion, the kept list, the
+    excluded rows, the ordering and the recovery basis are what they were before the
+    move (literal values captured on 853239a)."""
+    from llama.junk import FORMAT_BY_AUDIO
+    from llama.stages.gather import title_inputs
+
+    class CB:
+        corroboration = ()
+    seen = []
+
+    def build(kept):
+        seen.append([f["name"] for f in kept])
+        return CB()
+    ia = StubIA()
+    inp = title_inputs(ia.metadata(IDENT),
+                       Overrides(include=[_GD73_INCLUDE], exclude=[_GD73_EXCLUDE]),
+                       ia=ia, candidate=make_candidate(), identifier=IDENT,
+                       artist="Grateful Dead", want=FORMAT_BY_AUDIO["mp3"], events=[],
+                       build=build, slug="gratefuldead-1973-06-10")
+    kept = [_GD73_INCLUDE, "gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3",
+            "gd73-06-10d1t03.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+    assert [f["name"] for f in inp.kept] == kept and seen == [kept]
+    assert inp.excluded == [{"filename": _GD73_EXCLUDE, "reasons": ["operator-excluded"],
+                             "duration_sec": 1908.0}]
+    assert inp.ordering == {"order_source": "filename", "reordered": False,
+                            "format": "VBR MP3", "readmitted": [_GD73_INCLUDE],
+                            "short_kept": []}
+    assert [f["name"] for f in inp.recovery_basis] == [
+        "gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+        _GD73_EXCLUDE, "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+
+
+def test_final_kept_is_title_inputs_block(caplog):
+    """`final_kept` returns the unexcluded list (filter + include), the final kept
+    list, the excluded rows and the ordering, with the block's warnings; and
+    `short_keep` reaches the filter."""
+    from llama.junk import FORMAT_BY_AUDIO
+    from llama.stages.gather import FinalKept, final_kept
+
+    files = StubIA().metadata(IDENT)["files"]
+    want = FORMAT_BY_AUDIO["mp3"]
+    ov = Overrides(include=[_GD73_INCLUDE, "nope.mp3"],
+                   exclude=[_GD73_EXCLUDE, _GD73_INCLUDE, "gone.mp3"])
+    with caplog.at_level("WARNING"):
+        fk = final_kept(files, ov, want)
+    assert isinstance(fk, FinalKept)
+    assert [f["name"] for f in fk.unexcluded] == [
+        _GD73_INCLUDE, "gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+        _GD73_EXCLUDE, "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+    assert [f["name"] for f in fk.kept] == [
+        "gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+        "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+    assert [e["filename"] for e in fk.excluded] == [_GD73_INCLUDE, _GD73_EXCLUDE]
+    assert fk.ordering["readmitted"] == [_GD73_INCLUDE]
+    msgs = [r.getMessage() for r in caplog.records]
+    assert "overrides.include entry 'nope.mp3' matched no file" in msgs
+    assert "overrides.exclude entry 'gone.mp3' matched no file" in msgs
+    assert (f"overrides: {_GD73_INCLUDE!r} is in both include and exclude; "
+            "exclude wins") in msgs
+    # short_keep is passed through to the filter.
+    calls = []
+    real = gather_mod.filter_files
+
+    def spy(*a, **k):
+        calls.append(k.get("short_keep"))
+        return real(*a, **k)
+    with patch.object(gather_mod, "filter_files", spy):
+        final_kept(files, Overrides(), want)
+        final_kept(files, Overrides(), want, short_keep=False)
+    assert calls == [True, False]

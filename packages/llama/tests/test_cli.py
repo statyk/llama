@@ -438,7 +438,8 @@ def test_suggest_titles_writes_every_row_into_overrides(tmp_path, monkeypatch):
     assert "--from gather" in result.output
 
 
-def test_suggest_titles_declines_when_show_json_is_stale_against_pending_exclude(tmp_path, monkeypatch):
+def test_suggest_titles_declines_when_show_json_is_stale_against_pending_exclude(tmp_path, monkeypatch,
+                                                                                 capsys):
     """C1 (final review, the merge blocker): staging `--exclude` with
     `--no-run` writes `overrides.json` without re-running `gather`, so
     `_propose_titles_for_show`'s freshly recomputed `kept` (`ia.metadata`
@@ -453,7 +454,16 @@ def test_suggest_titles_declines_when_show_json_is_stale_against_pending_exclude
     leave `overrides.titles` untouched -- this command's own `--exclude`
     refusal message ("Run the exclusion first, then `--suggest-titles` as a
     separate invocation") routes an operator straight into this exact
-    sequence, so the two-invocation workflow it recommends must be safe."""
+    sequence, so the two-invocation workflow it recommends must be safe.
+
+    Piece 4 (spec 4.2): `fix` now refuses this before any prompt with its staleness
+    check (`cli._stale`, the same comparison over gather's `final_kept`), exit 1; the
+    C1 decline in `_propose_titles_for_show` stays as the second line of defence and
+    is pinned by calling it directly."""
+    from llama.catalog import resolve_show
+    from llama.config import load_config
+    from llama.ledger import Ledger
+
     cfg = _cfg(tmp_path)
     sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
     victim = read_model(sws.show, Show).tracks[0].filename
@@ -465,14 +475,25 @@ def test_suggest_titles_declines_when_show_json_is_stale_against_pending_exclude
 
     monkeypatch.setattr("typer.confirm", lambda *a, **k: True)   # would say yes
     result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
-    assert result.exit_code == 0, result.output
-    assert "show.json is stale relative to overrides.json" in result.output
-    assert "23 files kept" in result.output
-    assert "24 tracks on disk" in result.output
-    assert "redo ymsb2005-12-31 --from gather" in result.output
+    assert result.exit_code == 1, result.output
+    assert ("ymsb2005-12-31: show.json's track list is not what gather keeps now; "
+            "re-gather under the new rule first "
+            "(llama redo ymsb2005-12-31 --from gather)") in result.output
     assert read_overrides(sws).titles == {}
     # ... and no table was printed at all.
     assert "proposal (" not in result.output
+
+    # The second line of defence, reached directly: C1 declines, writes nothing.
+    entry = resolve_show(tmp_path, Ledger(tmp_path / "ledger.jsonl"), "ymsb2005-12-31")
+    capsys.readouterr()
+    prop, picks = cli._propose_titles_for_show(cli.IAClient(), load_config(cfg), entry,
+                                               read_model(sws.show, Show))
+    assert not prop.feasible and picks == {}
+    out = capsys.readouterr().out
+    assert "show.json is stale relative to overrides.json" in out
+    assert "23 files kept" in out and "24 tracks on disk" in out
+    assert "redo ymsb2005-12-31 --from gather" in out
+    assert read_overrides(sws).titles == {}
 
 
 def test_the_untagged_tape_is_no_longer_proposable(tmp_path, monkeypatch):
@@ -1239,18 +1260,32 @@ def test_suggest_titles_c1_staleness_guard_still_fires_before_donor_work(tmp_pat
     """C1's staleness guard must refuse BEFORE the sibling arm ever loads a
     donor -- a stale `show.json` makes the track numbering untrustworthy for
     either arm, and the guard's whole point is to decline before either one
-    touches it."""
+    touches it.
+
+    Piece 4 (spec 4.2): `fix` refuses first, with its staleness check (exit 1); C1
+    is reached directly, with the sibling arm made to fail if it is ever entered."""
+    from llama.catalog import resolve_show
+    from llama.config import load_config
+    from llama.ledger import Ledger
+
     cfg = _cfg(tmp_path)
     sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
     victim = read_model(sws.show, Show).tracks[0].filename
     stage_result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--exclude", victim, "--no-run")
     assert stage_result.exit_code == 0, stage_result.output
     monkeypatch.setattr("typer.confirm", lambda *a, **k: True)   # would say yes
+    donor_work = []
+    monkeypatch.setattr(cli, "_sibling_proposal", lambda *a, **k: donor_work.append(1))
     result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
-    assert result.exit_code == 0, result.output
-    assert "show.json is stale relative to overrides.json" in result.output
+    assert result.exit_code == 1, result.output
+    assert "show.json's track list is not what gather keeps now" in result.output
     assert read_overrides(sws).titles == {}
     assert "proposal (" not in result.output
+    entry = resolve_show(tmp_path, Ledger(tmp_path / "ledger.jsonl"), "ymsb2005-12-31")
+    prop, picks = cli._propose_titles_for_show(cli.IAClient(), load_config(cfg), entry,
+                                               read_model(sws.show, Show))
+    assert not prop.feasible and "show.json is stale relative to overrides.json" in prop.reason
+    assert picks == {} and donor_work == []
 
 
 def test_weak_evidence_decline_keeps_the_dp_candidate_out_of_the_write(tmp_path, monkeypatch):

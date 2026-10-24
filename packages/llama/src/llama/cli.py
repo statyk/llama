@@ -5,6 +5,7 @@ import sys
 import tempfile
 import textwrap
 import traceback
+from collections.abc import Collection, Mapping
 from contextlib import ExitStack, contextmanager
 from datetime import date, datetime, timezone
 from enum import Enum
@@ -1407,6 +1408,70 @@ def _legacy_message(sws, slug: str) -> str | None:
     except (OSError, ValueError):
         return None          # unreadable: `read_overrides` raises its own error
     return refusal(slug, data) if isinstance(data, dict) else None
+
+
+def _refuse_legacy(sws, slug: str) -> None:
+    """`fix`'s and triage's first check (spec 4.1 "Writers refuse legacy"): exit 1
+    with `_legacy_message`'s text when the stored file holds any legacy value, before
+    any flag parsing, prompt, lock or write."""
+    refused = _legacy_message(sws, slug)
+    if refused is not None:
+        typer.echo(refused, err=True)
+        raise typer.Exit(1)
+
+
+def _stale(ia, config, sws, slug: str) -> str | None:
+    """The staleness refusal (spec 4.2), or None: a track number names a file through
+    `show.json`, which is only safe while `show.json`'s filename list IS gather's final
+    kept list, computed by gather's own helper (`gather.final_kept`) over the overrides
+    as stored, i.e. before this invocation's edits. Until a show is re-gathered under
+    the short-keep rule they differ on every show the rule changes. Needs `show.json`;
+    reads the selected item's metadata (cached by gather)."""
+    from llama import junk
+    from llama.stages import gather
+    from llama.workspace import read_overrides
+
+    show = read_model(sws.show, Show)
+    files = ia.metadata(show.identifier).get("files", [])
+    fk = gather.final_kept(files, read_overrides(sws),
+                           junk.FORMAT_BY_AUDIO[config.audio_format])
+    if [f["name"] for f in fk.kept] == [t.filename for t in show.tracks]:
+        return None
+    return (f"{slug}: show.json's track list is not what gather keeps now; re-gather "
+            f"under the new rule first (llama redo {slug} --from gather)")
+
+
+def _keyed_files(sws, extra: Mapping[str, str] = {},
+                 cleared: Collection[str] = ()) -> dict[str, str]:
+    """filename -> the positional key it carries (`titles`, `set_breaks` or
+    `encore_after`) once this invocation's edits land: the stored keys minus those it
+    clears (`cleared` holds `titles:<file>`, `set_breaks`, `encore_after`), plus its
+    new ones (`extra`). A file carrying several keys maps to the first in that order;
+    clearing it reveals the next. Called after `_refuse_legacy`, so stored values are
+    filenames."""
+    from llama.workspace import read_overrides
+
+    ov = read_overrides(sws)
+    out: dict[str, str] = {}
+    for f in ov.titles:
+        if f"titles:{f}" not in cleared:
+            out.setdefault(str(f), "titles")
+    if "set_breaks" not in cleared:
+        for f in ov.set_breaks or ():
+            out.setdefault(str(f), "set_breaks")
+    if "encore_after" not in cleared and ov.encore_after is not None:
+        out.setdefault(str(ov.encore_after), "encore_after")
+    for f, key in extra.items():
+        out.setdefault(f, key)
+    return out
+
+
+def _exclusion_refusal(slug: str, file: str, key: str) -> str:
+    """Spec 4.2 "Exclusion refuses up front on a keyed file"."""
+    flag = {"titles": f"--clear-title {file}", "set_breaks": "--clear-set-breaks",
+            "encore_after": "--clear-encore"}[key]
+    return (f"{slug}: {file} carries overrides.{key}; clear it first with "
+            f"llama fix {slug} {flag}")
 
 
 def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
@@ -2855,10 +2920,10 @@ def _propose_titles_for_show(ia, config, entry, show):
     events=[]` unconditionally, which meant an operator with a setlist.fm
     key configured would confirm a proposal built from a strictly weaker
     LMA-only canonical than the one `gather` actually consumes. `kept` is
-    filtered against `entry.overrides.exclude` for the same reason (Task 8
-    review finding A1): `run_gather` drops excluded files from `kept`
-    *before* calling `build_canonical` (gather.py), so on a show with prior
-    exclusions an unfiltered `kept` here could rank a different winning
+    gather's own final kept list (`gather.final_kept`: filter, include,
+    exclude) for the same reason (Task 8 review finding A1; piece 4 spec 4.2
+    "one shared helper"): `run_gather` builds the canonical over that list,
+    so a list computed any other way here could rank a different winning
     parse (`rank_parses(..., target_count=len(kept))` feeds the `plausible`
     tier) than the redo the confirmation triggers will itself compute.
     `entry.overrides` (not a fresh `read_overrides` call) is deliberate, and
@@ -2897,39 +2962,33 @@ def _propose_titles_for_show(ia, config, entry, show):
     """
     from llama import jerrybase
     from llama.correspondence import propose_titles, sibling_item_durations
-    from llama.junk import FORMAT_BY_AUDIO, filter_files
+    from llama.junk import FORMAT_BY_AUDIO
     from llama.models import TitleProposal
     from llama.setlistfm import make_client
-    from llama.stages.gather import build_canonical
+    from llama.stages.gather import build_canonical, final_kept
 
     cand = entry.provenance.candidate
-    meta = ia.metadata(show.identifier).get("metadata", {})
+    md = ia.metadata(show.identifier)
+    meta = md.get("metadata", {})
     want = FORMAT_BY_AUDIO[config.audio_format]
-    # `readmit=` is not optional here: gather applies overrides.include INSIDE
-    # filter_files, so a recomputation without it is one file short of every
-    # correctly-gathered show that has an effective include -- and the C1 guard
-    # below then declines forever, blaming a stale show.json that is in fact
-    # exactly what gather just wrote. Both reviewer seats found this
-    # independently on the whole-branch review; pinned by
-    # test_suggest_titles_survives_an_effective_overrides_include.
-    kept, _, _ = filter_files(ia.metadata(show.identifier).get("files", []),
-                              want_format=want,
-                              readmit=frozenset(entry.overrides.include))
-    if entry.overrides.exclude:
-        drop = set(entry.overrides.exclude)
-        kept = [f for f in kept if f["name"] not in drop]
-    # C1 (final review): `kept` is recomputed here straight from
-    # `ia.metadata` + `entry.overrides.exclude`, but `show.tracks` is
-    # whatever `show.json` last had `gather` write -- NOT re-derived. Those
-    # two agree only when the most recent `gather` redo already saw the
-    # current `overrides.exclude` (and cache). When they disagree (an
-    # `--exclude`/`--unexclude` staged with `--no-run`, or a redo that died
-    # after `_edit_overrides` wrote `overrides.json` but before `gather`
-    # completed, or a refreshed metadata cache changing the file list), the
-    # DP below still runs over `show.tracks`' STALE 1-based numbering while
-    # `overrides.titles` gets applied post-exclusion by `gather` -- a
-    # confirmed proposal then writes titles onto the wrong tracks with no
-    # error and no flag (reproduced end to end: three titles landed on three
+    # gather's own final kept list (spec 4.2 "one shared helper"), over the stored
+    # overrides: include is applied inside the filter (a recomputation without it
+    # was one file short of every show with an effective include --
+    # test_suggest_titles_survives_an_effective_overrides_include), then exclude.
+    kept = final_kept(md.get("files", []), entry.overrides, want).kept
+    # C1 (final review), now the second line of defence behind `fix`'s staleness
+    # check (`_stale`, the same comparison, run before any prompt): `show.tracks`
+    # is whatever `show.json` last had `gather` write -- NOT re-derived -- and
+    # the proposal's picks are track numbers in THAT numbering, stored as the
+    # filename show.json's track N names (`_edit_overrides`). Those agree with
+    # what gather will key them against only while show.json IS gather's final
+    # kept list. When they disagree (an `--exclude`/`--unexclude` staged with
+    # `--no-run`, a redo that died after `_edit_overrides` wrote
+    # `overrides.json` but before `gather` completed, a refreshed metadata
+    # cache changing the file list, or a show not yet re-gathered under the
+    # short-keep rule), a confirmed proposal would title files the DP never
+    # judged against those positions, with no error and no flag (reproduced
+    # end to end, by position, before piece 4: three titles landed on three
     # wrong files). Comparing the filename LISTS, not just lengths, also
     # catches the metadata-cache-refresh case, where lengths could still
     # match by coincidence. This must be a hard decline, not a warning --
@@ -3049,12 +3108,24 @@ def fix(
     config, ia, ledger = _setup()
     entry = _resolve_show(config, ledger, name)
     sws = entry.ws
+    # Spec 4.1 "Writers refuse legacy": first, on every invocation, before any flag
+    # parsing, prompt, lock or other refusal.
+    _refuse_legacy(sws, entry.slug)
     view = capture_view(sws)   # what every check and prompt below is judged against
 
     def refuse_no_show_json():
         typer.echo(f"no show.json in {sws.dir} (state: {entry.state}); "
                    f"rebuild it with: llama redo {entry.slug} --from gather", err=True)
         raise typer.Exit(1)
+
+    def refuse_if_stale():
+        # Spec 4.2: a track number names a file through show.json, which must be
+        # gather's final kept list. Before any prompt; with no lock held, like every
+        # refusal here (the unit's view check re-verifies what it judged).
+        stale = _stale(ia, config, sws, entry.slug)
+        if stale is not None:
+            typer.echo(stale, err=True)
+            raise typer.Exit(1)
 
     if untitled:
         # Spec Slice 7. Every refusal precedes the confirmation prompt and any
@@ -3081,6 +3152,7 @@ def fix(
             typer.echo(f"no provenance.json in {entry.ws.dir} - "
                        "reprocess it via its run first", err=True)
             raise typer.Exit(1)
+        refuse_if_stale()
         show = read_model(sws.show, Show)
         resolved, total = _untitled_counts(show)
         if total == 0 or resolved:
@@ -3101,12 +3173,16 @@ def fix(
             typer.echo(f'--set-title expects N="Title" with a track number, got {spec!r}', err=True)
             raise typer.Exit(1)
         parsed_titles[int(n.strip())] = t
-    clear_title_nums = []
+    # A number is show.json's track N; anything else is a filename, removed as given
+    # (spec 4.2 "AUTHOR'S CALL": it clears a key whose file vanished, with no
+    # show.json and no staleness check).
+    clear_title_items: list[int | str] = []
     for spec in (clear_title or []):
-        if not str(spec).strip().isdigit():
-            typer.echo(f"--clear-title expects a track number, got {spec!r}", err=True)
+        spec = str(spec)
+        if not spec.strip():
+            typer.echo("--clear-title expects a track number or a filename, got ''", err=True)
             raise typer.Exit(1)
-        clear_title_nums.append(int(str(spec).strip()))
+        clear_title_items.append(int(spec.strip()) if spec.strip().isdigit() else spec)
     breaks_val = None
     if set_breaks:
         parts = [x.strip() for x in set_breaks.split(",") if x.strip()]
@@ -3123,14 +3199,13 @@ def fix(
 
     if suggest_titles:
         # I2 (review round 1): the proposal is computed over the CURRENT
-        # track list, but a same-invocation --exclude/--unexclude renumbers
-        # tracks (titles.py's index=pos+1 over the post-exclusion kept
-        # list), while overrides.titles is applied by that same 1-based
-        # position (gather.py). Any picked index still in range after the
-        # renumbering would land on the wrong track with no error -- exactly
-        # the silent-wrong-title failure this whole feature exists to
-        # prevent. Refuse the combination outright rather than trying to
-        # re-derive the post-exclusion numbering here.
+        # track list, but a same-invocation --exclude/--unexclude/--include
+        # changes which files the re-gather keeps, and so the numbering the
+        # operator would confirm a proposal against: the picks are stored by
+        # the filename show.json's track N names today (spec 4.2), and the
+        # gather that follows renumbers around the edit. Refuse the
+        # combination outright rather than proposing over a track list the
+        # redo is about to change.
         if exclude or unexclude or include:
             # C1 (final review): naming only "run the exclusion first, then
             # --suggest-titles" used to be the attack path INTO C1 -- an
@@ -3157,8 +3232,51 @@ def fix(
                 f"or `--no-run` followed by `llama redo {entry.slug} --from gather`), "
                 "then --suggest-titles as a separate invocation.", err=True)
             raise typer.Exit(1)
-        if not sws.show.exists():
-            refuse_no_show_json()
+
+    numeric_clears = [n for n in clear_title_items if isinstance(n, int)]
+    positional = bool(parsed_titles or set_breaks or set_encore or suggest_titles)
+    if (positional or numeric_clears) and not sws.show.exists():
+        refuse_no_show_json()
+    if positional:
+        # Not for the --clear-* flags: removing a key cannot mis-point (spec 4.2).
+        refuse_if_stale()
+
+    if exclude:
+        # Spec 4.2 "Exclusion refuses up front on a keyed file", with or without
+        # --no-run: an excluded file must not keep a title, break or encore key
+        # (gather would refuse it as dangling). Judged on the keys once THIS
+        # invocation's edits land: its own clears free a file, a --set-breaks /
+        # --set-encore replaces the stored value, and its new keys count too.
+        try:
+            targets = _resolve_exclude_tokens(sws, exclude)
+        except LlamaError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1)
+        names = ([t.filename for t in read_model(sws.show, Show).tracks]
+                 if sws.show.exists() else [])
+
+        def file_of(n: int) -> str | None:
+            return names[n - 1] if 1 <= n <= len(names) else None
+        extra: dict[str, str] = {}
+        for key, nums in (("titles", parsed_titles), ("set_breaks", breaks_val or ()),
+                          ("encore_after", () if encore_val is None else (encore_val,))):
+            for n in nums:
+                if (f := file_of(n)) is not None:
+                    extra.setdefault(f, key)
+        cleared = {f"titles:{file_of(n) if isinstance(n, int) else n}"
+                   for n in clear_title_items}
+        if clear_set_breaks or set_breaks:
+            cleared.add("set_breaks")
+        if clear_encore or set_encore:
+            cleared.add("encore_after")
+        keyed = _keyed_files(sws, extra, cleared)
+        hits = [f for f in dict.fromkeys(targets) if f in keyed]
+        for f in hits:
+            typer.echo(_exclusion_refusal(entry.slug, f, keyed[f]), err=True)
+        if hits:
+            raise typer.Exit(1)
+
+    if suggest_titles:
         if entry.provenance is None:
             # M7 (review round 1): match the two nearest analogues --
             # _redo_show (raises LlamaError, caught by callers) and triage's
@@ -3179,7 +3297,7 @@ def fix(
         # -- the guard above already exits before this point whenever any of
         # them is set.
         other_edit_requested = bool(
-            set_venue or set_city or set_date or parsed_titles or clear_title_nums
+            set_venue or set_city or set_date or parsed_titles or clear_title_items
             or set_breaks or clear_set_breaks or set_encore or clear_encore
             or narration is not None or overrule)
         picks = _propose_and_confirm_titles(ia, config, entry, show)
@@ -3200,7 +3318,7 @@ def fix(
 
     did_files = bool(exclude or unexclude or include)
     did_meta = bool(set_venue or set_city or set_date or parsed_titles
-                    or clear_title_nums or set_breaks or clear_set_breaks
+                    or clear_title_items or set_breaks or clear_set_breaks
                     or set_encore or clear_encore)
     did_narration = narration is not None
 
@@ -3278,7 +3396,7 @@ def fix(
                 city=set_city if set_city is not None else _UNSET,
                 date=set_date if set_date is not None else _UNSET,
                 set_titles=parsed_titles or None,
-                clear_titles=clear_title_nums,
+                clear_titles=clear_title_items,
                 set_breaks=breaks_val if set_breaks else _UNSET,
                 clear_set_breaks=clear_set_breaks,
                 encore_after=encore_val if set_encore else _UNSET,

@@ -1035,6 +1035,49 @@ def gather_cleaner(metadata_norms: set[str], artist: str) -> desc_list.Cleaner:
 
 
 @dataclass(frozen=True)
+class FinalKept:
+    """Gather's final kept list and what led to it (`final_kept`)."""
+    unexcluded: list[dict]     # filter + include, before overrides.exclude (recovery_basis's input)
+    kept: list[dict]           # gather's final kept list, in play order
+    excluded: list[dict]
+    ordering: dict
+
+
+def final_kept(files: list[dict], overrides: Overrides, want: Sequence[str], *,
+               short_keep: bool = True) -> FinalKept:
+    """Gather's final kept list: the junk filter with `overrides.include` re-admitted
+    inside it (where play order is derived), then `overrides.exclude` dropped. The ONE
+    copy (piece 4 spec 4.2): `title_inputs` builds on it, and `fix`'s staleness check
+    and the title proposal compare `show.json` with it, so no caller recomputes the
+    list its own way. `short_keep` is passed to `filter_files` (default True: the
+    piece-4 rule)."""
+    kept, excluded, ordering = filter_files(
+        files, want_format=want, readmit=frozenset(overrides.include),
+        short_keep=short_keep)
+    for missing in sorted(set(overrides.include) - {f["name"] for f in kept}):
+        log.warning("overrides.include entry %r matched no file", missing)
+    unexcluded = kept
+    # Re-admission was applied inside the filter above (where play order is
+    # derived); the exclusion runs AFTER it, so a file named in both lists
+    # ends up excluded.
+    if overrides.exclude:
+        drop = set(overrides.exclude)
+        matched = {f["name"] for f in kept if f["name"] in drop}
+        for missing in sorted(drop - matched):
+            log.warning("overrides.exclude entry %r matched no file", missing)
+        for both in sorted(set(overrides.include) & drop):
+            log.warning("overrides: %r is in both include and exclude; "
+                        "exclude wins", both)
+        excluded += [{"filename": f["name"], "reasons": ["operator-excluded"],
+                      "duration_sec": length_seconds(f.get("length"))}
+                     for f in kept if f["name"] in drop]
+        kept = [f for f in kept if f["name"] not in drop]
+
+    return FinalKept(unexcluded=unexcluded, kept=kept, excluded=excluded,
+                     ordering=ordering)
+
+
+@dataclass(frozen=True)
 class TitleInputs:
     """Everything the title cascade reads, computed once by `title_inputs`."""
     kept: list[dict]
@@ -1075,10 +1118,8 @@ def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, id
     exclusion, and raises before the canonical is built."""
     meta = md.get("metadata", {})
     files = md.get("files", [])
-    kept, excluded, ordering = filter_files(
-        files, want_format=want, readmit=frozenset(overrides.include))
-    for missing in sorted(set(overrides.include) - {f["name"] for f in kept}):
-        log.warning("overrides.include entry %r matched no file", missing)
+    fk = final_kept(files, overrides, want)
+    kept, excluded, ordering = fk.unexcluded, fk.excluded, fk.ordering
     # Computed on the unexcluded set, deliberately: it is a filename-keyed map
     # and resolve_titles only looks up names still in `kept`, so covering files
     # the operator later drops is harmless, while moving it below the exclusion
@@ -1123,21 +1164,9 @@ def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, id
     recovery_basis = [f for f in kept if f["name"] not in readmitted]
     format_titles = _recover_format_titles(files, recovery_basis, ordering)
 
-    # Re-admission was applied inside the filter above (where play order is
-    # derived); the exclusion runs AFTER it, so a file named in both lists
-    # ends up excluded.
-    if overrides.exclude:
-        drop = set(overrides.exclude)
-        matched = {f["name"] for f in kept if f["name"] in drop}
-        for missing in sorted(drop - matched):
-            log.warning("overrides.exclude entry %r matched no file", missing)
-        for both in sorted(set(overrides.include) & drop):
-            log.warning("overrides: %r is in both include and exclude; "
-                        "exclude wins", both)
-        excluded += [{"filename": f["name"], "reasons": ["operator-excluded"],
-                      "duration_sec": length_seconds(f.get("length"))}
-                     for f in kept if f["name"] in drop]
-        kept = [f for f in kept if f["name"] not in drop]
+    # The exclusion (inside `final_kept`) runs AFTER the re-admission, so a file named
+    # in both lists ends up excluded.
+    kept = fk.kept
 
     # The one overrides resolver (piece 4 spec 4.1): filename values onto the final
     # kept list. Refuses a legacy, mixed or dangling file before any further work.
