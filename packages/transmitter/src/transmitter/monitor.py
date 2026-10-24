@@ -100,11 +100,15 @@ class MonitorLoop:
             self._stop.wait(max(0.0, self.interval_s - (self.monotonic() - began)))
 
     def start(self) -> None:
-        self.started = True
+        """Start the thread. `_thread` and `started` are set only once
+        `Thread.start()` has succeeded, so a thread that could not start leaves
+        `stop()` harmless (no join of an unstarted thread masking the error)
+        and `stalled()` silent."""
         self.last_pass = self.monotonic()        # stalled() counts from the start until the first pass
         self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, name="transmitter-monitor", daemon=True)
-        self._thread.start()
+        thread = threading.Thread(target=self._loop, name="transmitter-monitor", daemon=True)
+        thread.start()
+        self._thread, self.started = thread, True
 
     def stop(self, timeout_s: float = MONITOR_JOIN_S) -> None:
         self._stop.set()

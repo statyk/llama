@@ -260,10 +260,17 @@ class Runner:
         """`monitor-stalled` (a level code, sent at once: the 5-min threshold
         is its debounce) while a started monitor thread is dead or has
         completed no pass for MONITOR_STALL_S; resolved once passes are fresh.
-        No started thread (none configured, or `run_once`): no check."""
+        No started thread (none configured, or `run_once`): no check. Never
+        raises (it runs in tick's `finally`, and an exception there would end
+        `run`): a failing check fails toward alerting, as `monitor-stalled`."""
         if self.monitor is None or not self.monitor.started:
             return
-        msg = self.monitor.stalled()
+        try:
+            msg = self.monitor.stalled()
+        except Exception as exc:
+            log.exception("monitor-stalled check failed")
+            alerts.alert("monitor-stalled", f"the monitor-stalled check failed: {type(exc).__name__}: {exc}")
+            return
         if msg is not None:
             alerts.alert("monitor-stalled", msg)
         else:

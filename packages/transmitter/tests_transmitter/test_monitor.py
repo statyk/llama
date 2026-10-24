@@ -230,3 +230,20 @@ def test_the_monitor_module_imports_neither_service_nor_sdnotify():
             names |= {f"{node.module}.{a.name}" for a in node.names} | {node.module or ""}
     assert not {n for n in names if n.endswith(("service", "sdnotify"))}
     assert not [n for n in ast.walk(tree) if isinstance(n, ast.Attribute) and n.attr == "notify"]
+
+
+def test_a_thread_that_cannot_start_leaves_stop_harmless(fired, monkeypatch):
+    # Task 4b review BM2: if Thread.start() fails, Runner.run's finally calls
+    # stop(); joining an unstarted thread would raise and mask the original error.
+    loop = _loop(FakeCheck())
+
+    def refuse(self):
+        raise RuntimeError("can't start new thread")
+
+    monkeypatch.setattr(threading.Thread, "start", refuse)
+    with pytest.raises(RuntimeError, match="can't start new thread"):
+        loop.start()
+    monkeypatch.undo()
+    loop.stop()                                     # no RuntimeError from join()
+    assert not loop.started and loop._thread is None
+    assert loop.stalled() is None                   # never started: not watched

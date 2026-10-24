@@ -423,8 +423,13 @@ def test_monitor_stalled_is_checked_on_the_failed_lead_read_path(tmp_path, caplo
     assert "ALERT monitor-stalled: the dead-clock monitor thread is not running" in caplog.text
 
 
-def test_the_stalled_check_runs_before_the_tick_observation_ends_and_cannot_skip_it(tmp_path, monkeypatch):
+def test_a_raising_stalled_check_alerts_monitor_stalled_and_the_tick_goes_on(tmp_path, monkeypatch, caplog):
+    # Task 4b review BM1: the stalled check must not raise out of tick (it
+    # would end run() and restart-loop the service); it fails toward alerting,
+    # and the tick's observation still ends after it.
     seen = _observations(monkeypatch)
+    fired = []
+    monkeypatch.setattr(alerts, "alert", lambda code, msg: fired.append((code, msg)))
     st, _ = make_station(tmp_path)
 
     class Broken(FakeMonitor):
@@ -433,9 +438,11 @@ def test_the_stalled_check_runs_before_the_tick_observation_ends_and_cannot_skip
             raise RuntimeError("boom")
 
     runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Broken(started=True))
-    with pytest.raises(RuntimeError):
-        runner.tick(NOW)
+    with caplog.at_level(logging.ERROR, logger="transmitter"):
+        assert runner.tick(NOW) is None                     # returns: nothing escapes
     assert seen == [("stalled",), (alerts.TICK, {"lead", "plan", "render", "publish"})]
+    assert [c for c, _ in fired] == ["monitor-stalled"] and "RuntimeError: boom" in fired[0][1]
+    assert "monitor-stalled check failed" in caplog.text and "Traceback" in caplog.text
 
 
 def test_monitor_stalled_is_ungated_and_a_level_code():
