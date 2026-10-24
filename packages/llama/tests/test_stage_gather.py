@@ -177,10 +177,9 @@ def test_gather_recovers_structure_from_sibling(tmp_path: Path):
     assert show.structure is not None
     assert show.structure.source == f"lma:{M_IDENT}"
     assert show.structure.alignment == "deterministic"
-    # `Part I` does not match the canonical `Part 1`, so the kept track is the
-    # one unmatched song: 27/28 until Task 2's coverage clause (spec 3) leaves
-    # short-kept tracks out of coverage.
-    assert show.structure.coverage == 27 / 28
+    # `Part I` does not match the canonical `Part 1`, but it is short-kept and
+    # spec 3's coverage clause leaves short-kept tracks out, so coverage is 1.0.
+    assert show.structure.coverage == 1.0
     # segues from the sibling's taper notation
     assert show.tracks[6].segue is True                # China Cat Sunflower >
     assert show.tracks[12].segue is False               # Roses: windsor's own junk parse said True
@@ -196,8 +195,8 @@ def test_align_result_matched_reaches_the_track(tmp_path: Path):
     assert show.structure.alignment == "deterministic"
     # Piece 4 (spec 1, 2.3): the kept 82 s `Weather Report Suite Part I >`
     # (track 17) does not match the canonical `Part 1`; it is the one unmatched
-    # track (27/28 until Task 2's coverage clause, spec 3).
-    assert show.structure.coverage == 27 / 28
+    # track, but it is short-kept, so spec 3's coverage clause leaves it out.
+    assert show.structure.coverage == 1.0
     assert all(t.matched is not None for t in show.tracks), \
         "the deterministic path measures every track"
     # Every other track matched -- a weaker `any(... is True)` would pass even
@@ -4386,3 +4385,95 @@ def test_cosmetic_strip_off_when_slice5_disabled(tmp_path: Path):
                          enabled_slices=title_hygiene.ALL_SLICES - {"slice5"})
     assert res.show.tracks[1].title == "06:58 - China Cat Sunflower"
     assert not any(n.startswith("cosmetic title strip") for n in res.notes)
+
+
+# --- Piece 4, Task 2: Track.short_kept, coverage and the junk note ----------
+
+def _sk_md(titles, description, short=(8,)):
+    """`_tp_md` with the 1-based tracks in `short` only 20 s long (below the floor)."""
+    return _tp_md(titles, description, lengths={i: "00:20" for i in short})
+
+
+_SK_TITLES = TP_SONGS + ["Murph"]
+
+
+def test_unmatched_short_kept_track_does_not_lower_coverage(tmp_path):
+    with_short = _tp_gather(tmp_path, _sk_md(_SK_TITLES, TP_DESC), sub="a")
+    murph = [t for t in with_short.show.tracks if t.title == "Murph"]
+    assert len(murph) == 1 and murph[0].short_kept is True
+    without = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC), sub="b")
+    assert with_short.show.structure.coverage == without.show.structure.coverage
+    assert not any("low-confidence" in f for f in with_short.show.review_flags)
+
+
+def test_short_kept_survives_to_show_json(tmp_path):
+    """Through align(), the structure-override path and taper ownership."""
+    md = _sk_md(_SK_TITLES, TP_DESC)
+    plain = _tp_gather(tmp_path, md, sub="a")
+    assert [t.title for t in plain.show.tracks if t.short_kept] == ["Murph"]
+    ovr = _tp_gather(tmp_path, md, sub="b", overrides=Overrides(set_breaks=[3, 6]))
+    assert [t.title for t in ovr.show.tracks if t.short_kept] == ["Murph"]
+    owned = _tp_gather(tmp_path, md, sub="c")
+    assert owned.taper_owned is True
+    assert [t.title for t in owned.show.tracks if t.short_kept] == ["Murph"]
+    from llama.models import ManifestTrack
+    assert "short_kept" not in ManifestTrack.model_fields
+
+
+def test_old_show_json_reads_short_kept_false():
+    t = Track.model_validate({"index": 1, "set": "1", "title": "A", "filename": "a.mp3",
+                              "title_source": "tags"})
+    assert t.short_kept is False
+
+
+def _sk_junk_md(short):
+    titles = ["Alpha", "Bravo", None, "Delta", "Echo"]
+    md = _tp_md(titles, "1. Alpha\n2. Bravo\n3. Crowd Noise\n4. Delta\n5. Echo",
+                lengths={3: "00:20"} if short else None)
+    for f in md["files"]:
+        if f.get("title") is None:
+            f.pop("title", None)
+    return md
+
+
+def test_wholly_junk_final_title_notes(tmp_path):
+    """Spec 2.5: a short-kept track whose final title is wholly junk is noted."""
+    res = _tp_gather(tmp_path, _sk_junk_md(True), sub="a")
+    t3 = res.show.tracks[2]
+    assert t3.title == "Crowd Noise" and t3.short_kept is True
+    assert "short-kept track 3 'Crowd Noise': its final title is wholly junk" in res.notes
+    res2 = _tp_gather(tmp_path, _sk_junk_md(False), sub="b")
+    assert res2.show.tracks[2].title == "Crowd Noise" and not res2.show.tracks[2].short_kept
+    assert not any("wholly junk" in n for n in res2.notes)
+
+
+def test_short_kept_file_votes_like_any_kept_file(tmp_path):
+    """(pin) spec 2.5: a short-kept file is in both recording-level bases; an
+    operator-included file is left out of both."""
+    from test_title_cascade import _inputs_like_gather
+    ia = StubIA(_sk_md(_SK_TITLES, TP_DESC))
+    inp = _inputs_like_gather(ShowWorkspace(tmp_path / "a"), ia, _tp_candidate(), TP_IDENT)
+    assert "tb1999-07-04t08.mp3" in inp.ordering["short_kept"]
+    for basis in (inp.recovery_basis, inp.tag_gate_basis):
+        assert "tb1999-07-04t08.mp3" in [f["name"] for f in basis]
+    # a short file the rule drops (a wholly junk tag) and the operator re-admits
+    ia2 = StubIA(_sk_md(_SK_TITLES + ["Crowd Noise"], TP_DESC, short=(8, 9)))
+    sws2 = ShowWorkspace(tmp_path / "b")
+    write_artifact(sws2.overrides, Overrides(include=["tb1999-07-04t09.mp3"]))
+    inp2 = _inputs_like_gather(sws2, ia2, _tp_candidate(), TP_IDENT)
+    assert "tb1999-07-04t09.mp3" in [f["name"] for f in inp2.kept]
+    assert "tb1999-07-04t09.mp3" not in inp2.ordering["short_kept"]
+    for basis in (inp2.recovery_basis, inp2.tag_gate_basis):
+        names = [f["name"] for f in basis]
+        assert "tb1999-07-04t09.mp3" not in names
+        assert "tb1999-07-04t08.mp3" in names
+
+
+def test_furthur_tuning_up_short_kept_is_noted_wholly_junk(tmp_path):
+    """Spec 2.5: the kept mp3 `10.tuningup.mp3` (own tag `tmp`) is filled `Tuning Up`
+    by D; that final title is wholly junk, so the note fires."""
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_furthur_md()), None,
+                         _furthur_candidate(), F_IDENT)
+    t10 = res.show.tracks[9]
+    assert (t10.title, t10.short_kept) == ("Tuning Up", True)
+    assert "short-kept track 10 'Tuning Up': its final title is wholly junk" in res.notes

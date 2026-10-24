@@ -448,6 +448,7 @@ def resolve_titles(
     item_title: str | None = None,
     layer: TagLayer | None = None,
     setlist_fills: Mapping[int, str] | None = None,
+    short_kept: frozenset[str] = frozenset(),
 ) -> list[Track]:
     """Resolve track titles (tags -> setlist -> unresolved).
 
@@ -533,7 +534,7 @@ def resolve_titles(
         tracks.append(
             Track(index=pos + 1, set="1", title=title, filename=f["name"],
                   duration_sec=length_seconds(f.get("length")), segue=False,
-                  title_source=source)
+                  title_source=source, short_kept=f["name"] in short_kept)
         )
     return tracks
 

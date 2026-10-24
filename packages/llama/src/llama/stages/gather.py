@@ -11,7 +11,7 @@ from herder.limits import RateLimited
 from llama import desc_list, jerrybase, taper, title_hygiene
 from llama.config import StructureConfig
 from llama.errors import LlamaError
-from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
+from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files, short_tag_is_junk
 from llama.ia_client import IAError
 from llama.desc_list import DescRead, drop_leading_artist_items, read_desc_list
 from llama.lossless_titles import (SHIFTED_DELIVERED_NOTE, LosslessResult, apply_lossless,
@@ -1364,7 +1364,8 @@ def title_cascade(inp: TitleInputs, *,
                             gate_basis=inp.tag_gate_basis, corroboration=inp.corroboration,
                             item_title=inp.item_title,
                             layer=TagLayer(titles, sources, layer_demoted_set),
-                            setlist_fills=plan.fills)
+                            setlist_fills=plan.fills,
+                            short_kept=frozenset(inp.ordering.get("short_kept", ())))
     for k, forced in overrides.titles.items():
         if not (1 <= k <= len(tracks)):
             raise LlamaError(f"overrides.titles: no track {k} "
@@ -2020,6 +2021,12 @@ def compute_gather(
             for pos in changed:
                 paths[pos] += "+5"
             title_paths = tuple(paths)
+
+    # Spec 2.5: a short-kept track whose FINAL title (any rung) is wholly junk.
+    for t in tracks:
+        if t.short_kept and short_tag_is_junk(t.title):
+            op_notes.append(f"short-kept track {t.index} '{t.title}': "
+                            f"its final title is wholly junk")
 
     show = Show(
         performance_id=candidate.performance_id,

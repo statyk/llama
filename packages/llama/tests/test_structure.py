@@ -2120,3 +2120,12 @@ def test_desc_position_is_tautological():
     assert "desc-position" in structure.TAUTOLOGICAL_TITLE_SOURCES
     tracks = _gap_tracks(("Alpha", "tags"), ("Bravo", "desc-position"), ("f3.mp3", "tags"))
     assert structure._songish_coverage(tracks, [True, True, False]) == 0.5
+
+
+def test_songish_coverage_ignores_short_kept():
+    """Spec 3: a re-admitted short file neither lowers nor raises coverage."""
+    tracks = _gap_tracks(("Alpha", "tags"), ("Bravo", "tags"), ("Jam >", "tags"))
+    matched = [True, True, False]
+    assert structure._songish_coverage(tracks, matched) == pytest.approx(2 / 3)
+    tracks[2] = tracks[2].model_copy(update={"short_kept": True})
+    assert structure._songish_coverage(tracks, matched) == 1.0

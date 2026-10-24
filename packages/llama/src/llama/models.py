@@ -175,6 +175,10 @@ class Track(BaseModel):
     # Recorded here and NOT in ManifestTrack: the manifest is the broadcast
     # contract with emcee and stays lean; show.json is the operator's record.
     included: bool = False
+    # True when the junk filter's short-file rule (piece 4, spec 2.5) kept this
+    # file. show.json only, never in ManifestTrack; structure coverage leaves
+    # these tracks out (spec 3).
+    short_kept: bool = False
 
 
 class Show(BaseModel):
