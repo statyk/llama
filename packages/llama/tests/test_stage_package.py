@@ -226,6 +226,7 @@ from helpers import (  # noqa: E402
     reuse_show,
 )
 from llama.audio_reuse import ASIDE_DIR, plan_reuse  # noqa: E402
+from llama.show_unit import show_unit  # noqa: E402
 from llama.stages.package import build_package  # noqa: E402
 from llama.workspace import drop_stage_artifacts  # noqa: E402
 
@@ -295,6 +296,31 @@ def test_unchanged_list_and_matching_manifest_keeps_files_in_place(tmp_path, mon
     assert not (ws.dir / ASIDE_DIR).exists()
     assert {p.name: p.stat().st_ino for p in audio.iterdir()} == inodes
     assert _sources(ws) == {"01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3"}
+
+
+def test_audio_without_a_library_manifest_is_set_aside(tmp_path, monkeypatch):
+    # Review Focus 6: a held re-gather already wrote the new list to show.json
+    # and dropped the manifest, leaving old-numbered audio in package/audio/.
+    patch_fake_durations(monkeypatch)
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0),
+           ("Jam", "j1.mp3", 600.0), ("Jam", "j2.mp3", 602.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    new = reuse_show(old[0], old[1], ("Crowd", "s.mp3", 20.0, True), old[2], old[3])
+    drop_stage_artifacts(ws, "package")
+    write_artifact(ws.show, new)                          # the held re-gather
+    with show_unit(ws, None):
+        plan = plan_reuse(ws, None)                       # e.g. a later fix --overrule
+        assert plan.library_names is None and plan.library == {}
+        ia = ReuseIA({t.filename: t.duration_sec for t in new.tracks})
+        build_package(ws, ia, new, reuse=plan)
+        assert sorted(p.name for p in (ws.dir / ASIDE_DIR).iterdir()) == [
+            "01 - A.mp3", "02 - B.mp3", "03 - Jam.mp3", "04 - Jam.mp3"]
+    # none reused by name: every track downloads, new track 4 included
+    assert ia.downloads == ["a.mp3", "b.mp3", "s.mp3", "j1.mp3", "j2.mp3"]
+    assert _sources(ws)["04 - Jam.mp3"] == "j1.mp3"
+    assert sorted(audio_files(ws)) == ["01 - A.mp3", "02 - B.mp3", "03 - Crowd.mp3",
+                                       "04 - Jam.mp3", "05 - Jam.mp3"]
+    assert not (ws.dir / ASIDE_DIR).exists()              # gone after success
 
 
 def test_retitle_only_change_reuses_under_the_new_name(tmp_path, monkeypatch):

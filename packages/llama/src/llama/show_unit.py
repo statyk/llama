@@ -17,6 +17,13 @@ Documented limitations (spec C2):
      to `show_ws(prov.performance_id)`; a show directory whose name is not
      `slugify(performance_id)` (renamed by hand) is outside the guarantee, as
      it is today.
+  5. A re-packaging `build_package(reuse=...)` moves the old library audio
+     into `<show>/.audio-aside/` (spec 5.4): a failed unit puts it back under
+     its old names after the restore, a successful one deletes it. SIGKILL
+     (or a failed restore) leaves the aside behind, and the next unit deletes
+     it with the stale `.txn/`, never putting it back: that audio is lost and
+     `llama redo <show> --from package` re-downloads it. A leftover aside that
+     cannot be removed refuses the unit like a leftover `.txn/`.
 Directories are not restored: an empty directory a failed unit created stays.
 """
 from __future__ import annotations
@@ -29,6 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
+from llama.audio_reuse import ASIDE_DIR, discard_aside, put_back
 from llama.errors import LlamaError
 from llama.locks import file_lock
 from llama.workspace import ShowWorkspace, atomic_write_bytes
@@ -62,13 +70,13 @@ def capture_view(show_ws: ShowWorkspace) -> ShowView:
 
 
 def _tracked_files(show_ws: ShowWorkspace) -> Iterator[str]:
-    """Posix relpaths of every file outside the top-level `.lock`, `.txn/` and
-    `package/audio/`."""
+    """Posix relpaths of every file outside the top-level `.lock`, `.txn/`,
+    `.audio-aside/` and `package/audio/`."""
     root = show_ws.dir
     for dirpath, dirnames, filenames in os.walk(root):
         rel_dir = Path(dirpath).relative_to(root)
         if rel_dir == Path("."):
-            dirnames[:] = [d for d in dirnames if d != TXN_DIR]
+            dirnames[:] = [d for d in dirnames if d not in (TXN_DIR, ASIDE_DIR)]
         elif rel_dir == Path("package"):
             dirnames[:] = [d for d in dirnames if d != "audio"]
         for name in filenames:
@@ -114,11 +122,16 @@ def discard_snapshot(show_ws: ShowWorkspace) -> None:
 
 def _discard_leftover(show_ws: ShowWorkspace) -> None:
     """Entry discard: a leftover that cannot be removed would be mixed into the
-    new snapshot, so refuse before anything is written."""
+    new snapshot (or, for the audio aside, put back on failure), so refuse
+    before anything is written."""
     discard_snapshot(show_ws)
     txn = show_ws.dir / TXN_DIR
     if txn.exists():
         raise LlamaError(f"{show_ws.dir.name}: cannot remove leftover snapshot {txn}")
+    discard_aside(show_ws)
+    aside = show_ws.dir / ASIDE_DIR
+    if aside.exists():
+        raise LlamaError(f"{show_ws.dir.name}: cannot remove leftover audio aside {aside}")
 
 
 @contextmanager
@@ -132,7 +145,7 @@ def show_unit(show_ws: ShowWorkspace, expect: ShowView | None) -> Iterator[None]
             if expect.provenance and not now.provenance:
                 raise ShowChanged(f"{slug}: the show was removed; nothing changed")
             raise ShowChanged(f"{slug}: changed by another command; run it again")
-        _discard_leftover(show_ws)         # a leftover is deleted, never restored
+        _discard_leftover(show_ws)         # a leftover (.txn/, .audio-aside/) is deleted, never restored
         try:
             take_snapshot(show_ws)
         except BaseException:
@@ -142,6 +155,8 @@ def show_unit(show_ws: ShowWorkspace, expect: ShowView | None) -> Iterator[None]
             yield
         except BaseException:
             restore_snapshot(show_ws)      # if this raises, .txn/ stays; original is __context__
+            put_back(show_ws)              # the old audio, under its old names
             discard_snapshot(show_ws)
             raise
+        discard_aside(show_ws)
         discard_snapshot(show_ws)
