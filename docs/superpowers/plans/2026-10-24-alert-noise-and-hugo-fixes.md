@@ -17,9 +17,9 @@
   - `tripped-spend`, `tripped-blind`, the `budget-50/80:*` levels, `guard-state-corrupt`, `offair-corrupt` (antenna) and `put-budget` (transmitter) are never gated or delayed (Task 1 test K, Task 3 `test_each_ungated_code_sends_on_its_first_fire`).
   - No gate may silence a one-shot key forever: `waf-corrected`, `budget-*`, `budget-file-invalid`, `horizon-refused`, `frame-count-drift` are ungated; the two immediate raise sites bypass the gate (Task 1 tests B, J, O, P).
   - The relay never delays an email: email is sent first, the relay write is bounded by 10 s (Task 2 `relay: a hung write ...`).
-  - The monitor thread never writes to R2, never touches `guard_cache_path`, never calls notify (Task 4 `test_the_monitor_only_reads_r2_never_touches_the_guard_cache_and_never_notifies`).
-  - Publish's guard cache keeps a single writer, `publish.guard_blocks_publishing` (Task 4 `test_guard_blocks_publishing_is_the_only_cache_writer`).
-  - The watchdog keeps meaning "the main loop is alive": only the main thread pings it (Task 4, same test; Task 6).
+  - The monitor thread never writes to R2, never touches `guard_cache_path`, never calls notify (Task 4b `test_the_monitor_only_reads_r2_never_touches_the_guard_cache_and_never_notifies`).
+  - Publish's guard cache keeps a single writer, `publish.guard_blocks_publishing` (Task 4a `test_guard_blocks_publishing_is_the_only_cache_writer`).
+  - The watchdog keeps meaning "the main loop is alive": only the main thread pings it (Task 4b, the monitor test above; Task 6).
 - `GATE = 3` is a named constant on each side, not config. The gated lists are exactly the spec's Part 1 tables:
   - antenna `GATED_KEYS`: `waf-api`, `guard-unknown`, `guard-write`, `budget-unreadable`, `index-write`, `clock-inputs`, `clock-failed`, `guard-crashed`, `horizon-missing`, `metronome-down`.
   - transmitter `GATED_CODES`: `prune`, `publish`, `publish-state`, `station-root`, `plan`, `render`, `dead-clock-check`.
@@ -32,7 +32,7 @@
   - antenna: `cd antenna && npm test && npx tsc --noEmit`
   - transmitter: `./.venv/bin/python -m pytest packages/transmitter/tests_transmitter -q` (from the worktree root; never a bare `pytest`, never a `.venv/bin/*` console script, per CLAUDE.md).
 - One commit per task, ending with the attribution lines the orchestrating session specifies. Never `git stash`. Never write a file named `REPORT*`/`SUMMARY*`/`FINDINGS*`/`ANALYSIS*`.
-- Tasks 1-2 (antenna) and 3-6 (transmitter) touch disjoint packages; within each package keep the order. Task 7 (docs) is last.
+- Tasks 1-2 (antenna) and 3, 4a, 4b, 5, 6 (transmitter) touch disjoint packages; within each package keep the order. Task 5 requires Task 2 (its test reads `antenna/src/alerts.ts`); the packages are otherwise independent, but the plan runs in order. Task 7 (docs) is last.
 
 ## Review Focus
 
@@ -48,7 +48,7 @@
 - **Stall-branch detection** (antenna): `metronome-core.ts` gains `fallbackCause()` returning `{ reason, stall }`; `fallbackReason()` stays as a wrapper so its tests are unchanged.
 - **Repeated fires of a gated code within one observation** (transmitter): only the first fire reaches the Dispatcher's state; later ones are logged at ERROR (by `alerts.alert`) and otherwise ignored (no `count`/`last_fired_at` change).
 - **A step skipped by `PublishLocked`** did not observe anything: it is not reported as "ran" (neither advances nor resets).
-- **Relay document shape**: `{ "stream": string, "ring": RelayMessage[] }`, seq starting at 1 in a new stream. hugo treats the document as malformed exactly when antenna would (no string `stream`, `ring` not a list, any entry without an integer `seq`); an entry with other bad fields (unparseable `at`, non-string text) is skipped with a WARNING and the cursor advances past it.
+- **Relay document shape**: `{ "stream": string, "ring": RelayMessage[] }`, seq starting at 1 in a new stream. hugo treats the document as malformed exactly when antenna would (no string `stream`, `ring` not a list, any entry that is not an object with an integer, non-boolean `seq`); an entry with other bad fields (unparseable `at`, non-string text) is skipped with a WARNING and the cursor advances past it.
 - **Delivered with no sink at all** (antenna, tests only): unchanged (the log line is all there is). With a relay present, delivered = email accepted OR relay write succeeded.
 - **ntfy 3xx** (NtfyChannel raises a plain `OSError`) counts as a transport error for the relay: the pass stops and retries next pass.
 - **`monitor-stalled`** is added to `LEVEL_CODES` (it resolves when passes are fresh again).
@@ -89,9 +89,9 @@ python3 -m venv .venv && ./.venv/bin/python -m pip install -e packages/herder -e
   - `conditions.ts`: `AlertCondition.immediate?: boolean`. Doc comment: bypasses the 3-consecutive gate; set at exactly two raise sites (name them in prose; the doc comment must NOT contain the literal text `immediate: true`, which test B counts).
   - `alerts.ts`: `export const GATE = 3;` `export const GATED_KEYS: ReadonlySet<string>` (the 10 keys in Global Constraints). `AlertEntry` gains `streak?: number` (gated keys only; consecutive presences, capped at `GATE`; missing = 0) and `pending?: boolean` (true only on a pending-only entry: a gated key with no stored history whose streak is below `GATE`; `active: false`, never sent).
   - `planAlerts(prev, conditions, nowMs, repeatMs, batch)`: signature unchanged.
-  - `metronome-core.ts`: `export function fallbackCause(sent: Lease | null, r: { status: MetronomeStatus } | { error: string }): { reason: string; stall: boolean } | null`; `fallbackReason(sent, r)` returns `fallbackCause(sent, r)?.reason ?? null`.
+  - `metronome-core.ts`: `export function fallbackCause(sent: Lease | null, r: { status: MetronomeStatus } | { error: string }): { reason: string; stall: boolean } | null` (`stall: true` only when `Number.isInteger(s.stalls) && s.stalls >= STALLS_FALLBACK`; a malformed `stalls` trips fallback with `stall: false`); `fallbackReason(sent, r)` returns `fallbackCause(sent, r)?.reason ?? null`.
 
-- [ ] **Step 1: Write the failing tests in `antenna/test/alerts.test.ts`** (new `describe("the 3-consecutive gate", ...)`; `const at = (n: number) => T0 + n * 60_000;`; `cond(key)` as in the file; `imm = (key) => ({ ...cond(key), immediate: true })`; `const DONE: AlertBatch = { complete: true, guardComplete: true }`; `const NONE: AlertBatch = { complete: false, guardComplete: false }`):
+- [ ] **Step 1: Write the failing tests in `antenna/test/alerts.test.ts`** (new `describe("the 3-consecutive gate", ...)`; `const at = (n: number) => T0 + n * 60_000;`; `cond(key)` as in the file; `imm = (key) => ({ ...cond(key), immediate: true })`; `const DONE: AlertBatch = { complete: true, guardComplete: true }`; `const NONE: AlertBatch = { complete: false, guardComplete: false }`; `broken` channel as in the file):
 
 ```ts
 it("A. GATED_KEYS is exactly the approved list", () => {
@@ -144,7 +144,8 @@ it("G. pending over a kept inactive entry keeps its history; a reset keeps it as
 
 it("H. pending over a still-active entry whose clearing elapsed: it stays, may resolve, or is replaced at GATE", () => {
   const live = { active: true, resolvable: true, title: "t", first_at: iso(T0 - H), last_sent_at: iso(T0 - H),
-                 delivered: true, cleared_at: null, clearing_since: iso(T0 - COOLDOWN_MS - 60_000), streak: 3 };
+                 delivered: true, cleared_at: null, clearing_since: iso(T0 - COOLDOWN_MS - 60_000) };
+                 // no streak: the first allowed absence that started the clearing stripped it
   const r = planAlerts({ "waf-api": live }, [cond("waf-api")], at(0), REPEAT);
   expect(r.send).toEqual([]);
   expect(r.next["waf-api"]).toEqual({ ...live, streak: 1 });
@@ -206,6 +207,12 @@ it("M. an entry from before the gate continues; its due repeat waits for GATE pr
   r = planAlerts(r.next, [cond("waf-api")], at(2), REPEAT);
   expect(r.send.map((o) => o.kind)).toEqual(["repeat"]);
 });
+
+it("Q. a failed \"resolved\" restores the entry without its streak, so the clean minute's reset holds", async () => {
+  // seed ALERTS_KEY with { "waf-api": live } (test H's fixture); dispatchAlerts(bucket, [], [cond("waf-api")], at(0))
+  // (held: streak 1); dispatchAlerts(bucket, [broken], [], at(1), REPEAT, DONE) -> { sent: 0, failed: 1 };
+  // bucket.json(ALERTS_KEY)["waf-api"] equals live (no `streak`); a presence at at(2) stores streak 1, not 2
+});
 ```
 
 (`iso = (ms: number) => new Date(ms).toISOString()`.)
@@ -223,7 +230,7 @@ for (const k of GATED_KEYS) expect(CLOCK_KEYS.has(k) || keyFamily(k) === "guard"
 (If `import.meta.glob` does not load under the workers pool, import each `src/*.ts` file with `?raw` explicitly, as `wrangler-config.test.ts` does for `wrangler.jsonc`, and say so in the task report.)
 
 - [ ] **Step 2: Write the failing tests for the two raise sites.**
-  - `antenna/test/metronome-core.test.ts`, `N. fallbackCause marks only the stall branch`: `fallbackCause(p, { error: "x" })` → `{ stall: false }` with the same reason as `fallbackReason`; `status({ wrote: false })` → `stall: false`; `status({ stalls: 2, stalledMs: 70_000 })` → `stall: true`; `status({ stalls: 1 })` → `null`; for every input in the file's existing `fallbackReason` cases, `fallbackCause(...)?.reason ?? null` equals `fallbackReason(...)`.
+  - `antenna/test/metronome-core.test.ts`, `N. fallbackCause marks only the stall branch`: `fallbackCause(p, { error: "x" })` → `{ stall: false }` with the same reason as `fallbackReason`; `status({ wrote: false })` → `stall: false`; `status({ stalls: 2, stalledMs: 70_000 })` → `stall: true`; `status({ stalls: 1 })` → `null`; a malformed `stalls` (`1.5`, `-1`, missing) → a non-null reason (fallback trips, as today) with `stall: false` (gated, not immediate); for every input in the file's existing `fallbackReason` cases, `fallbackCause(...)?.reason ?? null` equals `fallbackReason(...)`.
   - `antenna/test/clock-metronome.test.ts`, `O. only the stall trigger raises metronome-down immediate`: add `conds: AlertCondition[]` to `Run` (the sink records `cs`); over the existing `triggers` table, `out.conds.find((c) => c.key === "metronome-down")!.immediate` is `true` for `"(c) stalls >= 2"` and `undefined` for the other four.
   - `antenna/test/guard.test.ts`, `P. the post-unblock re-check that cannot read state raises guard-unknown immediate; the read branch does not`: set up as `a non-evaluating run that turns the kill switch off folds in a racer's newer trip` (first `step` at T0, then `c.state.enabled = true`), but override `bucket.head` to throw for `GUARD_KEY`; `out.blocked` is `true`; the `guard-unknown` condition has `immediate: true`. In `when state cannot be read the outcome is unknown`, add `expect(out.conditions[0].immediate).toBeUndefined()`.
 
@@ -232,7 +239,7 @@ for (const k of GATED_KEYS) expect(CLOCK_KEYS.has(k) || keyFamily(k) === "guard"
 Run: `cd antenna && npx vitest run test/alerts.test.ts test/metronome-core.test.ts test/clock-metronome.test.ts test/guard.test.ts`
 Expected: FAIL (`GATE`/`GATED_KEYS`/`fallbackCause` not exported; sends on first presence; `immediate` undefined).
 
-- [ ] **Step 4: Implement `fallbackCause` in `metronome-core.ts`** with the same three branches in the same order as today's `fallbackReason` (the stall branch is the third, `stall: true`); make `fallbackReason` the wrapper.
+- [ ] **Step 4: Implement `fallbackCause` in `metronome-core.ts`** with the same three branches in the same order as today's `fallbackReason`; the third (stall) branch keeps today's negated test for `reason` but sets `stall: Number.isInteger(s.stalls) && s.stalls >= STALLS_FALLBACK` (a malformed `stalls` trips fallback, gated); make `fallbackReason` the wrapper.
 
 - [ ] **Step 5: Set the flag at the two sites.** `clock.ts` `renew`: `const cause = fallbackCause(lease, r)`; `fallback = cause?.reason ?? null` (the clock line is unchanged); the pushed `metronome-down` condition spreads `...(cause.stall ? { immediate: true } : {})`. `guard.ts`: the `catch` of the post-unblock re-check adds `immediate: true` to its `guard-unknown` condition. No other file may contain `immediate: true`.
 
@@ -250,15 +257,19 @@ present loop, per condition c (first occurrence only, as today):
                     : { ...e, streak }                      // pending-only, kept history, or still-active: unchanged but streak
                (no send)
     else:      next = fresh active entry as today (no `pending`), plus streak when gated; send "alert";
-               message = gated(c) && !c.immediate ? `${c.message} (Alerted after ${GATE} consecutive failing minutes.)`
-                                                  : c.message
-  else if repeat due && !held: repeat as today (+ streak)
+               message = noted(c)
+  else if repeat due && !held: repeat as today (+ streak);
+               message = e.last_sent_at === null && !wasDelivered(e) ? noted(c) : c.message   // a retried first message
   else: continuing as today (+ streak)                     // a held due repeat lands here: no send
+noted(c) = gated(c) && !c.immediate ? `${c.message} (Alerted after ${GATE} consecutive failing minutes.)` : c.message
+           // rule 7: on every message of an episode with no successful send yet
 absent loop, per prev entry not seen (BEFORE the `!e.active -> keep` branch):
   if e.pending: next = clearedIn(key, batch) ? (dropped) : e; continue
   base = clearedIn(key, batch) ? e without `streak` : e      // rule 2 reset; rule 3 unchanged
   then today's branches, operating on `base`
 ```
+
+In `dispatchAlerts`, a failed "resolved" restores `prev[o.key]` without its `streak` (test Q), so the clean minute's reset holds.
 
 Update the file's header comment with one paragraph on the gate (gated list, pending entries, immediate sites, rule 4 on repeats).
 
@@ -292,7 +303,7 @@ git commit -m "antenna: gate every-minute alerts at 3 consecutive failing invoca
   - `export const RELAY_KEY = "state/alert-relay.json";` `export const RELAY_RING = 50;` `export const RELAY_TIMEOUT_MS = 10_000;`
   - `export interface RelayMessage { seq: number; at: string; key: string; kind: "alert" | "repeat" | "resolved"; priority: Priority; title: string; message: string }` (`at` = ISO of the invocation's `nowMs`; `seq` integer, strictly increasing within a stream, starting at 1).
   - `export interface RelayDoc { stream: string; ring: RelayMessage[] }` (the last `RELAY_RING` messages, ascending seq).
-  - `export function relayDocProblem(value: unknown): string | null` (non-null when: not an object; `stream` not a string; `ring` not an array; any entry without an integer `seq`).
+  - `export function relayDocProblem(value: unknown): string | null` (non-null when: not an object; `stream` not a string; `ring` not an array; any entry that is not a JSON object with an integer, non-boolean `seq`).
   - `export type RelaySink = (messages: Outgoing[], nowMs: number) => Promise<boolean>;`
   - `export function relaySink(bucket: BucketLike, secrets: readonly string[], newStream: () => string = () => crypto.randomUUID(), timeoutMs = RELAY_TIMEOUT_MS): RelaySink` (never throws; false on failure, timeout or a second lost race, each logged `{ event: "alert-relay-failed", error }`).
   - `export function secretsFromEnv(env: AlertEnv): string[]` (the four `CF_*` values, as `channelsFromEnv` computes today).
@@ -343,7 +354,9 @@ it("a lost race re-reads and retries once, then fails: at most 2 PUTs, logged", 
 
 for (const [what, body] of [["unparseable", "{nope"], ["stream not a string", { stream: 5, ring: [] }],
                             ["ring not an array", { stream: "s", ring: {} }],
-                            ["a non-integer seq", { stream: "s", ring: [{ seq: 1.5 }] }]] as const) {
+                            ["a non-integer seq", { stream: "s", ring: [{ seq: 1.5 }] }],
+                            ["a null ring entry", { stream: "s", ring: [null] }],
+                            ["a non-object ring entry", { stream: "s", ring: [1] }]] as const) {
   it(`a corrupt object (${what}) is overwritten conditionally on its etag with a fresh stream, logged`, async () => {
     // seed RELAY_KEY with body; one invocation -> onlyIf { etagMatches: <the seeded etag> }, doc.stream === "stream-1",
     // ring seqs start at 1; console.error saw { event: "alert-relay-corrupt" }
@@ -370,14 +383,15 @@ it("delivered = email OR relay", async () => {
 
 it("a gated alert whose email and relay both failed is retried the next minute, not re-gated", async () => {
   // waf-api present at minutes 0, 1, 2 with a broken email and a relay whose put throws -> minute 2 failed: 1;
-  // minute 3 with working email and relay -> the alert goes out at minute 3 (got === ["waf-api"])
+  // minute 3 with working email and relay -> the alert goes out at minute 3 (got === ["waf-api"]),
+  // its message still noting 3 consecutive failures (rule 7: no successful send yet)
 });
 ```
 
 Also:
 - Replace the two `ntfy:` tests in `describe("channels")` with `channelsFromEnv builds email only; ntfy is gone`: `channelsFromEnv({ ...fullEmailEnv, NTFY_URL: "https://n/t" } as AlertEnv, () => T0, FakeMessage as never).map((c) => c.name)` equals `["email"]`; and `expect(ntfyChannel)` is gone (remove it from the import list).
 - The redaction test `... reaches neither ntfy nor email` becomes `... reaches neither the relay nor email`: dispatch with `relaySink(bucket, secretsFromEnv(env))`, check the email text and the `RELAY_KEY` JSON text for every id.
-- `alertSink passes the batch through` keeps its assertions, reading the relay ring's titles instead of ntfy calls (`alertSink(bucket, {}, () => T0)`).
+- `alertSink passes the batch through` (`alertSink(bucket, {}, () => T0)`; its `guard-unknown` is the ungated `offair-corrupt` Task 1 Step 7 substituted) reads the relay ring instead of ntfy calls, as `bucket.json(RELAY_KEY).ring.map((m: RelayMessage) => [m.kind, m.title])` with bare (unprefixed) titles: after the first two invocations `[["alert", "tripped-spend title"], ["alert", "lead-low title"], ["alert", "offair-corrupt title"]]`; still 3 entries after the `T0 + 120_000` invocation (clearing); after the `+ COOLDOWN_MS` one, the 4th entry is `["resolved", "offair-corrupt title"]`; `lead-low` stays active in `ALERTS_KEY`.
 - `wrangler-config.test.ts`: `expect(wranglerText).not.toMatch(/NTFY/)`.
 
 - [ ] **Step 2: Run them to verify they fail**
@@ -432,7 +446,7 @@ git commit -m "antenna: relay alerts to hugo through state/alert-relay.json; dro
 
 **Interfaces:**
 - Consumes: nothing new.
-- Produces (Tasks 4-5 rely on these), all in `alerts.py`:
+- Produces (Tasks 4b-5 rely on these), all in `alerts.py`:
   - `GATE = 3`
   - `GATED_CODES = frozenset({"prune", "publish", "publish-state", "station-root", "plan", "render", "dead-clock-check"})`
   - `TICK = "tick"`, `MONITOR = "monitor"`
@@ -477,6 +491,10 @@ def test_an_observation_where_no_declaring_step_ran_neither_advances_nor_resets(
 
 def test_repeated_fires_within_one_observation_count_once(tmp_path):
     # two observations each firing "publish" twice -> no send; third observation fires twice -> exactly one send
+
+def test_a_retried_first_message_keeps_the_gate_note(tmp_path):
+    # a failing channel on the third observation -> nothing delivered; the next fire+obs with a working channel
+    # sends once and its body still says "3 consecutive"
 
 def test_the_send_decision_is_made_at_the_first_fire_with_its_message(tmp_path):
     # third observation: fire("publish", "A") then fire("publish", "B") -> rec.sent[0][1].startswith("A")
@@ -548,15 +566,16 @@ self._fired[observer].add(code); self._streak[code] = self._streak.get(code, 0) 
 gate_ok = self._streak[code] >= GATE
 episode_starts = not entry.get("active") or _expired(code, entry, now, self.repeat_s)
 if episode_starts and not gate_ok: return                # pending: nothing written, not active
-... today's path, except: a due send happens only if gate_ok; the first message of a gated episode
-    (last is None and the episode started at this fire) appends f"\n\n(alerted after {GATE} consecutive failures)"
+... today's path, except: a due send happens only if gate_ok; every message of a gated episode with no
+    successful send yet (last is None, a retried first message included) appends
+    f"\n\n(alerted after {GATE} consecutive failures)"
 ```
 
 Ungated codes take today's path unchanged. `end_observation(observer, steps)` (under the lock): validate; `codes = union(STEP_CODES[s] for s in steps)`; set `_streak[c] = 0` for each `c in codes - _fired[observer]`; clear `_fired[observer]`. `resolve` and `active` take the lock. Module docstring: one paragraph on the gate and observations. Add module-level `end_observation` beside `alert`/`resolve`.
 
-- [ ] **Step 5: Implement in `service.py`.** `_step(...) -> bool`: True unless the step raised `PublishLocked`. `tick` collects `ran: set[str]`: `"lead"` once the first `_read_lead` ran; `"plan"`/`"render"` when filling and the step observed; `"publish"` when it observed. Wrap the body in `try`/`finally: alerts.end_observation(alerts.TICK, ran)` so the failed-lead-read early return ends it too. (The monitor still runs inside `tick` until Task 4; leave that call as it is.)
+- [ ] **Step 5: Implement in `service.py`.** `_step(...) -> bool`: True unless the step raised `PublishLocked`. `tick` collects `ran: set[str]`: `"lead"` once the first `_read_lead` ran; `"plan"`/`"render"` when filling and the step observed; `"publish"` when it observed. Wrap the body in `try`/`finally: alerts.end_observation(alerts.TICK, ran)` so the failed-lead-read early return ends it too. The monitor still runs inside `tick` until Task 4b: leave that step as it is, and right after it, when a monitor is set, call `alerts.end_observation(alerts.MONITOR, ["dead-clock-check"])` (interim; Task 4b removes it with the in-tick monitor).
 
-- [ ] **Step 6: Adapt existing tests that relied on a gated code sending at first fire** (`test_first_occurrence_is_sent_then_deduped_until_the_repeat_window`, the failing-channel and cool-down tests, `test_a_successful_step_resolves_its_level_codes`, `test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code`, and any other the run turns up): where the test is about dedupe, channels or cool-down, use the ungated `put-budget` (event) and, for level semantics, a gated level code reached through three observations (a helper `_gated(d, code, step)` that fires and ends the observation three times). Do not weaken an assertion.
+- [ ] **Step 6: Adapt existing tests that relied on a gated code sending at first fire** (`test_first_occurrence_is_sent_then_deduped_until_the_repeat_window`, the failing-channel and cool-down tests, `test_a_successful_step_resolves_its_level_codes`, `test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code`, and any other the run turns up): where the test is about dedupe, channels or cool-down, use the ungated `put-budget` (event) and, for level semantics, a gated level code reached through three observations (a helper `_gated(d, code, step)` that fires and ends the observation three times). `test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code` drives three ticks with the raising monitor and expects the `dead-clock-check` send on the third (none before). Do not weaken an assertion.
 
 - [ ] **Step 7: Run the transmitter suite**
 
@@ -572,26 +591,72 @@ git commit -m "transmitter: gate every-minute alert codes at 3 consecutive obser
 
 ---
 
-### Task 4: transmitter dead-clock monitor on its own thread
+### Task 4a: transmitter monitor prep (guard view, reader timeouts, check order)
+
+No behaviour change beyond the order inside `check`: the dead-clock check still runs inside `tick`, now handed a callable over the guard cache.
 
 **Files:**
-- Create: `packages/transmitter/src/transmitter/monitor.py`
 - Modify: `packages/transmitter/src/transmitter/publish.py` (extract `guard_view`)
 - Modify: `packages/transmitter/src/transmitter/r2.py` (`make_client` timeout keywords)
 - Modify: `packages/transmitter/src/transmitter/deadclock.py` (`check` takes a guard-view callable, called after the fetch)
-- Modify: `packages/transmitter/src/transmitter/alerts.py` (`LEVEL_CODES` gains `monitor-stalled`)
-- Modify: `packages/transmitter/src/transmitter/service.py` (`make_reader_client`, `open_monitor`, `Runner` monitor wiring, `run_once`, `monitor-stalled`)
-- Modify: `packages/transmitter/src/transmitter/cli.py` (`run --once` uses `run_once`)
-- Modify: `packages/transmitter/src/transmitter/sdnotify.py` (docstring: the monitor thread never pings)
-- Test: create `packages/transmitter/tests_transmitter/test_monitor.py`; modify `test_publish.py`, `test_deadclock.py`, `test_r2.py`, `test_service.py`, `test_cli.py`
+- Modify: `packages/transmitter/src/transmitter/service.py` (the in-tick dead-clock step passes `lambda: read_json(self.st.ws.guard_cache_path)`)
+- Test: `packages/transmitter/tests_transmitter/test_publish.py`, `test_r2.py`, `test_deadclock.py`, `test_service.py`
 
 **Interfaces:**
-- Consumes: Task 3's `alerts.MONITOR`, `alerts.end_observation`, `GATED_CODES` (`dead-clock-check`).
-- Produces (Task 5 plugs the relay into these):
+- Consumes: nothing new.
+- Produces (Task 4b builds on these):
   - `publish.guard_view(get_json: Callable[[str], dict | None]) -> dict` with exactly the keys `blocked`, `error`, `guard_evaluated_at`, `offair`; never raises; a failed guard read gives `blocked=True`, `error=str(exc)`; the offair rules are today's.
   - `publish.guard_blocks_publishing(...)`: signature and cache document unchanged (`{"checked_at": now_s, **guard_view(uploader.get_json)}`); still the only writer of `guard_cache_path`.
   - `r2.make_client(cfg: PublishConfig, *, connect_timeout: float = 10, read_timeout: float = 60)`.
   - `deadclock.DeadClockMonitor.check(self, now_us: int, guard_view: Callable[[], dict | None]) -> None`.
+
+- [ ] **Step 1: Write the failing tests.**
+  - `test_publish.py`:
+    - `test_guard_view_never_raises_and_fails_closed`, parametrized over a `get_json` that raises `RuntimeError("boom")` for every key → `{"blocked": True, "error": "boom", "guard_evaluated_at": None, "offair": None}`; returns a list for `GUARD_KEY` → `blocked is True` and `error` set; returns `{"tripped": False, "evaluated_at": "X"}` / `None` → `blocked False`, `guard_evaluated_at` "X", `offair False`.
+    - `test_guard_blocks_publishing_is_the_only_cache_writer` (strict surface): after one call, `read_json(ws.guard_cache_path) == {"checked_at": 1000.0, **publish.guard_view(p.uploader.get_json)}`; text pin: of `src/transmitter/*.py`, only `publish.py` matches `re.search(r"write_json\([^)]*guard_cache_path", text)`.
+  - `test_r2.py`, `test_client_timeouts_are_keywords`: `r2.make_client(cfg).meta.config.connect_timeout == 10` and `read_timeout == 60`; with `connect_timeout=5, read_timeout=10` → 5 and 10.
+  - `test_deadclock.py`:
+    - `test_the_playlist_is_fetched_before_the_guard_view_is_built`: a fetch and a guard callable appending to one list → `["fetch", "guard"]`.
+    - `test_a_failing_guard_read_cannot_stop_the_playlist_check`: guard callable returns `{"blocked": True, "error": "boom", "guard_evaluated_at": None, "offair": None}`; two stale 200 reads → `("alert", "dead-clock", ...)` fired; `m.guard_error_since_us == now` after the first.
+    - Mechanically wrap every existing `m.check(now, X)` as `m.check(now, lambda: X)`.
+  - `test_service.py`: the fake monitor of `test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache` takes `guard_view` and records `guard_view()`; the raising one of `test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code` renames its parameter (mechanical; assertions unchanged).
+
+- [ ] **Step 2: Run them to verify they fail**
+
+Run: `./.venv/bin/python -m pytest packages/transmitter/tests_transmitter/test_publish.py packages/transmitter/tests_transmitter/test_r2.py packages/transmitter/tests_transmitter/test_deadclock.py packages/transmitter/tests_transmitter/test_service.py -q`
+Expected: FAIL (`guard_view`, keyword timeouts missing; `check` takes a dict).
+
+- [ ] **Step 3: Implement `publish.guard_view`** by moving the read half of `guard_blocks_publishing` (both `try` blocks, unchanged semantics, the guard read's `except Exception` covering a non-dict document) into it; `guard_blocks_publishing` keeps the cache read, the interval test and the only `write_json(ws.guard_cache_path, ...)`.
+
+- [ ] **Step 4: Implement `r2.make_client` keywords and `DeadClockMonitor.check(now_us, guard_view)`** (fetch first; `guard_cache = guard_view()` right after the fetch, then `blocked` and the rest exactly as today). `service.Runner.tick`'s dead-clock step passes `lambda: read_json(self.st.ws.guard_cache_path)`; nothing else in `tick` changes.
+
+- [ ] **Step 5: Run the transmitter suite**
+
+Run: `./.venv/bin/python -m pytest packages/transmitter/tests_transmitter -q`
+Expected: all pass. Antenna unchanged.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/transmitter/src/transmitter/publish.py packages/transmitter/src/transmitter/r2.py packages/transmitter/src/transmitter/deadclock.py packages/transmitter/src/transmitter/service.py packages/transmitter/tests_transmitter/test_publish.py packages/transmitter/tests_transmitter/test_r2.py packages/transmitter/tests_transmitter/test_deadclock.py packages/transmitter/tests_transmitter/test_service.py
+git commit -m "transmitter: extract guard_view, add reader timeouts, fetch the playlist before the guard view"
+```
+
+---
+
+### Task 4b: transmitter dead-clock monitor on its own thread
+
+**Files:**
+- Create: `packages/transmitter/src/transmitter/monitor.py`
+- Modify: `packages/transmitter/src/transmitter/alerts.py` (`LEVEL_CODES` gains `monitor-stalled`)
+- Modify: `packages/transmitter/src/transmitter/service.py` (`make_reader_client`, `open_monitor`, `Runner` monitor wiring, removal of the in-tick monitor and of Task 3's interim `end_observation` call, `run_once`, `monitor-stalled`)
+- Modify: `packages/transmitter/src/transmitter/cli.py` (`run --once` uses `run_once`)
+- Modify: `packages/transmitter/src/transmitter/sdnotify.py` (docstring: the monitor thread never pings)
+- Test: create `packages/transmitter/tests_transmitter/test_monitor.py`; modify `test_service.py`, `test_cli.py`
+
+**Interfaces:**
+- Consumes: Task 3's `alerts.MONITOR`, `alerts.end_observation`, `GATED_CODES` (`dead-clock-check`); Task 4a's `publish.guard_view`, `r2.make_client` keywords, `DeadClockMonitor.check(now_us, guard_view)`.
+- Produces (Task 5 plugs the relay into these):
   - `monitor.py`: `MONITOR_INTERVAL_S = 60.0`, `MONITOR_STALL_S = 300.0`, `MONITOR_JOIN_S = 5.0`, `READER_CONNECT_TIMEOUT_S = 5`, `READER_READ_TIMEOUT_S = 10`;
     `class R2Reader: __init__(self, client, bucket: str); get_json(self, key: str) -> dict | None` (None on `NoSuchKey`/`404`; any other error and `json.loads` errors propagate, as `Uploader.get_json`; no other public method);
     `class MonitorLoop: __init__(self, deadclock: DeadClockMonitor | None, reader: R2Reader, relay=None, *, clock: Callable[[], int] = <wall clock in µs, `time.time_ns() // 1000`; monitor.py must not import service>, monotonic: Callable[[], float] = time.monotonic, interval_s: float = MONITOR_INTERVAL_S)`; `run_pass(self, *, relay: bool = True) -> None` (never raises); `start(self) -> None`; `stop(self, timeout_s: float = MONITOR_JOIN_S) -> None`; `started: bool`; `stalled(self) -> str | None` (the alert message, or None). `relay` is any object with `run_pass() -> None` (Task 5's `Relay`).
@@ -600,14 +665,6 @@ git commit -m "transmitter: gate every-minute alert codes at 3 consecutive obser
   - `Runner(..., monitor: MonitorLoop | None = None, ...)`; `Runner.run(max_ticks=None)` starts/stops the thread; `Runner.run_once() -> None`.
 
 - [ ] **Step 1: Write the failing tests.**
-  - `test_publish.py`:
-    - `test_guard_view_never_raises_and_fails_closed`, parametrized over a `get_json` that raises `RuntimeError("boom")` for every key → `{"blocked": True, "error": "boom", "guard_evaluated_at": None, "offair": None}`; returns a list for `GUARD_KEY` → `blocked is True` and `error` set; returns `{"tripped": False, "evaluated_at": "X"}` / `None` → `blocked False`, `guard_evaluated_at` "X", `offair False`.
-    - `test_guard_blocks_publishing_is_the_only_cache_writer`: after one call, `read_json(ws.guard_cache_path) == {"checked_at": 1000.0, **publish.guard_view(p.uploader.get_json)}`; text pin: of `src/transmitter/*.py`, only `publish.py` matches `re.search(r"write_json\([^)]*guard_cache_path", text)`.
-  - `test_r2.py`, `test_client_timeouts_are_keywords`: `r2.make_client(cfg).meta.config.connect_timeout == 10` and `read_timeout == 60`; with `connect_timeout=5, read_timeout=10` → 5 and 10.
-  - `test_deadclock.py`:
-    - `test_the_playlist_is_fetched_before_the_guard_view_is_built`: a fetch and a guard callable appending to one list → `["fetch", "guard"]`.
-    - `test_a_failing_guard_read_cannot_stop_the_playlist_check`: guard callable returns `{"blocked": True, "error": "boom", "guard_evaluated_at": None, "offair": None}`; two stale 200 reads → `("alert", "dead-clock", ...)` fired; `m.guard_error_since_us == now` after the first.
-    - Mechanically wrap every existing `m.check(now, X)` as `m.check(now, lambda: X)`.
   - `test_monitor.py` (new; `fired` fixture as in `test_deadclock.py`, plus recording `alerts.end_observation`; `FakeBucket` from helpers):
     - `test_a_pass_runs_the_check_and_ends_the_monitor_observation`: a fake deadclock records `check`; after `run_pass()` → one check, `end_observation` called with `(alerts.MONITOR, ["dead-clock-check"])`.
     - `test_a_raising_check_fires_dead_clock_check_and_the_loop_goes_on`: check raises → `("alert", "dead-clock-check", ...)`; `last_pass` advanced; a second `run_pass()` runs the check again.
@@ -626,16 +683,16 @@ git commit -m "transmitter: gate every-minute alert codes at 3 consecutive obser
     - `test_run_starts_the_monitor_and_stops_it_when_the_loop_raises`: fake monitor recording `start`/`stop`; `tick` monkeypatched to raise `KeyboardInterrupt` → `run()` raises, recorded `["start", "stop"]`, and `STOPPING=1` was still notified.
     - `test_run_once_checks_once_on_the_main_thread_without_relay_or_thread`: `threading.active_count()` unchanged; fake monitor saw `run_pass(relay=False)` once, in `threading.main_thread()`, after the tick's publish (record order); `start` never called.
     - `test_open_monitor_needs_site_url` updated: None without `site_url`; with it, a `MonitorLoop` whose `deadclock` has today's url/120.0/2700.0/17; `make_reader_client` (monkeypatched to record `threading.current_thread()`) was called on the main thread, before any `start()`.
-  - `test_cli.py`, `test_run_once_end_to_end`: unchanged assertions still pass (no `site_url` → no monitor, no reader client).
+  - `test_cli.py`:
+    - `test_run_once_end_to_end`: unchanged assertions still pass (no `site_url` → no monitor, no reader client).
+    - `test_run_hands_the_runner_the_dead_clock_monitor` (test_cli.py:205-224): its `FakeRunner` gains `run_once()` recording a call; the assertion becomes `seen["monitor"] is sentinel`, `--once` called `run_once` once, and `run` not at all.
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `./.venv/bin/python -m pytest packages/transmitter/tests_transmitter -q`
-Expected: FAIL (`guard_view`, `monitor` module, `run_once`, keyword timeouts missing; `check` takes a dict).
+Run: `./.venv/bin/python -m pytest packages/transmitter/tests_transmitter/test_monitor.py packages/transmitter/tests_transmitter/test_service.py packages/transmitter/tests_transmitter/test_cli.py -q`
+Expected: FAIL (`monitor` module, `run_once`, `make_reader_client` missing; the tick still runs the monitor).
 
-- [ ] **Step 3: Implement `publish.guard_view`** by moving the read half of `guard_blocks_publishing` (both `try` blocks, unchanged semantics, the guard read's `except Exception` covering a non-dict document) into it; `guard_blocks_publishing` keeps the cache read, the interval test and the only `write_json(ws.guard_cache_path, ...)`.
-
-- [ ] **Step 4: Implement `r2.make_client` keywords, `DeadClockMonitor.check(now_us, guard_view)`** (fetch first; `guard_cache = guard_view()` right after the fetch, then `blocked` and the rest exactly as today) **and `monitor.py`.** `run_pass(relay=True)`:
+- [ ] **Step 3: Implement `monitor.py`.** `run_pass(relay=True)`:
 
 ```
 if self.deadclock is not None:
@@ -650,17 +707,17 @@ self.last_pass = self.monotonic()
 
 The loop body wraps `run_pass` in a catch-all WARNING and waits on the stop event for `max(0, interval_s - elapsed)`. `start()` sets `started`, `last_pass = monotonic()` and starts `threading.Thread(target=..., name="transmitter-monitor", daemon=True)`. `stalled()`: `"the dead-clock monitor thread is not running"` when started and not alive; `f"the dead-clock monitor has completed no pass for {age / 60:.0f} minutes"` when `age > MONITOR_STALL_S`; else None. Nothing in `monitor.py` imports or calls `sdnotify`. The Dispatcher's lock is taken only inside `alerts.alert`/`resolve`/`end_observation` (their own sends, as today); the playlist fetch, the guard reads and the relay never run under it.
 
-- [ ] **Step 5: Wire `service.py`, `alerts.py`, `cli.py`.** `LEVEL_CODES` adds `"monitor-stalled"`. `open_monitor(st)`: build the `DeadClockMonitor` exactly as today when `site_url` is set (else warn and return None); otherwise `MonitorLoop(deadclock, monitor.R2Reader(make_reader_client(st.cfg), st.cfg.publish.bucket))`. `Runner.tick`: remove the dead-clock step; in its `finally`, before `end_observation`, `self._check_monitor()`: only when `self.monitor is not None and self.monitor.started`, `msg = self.monitor.stalled()` → `alerts.alert("monitor-stalled", msg)` or `alerts.resolve("monitor-stalled")`. `Runner.run`: `READY=1`, `monitor.start()` if present, loop, `finally`: `monitor.stop()` then `STOPPING=1`. `run_once()`: `self.tick(self.clock())`, then `self.monitor.run_pass(relay=False)` if present. `cli.run`: build the `Runner`, then `runner.run_once()` if `--once` else `runner.run()`. `sdnotify.py` docstring: WATCHDOG=1 comes from the main loop only; the monitor thread never pings.
+- [ ] **Step 4: Wire `service.py`, `alerts.py`, `cli.py`, `sdnotify.py`.** `LEVEL_CODES` adds `"monitor-stalled"`. `open_monitor(st)`: build the `DeadClockMonitor` exactly as today when `site_url` is set (else warn and return None); otherwise `MonitorLoop(deadclock, monitor.R2Reader(make_reader_client(st.cfg), st.cfg.publish.bucket))`. `Runner.tick`: remove the dead-clock step and Task 3's interim `alerts.end_observation(alerts.MONITOR, ...)` call; in its `finally`, before `end_observation`, `self._check_monitor()`: only when `self.monitor is not None and self.monitor.started`, `msg = self.monitor.stalled()` → `alerts.alert("monitor-stalled", msg)` or `alerts.resolve("monitor-stalled")`. `Runner.run`: `READY=1`, `monitor.start()` if present, loop, `finally`: `monitor.stop()` then `STOPPING=1`. `run_once()`: `self.tick(self.clock())`, then `self.monitor.run_pass(relay=False)` if present. `cli.run`: build the `Runner`, then `runner.run_once()` if `--once` else `runner.run()`. `sdnotify.py` docstring: WATCHDOG=1 comes from the main loop only; the monitor thread never pings.
 
-- [ ] **Step 6: Run the transmitter suite**
+- [ ] **Step 5: Run the transmitter suite**
 
 Run: `./.venv/bin/python -m pytest packages/transmitter/tests_transmitter -q`
-Expected: all pass.
+Expected: all pass. Antenna unchanged.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add packages/transmitter/src/transmitter/monitor.py packages/transmitter/src/transmitter/publish.py packages/transmitter/src/transmitter/r2.py packages/transmitter/src/transmitter/deadclock.py packages/transmitter/src/transmitter/alerts.py packages/transmitter/src/transmitter/service.py packages/transmitter/src/transmitter/cli.py packages/transmitter/src/transmitter/sdnotify.py packages/transmitter/tests_transmitter/
+git add packages/transmitter/src/transmitter/monitor.py packages/transmitter/src/transmitter/alerts.py packages/transmitter/src/transmitter/service.py packages/transmitter/src/transmitter/cli.py packages/transmitter/src/transmitter/sdnotify.py packages/transmitter/tests_transmitter/test_monitor.py packages/transmitter/tests_transmitter/test_service.py packages/transmitter/tests_transmitter/test_cli.py
 git commit -m "transmitter: run the dead-clock check on its own thread with a fresh guard view"
 ```
 
@@ -676,7 +733,7 @@ git commit -m "transmitter: run the dead-clock check on its own thread with a fr
 - Test: create `packages/transmitter/tests_transmitter/test_relay.py`; modify `test_alerts.py`, `test_service.py`
 
 **Interfaces:**
-- Consumes: Task 2's document contract (`RelayDoc`, `RelayMessage`, `relayDocProblem`'s rule); Task 4's `MonitorLoop(relay=...)`, `R2Reader.get_json`, `make_reader_client`.
+- Consumes: Task 2's document contract (`RelayDoc`, `RelayMessage`, `relayDocProblem`'s rule); Task 4b's `MonitorLoop(relay=...)`, `R2Reader.get_json`, `make_reader_client`.
 - Produces:
   - `NtfyChannel.send(self, subject: str, body: str, priority: int, tags: str | None = None) -> None` (None keeps today's rule).
   - `Workspace.relay_cursor_path -> Path` (`root / "alert-relay-cursor.json"`, content `{"stream": str, "seq": int}`).
@@ -727,7 +784,8 @@ def test_a_missing_object_is_nothing_to_relay_and_keeps_the_cursor(tmp_path):
     # get_json -> None; nothing sent; cursor unchanged; cursor file not rewritten
 
 @pytest.mark.parametrize("bad", ["raise", [], {"stream": 5, "ring": []}, {"stream": "s", "ring": {}},
-                                 {"stream": "s", "ring": [{"seq": 1.5}]}, {"stream": "s", "ring": [{"seq": True}]}])
+                                 {"stream": "s", "ring": [{"seq": 1.5}]}, {"stream": "s", "ring": [{"seq": True}]},
+                                 {"stream": "s", "ring": [None]}, {"stream": "s", "ring": [1]}])
 def test_an_unreadable_or_malformed_document_is_a_warning_never_an_alert(tmp_path, caplog, monkeypatch, bad):
     # monkeypatch alerts.alert to record; WARNING logged; nothing sent; no alert recorded; cursor unchanged
 
@@ -735,7 +793,8 @@ def test_an_at_in_the_future_is_sent_and_an_unparseable_at_is_skipped_and_advanc
     # msg(1, at="not a time"), msg(2, NOW+120) -> seq 1 WARNING and skipped, seq 2 sent, cursor ("s", 2)
 
 def test_the_cursor_file_is_read_once_at_startup_and_a_bad_one_is_one_warning(tmp_path, caplog):
-    # cursor file "{" -> one WARNING at construction, cursor None; later passes never re-read the file (delete it: no change)
+    # cursor file "{" -> one WARNING at construction, cursor None; later passes never re-read the file (delete it: no change);
+    # a directory at cursor_path (IsADirectoryError) -> likewise one WARNING, cursor None, no raise
 
 def test_a_failed_cursor_write_is_a_warning_and_never_causes_a_resend(tmp_path, caplog):
     # cursor_path is a directory: pass 1 sends seq 1 and warns; pass 2 sends nothing
@@ -747,6 +806,7 @@ def test_the_relay_bypasses_the_dispatcher(tmp_path):
 In `test_alerts.py`, `test_ntfy_channel_takes_explicit_tags`: `send("s", "b", 3, tags="information_source")` → header `Tags == "information_source"`; without `tags` the existing priority rule holds (`4` → `warning`, `3` → `white_check_mark`).
 
 In `test_service.py`:
+(The first two monkeypatch `service.make_reader_client`, as Task 4b's `test_open_monitor_needs_site_url` does, so no R2 env is needed.)
 - `test_open_monitor_with_ntfy_only_relays_without_a_dead_clock_check`: `alerts.ntfy_url` set, no `site_url` → a `MonitorLoop` with `deadclock is None` and a `Relay` whose channel is a `NtfyChannel` with that url, a distinct instance from any Dispatcher channel (`dispatcher_from_config(...).channels`), carrying `NTFY_TOKEN` from the env mapping passed in.
 - `test_no_ntfy_means_no_relay_and_one_warning`: `site_url` set, no `ntfy_url` → `relay is None`, caplog has exactly one "not relayed" warning.
 - `test_neither_site_url_nor_ntfy_means_no_monitor`: None, and `make_reader_client` never called.
@@ -758,12 +818,15 @@ Expected: FAIL (no `relay` module, no `tags` parameter, `open_monitor` ignores n
 
 - [ ] **Step 3: Implement `NtfyChannel.send(..., tags=None)` and `Workspace.relay_cursor_path`.**
 
-- [ ] **Step 4: Implement `relay.py`.** Construction reads the cursor file once (`read_json`; anything but `{"stream": str, "seq": int}` → one WARNING, `cursor = None`). `run_pass` algorithm (the cursor rule is the spec's Part 2 hugo side, verbatim in behaviour):
+- [ ] **Step 4: Implement `relay.py`.** Construction reads the cursor file once (`read_json` inside a `try` catching `(OSError, ValueError)`, so a directory at the path or bad JSON is no cursor; that, or anything but `{"stream": str, "seq": int}`, → one WARNING, `cursor = None`). `run_pass` algorithm (the cursor rule is the spec's Part 2 hugo side, verbatim in behaviour):
 
 ```
-try: doc = get_json(RELAY_KEY) except Exception: WARNING; return
-if doc is None: return
-if (p := doc_problem(doc)) is not None: WARNING(p); return
+try:
+    doc = get_json(RELAY_KEY)
+    if doc is None: return
+    p = doc_problem(doc)                         # inside the try: a checker bug is a WARNING too
+except Exception: WARNING; return
+if p is not None: WARNING(p); return
 start_seq = cursor.seq if cursor and cursor.stream == doc["stream"] else 0
 handled = start_seq; started = monotonic()
 for m in sorted((m for m in doc["ring"] if m["seq"] > start_seq), key=seq):
@@ -800,23 +863,24 @@ git commit -m "transmitter: relay antenna's alerts from state/alert-relay.json t
 **Files:**
 - Modify: `packages/transmitter/src/transmitter/pipeline.py` (`Station.notify`, `frames_of`)
 - Modify: `packages/transmitter/src/transmitter/service.py` (`Runner.__init__` wires it)
-- Test: `packages/transmitter/tests_transmitter/test_pipeline.py`, `packages/transmitter/tests_transmitter/test_service.py`
+- Test: `packages/transmitter/tests_transmitter/test_pipeline.py`, `packages/transmitter/tests_transmitter/test_service.py`, `packages/transmitter/tests_transmitter/test_systemd.py`
 
 **Interfaces:**
 - Consumes: `Runner(notify=...)` (existing).
 - Produces: `Station.notify: Callable[[str], object] | None = None` (last dataclass field); `Station.frames_of(show)` pings `notify("WATCHDOG=1")` after each `engine.analyze` call, also when it raised (`try`/`finally`); `plan_step`'s signature is unchanged.
 
 - [ ] **Step 1: Write the failing tests.**
-  - `test_pipeline.py`, `test_plan_step_pings_the_watchdog_after_each_analysis`: `make_station(tmp_path, n_packages=3)`, `st.notify = pings.append`; `pipeline.plan_step(st, NOW)` → `pings.count("WATCHDOG=1") == len(st.engine.analyzed) >= 1`.
+  - `test_pipeline.py`, `test_plan_step_pings_the_watchdog_after_each_analysis`: `st, _ = make_station(tmp_path, n_packages=3)` (it returns a tuple, helpers.py:186), `st.notify = pings.append`; `pipeline.plan_step(st, NOW)` → `pings.count("WATCHDOG=1") == len(st.engine.analyzed) >= 1`.
   - `test_render_steps_replan_path_pings_too`: call `st.extend([], st.scan_now(NOW), NOW, start_frame=0, run_start=True)` with `st.notify` set → one ping per analysis.
   - `test_a_failed_analysis_still_pings`: an engine whose `analyze` raises `RenderError` for one slug → that show is skipped (existing `on_skip`) and the ping count still equals the analyze calls.
   - `test_frames_of_without_notify_is_unchanged`: `notify` None → no error, same frame count as before.
   - `test_service.py`, `test_the_runner_wires_its_notify_into_the_station`: `Runner(st, p, notify=rec)` → `st.notify is rec`; a `Station` that already has a notify keeps it.
+  - `test_systemd.py`, `test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping`: the Runner now also pings once per analysis, so `sent.count("WATCHDOG=1") == 5 + len(st.engine.analyzed)` (the `FakeEngine` records each `analyze` call in `analyzed`); keep `len(st.engine.analyzed) >= 1` so the new pings are exercised.
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `./.venv/bin/python -m pytest packages/transmitter/tests_transmitter/test_pipeline.py packages/transmitter/tests_transmitter/test_service.py -q`
-Expected: FAIL (`Station` has no `notify`).
+Run: `./.venv/bin/python -m pytest packages/transmitter/tests_transmitter/test_pipeline.py packages/transmitter/tests_transmitter/test_service.py packages/transmitter/tests_transmitter/test_systemd.py -q`
+Expected: FAIL (`Station` has no `notify`; the watchdog count is still 5).
 
 - [ ] **Step 3: Implement** `Station.notify` and the `frames_of` ping; `Runner.__init__`: `if st.notify is None: st.notify = notify`. Leave `service.row_analysis` as is (its docstring already records the gap).
 
@@ -828,7 +892,7 @@ Expected: all pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/transmitter/src/transmitter/pipeline.py packages/transmitter/src/transmitter/service.py packages/transmitter/tests_transmitter/test_pipeline.py packages/transmitter/tests_transmitter/test_service.py
+git add packages/transmitter/src/transmitter/pipeline.py packages/transmitter/src/transmitter/service.py packages/transmitter/tests_transmitter/test_pipeline.py packages/transmitter/tests_transmitter/test_service.py packages/transmitter/tests_transmitter/test_systemd.py
 git commit -m "transmitter: ping the watchdog after each show analysis in the plan step"
 ```
 
@@ -862,6 +926,7 @@ git commit -m "transmitter: ping the watchdog after each show analysis in the pl
   - one line for the gate: every-minute alert keys (antenna `GATED_KEYS`, transmitter `GATED_CODES`) send only after 3 consecutive failing observations; spend/off-air keys and one-shot keys never; two immediate raise sites.
   - one line for the relay: antenna appends sent alerts to `state/alert-relay.json`; hugo's monitor thread relays them to its ntfy (cursor `~/.transmitter/alert-relay-cursor.json`, 1 h max age); the Worker sends no ntfy.
   - transmitter paragraph: the dead-clock check and the relay run on a daemon monitor thread every 60 s with its own get-only R2 reader (never writes, never touches `guard-cache.json`, never pings the watchdog); `monitor-stalled` fires when its last pass is over 5 min old; `run --once` checks once on the main thread and does not relay; the plan step pings the watchdog after each show analysis.
+  - the sentence "every publish pass alerts `no fallback rendered`" gains "(after 3 consecutive ticks)".
 
 - [ ] **Step 4: Verify** that no doc still tells the operator to set `NTFY_URL`/`NTFY_TOKEN` as Worker secrets:
 
