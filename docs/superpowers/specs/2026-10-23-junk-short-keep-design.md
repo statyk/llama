@@ -97,7 +97,8 @@ An untagged file follows 2.4.
 ### 2.3 The spam tripwire and the junk test
 
 The functions below are **normative**: the plan ports them verbatim into `junk.py`
-(`short_tag_is_junk`, `short_is_spam`). They are exactly what was measured.
+(`short_tag_is_junk`, `short_is_spam`). They are what was measured, except that the tripwire's
+bare words are narrowed to the filename stem; narrowing cannot add to its measured 0 hits.
 
 ```python
 LEAD = re.compile(r"^(?:\(?\d{1,2}:\d{2}(?::\d{2})?(?:[.:]\d+)?\)?\s*[-:)]?\s*|\d{1,3}\s*[.):_-]?\s+|d\d{1,2}t\d{1,3}\s*|\d{3,4}(?=[a-z]))+", re.I)
@@ -123,8 +124,9 @@ NONPERF = re.compile(
     r"|\binterview\w*"
     r"|(?=.*\b(?:dj'?s?|radio)\b)(?=.*\b(?:talk\w*|intro\w*|outro\w*|banter|announc\w*|moderator\w*|host\w*|id|spots?)\b)",
     re.I)
-SPAM = re.compile(r"https?://|\bwww\.|\b[a-z0-9-]+\.(?:com|net|org|info|biz)\b|@\w{3,}"
-                  r"|\bfollow\b|\bdownload\b|\bsubscribe\b", re.I)
+SPAM = re.compile(r"https?://|\bwww\.|\b[a-z0-9-]+\.(?:com|net|org|info|biz)\b|@\w{3,}", re.I)
+SPAM_STEM = re.compile(r"\bfollow\b|\bdownload\b|\bsubscribe\b", re.I)
+SPAM_TAG = re.compile(r"\bfollow\s+(?:me|us)\b", re.I)
 
 def parts(t):    # t = clean_tag_title(tag)
     t = TIME_PAREN.sub("", LEAD.sub("", t))
@@ -141,7 +143,9 @@ def short_tag_is_junk(tag):
 
 def short_is_spam(filename, own_title, original_title):
     stem = basename_without_extension(filename)
-    return any(SPAM.search(s) for s in (stem, own_title or "", original_title or ""))
+    tags = (own_title or "", original_title or "")
+    return (bool(SPAM.search(stem) or SPAM_STEM.search(stem))
+            or any(SPAM.search(t) or SPAM_TAG.search(t) for t in tags))
 ```
 
 **The spam tripwire runs first, on every short candidate, tagged or not.**
@@ -149,8 +153,13 @@ def short_is_spam(filename, own_title, original_title):
 - **What it leaves out.** `album`, `artist` and `creator`. Those strings are item-wide: venue
   `@` signs and taper domains such as `Summerdance@Nelson Ledges` and `SeparateReality.org`.
   Including them gave 7 false hits and 0 true ones.
-- **Matching.** Every term is word-bounded and case-insensitive. `John follows his fingers`
-  (`mountaingoats-2017-06-02`) and `bwww1996-12-31t01.mp3` stay kept.
+- **Matching.** Every term is word-bounded and case-insensitive. The URL, `www.`, domain and
+  `@\w{3,}` terms apply to the stem and both tags. The bare words `follow`, `download` and
+  `subscribe` apply to the stem only; in a tag only `follow me` or `follow us` counts.
+  `John follows his fingers` (`mountaingoats-2017-06-02`), `I'll Follow the Sun`,
+  `Follow You Down` and `bwww1996-12-31t01.mp3` stay kept.
+- **Its own reason.** A tripwire drop records `spam-shaped name or tag`, so `show --tracks` and
+  triage `[i]` show why it dropped.
 - **Measured:** 0 hits on the library's 3,547 short-only drops, and 0 on the 9,655 short-only
   drops of the 9,844 cached sibling items.
 
@@ -194,9 +203,9 @@ into Jack Straw. That is how tapers carry tuning and crowd noise, and it is toda
 
 ### 2.5 Where the rule lives and what it records
 
-- **The rule lives in `junk._keep_and_exclude`** (2.2-2.4). A file the rule drops keeps the
-  reason `implausibly short`, so `show --tracks`, triage `[i]` and `fix --include` read it as
-  today.
+- **The rule lives in `junk._keep_and_exclude`** (2.2-2.4). A file the junk test or 2.4 drops
+  keeps the reason `implausibly short`, so `show --tracks`, triage `[i]` and `fix --include` read
+  it as today. A tripwire drop records `spam-shaped name or tag` (2.3).
 - **`filter_files` gains `short_keep: bool = True`.** `False` reproduces today's filter exactly.
   Only the migration's consistency check (4.3) passes it.
 - **`filter_files` returns the names the rule kept** as `ordering["short_kept"]`.
@@ -254,20 +263,33 @@ persisted artifact is keyed by track number.
   | `set_breaks` | `["<filename>", ...]` | a break falls after each listed file |
   | `encore_after` | `"<filename>"` | encore starts after this file |
 
-  - **Legacy values parse as integers:** a `titles` key made only of digits (JSON object keys
-    are strings), or an integer in `set_breaks`, or an integer `encore_after`.
+  - **Legacy values** are the track-number forms: a `titles` key made only of digits (JSON
+    object keys are strings), an integer in `set_breaks`, or an integer `encore_after`.
   - Every real filename has an extension, so none is all digits.
+- **Both forms always parse.** The new `Overrides` model types the three keys as
+  `titles: dict[str, str]`, `set_breaks: list[int | str] | None` and
+  `encore_after: int | str | None`. Parsing never refuses; only the resolver and the writers
+  judge legacy or mixed values. A test: the new `iter_shows` lists a library holding a legacy
+  file, a migrated file and a mixed file without raising.
 - **Old binaries fail loudly.** v2.17.0's model (`dict[int, str]`, `list[int] | None`,
   `int | None`) rejects every migrated file with a `ValidationError`. An old binary, a sweep loop
   or an old-commit harness arm therefore fails loudly instead of silently dropping the overrides.
   A test runs `e37f670`'s `Overrides` model, vendored as a fixture, against a migrated file and
   asserts that it raises.
+  - **The failure is library-wide.** v2.17.0 reads every show's `overrides.json` on every command
+    (`catalog.iter_shows`), so once any file is migrated the old binary cannot run any command on
+    this library. That is by design: it is the loud failure. It is also why the migration and
+    its undo are all-or-nothing (4.3).
+- **Writers refuse legacy.** Every new-code writer of `overrides.json` refuses before any prompt
+  when the show's file holds any legacy value (`overrides.json uses track-number keys; run the
+  migration`). That covers every `fix` edit flag (`--no-run` included), every triage edit,
+  `--suggest-titles` and `--untitled`. A test pins it.
 - **Presence semantics.**
   - `set_breaks` absent or `None` means no structure override.
   - `[]` means forced no breaks (the structure-override path, alignment skipped). It is
     preserved exactly.
   - `--untitled` and triage `[u]` keep writing `[]`.
-  - "Has legacy keys" means any of the three integer-valued forms above. An empty
+  - "Has a legacy value" means any of the three integer-valued forms above. An empty
     `set_breaks: []` needs no re-key and is left as is.
   - A test pins the `delmccouryband-2008-05-24` shape (18 titles plus `set_breaks: []`) through
     the migration and a gather: alignment `override`, breaks `[]`.
@@ -292,6 +314,10 @@ persisted artifact is keyed by track number.
     That list is computed with the overrides as they were **before** this invocation's own
     edits, by **one shared helper** that returns gather's final kept list (filter, include,
     exclude); gather itself uses the same helper. There is no separate recomputation.
+  - **Until a show is re-gathered under the new rule**, its `show.json` still has today's kept
+    list, so on every show the rule changes the check refuses positional edits with
+    `re-gather under the new rule first (llama redo <show> --from gather)`. The runbook therefore
+    triages after the bulk apply (4.3).
   - **Behaviour change.** `fix --exclude 3 --set-title 7=X` now titles `show.json`'s track 7.
     Today that title lands on old track 8. A test pins it.
   - Without `show.json` these flags refuse and name `llama redo <show> --from gather`.
@@ -324,57 +350,70 @@ console script from a copy. It is a dry run unless `--apply`, and it never gathe
 1. Stop any `llama run resume --all` loop.
 2. Copy the current release binary to `~/.local/bin/llama-2.17.0`.
 3. Install the new release and verify it (`which -a llama`, `llama --version`). The script
-   refuses `--apply` unless every `llama` on PATH reports the new version.
+   refuses `--apply` while any `llama` on PATH reports 2.17.0 or earlier, or a dev build
+   (`0.1.0`, `0.0.0+unknown`). `--undo` is exempt, since it runs after the old binary is
+   reinstalled.
 4. Run any pre-piece-4 base harness arm now, or on a library snapshot taken before step 5.
-5. Migrate: dry run, then `--apply`.
-6. Build apply lists only from a harness run after the migration. Their `input_digests` include
+5. Migrate. Run the dry run. Repair each refused show with `llama-2.17.0` by the route the
+   refusal names, while the library is still wholly legacy. Repeat the dry run until it reports
+   0 refused, then `--apply`.
+6. Restart the sweep loop, only once step 5's `--apply` has succeeded.
+7. Build apply lists only from a harness run after the migration. Their `input_digests` include
    `overrides.json`.
+8. Triage held shows only after the bulk apply has re-gathered them (4.2).
 
-**Per show with legacy keys**, under the show lock (`locks.file_lock(ws.lock)`):
+**Checks.** A show is refused, with its repair route, when any of these holds:
 
-1. **Refuse the show** (write nothing; print `refused: <slug>: <reason>`) when any of these
-   holds:
-   - `show.json` is missing;
-   - a `titles` key is outside `1..len(tracks)`;
-   - the track at a `titles` key is not `title_source == "override"` with exactly the forced
-     title;
-   - **when `set_breaks` or `encore_after` is present**, `show.json`'s `set_breaks` is not
-     exactly `sorted(set_breaks ∪ {encore_after})`;
-   - a track filename repeats;
-   - `show.json`'s filename list differs from what the shared helper (4.2) keeps under today's
-     rule (`short_keep=False`) from current metadata plus `include` minus `exclude`. This is the
-     same comparison the writers' staleness check makes.
+| reason | repair (old binary, before `--apply`) |
+|---|---|
+| the file mixes legacy and filename values | none; listed for the operator |
+| `show.json` is missing | `llama-2.17.0 redo <show> --from gather` |
+| a `titles` key is outside `1..len(tracks)` | `llama-2.17.0 fix <show> --clear-title k` |
+| the track at a `titles` key is not `title_source == "override"` with exactly the forced title | `llama-2.17.0 redo <show> --from gather` |
+| **when `set_breaks` or `encore_after` is present**, `show.json`'s `set_breaks` is not exactly `sorted(set_breaks ∪ {encore_after})` | `llama-2.17.0 redo <show> --from gather` |
+| a track filename repeats | none; listed for the operator |
+| `show.json`'s filename list differs from what the shared helper (4.2) keeps under today's rule (`short_keep=False`) from current metadata plus `include` minus `exclude` (the writers' staleness comparison) | `llama-2.17.0 redo <show> --from gather` |
+| a backup exists while the file is still legacy and is not byte-equal to it | none; listed for the operator |
 
-   These checks prove that the stored positions, the stored `show.json` and the current inputs
-   agree. An ambiguous show is never guessed.
-2. **Map** each position to `tracks[N-1].filename`.
-3. **Write, in this order:**
-   1. the backup `overrides.pre-rekey.json` (temp file, `F_FULLFSYNC`, rename);
-   2. the new `overrides.json`, written the same way;
-   3. the sidecar `overrides.rekeyed.sha256`, the hash of the bytes written in step 2.
+These checks prove that the stored positions, the stored `show.json` and the current inputs
+agree. An ambiguous show is never guessed. A refusal with no route blocks `--apply` until the
+operator resolves it.
 
-   If a backup already exists while the file is still legacy, it must be byte-equal to the
-   current file, or the show is refused. Every other field round-trips unchanged.
+**`--apply` is all-or-nothing.** It first runs every check over every show with a legacy value.
+If any show would be refused it writes nothing and prints each refusal with its repair.
+Otherwise, per show, under the show lock (`locks.file_lock(ws.lock)`):
 
-**Output.** One line per show: `rekeyed: <slug> (T titles, B breaks, encore)` or `refused`.
-Then a summary. Exit 1 if anything was refused.
+1. **Map** each position to `tracks[N-1].filename`. Every other field round-trips unchanged.
+2. **Write, in this order**, each as a temp file, `F_FULLFSYNC`, then rename:
+   1. the backup `overrides.pre-rekey.json`;
+   2. the sidecar `overrides.rekeyed.sha256`, the hash of the bytes about to be written;
+   3. the new `overrides.json`.
 
-**A refused show is repaired with the old binary:** `llama-2.17.0 redo <show> --from gather`,
-then re-run the migration.
+An interrupt therefore leaves each show either legacy and equal to its backup, or matching its
+sidecar. A re-run of an interrupted `--apply` completes the remaining legacy shows, which passed
+the all-show check.
 
-**Undo.** `--undo --apply`, per show:
-- When the current file's hash equals the sidecar, it restores the backup (temp, `F_FULLFSYNC`,
-  rename) and removes the sidecar and the backup.
-- When the current file equals the backup, it reports `already undone` (exit 0 for that show).
-- Otherwise it refuses and names the show.
+**Output.** One line per show: `rekeyed: <slug> (T titles, B breaks, encore)` (`would rekey` in
+the dry run), or `refused: <slug>: <reason>` with its repair. Then a summary. Exit 1 if anything
+was refused.
+
+**Undo.** The undo set is every show with a sidecar. `--undo` is a dry run; `--undo --apply` is
+all-or-nothing the same way and writes nothing unless every show in the set is undoable:
+- when the current file's hash equals the sidecar, it restores the backup (temp, `F_FULLFSYNC`,
+  rename) and removes the sidecar and the backup;
+- when the current file equals the backup, it reports `already undone` and removes the sidecar
+  and the backup;
+- otherwise the show is not undoable, and is named.
 
 Undo is only useful together with reinstalling the old binary. Its post-condition is the old
-binary's `llama-2.17.0 redo <show> --from gather` for any show the new code re-gathered.
+binary's `llama-2.17.0 redo <show> --from gather` for every show whose `show.json` has a
+`short_kept` track, listed with
+`grep -l '"short_kept": true' <root>/shows/*/show.json`.
 
 **Measured today:**
 - 606 shows carry legacy keys (3,203 titles, 427 breaks, 365 encore keys).
-- **All 606 pass all six checks**, so 0 would be refused. On each, `show.json`'s filename list
-  equals what today's code keeps. Re-run the checks on migration day.
+- **All 606 pass every check**, so 0 would be refused. On each, `show.json`'s filename list
+  equals what today's code keeps. The migration-day dry run re-runs the checks.
 - The re-key, simulated over the whole replay, mapped every key. Its arm has **0** override
   titles on a different file.
 
@@ -400,10 +439,12 @@ The bulk apply of pieces 1-5 is planned separately. Piece 4 needs these things f
      reusable. `redo --from gather` would spend a vet and a brief on each.
    - **The 28 voiced-minor shows** (`voiced-minor-final.json`) are left out until the
      re-voice-later decision.
-3. **Briefing reuse** (owned by this branch, tested). `replay.briefing_reusable` compares:
-   - per-track `(title, set, segue)` over the tracks that are not `short_kept`, matched by
-     filename;
-   - each set break, keyed by the last non-`short_kept` file at or before it;
+3. **Briefing reuse** (owned by this branch, tested). `replay.briefing_reusable` leaves out, on
+   both the stored and the new show, every track whose filename is among the new show's
+   `short_kept` filenames (so the 173 already-included short files do not force a brief). Over
+   what remains it compares:
+   - per-track `(title, set, segue)`, matched by filename;
+   - each set break, keyed by the last remaining file at or before it;
    - the existing show-level fields, with `briefing_guard` unchanged.
 
    The break key means a banter or crowd file that slides across a set boundary does not force a
@@ -414,47 +455,70 @@ The bulk apply of pieces 1-5 is planned separately. Piece 4 needs these things f
    - Without piece 4, 1,129 would be reusable (the other 286 already differ from their stored
      show for other reasons). Piece 4 itself costs 116: 113 because a real track's title, set
      or segue changes, and 3 set breaks.
-4. **Re-use the station copy** (owned by this branch). A delivered show's library audio was
-   purged at delivery, so re-packaging it would download the whole show again. Before downloading
-   a manifest file, the package step copies it from the station destination when that copy
-   verifies. A failed check falls back to the download.
+4. **Re-use existing audio** (owned by this branch). Re-packaging a show whose track list
+   changed would otherwise download audio llama already has: a delivered show's library audio
+   was purged at delivery, and a packaged, held or briefed show's library audio carries the old
+   track numbers. A failed check falls back to the download.
    - **Why md5/size cannot verify it.** `build_package` renames every file
-     (`packaged_filename`) and rewrites its tags (`tag_audio`), so a station copy's md5 and size
+     (`packaged_filename`) and rewrites its tags (`tag_audio`), so a packaged copy's md5 and size
      never equal the archive original's, and the manifest records only the packaged filename.
-   - **Mapping.** Before the re-gather rewrites `show.json`, the unit pairs the library's current
-     `show.json` tracks with the station manifest's `tracks` by index. Both describe the same
-     delivered package, so it requires equal lengths and equal titles at every index; any
-     mismatch means no reuse for that show. The pairing gives source filename → station file.
-   - **Verification, per file.** A station file is reused when it exists, `ffprobe` decodes it,
-     and its duration is within 1 s of the cached metadata length of its source file. The copy is
-     taken into the library under the source name, and packaging then renames and re-tags it as
-     usual. For MP3, `tag_audio` writes a fresh ID3v2 tag, replacing the whole old one. For FLAC,
-     it overwrites the same six fields it set on the original; every other field is the
-     original's. Either way the result matches what a fresh download would produce.
-   - **Fallback.** Anything that fails (no pairing, a missing file, a decode error, a duration
-     mismatch) downloads that file from archive.org exactly as today. New short-kept files are
-     never on the station, so they always download.
-   - **Why this is enough.** The station copy was produced from md5-verified downloads and
-     checked against the library at delivery (`catalog.purge_package_audio`), and it is what airs
-     today. The worst case of a bad reuse is re-shipping the copy that is already on air. This is
-     not a strict surface.
+   - **Where it runs.** In every unit that re-packages: `redo`, the auto-redo of `fix` and triage
+     edits, and `reapply`. Before re-packaging a show whose track list changed, the unit moves
+     the library's existing `package/audio/*` aside. `build_package` downloads straight to
+     `packaged_filename(index, title)` and skips a name that already exists, so old-numbered
+     files must never be left in place: a renumbered track with the same title as the old track
+     at its number would inherit the wrong audio.
+   - **Mapping.** Before the re-gather rewrites `show.json`, the unit pairs both copies, the
+     moved-aside library audio and the station copy, to source files by index against the
+     current `show.json`. Each copy's manifest (`package/manifest.json`, or the station's) must
+     have the same length and the same title at every index, else that copy is not reused. The
+     pairing gives source filename → existing file.
+   - **Verification, per file.** A paired file is reused when it exists and `audio.read_duration`
+     (mutagen, which the package step already uses, so no new runtime dependency) gives a length
+     within the package step's `DURATION_TOLERANCE_S` (5 s) of the cached metadata length of its
+     source file. The library
+     copy is tried before the station copy. The reused file is placed at its new
+     `packaged_filename(index, title)`, so packaging skips its download and re-tags it as usual.
+     For MP3, `tag_audio` writes a fresh ID3v2 tag, replacing the whole old one. For FLAC, it
+     overwrites the same six fields it set on the original; every other field is the original's.
+     Either way the result matches what a fresh download would produce.
+   - **Fallback.** Anything unpaired or failing (no pairing, a missing file, no readable
+     duration, a duration mismatch) downloads from archive.org exactly as today. New short-kept
+     files are in neither copy, so they always download. Moved-aside files that were not reused
+     are deleted once the unit succeeds; a failed unit puts them back under their old names.
+   - **Why this is enough.** Both copies came from md5-verified downloads, and the index pairing
+     with equal titles ties each file to its source. The station copy was also checked against
+     the library at delivery (`catalog.purge_package_audio`), and it is what airs today. The
+     worst case of a bad reuse is re-shipping audio this show already packaged. This is not a
+     strict surface.
 5. **Re-delivery.**
    - **Unvoiced shows.** Delivered unvoiced shows are re-delivered, minor fixes included, and
      never with `--replace-voiced`. A show emcee voiced after the list was cut is then refused by
      `deliver` and goes to the operator's re-voice-later list. `reapply`'s `re-deliver with` hint
      is suppressed for a voiced destination.
+   - **A changed track list replaces the destination.** When an unvoiced show's track list
+     changed, `deliver` copies it through `_replace_destination` (wholesale, atomic), so the
+     station directory keeps no old-numbered copies. A voiced destination still refuses as
+     before.
    - **The 37 voiced shows where the rule restores music** (`voiced-severe-final.json`; operator,
      2026-10-23: "For #6, I think we will revoice all 37") are re-delivered with
-     `deliver <slug> --replace-voiced`, **one single-name invocation per slug**, then `emcee run`.
-     Before each, check that:
+     `deliver <slug> --replace-voiced`, **one single-name invocation per slug**. Before each,
+     check that:
      - the slug is in the list;
      - the destination is voiced;
-     - the re-packaged library manifest's tracks include every restored file listed for that
-       slug.
-   - **`deliver` itself refuses `--replace-voiced` with a selector** (`--state`, `--packaged`,
-     `--artist`, `--run`, `--profile`). Owned by this branch, tested.
+     - the re-packaged library `show.json`'s track filenames include every source file listed
+       for that slug, each with `short_kept` set, and the library manifest exists with as many
+       tracks as `show.json`.
+
+     They are then voiced with `emcee voice <slug>`, one per slug. A station-wide `emcee run` is
+     not used for this step unless `emcee run --dry-run` first shows a plan of exactly these
+     packages.
+   - **`deliver` itself refuses `--replace-voiced` whenever any batch selector is given**, using
+     its existing `other_selector` computation, so `--held` and any future selector are covered.
+     Owned by this branch, tested.
    - **`_destination_is_voiced`** treats only `FileNotFoundError` as unvoiced. Any other read
-     error, or a malformed manifest, refuses the show. Owned by this branch.
+     error, or a malformed manifest, refuses the show. In a batch, the preflight marks that one
+     show refused and continues. Owned by this branch, tested.
    - **Shows the apply turns into holds** are triaged before re-delivery. The station copy keeps
      airing in the meantime.
    - **Timing.** Shows outside the current playout horizon are re-delivered first, and shows
@@ -510,17 +574,21 @@ file. Measured: 0 shows.
 **(f) Tests.** Unit tests:
 - a corpus test: every measured drop stays dropped and every measured keep stays kept, over the
   3,547 rows;
-- `short_tag_is_junk` and `short_is_spam` on every example named in 2.3;
+- `short_tag_is_junk` and `short_is_spam` on every example named in 2.3, and the tripwire's
+  own drop reason;
 - interior/edge, and filename junk;
 - `short_kept` at the gather level: an unmatched short-kept track does not lower coverage;
+- the new `iter_shows` over a legacy, a migrated and a mixed file;
 - the resolver's three refusals and the old-model `ValidationError`;
+- the writers' refusal on a legacy file;
 - the `set_breaks: []` shape;
 - the `fix --exclude 3 --set-title 7=X` numbering;
 - the exclusion refusal on a keyed file;
-- the migration's refusals, backup rule, sidecar, undo and `already undone`, against fixture show
-  dirs;
-- `deliver`'s selector refusal, `_destination_is_voiced`, briefing reuse, and the station-copy
-  fallback.
+- the migration, against fixture show dirs: its refusals (the mixed file included), the
+  all-or-nothing `--apply`, the backup rule, the write order, the version gate, the
+  all-or-nothing undo and `already undone`;
+- `deliver`'s selector refusal, `_destination_is_voiced` (the batch preflight included),
+  briefing reuse, and the existing-audio reuse fallback.
 
 A mutation check on the per-part anchoring, on the legacy-value test and on the undo hash
 comparison must each turn a named test red.
@@ -577,5 +645,9 @@ These stay with `fix --include` and the adjudicator.
    - Test: a grep over every reader of `Overrides` and `Track.index` in `llama`, `scripts` and
      `emcee` (emcee reads only the manifest).
 6. **The re-download is affordable.**
-   - Test: sum the manifest audio sizes of the delivered rows that the station-copy re-use
+   - Test: sum the manifest audio sizes of the delivered rows that the existing-audio reuse
      cannot cover.
+7. **Delivered station files pass the reuse duration check.**
+   - Test: run it over 20 delivered shows and count the fallbacks.
+8. **The reuse check is quick enough over SMB.**
+   - Test: time it over one delivered show on the station share.
