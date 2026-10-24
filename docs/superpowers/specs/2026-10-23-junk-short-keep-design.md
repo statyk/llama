@@ -121,9 +121,12 @@ JUNK_PART = re.compile(
     r")$", re.I)
 NONPERF = re.compile(
     r"\bcommercials?\b|\bpromos?\b|\badvert\w*|\bstation\s+(?:id|plug|identification)\b|\bnews\s+broadcast\b"
-    r"|\b(?:house|p\.?\s?a\.?|intro|walk[\s-]*(?:on|in|out|off)|recorded|pre-?show)\s+music\b"
+    r"|\b(?:house|p\.?\s?a\.?|intro|walk[\s-]*(?:on|in|out|off)|recorded|pre-?show|closing|exit|outro)\s+music\b"
     r"|\binterview\w*"
-    r"|(?=.*\b(?:dj'?s?|radio)\b)(?=.*\b(?:talk\w*|intro\w*|outro\w*|banter|announc\w*|moderator\w*|host\w*|id|spots?)\b)",
+    r"|(?=.*\b(?:dj'?s?|radio)\b)(?=.*\b(?:talk\w*|intro\w*|outro\w*|banter|announc\w*|moderator\w*|host\w*|id|spots?)\b)"
+    r"|\b(?:over|on)\s+(?:the\s+)?p\.?a\.?(?=\W|$)"
+    r"|(?=.*\b(?-i:[KW][A-Z]{2,3})(?:-?FM)?\b)(?=.*\b(?:talk\w*|intro\w*|outro\w*|banter|announc\w*|moderator\w*|host\w*|id|spots?|wrap\w*)\b)"
+    r"|\bhost\s*#\s*\d",
     re.I)
 SPAM = re.compile(r"https?://|\bwww\.|\b[a-z0-9-]+\.(?:com|net|org|info|biz)\b|@\w{3,}", re.I)
 SPAM_STEM = re.compile(r"\bfollow\b|\bdownload\b|\bsubscribe\b", re.I)
@@ -176,6 +179,22 @@ def short_is_spam(filename, own_title, original_title):
     `Radio Free Europe` and `DJ Logic / Jam`.
   - **AUTHOR'S CALL:** `outro`, `id` and `spot(s)` join the qualifiers, because ruling 2 names
     sign-offs and sibling tags carry `Radio Outro` and `radio ID`.
+- **NONPERF additions (Checkpoint A ruling, 2026-10-24).** Four additive alternatives, for the
+  6 library files the original vocabulary kept (`Rock and Roll (Played over PA - fades in)`,
+  `Mardi Gras Celebration (Hey Pocky Way on PA)`, `WXRT Intro`, and three `Host #NN` tracks of
+  `theotherones-2002-08-03`): PA playback (`over PA`, `on the PA`); `closing`, `exit` and
+  `outro` joining the `<x> music` group; a broadcast call sign (`K` or `W` plus 2-3 capitals,
+  optional `-FM`) with a spoken qualifier, the call letters **case-sensitive** (the scoped
+  `(?-i:...)` inside the `re.I` pattern), so `kdhx intro` and `wake intro` stay kept; and
+  `host #<n>`. A bare `PA` is not a term (`Ardmore, PA` stays kept). Measured over the 3,547
+  rows: exactly those 6 files newly drop, with no song, segue or fragment among the rows
+  newly dropped by any other path.
+- **Zero-duration files (Checkpoint A ruling, 2026-10-24).** In `_apply_short_rule`'s first
+  loop a file whose `duration_sec` is zero (`length_seconds("00:00")` is `0.0`, not `None`, so
+  the `missing duration` arm does not fire) is not re-decided: it keeps `implausibly short`.
+  Coded as `if e["reasons"] != ["implausibly short"] or not e["duration_sec"]: continue`. An
+  exact test, no threshold, drop-only. Such a file is an audio-less stub (e.g. a 1,017-byte
+  `gd73-10-29d2t01_vbr.mp3`) that would take its show off playout.
 - **Stage banter is kept in general** (operator): `Stage Announcements`, `Banter Promote CD`,
   `banter - promoting the new CD`.
 - **The operator-ruled broadcast examples.** 20 of the 21 drop. The one that does not is
@@ -756,7 +775,17 @@ These stay with `fix --include` and the adjudicator.
   interior only because of an operator-excluded neighbour is kept. The replay measured 0
   reorders of existing files.
 - **A wholly junk final title** on a short-kept track ships with a note (2 files).
-- **Very short files.** About 6 kept files have a metadata length under 5 s.
+- **Very short files.** About 3 kept files have a metadata length under 5 s (6 before the
+  zero-duration skip; the three zero-length files now drop) (Checkpoint A ruling, 2026-10-24).
+- **Crowd and tuning tags beyond the library (Checkpoint A ruling, 2026-10-24).** Outside the
+  library the junk test keeps typo'd, pluralised, set-labelled, annotated and taper-prefixed
+  crowd and tuning tags (about 200 of 5,024 sibling short keeps; e.g. `crown/tuning`,
+  `Tunings`, `Set I: Tuning`, `Tune Up (AUD)`, `gd81-09-12 s1t01 Crowd`,
+  `JKB110506_03 Noise`). They are seconds of junk, the error the operator ranks cheaper.
+- **Known follow-up: doubled `_vbr` derivatives (Checkpoint A ruling, 2026-10-24).** 20 GD
+  shows ship every song twice (`X.mp3` and `X_vbr.mp3`). Pre-existing and not part of piece 4;
+  a separate fix after it: keep one derivative per original within the winning format. Not on
+  air (all unvoiced).
 - **Inclusion errors the rule cannot see:**
   - `Silent Track`, named only in the description;
   - tuning-dominant mixes such as `crowd/tuning jam`;

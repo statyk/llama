@@ -74,13 +74,13 @@ def test_deny_vocabulary_corpus():
             assert v == "filename", where
         elif dec == "drop-edge":
             assert v in ("edge", "filename"), where
-    assert classes["keep"] + classes["keep-untagged"] == 2822
-    assert classes["drop-junk"] + classes["drop-nonperf"] == 685
+    assert classes["keep"] + classes["keep-untagged"] == 2816
+    assert classes["drop-junk"] + classes["drop-nonperf"] == 691
     assert classes["drop-filename"] == 3
     assert classes["drop-edge"] == 37
     # The two `01 Crowd.mp3` edge rows are filename junk: short_verdict checks
     # filename junk before the interior test.
-    assert dict(verdicts) == {"keep": 2822, "junk": 685, "filename": 5, "edge": 35}
+    assert dict(verdicts) == {"keep": 2816, "junk": 691, "filename": 5, "edge": 35}
 
 
 @pytest.mark.parametrize("tag", [
@@ -103,6 +103,53 @@ def test_junk_test_examples_kept(tag):
 ])
 def test_junk_test_examples_junk(tag):
     assert short_tag_is_junk(tag) is True
+
+
+# --- Checkpoint A rulings, 2026-10-24 ---
+
+@pytest.mark.parametrize("tag", [
+    'Rock and Roll (Played over PA - fades in)',
+    'Mardi Gras Celebration (Hey Pocky Way on PA)',
+    'WXRT Intro',
+    'Host #03 "General Banter"',
+    'HOST #12 "Intermission..."',
+    'HOST #16 "Post-Show Banter"',
+    "Closing Music", "exit music", "Outro Music", "KDHX ID", "WXRT-FM Station Announcer",
+])
+def test_ruling2_nonperf_additions_drop(tag):
+    assert short_tag_is_junk(tag) is True
+
+
+@pytest.mark.parametrize("tag", [
+    "Ardmore, PA", "WAR", "Not Fade Away", "Terrapin Station", "Intro", "Band Intro",
+    "Stage Banter", "kdhx intro", "wake intro", "Wake Up Intro", "Hostile", "Host",
+    "Sgt. Pepper's PA/crowd",
+])
+def test_ruling2_keep_cases_stay_kept(tag):
+    """Call letters are case-sensitive: lowercase `kdhx intro` and the word
+    `wake` do not read as a call sign."""
+    assert short_tag_is_junk(tag) is False
+
+
+def test_ruling1_zero_duration_stub_is_not_kept():
+    """A tagged file whose length is `00:00` (0.0, not None, so the `missing
+    duration` arm does not fire) keeps `implausibly short` and is dropped."""
+    files = [_mp3(f"band1t0{i}.mp3") for i in range(1, 6)]
+    files.append(_mp3("band1t06.mp3", title="Promised Land", length="00:00"))
+    files.append(_mp3("band1t07.mp3"))
+    kept, excluded, ordering = filter_files(files)
+    assert "band1t06.mp3" not in _names(kept)
+    assert _reasons(excluded) == {"band1t06.mp3": ["implausibly short"]}
+    assert ordering["short_kept"] == []
+
+
+def test_ruling1_short_nonzero_file_still_kept():
+    files = [_mp3(f"band1t0{i}.mp3") for i in range(1, 6)]
+    files.append(_mp3("band1t06.mp3", title="Promised Land", length="4"))
+    files.append(_mp3("band1t07.mp3"))
+    kept, excluded, ordering = filter_files(files)
+    assert "band1t06.mp3" in _names(kept)
+    assert ordering["short_kept"] == ["band1t06.mp3"]
 
 
 # --- the spam tripwire (spec 2.3) ---

@@ -1519,7 +1519,7 @@
 {"slug": "guster-2005-11-18", "name": "guster2005-11-18d1t01.mk4.mp3", "tag": "Intro", "pos": "edge", "r1_dec": "keep"}
 {"slug": "guster-2006-06-30", "name": "01_guster_20060630_kcrw.mp3", "tag": "intro", "pos": "edge", "r1_dec": "keep"}
 {"slug": "guster-2006-06-30", "name": "11_guster_20060630_kcrw.mp3", "tag": "outro", "pos": "edge", "r1_dec": "keep"}
-{"slug": "guster-2006-07-28", "name": "Guster2006-07-28D1T01.mp3", "tag": "WXRT Intro", "pos": "edge", "r1_dec": "keep"}
+{"slug": "guster-2006-07-28", "name": "Guster2006-07-28D1T01.mp3", "tag": "WXRT Intro", "pos": "edge", "r1_dec": "drop-nonperf"}
 {"slug": "guster-2012-04-21", "name": "GusterGarlin04212012Eveningt01.mp3", "tag": "Intro", "pos": "edge", "r1_dec": "keep"}
 {"slug": "guster-2012-04-21", "name": "GusterGarlin04212012Eveningt18.mp3", "tag": "Request Segment 4", "pos": "interior", "r1_dec": "keep"}
 {"slug": "hackensawboys-2008-08-15", "name": "hb2008-08-15d2t01.mp3", "tag": "PBR banter", "pos": "interior", "r1_dec": "keep"}
@@ -1726,7 +1726,7 @@
 {"slug": "joerussosalmostdead-2022-04-30", "name": "jrad2022-04-30s1t01.mp3", "tag": "Intro", "pos": "edge", "r1_dec": "keep"}
 {"slug": "joerussosalmostdead-2022-04-30", "name": "jrad2022-04-30s2t01.mp3", "tag": "Intro", "pos": "interior", "r1_dec": "keep"}
 {"slug": "joerussosalmostdead-2022-04-30", "name": "jrad2022-04-30s2t08.mp3", "tag": "Slipknot >", "pos": "interior", "r1_dec": "keep"}
-{"slug": "joerussosalmostdead-2020-02-21", "name": "jrad2020-02-21.cmc621.cmc641v.sbd.matrix-s1t01.mp3", "tag": "Rock and Roll (Played over PA - fades in)", "pos": "edge", "r1_dec": "keep"}
+{"slug": "joerussosalmostdead-2020-02-21", "name": "jrad2020-02-21.cmc621.cmc641v.sbd.matrix-s1t01.mp3", "tag": "Rock and Roll (Played over PA - fades in)", "pos": "edge", "r1_dec": "drop-nonperf"}
 {"slug": "joerussosalmostdead-2021-08-15", "name": "jrad2021-08-15.cmc621.cmc64.sbd.matrix-s1t01.mp3", "tag": "Intro/Tuning", "pos": "edge", "r1_dec": "keep"}
 {"slug": "joerussosalmostdead-2026-08-23", "name": "04 Elizabeth Reed Jam.mp3", "tag": null, "pos": "interior", "r1_dec": "keep-untagged"}
 {"slug": "johnkadlecik-2010-05-10", "name": "Jkb100510_02Chatter.mp3", "tag": "JKB100510_02 Chatter", "pos": "interior", "r1_dec": "keep"}
@@ -2556,7 +2556,7 @@
 {"slug": "railroadearth-2006-06-03", "name": "rre2006-06-03.flac16/rre2006-06-03d1t01.mp3", "tag": "intro", "pos": "edge", "r1_dec": "keep"}
 {"slug": "railroadearth-2006-06-11", "name": "RRE2006-06-11sundown12.mp3", "tag": "Beatle Bob bye bye", "pos": "edge", "r1_dec": "keep"}
 {"slug": "railroadearth-2006-02-04", "name": "rre2006-02-04d2t02.mp3", "tag": "Tuning", "pos": "interior", "r1_dec": "drop-junk"}
-{"slug": "railroadearth-2006-02-18", "name": "rre2006-02-18d2t01.oktava.mp3", "tag": "Mardi Gras Celebration (Hey Pocky Way on PA)", "pos": "interior", "r1_dec": "keep"}
+{"slug": "railroadearth-2006-02-18", "name": "rre2006-02-18d2t01.oktava.mp3", "tag": "Mardi Gras Celebration (Hey Pocky Way on PA)", "pos": "interior", "r1_dec": "drop-nonperf"}
 {"slug": "railroadearth-2006-07-13", "name": "rre2006-07-13.at4041.t01.mp3", "tag": "intro", "pos": "edge", "r1_dec": "keep"}
 {"slug": "railroadearth-2006-07-20", "name": "rre2006-07-20d1t01.mp3", "tag": "Introduction", "pos": "edge", "r1_dec": "keep"}
 {"slug": "railroadearth-2007-12-31", "name": "rre2007-12-31d1t01.AKG.mp3", "tag": "[banter]", "pos": "edge", "r1_dec": "keep"}
@@ -3311,10 +3311,10 @@
 {"slug": "thenewdeal-2006-07-19", "name": "tnd2006-07-19akg483-16bit.d3t07.mp3", "tag": "Darren talk", "pos": "interior", "r1_dec": "keep"}
 {"slug": "thenewdeal-2010-07-08", "name": "tnd2010-07-08.mk5.16bit-t01.mp3", "tag": "Intro", "pos": "edge", "r1_dec": "keep"}
 {"slug": "theotherones-2002-08-03", "name": "too02-08-03d1t01.mp3", "tag": "WXRT-FM Station ID > Concert Intro (Matt Spiegel) > WXRT-FM Toss To Alpine Valley ->", "pos": "edge", "r1_dec": "drop-nonperf"}
-{"slug": "theotherones-2002-08-03", "name": "too02-08-03d2t03.mp3", "tag": "Host #03 \"General Banter\" ->", "pos": "interior", "r1_dec": "keep"}
-{"slug": "theotherones-2002-08-03", "name": "too02-08-03d2t14.mp3", "tag": "> HOST #12 \"Intermission Back To Set II's start\" ->", "pos": "interior", "r1_dec": "keep"}
+{"slug": "theotherones-2002-08-03", "name": "too02-08-03d2t03.mp3", "tag": "Host #03 \"General Banter\" ->", "pos": "interior", "r1_dec": "drop-nonperf"}
+{"slug": "theotherones-2002-08-03", "name": "too02-08-03d2t14.mp3", "tag": "> HOST #12 \"Intermission Back To Set II's start\" ->", "pos": "interior", "r1_dec": "drop-nonperf"}
 {"slug": "theotherones-2002-08-03", "name": "too02-08-03d4t04.mp3", "tag": "> TOO ENCORE \"Tuning and Noodling\" ->", "pos": "interior", "r1_dec": "keep"}
-{"slug": "theotherones-2002-08-03", "name": "too02-08-03d4t08.mp3", "tag": "> HOST #16 \"Post-Show Banter\" ->", "pos": "interior", "r1_dec": "keep"}
+{"slug": "theotherones-2002-08-03", "name": "too02-08-03d4t08.mp3", "tag": "> HOST #16 \"Post-Show Banter\" ->", "pos": "interior", "r1_dec": "drop-nonperf"}
 {"slug": "theterrapinfamilyband-2018-11-01", "name": "01Tuning.mp3", "tag": "01 tuning", "pos": "edge", "r1_dec": "drop-junk"}
 {"slug": "theterrapinfamilyband-2018-11-01", "name": "17JackReprise.mp3", "tag": "17 Jack reprise", "pos": "interior", "r1_dec": "keep"}
 {"slug": "thetravelinmccourys-2014-05-24", "name": "TM2014-05-24s1t18.mp3", "tag": "Introduction of Bill Nershi and Jeff Austin", "pos": "interior", "r1_dec": "keep"}

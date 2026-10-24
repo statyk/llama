@@ -124,9 +124,12 @@ JUNK_PART = re.compile(
     r")$", re.I)
 NONPERF = re.compile(
     r"\bcommercials?\b|\bpromos?\b|\badvert\w*|\bstation\s+(?:id|plug|identification)\b|\bnews\s+broadcast\b"
-    r"|\b(?:house|p\.?\s?a\.?|intro|walk[\s-]*(?:on|in|out|off)|recorded|pre-?show)\s+music\b"
+    r"|\b(?:house|p\.?\s?a\.?|intro|walk[\s-]*(?:on|in|out|off)|recorded|pre-?show|closing|exit|outro)\s+music\b"
     r"|\binterview\w*"
-    r"|(?=.*\b(?:dj'?s?|radio)\b)(?=.*\b(?:talk\w*|intro\w*|outro\w*|banter|announc\w*|moderator\w*|host\w*|id|spots?)\b)",
+    r"|(?=.*\b(?:dj'?s?|radio)\b)(?=.*\b(?:talk\w*|intro\w*|outro\w*|banter|announc\w*|moderator\w*|host\w*|id|spots?)\b)"
+    r"|\b(?:over|on)\s+(?:the\s+)?p\.?a\.?(?=\W|$)"
+    r"|(?=.*\b(?-i:[KW][A-Z]{2,3})(?:-?FM)?\b)(?=.*\b(?:talk\w*|intro\w*|outro\w*|banter|announc\w*|moderator\w*|host\w*|id|spots?|wrap\w*)\b)"
+    r"|\bhost\s*#\s*\d",
     re.I)
 SPAM = re.compile(r"https?://|\bwww\.|\b[a-z0-9-]+\.(?:com|net|org|info|biz)\b|@\w{3,}", re.I)
 SPAM_STEM = re.compile(r"\bfollow\b|\bdownload\b|\bsubscribe\b", re.I)
@@ -209,7 +212,9 @@ def _apply_short_rule(
     untagged: list[tuple[dict, str | None, str | None]] = []
     spam: set[int] = set()
     for i, (e, f) in enumerate(zip(excluded, excluded_files)):
-        if e["reasons"] != ["implausibly short"]:
+        # Checkpoint A ruling 1 (2026-10-24): a zero-duration file is an
+        # audio-less stub; it never enters the short rule and stays dropped.
+        if e["reasons"] != ["implausibly short"] or not e["duration_sec"]:
             continue
         own = _title_str(f.get("title"))
         orig = by_name.get(f.get("original")) if f.get("source") == "derivative" else None
