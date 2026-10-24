@@ -371,7 +371,7 @@ console script from a copy. It is a dry run unless `--apply`, and it never gathe
 | a `titles` key is outside `1..len(tracks)` | `llama-2.17.0 fix <show> --clear-title k` |
 | the track at a `titles` key is not `title_source == "override"` with exactly the forced title | `llama-2.17.0 redo <show> --from gather` |
 | **when `set_breaks` or `encore_after` is present**, `show.json`'s `set_breaks` is not exactly `sorted(set_breaks ∪ {encore_after})` | `llama-2.17.0 redo <show> --from gather` |
-| a track filename repeats | note the affected keys' values, clear them with `llama-2.17.0 fix <show> --clear-title k` / `--clear-breaks` / `--clear-encore`, then migrate. A filename key cannot name a repeated file, so that show carries no title/break/encore override on those files until the duplicate is resolved (accepted limitation; 0 shows today) |
+| a track filename repeats | note the affected keys' values, clear them with `llama-2.17.0 fix <show> --clear-title k` / `--clear-set-breaks` / `--clear-encore`, then migrate. A filename key cannot name a repeated file, so that show carries no title/break/encore override on those files until the duplicate is resolved (accepted limitation; 0 shows today) |
 | `show.json`'s filename list differs from what the shared helper (4.2) keeps under today's rule (`short_keep=False`) from current metadata plus `include` minus `exclude` (the writers' staleness comparison) | `llama-2.17.0 redo <show> --from gather` |
 | a backup exists while the file is still legacy and is not byte-equal to it | a stale backup from an earlier cycle: move it aside (`mv overrides.pre-rekey.json overrides.pre-rekey.stale.json`); the current legacy file is the truth |
 
