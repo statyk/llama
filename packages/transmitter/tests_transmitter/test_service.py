@@ -423,6 +423,21 @@ def test_monitor_stalled_is_checked_on_the_failed_lead_read_path(tmp_path, caplo
     assert "ALERT monitor-stalled: the dead-clock monitor thread is not running" in caplog.text
 
 
+def test_the_stalled_check_runs_before_the_tick_observation_ends_and_cannot_skip_it(tmp_path, monkeypatch):
+    seen = _observations(monkeypatch)
+    st, _ = make_station(tmp_path)
+
+    class Broken(FakeMonitor):
+        def stalled(self):
+            seen.append(("stalled",))
+            raise RuntimeError("boom")
+
+    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Broken(started=True))
+    with pytest.raises(RuntimeError):
+        runner.tick(NOW)
+    assert seen == [("stalled",), (alerts.TICK, {"lead", "plan", "render", "publish"})]
+
+
 def test_monitor_stalled_is_ungated_and_a_level_code():
     assert "monitor-stalled" not in alerts.GATED_CODES and "monitor-stalled" in alerts.LEVEL_CODES
 
