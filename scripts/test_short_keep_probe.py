@@ -716,3 +716,82 @@ def test_reuse_check_refuses_out_over_delivery_path(tmp_path):
     cand = {"s1": _reuse_show(tmp_path, "s1", ["a.mp3"], ["a.mp3", "b.mp3"])}
     assert _reuse_run(tmp_path, cand, tmp_path / "station" / "o") == 2
     assert not (tmp_path / "station" / "o").exists()
+
+
+def test_reuse_check_refuses_a_missing_delivery_root(tmp_path):
+    cand = {"s1": _reuse_show(tmp_path, "s1", ["a.mp3"], ["a.mp3", "b.mp3"])}
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(f'root = "{tmp_path / "lib"}"\ndelivery_path = "{tmp_path / "unmounted"}"\n')
+    write_arm(tmp_path / "cand.json", cand)
+    assert skp.main(["reuse-check", "--cand", str(tmp_path / "cand.json"), "--config", str(cfg),
+                     "--out", str(tmp_path / "out")]) == 2
+    assert not (tmp_path / "out").exists()
+
+
+def test_reuse_check_refuses_a_missing_config(tmp_path, capsys):
+    write_arm(tmp_path / "cand.json", {})
+    assert skp.main(["reuse-check", "--cand", str(tmp_path / "cand.json"),
+                     "--config", str(tmp_path / "nope.toml"), "--out", str(tmp_path / "out")]) == 2
+    assert "no such config" in capsys.readouterr().err
+
+
+def test_reuse_check_tallies_every_exclusion_class(tmp_path):
+    cand = {
+        "ok": _reuse_show(tmp_path, "ok", ["a.mp3"], ["a.mp3", "b.mp3"], ident="i1"),
+        "unrep": {"outcome": "unreplayable"},
+        "gone": _reuse_show(tmp_path, "gone", ["a.mp3"], ["a.mp3", "b.mp3"], ident="i2", station="none"),
+        "voiced": _reuse_show(tmp_path, "voiced", ["a.mp3"], ["a.mp3", "b.mp3"], ident="i3", voiced=True),
+        "same": _reuse_show(tmp_path, "same", ["a.mp3"], ["a.mp3"], ident="i4"),
+        "badman": _reuse_show(tmp_path, "badman", ["a.mp3"], ["a.mp3", "b.mp3"], ident="i5"),
+        "nojson": _reuse_show(tmp_path, "nojson", ["a.mp3"], ["a.mp3", "b.mp3"], ident="i6"),
+        "miss": _reuse_show(tmp_path, "miss", ["a.mp3"], ["a.mp3", "b.mp3"], ident="i7"),
+        "nosize": _reuse_show(tmp_path, "nosize", ["a.mp3"], ["a.mp3", "b.mp3"], ident="i8"),
+    }
+    (tmp_path / "station" / "badman" / "manifest.json").write_text("{not json")
+    (tmp_path / "lib" / "shows" / "nojson" / "show.json").write_text("{not json")
+    (tmp_path / "lib" / "cache" / "md_i7.json").unlink()
+    (tmp_path / "lib" / "cache" / "md_i8.json").write_text(json.dumps({"files": [{"name": "b.mp3"}]}))
+    assert _reuse_run(tmp_path, cand, tmp_path / "out") == 0
+    md = (tmp_path / "out" / "reuse_check.md").read_text()
+    for line in ("unreplayable candidate row: 1", "no station copy (not delivered): 1",
+                 "voiced station copy: 1", "track list unchanged: 1",
+                 "station dir present but manifest unreadable: 1", "library show.json unreadable: 1",
+                 "changed shows with a metadata cache miss (every size counted as 0): 1",
+                 "uncovered files with no readable size (counted as 0): 2"):
+        assert line in md, line
+    assert "changed delivered unvoiced shows: 3" in md          # ok, miss, nosize
+
+
+def test_reuse_check_missing_file_and_missing_length_branches(tmp_path, monkeypatch):
+    cand = {"s1": _reuse_show(tmp_path, "s1", ["a.mp3", "b.mp3"], ["a.mp3", "b.mp3", "c.mp3"],
+                              lengths={"b.mp3": 100.0})}
+    (tmp_path / "station" / "s1" / "audio" / "01 a.mp3").unlink()
+    md_path = tmp_path / "lib" / "cache" / "md_item1.json"
+    md = json.loads(md_path.read_text())
+    for f in md["files"]:
+        if f["name"] == "b.mp3":
+            del f["length"]
+    md_path.write_text(json.dumps(md))
+    assert _reuse_run(tmp_path, cand, tmp_path / "out", durations={}, monkeypatch=monkeypatch) == 0
+    text = (tmp_path / "out" / "reuse_check.md").read_text()
+    assert "a.mp3: fallback (station file missing)" in text
+    assert "b.mp3: fallback (no metadata length)" in text
+    assert "duration-check fallbacks among paired files: 2, metadata size 2000" in text
+
+
+def test_reuse_check_sample_selection_and_wall_format(tmp_path, monkeypatch):
+    import random
+    import re
+    cand = {}
+    for i in range(6):
+        cand[f"s{i}"] = _reuse_show(tmp_path, f"s{i}", ["a.mp3"], ["a.mp3", "b.mp3"], ident=f"it{i}")
+    assert _reuse_run(tmp_path, cand, tmp_path / "out", "--sample", "2", "--seed", "5",
+                      durations={"a.mp3": 100.0}, monkeypatch=monkeypatch) == 0
+    text = (tmp_path / "out" / "reuse_check.md").read_text()
+    order = sorted(cand)
+    random.Random(5).shuffle(order)
+    expect = sorted(order[:2])
+    got = re.findall(r"^## (s\d)$", text, re.M)
+    assert got == expect
+    assert len(re.findall(r"; wall \d+\.\d{3}s", text)) == 2
+    assert "errs high" in text

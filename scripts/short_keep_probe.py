@@ -42,10 +42,10 @@ from llama.audio import read_duration
 from llama.config import DEFAULT_ROOT, load_config
 from llama.junk import length_seconds
 from llama.models import Show
-from llama.stages.package import DURATION_TOLERANCE_S
-from llama.workspace import ShowWorkspace, read_model
 from llama.replay import CacheOnlyIA
 from llama.replay import flag_family
+from llama.stages.package import DURATION_TOLERANCE_S
+from llama.workspace import ShowWorkspace, read_model
 
 EXPECTED_ADDED = {"new unresolved track": 18, "long single-set show": 6, "positional rung lost": 4,
                   "low confidence remains": 3, "jerrybase closer not at a break": 2, "other": 1}
@@ -613,64 +613,91 @@ def repro(args) -> int:
     return 1 if diffs else 0
 
 
-def _delivered_unvoiced(station: Path) -> bool:
-    """A station copy with a readable manifest.json whose `dj_audio` is null or absent."""
+def _station_state(station: Path) -> str:
+    """"absent" (no station dir), "unreadable" (dir present, manifest missing or unreadable),
+    "voiced" (`dj_audio` set) or "unvoiced" (`dj_audio` null or absent)."""
+    if not station.is_dir():
+        return "absent"
     try:
         m = json.loads((station / "manifest.json").read_text())
-        return isinstance(m, dict) and m.get("dj_audio") is None
     except (OSError, ValueError):
-        return False
+        return "unreadable"
+    if not isinstance(m, dict):
+        return "unreadable"
+    return "unvoiced" if m.get("dj_audio") is None else "voiced"
 
 
-def _file_meta(ia: CacheOnlyIA, ident: str | None) -> dict[str, dict]:
+def _file_meta(ia: CacheOnlyIA, ident: str | None) -> dict[str, dict] | None:
+    """The item's files by name; None on a cache miss."""
     try:
-        md = ia.metadata(ident) if ident else {}
+        md = ia.metadata(ident) if ident else None
     except Exception:
-        return {}
+        return None
+    if md is None:
+        return None
     return {f["name"]: f for f in md.get("files", []) if isinstance(f, dict) and "name" in f}
 
 
-def _size(meta: dict[str, dict], name: str) -> int:
+def _size(meta: dict[str, dict], name: str) -> int | None:
     try:
-        return int(meta.get(name, {}).get("size") or 0)
-    except (TypeError, ValueError):
-        return 0
+        return int(meta[name]["size"])
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def reuse_check(args) -> int:
     cand_path = args.cand.expanduser()
+    out = _guard_out(args.out, args.config, ("candidate arm", cand_path))
     cfg = load_config(args.config or DEFAULT_ROOT / "config.toml")
     if cfg.delivery_path is None:
         raise Refusal("the config has no delivery_path")
     station_root = cfg.delivery_path.expanduser()
-    out = _guard_out(args.out, args.config, ("candidate arm", cand_path), ("delivery_path", station_root))
+    if not station_root.is_dir():
+        raise Refusal(f"delivery_path {station_root} is not an existing directory (share not mounted?)")
+    if _overlaps(out, station_root):
+        raise Refusal(f"refusing --out {out}: it overlaps the delivery_path {station_root}")
     cand = _load_arm(cand_path)
     root = cfg.root.expanduser()
     ia = CacheOnlyIA(root / "cache")
+    excl: Counter = Counter()
     changed: dict[str, dict] = {}
     for slug, row in sorted(cand.items()):
         if _unreplayable(row) or not isinstance(row.get("filenames"), list):
+            excl["unreplayable candidate row"] += 1
             continue
         station = station_root / slug
-        if not _delivered_unvoiced(station):
+        state = _station_state(station)
+        if state != "unvoiced":
+            excl[{"absent": "no station copy (not delivered)", "voiced": "voiced station copy",
+                  "unreadable": "station dir present but manifest unreadable"}[state]] += 1
             continue
         ws = ShowWorkspace(root / "shows" / slug)
         try:
             show = read_model(ws.show, Show)
         except Exception:
+            excl["library show.json unreadable"] += 1
             continue
         if list(row["filenames"]) == [t.filename for t in show.tracks]:
+            excl["track list unchanged"] += 1
             continue
         changed[slug] = {"row": row, "ws": ws, "station": station, "show": show}
-    uncovered, per_show_bytes = 0, {}
+    uncovered, per_show_bytes, nosize, misses = 0, {}, 0, 0
     for slug, c in changed.items():
         plan = audio_reuse.plan_reuse(c["ws"], c["station"])
-        c["plan"] = plan
         meta = _file_meta(ia, c["show"].identifier)
+        if meta is None:
+            misses += 1
+            meta = {}
         c["meta"] = meta
-        files = c["row"]["filenames"]
-        miss = [f for f in files if f not in plan.station]
-        b = sum(_size(meta, f) for f in miss)
+        b = 0
+        for f in c["row"]["filenames"]:
+            if f in plan.station:
+                continue
+            sz = _size(meta, f)
+            if sz is None:
+                nosize += 1
+            else:
+                b += sz
         per_show_bytes[slug] = b
         uncovered += b
     sample = sorted(changed)
@@ -679,8 +706,14 @@ def reuse_check(args) -> int:
     md = ["# reuse check (spec 8 premises 6-8)", "",
           f"changed delivered unvoiced shows: {len(changed)}",
           f"uncovered bytes: {uncovered} (new files, plus every file of a show whose station copy does not pair)",
-          f"sample: {len(sample)} (seed {args.seed})", ""]
-    tot_pass = tot_fb = 0
+          "  structural only; library-side audio (a delivered show whose purge was skipped) is ignored, "
+          "so this figure errs high",
+          f"sample: {len(sample)} (seed {args.seed})", "",
+          "## excluded or unmeasured (the figures above do not include these)"]
+    md += [f"  {k}: {v}" for k, v in sorted(excl.items())] or ["  (no excluded shows)"]
+    md += [f"  changed shows with a metadata cache miss (every size counted as 0): {misses}",
+           f"  uncovered files with no readable size (counted as 0): {nosize}", ""]
+    tot_pass = tot_fb = fb_paired = fb_paired_bytes = 0
     walls = []
     for slug in sample:
         c = changed[slug]
@@ -710,6 +743,9 @@ def reuse_check(args) -> int:
             else:
                 nfb += 1
                 lines.append(f"    {f}: fallback ({why})")
+                if path is not None:
+                    fb_paired += 1
+                    fb_paired_bytes += _size(c["meta"], f) or 0
         wall = time.monotonic() - t0
         walls.append(wall)
         tot_pass, tot_fb = tot_pass + npass, tot_fb + nfb
@@ -717,7 +753,9 @@ def reuse_check(args) -> int:
                f"({len(plan.station)} of {len(c['show'].tracks)} station files)",
                f"  pass {npass} fallback {nfb}; uncovered bytes {per_show_bytes[slug]}; wall {wall:.3f}s"] + lines + [""]
     md += ["## totals over the sample", f"  pass {tot_pass} fallback {tot_fb}; "
-           f"wall total {sum(walls):.3f}s, max {max(walls, default=0.0):.3f}s", ""]
+           f"wall total {sum(walls):.3f}s, max {max(walls, default=0.0):.3f}s",
+           f"  duration-check fallbacks among paired files: {fb_paired}, metadata size {fb_paired_bytes} "
+           "(not in the structural sum above)", ""]
     out.mkdir(parents=True, exist_ok=True)
     (out / "reuse_check.md").write_text("\n".join(md) + "\n")
     print(f"reuse-check: {len(changed)} changed delivered unvoiced, sample {len(sample)}: "
