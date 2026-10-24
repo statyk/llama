@@ -1,5 +1,6 @@
 import email.header
 import logging
+import threading
 
 import pytest
 
@@ -36,6 +37,14 @@ def _dispatcher(tmp_path, *channels, now=None):
     return d, clock
 
 
+def _gated(d, code, step, message="x"):
+    """Reach a gated code's send: GATE consecutive tick observations in which
+    it fires, `step` (a step declaring it) having run in each."""
+    for _ in range(alerts.GATE):
+        d.fire(code, message)
+        d.end_observation(alerts.TICK, [step])
+
+
 def test_unconfigured_alerts_only_log(caplog):
     with caplog.at_level(logging.ERROR, logger="transmitter.alerts"):
         alerts.alert("render", "boom")
@@ -46,15 +55,15 @@ def test_first_occurrence_is_sent_then_deduped_until_the_repeat_window(tmp_path)
     rec = Recorder()
     d, clock = _dispatcher(tmp_path, rec)
     alerts.configure(d)
-    alerts.alert("publish", "PUT failed")
+    alerts.alert("put-budget", "PUT budget exceeded")
     clock["t"] += 60
-    alerts.alert("publish", "PUT failed again")
-    assert [s[0] for s in rec.sent] == ["llama radio: publish"]
+    alerts.alert("put-budget", "PUT budget exceeded again")
+    assert [s[0] for s in rec.sent] == ["llama radio: put-budget"]
     clock["t"] += 6 * H
-    alerts.alert("publish", "still failing")
+    alerts.alert("put-budget", "still exceeded")
     assert len(rec.sent) == 2
     assert "(1 more since the last message)" in rec.sent[1][1]
-    assert read_json(tmp_path / "alerts.json")["publish"]["active"] is True
+    assert read_json(tmp_path / "alerts.json")["put-budget"]["active"] is True
 
 
 def test_resolve_says_so_and_rearms_the_code(tmp_path):
@@ -75,13 +84,13 @@ def test_an_event_code_stops_counting_as_active_after_the_repeat_window(tmp_path
     rec = Recorder()
     d, clock = _dispatcher(tmp_path, rec)
     alerts.configure(d)
-    alerts.alert("publish", "PUT failed")
+    alerts.alert("put-budget", "PUT budget exceeded")
     alerts.alert("dead-clock", "stale")
-    assert d.active() == ["dead-clock", "publish"]
+    assert d.active() == ["dead-clock", "put-budget"]
     clock["t"] += 6 * H + 1
     assert d.active() == ["dead-clock"]                       # a level code stays until resolved
-    alerts.alert("publish", "PUT failed again")               # a new occurrence: sent at once
-    assert d.active() == ["dead-clock", "publish"] and len(rec.sent) == 3
+    alerts.alert("put-budget", "exceeded again")              # a new occurrence: sent at once
+    assert d.active() == ["dead-clock", "put-budget"] and len(rec.sent) == 3
 
 
 def test_a_failing_channel_never_raises_and_the_next_occurrence_retries(tmp_path, caplog):
@@ -89,11 +98,11 @@ def test_a_failing_channel_never_raises_and_the_next_occurrence_retries(tmp_path
     d, clock = _dispatcher(tmp_path, broken)
     alerts.configure(d)
     with caplog.at_level(logging.WARNING, logger="transmitter.alerts"):
-        alerts.alert("render", "x")
+        alerts.alert("put-budget", "x")
     assert "alert channel rec failed" in caplog.text
     d.channels = [broken, ok]
     clock["t"] += 60
-    alerts.alert("render", "x")
+    alerts.alert("put-budget", "x")
     assert len(ok.sent) == 1
 
 
@@ -171,15 +180,16 @@ def test_a_corrupt_state_file_does_not_wedge_alerting(tmp_path, caplog):
     alerts.configure(d)
     path.write_text("{not json")
     with caplog.at_level(logging.WARNING, logger="transmitter.alerts"):
-        alerts.alert("publish", "x")
-        assert len(rec.sent) == 1 and read_json(path)["publish"]["active"] is True
+        alerts.alert("put-budget", "x")
+        assert len(rec.sent) == 1 and read_json(path)["put-budget"]["active"] is True
         sent = 1
-        for bad in ('{"publish": null, "render": [1], "plan": {"last_sent_at": "x", "count": "y", "active": true}}',
+        for bad in ('{"put-budget": null, "dead-clock": [1], '
+                    '"guard-stale": {"last_sent_at": "x", "count": "y", "active": true}}',
                     "[1]"):
             path.write_text(bad)
             d, _ = _dispatcher(tmp_path, rec)               # a fresh dispatcher: nothing in memory
             alerts.configure(d)
-            for code in ("publish", "render", "plan"):
+            for code in ("put-budget", "dead-clock", "guard-stale"):
                 alerts.alert(code, "again")
                 alerts.resolve(code)
             d.active()
@@ -192,7 +202,7 @@ def test_a_message_no_channel_accepted_is_not_recorded_as_sent(tmp_path):
     broken, ok = Recorder(fail=True), Recorder()
     d, clock = _dispatcher(tmp_path, broken)
     alerts.configure(d)
-    alerts.alert("render", "x")
+    _gated(d, "render", "render")                             # a gated level code: its first message fails
     assert read_json(tmp_path / "alerts.json")["render"]["last_sent_at"] is None
     d.channels = [ok]
     clock["t"] += 60
@@ -222,16 +232,16 @@ def test_a_failed_channel_is_skipped_for_the_cooldown_then_retried(tmp_path):
     broken.send = counting
     d, clock = _dispatcher(tmp_path, broken)
     alerts.configure(d)
-    alerts.alert("render", "x")
-    alerts.alert("publish", "y")                    # inside the cool-down: not even tried
+    alerts.alert("put-budget", "x")
+    alerts.alert("horizon-held", "y")               # inside the cool-down: not even tried
     assert len(calls) == 1
     clock["t"] += alerts.CHANNEL_COOLDOWN_S + 1
-    alerts.alert("render", "x")
+    alerts.alert("put-budget", "x")
     assert len(calls) == 2
     ok = Recorder()
     d.channels = [broken, ok]
     clock["t"] += alerts.CHANNEL_COOLDOWN_S + 1
-    alerts.alert("render", "x")                     # broken tried (fails), ok delivers
+    alerts.alert("put-budget", "x")                 # broken tried (fails), ok delivers
     assert len(ok.sent) == 1 and len(calls) == 3
 
 
@@ -239,11 +249,11 @@ def test_a_skipped_channel_counts_as_not_delivered(tmp_path):
     broken = Recorder(fail=True)
     d, clock = _dispatcher(tmp_path, broken)
     alerts.configure(d)
-    alerts.alert("render", "x")
+    alerts.alert("put-budget", "x")
     clock["t"] += 10
     d.channels = [broken]                           # still cooling down
-    alerts.alert("render", "x")
-    assert read_json(tmp_path / "alerts.json")["render"]["last_sent_at"] is None
+    alerts.alert("put-budget", "x")
+    assert read_json(tmp_path / "alerts.json")["put-budget"]["last_sent_at"] is None
 
 
 def test_dedupe_survives_an_unwritable_alerts_file(tmp_path, monkeypatch):
@@ -257,25 +267,25 @@ def test_dedupe_survives_an_unwritable_alerts_file(tmp_path, monkeypatch):
     monkeypatch.setattr(alerts, "write_json", boom)
     for _ in range(5):
         clock["t"] += 60
-        alerts.alert("publish", "x")
-    assert len(rec.sent) == 1 and d.active() == ["publish"]
+        alerts.alert("put-budget", "x")
+    assert len(rec.sent) == 1 and d.active() == ["put-budget"]
     clock["t"] += 6 * H
-    alerts.alert("publish", "x")
+    alerts.alert("put-budget", "x")
     assert len(rec.sent) == 2 and "(4 more since the last message)" in rec.sent[1][1]
-    alerts.resolve("publish")
-    assert rec.sent[-1][0] == "llama radio: resolved: publish" and d.active() == []
+    alerts.resolve("put-budget")
+    assert rec.sent[-1][0] == "llama radio: resolved: put-budget" and d.active() == []
 
 
 def test_a_late_delivery_reports_what_was_suppressed(tmp_path):
     broken, ok = Recorder(fail=True), Recorder()
     d, clock = _dispatcher(tmp_path, broken)
     alerts.configure(d)
-    alerts.alert("render", "x")
+    alerts.alert("put-budget", "x")
     clock["t"] += alerts.CHANNEL_COOLDOWN_S + 1
-    alerts.alert("render", "x")
+    alerts.alert("put-budget", "x")
     d.channels = [ok]
     clock["t"] += 60
-    alerts.alert("render", "x")
+    alerts.alert("put-budget", "x")
     assert "(2 more since the first)" in ok.sent[0][1]
 
 
@@ -283,10 +293,10 @@ def test_one_channel_accepting_records_the_message_as_sent(tmp_path):
     broken, ok = Recorder(fail=True), Recorder()
     d, clock = _dispatcher(tmp_path, broken, ok)
     alerts.configure(d)
-    alerts.alert("render", "x")
-    assert read_json(tmp_path / "alerts.json")["render"]["last_sent_at"] == clock["t"]
+    alerts.alert("put-budget", "x")
+    assert read_json(tmp_path / "alerts.json")["put-budget"]["last_sent_at"] == clock["t"]
     clock["t"] += 60
-    alerts.alert("render", "x")
+    alerts.alert("put-budget", "x")
     assert len(ok.sent) == 1 and broken.sent == []
 
 
@@ -314,3 +324,229 @@ def test_ntfy_title_is_rfc2047_encoded_when_not_latin1(monkeypatch):
     t = seen["h"]["Title"]
     assert t.isascii() and "\n" not in t and "\r" not in t                      # no obs-fold
     assert str(email.header.make_header(email.header.decode_header(t))) == long
+
+
+# ---- the 3-consecutive gate (spec Part 1) ----
+
+def obs(d, *steps):
+    d.end_observation(alerts.TICK, steps)
+
+
+def _fire_obs(d, code, *steps, message="x"):
+    d.fire(code, message)
+    obs(d, *steps)
+
+
+def test_gated_codes_are_exactly_the_approved_list():
+    assert alerts.GATE == 3
+    assert alerts.GATED_CODES == {"prune", "publish", "publish-state", "station-root", "plan", "render",
+                                  "dead-clock-check"}
+    assert frozenset().union(*alerts.STEP_CODES.values()) == alerts.GATED_CODES
+    assert frozenset().union(*alerts.OBSERVER_STEPS.values()) == set(alerts.STEP_CODES)
+    for code in ("put-budget", "frame-count-drift", "monitor-stalled", "dead-clock", "guard-stale", "horizon-held"):
+        assert code not in alerts.GATED_CODES
+
+
+@pytest.mark.parametrize("code", ["put-budget", "frame-count-drift", "monitor-stalled", "dead-clock", "guard-stale",
+                                  "horizon-held"])
+def test_each_ungated_code_sends_on_its_first_fire(tmp_path, code):
+    rec = Recorder()
+    d, _ = _dispatcher(tmp_path, rec)
+    d.fire(code, "m")
+    assert [s[0] for s in rec.sent] == [f"llama radio: {code}"]
+
+
+def test_a_gated_code_sends_only_on_the_third_consecutive_observation(tmp_path):
+    rec = Recorder()
+    d, clock = _dispatcher(tmp_path, rec)
+    for _ in range(2):
+        d.fire("publish", "PUT failed")
+        obs(d, "lead", "publish")
+        clock["t"] += 60
+        assert rec.sent == [] and d.active() == [] and "publish" not in (read_json(tmp_path / "alerts.json", {}) or {})
+    d.fire("publish", "PUT failed")
+    obs(d, "lead", "publish")
+    assert [s[0] for s in rec.sent] == ["llama radio: publish"] and "3 consecutive" in rec.sent[0][1]
+    assert d.active() == ["publish"]
+
+
+def test_an_observation_where_a_declaring_step_ran_without_the_code_resets_its_streak(tmp_path):
+    rec = Recorder()
+    d, _ = _dispatcher(tmp_path, rec)
+    for _ in range(2):
+        _fire_obs(d, "publish", "lead", "publish")
+    obs(d, "lead", "publish")                               # publish ran and did not fail
+    assert d._streak["publish"] == 0
+    _fire_obs(d, "publish", "lead", "publish")
+    assert rec.sent == []
+    for _ in range(2):
+        _fire_obs(d, "publish", "lead", "publish")
+    assert [s[0] for s in rec.sent] == ["llama radio: publish"]
+
+
+def test_an_observation_where_no_declaring_step_ran_neither_advances_nor_resets(tmp_path):
+    rec = Recorder()
+    d, _ = _dispatcher(tmp_path, rec)
+    for _ in range(2):
+        _fire_obs(d, "plan", "lead", "plan", "render", "publish")
+    obs(d, "lead", "publish")                               # an idle tick: plan did not run
+    assert d._streak["plan"] == 2 and rec.sent == []
+    _fire_obs(d, "plan", "lead", "plan", "render", "publish")
+    assert [s[0] for s in rec.sent] == ["llama radio: plan"]
+
+
+def test_repeated_fires_within_one_observation_count_once(tmp_path):
+    rec = Recorder()
+    d, _ = _dispatcher(tmp_path, rec)
+    for _ in range(2):
+        d.fire("publish", "a")
+        d.fire("publish", "b")
+        obs(d, "lead", "publish")
+    assert rec.sent == [] and d._streak["publish"] == 2
+    d.fire("publish", "a")
+    d.fire("publish", "b")
+    obs(d, "lead", "publish")
+    assert len(rec.sent) == 1 and d._streak["publish"] == 3
+
+
+def test_a_retried_first_message_keeps_the_gate_note(tmp_path):
+    broken = Recorder(fail=True)
+    d, clock = _dispatcher(tmp_path, broken)
+    for _ in range(3):
+        _fire_obs(d, "publish", "lead", "publish")
+    assert broken.sent == [] and d.active() == ["publish"]
+    assert read_json(tmp_path / "alerts.json")["publish"]["last_sent_at"] is None
+    ok = Recorder()
+    d.channels = [ok]
+    clock["t"] += 60
+    _fire_obs(d, "publish", "lead", "publish")
+    assert len(ok.sent) == 1 and "3 consecutive" in ok.sent[0][1]
+
+
+def test_an_undelivered_first_message_is_resent_without_the_gate(tmp_path):
+    broken = Recorder(fail=True)
+    d, clock = _dispatcher(tmp_path, broken)
+    for _ in range(3):
+        _fire_obs(d, "publish", "lead", "publish")
+    assert d.active() == ["publish"] and read_json(tmp_path / "alerts.json")["publish"]["last_sent_at"] is None
+    obs(d, "lead", "publish")                               # a clean observation
+    assert d._streak["publish"] == 0
+    ok = Recorder()
+    d.channels = [ok]
+    clock["t"] += 60
+    d.fire("publish", "x")                                  # streak 1: the undelivered first message goes at once
+    assert d._streak["publish"] == 1
+    assert [s[0] for s in ok.sent] == ["llama radio: publish"] and "3 consecutive" in ok.sent[0][1]
+
+
+def test_the_send_decision_is_made_at_the_first_fire_with_its_message(tmp_path):
+    rec = Recorder()
+    d, _ = _dispatcher(tmp_path, rec)
+    for _ in range(2):
+        _fire_obs(d, "publish", "lead", "publish")
+    d.fire("publish", "A")
+    d.fire("publish", "B")
+    obs(d, "lead", "publish")
+    assert len(rec.sent) == 1 and rec.sent[0][1].startswith("A")
+
+
+def test_ending_one_observer_never_touches_the_other_observers_codes(tmp_path):
+    rec = Recorder()
+    d, _ = _dispatcher(tmp_path, rec)
+    for _ in range(2):
+        d.fire("dead-clock-check", "x")
+        d.end_observation(alerts.MONITOR, ["dead-clock-check"])
+        d.fire("publish", "x")
+        obs(d, "lead", "publish")
+    d.end_observation(alerts.TICK, ["lead", "plan", "render", "publish"])     # resets publish only
+    d.end_observation(alerts.MONITOR, [])                                       # an empty pass: resets nothing
+    assert d._streak["dead-clock-check"] == 2 and d._streak["publish"] == 0
+    d.fire("dead-clock-check", "x")
+    assert [s[0] for s in rec.sent] == ["llama radio: dead-clock-check"]
+
+
+def test_a_single_blip_inside_an_active_episode_never_sends_a_repeat(tmp_path):
+    rec = Recorder()
+    d, clock = _dispatcher(tmp_path, rec)
+    for _ in range(3):
+        _fire_obs(d, "publish", "lead", "publish")
+    assert len(rec.sent) == 1
+    clock["t"] += 6 * H                       # a repeat is due; the event code has not expired
+    obs(d, "lead", "publish")                 # reset
+    _fire_obs(d, "publish", "lead", "publish")
+    assert len(rec.sent) == 1 and d.active() == ["publish"]
+    assert read_json(tmp_path / "alerts.json")["publish"]["last_fired_at"] == clock["t"]
+
+
+def test_a_gated_level_code_still_resolves_and_says_so(tmp_path):
+    rec = Recorder()
+    d, _ = _dispatcher(tmp_path, rec)
+    for _ in range(3):
+        _fire_obs(d, "station-root", "lead", "plan")
+    assert [s[0] for s in rec.sent] == ["llama radio: station-root"]
+    d.resolve("station-root")
+    assert rec.sent[-1][0] == "llama radio: resolved: station-root" and d.active() == []
+
+
+def test_after_a_restart_an_active_episode_continues_without_a_send_until_the_streak_rebuilds(tmp_path):
+    rec = Recorder()
+    d1, clock = _dispatcher(tmp_path, rec)
+    for _ in range(3):
+        _fire_obs(d1, "publish", "lead", "publish")
+    assert len(rec.sent) == 1
+    clock["t"] += 6 * H
+    d2 = Dispatcher(tmp_path / "alerts.json", [rec], 6 * H, "llama radio", now=lambda: clock["t"])
+    for _ in range(2):
+        _fire_obs(d2, "publish", "lead", "publish")
+    assert len(rec.sent) == 1 and d2.active() == ["publish"]
+    _fire_obs(d2, "publish", "lead", "publish")
+    assert len(rec.sent) == 2 and "more since the last message" in rec.sent[1][1]
+
+
+def test_the_dispatcher_serialises_fire_under_its_lock(tmp_path):
+    rec = Recorder()
+    d, _ = _dispatcher(tmp_path, rec)
+    d._lock.acquire()
+    t = threading.Thread(target=d.fire, args=("put-budget", "m"))
+    t.start()
+    t.join(0.2)
+    assert t.is_alive() and rec.sent == []
+    d._lock.release()
+    t.join(2)
+    assert len(rec.sent) == 1
+
+
+@pytest.mark.parametrize("call", ["resolve", "active", "end_observation"])
+def test_resolve_active_and_end_observation_take_the_lock(tmp_path, call):
+    rec = Recorder()
+    d, _ = _dispatcher(tmp_path, rec)
+    args = {"resolve": ("put-budget",), "active": (), "end_observation": (alerts.TICK, ["publish"])}[call]
+    d._lock.acquire()
+    t = threading.Thread(target=getattr(d, call), args=args)
+    t.start()
+    t.join(0.2)
+    assert t.is_alive()
+    d._lock.release()
+    t.join(2)
+    assert not t.is_alive()
+
+
+def test_end_observation_refuses_an_unknown_observer_or_a_foreign_step(tmp_path):
+    d, _ = _dispatcher(tmp_path)
+    with pytest.raises(ValueError):
+        d.end_observation("nobody", ["plan"])
+    with pytest.raises(ValueError):
+        d.end_observation(alerts.TICK, ["dead-clock-check"])
+    with pytest.raises(ValueError):
+        d.end_observation(alerts.MONITOR, ["publish"])
+
+
+def test_the_module_level_wrappers_never_raise(tmp_path, caplog):
+    rec = Recorder()
+    d, _ = _dispatcher(tmp_path, rec)
+    alerts.configure(d)
+    alerts.end_observation("nobody", ["plan"])                      # unknown observer: logged, not raised
+    alerts.end_observation(alerts.TICK, ["dead-clock-check"])       # another observer's step: logged, not raised
+    assert "end_observation" in caplog.text
+    alerts.configure(None)
+    alerts.end_observation(alerts.TICK, ["plan"])                   # no dispatcher: a no-op

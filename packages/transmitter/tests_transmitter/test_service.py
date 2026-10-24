@@ -347,6 +347,9 @@ def test_a_successful_step_resolves_its_level_codes(tmp_path, monkeypatch, step,
             return real(*a, **k)
 
         monkeypatch.setattr(pipeline, step, flaky)
+        for _ in range(alerts.GATE - 1):
+            runner.tick(NOW)
+        assert rec.sent == []                               # gated: below 3 consecutive ticks
         runner.tick(NOW)
         fired = "station-root" if step == "plan_step" else "render"
         assert rec.sent == [f"llama radio: {fired}"]
@@ -385,7 +388,11 @@ def test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code(tmp_path
     rec = _Rec()
     alerts.configure(alerts.Dispatcher(tmp_path / "alerts.json", [rec], 6 * 3600.0))
     try:
-        service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Monitor()).tick(NOW)
+        runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Monitor())
+        for _ in range(alerts.GATE - 1):
+            runner.tick(NOW)
+        assert rec.sent == []                               # gated: below 3 consecutive passes
+        runner.tick(NOW)
         assert "llama radio: dead-clock-check" in rec.sent
         assert "llama radio: dead-clock" not in rec.sent
         assert "dead-clock" not in alerts._dispatcher.active()
@@ -587,3 +594,99 @@ def test_a_raise_with_no_known_period_end_is_not_plainly_honoured(tmp_path):
     lines = service.status_lines(st.cfg, NOW, cloud=_reader(
         {"state/budget.json": {"budget_usd": 20, "expires": "2999-01-01T00:00:00Z"}}))
     assert any(line.endswith("(honoured (period end unknown))") for line in lines)
+
+
+# ---- the 3-consecutive gate: the tick is one observation (spec Part 1) ----
+
+def test_station_root_from_plan_survives_a_render_that_succeeds_without_scanning(tmp_path, monkeypatch):
+    st, _ = make_station(tmp_path)
+    rec = _Rec()
+    alerts.configure(alerts.Dispatcher(tmp_path / "alerts.json", [rec], 6 * 3600.0))
+    try:
+        def root_gone(*a, **k):
+            raise StationRootError("root gone")
+
+        monkeypatch.setattr(pipeline, "plan_step", root_gone)
+        monkeypatch.setattr(pipeline, "render_step", lambda *a, **k: None)
+        runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)
+        runner.tick(NOW)
+        assert alerts._dispatcher._streak["station-root"] == 1 and rec.sent == []
+        runner.tick(NOW)
+        assert rec.sent == []
+        runner.tick(NOW)
+        assert rec.sent == ["llama radio: station-root"]
+    finally:
+        alerts.configure(None)
+
+
+def _observations(monkeypatch):
+    seen = []
+    monkeypatch.setattr(alerts, "end_observation", lambda o, steps: seen.append((o, set(steps))))
+    return seen
+
+
+def test_the_tick_ends_its_observation_on_every_path(tmp_path, monkeypatch):
+    seen = _observations(monkeypatch)
+    st, _ = make_station(tmp_path)
+    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)
+    runner.tick(NOW)                                        # filling
+    assert seen == [(alerts.TICK, {"lead", "plan", "render", "publish"})]
+    for _ in range(5):
+        if not runner.filling:
+            break
+        runner.tick(NOW)
+    assert not runner.filling
+    seen.clear()
+    runner.tick(NOW)                                        # idle: the lead is above low water
+    assert seen == [(alerts.TICK, {"lead", "publish"})]
+    st.ws.publish_state_path.write_bytes(b'{"last": 1')     # damaged: the tick fails closed
+    seen.clear()
+    runner.tick(NOW)
+    assert seen == [(alerts.TICK, {"lead"})]
+
+
+def test_the_tick_ends_its_observation_when_a_step_escapes(tmp_path, monkeypatch):
+    seen = _observations(monkeypatch)
+    st, _ = make_station(tmp_path)
+    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)
+
+    def escape(*a, **k):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(pipeline, "plan_step", escape)
+    with pytest.raises(KeyboardInterrupt):
+        runner.tick(NOW)
+    assert seen == [(alerts.TICK, {"lead"})]
+
+
+def test_a_publish_locked_step_neither_advances_nor_resets(tmp_path, monkeypatch):
+    seen = _observations(monkeypatch)
+    st, _ = make_station(tmp_path)
+    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)
+
+    def locked(*args, **kwargs):
+        raise PublishLocked("another publish holds the lock")
+
+    monkeypatch.setattr(publish, "publish_batch", locked)
+    runner.tick(NOW)
+    assert seen == [(alerts.TICK, {"lead", "plan", "render"})]
+
+
+def test_the_interim_in_tick_monitor_ends_its_own_observation(tmp_path, monkeypatch):
+    seen = _observations(monkeypatch)
+    st, _ = make_station(tmp_path)
+
+    class Monitor:
+        def check(self, now_us, guard_cache):
+            pass
+
+    service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Monitor()).tick(NOW)
+    assert seen == [(alerts.MONITOR, {"dead-clock-check"}), (alerts.TICK, {"lead", "plan", "render", "publish"})]
+
+
+def test_status_cloud_line_omits_a_pending_antenna_entry(tmp_path):
+    lines = service.cloud_lines(_reader({"state/alerts.json": {
+        "waf-api": {"active": False, "pending": True, "resolvable": True, "title": "WAF API failing",
+                    "first_at": "2026-10-24T00:00:00.000Z", "last_sent_at": None, "cleared_at": None,
+                    "streak": 2}}}), NOW)
+    assert "alerts     cloud: none" in lines

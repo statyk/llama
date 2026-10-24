@@ -183,9 +183,12 @@ class Runner:
         last = load_publish_state(self.st.ws).last
         return None if last is None else self.st.epoch.start_us(last + 1) - t_us
 
-    def _step(self, name: str, fn: Callable[[], object], *, resolves: tuple[str, ...] = ()) -> None:
+    def _step(self, name: str, fn: Callable[[], object], *, resolves: tuple[str, ...] = ()) -> bool:
         """Run one step; no error ends the loop (the next tick retries). A step
-        that succeeds resolves `resolves`; every step ends with a watchdog ping."""
+        that succeeds resolves `resolves`; every step ends with a watchdog ping.
+        True when the step observed (ran), i.e. unless it was skipped on
+        PublishLocked: a skipped step neither advances nor resets the 3-
+        consecutive gate of the codes it declares (alerts.STEP_CODES)."""
         try:
             fn()
             for code in resolves:
@@ -203,11 +206,13 @@ class Runner:
         except PublishLocked as exc:
             # An operator's manual publish/fallback overlaps this tick; the next one retries.
             log.warning("%s step skipped: %s", name, exc)
+            return False
         except Exception as exc:
             log.exception("%s step failed", name)
             alerts.alert(name, f"{type(exc).__name__}: {exc}")
         finally:
             self.notify("WATCHDOG=1")
+        return True
 
     def _read_lead(self, t_us: int) -> tuple[bool, int | None]:
         """(readable, lead). An unreadable publish.json is alerted, not raised:
@@ -222,8 +227,19 @@ class Runner:
             return False, None
 
     def tick(self, t_us: int) -> None:
+        """One tick is one observation of the tick's gated alert codes: the
+        steps that ran are declared to the Dispatcher at the end, on every
+        path (alerts.end_observation)."""
+        ran: set[str] = set()
+        try:
+            self._tick(t_us, ran)
+        finally:
+            alerts.end_observation(alerts.TICK, ran)
+
+    def _tick(self, t_us: int, ran: set[str]) -> None:
         low_water_us = int(self.st.cfg.render.low_water_hours * 3600 * 1_000_000)
         ok, lead = self._read_lead(t_us)
+        ran.add("lead")
         if not ok:
             # Fail closed: publish.json mirrors what R2 lists; without it no step
             # can know what is safe to plan, render, upload or prune. This is a
@@ -233,16 +249,22 @@ class Runner:
         if not self.halted and (lead is None or lead < low_water_us):
             self.filling = True
         if self.filling:
-            self._step("plan", lambda: pipeline.plan_step(self.st, t_us, max_new=1),
-                       resolves=("plan", "station-root"))
-            self._step("render", lambda: pipeline.render_step(
-                self.st, t_us, limit=self.st.cfg.publish.batch_segments, notify=self.notify), resolves=("render",))
-        self._step("publish", lambda: publish_all(self.p, t_us, self.held, self.notify))
+            if self._step("plan", lambda: pipeline.plan_step(self.st, t_us, max_new=1),
+                          resolves=("plan", "station-root")):
+                ran.add("plan")
+            if self._step("render", lambda: pipeline.render_step(
+                    self.st, t_us, limit=self.st.cfg.publish.batch_segments, notify=self.notify),
+                    resolves=("render",)):
+                ran.add("render")
+        if self._step("publish", lambda: publish_all(self.p, t_us, self.held, self.notify)):
+            ran.add("publish")
         if self.monitor is not None:
             monitor = self.monitor
             # "dead-clock-check", not "dead-clock": a monitor that RAISES must fire an event code, never the
             # level code that means "the clock is dead" (only the monitor raises and resolves that one).
             self._step("dead-clock-check", lambda: monitor.check(self.clock(), read_json(self.st.ws.guard_cache_path)))
+            # Interim, until the monitor moves to its own thread: this check is one monitor pass.
+            alerts.end_observation(alerts.MONITOR, ["dead-clock-check"])
         ok, lead = self._read_lead(t_us)
         if ok and lead is not None and lead >= self.st.lead_us - grid.D_US:
             self.filling = False
