@@ -822,3 +822,17 @@ def test_packets_refuses_when_no_root_is_recorded(tmp_path, capsys):
     (cmp_dir / "title_rows.json").write_text(json.dumps(tr))
     assert thp.main(["packets", "--cmp", str(cmp_dir), "--dump", str(dump), "--out", str(tmp_path / "o")]) == 2
     assert "pass --root" in capsys.readouterr().err
+
+
+def test_title_hygiene_probe_reads_filename_titles(tmp_path):
+    _library(tmp_path / "lib")
+    _, rows = _dump(tmp_path)
+    r = next(r for r in rows if r["slug"] == GD74)
+    names = [t["filename"] for t in json.loads(
+        (tmp_path / "lib" / "shows" / GD74 / "show.json").read_text())["tracks"]]
+    pos = lambda f: names.index(f) + 1     # noqa: E731
+    # filename-valued overrides, as the probe stripped them, also read as track positions
+    assert r["stripped_positions"]["titles"] == {str(pos("GD_022474_D1_T01.mp3")): "Operator Title",
+                                                 str(pos("GD_022474_D1_T04.mp3")): "Fourth"}   # JSON keys
+    assert r["stripped_positions"]["set_breaks"] == [pos("GD_022474_D1_T10.mp3")]
+    assert r["stripped_positions"]["encore_after"] is None

@@ -560,6 +560,14 @@ def one(d: str) -> dict:
         row["structure_override"] = any(stripped.get(k) is not None
                                         for k in ("set_breaks", "encore_after"))
         row["title_override"] = bool(stripped.get("titles"))
+        # Filename-valued keys (piece 4) also read as 1-based positions in the stored show's
+        # numbering; an int value (a legacy file) is used as is.
+        names = [t.filename for t in stored.tracks]
+        pos = lambda v: names.index(v) + 1 if isinstance(v, str) and v in names else v   # noqa: E731
+        row["stripped_positions"] = {
+            "titles": {pos(k): t for k, t in (stripped.get("titles") or {}).items()},
+            "set_breaks": [pos(v) for v in stripped.get("set_breaks") or []],
+            "encore_after": pos(stripped.get("encore_after"))}
         fresh = _view(shadow, stored, prov, scratch, ARMS, capture_all=True)
         as_is = _view(ws, stored, prov, scratch, {"none": ARMS["none"]})
     finally:
