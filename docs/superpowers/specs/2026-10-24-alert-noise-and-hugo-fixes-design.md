@@ -45,8 +45,8 @@ based on `725b38c` (the phase-2 verification doc, not yet on main).
 ## Goals
 
 - Every check on the approved list sends (first alert or repeat) only on a
-  streak of 3 consecutive failing observations; every other existing key
-  behaves exactly as today.
+  streak of 3 consecutive failing observations (the two immediate raise sites
+  in Part 1 excepted); every other existing key behaves exactly as today.
 - antenna alerts reach the operator's phone through hugo's ntfy.
 - `dead-clock` and `guard-stale` are detected on time whatever plan/render do,
   and a stalled monitor thread is itself alerted.
@@ -66,7 +66,9 @@ based on `725b38c` (the phase-2 verification doc, not yet on main).
 ## Anti-goals (a failure even if it "works")
 
 - A one-shot or latch key that can never fire because the gate swallowed it.
-- A spend or off-air alert that is delayed by even one minute.
+- A spend or off-air alert held back by the gate, or its email delayed by the
+  relay. (The ntfy push arriving up to ~1 min after the email is the relay's
+  design.)
 - The relay paging the operator with alerts older than `RELAY_MAX_AGE` after
   hugo was down, or re-sending the same antenna alert every minute.
 - The monitor thread masking a hung main loop (it must not feed the watchdog).
@@ -82,8 +84,9 @@ based on `725b38c` (the phase-2 verification doc, not yet on main).
 
 | Key | Treatment |
 |---|---|
-| `waf-api`, `guard-unknown`, `guard-write`, `budget-unreadable`, `index-write`, `clock-inputs`, `clock-failed`, `guard-crashed`, `horizon-missing` | **gated at 3** |
-| `metronome-down` from its immediate branches (renew threw / timed out; the DO answered a play lease wrongly) | **gated at 3** |
+| `waf-api`, `guard-unknown` (its read branch), `guard-write`, `budget-unreadable`, `index-write`, `clock-inputs`, `clock-failed`, `guard-crashed`, `horizon-missing` | **gated at 3** |
+| `guard-unknown` from the post-unblock race branch (`guard.ts` re-check after turning the kill switch off) | **sent at once** (it marks one minute forced to ENDLIST and can never last 3 minutes; a gate would silence it forever) |
+| `metronome-down` from its other branches (renew threw / timed out; the DO answered a play lease wrongly) | **gated at 3** |
 | `metronome-down` from the stall branch (`STALLS_FALLBACK` = 2 consecutive stalled renews) | **sent at once** (already debounced) |
 | `waf-corrected`, `budget-50/80:*`, `budget-file-invalid` | sent at once (single-minute or `once`: a gate would silence them forever) |
 | `tripped-spend`, `tripped-blind`, `guard-state-corrupt`, `offair-corrupt` | sent at once (deliberate off-air latches) |
@@ -109,30 +112,37 @@ An **observation** of a key is one run of the code that can raise it:
 
 - antenna: one invocation whose batch is allowed to clear the key
   (`clearedIn(key, batch)`), or any invocation in which the key is present.
-- transmitter: one service tick, aggregated across its steps, for the tick
-  codes; one monitor pass, its own observation, for `dead-clock-check`.
-  Within a tick a gated code advances if ANY step raised it; it resets only if
-  EVERY step that can raise it ran this tick and none raised it; otherwise it
-  is unchanged. Repeated fires within a tick count once (`publish-state` is
-  read twice per tick; `publish` can fire from both `_report_stop` and the
-  step handler when prune throws). The steps that can raise each code: plan →
-  `plan`, `station-root`; render → `render`, `station-root`; publish →
-  `publish`, `prune`; the lead read → `publish-state`. The caller (the Runner,
-  the monitor loop) ends each observation explicitly; the Dispatcher does not
-  infer tick boundaries from `fire` calls.
+- transmitter: there are two observers, the service tick and the monitor
+  pass, and each has its own observation state. One tick is one observation
+  of the tick codes, aggregated across its steps; one monitor pass is one
+  observation of `dead-clock-check`. A code's streak advances at its FIRST
+  fire within the current observation, and the send decision (rule 4) is made
+  at that fire, with that message; repeated fires within one observation
+  count once (`publish-state` is read twice per tick; `publish` can fire from
+  both `_report_stop` and the step handler when prune throws). The steps that
+  declare each code: plan → `plan`, `station-root`; render → `render`,
+  `station-root`; publish → `publish`, `prune`; the lead read →
+  `publish-state`; the monitor's check → `dead-clock-check`. The caller ends
+  each observation explicitly (`end_observation(observer, steps that ran)` or
+  equivalent); the Dispatcher does not infer boundaries from `fire` calls.
+  Ending an observation resets only codes declared by the steps that ran and
+  not raised in that observation; it never touches the other observer's
+  codes.
 
 Rules:
 
 1. A gated key present in an observation advances its **streak** by one.
 2. A gated key absent from an observation that could have raised it (the
-   antenna batch could clear it; on transmitter, every step that can raise it
-   ran) **resets** its streak to 0.
+   antenna batch could clear it; on transmitter, a step declaring it ran)
+   **resets** its streak to 0.
 3. A gated key absent from an observation that could NOT have raised it (an
-   incomplete antenna batch; plan/render on a tick that is not filling) neither
-   advances nor resets.
+   incomplete antenna batch; plan/render on a tick that is not filling; the
+   other observer's codes) neither advances nor resets.
 4. Any send of a gated key, first alert or repeat, requires its current streak
    to be at least `GATE`; "resolved" is never gated. Streaks are therefore
-   tracked for every gated key, active or not.
+   tracked for every gated key, active or not. The one exception is an
+   antenna immediate condition (antenna specifics), which advances the streak
+   like any presence and is not subject to this rule.
 5. Where a new episode would start (antenna's new-alert branch,
    `!e || !e.active || clearing elapsed`; transmitter's "not active or expired"
    branch), while the streak is below 3 nothing is sent and the key is NOT
@@ -165,16 +175,25 @@ Rules:
   A key failing in alternate minutes is the exception (see Limits).
 - `dispatchAlerts` currently assumes every sent key is active and every planned
   entry is real; a pending entry is neither sent nor active.
-- The metronome stall branch must be distinguishable at the raise site
-  (`clock.ts` `renew` → `fallbackReason`); a condition-level flag that bypasses
-  the gate is the suggested mechanism. Builder's call how, but the set of gated
-  keys must be one reviewable list in `alerts.ts`, pinned by a test next to
-  `classifies every key the guard and the clock raise`.
+- In `planAlerts`' absent-key loop, pending-only entries are handled before
+  the existing `!e.active → keep` branch (`keep` would drop an entry whose
+  `cleared_at` is null). A test covers an incomplete batch over a pending
+  entry (unchanged) and a clearing batch over one (dropped).
+- **Immediate conditions.** The gate is bypassed only by a condition-level
+  flag set at exactly two raise sites: the metronome stall branch
+  (`metronome-down` from `STALLS_FALLBACK`, in `clock.ts` `renew` →
+  `fallbackReason`) and the post-unblock race branch of `guard-unknown`
+  (`guard.ts`'s re-check after turning the kill switch off). An immediate
+  condition advances the streak like any presence and is not subject to the
+  repeat gate. The set of gated keys is one reviewable list in `alerts.ts`,
+  pinned by a test next to `classifies every key the guard and the clock
+  raise`; that test also asserts that only those two sites set the flag.
 - Overlapping invocations (deploy overlap, double cron fire) may advance a
   streak twice in one minute. Accepted: it can only shorten the gate to ~2 min.
-- **Runway note.** `clock-inputs`, `clock-failed` and `guard-crashed` mean
-  "live.m3u8 was not written by cron this minute". While the metronome's
-  Durable Object writes from its 15-min lease, a 3-minute gate is safe. But
+- **Runway note.** `clock-inputs`, `clock-failed`, `guard-crashed`,
+  `guard-unknown` (its read branch) and `horizon-missing` mean "live.m3u8 was
+  not written by cron this minute". While the metronome's Durable Object
+  writes from its 15-min lease, a 3-minute gate is safe. But
   cron's own loop runs only when the DO is already judged down, so with
   `METRONOME` "on" `clock-failed` then means cron, the only writer, failed;
   with `METRONOME` off (the rollback) cron is always the only writer. In both
@@ -186,11 +205,18 @@ Rules:
 
 - The gate lives in `Dispatcher` (`alerts.py`), before the send decision;
   `entry["count"]` resets on every send, so it cannot be the streak counter.
+- `alerts.py` holds one `GATED_CODES` frozenset, exactly the approved list
+  above. Any code not in it sends at its first fire. A test asserts that
+  `put-budget`, `frame-count-drift`, `monitor-stalled`, `dead-clock`,
+  `guard-stale` and `horizon-held` are not in it, and that each ungated code
+  sends on its first fire.
 - Event codes have no success signal today (`_report_stop` returns silently on
   success). Rule 2's reset is therefore driven by the caller, per the
-  aggregation rule above: the Runner tells the Dispatcher which steps ran and
-  ends the tick's observation; the monitor loop ends each pass's. `HeldTracker`
-  is the in-process precedent.
+  observation rule above: the Runner tells the Dispatcher which steps ran and
+  ends the tick's observation; the monitor loop ends each pass's. The tick
+  ends its observation in a `finally` on every path, including the early
+  return on a failed lead read. Per-step `resolves` of level codes keep
+  today's behaviour. `HeldTracker` is the in-process precedent.
 - Required test: in one tick plan raises `station-root`, then render succeeds
   without scanning; the `station-root` streak advances (it is not reset).
 - Streaks are in-process (reset by a restart). A service that restarts more
@@ -206,24 +232,30 @@ Rules:
 - Remove the Worker's ntfy channel (`ntfyChannel`, the `NTFY_URL`/`NTFY_TOKEN`
   env, its tests). The operator deletes both Worker secrets after deploy
   (`npx wrangler secret delete NTFY_URL`, `... NTFY_TOKEN`).
-- Add a **relay channel**: its `send` appends the outgoing message to a new R2
-  object, **`state/alert-relay.json`**: a random `stream` id plus a bounded
-  ring (the last 50 messages) of `{seq, at, key, kind, priority, title,
-  message}`, `seq` strictly increasing within the stream. Title and message
-  pass through `redact` (with the same secrets as email) BEFORE they are
-  written: this text leaves the account via hugo.
+- **Email first, then one relay write.** `dispatchAlerts` sends each message
+  by email first, as today, then appends ALL of the invocation's messages to
+  a new R2 object, **`state/alert-relay.json`**, in ONE write: a random
+  `stream` id plus a bounded ring (the last 50 messages) of `{seq, at, key,
+  kind, priority, title, message}`, `seq` strictly increasing within the
+  stream. Title and message pass through `redact` (with the same secrets as
+  email) BEFORE they are written: this text leaves the account via hugo.
+- The relay write is bounded by a timeout (10 s, matching the old ntfy
+  channel). Why: the relay must never delay a spend or off-air email, and R2
+  binding calls have no timeout of their own.
 - The Worker generates a fresh `stream` whenever it creates or recreates the
   object. The first write is create-only (etag precondition), falling back to
   an unconditional put when the store refuses the precondition, as
   `createAlerts` does. Later writes are etag-conditional; a lost race is
-  re-read and retried once, then the channel throws (a channel failure, logged
-  as today). An unparseable object is overwritten unconditionally (over its
-  etag) with a fresh stream, and the overwrite is logged.
-- A relay write that succeeds counts as a delivery (like email), so an episode
-  whose email failed but whose relay write succeeded is not re-sent next
-  minute. Email and relay are independent channels; either alone delivers.
-- R2 cost: one class-A PUT per sent message (alert, repeat, resolved). With
-  the gate in place that is a handful a day.
+  re-read and retried once within the bound, then the write fails (logged).
+  A corrupt object (unparseable bytes, or a document not of the expected
+  shape: no string `stream`, a ring that is not an array, a non-integer
+  `seq`) is overwritten conditionally on the corrupt object's etag with a
+  fresh stream (a lost race re-reads), and the overwrite is logged.
+- A message counts as delivered if its email was accepted OR the relay write
+  succeeded, so an episode whose email failed but whose relay write succeeded
+  is not re-sent next minute. Either alone delivers.
+- R2 cost: at most 2 class-A PUTs per invocation that sends anything (the
+  write and its one retry). With the gate in place that is a handful a day.
 - Why a separate object, not fields in `alerts.json` (my call): `alerts.json`
   has no priority or message, its entries are rewritten every minute while
   anything is pending or clearing, and a retried send would look like a new
@@ -238,16 +270,20 @@ Rules:
   the Dispatcher's dedupe (antenna already deduped). The relay uses its own
   ntfy channel instance and does not share the Dispatcher's per-channel
   cool-down.
-- **Cursor:** hugo's cursor is `(stream, seq)`, persisted in `~/.transmitter/`
-  (a new small file). A message is sent when it is above the cursor in the
-  document's current stream AND younger than `RELAY_MAX_AGE` (1 h, a
-  constant). No cursor file, or a stream different from the cursor's, means
-  cursor `seq` 0 in the document's stream. `RELAY_MAX_AGE` is what prevents
-  backlog storms; older messages are skipped with one log line.
-- **ntfy refusals:** the cursor advances past each message ntfy accepts, and
-  past one it refuses with a 4xx other than 429 (one WARNING log with the
-  status). On 429, 5xx or a transport error the pass stops and the message is
-  retried next pass.
+- **Cursor.** hugo's in-memory cursor `(stream, seq)` is authoritative. It is
+  persisted in a new small file in `~/.transmitter/`, read once at startup
+  (unreadable or malformed = no cursor, one WARNING) and written best-effort
+  after each pass (a failed write is a WARNING; it never causes a re-send).
+  No cursor, or a document stream different from the cursor's, means `seq` 0
+  in the document's stream. A message above the cursor is sent when it is
+  younger than `RELAY_MAX_AGE` (1 h, a constant), which is what prevents
+  backlog storms. The cursor advances past every message the pass has
+  handled: sent; refused by ntfy with a 4xx other than 429 (one WARNING log
+  with the status); or skipped for age (one log line per skipped message,
+  once). On 429, 5xx or a transport error the pass stops and the next pass
+  retries from that message.
+- The relay part of a pass stops after 30 s; remaining messages wait for the
+  next pass.
 - Formatting: title `<station>: [resolved: ]<title>` (the station name is the
   existing `[antenna] station_name`), body = message. Priority: urgent→5,
   high→4, default→3, resolved→3. Tags are passed explicitly (e.g. an optional
@@ -266,33 +302,47 @@ Rules:
 - `DeadClockMonitor.check` and the relay run in **their own loop on a
   dedicated thread**, every 60 s, independent of plan, render and publish.
   `Runner.tick` no longer calls the monitor.
+- **What runs when.** The thread runs when `[antenna] site_url` OR the relay
+  (hugo's ntfy) is configured; each part runs only if its own configuration
+  is present. With neither, no thread starts and the tick makes no
+  `monitor-stalled` check.
 - The monitor thread **never pings the watchdog**: the watchdog must keep
   meaning "the main loop is alive".
-- **Its own guard view.** Each monitor pass GETs `state/guard.json` and
-  `state/offair.json` itself and builds the same view `DeadClockMonitor.check`
-  takes today (`blocked`, `offair`, `error`, `guard_evaluated_at`). It never
-  reads or writes `guard_cache_path`: that file stays publish's spend control,
-  written only by `publish.guard_blocks_publishing`. Why: on its own thread
-  the monitor would otherwise read a cache refreshed only by the main loop, up
-  to 15 min plus a whole tick old, which raises false `guard-stale` and false
-  403 `dead-clock` alerts during long fills. Cost: 2 class-B GETs a minute
-  (~86k/month, under 1% of the 10M allowance). `forbidden_checks` and every
-  other debounce stay unchanged (the fresher view only makes the 403 branch
-  more accurate).
-- **R2 client:** the monitor has its own read-only R2 client for the guard
-  reads and the relay, created on the main thread before the thread starts and
-  used only by the monitor thread (boto3 clients are thread-safe once made;
-  creating one concurrently from the default session is not). The monitor
-  makes no R2 writes.
-- **Order within a pass:** the dead-clock check (with its guard reads) first,
-  then the relay in its own try. A failure of the dead-clock check fires the
-  gated event code `dead-clock-check` (Part 1) and the loop goes on. A relay
+- **Its own guard view, one rule.** The view-building half of
+  `publish.guard_blocks_publishing` becomes one function with no writes: it
+  GETs `state/guard.json` and `state/offair.json`, never raises, and builds
+  the view `DeadClockMonitor.check` uses (`blocked`, `offair`, `error`,
+  `guard_evaluated_at`); a failed read becomes `blocked=True`, `error=<msg>`
+  and `offair=None` exactly as today. `guard_blocks_publishing` calls it and
+  keeps the only write to `guard_cache_path`, which stays publish's spend
+  control; the monitor calls it with its own reader and never touches
+  `guard_cache_path`. Why: on its own thread the monitor would otherwise read
+  a cache refreshed only by the main loop, up to 15 min plus a whole tick old,
+  which raises false `guard-stale` and false 403 `dead-clock` alerts during
+  long fills. Cost: 2 class-B GETs a minute (~86k/month, under 1% of the 10M
+  allowance). `forbidden_checks` and every other debounce stay unchanged (the
+  fresher view only makes the 403 branch more accurate).
+- **The monitor's reader.** The monitor thread is handed only a get-only
+  reader: a small object exposing a JSON get, built on its own boto3 client
+  created on the main thread before the thread starts (boto3 clients are
+  thread-safe once made; creating one concurrently from the default session
+  is not), with short timeouts (connect 5 s, read 10 s) so a slow R2 cannot
+  stretch a pass toward the `monitor-stalled` threshold. It serves the guard
+  reads and the relay. A test asserts the monitor makes no put or delete,
+  never touches `guard_cache_path` and never calls notify.
+- **Order within a pass.** The dead-clock check fetches `live.m3u8` FIRST,
+  then builds the guard view, so no guard-read outcome can stop the playlist
+  check; a guard-read failure therefore starts `guard-stale`'s timer as today.
+  A pass fails (fires the gated event code `dead-clock-check`, Part 1) only on
+  an unexpected exception from the check itself, and the loop goes on. Then
+  the relay runs in its own try, within its 30 s budget (Part 2). A relay
   failure is a WARNING log only, never `dead-clock-check` and never an alert.
-- **Watching the thread:** the main tick checks the monitor's last completed
-  pass (counting from the thread's start until its first pass). When it is
-  more than 5 min old, or the thread is not alive, the tick fires the level
-  code `monitor-stalled`, sent at once (the 5-min threshold is its debounce);
-  the main tick resolves it once passes are fresh again.
+- **Watching the thread:** every main tick, including the early return on a
+  failed lead read, checks the monitor's last completed pass (counting from
+  the thread's start until its first pass). When it is more than 5 min old,
+  or the thread is not alive, the tick fires the level code `monitor-stalled`,
+  sent at once (the 5-min threshold is its debounce); the main tick resolves
+  it once passes are fresh again.
 - **Thread safety:** `Dispatcher.fire`/`resolve` do a read-modify-write of
   `~/.transmitter/alerts.json` and touch `_mem`/`_failed` and the streaks; both
   threads now call them, so the Dispatcher takes a lock. The module-level
@@ -301,19 +351,20 @@ Rules:
   (its `finally`, before or after `STOPPING=1`), and joined with a short
   timeout; it must not keep the process alive (daemon) and must not hold the
   Dispatcher lock across network I/O longer than a send already does.
-- `transmitter run --once` runs one full monitor pass (dead-clock check, then
-  relay) on the main thread after the tick; it starts no thread and so makes
-  no `monitor-stalled` check. With the gate, `--once` can never page a gated
+- `transmitter run --once` runs the dead-clock check once on the main thread
+  after the tick and does **not** relay (a manual `--once` beside the running
+  service would race the cursor). It starts no thread and so makes no
+  `monitor-stalled` check. With the gate, `--once` can never page a gated
   code (it logs at ERROR); that is intended for a manual command.
 - `DeadClockMonitor`'s own debounce (stale 2, unreachable 10, 403 17) and the
   guard-stale timing are unchanged.
 
 ## Part 4. The plan step feeds the watchdog (K1)
 
-- `plan_step` takes an optional `notify` like `render_step`, and the analysis
-  path pings `WATCHDOG=1` after each show analysis (`Station.frames_of` /
-  `Station.extend` → `planner.extend`'s `frames_of`). `Runner.tick` passes its
-  notify.
+- `Station` gets an optional `notify`, and `Station.frames_of` pings
+  `WATCHDOG=1` after each analysis. That covers both `plan_step` and
+  `render_step`'s re-plan path (`st.extend` without `max_new`). `plan_step`'s
+  signature is unchanged. `Runner`/`open_station` wire the notify.
 - That bounds the gap between pings to one analysis (~8 min each on 10-23),
   not one fill.
 - `row_analysis` inside publish (a lost `cache/`) is a known, documented gap
@@ -326,6 +377,9 @@ Rules:
 - §6.1/§6.3/§7: antenna has no ntfy; its pushes come via hugo's relay; hugo
   needs `[alerts] ntfy_url` for them; the Worker secret commands for
   `NTFY_URL`/`NTFY_TOKEN` become delete instructions for an existing deploy.
+- §6.2 item 6 (`STATION_NAME` must be ASCII for the ntfy `Title` header) is
+  obsolete once the Worker sends no ntfy; relayed push titles use hugo's
+  `[antenna] station_name`.
 - §7.1: which keys are gated at 3, which are sent at once, the relay, and
   every item under Limits below.
 - §8, from the verification doc:
@@ -355,6 +409,12 @@ the gate in one line each.
 - A gated key failing in alternate minutes never alerts (the operator's
   consecutive rule), and antenna writes `alerts.json` about once a minute
   while it does (within the spend bounds).
+- One R2 problem whose symptom rotates between gated antenna keys minute to
+  minute (`guard-unknown`, `clock-inputs`, `index-write`) resets each key's
+  streak, so it may never alert; hugo's `dead-clock` is the cover.
+- transmitter gates count ticks, not minutes: during a fill a tick can run
+  17+ min, so a gated `publish`/`prune`/`publish-state` failure can take ~50
+  min to page. Harmless with a ~20 h lead.
 - During an R2 write outage a pending antenna streak cannot be saved, so the
   gated keys that report it (`guard-write`, `index-write`, `clock-failed`)
   stay silent, and an ungated alert goes by email only (its relay write
@@ -365,7 +425,8 @@ the gate in one line each.
 - hugo down means no relay; email covers it. If email also fails while hugo is
   down (or its ntfy is failing), the relay write still counts as a delivery,
   so the alert is not re-sent until `repeat_hours`.
-- A lost cursor file can re-send up to an hour of relayed messages, once.
+- A cursor file that is lost, or left behind by failed writes, can re-send up
+  to an hour of relayed messages once, at the next start.
 
 ## Deploys (operator, after merge)
 
@@ -389,9 +450,10 @@ the gate in one line each.
 
 ## Open question for the operator
 
-- `clock-inputs`, `clock-failed` and `guard-crashed` mean cron did not write
-  the playlist this minute. That is harmless while the metronome's DO writes,
-  but not when cron is the only writer: `METRONOME` off (rollback), or the DO
-  judged down (`metronome-down`). Should these three skip the gate in those
-  cases? Default if unanswered: gated regardless, as approved; hugo's
-  `dead-clock` (~3–4 min) is the cover.
+- `clock-inputs`, `clock-failed`, `guard-crashed`, `guard-unknown` (its read
+  branch: "the clock wrote nothing this minute") and `horizon-missing` mean
+  cron did not write the playlist this minute. That is harmless while the
+  metronome's DO writes, but not when cron is the only writer: `METRONOME` off
+  (rollback), or the DO judged down (`metronome-down`). Should these five skip
+  the gate in those cases? Default if unanswered: gated regardless, as
+  approved; hugo's `dead-clock` (~3–4 min) is the cover.
