@@ -199,7 +199,7 @@ Rules:
   with `METRONOME` off (the rollback) cron is always the only writer. In both
   cases the 3-minute gate exceeds the ~123 s player runway. hugo's
   `dead-clock` needs ~3–4 min (2 stale checks over 120 s), so it is not
-  faster; it is the independent cover. See the open question below.
+  faster; it is the independent cover. See the operator ruling below.
 
 ### transmitter specifics
 
