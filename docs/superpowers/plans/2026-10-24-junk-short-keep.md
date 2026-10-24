@@ -10,7 +10,7 @@
 
 **Tech Stack:** Python 3.11+, pydantic v2, pytest, typer; offline tests (`herder.FakeProvider`, captured fixtures, `test_stage_gather`'s `StubIA`, `fixture_library.library_show`, `helpers.build_ready`).
 
-**Spec:** `docs/superpowers/specs/2026-10-23-junk-short-keep-design.md` (review mode Opus). Every implementer reads the spec sections their task names, this task, Global Constraints and Review Focus. Evidence: `docs/superpowers/2026-10-23-junk-short-keep-evidence/` (`decisions-r1/r2/r3.md`, `r-INSTRUCTIONS.md`, `voiced-severe-final.json`, `voiced-minor-final.json`). Reference harness (read-only): `~/.llama-harness/piece45/spec/r1/` (`arm_base.jsonl`, `arm_r1.jsonl`, `r1_files.jsonl`, `r1_sibs.json`, `m3_cmp.py`, `m6_final.py`, `reuse_r1.py`, `dump_r1.py`, `rprime2.py`).
+**Spec:** `docs/superpowers/specs/2026-10-23-junk-short-keep-design.md`, final at `bd5ba03` (review mode Opus; `decisions-r1..r4.md` record its review). Every implementer reads the spec sections their task names, this task, Global Constraints and Review Focus. Evidence: `docs/superpowers/2026-10-23-junk-short-keep-evidence/` (`decisions-r1/r2/r3.md`, `r-INSTRUCTIONS.md`, `voiced-severe-final.json`, `voiced-minor-final.json`). Reference harness (read-only): `~/.llama-harness/piece45/spec/r1/` (`arm_base.jsonl`, `arm_r1.jsonl`, `r1_files.jsonl`, `r1_sibs.json`, `m3_cmp.py`, `m6_final.py`, `reuse_r1.py`, `dump_r1.py`, `rprime2.py`).
 
 ## Global Constraints
 
@@ -97,7 +97,7 @@ def filter_files(files, want_format="VBR MP3", *, readmit=frozenset(),
 - [ ] **Step 3:** Run `./.venv/bin/python -m pytest packages/llama/tests/test_short_keep_rule.py -q` → FAIL (`ImportError`).
 - [ ] **Step 4: Implement.** In `_keep_and_exclude(files, audio, *, short_keep)`: after the reasons loop, when `short_keep`, take every entry whose reasons are exactly `["implausibly short"]`; tag = `f["title"]`, else the original's `title` (`f["original"]` looked up among `files`); spam → reasons become `[SPAM_REASON]`; tagged non-junk → kept; untagged non-filename-junk → candidate. Play order for the interior test is over kept ∪ tagged-kept ∪ untagged candidates (spam and filename-junk files are not in it): by `_track_number` when every one is non-None and unique, else by name. An untagged candidate is kept when some kept or tagged-kept file is before it and another after it. Kept files rejoin `kept` (sorted by name, as today); `filter_files` threads `short_keep` and builds `ordering["short_kept"]` from the names the rule kept that are in the final `kept`.
 - [ ] **Step 5: Dry run before editing any existing test.** Run the full suite and list every failing test with its spec clause. Expected: tests built on `dso2003-01-25.json` (`Announcements` kept), `furthur2012-07-15.json` (`10.tuningup.mp3`, tag `tmp`, kept and 2b-demoted), `gd1970-02-14_spans_metadata.json` and `gd74_miller_metadata.json` (`Introduction` kept), `gd74_windsor_metadata.json` (`Weather Report Suite Part I >` kept), `rre2013-11-30.json` (two `Banter` files kept); `test_junk.py` tests asserting a short drop; any test asserting the exact `ordering` dict (the new key). `gd73_metadata.json` has no short-only drop and its tests must not change. Then update each listed test with a comment naming its clause.
-- [ ] **Step 6:** Run the full suite → PASS.
+- [ ] **Step 6:** Run the full suite → PASS. `grep -rn "short_keep" packages scripts` shows no caller passing `short_keep=False` (spec 2.5: every caller gets the rule; only Task 17's check will).
 - [ ] **Step 7:** Commit `feat(junk): keep short files that belong to the show (piece 4 rule)`.
 
 ---
@@ -117,7 +117,8 @@ def filter_files(files, want_format="VBR MP3", *, readmit=frozenset(),
   - `test_songish_coverage_ignores_short_kept` (test_structure.py): two matched songs plus one unmatched `short_kept` `Jam >` → 1.0; the same track not short-kept → 0.667.
   - `test_unmatched_short_kept_track_does_not_lower_coverage` (test_stage_gather.py, the spec's gather-level test): a fixture tape whose kept short file (a tagged `Murph` absent from the canonical) is unmatched; `structure.coverage` equals the coverage of the same show with that file excluded, and no `low-confidence structure alignment` flag.
   - `test_short_kept_survives_to_show_json`: through `align()`, the structure-override path (`set_breaks` given) and taper ownership, the final `show.json` track carries `short_kept=True`; `ManifestTrack` has no such field **(pin)**.
-  - `test_wholly_junk_final_title_notes`: a short-kept untagged interior file that setlist-gap names `(crowd)` produces the fixed junk note in `notes.json`; the same title on a non-short-kept track produces none.
+  - `test_wholly_junk_final_title_notes`: a short-kept untagged interior file that a later rung names wholly junk (e.g. D filling `Crowd Noise` from a count-matched numbered description, the `buckethead-2004-06-04` shape) produces the fixed junk note in `notes.json`; the same title on a non-short-kept track produces none.
+  - `test_short_kept_file_votes_like_any_kept_file` **(pin)** (spec 2.5): a short-kept file is in `recovery_basis` and `tag_gate_basis`; an operator-included file is still left out of both.
   - `test_old_show_json_reads_short_kept_false` **(pin)**.
 - [ ] **Step 2:** Run → FAIL.
 - [ ] **Step 3: Implement.** Grep every `Track(` construction in `packages/llama/src` (today `titles.py` and `title_hygiene.py`'s neighbour list, which is internal and never shipped) and confirm every later rung copies tracks with `model_copy`, so the stamp survives. The note is appended to `op_notes` right after slice 5's `strip_notes`, once per short-kept track whose final title `short_tag_is_junk` judges junk.
@@ -169,7 +170,7 @@ def resolve_positions(ov: Overrides, kept_names: Sequence[str], *, slug: str) ->
 - `_edit_overrides` keeps its number-taking signature; it raises `LlamaError` (the legacy refusal) when the file holds a legacy value, and translates every number through `show.json` (`tracks[n - 1].filename`; `LlamaError("no track N (show has M tracks)")` out of range; `LlamaError` naming `llama redo <slug> --from gather` when `show.json` is absent and a number needs translating). `clear_titles` items that are not all digits are filenames, removed as given.
 
 - [ ] **Step 1: Write the failing tests** (`test_override_keys.py` unless named):
-  - `test_legacy_agrees_with_the_v2_17_0_model` (strict): for each of `"7"`, `" 7"`, `"07"`, `7`, `2.0`, `"2.0"`, `2.5`, `True`, `"gd73-06-10d1t01.mp3"`, `"Track 7"`, `""`: `legacy_int(v) is not None` exactly when `OverridesV2170.model_validate_json(json.dumps({"set_breaks": [v]}))` succeeds; the same for a `titles` key (where `v` is a string).
+  - `test_legacy_agrees_with_the_v2_17_0_model` (strict; the vendored model is the oracle): for each of `"7"`, `" 7"`, `"7.0"`, `"07"`, `"+7"`, `"7_0"`, `True`, `7`, `2.0`, `2.5`, `"gd73-06-10d1t01.mp3"`, `"Track 7"`, `""`: `legacy_int(v) is not None` exactly when `OverridesV2170.model_validate_json(json.dumps({"set_breaks": [v]}))` succeeds, and then equals the value the old model parsed; the same for a `titles` key (each string `v`). Spec 4.1 pins `"7"`, `" 7"`, `"7.0"`, `"07"`, `"+7"`, `"7_0"` (70), `true`, `7` and `2.0` as legacy; assert those explicitly too, so a pydantic upgrade that changes the oracle fails loudly here.
   - `test_old_model_rejects_a_migrated_file` (strict): `OverridesV2170.model_validate_json` raises `ValidationError` on `{"titles": {"gd73-06-10d1t03.mp3": "X"}}`, on `{"set_breaks": ["gd73-06-10d1t03.mp3"]}` and on `{"encore_after": "gd73-06-10d1t05.mp3"}`.
   - `test_classify`: none (`{}`, `{"set_breaks": []}`, `{"set_breaks": null}`), legacy, filename, mixed (a legacy title plus a filename break).
   - `test_rekey_raw_maps_only_positional_keys_and_keeps_the_rest`: an unknown key `{"zz": [1, 2]}`, `exclude`, `narration` unchanged; `set_breaks: []` unchanged; key order unchanged.
@@ -267,12 +268,13 @@ def _keyed_files(sws, extra: Mapping[str, str] = {}) -> dict[str, str]
 **Interfaces:**
 - Consumes: `override_keys.classify`, `rekey_raw` (Task 3).
 - Produces:
-  - `ShowReplay.filenames: list[str]`, `short_kept: list[bool]` (per track of `gathered.show`), `flags: list[str]` (`legs.flags`); base rows (e37f670) lack them and readers treat them as absent.
+  - `ShowReplay.filenames: list[str]`, `short_kept: list[bool]`, `segues: list[bool]` (per track of `gathered.show`), `breaks: list[int]` (`gathered.show.set_breaks`), `flags: list[str]` (`legs.flags`); base rows (e37f670) lack them and readers treat them as absent. The encore position is derived by readers from `sets` (the last track before the first `encore` label).
   - `replay_holds.py run --rekey-overrides` (combinable with both strip options): every show is replayed through `_shadow`; when the source `overrides.json` classifies `legacy`, the shadow's file is `rekey_raw(raw, [t["filename"] for t in show.json tracks])`, re-key first, then strip. Any re-key failure copies the file unchanged and records `row["rekey_error"]`. Row key `rekeyed: bool`; arm header `overrides_rekeyed: true`. It never touches `compute_legs`.
-  - `compare` accepts a rekeyed candidate against a base arm without the flag, and writes no apply lists when either arm is rekeyed (their digests predate the migration; spec 4.3 step 8).
+  - `compare` accepts a rekeyed candidate against a base arm without the flag, and writes no apply lists when either arm is rekeyed (their digests predate the migration; spec 4.3 step 9).
+  - `compare` refuses (exit 2, naming the shows) an arm holding any `unreplayable` row caused by an overrides validation error (spec 4.1 "An old-commit harness arm is not loud"): `unreplayable == "overrides.json unreadable"` (e37f670's text for a migrated file), or one containing the legacy, mixed or dangling refusal text.
   - `taper_probe.py` and `title_hygiene_probe.py` translate a filename-valued `set_breaks`/`encore_after`/`titles` key to its 1-based position through the row's `filenames` (or the shadow's `show.json`) before comparing; an int value is used as is (base arms).
 
-- [ ] **Step 1: Write the failing tests:** `test_record_carries_filenames_short_kept_and_flags` (test_replay.py); `test_rekey_shadow_maps_legacy_and_leaves_the_library_alone` (the live file's hash unchanged, the shadow's titles keyed by filename, `rekeyed` true); `test_rekey_then_strip`; `test_rekey_failure_is_recorded_not_raised` (a title key beyond the track count); `test_compare_accepts_rekeyed_candidate_and_writes_no_apply_lists`; `test_taper_probe_translates_filename_breaks`; `test_title_hygiene_probe_reads_filename_titles`.
+- [ ] **Step 1: Write the failing tests:** `test_record_carries_filenames_short_kept_and_flags` (test_replay.py); `test_rekey_shadow_maps_legacy_and_leaves_the_library_alone` (the live file's hash unchanged, the shadow's titles keyed by filename, `rekeyed` true); `test_rekey_then_strip`; `test_rekey_failure_is_recorded_not_raised` (a title key beyond the track count); `test_compare_accepts_rekeyed_candidate_and_writes_no_apply_lists`; `test_compare_refuses_an_arm_with_overrides_validation_unreplayable` (both texts); `test_taper_probe_translates_filename_breaks`; `test_title_hygiene_probe_reads_filename_titles`.
 - [ ] **Step 2:** Run → FAIL.
 - [ ] **Step 3:** Implement.
 - [ ] **Step 4:** Full suite → PASS.
@@ -289,13 +291,13 @@ def _keyed_files(sws, extra: Mapping[str, str] = {}) -> dict[str, str]
 **Interfaces:**
 - `short_keep_probe.py arms --base BASE.json --cand CAND.json --ref-dir ~/.llama-harness/piece45/spec/r1 --out DIR` writes `arms.md` and `arms.json`:
   - **base consistency:** per show, the replay base row's `titles` and `gather_flags + vet_flags + brief_flags` against `arm_base.jsonl`'s track titles and `flags`; mismatches listed (a mismatch means the library moved since the reference ran; the operator reads them at Checkpoint A).
-  - **reference reproduction:** per show, the candidate's `filenames`, `titles`, `title_sources`, `sets`, segues (from `segue_changes` applied to the stored show, as `replay_holds._arm_titles` does for titles) and `flags` against `arm_r1.jsonl`'s tracks (`file`, `title`, `src`, `set`, `segue`) and `flags`; every difference listed by show.
-  - **tallies**, ported from `m3_cmp.py` with the candidate in place of `arm_r1.jsonl` and `arm_base.jsonl` as the base: unchanged, changed, files added, cleared, added, flags-changed, unreplayable; cleared and added by state; override tracks on a different file (6(d), expected 0); positional fills lost and gained (6(e), sources `desc-position` and `setlist`).
+  - **reference reproduction:** per show, the candidate's `filenames`, `titles`, `title_sources`, `sets`, `segues` and `flags` against `arm_r1.jsonl`'s tracks (`file`, `title`, `src`, `set`, `segue`) and `flags`; every difference listed by show.
+  - **tallies**, ported from `m3_cmp.py` with the candidate in place of `arm_r1.jsonl` and `arm_base.jsonl` as the base: unchanged, changed, files added, cleared, added, flags-changed, unreplayable; cleared and added by state; override tracks on a different file (6(d), expected 0); override-path structures moved (6(d), expected 0: for every base show whose overrides carry `set_breaks` or `encore_after`, each base break and the encore position, read as the filename of the track it falls after in `arm_base.jsonl`, falls after the same filename in the candidate's `filenames`/`breaks`/`sets`); positional fills lost and gained (6(e), sources `desc-position` and `setlist`).
   - **added-hold classes** (6(b)), first match wins: `override shift`, `positional rung lost`, `new unresolved track`, `low confidence remains` (the only new flag is `low-confidence structure alignment`), `long single-set show` (a new flag starting `single-set structure for a long show`), `jerrybase closer not at a break` (starting `jerrybase set closer`), `other`. Expected counts `{new unresolved track: 18, long single-set show: 6, positional rung lost: 4, low confidence remains: 3, jerrybase closer not at a break: 2, other: 1}`; a class outside these, `override shift` non-zero, or a count above 1.25x expected prints `BLOCKS MERGE: <class> <n> (expected <m>)`.
   - every cleared show listed for the operator.
-- `short_keep_probe.py repro --pre PRE.json --post POST.json --out DIR`: per show, `outcome` and `titles` equal; writes `repro.md`, exit 1 on any difference (the post-migration check, Appendix step 8).
+- `short_keep_probe.py repro --pre PRE.json --post POST.json --out DIR`: the post-migration self-check (spec 4.3, steps 7 and 9). Per show, equal: `outcome`; every track's `(filename, title, title_source, set, segue)`; `breaks`; the encore position as a filename. Writes `repro.md`; exit 1 on any difference, on a show present in one arm only, or on a row lacking these fields (an arm from older code).
 
-- [ ] **Step 1: Write the failing tests** on small fake arms and a fake ref dir: `test_base_consistency_lists_mismatches`, `test_reference_reproduction_per_show`, `test_tallies_match_m3_definitions` (a hand-computed three-show case), `test_added_hold_classes_and_the_25_percent_rule`, `test_override_shift_blocks`, `test_repro_exit_codes`.
+- [ ] **Step 1: Write the failing tests** on small fake arms and a fake ref dir: `test_base_consistency_lists_mismatches`, `test_reference_reproduction_per_show`, `test_tallies_match_m3_definitions` (a hand-computed three-show case), `test_added_hold_classes_and_the_25_percent_rule`, `test_override_shift_blocks`, `test_override_structure_moved_is_reported` (a break that now falls after a different file), `test_repro_compares_tracks_breaks_and_encore` (a segue flip, a moved break, a moved encore and a changed `title_source` each exit 1), `test_repro_refuses_rows_without_the_fields`.
 - [ ] **Step 2:** Run → FAIL. **Step 3:** Implement (read-only; refuses an `--out` overlapping the config's library root, as `replay_holds._overlaps`). **Step 4:** Full suite → PASS.
 - [ ] **Step 5:** Commit `feat(scripts): short-keep probe arm reports`.
 
@@ -325,7 +327,7 @@ def _keyed_files(sws, extra: Mapping[str, str] = {}) -> dict[str, str]
 - [ ] **Step 1: Base tree.** `git worktree add --detach .claude/worktrees/junk-filter-base e37f670`; its own `.venv` as in Task 0 Step 1; `llama.__file__` resolves inside it; `git diff e37f670 HEAD -- packages scripts` there is empty.
 - [ ] **Step 2: Arms, before any migration, on the legacy library.** Base: `<base>/.venv/bin/python <base>/scripts/replay_holds.py run --all --out ~/.llama-harness/piece4/base.json`. Candidate: `./.venv/bin/python scripts/replay_holds.py run --all --rekey-overrides --out ~/.llama-harness/piece4/cand.json`. Record both shas.
 - [ ] **Step 3:** `replay_holds.py compare base.json cand.json --out ~/.llama-harness/piece4/compare` passes its gates (exit 0); `short_keep_probe.py arms …` and `sibvocab …`.
-- [ ] **Step 4: Verify** (spec 6(a), (b), (d), (e)): the reference reproduction has no unexplained difference (each one written up, with cause); 1,537 changed, 2,649 files added, 20 cleared, 34 added, or each difference explained; no `BLOCKS MERGE` line; 0 override shifts; the positional-fill losses and gains match 6(e). A rule or wiring defect goes back to its task and Steps 2-4 re-run.
+- [ ] **Step 4: Verify** (spec 6(a), (b), (d), (e)): the reference reproduction has no unexplained difference (each one written up, with cause); 1,537 changed, 2,649 files added, 20 cleared, 34 added, or each difference explained; no `BLOCKS MERGE` line; 0 override shifts and 0 override-path structures moved (6(d)); no arm refused by `compare`'s overrides-validation rule; the positional-fill losses and gains match 6(e). A rule or wiring defect goes back to its task and Steps 2-4 re-run.
 - [ ] **Step 5: Hand check (6(c)).** `packets …` under `~/.llama-harness/piece4/hc/`; run the `usage-pacing` fleet check, then two Sonnet checkers on halves of the packet (rows 1-30, 31-60) with `INSTRUCTIONS.md` as the brief; then one Opus pre-screen of every wrong row and of `sibvocab.txt` (premise 3). `score …`.
 - [ ] **Step 6:** Write `acceptance.md` (arm shas, gate results, the tallies, the class table, the reproduction differences, the hand-check score with sha256 of the answers file, the sibvocab verdict).
 - [ ] **Step 7: CHECKPOINT A (orchestrator → operator, then stop).** Report: the numbers against the spec's; every reproduction difference; the class table; `first10.md` for the operator to check first (premise 2); the score and every wrong row with the pre-screen's class (accepted class in spec 7, or a fix); the sibvocab verdict. The operator rules on each blocking item.
@@ -478,11 +480,147 @@ def discard_aside(show_ws: ShowWorkspace) -> None
 
 ---
 
-<!-- MIGRATION-TASKS: Tasks 17-20 (spec 4.3) are written after the final review of spec section 4. -->
+### Migration contracts (Tasks 17-20)
 
-### Tasks 17-20: The migration (spec 4.3)
+All four tasks build one script, `scripts/rekey_overrides.py`, tested in `scripts/test_rekey_overrides.py` against fixture show dirs under `tmp_path` (built with `fixture_library.library_show` and hand-written `overrides.json`/`show.json`; never `~/.llama`). Spec 4.3 is the contract; this block fixes the names.
 
-Pending: written after the final strict review of spec section 4 reports.
+```python
+REKEY_MIN_VERSION = "2.18.0"          # the piece-4 release version (confirm before tagging)
+SNAPSHOT_PREFIX = "rekey-snapshot-"   # <root>/rekey-snapshot-<YYYYmmddTHHMMSSZ>/ (UTC copy start)
+APPLIED = "rekey-applied.json"        # <root>/rekey-applied.json
+LOCK = ".rekey.lock"                  # <root>/.rekey.lock, flock, outermost
+
+@dataclass(frozen=True)
+class Refusal:
+    slug: str
+    reason: str          # one of REASONS' keys
+    detail: str          # the values involved (keys, numbers, filenames)
+    route: str           # REASONS[reason], the spec 4.3 table's repair text
+@dataclass(frozen=True)
+class Rekey:
+    slug: str
+    titles: int
+    breaks: int
+    encore: bool
+
+def check_show(ws: ShowWorkspace, ia, want: Sequence[str], *,
+               overrides_bytes: bytes | None = None,
+               show_bytes: bytes | None = None) -> Rekey | list[Refusal] | None
+    # None = no legacy value. Reads only overrides.json, show.json and ia.metadata(show.identifier)
+    # (the bytes arguments let --apply judge exactly what it re-read under the lock).
+def check_library(root: Path, ia, want) -> tuple[list[Rekey], list[Refusal], list[str]]
+    # (to rekey, refused, migrated slugs: classify == "filename"), over every show dir, sorted
+def llama_processes(ps_lines: Iterable[str], *, self_pid: int) -> list[str]
+def llama_versions() -> list[tuple[str, str]]       # (path, `<path> --version` output) for `which -a llama`
+def version_ok(text: str) -> bool                   # dotted ints >= REKEY_MIN_VERSION; "0.1.0", "0.0.0+unknown", junk -> False
+def find_snapshot(root: Path) -> Path | None        # newest SNAPSHOT_PREFIX dir holding manifest.json
+def verify_snapshot(snap: Path) -> list[str]        # problems; [] = verified
+def snapshot(root: Path, *, echo, now=None) -> Path
+def apply(root: Path, ia, want, *, echo) -> int
+def restore(root: Path, snap: Path, *, delivery: Path | None, echo) -> int
+def main(argv: list[str] | None = None) -> int      # [--config P] [--snapshot | --apply | --restore DIR]
+```
+
+- `main` reads the config as `llama` does (`--config`, else `DEFAULT_ROOT / "config.toml"`), `ia = CacheOnlyIA(config.root / "cache")`, `want = FORMAT_BY_AUDIO[config.audio_format]`. It checks `llama.__file__` lies inside the script's own tree, as `replay_holds._check_identity` does (CLAUDE.md: never through a copied console script).
+- **The dry run** (no option) takes no lock and creates no file, `.lock` included: it reads and prints only.
+- `REASONS` (reason → route), verbatim from the spec 4.3 table: `unreadable`, `mixed`, `duplicate key`, `no show.json`, `title out of range`, `title not applied`, `structure out of range`, `structure not applied`, `repeated filename`, `kept list differs` (also the missing-metadata case). The no-CLI-form cases (a key of -1 or below, keys collapsing to one number, a `redo` that cannot run) name the hand edit with v2.17.0 installed (spec "Routes with no CLI form").
+- **Output** (spec 4.3 "Output"): `would rekey: <slug> (T titles, B breaks, encore)` / `rekeyed: …`, else one `refused: <slug>: <reason> (<detail>)` line per failed check followed by `  repair: <route>`; then a summary (`<n> to rekey, <n> refused, <n> already migrated, <n> without positional keys`). Exit 1 if a gate failed or anything was refused.
+
+---
+
+### Task 17: The checks, the process check and the dry run
+
+**Spec:** 4.3 (opening, "Checks", "Routes with no CLI form", "The process check", "Output"), 6(f) "its refusals". Strict surface (a). **Implementer: Opus.**
+
+**Files:** Create `scripts/rekey_overrides.py`, `scripts/test_rekey_overrides.py`.
+
+**Interfaces:** Consumes `override_keys.classify`, `legacy_int`, `filename_values` (Task 3) and `gather.final_kept(..., short_keep=False)` (Task 4). Produces `Refusal`, `Rekey`, `REASONS`, `check_show`, `check_library`, `llama_processes`, the dry run in `main`.
+
+- `check_show` order: `unreadable` (invalid JSON, or the new `Overrides` model raises) and `mixed` each stop further checks for that show; every other check runs and every failure is reported. `duplicate key`: two `titles` keys with equal `legacy_int`. `title out of range`: `legacy_int(k)` outside `1..len(tracks)`. `title not applied`: `tracks[k-1]` not `title_source == "override"` with exactly the forced title. `structure out of range` and `structure not applied` apply only when `set_breaks` or `encore_after` is present (the table's bold clause); the out-of-range test is gather's own `_validate_structure_override` (imported, never re-written). `repeated filename`: duplicate `tracks[].filename`. `kept list differs`: `[t.filename for t in show.tracks] != [f["name"] for f in final_kept(md_files, ov, want, short_keep=False).kept]`, or `ia.metadata` raises `CacheMiss`.
+- `llama_processes` reads `ps -axo pid=,command=` lines. A line matches when its command has an argv token whose basename is `llama`, contains the consecutive tokens `-m llama`, or is a shell (`sh`, `bash`, `zsh`, any path) whose command line contains the word `llama` followed by a space; the line whose pid is `self_pid` never matches. It returns the matching lines. The dry run prints them under `llama processes running:` (it does not refuse on them).
+
+- [ ] **Step 1: Write the failing tests:**
+  - `test_dry_run_would_rekey_a_consistent_show` (titles, breaks and encore counted; the output line exact).
+  - `test_each_refusal_reason_with_its_route`: one fixture show per `REASONS` key, including the unreadable file (invalid JSON; a `set_breaks: [7.5]` the new model rejects), the mixed file (names each filename-valued key), the duplicate key (`"7"` and `"07"`), a key of `-1` (the hand-edit route), and the missing cached metadata; each prints its `refused:` line and the route text.
+  - `test_structure_checks_only_when_a_structure_key_is_present` (a show with titles only and a `show.json` whose breaks are its own alignment's is not refused).
+  - `test_kept_list_uses_todays_rule`: a show whose cached item has a tagged short file the new rule would keep, and whose `show.json` is today's gather, is NOT refused (`short_keep=False`); the same show with an extra file in `show.json` is.
+  - `test_shows_without_legacy_values_are_skipped_and_counted` (none, `set_breaks: []` only, and a migrated file).
+  - `test_dry_run_writes_nothing`: the fixture root's tree (names, bytes, mtimes) is unchanged, and no `.lock` or `.rekey.lock` file appears.
+  - `test_process_check_matches`: `/usr/local/bin/llama run resume --all`, `/x/.venv/bin/llama get q`, `/usr/bin/python3 -m llama status`, `/bin/zsh -c while true; do llama run resume --all; sleep 600; done`, `bash -c "llama deliver x"` match; `/x/.venv/bin/python scripts/rekey_overrides.py --apply` (its own pid, and the same command under another pid), `vim packages/llama/src/llama/junk.py`, `-zsh`, `python -m pytest` do not.
+  - `test_exit_codes` (0 with nothing refused, 1 with any refusal).
+- [ ] **Step 2:** Run `./.venv/bin/python -m pytest scripts/test_rekey_overrides.py -q` → FAIL.
+- [ ] **Step 3:** Implement.
+- [ ] **Step 4:** Full suite → PASS.
+- [ ] **Step 5:** Commit `feat(scripts): rekey_overrides checks and dry run`.
+
+---
+
+### Task 18: `--snapshot`
+
+**Spec:** 4.3 "`--snapshot`", "The process check", 6(f) the snapshot items, 8 premise 9. Strict surface (a). **Implementer: Opus.**
+
+**Files:** Modify `scripts/rekey_overrides.py`, `scripts/test_rekey_overrides.py`.
+
+**Interfaces:**
+- `snapshot`: refuses (exit 1, nothing created) when `llama_processes` finds any, or when any show's `overrides.json` classifies `filename` or `mixed`. Takes `LOCK`, then names the directory by `now` (UTC, `%Y%m%dT%H%M%SZ`; refuses if it exists) and records the slug of every show directory present. Per show, under `file_lock(ws.lock)`: every file under the show dir outside `package/audio/`, the top-level `.lock` aside, is copied to `<snap>/shows/<slug>/<rel>`, the copy re-read and its sha256 compared with the source's, then flushed with `catalog._sync_fd` (`F_FULLFSYNC`). Last, `manifest.json` = `{"created_at": <UTC ISO of copy start>, "slugs": [...], "files": {"<slug>/<rel>": "<sha256>"}}`, written temp, flushed, renamed, directory flushed. A failure at any point leaves no `manifest.json`, so the directory is no snapshot; the script then deletes the partial directory and exits 1.
+- `verify_snapshot(snap)`: problems when `manifest.json` is missing or unreadable, an entry's file is missing or its sha256 differs, a recorded slug has no entry, or the snapshot holds a file the manifest does not list.
+- `find_snapshot(root)`: the lexically newest `rekey-snapshot-*` directory that has a `manifest.json`.
+
+- [ ] **Step 1: Write the failing tests:** `test_snapshot_copies_every_metadata_file_and_no_audio_or_lock` (a show with `package/audio/*.mp3`, `package/manifest.json`, `.txn/` absent, `.lock` present); `test_snapshot_hashes_verify` and `test_a_copy_that_differs_from_its_source_fails_the_snapshot` (patch the copy step to corrupt one byte: exit 1, no `manifest.json`, partial dir removed); `test_snapshot_refuses_a_library_holding_a_filename_value` (and a mixed one); `test_snapshot_refuses_while_llama_runs` (patch `llama_processes`); `test_snapshot_takes_the_migration_lock_and_each_show_lock` (a held show lock blocks it: run it in a thread against a lock held by the test, assert it waits, then completes); `test_directory_without_manifest_is_no_snapshot` (`find_snapshot` skips it); `test_verify_snapshot_problems` (missing file, changed file, unlisted file, slug with no entry).
+- [ ] **Step 2:** Run → FAIL. **Step 3:** Implement. **Step 4:** Full suite → PASS.
+- [ ] **Step 5:** Commit `feat(scripts): rekey_overrides --snapshot`.
+
+---
+
+### Task 19: `--apply`
+
+**Spec:** 4.3 "`--apply`", "Routes for an `--apply` refusal", "Output", 6(f) the `--apply` items. Strict surface (a). **Implementer: Opus.**
+
+**Files:** Modify `scripts/rekey_overrides.py`, `scripts/test_rekey_overrides.py`.
+
+**Interfaces:**
+- Gates, in order, each refusing with nothing written: `find_snapshot` finds one and `verify_snapshot` is `[]`; every `(path, out)` in `llama_versions()` has `version_ok(out)` and the list is non-empty; `llama_processes` finds nothing. Then `LOCK`, then `check_library` plus, for each legacy show, the step-1 snapshot comparison (plan reading: the spec's per-show re-check also run up front, so a show edited or created after the snapshot refuses before anything is written; it is still re-checked under the lock): any refusal → print them all, write nothing, exit 1.
+- Per legacy show, sorted, under `file_lock(ws.lock)`: (1) read `overrides.json` and `show.json` bytes; each must have a snapshot copy with an equal sha256 (`<snap>/shows/<slug>/overrides.json`, `.../show.json`), then `check_show(ws, ia, want, overrides_bytes=…, show_bytes=…)` must return a `Rekey`; otherwise print the refusal and stop the run (exit 1); (2) `data = override_keys.rekey_raw(json.loads(ov_bytes), [t.filename for t in show.tracks])`; (3) write `json.dumps(data, indent=2)` to a temp file in the show dir, `_sync_fd`, `os.replace`, then `_sync_fd` on the show directory fd; (4) rewrite `APPLIED` (`{"snapshot": <dir name>, "updated_at": <UTC ISO>, "shows": [...]}`, the list accumulating across interrupted runs) the same durable way; print `rekeyed: …`.
+- **Refusal routes** (every refusal `--apply` prints, up front or under the lock): first, when any show in the library classifies `filename` (rewritten in this run or an earlier interrupted one), the line `  first: run --restore <snapshot dir> with the new binary, then reinstall v2.17.0`; then `  then: reinstall v2.17.0, repair <slug> with it (route below), then return to step 2 (dry run) and take a NEW snapshot`; then `  repair: <route>`. A gate refusal prints its gate (`no verified snapshot: <problems>`, `llama on PATH below 2.18.0: <path> <out>`, `no llama on PATH`, `llama processes running: <lines>`).
+
+- [ ] **Step 1: Write the failing tests** (each asserts the library tree byte-identical after a refusal, with `helpers.tree_bytes`):
+  - gates: `test_apply_refuses_without_a_snapshot`; `test_apply_refuses_a_snapshot_with_a_deleted_or_changed_file`; `test_apply_refuses_a_show_the_snapshot_does_not_cover` (a show created after the snapshot with legacy keys, and one whose `overrides.json` changed since: both refused up front, nothing written); `test_apply_refuses_a_low_or_dev_or_missing_llama` (parametrised `2.17.0`, `0.1.0`, `0.0.0+unknown`, `[]`, and one good plus one low path); `test_apply_refuses_while_llama_runs`.
+  - `test_apply_writes_nothing_when_any_show_would_be_refused` (two good shows, one refused: no file changes, every refusal printed with the v2.17.0 route and NO `--restore` line).
+  - `test_apply_rekeys_and_records` (three shows: titles only, breaks plus encore, `set_breaks: []` plus titles; each `overrides.json` equals `rekey_raw` of its old JSON dumped with `indent=2`; `rekey-applied.json` names the snapshot and the three shows; a later gather of each fixture show succeeds with the titles, breaks and encore on the same files).
+  - `test_unknown_keys_survive_the_raw_rewrite` (`{"zz": {"a": 1}, "narration": "vague", ...}`).
+  - `test_edit_after_the_snapshot_refuses_under_the_lock`: patch the per-show step to modify the second show's `overrides.json` (and, separately, its `show.json`) after the up-front checks; the first show is rekeyed, the second refused, the run stops, the third untouched; the refusal prints the `--restore` line first.
+  - `test_interrupted_apply_continues`: an exception after the first show's rename; a re-run rekeys the rest, skips the first, and `rekey-applied.json` lists all.
+  - `test_apply_output_and_exit_codes`.
+- [ ] **Step 2:** Run → FAIL. **Step 3:** Implement. **Step 4:** Full suite → PASS.
+- [ ] **Step 5:** Commit `feat(scripts): rekey_overrides --apply`.
+
+---
+
+### Task 20: `--restore`
+
+**Spec:** 4.3 "`--restore <snapshot-dir>`", "Why audio comes first", "What restore does not revert", "Restore runbook", 6(f) the restore items. Strict surface (a). **Implementer: Opus.**
+
+**Files:** Modify `scripts/rekey_overrides.py`, `scripts/test_rekey_overrides.py`.
+
+**Interfaces:**
+- No version gate. Gates, each refusing with nothing written: `llama_processes` finds nothing; `verify_snapshot(snap) == []`; no show directory exists that is not among the manifest's slugs (each listed with `  route: llama rm <slug> (add --forget if a later get should re-fetch it)`). Then `LOCK`.
+- Per manifest slug, sorted, under `file_lock(ws.lock)` (a slug whose directory is gone is re-created):
+  1. **Audio first:** unless `<snap>/shows/<slug>/package/manifest.json` exists and is byte-equal to the current `package/manifest.json`, delete every file in `package/audio/`.
+  2. Copy each snapshotted file back (temp in the target dir, `_sync_fd`, `os.replace`).
+  3. Delete every file under the show dir outside `package/audio/` that the snapshot does not hold, the top-level `.lock` aside (`.txn/`, `.audio-aside/` and new `notes.json`/briefing files included), and remove the directories left empty.
+- Then the lists (spec "What restore does not revert"): `not reverted: the ledger, runs/, the cache, reapply batch progress`; every `<root>/reapply/<batch>/` and `<root>/runs/<run>/` directory whose `st_birthtime` (else `st_mtime`) is after the manifest's `created_at`; every `<delivery>/<slug>/manifest.json` with an `st_mtime` after `created_at`, marked `(voiced)` when its `dj_audio` is non-null (read-only; an unreadable one is listed `(unreadable)`). Then the restore runbook's next steps: `reinstall v2.17.0 from the release; check llama --version reports 2.17.0; restart the sweep loop`.
+
+- [ ] **Step 1: Write the failing tests** (fixture root, fake station dir):
+  - `test_restore_refuses_a_hash_mismatch_and_writes_nothing`.
+  - `test_restore_refuses_while_a_show_created_after_the_snapshot_exists` (listed with the `llama rm` route; nothing written).
+  - `test_restore_refuses_while_llama_runs`.
+  - `test_restore_puts_every_file_back_byte_equal_and_deletes_files_written_since` (a rekeyed `overrides.json`, a rewritten `show.json`, a new `notes.json`, a leftover `.txn/` and `.audio-aside/`; afterwards the show dir outside `package/audio/` equals the snapshot exactly, `.lock` kept).
+  - `test_restore_empties_audio_unless_the_manifest_is_byte_equal` (three shows: unchanged manifest keeps its audio; re-packaged since empties it; packaged since the snapshot (no snapshot manifest) empties it).
+  - `test_crash_after_emptying_then_rerun_leaves_no_audio_beside_the_restored_manifest` (patch the copy step to raise on the first show after step 1; re-run; that show's `package/audio/` is empty and its manifest is the snapshot's).
+  - `test_restore_lists_what_it_does_not_revert` (a reapply batch dir and a run dir created after the snapshot listed, older ones not; a station destination re-delivered after it listed and marked `(voiced)`; the station tree byte-identical).
+  - `test_restore_recreates_a_show_removed_since`.
+- [ ] **Step 2:** Run → FAIL. **Step 3:** Implement. **Step 4:** Full suite → PASS.
+- [ ] **Step 5:** Commit `feat(scripts): rekey_overrides --restore`.
 
 ---
 
@@ -494,7 +632,7 @@ Pending: written after the final strict review of spec section 4 reports.
 - [ ] **Step 2:** For each mutant, name the predicted red test before flipping it:
   - (a) `short_tag_is_junk` uses `any(...)` for `all(...)` (per-part anchoring, spec 6(f)) → `test_junk_test_examples` and `test_deny_vocabulary_corpus`;
   - (b) `legacy_int` accepts only `str.isdigit()` strings (legacy-value test, spec 6(f)) → `test_legacy_agrees_with_the_v2_17_0_model`;
-  - (c) the snapshot skips its hash verification (spec 6(f)) → the Task 18 snapshot verification test;
+  - (c) the snapshot's hash verification removed (spec 6(f)): (c1) `snapshot` skips comparing each copy with its source → `test_a_copy_that_differs_from_its_source_fails_the_snapshot`; (c2) `verify_snapshot` skips the sha256 comparison → `test_apply_refuses_a_snapshot_with_a_deleted_or_changed_file` and `test_restore_refuses_a_hash_mismatch_and_writes_nothing`;
   - (d) `SPAM_STEM` applied to tags → `test_tripwire_examples` (`I'll Follow the Sun`);
   - (e) the interior test counts untagged candidates as neighbours → `test_untagged_interior_kept_edge_dropped`;
   - (f) `_songish_coverage` without `not t.short_kept` → `test_songish_coverage_ignores_short_kept`;
@@ -503,7 +641,11 @@ Pending: written after the final strict review of spec section 4 reports.
   - (i) `set_aside` skipped → `test_same_title_renumbered_never_inherits_the_wrong_audio`;
   - (j) `_destination_is_voiced` returns False on any error → `test_unreadable_destination_manifest_refuses_the_show`;
   - (k) the selector check removed → `test_replace_voiced_with_any_selector_refuses`;
-  - plus one mutant per migration gate (Tasks 17-20 name them).
+  - (l) `check_show` skips the `kept list differs` check → `test_kept_list_uses_todays_rule`; (m) the check passes `short_keep=True` → `test_kept_list_uses_todays_rule`;
+  - (n) the per-show snapshot comparison removed (both the up-front pass and under the lock) → `test_apply_refuses_a_show_the_snapshot_does_not_cover` and `test_edit_after_the_snapshot_refuses_under_the_lock`;
+  - (o) `version_ok` accepts a dev build → `test_apply_refuses_a_low_or_dev_or_missing_llama`; (p) `llama_processes` drops the shell clause → `test_process_check_matches`;
+  - (q) restore copies files before emptying audio → `test_crash_after_emptying_then_rerun_leaves_no_audio_beside_the_restored_manifest`; (r) restore skips the after-snapshot-show refusal → `test_restore_refuses_while_a_show_created_after_the_snapshot_exists`;
+  - (s) `rekey_raw` rewrites with `sort_keys=True` or drops an unknown key → `test_unknown_keys_survive_the_raw_rewrite`.
 - [ ] **Step 3:** Record mutant, predicted test, observed result. Every mutant is caught by its predicted test; a survivor or a surprise catch goes back to the owning task.
 - [ ] **Step 4:** Commit `docs: piece 4 mutation record`.
 
@@ -514,7 +656,7 @@ Pending: written after the final strict review of spec section 4 reports.
 **Orchestrator.** Writes only under `~/.llama-harness/piece4/` and `acceptance.md`.
 
 - [ ] **Step 1:** Candidate arm at HEAD (Task 9 Step 2), `compare` and `arms` against the Checkpoint A base; differences from Checkpoint A's candidate are only those Tasks 10-16 explain.
-- [ ] **Step 2:** The migration's dry run against the real library (read-only, no lock): `./.venv/bin/python scripts/rekey_overrides.py`; expected `606` would-rekey lines, `0` refused, and the totals `3,203 titles, 427 breaks, 365 encore keys` (spec 4.3 "Measured today"), or each difference explained.
+- [ ] **Step 2:** The migration's dry run against the real library (read-only: no lock, no file created; Task 17's `test_dry_run_writes_nothing` is the proof): `./.venv/bin/python scripts/rekey_overrides.py`; expected `606` would-rekey lines, `0` refused, and the totals `3,203 titles, 427 breaks, 365 encore keys` (spec 4.3 "Measured today"), or each difference explained; record what the process check printed.
 - [ ] **Step 3:** Full suite green from the worktree venv; record the line.
 - [ ] **Step 4:** Update `acceptance.md`.
 - [ ] **Step 5: CHECKPOINT C (orchestrator → operator, then stop).** Report the acceptance numbers, the dry-run result, the mutation record, and the open gaps (below). The final branch review is the spec's Opus seat. Merge, push, release and the Appendix are the operator's.
@@ -533,9 +675,35 @@ Pending: written after the final strict review of spec section 4 reports.
 
 ## Open gaps (named, not closed by this plan)
 
-- **The bulk apply of pieces 1-5** is planned separately. It needs: the migration done (Appendix steps 1-7); a post-migration candidate re-run whose per-show outcome and titles reproduce the pre-migration candidate (`short_keep_probe.py repro`); apply lists from that re-run, so their `input_digests` match the migrated files. Still open: **reapply's path extended to packaged and delivered shows** (spec 5.2: gather from the cache, the stored vet extraction, the stored briefing when reusable), which this branch does not build; the 28 voiced-minor shows stay out until the re-voice-later decision.
-- **The piece-4 release version** the migration gates on is assumed `2.18.0` (Tasks 17-20); confirm before tagging.
+- **The bulk apply of pieces 1-5** is planned separately. It needs: the migration done (Appendix A steps 1-8); the post-migration self-check passed (`short_keep_probe.py repro`, Appendix A step 7); apply lists built from that self-check's re-run, so their `input_digests` match the migrated files (Appendix A step 9). Still open, and not built here: **reapply's path extended to packaged and delivered shows** (spec 5.2: gather from the cache, the stored vet extraction, the stored briefing when reusable). The 28 voiced-minor shows stay out until the re-voice-later decision, and refuse positional edits until re-gathered (spec 7).
+- **`REKEY_MIN_VERSION`** is set to `2.18.0`, the expected piece-4 release; the operator confirms it before tagging (a mismatch makes `--apply` refuse the real release or accept v2.17.x).
+- **Old-commit harness arms against a migrated library** are invalid by rule (spec 4.1); `compare` enforces it (Task 6), but nothing stops a base arm being started, so the runbook keeps both arms before step 4.
 
-## Appendix: operator runbook (after merge; not plan tasks)
+## Appendix A: migration runbook (operator, after merge; spec 4.3)
 
-Filled in with Tasks 17-20. Order (spec 4.3): stop the sweep loop and confirm `pgrep -x llama` prints nothing; dry run with v2.17.0 installed; repair refusals with v2.17.0; `--snapshot`; install the release (`llama --version`); `--apply`; restart the sweep loop; re-run the harness (`repro`, apply lists); bulk apply; triage held shows after it; re-deliver unvoiced shows (never `--replace-voiced`; outside the playout horizon first); for each of the 37 `voiced-severe-final.json` slugs, `short_keep_probe.py voiced-precheck`, then `llama deliver <slug> --replace-voiced`, then `emcee voice <slug>`.
+All commands run from the main checkout, branch code, as `/Users/shawn/projects/llama/.venv/bin/python scripts/rekey_overrides.py …`.
+
+1. Stop the sweep loop. The dry run's process check must print no `llama` process.
+2. With v2.17.0 still installed: the dry run (no option). It prints every refusal with its route and what the process check finds.
+3. Repair each refusal with v2.17.0 by its route; repeat 2-3 until `0 refused`.
+   Then, still before step 4, run both acceptance arms with the code being released (spec 4.3 "post-migration self-check": both arms run and compared before the migration): the base arm from an `e37f670` worktree, and `scripts/replay_holds.py run --all --rekey-overrides --out ~/.llama-harness/piece4/cand.json`; `compare` passes its gates. Never run the base arm after step 6 (spec 4.1).
+4. `--snapshot` (spec 8 premise 9: note how long it takes).
+5. Install the new release; `llama --version` reports the piece-4 version (`REKEY_MIN_VERSION`). Run nothing else in between.
+6. `--apply`. On a refusal, follow its printed lines (`first: --restore …` when a show was already rewritten; then reinstall v2.17.0, repair, back to step 2 with a NEW snapshot).
+7. Post-migration self-check, sweep loop still stopped: `scripts/replay_holds.py run --all --out ~/.llama-harness/piece4/post.json` (no `--rekey-overrides`: the library is migrated), then `scripts/short_keep_probe.py repro --pre ~/.llama-harness/piece4/cand.json --post ~/.llama-harness/piece4/post.json --out …`. Any difference stops here and is investigated.
+8. Restart the sweep loop.
+9. Build the apply lists from `post.json` (`replay_holds.py compare` against a post-migration base, per the bulk-apply plan), then the bulk apply. Triage held shows only after it has re-gathered them.
+
+## Appendix B: restore runbook (operator; spec 4.3 "Restore runbook")
+
+1. Stop the sweep loop; the process check must find no `llama` process.
+2. `--restore <root>/rekey-snapshot-<time>` with the new binary still installed. If it lists shows created after the snapshot, `llama rm <show>` each (add `--forget` when a later `get` should re-fetch it) and re-run. Read its "not reverted" lists: remove the listed reapply batch dirs and runs; re-deliver the listed station destinations from the restored library later.
+3. Reinstall v2.17.0 from the release.
+4. `llama --version` reports `2.17.0`.
+5. Restart the sweep loop.
+
+## Appendix C: re-delivery (operator, after the bulk apply; spec 5.5)
+
+1. Triage the shows the apply turned into holds first; the station copy keeps airing meanwhile.
+2. Re-deliver delivered unvoiced shows by name or selector, never with `--replace-voiced` (Task 16 refuses it with a selector). Shows outside the current playout horizon first; shows inside it last or after they air. A show emcee voiced since the list was cut is refused and goes to the re-voice-later list.
+3. For each slug in `voiced-severe-final.json`, one at a time: `scripts/short_keep_probe.py voiced-precheck --list docs/superpowers/2026-10-23-junk-short-keep-evidence/voiced-severe-final.json <slug>` exits 0; then `llama deliver <slug> --replace-voiced`; then `emcee voice <slug>`. A station-wide `emcee run` is used for this step only when `emcee run --dry-run` first shows exactly these packages.
