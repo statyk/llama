@@ -216,9 +216,13 @@ class Overrides(BaseModel):
     venue: str | None = None
     city: str | None = None
     date: str | None = None                            # YYYY-MM-DD
-    titles: dict[int, str] = Field(default_factory=dict)   # track number -> forced title
-    set_breaks: list[int] | None = None                # track numbers a break falls after
-    encore_after: int | None = None     # encore begins after this track number
+    # The three positional keys name FILES (piece 4 spec 4.1; `llama.override_keys`):
+    # an inserted track would re-point a track number silently. Typed to parse both
+    # forms, so reading never refuses; the int/numeric-string arms are the legacy
+    # (v2.17.0) track-number form, which only the resolver and the writers judge.
+    titles: dict[str, str] = Field(default_factory=dict)   # filename -> forced title
+    set_breaks: list[int | str] | None = None          # filenames a break falls after
+    encore_after: int | str | None = None              # filename the encore follows
 
 
 class ShowNotes(BaseModel):

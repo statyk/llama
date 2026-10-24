@@ -71,6 +71,7 @@ from llama.title_cosmetics import cosmetic_strip
 from llama.title_hygiene import (ALL_SLICES, INDEPENDENT_SOURCES, block_size_mismatch, duplicate,
                                  judge)
 from llama.titles import tag_core
+from llama.util import slugify
 from llama.workspace import ShowWorkspace, read_model, read_overrides
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -251,7 +252,8 @@ def _inputs(view: ShowWorkspace, stored: Show, prov: Provenance):
                                  setlistfm=slfm, provider=None)
     inp = G.title_inputs(md, read_overrides(view), ia=ia, candidate=cand,
                          identifier=stored.identifier, artist=artist,
-                         want=FORMAT_BY_AUDIO[cfg.audio_format], events=events, build=build)
+                         want=FORMAT_BY_AUDIO[cfg.audio_format], events=events, build=build,
+                         slug=slugify(cand.performance_id))
     return inp, artist, meta
 
 

@@ -20,6 +20,7 @@ from llama.title_cosmetics import cosmetic_strip
 from llama.title_hygiene import DDecision, SetlistPlan
 from llama.models import (AlignedStructure, JerrybaseEvent, Candidate, Overrides, ParsedSetlist,
                           SetlistItem, Show, ShowNotes, SourcedParse, StructureInfo, Track)
+from llama.override_keys import Positions, resolve_positions
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
 from llama.siblings import DonorTape, SiblingRow, cplus_filter, propose_rows, rate_alignment
@@ -35,7 +36,7 @@ from llama.taper import TaperDecision
 from llama.titles import (_GLUED_NUM_PREFIX, _JOINED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
                           is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, shipped_short_tag, tag_core,
                           tag_layer, title_fraction, TagLayer)
-from llama.util import length_seconds
+from llama.util import length_seconds, slugify
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -1044,6 +1045,10 @@ class TitleInputs:
     tag_gate_basis: list[dict]
     format_titles: dict[str, str] | None
     overrides: Overrides
+    # `overrides`' three filename-valued keys mapped onto `kept` once, by the one
+    # resolver (piece 4 spec 4.1). Every positional read in gather is this, never
+    # `overrides.titles`/`set_breaks`/`encore_after`.
+    positions: Positions
     cb: CanonicalBuild
     corroboration: frozenset[str]
     item_title: str | None
@@ -1056,13 +1061,18 @@ class TitleInputs:
 
 def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, identifier: str,
                  artist: str, want: Sequence[str], events: list,
-                 build: Callable[[list[dict]], CanonicalBuild]) -> TitleInputs:
+                 build: Callable[[list[dict]], CanonicalBuild], slug: str) -> TitleInputs:
     """`compute_gather`'s title prelude, as one builder (its only copy). It does
     no IO of its own: the canonical comes through `build` (the caller binds
     `build_canonical`), called once on the post-exclusion `kept`, and the two closures
     fetch only when the cascade calls them. `sibling_step` is `_sibling_transfer_full`
     bound to the show; `donor_check` is `best_donor` bound to the show, returning
-    `(donor, rows)` or None (never raising: a target without durations has no donor)."""
+    `(donor, rows)` or None (never raising: a target without durations has no donor).
+
+    `slug` is the show's LIBRARY slug (`slugify(performance_id)`), named in the
+    resolver's refusals; never a workspace dir name, which is `show` in replay's and
+    reapply's scratch dirs. The resolver runs on the final kept list, after the
+    exclusion, and raises before the canonical is built."""
     meta = md.get("metadata", {})
     files = md.get("files", [])
     kept, excluded, ordering = filter_files(
@@ -1129,6 +1139,10 @@ def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, id
                      for f in kept if f["name"] in drop]
         kept = [f for f in kept if f["name"] not in drop]
 
+    # The one overrides resolver (piece 4 spec 4.1): filename values onto the final
+    # kept list. Refuses a legacy, mixed or dangling file before any further work.
+    positions = resolve_positions(overrides, [f["name"] for f in kept], slug=slug)
+
     # Canonical performance setlist (`build` is `build_canonical` in gather):
     # every recording's description, plus setlist.fm when configured, ranked
     # pick-best, then cleaned (head-banner stripped, artist-only items dropped)
@@ -1169,7 +1183,7 @@ def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, id
     return TitleInputs(
         kept=kept, excluded=excluded, files=files, ordering=ordering,
         recovery_basis=recovery_basis, tag_gate_basis=tag_gate_basis,
-        format_titles=format_titles, overrides=overrides, cb=cb,
+        format_titles=format_titles, overrides=overrides, positions=positions, cb=cb,
         corroboration=frozenset(cb.corroboration), item_title=meta.get("title"),
         metadata_norms=metadata_norms, family_aliases=family_aliases, desc=desc,
         sibling_step=sibling_step, donor_check=donor_check)
@@ -1247,10 +1261,11 @@ def title_cascade(inp: TitleInputs, *,
     (slice 2) -> the deferred S fill. No rung overwrites a resolved track or an override.
     With `enabled=frozenset()` the result is exactly today's."""
     s1, s2, s3, s4 = (f"slice{k}" in enabled for k in (1, 2, 3, 4))
-    kept, overrides, cb = inp.kept, inp.overrides, inp.cb
+    kept, cb = inp.kept, inp.cb
+    forced_titles = inp.positions.titles     # 1-based track -> title (the resolver's)
     canonical = cb.setlist
     n = len(kept)
-    overridden = {k - 1 for k in overrides.titles}
+    overridden = {k - 1 for k in forced_titles}
     op_notes: list[str] = []
     struct_notes: list[str] = []
 
@@ -1284,7 +1299,7 @@ def title_cascade(inp: TitleInputs, *,
     layer_demoted = [i for i in placeholder_positions(delivered, corroboration=inp.corroboration,
                                                       item_title=inp.item_title)
                      if i not in c_changed]
-    demoted = [i for i in layer_demoted if (i + 1) not in overrides.titles]
+    demoted = [i for i in layer_demoted if (i + 1) not in forced_titles]
     for i in demoted:
         op_notes.append(f"placeholder tag title: track {i + 1} '{delivered[i]}' "
                         f"demoted to unresolved")
@@ -1298,11 +1313,11 @@ def title_cascade(inp: TitleInputs, *,
                 continue
             raw = clean_tag_title(f.get("title"))
             if (delivered[i] != raw and _GLUED_NUM_PREFIX.match(raw)
-                    and (i + 1) not in overrides.titles):
+                    and (i + 1) not in forced_titles):
                 op_notes.append(f"stripped glued track number: track {i + 1} "
                                 f"'{raw}' -> '{delivered[i]}'")
             if (delivered[i] != raw and _JOINED_NUM_PREFIX.match(raw)
-                    and (i + 1) not in overrides.titles):
+                    and (i + 1) not in forced_titles):
                 op_notes.append(f"stripped joined track number: track {i + 1} "
                                 f"'{raw}' -> '{delivered[i]}'")
     # `kept and` is load-bearing: title_fraction is 0.0 on an empty list, so an
@@ -1366,7 +1381,7 @@ def title_cascade(inp: TitleInputs, *,
                             layer=TagLayer(titles, sources, layer_demoted_set),
                             setlist_fills=plan.fills,
                             short_kept=frozenset(inp.ordering.get("short_kept", ())))
-    for k, forced in overrides.titles.items():
+    for k, forced in forced_titles.items():
         if not (1 <= k <= len(tracks)):
             raise LlamaError(f"overrides.titles: no track {k} "
                              f"(show has {len(tracks)} tracks)")
@@ -1640,8 +1655,13 @@ def compute_gather(
         return build_canonical(ia, candidate, identifier, meta, kept, artist, events,
                                setlistfm=setlistfm, provider=provider)
 
+    # `slug` is the library slug (`RunWorkspace.show_ws`'s `slugify(performance_id)`),
+    # never `show_ws.dir.name`: replay and reapply point `show_ws` at a scratch dir
+    # named `show`.
     inp = title_inputs(md, overrides, ia=ia, candidate=candidate, identifier=identifier,
-                       artist=artist, want=want, events=events, build=build)
+                       artist=artist, want=want, events=events, build=build,
+                       slug=slugify(candidate.performance_id))
+    positions = inp.positions
     cascade = title_cascade(inp, enabled=enabled_slices)
     excluded, ordering, cb = inp.excluded, inp.ordering, inp.cb
     canonical, canonical_source = cb.setlist, cb.source
@@ -1656,13 +1676,13 @@ def compute_gather(
     flags = []
     # The taper step's outputs; the structure-override path never runs it.
     taper_owned, decision, step1_alignment = False, None, None
-    if overrides.set_breaks is not None or overrides.encore_after is not None:
-        breaks_in = list(overrides.set_breaks or [])
-        _validate_structure_override(len(tracks), breaks_in, overrides.encore_after)
-        labels = _sets_from_breaks(len(tracks), breaks_in, overrides.encore_after)
+    if positions.set_breaks is not None or positions.encore_after is not None:
+        breaks_in = list(positions.set_breaks or [])
+        _validate_structure_override(len(tracks), breaks_in, positions.encore_after)
+        labels = _sets_from_breaks(len(tracks), breaks_in, positions.encore_after)
         tracks = [t.model_copy(update={"set": s}) for t, s in zip(tracks, labels)]
-        breaks = sorted(set(breaks_in) | ({overrides.encore_after}
-                                          if overrides.encore_after is not None else set()))
+        breaks = sorted(set(breaks_in) | ({positions.encore_after}
+                                          if positions.encore_after is not None else set()))
         alignment = "override"
         coverage, conflicts = 1.0, []
     else:
@@ -1980,7 +2000,7 @@ def compute_gather(
         flags.append("no playable tracks")
 
     structure_info = None
-    if overrides.set_breaks is not None or overrides.encore_after is not None:
+    if positions.set_breaks is not None or positions.encore_after is not None:
         structure_info = StructureInfo(source="override", alignment="override",
                                        coverage=1.0, conflicts=[])
     elif canonical_source is not None or notes or taper_owned:

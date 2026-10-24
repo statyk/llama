@@ -829,8 +829,9 @@ def test_venue_changes_ignores_an_identical_diff_and_counts_a_flag_change(tmp_pa
 
 # --- piece 2: --strip-structure-overrides, stamped arms ---
 
-_OVERRIDES = {"exclude": ["nonexistent-track.mp3"], "titles": {"1": "Forced Title"},
-              "set_breaks": [3], "encore_after": 5}
+# Filename-valued (piece 4 spec 4.1): gd73's tracks 1, 3 and 5.
+_OVERRIDES = {"exclude": ["nonexistent-track.mp3"], "titles": {"gd73-06-10d1t01.mp3": "Forced Title"},
+              "set_breaks": ["gd73-06-10d1t03.mp3"], "encore_after": "gd73-06-10d2t02.mp3"}
 
 
 def test_strip_mode_removes_only_structure_overrides(tmp_path, monkeypatch):
@@ -854,14 +855,14 @@ def test_strip_mode_removes_only_structure_overrides(tmp_path, monkeypatch):
     assert rh.main(["run", "--out", str(out), "--all", "--strip-structure-overrides",
                     "--config", str(root / "config.toml"), "--scratch", str(scratch)]) == 0
     assert seen["overrides"] == {"exclude": ["nonexistent-track.mp3"],
-                                 "titles": {"1": "Forced Title"}}
+                                 "titles": {"gd73-06-10d1t01.mp3": "Forced Title"}}
     assert scratch in seen["dir"].parents                  # the shadow lives under the scratch root
     assert live.read_bytes() == live_bytes                 # the live file is untouched
     arm = json.loads(out.read_text())
     assert arm["structure_overrides_stripped"] is True
     row = arm["shows"]["gratefuldead-1973-06-10"]
     assert row["state"] == "held" and row["unreplayable"] is None
-    assert row["stripped"] == {"set_breaks": [3], "encore_after": 5}
+    assert row["stripped"] == {"set_breaks": ["gd73-06-10d1t03.mp3"], "encore_after": "gd73-06-10d2t02.mp3"}
     assert "stripped" not in json.loads(
         (lambda p: (rh.main(["run", "--out", str(p), "--all", "--config",
                              str(root / "config.toml")]), p.read_text())[1])(
@@ -945,10 +946,10 @@ def _run_strip(tmp_path, monkeypatch, flags):
 
 def test_strip_titles_removes_only_titles(tmp_path, monkeypatch):
     seen, arm = _run_strip(tmp_path, monkeypatch, ["--strip-title-overrides"])
-    assert seen == {"exclude": ["nonexistent-track.mp3"], "set_breaks": [3], "encore_after": 5}
+    assert seen == {"exclude": ["nonexistent-track.mp3"], "set_breaks": ["gd73-06-10d1t03.mp3"], "encore_after": "gd73-06-10d2t02.mp3"}
     assert arm["title_overrides_stripped"] is True
     assert arm["structure_overrides_stripped"] is False
-    assert arm["shows"]["gratefuldead-1973-06-10"]["stripped"] == {"titles": {"1": "Forced Title"}}
+    assert arm["shows"]["gratefuldead-1973-06-10"]["stripped"] == {"titles": {"gd73-06-10d1t01.mp3": "Forced Title"}}
 
 
 def test_both_strip_flags_together(tmp_path, monkeypatch):
@@ -957,7 +958,7 @@ def test_both_strip_flags_together(tmp_path, monkeypatch):
     assert seen == {"exclude": ["nonexistent-track.mp3"]}
     assert arm["title_overrides_stripped"] is True and arm["structure_overrides_stripped"] is True
     assert arm["shows"]["gratefuldead-1973-06-10"]["stripped"] == {
-        "titles": {"1": "Forced Title"}, "set_breaks": [3], "encore_after": 5}
+        "titles": {"gd73-06-10d1t01.mp3": "Forced Title"}, "set_breaks": ["gd73-06-10d1t03.mp3"], "encore_after": "gd73-06-10d2t02.mp3"}
 
 
 def test_shadow_takes_the_keys_as_a_contract(tmp_path):

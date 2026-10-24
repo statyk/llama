@@ -121,11 +121,13 @@ def test_overrides_metadata_fields_round_trip(tmp_path):
     ws = ShowWorkspace(tmp_path / "s")
     write_artifact(ws.overrides, Overrides(
         venue="X Hall", city="Austin, TX", date="2003-04-19",
-        titles={4: "Bertha"}, set_breaks=[9, 17]))
+        titles={"gd03d1t04.mp3": "Bertha"}, set_breaks=["gd03d1t09.mp3", "gd03d2t08.mp3"],
+        encore_after="gd03d2t10.mp3"))
     ov = read_overrides(ws)
     assert ov.venue == "X Hall" and ov.city == "Austin, TX" and ov.date == "2003-04-19"
-    assert ov.titles == {4: "Bertha"}          # str JSON key coerced back to int
-    assert ov.set_breaks == [9, 17]
+    assert ov.titles == {"gd03d1t04.mp3": "Bertha"}     # filename-valued (piece 4 spec 4.1)
+    assert ov.set_breaks == ["gd03d1t09.mp3", "gd03d2t08.mp3"]
+    assert ov.encore_after == "gd03d2t10.mp3"
 
 
 def test_overrides_absent_metadata_defaults(tmp_path):

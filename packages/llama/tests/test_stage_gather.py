@@ -210,9 +210,10 @@ def test_override_path_leaves_matched_unmeasured(tmp_path: Path):
     """The override path skips align() and forces coverage to 1.0, so there is
     no per-track match data. None must mean unknown, never matched."""
     sws = ShowWorkspace(tmp_path / "show")
-    # encore_after names the last set-2 file, D4_T06: 27 since piece 4 keeps
-    # D3_T02 at track 17 (spec 1); re-keyed by filename in Task 3.
-    write_artifact(sws.overrides, Overrides(set_breaks=[11], encore_after=27))
+    # encore_after names the last set-2 file, D4_T06 (track 27 since piece 4 keeps
+    # D3_T02 at track 17, spec 1); the break follows D2_T01, track 11.
+    write_artifact(sws.overrides, Overrides(set_breaks=["GD_022474_D2_T01.mp3"],
+                                            encore_after="GD_022474_D4_T06.mp3"))
     show = run_gather(sws, gd74_ia(), FakeProvider(), gd74_candidate(), W_IDENT)
     assert show.structure.alignment == "override"
     assert all(t.matched is None for t in show.tracks)
@@ -1293,7 +1294,7 @@ def test_gather_exclude_no_match_warns_and_is_noop(tmp_path: Path, caplog):
 
 def test_gather_title_override_forces_title(tmp_path: Path):
     ws = ShowWorkspace(tmp_path / "s")
-    write_artifact(ws.overrides, Overrides(titles={1: "Custom Opener"}))
+    write_artifact(ws.overrides, Overrides(titles={"gd73-06-10d1t01.mp3": "Custom Opener"}))
     show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
     assert show.tracks[0].title == "Custom Opener"
     assert show.tracks[0].title_source == "override"
@@ -1305,8 +1306,9 @@ def test_gather_title_override_forces_title(tmp_path: Path):
 def test_gather_title_override_out_of_range_errors(tmp_path: Path):
     from llama.errors import LlamaError
     ws = ShowWorkspace(tmp_path / "s")
-    write_artifact(ws.overrides, Overrides(titles={999: "Nope"}))
-    with pytest.raises(LlamaError):
+    # A title naming a file not in the track list (spec 4.1: the dangling refusal).
+    write_artifact(ws.overrides, Overrides(titles={"gd73-06-10d9t99.mp3": "Nope"}))
+    with pytest.raises(LlamaError, match="overrides name files not in the track list"):
         run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
 
 
@@ -1323,7 +1325,8 @@ def test_gather_venue_city_date_overrides(tmp_path: Path):
 
 def test_gather_set_breaks_override_numbers_sets(tmp_path: Path):
     ws = ShowWorkspace(tmp_path / "s")
-    write_artifact(ws.overrides, Overrides(set_breaks=[2, 4]))
+    write_artifact(ws.overrides, Overrides(set_breaks=["gd73-06-10d1t02.mp3",
+                                                       "gd73-06-10d2t01.mp3"]))
     show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
     # 6-track fixture -> sets: 1,1 | 2,2 | 3,3
     assert [t.set for t in show.tracks] == ["1", "1", "2", "2", "3", "3"]
@@ -1335,8 +1338,9 @@ def test_gather_set_breaks_override_numbers_sets(tmp_path: Path):
 def test_gather_set_breaks_out_of_range_errors(tmp_path: Path):
     from llama.errors import LlamaError
     ws = ShowWorkspace(tmp_path / "s")
-    write_artifact(ws.overrides, Overrides(set_breaks=[99]))
-    with pytest.raises(LlamaError):
+    # A break after the last track is out of range (gd73 has 6 tracks).
+    write_artifact(ws.overrides, Overrides(set_breaks=["gd73-06-10d3t01.mp3"]))
+    with pytest.raises(LlamaError, match="out of range"):
         run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
 
 
@@ -1829,16 +1833,17 @@ def test_overrides_accepts_encore_after():
     from llama.models import Overrides
 
     assert Overrides().encore_after is None
-    assert Overrides(encore_after=16).encore_after == 16
+    assert Overrides(encore_after="gd73-06-10d2t01.mp3").encore_after == "gd73-06-10d2t01.mp3"
+    assert Overrides(encore_after=16).encore_after == 16     # the legacy form still parses
 
 
 def test_gather_encore_override_labels_tracks_and_implies_a_break(tmp_path: Path):
     """encore_after alone (no set_breaks) implies a break at that track, so
     the operator does not list it twice, and show.set_breaks reports it."""
     ws = ShowWorkspace(tmp_path / "s")
-    write_artifact(ws.overrides, Overrides(encore_after=4))
+    write_artifact(ws.overrides, Overrides(encore_after="gd73-06-10d2t01.mp3"))
     show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
-    # 6-track fixture, encore_after=4 -> tracks 1-4 unbroken, 5-6 are the encore
+    # 6-track fixture, encore after track 4 (d2t01) -> tracks 1-4 unbroken, 5-6 are the encore
     assert [t.set for t in show.tracks][-2:] == ["encore", "encore"]
     assert show.set_breaks == [4]
     assert show.structure is not None and show.structure.alignment == "override"
@@ -2482,7 +2487,8 @@ def test_2b_never_judges_an_override_title(tmp_path):
     """Spec 576-577 (orchestrator ruling M9): a track position named in
     `overrides.titles` gets neither a demotion nor a demotion note."""
     sws = ShowWorkspace(tmp_path / "s")
-    write_artifact(sws.overrides, Overrides(titles={1: "Tuning Up", 3: "Two Djinn"}))
+    write_artifact(sws.overrides, Overrides(titles={"01.tuningup.mp3": "Tuning Up",
+                                                    "03.twodjinn.mp3": "Two Djinn"}))
     res = compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
                          F_IDENT, jerrybase_enabled=False)
     tracks = res.show.tracks
@@ -2699,8 +2705,9 @@ def test_2a_never_judges_an_overridden_position(tmp_path):
     sws = ShowWorkspace(tmp_path / "s")
     j_names = _files_tagged(ia, "J >")
     probe = compute_gather(ShowWorkspace(tmp_path / "probe"), ia, None, cand, T_IDENT, jerrybase_enabled=False)
-    n = next(t.index for t in probe.show.tracks if t.filename in j_names)
-    write_artifact(sws.overrides, Overrides(titles={n: "Jam"}))
+    j = next(t for t in probe.show.tracks if t.filename in j_names)
+    n = j.index
+    write_artifact(sws.overrides, Overrides(titles={j.filename: "Jam"}))
     res = compute_gather(sws, ia, None, cand, T_IDENT, jerrybase_enabled=False)
     assert (res.show.tracks[n - 1].title, res.show.tracks[n - 1].title_source) == ("Jam", "override")
     assert not any(note.startswith(f"accepted short tag title: track {n} ") for note in res.notes)
@@ -3510,9 +3517,10 @@ def test_structure_override_bypasses_the_taper(tmp_path, monkeypatch):
     def boom(*a, **k):
         raise AssertionError("decide_taper must not run on the override path")
 
-    oracle = _oracle(tmp_path, monkeypatch, md, overrides=Overrides(set_breaks=[3]))
+    breaks = Overrides(set_breaks=["tb1999-07-04t03.mp3"])
+    oracle = _oracle(tmp_path, monkeypatch, md, overrides=breaks)
     monkeypatch.setattr(taper_mod, "decide_taper", boom)
-    res = _tp_gather(tmp_path, md, overrides=Overrides(set_breaks=[3]))
+    res = _tp_gather(tmp_path, md, overrides=breaks)
     assert res.taper_owned is False
     assert res.taper is None and res.step1_alignment is None
     assert res.show.structure.alignment == "override"
@@ -4411,7 +4419,8 @@ def test_short_kept_survives_to_show_json(tmp_path):
     md = _sk_md(_SK_TITLES, TP_DESC)
     plain = _tp_gather(tmp_path, md, sub="a")
     assert [t.title for t in plain.show.tracks if t.short_kept] == ["Murph"]
-    ovr = _tp_gather(tmp_path, md, sub="b", overrides=Overrides(set_breaks=[3, 6]))
+    ovr = _tp_gather(tmp_path, md, sub="b",
+                     overrides=Overrides(set_breaks=["tb1999-07-04t03.mp3", "tb1999-07-04t06.mp3"]))
     assert [t.title for t in ovr.show.tracks if t.short_kept] == ["Murph"]
     owned = _tp_gather(tmp_path, md, sub="c")
     assert owned.taper_owned is True
@@ -4477,3 +4486,58 @@ def test_furthur_tuning_up_short_kept_is_noted_wholly_junk(tmp_path):
     t10 = res.show.tracks[9]
     assert (t10.title, t10.short_kept) == ("Tuning Up", True)
     assert "short-kept track 10 'Tuning Up': its final title is wholly junk" in res.notes
+
+
+# --- piece 4 spec 4.1: filename-valued positional overrides, one resolver ---
+
+def _windsor_kept() -> list[str]:
+    md = json.loads((FIXTURES / "gd74_windsor_metadata.json").read_text())
+    kept, _, _ = filter_files(md["files"], want_format=("VBR MP3",))
+    return [f["name"] for f in kept]
+
+
+def test_delmccoury_shape_through_gather(tmp_path: Path):
+    """The delmccouryband-2008-05-24 shape (18 filename titles plus `set_breaks: []`):
+    the structure-override path, forced no breaks, each title on its own file."""
+    names = _windsor_kept()
+    titles = {names[i]: f"Song {i + 1}" for i in range(18)}
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(titles=titles, set_breaks=[]))
+    res = compute_gather(sws, gd74_ia(), None, gd74_candidate(), W_IDENT)
+    show = res.show
+    assert show.structure.alignment == "override"
+    assert show.set_breaks == []
+    assert {t.set for t in show.tracks} == {"1"}
+    by_file = {t.filename: t for t in show.tracks}
+    for name, title in titles.items():
+        assert by_file[name].title == title and by_file[name].title_source == "override"
+
+
+def test_gather_refuses_a_legacy_overrides_file(tmp_path: Path):
+    from llama.errors import LlamaError
+    sws = ShowWorkspace(tmp_path / "show")
+    sws.dir.mkdir(parents=True)
+    sws.overrides.write_text(json.dumps({"titles": {"1": "Custom Opener"}}))
+    with pytest.raises(LlamaError) as e:
+        compute_gather(sws, StubIA(), None, make_candidate(), IDENT)
+    # The library slug of the performance, never the workspace dir name (`show`).
+    assert str(e.value) == ("gratefuldead-1973-06-10: overrides.json uses track-number "
+                            "keys; run the migration")
+
+
+def test_filename_title_follows_its_file_across_an_insertion(tmp_path: Path):
+    """Piece 4 keeps the short D3_T02 at track 17 of windsor, shifting every later
+    file one place. A title keyed by filename stays on its file: D3_T03 (track 17
+    before the insertion, 18 now) carries it, and the file now at 17 does not."""
+    names = _windsor_kept()
+    assert names[16] == "GD_022474_D3_T02.mp3" and names[17] == "GD_022474_D3_T03.mp3"
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(titles={"GD_022474_D3_T03.mp3": "Forced"},
+                                            encore_after="GD_022474_D4_T06.mp3"))
+    show = compute_gather(sws, gd74_ia(), None, gd74_candidate(), W_IDENT).show
+    assert show.tracks[16].short_kept and show.tracks[16].title != "Forced"
+    assert show.tracks[17].filename == "GD_022474_D3_T03.mp3"
+    assert show.tracks[17].title == "Forced" and show.tracks[17].title_source == "override"
+    assert [t.set for t in show.tracks][-1] == "encore"
+    assert show.tracks[26].filename == "GD_022474_D4_T06.mp3"
+    assert show.set_breaks == [27]

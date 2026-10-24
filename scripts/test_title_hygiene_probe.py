@@ -84,8 +84,9 @@ def _library(root: Path) -> Path:
         if f["name"].endswith(("D1_T04.mp3", "D1_T05.mp3", "D1_T06.mp3")):
             f["title"] = None
     ws = _gathered_show(root, GD74, gd74, W_IDENT, mapping)
-    write_artifact(ws.overrides, Overrides(titles={1: "Operator Title", 4: "Fourth"},
-                                           set_breaks=[10]))
+    write_artifact(ws.overrides, Overrides(titles={"GD_022474_D1_T01.mp3": "Operator Title",
+                                                   "GD_022474_D1_T04.mp3": "Fourth"},
+                                           set_breaks=["GD_022474_D1_T10.mp3"]))
 
     num = json.loads((FIXTURES / "gd73_metadata.json").read_text())
     num["metadata"]["description"] = NUMBERED_DESC
@@ -162,8 +163,9 @@ def test_strips_titles_and_structure_overrides_in_the_shadow(tmp_path):
     _, rows = _dump(tmp_path)
     assert hashlib.sha256(live.read_bytes()).hexdigest() == before
     r = next(r for r in rows if r["slug"] == GD74)
-    assert r["stripped"] == {"titles": {"1": "Operator Title", "4": "Fourth"}, "set_breaks": [10],
-                              "encore_after": None}
+    assert r["stripped"] == {"titles": {"GD_022474_D1_T01.mp3": "Operator Title",
+                                        "GD_022474_D1_T04.mp3": "Fourth"},
+                             "set_breaks": ["GD_022474_D1_T10.mp3"], "encore_after": None}
     assert r["structure_override"] is True and r["title_override"] is True
     assert r["today"][0]["title"] != "Operator Title"
     assert r["today_as_is"][0] == {"title": "Operator Title", "source": "override"}

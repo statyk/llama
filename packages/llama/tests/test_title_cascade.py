@@ -24,6 +24,7 @@ from llama.stages.gather import (CanonicalBuild, build_canonical, compute_gather
                                  gather_cleaner, title_cascade, title_inputs)
 from llama.structure import fuzzy_norm_title
 from llama.title_hygiene import ALL_SLICES
+from llama.util import slugify
 from llama.workspace import ShowWorkspace, read_overrides, write_artifact
 
 from test_stage_gather import (FIXTURE, FURTHUR, F_IDENT, IDENT, REAL_TITLES, SIB_ID, T_IDENT,
@@ -49,7 +50,8 @@ def _inputs_like_gather(sws: ShowWorkspace, ia, cand: Candidate, ident: str, *, 
             return build_canonical(ia, cand, ident, meta, kept, artist, events,
                                    setlistfm=None, provider=None)
     return title_inputs(md, read_overrides(sws), ia=ia, candidate=cand, identifier=ident,
-                        artist=artist, want=MP3, events=events, build=build)
+                        artist=artist, want=MP3, events=events, build=build,
+                        slug=slugify(cand.performance_id))
 
 
 def _today(sws: ShowWorkspace, ia, cand: Candidate, ident: str):
@@ -180,7 +182,8 @@ def test_gather_threads_enabled_slices_to_the_cascade(tmp_path: Path, case, with
     sws = ShowWorkspace(tmp_path / "s")
     if with_overrides:
         kept, _, _ = filter_files(ia.metadata(ident)["files"], want_format=MP3)
-        write_artifact(sws.overrides, Overrides(titles={1: "Operator Title", 2: "Second"},
+        write_artifact(sws.overrides, Overrides(titles={kept[0]["name"]: "Operator Title",
+                                                        kept[1]["name"]: "Second"},
                                                 exclude=[kept[-1]["name"]]))
     tracks, notes, sib_notes = _today(sws, ia, cand, ident)
     out = title_cascade(_inputs_like_gather(sws, ia, cand, ident), enabled=NONE)
@@ -211,7 +214,9 @@ def test_cascade_cases_are_not_vacuous(tmp_path: Path):
 
 def test_cascade_out_of_range_override_raises_like_gather(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
-    write_artifact(sws.overrides, Overrides(titles={9: "Nope"}))
+    # A title naming a file not in the track list (spec 4.1: the resolver's dangling
+    # refusal, raised by `title_inputs` on both paths).
+    write_artifact(sws.overrides, Overrides(titles={"gd73-06-10d9t09.mp3": "Nope"}))
     with pytest.raises(LlamaError) as today:
         compute_gather(sws, StubIA(), None, make_candidate(), IDENT)
     with pytest.raises(LlamaError) as cascade:
@@ -260,7 +265,7 @@ def test_gd73_chosen_canonical_s_fill_survives(tmp_path: Path):
 
 def test_override_positions_are_not_s_positions(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
-    write_artifact(sws.overrides, Overrides(titles={6: "Forced Encore"}))
+    write_artifact(sws.overrides, Overrides(titles={"gd73-06-10d3t01.mp3": "Forced Encore"}))
     out = title_cascade(_inputs_like_gather(sws, StubIA(), make_candidate(), IDENT),
                         enabled=ALL_SLICES)
     plan = out.record.s_plan
@@ -412,7 +417,8 @@ def test_overrides_survive_every_new_rung_and_anchor_check_3(tmp_path: Path):
     source `override`: C neither changes nor notes it, D never fills it. As an independent
     title it anchors check 3 and slice 4's neighbour test: one disagreeing with its entry
     makes D fail `tape agreement` (and the deferred S decline with it) and slice 4 decline."""
-    out = _syn(tmp_path, overrides=Overrides(titles={2: "Bravo", 6: "Foxtrot"}))
+    out = _syn(tmp_path, overrides=Overrides(titles={"tb1999-07-04d1t02.mp3": "Bravo",
+                                                     "tb1999-07-04d1t06.mp3": "Foxtrot"}))
     t = out.tracks
     assert (t[1].title, t[1].title_source) == ("Bravo", "override")
     assert (t[5].title, t[5].title_source) == ("Foxtrot", "override")
@@ -422,7 +428,8 @@ def test_overrides_survive_every_new_rung_and_anchor_check_3(tmp_path: Path):
     assert out.record.d is not None and out.record.d.failed == ()
     assert out.record.short4 == (3,)
 
-    out = _syn(tmp_path, overrides=Overrides(titles={2: "Zulu", 6: "Foxtrot"}))
+    out = _syn(tmp_path, overrides=Overrides(titles={"tb1999-07-04d1t02.mp3": "Zulu",
+                                                     "tb1999-07-04d1t06.mp3": "Foxtrot"}))
     t = out.tracks
     assert (t[1].title, t[1].title_source) == ("Zulu", "override")
     assert [c for c, _ in out.record.d.failed] == ["tape agreement"]
@@ -556,7 +563,8 @@ def test_shifted_set_demotion_never_touches_an_override(tmp_path: Path):
     the note; with every demoted position overridden, there is no note."""
     ia, cand, ident = _dso_2014_07_31()
     sws = ShowWorkspace(tmp_path / "s")
-    write_artifact(sws.overrides, Overrides(titles={3: "Greatest Story Ever Told"}))
+    write_artifact(sws.overrides, Overrides(titles={"dso2014-07-31d1t03.mp3":
+                                                    "Greatest Story Ever Told"}))
     res = compute_gather(sws, ia, None, cand, ident)
     t = res.show.tracks
     assert (t[2].title, t[2].title_source) == ("Greatest Story Ever Told", "override")

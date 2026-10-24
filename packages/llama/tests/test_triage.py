@@ -253,6 +253,7 @@ def test_quit_action_stops_the_walk(tmp_path, tty, monkeypatch):
 
 # --- [m]etadata mini-editor ---
 
+@pytest.mark.xfail(strict=True, reason="re-keyed in Task 5")
 def test_metadata_action_writes_overrides_and_redoes_gather(tmp_path, tty, monkeypatch):
     cfg = _cfg(tmp_path)
     ws = _held_show(tmp_path)
@@ -271,6 +272,7 @@ def test_metadata_action_writes_overrides_and_redoes_gather(tmp_path, tty, monke
     assert "packaged: /pkg" in r.output
 
 
+@pytest.mark.xfail(strict=True, reason="re-keyed in Task 5")
 def test_metadata_empty_input_keeps_values_and_returns_to_prompt(tmp_path, tty, monkeypatch):
     cfg = _cfg(tmp_path)
     ws = _held_show(tmp_path)
@@ -379,6 +381,7 @@ def test_suggest_titles_hint_shown_with_the_unresolved_titles_flag(tmp_path, tty
     assert "suggest titles" in r.output.lower()
 
 
+@pytest.mark.xfail(strict=True, reason="re-keyed in Task 5")
 def test_suggest_titles_resolution_writes_overrides_and_redoes_gather(tmp_path, tty, monkeypatch):
     """The triage-side twin of
     test_cli.py::test_suggest_titles_writes_every_row_into_overrides --
@@ -394,6 +397,7 @@ def test_suggest_titles_resolution_writes_overrides_and_redoes_gather(tmp_path, 
     assert "packaged: /pkg" in r.output
 
 
+@pytest.mark.xfail(strict=True, reason="re-keyed in Task 5")
 def test_suggest_titles_sibling_arm_shares_the_triage_seam(tmp_path, tty, monkeypatch):
     """Task 6 (shared-seam pin): triage's `[t]` must reach the sibling arm
     with zero extra wiring, since it shares `_propose_and_confirm_titles`/

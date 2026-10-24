@@ -1090,7 +1090,10 @@ def test_a_cleared_outcome_is_not_dropped(tmp_path, monkeypatch):
 
 def test_reapply_on_refused_overrides_raises_and_writes_nothing(tmp_path, monkeypatch):   # (pin)
     root, config, ledger, entry, _ = _env(tmp_path)
-    write_artifact(entry.ws.overrides, Overrides(set_breaks=[2, 4], encore_after=4))
+    # gd73's tracks 2 and 4, then the encore after track 4: gather refuses the encore.
+    write_artifact(entry.ws.overrides, Overrides(
+        set_breaks=["gd73-06-10d1t02.mp3", "gd73-06-10d2t01.mp3"],
+        encore_after="gd73-06-10d2t01.mp3"))
     before = _snapshot(entry.ws)
     with pytest.raises(LlamaError, match="overrides\\.(encore_after|set_breaks)"):
         _run(config, ledger, entry)

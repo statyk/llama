@@ -139,7 +139,8 @@ def test_set_title(tmp_path, monkeypatch):
     _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--set-title", "1=Bertha")
     assert r.exit_code == 0, r.output
-    assert read_overrides(ws).titles == {1: "Bertha"}
+    # Stored by the file show.json's track 1 names (spec 4.2).
+    assert read_overrides(ws).titles == {"a.mp3": "Bertha"}
 
 
 def test_clear_title(tmp_path, monkeypatch):
@@ -154,39 +155,39 @@ def test_clear_title(tmp_path, monkeypatch):
 
 def test_set_breaks_and_clear(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _gathered_show(tmp_path)
+    ws = _six_track_show(tmp_path)
     _stub_redo(monkeypatch)
-    cli_invoke(cfg, "fix", "gratefuldead", "--set-breaks", "9,17")
-    assert read_overrides(ws).set_breaks == [9, 17]
+    cli_invoke(cfg, "fix", "gratefuldead", "--set-breaks", "2,4")
+    assert read_overrides(ws).set_breaks == [_SIX[1], _SIX[3]]
     cli_invoke(cfg, "fix", "gratefuldead", "--clear-set-breaks")
     assert read_overrides(ws).set_breaks is None
 
 
 def test_set_encore_and_clear(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _gathered_show(tmp_path)
+    ws = _six_track_show(tmp_path)
     _stub_redo(monkeypatch)
-    cli_invoke(cfg, "fix", "gratefuldead", "--set-encore", "16")
-    assert read_overrides(ws).encore_after == 16
+    cli_invoke(cfg, "fix", "gratefuldead", "--set-encore", "5")
+    assert read_overrides(ws).encore_after == _SIX[4]
     cli_invoke(cfg, "fix", "gratefuldead", "--clear-encore")
     assert read_overrides(ws).encore_after is None
 
 
 def test_set_encore_composes_with_set_breaks(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _gathered_show(tmp_path)
+    ws = _six_track_show(tmp_path)
     _stub_redo(monkeypatch)
-    cli_invoke(cfg, "fix", "gratefuldead", "--set-breaks", "7", "--set-encore", "16")
+    cli_invoke(cfg, "fix", "gratefuldead", "--set-breaks", "2", "--set-encore", "5")
     ov = read_overrides(ws)
-    assert ov.set_breaks == [7]
-    assert ov.encore_after == 16
+    assert ov.set_breaks == [_SIX[1]]
+    assert ov.encore_after == _SIX[4]
 
 
 def test_set_encore_redoes_from_gather(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    _gathered_show(tmp_path)
+    _six_track_show(tmp_path)
     _stub_redo(monkeypatch)
-    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-encore", "16", "--no-run")
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-encore", "5", "--no-run")
     assert r.exit_code == 0, r.output
     assert "--from gather" in r.output
 
@@ -687,11 +688,12 @@ def test_a_no_op_exclude_still_reports_the_override_list(tmp_path, monkeypatch):
 
 # --- slice 7: --untitled (spec "Slice 7") ---
 
-def _all_unresolved_show(tmp_path, n=3):
+def _all_unresolved_show(tmp_path, n=3, names=None):
     ws = _held_show(tmp_path)
     show = read_model(ws.show, Show)
-    show.tracks = [Track(index=i, set="1", title=f"t{i:02d}.mp3", filename=f"t{i:02d}.mp3",
-                         title_source="unresolved") for i in range(1, n + 1)]
+    names = names or [f"t{i:02d}.mp3" for i in range(1, n + 1)]
+    show.tracks = [Track(index=i, set="1", title=f, filename=f,
+                         title_source="unresolved") for i, f in enumerate(names, 1)]
     show.review_flags = ["unresolved track titles"]
     write_artifact(ws.show, show)
     return ws
@@ -737,7 +739,8 @@ def test_untitled_one_confirmation_writes_titles_narration_and_one_set_then_redo
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
     assert r.exit_code == 0, r.output
     ov = read_overrides(ws)
-    assert ov.titles == {1: "Untitled (track 1)", 2: "Untitled (track 2)", 3: "Untitled (track 3)"}
+    assert ov.titles == {"t01.mp3": "Untitled (track 1)", "t02.mp3": "Untitled (track 2)",
+                         "t03.mp3": "Untitled (track 3)"}
     assert ov.narration == "vague" and ov.set_breaks == []
     assert ov.encore_after is None
     assert calls == ["gather"] and "packaged: /pkg" in r.output
@@ -747,8 +750,9 @@ def test_untitled_clears_a_pre_existing_encore_so_the_tape_is_one_set(tmp_path, 
     """The confirmation promises "one set"; a leftover encore_after would still
     relabel the tail "encore" (final review I2)."""
     cfg = _cfg(tmp_path)
-    ws = _all_unresolved_show(tmp_path, n=6)
-    write_artifact(ws.overrides, Overrides(encore_after=3))
+    # gd73's own filenames: the real gather below resolves the written keys on them.
+    ws = _all_unresolved_show(tmp_path, names=_SIX)
+    write_artifact(ws.overrides, Overrides(encore_after=_SIX[2]))
     _stub_redo(monkeypatch, result=Path("/pkg"))
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
     assert r.exit_code == 0, r.output
@@ -774,7 +778,7 @@ def test_untitled_is_refused_on_a_zero_track_show(tmp_path, monkeypatch):
 def test_untitled_declined_says_so_exits_zero_and_leaves_overrides_alone(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
     ws = _all_unresolved_show(tmp_path)
-    write_artifact(ws.overrides, Overrides(encore_after=2))
+    write_artifact(ws.overrides, Overrides(encore_after="t02.mp3"))
     before = ws.overrides.read_bytes()
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="n\n")
@@ -819,7 +823,8 @@ def test_untitled_gather_makes_no_align_structure_call(tmp_path):
     # the override path (set_breaks=[]) skips align(): run the real gather on gd73 with an align provider
     # that would fail if called
     ws = ShowWorkspace(tmp_path / "s")
-    write_artifact(ws.overrides, Overrides(titles={i: f"Untitled (track {i})" for i in range(1, 7)},
+    write_artifact(ws.overrides, Overrides(titles={f: f"Untitled (track {i})"
+                                                   for i, f in enumerate(_SIX, 1)},
                                            narration="vague", set_breaks=[]))
 
     class Boom:
@@ -853,7 +858,8 @@ def _billy_shape(tmp_path, monkeypatch):
     # the dir name must be slugify(performance_id): process_show writes there
     sws = _staged_ymsb_show(tmp_path, monkeypatch, slug="yondermountainstringband-2005-12-31")
     write_artifact(sws.selection, {"identifier": "ymsb2005-12-31.flac16.wav"})
-    write_artifact(sws.overrides, Overrides(narration="vague", titles={1: "Kirby Hill"}))
+    write_artifact(sws.overrides, Overrides(narration="vague",
+                                            titles={"ymsb2005-12-31d01t01.mp3": "Kirby Hill"}))
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     return tmp_path / "config.toml", sws
 
@@ -871,7 +877,7 @@ def test_a_refused_structure_fix_leaves_every_file_byte_identical(tmp_path, monk
 def test_no_run_stages_bad_overrides_and_the_redo_restores_and_names_the_field(tmp_path, monkeypatch):   # C3
     cfg, sws = _billy_shape(tmp_path, monkeypatch)
     assert cli_invoke(cfg, "fix", "yonder", "--set-breaks", "10,20", "--set-encore", "20", "--no-run").exit_code == 0
-    assert read_overrides(sws).encore_after == 20
+    assert read_overrides(sws).encore_after == "ymsb2005-12-31d03t02.mp3"   # show.json's track 20
     before = tree_bytes(sws.dir)
     r = cli_invoke(cfg, "redo", "yonder", "--from", "gather")
     assert r.exit_code == 1 and "encore_after" in str(r.exception) and tree_bytes(sws.dir) == before
@@ -879,10 +885,10 @@ def test_no_run_stages_bad_overrides_and_the_redo_restores_and_names_the_field(t
 
 def test_a_fix_adding_one_override_keeps_the_others(tmp_path, monkeypatch):   # (pin)
     cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _stub_redo(monkeypatch)
-    write_artifact(ws.overrides, Overrides(exclude=["junk.mp3"], venue="Hall", titles={2: "Dew"}, narration="vague"))
+    write_artifact(ws.overrides, Overrides(exclude=["junk.mp3"], venue="Hall", titles={"a.mp3": "Dew"}, narration="vague"))
     assert cli_invoke(cfg, "fix", "gratefuldead", "--set-city", "Austin, TX").exit_code == 0
     ov = read_overrides(ws)
-    assert (ov.exclude, ov.venue, ov.titles, ov.narration, ov.city) == (["junk.mp3"], "Hall", {2: "Dew"}, "vague", "Austin, TX")
+    assert (ov.exclude, ov.venue, ov.titles, ov.narration, ov.city) == (["junk.mp3"], "Hall", {"a.mp3": "Dew"}, "vague", "Austin, TX")
 
 
 def _held(ws):
@@ -962,7 +968,8 @@ def test_untitled_failure_after_the_overrule_restores_everything(tmp_path, monke
 def test_fix_on_a_show_with_no_show_json_takes_metadata_and_filename_edits(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
     ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
-    write_artifact(ws.overrides, Overrides(set_breaks=[10, 20], encore_after=20))
+    write_artifact(ws.overrides, Overrides(set_breaks=["gd73-06-10d1t10.mp3", "gd73-06-10d2t10.mp3"],
+                                           encore_after="gd73-06-10d2t10.mp3"))
     assert cli_invoke(cfg, "fix", "gratefuldead", "--clear-encore", "--no-run").exit_code == 0
     assert read_overrides(ws).encore_after is None
     assert cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "junk.mp3", "--no-run").exit_code == 0
@@ -994,3 +1001,100 @@ def test_a_track_number_exclude_without_show_json_refuses_and_changes_nothing(tm
     assert r.exit_code == 1 and "resolving a track number needs show.json" in r.output
     assert f"rebuild it with: llama redo {ws.dir.name} --from gather" in r.output
     assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()
+
+
+# --- piece 4 spec 4.2: writers take show.json numbers, store filenames ---
+
+_SIX = ["gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+        "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+
+
+def _six_track_show(tmp_path: Path) -> ShowWorkspace:
+    ws = _gathered_show(tmp_path)
+    show = read_model(ws.show, Show)
+    write_artifact(ws.show, show.model_copy(update={"tracks": [
+        Track(index=i + 1, set="1", title=f"Song {i + 1}", filename=f,
+              title_source="tags") for i, f in enumerate(_SIX)]}))
+    return ws
+
+
+def test_set_title_writes_the_show_json_filename(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _six_track_show(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-title", "3=X", "--no-run")
+    assert r.exit_code == 0, r.output
+    assert json.loads(ws.overrides.read_text())["titles"] == {_SIX[2]: "X"}
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-breaks", "2,4", "--set-encore", "5",
+                   "--no-run")
+    assert r.exit_code == 0, r.output
+    raw = json.loads(ws.overrides.read_text())
+    assert raw["set_breaks"] == [_SIX[1], _SIX[3]]
+    assert raw["encore_after"] == _SIX[4]
+    assert raw["titles"] == {_SIX[2]: "X"}
+    # A numeric --clear-title translates the same way.
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--clear-title", "3", "--no-run")
+    assert r.exit_code == 0, r.output
+    assert json.loads(ws.overrides.read_text())["titles"] == {}
+
+
+def test_edit_overrides_translates_through_show_json(tmp_path):
+    ws = _six_track_show(tmp_path)
+    ov = cli._edit_overrides(ws, set_titles={1: "A", "6": "F"}, set_breaks=[3],
+                             encore_after=4)
+    assert ov.titles == {_SIX[0]: "A", _SIX[5]: "F"}
+    assert ov.set_breaks == [_SIX[2]] and ov.encore_after == _SIX[3]
+    # A non-digit clear_titles item is a filename, removed as given.
+    ov = cli._edit_overrides(ws, clear_titles=[_SIX[5], "1"])
+    assert ov.titles == {}
+    with pytest.raises(LlamaError, match=r"^no track 7 \(show has 6 tracks\)$"):
+        cli._edit_overrides(ws, set_titles={7: "X"})
+    with pytest.raises(LlamaError, match=r"^no track 0 \(show has 6 tracks\)$"):
+        cli._edit_overrides(ws, set_breaks=[0])
+    # set_breaks=[] needs no translation (forced no breaks is preserved).
+    assert cli._edit_overrides(ws, set_breaks=[]).set_breaks == []
+
+
+def test_edit_overrides_needs_show_json_to_translate(tmp_path):
+    ws = _six_track_show(tmp_path)
+    ws.show.unlink()
+    with pytest.raises(LlamaError, match="llama redo gratefuldead-1973-06-10 --from gather"):
+        cli._edit_overrides(ws, set_titles={1: "X"})
+    with pytest.raises(LlamaError, match="llama redo gratefuldead-1973-06-10 --from gather"):
+        cli._edit_overrides(ws, encore_after=2)
+    # Nothing to translate: filename clears and the non-positional edits still work.
+    write_artifact(ws.overrides, Overrides(titles={_SIX[0]: "A"}, set_breaks=[_SIX[1]],
+                                           encore_after=_SIX[2]))
+    ov = cli._edit_overrides(ws, clear_titles=[_SIX[0]], clear_set_breaks=True,
+                             clear_encore=True, venue="Hall")
+    assert (ov.titles, ov.set_breaks, ov.encore_after, ov.venue) == ({}, None, None, "Hall")
+
+
+def test_edit_overrides_refuses_a_legacy_file(tmp_path):
+    ws = _six_track_show(tmp_path)
+    ws.overrides.write_text(json.dumps({"titles": {"3": "X"}, "set_breaks": [2]}))
+    before = ws.overrides.read_bytes()
+    for kwargs in ({"venue": "Hall"}, {"set_titles": {1: "A"}}, {"narration": "vague"},
+                   {"add_exclude": [_SIX[0]]}, {"clear_set_breaks": True}):
+        with pytest.raises(LlamaError) as e:
+            cli._edit_overrides(ws, **kwargs)
+        assert str(e.value) == ("gratefuldead-1973-06-10: overrides.json uses track-number "
+                                "keys; run the migration")
+        assert ws.overrides.read_bytes() == before
+
+
+def test_legacy_message(tmp_path):
+    ws = _six_track_show(tmp_path)
+    slug = "gratefuldead-1973-06-10"
+    assert cli._legacy_message(ws, slug) is None                      # no file
+    write_artifact(ws.overrides, Overrides(titles={_SIX[0]: "A"}))
+    assert cli._legacy_message(ws, slug) is None                      # migrated
+    ws.overrides.write_text(json.dumps({"encore_after": 4}))
+    assert cli._legacy_message(ws, slug) == (
+        f"{slug}: overrides.json uses track-number keys; run the migration")
+    # A mixed file holds a legacy value too (spec 4.1 "Writers refuse legacy": "any
+    # legacy value"): the writers refuse it, with the resolver's mixed message.
+    ws.overrides.write_text(json.dumps({"titles": {"1": "A"}, "set_breaks": [_SIX[1]]}))
+    assert cli._legacy_message(ws, slug) == (
+        f"{slug}: overrides.json mixes track-number and filename keys (filename-valued: "
+        f"set_breaks {_SIX[1]}); undo the hand edit")

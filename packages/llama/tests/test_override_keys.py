@@ -72,6 +72,14 @@ def test_old_model_rejects_a_migrated_file(migrated):
         _v2_17_0().model_validate_json(json.dumps(migrated))
 
 
+def test_new_model_parses_every_form():
+    """Both forms always parse (spec 4.1): legacy, filename and mixed."""
+    for raw in ({"titles": {"3": "X"}, "set_breaks": [2, "4"], "encore_after": 5},
+                {"titles": {GD73[2]: "X"}, "set_breaks": [GD73[1]], "encore_after": GD73[4]},
+                {"titles": {"3": "X"}, "set_breaks": [GD73[1]]}):
+        Overrides.model_validate_json(json.dumps(raw))
+
+
 def test_classify():
     for none in ({}, {"set_breaks": []}, {"set_breaks": None}, {"encore_after": None},
                  {"exclude": ["a.mp3"], "narration": "vague", "titles": {}}):
@@ -83,6 +91,13 @@ def test_classify():
     assert classify({"titles": {GD73[2]: "X"}}) == "filename"
     assert classify({"set_breaks": [GD73[1]], "encore_after": GD73[4]}) == "filename"
     assert classify({"titles": {"3": "X"}, "set_breaks": [GD73[1]]}) == "mixed"
+
+
+def test_classify_through_the_model():
+    """On `Overrides.model_dump()`, as the resolver calls it."""
+    assert classify(Overrides(titles={"3": "X"}).model_dump()) == "legacy"
+    assert classify(Overrides(set_breaks=[GD73[1]]).model_dump()) == "filename"
+    assert classify(Overrides(set_breaks=[]).model_dump()) == "none"
 
 
 def test_filename_values_lists_every_filename_valued_entry():
@@ -111,3 +126,51 @@ def test_rekey_raw_refuses_a_number_outside_the_list():
     for bad in ({"titles": {"7": "X"}}, {"set_breaks": [0]}, {"encore_after": -1}):
         with pytest.raises(IndexError):
             rekey_raw(bad, GD73)
+
+
+def test_filename_keys_with_dir_prefix_and_spaces_round_trip():
+    """Review Focus 4: a directory prefix or spaces in a filename value survive the
+    mapping and the resolver exactly."""
+    names = ["gd74-02-24/gd74 d1t01.mp3", "gd74-02-24/gd74 d1t02.mp3",
+             "GD_022474_D3_T02.mp3", "gd74-02-24/gd74 d1t04.mp3"]
+    out = rekey_raw({"titles": {"2": "Two"}, "set_breaks": [3], "encore_after": 3}, names)
+    assert out == {"titles": {names[1]: "Two"}, "set_breaks": [names[2]],
+                   "encore_after": names[2]}
+    ov = Overrides.model_validate_json(json.dumps(out))
+    assert classify(ov.model_dump()) == "filename"
+    pos = resolve_positions(ov, names, slug=SLUG)
+    assert pos == Positions(titles={2: "Two"}, set_breaks=[3], encore_after=3)
+
+
+def test_resolver_maps_filenames_onto_the_kept_list():
+    ov = Overrides(titles={GD73[4]: "Five", GD73[0]: "One"}, set_breaks=[GD73[3], GD73[1]],
+                   encore_after=GD73[4])
+    pos = resolve_positions(ov, GD73, slug=SLUG)
+    assert pos.titles == {5: "Five", 1: "One"}
+    assert pos.set_breaks == [4, 2]
+    assert pos.encore_after == 5
+    # Presence semantics: None stays None, [] stays [] (forced no breaks).
+    assert resolve_positions(Overrides(), GD73, slug=SLUG) == Positions({}, None, None)
+    assert resolve_positions(Overrides(set_breaks=[]), GD73, slug=SLUG).set_breaks == []
+    assert POSITIONAL_KEYS == ("titles", "set_breaks", "encore_after")
+
+
+def test_resolver_refusals():
+    with pytest.raises(LlamaError) as e:
+        resolve_positions(Overrides(titles={"3": "X"}, set_breaks=[]), GD73, slug=SLUG)
+    assert str(e.value) == f"{SLUG}: overrides.json uses track-number keys; run the migration"
+
+    with pytest.raises(LlamaError) as e:
+        resolve_positions(Overrides(titles={"3": "X"}, set_breaks=[GD73[1]],
+                                    encore_after=GD73[4]), GD73, slug=SLUG)
+    assert str(e.value) == (
+        f"{SLUG}: overrides.json mixes track-number and filename keys (filename-valued: "
+        f"set_breaks {GD73[1]}, encore_after {GD73[4]}); undo the hand edit")
+
+    with pytest.raises(LlamaError) as e:
+        resolve_positions(Overrides(titles={"gone-1.mp3": "X", GD73[0]: "Y"},
+                                    encore_after="gone-2.mp3"), GD73, slug=SLUG)
+    assert str(e.value) == (
+        f"{SLUG}: overrides name files not in the track list: titles gone-1.mp3, "
+        f"encore_after gone-2.mp3; clear them with llama fix {SLUG} --clear-title <file> "
+        f"/ --clear-set-breaks / --clear-encore")

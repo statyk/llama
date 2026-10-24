@@ -1390,14 +1390,57 @@ def _resolve_show(config, ledger, name: str):
 _UNSET = object()
 
 
+def _legacy_message(sws, slug: str) -> str | None:
+    """The writers' refusal for the stored `overrides.json` (piece 4 spec 4.1
+    "Writers refuse legacy"): the legacy message when its positional values are
+    track numbers, the mixed message when it mixes the two forms (a mixed file
+    holds a legacy value too, and only undoing the hand edit repairs it), else None
+    (no file, no positional value, or filename-valued). Judged on the file as
+    stored, by `override_keys`' own test. `fix` and triage reuse it before any
+    prompt; `_edit_overrides` before any write."""
+    from llama.override_keys import refusal
+
+    if not sws.overrides.exists():
+        return None
+    try:
+        data = json.loads(sws.overrides.read_text())
+    except (OSError, ValueError):
+        return None          # unreadable: `read_overrides` raises its own error
+    return refusal(slug, data) if isinstance(data, dict) else None
+
+
 def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
                     narration=None,
                     venue=_UNSET, city=_UNSET, date=_UNSET, set_titles=None,
                     clear_titles=(), set_breaks=_UNSET, clear_set_breaks=False,
                     encore_after=_UNSET, clear_encore=False):
+    """Apply one edit to `overrides.json`. The positional arguments take TRACK
+    NUMBERS, the `show.json` numbering the operator saw (`show --tracks`), and are
+    stored as that track's filename (piece 4 spec 4.2 "Writers take track
+    numbers"): `set_titles` keys, `set_breaks` items, `encore_after`, and the
+    all-digit `clear_titles` items (any other item is a filename, removed as given).
+    Refuses (LlamaError, nothing written) a legacy or mixed file, a number outside
+    `show.json`'s track list, and a number to translate with no `show.json`."""
     from llama.workspace import read_overrides
 
+    slug = show_ws.dir.name
+    refused = _legacy_message(show_ws, slug)
+    if refused is not None:
+        raise LlamaError(refused)
     ov = read_overrides(show_ws)
+    names: list[str] | None = None
+
+    def to_file(n) -> str:
+        nonlocal names
+        n = int(n)
+        if names is None:
+            if not show_ws.show.exists():
+                raise LlamaError(f"track {n} names a file through show.json, which is "
+                                 f"missing; rebuild it with: llama redo {slug} --from gather")
+            names = [t.filename for t in read_model(show_ws.show, Show).tracks]
+        if not 1 <= n <= len(names):
+            raise LlamaError(f"no track {n} (show has {len(names)} tracks)")
+        return names[n - 1]
     # Adding to one list removes the same name from the other, so no call that
     # sets only one of them can leave a file in both -- which is what makes
     # gather's "exclude wins" tiebreak (a defined answer for a hand-mangled
@@ -1418,9 +1461,13 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
             include.append(f)
     titles = dict(ov.titles)
     for n in clear_titles:
-        titles.pop(int(n), None)
+        titles.pop(to_file(n) if str(n).strip().isdigit() else str(n), None)
     for n, t in (set_titles or {}).items():
-        titles[int(n)] = t
+        titles[to_file(n)] = t
+    if set_breaks is not _UNSET and set_breaks is not None:
+        set_breaks = [to_file(n) for n in set_breaks]
+    if encore_after is not _UNSET and encore_after is not None:
+        encore_after = to_file(encore_after)
     data = ov.model_copy(update={
         "exclude": exclude,
         "include": include,
