@@ -437,6 +437,18 @@ describe("the 3-consecutive gate", () => {
       expect(got.map((o) => [o.kind, o.key])).toEqual([["repeat", "waf-api"]]);
     });
 
+    it("a resend that fails again keeps the mark: after a clean minute the next presence still sends at once", async () => {
+      const { bucket, got, ok, relay } = await failAtGate();
+      bucket.failPuts.add(RELAY_KEY);
+      expect(await dispatchAlerts(bucket, [broken], [cond("waf-api")], at(3), REPEAT, DONE, relay))
+        .toEqual({ sent: 0, failed: 1 });
+      bucket.failPuts.delete(RELAY_KEY);
+      expect(await dispatchAlerts(bucket, [ok], [], at(4), REPEAT, DONE, relay)).toEqual({ sent: 0, failed: 0 });
+      expect(await dispatchAlerts(bucket, [ok], [cond("waf-api")], at(5), REPEAT, DONE, relay))
+        .toEqual({ sent: 1, failed: 0 });
+      expect(got.map((o) => [o.kind, o.key])).toEqual([["repeat", "waf-api"]]);
+    });
+
     it("the old episode's resolved still goes out when the key clears before any resend", async () => {
       const { bucket, got, ok, relay } = await failAtGate();
       await dispatchAlerts(bucket, [ok], [], at(3), REPEAT, DONE, relay);
