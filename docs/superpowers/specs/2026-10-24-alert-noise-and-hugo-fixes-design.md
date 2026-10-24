@@ -448,12 +448,10 @@ the gate in one line each.
 - Test layout, following the existing suites (antenna vitest; transmitter
   `tests_transmitter/`; Python 3.11-compatible, `test-in-debian12.sh` is the gate).
 
-## Open question for the operator
+## Operator ruling: the five playlist keys stay gated
 
-- `clock-inputs`, `clock-failed`, `guard-crashed`, `guard-unknown` (its read
-  branch: "the clock wrote nothing this minute") and `horizon-missing` mean
-  cron did not write the playlist this minute. That is harmless while the
-  metronome's DO writes, but not when cron is the only writer: `METRONOME` off
-  (rollback), or the DO judged down (`metronome-down`). Should these five skip
-  the gate in those cases? Default if unanswered: gated regardless, as
-  approved; hugo's `dead-clock` (~3–4 min) is the cover.
+`clock-inputs`, `clock-failed`, `guard-crashed`, `guard-unknown` (its read
+branch) and `horizon-missing` mean cron did not write the playlist this
+minute, which matters only when cron is the only writer (`METRONOME` off, or
+the DO judged down). They stay gated in every case (operator, 2026-10-24);
+hugo's `dead-clock` (~3–4 min) is the cover.
