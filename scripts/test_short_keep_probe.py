@@ -610,3 +610,109 @@ def test_sibvocab_filters_kept_tags(tmp_path):
     assert "A" in text and "a1.mp3" in text and "Tuning" in text and "b1.mp3" in text
     for absent in ("a2.mp3", "a3.mp3", "a4.mp3", "b2.mp3"):
         assert absent not in text
+
+
+# ---- reuse-check (spec 8 premises 6-8) ----
+
+def _tree_hash(root):
+    import hashlib
+    h = hashlib.sha256()
+    for p in sorted(root.rglob("*")):
+        h.update(str(p.relative_to(root)).encode())
+        if p.is_file():
+            h.update(p.read_bytes())
+    return h.hexdigest()
+
+
+def _reuse_show(tmp_path, slug, old, new, *, ident="item1", station="paired", voiced=False,
+                sizes=None, lengths=None):
+    """old/new: source filenames in the library show.json / the candidate row. station: 'paired'
+    (manifest + audio for every old file), 'none' (no station dir) or 'foreign' (other item)."""
+    from llama.models import Show, Track
+    lib, st = tmp_path / "lib", tmp_path / "station"
+    d = lib / "shows" / slug
+    d.mkdir(parents=True, exist_ok=True)
+    (lib / "cache").mkdir(exist_ok=True)
+    tracks = [Track(index=i, set="1", title=f"T{f}", filename=f, title_source="tags")
+              for i, f in enumerate(old, 1)]
+    (d / "show.json").write_text(Show(performance_id=slug, identifier=ident, artist="A", date="2000-01-01",
+                                      tracks=tracks).model_dump_json())
+    sizes, lengths = sizes or {}, lengths or {}
+    names = sorted(set(old) | set(new))
+    (lib / "cache" / f"md_{ident}.json").write_text(json.dumps({"files": [
+        {"name": n, "size": str(sizes.get(n, 1000)), "length": str(lengths.get(n, 100.0))} for n in names]}))
+    if station != "none":
+        s = st / slug
+        (s / "audio").mkdir(parents=True, exist_ok=True)
+        mt = []
+        for i, f in enumerate(old, 1):
+            (s / "audio" / f"{i:02d} {f}").write_bytes(b"x")
+            mt.append({"title": f"T{f}", "filename": f"{i:02d} {f}"})
+        (s / "manifest.json").write_text(json.dumps({
+            "source": {"identifier": "other" if station == "foreign" else ident}, "tracks": mt,
+            "dj_audio": {"presenter": None} if voiced else None}))
+    return crow([(f, f"T{f}", "tags", "1", False) for f in new])
+
+
+def _reuse_run(tmp_path, cand, out, *extra, durations=None, monkeypatch=None):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(f'root = "{tmp_path / "lib"}"\ndelivery_path = "{tmp_path / "station"}"\n')
+    (tmp_path / "station").mkdir(exist_ok=True)
+    write_arm(tmp_path / "cand.json", cand)
+    if durations is not None:
+        monkeypatch.setattr(skp, "read_duration", lambda p: durations.get(p.name.split(" ", 1)[-1]))
+    return skp.main(["reuse-check", "--cand", str(tmp_path / "cand.json"), "--config", str(cfg),
+                     "--out", str(out), *extra])
+
+
+def test_reuse_check_counts_fallbacks_and_times(tmp_path, monkeypatch):
+    cand = {"s1": _reuse_show(tmp_path, "s1", ["a.mp3", "b.mp3", "c.mp3"], ["a.mp3", "b.mp3", "c.mp3", "d.mp3"])}
+    # a ok, b off by 30 s, c unreadable, d new
+    rc = _reuse_run(tmp_path, cand, tmp_path / "out",
+                    durations={"a.mp3": 100.0, "b.mp3": 130.0, "c.mp3": None}, monkeypatch=monkeypatch)
+    assert rc == 0
+    md = (tmp_path / "out" / "reuse_check.md").read_text()
+    assert "s1" in md and "paired" in md
+    assert "pass 1" in md and "fallback 3" in md
+    assert "a.mp3: pass" in md
+    assert "b.mp3: fallback (length 130.0s vs metadata 100.0s)" in md
+    assert "c.mp3: fallback (length unreadable)" in md
+    assert "d.mp3: fallback (not paired)" in md
+    assert "wall" in md
+
+
+def test_reuse_check_never_writes(tmp_path, monkeypatch):
+    cand = {"s1": _reuse_show(tmp_path, "s1", ["a.mp3"], ["a.mp3", "b.mp3"])}
+    (tmp_path / "lib" / "shows" / "s1" / "package" / "audio").mkdir(parents=True)
+    (tmp_path / "lib" / "shows" / "s1" / "package" / "audio" / "x.mp3").write_bytes(b"y")
+    before = (_tree_hash(tmp_path / "lib"), _tree_hash(tmp_path / "station"))
+    assert _reuse_run(tmp_path, cand, tmp_path / "out", durations={"a.mp3": 100.0}, monkeypatch=monkeypatch) == 0
+    assert (_tree_hash(tmp_path / "lib"), _tree_hash(tmp_path / "station")) == before
+    assert not (tmp_path / "lib" / "shows" / "s1" / ".audio-aside").exists()
+
+
+def test_uncovered_bytes_sum(tmp_path, monkeypatch):
+    cand = {
+        # paired station: only the new file b.mp3 (size 500) is uncovered
+        "s1": _reuse_show(tmp_path, "s1", ["a.mp3"], ["a.mp3", "b.mp3"], sizes={"b.mp3": 500}),
+        # foreign item station: nothing pairs, every file uncovered (30 + 40)
+        "s2": _reuse_show(tmp_path, "s2", ["a.mp3"], ["a.mp3", "b.mp3"], ident="item2", station="foreign",
+                          sizes={"a.mp3": 30, "b.mp3": 40}),
+        # not delivered: excluded
+        "s3": _reuse_show(tmp_path, "s3", ["a.mp3"], ["a.mp3", "b.mp3"], ident="item3", station="none"),
+        # voiced: excluded
+        "s4": _reuse_show(tmp_path, "s4", ["a.mp3"], ["a.mp3", "b.mp3"], ident="item4", voiced=True),
+        # unchanged track list: excluded
+        "s5": _reuse_show(tmp_path, "s5", ["a.mp3"], ["a.mp3"], ident="item5"),
+    }
+    assert _reuse_run(tmp_path, cand, tmp_path / "out", "--sample", "1", durations={"a.mp3": 100.0},
+                      monkeypatch=monkeypatch) == 0
+    md = (tmp_path / "out" / "reuse_check.md").read_text()
+    assert "changed delivered unvoiced shows: 2" in md
+    assert "uncovered bytes: 570" in md
+
+
+def test_reuse_check_refuses_out_over_delivery_path(tmp_path):
+    cand = {"s1": _reuse_show(tmp_path, "s1", ["a.mp3"], ["a.mp3", "b.mp3"])}
+    assert _reuse_run(tmp_path, cand, tmp_path / "station" / "o") == 2
+    assert not (tmp_path / "station" / "o").exists()

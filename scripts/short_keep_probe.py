@@ -14,6 +14,9 @@
          `score.md` (the bar, every wrong row) and `first10.md` (the operator's premise-2 look).
   sibvocab --ref-dir R1 --out DIR
          `sibvocab.txt`: kept sibling short tags matching the junk vocabulary (premise 3).
+  reuse-check --cand CAND.json [--sample 20 --seed 47] --out DIR
+         `reuse_check.md`: how well audio re-use (spec 5.4) would cover a re-package of the delivered,
+         unvoiced shows the candidate changes (premises 6-8). Read-only; nothing is copied.
   repro  --pre PRE.json --post POST.json --out DIR
          the post-migration self-check (spec 4.3 steps 7 and 9). Writes `repro.md`; exit 1
          on any difference, a show in one arm only, or a replayable row lacking the fields.
@@ -29,12 +32,18 @@ import json
 import random
 import re
 import sys
+import time
 from collections import Counter, defaultdict
 from pathlib import Path
 
 import llama
+from llama import audio_reuse
+from llama.audio import read_duration
 from llama.config import DEFAULT_ROOT, load_config
 from llama.junk import length_seconds
+from llama.models import Show
+from llama.stages.package import DURATION_TOLERANCE_S
+from llama.workspace import ShowWorkspace, read_model
 from llama.replay import CacheOnlyIA
 from llama.replay import flag_family
 
@@ -604,6 +613,118 @@ def repro(args) -> int:
     return 1 if diffs else 0
 
 
+def _delivered_unvoiced(station: Path) -> bool:
+    """A station copy with a readable manifest.json whose `dj_audio` is null or absent."""
+    try:
+        m = json.loads((station / "manifest.json").read_text())
+        return isinstance(m, dict) and m.get("dj_audio") is None
+    except (OSError, ValueError):
+        return False
+
+
+def _file_meta(ia: CacheOnlyIA, ident: str | None) -> dict[str, dict]:
+    try:
+        md = ia.metadata(ident) if ident else {}
+    except Exception:
+        return {}
+    return {f["name"]: f for f in md.get("files", []) if isinstance(f, dict) and "name" in f}
+
+
+def _size(meta: dict[str, dict], name: str) -> int:
+    try:
+        return int(meta.get(name, {}).get("size") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def reuse_check(args) -> int:
+    cand_path = args.cand.expanduser()
+    cfg = load_config(args.config or DEFAULT_ROOT / "config.toml")
+    if cfg.delivery_path is None:
+        raise Refusal("the config has no delivery_path")
+    station_root = cfg.delivery_path.expanduser()
+    out = _guard_out(args.out, args.config, ("candidate arm", cand_path), ("delivery_path", station_root))
+    cand = _load_arm(cand_path)
+    root = cfg.root.expanduser()
+    ia = CacheOnlyIA(root / "cache")
+    changed: dict[str, dict] = {}
+    for slug, row in sorted(cand.items()):
+        if _unreplayable(row) or not isinstance(row.get("filenames"), list):
+            continue
+        station = station_root / slug
+        if not _delivered_unvoiced(station):
+            continue
+        ws = ShowWorkspace(root / "shows" / slug)
+        try:
+            show = read_model(ws.show, Show)
+        except Exception:
+            continue
+        if list(row["filenames"]) == [t.filename for t in show.tracks]:
+            continue
+        changed[slug] = {"row": row, "ws": ws, "station": station, "show": show}
+    uncovered, per_show_bytes = 0, {}
+    for slug, c in changed.items():
+        plan = audio_reuse.plan_reuse(c["ws"], c["station"])
+        c["plan"] = plan
+        meta = _file_meta(ia, c["show"].identifier)
+        c["meta"] = meta
+        files = c["row"]["filenames"]
+        miss = [f for f in files if f not in plan.station]
+        b = sum(_size(meta, f) for f in miss)
+        per_show_bytes[slug] = b
+        uncovered += b
+    sample = sorted(changed)
+    random.Random(args.seed).shuffle(sample)
+    sample = sorted(sample[: args.sample])
+    md = ["# reuse check (spec 8 premises 6-8)", "",
+          f"changed delivered unvoiced shows: {len(changed)}",
+          f"uncovered bytes: {uncovered} (new files, plus every file of a show whose station copy does not pair)",
+          f"sample: {len(sample)} (seed {args.seed})", ""]
+    tot_pass = tot_fb = 0
+    walls = []
+    for slug in sample:
+        c = changed[slug]
+        t0 = time.monotonic()
+        plan = audio_reuse.plan_reuse(c["ws"], c["station"])
+        lines, npass, nfb = [], 0, 0
+        for f in c["row"]["filenames"]:
+            exp = length_seconds(c["meta"].get(f, {}).get("length"))
+            path = plan.station.get(f)
+            if path is None:
+                why = "not paired"
+            elif exp is None:
+                why = "no metadata length"
+            elif not path.is_file():
+                why = "station file missing"
+            else:
+                real = read_duration(path)
+                if real is None:
+                    why = "length unreadable"
+                elif abs(real - exp) > DURATION_TOLERANCE_S:
+                    why = f"length {real:.1f}s vs metadata {exp:.1f}s"
+                else:
+                    why = None
+            if why is None:
+                npass += 1
+                lines.append(f"    {f}: pass")
+            else:
+                nfb += 1
+                lines.append(f"    {f}: fallback ({why})")
+        wall = time.monotonic() - t0
+        walls.append(wall)
+        tot_pass, tot_fb = tot_pass + npass, tot_fb + nfb
+        md += [f"## {slug}", f"  pairing: {'paired' if plan.station else 'not paired'} "
+               f"({len(plan.station)} of {len(c['show'].tracks)} station files)",
+               f"  pass {npass} fallback {nfb}; uncovered bytes {per_show_bytes[slug]}; wall {wall:.3f}s"] + lines + [""]
+    md += ["## totals over the sample", f"  pass {tot_pass} fallback {tot_fb}; "
+           f"wall total {sum(walls):.3f}s, max {max(walls, default=0.0):.3f}s", ""]
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "reuse_check.md").write_text("\n".join(md) + "\n")
+    print(f"reuse-check: {len(changed)} changed delivered unvoiced, sample {len(sample)}: "
+          f"pass {tot_pass} fallback {tot_fb}, uncovered bytes {uncovered}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -633,10 +754,16 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--ref-dir", type=Path, required=True)
     sv.add_argument("--config", type=Path)
     sv.add_argument("--out", type=Path, required=True)
+    rc = sub.add_parser("reuse-check")
+    rc.add_argument("--cand", type=Path, required=True)
+    rc.add_argument("--sample", type=int, default=20)
+    rc.add_argument("--seed", type=int, default=47)
+    rc.add_argument("--config", type=Path)
+    rc.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
     try:
         return {"arms": arms, "repro": repro, "packets": packets, "score": score,
-                "sibvocab": sibvocab}[args.cmd](args)
+                "sibvocab": sibvocab, "reuse-check": reuse_check}[args.cmd](args)
     except Refusal as err:
         print(f"refusing: {err}", file=sys.stderr)
         return 2
