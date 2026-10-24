@@ -366,18 +366,18 @@ console script from a copy. It is a dry run unless `--apply`, and it never gathe
 
 | reason | repair (old binary, before `--apply`) |
 |---|---|
-| the file mixes legacy and filename values | none; listed for the operator |
+| the file mixes legacy and filename values | only a hand edit can produce this (writers refuse legacy files, 4.1): undo that hand edit |
 | `show.json` is missing | `llama-2.17.0 redo <show> --from gather` |
 | a `titles` key is outside `1..len(tracks)` | `llama-2.17.0 fix <show> --clear-title k` |
 | the track at a `titles` key is not `title_source == "override"` with exactly the forced title | `llama-2.17.0 redo <show> --from gather` |
 | **when `set_breaks` or `encore_after` is present**, `show.json`'s `set_breaks` is not exactly `sorted(set_breaks ∪ {encore_after})` | `llama-2.17.0 redo <show> --from gather` |
-| a track filename repeats | none; listed for the operator |
+| a track filename repeats | note the affected keys' values, clear them with `llama-2.17.0 fix <show> --clear-title k` / `--clear-breaks` / `--clear-encore`, then migrate. A filename key cannot name a repeated file, so that show carries no title/break/encore override on those files until the duplicate is resolved (accepted limitation; 0 shows today) |
 | `show.json`'s filename list differs from what the shared helper (4.2) keeps under today's rule (`short_keep=False`) from current metadata plus `include` minus `exclude` (the writers' staleness comparison) | `llama-2.17.0 redo <show> --from gather` |
-| a backup exists while the file is still legacy and is not byte-equal to it | none; listed for the operator |
+| a backup exists while the file is still legacy and is not byte-equal to it | a stale backup from an earlier cycle: move it aside (`mv overrides.pre-rekey.json overrides.pre-rekey.stale.json`); the current legacy file is the truth |
 
 These checks prove that the stored positions, the stored `show.json` and the current inputs
-agree. An ambiguous show is never guessed. A refusal with no route blocks `--apply` until the
-operator resolves it.
+agree. An ambiguous show is never guessed. Every refusal has a route, and `--apply` stays
+blocked until each is taken; 0 shows are refused today.
 
 **`--apply` is all-or-nothing.** It first runs every check over every show with a legacy value.
 If any show would be refused it writes nothing and prints each refusal with its repair.
@@ -403,7 +403,13 @@ all-or-nothing the same way and writes nothing unless every show in the set is u
   rename) and removes the sidecar and the backup;
 - when the current file equals the backup, it reports `already undone` and removes the sidecar
   and the backup;
-- otherwise the show is not undoable, and is named.
+- otherwise the show is not undoable, and is named: the operator edited it after the migration.
+
+Undo is a rollback for the window right after the migration, before migrated shows are edited.
+Once one has been edited, the edit is newer than the backup, and restoring it would silently
+discard that edit, so undo never does. The way forward is a forward fix with the new binary. If
+the operator chooses to roll back anyway, they move that show's backup over `overrides.json` by
+hand, accepting the loss of the later edit; undo then reports it `already undone`.
 
 Undo is only useful together with reinstalling the old binary. Its post-condition is the old
 binary's `llama-2.17.0 redo <show> --from gather` for every show whose `show.json` has a
