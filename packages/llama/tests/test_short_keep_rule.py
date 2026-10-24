@@ -316,6 +316,55 @@ def test_short_kept_names_survive_dedupe_only():
     assert ordering["short_kept"] == ["band1t06.mp3"]
 
 
+def _doubled(short_track: int, *, prefix: str = "band99/") -> list[dict]:
+    """A 7-track tape listed twice, at top level and under an <identifier>/
+    prefix (the ymsb2005 donor shape), every copy carrying its track tag; track
+    `short_track` is an untagged 30 s file. The duplicate track numbers force
+    filename order, where the two listings sort as two blocks."""
+    one = [_mp3(f"band1t0{i}.mp3", track=str(i),
+                length="30.0" if i == short_track else "300.0") for i in range(1, 8)]
+    return one + [{**f, "name": prefix + f["name"]} for f in one]
+
+
+@pytest.mark.parametrize("short_track", [1, 7], ids=["first", "last"])
+def test_doubled_listing_untagged_short_edge_file_drops(short_track):
+    """Spec 2.4 (ruling 4), strict surface (c): play order for the interior
+    test is derived the way filter_files derives it, over one copy per listing.
+    Over both listings, the top-level copy of an untagged short FIRST track has
+    the whole prefixed block after it, and the prefixed copy of an untagged
+    short LAST track has the whole top-level block before it; neither is
+    interior. Both copies drop, as on the single listing."""
+    name = f"band1t0{short_track}.mp3"
+    single_kept, single_excl, _ = filter_files(_doubled(short_track)[:7])
+    assert _reasons(single_excl) == {name: ["implausibly short"]}
+    kept, excluded, ordering = filter_files(_doubled(short_track))
+    assert name not in _names(kept) and "band99/" + name not in _names(kept)
+    reasons = _reasons(excluded)
+    assert reasons[name] == reasons["band99/" + name] == ["implausibly short"]
+    assert ordering["short_kept"] == []
+    assert [f["name"].rsplit("/", 1)[-1] for f in kept] == _names(single_kept)
+
+
+def test_doubled_listing_untagged_short_interior_file_is_kept():
+    kept, excluded, ordering = filter_files(_doubled(4))
+    assert [f["name"] for f in kept] == [f"band1t0{i}.mp3" for i in range(1, 8)]
+    assert ordering["short_kept"] == ["band1t04.mp3"]
+    assert _reasons(excluded)["band99/band1t04.mp3"] == ["duplicate-listing"]
+
+
+def test_doubled_listing_order_follows_unique_tags_after_dedupe():
+    """The "complete and unique" test runs on the collapsed pool too: one copy
+    per listing has unique track tags, so the interior test follows them. The
+    untagged short file is LAST by filename and track 4 by tag: kept."""
+    one = [_mp3(f"band1t0{i}.mp3", track=str(t)) for i, t in
+           zip(range(1, 7), (1, 2, 3, 5, 6, 7))]
+    one.append(_mp3("band1t07.mp3", track="4", length="30.0"))
+    kept, _, ordering = filter_files(one + [{**f, "name": "band99/" + f["name"]} for f in one])
+    assert ordering["order_source"] == "track-tags"
+    assert ordering["short_kept"] == ["band1t07.mp3"]
+    assert [f["name"] for f in kept][3] == "band1t07.mp3"
+
+
 # --- what does not change (spec 2.1, 2.5) ---
 
 def test_other_reasons_untouched():

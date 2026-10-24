@@ -189,6 +189,12 @@ def _title_str(raw: object) -> str | None:
     return None if raw is None else str(raw)
 
 
+def _listing_key(f: dict) -> tuple[str, int]:
+    """`_dedupe_duplicate_listings`' key, (basename, rounded duration), computed
+    the same way it computes it inline; that function is left unchanged."""
+    return (f["name"].rsplit("/", 1)[-1], round(length_seconds(f.get("length")) or 0))
+
+
 def _apply_short_rule(
     files: list[dict], kept: list[dict], excluded: list[dict],
     excluded_files: list[dict], orig_tracks: dict[str, object],
@@ -221,23 +227,35 @@ def _apply_short_rule(
 
     # Play order for the interior test, over kept + tagged keeps + untagged
     # candidates (spam and filename junk are not in it), derived the way
-    # filter_files derives it: track-tag order when every file has a unique
-    # track number, else filename order. Only kept and tagged-kept files count
-    # as neighbours: two untagged files at an edge do not license each other.
+    # filter_files derives it: over ONE copy per listing (after
+    # duplicate-listing dedupe), in track-tag order when every surviving file
+    # has a unique track number, else in the deduped filename order. Only kept
+    # and tagged-kept files count as neighbours: two untagged files at an edge
+    # do not license each other.
+    #
+    # The dedupe is load-bearing: on an item listed twice (top level and under
+    # an <identifier>/ prefix) the duplicate track numbers force filename
+    # order and the two blocks sort apart, so an edge file's top-level copy
+    # would have the whole prefixed block after it and read as interior.
+    # `_dedupe_duplicate_listings` is called as is (unchanged) over the
+    # name-sorted pool, which is what filter_files hands it; every pool file
+    # then takes the position of its listing, keyed by `_listing_key` (the
+    # same key the dedupe computes inline).
     base = kept + tagged_keep
-    pool = base + [f for f, _, _ in untagged]
-    nums = [_track_number(f, orig_tracks) for f in pool]
-    if pool and all(n is not None for n in nums) and len(set(nums)) == len(nums):
-        order = [f for _, f in sorted(zip(nums, pool), key=lambda p: p[0])]
+    pool = sorted(base + [f for f, _, _ in untagged], key=lambda f: f["name"])
+    listings, _ = _dedupe_duplicate_listings(pool)
+    nums = [_track_number(f, orig_tracks) for f in listings]
+    if listings and all(n is not None for n in nums) and len(set(nums)) == len(nums):
+        order = [f for _, f in sorted(zip(nums, listings), key=lambda p: p[0])]
     else:
-        order = sorted(pool, key=lambda f: f["name"])
-    idx = {id(f): i for i, f in enumerate(order)}
-    base_pos = [idx[id(f)] for f in base]
+        order = listings
+    pos = {_listing_key(f): i for i, f in enumerate(order)}
+    base_pos = [pos[_listing_key(f)] for f in base]
     lo, hi = (min(base_pos), max(base_pos)) if base_pos else (None, None)
     untagged_keep = [
         f for f, own, original in untagged
         if short_verdict(f["name"], own, original,
-                         interior=lo is not None and lo < idx[id(f)] < hi) == "keep"
+                         interior=lo is not None and lo < pos[_listing_key(f)] < hi) == "keep"
     ]
 
     back = tagged_keep + untagged_keep
