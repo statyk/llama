@@ -882,3 +882,67 @@ def test_compute_legs_threads_enabled_slices(tmp_path):
     r = replay_show(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"), slfm=None,
                     scratch=tmp_path / "s2", delivered=set(), enabled_slices=frozenset())
     assert r.self_filled is False and r.title_sources == ["setlist"] * 6
+
+
+# --- Task 11: briefing reuse leaves out short-kept tracks (spec 5.3) ---
+
+def _bt(index, fn, title, set_="1", segue=False, **kw):
+    return Track(index=index, set=set_, title=title, filename=fn, title_source="tags", segue=segue, **kw)
+
+
+def _reuse_briefing():
+    return Briefing(context="c", significance="s", per_set={"1": ["x"], "2": ["y"]})
+
+
+def test_reuse_ignores_an_inserted_short_kept_track():
+    old = _show()
+    banter = _bt(2, "banter.mp3", "Banter", "1", short_kept=True)
+    tracks = [old.tracks[0], banter,
+              old.tracks[1].model_copy(update={"index": 3}), old.tracks[2].model_copy(update={"index": 4})]
+    new = old.model_copy(update={"tracks": tracks, "set_breaks": [1]})
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") is None
+
+
+def test_reuse_ignores_an_already_included_short_file_on_both_sides():
+    # the 173 case: the file is in both shows, short_kept only on the new one
+    old_tracks = [_bt(1, "a.mp3", "Dew"), _bt(2, "banter.mp3", "Banter"),
+                  _bt(3, "b.mp3", "Star", "2")]
+    old = _show(tracks=old_tracks, set_breaks=[2])
+    new_tracks = [t.model_copy(update={"short_kept": t.filename == "banter.mp3"}) for t in old_tracks]
+    new = old.model_copy(update={"tracks": new_tracks})
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") is None
+
+
+def test_a_real_track_title_change_still_forces_a_brief():  # (pin)
+    old = _show()
+    banter = _bt(2, "banter.mp3", "Banter", "1", short_kept=True)
+    real = old.tracks[1].model_copy(update={"index": 3, "title": "Dark Star"})
+    new = old.model_copy(update={"tracks": [old.tracks[0], banter, real,
+                                            old.tracks[2].model_copy(update={"index": 4})]})
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") == "broadcast fields changed: titles"
+
+
+def test_banter_sliding_across_a_set_boundary_keeps_the_brief():
+    old = _show()   # a, b | ... break after track 1
+    banter = _bt(2, "banter.mp3", "Banter", "1", short_kept=True)
+    tracks = [old.tracks[0], banter,
+              old.tracks[1].model_copy(update={"index": 3}), old.tracks[2].model_copy(update={"index": 4})]
+    # the break now falls after the banter file (track 2) instead of track 1
+    new = old.model_copy(update={"tracks": tracks, "set_breaks": [2]})
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") is None
+
+
+def test_a_moved_real_break_forces_a_brief():
+    old = _show()
+    new = old.model_copy(update={"set_breaks": [2]})
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") == "broadcast fields changed: set_breaks"
+
+
+def test_guard_still_runs_on_reuse():  # (pin)
+    old = _show()
+    banter = _bt(2, "banter.mp3", "Banter", "1", short_kept=True)
+    tracks = [old.tracks[0], banter,
+              old.tracks[1].model_copy(update={"index": 3}), old.tracks[2].model_copy(update={"index": 4})]
+    new = old.model_copy(update={"tracks": tracks})
+    bad = _reuse_briefing().model_copy(update={"mentioned_songs": ["Nope"]})
+    assert briefing_reusable(old, new, bad, "full").startswith("briefing guard: briefing mentions unknown song: Nope")

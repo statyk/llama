@@ -1147,3 +1147,24 @@ def test_reapply_processes_a_self_filled_stored_llm_show(tmp_path, monkeypatch):
                        dry_run=False, echo=lambda s: None, allow_structure_change=True)
     assert out.outcome == "cleared" and "show.json" in out.written
     assert {t.title_source for t in read_model(entry.ws.show, Show).tracks} == {"desc-position"}
+
+
+def test_reapply_reuses_the_briefing_of_a_held_show_that_gained_a_short_file(tmp_path, monkeypatch):
+    # Task 11: the stored show.json predates the short-keep rule and lacks track 3;
+    # the item's cached metadata now makes that file short, so the replay keeps it
+    # as short_kept. The stored briefing must still be reused.
+    root, config, ledger, entry, _ = _env(tmp_path)
+    md_path = root / "cache" / "md_gd73-06-10.sbd.hollister.174.sbeok.shnf.json"
+    md = json.loads(md_path.read_text())
+    for f in md["files"]:
+        if f["name"].startswith("gd73-06-10d1t03"):
+            f["length"] = "20"
+    md_path.write_text(json.dumps(md))
+    show = read_model(entry.ws.show, Show)
+    tracks = [t.model_copy(update={"index": i}) for i, t in
+              enumerate((t for t in show.tracks if "d1t03" not in t.filename), 1)]
+    write_artifact(entry.ws.show, show.model_copy(update={"tracks": tracks, "set_breaks": [2, 4]}))
+    _stub_package(monkeypatch)
+    out = reapply_show(config, object(), ledger, entry, providers=_providers(), row=None, dry_run=False,
+                       echo=lambda s: None, allow_structure_change=True)
+    assert out.outcome == "cleared" and out.briefing == "reuse", out

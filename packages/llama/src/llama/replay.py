@@ -244,11 +244,25 @@ def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
     per-track titles, sets and segues, set_breaks, date, venue, city
     (title_source is not one: the briefing never sees it)."""
     o, n = stored_show, new_show
+    short = {t.filename for t in n.tracks if t.short_kept}   # spec 5.3: dropped on both sides
+    ot = [t for t in o.tracks if t.filename not in short]
+    nt = [t for t in n.tracks if t.filename not in short]
+    if [t.filename for t in ot] != [t.filename for t in nt]:
+        return "tracks differ"
+
+    def break_keys(show: Show, kept: list) -> list:
+        # a break after track i is keyed by the last remaining track at or before i
+        keys = []
+        for i in show.set_breaks:
+            before = [t.filename for t in kept if t.index <= i]
+            keys.append(before[-1] if before else None)
+        return sorted(keys, key=lambda k: (k is not None, k or ""))
+
     changed = [name for name, differs in (
-        ("titles", [t.title for t in o.tracks] != [t.title for t in n.tracks]),
-        ("sets", [t.set for t in o.tracks] != [t.set for t in n.tracks]),
-        ("segues", [t.segue for t in o.tracks] != [t.segue for t in n.tracks]),
-        ("set_breaks", o.set_breaks != n.set_breaks),
+        ("titles", [t.title for t in ot] != [t.title for t in nt]),
+        ("sets", [t.set for t in ot] != [t.set for t in nt]),
+        ("segues", [t.segue for t in ot] != [t.segue for t in nt]),
+        ("set_breaks", break_keys(o, ot) != break_keys(n, nt)),
         ("date", o.date != n.date),
         ("venue", o.venue != n.venue),
         ("city", o.city != n.city),
