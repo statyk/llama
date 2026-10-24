@@ -399,7 +399,7 @@ is not 10.24 is refused (`horizon-refused`, nothing written), and
 `state/offair.json`, or a horizon more than 24 h stale) plays the notice from
 the fallback, so transmitter publishes NOTHING — no segment, no horizon — until
 `fallback render` has recorded a fallback version in the workspace: every
-publish pass alerts `no fallback rendered` (after 3 consecutive ticks) instead (the gate sits before the
+publish pass alerts `no fallback rendered` instead (gated: after 3 consecutive ticks; the fallback check sits before the
 first PUT, since segment files are dropped only after a horizon PUT and would
 otherwise be re-PUT every tick), and prune likewise refuses to rewrite the
 horizon (`stopped: no-fallback`, before any delete) if `fallback.json` is lost

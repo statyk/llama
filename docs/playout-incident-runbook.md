@@ -5,7 +5,7 @@ and the full operating reference are in `docs/playout-setup.md`; this file
 links to its sections rather than repeating them. Alert keys are listed in
 section 7.1 there.
 
-**Gate.** Alerts for checks that run about every minute page only after 3
+**Gate.** Alerts for the approved list of checks that run about every minute (never the spend or off-air alerts) page only after 3
 consecutive failing observations: minutes for the cloud, service ticks (or
 monitor passes) for hugo. A single failure is logged, not sent, so silence
 after one blip is normal. The first message says it followed 3 consecutive
@@ -55,9 +55,10 @@ Alerts come from two places, and each one handles repeats differently.
    7 of `playout-setup.md`: `set -a; . /etc/transmitter/<user>.env; set +a`),
    run `transmitter status`. It shows the lead, the cost guard, the off-air
    flag, and active alerts on both hugo and the cloud.
-3. **Is a hugo alert still firing?** Use the journal grep above. A relayed push ends `-- relayed from antenna (<key>, <time>)`; its email is the original.
+3. **Is a hugo alert still firing?** Use the journal grep above.
 4. **Cloud detail:** `cd antenna && npx wrangler tail` shows the Worker's
-   log lines live.
+   log lines live. A push ending `-- relayed from antenna (<key>, <time>)`
+   is a cloud alert relayed by hugo; the original is the Worker's email.
 
 ## 3. Urgency at a glance
 
@@ -103,7 +104,7 @@ hugo also pauses publishing.
 expected right after upgrading transmitter before antenna (section 6 intro).
 
 ### `station-root` (level, has "resolved")
-Gated: pages only after 3 consecutive ticks; a single failure is logged, not sent.
+Gated: pages only after 3 consecutive ticks that ran plan or render; a single failure is logged, not sent.
 **Means:** hugo cannot read the station folder (NFS share not mounted,
 `.station-root` marker missing, or the folder unlistable).
 **Effect:** planning stops, so no new shows are added. Publishing continues,
@@ -150,7 +151,7 @@ Gated: pages only after 3 consecutive ticks; a single failure is logged, not sen
 and the next minute retries. The lead covers short outages.
 
 ### `prune` (event, no "resolved")
-Gated: pages only after 3 consecutive ticks; a single failure is logged, not sent.
+Gated: pages only after 3 consecutive ticks; a single failure is logged, not sent. A tick can run 17+ min during a fill, so this can take ~50 min.
 **Means:** deleting old segments failed (`DELETE <key> failed`), the horizon
 rewrite before the deletes failed (`horizon: …`), or `fallback.json` was lost
 (`stopped: no-fallback`).
@@ -192,7 +193,7 @@ batch and spends PUT budget.
 R2's `state/horizon.json`. Left alone, this burns toward `put-budget`.
 
 ### `publish-state` (event, no "resolved")
-Gated: pages only after 3 consecutive ticks; a single failure is logged, not sent.
+Gated: pages only after 3 consecutive ticks; a single failure is logged, not sent. A tick can run 17+ min during a fill, so this can take ~50 min.
 **Means:** `~/.transmitter/publish.json` cannot be read.
 **Effect:** fail-closed: hugo plans, renders, publishes and prunes **nothing**
 (the monitor thread keeps checking the dead clock) until it is readable.
@@ -213,9 +214,12 @@ raises it.
 **Effect:** `dead-clock`, `guard-stale` and the antenna relay are not running,
 so cloud alerts reach you by email only. The main loop is still alive and the
 watchdog is unaffected (the thread never pings it). Publishing continues.
-**Do:** first look at `journalctl -u "transmitter@*"` (as root) for the
-`transmitter-monitor` thread: a traceback, or a pass stuck on a slow R2 read.
-Check R2 latency and status. A restart clears it
+**Do:** first look at the journal for the monitor thread's loggers:
+`journalctl -u "transmitter@*" --since "-1h" --no-pager | grep -E 'transmitter\.(monitor|relay)'`
+(a traceback, `dead-clock check failed`, `dead-clock monitor pass failed`,
+`alert relay pass failed`). A pass stuck on a slow R2 read logs nothing, so
+silence there plus a fresh `monitor-stalled` points at R2 latency; check R2
+latency and status. A restart clears it
 (`sudo systemctl restart transmitter@<user>`); if it comes straight back,
 investigate before looping restarts. It resolves once passes are fresh again.
 
