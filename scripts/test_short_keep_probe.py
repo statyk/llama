@@ -386,3 +386,176 @@ def test_repro_refuses_an_out_inside_the_configured_library_root(tmp_path):
     assert skp.main(args + ["--out", str(lib / "o")]) == 2
     assert not (lib / "o").exists()
     assert skp.main(args + ["--out", str(tmp_path / "fine")]) == 0
+
+
+# ---- packets / score / sibvocab (Task 8) -------------------------------------------------
+
+def _frow(slug, name, kind, r1_dec, tagged=True, rp_tagged=True, tag="x"):
+    return {"slug": slug, "state": "held", "name": name, "dur": 30.0, "tag": tag, "tagged": tagged,
+            "kind": kind, "pos": "interior", "floor": 90.0, "rp_tagged": rp_tagged, "r1_dec": r1_dec}
+
+
+STRATA_SIZES = {"music": 10, "music-fragment": 5, "spoken": 10, "mixed-with-tuning": 6,
+                "untagged-interior": 8, "placeholder-tagged": 3,
+                "drop-junk": 8, "drop-nonperf": 5, "drop-edge": 3, "drop-filename": 2}
+
+
+def _packet_world(tmp_path, extra=0):
+    """One show `s1` with 15+ candidates per stratum (names `<stratum>-<k>.mp3`), a cached item
+    with those files, and a candidate arm keeping every non-drop one."""
+    lib = tmp_path / "lib"
+    (lib / "shows" / "s1").mkdir(parents=True)
+    (lib / "cache").mkdir()
+    (lib / "shows" / "s1" / "show.json").write_text(json.dumps({"identifier": "item1"}))
+    (tmp_path / "config.toml").write_text(f'root = "{lib}"\n')
+    rows, kept, files = [], [], []
+    spec = {"music": ("music", "keep", True, True), "music-fragment": ("music-fragment", "keep", True, True),
+            "spoken": ("spoken", "keep", True, True), "mixed-with-tuning": ("mixed-with-tuning", "keep", True, True),
+            "untagged-interior": ("untagged", "keep-untagged", False, False),
+            "placeholder-tagged": ("music", "keep", False, True),
+            "drop-junk": ("tuning/dead-air/noise", "drop-junk", True, True),
+            "drop-nonperf": ("non-performance", "drop-nonperf", True, True),
+            "drop-edge": ("untagged", "drop-edge", False, False),
+            "drop-filename": ("untagged", "drop-filename", False, False)}
+    n = 0
+    for st, (kind, dec, tagged, rpt) in spec.items():
+        for k in range(15 + extra):
+            n += 1
+            name = f"{st}-{k}.mp3"
+            rows.append(_frow("s1", name, kind, dec, tagged, rpt, tag=f"tag {st} {k}"))
+            files.append({"name": name, "format": "VBR MP3", "source": "original", "track": str(n),
+                          "title": f"tag {st} {k}", "length": "30"})
+            if not dec.startswith("drop"):
+                kept.append(name)
+    files.append({"name": "zzz.mp3", "format": "VBR MP3", "source": "original", "track": "999",
+                  "title": "Last", "length": "300"})
+    (lib / "cache" / "md_item1.json").write_text(json.dumps(
+        {"metadata": {"description": "d" * 4000}, "files": files}))
+    ref = tmp_path / "ref"
+    ref.mkdir()
+    (ref / "r1_files.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    cand = crow([(f, "T", "tags", "1", False) for f in kept + ["zzz.mp3"]],
+                short_kept=[True] * len(kept) + [False])
+    write_arm(tmp_path / "cand.json", {"s1": cand})
+    return ref
+
+
+def _packets(tmp_path, out, seed=None):
+    args = ["packets", "--cand", str(tmp_path / "cand.json"), "--ref-dir", str(tmp_path / "ref"),
+            "--config", str(tmp_path / "config.toml"), "--out", str(out)]
+    return skp.main(args + (["--seed", str(seed)] if seed is not None else []))
+
+
+def test_packet_strata_sizes_and_fields(tmp_path):
+    _packet_world(tmp_path)
+    out = tmp_path / "out"
+    assert _packets(tmp_path, out) == 0
+    rows = [json.loads(l) for l in (out / "packet.jsonl").read_text().splitlines()]
+    from collections import Counter
+    assert dict(Counter(r["stratum"] for r in rows)) == STRATA_SIZES
+    assert [r["row"] for r in rows] == list(range(1, 61))
+    for r in rows:
+        assert r["rule_would"] == ("drop" if r["stratum"].startswith("drop") else "keep")
+        assert "rule_R_would" not in r
+    r = rows[0]
+    assert {"class", "stratum", "rule_would", "slug", "state", "item", "url", "file", "dur_sec", "tag",
+            "position", "floor_sec", "neighbours_in_play_order", "census_kind", "description"} <= set(r)
+    assert r["item"] == "item1" and r["url"] == "https://archive.org/details/item1"
+    assert len(r["description"]) == 3000
+    nb = r["neighbours_in_play_order"]
+    assert 1 <= len(nb) <= 5 and sum(n["this"] for n in nb) == 1
+    assert {"file", "dur", "tag", "dropped_today", "this"} <= set(nb[0])
+    text = (out / "INSTRUCTIONS.md").read_text()
+    for ruling in ("stage banter", "crowd-only", "interview", "between two kept tracks", "Track 9"):
+        assert ruling.lower() in text.lower()
+    assert "rule_right" in text and "rule_would" in text
+
+
+def test_packet_is_deterministic_for_a_seed(tmp_path):
+    _packet_world(tmp_path, extra=10)
+    _packets(tmp_path, tmp_path / "a", seed=47)
+    _packets(tmp_path, tmp_path / "b", seed=47)
+    _packets(tmp_path, tmp_path / "c", seed=48)
+    pa = (tmp_path / "a" / "packet.jsonl").read_text()
+    assert pa == (tmp_path / "b" / "packet.jsonl").read_text()
+    assert pa != (tmp_path / "c" / "packet.jsonl").read_text()
+
+
+def _answer(row, decision=None, kind=None, right=None):
+    decision = decision or row["rule_would"]
+    kind = kind or ("song" if row["rule_would"] == "keep" else "tuning")
+    return {"row": row["row"], "decision": decision,
+            "rule_right": decision == row["rule_would"] if right is None else right,
+            "kind": kind, "confidence": "high", "why": "w"}
+
+
+def _prow(n, stratum, would):
+    return {"row": n, "stratum": stratum, "rule_would": would, "slug": "s", "file": f"f{n}.mp3",
+            "tag": "t", "dur_sec": 20, "url": "u", "neighbours_in_play_order": []}
+
+
+def test_score_bar_and_wrong_rows(tmp_path):
+    cfg = tmp_path / "c.toml"
+    cfg.write_text(f'root = "{tmp_path / "lib"}"\n')
+    rows = [_prow(i, "music", "keep") for i in range(1, 11)] + [_prow(11, "drop-junk", "drop")]
+    (tmp_path / "packet.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    n = [0]
+
+    def run(answers):
+        n[0] += 1
+        (tmp_path / "ans.jsonl").write_text("\n".join(json.dumps(a) for a in answers) + "\n")
+        out = tmp_path / f"o{n[0]}"
+        rc = skp.main(["score", "--packet", str(tmp_path / "packet.jsonl"), "--answers",
+                       str(tmp_path / "ans.jsonl"), "--config", str(cfg), "--out", str(out)])
+        return rc, out
+
+    ok = [_answer(r) for r in rows]
+    rc, out = run(ok)
+    assert rc == 0
+    md = (out / "score.md").read_text()
+    assert "right 11" in md and "wrong 0" in md and "PASS" in md
+    first = (out / "first10.md").read_text()
+    assert "f1.mp3" in first and "f10.mp3" in first and "f11.mp3" not in first
+    # one wrong row of 11 is 90.9% right: the 90% leg holds, and the wrong row is listed
+    one = ok[:3] + [_answer(rows[3], decision="drop", kind="tuning")] + ok[4:]
+    rc, out = run(one)
+    assert rc == 0
+    md = (out / "score.md").read_text()
+    assert "wrong 1" in md and "f4.mp3" in md
+    # a kept row the grader calls non-performance fails the bar whatever the percentage
+    rc, out = run([_answer(rows[0], decision="drop", kind="non-performance")] + ok[1:])
+    assert rc == 1 and "FAIL" in (out / "score.md").read_text()
+    # a dropped row the grader calls a song fails it too
+    rc, out = run(ok[:10] + [_answer(rows[10], decision="keep", kind="song")])
+    assert rc == 1
+    # two wrong rows of 11 is under 90% right, with no forbidden kind
+    rc, out = run([_answer(rows[0], decision="drop", kind="tuning"),
+                   _answer(rows[1], decision="drop", kind="crowd")] + ok[2:])
+    assert rc == 1
+    assert "FAIL" in (out / "score.md").read_text()
+    # an unanswered row fails
+    rc, out = run(ok[:-1])
+    assert rc == 1
+
+
+def test_sibvocab_filters_kept_tags(tmp_path):
+    ref = tmp_path / "ref"
+    ref.mkdir()
+    sibs = [{"id": "A", "drops": [
+        {"name": "a1.mp3", "tag": "Tuning", "spam": False, "tagged": True, "jc": None},
+        {"name": "a2.mp3", "tag": "tuning up", "spam": False, "tagged": True, "jc": "tuning"},   # junk: not kept
+        {"name": "a3.mp3", "tag": "Dark Star", "spam": False, "tagged": True, "jc": None},
+        {"name": "a4.mp3", "tag": "Crowd Noise", "spam": False, "tagged": False, "jc": None}]},
+        {"id": "B", "drops": [{"name": "b1.mp3", "tag": "Radio DJ intro", "spam": False,
+                               "tagged": True, "jc": None},
+                              {"name": "b2.mp3", "tag": "Odjinn", "spam": False, "tagged": True, "jc": None}]},
+        {"id": "C", "missing": True}]
+    (ref / "r1_sibs.json").write_text(json.dumps(sibs))
+    (tmp_path / "c.toml").write_text(f'root = "{tmp_path / "lib"}"\n')
+    out = tmp_path / "o"
+    assert skp.main(["sibvocab", "--ref-dir", str(ref), "--config", str(tmp_path / "c.toml"),
+                     "--out", str(out)]) == 0
+    text = (out / "sibvocab.txt").read_text()
+    assert "A" in text and "a1.mp3" in text and "Tuning" in text and "b1.mp3" in text
+    for absent in ("a2.mp3", "a3.mp3", "a4.mp3", "b2.mp3"):
+        assert absent not in text

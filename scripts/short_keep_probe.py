@@ -8,6 +8,12 @@
          with the candidate in place of `arm_r1.jsonl`, the 6(b) added-hold classes with the
          25% rule, 6(d) override checks and 6(e) positional fills. Writes `arms.md` and
          `arms.json`; exit 1 when anything BLOCKS MERGE, 2 on a refusal.
+  packets --cand CAND.json --ref-dir R1 --out DIR [--seed 47]
+         the 6(c) hand-check packet (`packet.jsonl`, `INSTRUCTIONS.md`) drawn from the candidate arm.
+  score  --packet P.jsonl --answers A.jsonl --out DIR
+         `score.md` (the bar, every wrong row) and `first10.md` (the operator's premise-2 look).
+  sibvocab --ref-dir R1 --out DIR
+         `sibvocab.txt`: kept sibling short tags matching the junk vocabulary (premise 3).
   repro  --pre PRE.json --post POST.json --out DIR
          the post-migration self-check (spec 4.3 steps 7 and 9). Writes `repro.md`; exit 1
          on any difference, a show in one arm only, or a replayable row lacking the fields.
@@ -20,12 +26,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
+import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
 import llama
 from llama.config import DEFAULT_ROOT, load_config
+from llama.junk import length_seconds
+from llama.replay import CacheOnlyIA
 from llama.replay import flag_family
 
 EXPECTED_ADDED = {"new unresolved track": 18, "long single-set show": 6, "positional rung lost": 4,
@@ -314,6 +324,220 @@ def arms(args) -> int:
     return 1 if tally["blocks"] else 0
 
 
+PACKET_KEPT = (("music", 10), ("music-fragment", 5), ("spoken", 10), ("mixed-with-tuning", 6),
+               ("untagged-interior", 8), ("placeholder-tagged", 3))
+PACKET_DROPPED = (("drop-junk", 8), ("drop-nonperf", 5), ("drop-edge", 3), ("drop-filename", 2))
+VOCAB = re.compile(r"(?i)tun|crowd|applau|radio|\bdj\b|silen|noise|fade|commercial|promo|interview"
+                   r"|station|static|hiss")
+BAD_KEPT = {"spoken-broadcast", "non-performance"}
+BAD_DROPPED = {"song", "segue-or-continuation", "fragment"}
+RIGHT_BAR = 0.9
+LEAD_INT = re.compile(r"\s*(\d+)")
+
+INSTRUCTIONS = """# Short-keep hand-check: was this short file rightly kept or dropped?
+
+Each row is ONE short audio file (under `floor_sec`, a quarter of that tape's median track length) that
+llama's junk filter dropped before piece 4. The new rule KEEPS it unless its tag is wholly junk
+(tuning, dead air, silence, tape flip, fade, noise, soundcheck), it names a commercial, promo,
+station ID or house music, or the file is spam-shaped. `rule_would` says what the rule did with it
+(`keep` or `drop`). You get the tag, its neighbours in play order, and the description. Open `url`
+(archive.org) if needed; do not download audio.
+
+Operator direction (Shawn, 2026-10-23), with the rulings written in:
+- Wrongly DROPPING something that belongs is worse than wrongly including something. A few seconds
+  of junk barely hurts.
+- Stage banter and band talk are KEPT: a ~30 s band intro mid-set, stage announcements, tuning chatter
+  that is the band talking to the crowd.
+- Crowd-only audio (applause, cheering, room noise with no performance) and tuning-only audio DROP.
+  About 60 s of tuning between songs is better dropped.
+- A broadcast DJ, an interview, a commercial, a promo or a station ID DROPS.
+- An untagged file is kept only between two kept tracks (`position: interior`); at the edge it drops.
+- A placeholder tag (`Track 9`, `tmp`) counts as tagged.
+
+Answer per row, JSON lines `{"row": N, "decision": "keep"|"drop", "rule_right": true|false, "kind": ..., "confidence": ..., "why": "..."}`:
+- `decision`: what SHOULD happen under the direction above.
+- `rule_right`: does `rule_would` match your decision?
+- `kind`: `song` / `segue-or-continuation` / `fragment` / `spoken-band` (band or crew talking, intros,
+  announcements) / `spoken-broadcast` (radio DJ, interview) / `crowd` / `tuning` / `silence-or-tape-edge` /
+  `non-performance` (commercial, promo, PA music, spam) / `unknown`.
+- `confidence`: high / medium / low.
+"""
+
+
+def _read_jsonl(path: Path) -> list[dict]:
+    try:
+        return [json.loads(l) for l in Path(path).expanduser().read_text().splitlines() if l.strip()]
+    except (OSError, ValueError) as err:
+        raise Refusal(f"cannot read {path}: {err}")
+
+
+def _play_order(files: list[dict], all_files: list[dict]) -> list[dict]:
+    """`p4.play_order`: by track tag when every file has a distinct leading integer, else by name."""
+    orig = {f["name"]: f.get("track") for f in all_files if f.get("source") == "original"}
+    nums = []
+    for f in files:
+        m = LEAD_INT.match(str(f.get("track") or orig.get(f.get("original")) or ""))
+        nums.append(int(m.group(1)) if m else None)
+    if files and all(n is not None for n in nums) and len(set(nums)) == len(nums):
+        return [f for _, f in sorted(zip(nums, files), key=lambda p: p[0])]
+    return sorted(files, key=lambda f: f["name"])
+
+
+def _neighbours(ia: CacheOnlyIA, ident: str, name: str, dropped: set[str]) -> tuple[list[dict], str]:
+    try:
+        md = ia.metadata(ident)
+    except Exception:
+        return [], ""
+    files = [f for f in md.get("files", []) if isinstance(f, dict)]
+    me = next((f for f in files if f.get("name") == name), None)
+    desc = (md.get("metadata") or {}).get("description") or ""
+    if isinstance(desc, list):
+        desc = " ".join(map(str, desc))
+    if me is None:
+        return [], str(desc)[:3000]
+    by = {f["name"]: f for f in files}
+    order = _play_order([f for f in files if f.get("format") == me.get("format")], files)
+    i = [f["name"] for f in order].index(name)
+    ctx = []
+    for f in order[max(0, i - 2): i + 3]:
+        o = by.get(f.get("original")) if f.get("source") == "derivative" else None
+        ctx.append({"file": f["name"], "dur": length_seconds(f.get("length")),
+                    "tag": f.get("title") or (o or {}).get("title"),
+                    "dropped_today": f["name"] in dropped, "this": f["name"] == name})
+    return ctx, str(desc)[:3000]
+
+
+def _stratum(e: dict, kept: bool) -> str | None:
+    if not kept:
+        return e["r1_dec"] if e.get("r1_dec") in dict(PACKET_DROPPED) else None
+    if not e.get("tagged") and e.get("rp_tagged"):
+        return "placeholder-tagged"
+    if e.get("r1_dec") == "keep-untagged":
+        return "untagged-interior"
+    k = e.get("kind")
+    return k if k in ("music", "music-fragment", "spoken", "mixed-with-tuning") else None
+
+
+def packets(args) -> int:
+    ref_dir, cand_path = args.ref_dir.expanduser(), args.cand.expanduser()
+    out = _guard_out(args.out, args.config, ("reference dir", ref_dir), ("candidate arm", cand_path))
+    cand = _load_arm(cand_path)
+    files = _read_jsonl(ref_dir / "r1_files.jsonl")
+    root = load_config(args.config or DEFAULT_ROOT / "config.toml").root.expanduser()
+    dropped_today: dict[str, set[str]] = defaultdict(set)
+    for e in files:
+        dropped_today[e["slug"]].add(e["name"])
+    pools: dict[str, list[tuple[dict, bool]]] = defaultdict(list)
+    for e in files:
+        c = cand.get(e["slug"])
+        if c is None or _unreplayable(c) or "filenames" not in c:
+            continue
+        sk = dict(zip(c["filenames"], c.get("short_kept") or []))
+        kept = bool(sk.get(e["name"]))
+        if not kept and e["name"] in sk:
+            continue                          # in the candidate show, but not by the short rule
+        st = _stratum(e, kept)
+        if st:
+            pools[st].append((e, kept))
+    rng = random.Random(args.seed)
+    ia = CacheOnlyIA(root / "cache")
+    items = []
+    for st, n in PACKET_KEPT + PACKET_DROPPED:
+        pool = sorted(pools[st], key=lambda p: (p[0]["slug"], p[0]["name"]))
+        rng.shuffle(pool)
+        for e, kept in pool[:n]:
+            try:
+                ident = json.loads((root / "shows" / e["slug"] / "show.json").read_text()).get("identifier")
+            except (OSError, ValueError):
+                ident = None
+            nb, desc = _neighbours(ia, ident, e["name"], dropped_today[e["slug"]]) if ident else ([], "")
+            items.append({"class": "r", "stratum": st, "rule_would": "keep" if kept else "drop",
+                          "slug": e["slug"], "state": e.get("state"), "item": ident,
+                          "url": f"https://archive.org/details/{ident}" if ident else None,
+                          "file": e["name"], "dur_sec": e.get("dur"), "tag": e.get("tag"),
+                          "position": e.get("pos"), "floor_sec": round(e.get("floor") or 0, 1),
+                          "neighbours_in_play_order": nb, "census_kind": e.get("kind"),
+                          "description": desc})
+    rng.shuffle(items)
+    for k, it in enumerate(items, 1):
+        it["row"] = k
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "packet.jsonl").write_text("".join(json.dumps(it, ensure_ascii=False) + "\n" for it in items))
+    (out / "INSTRUCTIONS.md").write_text(INSTRUCTIONS)
+    short = {st: n - sum(1 for it in items if it["stratum"] == st) for st, n in PACKET_KEPT + PACKET_DROPPED}
+    short = {k: v for k, v in short.items() if v}
+    print(f"packets: {len(items)} rows" + (f"; short strata {short}" if short else ""))
+    return 0
+
+
+def score(args) -> int:
+    packet_path, answers_path = args.packet.expanduser(), args.answers.expanduser()
+    out = _guard_out(args.out, args.config, ("packet", packet_path), ("answers", answers_path))
+    rows = _read_jsonl(packet_path)
+    answers = {a["row"]: a for a in _read_jsonl(answers_path) if isinstance(a, dict) and "row" in a}
+    right, wrong, missing, forbidden, wrong_rows = 0, 0, [], [], []
+    for r in rows:
+        a = answers.get(r["row"])
+        if a is None:
+            missing.append(r["row"])
+            continue
+        ok = a["rule_right"] if "rule_right" in a else a.get("decision") == r["rule_would"]
+        right, wrong = right + bool(ok), wrong + (not ok)
+        if not ok:
+            wrong_rows.append((r, a))
+        if r["rule_would"] == "keep" and a.get("kind") in BAD_KEPT:
+            forbidden.append(f"row {r['row']} kept {r['file']}: {a['kind']}")
+        if r["rule_would"] == "drop" and a.get("kind") in BAD_DROPPED:
+            forbidden.append(f"row {r['row']} dropped {r['file']}: {a['kind']}")
+    answered = right + wrong
+    pct = right / answered if answered else 0.0
+    passed = not missing and not forbidden and answered > 0 and pct >= RIGHT_BAR
+    md = ["# short-keep hand-check score", "", f"{'PASS' if passed else 'FAIL'}: right {right} wrong {wrong} "
+          f"of {len(rows)} rows ({pct:.1%} right; bar {RIGHT_BAR:.0%})", ""]
+    md += _lines("rows with no answer (fails the bar)", [str(m) for m in missing])
+    md += _lines("kept spam/non-performance or dropped music (bar: zero)", forbidden)
+    md += [f"## wrong rows ({len(wrong_rows)})"]
+    for r, a in wrong_rows:
+        md += [f"  row {r['row']} [{r['stratum']}] {r['file']} tag={r['tag']!r} rule_would={r['rule_would']} "
+               f"-> {a.get('decision')} ({a.get('kind')}, {a.get('confidence')}): {a.get('why')}"]
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "score.md").write_text("\n".join(md) + "\n")
+    f10 = ["# first 10 rows, for the operator (premise 2)", ""]
+    for r in rows[:10]:
+        a = answers.get(r["row"]) or {}
+        f10 += [f"## row {r['row']}: {r['file']}  ({r['stratum']})", f"  {r.get('url')}",
+                f"  tag={r['tag']!r} dur={r['dur_sec']}s rule_would={r['rule_would']}",
+                "  neighbours: " + "; ".join(f"{n['file']} {n['dur']}s {n['tag']!r}"
+                                             f"{' <-' if n['this'] else ''}"
+                                             for n in r.get("neighbours_in_play_order") or []),
+                f"  grader: {a.get('decision')} / {a.get('kind')} / {a.get('confidence')} "
+                f"(rule_right {a.get('rule_right')}): {a.get('why')}", ""]
+    (out / "first10.md").write_text("\n".join(f10) + "\n")
+    print(f"score: {'PASS' if passed else 'FAIL'} right {right} wrong {wrong} missing {len(missing)}")
+    return 0 if passed else 1
+
+
+def sibvocab(args) -> int:
+    ref_dir = args.ref_dir.expanduser()
+    out = _guard_out(args.out, args.config, ("reference dir", ref_dir))
+    try:
+        sibs = json.loads((ref_dir / "r1_sibs.json").read_text())
+    except (OSError, ValueError) as err:
+        raise Refusal(f"cannot read {ref_dir / 'r1_sibs.json'}: {err}")
+    hits, kept_total = [], 0
+    for s in sibs:
+        for d in s.get("drops") or []:
+            if d.get("tagged") and d.get("jc") is None:
+                kept_total += 1
+                if VOCAB.search(d.get("tag") or ""):
+                    hits.append(f"{s['id']}\t{d.get('name')}\t{d.get('tag')}")
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "sibvocab.txt").write_text(f"# {len(hits)} of {kept_total} kept sibling short tags match\n"
+                                      + "\n".join(hits) + ("\n" if hits else ""))
+    print(f"sibvocab: {len(hits)} of {kept_total}")
+    return 0
+
+
 def _row_key(r: dict) -> dict:
     return {"tracks": list(zip(r["filenames"], r["titles"], r["title_sources"], r["sets"],
                                r["segues"])),
@@ -382,9 +606,25 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--post", type=Path, required=True)
     r.add_argument("--config", type=Path)
     r.add_argument("--out", type=Path, required=True)
+    k = sub.add_parser("packets")
+    k.add_argument("--cand", type=Path, required=True)
+    k.add_argument("--ref-dir", type=Path, required=True)
+    k.add_argument("--seed", type=int, default=47)
+    k.add_argument("--config", type=Path)
+    k.add_argument("--out", type=Path, required=True)
+    sc = sub.add_parser("score")
+    sc.add_argument("--packet", type=Path, required=True)
+    sc.add_argument("--answers", type=Path, required=True)
+    sc.add_argument("--config", type=Path)
+    sc.add_argument("--out", type=Path, required=True)
+    sv = sub.add_parser("sibvocab")
+    sv.add_argument("--ref-dir", type=Path, required=True)
+    sv.add_argument("--config", type=Path)
+    sv.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
     try:
-        return arms(args) if args.cmd == "arms" else repro(args)
+        return {"arms": arms, "repro": repro, "packets": packets, "score": score,
+                "sibvocab": sibvocab}[args.cmd](args)
     except Refusal as err:
         print(f"refusing: {err}", file=sys.stderr)
         return 2
