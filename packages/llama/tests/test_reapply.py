@@ -1188,7 +1188,7 @@ def _old_packaged_audio(ws):
         old[name] = fake_audio(t.filename, t.duration_sec)
         (audio / name).write_bytes(old[name])
     write_artifact(ws.package_dir / "manifest.json", {
-        "schema_version": 3,
+        "schema_version": 3, "source": {"identifier": show.identifier},
         "tracks": [{"index": t.index, "title": t.title, "filename": f"{t.index:02d} - OLD.mp3"}
                    for t in show.tracks]})
     return ia, old
@@ -1259,3 +1259,20 @@ def test_reapply_refuses_when_a_leftover_aside_cannot_be_removed(tmp_path, monke
         _run(config, ledger, entry)
     assert (aside / "01 - OLD.mp3").read_bytes() == b"old"
     assert not (entry.ws.package_dir / "audio" / "01 - OLD.mp3").exists()
+    assert _snapshot(entry.ws) == before
+
+
+def test_reapply_after_a_held_reselection_never_reuses_the_old_items_audio(tmp_path, monkeypatch):
+    from helpers import audio_files, patch_fake_durations
+    patch_fake_durations(monkeypatch)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    ia, old = _old_packaged_audio(entry.ws)          # packaged from the show's item
+    # the show was re-selected onto another item with the same file names and held: the
+    # library manifest still names the item the audio came from
+    manifest = entry.ws.package_dir / "manifest.json"
+    data = json.loads(manifest.read_text())
+    data["source"]["identifier"] = "an-older-item"
+    manifest.write_text(json.dumps(data))
+    _run(config, ledger, entry, ia=ia)
+    assert len(ia.downloads) == len(old)             # every track fetched, none re-used
+    assert not (set(audio_files(entry.ws).values()) & set(old.values()))

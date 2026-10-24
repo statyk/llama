@@ -1416,3 +1416,28 @@ def test_held_regather_then_overrule_never_reuses_old_audio_by_name(tmp_path, mo
     assert {n: fake_source(ws.package_dir / "audio" / n) for n in names} == {
         "01 - A.mp3": "a2.mp3", "02 - B.mp3": "b2.mp3"}   # and no old-numbered file is left
     assert not (ws.dir / ".audio-aside").exists()
+
+
+def test_held_reselection_then_overrule_never_ships_the_old_items_station_audio(tmp_path, monkeypatch):
+    import shutil
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    cfg, ws, ia = reuse_gd73(tmp_path, monkeypatch, old, delivery=True)
+    station = tmp_path / "station" / ws.dir.name
+    shutil.copytree(ws.package_dir, station)             # delivered from item gd73
+    old_bytes = {p.read_bytes() for p in (station / "audio").iterdir()}
+    for p in (ws.package_dir / "audio").iterdir():       # deliver purged the library audio
+        p.unlink()
+    # a re-selection picks another item with the same file names, and the re-gather holds
+    stub_stages(monkeypatch, old, identifier="gd73-other-taper",
+                hold=["research asserts wrong date: 1974-01-01"])
+    r = cli_invoke(cfg, "redo", "gratefuldead", "--from", "gather")
+    assert r.exit_code == 0, r.output
+    assert read_model(ws.show, Show).identifier == "gd73-other-taper"
+    stub_stages(monkeypatch)
+    from llama.models import Briefing
+    write_artifact(ws.briefing_json, Briefing(context="c", significance="s"))
+    write_artifact(ws.briefing_md, "# Briefing\n")
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--overrule")
+    assert r.exit_code == 0, r.output
+    assert ia.downloads == ["a.mp3", "b.mp3"]            # every track from the new item
+    assert not ({p.read_bytes() for p in (ws.package_dir / "audio").iterdir()} & old_bytes)

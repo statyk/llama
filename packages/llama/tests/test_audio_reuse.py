@@ -193,3 +193,33 @@ def test_set_aside_refuses_when_an_aside_already_exists(tmp_path, monkeypatch):
     with pytest.raises(LlamaError, match="audio aside already exists"):
         set_aside(ws)
     assert audio_files(ws) == audio and stale.read_bytes() == b"ORIGINAL"
+
+
+def _set_manifest_identifier(manifest: Path, ident) -> None:
+    data = json.loads(manifest.read_text())
+    if ident is None:
+        data["source"].pop("identifier", None)
+    else:
+        data["source"]["identifier"] = ident
+    manifest.write_text(json.dumps(data))
+
+
+@pytest.mark.parametrize("ident", ["gd73-other-taper", None, ""])
+def test_a_station_manifest_from_another_or_unnamed_item_pairs_nothing(tmp_path, monkeypatch, ident):
+    patch_fake_durations(monkeypatch)
+    ws = packaged_reuse_show(tmp_path, reuse_show(*OLD))
+    station = _station(tmp_path, ws)
+    _set_manifest_identifier(station / "manifest.json", ident)
+    plan = plan_reuse(ws, station)
+    assert plan.station == {} and plan.library      # the library copy is of the same item
+
+
+@pytest.mark.parametrize("ident", ["gd73-other-taper", None])
+def test_a_library_manifest_from_another_or_unnamed_item_pairs_nothing(tmp_path, monkeypatch, ident):
+    patch_fake_durations(monkeypatch)
+    ws = packaged_reuse_show(tmp_path, reuse_show(*OLD))
+    station = _station(tmp_path, ws)
+    _set_manifest_identifier(ws.package_dir / "manifest.json", ident)
+    plan = plan_reuse(ws, station)
+    assert plan.library == {} and plan.station      # the station copy is of the same item
+    assert plan.library_names == ("01 - A.mp3", "02 - B.mp3", "03 - X.mp3")   # the aside rule still sees the names

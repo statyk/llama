@@ -395,8 +395,8 @@ def test_a_different_identifier_pairs_nothing_but_still_sets_the_old_audio_aside
     build_package(ws, ia, new, reuse=plan)
     assert ia.downloads == ["a.mp3", "b.mp3"]
     assert sorted(audio_files(ws)) == ["01 - A.mp3", "02 - B.mp3"]
-    assert not (ws.dir / ASIDE_DIR).exists() or sorted(
-        p.name for p in (ws.dir / ASIDE_DIR).iterdir()) == ["01 - A.mp3", "02 - B.mp3"]   # old audio, aside only
+    aside = ws.dir / ASIDE_DIR                              # the old audio waits there for the unit
+    assert sorted(p.name for p in aside.iterdir()) == ["01 - A.mp3", "02 - B.mp3"]
 
 
 def test_a_plan_without_a_show_json_has_no_identifier(tmp_path):

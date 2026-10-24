@@ -60,6 +60,16 @@ def _manifest_tracks(path: Path) -> list[tuple[str, str]] | None:
     return out
 
 
+def _manifest_identifier(path: Path) -> str | None:
+    """The archive.org item the manifest was packaged from (`source.identifier`);
+    None when missing or unreadable, which pairs nothing (the safe direction)."""
+    try:
+        ident = json.loads(path.read_text())["source"]["identifier"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return ident if isinstance(ident, str) and ident else None
+
+
 def _pair(show: Show | None, tracks: list[tuple[str, str]] | None) -> dict[str, str]:
     """Source filename -> packaged name, pairing by index: the copy must have
     exactly show.json's length and the same title at every index, else it
@@ -79,14 +89,20 @@ def plan_reuse(show_ws: ShowWorkspace, station_dir: Path | None) -> ReusePlan:
         show = read_model(show_ws.show, Show)
     except Exception:
         show = None
-    library_tracks = _manifest_tracks(show_ws.package_dir / "manifest.json")
+    # A manifest pairs only when it was packaged from the SAME archive.org item as
+    # show.json now names: file names repeat across items, the audio does not.
+    def same_item(manifest: Path) -> bool:
+        return show is not None and _manifest_identifier(manifest) == show.identifier
+    lib_manifest = show_ws.package_dir / "manifest.json"
+    library_tracks = _manifest_tracks(lib_manifest)
     library_names = tuple(name for _t, name in library_tracks) if library_tracks is not None else None
     station: dict[str, Path] = {}
     if station_dir is not None:
         station = {src: station_dir / "audio" / name
-                   for src, name in _pair(show, _manifest_tracks(station_dir / "manifest.json")).items()}
+                   for src, name in _pair(show, _manifest_tracks(station_dir / "manifest.json")
+                                          if same_item(station_dir / "manifest.json") else None).items()}
     return ReusePlan(library_names=library_names,
-                     library=_pair(show, library_tracks),
+                     library=_pair(show, library_tracks if same_item(lib_manifest) else None),
                      station=station,
                      identifier=show.identifier if show is not None else None)
 
