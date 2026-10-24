@@ -185,3 +185,63 @@ The 222 break down as:
      1990-03-16, 1990-07-14, 1991-04-05, 1991-10-31, 1995-03-18.
    - **Suggested fix (a separate decision):** keep one derivative per original within the winning
      format.
+
+## Checkpoint A rulings
+
+Operator ruling (Shawn, 2026-10-24 ~12:30, relayed by llama-db), verbatim: **"Recommendations
+accepted"**. llama-db put the recommendations to him as follows (verbatim):
+
+1. Row 36 audio-less stubs: FIX — in junk._apply_short_rule a zero duration does not enter the short rule (only ever drops; re-marks 3 corpus rows).
+2. NONPERF: FIX — add the pre-screen's measured narrow addition (on/over the PA, closing/exit/outro music, case-sensitive call sign + existing qualifiers, `host #N`); it must newly drop exactly the 6 library files and lose no music (re-measure and show it).
+3. JUNK_PART crowd/tuning variants (~200): ACCEPT as a spec section 7 limitation; record it there.
+4. Sample coverage: run ONE Sonnet checker over just the 16 reference crowd(13)/non-performance(2)/spoken-broadcast(1) keeps (after the item-2 fix, against the candidate), report the result at Checkpoint B.
+5. Doubled _vbr derivatives (20 GD shows): NOT in this branch — a separate small fix after piece 4 (keep one derivative per original within the winning format). Correction to your report: they are not on air — transmitter requires broadcast.m3u and all 17 are unvoiced; the risk is a future `emcee run`. Leave them alone; just list them in the record as a known follow-up.
+
+Open item 5 above is corrected accordingly: the 17 delivered shows are unvoiced, so they are not
+on air. The risk is a future `emcee run`.
+
+## After the rulings (Task 10, `cbd35c5`)
+
+- **Code.** Rulings 1-2 are in `junk.py`. Ruling 3 and the doubled-derivative follow-up are in
+  spec 2.3 and section 7.
+- **Corpus re-measure** (3,547 reference rows). Exactly 9 decisions change, all keep → drop:
+  - ruling 1: `bluegroundundergrass-2008-04-04` trk04 (0.17 s), `gd73-10-29d2t01_vbr.mp3`,
+    `gd74-09-11v3d2t03_vbr.mp3`;
+  - ruling 2:
+    - `guster-2006-07-28` `WXRT Intro`;
+    - `joerussosalmostdead-2020-02-21` `Rock and Roll (Played over PA - fades in)`;
+    - `railroadearth-2006-02-18` `Mardi Gras Celebration (Hey Pocky Way on PA)`;
+    - `theotherones-2002-08-03` `Host #03`, `HOST #12` and `Host #16`.
+- **Census kinds.** Three of the ruling-2 rows carry census kind `music` or `music-fragment`:
+  - the two PA playbacks;
+  - the `HOST #12` intermission.
+
+  The rulings class them as non-performance. No other row changed.
+- **The task review** (Opus) re-measured independently, over 13,202 short drops and all 75,277
+  library track titles. Only the ruled rows change, and every new hit is broadcast or PA material.
+- **Candidate re-run `cand-a2.json`.**
+  - Arm: `cbd35c55819e`, clean, 12:35:40-12:36:47, sha256 e7976e25….
+  - `compare --no-repro-gate`: rc 0.
+  - `arms` (`~/.llama-harness/piece4/arms-a2/arms.md`, sha256 f8906564…): changed 1,531, files
+    added 2,639, cleared 20, added 34.
+  - Both hold lists are identical to `cand.json`'s: 0 `BLOCKS MERGE`, 0 override moves,
+    positional fills 10 lost / 12 gained.
+  - `cand-a2` differs from `cand` on exactly 7 shows and 9 files, all removals, all ruled.
+  - The 40 reference-reproduction lines are those 7 shows plus `soundtribesector9-2005-02-07`,
+    5 fields each.
+- **Ruling 4 check** (for Checkpoint B).
+  - Packet: `~/.llama-harness/piece4/hc-a4/packet.jsonl`, sha256 7f5051ef…. It holds the 16
+    reference keeps of census kind crowd (13), non-performance (2) and spoken-broadcast (1).
+    `cand-a2` still keeps all 16.
+  - One Sonnet checker (answers sha256 975be688…): **10 of 16 agree with the rule.**
+  - The 6 it would drop are all crowd-only:
+    - `deadandcompany-2015-11-17` `Not Fade Away Chant`;
+    - `discobiscuits-2004-11-27` `crowd/tuning jam` (edge);
+    - `thebrew-2008-04-12` `Unity College chanting`;
+    - `thedead-2015-07-05` `Crowd Doing Not Fade Away` (121 s and 46 s);
+    - `umphreysmcgee-2006-10-07` `crowd/1812 Overture` (low confidence).
+  - It agreed with keeping both non-performance-census rows (`Banter Promote CD`, `banter -
+    promoting the new CD`: band talk) and the spoken-broadcast one (`Stage Banter: Consummation
+    Station`).
+  - The pre-screen had leaned keep on the crowd chants (a Deadhead tradition), as an optional
+    operator ruling.
