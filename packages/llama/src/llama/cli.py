@@ -1411,9 +1411,10 @@ def _legacy_message(sws, slug: str) -> str | None:
 
 
 def _refuse_legacy(sws, slug: str) -> None:
-    """`fix`'s and triage's first check (spec 4.1 "Writers refuse legacy"): exit 1
-    with `_legacy_message`'s text when the stored file holds any legacy value, before
-    any flag parsing, prompt, lock or write."""
+    """`fix`'s first check (spec 4.1 "Writers refuse legacy"): exit 1 with
+    `_legacy_message`'s text when the stored file holds any legacy value, before
+    any flag parsing, prompt, lock or write. Triage uses `_legacy_message` itself,
+    since it prints the text and moves on to the next show instead of exiting."""
     refused = _legacy_message(sws, slug)
     if refused is not None:
         typer.echo(refused, err=True)
@@ -1497,6 +1498,8 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
 
     def to_file(n) -> str:
         nonlocal names
+        if isinstance(n, str) and not n.strip().isdigit():
+            return n      # a filename (a dangling key triage's editor keeps), as given
         n = int(n)
         if names is None:
             if not show_ws.show.exists():
@@ -1853,8 +1856,17 @@ def _metadata_editor(entry) -> dict | None:
     cur_venue = ov.venue if ov.venue is not None else (s.venue or "")
     cur_city = ov.city if ov.city is not None else (s.city or "")
     cur_date = ov.date if ov.date is not None else (s.date or "")
-    cur_titles = ", ".join(f"{n}={t}" for n, t in sorted(ov.titles.items()))
-    cur_breaks = ",".join(str(n) for n in (ov.set_breaks or []))
+    # Overrides are stored as filenames; the operator sees and types today's
+    # `show.json` track numbers. A key whose file is not in show.json (dangling)
+    # shows as its filename, and typed back as given it is kept.
+    number = {t.filename: t.index for t in s.tracks}
+
+    def shown(f) -> str:
+        return str(number.get(f, f))
+    numbered = sorted((f for f in ov.titles if f in number), key=number.get)
+    dangling_titles = [f for f in ov.titles if f not in number]
+    cur_titles = ", ".join(f"{shown(f)}={ov.titles[f]}" for f in numbered + dangling_titles)
+    cur_breaks = ",".join(shown(f) for f in (ov.set_breaks or []))
 
     venue = typer.prompt("venue", default=cur_venue, show_default=True)
     city = typer.prompt("city", default=cur_city, show_default=True)
@@ -1875,18 +1887,23 @@ def _metadata_editor(entry) -> dict | None:
             if not spec:
                 continue
             n, sep, t = spec.partition("=")
-            if not sep or not n.strip().isdigit():
+            n = n.strip()
+            if sep and n in dangling_titles:
+                parsed_titles[n] = t
+            elif not sep or not n.isdigit():
                 typer.echo(f"title overrides expects N=Title, got {spec!r}")
                 return None
-            parsed_titles[int(n.strip())] = t
+            else:
+                parsed_titles[int(n)] = t
 
     breaks_val = None
     if breaks_changed:
         parts = [x.strip() for x in breaks_in.split(",") if x.strip()]
-        if not all(p.isdigit() for p in parts):
+        dangling_breaks = {f for f in (ov.set_breaks or []) if f not in number}
+        if not all(p.isdigit() or p in dangling_breaks for p in parts):
             typer.echo(f"set breaks expects comma-separated track numbers, got {breaks_in!r}")
             return None
-        breaks_val = [int(p) for p in parts]
+        breaks_val = [int(p) if p.isdigit() else p for p in parts]
 
     return dict(venue=venue if venue != cur_venue else _UNSET,
                 city=city if city != cur_city else _UNSET,
@@ -1942,6 +1959,18 @@ def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
     return ("packaged", pkg) if pkg else ("held", None)
 
 
+def _stale_in_triage(ia, config, entry) -> str | None:
+    """`_stale` for a triage prompt: the refusal text, or None when the track list is
+    current. Without a `show.json` there is nothing to compare; the writer's own
+    refusal names the rebuild. An archive error is the refusal's text, never "fresh"."""
+    if not entry.ws.show.exists():
+        return None
+    try:
+        return _stale(ia, config, entry.ws, entry.slug)
+    except LlamaError as exc:     # IAError included
+        return str(exc)
+
+
 def _interactive_resolve(config, ia, ledger, entry) -> None:
     # Every successful edit leaves the show, so this view stays valid; a ShowChanged
     # refusal re-enters this function, which re-captures it.
@@ -1957,6 +1986,12 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
         return
     _print_show_entry(entry)
     if entry.state != "held":
+        return
+    # Spec 4.1: every triage edit writes overrides.json, so a legacy (or mixed) file
+    # refuses the whole show before any prompt; the walkthrough goes on to the next.
+    refused = _legacy_message(entry.ws, entry.slug)
+    if refused is not None:
+        typer.echo(f"error: {refused}", err=True)
         return
     # Task 8: offered only on a hold this feature can actually help with --
     # `entry.flags` is `derive_state`'s (== `show.review_flags`) for a held
@@ -1997,6 +2032,13 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             if not files:
                 typer.echo("nothing selected; skipping")
                 return
+            # Spec 4.2: a keyed file cannot be excluded; same text as `fix --exclude`.
+            keyed = _keyed_files(entry.ws)
+            hits = [f for f in files if f in keyed]
+            for f in hits:
+                typer.echo(f"error: {_exclusion_refusal(entry.slug, f, keyed[f])}", err=True)
+            if hits:
+                continue   # back to the prompt, nothing written
             edit = lambda: _edit_overrides(entry.ws, add_exclude=files)  # noqa: E731
             stage = "gather"
         elif choice == "i" and include_offered:
@@ -2021,6 +2063,16 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             kwargs = _metadata_editor(entry)
             if kwargs is None:
                 continue   # nothing changed - back to the prompt, same show
+            # Spec 4.2: only a positional edit (a title or break by number) names a
+            # file through show.json; venue, city, date, a cleared title and a kept
+            # dangling key do not, so they are not gated, as in `fix`.
+            positional = bool(kwargs["set_titles"]) and any(
+                isinstance(k, int) for k in kwargs["set_titles"]) or (
+                isinstance(kwargs["set_breaks"], list)
+                and any(isinstance(k, int) for k in kwargs["set_breaks"]))
+            if positional and (stale := _stale_in_triage(ia, config, entry)):
+                typer.echo(f"error: {stale}", err=True)
+                continue
             edit = lambda: _edit_overrides(entry.ws, **kwargs)  # noqa: E731
             lines.append(f"{entry.slug}: metadata override updated")
             stage = "gather"
@@ -2044,6 +2096,9 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
                 typer.echo(f"{entry.slug}: no provenance.json/show.json to "
                            "propose titles from", err=True)
                 continue
+            if stale := _stale_in_triage(ia, config, entry):
+                typer.echo(f"error: {stale}", err=True)
+                continue
             show = read_model(entry.ws.show, Show)
             picks = _propose_and_confirm_titles(ia, config, entry, show)
             if not picks:
@@ -2062,6 +2117,9 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             edit = lambda: _edit_overrides(entry.ws, set_titles=picks)  # noqa: E731
             stage = "gather"
         elif choice == "u" and untitled_offered:
+            if stale := _stale_in_triage(ia, config, entry):
+                typer.echo(f"error: {stale}", err=True)
+                continue
             try:
                 status, pkg = _untitled_resolution(config, ia, ledger, entry,
                                                    read_model(entry.ws.show, Show), view)
