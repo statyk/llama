@@ -795,3 +795,36 @@ def test_reuse_check_sample_selection_and_wall_format(tmp_path, monkeypatch):
     assert got == expect
     assert len(re.findall(r"; wall \d+\.\d{3}s", text)) == 2
     assert "errs high" in text
+
+
+def test_reuse_check_plans_each_changed_show_exactly_once(tmp_path, monkeypatch):
+    cand = {f"s{i}": _reuse_show(tmp_path, f"s{i}", ["a.mp3"], ["a.mp3", "b.mp3"], ident=f"it{i}")
+            for i in range(4)}
+    calls = []
+    real = skp.audio_reuse.plan_reuse
+    monkeypatch.setattr(skp.audio_reuse, "plan_reuse", lambda ws, st: calls.append(ws.dir.name) or real(ws, st))
+    assert _reuse_run(tmp_path, cand, tmp_path / "out", "--sample", "4",
+                      durations={"a.mp3": 100.0}, monkeypatch=monkeypatch) == 0
+    assert sorted(calls) == ["s0", "s1", "s2", "s3"]
+
+
+def test_reuse_check_refuses_when_the_share_drops_mid_scan(tmp_path, monkeypatch):
+    import shutil
+    cand = {f"s{i}": _reuse_show(tmp_path, f"s{i}", ["a.mp3"], ["a.mp3", "b.mp3"], ident=f"it{i}")
+            for i in range(3)}
+    real = skp._station_state
+    seen = []
+
+    def flaky(station):
+        r = real(station)
+        if not seen:
+            seen.append(1)
+            shutil.rmtree(tmp_path / "station")
+        return r
+    monkeypatch.setattr(skp, "_station_state", flaky)
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(f'root = "{tmp_path / "lib"}"\ndelivery_path = "{tmp_path / "station"}"\n')
+    write_arm(tmp_path / "cand.json", cand)
+    assert skp.main(["reuse-check", "--cand", str(tmp_path / "cand.json"), "--config", str(cfg),
+                     "--out", str(tmp_path / "out")]) == 2
+    assert not (tmp_path / "out").exists()

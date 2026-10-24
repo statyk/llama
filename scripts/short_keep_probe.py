@@ -683,7 +683,9 @@ def reuse_check(args) -> int:
         changed[slug] = {"row": row, "ws": ws, "station": station, "show": show}
     uncovered, per_show_bytes, nosize, misses = 0, {}, 0, 0
     for slug, c in changed.items():
+        t0 = time.monotonic()
         plan = audio_reuse.plan_reuse(c["ws"], c["station"])
+        c["plan"], c["plan_s"] = plan, time.monotonic() - t0
         meta = _file_meta(ia, c["show"].identifier)
         if meta is None:
             misses += 1
@@ -700,6 +702,9 @@ def reuse_check(args) -> int:
                 b += sz
         per_show_bytes[slug] = b
         uncovered += b
+    if not station_root.is_dir():
+        raise Refusal(f"delivery_path {station_root} stopped being a directory during the scan "
+                      "(share dropped?); nothing written")
     sample = sorted(changed)
     random.Random(args.seed).shuffle(sample)
     sample = sorted(sample[: args.sample])
@@ -717,8 +722,8 @@ def reuse_check(args) -> int:
     walls = []
     for slug in sample:
         c = changed[slug]
+        plan = c["plan"]
         t0 = time.monotonic()
-        plan = audio_reuse.plan_reuse(c["ws"], c["station"])
         lines, npass, nfb = [], 0, 0
         for f in c["row"]["filenames"]:
             exp = length_seconds(c["meta"].get(f, {}).get("length"))
@@ -746,7 +751,7 @@ def reuse_check(args) -> int:
                 if path is not None:
                     fb_paired += 1
                     fb_paired_bytes += _size(c["meta"], f) or 0
-        wall = time.monotonic() - t0
+        wall = c["plan_s"] + (time.monotonic() - t0)
         walls.append(wall)
         tot_pass, tot_fb = tot_pass + npass, tot_fb + nfb
         md += [f"## {slug}", f"  pairing: {'paired' if plan.station else 'not paired'} "
