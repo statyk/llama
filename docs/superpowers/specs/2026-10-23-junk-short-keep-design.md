@@ -418,11 +418,26 @@ The bulk apply of pieces 1-5 is planned separately. Piece 4 needs these things f
    purged at delivery, so re-packaging it would download the whole show again. Before downloading
    a manifest file, the package step copies it from the station destination when that copy
    verifies. A failed check falls back to the download.
-   - **OPEN, to be settled before the plan.** The decided verification (md5 from cached
-     metadata, else exact size) cannot match a station copy. `build_package` renames every file
-     (`packaged_filename`) and rewrites its tags (`tag_audio`), so neither its md5 nor its size
-     equals the archive original's. The manifest also records only the packaged filename, not
-     the source filename.
+   - **Why md5/size cannot verify it.** `build_package` renames every file
+     (`packaged_filename`) and rewrites its tags (`tag_audio`), so a station copy's md5 and size
+     never equal the archive original's, and the manifest records only the packaged filename.
+   - **Mapping.** Before the re-gather rewrites `show.json`, the unit pairs the library's current
+     `show.json` tracks with the station manifest's `tracks` by index. Both describe the same
+     delivered package, so it requires equal lengths and equal titles at every index; any
+     mismatch means no reuse for that show. The pairing gives source filename → station file.
+   - **Verification, per file.** A station file is reused when it exists, `ffprobe` decodes it,
+     and its duration is within 1 s of the cached metadata length of its source file. The copy is
+     taken into the library under the source name, and packaging then renames and re-tags it as
+     usual. For MP3, `tag_audio` writes a fresh ID3v2 tag, replacing the whole old one. For FLAC,
+     it overwrites the same six fields it set on the original; every other field is the
+     original's. Either way the result matches what a fresh download would produce.
+   - **Fallback.** Anything that fails (no pairing, a missing file, a decode error, a duration
+     mismatch) downloads that file from archive.org exactly as today. New short-kept files are
+     never on the station, so they always download.
+   - **Why this is enough.** The station copy was produced from md5-verified downloads and
+     checked against the library at delivery (`catalog.purge_package_audio`), and it is what airs
+     today. The worst case of a bad reuse is re-shipping the copy that is already on air. This is
+     not a strict surface.
 5. **Re-delivery.**
    - **Unvoiced shows.** Delivered unvoiced shows are re-delivered, minor fixes included, and
      never with `--replace-voiced`. A show emcee voiced after the list was cut is then refused by
