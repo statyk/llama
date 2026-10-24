@@ -215,11 +215,15 @@ raises it.
 so cloud alerts reach you by email only. The main loop is still alive and the
 watchdog is unaffected (the thread never pings it). Publishing continues.
 **Do:** first look at the journal for the monitor thread's loggers:
-`journalctl -u "transmitter@*" --since "-1h" --no-pager | grep -E 'transmitter\.(monitor|relay)'`
+`journalctl -u "transmitter@*" --since "-1h" --no-pager | grep -E -A20 'transmitter\.(monitor|relay)|transmitter-monitor'`
 (a traceback, `dead-clock check failed`, `dead-clock monitor pass failed`,
-`alert relay pass failed`). A pass stuck on a slow R2 read logs nothing, so
-silence there plus a fresh `monitor-stalled` points at R2 latency; check R2
-latency and status. A restart clears it
+`alert relay pass failed`). Read the alert's own message to tell the cases
+apart: `the dead-clock monitor thread is not running` means the thread died
+(read the `Exception in thread transmitter-monitor:` block; the grep's
+`-A20` shows its first lines), while `the dead-clock monitor has completed no pass for N
+minutes` means it is alive but stuck. A pass stuck on a slow network read (R2,
+the `live.m3u8` fetch, DNS) logs nothing, so silence there plus the "no pass"
+message points at that; check R2 latency and status. A restart clears it
 (`sudo systemctl restart transmitter@<user>`); if it comes straight back,
 investigate before looping restarts. It resolves once passes are fresh again.
 
