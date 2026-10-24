@@ -292,3 +292,97 @@ def test_repro_treats_equal_unreplayable_as_equal(tmp_path):
     assert "CacheMiss: x" in (tmp_path / "out" / "repro.md").read_text()
     v = {"outcome": "unreplayable", "unreplayable": "other"}
     assert run_repro(tmp_path, {"s": u}, {"s": v}) == 1
+
+
+# --- fix round 1: per-field reproduction, class precedence, the library-root guard ---
+
+REPRO_FIELDS = {
+    "filenames": lambda c: c.update(filenames=["a.mp3", "q.mp3"]),
+    "titles": lambda c: c.update(titles=["A", "Bx"]),
+    "title_sources": lambda c: c.update(title_sources=["tags", "setlist"]),
+    "sets": lambda c: c.update(sets=["1", "2"]),
+    "segues": lambda c: c.update(segues=[False, True]),
+    "flags": lambda c: c.update(flags=["a flag"]),
+}
+
+
+@pytest.mark.parametrize("field", sorted(REPRO_FIELDS))
+def test_reference_reproduction_pins_each_field(tmp_path, field):
+    b = ref_row("s1", T2)
+    cand = crow([("a.mp3", "A", "tags", "1", False), ("b.mp3", "B", "tags", "1", False)])
+    REPRO_FIELDS[field](cand)
+    rc, out = run_arms(tmp_path, [b], [b], {"s1": base_replay(T2)}, {"s1": cand})
+    res = json.loads((out / "arms.json").read_text())
+    assert res["reference_reproduction"] == [f"s1: {field} differ"]
+
+
+def _classify(tmp_path, ref, cand):
+    rc, out = run_arms(tmp_path, [ref], [ref], {ref["slug"]: base_replay(ref["tracks"])},
+                       {ref["slug"]: cand})
+    return json.loads((out / "arms.json").read_text())["added_classes"]
+
+
+def test_class_precedence_positional_lost_beats_new_unresolved(tmp_path):
+    # the ratdog-2007-08-12 shape: a setlist fill reverts, a kept file is unresolved, and the
+    # show carries low-confidence, structure, unresolved and research flags
+    ref = ref_row("ratdog", [rtrack(1, "a.mp3", "A", src="setlist"), rtrack(2, "b.mp3", "B")])
+    cand = crow([("a.mp3", "?", "unresolved", "1", False), ("b.mp3", "B", "tags", "1", False),
+                 ("z.mp3", "?", "unresolved", "1", False)],
+                flags=["low-confidence structure alignment", "unresolved track titles: 1, 3",
+                       "research asserts unknown song: Cassidy"])
+    assert _classify(tmp_path, ref, cand) == {"positional rung lost": 1}
+
+
+def test_class_precedence_new_unresolved_beats_later_classes(tmp_path):
+    ref = ref_row("s1", T2)
+    cand = crow([("a.mp3", "A", "tags", "1", False), ("b.mp3", "B", "tags", "1", False),
+                 ("z.mp3", "?", "unresolved", "1", False)],
+                flags=["single-set structure for a long show (160 min)", "jerrybase set closer X"])
+    assert _classify(tmp_path, ref, cand) == {"new unresolved track": 1}
+
+
+def test_class_precedence_long_single_set_beats_closer(tmp_path):
+    ref = ref_row("s1", T2)
+    cand = crow([("a.mp3", "A", "tags", "1", False), ("b.mp3", "B", "tags", "1", False)],
+                flags=["jerrybase set closer X", "single-set structure for a long show (160 min)"])
+    assert _classify(tmp_path, ref, cand) == {"long single-set show": 1}
+
+
+def test_low_confidence_plus_another_new_flag_is_not_low_confidence_remains(tmp_path):
+    ref = ref_row("s1", T2)
+    cand = crow([("a.mp3", "A", "tags", "1", False), ("b.mp3", "B", "tags", "1", False)],
+                flags=["low-confidence structure alignment", "research asserts unknown song: X"])
+    assert _classify(tmp_path, ref, cand) == {"other": 1}
+
+
+def _config(tmp_path):
+    lib = tmp_path / "lib"
+    lib.mkdir()
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(f'root = "{lib}"\n')
+    return cfg, lib
+
+
+def test_arms_refuses_an_out_inside_the_configured_library_root(tmp_path):
+    cfg, lib = _config(tmp_path)
+    s = ref_row("s1", T2)
+    write_ref(tmp_path / "ref", [s], [s])
+    write_arm(tmp_path / "base.json", {"s1": base_replay(T2)})
+    write_arm(tmp_path / "cand.json", {"s1": crow([("a.mp3", "A", "tags", "1", False),
+                                                   ("b.mp3", "B", "tags", "1", False)])})
+    args = ["arms", "--base", str(tmp_path / "base.json"), "--cand", str(tmp_path / "cand.json"),
+            "--ref-dir", str(tmp_path / "ref"), "--config", str(cfg)]
+    assert skp.main(args + ["--out", str(lib / "o")]) == 2
+    assert not (lib / "o").exists()
+    assert skp.main(args + ["--out", str(tmp_path / "fine")]) == 0     # the guard is not a blanket refusal
+
+
+def test_repro_refuses_an_out_inside_the_configured_library_root(tmp_path):
+    cfg, lib = _config(tmp_path)
+    write_arm(tmp_path / "pre.json", {"s": arm_row()})
+    write_arm(tmp_path / "post.json", {"s": arm_row()})
+    args = ["repro", "--pre", str(tmp_path / "pre.json"), "--post", str(tmp_path / "post.json"),
+            "--config", str(cfg)]
+    assert skp.main(args + ["--out", str(lib / "o")]) == 2
+    assert not (lib / "o").exists()
+    assert skp.main(args + ["--out", str(tmp_path / "fine")]) == 0

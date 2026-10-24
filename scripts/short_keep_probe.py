@@ -258,12 +258,15 @@ def compare(base: dict, cand: dict) -> dict:
             "blocks": blocks}
 
 
-def _guard_out(out: Path, args) -> Path:
+def _guard_out(out: Path, config: Path | None, *others: tuple[str, Path]) -> Path:
+    """Refuse an `--out` overlapping the library root (read as `replay_holds.run` does: the
+    given config, else the default `config.toml`) or any other read-only input."""
     out = out.expanduser()
-    cfg = getattr(args, "config", None)
-    root = (load_config(cfg).root if cfg else DEFAULT_ROOT).expanduser()
-    for what, p in (("library root", root), ("reference dir", args.ref_dir.expanduser())):
-        if _overlaps(out, p):
+    if config is not None and not config.exists():
+        raise Refusal(f"no such config: {config}")
+    root = load_config(config or DEFAULT_ROOT / "config.toml").root.expanduser()
+    for what, p in (("library root", root), *others):
+        if _overlaps(out, p.expanduser()):
             raise Refusal(f"refusing --out {out}: it overlaps the {what} {p}")
     return out
 
@@ -273,8 +276,8 @@ def _lines(title: str, rows: list[str]) -> list[str]:
 
 
 def arms(args) -> int:
-    out = _guard_out(args.out, args)
     ref_dir = args.ref_dir.expanduser()
+    out = _guard_out(args.out, args.config, ("reference dir", ref_dir))
     ref_base, ref_r1 = _load_ref(ref_dir / "arm_base.jsonl"), _load_ref(ref_dir / "arm_r1.jsonl")
     base, cand = _load_arm(args.base), _load_arm(args.cand)
     for name, arm in (("base", base), ("candidate", cand)):
@@ -319,10 +322,7 @@ def _row_key(r: dict) -> dict:
 
 
 def repro(args) -> int:
-    out = args.out.expanduser()
-    for p in (args.pre, args.post):
-        if _overlaps(out, Path(p).expanduser()):
-            raise Refusal(f"refusing --out {out}: it overlaps {p}")
+    out = _guard_out(args.out, args.config, ("pre arm", args.pre), ("post arm", args.post))
     pre, post = _load_arm(args.pre), _load_arm(args.post)
     diffs, equal_unrep, total_equal = [], [], 0
     for slug in sorted(set(pre) | set(post)):
@@ -380,6 +380,7 @@ def main(argv: list[str] | None = None) -> int:
     r = sub.add_parser("repro")
     r.add_argument("--pre", type=Path, required=True)
     r.add_argument("--post", type=Path, required=True)
+    r.add_argument("--config", type=Path)
     r.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
     try:
