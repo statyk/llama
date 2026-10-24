@@ -315,3 +315,7 @@ on air. The risk is a future `emcee run`.
     mp3 filenames).
   - The branch now pairs a library or station manifest only when its `source.identifier` equals
     `show.json`'s identifier. `build_package` re-checks this at package time.
+
+### Operator ruling on premise 4 (Shawn, 2026-10-24 ~14:25, relayed by llama-db)
+
+Verbatim: "2". Option 2 as it was put to him, verbatim: "Reuse only when the briefing provably doesn't mention the change: llama checks first and writes a fresh briefing whenever the stored one names a restored file or uses the 'excluded'/'implausibly short' wording. Deterministic; keeps reuse wherever it's safe; ~98% regenerate in practice; bulk-apply plan budgets ~1,000 fresh briefings." Rejected: (1) a fresh brief for every restored show unconditionally; (3) editing stored briefings. Built as Task 15a (below); the spec 5.3 text change is queued for Task 23.
