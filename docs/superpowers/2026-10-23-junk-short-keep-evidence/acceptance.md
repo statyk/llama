@@ -319,3 +319,31 @@ on air. The risk is a future `emcee run`.
 ### Operator ruling on premise 4 (Shawn, 2026-10-24 ~14:25, relayed by llama-db)
 
 Verbatim: "2". Option 2 as it was put to him, verbatim: "Reuse only when the briefing provably doesn't mention the change: llama checks first and writes a fresh briefing whenever the stored one names a restored file or uses the 'excluded'/'implausibly short' wording. Deterministic; keeps reuse wherever it's safe; ~98% regenerate in practice; bulk-apply plan budgets ~1,000 fresh briefings." Rejected: (1) a fresh brief for every restored show unconditionally; (3) editing stored briefings. Built as Task 15a (below); the spec 5.3 text change is queued for Task 23.
+
+### Task 15a (`49f9274`): the premise-4 gate, and the re-measure
+
+- `replay.briefing_reusable` refuses a briefing when two things hold:
+  - The new show has a **restored** file: a `short_kept` file that is not among the stored show's
+    tracks. Already-included short files do not count.
+  - The stored briefing mentions it. The check runs over every text field of `Briefing`,
+    case-insensitively, by filename, stem or disc/track tail, or by any of the exclusion or absence
+    wording, which can appear anywhere in the briefing.
+- The reason it gives starts `briefing mentions a restored file`.
+- Measured over the 1,014 reusable rows (implementer's outputs:
+  `~/.llama-harness/piece4/ckb/15a/`):
+  - **refused 1,014 of 1,014, and all 901 of the arm's.** None stays reusable.
+  - The wording arm fires on all of them. The name arm fires on 406, and never alone.
+  - Dropping the term `track count` would give back 5 rows, 3 of them the arm's. One of those,
+    `gratefuldead-1970-06-07`, has a genuinely stale "nine tracks".
+- Review: Approved (Opus). The reviewer also checked that a held show followed by a later overrule
+  cannot ship a stale briefing.
+  - Its one strict-surface Minor: the vocabulary misses some measured phrasings, such as
+    `not included`, `not listed` and `does not appear`.
+  - Exposure today is 0: the wording arm alone refuses every restored row, and the 45 library
+    briefings that pass the wording arm have no `excluded_files`.
+- **Re-measure, `cand-b2.json`** (`49f9274`, clean, rc 0, sha256 1c493890…).
+  - Against `cand-b`, only `briefing` differs: exactly 901 rows, `reuse` → `fresh`, all inside the
+    1,410 changed shows with a briefing.
+  - Over those 1,410: 1,112 `fresh`, 298 `none` (held), 0 `reuse`.
+  - The 1,685 reuses that remain are all on shows with no restored file.
+  - In practice the ruling's "~98% regenerate" is **100%** on today's library.
