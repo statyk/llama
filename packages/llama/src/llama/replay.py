@@ -443,6 +443,16 @@ class ShowReplay:
     title_sources: list[str] = dataclasses.field(default_factory=list)
     title_paths: list[str] = dataclasses.field(default_factory=list)
     cascade: dict = dataclasses.field(default_factory=dict)
+    # Piece 4 (junk short-keep). Base-arm rows (e37f670) lack these keys; readers treat a
+    # missing key as absent. Per track of `gathered.show`, before vet: `filenames`,
+    # `short_kept` (the junk filter's short-file rule kept it) and `segues`; `breaks` is
+    # `gathered.show.set_breaks`; `flags` is `legs.flags` (gather + vet + carried). The
+    # encore position is derived by readers from `sets`.
+    filenames: list[str] = dataclasses.field(default_factory=list)
+    short_kept: list[bool] = dataclasses.field(default_factory=list)
+    segues: list[bool] = dataclasses.field(default_factory=list)
+    breaks: list[int] = dataclasses.field(default_factory=list)
+    flags: list[str] = dataclasses.field(default_factory=list)
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
@@ -547,6 +557,11 @@ def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlis
         r.title_sources = [t.title_source for t in g.show.tracks]
         r.title_paths = list(g.title_paths)
         r.cascade = _cascade_dict(g.title_record)
+        r.filenames = [t.filename for t in g.show.tracks]
+        r.short_kept = [bool(t.short_kept) for t in g.show.tracks]
+        r.segues = [bool(t.segue) for t in g.show.tracks]
+        r.breaks = list(g.show.set_breaks)
+        r.flags = list(legs.flags)
     except CacheMiss as err:
         r.outcome, r.unreplayable = "unreplayable", str(err)
     except _OverridesUnreadable:

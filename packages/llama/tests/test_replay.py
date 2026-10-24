@@ -467,7 +467,8 @@ def test_show_replay_to_dict_has_the_contract_keys_plus_date():
         "set_changes", "segue_changes", "set_breaks", "alignment", "notes", "digests",
         "slfm_miss", "unreplayable", "taper_owned", "sets", "filler", "taper_source",
         "taper_reason", "step1_alignment", "self_filled", "desc_position", "titles",
-        "title_sources", "title_paths", "cascade"]
+        "title_sources", "title_paths", "cascade", "filenames", "short_kept", "segues", "breaks",
+        "flags"]
     assert r.to_dict()["date"] is None
 
 
@@ -611,6 +612,25 @@ def test_replay_show_fills_the_row_of_a_clearing_held_show(tmp_path):
     assert r.digests == input_digests(ws)
     assert r.title_changes == [] and r.venue is None and r.date is None
     assert r.slfm_miss is False
+
+
+def test_record_carries_filenames_short_kept_and_flags(tmp_path):
+    ws, show = _library_show(tmp_path, held=True, with_briefing=True)
+    r = _replay(tmp_path, ws)
+    n = len(r.titles)
+    assert n > 0
+    assert r.filenames == [t.filename for t in show.tracks]
+    assert len(r.filenames) == n
+    assert r.short_kept == [False] * n and len(r.segues) == n
+    assert all(isinstance(b, bool) for b in r.segues)
+    assert r.breaks == sorted(r.breaks) and all(isinstance(b, int) for b in r.breaks)
+    assert r.flags == r.gather_flags + r.vet_flags
+    d = r.to_dict()
+    assert {"filenames", "short_kept", "segues", "breaks", "flags"} <= set(d)
+    # defaults: a row that never replayed carries them empty
+    empty = ShowReplay(slug="x", state="missing")
+    assert (empty.filenames, empty.short_kept, empty.segues, empty.breaks, empty.flags) == \
+        ([], [], [], [], [])
 
 
 def test_replay_show_core_flags_drop_package_and_briefing_families(tmp_path):
