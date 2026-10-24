@@ -343,7 +343,7 @@ The billing period starts on day 11 of each month, 00:00 UTC (the committed var 
    email_to = "you@example.com"
    ntfy_url = "https://ntfy.sh/<your-topic>"
    ```
-   `[antenna] site_url` must be set: the dead-clock check fetches `<site_url>/live.m3u8` once a minute. Then `sudo systemctl restart transmitter@<user>`.
+   `[antenna] site_url` must be set: the dead-clock check fetches `<site_url>/live.m3u8` once a minute, on the monitor thread (section 7.1). Then `sudo systemctl restart transmitter@<user>`.
 4. **Config keys added in phase 2** (defaults as in `transmitter config init`; the config is strict, so a typo'd key is an error):
 
    | key | default | meaning |
@@ -352,15 +352,16 @@ The billing period starts on day 11 of each month, 00:00 UTC (the committed var 
    | `[alerts] email_from` | unset (falls back to `SMTP_USERNAME`) | the From address |
    | `[alerts] smtp_host` | `smtp.gmail.com` | SMTP server (STARTTLS) |
    | `[alerts] smtp_port` | `587` | SMTP port (1-65535) |
-   | `[alerts] ntfy_url` | unset | `https://ntfy.sh/<your-topic>`; unset = no ntfy |
+   | `[alerts] ntfy_url` | unset | `https://ntfy.sh/<your-topic>`; unset = no ntfy. It now also carries antenna's pushes: hugo's relay (section 7.1) sends them here, and the Worker sends no ntfy of its own. With it unset the relay is off (one startup warning) and antenna's alerts arrive by email only |
    | `[alerts] repeat_hours` | `6.0` | re-send a still-firing alert at most this often |
    | `[alerts] dead_clock_seconds` | `120.0` (minimum 31) | the public `live.m3u8` older than this, on two consecutive checks, means the clock is dead. It is dated by its newest segment's start minus its own hold-back (`#EXT-X-START`, section 4 step 6), i.e. the segment airing when it was written; an off-air playlist is dated by its MEDIA-SEQUENCE less the hold-back last seen live |
    | `[alerts] guard_stale_minutes` | `45.0` | `state/guard.json` not evaluated for this long means the guard is dead. It must be at least `[publish] guard_check_minutes + 16` (the cache refresh plus the guard's 15-minute cadence and the cron lag), or the config is refused |
    | `[publish] guard_check_minutes` | `15.0` | how often hugo refreshes its cache of the guard's state; an unexpected 403 alerts only after `guard_check_minutes + 2` consecutive checks |
    | `[antenna] site_url` | unset | public base URL: Open Graph links and the dead-clock check (unset = no check) |
+   | `[antenna] station_name` | `llama radio` | the station name in alert subjects and in the titles of relayed pushes |
 
-   Env-file secrets (`/etc/transmitter/<user>.env`): `SMTP_USERNAME`, `SMTP_PASSWORD` (a Gmail App Password) and `NTFY_TOKEN` (optional). With no channel configured, alerts reach only the journal.
-5. **The watchdog.** transmitter pings systemd after every step, every publish batch, every batch of prune deletes and every show encode, so the longest silence is one show's encode (~10-20 min on hugo) against `WatchdogSec=45min`. After restoring `~/.transmitter` **without** `cache/`, the first publish recomputes analyses for about 48 h of shows and may meet `WatchdogSec`: the service restarts and continues (each analysis is cached as it completes; at most one batch, up to 360 segments, is re-PUT per kill, within the daily PUT budget).
+   Env-file secrets (`/etc/transmitter/<user>.env`): `SMTP_USERNAME`, `SMTP_PASSWORD` (a Gmail App Password) and `NTFY_TOKEN` (optional; it covers both hugo's own pushes and the relayed antenna ones). With no channel configured, alerts reach only the journal.
+5. **The watchdog.** transmitter pings systemd after every step, every publish batch, every batch of prune deletes and every show encode, so the longest silence is one show's encode or one show's analysis in the plan step (~8 min each on 10-23) against `WatchdogSec=45min`. After restoring `~/.transmitter` **without** `cache/`, the first publish recomputes analyses for about 48 h of shows and may meet `WatchdogSec`: the service restarts and continues (each analysis is cached as it completes; at most one batch, up to 360 segments, is re-PUT per kill, within the daily PUT budget).
 
 ### 6.2 Tokens and email (dashboard)
 
@@ -369,7 +370,7 @@ The billing period starts on day 11 of each month, 00:00 UTC (the committed var 
 3. **Zone ID.** The zone's overview page → API → *Zone ID*.
 4. **Email.** Email Routing must be enabled on the zone, with the destination address verified (phase 1). The sender is `alerts@lma-radio.com`, on the zone's domain. The `send_email` binding `ALERT_EMAIL` in `wrangler.jsonc` is unrestricted: it can only reach the account's verified destinations, and the one the Worker uses is the `ALERT_EMAIL_TO` secret (6.3), so the destination never enters the repo.
 5. **Kill switch.** The custom rule *"station: kill switch"* (section 2 step 7) must exist **exactly once**, with action Block. The guard finds it by that description and refuses to touch it if it is missing, duplicated or not a Block rule. (Its description is the Worker var `KILL_SWITCH_DESCRIPTION`.)
-6. **`STATION_NAME`** (a Worker var in `wrangler.jsonc`) must be ASCII: it goes into the raw ntfy `Title` header.
+6. **`STATION_NAME`** (a Worker var in `wrangler.jsonc`) no longer needs to be ASCII: the Worker sends no ntfy (it was the raw ntfy `Title` header). Relayed push titles use hugo's `[antenna] station_name`.
 
 ### 6.3 antenna
 
@@ -381,12 +382,11 @@ From `antenna/`, with `.env` holding `CLOUDFLARE_ACCOUNT_ID`:
    npx wrangler secret put CF_ZONE_ID
    npx wrangler secret put CF_ANALYTICS_TOKEN
    npx wrangler secret put CF_WAF_TOKEN
-   npx wrangler secret put NTFY_URL                    # https://ntfy.sh/<your-topic>
-   npx wrangler secret put NTFY_TOKEN                  # optional
    npx wrangler secret put ALERT_EMAIL_FROM            # alerts@lma-radio.com
    npx wrangler secret put ALERT_EMAIL_TO              # the verified destination (its only copy)
    npx wrangler secret list
    ```
+   A new deploy sets no ntfy secret: the Worker sends email only, and hugo relays its alerts to ntfy. An existing deploy deletes the two old secrets after this release: `npx wrangler secret delete NTFY_URL` and `npx wrangler secret delete NTFY_TOKEN`.
 2. `npm ci && npm test`, then `npx wrangler deploy --dry-run` and check the output (it bundles and lists the bindings, `ALERT_EMAIL` among them). Then `npx wrangler deploy`.
 3. `ANTENNA_BUCKET=lma-radio npm run deploy:assets` (the player's stall watch is in `player.js`/`nowplaying.js`).
 4. Within two minutes, `npx wrangler r2 object get lma-radio/state/guard.json --remote --pipe` shows the following. `transmitter status` shows the same picture from hugo.
@@ -395,6 +395,13 @@ From `antenna/`, with `.env` holding `CLOUDFLARE_ACCOUNT_ID`:
    - `waf.enabled: false`, `waf.error: null`;
    - `evaluation.unknown_action_types: []`.
 5. Optional second channel for a dead clock: Notifications → Add → Workers → the Worker-error alert for `antenna`.
+
+### 6.4 Deploys (alert gate and relay release)
+
+1. Worker: `cd antenna && npx wrangler deploy --dry-run`, then `npx wrangler deploy`; then delete the `NTFY_URL` and `NTFY_TOKEN` secrets (6.3 step 1).
+2. hugo: update the checkout, reinstall transmitter (6.1 step 1), `sudo systemctl restart transmitter@<user>`.
+
+The order does not matter. Before hugo updates, `state/alert-relay.json` simply accumulates; on first start hugo sends only messages younger than `RELAY_MAX_AGE_S` (1 h), so nothing older pages.
 
 ## 7. Operating
 
@@ -406,7 +413,7 @@ Run the `transmitter` commands below as `<user>` on hugo with the env file loade
 - **`transmitter status` / `budget` reading guide.** A `CORRUPT (…)` guard line means the clock treats the document as a spend trip; `offair CORRUPT` means the clock treats the station as off the air; a `<doc> unreadable: …` line states the clock's reading of that document; a raise shows whether the Worker honours it: `honoured`, `expired`, `ignored: …`, or `honoured (period end unknown)` when the period end cannot be read.
 - **While `guard.json` is corrupt** and readings fail, `transmitter budget --raise-to` refuses (no period is known), even though the `guard-state-corrupt` alert recommends a raise: wait for the next successful evaluation.
 - **All-clears are slow.** Every "resolved", including `tripped-spend` after `--raise-to`, arrives about 15 minutes after the condition clears: it must stay clear for the 15-minute cooldown first.
-- **Alerts.** Cloud alerts come from the clock Worker (ntfy + email). hugo alerts come from transmitter (email + ntfy). Each repeats every 6 h while active and says "resolved" when a latch or outage clears. The 50% and 80% spend alerts come once per billing period (and budget). A dashboard toggle of the kill switch is undone and alerted (`waf-corrected`). `transmitter status` lists both sets; a hugo event alert (a publish error, the PUT budget) drops off once 6 h pass without a new one.
+- **Alerts.** Cloud alerts are emailed by the clock Worker and pushed to ntfy by hugo's relay (up to ~1 min after the email). hugo alerts come from transmitter (email + ntfy). A check that runs about every minute alerts only after 3 consecutive failing observations (the gate; section 7.1). Each repeats every 6 h while active and says "resolved" when a latch or outage clears. The 50% and 80% spend alerts come once per billing period (and budget). A dashboard toggle of the kill switch is undone and alerted (`waf-corrected`). `transmitter status` lists both sets; a hugo event alert (a publish error, the PUT budget) drops off once 6 h pass without a new one.
 - **Known limitations.**
   - *VLC at a fallback→live switch.* At a fresh run — the first start, an outage longer than the published lead, or a re-epoch — `EXT-X-DISCONTINUITY-SEQUENCE` restarts at 0. hls.js and Safari follow it; VLC goes silent and needs stop/play once.
   - *Cloud alerts need R2.* While R2 itself is unreadable, the cloud cannot send alerts (their state lives in R2); an R2 outage that hits the read of `state/alerts.json` silences cloud alerts for that minute, and hugo's dead-clock check is the cover for that case. An invocation whose guard could not read its state (`blocked: null`) may still try to read `state/alerts.json`.
@@ -423,56 +430,75 @@ What each alert means and how to respond: `docs/playout-incident-runbook.md`.
 
 **Cloud** (antenna, `state/alerts.json`). The "guard" family resolves whenever the guard returned a known outcome; the "clock" family only on a complete invocation; a key in neither family is treated as clock. Titles are in the alert text; `waf-api` redacts ids.
 
-| key | family | priority | kind |
-|---|---|---|---|
-| `tripped-spend` | guard | urgent | resolvable |
-| `tripped-blind` | guard | urgent | resolvable |
-| `budget-50:<period>:<budget>` | guard | default | once per period and budget |
-| `budget-80:<period>:<budget>` | guard | high | once per period and budget |
-| `guard-reading-failing` | guard | high | resolvable |
-| `guard-unknown` | guard | high | resolvable |
-| `budget-unreadable` | guard | high | resolvable |
-| `offair-corrupt` | guard | high | resolvable |
-| `budget-file-invalid` | guard | high | once |
-| `guard-state-corrupt` | guard | urgent | resolvable; its "resolved" text says the spend trip stays |
-| `waf-api` | guard | high | resolvable (ids redacted in alert text) |
-| `waf-corrected` | guard | high | sent on appearance, never "resolved" |
-| `guard-write` | guard | high | resolvable |
-| `guard-crashed` | clock | urgent | resolvable |
-| `index-write` | clock | high | resolvable |
-| `clock-inputs` | clock | urgent | resolvable |
-| `horizon-missing` | clock | default | resolvable |
-| `horizon-refused` | clock | urgent | resolvable |
-| `lead-low` | clock | high | resolvable |
-| `offair-without-fallback` | clock | high | resolvable |
-| `clock-failed` | clock | urgent | resolvable |
-| `metronome-down` | clock | high | resolvable |
+| key | family | priority | kind | gate |
+|---|---|---|---|---|
+| `tripped-spend` | guard | urgent | resolvable | sent at once |
+| `tripped-blind` | guard | urgent | resolvable | sent at once |
+| `budget-50:<period>:<budget>` | guard | default | once per period and budget | sent at once |
+| `budget-80:<period>:<budget>` | guard | high | once per period and budget | sent at once |
+| `guard-reading-failing` | guard | high | resolvable | unchanged |
+| `guard-unknown` | guard | high | resolvable | gated at 3 (read branch); sent at once from the post-unblock re-check |
+| `budget-unreadable` | guard | high | resolvable | gated at 3 |
+| `offair-corrupt` | guard | high | resolvable | sent at once |
+| `budget-file-invalid` | guard | high | once | sent at once |
+| `guard-state-corrupt` | guard | urgent | resolvable; its "resolved" text says the spend trip stays | sent at once |
+| `waf-api` | guard | high | resolvable (ids redacted in alert text) | gated at 3 |
+| `waf-corrected` | guard | high | sent on appearance, never "resolved" | sent at once |
+| `guard-write` | guard | high | resolvable | gated at 3 |
+| `guard-crashed` | clock | urgent | resolvable | gated at 3 |
+| `index-write` | clock | high | resolvable | gated at 3 |
+| `clock-inputs` | clock | urgent | resolvable | gated at 3 |
+| `horizon-missing` | clock | default | resolvable | gated at 3 |
+| `horizon-refused` | clock | urgent | resolvable | sent at once |
+| `lead-low` | clock | high | resolvable | unchanged |
+| `offair-without-fallback` | clock | high | resolvable | unchanged |
+| `clock-failed` | clock | urgent | resolvable | gated at 3 |
+| `metronome-down` | clock | high | resolvable | gated at 3; sent at once from the stall branch (2 consecutive stalled renews) |
+
+**Gate.** A check that runs about every minute alerts only after `GATE` = 3 consecutive failing observations; a single failure is logged, not sent. The first message of a gated episode says it followed 3 consecutive failures. After that the episode behaves as before (repeats every 6 h, "resolved" for resolvable keys), except that a repeat also needs the streak to still be at 3, so a single blip inside an active episode never sends a repeat. The antenna list is `GATED_KEYS` in `antenna/src/alerts.ts` (observations are minutes, streaks live in `state/alerts.json`); the transmitter list is `GATED_CODES` in `alerts.py` (observations are service ticks, or monitor passes for `dead-clock-check`; streaks are in process and reset by a restart). The spend and off-air alerts, the one-shot keys and anything already debounced are never gated. The two immediate raise sites on antenna are `metronome-down` from the stall branch and `guard-unknown` from the re-check after turning the kill switch off.
 
 **hugo** (transmitter, `~/.transmitter/alerts.json`):
 
-- **Level codes**, active until resolved: `dead-clock` and `guard-stale` (resolved by the monitor), `station-root` and `plan` (by a successful plan step), `render` (by a successful render step).
+- **Level codes**, active until resolved: `dead-clock` and `guard-stale` (resolved by the monitor), `station-root` and `plan` (by a successful plan step), `render` (by a successful render step), `monitor-stalled` (new: fired by the main tick when the monitor thread has completed no pass for 5 min or is not alive, **sent at once**; resolved by the main tick once passes are fresh again).
 - **Event codes**, re-sent at most every `repeat_hours` and dropped from the active list once `repeat_hours` pass without a new fire: `publish`, `prune`, `publish-state`, `put-budget`, `horizon-held`, `frame-count-drift`, `dead-clock-check` (the dead-clock monitor itself raised an error; not the same as `dead-clock`).
+- **Gate.** Gated at 3: `prune`, `publish`, `publish-state`, `station-root`, `plan`, `render`, `dead-clock-check`. Sent at once: `put-budget` (spend), `frame-count-drift` (latches `halted`, fires once), `monitor-stalled`. Unchanged (already debounced): `dead-clock`, `guard-stale`, `horizon-held`.
+
+**The monitor thread.** The dead-clock check and the relay run on a daemon thread every 60 s, independent of plan, render and publish (a plan step analysing shows over NFS used to delay `dead-clock` by 13+ min). The thread starts when `[antenna] site_url` or hugo's ntfy is configured; each part runs only if its own configuration is present. It has its own get-only R2 reader (short timeouts), never writes, never touches `guard-cache.json` and never pings the watchdog, so the watchdog still means "the main loop is alive". It reads `state/guard.json` and `state/offair.json` itself (about 2 class-B GETs a minute) instead of using hugo's 15-minute cache. `transmitter run --once` runs one tick and then one dead-clock check on the main thread; it does not relay and starts no thread.
+
+**Relay.** After emailing, the Worker appends all of an invocation's sent messages (redacted) to `state/alert-relay.json`: a random `stream` id and a ring of the last 50 `{seq, at, key, kind, priority, title, message}`, `seq` strictly increasing within the stream, written in one bounded (10 s) etag-conditional PUT. A message counts as delivered if its email was accepted or the relay write succeeded. Each monitor pass GETs the object and sends qualifying messages to hugo's ntfy only: title `<station_name>: [resolved: ]<title>`, priorities urgent 5, high 4, default and resolved 3, tags matching antenna, and a body ending `-- relayed from antenna (<key>, <at>)`. hugo's cursor `(stream, seq)` is kept in memory and written best-effort to `~/.transmitter/alert-relay-cursor.json`; no cursor, or a different stream, means start from `seq` 0. A message is sent only when younger than `RELAY_MAX_AGE_S` (1 h), which is what prevents a backlog storm after hugo was down. The cursor advances past every message handled: sent, skipped for age, or refused by ntfy with a 4xx other than 429 (a WARNING). A message ntfy can never accept (a CR/LF in the title, a lone surrogate) is cleaned (CR/LF to a space, a surrogate to `?`) or, failing that, skipped with a WARNING. A 429, a 5xx or a transport error stops the pass and the next minute retries from that message. A pass stops sending after 30 s. A missing object means nothing to relay; a malformed or unreadable one is a WARNING only, never an alert (email covers it). With no ntfy configured on hugo the relay is off.
+
+**Limits.**
+
+- A gated key failing in alternate minutes never alerts (the consecutive rule), and antenna writes `alerts.json` about once a minute while it does (within the spend bounds).
+- One R2 problem whose symptom rotates between gated antenna keys minute to minute (`guard-unknown`, `clock-inputs`, `index-write`) resets each key's streak, so it may never alert; hugo's `dead-clock` is the cover.
+- transmitter gates count ticks, not minutes: during a fill a tick can run 17+ min, so a gated `publish`/`prune`/`publish-state` failure can take ~50 min to page. Harmless with a ~20 h lead.
+- During an R2 write outage a pending antenna streak cannot be saved, so the gated keys that report it (`guard-write`, `index-write`, `clock-failed`) stay silent, and an ungated alert goes by email only (its relay write fails). During an R2 read outage antenna sends nothing at all, as before (dispatch reads `alerts.json` first). hugo's `dead-clock` is the cover in both.
+- Pushes arrive up to ~1 min after antenna's email.
+- hugo down means no relay; email covers it. If email also fails while hugo is down (or its ntfy is failing), the relay write still counts as a delivery, so the alert is not re-sent until `repeat_hours`.
+- A cursor file that is lost, or left behind by failed writes, can re-send up to an hour of relayed messages once, at the next start.
+- An undelivered first message resent after a clean minute goes out at once without the "3 consecutive" note (wording only).
+- **Operator ruling (2026-10-24):** the five playlist keys (`clock-inputs`, `clock-failed`, `guard-crashed`, `guard-unknown` read branch, `horizon-missing`) stay gated. They mean cron did not write the playlist that minute, which matters only when cron is the only writer (`METRONOME` off, or the Durable Object judged down); the 3-minute gate exceeds the ~123 s player runway, and hugo's `dead-clock` (~3-4 min) is the independent cover.
 
 ## 8. Phase-2 verification checklist
 
 Run with the station up and **not yet shared**. Run the `transmitter` commands as described at the top of section 7. Record each result (date, observation) in `docs/superpowers/<date>-playout-phase2-verification.md`. Restore the normal deploy (`npx wrangler deploy`, with no `--var`) after each item that changes it.
 
-- [ ] **The guard reads and prices usage.** `guard.json` → `evaluation`: compare `period_to_date` with the dashboard's R2 and Workers metrics for the period (sampled; expect agreement within a few percent). `unknown_action_types` is `[]`; otherwise record the strings. Also confirm the **first** `state/guard.json` write succeeded on production R2: there is no `guard-write` alert and the document exists. The create-only precondition itself (`onlyIf: { etagDoesNotMatch: "*" }`, verified only in miniflare) is not observable from outside: the Worker falls back to an unconditional put.
+- [ ] **The guard reads and prices usage.** `guard.json` → `evaluation`: compare `period_to_date` with the dashboard's R2 metrics for the period (sampled; expect agreement within a few percent). Read Worker requests on the **billing page**, which lags `guard.json` by about a day (it is daily data published late): compare it against `guard.json`'s figure from a day earlier, not the current one. antenna has no routes, so its requests are its cron invocations, about 1,440 a day; there is no requests graph under Workers & Pages → `antenna`. `unknown_action_types` is `[]`; otherwise record the strings. Also confirm the **first** `state/guard.json` write succeeded on production R2: there is no `guard-write` alert and the document exists. The create-only precondition itself (`onlyIf: { etagDoesNotMatch: "*" }`, verified only in miniflare) is not observable from outside: the Worker falls back to an unconditional put.
 - [ ] **Off-air blocks fully and comes back.** `transmitter offair on --reason test`. Within ~1 min:
       - `curl -s -o /dev/null -w '%{http_code}\n' https://<host>/live.m3u8` → 403 (kill switch);
       - the dashboard shows the kill-switch rule enabled;
-      - `curl -s https://<host>/` → the off-air page (`/` is cached up to 60 s, `max-age=60`, so at the edge and in a browser this can take about 2 minutes);
+      - `curl -s https://<host>/` → the off-air page (`/` is cached up to 60 s, `max-age=60`, so at the edge and in a browser this can take about 2 minutes). Do **not** test with `grep -i 'off the air'`: it always matches, because the notice is a hidden div in the normal player page. Grep for something only the off-air `index.html` carries (compare the two pages' bodies and pick a string that differs);
       - `transmitter status` → `offair ON`, `killswitch enabled`.
 
       Then `transmitter offair off`. Within ~1 min everything reverses and players can tune in again. Repeat once with the Mac-side write of `state/offair.json` (section 4 step 4) in place of `transmitter offair`.
       - Also confirm the WAF block answers **403** on the R2 custom domain; any other status counts as "unreachable" to hugo and alarms after 10 checks.
       - After an off-air on/off, confirm the kill-switch PATCH kept the rule whole: its expression, action and description in the dashboard are unchanged, and only `enabled` toggled.
 - [ ] **An already-playing page shows the notice** (amendment A2). Play in Chrome and in Safari, then `transmitter offair on`. Chrome (hls.js) shows "The station is off the air." with *Try again* at its next playlist reload (the 403 or the ENDLIST playlist), within about a minute. Safari keeps playing what it has buffered first: with the hold-back that is up to ~120 s (section 4 step 6), then the 15 s stall watch and two probes 10 s apart, so expect up to about 2.5 minutes. VLC stops on ENDLIST. Then `offair off`. Record the measured times.
-- [ ] **Joining on iPhone and Chrome starts near the wall clock (now-playing matches the schedule).** Press *Play* on an iPhone (Safari) and in Chrome on the Mac. Within a few seconds of starting, the now-playing line names what `timeline.json` (or `transmitter status`) schedules for the current wall-clock time, not the item from about two minutes earlier; `curl -s https://<host>/live.m3u8` shows `#EXT-X-START:TIME-OFFSET=-122.880`, `#EXT-X-SERVER-CONTROL:HOLD-BACK=122.880` and its last `PROGRAM-DATE-TIME` about 2 minutes ahead of the wall clock. Record each player's offset from the schedule.
+- [ ] **Joining on iPhone and Chrome starts near the wall clock (now-playing matches the schedule).** Press *Play* on an iPhone (Safari) and in Chrome on the Mac. Within a few seconds of starting, the now-playing line names what `timeline.json` (or `transmitter status`) schedules for the current wall-clock time, not the item from about two minutes earlier; `curl -s https://<host>/live.m3u8` shows `#EXT-X-START:TIME-OFFSET=-122.880`, `#EXT-X-SERVER-CONTROL:HOLD-BACK=122.880` and its last `PROGRAM-DATE-TIME` about 2 minutes ahead of the wall clock. Record each player's offset from the schedule. **Not measurable until phase 3:** `transmitter status` shows the show on air, not a position inside it, and no player yet shows a position readout (hls.js `playingDate` against `Date.now()`, or a timestamped now-playing line). Until then, record only that the two players are close to each other and the START/HOLD-BACK values above.
 - [ ] **A network blip shows no notice.** While playing in Chrome, toggle the Mac's Wi-Fi off for ~20 s, then on. The page says "Reconnecting…" while stalled, never the off-air notice, and resumes (or needs one *Play*).
 - [ ] **A spend trip and a raise.**
       1. `npx wrangler deploy --var MONTHLY_BUDGET_USD:5.5`. Within 15 min (the next evaluation), the actual $5+ is ≥ 90% of $5.50, so you see:
-         - an urgent ntfy and email "Station blocked: spend";
+         - an urgent email "Station blocked: spend" (the push follows via hugo's relay within ~1 min; `tripped-spend` is never gated);
          - the station blocked as above;
          - `transmitter budget` → `TRIPPED (spend)`.
       2. `transmitter budget --raise-to 7` (or any figure above both the projected one that `transmitter budget` shows and actual / 0.9: the trip is actual >= 90% OR projected >= 100%). Within ~1 min the raise triggers an evaluation; it is under the thresholds, so the station is unblocked within ~1 min, and the "resolved" message arrives about 15 minutes later (section 7's cooldown).
@@ -482,11 +508,19 @@ Run with the station up and **not yet shared**. Run the `transmitter` commands a
       2. Restore the real token. The next evaluation unblocks the station.
       3. Restore the deploy.
 - [ ] **A dashboard toggle is undone and alerted.** Enable the kill-switch rule in the dashboard while the station is on air. Within ~1 min it is disabled again and a "Kill switch corrected" (`waf-corrected`) alert arrives.
-- [ ] **A Rulesets failure.** Have the real `CF_WAF_TOKEN` value at hand (or be ready to roll the token): secrets cannot be read back. Set `CF_WAF_TOKEN` to a wrong value. Within ~1 min a "Kill switch not reconciled" alert arrives, and `guard.json` `waf.error` is set. With `offair on` at the same time, `live.m3u8` is the ENDLIST playlist and `/` is the off-air page (the block is cooperative). Restore the token: the rule is enabled within a minute, then `offair off`.
-- [ ] **Lead floor.** `npx wrangler deploy --var LEAD_FLOOR_HOURS:30`: a "Published lead below floor" alert arrives within a minute. Restore.
+- [ ] **A Rulesets failure.** Have the real `CF_WAF_TOKEN` value at hand (or be ready to roll the token): secrets cannot be read back. Set `CF_WAF_TOKEN` to a wrong value. `guard.json` `waf.error` is set within ~1 min. `waf-api` is gated, so the "Kill switch not reconciled" alert arrives after 3 consecutive failing minutes (~3 min), by email and then the relayed push. With `offair on` at the same time, `live.m3u8` is the ENDLIST playlist and `/` is the off-air page (the block is cooperative). Restore the token: the rule is enabled within a minute, then `offair off`.
+- [ ] **Lead floor.** `npx wrangler deploy --var LEAD_FLOOR_HOURS:30`: a "Published lead below floor" alert (`lead-low`, not gated) arrives by email within a minute. **Relay (a):** the same alert reaches the phone through hugo's ntfy within ~2 minutes of its email, with a body ending `-- relayed from antenna (lead-low, <time>)`. If it does not, check `[alerts] ntfy_url` on hugo, the journal for relay WARNINGs and that `state/alert-relay.json` exists. Restore.
+- [ ] **Relay (b): a gated key does not page on a single failure.** Have the real `CF_WAF_TOKEN` value at hand: secrets cannot be read back. Set `CF_WAF_TOKEN` to a wrong value, wait for one failing minute (`npx wrangler tail`, a `waf-api` line, or `guard.json` `waf.error`), then restore the real token within that minute: nothing is sent, by email or push. Break it again and leave it for three consecutive minutes: exactly one `waf-api` alert arrives (email, then the push), and its text notes that it followed 3 consecutive failures. Restore the token; "resolved" arrives ~15 minutes later.
 - [ ] **`site_url` serves the playlist at its root.** `curl -s <site_url>/live.m3u8` returns the playlist: the dead-clock check fetches exactly that URL once a minute.
-- [ ] **A dead clock.** Workers & Pages → `antenna` → Settings → Trigger events → delete the cron trigger. Within ~3 min hugo sends `dead-clock` (email + ntfy). Within about an hour it sends `guard-stale`. Restore with `npx wrangler deploy`; both send "resolved".
-- [ ] **The watchdog.** `sudo systemctl edit transmitter@<user>` → `[Service]` `WatchdogSec=2min`. Then `sudo systemctl kill -s STOP transmitter@<user>`. Within ~2 min the journal shows a watchdog timeout and the service restarts. Remove the override with `sudo systemctl revert transmitter@<user>`, restart the service, and reboot hugo once to see it come back by itself.
+- [ ] **A dead clock.** Workers & Pages → `antenna` → Settings → Trigger events → delete the cron trigger. Dashboard propagation of the deletion is slow (9 minutes measured on 10-23, up to ~15 documented). With the metronome on, the playlist freezes when the last lease (15 min) expires, and hugo's `dead-clock` follows ~17-18 min after cron actually stops (plus the propagation delay), for ~27 min in all in the measured run. The monitor thread runs the check every 60 s, whatever plan or render are doing. hugo sends `dead-clock` by email + ntfy itself. Within about an hour it sends `guard-stale`. Restore with `npx wrangler deploy`; both send "resolved".
+- [ ] **The watchdog.** The order matters: a `systemctl edit` `WatchdogSec` drop-in does **not** reach a running service (measured 10-23: the first run waited 7 minutes and tested nothing). Edit, then restart, then stop it.
+      1. `sudo systemctl edit transmitter@<user>` → `[Service]` `WatchdogSec=2min`.
+      2. `sudo systemctl restart transmitter@<user>` and wait ~1 min for a tick.
+      3. `sudo systemctl kill -s STOP transmitter@<user>; date`.
+      4. `sudo journalctl -u transmitter@<user> -f`. Every `journalctl` here needs `sudo`: without it the PID-1 lines (the watchdog timeout) are hidden, and transmitter logs nothing at startup. Expect `Watchdog timeout (limit 2min)!` within 2 min of the STOP, an immediate SIGABRT kill, and a restart 30 s later: about 2.5 min from the hang to a running service (2 min 26 s measured). Publishing pauses ~3 min, with no effect on air.
+      5. `sudo systemctl revert transmitter@<user> && sudo systemctl restart transmitter@<user>`, and reboot hugo once to see it come back by itself.
+
+      With a 2-minute limit, a plan step analysing shows could itself trip the watchdog (the plan step now pings after each show analysis, so one analysis, about 8 minutes on 10-23, can still exceed 2 min). If a restart comes before the STOP, check whether a plan step was running.
 - [ ] **Cron lag, 24 h** (carried from phase 1): median, p99, max, and the count over 25 s, from the phase-1 capture.
 - [ ] **Cron lag plus guard time, 24 h** (Task 18's input): from a day of phase-2 clock lines, the median, p99 and max of `lagMs` and of `lagMs + guardMs`, and the count with `lagMs + guardMs` over 25 s, together with the Task 18 decision.
 - [ ] **A week of op counts** (carried from phase 1, due 2026-10-18), now with the guard's own reads and writes: compare with `guard.json`'s `period_to_date`.

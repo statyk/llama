@@ -5,13 +5,25 @@ and the full operating reference are in `docs/playout-setup.md`; this file
 links to its sections rather than repeating them. Alert keys are listed in
 section 7.1 there.
 
+**Gate.** Alerts for checks that run about every minute page only after 3
+consecutive failing observations: minutes for the cloud, service ticks (or
+monitor passes) for hugo. A single failure is logged, not sent, so silence
+after one blip is normal. The first message says it followed 3 consecutive
+failures. Gated keys are noted per alert below; the full lists are in
+`playout-setup.md` section 7.1.
+
+**Where pushes come from.** antenna sends email only. Its phone pushes come
+through hugo's ntfy (the relay, up to ~1 min after the email), so there is
+no push for a cloud alert while hugo is down or its ntfy is failing: check
+email.
+
 ## 1. How to read an alert
 
 Alerts come from two places, and each one handles repeats differently.
 
 | Source | Subject looks like | State file | Repeats while active | "resolved" message |
 |---|---|---|---|---|
-| **hugo** (`transmitter`) | `<station>: <code>` | `~/.transmitter/alerts.json` on hugo | at most once per 6 h (`[alerts] repeat_hours`), with "(N more since the last message)" | **level codes only**: `dead-clock`, `guard-stale`, `station-root`, `plan`, `render` |
+| **hugo** (`transmitter`) | `<station>: <code>` | `~/.transmitter/alerts.json` on hugo | at most once per 6 h (`[alerts] repeat_hours`), with "(N more since the last message)" | **level codes only**: `dead-clock`, `guard-stale`, `station-root`, `plan`, `render`, `monitor-stalled` |
 | **cloud** (antenna Worker) | `<station>: <title>` | `state/alerts.json` in R2 | every 6 h (`ALERT_REPEAT_HOURS`) | every key except the three "once" keys (`budget-50…`, `budget-80…`, `budget-file-invalid`) and `waf-corrected`; it arrives **15 min** after the condition clears (cooldown) |
 
 **Silence after the first message is not evidence of recovery.**
@@ -43,7 +55,7 @@ Alerts come from two places, and each one handles repeats differently.
    7 of `playout-setup.md`: `set -a; . /etc/transmitter/<user>.env; set +a`),
    run `transmitter status`. It shows the lead, the cost guard, the off-air
    flag, and active alerts on both hugo and the cloud.
-3. **Is a hugo alert still firing?** Use the journal grep above.
+3. **Is a hugo alert still firing?** Use the journal grep above. A relayed push ends `-- relayed from antenna (<key>, <time>)`; its email is the original.
 4. **Cloud detail:** `cd antenna && npx wrangler tail` shows the Worker's
    log lines live.
 
@@ -58,13 +70,13 @@ left (`LEAD_FLOOR_HOURS`).
 | Urgency | Alerts |
 |---|---|
 | **Now: listeners affected or about to be** | `dead-clock`, `tripped-spend`, `tripped-blind`, `guard-state-corrupt`, `offair-corrupt`, `clock-inputs`, `clock-failed` (if it repeats), `guard-crashed`, `guard-unknown` (if it persists), `horizon-refused`, `offair-without-fallback` |
-| **Today: will affect listeners within hours if ignored** | `frame-count-drift` (never recovers alone), `lead-low`, `put-budget`, `horizon-held`, `publish-state`, `station-root`, `plan`/`render` (if they persist), `publish` (if it persists), `guard-reading-failing`, `metronome-down` (if it persists), `waf-api` (while blocked), `guard-stale` |
+| **Today: will affect listeners within hours if ignored** | `frame-count-drift` (never recovers alone), `monitor-stalled`, `lead-low`, `put-budget`, `horizon-held`, `publish-state`, `station-root`, `plan`/`render` (if they persist), `publish` (if it persists), `guard-reading-failing`, `metronome-down` (if it persists), `waf-api` (while blocked), `guard-stale` |
 | **When convenient: no listener impact** | `prune`, `dead-clock-check`, `index-write`, `budget-unreadable`, `budget-file-invalid`, `guard-write`, `waf-corrected`, `budget-50…`, `budget-80…`, `horizon-missing` (on a fresh start) |
 
 ## 4. hugo alerts
 
 ### `dead-clock` (level, has "resolved")
-**Means:** hugo fetches `<site_url>/live.m3u8` every minute and it is wrong,
+**Means:** hugo's monitor thread fetches `<site_url>/live.m3u8` every minute (independent of plan and render) and it is wrong,
 in one of three ways:
 - stale (newest segment over 120 s old on 2 consecutive checks);
 - answering 403 while the guard says the station is not blocked (17
@@ -91,6 +103,7 @@ hugo also pauses publishing.
 expected right after upgrading transmitter before antenna (section 6 intro).
 
 ### `station-root` (level, has "resolved")
+Gated: pages only after 3 consecutive ticks; a single failure is logged, not sent.
 **Means:** hugo cannot read the station folder (NFS share not mounted,
 `.station-root` marker missing, or the folder unlistable).
 **Effect:** planning stops, so no new shows are added. Publishing continues,
@@ -99,6 +112,7 @@ and the existing lead keeps playing.
 (section 3 step 2). It resolves on the next successful plan step.
 
 ### `plan` / `render` (level, has "resolved")
+Gated: pages only after 3 consecutive ticks that ran the step; a single failure is logged, not sent.
 **Means:** the plan or render step threw an unexpected error (the message
 carries the exception).
 **Effect:** that step makes no progress; publishing continues. It retries
@@ -120,6 +134,7 @@ existing lead and then runs dry. The alert disappears from `status` after 6 h,
 the restart, stop and investigate rather than looping restarts.
 
 ### `publish` (event, no "resolved")
+Gated: pages only after 3 consecutive ticks; a single failure is logged, not sent. A tick can run 17+ min during a fill, so this can take ~50 min.
 **Means:** a publish pass failed. The cause is in the message:
 
 | Message | Meaning | Do |
@@ -135,6 +150,7 @@ the restart, stop and investigate rather than looping restarts.
 and the next minute retries. The lead covers short outages.
 
 ### `prune` (event, no "resolved")
+Gated: pages only after 3 consecutive ticks; a single failure is logged, not sent.
 **Means:** deleting old segments failed (`DELETE <key> failed`), the horizon
 rewrite before the deletes failed (`horizon: …`), or `fallback.json` was lost
 (`stopped: no-fallback`).
@@ -176,16 +192,32 @@ batch and spends PUT budget.
 R2's `state/horizon.json`. Left alone, this burns toward `put-budget`.
 
 ### `publish-state` (event, no "resolved")
+Gated: pages only after 3 consecutive ticks; a single failure is logged, not sent.
 **Means:** `~/.transmitter/publish.json` cannot be read.
 **Effect:** fail-closed: hugo plans, renders, publishes and prunes **nothing**
-(and skips the dead-clock check) until it is readable.
+(the monitor thread keeps checking the dead clock) until it is readable.
 **Do:** inspect and repair or restore the file. Do not hand-write values you
 cannot verify against R2's `state/horizon.json`.
 
 ### `dead-clock-check` (event, no "resolved")
+Gated: pages only after 3 consecutive monitor passes (3 minutes); a single failure is logged, not sent.
 **Means:** the dead-clock monitor itself threw. This is not `dead-clock`.
 **Effect:** one minute's check skipped.
 **Do:** nothing unless it persists; then read the traceback in the journal.
+
+### `monitor-stalled` (level, has "resolved")
+Sent at once (its 5-minute threshold is its debounce).
+**Means:** the monitor thread (the dead-clock check and the relay) has
+completed no pass for over 5 min, or the thread is not alive. The main tick
+raises it.
+**Effect:** `dead-clock`, `guard-stale` and the antenna relay are not running,
+so cloud alerts reach you by email only. The main loop is still alive and the
+watchdog is unaffected (the thread never pings it). Publishing continues.
+**Do:** first look at `journalctl -u "transmitter@*"` (as root) for the
+`transmitter-monitor` thread: a traceback, or a pass stuck on a slow R2 read.
+Check R2 latency and status. A restart clears it
+(`sudo systemctl restart transmitter@<user>`); if it comes straight back,
+investigate before looping restarts. It resolves once passes are fresh again.
 
 ## 5. Cloud alerts (antenna Worker)
 
@@ -204,28 +236,34 @@ condition clears.
 | `guard-reading-failing` | readings have failed for 1 h | none yet; becomes `tripped-blind` at 6 h | as for `tripped-blind`, within the next 5 h |
 | `guard-state-corrupt` | `state/guard.json` cannot be parsed | treated as a spend trip: **station blocked**, and the trip persists after the file is fixed | `transmitter budget --raise-to <usd>` (it refuses while readings also fail: wait for one), or the new period |
 | `offair-corrupt` | `state/offair.json` is not a valid flag | treated as **off-air** until rewritten | `transmitter offair on --reason "…"` or `transmitter offair off` |
-| `guard-unknown` | the clock could not read its state from R2 | that minute writes **nothing**: players stall on the stale playlist | self-heals next minute; if it persists, check R2 status. Can also appear from a harmless race between overlapping runs |
-| `guard-crashed` | the guard step threw | same as `guard-unknown`: nothing written that minute | if it repeats, `npx wrangler tail` for the exception; consider a rollback deploy |
-| `guard-write` | saving `state/guard.json` failed | the decision still stands this minute; re-derived next run | nothing unless it persists |
-| `budget-unreadable` | `state/budget.json` is not JSON or unreadable | a raise cannot apply; the configured budget is used | rewrite with `transmitter budget --raise-to <usd>`, or delete the file |
+| `guard-unknown` | the clock could not read its state from R2 (gated: pages after 3 consecutive minutes; the post-unblock re-check variant is sent at once) | that minute writes **nothing**: players stall on the stale playlist | self-heals next minute; if it persists, check R2 status. Can also appear from a harmless race between overlapping runs |
+| `guard-crashed` | the guard step threw (gated: pages after 3 consecutive minutes) | same as `guard-unknown`: nothing written that minute | if it repeats, `npx wrangler tail` for the exception; consider a rollback deploy |
+| `guard-write` | saving `state/guard.json` failed (gated: pages after 3 consecutive minutes) | the decision still stands this minute; re-derived next run | nothing unless it persists |
+| `budget-unreadable` | `state/budget.json` is not JSON or unreadable (gated: pages after 3 consecutive minutes) | a raise cannot apply; the configured budget is used | rewrite with `transmitter budget --raise-to <usd>`, or delete the file |
 | `budget-file-invalid` | a raise in `state/budget.json` is rejected (e.g. expires after the period end) | raise ignored; sent once | re-raise with `transmitter budget --raise-to <usd>` |
-| `waf-api` | the kill-switch rule could not be set | while blocked, the block is cooperative only (ENDLIST + off-air page); after unblocking, the switch may stay on and 403 (→ hugo `dead-clock` after 17 checks) | check `CF_WAF_TOKEN`/`CF_ZONE_ID` and that the rule exists exactly once (section 6.2 step 5). Retries every minute |
+| `waf-api` | the kill-switch rule could not be set (gated: pages after 3 consecutive minutes; a single 5 s WAF API timeout at :00/:30 no longer pages) | while blocked, the block is cooperative only (ENDLIST + off-air page); after unblocking, the switch may stay on and 403 (→ hugo `dead-clock` after 17 checks) | check `CF_WAF_TOKEN`/`CF_ZONE_ID` and that the rule exists exactly once (section 6.2 step 5). Retries every minute |
 | `waf-corrected` | the kill switch differed from the guard's decision (someone toggled it in the dashboard) and was corrected | none; never "resolved" | use `transmitter offair` instead of the dashboard (section 4 step 4) |
 
 ### Clock
 
 | Key | Means | Effect | Do |
 |---|---|---|---|
-| `clock-inputs` | the horizon or fallback index could not be read | **no playlist written** that minute; players stall | self-heals if transient; if it persists, check R2 status |
-| `clock-failed` | an invocation threw (e.g. a failed playlist PUT) | that minute's playlist may be missing | one is noise; repeats → `npx wrangler tail` |
-| `horizon-missing` | `state/horizon.json` absent or not JSON | no playlist written | expected before the first publish; otherwise check hugo's `publish` alerts |
+| `clock-inputs` | the horizon or fallback index could not be read (gated: pages after 3 consecutive minutes) | **no playlist written** that minute; players stall | self-heals if transient; if it persists, check R2 status |
+| `clock-failed` | an invocation threw (e.g. a failed playlist PUT) (gated: pages after 3 consecutive minutes) | that minute's playlist may be missing | one is noise; repeats → `npx wrangler tail` |
+| `horizon-missing` | `state/horizon.json` absent or not JSON (gated: pages after 3 consecutive minutes) | no playlist written | expected before the first publish; otherwise check hugo's `publish` alerts |
 | `horizon-refused` | the horizon's segment length is not 10.24 s | **nothing written**, metronome stopped at once | hugo published a wrong horizon: stop and investigate on hugo; do not edit the constant |
 | `lead-low` | published audio ahead is under 16 h | none yet; at zero the stream runs out | expected after a fresh start. Otherwise hugo has stopped publishing: check hugo for `put-budget`, `frame-count-drift`, `publish-state`, `station-root`, `plan`/`render`, `publish`, `horizon-held` |
 | `offair-without-fallback` | off-air but no usable fallback | ENDLIST-only playlist; players stop with no notice | `transmitter fallback render <loop> [--notice <file>]` |
-| `metronome-down` | the Durable Object metronome missed its renew, refused a lease, or stalled | the stream keeps playing on cron's own loop (the older, less punctual timing) | brief: nothing. Persists: roll back with `npx wrangler deploy --var METRONOME:off`, then commit `"METRONOME": "off"` (section 9) |
-| `index-write` | writing `index.html` failed | the page is stale; the stream is unaffected | nothing unless it persists |
+| `metronome-down` | the Durable Object metronome missed its renew, refused a lease (both gated: pages after 3 consecutive minutes), or stalled (2 consecutive stalled renews: sent at once) | the stream keeps playing on cron's own loop (the older, less punctual timing) | brief: nothing. Persists: roll back with `npx wrangler deploy --var METRONOME:off`, then commit `"METRONOME": "off"` (section 9) |
+| `index-write` | writing `index.html` failed (gated: pages after 3 consecutive minutes) | the page is stale; the stream is unaffected | nothing unless it persists |
 
 ## 6. Procedures
+
+- **Secrets (antenna):** `CF_ACCOUNT_ID`, `CF_ZONE_ID`, `CF_ANALYTICS_TOKEN`,
+  `CF_WAF_TOKEN`, `ALERT_EMAIL_FROM`, `ALERT_EMAIL_TO`. The Worker has no ntfy
+  secret; an old deploy deletes `NTFY_URL` and `NTFY_TOKEN` with
+  `npx wrangler secret delete`. Push notifications are hugo's
+  (`[alerts] ntfy_url`, `NTFY_TOKEN` in `/etc/transmitter/<user>.env`).
 
 - **Run a `transmitter` command on hugo:** as `<user>`,
   `set -a; . /etc/transmitter/<user>.env; set +a`, then

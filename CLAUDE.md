@@ -267,7 +267,22 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   `sudo systemctl … transmitter@<user>` with no `--user`. hugo's alerts:
   `[alerts]` in config.toml; `SMTP_USERNAME`/`SMTP_PASSWORD`/`NTFY_TOKEN` in the
   env file; dedupe in `~/.transmitter/alerts.json`; the dead-clock check fetches
-  `<site_url>/live.m3u8`. State in `~/.transmitter/` (`TRANSMITTER_ROOT`); R2 keys from
+  `<site_url>/live.m3u8`. **The dead-clock check and the relay run on a daemon
+  monitor thread** (`monitor.py`) every 60 s, off the service tick, with its own
+  get-only R2 reader (never writes, never touches `guard-cache.json`, never pings
+  the watchdog); `monitor-stalled` (level, sent at once) fires from the main tick
+  when its last pass is over 5 min old; `run --once` checks once on the main
+  thread and does not relay; the plan step pings the watchdog after each show
+  analysis (`Station.frames_of`). **Alert gate:** every-minute alert keys
+  (antenna `GATED_KEYS`, transmitter `GATED_CODES`) send only after `GATE` = 3
+  consecutive failing observations (antenna: minutes; transmitter: ticks, or
+  monitor passes for `dead-clock-check`); spend/off-air keys and one-shot keys are
+  never gated, and two antenna raise sites (the metronome stall branch of
+  `metronome-down`, `guard-unknown` after an unblock) send at once. **Relay:**
+  antenna appends each invocation's sent alerts to `state/alert-relay.json` (a
+  ring of 50, stream + seq) after the email; hugo's monitor thread relays them to
+  its ntfy (cursor `~/.transmitter/alert-relay-cursor.json`, `RELAY_MAX_AGE_S` 1 h);
+  the Worker sends no ntfy. State in `~/.transmitter/` (`TRANSMITTER_ROOT`); R2 keys from
   `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`. Tests:
   `packages/transmitter/tests_transmitter/` (a package, NOT `tests/`: llama's
   test modules are top-level and emcee's are the `tests` package, so the name
@@ -282,8 +297,9 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   first; `--var` overrides for the verification items; see the runbook),
   `ANTENNA_BUCKET=<bucket> npm run deploy:assets`. Secrets go in with
   `wrangler secret put`: `CF_ACCOUNT_ID`, `CF_ZONE_ID`, `CF_ANALYTICS_TOKEN`,
-  `CF_WAF_TOKEN`, `NTFY_URL`, `NTFY_TOKEN` (optional), `ALERT_EMAIL_FROM`,
-  `ALERT_EMAIL_TO`; `BILLING_ANNIVERSARY_DAY` is a committed var. The committed
+  `CF_WAF_TOKEN`, `ALERT_EMAIL_FROM`,
+  `ALERT_EMAIL_TO` (the Worker sends no ntfy; an existing deploy deletes its old
+  `NTFY_URL`/`NTFY_TOKEN` secrets); `BILLING_ANNIVERSARY_DAY` is a committed var. The committed
   `send_email` binding `ALERT_EMAIL` is unrestricted, the destination exists
   only as the `ALERT_EMAIL_TO` secret: never put `account_id` or an address in
   `wrangler.jsonc` (a test enforces this). Cloud setup and the phase-1/2
@@ -383,7 +399,7 @@ is not 10.24 is refused (`horizon-refused`, nothing written), and
 `state/offair.json`, or a horizon more than 24 h stale) plays the notice from
 the fallback, so transmitter publishes NOTHING — no segment, no horizon — until
 `fallback render` has recorded a fallback version in the workspace: every
-publish pass alerts `no fallback rendered` instead (the gate sits before the
+publish pass alerts `no fallback rendered` (after 3 consecutive ticks) instead (the gate sits before the
 first PUT, since segment files are dropped only after a horizon PUT and would
 otherwise be re-PUT every tick), and prune likewise refuses to rewrite the
 horizon (`stopped: no-fallback`, before any delete) if `fallback.json` is lost
