@@ -578,3 +578,28 @@ def test_the_observer_map_routes_the_streak(tmp_path):
     d.fire("dead-clock-check", "m")
     d.fire("publish", "m")
     assert d._fired == {alerts.TICK: {"publish"}, alerts.MONITOR: {"dead-clock-check"}}
+
+
+def test_ntfy_channel_takes_explicit_tags(monkeypatch):
+    seen = []
+
+    class Resp:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout):
+        seen.append(dict(req.header_items())["Tags"])
+        return Resp()
+
+    monkeypatch.setattr(alerts.urllib.request, "urlopen", fake_urlopen)
+    ch = NtfyChannel("https://ntfy.example/t")
+    ch.send("s", "b", 3, tags="information_source")
+    ch.send("s", "b", 5, tags="rotating_light")
+    ch.send("s", "b", 4)                                  # no tags: today's rule
+    ch.send("s", "b", 3)
+    assert seen == ["information_source", "rotating_light", "warning", "white_check_mark"]

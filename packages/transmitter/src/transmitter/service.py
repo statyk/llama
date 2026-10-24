@@ -5,17 +5,19 @@ one publish batch, then publishes -- until the published lead is back at
 `lead_hours`; publishing and pruning run every tick. An error in any step is
 logged with its traceback and alerted, and the loop goes on; a frame-count
 drift halts filling (publishing goes on) until transmitter is restarted. The
-dead-clock check runs on its own thread (monitor.MonitorLoop), which every
-tick watches through `monitor-stalled`; only the main loop pings the
-watchdog."""
+dead-clock check and the antenna alert relay run on their own thread
+(monitor.MonitorLoop), which every tick watches through `monitor-stalled`;
+only the main loop pings the watchdog."""
 
 import logging
 import math
+import os
 import time
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Mapping
 
-from transmitter import alerts, analysis, cloudstate, grid, monitor, pipeline, publish, r2, sdnotify, station
+from transmitter import alerts, analysis, cloudstate, grid, monitor, pipeline, publish, r2, relay, sdnotify, station
+from transmitter.alerts import NtfyChannel
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
 from transmitter.deadclock import DeadClockMonitor
@@ -168,21 +170,38 @@ def publish_all(p: publish.Publisher, t_us: int, held: HeldTracker | None = None
     return reports, pr
 
 
-def open_monitor(st: pipeline.Station) -> MonitorLoop | None:
-    """The monitor loop (not started) running the dead-clock check, when
-    [antenna] site_url says where live.m3u8 is; else None and no thread."""
-    url = st.cfg.antenna.site_url
+def open_monitor(st: pipeline.Station, env: Mapping[str, str] = os.environ) -> MonitorLoop | None:
+    """The monitor loop (not started), or None and no thread. It runs when
+    [antenna] site_url (the dead-clock check, which needs to know where
+    live.m3u8 is) OR [alerts] ntfy_url (the antenna alert relay) is set, and
+    each part only when its own configuration is present. The reader client
+    is made here, on the calling (main) thread, before any thread starts. The
+    relay gets its own NtfyChannel (NTFY_TOKEN from `env`), never one of the
+    Dispatcher's."""
+    cfg = st.cfg
+    url = cfg.antenna.site_url
+    relay_on = bool(cfg.alerts.ntfy_url)
     if not url:
         log.warning("[antenna] site_url is not set: the dead-clock check is off")
+    if not relay_on:
+        log.warning("[alerts] ntfy_url is not set: antenna alerts are not relayed to ntfy")
+    if not url and not relay_on:
         return None
-    a = st.cfg.alerts
-    # An unexpected 403 must outlast the guard cache (refreshed every
-    # guard_check_minutes) before it alarms. Kept unchanged now the monitor
-    # builds its own fresh guard view each pass (spec Part 3: that only makes
-    # the 403 branch more accurate).
-    deadclock = DeadClockMonitor(url.rstrip("/") + "/live.m3u8", st.epoch.epoch_us, a.dead_clock_seconds,
-                                 a.guard_stale_minutes * 60, math.ceil(st.cfg.publish.guard_check_minutes) + 2)
-    return MonitorLoop(deadclock, monitor.R2Reader(make_reader_client(st.cfg), st.cfg.publish.bucket))
+    deadclock = None
+    if url:
+        a = cfg.alerts
+        # An unexpected 403 must outlast the guard cache (refreshed every
+        # guard_check_minutes) before it alarms. Kept unchanged now the monitor
+        # builds its own fresh guard view each pass (spec Part 3: that only makes
+        # the 403 branch more accurate).
+        deadclock = DeadClockMonitor(url.rstrip("/") + "/live.m3u8", st.epoch.epoch_us, a.dead_clock_seconds,
+                                     a.guard_stale_minutes * 60, math.ceil(cfg.publish.guard_check_minutes) + 2)
+    reader = monitor.R2Reader(make_reader_client(cfg), cfg.publish.bucket)
+    alert_relay = None
+    if relay_on:
+        alert_relay = relay.Relay(reader.get_json, NtfyChannel(cfg.alerts.ntfy_url, env.get("NTFY_TOKEN") or None),
+                                  cfg.antenna.station_name, st.ws.relay_cursor_path)
+    return MonitorLoop(deadclock, reader, alert_relay)
 
 
 class Runner:

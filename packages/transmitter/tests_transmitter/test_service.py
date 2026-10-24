@@ -508,6 +508,48 @@ def test_open_monitor_needs_site_url(tmp_path, monkeypatch):
     assert loop.reader.bucket == "b" and loop.relay is None
 
 
+def test_open_monitor_with_ntfy_only_relays_without_a_dead_clock_check(tmp_path, monkeypatch):
+    from transmitter import relay as relay_mod
+
+    st, _ = make_station(tmp_path)
+    st.cfg.publish.bucket = "b"
+    st.cfg.alerts.ntfy_url = "https://ntfy.example/t"
+    st.cfg.antenna.station_name = "test radio"
+    made = []
+    monkeypatch.setattr(service, "make_reader_client", lambda cfg: made.append(threading.current_thread()) or FakeBucket())
+    env = {"NTFY_TOKEN": "tk_relay"}
+    loop = service.open_monitor(st, env=env)
+    assert isinstance(loop, monitor.MonitorLoop) and not loop.started and loop.deadclock is None
+    r = loop.relay
+    assert isinstance(r, relay_mod.Relay)
+    assert isinstance(r.channel, alerts.NtfyChannel)
+    assert r.channel.url == "https://ntfy.example/t" and r.channel.token == "tk_relay"
+    assert r.station == "test radio" and r.cursor_path == st.ws.relay_cursor_path
+    assert r.get_json == loop.reader.get_json           # the monitor's get-only reader
+    d = alerts.dispatcher_from_config(st.cfg, st.ws, env)
+    assert d.channels and all(ch is not r.channel for ch in d.channels)
+    assert made == [threading.main_thread()]
+
+
+def test_no_ntfy_means_no_relay_and_one_warning(tmp_path, monkeypatch, caplog):
+    st, _ = make_station(tmp_path)
+    st.cfg.publish.bucket = "b"
+    st.cfg.antenna.site_url = "https://radio.example.org"
+    monkeypatch.setattr(service, "make_reader_client", lambda cfg: FakeBucket())
+    with caplog.at_level(logging.WARNING, logger="transmitter"):
+        loop = service.open_monitor(st, env={})
+    assert loop is not None and loop.deadclock is not None and loop.relay is None
+    assert len([r for r in caplog.records if "not relayed" in r.getMessage()]) == 1
+
+
+def test_neither_site_url_nor_ntfy_means_no_monitor(tmp_path, monkeypatch):
+    st, _ = make_station(tmp_path)
+    st.cfg.publish.bucket = "b"
+    made = []
+    monkeypatch.setattr(service, "make_reader_client", lambda cfg: made.append(1) or FakeBucket())
+    assert service.open_monitor(st, env={"NTFY_TOKEN": "x"}) is None and made == []
+
+
 def test_make_reader_client_has_short_timeouts(tmp_path, monkeypatch):
     st, _ = make_station(tmp_path)
     seen = {}

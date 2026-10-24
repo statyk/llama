@@ -109,6 +109,11 @@ class Workspace:
     def alerts_path(self) -> Path:
         return self.root / "alerts.json"
 
+    @property
+    def relay_cursor_path(self) -> Path:
+        """The antenna alert relay's cursor, {"stream": str, "seq": int}."""
+        return self.root / "alert-relay-cursor.json"
+
 
 @dataclass(frozen=True)
 class Epoch:

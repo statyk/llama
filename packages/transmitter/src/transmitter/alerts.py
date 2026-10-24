@@ -165,12 +165,18 @@ class NtfyChannel:
     timeout_s: float = 10.0
     name: str = "ntfy"
 
-    def send(self, subject: str, body: str, priority: int) -> None:
+    def send(self, subject: str, body: str, priority: int, tags: str | None = None) -> None:
+        """POST one message. `tags` is the ntfy Tags header; None keeps the
+        Dispatcher's rule (priority 4+ `warning`, else `white_check_mark`,
+        since its only lower-priority message is "resolved"). The relay
+        passes its tags explicitly (relay.TAGS)."""
         if subject.isascii():
             title = subject
         else:                                    # ntfy decodes RFC 2047, not raw latin-1; no obs-fold
             title = Header(subject, "utf-8").encode(maxlinelen=0)
-        headers = {"Title": title, "Priority": str(priority), "Tags": "warning" if priority >= 4 else "white_check_mark"}
+        if tags is None:
+            tags = "warning" if priority >= 4 else "white_check_mark"
+        headers = {"Title": title, "Priority": str(priority), "Tags": tags}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
         req = urllib.request.Request(self.url, data=body.encode(), headers=headers, method="POST")

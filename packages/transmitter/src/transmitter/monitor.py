@@ -1,13 +1,15 @@
 """The dead-clock monitor's own loop (spec Part 3). `DeadClockMonitor.check`
-(and, from the relay task on, the antenna alert relay) run on a dedicated
-daemon thread every `MONITOR_INTERVAL_S`, independent of plan, render and
-publish, so a long fill cannot starve the dead-clock check.
+(when [antenna] site_url is set) and the antenna alert relay (`relay.Relay`,
+when [alerts] ntfy_url is set) run on a dedicated daemon thread every
+`MONITOR_INTERVAL_S`, independent of plan, render and publish, so a long fill
+cannot starve the dead-clock check.
 
 What the thread may do is deliberately narrow:
 - it reads R2 only, through an `R2Reader` (a JSON get and nothing else) built
   on its own boto3 client, made on the main thread before the thread starts
   (boto3 clients are thread-safe once made; making one concurrently from the
-  default session is not), with short timeouts;
+  default session is not), with short timeouts; the only file it writes is
+  the relay's local cursor (`Workspace.relay_cursor_path`);
 - it builds its own guard view (`publish.guard_view`) and never touches the
   publisher's guard cache, which stays publish's spend control;
 - it never pings the systemd watchdog: WATCHDOG=1 must keep meaning "the main
