@@ -1,434 +1,566 @@
 # Keep short files that belong to the show (held-backlog part 1, piece 4)
 
 Date: 2026-10-23. Branch `held-backlog-junk-filter` from `main` @ `e37f670` (v2.17.0).
-Inputs: the two sizing censuses and hand-checks in
-`docs/superpowers/2026-10-23-junk-short-keep-evidence/` (`census-handback.md`,
-`census2-handback.md`, `p4-*`/`r-*` hand-check packets, `shipped-broken.md`,
-`voiced-severe-review.md`). Operator rulings of 2026-10-23 are binding and are restated where
-they apply. The measurements quoted here come from the replay harness at
-`~/.llama-harness/piece45/spec/` (scripts `rprime.py`, `dump_rp.py`, `m1`-`m7`). They ran
-read-only against the whole library, 3,983 shows, at `e37f670`.
+Inputs: the sizing censuses, hand-checks and decision record in
+`docs/superpowers/2026-10-23-junk-short-keep-evidence/`:
+- `census-handback.md`, `census2-handback.md`;
+- the `p4-*` and `r-*` hand-check packets;
+- `shipped-broken.md`, `voiced-severe-review.md`, `decisions-r1.md`.
+
+The operator rulings of 2026-10-23 are binding and are restated where they apply. Measurements
+come from the replay harness at `~/.llama-harness/piece45/spec/` (round scripts in `r1/`). It
+ran read-only against the whole library (3,983 shows) at `e37f670`.
 
 **Review mode: Opus** (Opus spec and plan reviewers, Opus final branch reviewer).
 
-**Stakes.** About 4,000 shows; ~2,800 are delivered and on air at listen.lma-radio.com. One
-operator, whose attention is the scarce resource. The operator's accuracy rule: **omitting real
-show content is worse than including a little that does not belong, and tape notes are presumed
-correct.** Today the junk filter's short-duration arm drops the `Drums >`, `St. Stephen`
-reprise or `Slipknot!` that sits between two songs, and the show airs with a hole in it and no
-flag. Strict surfaces:
+**Stakes.** About 4,000 shows, ~2,800 of them delivered and on air at listen.lma-radio.com. One
+operator, whose attention is the scarce resource. The operator's accuracy rule is that
+**omitting real show content is worse than including a little that does not belong, and tape
+notes are presumed correct.**
+
+Today the junk filter's short-duration arm drops the `Drums >`, the `St. Stephen` reprise or the
+`Slipknot!` that sits between two songs. The show then airs with a hole and no flag.
+
+Strict surfaces:
 
 - **(a) The positional-overrides migration.** It rewrites `overrides.json`, which is
-  hand-authored operator data. Section 4 states exactly what is written, when, how it is undone,
-  and that an ambiguous mapping refuses and names the show.
+  hand-authored operator data. Section 4 says exactly what is written and when, how it is
+  undone, how an old binary is kept from reading it silently, and that an ambiguous mapping
+  refuses and names the show.
 - **(b) Re-delivering voiced shows.** `llama deliver --replace-voiced` discards paid TTS voicing,
-  and that cannot be undone. Only the 37 shows the operator approved are in scope (section 5).
+  and that cannot be undone. Only the 37 approved shows are in scope, one named invocation each
+  (section 5).
 - **(c) Relaxing a safety filter.** The change must not admit spam or non-performance audio. The
-  filename-convention arm stays the spam guard and is not touched (section 2.1).
+  filename-convention arm is untouched, and every short candidate passes a spam-shape tripwire
+  (2.3).
 
-Everything else is proportionate: the change only alters what a future gather keeps.
+Everything else is proportionate.
 
 ## Why
 
-- **The arm's scope.** The short arm drops 3,547 files in 1,870 shows whose only drop reason is
-  `implausibly short` (under `SHORT_FRACTION_OF_MEDIAN` x the tape's median). That is 96% of
-  everything the filter drops.
-- **What those files are.** By tag:
-  - spoken band material (intros, banter, band introductions, stage announcements) 1,653;
-  - music (segue pieces, reprises, short songs, continuations) 864 + 51 fragments;
-  - crowd 315; tuning, fades and silence 339; untagged 197;
-  - radio and non-performance audio 37.
-- **Ground truth.** The operator has re-admitted 239 dropped files by hand with `fix --include`.
-- **The tag tells them apart.** In the census, no file whose tag says tuning, silence or a fade
-  was music by any source (siblings, setlist, description).
+The short arm drops 3,547 files in 1,870 shows whose only drop reason is `implausibly short`
+(under `SHORT_FRACTION_OF_MEDIAN` x the tape's median). That is 96% of everything the filter
+drops.
+
+By tag:
+- spoken band material (intros, banter, band introductions, stage announcements): 1,653;
+- music (segue pieces, reprises, short songs, continuations): 864, plus 51 fragments;
+- crowd: 315;
+- tuning, fades and silence: 339;
+- untagged: 197;
+- radio and non-performance: 37.
+
+The operator has re-admitted 239 dropped files by hand with `fix --include`. In the census, no
+file whose tag says tuning, silence or a fade was music by any source.
 
 ## 1. The rule (operator ruling 1)
 
-A file whose **only** drop reason is the short-duration arm is **kept**, unless its tag is
-wholly junk (2.3). An untagged file follows 2.4.
+A file whose **only** drop reason is the short-duration arm is **kept**, unless:
+- it trips the spam-shape tripwire (2.3); or
+- its tag is wholly junk (2.3).
+
+An untagged file follows 2.4.
 
 ## 2. Specification
 
 ### 2.1 Scope and what does not change
 
-- The short arm still computes the same floor from the same constants. `SHORT_FRACTION_OF_MEDIAN`,
-  `MIN_PLAUSIBLE_SEC` and `MIN_MEDIAN_SAMPLE` are unchanged, and the two-pass median (taken over
-  files passing every other arm) is unchanged. CLAUDE.md's "Plausible duration is RELATIVE" stays
-  true: the arm now drops by duration **and** tag.
-- A file with any other reason is untouched: the filename-convention arm (the spam guard;
-  `FOLLOW-ME @BYPIKENO.mp3` is caught there), provenance, `missing duration`, duplicate-listing,
-  and a file failing the short arm *and* another arm (7 files). No URL, @handle, "follow" or
-  "download" exists among the 3,547 short-only drops.
-- Operator `exclude` always wins. It is applied after the filter, as today.
-- `include` is unchanged. A file the rule now keeps is simply no longer in `excluded`, so `include`
-  re-admits nothing for it (`ordering["readmitted"]` is empty for it). 173 kept files are already
-  operator-included.
+- **The floor.** The short arm computes the same floor from the same constants:
+  `SHORT_FRACTION_OF_MEDIAN`, `MIN_PLAUSIBLE_SEC`, `MIN_MEDIAN_SAMPLE`, and the two-pass median
+  over files passing every other arm. CLAUDE.md's "Plausible duration is RELATIVE" stays true.
+  The arm now drops by duration **and** tag.
+- **Other reasons are untouched:**
+  - the filename-convention arm, which catches `FOLLOW-ME @BYPIKENO.mp3`;
+  - provenance;
+  - `missing duration`;
+  - duplicate-listing;
+  - a file failing the short arm and another arm (7 files).
+- **Operator `exclude` always wins.** It is applied after the filter, as today.
+- **`include` is unchanged.** A file the rule now keeps is no longer in `excluded`, so `include`
+  re-admits nothing for it. 173 kept files are already operator-included.
 
 ### 2.2 The tag, and "tagged"
 
-- **The tag** is the file's own `title`, else its original's `title` (the same rule
-  `_track_number` uses for the track tag), passed through `titles.clean_tag_title`.
-- **A file is tagged when that is non-empty** (ruling 3). This includes a leaked timestamp prefix
-  (`0:50) Going In The Right Direction`) and placeholder tags such as `d1t01`, `tmp` and
-  `Track 9`.
-  - Consequence: 12 placeholder-tagged files are kept, about 8 of them at a tape edge. Each
-    ships 2b-demoted as `unresolved`, and so holds.
+- **The tag** is the file's own `title`, else its original's `title`, passed through
+  `titles.clean_tag_title`.
+  - 42 files are tagged only through their original: 32 are kept and 10 are junk.
+  - The tag rung reads only the file's own `title`. A kept file of this kind ships `unresolved`
+    unless format recovery or a later rung names it.
+- **A file is tagged when that cleaned tag is non-empty** (ruling 3). This includes:
+  - a leaked timestamp prefix, e.g. `0:50) Going In The Right Direction`;
+  - placeholders such as `d1t01`, `tmp` and `Track 9`.
 
-### 2.3 Wholly junk (ruling 2)
+  This is why the census's 197 untagged files become 136 here: 61 of them, 22 at a tape edge,
+  now count as tagged. A placeholder-tagged kept file ships 2b-demoted as `unresolved`, and so
+  usually holds.
 
-The tag is first cleaned for matching:
-- strip leading timestamps (`0:40) `, `00:35 - `), leading track numbers (`16 `, `2: `), disc
-  stems (`d1t01`) and glued numbers (`0105tuning`);
-- strip time annotations in brackets (`(1:28)`, `(02:38:69)`).
+### 2.3 The spam tripwire and the junk test
 
-It is then split into parts on `/ , & + ; and - > ~ |` (including ` - `, `-->`), parentheses and
-square brackets. Each part's edge punctuation is stripped.
+The functions below are **normative**: the plan ports them verbatim into `junk.py`
+(`short_tag_is_junk`, `short_is_spam`). They are exactly what was measured.
 
-**A tag is wholly junk when either test holds:**
+```python
+LEAD = re.compile(r"^(?:\(?\d{1,2}:\d{2}(?::\d{2})?(?:[.:]\d+)?\)?\s*[-:)]?\s*|\d{1,3}\s*[.):_-]?\s+|d\d{1,2}t\d{1,3}\s*|\d{3,4}(?=[a-z]))+", re.I)
+TIME_PAREN = re.compile(r"\s*[\(\[]\s*\d{1,2}:\d{2}[^)\]]*[\)\]]")
+SPLIT = re.compile(r"\s*(?:/|,|&|\+|;|\band\b|\s-\s|-{2,}|-?>|~|\||\(|\)|\[|\])\s*", re.I)
+EDGE = re.compile(r"^[\s\[\(<~*#.\-_'\":]+|[\s\]\)>~*#.\-_'\":]+$")
+JUNK_PART = re.compile(
+    r"^(?:"
+    r"(?:set\s*(?:\d|i+|one|two|three)\s*)?(?:re-?)?tun(?:e|i|ni|in)?(?:ing|ning|eing|ig|in'?|e[\s-]*ups?|ups?)?(?:\s*up)?(?:\s+break)?"
+    r"|instrument\s+change|warm[\s-]*up|(?:crowd|tuning)\s+(?:crowd|tuning)"
+    r"|dead\s*air|silence|silent|blank"
+    r"|(?:tape|side|disc|disk|reel)\s*(?:flip|change|cut|end|gap|break)|gap|cut[\s-]*in"
+    r"|fade[\s-]*(?:in|out)"
+    r"|(?:tape\s+|crowd\s+)?noise|hiss|static|test\s*tones?"
+    r"|sound\s*check"
+    r"|(?:opening\s+|encore\s+)?(?:crowd|audience)(?:\s+(?:noise|cheering|chanting|applause|yelling|encore\s+call))?"
+    r"|(?:opening\s+|encore\s+)?applause|cheering|clapping"
+    r"|(?:encore|set)\s*(?:break|call)(?:\s+i+)?|waiting(?:\s+for\s+(?:the\s+)?encore)?"
+    r")$", re.I)
+NONPERF = re.compile(
+    r"\bcommercials?\b|\bpromos?\b|\badvert\w*|\bstation\s+(?:id|plug|identification)\b|\bnews\s+broadcast\b"
+    r"|\b(?:house|p\.?\s?a\.?|intro|walk[\s-]*(?:on|in|out|off)|recorded|pre-?show)\s+music\b"
+    r"|\binterview\w*"
+    r"|(?=.*\b(?:dj'?s?|radio)\b)(?=.*\b(?:talk\w*|intro\w*|outro\w*|banter|announc\w*|moderator\w*|host\w*|id|spots?)\b)",
+    re.I)
+SPAM = re.compile(r"https?://|\bwww\.|\b[a-z0-9-]+\.(?:com|net|org|info|biz)\b|@\w{3,}"
+                  r"|\bfollow\b|\bdownload\b|\bsubscribe\b", re.I)
 
-1. **Non-performance, matched anywhere in the tag**, word-bounded and case-insensitive:
-   - `commercial`, `promo`, `advert`;
-   - `station id` / `station plug` / `station identification`;
-   - `news broadcast`;
-   - `house`/`PA`/`intro`/`walk-on`/`recorded`/`pre-show` + `music`;
-   - `radio`, `DJ`/`DJ's`, `interview`, `moderator`, `announcer(s)`.
-2. **Every part is a junk part**, i.e. one of:
+def parts(t):    # t = clean_tag_title(tag)
+    t = TIME_PAREN.sub("", LEAD.sub("", t))
+    return [p for p in (EDGE.sub("", x) for x in SPLIT.split(t)) if p]
 
-   | class | parts (all variants and typos seen in the data) |
-   |---|---|
-   | tuning | `tuning`, `tunning`, `tunig`, `tuneing`, `tune up`, `tuning up`, `re-tune`, `set N tuning`, `instrument change`, `warm up` |
-   | silence | `dead air`, `silence`, `silent`, `blank` |
-   | tape edge | `tape`/`side`/`disc`/`reel` + `flip`/`change`/`cut`/`end`/`gap`; `gap`; `cut-in` |
-   | fade | `fade in`, `fade out` |
-   | noise | `noise` (incl. `tape noise`, `crowd noise`), `hiss`, `static`, `test tone` |
-   | soundcheck | `soundcheck`, `sound check` |
-   | crowd | `crowd`, `audience` (with optional `noise`/`cheering`/`chanting`/`applause`/`yelling`/`encore call`), `applause` (`opening`/`encore` applause), `cheering`, `clapping`, `encore break`/`set break`/`encore call`, `waiting (for the encore)`; `crowd tuning` / `tuning crowd` |
+def short_tag_is_junk(tag):
+    t = clean_tag_title(tag)
+    if not t:
+        return False
+    if NONPERF.search(t):
+        return True
+    ps = parts(t)
+    return bool(ps) and all(JUNK_PART.match(p) for p in ps)
 
-The test is anchored per part. **A tag with any part outside the table is kept** (ruling 3):
-- `intro/tuning`, `tuning/banter`, `Take A Step Back/Tuning`, `Mexican Hat Dance Tuning`,
-  `crowd/tuning jam`, `Crowd Doing Not Fade Away` and `Bob Weir comment to crowd` are kept;
-- `crowd/tuning`, `Crowd & Tuning` and `2: crowd/tuning ->` drop.
+def short_is_spam(filename, own_title, original_title):
+    stem = basename_without_extension(filename)
+    return any(SPAM.search(s) for s in (stem, own_title or "", original_title or ""))
+```
 
-**The non-performance terms are deliberately narrow:**
-- Band stage talk is kept: `Stage Announcements`, `Banter Promote CD`,
-  `banter - promoting the new CD` and `Stage Banter: Consummation Station`. `station` alone and
-  `promote`/`promoting` do not match.
-- `Stage/Radio Announcements` drops on `radio`.
-- `Truckin'//, KSAN DJ Talk` drops on `DJ`. The operator ruled the radio-talk class drop with
-  this row among the examples.
+**The spam tripwire runs first, on every short candidate, tagged or not.**
+- **What it reads.** The filename stem plus the file's own and its original's `title`.
+- **What it leaves out.** `album`, `artist` and `creator`. Those strings are item-wide: venue
+  `@` signs and taper domains such as `Summerdance@Nelson Ledges` and `SeparateReality.org`.
+  Including them gave 7 false hits and 0 true ones.
+- **Matching.** Every term is word-bounded and case-insensitive. `John follows his fingers`
+  (`mountaingoats-2017-06-02`) and `bwww1996-12-31t01.mp3` stay kept.
+- **Measured:** 0 hits on the library's 3,547 short-only drops, and 0 on the 9,655 short-only
+  drops of the 9,844 cached sibling items.
 
-**AUTHOR'S CALL, a spam-shape tripwire.** A tag containing a URL, `www.`, `.com`/`.net`/`.org`,
-an `@handle` of three or more characters, `follow`, `download` or `subscribe` is also wholly
-junk. It measured 0 hits, so it costs nothing today. It means a spam clip that happens to match
-the item's naming convention still drops (strict surface (c)).
+**Notes on the junk test:**
+- **Separators** are exactly those in `SPLIT`. A bare intra-word hyphen is not one.
+- **Empty cleaning.** A tag that cleans to no parts is not junk.
+- **Per-part anchoring.** A tag with any part outside `JUNK_PART` is kept (ruling 3):
+  - kept: `intro/tuning`, `tuning/banter`, `Take A Step Back/Tuning`,
+    `Mexican Hat Dance Tuning`, `crowd/tuning jam`, `Bob Weir comment to crowd`;
+  - dropped: `crowd/tuning`, `Crowd & Tuning`, `2: crowd/tuning ->`.
+- **`radio` and `DJ` alone never make a tag non-performance.** A broadcast qualifier is needed.
+  - Kept: song titles such as `Mohammed's Radio`, `Radio Blues`, `Jesus on the Radio`,
+    `Radio Free Europe` and `DJ Logic / Jam`.
+  - **AUTHOR'S CALL:** `outro`, `id` and `spot(s)` join the qualifiers, because ruling 2 names
+    sign-offs and sibling tags carry `Radio Outro` and `radio ID`.
+- **Stage banter is kept in general** (operator): `Stage Announcements`, `Banter Promote CD`,
+  `banter - promoting the new CD`.
+- **The operator-ruled broadcast examples.** 20 of the 21 drop. The one that does not is
+  `Stage Banter: Consummation Station` (`thegourds-2009-10-17`): it is the band's stage banter
+  (`station` without id/plug), which the census regex had mis-classed.
 
-**Measured:** 651 junk and 34 non-performance drops; no music among them, none
-operator-included, and no sibling or canonical labels any of them a song. A false junk verdict
-only reproduces today's behaviour.
+**Measured:** 651 junk and 34 non-performance drops, no music among them, and none
+operator-included. No sibling has a track of its own at any of these positions. 360 of them fold
+into a neighbouring song's file on a sibling, e.g. `gratefuldead-1984-04-17` `01Tuning.mp3`
+into Jack Straw. That is how tapers carry tuning and crowd noise, and it is today's behaviour.
 
 ### 2.4 Untagged short files (ruling 4)
 
 - **Interior files are kept; edge files drop.** An untagged short file is kept only when it is
-  **interior**: some kept file precedes it and some follows it in play order. Play order is
-  derived the way `filter_files` derives it (track-tag order when every file in the set has a
-  unique track number, else filename order), over the kept files, the tagged short files 2.3
-  keeps, and the untagged candidates. Untagged files in the leading or trailing run drop.
+  interior: a kept file precedes it and another follows it in play order.
+  - Play order is derived the way `filter_files` derives it: track-tag order when every file in
+    the set has a unique track number, else filename order.
+  - It is taken over the kept files, the tagged short files 2.3 keeps, and the untagged
+    candidates.
   - Measured: 99 interior, 37 edge.
-- **Filename junk** (AUTHOR'S CALL). An untagged short file whose filename stem, with leading
-  digits and separators removed, is wholly junk under 2.3 drops. Measured: 3 interior files
-  (`0201tuning.mp3`, `10 Crowd.mp3`, `09 Crowd.mp3`). The rule only ever drops, so it can never
-  admit anything.
-- **The count-match protection** (AUTHOR'S CALL among the options ruling 4 offered).
-  - The two description readers of piece 3 D (`desc_list.read_numbered`, `read_parse`) each
-    yield an admissible list or nothing, and a list's entry count does not depend on the tape.
-  - **The tape's untagged short candidates are dropped together when an admissible list has
-    exactly as many entries as the final kept list *without* them, and none has as many as the
-    list *with* them.** Otherwise they are kept.
-  - The protection runs on every tape, not only wholly untagged ones.
-  - **Measured:** it drops 6 files in 3 shows (`ratdog-2007-08-12`,
-    `belafleckandtheflecktones-2003-06-08`, `stevekimockband-2005-10-27`) and so keeps ratdog's
-    19 `desc-position` titles, the library's one whole-tape D loss. Where the description lists
-    the file it is kept: `darkstarorchestra-2015-07-11` gains 12 `desc-position` titles and
-    clears a hold. The ruling's example rule ("on a wholly untagged tape, keep only when the list
-    count includes it") drops 41 more interior files in 24 shows and protects nothing more.
-  - **Whole-tape `setlist` (S) on wholly untagged tapes needs no protection:** piece 3's Q1
-    means S never fills one. The one measured S loss is outside that scope and goes to section 7:
-    `derektrucksband-2004-11-20`, a tape with two tags, loses 12 S titles because a 96 s untagged
-    interior file is kept, and becomes a hold.
-- **Where it runs.** The protection needs the description, so it runs in `gather.title_inputs`,
-  for the selected recording only:
-  - `title_inputs` reads both list counts before filtering;
-  - it calls `filter_files` as today;
-  - when the condition holds, it calls `filter_files` again with a keyword
-    (`keep_untagged_short=False`) and re-applies the operator exclusion. Play order is then
-    derived over the final set, never spliced.
-  - The same keyword is passed to the lossless-format filter that `_recover_format_titles` runs
-    for that recording, so the stem bijection compares like with like.
-  - Every other `filter_files` caller uses the default: siblings, `select_recording`,
-    `best_donor`, corroboration.
+- **Filename junk** (AUTHOR'S CALL). An untagged short file whose filename stem is wholly junk
+  under 2.3 drops. Leading digits and separators are removed first.
+  - Measured: 3 files (`0201tuning.mp3`, `10 Crowd.mp3`, `09 Crowd.mp3`).
+  - It only ever drops.
+- **Measured:** 96 untagged interior files are kept.
 
 ### 2.5 Where the rule lives and what it records
 
-- **`junk._keep_and_exclude` applies 2.2-2.4** (minus the protection). The deny test is a small
-  pure function, `junk.short_tag_is_junk(tag) -> bool`, beside the arm. A file the rule drops
-  keeps the reason `implausibly short`, so `show --tracks`, triage `[i]` and
-  `fix --include` read it exactly as today.
-- **`filter_files` returns the names the rule kept** as `ordering["short_kept"]` (sorted), like
-  `readmitted`.
-- **Gather stamps `Track.short_kept: bool = False`.** It is persisted in `show.json`, permissive
-  and absent on old dirs, and not in the manifest, the same treatment as `Track.included`.
-- **Kept files are ordinary kept files for every recording-level vote** (AUTHOR'S CALL, and what
-  the replay measured): `recovery_basis`, `tag_gate_basis`, `title_fraction` and siblings.
-  `overrides.include`'s reduced standing stays for operator re-admissions only. The rule is a
-  filter verdict about the file, not one operator's file deciding for the tape.
+- **The rule lives in `junk._keep_and_exclude`** (2.2-2.4). A file the rule drops keeps the
+  reason `implausibly short`, so `show --tracks`, triage `[i]` and `fix --include` read it as
+  today.
+- **`filter_files` gains `short_keep: bool = True`.** `False` reproduces today's filter exactly.
+  Only the migration's consistency check (4.3) passes it.
+- **`filter_files` returns the names the rule kept** as `ordering["short_kept"]`.
+- **`Track.short_kept: bool = False`.**
+  - It is persisted in `show.json`, permissive, absent on old dirs, and not in the manifest.
+  - **It is set where the cascade builds the `Track`s, in `resolve_titles` from the
+    ordering.** That is before `align()`, the LLM alignment and the taper's coverage check, so
+    every coverage computation sees it.
+- **A short-kept file votes as an ordinary kept file** (AUTHOR'S CALL, and what was measured)
+  in every recording-level vote: `recovery_basis`, `tag_gate_basis`, `title_fraction`,
+  siblings. `include`'s reduced standing stays for operator re-admissions.
+- **Every caller gets the rule:** siblings, `select_recording`, `best_donor`, format recovery.
+- **The junk note.** When a `short_kept` track's final title, from any rung, is wholly junk
+  under `short_tag_is_junk`, gather writes an operator note to `notes.json`. Measured: 2 files,
+  `(crowd)` via `setlist-gap` on `thenewdeal-2005-09-17` and `Crowd Noise` via `desc-position`
+  on `buckethead-2004-06-04`.
 
 ## 3. Coverage (ruling 5)
 
-`structure._songish_coverage` already leaves out every `is_filler` title (`tuning`, `crowd`,
-`banter`, `intro`, `outro`, `applause`, `announce`, `talk`, `encore break`, `soundcheck`,
-...), which covers most spoken re-admissions. The new clause goes in the **same comprehension**,
-`and not t.short_kept`, so a re-admitted `Jam >`, `Murph` or unresolved untagged file neither
-counts against nor for coverage. No second filter is added.
+`structure._songish_coverage` already leaves out `is_filler` titles: `tuning`, `crowd`,
+`banter`, `intro`, `outro`, `applause`, `announce`, `talk`, `encore break`, `soundcheck`, and
+so on. That covers most spoken re-admissions.
 
-`matched` is still measured on those tracks (it is independent evidence) and still shows in the
-match column.
+**The new clause.** It goes in the same comprehension: `and not t.short_kept`. A re-admitted
+`Jam >`, `Murph` or unresolved file therefore neither lowers nor raises coverage. No second
+filter is added.
 
-Measured: it removes 43 of the 46 added holds whose only flag would be
+`matched` is still measured and shown.
+
+Measured: the clause removes 43 of the 46 added holds whose only flag would be
 `low-confidence structure alignment`.
 
 ## 4. Positional overrides re-keyed by filename (ruling 6; STRICT)
 
-Three `Overrides` fields are keyed by track number:
-- `titles` (track -> title);
+**The three positional keys.** Each is keyed by track number:
+- `titles` (track to title);
 - `set_breaks` (tracks a break falls after);
 - `encore_after`.
 
-`exclude` and `include` are already filenames, and `venue`/`city`/`date`/`narration` are not
-positional. No other persisted artifact is keyed by track number: the manifest, briefing and
-`excluded_files` are regenerated or filename-keyed.
+`exclude` and `include` are already filenames, and the other fields are not positional. No other
+persisted artifact is keyed by track number.
 
-An inserted track re-points all three silently. On the final rule's replay without re-keying:
-- 204 shows have a positional key at or after an insertion;
+**What an inserted track does.** It re-points all three silently. Replayed without the re-key:
+- 204 shows have a key at or after an insertion;
 - **138 put an override title on a different file**, 46 of them with no flag at all.
 
-The fix is to store the keys by filename (AUTHOR'S CALL between the ruling's two options). This
-also closes the same hazard for every future `--exclude`/`--include`, which renumber tracks
-today.
+### 4.1 Encoding, presence and the guard
 
-### 4.1 Storage and the guard
+- **Same key names, filename values.** Migrated data keeps the legacy key names, with filename
+  values:
 
-- **Fields.** `overrides.json` gains `titles_by_file: {filename: title}`,
-  `breaks_after: [filename]` and `encore_after_file: filename`. The legacy
-  `titles`/`set_breaks`/`encore_after` stay in the model, so an old file still parses. Names are
-  the plan's call.
-- **What gather does with the keys.** It resolves the filename keys **once**, against the final
-  kept list (after `include` and `exclude`), into the positional values the cascade and the
-  structure override already consume. Everything downstream is unchanged. A key naming a file
-  not in the final kept list raises `LlamaError` naming the key and the file. It is a per-show
-  failure, never a guess, and `fix`'s unit rolls an edit back on it.
-- **The legacy guard.** Gather refuses a show whose `overrides.json` still has a non-empty legacy
-  key. It raises `LlamaError: overrides.json uses track-number keys; run scripts/rekey_overrides.py`,
-  naming the show.
-  - So no gather under the new code can ever apply a stale number.
-  - The positions in a legacy file therefore always refer to the on-disk `show.json` written by
-    the old code, which is what the migration reads.
-  - `fix` and triage refuse the same way before any prompt.
+  | key | type | meaning |
+  |---|---|---|
+  | `titles` | `{"<filename>": "<title>"}` | forced title per file |
+  | `set_breaks` | `["<filename>", ...]` | a break falls after each listed file |
+  | `encore_after` | `"<filename>"` | encore starts after this file |
 
-### 4.2 Who reads and writes them after the change
+  - **Legacy values parse as integers:** a `titles` key made only of digits (JSON object keys
+    are strings), or an integer in `set_breaks`, or an integer `encore_after`.
+  - Every real filename has an extension, so none is all digits.
+- **Old binaries fail loudly.** v2.17.0's model (`dict[int, str]`, `list[int] | None`,
+  `int | None`) rejects every migrated file with a `ValidationError`. An old binary, a sweep loop
+  or an old-commit harness arm therefore fails loudly instead of silently dropping the overrides.
+  A test runs `e37f670`'s `Overrides` model, vendored as a fixture, against a migrated file and
+  asserts that it raises.
+- **Presence semantics.**
+  - `set_breaks` absent or `None` means no structure override.
+  - `[]` means forced no breaks (the structure-override path, alignment skipped). It is
+    preserved exactly.
+  - `--untitled` and triage `[u]` keep writing `[]`.
+  - "Has legacy keys" means any of the three integer-valued forms above. An empty
+    `set_breaks: []` needs no re-key and is left as is.
+  - A test pins the `delmccouryband-2008-05-24` shape (18 titles plus `set_breaks: []`) through
+    the migration and a gather: alignment `override`, breaks `[]`.
+- **One resolver.** `compute_gather` uses a single overrides resolver, so gather, redo, reapply
+  and replay all pass through it.
+  - It maps filename values onto the final kept list once, producing the positional values the
+    cascade and the structure override already consume. Nothing downstream changes.
+  - It refuses with `LlamaError`, naming the show:
+    - a file with any legacy value (`overrides.json uses track-number keys; run the
+      migration`);
+    - a file mixing legacy and filename values;
+    - a filename value whose file is not in the final kept list (naming the key and the file).
 
-- **Writers** keep taking and showing track numbers: `fix --set-title N=`, `--clear-title N`,
-  `--set-breaks`, `--clear-set-breaks`, `--set-encore`, `--clear-encore`, `--suggest-titles`,
-  `--untitled`, and triage's `[t]`/`[u]` and edit prompts. Each translates number to filename
-  through `show.json`, as `_resolve_exclude_tokens` does for `--exclude N`.
-  - With no `show.json` these flags now refuse and name `llama redo <show> --from gather`.
-    `--set-venue`/`--set-city`/`--set-date` and filename `--exclude` still work.
-  - Before writing, every positional translation applies the staleness guard `--suggest-titles`
-    already has (C1): the filename list `show.json` holds must equal what the current metadata
-    and overrides keep. Otherwise it refuses.
+### 4.2 Who reads and writes them
+
+- **Writers take track numbers.** `fix --set-title N=`, `--clear-title N`, `--set-breaks`,
+  `--clear-set-breaks`, `--set-encore`, `--clear-encore`, `--suggest-titles`, `--untitled` and
+  triage's `[t]`, `[u]` and edit prompts all take numbers.
+  - **A number always means the `show.json` numbering the operator saw (`show --tracks`).** It is
+    translated to a filename through `show.json`.
+  - The staleness check compares `show.json`'s filename list with gather's final kept list.
+    That list is computed with the overrides as they were **before** this invocation's own
+    edits, by **one shared helper** that returns gather's final kept list (filter, include,
+    exclude); gather itself uses the same helper. There is no separate recomputation.
+  - **Behaviour change.** `fix --exclude 3 --set-title 7=X` now titles `show.json`'s track 7.
+    Today that title lands on old track 8. A test pins it.
+  - Without `show.json` these flags refuse and name `llama redo <show> --from gather`.
+    `--set-venue`, `--set-city`, `--set-date` and filename `--exclude` still work.
   - `--untitled`'s `Untitled (track N)` text keeps the number it was written with.
-- **Readers** go through gather's one resolver: gather itself (`title_cascade`,
-  `_without_override_positions`, slice C, the 2b demotion guard, the structure override and its
-  validation), and so `reapply` and `replay`. `scripts/replay_holds.py`'s
-  `--strip-title-overrides`/`--strip-structure-overrides` strip the new keys; `taper_probe.py`
-  and `title_hygiene_probe.py` read them.
-- **Display.** `llama show` prints the stored mapping. Triage's current-values line converts
-  filenames to today's track numbers through `show.json`.
+- **Exclusion refuses up front on a keyed file.** `fix --exclude N` (and triage exclusion)
+  refuses when that file carries a title, break or encore key. It names the key and the
+  `--clear-*` flag that resolves it.
+- **A key whose file vanished** after a metadata-cache refresh makes gather fail loudly.
+  **AUTHOR'S CALL:** `--clear-title` also accepts a filename, and the three `--clear-*` flags
+  skip the staleness check. Removing a key cannot mis-point anything, so the operator clears the
+  dangling key with `fix` and never hand-edits.
+- **Readers.** All readers go through the resolver: gather, `reapply`, `replay`.
+  - `scripts/replay_holds.py --strip-title-overrides`/`--strip-structure-overrides` strip the
+    same keys.
+  - `taper_probe.py` and `title_hygiene_probe.py` read the filename form.
+  - `llama show` prints the stored mapping, and triage's current-values line converts it to
+    today's track numbers.
+- **The harness re-key** is for measurement only. It lives in `scripts/replay_holds.py` behind a
+  harness-only option, never in `compute_legs`, and imports the migration's own mapping function
+  (no second algorithm).
 
-### 4.3 The migration: `scripts/rekey_overrides.py [--apply] [--undo]`
+### 4.3 The migration and its runbook
 
-A one-off in the style of `backfill_voiced_by.py`: a dry run unless `--apply`. It never gathers.
+`scripts/rekey_overrides.py [--apply] [--undo]` is a one-off. It is run as
+`python scripts/rekey_overrides.py` with the repo venv's python, never through a `.venv/bin/*`
+console script from a copy. It is a dry run unless `--apply`, and it never gathers.
 
-- **When.** Once, after the new code is installed and before the first gather under it. The
-  guard in 4.1 enforces the order.
-- **Per show** with a non-empty legacy key, under the show lock (`locks.file_lock(ws.lock)`):
-  1. **Read `show.json`. Refuse the show** (write nothing, print `refused: <slug>: <reason>`)
-     when any of these holds:
-     - `show.json` is missing;
-     - a `titles` key is outside `1..len(tracks)`;
-     - the track at a `titles` key is not `title_source == "override"` with exactly the forced
-       title;
-     - `show.json`'s `set_breaks` is not exactly `sorted(set_breaks ∪ {encore_after})`;
-     - a track filename repeats.
+**Runbook, in order** (section 5 refers here):
+1. Stop any `llama run resume --all` loop.
+2. Copy the current release binary to `~/.local/bin/llama-2.17.0`.
+3. Install the new release and verify it (`which -a llama`, `llama --version`). The script
+   refuses `--apply` unless every `llama` on PATH reports the new version.
+4. Run any pre-piece-4 base harness arm now, or on a library snapshot taken before step 5.
+5. Migrate: dry run, then `--apply`.
+6. Build apply lists only from a harness run after the migration. Their `input_digests` include
+   `overrides.json`.
 
-     These checks prove the stored positions and the stored `show.json` agree. Anything else is
-     ambiguous, and an ambiguous show is never guessed.
-  2. **Map** each position to `tracks[N-1].filename`.
-  3. **Back up, then write.** Copy `overrides.json` to `overrides.pre-rekey.json`, only if no
-     backup exists. Then atomically write `overrides.json` (`write_artifact`) with the legacy
-     keys removed and the filename keys added. Every other field round-trips unchanged.
-- **Output.** One line per show (`rekeyed: <slug> (T titles, B breaks, encore)` or `refused`),
-  and a summary. It exits 1 if anything was refused.
-- **Undo.** `--undo --apply` restores `overrides.pre-rekey.json` over `overrides.json` only
-  when the current file is byte-identical to what the migration writes from that backup. That
-  output is deterministic. If not, an operator edit came after the migration: the show is
-  refused and named, never silently reverted. Undo needs the old code to be useful, since the
-  new gather refuses legacy keys.
-- **Measured today:** 606 shows carry legacy keys (3,203 titles, 427 breaks, 365 encore keys).
-  **All 606 pass every check, so 0 would be refused.** The re-key simulated over the whole replay
-  mapped every key, and its arm has **0** override titles on a different file.
+**Per show with legacy keys**, under the show lock (`locks.file_lock(ws.lock)`):
+
+1. **Refuse the show** (write nothing; print `refused: <slug>: <reason>`) when any of these
+   holds:
+   - `show.json` is missing;
+   - a `titles` key is outside `1..len(tracks)`;
+   - the track at a `titles` key is not `title_source == "override"` with exactly the forced
+     title;
+   - **when `set_breaks` or `encore_after` is present**, `show.json`'s `set_breaks` is not
+     exactly `sorted(set_breaks ∪ {encore_after})`;
+   - a track filename repeats;
+   - `show.json`'s filename list differs from what the shared helper (4.2) keeps under today's
+     rule (`short_keep=False`) from current metadata plus `include` minus `exclude`. This is the
+     same comparison the writers' staleness check makes.
+
+   These checks prove that the stored positions, the stored `show.json` and the current inputs
+   agree. An ambiguous show is never guessed.
+2. **Map** each position to `tracks[N-1].filename`.
+3. **Write, in this order:**
+   1. the backup `overrides.pre-rekey.json` (temp file, `F_FULLFSYNC`, rename);
+   2. the new `overrides.json`, written the same way;
+   3. the sidecar `overrides.rekeyed.sha256`, the hash of the bytes written in step 2.
+
+   If a backup already exists while the file is still legacy, it must be byte-equal to the
+   current file, or the show is refused. Every other field round-trips unchanged.
+
+**Output.** One line per show: `rekeyed: <slug> (T titles, B breaks, encore)` or `refused`.
+Then a summary. Exit 1 if anything was refused.
+
+**A refused show is repaired with the old binary:** `llama-2.17.0 redo <show> --from gather`,
+then re-run the migration.
+
+**Undo.** `--undo --apply`, per show:
+- When the current file's hash equals the sidecar, it restores the backup (temp, `F_FULLFSYNC`,
+  rename) and removes the sidecar and the backup.
+- When the current file equals the backup, it reports `already undone` (exit 0 for that show).
+- Otherwise it refuses and names the show.
+
+Undo is only useful together with reinstalling the old binary. Its post-condition is the old
+binary's `llama-2.17.0 redo <show> --from gather` for any show the new code re-gathered.
+
+**Measured today:**
+- 606 shows carry legacy keys (3,203 titles, 427 breaks, 365 encore keys).
+- **All 606 pass all six checks**, so 0 would be refused. On each, `show.json`'s filename list
+  equals what today's code keeps. Re-run the checks on migration day.
+- The re-key, simulated over the whole replay, mapped every key. Its arm has **0** override
+  titles on a different file.
 
 ## 5. Applying it (ruling 8; what piece 4 needs from the bulk apply)
 
-The bulk apply of pieces 1-5 is planned separately. Piece 4 needs four things from it.
+The bulk apply of pieces 1-5 is planned separately. Piece 4 needs these things from it.
 
-1. **Order.** The migration (4.3) runs first. The replay harness applies the same re-key to its
-   scratch copy when it meets legacy keys, so a candidate arm measures the migrated state without
-   writing the library.
-2. **The list.** Of the 1,534 shows the rule changes, by derived state:
+1. **Order.** The runbook in 4.3 comes first.
+2. **The list.** The rule changes 1,537 shows: 1,536 gain a file, and 1 held show changes only
+   its flags.
 
    | state | changes | of which music restored |
    |---|---|---|
-   | delivered, unvoiced | 1,026 | 392 |
+   | delivered, unvoiced | 1,028 | 392 |
    | voiced | 65 | 37 |
    | packaged | 311 | 65 |
-   | held | 122 | 45 |
+   | held | 123 | 45 |
    | briefed | 10 | 1 |
 
-   - **Held shows.** `llama reapply` covers them.
-   - **Packaged and delivered shows.** They need the same computation: gather from the cache,
-     the stored vet extraction, the stored briefing when reusable. `reapply` refuses non-held
-     shows. `llama redo <show> --from gather` works per show but spends a vet extraction and a
-     brief on each.
-   - **Piece 4's ask.** Extend reapply's path to packaged and delivered shows, and change
-     `replay.briefing_reusable` to compare the broadcast fields over the tracks that are not
-     `short_kept`, matched by filename (AUTHOR'S CALL). Measured:
-     - **1,377 of 1,533 changed shows keep their briefing; 156 need a fresh brief.**
-     - With today's rule all 1,533 need one, because any inserted track changes `titles`.
-   - **Download cost.** A delivered show's library audio was purged at delivery, so re-packaging
-     it re-downloads the whole show. The bulk apply has to size that.
-3. **Re-delivery.**
-   - Delivered unvoiced shows are re-delivered, minor fixes included.
-   - The **37 voiced shows where the rule restores music** are approved for
-     `deliver --replace-voiced` and a fresh `emcee run`. These are exactly the 37 in
-     `voiced-severe-review.md`; the final rule changes none of them.
-   - The **voiced shows whose gain is minor** (spoken, crowd or untagged only) are **not
-     re-delivered**. They go on the re-voice-later list. Under the final rule there are 28,
-     because 3 of census2's 31 gain only crowd files that now drop:
-     `voiced-minor-final.json`.
-   - A minor show may be re-gathered in the library. Its station copy is left alone.
-4. **Holds the operator will see** (section 6 (b)): about 32 new holds, against 20 cleared.
+   - **Held shows:** `llama reapply`.
+   - **Packaged and delivered shows:** the same computation, via reapply's path extended to
+     them: gather from the cache, the stored vet extraction, and the stored briefing when it is
+     reusable. `redo --from gather` would spend a vet and a brief on each.
+   - **The 28 voiced-minor shows** (`voiced-minor-final.json`) are left out until the
+     re-voice-later decision.
+3. **Briefing reuse** (owned by this branch, tested). `replay.briefing_reusable` compares:
+   - per-track `(title, set, segue)` over the tracks that are not `short_kept`, matched by
+     filename;
+   - each set break, keyed by the last non-`short_kept` file at or before it;
+   - the existing show-level fields, with `briefing_guard` unchanged.
+
+   The break key means a banter or crowd file that slides across a set boundary does not force a
+   fresh brief. Every real track's set is still compared.
+
+   **Measured:** 1,415 changed shows have a briefing. 1,017 keep it; 398 need a fresh brief.
+   - Today's function keeps 0 of them, because any insertion changes `titles`.
+   - Without piece 4, 1,129 would be reusable (the other 286 already differ from their stored
+     show for other reasons). Piece 4 itself costs 116: 113 because a real track's title, set
+     or segue changes, and 3 set breaks.
+4. **Re-use the station copy** (owned by this branch). A delivered show's library audio was
+   purged at delivery, so re-packaging it would download the whole show again. Before downloading
+   a manifest file, the package step copies it from the station destination when that copy
+   verifies. A failed check falls back to the download.
+   - **OPEN, to be settled before the plan.** The decided verification (md5 from cached
+     metadata, else exact size) cannot match a station copy. `build_package` renames every file
+     (`packaged_filename`) and rewrites its tags (`tag_audio`), so neither its md5 nor its size
+     equals the archive original's. The manifest also records only the packaged filename, not
+     the source filename.
+5. **Re-delivery.**
+   - **Unvoiced shows.** Delivered unvoiced shows are re-delivered, minor fixes included, and
+     never with `--replace-voiced`. A show emcee voiced after the list was cut is then refused by
+     `deliver` and goes to the operator's re-voice-later list. `reapply`'s `re-deliver with` hint
+     is suppressed for a voiced destination.
+   - **The 37 voiced shows where the rule restores music** (`voiced-severe-final.json`; operator,
+     2026-10-23: "For #6, I think we will revoice all 37") are re-delivered with
+     `deliver <slug> --replace-voiced`, **one single-name invocation per slug**, then `emcee run`.
+     Before each, check that:
+     - the slug is in the list;
+     - the destination is voiced;
+     - the re-packaged library manifest's tracks include every restored file listed for that
+       slug.
+   - **`deliver` itself refuses `--replace-voiced` with a selector** (`--state`, `--packaged`,
+     `--artist`, `--run`, `--profile`). Owned by this branch, tested.
+   - **`_destination_is_voiced`** treats only `FileNotFoundError` as unvoiced. Any other read
+     error, or a malformed manifest, refuses the show. Owned by this branch.
+   - **Shows the apply turns into holds** are triaged before re-delivery. The station copy keeps
+     airing in the meantime.
+   - **Timing.** Shows outside the current playout horizon are re-delivered first, and shows
+     inside it last or after they air.
 
 ## 6. Acceptance
 
 **(a) Arms.**
-- Base arm: `scripts/replay_holds.py run --all` at `e37f670`.
-- Candidate arm: the branch, with the scratch re-key.
-- `compare` must pass its gates.
-- The R' harness under `~/.llama-harness/piece45/spec/` is the reference: the candidate arm must
-  reproduce its counts, or explain each difference:
-  - 1,534 shows changed, 2,643 files added;
-  - 20 holds cleared, 32 added.
+- Base: `scripts/replay_holds.py run --all` at `e37f670`, before the migration (4.3 step 4).
+- Candidate: the branch, with the harness re-key.
+- `compare` passes its gates.
+- The candidate must reproduce the reference harness (`~/.llama-harness/piece45/spec/r1/arm_r1.jsonl`)
+  per show, or explain each difference: 1,537 shows changed, 2,649 files added, 20 holds
+  cleared, 34 added.
 
-**(b) Holds added, each class justified.** The replay's 32 adds:
+**(b) Holds added, each class justified** (34):
 
 | class | shows | why it is right or accepted |
 |---|---|---|
-| new unresolved track | 17 | An untagged or placeholder-tagged short file is kept (rulings 3-4) and ships `unresolved`. A hold by design: the operator names it or excludes it. |
+| new unresolved track | 18 | An untagged or placeholder-tagged short file is kept (rulings 3-4) and ships `unresolved`. A hold by design. |
 | long single-set show crosses 150 min | 6 | Restored audio is real runtime. The existing long-show check fires correctly. |
-| positional rung lost (1 track) | 3 | A kept tagged file changes the count, so one `setlist`-filled track (`Instrumental`, `FF`, `7-11`) reverts to `unresolved`. It holds rather than shipping a shifted title. |
+| positional rung lost | 4 | A kept file changes the count. On 3 shows one `setlist`-filled track (`Instrumental`, `FF`, `7-11`) reverts to `unresolved`. On `ratdog-2007-08-12` a kept 57 s untagged interior file breaks its description's count match, and 19 `desc-position` titles revert. It holds rather than ship shifted titles. |
 | low confidence remains | 3 | A re-admitted piece consumes a canonical item another track matched (`The Overture (end)`, STS9 `Murph`). Flagged, not silent. |
-| jerrybase closer not at a break | 2 | Spoken audio (`Donor Rap`, `bobby speaks`) now sits between the closer and the break. An accepted false hold; teaching the closer check about trailing spoken tracks is out of scope. |
+| jerrybase closer not at a break | 2 | Spoken audio (`Donor Rap`, `bobby speaks`) sits between the closer and the break. An accepted false hold. |
 | other | 1 | `robertwalters20thcongress-2004-01-02`, already held. |
 
-Any class outside this table, or any class more than 25% larger, blocks the merge until the
-operator rules on it. Each cleared show is listed for the operator, as in pieces 1-3.
+A class outside this table, or one more than 25% larger, blocks the merge until the operator
+rules on it. Each cleared show is listed for the operator.
 
-**(c) Sonnet hand-check of the rule's decisions.**
-- **The sample.** A stratified sample of about 60 files from the candidate arm, in the existing
-  packet format (`r-INSTRUCTIONS.md`, with the rulings written into the direction):
+**(c) Sonnet hand-check.**
+- **Sample.** About 60 files from the candidate arm, in the `r-INSTRUCTIONS.md` packet format
+  with the rulings written into the direction:
   - kept: music 10, fragment 5, spoken 10, mixed-with-tuning 6, untagged interior 8,
     placeholder-tagged 3;
-  - dropped: junk 8, non-performance 5, untagged edge 3, protection and filename drops 2.
-- **The bar:**
-  - **zero kept spam or non-performance**;
-  - **zero dropped music**;
-  - at least 90% right overall;
-  - every wrong row in a class the operator has accepted (below) or fixed before merge.
-- **Reference.** census2's 41-row packet, re-scored under the rulings and the final rule: 38
-  right. The 3 misses are inclusions: `Silent Track` (untagged interior,
-  `littlefeat-1973-01-01`), `crowd/tuning jam` (kept by ruling 3) and a crowd call-back tagged
-  `Callin um back`.
+  - dropped: junk 8, non-performance 5, untagged edge 3, filename 2.
+- **Bar:**
+  - zero kept spam or non-performance;
+  - zero dropped music;
+  - at least 90% right;
+  - every wrong row in an accepted class (section 7) or fixed before merge.
+- **Reference.** census2's 41-row packet re-scored under the rulings: 38 right. The 3 misses are
+  inclusions: `Silent Track`, `crowd/tuning jam`, `Callin um back`.
 
-**(d) Zero silent override mis-titles.** On the candidate arm, every track whose base
-`title_source` is `override` keeps the same title on the same file in every show, with or
-without flags. Measured: 0 shows.
+**(d) Zero silent override mis-titles.** Every base `override` track keeps its title on the same
+file. Measured: 0 shows.
 
-**(e) The count-match protection is measured.** The candidate arm reports which shows the
-protection dropped files on (expected: the 3 in 2.4) and every show that gains or loses
+**(e) Positional fills reported.** The candidate lists every show that gains or loses
 `desc-position` or `setlist` titles. Expected:
-- 1 S loss (`derektrucksband-2004-11-20`, accepted below) plus 1-track reversions;
-- no `desc-position` loss.
+- losses: `ratdog-2007-08-12` (19) and `derektrucksband-2004-11-20` (12), both accepted;
+  `belafleckandtheflecktones-2003-04-12` (2); 1-track reversions on 7 shows;
+- gains: 12 shows, including `darkstarorchestra-2015-07-11` (12, clears a hold).
 
-**(f) Tests.** Unit tests cover `short_tag_is_junk` on every example named in 2.3 (both sides),
-interior/edge, filename junk, both conditions of the protection, `short_kept` in
-`_songish_coverage`, the resolver's refusal on an unkept key, the legacy guard, and the
-migration's refusals, backup and undo against fixture show dirs. A mutation check on the deny anchoring (per part, not anywhere) and on the protection's "and none
-matches with them" clause must each turn a named test red.
+**(f) Tests.** Unit tests:
+- a corpus test: every measured drop stays dropped and every measured keep stays kept, over the
+  3,547 rows;
+- `short_tag_is_junk` and `short_is_spam` on every example named in 2.3;
+- interior/edge, and filename junk;
+- `short_kept` at the gather level: an unmatched short-kept track does not lower coverage;
+- the resolver's three refusals and the old-model `ValidationError`;
+- the `set_breaks: []` shape;
+- the `fix --exclude 3 --set-title 7=X` numbering;
+- the exclusion refusal on a keyed file;
+- the migration's refusals, backup rule, sidecar, undo and `already undone`, against fixture show
+  dirs;
+- `deliver`'s selector refusal, `_destination_is_voiced`, briefing reuse, and the station-copy
+  fallback.
+
+A mutation check on the per-part anchoring, on the legacy-value test and on the undo hash
+comparison must each turn a named test red.
 
 ## 7. Out of scope and accepted limitations
 
-- **The convention-arm class (4-conv; ruling 7): out of scope.** The census sized it at 13 shows
-  and 90 files, with 51 already operator-included. No narrow, clearly-correct rule exists in the
-  data:
-  - the class contains the canonical spam file itself (`gratefuldead-1973-06-10`,
-    `FOLLOW-ME @BYPIKENO.mp3`, tagged `Morning Dew`, 678 s);
-  - an opening act's set (`karldensonstinyuniverse-2011-10-28`, `openerAndersOsborne…`);
-  - a disc whose filenames carry a different date (`waynehancock-2004-04-08`, `…2004-08-04d2-…`);
-  - a second-show block (`soulive-2009-04-16`, `nh2009-…`).
+**The convention-arm class (ruling 7) is out of scope.** It is 13 shows and 90 files, 51 already
+operator-included, and the data holds no narrow, clearly correct rule. The class contains:
+- the canonical spam file (`gratefuldead-1973-06-10`, `FOLLOW-ME @BYPIKENO.mp3`, tagged
+  `Morning Dew`);
+- an opening act's set (`karldensonstinyuniverse-2011-10-28`);
+- a disc carrying another date (`waynehancock-2004-04-08`);
+- a second-show block (`soulive-2009-04-16`).
 
-  These stay with `fix --include` and the adjudicator.
-- **Also out of scope:** long spoken tracks (kept today, unchanged); 5a partial tapes (dropped);
-  5b better sibling (adjudicator); 5c shifted tags (adjudicator and list).
-- **Accepted limitations:**
-  - `derektrucksband-2004-11-20` loses 12 S titles to a kept untagged interior file and holds.
-  - About 6 files are kept with metadata length under 5 s (three read 0 s, e.g.
-    `Promised Land \>`).
-  - A few inclusion errors the rule cannot see: `Silent Track` named only in the description,
-    tuning-dominant mixes such as `crowd/tuning jam`, and the ~15-25% of the census's "music"
-    kind that is a titled spoken bit (`"really hot show"`, `Let Phil Sing Rant`).
-  - The closer flag on filler after a closer (2 shows).
-  - Future gets may select a different recording: 25 of 2,263 multi-recording shows re-score
-    differently under the rule. Existing shows keep `selection.json`.
+These stay with `fix --include` and the adjudicator.
+
+**Also out of scope:** long spoken tracks (unchanged), 5a partial tapes, 5b better sibling and
+5c shifted tags.
+
+**Accepted limitations:**
+- **`ratdog-2007-08-12`** holds after losing its 19 `desc-position` titles. `fix --exclude` of
+  the untagged file, or the adjudicator, resolves it.
+- **`derektrucksband-2004-11-20`** loses 12 `setlist` titles to a kept untagged interior file,
+  and holds.
+- **Spam with a lying tag.** A short clip that matches the naming convention, has no spam marker
+  in its filename and carries a lying song tag is admitted. Measured: 0.
+- **Interior timing.** The interior test runs before dedupe, re-admission and exclusion. A file
+  interior only because of an operator-excluded neighbour is kept. The replay measured 0
+  reorders of existing files.
+- **A wholly junk final title** on a short-kept track ships with a note (2 files).
+- **Very short files.** About 6 kept files have a metadata length under 5 s.
+- **Inclusion errors the rule cannot see:**
+  - `Silent Track`, named only in the description;
+  - tuning-dominant mixes such as `crowd/tuning jam`;
+  - titled spoken bits in the census "music" kind (`"really hot show"`, `Let Phil Sing Rant`).
+- **The closer flag** fires on spoken audio after a closer (2 shows).
+- **Future gets may select a different recording:** 25 of 2,263 multi-recording shows re-score
+  differently. Existing shows keep `selection.json`.
 
 ## 8. Unverified premises, each with its cheapest test
 
-1. **The candidate arm reproduces the R' harness.** The harness patched `_keep_and_exclude` and
-   `_songish_coverage` in-process, not the shipped code.
-   - Test: the branch's arm against `~/.llama-harness/piece45/spec/arm_final.jsonl`, per show.
-2. **Sonnet's hand-check agrees with the operator.** The reference packet was scored before
-   rulings 2-4 changed the direction.
-   - Test: the operator checks the first 10 rows of the new packet against Sonnet's answers
-     before the bar is applied.
-3. **The deny vocabulary covers future tags.** It was fitted to the library's 3,547 drops.
-   - Test: run `short_tag_is_junk` over the short drops of the 9,844 cached sibling items (the
-     census dump has them) and list every kept tag containing a junk word, for one look.
-4. **The briefing-reuse rule is safe.** A stored briefing never claims the absence of a piece
-   the rule restores.
-   - Test: `briefing_guard` over the 1,377 reused briefings in the candidate arm (already part
-     of `briefing_reusable`), plus 10 of the 37 voiced-severe briefings read by hand.
-5. **No other positional key exists** (titles, set_breaks and encore_after are all of them).
-   - Test: `grep` every reader of `Overrides` and of `Track.index` in `llama`, `scripts` and
+1. **The candidate arm reproduces the reference harness.** That harness patched the filter and
+   coverage in-process.
+   - Test: a per-show diff against `r1/arm_r1.jsonl`.
+2. **Sonnet's hand-check agrees with the operator.**
+   - Test: the operator checks the first 10 rows first.
+3. **The deny vocabulary holds beyond the library.**
+   - Test: one look at the 5,024 kept sibling short tags in `r1/r1_sibs.json` that contain a
+     junk or broadcast word.
+4. **Briefing reuse is safe.** A reused briefing never claims the absence of a restored piece.
+   - Test: 10 of the 37 voiced-severe briefings read by hand. `briefing_guard` already runs on
+     every reuse.
+5. **No other positional key exists.**
+   - Test: a grep over every reader of `Overrides` and `Track.index` in `llama`, `scripts` and
      `emcee` (emcee reads only the manifest).
-6. **The re-download cost is affordable.** About 1,100 delivered shows would re-download in full.
-   - Test: sum the manifest audio sizes for the delivered rows of the list before the bulk apply
-     plan sizes its waves.
+6. **The re-download is affordable.**
+   - Test: sum the manifest audio sizes of the delivered rows that the station-copy re-use
+     cannot cover.
