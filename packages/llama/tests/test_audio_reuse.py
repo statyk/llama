@@ -178,3 +178,17 @@ def test_reuse_into_tries_the_library_before_the_station(tmp_path, monkeypatch):
     assert reuse_into(dest, "a.mp3", None, plan, ws, tolerance=5.0) is None
     assert reuse_into(dest, "zzz.mp3", 300.0, plan, ws, tolerance=5.0) is None
     assert not dest.exists() and sorted(p.name for p in dest.parent.iterdir()) == []
+
+
+def test_set_aside_refuses_when_an_aside_already_exists(tmp_path, monkeypatch):
+    from llama.audio_reuse import set_aside
+    from llama.errors import LlamaError
+    patch_fake_durations(monkeypatch)
+    ws = packaged_reuse_show(tmp_path, reuse_show(*OLD))
+    stale = ws.dir / ASIDE_DIR / "03 - X.mp3"
+    stale.parent.mkdir(parents=True)
+    stale.write_bytes(b"ORIGINAL")
+    audio = audio_files(ws)
+    with pytest.raises(LlamaError, match="audio aside already exists"):
+        set_aside(ws)
+    assert audio_files(ws) == audio and stale.read_bytes() == b"ORIGINAL"

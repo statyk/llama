@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from llama.audio import read_duration
+from llama.errors import LlamaError
 from llama.models import Show
 from llama.workspace import ShowWorkspace, read_model
 
@@ -94,12 +95,18 @@ def _aside(show_ws: ShowWorkspace) -> Path:
 
 def set_aside(show_ws: ShowWorkspace) -> None:
     """Move every file in `package/audio/` into ASIDE_DIR (same filesystem,
-    `os.replace`), keeping its name."""
+    `os.replace`), keeping its name. The aside is single-use: an existing one
+    holds the audio a put-back must restore (a second re-packaging in the same
+    unit, or a leftover nobody deleted), so this refuses, moving nothing,
+    rather than overwrite it."""
+    aside = _aside(show_ws)
+    if aside.exists():
+        raise LlamaError(f"{show_ws.dir.name}: an audio aside already exists at {aside}; "
+                         "re-packaging twice in one unit is not supported")
     audio = show_ws.package_dir / "audio"
     if not audio.is_dir():
         return
-    aside = _aside(show_ws)
-    aside.mkdir(parents=True, exist_ok=True)
+    aside.mkdir(parents=True)
     for p in sorted(audio.iterdir()):
         if p.is_file():
             os.replace(p, aside / p.name)

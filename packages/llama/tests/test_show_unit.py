@@ -264,3 +264,25 @@ def test_a_leftover_aside_that_cannot_be_removed_refuses_before_anything_is_writ
         with show_unit(ws, capture_view(ws)):
             ran.append(1)
     assert not ran and not (ws.dir / ".txn" / "index.json").exists()
+
+
+def test_two_repackagings_in_one_unit_restore_the_original_audio(tmp_path, monkeypatch):
+    # Review (Important 1): a second set_aside in one unit must never move the
+    # first pass's files over the pre-unit originals in the aside.
+    patch_fake_durations(monkeypatch)
+    ws = packaged_reuse_show(tmp_path, reuse_show(*_OLD))
+    before = tree_bytes(ws.dir)
+    def two_passes():
+        _repackaging_body(ws)                              # inserts Crowd before track 2
+        plan = plan_reuse(ws, None)
+        back = reuse_show(*_OLD)                           # and a second pass drops it again
+        drop_stage_artifacts(ws, "package")
+        write_artifact(ws.show, back)
+        build_package(ws, ReuseIA({t.filename: t.duration_sec for t in back.tracks}), back,
+                      reuse=plan)
+    with pytest.raises(LlamaError):
+        with show_unit(ws, capture_view(ws)):
+            two_passes()
+            raise LlamaError("after package")
+    assert tree_bytes(ws.dir) == before                    # 03 - Jam.mp3 is j2's audio again
+    assert not (ws.dir / ASIDE_DIR).exists()

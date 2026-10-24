@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 from llama import audio_reuse
@@ -44,7 +45,8 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
     (a held re-gather can already have written the new list over audio that
     carries the old numbering). A still-missing file is then copied from the
     paired aside or station file when its length checks out, else
-    downloaded. The caller's unit puts the aside back on failure and deletes
+    downloaded; the aside is read only when this call made it, and
+    `set_aside` refuses an aside that already exists. The caller's unit puts the aside back on failure and deletes
     it on success. `reuse=None` is the old behaviour; under `force` every
     file downloads as before (the aside step still runs)."""
     pkg = show_ws.package_dir
@@ -59,9 +61,14 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
 
     if reuse is not None:
         names = [packaged_filename(t.index, t.title, Path(t.filename).suffix) for t in show.tracks]
-        in_place = reuse.library_names is not None and list(reuse.library_names) == names
+        # In place only when every name AND the source paired under it are unchanged.
+        in_place = (reuse.library_names is not None and list(reuse.library_names) == names
+                    and all(reuse.library.get(t.filename) == n for t, n in zip(show.tracks, names)))
         if not in_place and any(p.is_file() for p in audio_dir.iterdir()):
             audio_reuse.set_aside(show_ws)
+        else:
+            # The aside is read only when THIS call filled it.
+            reuse = replace(reuse, library={})
         lengths = {f["name"]: length_seconds(f.get("length")) for f in files}
 
     venue_city = ", ".join(p for p in [show.venue, show.city] if p)

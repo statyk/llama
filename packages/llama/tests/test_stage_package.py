@@ -347,3 +347,32 @@ def test_build_package_without_reuse_never_sets_aside(tmp_path, monkeypatch):
     assert ia.downloads == ["s.mp3", "x.mp3"]
     assert sorted(audio_files(ws)) == ["01 - A.mp3", "02 - Crowd.mp3", "02 - X.mp3", "03 - X.mp3"]
     assert not (ws.dir / ASIDE_DIR).exists()
+
+
+def test_a_new_source_under_an_unchanged_name_is_not_kept_in_place(tmp_path, monkeypatch):
+    # Review (Minor 1): the same packaged names but a different source file at
+    # track 2; the old "02 - Jam.mp3" is j1's audio and must not ship as j0's.
+    patch_fake_durations(monkeypatch)
+    old = (("A", "a.mp3", 300.0), ("Jam", "j1.mp3", 600.0), ("B", "b.mp3", 400.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    plan = plan_reuse(ws, None)
+    ia = _repackage(ws, reuse_show(old[0], ("Jam", "j0.mp3", 601.0), old[2]), plan)
+    assert ia.downloads == ["j0.mp3"]
+    assert _sources(ws) == {"01 - A.mp3": "a.mp3", "02 - Jam.mp3": "j0.mp3", "03 - B.mp3": "b.mp3"}
+
+
+def test_an_aside_this_call_did_not_make_is_never_read(tmp_path, monkeypatch):
+    # Review (Important 1): with the files kept in place, a missing file is
+    # never filled from an aside some earlier call left behind.
+    patch_fake_durations(monkeypatch)
+    from helpers import fake_audio
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    (ws.package_dir / "audio" / "02 - B.mp3").unlink()
+    stale = ws.dir / ASIDE_DIR / "02 - B.mp3"
+    stale.parent.mkdir(parents=True)
+    stale.write_bytes(fake_audio("other.mp3", 400.0))
+    plan = plan_reuse(ws, None)
+    ia = _repackage(ws, reuse_show(*old), plan)
+    assert ia.downloads == ["b.mp3"]
+    assert _sources(ws) == {"01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3"}

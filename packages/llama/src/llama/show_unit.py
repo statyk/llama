@@ -22,8 +22,12 @@ Documented limitations (spec C2):
      its old names after the restore, a successful one deletes it. SIGKILL
      (or a failed restore) leaves the aside behind, and the next unit deletes
      it with the stale `.txn/`, never putting it back: that audio is lost and
-     `llama redo <show> --from package` re-downloads it. A leftover aside that
-     cannot be removed refuses the unit like a leftover `.txn/`.
+     `llama redo <show> --from package` re-downloads it. A put-back that
+     itself fails part-way leaves `.txn/` and a partial aside for the next
+     unit's entry to delete (the files it had not moved back are lost the same
+     way), and its exception masks the original (which is its `__context__`).
+     A leftover aside that cannot be removed refuses the unit like a leftover
+     `.txn/`. The aside is single-use: a second set-aside in one unit refuses.
 Directories are not restored: an empty directory a failed unit created stays.
 """
 from __future__ import annotations
