@@ -24,9 +24,10 @@ Today the junk filter's short-duration arm drops the `Drums >`, the `St. Stephen
 Strict surfaces:
 
 - **(a) The positional-overrides migration.** It rewrites `overrides.json`, which is
-  hand-authored operator data. Section 4 says exactly what is written and when, how it is
-  undone, how an old binary is kept from reading it silently, and that an ambiguous mapping
-  refuses and names the show.
+  hand-authored operator data. Section 4 says exactly what is written and when, the verified
+  whole-library snapshot taken first and the wholesale restore from it, how an old binary is
+  kept from reading migrated data silently, and that an ambiguous mapping refuses and names the
+  show.
 - **(b) Re-delivering voiced shows.** `llama deliver --replace-voiced` discards paid TTS voicing,
   and that cannot be undone. Only the 37 approved shows are in scope, one named invocation each
   (section 5).
@@ -263,9 +264,13 @@ persisted artifact is keyed by track number.
   | `set_breaks` | `["<filename>", ...]` | a break falls after each listed file |
   | `encore_after` | `"<filename>"` | encore starts after this file |
 
-  - **Legacy values** are the track-number forms: a `titles` key made only of digits (JSON
-    object keys are strings), an integer in `set_breaks`, or an integer `encore_after`.
-  - Every real filename has an extension, so none is all digits.
+  - **Legacy values** are the track-number forms: any `titles` key, `set_breaks` item or
+    `encore_after` that v2.17.0's model accepts as an int. That includes a string that `int()`
+    parses after stripping whitespace (`"7"`, `" 7"`), a JSON integer, and an integer-valued
+    float such as `2.0`. The test is v2.17.0's own rule, pydantic's lax `int` parsing, so every
+    form it accepts counts. The migration and the new resolver use the same test, so the
+    resolver treats all of them as legacy.
+  - Every real filename has an extension, so v2.17.0's model accepts none as a number.
 - **Both forms always parse.** The new `Overrides` model types the three keys as
   `titles: dict[str, str]`, `set_breaks: list[int | str] | None` and
   `encore_after: int | str | None`. Parsing never refuses; only the resolver and the writers
@@ -276,10 +281,12 @@ persisted artifact is keyed by track number.
   or an old-commit harness arm therefore fails loudly instead of silently dropping the overrides.
   A test runs `e37f670`'s `Overrides` model, vendored as a fixture, against a migrated file and
   asserts that it raises.
-  - **The failure is library-wide.** v2.17.0 reads every show's `overrides.json` on every command
-    (`catalog.iter_shows`), so once any file is migrated the old binary cannot run any command on
-    this library. That is by design: it is the loud failure. It is also why the migration and
-    its undo are all-or-nothing (4.3).
+  - **The failure is library-wide.** v2.17.0 reads every show's `overrides.json` whenever it
+    lists or resolves shows (`catalog.iter_shows`). Once any file is migrated, the old binary
+    fails on every command that lists or resolves shows, and on any gather, brief or reapply that
+    reads a migrated file. That is by design: it is the loud failure. It is also why the
+    migration checks every show before writing any, and why its rollback is a wholesale restore
+    (4.3).
 - **Writers refuse legacy.** Every new-code writer of `overrides.json` refuses before any prompt
   when the show's file holds any legacy value (`overrides.json uses track-number keys; run the
   migration`). That covers every `fix` edit flag (`--no-run` included), every triage edit,
@@ -289,7 +296,7 @@ persisted artifact is keyed by track number.
   - `[]` means forced no breaks (the structure-override path, alignment skipped). It is
     preserved exactly.
   - `--untitled` and triage `[u]` keep writing `[]`.
-  - "Has a legacy value" means any of the three integer-valued forms above. An empty
+  - "Has a legacy value" means any legacy value as defined above. An empty
     `set_breaks: []` needs no re-key and is left as is.
   - A test pins the `delmccouryband-2008-05-24` shape (18 titles plus `set_breaks: []`) through
     the migration and a gather: alignment `override`, breaks `[]`.
@@ -301,7 +308,8 @@ persisted artifact is keyed by track number.
     - a file with any legacy value (`overrides.json uses track-number keys; run the
       migration`);
     - a file mixing legacy and filename values;
-    - a filename value whose file is not in the final kept list (naming the key and the file).
+    - a filename value whose file is not in the final kept list. The one message names every
+      such key and its file, so a single `fix` clears them all.
 
 ### 4.2 Who reads and writes them
 
@@ -321,11 +329,13 @@ persisted artifact is keyed by track number.
   - **Behaviour change.** `fix --exclude 3 --set-title 7=X` now titles `show.json`'s track 7.
     Today that title lands on old track 8. A test pins it.
   - Without `show.json` these flags refuse and name `llama redo <show> --from gather`.
-    `--set-venue`, `--set-city`, `--set-date` and filename `--exclude` still work.
+    `--set-venue`, `--set-city`, `--set-date`, filename `--exclude`, `--clear-title <filename>`,
+    `--clear-set-breaks` and `--clear-encore` still work, so a dangling key on a show with no
+    `show.json` is cleared with `fix` too.
   - `--untitled`'s `Untitled (track N)` text keeps the number it was written with.
-- **Exclusion refuses up front on a keyed file.** `fix --exclude N` (and triage exclusion)
-  refuses when that file carries a title, break or encore key. It names the key and the
-  `--clear-*` flag that resolves it.
+- **Exclusion refuses up front on a keyed file.** `fix --exclude N` and `fix --exclude <filename>`,
+  with or without `--no-run`, and triage exclusion refuse when that file carries a title, break or
+  encore key. The refusal names the key and the `--clear-*` flag that resolves it.
 - **A key whose file vanished** after a metadata-cache refresh makes gather fail loudly.
   **AUTHOR'S CALL:** `--clear-title` also accepts a filename, and the three `--clear-*` flags
   skip the staleness check. Removing a key cannot mis-point anything, so the operator clears the
@@ -342,79 +352,112 @@ persisted artifact is keyed by track number.
 
 ### 4.3 The migration and its runbook
 
-`scripts/rekey_overrides.py [--apply] [--undo]` is a one-off. It is run as
-`python scripts/rekey_overrides.py` with the repo venv's python, never through a `.venv/bin/*`
-console script from a copy. It is a dry run unless `--apply`, and it never gathers.
+`scripts/rekey_overrides.py [--snapshot | --apply | --restore <snapshot-dir>]` is a one-off. It
+is run from the repo as `/Users/shawn/projects/llama/.venv/bin/python scripts/rekey_overrides.py`
+(branch code), never through a `.venv/bin/*` console script from a copy. With no option it is a
+dry run. It never gathers. Its checks read only `overrides.json`, `show.json` and the cached
+metadata of the item `show.json` names; a missing `selection.json` does not matter to it.
 
 **Runbook, in order** (section 5 refers here):
-1. Stop any `llama run resume --all` loop.
-2. Copy the current release binary to `~/.local/bin/llama-2.17.0`.
-3. Install the new release and verify it (`which -a llama`, `llama --version`). The script
-   refuses `--apply` while any `llama` on PATH reports 2.17.0 or earlier, or a dev build
-   (`0.1.0`, `0.0.0+unknown`). `--undo` is exempt, since it runs after the old binary is
-   reinstalled.
-4. Run any pre-piece-4 base harness arm now, or on a library snapshot taken before step 5.
-5. Migrate. Run the dry run. Repair each refused show with `llama-2.17.0` by the route the
-   refusal names, while the library is still wholly legacy. Repeat the dry run until it reports
-   0 refused, then `--apply`.
-6. Restart the sweep loop, only once step 5's `--apply` has succeeded.
-7. Build apply lists only from a harness run after the migration. Their `input_digests` include
-   `overrides.json`.
-8. Triage held shows only after the bulk apply has re-gathered them (4.2).
+1. Stop the sweep loop. Confirm that no `llama` process is running (`pgrep -x llama` prints
+   nothing).
+2. With v2.17.0 still installed, run the dry run. It checks every show and prints each refusal
+   with its repair route.
+3. Repair each refusal with the installed v2.17.0 `llama`, by the route in the table below.
+   Repeat steps 2 and 3 until the dry run reports 0 refused.
+4. Snapshot the library with `--snapshot`.
+5. Install the new release. `llama --version` must report the piece-4 version. Run nothing
+   else in between.
+6. Migrate with `--apply`.
+7. Restart the sweep loop.
+8. Re-run the harness and build the apply lists (below), then the bulk apply (section 5). Triage
+   held shows only after the bulk apply has re-gathered them (4.2).
 
 **Checks.** A show is refused, with its repair route, when any of these holds:
 
-| reason | repair (old binary, before `--apply`) |
+| reason | repair (step 3, v2.17.0 installed) |
 |---|---|
-| the file mixes legacy and filename values | only a hand edit can produce this (writers refuse legacy files, 4.1): undo that hand edit |
-| `show.json` is missing | `llama-2.17.0 redo <show> --from gather` |
-| a `titles` key is outside `1..len(tracks)` | `llama-2.17.0 fix <show> --clear-title k` |
-| the track at a `titles` key is not `title_source == "override"` with exactly the forced title | `llama-2.17.0 redo <show> --from gather` |
-| **when `set_breaks` or `encore_after` is present**, `show.json`'s `set_breaks` is not exactly `sorted(set_breaks ∪ {encore_after})` | `llama-2.17.0 redo <show> --from gather` |
-| a track filename repeats | note the affected keys' values, clear them with `llama-2.17.0 fix <show> --clear-title k` / `--clear-set-breaks` / `--clear-encore`, then migrate. A filename key cannot name a repeated file, so that show carries no title/break/encore override on those files until the duplicate is resolved (accepted limitation; 0 shows today) |
-| `show.json`'s filename list differs from what the shared helper (4.2) keeps under today's rule (`short_keep=False`) from current metadata plus `include` minus `exclude` (the writers' staleness comparison) | `llama-2.17.0 redo <show> --from gather` |
-| a backup exists while the file is still legacy and is not byte-equal to it | a stale backup from an earlier cycle: move it aside (`mv overrides.pre-rekey.json overrides.pre-rekey.stale.json`); the current legacy file is the truth |
+| `overrides.json` is not valid JSON, or the new model cannot read it | the operator repairs the file by hand; the dry run lists every such file |
+| the file mixes legacy and filename values | only a hand edit can produce this (writers refuse legacy files, 4.1): undo that hand edit. The refusal names each filename-valued key. Do it first, since v2.17.0 cannot run on a library holding the file |
+| `show.json` is missing | `llama redo <show> --from gather` |
+| a `titles` key is outside `1..len(tracks)` | `llama fix <show> --clear-title k` |
+| the track at a `titles` key is not `title_source == "override"` with exactly the forced title | `llama redo <show> --from gather` |
+| a `set_breaks` entry or `encore_after` is outside `1..len(tracks)-1`, or `encore_after` is not after every break (gather's own structure-override check, which would also fail the redo) | note the values, `llama fix <show> --clear-set-breaks` / `--clear-encore`, then set them again with `--set-breaks` / `--set-encore` |
+| **when `set_breaks` or `encore_after` is present**, `show.json`'s `set_breaks` is not exactly `sorted(set_breaks ∪ {encore_after})` | `llama redo <show> --from gather` |
+| a track filename repeats | note the affected keys' values, clear them with `llama fix <show> --clear-title k` / `--clear-set-breaks` / `--clear-encore`, then migrate. A filename key cannot name a repeated file, so that show carries no title/break/encore override on those files until the duplicate is resolved (accepted limitation; 0 shows today) |
+| `show.json`'s filename list differs from what the shared helper (4.2) keeps under today's rule (`short_keep=False`) from current metadata plus `include` minus `exclude` (the writers' staleness comparison), or the item's cached metadata is missing | `llama redo <show> --from gather` |
 
 These checks prove that the stored positions, the stored `show.json` and the current inputs
 agree. An ambiguous show is never guessed. Every refusal has a route, and `--apply` stays
 blocked until each is taken; 0 shows are refused today.
 
-**`--apply` is all-or-nothing.** It first runs every check over every show with a legacy value.
-If any show would be refused it writes nothing and prints each refusal with its repair.
+**`--snapshot`.** It refuses while a `llama` process is running. It copies every file of every
+show directory outside `package/audio/` (about 280 MB today) into
+`<root>/rekey-snapshot-<UTC timestamp>/shows/<slug>/...`. It verifies every copy against the
+sha256 of its source and flushes it (`F_FULLFSYNC`). It then writes `manifest.json`, listing
+every copied path with its sha256, and flushes it. Only then does it report success. A directory
+without `manifest.json` is not a snapshot. The snapshot is never modified afterwards. **AUTHOR'S
+CALL:** the per-show `.lock` files are neither copied nor restored.
+
+**`--apply`.** It refuses and writes nothing unless all of these hold:
+- a snapshot exists that is newer than the last write to any `overrides.json` still holding a
+  legacy value (files `--apply` itself already migrated are left out, so an interrupted run can
+  continue);
+- every `llama` on PATH (`which -a llama`) reports at least the version this branch ships,
+  compared numerically. A dev build (`0.1.0`, `0.0.0+unknown`) refuses, and so does no `llama`
+  on PATH;
+- no `llama` process is running.
+
+It then takes the migration lock (`<root>/.rekey.lock`, flock), and runs every check over every
+show with a legacy value. If any show would be refused it writes nothing and prints each refusal.
 Otherwise, per show, under the show lock (`locks.file_lock(ws.lock)`):
 
-1. **Map** each position to `tracks[N-1].filename`. Every other field round-trips unchanged.
-2. **Write, in this order**, each as a temp file, `F_FULLFSYNC`, then rename:
-   1. the backup `overrides.pre-rekey.json`;
-   2. the sidecar `overrides.rekeyed.sha256`, the hash of the bytes about to be written;
-   3. the new `overrides.json`.
+1. **Re-check.** Re-read `overrides.json` and `show.json`, and re-run that show's checks on what
+   was just read. A refusal here stops the whole run and names the show. Shows already migrated
+   stay migrated, and `--restore` is the way back: v2.17.0 cannot run on a partly migrated
+   library, and the new writers refuse legacy files.
+2. **Map** each position to `tracks[N-1].filename`, on the raw JSON object. The file is loaded
+   with `json`, only `titles`, `set_breaks` and `encore_after` change, and every other key and
+   its value, known or unknown, is kept unchanged. It is dumped the way `write_artifact` dumps
+   (`json.dumps(..., indent=2)`).
+3. **Write** it as a temp file, `F_FULLFSYNC`, rename, then `F_FULLFSYNC` the show directory.
 
-An interrupt therefore leaves each show either legacy and equal to its backup, or matching its
-sidecar. A re-run of an interrupted `--apply` completes the remaining legacy shows, which passed
-the all-show check.
+Re-running `--apply` after an interruption continues with the remaining legacy shows. A migrated
+show has no legacy value and is skipped.
 
 **Output.** One line per show: `rekeyed: <slug> (T titles, B breaks, encore)` (`would rekey` in
-the dry run), or `refused: <slug>: <reason>` with its repair. Then a summary. Exit 1 if anything
-was refused.
+the dry run), or `refused: <slug>: <reason>` with its repair. Then a summary. Exit 1 if a gate
+failed or anything was refused.
 
-**Undo.** The undo set is every show with a sidecar. `--undo` is a dry run; `--undo --apply` is
-all-or-nothing the same way and writes nothing unless every show in the set is undoable:
-- when the current file's hash equals the sidecar, it restores the backup (temp, `F_FULLFSYNC`,
-  rename) and removes the sidecar and the backup;
-- when the current file equals the backup, it reports `already undone` and removes the sidecar
-  and the backup;
-- otherwise the show is not undoable, and is named: the operator edited it after the migration.
+**`--restore <snapshot-dir>`** is the rollback for "piece 4 is wrong", not a per-show tool. It
+returns the library's metadata to the moment before the migration and **discards every edit,
+gather and apply made since, including the bulk apply.** It has no version gate. It refuses
+while a `llama` process is running, and takes the migration lock. It verifies every hash in the
+snapshot's `manifest.json` first, and writes nothing if one fails. Then, for every slug in the
+snapshot:
+- when the show's current `package/manifest.json` differs from its snapshot copy, it empties
+  `package/audio/` (**AUTHOR'S CALL**). Those files carry the new numbering, and a restored
+  manifest name could match the wrong one. v2.17.0's `redo <show> --from package` re-downloads
+  them, the route the deliver gate's "audio files missing" names;
+- it copies every snapshotted file back over the library (temp, `F_FULLFSYNC`, rename);
+- it deletes every other file under the show directory outside `package/audio/`, `.lock` aside,
+  such as a `notes.json`, `.txn/` or briefing written since (**AUTHOR'S CALL**). Each show is
+  then exactly as at the snapshot, apart from `package/audio/`.
 
-Undo is a rollback for the window right after the migration, before migrated shows are edited.
-Once one has been edited, the edit is newer than the backup, and restoring it would silently
-discard that edit, so undo never does. The way forward is a forward fix with the new binary. If
-the operator chooses to roll back anyway, they move that show's backup over `overrides.json` by
-hand, accepting the loss of the later edit; undo then reports it `already undone`.
+Shows created after the snapshot are listed, not deleted. Then the operator reinstalls v2.17.0
+from the release. A restored show's `show.json` is the old rule's again, so v2.17.0's positional
+edits read the numbering they write against. A listed show is not restored: it keeps the new
+rule's `show.json` and any filename values, and v2.17.0 fails loudly on the latter.
 
-Undo is only useful together with reinstalling the old binary. Its post-condition is the old
-binary's `llama-2.17.0 redo <show> --from gather` for every show whose `show.json` has a
-`short_kept` track, listed with
-`grep -l '"short_kept": true' <root>/shows/*/show.json`.
+Restore does not touch the station. Re-delivered station copies keep the new packages until
+each show is re-delivered from the restored library.
+
+**Harness and apply lists (step 8).** Both acceptance arms (6(a)) are run and compared before the
+migration, exactly as measured. After the migration, a candidate-only re-run must reproduce the
+pre-migration candidate's per-show outcome and titles for every show. This is a per-show
+comparison, not `compare`'s digest gate, since every migrated `overrides.json` has a new digest.
+Any difference stops the apply and is investigated. The bulk apply's requirement: its apply lists
+come from that post-migration re-run, so their `input_digests` match the migrated files.
 
 **Measured today:**
 - 606 shows carry legacy keys (3,203 titles, 427 breaks, 365 encore keys).
@@ -533,8 +576,9 @@ The bulk apply of pieces 1-5 is planned separately. Piece 4 needs these things f
 ## 6. Acceptance
 
 **(a) Arms.**
-- Base: `scripts/replay_holds.py run --all` at `e37f670`, before the migration (4.3 step 4).
+- Base: `scripts/replay_holds.py run --all` at `e37f670`.
 - Candidate: the branch, with the harness re-key.
+- Both run before the migration, against the same legacy library (4.3).
 - `compare` passes its gates.
 - The candidate must reproduce the reference harness (`~/.llama-harness/piece45/spec/r1/arm_r1.jsonl`)
   per show, or explain each difference: 1,537 shows changed, 2,649 files added, 20 holds
@@ -585,19 +629,33 @@ file. Measured: 0 shows.
 - interior/edge, and filename junk;
 - `short_kept` at the gather level: an unmatched short-kept track does not lower coverage;
 - the new `iter_shows` over a legacy, a migrated and a mixed file;
-- the resolver's three refusals and the old-model `ValidationError`;
+- the resolver's three refusals (every dangling key named in one message) and the old-model
+  `ValidationError`;
+- legacy classification agreeing with the vendored v2.17.0 model (`" 7"`, `2.0`, a filename);
 - the writers' refusal on a legacy file;
 - the `set_breaks: []` shape;
 - the `fix --exclude 3 --set-title 7=X` numbering;
-- the exclusion refusal on a keyed file;
-- the migration, against fixture show dirs: its refusals (the mixed file included), the
-  all-or-nothing `--apply`, the backup rule, the write order, the version gate, the
-  all-or-nothing undo and `already undone`;
+- the exclusion refusal on a keyed file, in both forms and with `--no-run`;
+- `--clear-title <filename>`, `--clear-set-breaks` and `--clear-encore` on a show with no
+  `show.json`;
+- the migration, against fixture show dirs:
+  - its refusals, the mixed and the unreadable file included;
+  - `--snapshot`'s copy and hash verification, and a missing `manifest.json` reading as no
+    snapshot;
+  - the `--apply` gates: no snapshot or one older than a legacy `overrides.json`, a `llama` on
+    PATH below the shipped version (a dev build included) or none, and a running `llama`
+    process;
+  - the all-show check writing nothing when any show would be refused;
+  - the re-check under the show lock, with an edit landing between the check and the write;
+  - an unknown key and its value preserved through the raw-JSON rewrite;
+  - an interrupted `--apply` continuing with the remaining legacy shows;
+  - a wholesale `--restore`: a hash mismatch writing nothing; files back byte-equal to the snapshot, files written since
+    deleted, `package/audio/` emptied when the manifest changed, later shows listed and kept;
 - `deliver`'s selector refusal, `_destination_is_voiced` (the batch preflight included),
   briefing reuse, and the existing-audio reuse fallback.
 
-A mutation check on the per-part anchoring, on the legacy-value test and on the undo hash
-comparison must each turn a named test red.
+A mutation check on the per-part anchoring, on the legacy-value test and on the snapshot's hash
+verification must each turn a named test red.
 
 ## 7. Out of scope and accepted limitations
 
@@ -657,3 +715,5 @@ These stay with `fix --include` and the adjudicator.
    - Test: run it over 20 delivered shows and count the fallbacks.
 8. **The reuse check is quick enough over SMB.**
    - Test: time it over one delivered show on the station share.
+9. **The snapshot is quick enough.** Its 280 MB copy and hash check run over the local disk.
+   - Test: time `--snapshot` once on the real library before step 5.
