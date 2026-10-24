@@ -346,8 +346,8 @@ station ID or house music, or the file is spam-shaped. `rule_would` says what th
 Operator direction (Shawn, 2026-10-23), with the rulings written in:
 - Wrongly DROPPING something that belongs is worse than wrongly including something. A few seconds
   of junk barely hurts.
-- Stage banter and band talk are KEPT: a ~30 s band intro mid-set, stage announcements, tuning chatter
-  that is the band talking to the crowd.
+- Stage banter and band talk are KEPT: a ~30 s band intro mid-set, stage announcements; a mixed
+  tag such as `tuning/banter` is kept.
 - Crowd-only audio (applause, cheering, room noise with no performance) and tuning-only audio DROP.
   About 60 s of tuning between songs is better dropped.
 - A broadcast DJ, an interview, a commercial, a promo or a station ID DROPS.
@@ -422,6 +422,12 @@ def packets(args) -> int:
     ref_dir, cand_path = args.ref_dir.expanduser(), args.cand.expanduser()
     out = _guard_out(args.out, args.config, ("reference dir", ref_dir), ("candidate arm", cand_path))
     cand = _load_arm(cand_path)
+    bad = [s for s, c in sorted(cand.items()) if not _unreplayable(c)
+           and (not isinstance(c.get("filenames"), list) or not isinstance(c.get("short_kept"), list)
+                or len(c["short_kept"]) != len(c["filenames"]))]
+    if bad:
+        raise Refusal("candidate rows lack filenames/short_kept of equal length (an arm from older "
+                      "code?): " + ", ".join(bad[:5]))
     files = _read_jsonl(ref_dir / "r1_files.jsonl")
     root = load_config(args.config or DEFAULT_ROOT / "config.toml").root.expanduser()
     dropped_today: dict[str, set[str]] = defaultdict(set)
@@ -430,11 +436,11 @@ def packets(args) -> int:
     pools: dict[str, list[tuple[dict, bool]]] = defaultdict(list)
     for e in files:
         c = cand.get(e["slug"])
-        if c is None or _unreplayable(c) or "filenames" not in c:
+        if c is None or _unreplayable(c):
             continue
-        sk = dict(zip(c["filenames"], c.get("short_kept") or []))
-        kept = bool(sk.get(e["name"]))
-        if not kept and e["name"] in sk:
+        in_show = e["name"] in set(c["filenames"])
+        kept = in_show and dict(zip(c["filenames"], c["short_kept"]))[e["name"]] is True
+        if in_show and not kept:
             continue                          # in the candidate show, but not by the short rule
         st = _stratum(e, kept)
         if st:
@@ -506,13 +512,19 @@ def score(args) -> int:
     for r in rows[:10]:
         a = answers.get(r["row"]) or {}
         f10 += [f"## row {r['row']}: {r['file']}  ({r['stratum']})", f"  {r.get('url')}",
-                f"  tag={r['tag']!r} dur={r['dur_sec']}s rule_would={r['rule_would']}",
+                f"  tag={r['tag']!r} dur={r['dur_sec']}s floor_sec={r.get('floor_sec')} "
+                f"position={r.get('position')} rule_would={r['rule_would']}",
                 "  neighbours: " + "; ".join(f"{n['file']} {n['dur']}s {n['tag']!r}"
                                              f"{' <-' if n['this'] else ''}"
                                              for n in r.get("neighbours_in_play_order") or []),
-                f"  grader: {a.get('decision')} / {a.get('kind')} / {a.get('confidence')} "
-                f"(rule_right {a.get('rule_right')}): {a.get('why')}", ""]
+                ""]
     (out / "first10.md").write_text("\n".join(f10) + "\n")
+    f10a = ["# graders' answers for rows 1-10 (read AFTER first10.md, to compare)", ""]
+    for r in rows[:10]:
+        a = answers.get(r["row"]) or {}
+        f10a += [f"row {r['row']} {r['file']}: {a.get('decision')} / {a.get('kind')} / "
+                 f"{a.get('confidence')} (rule_right {a.get('rule_right')}): {a.get('why')}"]
+    (out / "first10-answers.md").write_text("\n".join(f10a) + "\n")
     print(f"score: {'PASS' if passed else 'FAIL'} right {right} wrong {wrong} missing {len(missing)}")
     return 0 if passed else 1
 

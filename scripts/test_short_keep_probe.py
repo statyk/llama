@@ -471,6 +471,39 @@ def test_packet_strata_sizes_and_fields(tmp_path):
     assert "rule_right" in text and "rule_would" in text
 
 
+def test_packet_membership_comes_from_the_candidate_not_r1_dec(tmp_path):
+    lib = tmp_path / "lib"
+    (lib / "shows" / "s1").mkdir(parents=True)
+    (lib / "cache").mkdir()
+    (lib / "shows" / "s1" / "show.json").write_text(json.dumps({"identifier": "item1"}))
+    (tmp_path / "config.toml").write_text(f'root = "{lib}"\n')
+    rows = [_frow("s1", "A-keep-but-not-in-cand.mp3", "music", "keep"),
+            _frow("s1", "B-junk-but-kept.mp3", "music", "drop-junk"),
+            _frow("s1", "C-in-show-not-short-kept.mp3", "tuning/dead-air/noise", "drop-junk")]
+    ref = tmp_path / "ref"
+    ref.mkdir()
+    (ref / "r1_files.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    write_arm(tmp_path / "cand.json", {"s1": crow(
+        [("B-junk-but-kept.mp3", "T", "tags", "1", False), ("C-in-show-not-short-kept.mp3", "T", "tags", "1", False)],
+        short_kept=[True, False])})
+    assert _packets(tmp_path, tmp_path / "out") == 0
+    got = [json.loads(l) for l in (tmp_path / "out" / "packet.jsonl").read_text().splitlines()]
+    assert [(r["file"], r["stratum"], r["rule_would"]) for r in got] == [
+        ("B-junk-but-kept.mp3", "music", "keep")]
+
+
+def test_packets_refuse_candidate_rows_without_valid_short_kept(tmp_path):
+    _packet_world(tmp_path)
+    arm = json.loads((tmp_path / "cand.json").read_text())
+    row = arm["shows"]["s1"]
+    del row["short_kept"]
+    write_arm(tmp_path / "cand.json", arm["shows"])
+    assert _packets(tmp_path, tmp_path / "o1") == 2 and not (tmp_path / "o1").exists()
+    row["short_kept"] = [True]                     # length mismatch
+    write_arm(tmp_path / "cand.json", arm["shows"])
+    assert _packets(tmp_path, tmp_path / "o2") == 2
+
+
 def test_packet_is_deterministic_for_a_seed(tmp_path):
     _packet_world(tmp_path, extra=10)
     _packets(tmp_path, tmp_path / "a", seed=47)
@@ -516,6 +549,10 @@ def test_score_bar_and_wrong_rows(tmp_path):
     assert "right 11" in md and "wrong 0" in md and "PASS" in md
     first = (out / "first10.md").read_text()
     assert "f1.mp3" in first and "f10.mp3" in first and "f11.mp3" not in first
+    assert "position" in first and "floor_sec" in first
+    assert "grader" not in first and "rule_right" not in first     # blind: no anchoring answers
+    ans = (out / "first10-answers.md").read_text()
+    assert "f1.mp3" in ans and "song" in ans
     # one wrong row of 11 is 90.9% right: the 90% leg holds, and the wrong row is listed
     one = ok[:3] + [_answer(rows[3], decision="drop", kind="tuning")] + ok[4:]
     rc, out = run(one)
@@ -533,6 +570,20 @@ def test_score_bar_and_wrong_rows(tmp_path):
                    _answer(rows[1], decision="drop", kind="crowd")] + ok[2:])
     assert rc == 1
     assert "FAIL" in (out / "score.md").read_text()
+    # exactly 90% right passes (9 of 10 on the first ten rows only)
+    ten = rows[:10]
+    (tmp_path / "packet.jsonl").write_text("\n".join(json.dumps(r) for r in ten) + "\n")
+    nine = [_answer(ten[0], decision="drop", kind="tuning")] + [_answer(r) for r in ten[1:]]
+    rc, out = run(nine)
+    assert rc == 0 and "PASS" in (out / "score.md").read_text()
+    # a kept row the grader calls spoken-broadcast, and a dropped fragment, each fail the bar
+    rc, _ = run([_answer(ten[0], decision="drop", kind="spoken-broadcast")] + [_answer(r) for r in ten[1:]])
+    assert rc == 1
+    (tmp_path / "packet.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    rc, _ = run(ok[:10] + [_answer(rows[10], decision="keep", kind="fragment")])
+    assert rc == 1
+    rc, _ = run(ok[:10] + [_answer(rows[10], decision="keep", kind="segue-or-continuation")])
+    assert rc == 1
     # an unanswered row fails
     rc, out = run(ok[:-1])
     assert rc == 1
