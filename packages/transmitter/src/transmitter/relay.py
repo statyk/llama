@@ -59,16 +59,25 @@ _ABSENT = object()
 
 
 def _is_int(v) -> bool:
-    """A JSON integer: never a bool (an int subclass in Python) and never a
-    float, even an integral one (antenna never writes `1.0`)."""
+    """A strict JSON integer: never a bool (an int subclass in Python) and
+    never a float. Used for the local cursor file, which only this module
+    writes."""
     return isinstance(v, int) and not isinstance(v, bool)
+
+
+def _is_seq(v) -> bool:
+    """A ring entry's `seq`, as antenna's `Number.isInteger` reads it: an int
+    or an integral finite float (`JSON.parse("2.0")` is an integer there).
+    Never a bool, a non-integral float, NaN/inf, a string or a missing value."""
+    return _is_int(v) or (isinstance(v, float) and v.is_integer())
 
 
 def doc_problem(doc: object) -> str | None:
     """Why a relay document is unusable, or None: antenna's `relayDocProblem`
     rule, message for message. Not an object, `stream` not a string, `ring`
     not an array, or a ring entry that is not an object with an integer
-    (never boolean, never float) `seq`."""
+    `seq` (never boolean; an integral float such as `2.0` counts, as it does
+    to `Number.isInteger`)."""
     if not isinstance(doc, dict):
         return "not an object"
     if not isinstance(doc.get("stream"), str):
@@ -79,7 +88,7 @@ def doc_problem(doc: object) -> str | None:
     for i, m in enumerate(ring):
         if not isinstance(m, dict):
             return f"ring[{i}] is not an object"
-        if not _is_int(m.get("seq")):
+        if not _is_seq(m.get("seq")):
             return f"ring[{i}].seq is not an integer"
     return None
 
@@ -163,7 +172,8 @@ class Relay:
         start = self.cursor.seq if self.cursor is not None and self.cursor.stream == stream else 0
         handled = start
         began = self.monotonic()
-        for m in sorted((m for m in doc["ring"] if m["seq"] > start), key=lambda m: m["seq"]):
+        ring = [{**m, "seq": int(m["seq"])} for m in doc["ring"]]      # an integral float seq becomes an int here, once
+        for m in sorted((m for m in ring if m["seq"] > start), key=lambda m: m["seq"]):
             seq = m["seq"]
             if self.monotonic() - began >= RELAY_PASS_BUDGET_S:
                 log.info("alert relay: pass budget of %.0f s spent; relayed alert %d onwards wait for the next pass",

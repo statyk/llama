@@ -8,6 +8,7 @@ import pytest
 from tests_transmitter.helpers import FakeBucket, make_station
 from tests_transmitter.test_deadclock import E, live_playlist
 from transmitter import alerts, grid, monitor, sdnotify
+from transmitter import relay as relay_mod
 from transmitter.deadclock import DeadClockMonitor
 from transmitter.monitor import MONITOR_JOIN_S, MonitorLoop, R2Reader
 
@@ -99,6 +100,16 @@ def test_a_pass_without_a_dead_clock_check_still_relays_and_ends_no_observation(
     assert relay.passes == 1 and fired == []
 
 
+class FakeNtfyChannel:
+    name = "ntfy"
+
+    def __init__(self):
+        self.sent = []
+
+    def send(self, subject, body, priority, tags=None):
+        self.sent.append(subject)
+
+
 def _guard_docs(bucket):
     bucket.objects["state/guard.json"] = {"Body": json.dumps(
         {"tripped": False, "evaluated_at": grid.us_to_iso(NOW - 5 * 60_000_000)}).encode()}
@@ -119,11 +130,19 @@ def test_the_monitor_only_reads_r2_never_touches_the_guard_cache_and_never_notif
     _guard_docs(bucket)
     deadclock = DeadClockMonitor("https://radio.example.org/live.m3u8", E, 120.0, 2700.0, 17,
                                  fetch=lambda url: (200, live_playlist(1000)))
-    loop = MonitorLoop(deadclock, R2Reader(bucket, "b"), clock=lambda: NOW)
+    reader = R2Reader(bucket, "b")
+    bucket.objects[relay_mod.RELAY_KEY] = {"Body": json.dumps({"stream": "s", "ring": [
+        {"seq": 1, "at": grid.us_to_iso(NOW), "key": "waf-api", "kind": "alert", "priority": "high",
+         "title": "T", "message": "M"}]}).encode()}
+    ntfy = FakeNtfyChannel()
+    real_relay = relay_mod.Relay(reader.get_json, ntfy, "st", tmp_path / "relay-cursor.json",
+                                 now=lambda: NOW / 1_000_000)
+    loop = MonitorLoop(deadclock, reader, real_relay, clock=lambda: NOW)
     loop.run_pass()
     loop.run_pass()
+    assert ntfy.sent == ["st: T"]                                   # the real relay ran and pushed once
     assert bucket.log and {op for op, _ in bucket.log} == {"get"}
-    assert {k for _, k in bucket.log} == {"state/guard.json", "state/offair.json"}
+    assert {k for _, k in bucket.log} == {"state/guard.json", "state/offair.json", relay_mod.RELAY_KEY}
     if seeded:
         assert st.ws.guard_cache_path.read_bytes() == before
     else:

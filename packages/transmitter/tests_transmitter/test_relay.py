@@ -236,9 +236,22 @@ def test_doc_problem_mirrors_antennas_relay_doc_problem():
     assert relay.doc_problem({"stream": "s", "ring": [{"seq": 1}, None]}) == "ring[1] is not an object"
     assert relay.doc_problem({"stream": "s", "ring": [[]]}) == "ring[0] is not an object"
     assert relay.doc_problem({"stream": "s", "ring": [1]}) == "ring[0] is not an object"
-    for seq in (True, False, 1.0, 1.5, "1", None):          # bool is an int in Python; JSON 1.0 is a float
+    for seq in (1.0, 2.0, 0.0, -3.0):                        # JSON.parse("2.0") is an integer to Number.isInteger
+        assert relay.doc_problem({"stream": "s", "ring": [{"seq": seq}]}) is None
+    for seq in (True, False, 1.5, float("nan"), float("inf"), "1", None):   # bool is an int in Python
         assert relay.doc_problem({"stream": "s", "ring": [{"seq": seq}]}) == "ring[0].seq is not an integer"
     assert relay.doc_problem({"stream": "s", "ring": [{}]}) == "ring[0].seq is not an integer"
+
+
+def test_an_integral_float_seq_is_relayed_and_the_stored_cursor_is_an_int(tmp_path):
+    r, ntfy = _relay(tmp_path, Source(doc("s", msg(1.0, NOW - 20, title="T1"), msg(2.0, NOW - 10, title="T2"))))
+    r.run_pass()
+    assert ntfy.subjects() == ["llama radio: T1", "llama radio: T2"]
+    assert type(r.cursor.seq) is int and r.cursor == Cursor("s", 2)
+    text = (tmp_path / "alert-relay-cursor.json").read_text()
+    assert json.loads(text) == {"stream": "s", "seq": 2} and "2.0" not in text
+    r.run_pass()
+    assert len(ntfy.sent) == 2
 
 
 def test_an_at_in_the_future_is_sent_and_an_unparseable_at_is_skipped_and_advanced(tmp_path, caplog):
