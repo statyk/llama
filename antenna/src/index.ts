@@ -24,7 +24,7 @@ export default {
         scheduledTime: controller.scheduledTime,
         config: configFromEnv(env),
         guard: () => guardStep({ bucket, now, fetch: fetchFn, config: guardConfigFromEnv(env) }),
-        alerts: alertSink(bucket, env, fetchFn, now),
+        alerts: alertSink(bucket, env, now),
         // The rollback switch: only the exact string "on" (metronome spec).
         metronome: env.METRONOME === "on" ? metronomeClient(env.METRONOME_DO) : undefined,
       });

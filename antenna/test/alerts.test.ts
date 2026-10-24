@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type AlertEntry, ALERTS_KEY, type AlertState, alertSink, CLOCK_KEYS, channelsFromEnv, COOLDOWN_MS,
-         dispatchAlerts, emailChannel, GATE, GATED_KEYS, keyFamily, ntfyChannel, type Outgoing, planAlerts, rawEmail,
-         redact } from "../src/alerts";
+import { type AlertEntry, type AlertEnv, ALERTS_KEY, type AlertState, alertSink, CLOCK_KEYS, channelsFromEnv,
+         COOLDOWN_MS, dispatchAlerts, emailChannel, GATE, GATED_KEYS, keyFamily, type Outgoing, planAlerts, rawEmail,
+         redact, RELAY_KEY, RELAY_RING, type RelayMessage, relayDocProblem, relaySink, secretsFromEnv }
+  from "../src/alerts";
+import type { PutOptions } from "../src/bucket";
 import type { AlertBatch } from "../src/clock";
 import type { AlertCondition } from "../src/conditions";
 import { guardConfigFromEnv, type GuardEnv, guardStep } from "../src/guard";
@@ -348,13 +350,99 @@ describe("the 3-consecutive gate", () => {
     const bucket = new MemoryBucket();
     const got: Outgoing[] = [];
     const ok = { name: "ok", send: async (o: Outgoing) => { got.push(o); } };
-    // The relay write (Task 2) joins the broken email channel here.
-    expect(await dispatchAlerts(bucket, [broken], [imm("metronome-down")], at(0), REPEAT)).toEqual({ sent: 0, failed: 1 });
+    const relay = relaySink(bucket, [], () => "stream-1");
+    bucket.failPuts.add(RELAY_KEY); // both the email and the relay fail at minute 0
+    expect(await dispatchAlerts(bucket, [broken], [imm("metronome-down")], at(0), REPEAT, DONE, relay))
+      .toEqual({ sent: 0, failed: 1 });
     expect(bucket.json(ALERTS_KEY)["metronome-down"]).toMatchObject({ active: true, last_sent_at: null, delivered: false });
-    expect(await dispatchAlerts(bucket, [ok], [cond("metronome-down")], at(1), REPEAT)).toEqual({ sent: 1, failed: 0 });
+    bucket.failPuts.delete(RELAY_KEY);
+    expect(await dispatchAlerts(bucket, [ok], [cond("metronome-down")], at(1), REPEAT, DONE, relay))
+      .toEqual({ sent: 1, failed: 0 });
     expect(got.map((o) => [o.kind, o.key])).toEqual([["repeat", "metronome-down"]]);
     expect(got[0].message).not.toMatch(/consecutive/); // the episode began immediate
     expect(bucket.json(ALERTS_KEY)["metronome-down"]).toMatchObject({ active: true, streak: 2, delivered: true });
+  });
+
+  it("S. a gated first alert whose send fails at GATE is retried the next minute with the gate note", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    const got: Outgoing[] = [];
+    const ok = { name: "ok", send: async (o: Outgoing) => { got.push(o); } };
+    await dispatchAlerts(bucket, [broken], [cond("waf-api")], at(0), REPEAT);
+    await dispatchAlerts(bucket, [broken], [cond("waf-api")], at(1), REPEAT);
+    expect(await dispatchAlerts(bucket, [broken], [cond("waf-api")], at(2), REPEAT)).toEqual({ sent: 0, failed: 1 });
+    expect(await dispatchAlerts(bucket, [ok], [cond("waf-api")], at(3), REPEAT)).toEqual({ sent: 1, failed: 0 });
+    expect(got.map((o) => [o.kind, o.key])).toEqual([["repeat", "waf-api"]]);
+    expect(got[0].message).toMatch(/3 consecutive/);
+  });
+
+  it("T. a stored streak is read defensively: capped at GATE, anything else not a positive integer reads as 0", () => {
+    const old: AlertEntry = { active: false, resolvable: true, title: "t", first_at: iso(T0 - H), last_sent_at: iso(T0 - H),
+                              delivered: true, cleared_at: iso(T0 - 30 * 60_000) };
+    const big = planAlerts({ "waf-api": { ...old, streak: 99 } }, [cond("waf-api")], at(0), REPEAT);
+    expect(big.send.map((o) => o.kind)).toEqual(["alert"]);
+    expect(big.next["waf-api"].streak).toBe(GATE);
+    for (const bad of ["x", 1.5, 0, -1] as unknown[]) {
+      const r = planAlerts({ "waf-api": { ...old, streak: bad as number } }, [cond("waf-api")], at(0), REPEAT);
+      expect([bad, r.send]).toEqual([bad, []]);
+      expect([bad, r.next["waf-api"].streak]).toEqual([bad, 1]);
+    }
+  });
+
+  describe("U. a failed gated alert that replaced a still-active episode is resent at once, never re-gated (Q4)", () => {
+    const relayed = (bucket: MemoryBucket) => relaySink(bucket, [], () => "stream-1");
+    /** Test H's path: pending over `live` reaches GATE and the new episode's alert fails on email and relay. */
+    const failAtGate = async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const bucket = new MemoryBucket();
+      bucket.seed(ALERTS_KEY, { "waf-api": live });
+      bucket.failPuts.add(RELAY_KEY);
+      const relay = relayed(bucket);
+      await dispatchAlerts(bucket, [broken], [cond("waf-api")], at(0), REPEAT, DONE, relay);
+      await dispatchAlerts(bucket, [broken], [cond("waf-api")], at(1), REPEAT, DONE, relay);
+      expect(await dispatchAlerts(bucket, [broken], [cond("waf-api")], at(2), REPEAT, DONE, relay))
+        .toEqual({ sent: 0, failed: 1 });
+      // The old episode was delivered: its "resolved" must not be lost, so `delivered` stays.
+      expect(bucket.json(ALERTS_KEY)["waf-api"]).toMatchObject({ active: true, first_at: iso(at(2)), last_sent_at: null,
+                                                                delivered: true });
+      bucket.failPuts.delete(RELAY_KEY);
+      const got: Outgoing[] = [];
+      const ok = { name: "ok", send: async (o: Outgoing) => { got.push(o); } };
+      return { bucket, got, ok, relay };
+    };
+
+    it("the next minute's presence resends it with the gate note", async () => {
+      const { bucket, got, ok, relay } = await failAtGate();
+      expect(await dispatchAlerts(bucket, [ok], [cond("waf-api")], at(3), REPEAT, DONE, relay))
+        .toEqual({ sent: 1, failed: 0 });
+      expect(got.map((o) => [o.kind, o.key])).toEqual([["repeat", "waf-api"]]);
+      expect(got[0].message).toMatch(/3 consecutive/);
+      // Delivered now: a later failed repeat waits for the gate again after a clean minute.
+      const later = at(3) + REPEAT;
+      bucket.failPuts.add(RELAY_KEY);
+      expect(await dispatchAlerts(bucket, [broken], [cond("waf-api")], later, REPEAT, DONE, relay))
+        .toEqual({ sent: 0, failed: 1 });
+      bucket.failPuts.delete(RELAY_KEY);
+      await dispatchAlerts(bucket, [ok], [], later + 60_000, REPEAT, DONE, relay);
+      expect(await dispatchAlerts(bucket, [ok], [cond("waf-api")], later + 120_000, REPEAT, DONE, relay))
+        .toEqual({ sent: 0, failed: 0 });
+      expect(got).toHaveLength(1);
+    });
+
+    it("after a clean minute between, the next presence still sends at once", async () => {
+      const { bucket, got, ok, relay } = await failAtGate();
+      expect(await dispatchAlerts(bucket, [ok], [], at(3), REPEAT, DONE, relay)).toEqual({ sent: 0, failed: 0 });
+      expect(await dispatchAlerts(bucket, [ok], [cond("waf-api")], at(4), REPEAT, DONE, relay))
+        .toEqual({ sent: 1, failed: 0 });
+      expect(got.map((o) => [o.kind, o.key])).toEqual([["repeat", "waf-api"]]);
+    });
+
+    it("the old episode's resolved still goes out when the key clears before any resend", async () => {
+      const { bucket, got, ok, relay } = await failAtGate();
+      await dispatchAlerts(bucket, [ok], [], at(3), REPEAT, DONE, relay);
+      await dispatchAlerts(bucket, [ok], [], at(3) + COOLDOWN_MS, REPEAT, DONE, relay);
+      expect(got.map((o) => [o.kind, o.key])).toEqual([["resolved", "waf-api"]]);
+    });
   });
 });
 
@@ -374,28 +462,15 @@ describe("resolved wording", () => {
 describe("channels", () => {
   const o: Outgoing = { key: "tripped-spend", kind: "alert", priority: "urgent", title: "Station blocked: spend", message: "m" };
 
-  it("ntfy: POST with title, priority, tags and the bearer token", async () => {
-    const f = fakeFetch({ "POST https://ntfy.example/topic": () => new Response("{}") });
-    await ntfyChannel(f.fetch, "https://ntfy.example/topic", "tk_1", "llama radio").send(o);
-    expect(f.calls[0].headers).toMatchObject({ title: "llama radio: Station blocked: spend", priority: "5",
-                                               tags: "rotating_light", authorization: "Bearer tk_1" });
-    expect(f.calls[0].body).toBe("m");
-    const bad = fakeFetch({ "POST ": () => new Response("no", { status: 429 }) });
-    await expect(ntfyChannel(bad.fetch, "https://ntfy.example/topic", undefined, "s").send(o)).rejects.toThrow(/429/);
-  });
-
-  it("ntfy: a refusal carries the status, Retry-After and the start of ntfy's body, so the log says which limit", async () => {
-    const body = JSON.stringify({ code: 42901, http: 429, error: "limit reached: too many requests" });
-    const limited = fakeFetch({ "POST ": () => new Response(body, { status: 429, headers: { "Retry-After": "5" } }) });
-    await expect(ntfyChannel(limited.fetch, "https://ntfy.example/topic", undefined, "s").send(o)).rejects.toThrow(
-      `ntfy: HTTP 429 (retry-after 5): ${body}`);
-    const long = fakeFetch({ "POST ": () => new Response("x".repeat(1_000), { status: 503 }) });
-    await expect(ntfyChannel(long.fetch, "https://ntfy.example/topic", undefined, "s").send(o)).rejects.toThrow(
-      new RegExp(`^ntfy: HTTP 503: x{200}$`));
-    const unreadable = fakeFetch({ "POST ": () => new Response(new ReadableStream({ pull(c) { c.error(new Error("reset")); } }),
-                                                              { status: 502 }) });
-    await expect(ntfyChannel(unreadable.fetch, "https://ntfy.example/topic", undefined, "s").send(o)).rejects.toThrow(
-      /^ntfy: HTTP 502$/);
+  it("channelsFromEnv builds email only; ntfy is gone", () => {
+    class FakeMessage {
+      constructor(public from: string, public to: string, public raw: string) {}
+    }
+    const fullEmailEnv: AlertEnv = { ALERT_EMAIL: { send: async () => undefined }, ALERT_EMAIL_FROM: "a@x",
+                                     ALERT_EMAIL_TO: "b@y" };
+    expect(channelsFromEnv({ ...fullEmailEnv, NTFY_URL: "https://n/t" } as AlertEnv, () => T0, FakeMessage as never)
+      .map((c) => c.name)).toEqual(["email"]);
+    expect(channelsFromEnv({ NTFY_URL: "https://n/t", NTFY_TOKEN: "tk" } as AlertEnv, () => T0)).toEqual([]);
   });
 
   it("email: a send_email message from the configured sender to the configured recipient", async () => {
@@ -421,13 +496,17 @@ describe("channels", () => {
   });
 
   it("channelsFromEnv: only what is fully configured", () => {
-    const f = fakeFetch({});
-    expect(channelsFromEnv({}, f.fetch, () => T0)).toEqual([]);
-    expect(channelsFromEnv({ NTFY_URL: "https://n/t" }, f.fetch, () => T0).map((c) => c.name)).toEqual(["ntfy"]);
+    expect(channelsFromEnv({}, () => T0)).toEqual([]);
     const binding = { send: async () => undefined };
-    expect(channelsFromEnv({ ALERT_EMAIL: binding, ALERT_EMAIL_FROM: "a@x" }, f.fetch, () => T0)).toEqual([]);
-    expect(channelsFromEnv({ ALERT_EMAIL: binding, ALERT_EMAIL_FROM: "a@x", ALERT_EMAIL_TO: "b@y" }, f.fetch, () => T0)
+    expect(channelsFromEnv({ ALERT_EMAIL: binding, ALERT_EMAIL_FROM: "a@x" }, () => T0)).toEqual([]);
+    expect(channelsFromEnv({ ALERT_EMAIL: binding, ALERT_EMAIL_FROM: "a@x", ALERT_EMAIL_TO: "b@y" }, () => T0)
       .map((c) => c.name)).toEqual(["email"]);
+  });
+
+  it("secretsFromEnv: the four CF_* values that are set", () => {
+    expect(secretsFromEnv({})).toEqual([]);
+    expect(secretsFromEnv({ CF_ACCOUNT_ID: "a1", CF_ZONE_ID: "z1", CF_ANALYTICS_TOKEN: "t1", CF_WAF_TOKEN: "w1",
+                            STATION_NAME: "s" })).toEqual(["a1", "z1", "t1", "w1"]);
   });
 });
 
@@ -448,7 +527,7 @@ describe("redaction of account details from off-account text", () => {
     expect(redact("short ids are left alone: ab", ["ab"])).toBe("short ids are left alone: ab");
   });
 
-  it("a WafError carrying the zone, ruleset and rule ids reaches neither ntfy nor email", async () => {
+  it("a WafError carrying the zone, ruleset and rule ids reaches neither the relay nor email", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const ZONE = "zone-7f3a9c41";
     const RS = "ruleset-4b2e81d0";
@@ -471,28 +550,28 @@ describe("redaction of account details from off-account text", () => {
     expect(waf.message).toContain(RS); // the guard's own text (and the console) keep the detail
     expect(waf.message).toContain(ACCT);
 
-    const ntfy = fakeFetch({ "POST https://ntfy.example/t": () => new Response("{}") });
     const raws: string[] = [];
     const binding = { send: async (m: unknown) => { raws.push((m as { raw: string }).raw); } };
     class FakeMessage {
       constructor(public from: string, public to: string, public raw: string) {}
     }
-    const channels = channelsFromEnv({ ...env, NTFY_URL: "https://ntfy.example/t", ALERT_EMAIL: binding,
-                                       ALERT_EMAIL_FROM: "radio@example.org", ALERT_EMAIL_TO: "ops@example.net" },
-                                     ntfy.fetch, () => T0, FakeMessage as never);
+    const channels = channelsFromEnv({ ...env, ALERT_EMAIL: binding, ALERT_EMAIL_FROM: "radio@example.org",
+                                       ALERT_EMAIL_TO: "ops@example.net" }, () => T0, FakeMessage as never);
+    const relay = relaySink(bucket, secretsFromEnv(env));
     // waf-api is gated: the first two minutes send nothing, the third sends (redaction on the gated path).
-    expect(await dispatchAlerts(bucket, channels, [waf], T0, REPEAT)).toEqual({ sent: 0, failed: 0 });
-    expect(await dispatchAlerts(bucket, channels, [waf], T0 + 60_000, REPEAT)).toEqual({ sent: 0, failed: 0 });
-    expect(ntfy.calls).toHaveLength(0);
+    expect(await dispatchAlerts(bucket, channels, [waf], T0, REPEAT, undefined, relay)).toEqual({ sent: 0, failed: 0 });
+    expect(await dispatchAlerts(bucket, channels, [waf], T0 + 60_000, REPEAT, undefined, relay))
+      .toEqual({ sent: 0, failed: 0 });
+    expect(bucket.objects.has(RELAY_KEY)).toBe(false);
     expect(raws).toHaveLength(0);
-    expect(await dispatchAlerts(bucket, channels, [waf], T0 + 120_000, REPEAT)).toEqual({ sent: 1, failed: 0 });
-    expect(ntfy.calls).toHaveLength(1);
+    expect(await dispatchAlerts(bucket, channels, [waf], T0 + 120_000, REPEAT, undefined, relay))
+      .toEqual({ sent: 1, failed: 0 });
     expect(raws).toHaveLength(1);
-    const ntfyText = JSON.stringify(ntfy.calls[0].headers) + ntfy.calls[0].body;
+    const relayText = bucket.objects.get(RELAY_KEY)!.body;
     const emailText = decodeEmail(raws[0]);
-    expect(ntfyText).toMatch(/Kill switch not reconciled/);
+    expect(relayText).toMatch(/Kill switch not reconciled/);
     expect(emailText).toMatch(/Kill switch not reconciled/);
-    for (const text of [ntfyText, emailText]) {
+    for (const text of [relayText, emailText]) {
       for (const id of [ZONE, RS, RULE, HEXZ, ACCT]) expect([id, text.includes(id)]).toEqual([id, false]);
     }
   });
@@ -754,16 +833,244 @@ describe("dispatchAlerts", () => {
   it("alertSink passes the batch through: an incomplete batch resolves nothing", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const bucket = new MemoryBucket();
-    const ntfy = fakeFetch({ "POST https://n/t": () => new Response("{}") });
-    const sink = alertSink(bucket, { NTFY_URL: "https://n/t" }, ntfy.fetch, () => T0);
+    const sink = alertSink(bucket, {}, () => T0);
+    const ring = () => bucket.json(RELAY_KEY).ring.map((m: RelayMessage) => [m.kind, m.title]);
     await sink([cond("tripped-spend"), cond("lead-low")], T0, { complete: true, guardComplete: true });
     await sink([cond("offair-corrupt")], T0 + 60_000, { complete: false, guardComplete: false });
-    expect(ntfy.calls.map((c) => c.headers.title)).toEqual(
-      ["llama radio: tripped-spend title", "llama radio: lead-low title", "llama radio: offair-corrupt title"]);
+    expect(ring()).toEqual([["alert", "tripped-spend title"], ["alert", "lead-low title"], ["alert", "offair-corrupt title"]]);
     await sink([cond("tripped-spend")], T0 + 120_000, { complete: false, guardComplete: true });
-    expect(ntfy.calls).toHaveLength(3); // offair-corrupt is clearing
+    expect(ring()).toHaveLength(3); // offair-corrupt is clearing
     await sink([cond("tripped-spend")], T0 + 120_000 + COOLDOWN_MS, { complete: false, guardComplete: true });
-    expect(ntfy.calls.map((c) => c.headers.title).slice(3)).toEqual(["llama radio: resolved: offair-corrupt title"]);
+    expect(ring().slice(3)).toEqual([["resolved", "offair-corrupt title"]]);
     expect(bucket.json(ALERTS_KEY)["lead-low"].active).toBe(true);
+  });
+});
+
+describe("the relay", () => {
+  const fixed = () => "stream-1";
+  const broken = { name: "email", send: async () => { throw new Error("down"); } };
+  const okEmail = (got: string[] = []) => ({ name: "email", send: async (o: Outgoing) => { got.push(o.key); } });
+  const errors = (spy: { mock: { calls: unknown[][] } }) =>
+    spy.mock.calls.map((c) => { try { return JSON.parse(String(c[0])); } catch { return null; } }).filter(Boolean);
+  /** Record the `onlyIf` of every relay PUT. */
+  const recordOnlyIf = (bucket: MemoryBucket) => {
+    const opts: unknown[] = [];
+    const put = bucket.put.bind(bucket);
+    bucket.put = async (k: string, v: string, o: PutOptions) => {
+      if (k === RELAY_KEY) opts.push(o.onlyIf);
+      return put(k, v, o);
+    };
+    return opts;
+  };
+
+  it("one write per invocation carrying every message, after the emails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    const putsAtSend: number[] = [];
+    const email = { name: "email", send: async () => { putsAtSend.push(bucket.puts(RELAY_KEY)); } };
+    await dispatchAlerts(bucket, [email], [cond("tripped-spend"), cond("lead-low")], T0, REPEAT, undefined,
+                         relaySink(bucket, [], fixed));
+    expect(putsAtSend).toEqual([0, 0]);
+    expect(bucket.puts(RELAY_KEY)).toBe(1);
+    const doc = bucket.json(RELAY_KEY);
+    expect(doc.stream).toBe("stream-1");
+    expect(doc.ring.map((m: RelayMessage) => [m.seq, m.key, m.kind, m.priority])).toEqual(
+      [[1, "tripped-spend", "alert", "high"], [2, "lead-low", "alert", "high"]]);
+    expect(doc.ring[0].at).toBe(new Date(T0).toISOString());
+    expect(doc.ring[0]).toEqual({ seq: 1, at: new Date(T0).toISOString(), key: "tripped-spend", kind: "alert",
+                                  priority: "high", title: "tripped-spend title", message: "tripped-spend message" });
+    expect(relayDocProblem(doc)).toBeNull();
+  });
+
+  it("an invocation that sends nothing neither reads nor writes the relay", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    const relay = relaySink(bucket, [], fixed);
+    await dispatchAlerts(bucket, [okEmail()], [cond("tripped-spend")], T0, REPEAT, undefined, relay);
+    bucket.log = [];
+    await dispatchAlerts(bucket, [okEmail()], [cond("tripped-spend")], T0 + 60_000, REPEAT, undefined, relay); // continuing
+    await dispatchAlerts(bucket, [okEmail()], [cond("waf-api")], T0 + 120_000, REPEAT, undefined, relay);      // held
+    expect(bucket.log.filter((l) => l.endsWith(RELAY_KEY))).toEqual([]);
+  });
+
+  it("seq increases across invocations and the ring keeps the last 50", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    let n = 0;
+    const relay = relaySink(bucket, [], () => `stream-${++n}`);
+    for (let i = 1; i <= 60; i++) {
+      const c: AlertCondition = { ...cond(`budget-50:k${i}`, false), once: true };
+      expect(await dispatchAlerts(bucket, [], [c], T0 + i * 60_000, REPEAT, undefined, relay)).toEqual({ sent: 1, failed: 0 });
+    }
+    const doc = bucket.json(RELAY_KEY);
+    expect(RELAY_RING).toBe(50);
+    expect(doc.ring).toHaveLength(50);
+    expect(doc.ring.map((m: RelayMessage) => m.seq)).toEqual(Array.from({ length: 50 }, (_, i) => i + 11));
+    expect(doc.ring[49].key).toBe("budget-50:k60");
+    expect(doc.stream).toBe("stream-1");
+    expect(bucket.puts(RELAY_KEY)).toBe(60);
+  });
+
+  it("title and message are redacted before they are written", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    const c: AlertCondition = { key: "offair-corrupt", priority: "urgent", resolvable: true,
+                                title: "PATCH /zones/zz9/rulesets/rs7 failed for acct-secret-77",
+                                message: "GET /zones/zz9/rulesets/rs7/rules/r3: account acct-secret-77 refused" };
+    await dispatchAlerts(bucket, [], [c], T0, REPEAT, undefined, relaySink(bucket, ["acct-secret-77"], fixed));
+    const text = bucket.objects.get(RELAY_KEY)!.body;
+    expect(text).toContain("/zones/<id>/rulesets/<id>");
+    for (const id of ["zz9", "rs7", "r3", "acct-secret-77"]) expect([id, text.includes(id)]).toEqual([id, false]);
+  });
+
+  it("the first write is create-only; a store that refuses the precondition gets an unconditional put", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    const opts = recordOnlyIf(bucket);
+    const relay = relaySink(bucket, [], fixed);
+    await dispatchAlerts(bucket, [], [cond("tripped-spend")], T0, REPEAT, undefined, relay);
+    await dispatchAlerts(bucket, [], [cond("tripped-spend"), cond("lead-low")], T0 + 60_000, REPEAT, undefined, relay);
+    expect(opts).toEqual([{ etagDoesNotMatch: "*" }, { etagMatches: expect.any(String) }]);
+    expect(bucket.json(RELAY_KEY).ring.map((m: RelayMessage) => [m.seq, m.key])).toEqual(
+      [[1, "tripped-spend"], [2, "lead-low"]]);
+
+    const refusing = new MemoryBucket();
+    const put = refusing.put.bind(refusing);
+    refusing.put = async (k: string, v: string, o: PutOptions) => {
+      if (k === RELAY_KEY && o.onlyIf && "etagDoesNotMatch" in o.onlyIf) throw new Error("precondition not supported");
+      return put(k, v, o);
+    };
+    expect(await dispatchAlerts(refusing, [], [cond("tripped-spend")], T0, REPEAT, undefined, relaySink(refusing, [], fixed)))
+      .toEqual({ sent: 1, failed: 0 });
+    expect(refusing.json(RELAY_KEY).ring.map((m: RelayMessage) => m.key)).toEqual(["tripped-spend"]);
+  });
+
+  it("a lost race re-reads and retries once, then fails: at most 2 PUTs, logged", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    bucket.seed(RELAY_KEY, { stream: "s", ring: [] });
+    const put = bucket.put.bind(bucket);
+    bucket.put = async (k: string, v: string, o: PutOptions) => (k === RELAY_KEY ? (bucket.log.push(`put ${k}`), null)
+                                                                                 : put(k, v, o));
+    expect(await relaySink(bucket, [], fixed)([{ key: "k", kind: "alert", priority: "high", title: "t", message: "m" }], T0))
+      .toBe(false);
+    expect(bucket.puts(RELAY_KEY)).toBe(2);
+    expect(errors(spy)).toContainEqual(expect.objectContaining({ event: "alert-relay-failed" }));
+
+    // Losing only the first race: the racer's messages stand and ours follow them.
+    const racing = new MemoryBucket();
+    const msg = (seq: number, key: string) => ({ seq, at: new Date(T0).toISOString(), key, kind: "alert",
+                                                 priority: "high", title: key, message: key });
+    racing.seed(RELAY_KEY, { stream: "s", ring: [msg(1, "racer-a")] });
+    const rput = racing.put.bind(racing);
+    let raced = false;
+    racing.put = async (k: string, v: string, o: PutOptions) => {
+      if (k === RELAY_KEY && !raced) {
+        raced = true;
+        racing.seed(RELAY_KEY, { stream: "s", ring: [msg(1, "racer-a"), msg(2, "racer-b")] }); // new etag
+      }
+      return rput(k, v, o);
+    };
+    expect(await relaySink(racing, [], fixed)([{ key: "ours", kind: "alert", priority: "high", title: "t", message: "m" }],
+                                              T0)).toBe(true);
+    expect(racing.puts(RELAY_KEY)).toBe(2);
+    const doc = racing.json(RELAY_KEY);
+    expect(doc.stream).toBe("s");
+    expect(doc.ring.map((m: RelayMessage) => [m.seq, m.key])).toEqual([[1, "racer-a"], [2, "racer-b"], [3, "ours"]]);
+  });
+
+  for (const [what, body] of [["unparseable", "{nope"], ["not an object", [1, 2]],
+                              ["stream not a string", { stream: 5, ring: [] }],
+                              ["ring not an array", { stream: "s", ring: {} }],
+                              ["a non-integer seq", { stream: "s", ring: [{ seq: 1.5 }] }],
+                              ["a boolean seq", { stream: "s", ring: [{ seq: true }] }],
+                              ["a null ring entry", { stream: "s", ring: [null] }],
+                              ["a non-object ring entry", { stream: "s", ring: [1] }]] as const) {
+    it(`a corrupt object (${what}) is overwritten conditionally on its etag with a fresh stream, logged`, async () => {
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const bucket = new MemoryBucket();
+      bucket.seed(RELAY_KEY, body);
+      const seeded = bucket.objects.get(RELAY_KEY)!.etag;
+      if (typeof body !== "string") expect(relayDocProblem(body)).not.toBeNull();
+      const opts = recordOnlyIf(bucket);
+      expect(await dispatchAlerts(bucket, [], [cond("tripped-spend")], T0, REPEAT, undefined, relaySink(bucket, [], fixed)))
+        .toEqual({ sent: 1, failed: 0 });
+      expect(opts).toEqual([{ etagMatches: seeded }]);
+      const doc = bucket.json(RELAY_KEY);
+      expect(doc.stream).toBe("stream-1");
+      expect(doc.ring.map((m: RelayMessage) => m.seq)).toEqual([1]);
+      expect(errors(spy)).toContainEqual(expect.objectContaining({ event: "alert-relay-corrupt" }));
+    });
+  }
+
+  it("relayDocProblem accepts a well-formed document, an empty ring included", () => {
+    expect(relayDocProblem({ stream: "s", ring: [] })).toBeNull();
+    expect(relayDocProblem({ stream: "s", ring: [{ seq: 3, extra: "x" }] })).toBeNull();
+    expect(relayDocProblem(null)).not.toBeNull();
+    expect(relayDocProblem("s")).not.toBeNull();
+  });
+
+  it("a hung relay write times out and never delays the email of a spend alert", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    const put = bucket.put.bind(bucket);                        // R2 binding with no timeout of its own:
+    bucket.put = (k, v, o) => (k === RELAY_KEY ? new Promise(() => {}) : put(k, v, o));   // hang the relay only
+    const got: string[] = [];
+    const email = { name: "email", send: async (o: Outgoing) => { got.push(o.key); } };
+    const r = await dispatchAlerts(bucket, [email], [cond("tripped-spend")], T0, REPEAT, undefined,
+                                   relaySink(bucket, [], fixed, 5));
+    expect(got).toEqual(["tripped-spend"]);
+    expect(r).toEqual({ sent: 1, failed: 0 });
+    expect(errors(spy)).toContainEqual(expect.objectContaining({ event: "alert-relay-failed",
+                                                                 error: expect.stringMatching(/timed out/) }));
+  });
+
+  it("delivered = email OR relay", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    // email fails, relay ok: delivered, not resent the next minute
+    let bucket = new MemoryBucket();
+    let relay = relaySink(bucket, [], fixed);
+    const got: string[] = [];
+    expect(await dispatchAlerts(bucket, [broken], [cond("offair-corrupt")], T0, REPEAT, undefined, relay))
+      .toEqual({ sent: 1, failed: 0 });
+    expect(await dispatchAlerts(bucket, [okEmail(got)], [cond("offair-corrupt")], T0 + 60_000, REPEAT, undefined, relay))
+      .toEqual({ sent: 0, failed: 0 });
+    expect(got).toEqual([]);
+    // email ok, relay put throws: delivered
+    bucket = new MemoryBucket();
+    bucket.failPuts.add(RELAY_KEY);
+    relay = relaySink(bucket, [], fixed);
+    expect(await dispatchAlerts(bucket, [okEmail()], [cond("offair-corrupt")], T0, REPEAT, undefined, relay))
+      .toEqual({ sent: 1, failed: 0 });
+    // both fail: not delivered, sent again the next minute
+    bucket = new MemoryBucket();
+    bucket.failPuts.add(RELAY_KEY);
+    relay = relaySink(bucket, [], fixed);
+    expect(await dispatchAlerts(bucket, [broken], [cond("offair-corrupt")], T0, REPEAT, undefined, relay))
+      .toEqual({ sent: 0, failed: 1 });
+    expect(await dispatchAlerts(bucket, [okEmail(got)], [cond("offair-corrupt")], T0 + 60_000, REPEAT, undefined, relay))
+      .toEqual({ sent: 1, failed: 0 });
+    expect(got).toEqual(["offair-corrupt"]);
+  });
+
+  it("a gated alert whose email and relay both failed is retried the next minute, not re-gated", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    const relay = relaySink(bucket, [], fixed);
+    bucket.failPuts.add(RELAY_KEY);
+    for (const m of [0, 1]) {
+      expect(await dispatchAlerts(bucket, [broken], [cond("waf-api")], T0 + m * 60_000, REPEAT, undefined, relay))
+        .toEqual({ sent: 0, failed: 0 });
+    }
+    expect(await dispatchAlerts(bucket, [broken], [cond("waf-api")], T0 + 120_000, REPEAT, undefined, relay))
+      .toEqual({ sent: 0, failed: 1 });
+    bucket.failPuts.delete(RELAY_KEY);
+    const got: Outgoing[] = [];
+    const email = { name: "email", send: async (o: Outgoing) => { got.push(o); } };
+    expect(await dispatchAlerts(bucket, [email], [cond("waf-api")], T0 + 180_000, REPEAT, undefined, relay))
+      .toEqual({ sent: 1, failed: 0 });
+    expect(got.map((o) => o.key)).toEqual(["waf-api"]);
+    expect(got[0].message).toMatch(/3 consecutive/);
+    expect(bucket.json(RELAY_KEY).ring[0].message).toMatch(/3 consecutive/);
   });
 });

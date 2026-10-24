@@ -526,7 +526,7 @@ describe("scheduled handler", () => {
   // would otherwise read usage and PATCH the production kill switch.
   const noSecrets = () =>
     ({ ...env, LOOP_SECONDS: "0", CF_ACCOUNT_ID: undefined, CF_ZONE_ID: undefined, CF_ANALYTICS_TOKEN: undefined,
-       CF_WAF_TOKEN: undefined, NTFY_URL: undefined, NTFY_TOKEN: undefined, ALERT_EMAIL: undefined,
+       CF_WAF_TOKEN: undefined, ALERT_EMAIL: undefined,
        ALERT_EMAIL_FROM: undefined, ALERT_EMAIL_TO: undefined }) as unknown as AntennaEnv;
   const noNetwork = () => vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("no network in tests"));
 

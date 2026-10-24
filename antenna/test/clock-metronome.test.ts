@@ -271,7 +271,7 @@ describe("the fallback: cron's own loop, and metronome-down", () => {
 describe("scheduled handler with the metronome", () => {
   const noSecrets = (metronome: string) =>
     ({ ...env, METRONOME: metronome, LOOP_SECONDS: "0", CF_ACCOUNT_ID: undefined, CF_ZONE_ID: undefined,
-       CF_ANALYTICS_TOKEN: undefined, CF_WAF_TOKEN: undefined, NTFY_URL: undefined, NTFY_TOKEN: undefined,
+       CF_ANALYTICS_TOKEN: undefined, CF_WAF_TOKEN: undefined,
        ALERT_EMAIL: undefined, ALERT_EMAIL_FROM: undefined, ALERT_EMAIL_TO: undefined }) as unknown as AntennaEnv;
   const e = env as unknown as AntennaEnv;
   const clockLine = (spy: { mock: { calls: unknown[][] } }) =>

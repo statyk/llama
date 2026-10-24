@@ -23,6 +23,10 @@ describe("wrangler.jsonc (this repo is public)", () => {
     expect(config.preview_urls).toBe(false);
   });
 
+  it("names no ntfy secret: the Worker sends no ntfy (alerts reach ntfy through hugo's relay)", () => {
+    expect(wranglerText).not.toMatch(/NTFY/);
+  });
+
   it("binds send_email unrestricted: the destination is the ALERT_EMAIL_TO secret", () => {
     expect(config.send_email).toEqual([{ name: "ALERT_EMAIL" }]);
     const bound = (env as unknown as { ALERT_EMAIL?: { send?: unknown } }).ALERT_EMAIL;

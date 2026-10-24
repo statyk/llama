@@ -1,14 +1,19 @@
 /** Cloud alerts (spec "Alerts and operations"): conditions computed each
- * invocation are deduped per key in state/alerts.json and sent to ntfy (HTTP
- * POST) and email (Email Routing's send_email binding, to the ALERT_EMAIL_TO
- * secret). Sent when a condition appears, repeated every ALERT_REPEAT_HOURS
- * while it lasts, "resolved" when a resolvable one clears; a `once` condition
- * is sent when it first appears and never again. A condition must stay absent
- * for COOLDOWN_MS before it counts as cleared (and "resolved" goes out): until
- * then its entry stays active with `clearing_since` set, and a return is
- * continuing (no new message, the repeat clock unchanged), so a flapping API
- * neither pages every minute nor leaves "resolved" as the last word while it
- * is back. An alert no channel ever delivered gets no "resolved" when it clears.
+ * invocation are deduped per key in state/alerts.json and sent by email (Email
+ * Routing's send_email binding, to the ALERT_EMAIL_TO secret), the only
+ * channel. Every invocation that sends anything also appends its messages, in
+ * one write after the emails, to state/alert-relay.json, which hugo relays to
+ * its ntfy (the Worker sends no ntfy: ntfy.sh limits a tierless account per IP,
+ * and Workers share egress IPs). A message is delivered when its email was
+ * accepted OR the relay write landed. Sent when a condition appears, repeated
+ * every ALERT_REPEAT_HOURS while it lasts, "resolved" when a resolvable one
+ * clears; a `once` condition is sent when it first appears and never again. A
+ * condition must stay absent for COOLDOWN_MS before it counts as cleared (and
+ * "resolved" goes out): until then its entry stays active with `clearing_since`
+ * set, and a return is continuing (no new message, the repeat clock unchanged),
+ * so a flapping API neither pages every minute nor leaves "resolved" as the
+ * last word while it is back. An alert never delivered gets no "resolved" when
+ * it clears.
  *
  * A key absent from the batch has cleared only when the batch says so
  * (AlertBatch in clock.ts): an incomplete batch resolves nothing, except that
@@ -20,22 +25,25 @@
  * advances it, an absence on a batch that could clear the key resets it, and an
  * absence on one that could not leaves it alone. Every send of a gated key,
  * first alert or repeat, needs a streak of GATE ("resolved" is never gated), so
- * a single blip inside an active episode sends no repeat; the one exception is
- * an episode whose first message no channel has delivered yet, which is resent
- * at once and never re-gated. Below GATE, where a new episode would start,
- * nothing is sent: a key with no stored history gets a `pending` entry
- * (inactive, never sent, dropped when its streak resets), a kept inactive entry
- * keeps its history, and a still-active entry whose clearing window elapsed
- * stays as it is (it may still resolve) until the new episode replaces it at
- * GATE. A gated episode's first message says it followed GATE failing minutes.
+ * a single blip inside an active episode sends no repeat. There are two
+ * exceptions: an immediate condition (below), and an episode whose first
+ * message was never delivered, which is resent at once and never re-gated
+ * (`first_undelivered` marks one that a failed alert opened over a still-active
+ * episode, whose `delivered` it keeps). Below GATE, where a new episode would
+ * start, nothing is sent: a key with no stored history gets a `pending` entry
+ * (inactive, never sent, dropped when its streak resets), a kept inactive
+ * entry keeps its history, and a still-active entry whose clearing window
+ * elapsed stays as it is (it may still resolve) until the new episode replaces
+ * it at GATE. A gated episode's first message says it followed GATE failing
+ * minutes.
  * Two raise sites bypass the gate with a condition's `immediate` flag
  * (conditions.ts): the metronome stall trigger and the guard's post-unblock
  * re-check. Every other key (the spend and off-air latches, `once` keys, the
  * already-debounced ones) is sent at its first presence and stores no streak.
  *
- * Off-account text (ntfy, email) never carries an account, zone, ruleset or
- * rule ID: every channel passes title and message through `redact`. The
- * structured log lines keep the detail. */
+ * Off-account text (email, and the relay, which leaves the account via hugo)
+ * never carries an account, zone, ruleset or rule ID: both pass title and
+ * message through `redact`. The structured log lines keep the detail. */
 
 import { EmailMessage } from "cloudflare:email";
 import { type BucketLike, createJson, putJson, readJsonDoc } from "./bucket";
@@ -112,6 +120,11 @@ export interface AlertEntry {
   /** A gated key with no stored history whose streak is below GATE: `active`
    * false, never sent; dropped (not kept) when its streak resets. */
   pending?: boolean;
+  /** This episode's first message reached no channel and no relay, although
+   * `delivered` is true: a failed alert that replaced a still-active episode
+   * keeps that episode's `delivered`, so its "resolved" is not lost. Read by
+   * firstUndelivered; the next send drops it. */
+  first_undelivered?: boolean;
 }
 export type AlertState = Record<string, AlertEntry>;
 
@@ -144,7 +157,12 @@ const storedStreak = (e: AlertEntry | undefined): number => {
   return typeof n === "number" && Number.isInteger(n) && n > 0 ? Math.min(n, GATE) : 0;
 };
 /** The episode's first message has not reached any channel yet. */
-const firstUndelivered = (e: AlertEntry): boolean => e.last_sent_at === null && !wasDelivered(e);
+const firstUndelivered = (e: AlertEntry): boolean =>
+  e.last_sent_at === null && (!wasDelivered(e) || e.first_undelivered === true);
+const withoutFirstMark = (e: AlertEntry): AlertEntry => {
+  const { first_undelivered: _, ...rest } = e;
+  return rest;
+};
 
 export function planAlerts(prev: AlertState, conditions: AlertCondition[], nowMs: number, repeatMs: number,
                            batch: AlertBatch = COMPLETE): { next: AlertState; send: Outgoing[] } {
@@ -188,8 +206,9 @@ export function planAlerts(prev: AlertState, conditions: AlertCondition[], nowMs
     } else if (age(nowMs, e.last_sent_at) >= repeatMs && (!held || firstUndelivered(e))) {
       // A due repeat waits for the gate, except an undelivered first message:
       // that is resent at once, never re-gated (operator ruling 2026-10-24).
-      next[c.key] = withStreak({ ...notClearing(e), active: true, resolvable: c.resolvable, title: c.title,
-                                 last_sent_at: iso(nowMs), cleared_at: null, delivered: true }, // restored on a failure
+      next[c.key] = withStreak({ ...notClearing(withoutFirstMark(e)), active: true, resolvable: c.resolvable,
+                                 title: c.title, last_sent_at: iso(nowMs), cleared_at: null,
+                                 delivered: true }, // restored on a failure, with the first-message mark
                                streak);
       send.push({ ...out, message: firstUndelivered(e) ? noted : c.message, kind: "repeat" });
     } else {
@@ -265,44 +284,6 @@ export interface Channel {
   send(o: Outgoing): Promise<void>;
 }
 
-/** How much of a refusal's body the log keeps. */
-const NTFY_BODY_CHARS = 200;
-const NTFY_PRIORITY: Record<Priority, string> = { urgent: "5", high: "4", default: "3" };
-const NTFY_TAGS: Record<Priority, string> = { urgent: "rotating_light", high: "warning", default: "information_source" };
-
-/** `secrets`: configured account details to redact on top of the patterns. */
-export function ntfyChannel(fetchFn: typeof fetch, url: string, token: string | undefined, station: string,
-                            secrets: readonly string[] = []): Channel {
-  return {
-    name: "ntfy",
-    async send(o) {
-      const headers: Record<string, string> = {
-        Title: redact(`${station}: ${o.kind === "resolved" ? "resolved: " : ""}${o.title}`, secrets),
-        Priority: o.kind === "resolved" ? "3" : NTFY_PRIORITY[o.priority],
-        Tags: o.kind === "resolved" ? "white_check_mark" : NTFY_TAGS[o.priority],
-      };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetchFn(url, { method: "POST", headers, body: redact(o.message, secrets),
-                                       signal: AbortSignal.timeout(TIMEOUT_MS) });
-      if (!res.ok) throw new Error(await refusal(res));
-    },
-  };
-}
-
-/** ntfy's refusal as one log line: the status, any Retry-After, and the start of
- * the body, which names the limit hit (ntfy.sh limits anonymous senders per IP,
- * and Workers share egress IPs). A body that cannot be read is left out. */
-async function refusal(res: Response): Promise<string> {
-  const retry = res.headers.get("Retry-After");
-  let body = "";
-  try {
-    body = (await res.text()).trim().slice(0, NTFY_BODY_CHARS);
-  } catch {
-    // the status alone
-  }
-  return `ntfy: HTTP ${res.status}${retry ? ` (retry-after ${retry})` : ""}${body ? `: ${body}` : ""}`;
-}
-
 function b64(text: string): string {
   let bin = "";
   for (const byte of new TextEncoder().encode(text)) bin += String.fromCharCode(byte);
@@ -319,12 +300,28 @@ export function rawEmail(from: string, to: string, subject: string, text: string
           "Content-Transfer-Encoding: base64", "", body, ""].join("\r\n");
 }
 
+/** `p`, or a rejection once `ms` have passed (R2 and send_email binding calls
+ * have no timeout of their own). The timer is cleared either way. */
+async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      p,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms} ms`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 export interface EmailBinding {
   send(message: EmailMessage): Promise<unknown>;
 }
 
-/** `timeoutMs` bounds the binding's send like ntfy's fetch: a hung binding
- * cannot hold the invocation open, and a timeout is a channel failure. */
+/** `timeoutMs` bounds the binding's send: a hung binding cannot hold the
+ * invocation open, and a timeout is a channel failure. */
 export function emailChannel(binding: EmailBinding, from: string, to: string, station: string, now: () => number,
                              Message: typeof EmailMessage = EmailMessage, secrets: readonly string[] = [],
                              timeoutMs = TIMEOUT_MS): Channel {
@@ -334,24 +331,12 @@ export function emailChannel(binding: EmailBinding, from: string, to: string, st
       const subject = redact(`${station}: ${o.kind === "resolved" ? "resolved: " : ""}${o.title}`, secrets);
       const text = `${redact(o.message, secrets)}\n\n-- antenna clock, ${iso(now())}\n`;
       const message = new Message(from, to, rawEmail(from, to, subject, text, now(), crypto.randomUUID()));
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      try {
-        await Promise.race([
-          binding.send(message),
-          new Promise<never>((_, reject) => {
-            timer = setTimeout(() => reject(new Error(`email: send timed out after ${timeoutMs} ms`)), timeoutMs);
-          }),
-        ]);
-      } finally {
-        if (timer !== undefined) clearTimeout(timer);
-      }
+      await withTimeout(binding.send(message), timeoutMs, "email: send");
     },
   };
 }
 
 export interface AlertEnv {
-  NTFY_URL?: string;
-  NTFY_TOKEN?: string;
   ALERT_EMAIL?: EmailBinding;
   ALERT_EMAIL_FROM?: string;
   ALERT_EMAIL_TO?: string;
@@ -364,15 +349,20 @@ export interface AlertEnv {
   CF_WAF_TOKEN?: string;
 }
 
-export function channelsFromEnv(env: AlertEnv, fetchFn: typeof fetch, now: () => number,
+/** The configured account details redacted from every off-account text, on
+ * top of redact's patterns. */
+export function secretsFromEnv(env: AlertEnv): string[] {
+  return [env.CF_ACCOUNT_ID, env.CF_ZONE_ID, env.CF_ANALYTICS_TOKEN, env.CF_WAF_TOKEN]
+    .filter((v): v is string => typeof v === "string");
+}
+
+/** Email only: the Worker sends no ntfy (ntfy.sh limits a tierless account per
+ * IP, and Workers share egress IPs); its alerts reach ntfy through the relay. */
+export function channelsFromEnv(env: AlertEnv, now: () => number,
                                 Message: typeof EmailMessage = EmailMessage): Channel[] {
   const station = env.STATION_NAME?.trim() || "llama radio";
-  const secrets = [env.CF_ACCOUNT_ID, env.CF_ZONE_ID, env.CF_ANALYTICS_TOKEN, env.CF_WAF_TOKEN]
-    .filter((v): v is string => typeof v === "string");
+  const secrets = secretsFromEnv(env);
   const out: Channel[] = [];
-  if (env.NTFY_URL?.trim()) {
-    out.push(ntfyChannel(fetchFn, env.NTFY_URL.trim(), env.NTFY_TOKEN?.trim() || undefined, station, secrets));
-  }
   if (env.ALERT_EMAIL && env.ALERT_EMAIL_FROM?.trim() && env.ALERT_EMAIL_TO?.trim()) {
     out.push(emailChannel(env.ALERT_EMAIL, env.ALERT_EMAIL_FROM.trim(), env.ALERT_EMAIL_TO.trim(), station, now,
                           Message, secrets));
@@ -407,28 +397,142 @@ async function createAlerts(bucket: BucketLike, state: AlertState): Promise<bool
   }
 }
 
-/** Plan, send, persist. Every message is also logged. A message no channel
- * accepted is not recorded as sent, so the next invocation retries it. */
+/** The relay to hugo (spec Part 2): every sending invocation appends its
+ * messages to this object in one write; hugo reads it each minute and sends
+ * each message once to its own ntfy, keeping a (stream, seq) cursor. The
+ * document's shape is a contract with transmitter (its relay reader). */
+export const RELAY_KEY = "state/alert-relay.json";
+/** The ring keeps the last RELAY_RING messages. */
+export const RELAY_RING = 50;
+/** Bounds the relay write (both attempts): it must never hold a spend email. */
+export const RELAY_TIMEOUT_MS = 10_000;
+
+/** One relayed message. `at` is the sending invocation's time; `seq` is an
+ * integer, strictly increasing within a stream, starting at 1. Title and
+ * message are already redacted. */
+export interface RelayMessage {
+  seq: number;
+  at: string;
+  key: string;
+  kind: "alert" | "repeat" | "resolved";
+  priority: Priority;
+  title: string;
+  message: string;
+}
+/** `stream` is random, new whenever the Worker creates or recreates the
+ * object; `ring` holds the last RELAY_RING messages, ascending seq. */
+export interface RelayDoc {
+  stream: string;
+  ring: RelayMessage[];
+}
+
+/** Why a stored relay document is unusable, or null when it is usable: not an
+ * object, `stream` not a string, `ring` not an array, or a ring entry that is
+ * not a JSON object with an integer (never boolean) `seq`. */
+export function relayDocProblem(value: unknown): string | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return "not an object";
+  const doc = value as { stream?: unknown; ring?: unknown };
+  if (typeof doc.stream !== "string") return "stream is not a string";
+  if (!Array.isArray(doc.ring)) return "ring is not an array";
+  for (const [i, m] of doc.ring.entries()) {
+    if (m === null || typeof m !== "object" || Array.isArray(m)) return `ring[${i}] is not an object`;
+    const seq = (m as { seq?: unknown }).seq;
+    if (typeof seq !== "number" || !Number.isInteger(seq)) return `ring[${i}].seq is not an integer`;
+  }
+  return null;
+}
+
+/** Appends an invocation's messages; true when the write landed. Never throws. */
+export type RelaySink = (messages: Outgoing[], nowMs: number) => Promise<boolean>;
+
+/** Create-only first, as createAlerts: a store that refuses the precondition
+ * outright gets an unconditional write. */
+async function createRelay(bucket: BucketLike, doc: RelayDoc): Promise<boolean> {
+  try {
+    return await createJson(bucket, RELAY_KEY, doc);
+  } catch {
+    return putJson(bucket, RELAY_KEY, doc);
+  }
+}
+
+/** At most two attempts, so at most 2 PUTs: a lost race re-reads and retries once. */
+async function writeRelay(bucket: BucketLike, messages: Outgoing[], nowMs: number, secrets: readonly string[],
+                          newStream: () => string): Promise<boolean> {
+  const at = iso(nowMs);
+  const msgs = (start: number): RelayMessage[] =>
+    messages.map((o, i) => ({ seq: start + i, at, key: o.key, kind: o.kind, priority: o.priority,
+                              title: redact(o.title, secrets), message: redact(o.message, secrets) }))
+      .slice(-RELAY_RING);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const read = await readJsonDoc<unknown>(bucket, RELAY_KEY);
+    let ok: boolean;
+    if (read.kind === "absent") {
+      ok = await createRelay(bucket, { stream: newStream(), ring: msgs(1) });
+    } else if (read.kind === "ok" && relayDocProblem(read.value) === null) {
+      const doc = read.value as RelayDoc;
+      // After the highest stored seq, so a seq never repeats within the stream.
+      const last = doc.ring.reduce((n, m) => Math.max(n, m.seq), 0);
+      const ring = [...doc.ring, ...msgs(last + 1)].slice(-RELAY_RING);
+      ok = await putJson(bucket, RELAY_KEY, { stream: doc.stream, ring }, read.etag);
+    } else {
+      // Corrupt: overwritten over the corrupt object's own etag, with a fresh stream.
+      const error = read.kind === "corrupt" ? read.error : relayDocProblem(read.value);
+      console.error(JSON.stringify({ event: "alert-relay-corrupt", error }));
+      ok = await putJson(bucket, RELAY_KEY, { stream: newStream(), ring: msgs(1) }, read.etag);
+    }
+    if (ok) return true;
+  }
+  console.error(JSON.stringify({ event: "alert-relay-failed", error: "lost the write race twice" }));
+  return false;
+}
+
+/** The relay write, bounded by `timeoutMs`. False on a failure, a timeout or a
+ * second lost race, each logged; never throws. `secrets` as for email. */
+export function relaySink(bucket: BucketLike, secrets: readonly string[],
+                          newStream: () => string = () => crypto.randomUUID(),
+                          timeoutMs = RELAY_TIMEOUT_MS): RelaySink {
+  return async (messages, nowMs) => {
+    try {
+      return await withTimeout(writeRelay(bucket, messages, nowMs, secrets, newStream), timeoutMs, "relay: write");
+    } catch (e) {
+      console.error(JSON.stringify({ event: "alert-relay-failed", error: describeError(e) }));
+      return false;
+    }
+  };
+}
+
+/** Plan, send, persist. Every message is logged, then emailed; then all of the
+ * invocation's messages go to the relay in one write. A message is delivered
+ * when a channel accepted it or the relay write landed; one neither did is not
+ * recorded as sent, so the next invocation retries it. */
 export async function dispatchAlerts(bucket: BucketLike, channels: Channel[], conditions: AlertCondition[],
-                                     nowMs: number, repeatMs: number,
-                                     batch: AlertBatch = COMPLETE): Promise<{ sent: number; failed: number }> {
+                                     nowMs: number, repeatMs: number, batch: AlertBatch = COMPLETE,
+                                     relay?: RelaySink): Promise<{ sent: number; failed: number }> {
   const read = await readJsonDoc<unknown>(bucket, ALERTS_KEY);
   const prev = validState(read.kind === "ok" ? read.value : null);
   const { next, send } = planAlerts(prev, conditions, nowMs, repeatMs, batch);
   let sent = 0;
   let failed = 0;
+  const emailed: boolean[] = [];
   for (const o of send) {
     console.error(JSON.stringify({ event: "alert", kind: o.kind, key: o.key, title: o.title, message: o.message }));
-    let delivered = channels.length === 0; // with no channel configured the log line is all there is
+    let ok = false;
     for (const ch of channels) {
       try {
         await ch.send(o);
-        delivered = true;
+        ok = true;
       } catch (e) {
         console.error(JSON.stringify({ event: "alert-channel-failed", channel: ch.name, key: o.key,
                                        error: describeError(e) }));
       }
     }
+    emailed.push(ok);
+  }
+  // After every email, so the relay never delays one.
+  const relayed = send.length > 0 && relay !== undefined ? await relay(send, nowMs) : false;
+  for (const [i, o] of send.entries()) {
+    // With neither a channel nor the relay configured, the log line is all there is.
+    const delivered = (channels.length === 0 && relay === undefined) || emailed[i] || relayed;
     if (delivered) sent++;
     else {
       failed++;
@@ -442,9 +546,15 @@ export async function dispatchAlerts(bucket: BucketLike, channels: Channel[], co
         // failed alert over a still-active episode (clearing for COOLDOWN_MS
         // after a failed "resolved", or across incomplete batches) -- the entry
         // keeps what the episode already had, so a delivered episode's
-        // "resolved" is never dropped.
-        next[o.key] = { ...next[o.key], last_sent_at: null,
-                        delivered: o.kind === "alert" && !prev[o.key]?.active ? false : wasDelivered(prev[o.key]) };
+        // "resolved" is never dropped. A failed alert that keeps an earlier
+        // episode's `delivered` marks the new episode's first message as
+        // undelivered all the same, so it is resent at once, never re-gated; a
+        // failed repeat keeps the mark the episode had.
+        const p = prev[o.key];
+        const delivered = o.kind === "alert" && !p?.active ? false : wasDelivered(p);
+        const first = o.kind === "alert" ? delivered : p?.first_undelivered === true;
+        next[o.key] = withStreak({ ...next[o.key], last_sent_at: null, delivered,
+                                   ...(first ? { first_undelivered: true } : {}) }, next[o.key].streak);
       }
     }
   }
@@ -458,10 +568,11 @@ export async function dispatchAlerts(bucket: BucketLike, channels: Channel[], co
 }
 
 /** The clock's alert sink (ClockDeps.alerts): the batch's scope is passed through. */
-export function alertSink(bucket: BucketLike, env: AlertEnv, fetchFn: typeof fetch, now: () => number) {
-  const channels = channelsFromEnv(env, fetchFn, now);
+export function alertSink(bucket: BucketLike, env: AlertEnv, now: () => number) {
+  const channels = channelsFromEnv(env, now);
+  const relay = relaySink(bucket, secretsFromEnv(env));
   const repeatMs = repeatMsFromEnv(env);
   return async (conditions: AlertCondition[], nowMs: number, batch: AlertBatch): Promise<void> => {
-    await dispatchAlerts(bucket, channels, conditions, nowMs, repeatMs, batch);
+    await dispatchAlerts(bucket, channels, conditions, nowMs, repeatMs, batch, relay);
   };
 }
