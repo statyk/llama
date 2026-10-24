@@ -10,6 +10,16 @@ from transmitter.config import PublishConfig
 from transmitter.errors import ConfigError
 
 
+def error_code(exc: Exception) -> str | None:
+    """The S3 error code a botocore exception carries (`NoSuchKey`,
+    `AccessDenied`, ...), or None for anything else. The one helper every R2
+    reader and writer uses (publish.Uploader, monitor.R2Reader, cloudstate)."""
+    response = getattr(exc, "response", None)
+    if isinstance(response, dict):
+        return response.get("Error", {}).get("Code")
+    return None
+
+
 def make_client(cfg: PublishConfig, *, connect_timeout: float = 10, read_timeout: float = 60):
     import boto3
     from botocore.config import Config

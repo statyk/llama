@@ -25,7 +25,7 @@ import threading
 import time
 from typing import Callable
 
-from transmitter import alerts, publish
+from transmitter import alerts, publish, r2
 from transmitter.deadclock import DeadClockMonitor
 
 log = logging.getLogger("transmitter.monitor")
@@ -53,7 +53,7 @@ class R2Reader:
         try:
             resp = self.client.get_object(Bucket=self.bucket, Key=key)
         except Exception as exc:
-            if publish._error_code(exc) in ("NoSuchKey", "404"):
+            if r2.error_code(exc) in ("NoSuchKey", "404"):
                 return None
             raise
         return json.loads(resp["Body"].read())

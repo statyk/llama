@@ -21,7 +21,7 @@ from typing import Any, Callable
 from transmitter import grid
 from transmitter.errors import CloudDocumentError, CloudStateError
 from transmitter.publish import GUARD_KEY, NON_RETRYABLE, OFFAIR_KEY
-from transmitter.publish import _error_code as _code
+from transmitter.r2 import error_code as _code
 
 BUDGET_KEY = "state/budget.json"
 ALERTS_KEY = "state/alerts.json"

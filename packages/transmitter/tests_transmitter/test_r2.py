@@ -39,3 +39,27 @@ def test_client_timeouts_are_keywords(monkeypatch):
     assert (c.connect_timeout, c.read_timeout) == (10, 60)
     c = r2.make_client(cfg, connect_timeout=5, read_timeout=10).meta.config
     assert (c.connect_timeout, c.read_timeout) == (5, 10)
+
+
+def test_error_code_reads_a_botocore_style_response():
+    class ClientError(Exception):
+        def __init__(self, code):
+            super().__init__(code)
+            self.response = {"Error": {"Code": code}}
+
+    assert r2.error_code(ClientError("NoSuchKey")) == "NoSuchKey"
+    assert r2.error_code(OSError("down")) is None
+    bare = Exception("x")
+    bare.response = "not a dict"
+    assert r2.error_code(bare) is None
+
+
+def test_no_module_reaches_for_a_private_error_code_helper():
+    # Both R2 readers (publish.Uploader and monitor.R2Reader) and cloudstate
+    # share the one public helper, r2.error_code (Task 4b review, BM3).
+    import pathlib
+
+    import transmitter
+    src = pathlib.Path(transmitter.__file__).parent
+    offenders = [p.name for p in src.glob("*.py") if "_error_code" in p.read_text()]
+    assert offenders == []

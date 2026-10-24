@@ -40,6 +40,7 @@ from transmitter.config import TransmitterConfig
 from transmitter.errors import PublishError, PublishLocked, PutBudgetExceeded
 from transmitter.layout import PlanRow
 from transmitter.planner import publish_next, read_plan
+from transmitter.r2 import error_code
 from transmitter.segment import segment_key
 from transmitter.state import PublishState, load_fallback_version, load_publish_state, save_publish_state
 from transmitter.workspace import Epoch, Workspace, read_json, write_json
@@ -85,13 +86,6 @@ class PutBudget:
         write_json(self.path, {"day": day, "count": count + 1})
 
 
-def _error_code(exc: Exception) -> str | None:
-    response = getattr(exc, "response", None)
-    if isinstance(response, dict):
-        return response.get("Error", {}).get("Code")
-    return None
-
-
 # S3 error codes no retry can fix (wrong bucket, revoked or wrong key).
 NON_RETRYABLE = frozenset({"AccessDenied", "InvalidAccessKeyId", "NoSuchBucket", "SignatureDoesNotMatch"})
 
@@ -115,7 +109,7 @@ class Uploader:
                 last = PublishError(f"PUT {key}: HTTP {status}")
             except Exception as exc:                # botocore raises many types; most are retryable
                 last = exc
-                if _error_code(exc) in NON_RETRYABLE:
+                if error_code(exc) in NON_RETRYABLE:
                     # Credentials or bucket are wrong: retrying cannot succeed and
                     # only spends budget; fail on the first (already counted) attempt.
                     raise PublishError(f"PUT {key} failed: {exc}") from exc
@@ -127,7 +121,7 @@ class Uploader:
         try:
             resp = self.client.get_object(Bucket=self.bucket, Key=key)
         except Exception as exc:
-            if _error_code(exc) in ("NoSuchKey", "404"):
+            if error_code(exc) in ("NoSuchKey", "404"):
                 return None
             raise
         return json.loads(resp["Body"].read())
