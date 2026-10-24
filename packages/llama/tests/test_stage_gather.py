@@ -166,16 +166,21 @@ def test_gather_recovers_structure_from_sibling(tmp_path: Path):
     """Regression: gratefuldead-1974-02-24 shipped with every track in set 1."""
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, gd74_ia(), FakeProvider(), gd74_candidate(), W_IDENT)
-    assert len(show.tracks) == 27
+    # Piece 4 (spec 1, 2.3): the 82 s `Weather Report Suite Part I >` (D3_T02,
+    # track 17) is a short-only drop whose tag is not junk, so it is now kept.
+    assert len(show.tracks) == 28
     sets = [t.set for t in show.tracks]
     assert sets[:11] == ["1"] * 11                     # US Blues .. Playin' In The Band
-    assert sets[11:26] == ["2"] * 15                   # Cumberland Blues .. Not Fade Away
-    assert sets[26] == "encore"                        # E: It's All Over Now, Baby Blue
-    assert show.set_breaks == [11, 26]
+    assert sets[11:27] == ["2"] * 16                   # Cumberland Blues .. Not Fade Away
+    assert sets[27] == "encore"                        # E: It's All Over Now, Baby Blue
+    assert show.set_breaks == [11, 27]
     assert show.structure is not None
     assert show.structure.source == f"lma:{M_IDENT}"
     assert show.structure.alignment == "deterministic"
-    assert show.structure.coverage == 1.0
+    # `Part I` does not match the canonical `Part 1`, so the kept track is the
+    # one unmatched song: 27/28 until Task 2's coverage clause (spec 3) leaves
+    # short-kept tracks out of coverage.
+    assert show.structure.coverage == 27 / 28
     # segues from the sibling's taper notation
     assert show.tracks[6].segue is True                # China Cat Sunflower >
     assert show.tracks[12].segue is False               # Roses: windsor's own junk parse said True
@@ -189,21 +194,26 @@ def test_align_result_matched_reaches_the_track(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, gd74_ia(), FakeProvider(), gd74_candidate(), W_IDENT)
     assert show.structure.alignment == "deterministic"
-    assert show.structure.coverage == 1.0
+    # Piece 4 (spec 1, 2.3): the kept 82 s `Weather Report Suite Part I >`
+    # (track 17) does not match the canonical `Part 1`; it is the one unmatched
+    # track (27/28 until Task 2's coverage clause, spec 3).
+    assert show.structure.coverage == 27 / 28
     assert all(t.matched is not None for t in show.tracks), \
         "the deterministic path measures every track"
-    # coverage 1.0 on this fixture means every track matched -- a weaker
-    # `any(... is True)` would pass even if `matched` were fed the wrong
-    # per-track boolean list (e.g. segues, which is also list[bool] and also
-    # has some True values), so it wouldn't catch that class of mistake.
-    assert all(t.matched is True for t in show.tracks)
+    # Every other track matched -- a weaker `any(... is True)` would pass even
+    # if `matched` were fed the wrong per-track boolean list (e.g. segues,
+    # which is also list[bool] and also has some True values), so it wouldn't
+    # catch that class of mistake.
+    assert [t.index for t in show.tracks if t.matched is not True] == [17]
 
 
 def test_override_path_leaves_matched_unmeasured(tmp_path: Path):
     """The override path skips align() and forces coverage to 1.0, so there is
     no per-track match data. None must mean unknown, never matched."""
     sws = ShowWorkspace(tmp_path / "show")
-    write_artifact(sws.overrides, Overrides(set_breaks=[11], encore_after=26))
+    # encore_after names the last set-2 file, D4_T06: 27 since piece 4 keeps
+    # D3_T02 at track 17 (spec 1); re-keyed by filename in Task 3.
+    write_artifact(sws.overrides, Overrides(set_breaks=[11], encore_after=27))
     show = run_gather(sws, gd74_ia(), FakeProvider(), gd74_candidate(), W_IDENT)
     assert show.structure.alignment == "override"
     assert all(t.matched is None for t in show.tracks)
@@ -226,7 +236,7 @@ def test_gather_setlistfm_wins_with_lma_segues(tmp_path: Path):
     show = run_gather(sws, gd74_ia(), FakeProvider(), gd74_candidate(), W_IDENT,
                       setlistfm=client)
     assert show.structure.source == "setlist.fm"
-    assert show.set_breaks == [11, 26]
+    assert show.set_breaks == [11, 27]                 # piece 4 keeps D3_T02 (spec 1)
     assert show.tracks[6].segue is True                # blended back from the LMA parse
 
 
@@ -2392,13 +2402,28 @@ def _furthur_candidate():
                      recordings=[RecordingSummary(identifier=F_IDENT)])
 
 
+def _furthur_without_short_tuning(md=None):
+    """The furthur item without its `10.tuningup.*` files: the 19-file tape the
+    filter kept before piece 4. Since piece 4 the mp3 copy (tag `tmp`, tagged
+    under spec 2.2) is kept while the FLAC copy (`Tuning Up`, junk under 2.3) is
+    not, so the tests about the 19-file shape build it explicitly."""
+    md = md or json.loads(FURTHUR.read_text())
+    md["files"] = [f for f in md["files"] if not f["name"].startswith("10.tuningup.")]
+    return md
+
+
 def test_2b_demotes_a_whole_tmp_tape_and_notes_each_track(tmp_path):
+    """Every mp3 tag is `tmp`: 2b demotes and notes each track. Since piece 4
+    the 01:54 `10.tuningup.mp3` (tag `tmp`, tagged under spec 2.2) is kept, so
+    the tape's 20 files match the description's 20 entries and D fills every
+    demoted track from it; before, 19 files left them all unresolved."""
     sws = ShowWorkspace(tmp_path / "s")
     res = compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
                          F_IDENT, jerrybase_enabled=False)
-    assert all(t.title_source == "unresolved" for t in res.show.tracks)
-    assert all(t.title == t.filename for t in res.show.tracks)
-    assert "unresolved track titles" in res.show.review_flags
+    assert len(res.show.tracks) == 20
+    assert all(t.title_source == "desc-position" for t in res.show.tracks)
+    assert [t.title for t in res.show.tracks][9:11] == ["Tuning Up", "Terrapin Station"]
+    assert "unresolved track titles" not in res.show.review_flags
     demotions = [n for n in res.notes if n.startswith("placeholder tag title: ")]
     assert len(demotions) == len(res.show.tracks)
     assert demotions[0] == f"placeholder tag title: track 1 '{'tmp'}' demoted to unresolved"
@@ -2415,12 +2440,20 @@ def test_2b_does_not_touch_a_real_tagged_tape(tmp_path):
 def test_2b_files_the_format_sibling_it_does_not_recover_from(tmp_path):
     """The furthur mp3s are all `tmp` (a real title by `is_real_title`, so
     `_RECOVER_BELOW` never fires), while the FLAC copy is fully tagged: the count
-    is filed as a note, and recovery is not triggered."""
+    is filed as a note, and recovery is not triggered.
+
+    Run on the 19-file shape: on the captured item piece 4 keeps the mp3
+    `10.tuningup.mp3` (`tmp`, spec 2.2) but not its FLAC original (`Tuning Up`,
+    junk under 2.3), so 20 mp3s against 19 FLACs have no stem bijection and no
+    note is filed."""
     sws = ShowWorkspace(tmp_path / "s")
-    res = compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
+    res = compute_gather(sws, StubIA(_furthur_without_short_tuning()), None, _furthur_candidate(),
                          F_IDENT, jerrybase_enabled=False)
     assert ("format sibling tagged: Flac title fraction 1.00 "
             "(recovery not triggered; filed, not acted on)") in res.notes
+    captured = compute_gather(ShowWorkspace(tmp_path / "c"), StubIA(json.loads(FURTHUR.read_text())),
+                              None, _furthur_candidate(), F_IDENT, jerrybase_enabled=False)
+    assert not any(n.startswith("format sibling tagged") for n in captured.notes)
     # notes never reach the LLM (ruling 6)
     conflicts = res.show.structure.conflicts if res.show.structure else []
     assert not any("placeholder tag title" in c or "format sibling" in c
@@ -2480,7 +2513,10 @@ def test_2b_demotes_a_recovered_sibling_format_placeholder_and_files_no_sibling_
             f["title"] = f"Track {f['name'][:2]}"
     sws = ShowWorkspace(tmp_path / "s")
     res = compute_gather(sws, StubIA(md), None, _furthur_candidate(), F_IDENT, jerrybase_enabled=False)
-    assert {t.title_source for t in res.show.tracks} == {"unresolved"}
+    # Since piece 4 `10.tuningup` is kept in both formats (the mp3's tag is its
+    # original's `Track 10`, spec 2.2), so 20 tracks match the description's 20
+    # entries and D fills every track 2b demoted (`sibling-format` had 2b not fired).
+    assert {t.title_source for t in res.show.tracks} == {"desc-position"}
     assert "placeholder tag title: track 1 'Track 01' demoted to unresolved" in res.notes
     assert not any(n.startswith("format sibling tagged") for n in res.notes)
 
@@ -2510,7 +2546,11 @@ def test_2b_item_title_reaches_the_recording_level_class(tmp_path):
         f["title"] = item if i % 2 else item + " !"
     sws = ShowWorkspace(tmp_path / "s")
     res = compute_gather(sws, StubIA(md), None, _furthur_candidate(), F_IDENT, jerrybase_enabled=False)
-    assert {t.title_source for t in res.show.tracks} == {"unresolved"}
+    # Since piece 4 `10.tuningup.mp3` (tagged with the item title, spec 2.2) is
+    # kept, the 20 tracks match the description's 20 entries and D fills every
+    # track 2b demoted (`tags` had 2b not fired).
+    assert {t.title_source for t in res.show.tracks} == {"desc-position"}
+    assert any(n.startswith("placeholder tag title: track 1 ") for n in res.notes)
 
 
 # --- slice 2a on a captured tape: tnd2006-12-13, "J >" tags ---
@@ -2681,7 +2721,9 @@ def test_2c_strips_railroad_earths_glued_numbers_and_notes_each(tmp_path):
     titles = [t.title for t in res.show.tracks]
     assert titles[:2] == ["Pig In A Pen", "Midnight Moonlight"]
     assert "stripped glued track number: track 1 '01Pig In A Pen' -> 'Pig In A Pen'" in res.notes
-    assert sum(n.startswith("stripped glued track number:") for n in res.notes) == 23
+    # 25: piece 4 keeps the two short banter tracks, `08Peter Rowan Banter` and
+    # `24Todd Banter` (spec 1, 2.3: stage banter is kept), and 2c strips theirs too.
+    assert sum(n.startswith("stripped glued track number:") for n in res.notes) == 25
     assert not any(n.startswith("stripped joined track number:") for n in res.notes)
 
 
@@ -2704,7 +2746,8 @@ def test_2d_strips_joined_numbers_and_notes_each(tmp_path):
                          cand, R_IDENT, jerrybase_enabled=False)
     assert [t.title for t in res.show.tracks][:2] == ["Pig In A Pen", "Midnight Moonlight"]
     assert "stripped joined track number: track 1 '01-Pig In A Pen' -> 'Pig In A Pen'" in res.notes
-    assert sum(n.startswith("stripped joined track number:") for n in res.notes) == 23
+    # 25: piece 4 keeps the two short banter tracks (spec 1, 2.3); 2d strips theirs too.
+    assert sum(n.startswith("stripped joined track number:") for n in res.notes) == 25
     assert not any(n.startswith("stripped glued track number:") for n in res.notes)
 
 
@@ -2744,8 +2787,10 @@ def test_2c_ships_and_notes_railroad_earths_titles_without_footnote_marks(tmp_pa
     for want in ("The Cuckoo", "Cold Rain And Snow", "Walls Of Time"):
         assert want in titles
     assert not any(t.rstrip().endswith(("#", "^")) for t in titles)
-    assert "stripped glued track number: track 19 '20The Cuckoo #' -> 'The Cuckoo'" in res.notes
-    assert "stripped glued track number: track 21 '22Walls Of Time #^' -> 'Walls Of Time'" in res.notes
+    # Track numbers one later than before piece 4: `08Peter Rowan Banter` is now
+    # kept at track 8 (spec 1, 2.3: stage banter is kept).
+    assert "stripped glued track number: track 20 '20The Cuckoo #' -> 'The Cuckoo'" in res.notes
+    assert "stripped glued track number: track 22 '22Walls Of Time #^' -> 'Walls Of Time'" in res.notes
 
 
 # --- slice 1: venue tripwire steps, the swap, the signature, 1d (spec "Slice 1") ---
@@ -3623,7 +3668,9 @@ def test_umphreys_2004_04_14_taper_owned_identical_to_today(tmp_path, monkeypatc
     assert res.taper.source == "description"
     assert res.taper_owned is True
     assert _labels(res) == _labels(oracle)
-    assert res.show.set_breaks == oracle.show.set_breaks == [11, 18]
+    # Piece 4 (spec 1): set 2's 01:14 `Front Porch >` (d2t02) is now kept, so the
+    # set-2 break falls one track later.
+    assert res.show.set_breaks == oracle.show.set_breaks == [11, 19]
     assert _labels(res)[-2:] == ["encore", "encore"]
     assert res.show.review_flags == oracle.show.review_flags
     assert res.show.structure.alignment == oracle.show.structure.alignment == "deterministic"
@@ -3978,7 +4025,8 @@ def test_sibling_transfer_split_is_identical():
     assert donor.identifier == M_IDENT
 
     # No anchors: the pair routes to `no-anchors`; the donor is still returned.
-    target = _gd74_target(list(range(27)))
+    # Every track blanked: 28 since piece 4 keeps Windsor's D3_T02 (spec 1).
+    target = _gd74_target(list(range(28)))
     out, notes = gather_mod._sibling_transfer(ia, cand, W_IDENT, want, target, norms)
     assert notes == [f"sibling alignment skipped ({M_IDENT}): tape has no independent anchors"]
     assert [t.model_dump() for t in out] == [t.model_dump() for t in target]

@@ -76,7 +76,11 @@ def _library(root: Path) -> Path:
                                  RecordingSummary(identifier=M_IDENT)])
     mapping = {W_IDENT: json.loads((FIXTURES / "gd74_windsor_metadata.json").read_text()),
                M_IDENT: json.loads((FIXTURES / "gd74_miller_metadata.json").read_text())}
-    for f in mapping[W_IDENT]["files"]:        # sibling-align's shape (test_title_cascade)
+    # sibling-align's shape (test_title_cascade._gd74_blank_ia): without D3_T02, which
+    # piece 4 keeps (spec 1) and which would let the whole-tape S rung fill the blanks.
+    mapping[W_IDENT]["files"] = [f for f in mapping[W_IDENT]["files"]
+                                 if not f["name"].startswith("GD_022474_D3_T02.")]
+    for f in mapping[W_IDENT]["files"]:
         if f["name"].endswith(("D1_T04.mp3", "D1_T05.mp3", "D1_T06.mp3")):
             f["title"] = None
     ws = _gathered_show(root, GD74, gd74, W_IDENT, mapping)

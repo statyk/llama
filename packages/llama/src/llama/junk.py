@@ -3,6 +3,7 @@ from collections import Counter
 from collections.abc import Sequence
 from statistics import median
 
+from llama.titles import clean_tag_title
 from llama.util import length_seconds
 
 # Delivery formats, in preference order. archive.org tags lossless files
@@ -88,12 +89,180 @@ def _track_number(f: dict, orig_tracks: dict[str, object]) -> int | None:
     return int(m.group(1)) if m else None
 
 
+# --- Piece 4: keep short files that belong to the show -----------------------
+# Spec docs/superpowers/specs/2026-10-23-junk-short-keep-design.md, 1 and 2.1-2.5.
+# A file whose ONLY drop reason is the short arm ("implausibly short") is KEPT,
+# unless it trips the spam-shape tripwire or its tag is wholly junk; an untagged
+# one is kept only when interior in play order and its filename stem is not
+# wholly junk. The floor above is untouched: the rule only re-decides files the
+# short arm already dropped, after the floor is computed.
+#
+# The regexes and the three functions below are NORMATIVE (spec 2.3): ported
+# character for character from what was measured over the library's 3,547
+# short-only drops (0 music among the junk, 0 tripwire hits; pinned by
+# test_short_keep_rule.py::test_deny_vocabulary_corpus). Do not edit them
+# without re-measuring; that test is the gate.
+
+SPAM_REASON = "spam-shaped name or tag"
+
+LEAD = re.compile(r"^(?:\(?\d{1,2}:\d{2}(?::\d{2})?(?:[.:]\d+)?\)?\s*[-:)]?\s*|\d{1,3}\s*[.):_-]?\s+|d\d{1,2}t\d{1,3}\s*|\d{3,4}(?=[a-z]))+", re.I)
+TIME_PAREN = re.compile(r"\s*[\(\[]\s*\d{1,2}:\d{2}[^)\]]*[\)\]]")
+SPLIT = re.compile(r"\s*(?:/|,|&|\+|;|\band\b|\s-\s|-{2,}|-?>|~|\||\(|\)|\[|\])\s*", re.I)
+EDGE = re.compile(r"^[\s\[\(<~*#.\-_'\":]+|[\s\]\)>~*#.\-_'\":]+$")
+JUNK_PART = re.compile(
+    r"^(?:"
+    r"(?:set\s*(?:\d|i+|one|two|three)\s*)?(?:re-?)?tun(?:e|i|ni|in)?(?:ing|ning|eing|ig|in'?|e[\s-]*ups?|ups?)?(?:\s*up)?(?:\s+break)?"
+    r"|instrument\s+change|warm[\s-]*up|(?:crowd|tuning)\s+(?:crowd|tuning)"
+    r"|dead\s*air|silence|silent|blank"
+    r"|(?:tape|side|disc|disk|reel)\s*(?:flip|change|cut|end|gap|break)|gap|cut[\s-]*in"
+    r"|fade[\s-]*(?:in|out)"
+    r"|(?:tape\s+|crowd\s+)?noise|hiss|static|test\s*tones?"
+    r"|sound\s*check"
+    r"|(?:opening\s+|encore\s+)?(?:crowd|audience)(?:\s+(?:noise|cheering|chanting|applause|yelling|encore\s+call))?"
+    r"|(?:opening\s+|encore\s+)?applause|cheering|clapping"
+    r"|(?:encore|set)\s*(?:break|call)(?:\s+i+)?|waiting(?:\s+for\s+(?:the\s+)?encore)?"
+    r")$", re.I)
+NONPERF = re.compile(
+    r"\bcommercials?\b|\bpromos?\b|\badvert\w*|\bstation\s+(?:id|plug|identification)\b|\bnews\s+broadcast\b"
+    r"|\b(?:house|p\.?\s?a\.?|intro|walk[\s-]*(?:on|in|out|off)|recorded|pre-?show)\s+music\b"
+    r"|\binterview\w*"
+    r"|(?=.*\b(?:dj'?s?|radio)\b)(?=.*\b(?:talk\w*|intro\w*|outro\w*|banter|announc\w*|moderator\w*|host\w*|id|spots?)\b)",
+    re.I)
+SPAM = re.compile(r"https?://|\bwww\.|\b[a-z0-9-]+\.(?:com|net|org|info|biz)\b|@\w{3,}", re.I)
+SPAM_STEM = re.compile(r"\bfollow\b|\bdownload\b|\bsubscribe\b", re.I)
+SPAM_TAG = re.compile(r"\bfollow\s+(?:me|us)\b", re.I)
+
+
+def basename_without_extension(name: str) -> str:
+    """The filename stem the tripwire and the filename-junk test read: the
+    last path component, extension removed (as measured, `rprime2.stem`)."""
+    return re.sub(r"\.[A-Za-z0-9]+$", "", name.rsplit("/", 1)[-1])
+
+
+def parts(t: str) -> list[str]:    # t = clean_tag_title(tag)
+    t = TIME_PAREN.sub("", LEAD.sub("", t))
+    return [p for p in (EDGE.sub("", x) for x in SPLIT.split(t)) if p]
+
+
+def short_tag_is_junk(tag: str | None) -> bool:
+    t = clean_tag_title(tag)
+    if not t:
+        return False
+    if NONPERF.search(t):
+        return True
+    ps = parts(t)
+    return bool(ps) and all(JUNK_PART.match(p) for p in ps)
+
+
+def short_is_spam(filename: str, own_title: str | None, original_title: str | None) -> bool:
+    stem = basename_without_extension(filename)
+    tags = (own_title or "", original_title or "")
+    return (bool(SPAM.search(stem) or SPAM_STEM.search(stem))
+            or any(SPAM.search(t) or SPAM_TAG.search(t) for t in tags))
+
+
+def short_filename_is_junk(filename: str) -> bool:
+    """Spec 2.4 'Filename junk': an untagged file's stem, leading digits and
+    separators removed, is wholly junk under the tag test. Only ever drops."""
+    return short_tag_is_junk(re.sub(r"^[\d\s._-]+", "", basename_without_extension(filename)))
+
+
+def short_verdict(filename: str, own_title: str | None, original_title: str | None,
+                  *, interior: bool) -> str:
+    """The rule for ONE short-only drop, decided in this order:
+    "spam" (the tripwire, tagged or not), then tagged ("junk" or "keep"), then
+    untagged ("filename" junk, else "keep" when interior, else "edge").
+
+    The tag is the file's own `title`, else its original's (spec 2.2); it is
+    tagged when that cleans to non-empty, placeholders such as `tmp` included."""
+    if short_is_spam(filename, own_title, original_title):
+        return "spam"
+    tag = own_title or original_title
+    if clean_tag_title(tag):
+        return "junk" if short_tag_is_junk(tag) else "keep"
+    if short_filename_is_junk(filename):
+        return "filename"
+    return "keep" if interior else "edge"
+
+
+def _title_str(raw: object) -> str | None:
+    return None if raw is None else str(raw)
+
+
+def _apply_short_rule(
+    files: list[dict], kept: list[dict], excluded: list[dict],
+    excluded_files: list[dict], orig_tracks: dict[str, object],
+) -> tuple[list[dict], list[dict], set[str]]:
+    """Re-decide every entry whose reasons are exactly ["implausibly short"]
+    (spec 2.1: a file failing another arm too is untouched). A tripwire hit's
+    reasons become [SPAM_REASON]; a junk, filename-junk or edge file keeps
+    "implausibly short"; a kept file rejoins `kept`. Returns the new kept and
+    excluded lists and the names the rule kept."""
+    by_name = {f["name"]: f for f in files}
+    tagged_keep: list[dict] = []
+    untagged: list[tuple[dict, str | None, str | None]] = []
+    spam: set[int] = set()
+    for i, (e, f) in enumerate(zip(excluded, excluded_files)):
+        if e["reasons"] != ["implausibly short"]:
+            continue
+        own = _title_str(f.get("title"))
+        orig = by_name.get(f.get("original")) if f.get("source") == "derivative" else None
+        original = _title_str(orig.get("title")) if orig else None
+        # interior=False here: an untagged non-junk file reads "edge", which
+        # separates it from a tagged keep; its interior test needs the play
+        # order, which needs the tagged keeps first.
+        verdict = short_verdict(f["name"], own, original, interior=False)
+        if verdict == "spam":
+            spam.add(i)
+        elif verdict == "keep":
+            tagged_keep.append(f)
+        elif verdict == "edge":
+            untagged.append((f, own, original))
+
+    # Play order for the interior test, over kept + tagged keeps + untagged
+    # candidates (spam and filename junk are not in it), derived the way
+    # filter_files derives it: track-tag order when every file has a unique
+    # track number, else filename order. Only kept and tagged-kept files count
+    # as neighbours: two untagged files at an edge do not license each other.
+    base = kept + tagged_keep
+    pool = base + [f for f, _, _ in untagged]
+    nums = [_track_number(f, orig_tracks) for f in pool]
+    if pool and all(n is not None for n in nums) and len(set(nums)) == len(nums):
+        order = [f for _, f in sorted(zip(nums, pool), key=lambda p: p[0])]
+    else:
+        order = sorted(pool, key=lambda f: f["name"])
+    idx = {id(f): i for i, f in enumerate(order)}
+    base_pos = [idx[id(f)] for f in base]
+    lo, hi = (min(base_pos), max(base_pos)) if base_pos else (None, None)
+    untagged_keep = [
+        f for f, own, original in untagged
+        if short_verdict(f["name"], own, original,
+                         interior=lo is not None and lo < idx[id(f)] < hi) == "keep"
+    ]
+
+    back = tagged_keep + untagged_keep
+    back_ids = {id(f) for f in back}
+    new_excluded: list[dict] = []
+    for i, (e, f) in enumerate(zip(excluded, excluded_files)):
+        if id(f) in back_ids:
+            continue
+        new_excluded.append({**e, "reasons": [SPAM_REASON]} if i in spam else e)
+    return kept + back, new_excluded, {f["name"] for f in back}
+
+
 def _keep_and_exclude(
-    files: list[dict], audio: list[dict]
-) -> tuple[list[dict], list[dict]]:
+    files: list[dict], audio: list[dict], *, short_keep: bool,
+    orig_tracks: dict[str, object],
+) -> tuple[list[dict], list[dict], set[str]]:
     """Junk-filter ONE format's audio entries: provenance, dominant filename
     convention, plausible duration. Split out of filter_files so it can run
-    once per candidate format."""
+    once per candidate format.
+
+    With `short_keep`, a short-only drop is then re-decided by the piece-4 rule
+    (`_apply_short_rule`). Returns (kept, excluded, names the rule kept); the
+    third item is empty with `short_keep=False`, which reproduces the filter as
+    it was before the rule. `orig_tracks` is filter_files' {original name:
+    track tag} map, for the rule's play order."""
     original_names = {f["name"] for f in files if f.get("source") == "original"}
     stems = Counter(_stem(f["name"]) for f in audio)
     dominant = stems.most_common(1)[0][0] if stems else ""
@@ -127,6 +296,7 @@ def _keep_and_exclude(
 
     kept: list[dict] = []
     excluded: list[dict] = []
+    excluded_files: list[dict] = []
     for f, other in zip(audio, non_duration):
         reasons = list(other)
         secs = length_seconds(f.get("length"))
@@ -137,10 +307,17 @@ def _keep_and_exclude(
         if reasons:
             excluded.append({"filename": f["name"], "reasons": reasons,
                              "duration_sec": secs})
+            excluded_files.append(f)
         else:
             kept.append(f)
+    short_kept: set[str] = set()
+    if short_keep:
+        # After the floor, never before it: the rule re-decides files the
+        # short arm already dropped and cannot move the threshold.
+        kept, excluded, short_kept = _apply_short_rule(
+            files, kept, excluded, excluded_files, orig_tracks)
     kept.sort(key=lambda f: f["name"])
-    return kept, excluded
+    return kept, excluded, short_kept
 
 
 def _dedupe_duplicate_listings(kept: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -181,7 +358,7 @@ def _dedupe_duplicate_listings(kept: list[dict]) -> tuple[list[dict], list[dict]
 
 def filter_files(
     files: list[dict], want_format: str | Sequence[str] = "VBR MP3",
-    *, readmit: frozenset[str] = frozenset(),
+    *, readmit: frozenset[str] = frozenset(), short_keep: bool = True,
 ) -> tuple[list[dict], list[dict], dict]:
     """Returns (kept, excluded, ordering) with kept in canonical play order.
 
@@ -214,21 +391,32 @@ def filter_files(
     `readmit` is `overrides.include`: source filenames the operator has ruled
     back in. They are returned to `kept` and removed from `excluded` after the
     junk arms and after duplicate-listing dedupe, and before play order is
-    derived. No exclusion reason is refused."""
+    derived. No exclusion reason is refused.
+
+    `short_keep` (default True) applies piece 4's rule: a file whose only
+    drop reason is the short arm is kept unless it is spam-shaped or its tag
+    is wholly junk, and an untagged one only when interior (see
+    `_apply_short_rule`). `False` reproduces the filter as it was before the
+    rule exactly; only the overrides migration's consistency check passes it.
+    `ordering["short_kept"]` names the files the rule kept that are in the
+    returned `kept` (after dedupe and readmit), sorted; always present, `[]`
+    with `short_keep=False`."""
     wanted = (want_format,) if isinstance(want_format, str) else tuple(want_format)
-    fallback: tuple[str, list[dict], list[dict]] | None = None
-    chosen: tuple[str, list[dict], list[dict]] | None = None
+    orig_tracks = {f["name"]: f.get("track") for f in files if f.get("source") == "original"}
+    fallback: tuple[str, list[dict], list[dict], set[str]] | None = None
+    chosen: tuple[str, list[dict], list[dict], set[str]] | None = None
     for fmt in wanted:
         audio = [f for f in files if f.get("format") == fmt]
         if not audio:
             continue
-        fmt_kept, fmt_excluded = _keep_and_exclude(files, audio)
+        fmt_kept, fmt_excluded, fmt_short = _keep_and_exclude(
+            files, audio, short_keep=short_keep, orig_tracks=orig_tracks)
         if fallback is None:
-            fallback = (fmt, fmt_kept, fmt_excluded)
+            fallback = (fmt, fmt_kept, fmt_excluded, fmt_short)
         if fmt_kept:
-            chosen = (fmt, fmt_kept, fmt_excluded)
+            chosen = (fmt, fmt_kept, fmt_excluded, fmt_short)
             break
-    matched, kept, excluded = chosen or fallback or ("", [], [])
+    matched, kept, excluded, short_kept = chosen or fallback or ("", [], [], set())
 
     kept, dup_excluded = _dedupe_duplicate_listings(kept)
     excluded = excluded + dup_excluded
@@ -262,8 +450,8 @@ def filter_files(
             kept = sorted(kept + back, key=lambda f: f["name"])
             excluded = [e for e in excluded if e["filename"] not in readmitted]
 
-    orig_tracks = {f["name"]: f.get("track") for f in files if f.get("source") == "original"}
     nums = [_track_number(f, orig_tracks) for f in kept]
+    short_kept_names = sorted({f["name"] for f in kept} & short_kept)
     # `readmitted` is the set this call ACTUALLY returned to `kept`, which is
     # NOT the same as the caller's `readmit` request: a name that was never
     # excluded (already kept, wrong format, or simply absent) re-admits
@@ -272,12 +460,13 @@ def filter_files(
     # would strip an already-kept file of its vote in gather's recording-level
     # gates, which is the exact defect those gates exist to prevent.
     ordering = {"order_source": "filename", "reordered": False, "format": matched,
-                "readmitted": sorted(readmitted)}
+                "readmitted": sorted(readmitted), "short_kept": short_kept_names}
     # Track-tag order only when complete and unique: per-disc numbering
     # restarts at 1, which makes duplicates ambiguous.
     if kept and all(n is not None for n in nums) and len(set(nums)) == len(nums):
         by_track = [f for _, f in sorted(zip(nums, kept), key=lambda p: p[0])]
         ordering = {"order_source": "track-tags", "reordered": by_track != kept,
-                    "format": matched, "readmitted": sorted(readmitted)}
+                    "format": matched, "readmitted": sorted(readmitted),
+                    "short_kept": short_kept_names}
         kept = by_track
     return kept, excluded, ordering

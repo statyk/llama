@@ -89,7 +89,14 @@ def _gd73_partly_blank():
 
 
 def _gd74_blank_ia():
+    """Windsor with tracks 4-6 blanked: sibling-align's shape. Without D3_T02:
+    since piece 4 keeps that 82 s `Weather Report Suite Part I >` (spec 1), the
+    28-file tape count-matches its own description and the whole-tape S rung
+    fills the blanks before sibling-align runs; the 27-file tape it was built
+    on cannot."""
     ia = gd74_ia()
+    ia.mapping[W_IDENT]["files"] = [f for f in ia.mapping[W_IDENT]["files"]
+                                    if not f["name"].startswith("GD_022474_D3_T02.")]
     for f in ia.mapping[W_IDENT]["files"]:
         if f["name"].endswith(("D1_T04.mp3", "D1_T05.mp3", "D1_T06.mp3")):
             f["title"] = None
@@ -113,6 +120,16 @@ def _gd73_gap():
     for f in md["files"]:
         if f["name"] in ("gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3"):
             f["title"] = None
+    return md
+
+
+def _furthur_without_short_tuning():
+    """furthur-2012-07-15 without its `10.tuningup.*` files: the 19-file tape the filter
+    kept before piece 4. Since piece 4 the mp3 copy (`tmp`, tagged under spec 2.2) is
+    kept and its FLAC original (`Tuning Up`, junk under 2.3) is not, so 20 mp3s face 19
+    FLACs; these C tests are about the 19-and-19 shape and build it explicitly."""
+    md = json.loads(FURTHUR.read_text())
+    md["files"] = [f for f in md["files"] if not f["name"].startswith("10.tuningup.")]
     return md
 
 
@@ -140,6 +157,10 @@ def _cases():
                      make_candidate(), IDENT),
         "short-tags": (tnd_ia, tnd_cand, T_IDENT),
         "furthur": (StubIA(json.loads(FURTHUR.read_text())), _furthur_candidate(), F_IDENT),
+        # The 19-file shape (no `10.tuningup.*`), where the format-sibling note fires: on
+        # the captured item piece 4 keeps the mp3 copy (spec 2.2) but not the FLAC one
+        # (2.3), and 20 mp3s against 19 FLACs file no note.
+        "furthur-19": (StubIA(_furthur_without_short_tuning()), _furthur_candidate(), F_IDENT),
         "rre": _rre(),
         "rre-joined": _rre(_rre_joined()),
     }
@@ -413,8 +434,9 @@ def test_overrides_survive_every_new_rung_and_anchor_check_3(tmp_path: Path):
 
 def _furthur_19():
     """furthur-2012-07-15 with its description cut to the tape: the fixture's list has a
-    second `Tuning Up` (20 entries) the 19 files lack, so it is no count-matched reference."""
-    md = json.loads(FURTHUR.read_text())
+    second `Tuning Up` (20 entries) the 19 files lack, so it is no count-matched reference.
+    (The 19 files: `_furthur_without_short_tuning`.)"""
+    md = _furthur_without_short_tuning()
     desc = md["metadata"]["description"]
     md["metadata"]["description"] = desc.replace("2nd Set (93:46)\n\nTuning Up\n",
                                                  "2nd Set (93:46)\n\n")
@@ -444,9 +466,10 @@ def test_c_changed_stems_leave_2b_and_fetch_and_notes(tmp_path: Path):
 
 
 def test_c_declines_without_a_reference_and_2b_stands(tmp_path: Path):
-    """The fixture as captured: 20 list entries against 19 files and no consistent tags, so
-    C1 is unconfirmed for the show; today's 2b demotions, note and fetch stand."""
-    ia = StubIA(json.loads(FURTHUR.read_text()))
+    """The fixture's 20 list entries against 19 files and no consistent tags, so C1 is
+    unconfirmed for the show; today's 2b demotions, note and fetch stand. (19 files: the
+    item without `10.tuningup.*`, see `_furthur_without_short_tuning`.)"""
+    ia = StubIA(_furthur_without_short_tuning())
     inp = _inputs_like_gather(ShowWorkspace(tmp_path / "s"), ia, _furthur_candidate(), F_IDENT)
     out = title_cascade(inp, enabled=ALL_SLICES)
     assert out.record.lossless.declined == "C1 unconfirmed" and out.record.lossless.changed == {}
