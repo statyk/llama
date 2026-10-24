@@ -41,6 +41,7 @@ class ReusePlan:
                                            # order, read at plan time; None when missing or unreadable
     library: dict[str, str]                # source filename -> packaged name (library manifest paired)
     station: dict[str, Path]               # source filename -> <station>/audio/<packaged name>
+    identifier: str | None = None          # the plan-time show.identifier; None without a show.json
 
 
 def _manifest_tracks(path: Path) -> list[tuple[str, str]] | None:
@@ -86,7 +87,8 @@ def plan_reuse(show_ws: ShowWorkspace, station_dir: Path | None) -> ReusePlan:
                    for src, name in _pair(show, _manifest_tracks(station_dir / "manifest.json")).items()}
     return ReusePlan(library_names=library_names,
                      library=_pair(show, library_tracks),
-                     station=station)
+                     station=station,
+                     identifier=show.identifier if show is not None else None)
 
 
 def _aside(show_ws: ShowWorkspace) -> Path:

@@ -22,12 +22,12 @@ from herder.usage import read_usage
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
+from llama.audio_reuse import plan_reuse
 from llama.catalog import library_performance_ids
 from llama.cli_select import ShowState
 from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
 from llama.download_slots import DownloadSlots
 from llama.errors import LlamaError
-from llama.audio_reuse import plan_reuse
 from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
 from llama.locks import Locked, RunMissing, file_lock, run_is_live, run_lock

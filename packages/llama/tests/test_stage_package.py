@@ -376,3 +376,29 @@ def test_an_aside_this_call_did_not_make_is_never_read(tmp_path, monkeypatch):
     ia = _repackage(ws, reuse_show(*old), plan)
     assert ia.downloads == ["b.mp3"]
     assert _sources(ws) == {"01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3"}
+
+
+def test_a_different_identifier_pairs_nothing_but_still_sets_the_old_audio_aside(tmp_path, monkeypatch):
+    # Review (Important 1): same file names, another archive.org item. Neither the library
+    # nor the station copy may be used, and no old-numbered file may be left in place.
+    import shutil
+    patch_fake_durations(monkeypatch)
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    station = tmp_path / "station" / ws.dir.name
+    shutil.copytree(ws.package_dir, station)
+    plan = plan_reuse(ws, station)
+    assert plan.identifier == "gd73" and plan.library and plan.station
+    drop_stage_artifacts(ws, "package")
+    new = reuse_show(*old).model_copy(update={"identifier": "gd73-other-taper"})
+    ia = ReuseIA({t.filename: t.duration_sec for t in new.tracks})
+    build_package(ws, ia, new, reuse=plan)
+    assert ia.downloads == ["a.mp3", "b.mp3"]
+    assert sorted(audio_files(ws)) == ["01 - A.mp3", "02 - B.mp3"]
+    assert not (ws.dir / ASIDE_DIR).exists() or sorted(
+        p.name for p in (ws.dir / ASIDE_DIR).iterdir()) == ["01 - A.mp3", "02 - B.mp3"]   # old audio, aside only
+
+
+def test_a_plan_without_a_show_json_has_no_identifier(tmp_path):
+    ws = ShowWorkspace(tmp_path / "shows" / "s")
+    assert plan_reuse(ws, None).identifier is None

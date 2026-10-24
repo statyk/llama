@@ -172,7 +172,8 @@ def reuse_gd73(tmp_path: Path, monkeypatch, old_tracks, *, delivery: bool = Fals
     return cfg, ws, ia
 
 
-def stub_stages(monkeypatch, new_tracks=None, *, hold: list[str] | None = None) -> None:
+def stub_stages(monkeypatch, new_tracks=None, *, hold: list[str] | None = None,
+                identifier: str | None = None) -> None:
     """Replace the pipeline's LLM/gather stages so a re-run re-packages for
     real: gather writes `reuse_show(*new_tracks)` (held with `hold` flags when
     given), research and vet do nothing, brief writes a briefing."""
@@ -183,6 +184,8 @@ def stub_stages(monkeypatch, new_tracks=None, *, hold: list[str] | None = None) 
         if show_ws.show.exists():                      # as should_run: an existing show.json stands
             return read_model(show_ws.show, Show)
         show = reuse_show(*new_tracks)
+        if identifier:
+            show = show.model_copy(update={"identifier": identifier})
         if hold:
             show = show.model_copy(update={"needs_review": True, "review_flags": list(hold)})
         write_artifact(show_ws.show, show)

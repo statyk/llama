@@ -60,6 +60,10 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
     md5s = {f["name"]: f.get("md5") for f in files}
 
     if reuse is not None:
+        if reuse.identifier is not None and reuse.identifier != show.identifier:
+            # A different archive.org item: file names may match, the audio is another
+            # taper's. Nothing old is paired; the old audio is still set aside below.
+            reuse = replace(reuse, library={}, station={})
         names = [packaged_filename(t.index, t.title, Path(t.filename).suffix) for t in show.tracks]
         # In place only when every name AND the source paired under it are unchanged.
         in_place = (reuse.library_names is not None and list(reuse.library_names) == names

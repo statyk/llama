@@ -789,3 +789,16 @@ def test_redo_from_gather_reuses_library_audio_after_an_insertion(tmp_path, monk
     assert {n: fake_source(ws.package_dir / "audio" / n) for n in names} == {
         "01 - Crowd.mp3": "s.mp3", "02 - A.mp3": "a.mp3", "03 - B.mp3": "b.mp3"}
     assert not (ws.dir / ".audio-aside").exists()
+
+
+def test_redo_that_picks_another_item_with_the_same_file_names_ships_no_old_audio(tmp_path, monkeypatch):
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    cfg, ws, ia = reuse_gd73(tmp_path, monkeypatch, old)
+    old_bytes = set(audio_files(ws).values())
+    stub_stages(monkeypatch, old, identifier="gd73-other-taper")
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "gather"])
+    assert r.exit_code == 0, r.output
+    assert ia.downloads == ["a.mp3", "b.mp3"]              # every track fetched from the new item
+    new = audio_files(ws)
+    assert sorted(new) == ["01 - A.mp3", "02 - B.mp3"] and not (set(new.values()) & old_bytes)
+    assert not (ws.dir / ".audio-aside").exists()

@@ -1230,6 +1230,32 @@ def test_reapply_dry_run_leaves_a_leftover_aside(tmp_path, monkeypatch):
     out = _run(config, ledger, entry, dry_run=True)
     assert out.outcome.startswith("dry-run")
     assert (aside / "01 - OLD.mp3").read_bytes() == b"old"
+    # a real apply deletes it at entry, as show_unit does: a failure after that never
+    # puts the leftover's file into package/audio/
+    real_write = reapply_mod.write_artifact
+
+    def fail_on_show(path, data):
+        if path == entry.ws.show:
+            raise OSError("disk full")
+        return real_write(path, data)
+    monkeypatch.setattr(reapply_mod, "write_artifact", fail_on_show)
     _stub_package(monkeypatch)
-    _run(config, ledger, entry)                        # a real apply deletes it, as show_unit does
+    with pytest.raises(OSError, match="disk full"):
+        _run(config, ledger, entry)
     assert not aside.exists()
+    audio = entry.ws.package_dir / "audio"
+    assert not (audio / "01 - OLD.mp3").exists()
+
+
+def test_reapply_refuses_when_a_leftover_aside_cannot_be_removed(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    aside = entry.ws.dir / ".audio-aside"
+    aside.mkdir()
+    (aside / "01 - OLD.mp3").write_bytes(b"old")
+    monkeypatch.setattr(reapply_mod, "discard_aside", lambda ws: None)   # removal fails
+    _stub_package(monkeypatch)
+    before = _snapshot(entry.ws)
+    with pytest.raises(LlamaError, match="cannot remove leftover audio aside"):
+        _run(config, ledger, entry)
+    assert (aside / "01 - OLD.mp3").read_bytes() == b"old"
+    assert not (entry.ws.package_dir / "audio" / "01 - OLD.mp3").exists()

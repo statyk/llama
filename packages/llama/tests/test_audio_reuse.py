@@ -39,7 +39,8 @@ def test_plan_pairs_library_and_station_by_index(tmp_path, monkeypatch):
         library={"a.mp3": "01 - A.mp3", "b.mp3": "02 - B.mp3", "x.mp3": "03 - X.mp3"},
         station={"a.mp3": station / "audio" / "01 - A.mp3",
                  "b.mp3": station / "audio" / "02 - B.mp3",
-                 "x.mp3": station / "audio" / "03 - X.mp3"})
+                 "x.mp3": station / "audio" / "03 - X.mp3"},
+        identifier="gd73")
     assert plan_reuse(ws, None).station == {}
 
 

@@ -19,7 +19,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
-from llama.audio_reuse import discard_aside, plan_reuse, put_back
+from llama.audio_reuse import ASIDE_DIR, discard_aside, plan_reuse, put_back
 from llama.catalog import CatalogEntry
 from llama.config import Config
 from llama.errors import LlamaError
@@ -145,6 +145,8 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
         # deleted at entry, as `show_unit` does; the plan pairs the stored
         # show.json and manifest, both still in place.
         discard_aside(ws)
+        if (ws.dir / ASIDE_DIR).exists():
+            raise LlamaError(f"{slug}: cannot remove leftover audio aside {ws.dir / ASIDE_DIR}")
         reuse = plan_reuse(ws, config.delivery_path / ws.dir.name if config.delivery_path else None)
         audio_dir = ws.package_dir / "audio"
         kept_audio = {p.name for p in audio_dir.iterdir() if p.is_file()} if audio_dir.is_dir() else set()
