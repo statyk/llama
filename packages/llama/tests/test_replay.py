@@ -946,3 +946,147 @@ def test_guard_still_runs_on_reuse():  # (pin)
     new = old.model_copy(update={"tracks": tracks})
     bad = _reuse_briefing().model_copy(update={"mentioned_songs": ["Nope"]})
     assert briefing_reusable(old, new, bad, "full").startswith("briefing guard: briefing mentions unknown song: Nope")
+
+
+# --- Task 15a: reuse refuses a briefing that mentions a restored file (operator ruling,
+# Checkpoint B, premise 4) ---
+
+_RESTORED = "gd76-07-18d3t04.mp3"
+
+
+def _restored_pair(fn=_RESTORED, stored_has_it=False):
+    """(stored, new): `fn` is a short-kept insertion in the new show; with
+    `stored_has_it` the stored show already carried it as a track (the 173 case)."""
+    old = _show()
+    short = _bt(2, fn, "St. Stephen", "1", short_kept=True)
+    tracks = [old.tracks[0], short,
+              old.tracks[1].model_copy(update={"index": 3}), old.tracks[2].model_copy(update={"index": 4})]
+    new = old.model_copy(update={"tracks": tracks})
+    if stored_has_it:
+        old = old.model_copy(update={"tracks": [t.model_copy(update={"short_kept": False}) for t in tracks]})
+    return old, new
+
+
+def _with_caution(text):
+    return _reuse_briefing().model_copy(update={"cautions": [text]})
+
+
+def test_restored_file_named_in_cautions_refuses():
+    old, new = _restored_pair()
+    b = _with_caution("A second file, gd76-07-18d3t04.mp3, sits where the reprise belongs.")
+    reason = briefing_reusable(old, new, b, "full")
+    assert reason == "briefing mentions a restored file: names gd76-07-18d3t04.mp3 in cautions"
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") is None   # control
+
+
+@pytest.mark.parametrize("text", [
+    "File gd76-07-18d3t04 holds the reprise.",                # the stem, no extension
+    "The reprise sits in d3t04.",                             # the d-t shorthand
+    "Two short files (d3t03, d3t04) sit between the songs.",
+    "The reprise is on disc 3, track 4 of the tape.",
+    "See D3_T04 for the reprise.",
+])
+def test_restored_file_stem_and_shorthand_refuse(text):
+    old, new = _restored_pair()
+    assert briefing_reusable(old, new, _with_caution(text), "full").startswith(
+        "briefing mentions a restored file: names gd76-07-18d3t04.mp3 in cautions")
+
+
+def test_a_bare_track_tail_refuses():
+    old, new = _restored_pair(fn="soulive2009-09-12t14.mp3")
+    b = _with_caution("The morph is file t14 on the archive page.")
+    assert briefing_reusable(old, new, b, "full") == \
+        "briefing mentions a restored file: names soulive2009-09-12t14.mp3 in cautions"
+
+
+@pytest.mark.parametrize("text, term", [
+    ("Two files were excluded from the show data.", "excluded"),
+    ("One file was dropped as implausibly short.", "implausibly short"),
+    ("A 31-second opening file is too short to be a song.", "too short"),
+    ("Two short files were left out of this track list.", "left out"),
+    ("A 31-second opening file was left off the program.", "left out"),
+    ("The show data leaves out three short archive tracks.", "left out"),
+    ("The supplied track list omits Supplication.", "omitted"),
+    ("Supplication is absent from the supplied track list.", "absent"),
+    ("The drum passages are not present as separate tracks.", "not present"),
+    ("The reprise is missing here.", "missing"),
+    ("Two files were dropped from the track list.", "dropped"),
+    ("The tease is not represented as a track in this listing.", "not represented"),
+    ("Three short files are not part of the setlist.", "not part of"),
+    ("A reprise was played, but it is not a titled track in the recording data.", "not a track"),
+    ("The drums are not separate tracks here.", "not a track"),
+    ("Fifteen tracks as recorded.", "track count"),
+    ("Set 2 has 15 tracks.", "track count"),
+    ("It runs 26 songs, a 5-song encore.", "track count"),
+    ("Twenty-one songs in the main set.", "track count"),
+    ("The main set covers tracks 1 through 14 of the recording.", "track count"),
+])
+def test_each_absence_wording_refuses(text, term):
+    old, new = _restored_pair()
+    assert briefing_reusable(old, new, _with_caution(text), "full") == \
+        f"briefing mentions a restored file: says '{term}' in cautions"
+
+
+def test_wording_refuses_anywhere_not_only_about_the_restored_file():
+    # the conservative choice: the wording need not be about the restored file
+    old, new = _restored_pair()
+    b = _with_caution("The encore is missing from every circulating tape.")
+    assert briefing_reusable(old, new, b, "full") == \
+        "briefing mentions a restored file: says 'missing' in cautions"
+
+
+def test_a_briefing_mentioning_neither_still_reuses():  # (pin)
+    old, new = _restored_pair()
+    b = _reuse_briefing().model_copy(update={
+        "context": "The band played the Fillmore.", "cautions": ["Research is thin.",
+        "The recording includes a short intro track before the set's music begins."]})
+    assert briefing_reusable(old, new, b, "full") is None
+
+
+def test_an_already_kept_short_file_does_not_trigger_the_gate():  # (pin)
+    # the file was a track in the stored show, so the brief saw it: not restored
+    old, new = _restored_pair(stored_has_it=True)
+    b = _with_caution("gd76-07-18d3t04.mp3 is implausibly short; the drums are missing.")
+    assert briefing_reusable(old, new, b, "full") is None
+
+
+def test_no_restored_file_is_todays_rule():  # (pin)
+    old = _show()
+    b = _with_caution("Two files were excluded as implausibly short; d3t04 is missing.")
+    assert briefing_reusable(old, old, b, "full") is None
+    # and the earlier reasons still come first, unchanged
+    old2, new2 = _restored_pair()
+    moved = new2.model_copy(update={"venue": "W"})
+    assert briefing_reusable(old2, moved, b, "full") == "broadcast fields changed: venue"
+
+
+def test_the_gate_is_case_insensitive():
+    old, new = _restored_pair(fn="GD_022474_D3_T02.mp3")
+    for text in ("See gd_022474_d3_t02.MP3.", "Dropped as IMPLAUSIBLY SHORT.", "File d3t02 holds it."):
+        assert briefing_reusable(old, new, _with_caution(text), "full").startswith(
+            "briefing mentions a restored file"), text
+
+
+@pytest.mark.parametrize("update, field", [
+    ({"context": "Its file gd76-07-18d3t04.mp3 is short."}, "context"),
+    ({"significance": "Its file gd76-07-18d3t04.mp3 is short."}, "significance"),
+    ({"per_set": {"1": ["Its file gd76-07-18d3t04.mp3 is short."], "2": ["y"]}}, "per_set"),
+    ({"per_set": {"1": ["x"], "gd76-07-18d3t04.mp3": ["y"]}}, "per_set"),
+    ({"notable_moments": ["Its file gd76-07-18d3t04.mp3 is short."]}, "notable_moments"),
+    ({"review_sentiment": "Its file gd76-07-18d3t04.mp3 is short."}, "review_sentiment"),
+    ({"cautions": ["Its file gd76-07-18d3t04.mp3 is short."]}, "cautions"),
+    ({"mentioned_songs": ["gd76-07-18d3t04.mp3"]}, "mentioned_songs"),
+])
+def test_every_text_field_is_read(update, field):
+    from llama.replay import _restored_file_mention
+    b = _reuse_briefing().model_copy(update=update)
+    assert _restored_file_mention(b, [_RESTORED]) == \
+        f"briefing mentions a restored file: names {_RESTORED} in {field}"
+
+
+def test_the_scanned_fields_are_every_text_field_of_briefing():  # (pin)
+    from llama.replay import BRIEFING_TEXT_FIELDS, _briefing_texts
+    assert set(BRIEFING_TEXT_FIELDS) == set(Briefing.model_fields) - {"narration", "non_attendee_sentiment"}
+    full = Briefing(context="c", significance="s", per_set={"1": ["x"]}, notable_moments=["m"],
+                    review_sentiment="r", cautions=["k"], mentioned_songs=["Dew"])
+    assert {f for f, _ in _briefing_texts(full)} == set(BRIEFING_TEXT_FIELDS)

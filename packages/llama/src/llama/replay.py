@@ -10,6 +10,7 @@ import dataclasses
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -20,6 +21,7 @@ from llama.catalog import derive_state
 from llama.config import Config
 from llama import title_hygiene
 from llama.errors import LlamaError
+from llama.junk import basename_without_extension
 from llama.models import Briefing, Overrides, Provenance, Show, VettingResult
 from llama.setlistfm import _pick, cache_key
 from llama.stages import brief as brief_stage, package as package_stage
@@ -237,12 +239,116 @@ def _structure_changed(diff: dict) -> bool:
                 or diff["set_breaks"] or diff["alignment"])
 
 
+# --- Task 15a: a stored briefing that mentions a restored file is never reused ---
+# Operator ruling, Checkpoint B (premise 4): `run_brief` passed the whole show.json,
+# `excluded_files` ("implausibly short") included, so a stored briefing written before a
+# short file was restored routinely says that file is absent. `briefing_guard` checks
+# no file-presence claim, so reuse would ship that claim on air. A false "not reusable"
+# costs one brief call; a false "reusable" ships a false claim: every match refuses.
+
+# Every text field of `Briefing` (narration is stamped, non_attendee_sentiment a bool);
+# a test pins this against the model so a new field cannot go unread.
+BRIEFING_TEXT_FIELDS = ("context", "significance", "per_set", "notable_moments",
+                        "review_sentiment", "cautions", "mentioned_songs")
+
+_COUNT_NUM = (r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen"
+              r"|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty"
+              r"|sixty)(?:[\s-]+(?:one|two|three|four|five|six|seven|eight|nine))?")
+
+# Exclusion/absence wording, matched ANYWHERE in the briefing (not only near a restored
+# file's name): the conservative reading of the ruling, measured in the Task 15a report.
+# Checked in this order; the first that fires names the reason.
+_RESTORED_WORDING = tuple((term, re.compile(p)) for term, p in (
+    ("excluded", r"\bexclu(?:de|ded|des|ding|sion|sions)\b"),
+    ("implausibly short", r"\bimplausibl[ey]\s+short\b"),
+    ("too short", r"\btoo\s+short\b"),
+    ("left out", r"\b(?:left|leaves?|leaving)\s+(?:out|off)\b"),
+    ("omitted", r"\bomi(?:t|ts|tted|tting|ssion|ssions)\b"),
+    ("absent", r"\babsen(?:t|ce)\b"),
+    ("not present", r"\bnot\s+present\b"),
+    ("missing", r"\bmissing\b"),
+    ("dropped", r"\bdropp(?:ed|ing)\b"),
+    ("not represented", r"\bnot\s+represented\b"),
+    ("not part of", r"\bnot\s+part\s+of\b"),
+    ("not a track", r"\bnot\s+(?:a\s+|as\s+(?:a\s+)?|its\s+own\s+)?"
+                    r"(?:separate\s+|titled\s+|distinct\s+|individual\s+)?tracks?\b"),
+    # a count or a numbered range of tracks/songs/files: a restoration changes it
+    ("track count", rf"\b{_COUNT_NUM}[\s-]+(?:tracks|songs|files)\b|\b{_COUNT_NUM}-(?:track|song|file)\b"
+                    r"|\btracks?\s+\d+\s*(?:-|–|—|to|through|thru)\s*\d+"),
+))
+
+# A filename's disc/track tail (`d3t04`, `s2t01`, `D3_T02`, `t14`, `track01`).
+_TRACK_TAIL = re.compile(r"(?:(?:disc|disk|cd|set|d|s)[-_ ]?0*(\d+)[-_ ]?)?t(?:rack)?[-_ ]?0*(\d+)(?!\d)")
+
+
+def _briefing_texts(b: Briefing) -> list[tuple[str, str]]:
+    """(field, lowercased text) for every text field of `b`, per_set keys included."""
+    out = [("context", b.context), ("significance", b.significance)]
+    for key, points in b.per_set.items():
+        out += [("per_set", key)] + [("per_set", p) for p in points]
+    out += [("notable_moments", x) for x in b.notable_moments]
+    out += [("review_sentiment", b.review_sentiment)]
+    out += [("cautions", x) for x in b.cautions]
+    out += [("mentioned_songs", x) for x in b.mentioned_songs]
+    return [(f, t.lower()) for f, t in out]
+
+
+def _name_patterns(filename: str) -> list[re.Pattern]:
+    """How a briefing may name `filename`: the basename, its stem, and the stem's
+    disc/track tail as shorthand (`d3t04`, `disc 3, track 4`, a bare `t04`)."""
+    base = filename.rsplit("/", 1)[-1].lower()
+    stem = basename_without_extension(filename).lower()
+    pats = [re.compile(re.escape(base)), re.compile(re.escape(stem))]
+    for m in _TRACK_TAIL.finditer(stem):
+        disc, track = m.group(1), m.group(2)
+        if disc is not None:
+            pats.append(re.compile(rf"(?<![a-z0-9])(?:disc|disk|cd|set|d|s)\s*[-_ ]?0*{disc}"
+                                   rf"\s*[-_ ]?t(?:rack)?\s*[-_ ]?0*{track}(?!\d)"))
+            pats.append(re.compile(rf"\bdis[ck]\s*0*{disc}\W{{0,3}}track\s*0*{track}(?!\d)"))
+        pats.append(re.compile(rf"(?<![a-z0-9])t0*{track}(?!\d)"))
+    return pats
+
+
+def _restored_mentions(briefing: Briefing, restored: list[str]) -> list[tuple[str, str, str]]:
+    """Every way `briefing` mentions the restored files, in check order, as
+    (kind, what, field): ("names", filename, field) per file then
+    ("says", term, field) per wording term, each once at its first field."""
+    texts = _briefing_texts(briefing)
+    hits = []
+    for fn in restored:
+        pats = _name_patterns(fn)
+        field = next((f for f, t in texts if any(p.search(t) for p in pats)), None)
+        if field is not None:
+            hits.append(("names", fn, field))
+    for term, pat in _RESTORED_WORDING:
+        field = next((f for f, t in texts if pat.search(t)), None)
+        if field is not None:
+            hits.append(("says", term, field))
+    return hits
+
+
+def _restored_file_mention(briefing: Briefing, restored: list[str]) -> str | None:
+    """The Task 15a refusal, or None: the first mention `_restored_mentions` finds."""
+    hits = _restored_mentions(briefing, restored) if restored else []
+    if not hits:
+        return None
+    kind, what, field = hits[0]
+    what = what if kind == "names" else f"'{what}'"
+    return f"briefing mentions a restored file: {kind} {what} in {field}"
+
+
 def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
                       narration: str) -> str | None:
     """Spec slice 6 step 3, the reuse rule: None when the stored briefing can
     ship with `new_show`; else the first failing reason. Broadcast fields are
     per-track titles, sets and segues, set_breaks, date, venue, city
-    (title_source is not one: the briefing never sees it)."""
+    (title_source is not one: the briefing never sees it).
+
+    Last (Task 15a, operator ruling at Checkpoint B): when the new show has a
+    restored file (a `short_kept` track whose filename is not among the stored
+    show's tracks), a briefing naming one or using exclusion/absence wording
+    anywhere is refused (`_restored_file_mention`). With none, the rule is
+    unchanged."""
     o, n = stored_show, new_show
     short = {t.filename for t in n.tracks if t.short_kept}   # spec 5.3: dropped on both sides
     ot = [t for t in o.tracks if t.filename not in short]
@@ -274,7 +380,9 @@ def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
     problems = briefing_guard(normalize_briefing(briefing), new_show)   # 3a: guard the shipped form
     if problems:
         return f"briefing guard: {'; '.join(problems)}"
-    return None
+    stored_names = {t.filename for t in o.tracks}
+    restored = [t.filename for t in n.tracks if t.short_kept and t.filename not in stored_names]
+    return _restored_file_mention(briefing, restored)
 
 
 def _read_briefing(ws: ShowWorkspace) -> Briefing:
