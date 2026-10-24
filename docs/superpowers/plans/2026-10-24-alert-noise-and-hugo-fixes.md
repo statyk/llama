@@ -37,7 +37,7 @@
 ## Review Focus
 
 1. **antenna deploy over an `alerts.json` written by the old Worker** (entries with no `streak`, an active gated episode mid-flight). Expected: a missing streak reads as 0; the episode continues active (no new alert, no "resolved"); its next due repeat waits for 3 consecutive presences. Test: Task 1 `M. an entry from before the gate continues; its due repeat waits for GATE presences`.
-2. **A gated antenna key's first alert whose email AND relay write both fail.** Expected: the entry stays undelivered and the next minute retries it at once (its streak is already at `GATE`), never re-gated for 3 more minutes. Test: Task 2 `a gated alert whose email and relay both failed is retried the next minute, not re-gated`.
+2. **A gated antenna key's first alert whose email AND relay write both fail.** Expected: the entry stays undelivered and the next minute it is present retries it at once, never re-gated for 3 more minutes, even when the first alert came from an immediate branch (streak below `GATE`) or a clean minute reset the streak in between. Tests: Task 2 below, plus Task 1 test R (an immediate `metronome-down` stall alert, both channels failed, then a non-immediate `metronome-down` next minute: resent at once) and Task 3 `test_an_undelivered_first_message_is_resent_without_the_gate`. Test: Task 2 `a gated alert whose email and relay both failed is retried the next minute, not re-gated`.
 3. **The relay object recreated with a new stream while hugo's cursor sits at a high seq** (corrupt overwrite or a hand delete). Expected: hugo restarts at seq 0 in the new stream and sends the new stream's messages younger than 1 h. Test: Task 5 `test_a_stream_change_restarts_at_seq_0_in_the_new_stream`.
 4. **Clock skew between antenna and hugo, and a garbled `at`.** Expected: an `at` in the future is younger than `RELAY_MAX_AGE` and is sent; an unparseable `at` is skipped with one WARNING and the cursor advances past it (no wedge). Test: Task 5 `test_an_at_in_the_future_is_sent_and_an_unparseable_at_is_skipped_and_advanced`.
 5. **A transmitter restart mid-episode** (an active gated code on disk, in-process streaks gone). Expected: after the restart a fire inside the still-active episode sends nothing until 3 consecutive observations rebuild the streak; the entry stays active; a level code still resolves aloud. Test: Task 3 `test_after_a_restart_an_active_episode_continues_without_a_send_until_the_streak_rebuilds`.
@@ -213,6 +213,12 @@ it("Q. a failed \"resolved\" restores the entry without its streak, so the clean
   // (held: streak 1); dispatchAlerts(bucket, [broken], [], at(1), REPEAT, DONE) -> { sent: 0, failed: 1 };
   // bucket.json(ALERTS_KEY)["waf-api"] equals live (no `streak`); a presence at at(2) stores streak 1, not 2
 });
+
+it("R. an undelivered immediate first alert is resent at once by a non-immediate presence, never re-gated", async () => {
+  // at(0): metronome-down with immediate: true, channels [broken] and the relay write failing -> alert planned, undelivered
+  // at(1): metronome-down WITHOUT immediate (streak 2 < GATE), working channel -> one send (kind "repeat"), body carries
+  //        no gate note (the episode began immediate); never held
+});
 ```
 
 (`iso = (ms: number) => new Date(ms).toISOString()`.)
@@ -258,7 +264,8 @@ present loop, per condition c (first occurrence only, as today):
                (no send)
     else:      next = fresh active entry as today (no `pending`), plus streak when gated; send "alert";
                message = noted(c)
-  else if repeat due && !held: repeat as today (+ streak);
+  else if repeat due && (!held || (e.last_sent_at === null && !wasDelivered(e))): repeat as today (+ streak);
+               // an episode's undelivered first message is resent at once, never re-gated (operator-side ruling 2026-10-24)
                message = e.last_sent_at === null && !wasDelivered(e) ? noted(c) : c.message   // a retried first message
   else: continuing as today (+ streak)                     // a held due repeat lands here: no send
 noted(c) = gated(c) && !c.immediate ? `${c.message} (Alerted after ${GATE} consecutive failing minutes.)` : c.message
@@ -496,6 +503,10 @@ def test_a_retried_first_message_keeps_the_gate_note(tmp_path):
     # a failing channel on the third observation -> nothing delivered; the next fire+obs with a working channel
     # sends once and its body still says "3 consecutive"
 
+def test_an_undelivered_first_message_is_resent_without_the_gate(tmp_path):
+    # streak reaches GATE with a failing channel -> episode active, last_sent_at None; a clean observation resets
+    # the streak; the next fire (streak 1) with a working channel sends at once
+
 def test_the_send_decision_is_made_at_the_first_fire_with_its_message(tmp_path):
     # third observation: fire("publish", "A") then fire("publish", "B") -> rec.sent[0][1].startswith("A")
 
@@ -566,7 +577,8 @@ self._fired[observer].add(code); self._streak[code] = self._streak.get(code, 0) 
 gate_ok = self._streak[code] >= GATE
 episode_starts = not entry.get("active") or _expired(code, entry, now, self.repeat_s)
 if episode_starts and not gate_ok: return                # pending: nothing written, not active
-... today's path, except: a due send happens only if gate_ok; every message of a gated episode with no
+... today's path, except: a due send happens only if gate_ok, or when the active episode has no successful
+    send yet (last is None: its undelivered first message is resent, never re-gated); every message of a gated episode with no
     successful send yet (last is None, a retried first message included) appends
     f"\n\n(alerted after {GATE} consecutive failures)"
 ```
