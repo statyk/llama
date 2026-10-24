@@ -25,7 +25,8 @@ after an outage (or starting with no cursor), from paging the operator with a
 backlog of stale alerts. The cursor advances past every message the pass
 handled: sent; refused by ntfy with a 4xx other than 429 (one WARNING with the
 status); skipped for age (one INFO line, once, since the cursor then moves past
-it); or unusable (a field not a string, an unparseable `at`: one WARNING). On
+it); or unusable (a field not a string, an unparseable `at`, or a ValueError
+from the channel itself, which is local and deterministic: one WARNING). On
 429, 5xx, a redirect or a transport error the pass stops, and the next pass
 retries from that message. A pass sends for at most `RELAY_PASS_BUDGET_S`
 (checked before each send, so one more send's timeout can follow); the rest
@@ -87,16 +88,24 @@ def format_message(m: dict, station: str) -> tuple[str, str, int, str]:
     """(subject, body, priority, tags) for one relayed message. A "resolved"
     is priority 3 with the check mark whatever its priority says; any other
     kind maps its priority (an unknown one reads as default), so a
-    default-priority alert never carries the check mark."""
+    default-priority alert never carries the check mark. The subject goes
+    into ntfy's Title header, so CR and LF become spaces (http.client refuses
+    them); subject and body are made UTF-8-encodable."""
     if m["kind"] == "resolved":
         prefix, priority, tags = "resolved: ", 3, RESOLVED_TAGS
     else:
         prefix = ""
         priority = PRIORITY.get(m["priority"], PRIORITY["default"])
         tags = TAGS.get(m["priority"], TAGS["default"])
-    subject = f"{station}: {prefix}{m['title']}"
+    subject = f"{station}: {prefix}{m['title']}".replace("\r", " ").replace("\n", " ")
     body = f"{m['message']}\n\n-- relayed from antenna ({m['key']}, {m['at']})"
-    return subject, body, priority, tags
+    return _encodable(subject), _encodable(body), priority, tags
+
+
+def _encodable(text: str) -> str:
+    """`text` with anything UTF-8 cannot encode (a lone surrogate, valid in
+    JSON as `\\ud800`) replaced by `?`, so the channel's encode never raises."""
+    return text.encode("utf-8", "replace").decode("utf-8")
 
 
 def _parse_at(at: str) -> float:
@@ -185,6 +194,14 @@ class Relay:
                 log.warning("relay stopped at %d (%s): ntfy HTTP %d; the next pass retries it", seq, m["key"],
                             exc.code)
                 break
+            except ValueError as exc:               # local and deterministic (a header or encoding the
+                # channel refuses, incl. UnicodeError): this message can never be
+                # sent, so skip it like a 4xx rather than wedge every later one.
+                # (HTTPError, URLError and OSError are not ValueErrors.)
+                log.warning("relayed alert %d (%s) skipped: the ntfy channel refused it: %s: %s", seq, m["key"],
+                            type(exc).__name__, exc)
+                handled = seq
+                continue
             except Exception as exc:                # transport, a redirect (OSError), anything else: retry later
                 log.warning("relay stopped at %d (%s): %s: %s; the next pass retries it", seq, m["key"],
                             type(exc).__name__, exc)

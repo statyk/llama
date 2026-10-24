@@ -335,3 +335,81 @@ def test_the_relay_bypasses_the_dispatcher(tmp_path):
         assert rec.sent == [] and not (tmp_path / "alerts.json").exists()
     finally:
         alerts.configure(None)
+
+
+# ---- fix round 1 (I1): a message ntfy can never accept is skipped, never a wedge ----
+
+class _NtfyServer:
+    """A local stand-in for ntfy (127.0.0.1, an ephemeral port): records each
+    POST's Title, Tags and body and answers 200. The real NtfyChannel and
+    http.client run end to end, so a header http.client refuses is exercised."""
+
+    def __init__(self):
+        import http.server
+        import threading
+
+        received = self.received = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers["Content-Length"]))
+                received.append((self.headers["Title"], self.headers["Tags"], body.decode()))
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+
+        self.httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}/t"
+        self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
+        self.thread.start()
+
+    def close(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+
+
+@pytest.fixture
+def ntfy_server():
+    server = _NtfyServer()
+    yield server
+    server.close()
+
+
+def test_a_title_with_a_newline_is_cleaned_and_sent_and_so_is_the_next(tmp_path, ntfy_server):
+    channel = alerts.NtfyChannel(ntfy_server.url)
+    source = Source(doc("s", msg(1, NOW - 20, title="bad\ntitle\r\nhere"), msg(2, NOW - 10, title="good")))
+    r, _ = _relay(tmp_path, source, channel)
+    r.run_pass()
+    assert [t for t, *_ in ntfy_server.received] == ["llama radio: bad title  here", "llama radio: good"]
+    assert r.cursor == Cursor("s", 2)
+
+
+def test_a_lone_surrogate_is_sent_without_wedging(tmp_path, ntfy_server):
+    channel = alerts.NtfyChannel(ntfy_server.url)
+    source = Source(doc("s", msg(1, NOW - 20, title="x\ud800", message="m\udfff", key="k\udc00"),
+                        msg(2, NOW - 10, title="good")))
+    r, _ = _relay(tmp_path, source, channel)
+    r.run_pass()
+    assert len(ntfy_server.received) == 2 and r.cursor == Cursor("s", 2)
+    title, _, body = ntfy_server.received[0]
+    assert title == "llama radio: x?" and body.startswith("m?")
+
+
+def test_format_message_output_is_header_safe_and_encodable():
+    s, body, _, _ = relay.format_message(msg(1, title="a\rb\nc", message="m\ud800"), "st\n1")
+    assert "\r" not in s and "\n" not in s and s == "st 1: a b c"
+    s.encode("utf-8")
+    body.encode("utf-8")
+
+
+@pytest.mark.parametrize("failure", [ValueError("Invalid header value b'x\\ny'"),
+                                     UnicodeEncodeError("utf-8", "\ud800", 0, 1, "surrogates not allowed")])
+def test_a_value_error_from_the_channel_skips_that_message_with_a_warning(tmp_path, caplog, failure):
+    r, ntfy = _relay(tmp_path, Source(doc("s", msg(1, NOW - 20), msg(2, NOW - 10))), FakeNtfy([failure]))
+    with caplog.at_level(logging.WARNING, logger="transmitter.relay"):
+        r.run_pass()
+    warnings = [rec.getMessage() for rec in caplog.records if rec.levelno == logging.WARNING]
+    assert len(warnings) == 1 and "relayed alert 1 " in warnings[0] and "stopped" not in warnings[0]
+    assert ntfy.subjects() == ["llama radio: T2"] and r.cursor == Cursor("s", 2)
