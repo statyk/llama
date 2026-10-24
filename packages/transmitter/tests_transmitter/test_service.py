@@ -827,3 +827,15 @@ def test_status_cloud_line_omits_a_pending_antenna_entry(tmp_path):
                     "first_at": "2026-10-24T00:00:00.000Z", "last_sent_at": None, "cleared_at": None,
                     "streak": 2}}}), NOW)
     assert "alerts     cloud: none" in lines
+
+
+def test_the_runner_wires_its_notify_into_the_station(tmp_path):
+    st, _ = make_station(tmp_path)
+    rec = lambda m: True  # noqa: E731
+    service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, notify=rec)
+    assert st.notify is rec
+    st2, _ = make_station(tmp_path / "two")
+    own = lambda m: True  # noqa: E731
+    st2.notify = own
+    service.Runner(st2, _publisher(st2, FakeBucket()), sleep=lambda s: None, notify=rec)
+    assert st2.notify is own

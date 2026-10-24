@@ -43,7 +43,13 @@ def test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stop
     assert sent[0] == "READY=1" and sent[-1] == "STOPPING=1"
     # plan; render (one show encode, then the step FAILS: no clock is injected and helpers.E
     # is far in the future -- fine, the step's ping sits in `finally`); publish and its one batch.
-    assert sent.count("WATCHDOG=1") == 5
+    # plus one ping per analysis made through Station.frames_of (the plan step). The render
+    # step's own analyze of the show it encodes (pipeline.render_step) is not routed through
+    # frames_of, so it adds no ping: of the engine's analyses, exactly the plan's count.
+    assert len(st.engine.analyzed) >= 1
+    plan_analyses = len(st.engine.analyzed) - len(st.engine.encoded)
+    assert plan_analyses >= 1
+    assert sent.count("WATCHDOG=1") == 5 + plan_analyses
 
 
 def test_publish_all_feeds_the_watchdog_after_every_batch(tmp_path, monkeypatch):

@@ -75,6 +75,7 @@ class Station:
     engine: Engine
     scan: Scanner | None = None
     log: Callable[[str], None] = print
+    notify: Callable[[str], object] | None = None   # the service's sd_notify; fed during long plan steps
 
     def scan_now(self, now_us: int) -> list[Show]:
         """Eligible shows; raises StationRootError when the root is unusable."""
@@ -103,7 +104,12 @@ class Station:
         return (self.epoch.index_at(now_us + self.lead_us) + 2) * SEGMENT_FRAMES
 
     def frames_of(self, show: Show) -> int:
-        return self.planned_frames(self.engine.analyze(show))
+        try:
+            analysis = self.engine.analyze(show)
+        finally:
+            if self.notify is not None:
+                self.notify("WATCHDOG=1")   # a plan over many unanalysed shows must not outlast WatchdogSec
+        return self.planned_frames(analysis)
 
     def planned_frames(self, analysis: ShowAnalysis) -> int:
         """The frame count the current config and encoder give this analysis."""

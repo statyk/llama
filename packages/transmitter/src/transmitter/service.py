@@ -210,6 +210,8 @@ class Runner:
                  monitor: MonitorLoop | None = None, notify: Callable[[str], object] = sdnotify.notify):
         self.st, self.p, self.clock, self.sleep, self.tick_s = st, p, clock, sleep, tick_s
         self.monitor, self.notify = monitor, notify
+        if st.notify is None:
+            st.notify = notify
         self.filling = False
         self.held = HeldTracker()
         self.halted = False          # latched by a frame-count drift; cleared by a restart

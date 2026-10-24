@@ -558,3 +558,44 @@ def test_plan_step_does_not_recover_while_r2_may_list_past_now(tmp_path):
     assert not any(r.run_start for r in new_rows[1:])
     assert _seg_files(st) == before
     assert not any("recovery" in m for m in logs)
+
+
+def test_plan_step_pings_the_watchdog_after_each_analysis(tmp_path):
+    st, _ = make_station(tmp_path, n_packages=3)
+    pings: list[str] = []
+    st.notify = pings.append
+    pipeline.plan_step(st, NOW)
+    assert pings.count("WATCHDOG=1") == len(st.engine.analyzed) >= 1
+
+
+def test_render_steps_replan_path_pings_too(tmp_path):
+    st, _ = make_station(tmp_path, n_packages=3)
+    pings: list[str] = []
+    st.notify = pings.append
+    st.extend([], st.scan_now(NOW), NOW, start_frame=0, run_start=True)
+    assert pings.count("WATCHDOG=1") == len(st.engine.analyzed) >= 1
+
+
+def test_a_failed_analysis_still_pings(tmp_path):
+    from transmitter.errors import RenderError
+
+    class FailingEngine(FakeEngine):
+        def analyze(self, show):
+            if show.slug.endswith("-02"):
+                self.analyzed.append(show.slug)
+                raise RenderError(f"{show.slug}: simulated analysis failure")
+            return super().analyze(show)
+
+    st, logs = make_station(tmp_path, n_packages=3, engine=FailingEngine())
+    pings: list[str] = []
+    st.notify = pings.append
+    pipeline.plan_step(st, NOW)
+    assert any("skipping" in m and "-02" in m for m in logs)
+    assert pings.count("WATCHDOG=1") == len(st.engine.analyzed) >= 2
+
+
+def test_frames_of_without_notify_is_unchanged(tmp_path):
+    st, _ = make_station(tmp_path)
+    assert st.notify is None
+    show = st.scan_now(NOW)[0]
+    assert st.frames_of(show) == st.planned_frames(st.engine.analyze(show))
