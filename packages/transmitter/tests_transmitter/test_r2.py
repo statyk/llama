@@ -29,3 +29,13 @@ def test_client_needs_an_endpoint(monkeypatch):
     monkeypatch.setenv("R2_SECRET_ACCESS_KEY", "secret")
     with pytest.raises(ConfigError, match="account_id"):
         r2.make_client(PublishConfig(bucket="b"))
+
+
+def test_client_timeouts_are_keywords(monkeypatch):
+    monkeypatch.setenv("R2_ACCESS_KEY_ID", "id")
+    monkeypatch.setenv("R2_SECRET_ACCESS_KEY", "secret")
+    cfg = PublishConfig(account_id="acct", bucket="b")
+    c = r2.make_client(cfg).meta.config
+    assert (c.connect_timeout, c.read_timeout) == (10, 60)
+    c = r2.make_client(cfg, connect_timeout=5, read_timeout=10).meta.config
+    assert (c.connect_timeout, c.read_timeout) == (5, 10)

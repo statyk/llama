@@ -139,21 +139,19 @@ class Uploader:
             raise PublishError(f"DELETE {key} failed: {exc}") from exc
 
 
-def guard_blocks_publishing(uploader: Uploader, ws: Workspace, now_s: float, interval_s: float) -> bool:
-    cached = read_json(ws.guard_cache_path)
-    # A clock stepped backwards (negative age) must not let a cached
-    # `blocked: false` hold off the spend kill switch: re-read.
-    if cached is not None and 0 <= now_s - cached["checked_at"] < interval_s:
-        return cached["blocked"]
+def guard_view(get_json: Callable[[str], dict | None]) -> dict:
+    """The guard's verdict as the publish cache and the dead-clock check read it:
+    exactly blocked/error/guard_evaluated_at/offair. Never raises and never
+    writes; a guard that cannot be read fails closed (blocked, error set)."""
     evaluated_at = offair = None
     try:
-        doc = uploader.get_json(GUARD_KEY)
+        doc = get_json(GUARD_KEY)
         blocked, error = bool(doc and doc.get("tripped")), None
         evaluated_at = doc.get("evaluated_at") if doc else None
     except Exception as exc:                        # cannot see the guard: do not spend
         blocked, error = True, str(exc)
     try:                                            # for the dead-clock check only: never gates publishing
-        flag = uploader.get_json(OFFAIR_KEY)
+        flag = get_json(OFFAIR_KEY)
         # Mirror the Worker (guard.ts): absent -> on the air, a boolean -> that value, anything else present
         # -> off the air.
         value = flag.get("offair") if isinstance(flag, dict) else None
@@ -164,9 +162,18 @@ def guard_blocks_publishing(uploader: Uploader, ws: Workspace, now_s: float, int
         offair = True
     except Exception:
         offair = None
-    write_json(ws.guard_cache_path, {"checked_at": now_s, "blocked": blocked, "error": error,
-                                     "guard_evaluated_at": evaluated_at, "offair": offair})
-    return blocked
+    return {"blocked": blocked, "error": error, "guard_evaluated_at": evaluated_at, "offair": offair}
+
+
+def guard_blocks_publishing(uploader: Uploader, ws: Workspace, now_s: float, interval_s: float) -> bool:
+    cached = read_json(ws.guard_cache_path)
+    # A clock stepped backwards (negative age) must not let a cached
+    # `blocked: false` hold off the spend kill switch: re-read.
+    if cached is not None and 0 <= now_s - cached["checked_at"] < interval_s:
+        return cached["blocked"]
+    view = guard_view(uploader.get_json)
+    write_json(ws.guard_cache_path, {"checked_at": now_s, **view})
+    return view["blocked"]
 
 
 @contextmanager

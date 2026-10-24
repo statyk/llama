@@ -115,9 +115,9 @@ def _guard(now_us, minutes_ago=5, **kw):
 def test_a_fresh_playlist_resolves_and_one_stale_read_is_not_a_death(fired):
     now = E + 1000 * D
     m = _monitor([(200, live_playlist(1000)), (200, live_playlist(980)), (200, live_playlist(1000))])
-    m.check(now, _guard(now))
-    m.check(now, _guard(now))           # 20 intervals old: genuinely stale, but only once
-    m.check(now, _guard(now))
+    m.check(now, lambda: _guard(now))
+    m.check(now, lambda: _guard(now))           # 20 intervals old: genuinely stale, but only once
+    m.check(now, lambda: _guard(now))
     assert not [e for e in fired if e[0] == "alert"]
     assert ("resolve", "dead-clock") in fired and ("resolve", "guard-stale") in fired
 
@@ -125,9 +125,9 @@ def test_a_fresh_playlist_resolves_and_one_stale_read_is_not_a_death(fired):
 def test_two_stale_reads_in_a_row_alert(fired):
     now = E + 1000 * D
     m = _monitor([(200, live_playlist(985))] * 2)
-    m.check(now, _guard(now))
+    m.check(now, lambda: _guard(now))
     assert not [e for e in fired if e[0] == "alert"]
-    m.check(now, _guard(now))
+    m.check(now, lambda: _guard(now))
     assert [e[1] for e in fired if e[0] == "alert"] == ["dead-clock"]
 
 
@@ -136,8 +136,8 @@ def test_a_dead_clock_with_lookahead_alerts_as_soon_as_without(fired):
     # its newest PROGRAM-DATE-TIME alone it would read 30.7 s and never alert.
     now = E + 1000 * D
     m = _monitor([(200, live_playlist(985, lookahead=12, hold_back=12, window=16))] * 2)
-    m.check(now, _guard(now))
-    m.check(now, _guard(now))
+    m.check(now, lambda: _guard(now))
+    m.check(now, lambda: _guard(now))
     assert [e[1] for e in fired if e[0] == "alert"] == ["dead-clock"]
 
 
@@ -145,21 +145,21 @@ def test_a_dead_clock_while_off_air_uses_the_hold_back_last_seen_live(fired):
     now = E + 1000 * D
     m = _monitor([(200, live_playlist(980, lookahead=12, hold_back=12, window=16))]
                  + [(200, offair_playlist(985 + 13))] * 2)
-    m.check(E + 980 * D, _guard(now))   # fresh live read: remembers the 122.88 s hold-back
-    m.check(now, _guard(now))
-    m.check(now, _guard(now))           # the notice was written 153.6 s ago
+    m.check(E + 980 * D, lambda: _guard(now))   # fresh live read: remembers the 122.88 s hold-back
+    m.check(now, lambda: _guard(now))
+    m.check(now, lambda: _guard(now))           # the notice was written 153.6 s ago
     assert [e[1] for e in fired if e[0] == "alert"] == ["dead-clock"]
 
 
 def test_a_403_is_expected_while_blocked_and_alarms_only_once_the_guard_cache_has_caught_up(fired):
     now = E + 1000 * D
     m = _monitor([(403, "")] * 18)
-    m.check(now, _guard(now, offair=True))
+    m.check(now, lambda: _guard(now, offair=True))
     assert not [e for e in fired if e[0] == "alert"]
     for _ in range(16):                     # the cache may say "not blocked" for guard_check_minutes after `offair on`
-        m.check(now, _guard(now))
+        m.check(now, lambda: _guard(now))
     assert not [e for e in fired if e[0] == "alert"]
-    m.check(now, _guard(now))
+    m.check(now, lambda: _guard(now))
     alerted = [e for e in fired if e[0] == "alert"]
     assert alerted[0][1] == "dead-clock" and "kill switch" in alerted[0][2]
 
@@ -168,20 +168,20 @@ def test_network_errors_alert_only_when_they_persist(fired):
     now = E + 1000 * D
     m = _monitor([(0, "")] * 9 + [(200, live_playlist(1000))] + [(0, "")] * 10)
     for _ in range(10):
-        m.check(now, _guard(now))
+        m.check(now, lambda: _guard(now))
     assert not [e for e in fired if e[0] == "alert"]
     for _ in range(10):
-        m.check(now, _guard(now))
+        m.check(now, lambda: _guard(now))
     assert [e[1] for e in fired if e[0] == "alert"] == ["dead-clock"]
 
 
 def test_a_stale_guard_alerts(fired):
     now = E + 1000 * D
     m = _monitor([(200, live_playlist(1000))] * 2)
-    m.check(now, _guard(now, minutes_ago=46))
+    m.check(now, lambda: _guard(now, minutes_ago=46))
     assert [e[1] for e in fired if e[0] == "alert"] == ["guard-stale"]
     fired.clear()
-    m.check(now, {**FRESH_GUARD})                     # guard.json read fine but carries no evaluation
+    m.check(now, lambda: {**FRESH_GUARD})                     # guard.json read fine but carries no evaluation
     assert [e[1] for e in fired if e[0] == "alert"] == ["guard-stale"]
 
 
@@ -189,7 +189,7 @@ def test_stale_fresh_stale_fresh_never_alerts(fired):
     now = E + 1000 * D
     m = _monitor([(200, live_playlist(980)), (200, live_playlist(1000))] * 2)
     for _ in range(4):
-        m.check(now, _guard(now))
+        m.check(now, lambda: _guard(now))
     assert not [e for e in fired if e[0] == "alert"]
 
 
@@ -197,7 +197,7 @@ def test_403_while_the_guard_says_blocked_never_alerts_even_past_the_threshold(f
     now = E + 1000 * D
     m = _monitor([(403, "")] * 20)
     for _ in range(20):
-        m.check(now, _guard(now, blocked=True, offair=False))
+        m.check(now, lambda: _guard(now, blocked=True, offair=False))
     assert not [e for e in fired if e[0] == "alert"]
 
 
@@ -228,7 +228,7 @@ def test_an_odd_transport_error_does_not_alert_on_the_first_call(fired, monkeypa
         raise http.client.IncompleteRead(b"")
     monkeypatch.setattr(urllib.request, "urlopen", boom)
     m = DeadClockMonitor("https://radio.example.org/live.m3u8", E, 120.0, 2700.0, 17)
-    m.check(now, _guard(now))
+    m.check(now, lambda: _guard(now))
     assert not [e for e in fired if e[0] == "alert"]
 
 
@@ -238,26 +238,51 @@ def test_an_unreadable_guard_alerts_once_it_has_persisted_and_recovers(fired):
                          fetch=lambda url: (200, live_playlist(1000 + (m_clock[0] - now) // D)))
     m_clock = [now]
     bad = {"blocked": True, "offair": None, "error": "AccessDenied", "guard_evaluated_at": None}
-    m.check(now, bad)
+    m.check(now, lambda: bad)
     m_clock[0] = now + 44 * 60_000_000
-    m.check(m_clock[0], bad)
+    m.check(m_clock[0], lambda: bad)
     assert not [e for e in fired if e[0] == "alert"]
     m_clock[0] = now + 45 * 60_000_000
-    m.check(m_clock[0], bad)
+    m.check(m_clock[0], lambda: bad)
     alerted = [e for e in fired if e[0] == "alert"]
     assert [e[1] for e in alerted] == ["guard-stale"] and "AccessDenied" in alerted[0][2]
     fired.clear()
     later = m_clock[0] = now + 46 * 60_000_000
-    m.check(later, _guard(later))
+    m.check(later, lambda: _guard(later))
     assert ("resolve", "guard-stale") in fired and m.guard_error_since_us is None
-    m.check(later, bad)                              # a new failure restarts the timer
+    m.check(later, lambda: bad)                              # a new failure restarts the timer
     assert m.guard_error_since_us == later and not [e for e in fired if e[0] == "alert"]
 
 
 def test_a_cache_without_the_evaluation_key_is_unknown_but_a_null_one_alerts(fired):
     now = E + 1000 * D
     m = _monitor([(200, live_playlist(1000))] * 2)
-    m.check(now, {"blocked": False, "offair": None, "error": None})      # pre-upgrade shape
+    m.check(now, lambda: {"blocked": False, "offair": None, "error": None})      # pre-upgrade shape
     assert not [e for e in fired if e[0] == "alert"] and ("resolve", "guard-stale") not in fired
-    m.check(now, {"blocked": False, "offair": False, "error": None, "guard_evaluated_at": None})
+    m.check(now, lambda: {"blocked": False, "offair": False, "error": None, "guard_evaluated_at": None})
     assert [e[1] for e in fired if e[0] == "alert"] == ["guard-stale"]
+
+
+def test_the_playlist_is_fetched_before_the_guard_view_is_built(fired):
+    order = []
+    now = E + 1000 * D
+
+    def fetch(url):
+        order.append("fetch")
+        return 200, live_playlist(1000)
+
+    def guard():
+        order.append("guard")
+        return _guard(now)
+    DeadClockMonitor("https://radio.example.org/live.m3u8", E, 120.0, 2700.0, 17, fetch=fetch).check(now, guard)
+    assert order == ["fetch", "guard"]
+
+
+def test_a_failing_guard_read_cannot_stop_the_playlist_check(fired):
+    now = E + 1000 * D
+    m = _monitor([(200, live_playlist(980))] * 2)
+    bad = {"blocked": True, "error": "boom", "guard_evaluated_at": None, "offair": None}
+    m.check(now, lambda: bad)
+    assert m.guard_error_since_us == now
+    m.check(now, lambda: bad)
+    assert [e[1] for e in fired if e[0] == "alert"] == ["dead-clock"]

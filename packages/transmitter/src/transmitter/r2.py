@@ -10,7 +10,7 @@ from transmitter.config import PublishConfig
 from transmitter.errors import ConfigError
 
 
-def make_client(cfg: PublishConfig):
+def make_client(cfg: PublishConfig, *, connect_timeout: float = 10, read_timeout: float = 60):
     import boto3
     from botocore.config import Config
 
@@ -28,5 +28,5 @@ def make_client(cfg: PublishConfig):
         config=Config(retries={"total_max_attempts": 1, "mode": "standard"},
                       request_checksum_calculation="when_required",
                       response_checksum_validation="when_required",
-                      connect_timeout=10, read_timeout=60),
+                      connect_timeout=connect_timeout, read_timeout=read_timeout),
     )

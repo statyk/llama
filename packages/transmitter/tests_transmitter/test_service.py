@@ -366,8 +366,8 @@ def test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache(tm
     calls = []
 
     class Monitor:
-        def check(self, now_us, guard_cache):
-            calls.append((now_us, guard_cache))
+        def check(self, now_us, guard_view):
+            calls.append((now_us, guard_view()))
 
     times = iter([NOW + 7, NOW + 60_000_007])        # the wall clock at check time, not the tick's t_us
     runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Monitor(),
@@ -382,7 +382,7 @@ def test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code(tmp_path
     st, _ = make_station(tmp_path)
 
     class Monitor:
-        def check(self, now_us, guard_cache):
+        def check(self, now_us, guard_view):
             raise RuntimeError("boom")
 
     rec = _Rec()
@@ -677,7 +677,7 @@ def test_the_interim_in_tick_monitor_ends_its_own_observation(tmp_path, monkeypa
     st, _ = make_station(tmp_path)
 
     class Monitor:
-        def check(self, now_us, guard_cache):
+        def check(self, now_us, guard_view):
             pass
 
     service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Monitor()).tick(NOW)

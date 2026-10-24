@@ -262,7 +262,7 @@ class Runner:
             monitor = self.monitor
             # "dead-clock-check", not "dead-clock": a monitor that RAISES must fire an event code, never the
             # level code that means "the clock is dead" (only the monitor raises and resolves that one).
-            self._step("dead-clock-check", lambda: monitor.check(self.clock(), read_json(self.st.ws.guard_cache_path)))
+            self._step("dead-clock-check", lambda: monitor.check(self.clock(), lambda: read_json(self.st.ws.guard_cache_path)))
             # Interim, until the monitor moves to its own thread: this check is one monitor pass.
             alerts.end_observation(alerts.MONITOR, ["dead-clock-check"])
         ok, lead = self._read_lead(t_us)

@@ -439,3 +439,39 @@ def test_no_fallback_rendered_publishes_nothing_and_never_re_puts(tmp_path):
     assert report.horizon == (100, 104) and report.error is None
     assert bucket.json("state/horizon.json")["fallback_version"] == "fbafter00000"
     assert [k for k in bucket.puts() if k.startswith("seg/")] == [segment_key("etest", n) for n in range(100, 105)]
+
+
+class _Getter:
+    def __init__(self, docs=None, exc=None):
+        self.docs, self.exc = docs or {}, exc
+
+    def __call__(self, key):
+        if self.exc:
+            raise self.exc
+        return self.docs.get(key)
+
+
+def test_guard_view_never_raises_and_fails_closed():
+    v = publish.guard_view(_Getter(exc=RuntimeError("boom")))
+    assert v == {"blocked": True, "error": "boom", "guard_evaluated_at": None, "offair": None}
+    v = publish.guard_view(_Getter({publish.GUARD_KEY: ["x"]}))
+    assert v["blocked"] is True and v["error"]
+    v = publish.guard_view(_Getter({publish.GUARD_KEY: {"tripped": False, "evaluated_at": "X"}}))
+    assert v == {"blocked": False, "error": None, "guard_evaluated_at": "X", "offair": False}
+    v = publish.guard_view(_Getter())
+    assert v["blocked"] is False and v["guard_evaluated_at"] is None and v["offair"] is False
+
+
+def test_guard_blocks_publishing_is_the_only_cache_writer(tmp_path):
+    import pathlib
+    import re
+    from transmitter.workspace import read_json
+    bucket = FakeBucket()
+    bucket.objects["state/guard.json"] = {"Body": b'{"tripped": false, "evaluated_at": "X"}'}
+    p = make_publisher(tmp_path, bucket)
+    publish.guard_blocks_publishing(p.uploader, p.ws, 1000.0, 900.0)
+    assert read_json(p.ws.guard_cache_path) == {"checked_at": 1000.0, **publish.guard_view(p.uploader.get_json)}
+    src = pathlib.Path(publish.__file__).parent
+    writers = [f.name for f in src.glob("*.py")
+               if re.search(r"write_json\([^)]*guard_cache_path", f.read_text())]
+    assert writers == ["publish.py"]

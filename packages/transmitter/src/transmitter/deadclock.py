@@ -127,9 +127,11 @@ class DeadClockMonitor:
     # check is late by up to the lookahead, never early.
     live_hold_back_s: float = 0.0
 
-    def check(self, now_us: int, guard_cache: dict | None) -> None:
-        blocked = bool(guard_cache and (guard_cache.get("blocked") or guard_cache.get("offair")))
+    def check(self, now_us: int, guard_view: Callable[[], dict | None]) -> None:
+        # The playlist first: a guard read that hangs or fails must not delay or stop the dead-clock check.
         status, text = self.fetch(self.url)
+        guard_cache = guard_view()
+        blocked = bool(guard_cache and (guard_cache.get("blocked") or guard_cache.get("offair")))
         if status == 200:
             self.unreachable = self.forbidden = 0
             if PROGRAM_DATE_TIME in text:
