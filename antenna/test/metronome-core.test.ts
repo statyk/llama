@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { gridOf } from "../src/grid";
-import { ALARM_SLACK_MS, capAllows, currentLease, decideLease, EMPTY_STATE, expired, fallbackReason, holdLease,
+import { ALARM_SLACK_MS, capAllows, currentLease, decideLease, EMPTY_STATE, expired, fallbackCause, fallbackReason,
+         holdLease,
          inWindow, isLive, type Lease, leaseKind, METRONOME_LEASE_MS, type MetronomeStatus, nextStalls, nextTarget,
          parseStoredLease, playLease, readState, recordTime, serializeLease, stalledFor, stateChanges, STORAGE_KEYS,
          storedLease, validateLease } from "../src/metronome-core";
@@ -266,6 +267,34 @@ describe("fallbackReason (cron's triggers)", () => {
     }
     expect(fallbackReason(p, { status: status({ stalls: 0 }) })).toBeNull();
     expect(fallbackReason(p, { status: status({ stalls: 1 }) })).toBeNull();
+  });
+
+  it("N. fallbackCause marks only the stall branch", () => {
+    const err = { error: "x" };
+    expect(fallbackCause(p, err)).toEqual({ reason: fallbackReason(p, err), stall: false });
+    expect(fallbackCause(p, { status: status({ wrote: false }) })).toMatchObject({ stall: false });
+    expect(fallbackCause(p, { status: status({ stalls: 2, stalledMs: 70_000 }) })).toMatchObject({ stall: true });
+    expect(fallbackCause(p, { status: status({ stalls: 1 }) })).toBeNull();
+    // A malformed stall count trips fallback as today, but gated (not immediate).
+    for (const stalls of [1.5, -1, undefined]) {
+      expect([stalls, fallbackCause(p, { status: status({ stalls: stalls as number }) })])
+        .toEqual([stalls, { reason: expect.stringMatching(/stalled/), stall: false }]);
+    }
+    // Every input of the fallbackReason cases above, over every lease: the reason is unchanged.
+    const inputs: ({ status: MetronomeStatus } | { error: string })[] = [
+      { error: "renew timed out after 15000 ms" }, { error: "boom" },
+      ...[{ lease: "play" }, { lease: "blocked" }, { lease: "play", wrote: null }, { lease: "blocked", wrote: null },
+          { lease: "play", wrote: false }, { lease: "blocked", wrote: false }, { applied: "invalid", wrote: null },
+          { applied: "off", wrote: null }, { applied: "superseded", wrote: false }, { applied: null, wrote: false },
+          { stalls: 1, stalledMs: 40_000 }, { stalls: 2, stalledMs: 40_000 }, { applied: null, stalls: 3 },
+          { stalls: Number.NaN }, { stalls: undefined }, { stalls: 1.5 }, { stalls: -1 }, { stalls: 0 },
+          { applied: "accepted", lease: "none" }, { applied: "accepted", lease: "play" },
+          { applied: "accepted", lease: "blocked" }]
+        .map((s) => ({ status: status(s as Partial<MetronomeStatus>) })),
+    ];
+    for (const lease of [p, b, hold, null]) {
+      for (const r of inputs) expect(fallbackCause(lease, r)?.reason ?? null).toBe(fallbackReason(lease, r));
+    }
   });
 
   it("(b) an accepted play lease the DO is not doing (accepted already expired)", () => {

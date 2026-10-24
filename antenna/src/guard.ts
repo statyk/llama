@@ -345,10 +345,13 @@ export async function guardStep(deps: GuardDeps): Promise<GuardOutcome> {
       }
     } catch (e) {
       // Cannot tell whether a racer tripped: fail toward blocked for this minute.
+      // It marks one minute forced to ENDLIST and cannot last 3 minutes, so it
+      // bypasses the alert gate (a gate would silence it forever).
       raceUnknown = true;
       conditions.push({ key: "guard-unknown", priority: "high", resolvable: true, title: "Cost guard cannot read its state",
                         message: `Re-checking state/guard.json after turning the kill switch off failed (${msg(e)}); ` +
-                                 "this minute is treated as blocked." });
+                                 "this minute is treated as blocked.",
+                        immediate: true });
     }
   }
   // Never report less blocked than what was decided, or than what now stands in

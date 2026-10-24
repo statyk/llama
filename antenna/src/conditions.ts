@@ -18,6 +18,13 @@ export interface AlertCondition {
    * not even if it clears and returns. The key carries what makes a new one
    * (the budget levels: the billing period and the budget). */
   once?: boolean;
+  /** Bypasses the 3-consecutive alert gate (alerts.ts GATED_KEYS): sent at its
+   * first presence, and its repeats are not held. It still advances the key's
+   * streak. Set at exactly two raise sites: metronome-down from the stall
+   * trigger (clock.ts renew, metronome-core fallbackCause, already debounced by
+   * STALLS_FALLBACK), and guard-unknown from the post-unblock re-check in
+   * guard.ts (one minute forced to ENDLIST, which can never last 3 minutes). */
+  immediate?: boolean;
 }
 
 /** A stored amount is null when it was not finite (latch.ts StoredEvaluation). */

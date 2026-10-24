@@ -301,18 +301,30 @@ export function holdLease(verdictAt: number, issuedAt: number): HoldLease {
  *     was not accepted or its write failed, or the DO's lease is not what it
  *     was told ("play", or "blocked" for a blocked one: say, accepted already expired);
  * (c) STALLS_FALLBACK consecutive renews found the chain stalled. Written
- *     negated: a stall count that is not a non-negative integer trips too. */
-export function fallbackReason(sent: Lease | null,
-                               r: { status: MetronomeStatus } | { error: string }): string | null {
-  if ("error" in r) return `renew failed: ${r.error}`;
+ *     negated: a stall count that is not a non-negative integer trips too.
+ * `stall` is true only for a genuine (c), STALLS_FALLBACK or more stalled
+ * renews: that trigger is already debounced, so its metronome-down bypasses
+ * the alert gate (alerts.ts). A malformed stall count trips fallback with
+ * `stall: false` (gated like (a) and (b)). */
+export function fallbackCause(sent: Lease | null,
+                              r: { status: MetronomeStatus } | { error: string }): { reason: string; stall: boolean } | null {
+  if ("error" in r) return { reason: `renew failed: ${r.error}`, stall: false };
   const s = r.status;
   if (sent?.kind === "play" && s.applied !== "superseded"
       && (s.applied !== "accepted" || s.wrote === false || s.lease !== (sent.blocked ? "blocked" : "play"))) {
     const kind = sent.blocked ? "blocked play" : "play";
-    return `renew answered applied=${s.applied}, wrote=${s.wrote}, lease=${s.lease} to a ${kind} lease`;
+    return { reason: `renew answered applied=${s.applied}, wrote=${s.wrote}, lease=${s.lease} to a ${kind} lease`,
+             stall: false };
   }
   if (!(Number.isInteger(s.stalls) && s.stalls >= 0 && s.stalls < STALLS_FALLBACK)) {
-    return `alarm chain stalled on ${s.stalls} consecutive renews (${s.stalledMs} ms)`;
+    return { reason: `alarm chain stalled on ${s.stalls} consecutive renews (${s.stalledMs} ms)`,
+             stall: Number.isInteger(s.stalls) && s.stalls >= STALLS_FALLBACK };
   }
   return null;
+}
+
+/** fallbackCause's reason alone. */
+export function fallbackReason(sent: Lease | null,
+                               r: { status: MetronomeStatus } | { error: string }): string | null {
+  return fallbackCause(sent, r)?.reason ?? null;
 }

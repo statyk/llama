@@ -47,18 +47,22 @@ function fakeMetronome(answer: (l: Lease | null) => MetronomeStatus | Promise<Me
 }
 
 type Run = { r: Awaited<ReturnType<typeof runClock>> | null; error: unknown; batch: AlertBatch | null; keys: string[];
-             bucket: MemoryBucket; clock: ReturnType<typeof fakeTime> };
+             conds: AlertCondition[]; bucket: MemoryBucket; clock: ReturnType<typeof fakeTime> };
 
 async function run(o: { guard?: () => Promise<GuardOutcome>; bucket?: MemoryBucket; metronome?: MetronomeClient;
                         at?: number }): Promise<Run> {
   const bucket = o.bucket ?? station();
   const at = o.at ?? AT;
   const clock = fakeTime(at + 40);
-  const out: Run = { r: null, error: null, batch: null, keys: [], bucket, clock };
+  const out: Run = { r: null, error: null, batch: null, keys: [], conds: [], bucket, clock };
   try {
     out.r = await runClock({ bucket, ...clock, scheduledTime: at, config: CFG, guard: o.guard ?? guardSays(false),
                              metronome: o.metronome,
-                             alerts: async (cs: AlertCondition[], _n, b) => { out.keys = cs.map((c) => c.key); out.batch = b; } });
+                             alerts: async (cs: AlertCondition[], _n, b) => {
+                               out.keys = cs.map((c) => c.key);
+                               out.conds = cs;
+                               out.batch = b;
+                             } });
   } catch (e) {
     out.error = e;
   }
@@ -222,6 +226,15 @@ describe("the fallback: cron's own loop, and metronome-down", () => {
       expect(out.batch).toEqual({ complete: true, guardComplete: true });
     });
   }
+
+  it("O. only the stall trigger raises metronome-down immediate", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    for (const [what, answer] of triggers) {
+      const out = await run({ metronome: fakeMetronome(answer).client });
+      expect([what, out.conds.find((c) => c.key === "metronome-down")!.immediate])
+        .toEqual([what, what === "(c) stalls >= 2" ? true : undefined]);
+    }
+  });
 
   it("a non-object reply or an unprintable rejection is trigger (a): renew never throws, the loop runs", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});

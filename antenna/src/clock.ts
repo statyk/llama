@@ -5,7 +5,7 @@ import { GRID_D, type Grid, type Horizon, gridOf, indexAt, startMs } from "./gri
 import type { GuardOutcome } from "./guard";
 import { reconcileIndex } from "./indexpage";
 import { type LiveSource, offairWithoutFallback, putLive, renderLive } from "./live";
-import { fallbackReason, holdLease, type Lease, type MetronomeClient, type MetronomeStatus,
+import { fallbackCause, holdLease, type Lease, type MetronomeClient, type MetronomeStatus,
          playLease } from "./metronome-core";
 import type { FallbackIndex, PlaylistConfig } from "./playlist";
 
@@ -248,19 +248,22 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     let r: { status: MetronomeStatus } | { error: string };
     try {
       const status: unknown = await deps.metronome.renew(lease);
-      // Data from another isolate (a skewed or broken DO): fallbackReason reads its fields.
+      // Data from another isolate (a skewed or broken DO): fallbackCause reads its fields.
       r = typeof status === "object" && status !== null ? { status: status as MetronomeStatus }
                                                         : { error: "renew returned a non-object" };
     } catch (e) {
       r = { error: describeError(e) };
     }
-    const fallback = fallbackReason(lease, r);
+    const cause = fallbackCause(lease, r);
+    const fallback = cause?.reason ?? null;
     result.metronome = { sent, status: "status" in r ? r.status : null, error: "error" in r ? r.error : null, fallback };
-    if (fallback !== null) {
-      console.error(JSON.stringify({ event: "metronome-down", reason: fallback, scheduled: deps.scheduledTime }));
+    if (cause !== null) {
+      console.error(JSON.stringify({ event: "metronome-down", reason: cause.reason, scheduled: deps.scheduledTime }));
+      // The stall trigger is already debounced (STALLS_FALLBACK renews): it bypasses the alert gate.
       conditions.push({ key: "metronome-down", priority: "high", resolvable: true, title: "Metronome down",
-                        message: `The metronome looks dead (${fallback}). The clock's own loop writes live.m3u8 ` +
-                                 "this minute when the verdict is known and the horizon accepted." });
+                        message: `The metronome looks dead (${cause.reason}). The clock's own loop writes live.m3u8 ` +
+                                 "this minute when the verdict is known and the horizon accepted.",
+                        ...(cause.stall ? { immediate: true } : {}) });
     }
     return fallback;
   };

@@ -14,6 +14,25 @@
  * (AlertBatch in clock.ts): an incomplete batch resolves nothing, except that
  * guard-family keys resolve whenever the guard itself returned a known outcome.
  *
+ * The 3-consecutive gate (operator rule: a check that runs about every minute
+ * alerts only after 3 consecutive failures). A key in GATED_KEYS keeps a
+ * `streak` of consecutive presences in its entry (capped at GATE): a presence
+ * advances it, an absence on a batch that could clear the key resets it, and an
+ * absence on one that could not leaves it alone. Every send of a gated key,
+ * first alert or repeat, needs a streak of GATE ("resolved" is never gated), so
+ * a single blip inside an active episode sends no repeat; the one exception is
+ * an episode whose first message no channel has delivered yet, which is resent
+ * at once and never re-gated. Below GATE, where a new episode would start,
+ * nothing is sent: a key with no stored history gets a `pending` entry
+ * (inactive, never sent, dropped when its streak resets), a kept inactive entry
+ * keeps its history, and a still-active entry whose clearing window elapsed
+ * stays as it is (it may still resolve) until the new episode replaces it at
+ * GATE. A gated episode's first message says it followed GATE failing minutes.
+ * Two raise sites bypass the gate with a condition's `immediate` flag
+ * (conditions.ts): the metronome stall trigger and the guard's post-unblock
+ * re-check. Every other key (the spend and off-air latches, `once` keys, the
+ * already-debounced ones) is sent at its first presence and stores no streak.
+ *
  * Off-account text (ntfy, email) never carries an account, zone, ruleset or
  * rule ID: every channel passes title and message through `redact`. The
  * structured log lines keep the detail. */
@@ -44,6 +63,16 @@ const GUARD_KEYS: ReadonlySet<string> = new Set([
   "waf-api", "waf-corrected", "budget-file-invalid", "guard-write", "budget-unreadable",
 ]);
 const SPEND_LEVEL_KEY = /^budget-\d+:/;
+
+/** Consecutive failing invocations a gated key needs before it is sent. */
+export const GATE = 3;
+/** The every-minute checks gated at GATE (operator-approved list, spec Part 1).
+ * Every key not listed here is sent at its first presence. */
+export const GATED_KEYS: ReadonlySet<string> = new Set([
+  "waf-api", "guard-unknown", "guard-write", "budget-unreadable", "index-write", "clock-inputs", "clock-failed",
+  "guard-crashed", "horizon-missing", "metronome-down",
+]);
+const gated = (c: AlertCondition): boolean => GATED_KEYS.has(c.key) && !c.once;
 
 /** Which part of an invocation computes a key. A key in neither known family
  * counts as clock-family: resolved only on a complete batch (the conservative side). */
@@ -77,6 +106,12 @@ export interface AlertEntry {
    * clears once absent for COOLDOWN_MS. Missing or null: not clearing. */
   clearing_since?: string | null;
   once?: boolean;
+  /** Gated keys only (GATED_KEYS): consecutive presences, capped at GATE.
+   * Missing: 0 (an entry written before the gate, or reset by a clean batch). */
+  streak?: number;
+  /** A gated key with no stored history whose streak is below GATE: `active`
+   * false, never sent; dropped (not kept) when its streak resets. */
+  pending?: boolean;
 }
 export type AlertState = Record<string, AlertEntry>;
 
@@ -97,6 +132,19 @@ const notClearing = (e: AlertEntry): AlertEntry => {
   const { clearing_since: _, ...rest } = e;
   return rest;
 };
+/** The entry with `streak` set (always last, so an unchanged state serializes
+ * identically), or without one when `streak` is undefined. */
+const withStreak = (e: AlertEntry, streak: number | undefined): AlertEntry => {
+  const { streak: _, ...rest } = e;
+  return streak === undefined ? rest : { ...rest, streak };
+};
+/** A stored streak, read defensively (a hand edit must not wedge the gate). */
+const storedStreak = (e: AlertEntry | undefined): number => {
+  const n = e?.streak;
+  return typeof n === "number" && Number.isInteger(n) && n > 0 ? Math.min(n, GATE) : 0;
+};
+/** The episode's first message has not reached any channel yet. */
+const firstUndelivered = (e: AlertEntry): boolean => e.last_sent_at === null && !wasDelivered(e);
 
 export function planAlerts(prev: AlertState, conditions: AlertCondition[], nowMs: number, repeatMs: number,
                            batch: AlertBatch = COMPLETE): { next: AlertState; send: Outgoing[] } {
@@ -108,6 +156,13 @@ export function planAlerts(prev: AlertState, conditions: AlertCondition[], nowMs
     seen.add(c.key);
     const e = prev[c.key];
     const out = { key: c.key, priority: c.priority, title: c.title, message: c.message };
+    // The gate: an immediate condition advances the streak but is never held.
+    const streak = gated(c) ? Math.min(GATE, storedStreak(e) + 1) : undefined;
+    const held = streak !== undefined && !c.immediate && streak < GATE;
+    // Rule 7: a message of a gated episode with no successful send yet says it
+    // followed GATE failing minutes (only when this send itself passed the gate).
+    const noted = streak !== undefined && !c.immediate && !held
+      ? `${c.message} (Alerted after ${GATE} consecutive failing minutes.)` : c.message;
     if (c.once) {
       // Sent once; its entry stays (active or not) so it is never sent again.
       next[c.key] = e ? { ...e, active: true, cleared_at: null }
@@ -117,26 +172,50 @@ export function planAlerts(prev: AlertState, conditions: AlertCondition[], nowMs
     } else if (!e || !e.active || (e.clearing_since != null && age(nowMs, e.clearing_since) >= COOLDOWN_MS)) {
       // New, or back after it cleared (an inactive entry was absent for
       // COOLDOWN_MS; so was one clearing that long with no batch between).
-      next[c.key] = { active: true, resolvable: c.resolvable, title: c.title, first_at: iso(nowMs),
-                      last_sent_at: iso(nowMs), cleared_at: null, delivered: true }; // dispatch corrects a failure
-      send.push({ ...out, kind: "alert" });
-    } else if (age(nowMs, e.last_sent_at) >= repeatMs) {
-      next[c.key] = { ...notClearing(e), active: true, resolvable: c.resolvable, title: c.title, last_sent_at: iso(nowMs),
-                      cleared_at: null, delivered: true }; // dispatch restores it on a failure
-      send.push({ ...out, kind: "repeat" });
+      if (held) {
+        // Pending: nothing sent, nothing activated. A kept inactive entry keeps
+        // its history; a still-active one (clearing elapsed) stays as it is and
+        // may still resolve, until the new episode replaces it at GATE.
+        next[c.key] = e ? withStreak(e, streak)
+                        : { active: false, pending: true, resolvable: c.resolvable, title: c.title, first_at: iso(nowMs),
+                            last_sent_at: null, cleared_at: null, streak };
+      } else {
+        next[c.key] = withStreak({ active: true, resolvable: c.resolvable, title: c.title, first_at: iso(nowMs),
+                                   last_sent_at: iso(nowMs), cleared_at: null, delivered: true }, // dispatch corrects a failure
+                                 streak);
+        send.push({ ...out, message: noted, kind: "alert" });
+      }
+    } else if (age(nowMs, e.last_sent_at) >= repeatMs && (!held || firstUndelivered(e))) {
+      // A due repeat waits for the gate, except an undelivered first message:
+      // that is resent at once, never re-gated (operator ruling 2026-10-24).
+      next[c.key] = withStreak({ ...notClearing(e), active: true, resolvable: c.resolvable, title: c.title,
+                                 last_sent_at: iso(nowMs), cleared_at: null, delivered: true }, // restored on a failure
+                               streak);
+      send.push({ ...out, message: firstUndelivered(e) ? noted : c.message, kind: "repeat" });
     } else {
-      // Continuing (a return inside the clearing window included): the repeat clock runs on.
-      next[c.key] = { ...notClearing(e), active: true, resolvable: c.resolvable, title: c.title, cleared_at: null };
+      // Continuing (a return inside the clearing window included, and a due
+      // repeat the gate holds): the repeat clock runs on.
+      next[c.key] = withStreak({ ...notClearing(e), active: true, resolvable: c.resolvable, title: c.title,
+                                 cleared_at: null }, streak);
     }
   }
   const keep = (key: string, e: AlertEntry) => {
     if (age(nowMs, e.cleared_at) < (e.once ? ONCE_KEEP_MS : KEEP_INACTIVE_MS)) next[key] = e;
   };
-  for (const [key, e] of Object.entries(prev)) {
+  for (const [key, stored] of Object.entries(prev)) {
     if (seen.has(key)) continue;
+    const cleared = clearedIn(key, batch);
+    if (stored.pending) {
+      // A pending-only entry: a batch that could clear it resets its streak
+      // (dropped, it has no history); one that could not leaves it unchanged.
+      if (!cleared) next[key] = stored;
+      continue;
+    }
+    // Rule 2: an absence that could have been a presence resets the streak.
+    const e = cleared ? withStreak(stored, undefined) : stored;
     if (!e.active) {
       keep(key, e);
-    } else if (!clearedIn(key, batch)) {
+    } else if (!cleared) {
       // Not computed this invocation, so not known to be absent: unchanged
       // (no "resolved"; an incomplete batch neither starts nor resets the
       // clearing window -- its elapsed time is wall-clock from the first
@@ -353,7 +432,9 @@ export async function dispatchAlerts(bucket: BucketLike, channels: Channel[], co
     if (delivered) sent++;
     else {
       failed++;
-      if (o.kind === "resolved") next[o.key] = prev[o.key]; // still active: the next invocation resolves it again
+      // Still active: the next invocation resolves it again. Without its streak:
+      // this batch was clean, so the reset holds.
+      if (o.kind === "resolved") next[o.key] = withStreak(prev[o.key], undefined);
       else if (next[o.key]?.once) delete next[o.key]; // never sent: the next invocation sends it as new
       else if (next[o.key]) {
         // Due again at once. A failed alert over no episode, or over a cleared

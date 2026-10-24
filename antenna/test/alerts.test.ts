@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ALERTS_KEY, type AlertState, alertSink, CLOCK_KEYS, channelsFromEnv, COOLDOWN_MS, dispatchAlerts, emailChannel,
-         keyFamily, ntfyChannel, type Outgoing, planAlerts, rawEmail, redact } from "../src/alerts";
+import { type AlertEntry, ALERTS_KEY, type AlertState, alertSink, CLOCK_KEYS, channelsFromEnv, COOLDOWN_MS,
+         dispatchAlerts, emailChannel, GATE, GATED_KEYS, keyFamily, ntfyChannel, type Outgoing, planAlerts, rawEmail,
+         redact } from "../src/alerts";
 import type { AlertBatch } from "../src/clock";
 import type { AlertCondition } from "../src/conditions";
 import { guardConfigFromEnv, type GuardEnv, guardStep } from "../src/guard";
@@ -21,22 +22,22 @@ afterEach(() => {
 describe("planAlerts", () => {
   it("sends a new condition once, repeats it every REPEAT, and resolves it when it clears", () => {
     let s: AlertState = {};
-    let r = planAlerts(s, [cond("waf-api")], T0, REPEAT);
+    let r = planAlerts(s, [cond("offair-corrupt")], T0, REPEAT);
     expect(r.send.map((o) => o.kind)).toEqual(["alert"]);
     s = r.next;
-    r = planAlerts(s, [cond("waf-api")], T0 + H, REPEAT);
+    r = planAlerts(s, [cond("offair-corrupt")], T0 + H, REPEAT);
     expect(r.send).toEqual([]);
     s = r.next;
-    r = planAlerts(s, [cond("waf-api")], T0 + REPEAT, REPEAT);
+    r = planAlerts(s, [cond("offair-corrupt")], T0 + REPEAT, REPEAT);
     expect(r.send.map((o) => o.kind)).toEqual(["repeat"]);
     s = r.next;
     // Ruled (fix round 1, option a): "resolved" only once absent for COOLDOWN_MS.
     r = planAlerts(s, [], T0 + REPEAT + H, REPEAT);
     expect(r.send).toEqual([]);
-    expect(r.next["waf-api"]).toMatchObject({ active: true, clearing_since: new Date(T0 + REPEAT + H).toISOString() });
+    expect(r.next["offair-corrupt"]).toMatchObject({ active: true, clearing_since: new Date(T0 + REPEAT + H).toISOString() });
     r = planAlerts(r.next, [], T0 + REPEAT + H + COOLDOWN_MS, REPEAT);
-    expect(r.send.map((o) => [o.kind, o.key])).toEqual([["resolved", "waf-api"]]);
-    expect(r.next["waf-api"].active).toBe(false);
+    expect(r.send.map((o) => [o.kind, o.key])).toEqual([["resolved", "offair-corrupt"]]);
+    expect(r.next["offair-corrupt"].active).toBe(false);
   });
 
   it("does not resolve a non-resolvable condition aloud", () => {
@@ -45,13 +46,13 @@ describe("planAlerts", () => {
   });
 
   it("a condition that returns within the cooldown is continuing, not new", () => {
-    let s = planAlerts({}, [cond("waf-api")], T0, REPEAT).next;
+    let s = planAlerts({}, [cond("offair-corrupt")], T0, REPEAT).next;
     s = planAlerts(s, [], T0 + 60_000, REPEAT).next;
-    const back = planAlerts(s, [cond("waf-api")], T0 + 120_000, REPEAT);
+    const back = planAlerts(s, [cond("offair-corrupt")], T0 + 120_000, REPEAT);
     expect(back.send).toEqual([]);
-    expect(back.next["waf-api"].active).toBe(true);
+    expect(back.next["offair-corrupt"].active).toBe(true);
     s = planAlerts(back.next, [], T0 + 180_000, REPEAT).next;
-    expect(planAlerts(s, [cond("waf-api")], T0 + 180_000 + COOLDOWN_MS, REPEAT).send.map((o) => o.kind)).toEqual(["alert"]);
+    expect(planAlerts(s, [cond("offair-corrupt")], T0 + 180_000 + COOLDOWN_MS, REPEAT).send.map((o) => o.kind)).toEqual(["alert"]);
   });
 
   it("sends a once condition when it first appears, never repeats it, and not again when it returns", () => {
@@ -94,28 +95,28 @@ describe("planAlerts: resolution waits out the cooldown (ruled, fix round 1)", (
   it("a flap inside the window sends no resolved and no new alert; the next repeat goes out on schedule", () => {
     // The reviewer's probe: present at 0, absent at 1-4, present from 5 on (plus two more short flaps).
     const absent = new Set([1, 2, 3, 4, 40, 200, 201]);
-    const { sends } = run("clock-failed", 6 * 60 + 2, (m) => !absent.has(m));
+    const { sends } = run("lead-low", 6 * 60 + 2, (m) => !absent.has(m));
     expect(sends).toEqual(["alert@0", "repeat@360"]);
   });
 
   it("a key absent for COOLDOWN_MS sends resolved exactly once", () => {
-    const { sends, s } = run("clock-failed", 120, (m) => m === 0);
+    const { sends, s } = run("lead-low", 120, (m) => m === 0);
     expect(sends).toEqual(["alert@0", `resolved@${1 + COOLDOWN_MS / MIN}`]);
-    expect(s["clock-failed"]).toMatchObject({ active: false, cleared_at: new Date(T0 + MIN).toISOString() });
-    expect(s["clock-failed"].clearing_since).toBeUndefined();
+    expect(s["lead-low"]).toMatchObject({ active: false, cleared_at: new Date(T0 + MIN).toISOString() });
+    expect(s["lead-low"].clearing_since).toBeUndefined();
   });
 
   it("after a delivered resolved, a return is a new alert at once", () => {
-    const { sends } = run("clock-failed", 30, (m) => m === 0 || m === 17);
+    const { sends } = run("lead-low", 30, (m) => m === 0 || m === 17);
     expect(sends).toEqual(["alert@0", "resolved@16", "alert@17"]);
   });
 
   it("on incomplete batches the clearing window neither starts nor runs on", () => {
     // Absent from minute 1; batches 1-29 incomplete (clock-family key), complete from 30.
-    const { sends } = run("clock-failed", 60, (m) => m === 0, (m) => ({ complete: m >= 30, guardComplete: true }));
+    const { sends } = run("lead-low", 60, (m) => m === 0, (m) => ({ complete: m >= 30, guardComplete: true }));
     expect(sends).toEqual(["alert@0", `resolved@${30 + COOLDOWN_MS / MIN}`]);
     // Clearing already started, then incomplete batches: held, resolved only once complete again.
-    const held = run("clock-failed", 60, (m) => m === 0, (m) => ({ complete: m === 1 || m >= 40, guardComplete: false }));
+    const held = run("lead-low", 60, (m) => m === 0, (m) => ({ complete: m === 1 || m >= 40, guardComplete: false }));
     expect(held.sends).toEqual(["alert@0", "resolved@40"]);
   });
 
@@ -143,19 +144,19 @@ describe("planAlerts on an incomplete batch (AlertBatch)", () => {
 
   it("resolves nothing that is absent, and starts no cooldown for it, while still sending what is present", () => {
     let s = planAlerts({}, [cond("tripped-spend"), cond("lead-low")], T0, REPEAT).next;
-    // One transient R2 failure while tripped: only guard-unknown is computed.
-    const r = planAlerts(s, [cond("guard-unknown")], T0 + 60_000, REPEAT, INCOMPLETE);
-    expect(r.send.map((o) => [o.kind, o.key])).toEqual([["alert", "guard-unknown"]]);
+    // One minute while tripped where only a guard-family key is computed (an ungated one: offair-corrupt).
+    const r = planAlerts(s, [cond("offair-corrupt")], T0 + 60_000, REPEAT, INCOMPLETE);
+    expect(r.send.map((o) => [o.kind, o.key])).toEqual([["alert", "offair-corrupt"]]);
     expect(r.next["tripped-spend"]).toEqual(s["tripped-spend"]);
     expect(r.next["lead-low"]).toEqual(s["lead-low"]);
     s = r.next;
     // Back to normal 20 minutes later (past the cooldown): continuing, not new;
-    // guard-unknown starts clearing on the complete batch, and resolves aloud
+    // offair-corrupt starts clearing on the complete batch, and resolves aloud
     // once absent for COOLDOWN_MS.
     const back = planAlerts(s, [cond("tripped-spend"), cond("lead-low")], T0 + 21 * 60_000, REPEAT);
     expect(back.send).toEqual([]);
     const later = planAlerts(back.next, [cond("tripped-spend"), cond("lead-low")], T0 + 21 * 60_000 + COOLDOWN_MS, REPEAT);
-    expect(later.send.map((o) => [o.kind, o.key])).toEqual([["resolved", "guard-unknown"]]);
+    expect(later.send.map((o) => [o.kind, o.key])).toEqual([["resolved", "offair-corrupt"]]);
   });
 
   it("still repeats a present condition on an incomplete batch", () => {
@@ -165,15 +166,15 @@ describe("planAlerts on an incomplete batch (AlertBatch)", () => {
   });
 
   it("guardComplete: guard-family keys resolve, clock-family keys do not", () => {
-    const s = planAlerts({}, [cond("waf-api"), cond("lead-low"), cond("guard-crashed"), cond("budget-unreadable")],
+    const s = planAlerts({}, [cond("offair-corrupt"), cond("lead-low"), cond("offair-without-fallback"), cond("tripped-blind")],
                          T0, REPEAT).next;
-    let r = planAlerts(s, [cond("horizon-missing")], T0 + 60_000, REPEAT, GUARD_ONLY);
-    expect(r.send.map((o) => [o.kind, o.key])).toEqual([["alert", "horizon-missing"]]);
-    expect(r.next["waf-api"].clearing_since).toBe(new Date(T0 + 60_000).toISOString());
-    r = planAlerts(r.next, [cond("horizon-missing")], T0 + 60_000 + COOLDOWN_MS, REPEAT, GUARD_ONLY);
-    expect(r.send.map((o) => [o.kind, o.key]).sort()).toEqual([["resolved", "budget-unreadable"], ["resolved", "waf-api"]]);
+    let r = planAlerts(s, [cond("horizon-refused")], T0 + 60_000, REPEAT, GUARD_ONLY);
+    expect(r.send.map((o) => [o.kind, o.key])).toEqual([["alert", "horizon-refused"]]);
+    expect(r.next["offair-corrupt"].clearing_since).toBe(new Date(T0 + 60_000).toISOString());
+    r = planAlerts(r.next, [cond("horizon-refused")], T0 + 60_000 + COOLDOWN_MS, REPEAT, GUARD_ONLY);
+    expect(r.send.map((o) => [o.kind, o.key]).sort()).toEqual([["resolved", "offair-corrupt"], ["resolved", "tripped-blind"]]);
     expect(r.next["lead-low"]).toEqual(s["lead-low"]);
-    expect(r.next["guard-crashed"]).toEqual(s["guard-crashed"]);
+    expect(r.next["offair-without-fallback"]).toEqual(s["offair-without-fallback"]);
   });
 
   it("a key in neither family is treated as clock-family: resolved only on a complete batch", () => {
@@ -199,6 +200,161 @@ describe("planAlerts on an incomplete batch (AlertBatch)", () => {
     expect([...CLOCK_KEYS].sort()).toEqual([...clock].sort());
     for (const k of clock) expect([k, keyFamily(k)]).toEqual([k, "clock"]);
     expect(keyFamily("budget-x")).toBe("clock");
+    // B. only two raise sites bypass the gate
+    const sources = import.meta.glob("../src/*.ts", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+    const sites = Object.entries(sources).flatMap(([f, s]) => (s.match(/immediate:\s*true/g) ?? []).map(() => f));
+    expect(sites.sort()).toEqual(["../src/clock.ts", "../src/guard.ts"]);
+    for (const k of GATED_KEYS) expect(CLOCK_KEYS.has(k) || keyFamily(k) === "guard").toBe(true);
+  });
+});
+
+describe("the 3-consecutive gate", () => {
+  const at = (n: number) => T0 + n * 60_000;
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const imm = (key: string): AlertCondition => ({ ...cond(key), immediate: true });
+  const DONE: AlertBatch = { complete: true, guardComplete: true };
+  const NONE: AlertBatch = { complete: false, guardComplete: false };
+  const broken = { name: "x", send: async () => { throw new Error("down"); } };
+  /** A still-active entry whose clearing window has elapsed. No streak: the
+   * first allowed absence that started the clearing stripped it. */
+  const live: AlertEntry = { active: true, resolvable: true, title: "t", first_at: iso(T0 - H), last_sent_at: iso(T0 - H),
+                             delivered: true, cleared_at: null, clearing_since: iso(T0 - COOLDOWN_MS - 60_000) };
+
+  it("A. GATED_KEYS is exactly the approved list", () => {
+    expect(GATE).toBe(3);
+    expect([...GATED_KEYS].sort()).toEqual(["budget-unreadable", "clock-failed", "clock-inputs", "guard-crashed",
+      "guard-unknown", "guard-write", "horizon-missing", "index-write", "metronome-down", "waf-api"]);
+  });
+
+  it("C. a gated key sends only on its 3rd consecutive presence; the first message says so", () => {
+    let r = planAlerts({}, [cond("waf-api")], at(0), REPEAT);
+    expect(r.send).toEqual([]);
+    expect(r.next["waf-api"]).toMatchObject({ active: false, pending: true, streak: 1 });
+    r = planAlerts(r.next, [cond("waf-api")], at(1), REPEAT);
+    expect(r.send).toEqual([]);
+    expect(r.next["waf-api"]).toMatchObject({ active: false, pending: true, streak: 2 });
+    r = planAlerts(r.next, [cond("waf-api")], at(2), REPEAT);
+    expect(r.send.map((o) => o.kind)).toEqual(["alert"]);
+    expect(r.send[0].message).toMatch(/3 consecutive/);
+    expect(r.next["waf-api"]).toMatchObject({ active: true, streak: 3 });
+    expect(r.next["waf-api"].pending).toBeUndefined();
+  });
+
+  it("D. an absence on a batch that could clear it drops a pending-only entry", () => {
+    let s = planAlerts({}, [cond("waf-api")], at(0), REPEAT).next;
+    s = planAlerts(s, [], at(1), REPEAT, DONE).next;
+    expect(s).not.toHaveProperty("waf-api");
+    expect(planAlerts(s, [cond("waf-api")], at(2), REPEAT).next["waf-api"].streak).toBe(1);
+  });
+
+  it("E. an incomplete batch over a pending entry leaves it unchanged; guardComplete resets a guard-family one", () => {
+    const s = planAlerts({}, [cond("clock-inputs"), cond("guard-write")], at(0), REPEAT).next;
+    const r = planAlerts(s, [], at(1), REPEAT, NONE);
+    expect(r.next).toEqual(s);
+    const g = planAlerts(s, [], at(1), REPEAT, { complete: false, guardComplete: true });
+    expect(g.next["clock-inputs"]).toEqual(s["clock-inputs"]);
+    expect(g.next).not.toHaveProperty("guard-write");
+    // the incomplete minute neither advanced nor reset: two more presences reach GATE
+    const t = planAlerts(r.next, [cond("clock-inputs")], at(2), REPEAT).next;
+    expect(planAlerts(t, [cond("clock-inputs")], at(3), REPEAT).send.map((o) => o.kind)).toEqual(["alert"]);
+  });
+
+  it("G. pending over a kept inactive entry keeps its history; a reset keeps it as before", () => {
+    const old: AlertEntry = { active: false, resolvable: true, title: "t", first_at: iso(T0 - H), last_sent_at: iso(T0 - H),
+                              delivered: true, cleared_at: iso(T0 - 30 * 60_000) };
+    const r = planAlerts({ "waf-api": old }, [cond("waf-api")], at(0), REPEAT);
+    expect(r.send).toEqual([]);
+    expect(r.next["waf-api"]).toEqual({ ...old, streak: 1 });
+    expect(planAlerts(r.next, [], at(1), REPEAT, DONE).next["waf-api"]).toEqual(old);
+  });
+
+  it("H. pending over a still-active entry whose clearing elapsed: it stays, may resolve, or is replaced at GATE", () => {
+    const r = planAlerts({ "waf-api": live }, [cond("waf-api")], at(0), REPEAT);
+    expect(r.send).toEqual([]);
+    expect(r.next["waf-api"]).toEqual({ ...live, streak: 1 });
+    const gone = planAlerts(r.next, [], at(1), REPEAT, DONE);
+    expect(gone.send.map((o) => [o.kind, o.key])).toEqual([["resolved", "waf-api"]]);
+    const s = planAlerts(r.next, [cond("waf-api")], at(1), REPEAT).next;
+    const back = planAlerts(s, [cond("waf-api")], at(2), REPEAT);
+    expect(back.send.map((o) => o.kind)).toEqual(["alert"]);
+    expect(back.next["waf-api"].first_at).toBe(iso(at(2)));
+  });
+
+  it("I. a single blip inside an active episode never sends a repeat", () => {
+    let s = [0, 1, 2].reduce((st, n) => planAlerts(st, [cond("waf-api")], at(n), REPEAT).next, {} as AlertState);
+    s = planAlerts(s, [], at(2) + REPEAT, REPEAT, DONE).next;          // a clean minute: streak reset, clearing starts
+    let r = planAlerts(s, [cond("waf-api")], at(3) + REPEAT, REPEAT);    // back inside the window, repeat due
+    expect(r.send).toEqual([]);
+    expect(r.next["waf-api"].active).toBe(true);
+    r = planAlerts(r.next, [cond("waf-api")], at(4) + REPEAT, REPEAT);
+    r = planAlerts(r.next, [cond("waf-api")], at(5) + REPEAT, REPEAT);
+    expect(r.send.map((o) => o.kind)).toEqual(["repeat"]);
+  });
+
+  it("J. an immediate condition sends at once, advances the streak, and its repeat is not gated", () => {
+    let r = planAlerts({}, [imm("metronome-down")], at(0), REPEAT);
+    expect(r.send.map((o) => o.kind)).toEqual(["alert"]);
+    expect(r.send[0].message).not.toMatch(/consecutive/);
+    expect(r.next["metronome-down"]).toMatchObject({ active: true, streak: 1 });
+    r = planAlerts(r.next, [imm("metronome-down")], at(0) + REPEAT, REPEAT);   // streak 2 < GATE, repeat due
+    expect(r.send.map((o) => o.kind)).toEqual(["repeat"]);
+  });
+
+  it("K. ungated keys send at their first presence and store no streak (strict surfaces)", () => {
+    for (const c of [cond("tripped-spend"), cond("tripped-blind"), cond("guard-state-corrupt"), cond("offair-corrupt"),
+                     cond("horizon-refused"), cond("lead-low"), cond("guard-reading-failing"),
+                     cond("offair-without-fallback"), cond("waf-corrected", false),
+                     { ...cond("budget-file-invalid", false), once: true },
+                     { ...cond("budget-50:2026-10-11:15", false), once: true },
+                     { ...cond("budget-80:2026-10-11:15", false), once: true }]) {
+      const r = planAlerts({}, [c], T0, REPEAT);
+      expect([c.key, r.send.map((o) => o.kind)]).toEqual([c.key, ["alert"]]);
+      expect([c.key, "streak" in r.next[c.key]]).toEqual([c.key, false]);
+    }
+  });
+
+  it("L. the stored streak stops at GATE: a steady active episode writes alerts.json no more", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    for (let n = 0; n < 6; n++) await dispatchAlerts(bucket, [], [cond("waf-api")], at(n), REPEAT);
+    expect(bucket.puts(ALERTS_KEY)).toBe(3);
+  });
+
+  it("M. an entry from before the gate continues; its due repeat waits for GATE presences", () => {
+    const legacy: AlertEntry = { active: true, resolvable: true, title: "t", first_at: iso(T0 - REPEAT),
+                                 last_sent_at: iso(T0 - REPEAT), delivered: true, cleared_at: null }; // old Worker: no streak
+    let r = planAlerts({ "waf-api": legacy }, [cond("waf-api")], at(0), REPEAT);
+    expect(r.send).toEqual([]);
+    expect(r.next["waf-api"]).toMatchObject({ active: true, first_at: legacy.first_at, streak: 1 });
+    r = planAlerts(r.next, [cond("waf-api")], at(1), REPEAT);
+    r = planAlerts(r.next, [cond("waf-api")], at(2), REPEAT);
+    expect(r.send.map((o) => o.kind)).toEqual(["repeat"]);
+  });
+
+  it("Q. a failed \"resolved\" restores the entry without its streak, so the clean minute's reset holds", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    bucket.seed(ALERTS_KEY, { "waf-api": live });
+    expect(await dispatchAlerts(bucket, [], [cond("waf-api")], at(0), REPEAT)).toEqual({ sent: 0, failed: 0 }); // held
+    expect(bucket.json(ALERTS_KEY)["waf-api"]).toEqual({ ...live, streak: 1 });
+    expect(await dispatchAlerts(bucket, [broken], [], at(1), REPEAT, DONE)).toEqual({ sent: 0, failed: 1 });
+    expect(bucket.json(ALERTS_KEY)["waf-api"]).toEqual(live);
+    await dispatchAlerts(bucket, [], [cond("waf-api")], at(2), REPEAT);
+    expect(bucket.json(ALERTS_KEY)["waf-api"].streak).toBe(1);
+  });
+
+  it("R. an undelivered immediate first alert is resent at once by a non-immediate presence, never re-gated", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    const got: Outgoing[] = [];
+    const ok = { name: "ok", send: async (o: Outgoing) => { got.push(o); } };
+    // The relay write (Task 2) joins the broken email channel here.
+    expect(await dispatchAlerts(bucket, [broken], [imm("metronome-down")], at(0), REPEAT)).toEqual({ sent: 0, failed: 1 });
+    expect(bucket.json(ALERTS_KEY)["metronome-down"]).toMatchObject({ active: true, last_sent_at: null, delivered: false });
+    expect(await dispatchAlerts(bucket, [ok], [cond("metronome-down")], at(1), REPEAT)).toEqual({ sent: 1, failed: 0 });
+    expect(got.map((o) => [o.kind, o.key])).toEqual([["repeat", "metronome-down"]]);
+    expect(got[0].message).not.toMatch(/consecutive/); // the episode began immediate
+    expect(bucket.json(ALERTS_KEY)["metronome-down"]).toMatchObject({ active: true, streak: 2, delivered: true });
   });
 });
 
@@ -324,7 +480,14 @@ describe("redaction of account details from off-account text", () => {
     const channels = channelsFromEnv({ ...env, NTFY_URL: "https://ntfy.example/t", ALERT_EMAIL: binding,
                                        ALERT_EMAIL_FROM: "radio@example.org", ALERT_EMAIL_TO: "ops@example.net" },
                                      ntfy.fetch, () => T0, FakeMessage as never);
-    expect(await dispatchAlerts(bucket, channels, [waf], T0, REPEAT)).toEqual({ sent: 1, failed: 0 });
+    // waf-api is gated: the first two minutes send nothing, the third sends (redaction on the gated path).
+    expect(await dispatchAlerts(bucket, channels, [waf], T0, REPEAT)).toEqual({ sent: 0, failed: 0 });
+    expect(await dispatchAlerts(bucket, channels, [waf], T0 + 60_000, REPEAT)).toEqual({ sent: 0, failed: 0 });
+    expect(ntfy.calls).toHaveLength(0);
+    expect(raws).toHaveLength(0);
+    expect(await dispatchAlerts(bucket, channels, [waf], T0 + 120_000, REPEAT)).toEqual({ sent: 1, failed: 0 });
+    expect(ntfy.calls).toHaveLength(1);
+    expect(raws).toHaveLength(1);
     const ntfyText = JSON.stringify(ntfy.calls[0].headers) + ntfy.calls[0].body;
     const emailText = decodeEmail(raws[0]);
     expect(ntfyText).toMatch(/Kill switch not reconciled/);
@@ -354,9 +517,9 @@ describe("dispatchAlerts", () => {
     const broken = { name: "x", send: async () => { throw new Error("down"); } };
     const got: string[] = [];
     const ok = { name: "ok", send: async (o: Outgoing) => { got.push(o.key); } };
-    expect(await dispatchAlerts(bucket, [broken], [cond("waf-api")], T0, REPEAT)).toEqual({ sent: 0, failed: 1 });
-    expect(await dispatchAlerts(bucket, [broken, ok], [cond("waf-api")], T0 + 60_000, REPEAT)).toEqual({ sent: 1, failed: 0 });
-    expect(got).toEqual(["waf-api"]);
+    expect(await dispatchAlerts(bucket, [broken], [cond("offair-corrupt")], T0, REPEAT)).toEqual({ sent: 0, failed: 1 });
+    expect(await dispatchAlerts(bucket, [broken, ok], [cond("offair-corrupt")], T0 + 60_000, REPEAT)).toEqual({ sent: 1, failed: 0 });
+    expect(got).toEqual(["offair-corrupt"]);
   });
 
   it("a once alert no channel accepted is sent at the next invocation", async () => {
@@ -377,14 +540,14 @@ describe("dispatchAlerts", () => {
     const broken = { name: "x", send: async () => { throw new Error("down"); } };
     const got: string[] = [];
     const ok = { name: "ok", send: async (o: Outgoing) => { got.push(`${o.kind}:${o.key}`); } };
-    await dispatchAlerts(bucket, [ok], [cond("waf-api")], T0, REPEAT);
+    await dispatchAlerts(bucket, [ok], [cond("offair-corrupt")], T0, REPEAT);
     await dispatchAlerts(bucket, [ok], [], T0 + H, REPEAT); // clearing
     await dispatchAlerts(bucket, [ok], [], T0 + H + COOLDOWN_MS, REPEAT); // resolved
     const back = T0 + H + 2 * COOLDOWN_MS;
-    expect(await dispatchAlerts(bucket, [broken], [cond("waf-api")], back, REPEAT)).toEqual({ sent: 0, failed: 1 });
-    expect(await dispatchAlerts(bucket, [ok], [cond("waf-api")], back + 60_000, REPEAT)).toEqual({ sent: 1, failed: 0 });
+    expect(await dispatchAlerts(bucket, [broken], [cond("offair-corrupt")], back, REPEAT)).toEqual({ sent: 0, failed: 1 });
+    expect(await dispatchAlerts(bucket, [ok], [cond("offair-corrupt")], back + 60_000, REPEAT)).toEqual({ sent: 1, failed: 0 });
     expect(got).toHaveLength(3);
-    expect(got[2]).toMatch(/:waf-api$/);
+    expect(got[2]).toMatch(/:offair-corrupt$/);
   });
 
   it("a resolved notice no channel accepted is retried the next minute", async () => {
@@ -393,13 +556,13 @@ describe("dispatchAlerts", () => {
     const broken = { name: "x", send: async () => { throw new Error("down"); } };
     const got: string[] = [];
     const ok = { name: "ok", send: async (o: Outgoing) => { got.push(`${o.kind}:${o.key}`); } };
-    await dispatchAlerts(bucket, [ok], [cond("waf-api")], T0, REPEAT);
+    await dispatchAlerts(bucket, [ok], [cond("offair-corrupt")], T0, REPEAT);
     expect(await dispatchAlerts(bucket, [broken], [], T0 + H, REPEAT)).toEqual({ sent: 0, failed: 0 }); // clearing
     expect(await dispatchAlerts(bucket, [broken], [], T0 + H + COOLDOWN_MS, REPEAT)).toEqual({ sent: 0, failed: 1 });
-    expect(bucket.json(ALERTS_KEY)["waf-api"]).toMatchObject({ active: true, clearing_since: new Date(T0 + H).toISOString() });
+    expect(bucket.json(ALERTS_KEY)["offair-corrupt"]).toMatchObject({ active: true, clearing_since: new Date(T0 + H).toISOString() });
     expect(await dispatchAlerts(bucket, [ok], [], T0 + H + COOLDOWN_MS + 60_000, REPEAT)).toEqual({ sent: 1, failed: 0 });
-    expect(got).toEqual(["alert:waf-api", "resolved:waf-api"]);
-    expect(bucket.json(ALERTS_KEY)["waf-api"].active).toBe(false);
+    expect(got).toEqual(["alert:offair-corrupt", "resolved:offair-corrupt"]);
+    expect(bucket.json(ALERTS_KEY)["offair-corrupt"].active).toBe(false);
   });
 
   it("an undelivered alert that clears is dropped, never resolved, through dispatch", async () => {
@@ -408,7 +571,7 @@ describe("dispatchAlerts", () => {
     const broken = { name: "x", send: async () => { throw new Error("down"); } };
     const got: string[] = [];
     const ok = { name: "ok", send: async (o: Outgoing) => { got.push(`${o.kind}:${o.key}`); } };
-    expect(await dispatchAlerts(bucket, [broken], [cond("waf-api")], T0, REPEAT)).toEqual({ sent: 0, failed: 1 });
+    expect(await dispatchAlerts(bucket, [broken], [cond("offair-corrupt")], T0, REPEAT)).toEqual({ sent: 0, failed: 1 });
     await dispatchAlerts(bucket, [ok], [], T0 + 60_000, REPEAT);
     expect(await dispatchAlerts(bucket, [ok], [], T0 + 60_000 + COOLDOWN_MS, REPEAT)).toEqual({ sent: 0, failed: 0 });
     expect(got).toEqual([]);
@@ -436,9 +599,9 @@ describe("dispatchAlerts", () => {
     const broken = { name: "x", send: async () => { throw new Error("down"); } };
     const got: string[] = [];
     const ok = { name: "ok", send: async (o: Outgoing) => { got.push(`${o.kind}:${o.key}`); } };
-    await dispatchAlerts(bucket, [broken], [cond("waf-api")], T0, REPEAT);
-    expect(await dispatchAlerts(bucket, [broken], [cond("waf-api")], T0 + 60_000, REPEAT)).toEqual({ sent: 0, failed: 1 });
-    expect(bucket.json(ALERTS_KEY)["waf-api"]).toMatchObject({ last_sent_at: null, delivered: false });
+    await dispatchAlerts(bucket, [broken], [cond("offair-corrupt")], T0, REPEAT);
+    expect(await dispatchAlerts(bucket, [broken], [cond("offair-corrupt")], T0 + 60_000, REPEAT)).toEqual({ sent: 0, failed: 1 });
+    expect(bucket.json(ALERTS_KEY)["offair-corrupt"]).toMatchObject({ last_sent_at: null, delivered: false });
     await dispatchAlerts(bucket, [ok], [], T0 + 120_000, REPEAT);
     await dispatchAlerts(bucket, [ok], [], T0 + 120_000 + COOLDOWN_MS, REPEAT);
     expect(got).toEqual([]);
@@ -487,14 +650,14 @@ describe("dispatchAlerts", () => {
 
     it("a failed return after a DELIVERED resolved still starts an undelivered episode", async () => {
       const { bucket, got, broken, ok } = setup();
-      await dispatchAlerts(bucket, [ok], [cond("waf-api")], T0, REPEAT);
+      await dispatchAlerts(bucket, [ok], [cond("offair-corrupt")], T0, REPEAT);
       await dispatchAlerts(bucket, [ok], [], T0 + M, REPEAT);
       await dispatchAlerts(bucket, [ok], [], T0 + 16 * M, REPEAT); // resolved, delivered
-      await dispatchAlerts(bucket, [broken], [cond("waf-api")], T0 + 17 * M, REPEAT); // new episode fails
-      expect(bucket.json(ALERTS_KEY)["waf-api"]).toMatchObject({ active: true, delivered: false });
+      await dispatchAlerts(bucket, [broken], [cond("offair-corrupt")], T0 + 17 * M, REPEAT); // new episode fails
+      expect(bucket.json(ALERTS_KEY)["offair-corrupt"]).toMatchObject({ active: true, delivered: false });
       await dispatchAlerts(bucket, [ok], [], T0 + 18 * M, REPEAT);
       await dispatchAlerts(bucket, [ok], [], T0 + 33 * M, REPEAT);
-      expect(got).toEqual(["alert:waf-api", "resolved:waf-api"]); // no resolved for the undelivered episode
+      expect(got).toEqual(["alert:offair-corrupt", "resolved:offair-corrupt"]); // no resolved for the undelivered episode
     });
 
     it("P10: a failed re-alert over an active never-delivered episode stays undelivered: dropped on re-clear, no resolved", async () => {
@@ -575,7 +738,7 @@ describe("dispatchAlerts", () => {
     const hung = { send: () => new Promise<unknown>(() => {}) };
     const ch = emailChannel(hung, "radio@example.org", "ops@example.net", "s", () => T0, FakeMessage as never, [], 5);
     await expect(ch.send({ key: "k", kind: "alert", priority: "high", title: "t", message: "m" })).rejects.toThrow(/timed out/);
-    expect(await dispatchAlerts(new MemoryBucket(), [ch], [cond("waf-api")], T0, REPEAT)).toEqual({ sent: 0, failed: 1 });
+    expect(await dispatchAlerts(new MemoryBucket(), [ch], [cond("offair-corrupt")], T0, REPEAT)).toEqual({ sent: 0, failed: 1 });
   });
 
   it("writes alerts.json only when the state changed", async () => {
@@ -594,13 +757,13 @@ describe("dispatchAlerts", () => {
     const ntfy = fakeFetch({ "POST https://n/t": () => new Response("{}") });
     const sink = alertSink(bucket, { NTFY_URL: "https://n/t" }, ntfy.fetch, () => T0);
     await sink([cond("tripped-spend"), cond("lead-low")], T0, { complete: true, guardComplete: true });
-    await sink([cond("guard-unknown")], T0 + 60_000, { complete: false, guardComplete: false });
+    await sink([cond("offair-corrupt")], T0 + 60_000, { complete: false, guardComplete: false });
     expect(ntfy.calls.map((c) => c.headers.title)).toEqual(
-      ["llama radio: tripped-spend title", "llama radio: lead-low title", "llama radio: guard-unknown title"]);
+      ["llama radio: tripped-spend title", "llama radio: lead-low title", "llama radio: offair-corrupt title"]);
     await sink([cond("tripped-spend")], T0 + 120_000, { complete: false, guardComplete: true });
-    expect(ntfy.calls).toHaveLength(3); // guard-unknown is clearing
+    expect(ntfy.calls).toHaveLength(3); // offair-corrupt is clearing
     await sink([cond("tripped-spend")], T0 + 120_000 + COOLDOWN_MS, { complete: false, guardComplete: true });
-    expect(ntfy.calls.map((c) => c.headers.title).slice(3)).toEqual(["llama radio: resolved: guard-unknown title"]);
+    expect(ntfy.calls.map((c) => c.headers.title).slice(3)).toEqual(["llama radio: resolved: offair-corrupt title"]);
     expect(bucket.json(ALERTS_KEY)["lead-low"].active).toBe(true);
   });
 });

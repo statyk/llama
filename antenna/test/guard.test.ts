@@ -116,6 +116,7 @@ describe("guardStep", () => {
     const out = await step(bucket, c);
     expect(out.blocked).toBeNull();
     expect(out.conditions.map((x) => x.key)).toEqual(["guard-unknown"]);
+    expect(out.conditions[0].immediate).toBeUndefined(); // the read branch is gated
     expect(c.calls).toHaveLength(0);
     expect(bucket.puts()).toBe(0);
   });
@@ -453,6 +454,25 @@ describe("guardStep: races and failure paths beyond the plan's", () => {
     expect(next.conditions.find((x) => x.key === "waf-corrected")!.message).toMatch(/by hand or by an overlapping invocation/);
   });
 
+  it("P. the post-unblock re-check that cannot read state raises guard-unknown immediate; the read branch does not",
+     async () => {
+    const bucket = new MemoryBucket();
+    const c = cloud();
+    await step(bucket, c); // evaluated at T0, untripped, switch off
+    c.state.enabled = true; // the switch is on: this run turns it off without writing guard.json
+    const realHead = bucket.head.bind(bucket);
+    bucket.head = async (key) => {
+      if (key === GUARD_KEY) throw new Error("injected head failure");
+      return realHead(key);
+    };
+    const out = await step(bucket, c, T0 + 2 * M);
+    expect(c.state.enabled).toBe(false);
+    expect(out.blocked).toBe(true);
+    const unknown = out.conditions.filter((x) => x.key === "guard-unknown");
+    expect(unknown).toHaveLength(1);
+    expect(unknown[0].immediate).toBe(true);
+  });
+
   it("an unblocking run with nothing newer in state does not fold anything in", async () => {
     const bucket = new MemoryBucket();
     const c = cloud();
@@ -470,6 +490,7 @@ describe("guardStep: races and failure paths beyond the plan's", () => {
     const out = await step(bucket, c);
     expect(out.blocked).toBeNull();
     expect(out.conditions.map((x) => x.key)).toEqual(["guard-unknown"]);
+    expect(out.conditions[0].immediate).toBeUndefined(); // the read branch is gated
     expect(c.calls).toHaveLength(0);
     expect(bucket.puts()).toBe(0);
   });
