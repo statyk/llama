@@ -245,3 +245,73 @@ on air. The risk is a future `emcee run`.
     Station`).
   - The pre-screen had leaned keep on the crowd chants (a Deadhead tradition), as an optional
     operator ruling.
+
+## Checkpoint B (Task 15, after Tasks 11-14, `a756350`)
+
+- **Candidate re-run `cand-b.json`** (Step 1).
+  - Arm: `b5b6d49`, clean, 14:01:58-14:03:07, rc 0, sha256 93705021…. Tallies equal `cand-a2`'s.
+  - Per row against `cand-a2`, only `briefing` differs (901 rows, Task 11's reuse rule).
+    Filenames, titles and flags are identical.
+  - `arms` (`~/.llama-harness/piece4/arms-b/`) is identical to `arms-a2` as JSON: changed 1,531,
+    files added 2,639, cleared 20, added 34.
+- **Briefing reuse count** (Step 1; spec 5.3).
+  - 1,410 changed shows have a `briefing.json`.
+  - Under the hold gate, the arm reuses 901.
+  - With the gate ignored, as spec 5.3 measured it:
+    - 1,014 reusable;
+    - 391 `broadcast fields changed`;
+    - 5 `briefing guard`.
+  - Script: `held_reuse.py`; output: `~/.llama-harness/piece4/ckb/brcount/held_reuse.json`.
+  - Against spec 5.3's 1,017 of 1,415, the 5 shows of difference are exactly the 5 that Checkpoint
+    A rulings 1-2 (Task 10) stopped changing:
+    - `gratefuldead-1973-10-29`;
+    - `gratefuldead-1974-09-11`;
+    - `guster-2006-07-28`;
+    - `joerussosalmostdead-2020-02-21`;
+    - `railroadearth-2006-02-18`.
+  - All 5 have a briefing, so 3 of them were reusable at the spec's measurement. That figure is
+    inferred from the reconciled counts, not checked per show.
+- **Reuse check** (Step 2; premises 6-8). Run at `a756350` with `cand-b`, sample 20, seed 47. Output:
+  `~/.llama-harness/piece4/ckb/reuse/reuse_check.md`, sha256 0c4daeda…. The station share stayed
+  mounted throughout.
+  - 1,025 delivered, unvoiced shows change. Excluded from that count:
+    - 1,197 with no station copy;
+    - 1,541 whose track list is unchanged;
+    - 220 with a voiced station copy;
+    - 0 metadata misses;
+    - 0 without a size.
+  - **Premise 6:** 2,559,121,449 bytes (2.56 GB) is not covered by reuse.
+    - The figure is structural: the new files, plus every file of a show whose station copy does
+      not pair.
+    - It ignores library-side audio, so it errs high.
+  - **Premise 7:** all 20 sampled shows pair.
+    - 357 station files pass the duration check, and 0 paired files fall back.
+    - All 31 fallbacks are `not paired`, i.e. the new short-kept files, which must download.
+  - **Premise 8:** wall time per show over SMB averages 0.58 s, with a maximum of 1.27 s. It covers
+    `plan_reuse` plus the duration reads.
+- **Premise 4: FAILS** (Step 3).
+  - The reader (Opus) read 10 of the 37 voiced-severe briefings, sampled with seed 47. Packet:
+    `~/.llama-harness/piece4/ckb/p4/packet.json`, sha256 f63d65d0…. Verdict:
+    `.superpowers/sdd/junk-short-keep/t15-p4read/handback.md`, sha256 1a67957b….
+  - **All 10 stored briefings claim that a restored file is absent, excluded or not a track.**
+  - The cause is structural. `run_brief` passes the whole `show.json` to the LLM, including
+    `excluded_files` (`implausibly short`) and `structure.conflicts`. So each briefing carries a
+    caution about the gap, and that caution is false once the piece is restored. `briefing_guard`
+    does not check claims about which files are present.
+  - Also made wrong: 4 track counts (e.g. "Thirteen tracks") and 4 sequence or segue claims.
+  - Three voiced `dj-notes.md` carry a now-false absence claim: `gratefuldead-1968-10-12`,
+    `gratefuldead-1977-11-06` and `gratefuldead-1985-06-24`.
+  - Sizing: I grepped the library's `briefing.md` read-only
+    (`~/.llama-harness/piece4/ckb/brcount/absence_proxy.txt`).
+    - Of the 1,014 reusable briefings, 992 name a short-kept file's stem or say `excluded`,
+      `implausibly short` or `left out`.
+    - Of the arm's 901 reuse rows, 886 do.
+  - Spec 5.3's reuse, as built, would ship false absence claims on almost every restored show.
+    **This is the operator's decision at Checkpoint B.**
+- **Task 13's wrong-audio fix** (for the spec text).
+  - Spec 5.4's "the index pairing with equal titles ties each file to its source" holds only
+    within one archive item. A re-selection to another item that shares filenames would have
+    shipped the old item's audio under the new identifier (138 of 288 multi-item GD dates share
+    mp3 filenames).
+  - The branch now pairs a library or station manifest only when its `source.identifier` equals
+    `show.json`'s identifier. `build_package` re-checks this at package time.
