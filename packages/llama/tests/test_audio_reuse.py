@@ -7,13 +7,17 @@ from pathlib import Path
 import pytest
 
 from helpers import (
+    ReuseIA,
+    audio_files,
     fake_audio,
+    fake_source,
     packaged_reuse_show,
     patch_fake_durations,
     reuse_show,
 )
 from llama.audio_reuse import ASIDE_DIR, ReusePlan, plan_reuse, reuse_into
-from llama.workspace import write_artifact
+from llama.stages.package import DURATION_TOLERANCE_S, build_package
+from llama.workspace import drop_stage_artifacts, write_artifact
 
 OLD = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0), ("X", "x.mp3", 500.0))
 
@@ -108,6 +112,48 @@ def test_unreadable_library_manifest_has_no_names(tmp_path, monkeypatch):
     (ws.package_dir / "manifest.json").write_text("{")
     plan = plan_reuse(ws, None)
     assert plan.library_names is None and plan.library == {}
+
+
+def test_duration_mismatch_or_unreadable_falls_back_to_download(tmp_path, monkeypatch):
+    patch_fake_durations(monkeypatch)
+    old = (*OLD, ("C", "c.mp3", 200.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    audio = ws.package_dir / "audio"
+    (audio / "01 - A.mp3").write_bytes(fake_audio("a.mp3", 300.0 + DURATION_TOLERANCE_S + 1))
+    (audio / "02 - B.mp3").write_bytes(b"no readable duration")
+    (audio / "03 - X.mp3").write_bytes(fake_audio("x.mp3", 500.0 + DURATION_TOLERANCE_S))  # at the edge
+    plan = plan_reuse(ws, None)
+    new = reuse_show(("Crowd", "s.mp3", 20.0, True), *old)
+    drop_stage_artifacts(ws, "package"); write_artifact(ws.show, new)
+    ia = ReuseIA({**{t.filename: t.duration_sec for t in new.tracks}, "c.mp3": None})
+    build_package(ws, ia, new, reuse=plan)
+    # a: mismatch; b: unreadable; c: no cached metadata length; s: new, in no copy.
+    assert ia.downloads == ["s.mp3", "a.mp3", "b.mp3", "c.mp3"]
+    names = audio_files(ws)
+    assert sorted(names) == ["01 - Crowd.mp3", "02 - A.mp3", "03 - B.mp3", "04 - X.mp3", "05 - C.mp3"]
+    assert {n: fake_source(ws.package_dir / "audio" / n) for n in names} == {
+        "01 - Crowd.mp3": "s.mp3", "02 - A.mp3": "a.mp3", "03 - B.mp3": "b.mp3",
+        "04 - X.mp3": "x.mp3", "05 - C.mp3": "c.mp3"}
+
+
+def test_station_copy_used_when_the_library_was_purged(tmp_path, monkeypatch):
+    patch_fake_durations(monkeypatch)
+    ws = packaged_reuse_show(tmp_path, reuse_show(*OLD))
+    station = _station(tmp_path, ws)
+    station_bytes = {p.name: p.read_bytes() for p in (station / "audio").iterdir()}
+    for p in (ws.package_dir / "audio").iterdir():      # deliver purged the library audio
+        p.unlink()
+    plan = plan_reuse(ws, station)
+    drop_stage_artifacts(ws, "package")                 # an unchanged list, re-packaged
+    show = reuse_show(*OLD)
+    ia = ReuseIA({t.filename: t.duration_sec for t in show.tracks})
+    build_package(ws, ia, show, reuse=plan)
+    assert ia.downloads == []
+    assert {n: fake_source(ws.package_dir / "audio" / n) for n in audio_files(ws)} == {
+        "01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3", "03 - X.mp3": "x.mp3"}
+    assert not (ws.dir / ASIDE_DIR).exists()
+    # the station copy is read, never moved or changed
+    assert {p.name: p.read_bytes() for p in (station / "audio").iterdir()} == station_bytes
 
 
 def test_reuse_into_tries_the_library_before_the_station(tmp_path, monkeypatch):
