@@ -3,7 +3,10 @@ $NOTIFY_SOCKET (a leading "@" names an abstract socket). The unit is
 Type=notify with WatchdogSec: `transmitter run` sends READY=1 once, then
 WATCHDOG=1 after every step of every tick and after every publish batch, so a
 hang longer than WatchdogSec (e.g. a hard NFS mount) gets the service killed
-and restarted. Outside systemd (no NOTIFY_SOCKET) every call is a no-op."""
+and restarted. WATCHDOG=1 comes from the main loop only: the dead-clock
+monitor thread (monitor.MonitorLoop) never pings, so the watchdog keeps
+meaning "the main loop is alive" and a hung main loop is never masked by a
+healthy monitor. Outside systemd (no NOTIFY_SOCKET) every call is a no-op."""
 
 import logging
 import os

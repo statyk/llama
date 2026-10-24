@@ -507,13 +507,15 @@ def test_the_dispatcher_serialises_fire_under_its_lock(tmp_path):
     rec = Recorder()
     d, _ = _dispatcher(tmp_path, rec)
     d._lock.acquire()
-    t = threading.Thread(target=d.fire, args=("put-budget", "m"))
-    t.start()
-    t.join(0.2)
-    assert t.is_alive() and rec.sent == []
-    d._lock.release()
+    try:                                    # daemon + release in finally: a deadlock fails, never hangs
+        t = threading.Thread(target=d.fire, args=("put-budget", "m"), daemon=True)
+        t.start()
+        t.join(0.2)
+        assert t.is_alive() and rec.sent == []
+    finally:
+        d._lock.release()
     t.join(2)
-    assert len(rec.sent) == 1
+    assert not t.is_alive() and len(rec.sent) == 1
 
 
 @pytest.mark.parametrize("call", ["resolve", "active", "end_observation"])
@@ -522,11 +524,13 @@ def test_resolve_active_and_end_observation_take_the_lock(tmp_path, call):
     d, _ = _dispatcher(tmp_path, rec)
     args = {"resolve": ("put-budget",), "active": (), "end_observation": (alerts.TICK, ["publish"])}[call]
     d._lock.acquire()
-    t = threading.Thread(target=getattr(d, call), args=args)
-    t.start()
-    t.join(0.2)
-    assert t.is_alive()
-    d._lock.release()
+    try:                                    # daemon + release in finally: a deadlock fails, never hangs
+        t = threading.Thread(target=getattr(d, call), args=args, daemon=True)
+        t.start()
+        t.join(0.2)
+        assert t.is_alive()
+    finally:
+        d._lock.release()
     t.join(2)
     assert not t.is_alive()
 
@@ -550,3 +554,27 @@ def test_the_module_level_wrappers_never_raise(tmp_path, caplog):
     assert "end_observation" in caplog.text
     alerts.configure(None)
     alerts.end_observation(alerts.TICK, ["plan"])                   # no dispatcher: a no-op
+
+
+def test_each_gated_code_has_exactly_one_observer():
+    assert set(alerts.CODE_OBSERVER) == alerts.GATED_CODES
+    assert alerts.CODE_OBSERVER["dead-clock-check"] == alerts.MONITOR
+    assert {c for c, o in alerts.CODE_OBSERVER.items() if o == alerts.TICK} == \
+        {"prune", "publish", "publish-state", "station-root", "plan", "render"}
+
+
+def test_a_code_declared_by_two_observers_or_by_none_is_refused():
+    observers = {alerts.TICK: frozenset({"plan"}), alerts.MONITOR: frozenset({"check"})}
+    with pytest.raises(ValueError, match="station-root"):
+        alerts.code_observers(observers, {"plan": frozenset({"station-root"}), "check": frozenset({"station-root"})},
+                              frozenset({"station-root"}))
+    with pytest.raises(ValueError, match="render"):
+        alerts.code_observers(observers, {"plan": frozenset({"plan"}), "check": frozenset()},
+                              frozenset({"plan", "render"}))
+
+
+def test_the_observer_map_routes_the_streak(tmp_path):
+    d, _ = _dispatcher(tmp_path, Recorder())
+    d.fire("dead-clock-check", "m")
+    d.fire("publish", "m")
+    assert d._fired == {alerts.TICK: {"publish"}, alerts.MONITOR: {"dead-clock-check"}}

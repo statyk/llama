@@ -1,9 +1,10 @@
 import logging
+import threading
 
 import pytest
 
 from tests_transmitter.helpers import NOW, TEMPLATE_PATH, FakeBucket, FakeEngine, make_station, write_seg
-from transmitter import alerts, grid, pipeline, publish, service
+from transmitter import alerts, grid, monitor, pipeline, publish, r2, service
 from transmitter.errors import FrameCountDrift, PlanError, PublishLocked, StationRootError
 from transmitter.planner import read_plan
 from transmitter.segment import segment_key
@@ -361,52 +362,136 @@ def test_a_successful_step_resolves_its_level_codes(tmp_path, monkeypatch, step,
         alerts.configure(None)
 
 
-def test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache(tmp_path):
+class FakeMonitor:
+    """Stands in for monitor.MonitorLoop: records what the Runner asks of it."""
+
+    def __init__(self, started=False, stalled=(), record=None):
+        self.started = started
+        self._stalled = list(stalled)
+        self.record = [] if record is None else record
+
+    def run_pass(self, *, relay=True):
+        self.record.append(("run_pass", relay, threading.current_thread()))
+
+    def stalled(self):
+        self.record.append(("stalled",))
+        return self._stalled.pop(0) if self._stalled else None
+
+    def start(self):
+        self.record.append(("start",))
+        self.started = True
+
+    def stop(self, timeout_s=None):
+        self.record.append(("stop",))
+
+
+def test_tick_no_longer_runs_the_monitor(tmp_path):
     st, _ = make_station(tmp_path)
-    calls = []
-
-    class Monitor:
-        def check(self, now_us, guard_view):
-            calls.append((now_us, guard_view()))
-
-    times = iter([NOW + 7, NOW + 60_000_007])        # the wall clock at check time, not the tick's t_us
-    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Monitor(),
-                            clock=lambda: next(times))
+    mon = FakeMonitor()
+    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=mon)
     runner.tick(NOW)
     runner.tick(NOW + 60_000_000)
-    assert [c[0] for c in calls] == [NOW + 7, NOW + 60_000_007]
-    assert calls[0][1]["blocked"] is False and calls[0][1]["offair"] is False   # written by publish's guard read
+    assert mon.record == []
 
 
-def test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code(tmp_path):
+def test_monitor_stalled_fires_at_once_and_resolves_when_passes_are_fresh(tmp_path):
     st, _ = make_station(tmp_path)
-
-    class Monitor:
-        def check(self, now_us, guard_view):
-            raise RuntimeError("boom")
-
     rec = _Rec()
     alerts.configure(alerts.Dispatcher(tmp_path / "alerts.json", [rec], 6 * 3600.0))
     try:
-        runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Monitor())
-        for _ in range(alerts.GATE - 1):
-            runner.tick(NOW)
-        assert rec.sent == []                               # gated: below 3 consecutive passes
+        mon = FakeMonitor(started=True, stalled=["the dead-clock monitor has completed no pass for 6 minutes", None])
+        runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=mon)
         runner.tick(NOW)
-        assert "llama radio: dead-clock-check" in rec.sent
-        assert "llama radio: dead-clock" not in rec.sent
-        assert "dead-clock" not in alerts._dispatcher.active()
+        assert rec.sent == ["llama radio: monitor-stalled"]            # one tick: not gated
+        assert "monitor-stalled" in alerts._dispatcher.active()
+        runner.tick(NOW)
+        assert rec.sent == ["llama radio: monitor-stalled", "llama radio: resolved: monitor-stalled"]
+        assert alerts._dispatcher.active() == []
     finally:
         alerts.configure(None)
 
 
-def test_open_monitor_needs_site_url(tmp_path):
+def test_monitor_stalled_is_checked_on_the_failed_lead_read_path(tmp_path, caplog):
     st, _ = make_station(tmp_path)
-    assert service.open_monitor(st) is None
+    mon = FakeMonitor(started=True, stalled=["the dead-clock monitor thread is not running"])
+    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=mon)
+    st.ws.publish_state_path.parent.mkdir(parents=True, exist_ok=True)
+    st.ws.publish_state_path.write_bytes(b'{"last": 1')
+    with caplog.at_level(logging.ERROR, logger="transmitter.alerts"):
+        runner.tick(NOW)
+    assert "ALERT publish-state:" in caplog.text
+    assert "ALERT monitor-stalled: the dead-clock monitor thread is not running" in caplog.text
+
+
+def test_monitor_stalled_is_ungated_and_a_level_code():
+    assert "monitor-stalled" not in alerts.GATED_CODES and "monitor-stalled" in alerts.LEVEL_CODES
+
+
+def test_no_started_monitor_means_no_monitor_stalled_check(tmp_path, caplog):
+    st, _ = make_station(tmp_path)
+    with caplog.at_level(logging.ERROR, logger="transmitter.alerts"):
+        service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None).tick(NOW)
+    mon = FakeMonitor(started=False, stalled=["x"])
+    service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=mon).tick(NOW)
+    assert mon.record == [] and "monitor-stalled" not in caplog.text
+
+
+def test_run_starts_the_monitor_and_stops_it_when_the_loop_raises(tmp_path, monkeypatch):
+    st, _ = make_station(tmp_path)
+    record = []
+    mon = FakeMonitor(record=record)
+    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=mon,
+                            notify=lambda m: record.append(("notify", m)))
+
+    def interrupted(t_us):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(runner, "tick", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        runner.run()
+    assert [r for r in record if r[0] in ("start", "stop")] == [("start",), ("stop",)]
+    assert record == [("notify", "READY=1"), ("start",), ("stop",), ("notify", "STOPPING=1")]
+
+
+def test_run_once_checks_once_on_the_main_thread_without_relay_or_thread(tmp_path, monkeypatch):
+    st, _ = make_station(tmp_path)
+    record = []
+    real = service.publish_all
+
+    def publish_all(*a, **k):
+        record.append(("publish",))
+        return real(*a, **k)
+
+    monkeypatch.setattr(service, "publish_all", publish_all)
+    mon = FakeMonitor(record=record)
+    threads = threading.active_count()
+    service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=mon).run_once()
+    assert threading.active_count() == threads
+    assert record == [("publish",), ("run_pass", False, threading.main_thread())]
+
+
+def test_open_monitor_needs_site_url(tmp_path, monkeypatch):
+    st, _ = make_station(tmp_path)
+    st.cfg.publish.bucket = "b"
+    made = []
+    monkeypatch.setattr(service, "make_reader_client", lambda cfg: made.append(threading.current_thread()) or FakeBucket())
+    assert service.open_monitor(st) is None and made == []
     st.cfg.antenna.site_url = "https://radio.example.org/"
-    m = service.open_monitor(st)
+    loop = service.open_monitor(st)
+    assert isinstance(loop, monitor.MonitorLoop) and not loop.started
+    m = loop.deadclock
     assert m.url == "https://radio.example.org/live.m3u8" and m.dead_clock_s == 120.0 and m.guard_stale_s == 2700.0
     assert m.forbidden_checks == 17                     # guard_check_minutes 15 + 2
+    assert made == [threading.main_thread()]            # built before any thread starts
+    assert loop.reader.bucket == "b" and loop.relay is None
+
+
+def test_make_reader_client_has_short_timeouts(tmp_path, monkeypatch):
+    st, _ = make_station(tmp_path)
+    seen = {}
+    monkeypatch.setattr(r2, "make_client", lambda cfg, **kw: seen.update(cfg=cfg, **kw) or "client")
+    assert service.make_reader_client(st.cfg) == "client"
+    assert seen == {"cfg": st.cfg.publish, "connect_timeout": 5, "read_timeout": 10}
 
 
 def _with_epoch(st):
@@ -670,18 +755,6 @@ def test_a_publish_locked_step_neither_advances_nor_resets(tmp_path, monkeypatch
     monkeypatch.setattr(publish, "publish_batch", locked)
     runner.tick(NOW)
     assert seen == [(alerts.TICK, {"lead", "plan", "render"})]
-
-
-def test_the_interim_in_tick_monitor_ends_its_own_observation(tmp_path, monkeypatch):
-    seen = _observations(monkeypatch)
-    st, _ = make_station(tmp_path)
-
-    class Monitor:
-        def check(self, now_us, guard_view):
-            pass
-
-    service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Monitor()).tick(NOW)
-    assert seen == [(alerts.MONITOR, {"dead-clock-check"}), (alerts.TICK, {"lead", "plan", "render", "publish"})]
 
 
 def test_status_cloud_line_omits_a_pending_antenna_entry(tmp_path):

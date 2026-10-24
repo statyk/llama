@@ -214,11 +214,14 @@ def test_run_hands_the_runner_the_dead_clock_monitor(tmp_path, monkeypatch):
             seen.update(kw)
 
         def run(self, max_ticks=None):
-            seen["ticks"] = max_ticks
+            seen.setdefault("run", []).append(max_ticks)
+
+        def run_once(self):
+            seen["run_once"] = seen.get("run_once", 0) + 1
 
     monkeypatch.setattr(service, "open_monitor", lambda st: sentinel)
     monkeypatch.setattr(service, "Runner", FakeRunner)
     root = make_root(tmp_path)
     result = CliRunner().invoke(app, ["run", "--once", "--config", str(_config(tmp_path, root))])
     assert result.exit_code == 0, result.output
-    assert seen["monitor"] is sentinel and seen["ticks"] == 1
+    assert seen["monitor"] is sentinel and seen["run_once"] == 1 and "run" not in seen

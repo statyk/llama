@@ -4,7 +4,10 @@ starts filling -- each tick plans at most one more show and renders at most
 one publish batch, then publishes -- until the published lead is back at
 `lead_hours`; publishing and pruning run every tick. An error in any step is
 logged with its traceback and alerted, and the loop goes on; a frame-count
-drift halts filling (publishing goes on) until transmitter is restarted."""
+drift halts filling (publishing goes on) until transmitter is restarted. The
+dead-clock check runs on its own thread (monitor.MonitorLoop), which every
+tick watches through `monitor-stalled`; only the main loop pings the
+watchdog."""
 
 import logging
 import math
@@ -12,7 +15,7 @@ import time
 from pathlib import Path
 from typing import Callable
 
-from transmitter import alerts, analysis, cloudstate, grid, pipeline, publish, r2, sdnotify, station
+from transmitter import alerts, analysis, cloudstate, grid, monitor, pipeline, publish, r2, sdnotify, station
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
 from transmitter.deadclock import DeadClockMonitor
@@ -20,7 +23,8 @@ from transmitter.errors import CloudDocumentError, ConfigError, FrameCountDrift,
 from transmitter.layout import PlanRow
 from transmitter.planner import read_plan
 from transmitter.state import load_fallback_version, load_publish_state
-from transmitter.workspace import Workspace, load_epoch, load_or_create_epoch, read_json
+from transmitter.monitor import MonitorLoop
+from transmitter.workspace import Workspace, load_epoch, load_or_create_epoch
 
 log = logging.getLogger("transmitter")
 MAX_BATCHES = 100
@@ -36,6 +40,14 @@ def make_engine(ws: Workspace, cfg: TransmitterConfig) -> pipeline.Engine:
 
 def make_client(cfg: TransmitterConfig):
     return r2.make_client(cfg.publish)
+
+
+def make_reader_client(cfg: TransmitterConfig):
+    """The monitor thread's own boto3 client, with short timeouts. Made on the
+    main thread before the thread starts (creating clients concurrently from
+    the default session is not thread-safe)."""
+    return r2.make_client(cfg.publish, connect_timeout=monitor.READER_CONNECT_TIMEOUT_S,
+                          read_timeout=monitor.READER_READ_TIMEOUT_S)
 
 
 def open_station(cfg: TransmitterConfig, t_us: int) -> pipeline.Station:
@@ -156,8 +168,9 @@ def publish_all(p: publish.Publisher, t_us: int, held: HeldTracker | None = None
     return reports, pr
 
 
-def open_monitor(st: pipeline.Station) -> DeadClockMonitor | None:
-    """The dead-clock check, when [antenna] site_url says where live.m3u8 is."""
+def open_monitor(st: pipeline.Station) -> MonitorLoop | None:
+    """The monitor loop (not started) running the dead-clock check, when
+    [antenna] site_url says where live.m3u8 is; else None and no thread."""
     url = st.cfg.antenna.site_url
     if not url:
         log.warning("[antenna] site_url is not set: the dead-clock check is off")
@@ -165,14 +178,15 @@ def open_monitor(st: pipeline.Station) -> DeadClockMonitor | None:
     a = st.cfg.alerts
     # An unexpected 403 must outlast the guard cache (refreshed every
     # guard_check_minutes) before it alarms.
-    return DeadClockMonitor(url.rstrip("/") + "/live.m3u8", st.epoch.epoch_us, a.dead_clock_seconds,
-                            a.guard_stale_minutes * 60, math.ceil(st.cfg.publish.guard_check_minutes) + 2)
+    deadclock = DeadClockMonitor(url.rstrip("/") + "/live.m3u8", st.epoch.epoch_us, a.dead_clock_seconds,
+                                 a.guard_stale_minutes * 60, math.ceil(st.cfg.publish.guard_check_minutes) + 2)
+    return MonitorLoop(deadclock, monitor.R2Reader(make_reader_client(st.cfg), st.cfg.publish.bucket))
 
 
 class Runner:
     def __init__(self, st: pipeline.Station, p: publish.Publisher, *, clock: Callable[[], int] = now_us,
                  sleep: Callable[[float], None] = time.sleep, tick_s: float = 60.0,
-                 monitor: DeadClockMonitor | None = None, notify: Callable[[str], object] = sdnotify.notify):
+                 monitor: MonitorLoop | None = None, notify: Callable[[str], object] = sdnotify.notify):
         self.st, self.p, self.clock, self.sleep, self.tick_s = st, p, clock, sleep, tick_s
         self.monitor, self.notify = monitor, notify
         self.filling = False
@@ -229,12 +243,29 @@ class Runner:
     def tick(self, t_us: int) -> None:
         """One tick is one observation of the tick's gated alert codes: the
         steps that ran are declared to the Dispatcher at the end, on every
-        path (alerts.end_observation)."""
+        path (alerts.end_observation). Every tick, on every path, also
+        watches the monitor thread (`monitor-stalled`)."""
         ran: set[str] = set()
         try:
             self._tick(t_us, ran)
         finally:
-            alerts.end_observation(alerts.TICK, ran)
+            try:
+                self._check_monitor()
+            finally:
+                alerts.end_observation(alerts.TICK, ran)
+
+    def _check_monitor(self) -> None:
+        """`monitor-stalled` (a level code, sent at once: the 5-min threshold
+        is its debounce) while a started monitor thread is dead or has
+        completed no pass for MONITOR_STALL_S; resolved once passes are fresh.
+        No started thread (none configured, or `run_once`): no check."""
+        if self.monitor is None or not self.monitor.started:
+            return
+        msg = self.monitor.stalled()
+        if msg is not None:
+            alerts.alert("monitor-stalled", msg)
+        else:
+            alerts.resolve("monitor-stalled")
 
     def _tick(self, t_us: int, ran: set[str]) -> None:
         low_water_us = int(self.st.cfg.render.low_water_hours * 3600 * 1_000_000)
@@ -258,21 +289,18 @@ class Runner:
                 ran.add("render")
         if self._step("publish", lambda: publish_all(self.p, t_us, self.held, self.notify)):
             ran.add("publish")
-        if self.monitor is not None:
-            monitor = self.monitor
-            # "dead-clock-check", not "dead-clock": a monitor that RAISES must fire an event code, never the
-            # level code that means "the clock is dead" (only the monitor raises and resolves that one).
-            self._step("dead-clock-check", lambda: monitor.check(self.clock(), lambda: read_json(self.st.ws.guard_cache_path)))
-            # Interim, until the monitor moves to its own thread: this check is one monitor pass.
-            alerts.end_observation(alerts.MONITOR, ["dead-clock-check"])
         ok, lead = self._read_lead(t_us)
         if ok and lead is not None and lead >= self.st.lead_us - grid.D_US:
             self.filling = False
 
     def run(self, max_ticks: int | None = None) -> None:
+        """The service loop. The monitor thread (if any) starts after READY=1
+        and is stopped on every exit, before STOPPING=1."""
         self.notify("READY=1")
         ticks = 0
         try:
+            if self.monitor is not None:
+                self.monitor.start()
             while max_ticks is None or ticks < max_ticks:
                 started = time.monotonic()
                 self.tick(self.clock())
@@ -281,7 +309,19 @@ class Runner:
                     break
                 self.sleep(max(0.0, self.tick_s - (time.monotonic() - started)))
         finally:
-            self.notify("STOPPING=1")
+            try:
+                if self.monitor is not None:
+                    self.monitor.stop()
+            finally:
+                self.notify("STOPPING=1")
+
+    def run_once(self) -> None:
+        """`transmitter run --once`: one tick, then one dead-clock check on
+        this (the main) thread. No thread, so no `monitor-stalled` check, and
+        no relay: a manual run beside the service would race its cursor."""
+        self.tick(self.clock())
+        if self.monitor is not None:
+            self.monitor.run_pass(relay=False)
 
 
 def cloud_lines(read: Callable[[str], dict | None], t_us: int | None = None) -> list[str]:

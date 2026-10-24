@@ -286,3 +286,31 @@ def test_a_failing_guard_read_cannot_stop_the_playlist_check(fired):
     assert m.guard_error_since_us == now
     m.check(now, lambda: bad)
     assert [e[1] for e in fired if e[0] == "alert"] == ["dead-clock"]
+
+
+def test_a_raising_guard_view_cannot_stop_the_playlist_check(fired):
+    # Any guard_view callable, not only publish.guard_view (which never raises): a raise fails closed
+    # like a failed read, so the playlist check proceeds and guard-stale's timer starts.
+    now = E + 1000 * D
+    m = _monitor([(200, live_playlist(980))] * 2)
+
+    def boom():
+        raise OSError("read timed out")
+
+    m.check(now, boom)
+    assert m.guard_error_since_us == now and not [e for e in fired if e[0] == "alert"]
+    m.check(now, boom)
+    assert [e[1] for e in fired if e[0] == "alert"] == ["dead-clock"]
+
+
+def test_a_raising_guard_view_with_no_message_is_named_by_its_type(fired):
+    now = E + 1000 * D
+    m = _monitor([(200, live_playlist(1000))])
+    m.guard_error_since_us = now - 46 * 60_000_000          # unreadable for 46 minutes already
+
+    def boom():
+        raise TimeoutError
+
+    m.check(now, boom)
+    alerted = [e for e in fired if e[0] == "alert"]
+    assert [e[1] for e in alerted] == ["guard-stale"] and "TimeoutError" in alerted[0][2]

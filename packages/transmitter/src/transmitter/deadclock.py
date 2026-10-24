@@ -1,6 +1,7 @@
 """The dead-clock check (spec "Alerts and operations"). If the antenna clock
 stops, live.m3u8 goes stale, players stall and the cloud side fails toward
-zero cost -- but silently, so `transmitter run` watches it: once a minute it
+zero cost -- but silently, so `transmitter run` watches it from its own thread
+(monitor.MonitorLoop, independent of plan/render/publish): once a minute it
 fetches the public live.m3u8 (a cache hit: the edge refetches it from R2 at
 most every 5 s, whoever asks) and alerts when its newest segment is older than
 `dead_clock_seconds` on two checks in a row (the measured cron lag reaches
@@ -128,9 +129,16 @@ class DeadClockMonitor:
     live_hold_back_s: float = 0.0
 
     def check(self, now_us: int, guard_view: Callable[[], dict | None]) -> None:
-        # The playlist first: a guard read that hangs or fails must not delay or stop the dead-clock check.
+        # The playlist first, then the guard view: no guard-read outcome can stop the playlist check.
+        # A slow guard read delays only the guard half (the reader's timeouts bound it), and a
+        # guard_view that raises -- any callable, not only publish.guard_view, which never does --
+        # fails closed exactly as a failed read does, so guard-stale's error timer starts.
         status, text = self.fetch(self.url)
-        guard_cache = guard_view()
+        try:
+            guard_cache = guard_view()
+        except Exception as exc:
+            guard_cache = {"blocked": True, "error": str(exc) or type(exc).__name__,
+                           "guard_evaluated_at": None, "offair": None}
         blocked = bool(guard_cache and (guard_cache.get("blocked") or guard_cache.get("offair")))
         if status == 200:
             self.unreachable = self.forbidden = 0

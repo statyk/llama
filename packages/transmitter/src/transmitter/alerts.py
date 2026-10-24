@@ -26,7 +26,10 @@ Below the gate a new episode is pending: nothing is sent or written, and the
 code is not active. Inside an active episode a due repeat also needs the gate,
 except that an episode whose first message was never delivered resends it at
 once. Streaks are in-process: a restart starts them afresh. The Dispatcher
-takes a lock, since the service tick and the monitor thread both call it."""
+takes a lock, since the main thread (the service tick) and the dead-clock
+monitor thread (monitor.MonitorLoop) both call it. The lock is held across a
+send's channel timeouts, never across the monitor's own network I/O (the
+playlist fetch, the guard reads, the relay), which runs before or after it."""
 
 import logging
 import os
@@ -47,7 +50,7 @@ log = logging.getLogger("transmitter.alerts")
 
 # Level conditions, resolved explicitly (ruling R16). Every other code is an
 # event: active only until `repeat_hours` pass without a new fire.
-LEVEL_CODES = frozenset({"dead-clock", "guard-stale", "station-root", "plan", "render"})
+LEVEL_CODES = frozenset({"dead-clock", "guard-stale", "station-root", "plan", "render", "monitor-stalled"})
 
 # The 3-consecutive gate (operator rule: a check that runs about every minute
 # needs 3 consecutive failures before it alerts). Exactly the approved list;
@@ -72,6 +75,28 @@ OBSERVER_STEPS: dict[str, frozenset[str]] = {
     TICK: frozenset({"plan", "render", "publish", "lead"}),
     MONITOR: frozenset({"dead-clock-check"}),
 }
+
+
+def code_observers(observer_steps: Mapping[str, Iterable[str]], step_codes: Mapping[str, Iterable[str]],
+                   gated: Iterable[str]) -> dict[str, str]:
+    """Each gated code's one observer, derived from the steps that declare it.
+    Refuses (ValueError) a code two observers' steps declare -- its streak
+    would be counted by both -- and a gated code no step declares, which
+    could never be observed and so never sent."""
+    out: dict[str, str] = {}
+    for observer, steps in observer_steps.items():
+        for step in steps:
+            for code in step_codes[step]:
+                if out.setdefault(code, observer) != observer:
+                    raise ValueError(f"alert code {code!r} is declared by two observers: {out[code]!r} and {observer!r}")
+    missing = sorted(set(gated) - set(out))
+    if missing:
+        raise ValueError(f"gated alert code(s) {missing} are declared by no observer's step")
+    return out
+
+
+# Checked at import: a wrong table fails loudly here, not as a silent gate.
+CODE_OBSERVER: dict[str, str] = code_observers(OBSERVER_STEPS, STEP_CODES, GATED_CODES)
 
 
 # After a channel fails it is skipped for this long, so a down SMTP/ntfy server
@@ -167,7 +192,9 @@ class Dispatcher:
     # instead of turning into a message per tick.
     _mem: dict = field(default_factory=dict, init=False, repr=False)
     _failed: dict = field(default_factory=dict, init=False, repr=False)   # id(channel) -> failure time
-    # Both the service tick and the monitor thread fire and resolve.
+    # The main thread (the tick) and the monitor thread (monitor.MonitorLoop)
+    # both fire, resolve and end observations. Non-reentrant: the work lives in
+    # _fire/_resolve, which never call back into the public methods.
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     # The gate, in-process: consecutive failing observations per gated code,
     # and the gated codes already fired in each observer's current observation.
@@ -226,7 +253,7 @@ class Dispatcher:
         gated = code in GATED_CODES
         gate_ok = True
         if gated:
-            observer = MONITOR if code in STEP_CODES["dead-clock-check"] else TICK
+            observer = CODE_OBSERVER[code]
             if code in self._fired[observer]:
                 return                  # counted once per observation; alert() already logged it
             self._fired[observer].add(code)

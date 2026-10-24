@@ -473,5 +473,6 @@ def test_guard_blocks_publishing_is_the_only_cache_writer(tmp_path):
     assert read_json(p.ws.guard_cache_path) == {"checked_at": 1000.0, **publish.guard_view(p.uploader.get_json)}
     src = pathlib.Path(publish.__file__).parent
     writers = [f.name for f in src.glob("*.py")
-               if re.search(r"write_json\([^)]*guard_cache_path", f.read_text())]
+               if re.search(r"(write_json|atomic_write_text)\([^)]*guard_cache_path|guard_cache_path\.write",
+                            f.read_text())]
     assert writers == ["publish.py"]

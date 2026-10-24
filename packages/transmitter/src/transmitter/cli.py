@@ -196,7 +196,7 @@ def publish_cmd(config: Path = CONFIG_OPT):
 
 @app.command()
 def run(config: Path = CONFIG_OPT,
-        once: bool = typer.Option(False, "--once", help="Run one tick and exit")):
+        once: bool = typer.Option(False, "--once", help="Run one tick, then one dead-clock check (no relay), and exit")):
     """The service loop: plan/render below low water, publish and prune every minute."""
     from transmitter import alerts
 
@@ -205,7 +205,11 @@ def run(config: Path = CONFIG_OPT,
     st = service.open_station(cfg, t)
     alerts.configure(alerts.dispatcher_from_config(cfg, st.ws))
     try:
-        service.Runner(st, service.open_publisher(st), monitor=service.open_monitor(st)).run(max_ticks=1 if once else None)
+        runner = service.Runner(st, service.open_publisher(st), monitor=service.open_monitor(st))
+        if once:
+            runner.run_once()
+        else:
+            runner.run()
     finally:
         alerts.configure(None)
 
