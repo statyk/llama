@@ -1,0 +1,66 @@
+# Clock (b): an ILLUSTRATIVE example of the operator's shape, not the operator's clock.
+# Two Dead blocks, a Dead-tribute overnight, a daily bluegrass, weekday rotations, an open stretch.
+timezone = "America/New_York"
+
+[[block]]
+name = "overnight-tribute"
+start = "00:00"
+profiles = ["dead-tribute"]
+max_shows = 3
+
+[[block]]
+name = "dead-morning"
+start = "07:00"
+profiles = ["dead"]
+
+[[block]]
+name = "bluegrass"
+start = "12:00"
+profiles = ["bluegrass"]
+
+# weekday afternoon rotation: one profile per weekday at 15:00
+[[block]]
+name = "mon-americana"
+start = "15:00"
+days = ["mon"]
+profiles = ["americana"]
+
+[[block]]
+name = "tue-indie"
+start = "15:00"
+days = ["tue"]
+profiles = ["indie"]
+
+[[block]]
+name = "wed-southern"
+start = "15:00"
+days = ["wed"]
+profiles = ["southern"]
+
+[[block]]
+name = "thu-jam"
+start = "15:00"
+days = ["thu"]
+profiles = ["jam"]
+
+[[block]]
+name = "fri-livetronica"
+start = "15:00"
+days = ["fri"]
+profiles = ["livetronica"]
+
+[[block]]
+name = "weekend-afternoon"
+start = "15:00"
+days = ["sat", "sun"]
+profiles = ["funk"]
+
+# the open stretch: anything, early evening
+[[block]]
+name = "open-evening"
+start = "18:00"
+
+[[block]]
+name = "dead-evening"
+start = "20:00"
+profiles = ["dead"]
