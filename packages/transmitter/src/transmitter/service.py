@@ -481,13 +481,17 @@ def _scheduler_lines(cfg: TransmitterConfig, ws: Workspace, rows: list[PlanRow],
     now_f = (t_us - epoch.epoch_us) * grid.SAMPLE_RATE // (grid.FRAME_SAMPLES * 1_000_000)
     sched = [r for r in rows if r.kind == "show" and r.block is not None]
     cur = next((r for r in reversed(sched) if r.start_frame <= now_f), None)
-    if cur is not None and (cur.block, cur.nominal_start) != (None, None):
-        nxt = next((r for r in sched if r.start_frame > now_f and (r.block, r.nominal_start) !=
-                    (cur.block, cur.nominal_start)), None)
-        lines.append(f"block      now {_block_text(cur, clock)}; next "
-                     + (_block_text(nxt, clock) if nxt is not None else "not planned yet"))
+    if cur is not None and max(r.end_frame for r in sched
+                               if (r.block, r.nominal_start) == (cur.block, cur.nominal_start)) <= now_f:
+        cur = None                         # its last show has ended: between blocks (or the plan has run out)
+    upcoming = [r for r in sched if r.start_frame > now_f and (cur is None or (r.block, r.nominal_start) !=
+                                                               (cur.block, cur.nominal_start))]
+    nxt = upcoming[0] if upcoming else None
+    nxt_text = _block_text(nxt, clock) if nxt is not None else "not planned yet"
+    if cur is not None:
+        lines.append(f"block      now {_block_text(cur, clock)}; next {nxt_text}")
     else:
-        lines.append("block      " + ("next " + _block_text(sched[0], clock) if sched else "none planned"))
+        lines.append(f"block      none now; next {nxt_text}")
     day = 86_400_000_000
     f24 = now_f - (day * grid.SAMPLE_RATE) // (grid.FRAME_SAMPLES * 1_000_000)
     n24 = now_f + (day * grid.SAMPLE_RATE) // (grid.FRAME_SAMPLES * 1_000_000)
@@ -495,7 +499,7 @@ def _scheduler_lines(cfg: TransmitterConfig, ws: Workspace, rows: list[PlanRow],
         win = [r for r in sched if lo <= r.start_frame < hi]
         misses = sum(1 for r in win if r.miss)
         fill = {c: sum(r.end_frame - r.start_frame for r in win if r.fill == c) for c in report.FILL_CAUSES}
-        parts = ", ".join(f"{c} {report.minutes_of(f):.0f}" for c, f in fill.items())
+        parts = ", ".join(f"{report.fill_label(c)} {report.minutes_of(f):.0f}" for c, f in fill.items())
         lines.append(f"{label:<10} misses {misses}; fill {report.minutes_of(sum(fill.values())):.0f} min ({parts})")
     recent = [r for r in sched if r.start_frame >= f24]
     bends: dict[str, int] = {}
@@ -613,10 +617,14 @@ def schedule_report(cfg: TransmitterConfig, t_us: int, *, days: float = 7.0, clo
                                    clock=clock, rec=rec, epoch_us=epoch.epoch_us, gap_frames=st.gap_frames,
                                    seed=cfg.planner.seed)
     projected = scheduler.project(inp, until_frame=until_f, ahead=1)
-    shown = [r for r in base if r.end_frame > now_f]
+    live = {(r.block, r.nominal_start) for r in base if r.end_frame > now_f}
+    shown = [r for r in base if r.end_frame > now_f or (r.block, r.nominal_start) in live]
     missing = missing_announcements(cfg, clock, t_us, days + 1)
-    views = report.block_views(shown, projected, clock, epoch, missing=missing, meta_of=meta_of)
-    views = [v for v in views if v.nominal_us is None or v.nominal_us < until_us]
+    views = report.block_views(shown, projected, clock, epoch, missing=missing, meta_of=meta_of, since_frame=now_f)
+    # trim by when the occurrence's shows air, not its nominal start: an open-time block can air for hours
+    # before its (next) nominal start
+    views = [v for v in views if (any(sh.start_us < until_us for sh in v.shows) if v.shows
+                                  else v.nominal_us is None or v.nominal_us < until_us)]
     lines.append("")
     lines += report.schedule_lines(views, report.summary(views, until_us - t_us))
     return lines

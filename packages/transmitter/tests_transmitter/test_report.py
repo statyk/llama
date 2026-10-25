@@ -80,3 +80,6 @@ def test_profile_stats_and_reason_key():
     assert any(x.profile == "(none)" for x in st)
     assert report.reason_key("awaiting fix from llama: pending") == "awaiting fix from llama"
     assert report.reason_key("changed 12s ago (quiet period 1800s)") == "changed within the quiet period"
+    assert report.reason_key("3 DJ clip(s) missing") == report.reason_key("1 DJ clip(s) missing")
+    assert report.reason_key("3 of 12 track file(s) missing") == report.reason_key("1 of 9 track file(s) missing")
+    assert report.fill_label("pool-short") == "pool short" and report.fill_label("structural") == "longer than max_shows"

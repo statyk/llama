@@ -262,7 +262,7 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   a fresh run after an outage, records MISS on its first show by design),
   `transmitter library` (eligible shows by profile with count/median/p10/p90, the interstitial
   pool, ineligible packages by first reason incl. `awaiting fix from llama`). `status` reads
-  persisted rows and the interstitials folder only: clock source, current/next block, misses and
+  persisted rows, the clock files and the interstitials folder only: clock source, current/next block, misses and
   fill minutes by cause for the last and next 24 h, bends, degraded blocks, missing announcement
   audio; none of it alerts. `scripts/probe_estimates.py --time-one SLUG` prints an ineligible
   package's reasons (or `not found`).

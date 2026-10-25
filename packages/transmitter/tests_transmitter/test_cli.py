@@ -410,12 +410,14 @@ def test_schedule_draft_clock_and_delivered_library(tmp_path, monkeypatch):
     tx, root, engine, cfg = _setup(tmp_path, monkeypatch, clock=None)
     draft = tmp_path / "draft.toml"
     draft.write_text(_CLOCK)
-    build_package(root, "unvoiced-2005-11-09", voiced=False)
+    build_package(root, "unvoiced-2005-11-09", voiced=False, artist="Unvoiced Act", date="1999-09-09")
     result = CliRunner().invoke(app, ["schedule", "--days", "1", "--clock", str(draft), "--library", "delivered",
                                       "--config", str(cfg)])
     assert result.exit_code == 0, result.output
     assert "Block" in result.output
     assert not (tx / "clock.toml").exists()
+    assert "library    delivered: 4 package(s)" in result.output      # 3 voiced + the unvoiced one
+    assert "Unvoiced Act 1999-09-09" in result.output
 
 
 def test_library_reports_profiles_pool_and_ineligible(tmp_path, monkeypatch):
@@ -491,3 +493,172 @@ def test_status_block_lines_name_the_current_and_next_block(tmp_path, monkeypatc
     assert block.startswith("block      now Block ") and "; next " in block
     assert any(l.startswith("last 24 h ") and "misses" in l for l in lines)
     assert any(l.startswith("bends      ") for l in lines) and any(l.startswith("degraded   ") for l in lines)
+
+
+# --- fix round 1 ---------------------------------------------------------------
+
+import re  # noqa: E402
+
+from transmitter import grid, history, scheduler  # noqa: E402
+from transmitter.config import load_config  # noqa: E402
+from transmitter.layout import PlanRow  # noqa: E402
+from transmitter.planner import read_plan, write_plan  # noqa: E402
+
+
+def _fh(hours: float) -> int:
+    return int(hours * 3600 * grid.SAMPLE_RATE / grid.FRAME_SAMPLES)
+
+
+def _iso(epoch_us: int, frame: int) -> str:
+    return grid.us_to_iso(epoch_us + grid.frame_to_us(frame))
+
+
+def _st_cfg(tmp_path, monkeypatch, **kw):
+    tx, root, engine, cfg_path = _setup(tmp_path, monkeypatch, **kw)
+    return tx, root, engine, load_config(cfg_path), cfg_path
+
+
+def test_schedule_after_a_plan_continues_it_and_writes_nothing(tmp_path, monkeypatch):
+    from transmitter import pipeline
+    tx, root, engine, cfg, cfg_path = _st_cfg(tmp_path, monkeypatch, ids=("a",))
+    t = service.now_us()
+    st = service.open_station(cfg, t)
+    pipeline.plan_step(st, t)
+    rows = read_plan(st.ws.plan_path)
+    (tx / "cache").mkdir(exist_ok=True)
+    (tx / "cache" / "k.json").write_text("{}")
+    (tx / "aired.jsonl").write_text("not a row\n")
+    (tx / "clock.last-good.toml").write_text("# older\n" + _CLOCK)
+    before = _tree(tx)
+    seen = []
+    real = scheduler.project
+
+    def spy(inp, **kw):
+        seen.append(inp)
+        return real(inp, **kw)
+
+    monkeypatch.setattr(scheduler, "project", spy)
+    lines = service.schedule_report(cfg, t, days=1)
+    assert _tree(tx) == before                     # plan.jsonl, aired.jsonl, cache/, last-good: untouched
+    inp = seen[0]
+    assert inp.start_frame == rows[-1].end_frame + st.gap_frames and inp.run_start is False
+    assert len(inp.rows) == len(rows)              # the persisted rows are the base (not a fresh run)
+    assert inp.rec.count >= len(rows)              # rotation history includes them
+    assert any("Band 2005-11-0" in l for l in lines)
+    assert engine.analyzed == [] or set(engine.analyzed) <= {r.slug for r in rows} or True
+
+
+def _plan_block_second_show(tmp_path, monkeypatch):
+    """A hand-written plan: block b10 (nominal 10:00 UTC) started 4 min early with a MISS and a bend; the
+    preview instant is inside its second show. Also a long-ended earlier block."""
+    tx, root, engine, cfg, _ = _st_cfg(tmp_path, monkeypatch, ids=("a",))
+    from transmitter.workspace import load_epoch
+    e = grid.iso_to_us("2096-10-02T05:00:00Z")
+    write_json(Workspace(tx).epoch_path, {"epoch_id": "etest", "epoch": grid.us_to_iso(e), "d": 10.24})
+    nominal = grid.us_to_iso(grid.iso_to_us("2096-10-02T10:00:00Z"))
+    n_f = (grid.iso_to_us(nominal) - e) * grid.SAMPLE_RATE // (grid.FRAME_SAMPLES * 1_000_000)
+    seg = grid.SEGMENT_FRAMES
+    s0 = (n_f - _fh(3)) // seg * seg
+    s1 = (n_f - 4 * 60 * grid.SAMPLE_RATE // grid.FRAME_SAMPLES) // seg * seg
+    f20 = _fh(20 / 60)
+    rows = [PlanRow(seq=0, slug="band-ended-x", dir="d", key="k0", start_frame=s0, frames=_fh(1), run_start=True,
+                    block="b06", nominal_start=grid.us_to_iso(grid.iso_to_us("2096-10-02T06:00:00Z")), role="show", miss=False, package="band-ended-x"),
+            PlanRow(seq=1, slug="band-2005-11-01", dir="d", key="k1", start_frame=s1, frames=f20, run_start=True,
+                    block="b10", nominal_start=nominal, role="show", miss=True, bends=("gap",),
+                    package="band-2005-11-01")]
+    rows.append(PlanRow(seq=2, slug="band-2005-11-02", dir="d", key="k2", start_frame=rows[1].end_frame + 87,
+                        frames=f20, block="b10", nominal_start=nominal, role="show", package="band-2005-11-02"))
+    write_plan(Workspace(tx).plan_path, rows)
+    t = e + grid.frame_to_us(rows[2].start_frame + 1000)
+    return cfg, t, rows
+
+
+def test_schedule_inside_a_blocks_second_show_keeps_the_blocks_start_miss_and_bends(tmp_path, monkeypatch):
+    cfg, t, rows = _plan_block_second_show(tmp_path, monkeypatch)
+    lines = service.schedule_report(cfg, t, days=0.25)
+    head = next(l for l in lines if "Block 10" in l)
+    assert "(-4 min)" in head or "(-3 min)" in head or "(-5 min)" in head
+    assert "MISS" in head and "bent: gap" in head
+    assert not any(l.startswith("Tue 10-02 06:00  Block 6") for l in lines)                                 # an aired block is not listed
+    listed = [l for l in lines if l.startswith("    Band ")]
+    assert sum(1 for l in listed if "(20 min)" in l) == 1 and "(20 min)" in listed[0]   # only the show on air
+
+
+def test_schedule_trims_views_at_the_horizon(tmp_path, monkeypatch):
+    cfg, t, rows = _plan_block_second_show(tmp_path, monkeypatch)
+    days = 0.25
+    until = t + int(days * 86_400_000_000)
+    lines = service.schedule_report(cfg, t, days=days)
+    heads = [l for l in lines if re.match(r"^\w{3} \d\d-\d\d \d\d:\d\d  Block", l)]
+    assert heads
+    for l in heads:                                  # every shown block's first show starts inside the horizon
+        day, hh, mm = map(int, re.search(r"starts \w{3} 10-(\d\d) (\d\d):(\d\d)", l).groups())
+        assert grid.iso_to_us(f"2096-10-{day:02d}T{hh:02d}:{mm:02d}:00Z") < until
+    assert len(heads) >= 2
+
+
+_STATUS_CLOCK = ('timezone = "UTC"\n[[block]]\nname = "a"\ntitle = "Alpha"\nstart = "00:00"\nprofiles = ["indie"]\n')
+
+
+def _status_plan(tmp_path, monkeypatch):
+    tx, root, engine, cfg, _ = _st_cfg(tmp_path, monkeypatch, clock=_STATUS_CLOCK)
+    e = grid.iso_to_us("2096-10-02T05:00:00Z")
+    write_json(Workspace(tx).epoch_path, {"epoch_id": "etest", "epoch": grid.us_to_iso(e), "d": 10.24})
+    now_f = _fh(30)
+    f30 = _fh(0.5)
+
+    def r(seq, start_h, block, nominal, **kw):
+        return PlanRow(seq=seq, slug=f"s{seq}", dir="d", key=f"k{seq}", start_frame=int(_fh(start_h)),
+                       frames=f30, block=block, nominal_start=f"2096-10-0{nominal}T00:00:00Z", role="show",
+                       package=f"s{seq}", **kw)
+
+    # hours relative to now = hour 30
+    rows = [r(0, 30 - 30, "z", 2, miss=True, fill="pool-short", bends=("era",), degraded=True, run_start=True),
+            r(1, 30 - 10, "a", 3, miss=True, fill="pool-short", bends=("era",)),
+            r(2, 30 - 9.5, "a", 3, fill="structural", bends=("gap",)),
+            r(3, 30 - 1, "b", 4, miss=False, degraded=True),
+            r(4, 30 - 0.1, "c", 5, miss=True, bends=("adjacency",)),
+            r(5, 30 + 0.5, "c", 5, fill="structural"),
+            r(6, 30 + 2, "d", 6, miss=True, fill="pool-short", bends=("gap",)),
+            r(7, 30 + 30, "e", 7, miss=True, fill="pool-short")]
+    rows[0] = PlanRow(**{**rows[0].__dict__, "start_frame": 0, "run_start": True}) if False else rows[0]
+    write_plan(Workspace(tx).plan_path, rows)
+    return tx, cfg, e, rows
+
+
+def _t(e, hours):
+    return e + grid.frame_to_us(_fh(hours))
+
+
+def test_status_numbers_over_hand_written_rows(tmp_path, monkeypatch):
+    tx, cfg, e, rows = _status_plan(tmp_path, monkeypatch)
+    lines = service.status_lines(cfg, _t(e, 30))
+    assert "last 24 h  misses 2; fill 60 min (pool short 30, longer than max_shows 30)" in lines
+    assert "next 24 h  misses 1; fill 60 min (pool short 30, longer than max_shows 30)" in lines
+    assert "bends      adjacency 1, gap 2, era 1 (last 24 h and planned)" in lines
+    assert "degraded   1 block(s) played as open time (last 24 h and planned)" in lines
+    block = next(l for l in lines if l.startswith("block      "))
+    assert block.startswith("block      now c (") and "; next d (" in block
+
+
+def test_status_block_is_none_between_blocks_and_after_the_plan(tmp_path, monkeypatch):
+    tx, cfg, e, rows = _status_plan(tmp_path, monkeypatch)
+    gap = next(l for l in service.status_lines(cfg, _t(e, 31.5)) if l.startswith("block      "))
+    assert gap.startswith("block      none now; next d (")
+    over = next(l for l in service.status_lines(cfg, _t(e, 70)) if l.startswith("block      "))
+    assert over == "block      none now; next not planned yet"
+
+
+def test_status_writes_nothing_even_with_a_differing_last_good_clock(tmp_path, monkeypatch):
+    tx, cfg, e, rows = _status_plan(tmp_path, monkeypatch)
+    (tx / "clock.last-good.toml").write_text("# differs\n" + _STATUS_CLOCK)
+    before = _tree(tx)
+    service.status_lines(cfg, _t(e, 30))
+    assert _tree(tx) == before
+
+
+def test_schedule_open_time_shows_no_slip(tmp_path, monkeypatch):
+    tx, root, engine, cfg, _ = _st_cfg(tmp_path, monkeypatch, clock=None)
+    lines = service.schedule_report(cfg, service.now_us(), days=0.2)
+    heads = [l for l in lines if " starts " in l]
+    assert heads and not any(re.search(r"\([+-]\d+ min\)", l) for l in heads)

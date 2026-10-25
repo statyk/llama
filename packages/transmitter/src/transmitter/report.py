@@ -4,6 +4,7 @@ a span, and the text lines. No IO and no wall clock; callers pass everything in.
 
 Bends are reported, never alerted (spec: status noise is an anti-goal)."""
 
+import re
 import statistics
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
@@ -21,6 +22,11 @@ from transmitter.workspace import Epoch
 BEND_ORDER = rules.RULES + (EXCLUDE_BEND,)
 FILL_CAUSES = ("pool-short", "structural")
 _US_PER_DAY = 86_400_000_000
+FILL_LABELS = {"pool-short": "pool short", "structural": "longer than max_shows"}
+
+
+def fill_label(cause: str) -> str:
+    return FILL_LABELS.get(cause, cause)
 
 
 def minutes_of(frames: int) -> float:
@@ -111,12 +117,17 @@ def local_text(us: int, tz: str) -> str:
 
 
 def block_views(rows: Sequence[PlanRow], projected: Sequence[PlannedPiece], clock: ClockConfig, epoch: Epoch, *,
-                missing: Sequence[Needed] = (),
+                missing: Sequence[Needed] = (), since_frame: int | None = None,
                 meta_of: Callable[[str | None], tuple[str | None, str | None]] = _no_meta) -> list[BlockView]:
     """One view per occurrence, in order of first appearance. A boundary
-    interstitial belongs to the occurrence it carries (`block`, `nominal`)."""
+    interstitial belongs to the occurrence it carries (`block`, `nominal`).
+
+    An occurrence's start, slip, miss and bends come from ALL its rows given;
+    with `since_frame`, shows that ended at or before it (already aired) are
+    left out of the per-show listing only."""
     items = [_from_row(r, meta_of) for r in rows] + [_from_projected(p) for p in projected]
     titles = {b.name: b.title or b.name for b in clock.block}
+    open_blocks = {b.name for b in clock.block if not b.profiles}
     need: dict[tuple[str, str], list[Needed]] = {}
     for n in missing:
         need.setdefault((n.block, n.nominal_iso), []).append(n)
@@ -130,7 +141,8 @@ def block_views(rows: Sequence[PlanRow], projected: Sequence[PlannedPiece], cloc
         if nominal is not None:
             nominal_us = iso_to_us(nominal)
         first_us = epoch.epoch_us + frame_to_us(shows[0].start_frame) if shows else None
-        slip = None if first_us is None or nominal_us is None else (first_us - nominal_us) / 60_000_000
+        slip = None if first_us is None or nominal_us is None or block in open_blocks \
+            else (first_us - nominal_us) / 60_000_000     # open time has no start to keep
         bent: set[str] = set()
         for i in shows:
             bent.update(i.bends)
@@ -146,7 +158,8 @@ def block_views(rows: Sequence[PlanRow], projected: Sequence[PlannedPiece], cloc
             start_local=local_text(first_us, clock.timezone) if first_us is not None else None,
             slip_minutes=slip,
             shows=tuple(ShowView(i.slug, i.artist, i.date, minutes_of(i.frames), not i.exact, i.fill,
-                                 epoch.epoch_us + frame_to_us(i.start_frame)) for i in shows),
+                                 epoch.epoch_us + frame_to_us(i.start_frame)) for i in shows
+                        if since_frame is None or i.start_frame + i.frames > since_frame),
             breaks=breaks,
             miss=bool(first is not None and first.miss),
             degraded=any(i.degraded for i in shows),
@@ -186,7 +199,7 @@ def summary(views: Sequence[BlockView], span_us: int) -> Summary:
 def _show_text(s: ShowView) -> str:
     who = " ".join(x for x in (s.artist, s.date) if x) or s.slug
     mark = "~" if s.estimated else ""
-    fill = f"  [fill: {s.fill}]" if s.fill else ""
+    fill = f"  [fill: {fill_label(s.fill)}]" if s.fill else ""
     return f"{who} ({mark}{s.minutes:.0f} min){fill}"
 
 
@@ -194,8 +207,8 @@ def schedule_lines(views: Sequence[BlockView], s: Summary) -> list[str]:
     lines: list[str] = []
     for v in views:
         head = f"{v.nominal_local}  {v.title}" if v.nominal_local else v.title
-        if v.start_local is not None and v.slip_minutes is not None:
-            head += f"  starts {v.start_local} ({v.slip_minutes:+.0f} min)"
+        if v.start_local is not None:
+            head += f"  starts {v.start_local}" + ("" if v.slip_minutes is None else f" ({v.slip_minutes:+.0f} min)")
         flags = [f for f, on in (("MISS", v.miss), ("degraded to open time", v.degraded)) if on]
         if v.bends:
             flags.append("bent: " + ", ".join(v.bends))
@@ -211,7 +224,7 @@ def schedule_lines(views: Sequence[BlockView], s: Summary) -> list[str]:
     lines.append("")
     lines.append(f"summary    {s.occurrences} block occurrence(s) over {s.span_minutes / 60:.0f} h; "
                  f"misses {s.misses}; degraded {s.degraded}")
-    parts = ", ".join(f"{c} {s.fill_minutes.get(c, 0.0):.0f} min" for c in FILL_CAUSES)
+    parts = ", ".join(f"{fill_label(c)} {s.fill_minutes.get(c, 0.0):.0f} min" for c in FILL_CAUSES)
     lines.append(f"fill       {s.fill_total:.0f} min = {s.fill_share * 100:.1f}% of the span ({parts})")
     bends = ", ".join(f"{r} {s.bends[r]}" for r in BEND_ORDER if r in s.bends)
     lines.append(f"bends      {bends or 'none'}")
@@ -257,6 +270,7 @@ def reason_key(reason: str) -> str:
     """A reason without its per-package detail ("awaiting fix from llama: why" -> "awaiting fix from llama")."""
     if reason.startswith("changed ") and "quiet period" in reason:
         return "changed within the quiet period"
+    reason = re.sub(r"^\d+( of \d+)? ", "", reason)         # "3 DJ clip(s) missing" == "1 DJ clip(s) missing"
     return reason.split(": ", 1)[0]
 
 
