@@ -1,0 +1,3 @@
+# t23-fix1 report
+Status DONE, commit 9ecaeb9 docs: Task 23 review fixes (fix without show.json, brief budget, runbook, reapply hint). Suite: 5468 passed, 1 skipped, 8 deselected, 26 warnings in 51.59s. Docs only; SDD record untouched.
+Fixed: Important 1 (CLAUDE.md fix-without-show.json sentence rewritten per cli.py refuse_no_show_json); Important 2 (spec 5.3 budget ~1,110+13+34+371 = ~1,530); Minors 1 (runbook step 1 in spec x2 and plan Appendix A/B), 2 (restore: destinations whose manifest changed since), 3 (reapply hint exceptions, verified cli.py _echo_redeliver_hint), 4 (--include placement mentions derivative dedupe); optional spec 2.7 G5 reopens warrenzevon-1994-02-07 #16, spec 5.2 pointer to acceptance.md.
