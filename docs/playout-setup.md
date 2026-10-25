@@ -426,10 +426,46 @@ Run the `transmitter` commands below as `<user>` on hugo with the env file loade
 
 ### Rolling transmitter back
 
-- The commit that made plan rows tolerate scheduler fields writes phase-1-shaped rows only (a scheduler field is written only when it differs from its default), so rolling back from it to the build before it stays safe until a scheduler build writes its first scheduler row.
-- A build from before that commit cannot read a plan that holds scheduler rows: plan, render and publish wedge. Once the scheduler has run, that commit is the oldest safe rollback target. It is also the commit that keeps interstitial rows out of `timeline.json`, `notes/` and `show/`.
+- The commit that made plan rows tolerate scheduler fields (`4fa87a7`, "tolerant plan rows with scheduler fields; non-show rows skipped downstream (deploy before the scheduler)", plus its fix `af46d72`, "serialise phase-1 plan rows byte-identically") writes phase-1-shaped rows only (a scheduler field is written only when it differs from its default). `af46d72` is what was deployed to hugo. Rolling back from it to the build before it stays safe until a scheduler build writes its first scheduler row.
+- A build from before that commit cannot read a plan that holds scheduler rows: plan, render and publish wedge. Once the scheduler has run, `af46d72` is the oldest safe rollback target. It is also the commit that keeps interstitial rows out of `timeline.json`, `notes/` and `show/`.
 - Never truncate `plan.jsonl` by hand: a shortened plan restarts the run over segment keys already published (and immutable).
-- Before rolling back past the commit adding `[interstitials]`, remove `[interstitials]` from `config.toml`, or the older build refuses the unknown section.
+- Before rolling back past `684d323` ("interstitials folder scan, announcement texts with time zones, announcements command"), the commit adding `[interstitials]`, remove `[interstitials]` from `config.toml`, or the older build refuses the unknown section.
+
+### 7.2 Clock and schedule (phase 3)
+
+The scheduler appends to the persisted plan from the plan's end, driven by the clock: `<TRANSMITTER_ROOT>/clock.toml` (default `~/.transmitter/clock.toml`). Each time it loads a valid clock it keeps a copy as `clock.last-good.toml`. The pieces it plans are shows plus one-clip interstitials (announcements, station IDs) from the interstitials folder.
+
+- **No clock file:** planning uses one implicit all-week open block, and `transmitter status` says `no clock: open all week`.
+- **The clock is strict.** Unknown keys and bad values are errors; non-finite numbers are rejected; window fields may not exceed one week. `Prefer.weight` must be > 0 and `on_this_day` >= 0. `concert_gap_days = 0` disables the gap rule (the least recently aired show still ranks first, over a 365-day horizon). `max_shows` defaults to 2 for a profile block and is unbounded for an open block; a long profile block whose pool cannot fill it at `max_shows` gets structural fill (`transmitter schedule` prints the cause as "pool short" or "longer than max_shows"). Raising `max_shows` is a clock choice (real blocks will mostly be 2-3 h).
+- **Edit a draft, never the live file.** Copy `clock.toml` to a draft, edit it, check it, then move it into place:
+  ```
+  transmitter schedule --clock draft.toml      # previews the next --days (default 7) under the draft
+  mv draft.toml ~/.transmitter/clock.toml
+  ```
+  `schedule` and `library` are read-only (nothing written). `schedule --library delivered` previews against all delivered packages, not only the eligible ones.
+- **An invalid live clock** alerts `clock` (first at the next fill, not at once) and `status` reports the clock as invalid. Planning continues on `clock.last-good.toml`, else on the all-week open block.
+- **Edits reach air after the persisted plan:** about one lead plus one show (the plan is append-only; rows already persisted are never rewritten).
+- **Reading `schedule` / `status`.** A block entered mid-way (the phase-1 cutover, a fresh run after an outage) records a MISS on its first show by design. Bends are counted once per block and only for options the bounded search offered, so they may undercount. `transmitter library` lists eligible shows by profile, the interstitial pool, and ineligible packages by first reason.
+- **`awaiting_fix`.** A delivered package whose manifest carries a non-null top-level `awaiting_fix` is not airable: `library` and the station scan show `awaiting fix from llama: <reason>`. A planned row not yet encoded is dropped by render's skip path; a show already encoding or on air finishes. Known limitation: if a marked show is on air and its `render/shows/<key>.aac` is lost by hand, render refuses to re-make it (`LayoutError`) until recovery cuts a new run.
+- **Rotation history.** `aired.jsonl` in the workspace is append-only, one row per published-and-past piece, idempotent across restarts, and backfilled from `plan.jsonl` on first run. A crash can leave a partial last line; it is skipped with a warning on every load (harmless; remove that one fragment by hand if the warning bothers you). History appends refuse (alert `history`) when `publish.json`'s epoch differs from the station epoch.
+- **Plan lock.** Plan and render run under one non-waiting plan lock: a manual `transmitter plan`/`render` while the service holds it refuses with `PlanLocked` instead of interleaving.
+
+### 7.3 Announcements and station IDs
+
+Announcement texts and ids derive from the clock alone: the id is a hash of the rendered text, so editing the templates, titles, `time_format` or zones retires the clips already voiced (re-export and re-voice). The two-block forms (`next`, `later`) are used only when the following occurrence is a DIFFERENT block starting within 12 h of X's start (`announce.TWO_BLOCK_MAX_HOURS`); otherwise the one-block forms. A time names every zone in `[announce] zones` (default Eastern, Pacific).
+
+`[interstitials] dir` must be an absolute path (default `<station root>/interstitials`). Station IDs are any `id-*.mp3` in it. Use the same station name in the IDs and in the player's `document.title` ("llama radio"); the spec's station-ID example says "LMA Radio", so pick one.
+
+Copy-paste workflow:
+
+1. On hugo, export the scripts still missing audio: `transmitter announcements --export <dir>` (writes `ann-<id>.txt`; without `--export` it lists what the clock needs, present or missing, over `--days`, default 8). Copy the files to the Mac's interstitials folder.
+2. On the Mac, voice them:
+   ```
+   cd /Volumes/media/lma-radio/delivered/interstitials && for f in ann-*.txt; do emcee say "$f"; done
+   ```
+3. A clip is used only once it is older than the quiet period (`quiet_minutes`, default 10), so a half-written file is never picked up.
+
+Missing audio degrades gracefully: two-block form, then one-block form, then a station ID, then a plain gap. `status` and `schedule` list what is missing. A broken promise (an announcement that named a block that then did not air) is logged `announcement-broken` and never alerted.
 
 ### 7.1 Alert keys
 
