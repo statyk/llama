@@ -6,12 +6,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10074.6,
+   "show_minutes": 10076.7,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 4
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -26,12 +29,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10087.1,
+   "show_minutes": 10068.2,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 4
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -46,12 +52,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10073.4,
+   "show_minutes": 10091.9,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -66,12 +75,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10079.7,
+   "show_minutes": 10088.1,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -86,12 +98,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10089.0,
+   "show_minutes": 10063.0,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -106,12 +121,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10068.9,
+   "show_minutes": 10080.0,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 5
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -126,12 +144,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10076.7,
+   "show_minutes": 10088.6,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -146,12 +167,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10081.6,
+   "show_minutes": 10067.1,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -166,12 +190,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10077.2,
+   "show_minutes": 10081.3,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -186,12 +213,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10079.6,
+   "show_minutes": 10072.1,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -206,12 +236,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10076.3,
+   "show_minutes": 10086.5,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -226,12 +259,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10081.6,
+   "show_minutes": 10082.4,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -246,12 +282,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10079.6,
+   "show_minutes": 10076.6,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -266,12 +305,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10078.8,
+   "show_minutes": 10065.4,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -286,12 +328,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10086.5,
+   "show_minutes": 10091.5,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -306,12 +351,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10077.4,
+   "show_minutes": 10065.4,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -326,12 +374,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10061.6,
+   "show_minutes": 10085.7,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -346,12 +397,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10090.2,
+   "show_minutes": 10084.4,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -362,16 +416,19 @@
   },
   {
    "week": 18,
-   "block_starts": 22,
+   "block_starts": 21,
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10382.3,
+   "show_minutes": 10007.8,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 8
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -386,12 +443,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10071.1,
+   "show_minutes": 10088.9,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -406,12 +466,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10068.5,
+   "show_minutes": 10089.9,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -426,12 +489,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10079.1,
+   "show_minutes": 10064.2,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -446,12 +512,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10088.8,
+   "show_minutes": 10069.3,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -466,12 +535,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10080.1,
+   "show_minutes": 10095.7,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -486,12 +558,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10079.3,
+   "show_minutes": 10060.7,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -506,12 +581,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10076.0,
+   "show_minutes": 10104.1,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -526,12 +604,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10082.5,
+   "show_minutes": 10054.6,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -546,12 +627,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10078.9,
+   "show_minutes": 10090.4,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -566,12 +650,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10077.0,
+   "show_minutes": 10072.7,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -586,12 +673,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10074.6,
+   "show_minutes": 10091.1,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -606,12 +696,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10082.3,
+   "show_minutes": 10073.0,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -626,12 +719,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10079.2,
+   "show_minutes": 10064.2,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -646,12 +742,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10079.7,
+   "show_minutes": 10091.0,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -666,12 +765,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10083.3,
+   "show_minutes": 10076.2,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -686,12 +788,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10075.5,
+   "show_minutes": 10081.1,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -706,12 +811,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10077.2,
+   "show_minutes": 10081.2,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -726,12 +834,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10078.6,
+   "show_minutes": 10078.9,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -746,12 +857,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10066.3,
+   "show_minutes": 10076.0,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -766,12 +880,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10087.7,
+   "show_minutes": 10079.3,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -786,12 +903,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10085.2,
+   "show_minutes": 10074.4,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -806,12 +926,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10071.8,
+   "show_minutes": 10079.3,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -826,12 +949,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10076.0,
+   "show_minutes": 10082.0,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -846,12 +972,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10085.8,
+   "show_minutes": 10085.6,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 5
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -866,12 +995,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10081.0,
+   "show_minutes": 10058.3,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -886,12 +1018,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10067.5,
+   "show_minutes": 10086.5,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -906,12 +1041,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10087.1,
+   "show_minutes": 10090.5,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -926,12 +1064,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10077.2,
+   "show_minutes": 10075.8,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -946,12 +1087,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10083.5,
+   "show_minutes": 10065.2,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 6
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -966,12 +1110,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10074.7,
+   "show_minutes": 10075.8,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -986,12 +1133,15 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10080.0,
+   "show_minutes": 10092.6,
    "fill_minutes": {},
    "fill_minutes_by_profile": {},
-   "bends": {
-    "gap": 7
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
+   "bends": {},
    "own_profile_share": 1.0,
    "own_profile_share_by_block": {
     "dead-evening": 1.0,
@@ -1002,16 +1152,19 @@
   }
  ],
  "total": {
-  "block_starts": 1051,
+  "block_starts": 1050,
   "misses": 0,
   "miss_share": 0.0,
   "degraded_blocks": 0,
-  "show_minutes": 504237.5,
+  "show_minutes": 503871.1,
   "fill_minutes": {},
   "fill_minutes_by_profile": {},
-  "bends": {
-   "gap": 323
+  "fill_share_by_block": {
+   "dead-evening": 0.0,
+   "dead-morning": 0.0,
+   "funk-afternoon": 0.0
   },
+  "bends": {},
   "own_profile_share": 1.0,
   "own_profile_share_by_block": {
    "dead-evening": 1.0,
@@ -1020,19 +1173,37 @@
   },
   "open_minutes_by_profile": {},
   "repeat_gap_days": {
-   "shows_aired": 153,
-   "repeats": 1622,
+   "shows_aired": 494,
+   "repeats": 1606,
    "min": 1.0,
-   "p10": 1.8,
-   "median": 4.0,
-   "p90": 48.0,
+   "p10": 2.0,
+   "median": 11.0,
+   "p90": 110.0,
    "buckets": {
     "<1d": 0,
-    "1-7d": 1014,
-    "7-30d": 306,
-    "30-45d": 31,
-    "45-90d": 249,
-    ">=90d": 22
+    "1-7d": 633,
+    "7-30d": 346,
+    "30-45d": 34,
+    "45-90d": 366,
+    ">=90d": 227
+   }
+  },
+  "repeat_gap_days_by_profile": {
+   "dead": {
+    "repeats": 997,
+    "min": 1.0,
+    "p10": 2.0,
+    "median": 10.0,
+    "max": 327.8,
+    "within_7d": 403
+   },
+   "funk": {
+    "repeats": 609,
+    "min": 1.01,
+    "p10": 3.0,
+    "median": 21.0,
+    "max": 215.0,
+    "within_7d": 230
    }
   },
   "miss_by_block": {
@@ -1042,14 +1213,14 @@
    ],
    "dead-morning": [
     0,
-    351
+    350
    ],
    "funk-afternoon": [
     0,
     350
    ]
   },
-  "distinct_shows_by_profile": {
+  "distinct_aired_by_profile": {
    "?": [
     0,
     1
@@ -1067,7 +1238,7 @@
     2
    ],
    "dead": [
-    66,
+    403,
     413
    ],
    "dead-family": [
@@ -1079,7 +1250,7 @@
     208
    ],
    "funk": [
-    87,
+    91,
     221
    ],
    "indie": [
@@ -1099,11 +1270,11 @@
     275
    ]
   },
-  "shows_per_block_start": 1.69
+  "shows_per_block_start": 2.0
  },
  "occurrences_per_week": 21,
  "clock_start": "2026-11-02T13:00:00.000Z",
- "project_seconds": 12.97,
+ "project_seconds": 12.73,
  "pool": {
   "shows": 2786,
   "profiles": {
@@ -1127,6 +1298,7 @@
  "clock_file": "clock-c.toml",
  "weeks_requested": 50,
  "no_interstitials": true,
+ "excluded_slugs": 0,
  "extra_frames": 1,
  "scan_seconds": 0.0
 }

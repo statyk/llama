@@ -6,19 +6,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10078.7,
+   "show_minutes": 10078.1,
    "fill_minutes": {
-    "pool-short": 487.9,
-    "structural": 831.9
+    "pool-short": 576.2,
+    "structural": 743.8
    },
    "fill_minutes_by_profile": {
-    "indie": 1194.9,
-    "americana": 124.9
+    "indie": 1005.3,
+    "bluegrass": 178.2,
+    "americana": 136.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2629,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8690478453196888,
+   "own_profile_share": 0.8690222768152069,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7372292097501442,
+    "dead-evening": 0.7371488354540626,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -30,20 +36,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10064.5,
+   "show_minutes": 10063.4,
    "fill_minutes": {
-    "pool-short": 301.9,
-    "structural": 648.9
+    "pool-short": 313.2,
+    "structural": 681.6
    },
    "fill_minutes_by_profile": {
-    "indie": 537.6,
+    "indie": 593.1,
     "bluegrass": 276.8,
-    "americana": 136.5
+    "americana": 124.9
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.1992,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.9055275108939929,
+   "own_profile_share": 0.9011475690564795,
    "own_profile_share_by_block": {
-    "dead-evening": 0.8095389666879123,
+    "dead-evening": 0.8008216839515464,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -55,22 +66,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10093.5,
+   "show_minutes": 10092.0,
    "fill_minutes": {
-    "pool-short": 360.9,
-    "structural": 1440.5
+    "pool-short": 347.1,
+    "structural": 1062.1
    },
    "fill_minutes_by_profile": {
-    "indie": 1486.6,
-    "bluegrass": 178.2,
+    "indie": 1272.7,
     "americana": 136.5
    },
-   "bends": {
-    "artist_day": 1
+   "fill_share_by_block": {
+    "dead-evening": 0.2823,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
-   "own_profile_share": 0.8215358978407455,
+   "bends": {},
+   "own_profile_share": 0.8603702842743688,
    "own_profile_share_by_block": {
-    "dead-evening": 0.6412820375481818,
+    "dead-evening": 0.7177239309142376,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -82,24 +95,28 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10067.9,
+   "show_minutes": 10071.0,
    "fill_minutes": {
-    "pool-short": 399.2,
-    "structural": 923.2
+    "pool-short": 722.5,
+    "structural": 764.1
    },
    "fill_minutes_by_profile": {
-    "indie": 1197.5,
-    "americana": 124.9
+    "indie": 1171.9,
+    "bluegrass": 178.2,
+    "americana": 136.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2978,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {
-    "adjacency": 1,
     "artist_day": 1,
-    "era": 1,
-    "gap": 1
+    "era": 1
    },
-   "own_profile_share": 0.8686538125125336,
+   "own_profile_share": 0.8523885124833778,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7376421248734863,
+    "dead-evening": 0.7021736081395809,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -111,24 +128,27 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10086.8,
+   "show_minutes": 10071.9,
    "fill_minutes": {
-    "pool-short": 1205.9,
-    "structural": 688.0
+    "pool-short": 1219.9,
+    "structural": 675.6
    },
    "fill_minutes_by_profile": {
-    "indie": 1537.5,
-    "bluegrass": 356.5
+    "indie": 1277.6,
+    "bluegrass": 356.5,
+    "americana": 261.4
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.3778,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {
-    "adjacency": 2,
-    "artist_day": 2,
-    "era": 1,
     "gap": 2
    },
-   "own_profile_share": 0.8122357883923017,
+   "own_profile_share": 0.8118033881393453,
    "own_profile_share_by_block": {
-    "dead-evening": 0.6232619695744649,
+    "dead-evening": 0.6222248994732517,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -140,23 +160,27 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10078.6,
+   "show_minutes": 10089.4,
    "fill_minutes": {
-    "pool-short": 396.3,
-    "structural": 730.8
+    "structural": 1456.9
    },
    "fill_minutes_by_profile": {
-    "indie": 850.3,
-    "bluegrass": 276.8
+    "indie": 865.5,
+    "bluegrass": 455.0,
+    "americana": 136.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2874,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {
-    "adjacency": 1,
     "era": 1,
     "gap": 1
    },
-   "own_profile_share": 0.8881687894182112,
+   "own_profile_share": 0.8555999405926498,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7757117888003332,
+    "dead-evening": 0.7125890440754384,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -168,18 +192,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10075.8,
+   "show_minutes": 10080.9,
    "fill_minutes": {
-    "structural": 1179.6
+    "pool-short": 95.6,
+    "structural": 1103.7
    },
    "fill_minutes_by_profile": {
-    "indie": 1001.3,
+    "indie": 1021.1,
     "bluegrass": 178.2
    },
+   "fill_share_by_block": {
+    "dead-evening": 0.2377,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
    "bends": {},
-   "own_profile_share": 0.8829317189713838,
+   "own_profile_share": 0.8810326249089258,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7674917141300095,
+    "dead-evening": 0.7623106966330158,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -191,20 +221,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10081.6,
+   "show_minutes": 10080.4,
    "fill_minutes": {
-    "pool-short": 290.4,
-    "structural": 1092.9
+    "pool-short": 515.6,
+    "structural": 610.4
    },
    "fill_minutes_by_profile": {
-    "indie": 1148.3,
-    "americana": 136.5,
-    "bluegrass": 98.5
+    "indie": 1001.0,
+    "americana": 124.9
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2227,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8627893057613713,
+   "own_profile_share": 0.888305459939787,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7271371805048107,
+    "dead-evening": 0.777329840555728,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -216,20 +250,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10065.3,
+   "show_minutes": 10064.1,
    "fill_minutes": {
-    "pool-short": 603.4,
-    "structural": 678.8
+    "pool-short": 200.8,
+    "structural": 949.3
    },
    "fill_minutes_by_profile": {
-    "indie": 979.1,
-    "bluegrass": 178.2,
-    "americana": 124.9
+    "indie": 1051.6,
+    "bluegrass": 98.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2291,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8726072017965157,
+   "own_profile_share": 0.885723391469169,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7464671840567357,
+    "dead-evening": 0.7709336954830182,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -241,20 +279,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10085.3,
+   "show_minutes": 10093.7,
    "fill_minutes": {
-    "pool-short": 378.8,
-    "structural": 666.5
+    "pool-short": 237.5,
+    "structural": 683.1
    },
    "fill_minutes_by_profile": {
-    "indie": 810.3,
-    "americana": 136.5,
-    "bluegrass": 98.5
+    "indie": 617.5,
+    "bluegrass": 178.2,
+    "americana": 124.9
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.1828,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8963550713996249,
+   "own_profile_share": 0.9087912440563551,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7923928802812371,
+    "dead-evening": 0.8171510639189158,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -266,20 +309,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10085.3,
+   "show_minutes": 10071.9,
    "fill_minutes": {
-    "pool-short": 320.7,
-    "structural": 861.6
+    "pool-short": 985.2,
+    "structural": 524.0
    },
    "fill_minutes_by_profile": {
-    "indie": 867.6,
-    "bluegrass": 178.2,
+    "indie": 1372.7,
     "americana": 136.5
    },
+   "fill_share_by_block": {
+    "dead-evening": 0.3021,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
    "bends": {},
-   "own_profile_share": 0.8827659884959673,
+   "own_profile_share": 0.850158626451354,
    "own_profile_share_by_block": {
-    "dead-evening": 0.764361835994373,
+    "dead-evening": 0.6978587221319045,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -291,19 +338,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10082.0,
+   "show_minutes": 10094.9,
    "fill_minutes": {
-    "pool-short": 102.3,
-    "structural": 1605.7
+    "pool-short": 403.4,
+    "structural": 1186.3
    },
    "fill_minutes_by_profile": {
-    "indie": 1529.7,
-    "bluegrass": 178.2
+    "indie": 1275.0,
+    "bluegrass": 178.2,
+    "americana": 136.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.3147,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8305950458441687,
+   "own_profile_share": 0.8425214907622355,
    "own_profile_share_by_block": {
-    "dead-evening": 0.6621605576997847,
+    "dead-evening": 0.6852990006307297,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -315,19 +368,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10066.0,
+   "show_minutes": 10065.6,
    "fill_minutes": {
-    "pool-short": 624.3,
-    "structural": 657.0
+    "pool-short": 774.4,
+    "structural": 1127.4
    },
    "fill_minutes_by_profile": {
-    "indie": 1156.4,
-    "americana": 124.9
+    "indie": 1462.2,
+    "americana": 261.4,
+    "bluegrass": 178.2
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.3764,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8727090917919592,
+   "own_profile_share": 0.8110594732150265,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7457463248879812,
+    "dead-evening": 0.6236100740331341,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -339,20 +398,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10071.0,
+   "show_minutes": 10085.8,
    "fill_minutes": {
-    "pool-short": 367.9,
-    "structural": 675.5
+    "pool-short": 348.8,
+    "structural": 1079.6
    },
    "fill_minutes_by_profile": {
-    "indie": 630.2,
-    "bluegrass": 276.8,
-    "americana": 136.5
+    "indie": 1330.0,
+    "bluegrass": 98.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2814,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8963963127913667,
+   "own_profile_share": 0.8583662788665356,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7932876166286211,
+    "dead-evening": 0.7185625016964721,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -364,20 +427,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10091.7,
+   "show_minutes": 10066.8,
    "fill_minutes": {
-    "pool-short": 716.2,
-    "structural": 726.2
+    "pool-short": 595.1,
+    "structural": 762.3
    },
    "fill_minutes_by_profile": {
-    "indie": 1139.2,
-    "bluegrass": 178.2,
-    "americana": 124.9
+    "indie": 1220.9,
+    "americana": 136.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2702,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8570728770401276,
+   "own_profile_share": 0.8651689889816422,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7138502198936285,
+    "dead-evening": 0.7297693930511648,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -389,19 +456,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10079.4,
+   "show_minutes": 10083.3,
    "fill_minutes": {
-    "structural": 986.6
+    "pool-short": 248.6,
+    "structural": 671.1
    },
    "fill_minutes_by_profile": {
-    "indie": 751.6,
-    "americana": 136.5,
-    "bluegrass": 98.5
+    "indie": 616.6,
+    "bluegrass": 178.2,
+    "americana": 124.9
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.1835,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.9021165521413725,
+   "own_profile_share": 0.9087855028594497,
    "own_profile_share_by_block": {
-    "dead-evening": 0.8056545286016242,
+    "dead-evening": 0.8165480973289805,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -413,19 +486,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10067.8,
+   "show_minutes": 10074.5,
    "fill_minutes": {
-    "pool-short": 286.4,
-    "structural": 909.5
+    "pool-short": 653.2,
+    "structural": 611.7
    },
    "fill_minutes_by_profile": {
-    "indie": 1017.7,
-    "bluegrass": 178.2
+    "indie": 988.2,
+    "bluegrass": 276.8
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.253,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8812110438853937,
+   "own_profile_share": 0.8744388705177059,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7614727193380166,
+    "dead-evening": 0.7470083545020968,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -437,22 +515,23 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10086.6,
+   "show_minutes": 10082.3,
    "fill_minutes": {
-    "pool-short": 953.0,
-    "structural": 539.1
+    "structural": 1141.0
    },
    "fill_minutes_by_profile": {
-    "indie": 1052.5,
-    "americana": 261.4,
-    "bluegrass": 178.2
+    "indie": 1004.5,
+    "americana": 136.5
    },
-   "bends": {
-    "era": 1
+   "fill_share_by_block": {
+    "dead-evening": 0.226,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
-   "own_profile_share": 0.8520704601445868,
+   "bends": {},
+   "own_profile_share": 0.886833699844264,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7014997512492123,
+    "dead-evening": 0.7740436145179802,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -460,22 +539,29 @@
   },
   {
    "week": 18,
-   "block_starts": 22,
+   "block_starts": 21,
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10378.0,
+   "show_minutes": 10003.9,
    "fill_minutes": {
-    "structural": 1633.9
+    "pool-short": 320.7,
+    "structural": 1519.2
    },
    "fill_minutes_by_profile": {
-    "indie": 1455.7,
-    "bluegrass": 178.2
+    "indie": 1180.3,
+    "bluegrass": 534.7,
+    "americana": 124.9
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.3676,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8425569397425751,
+   "own_profile_share": 0.8160779834472061,
    "own_profile_share_by_block": {
-    "dead-evening": 0.6718489421957189,
+    "dead-evening": 0.6323796402514782,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -487,19 +573,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10079.1,
+   "show_minutes": 10089.9,
    "fill_minutes": {
-    "pool-short": 520.0,
-    "structural": 694.2
+    "pool-short": 86.5,
+    "structural": 1119.1
    },
    "fill_minutes_by_profile": {
-    "indie": 1115.7,
-    "bluegrass": 98.5
+    "indie": 890.9,
+    "bluegrass": 178.2,
+    "americana": 136.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2379,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8795291452486886,
+   "own_profile_share": 0.8805154327983932,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7598603350565667,
+    "dead-evening": 0.7620897785919216,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -511,19 +603,27 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10082.6,
+   "show_minutes": 10073.3,
    "fill_minutes": {
-    "structural": 1281.0
+    "pool-short": 225.1,
+    "structural": 1174.5
    },
    "fill_minutes_by_profile": {
-    "indie": 841.4,
-    "americana": 261.4,
-    "bluegrass": 178.2
+    "indie": 1164.7,
+    "americana": 136.5,
+    "bluegrass": 98.5
    },
-   "bends": {},
-   "own_profile_share": 0.8729473474397735,
+   "fill_share_by_block": {
+    "dead-evening": 0.2765,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {
+    "era": 1
+   },
+   "own_profile_share": 0.8610556417018597,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7479633105032845,
+    "dead-evening": 0.7235468992909945,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -535,19 +635,23 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10074.8,
+   "show_minutes": 10086.1,
    "fill_minutes": {
-    "pool-short": 102.3,
-    "structural": 855.7
+    "pool-short": 386.0,
+    "structural": 878.9
    },
    "fill_minutes_by_profile": {
-    "indie": 859.5,
-    "bluegrass": 98.5
+    "indie": 1264.9
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2517,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.9049114346104612,
+   "own_profile_share": 0.8745898394289325,
    "own_profile_share_by_block": {
-    "dead-evening": 0.8093348803584448,
+    "dead-evening": 0.7483191548964773,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -559,19 +663,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10077.3,
+   "show_minutes": 10076.5,
    "fill_minutes": {
-    "pool-short": 225.1,
-    "structural": 1207.5
+    "pool-short": 495.4,
+    "structural": 648.4
    },
    "fill_minutes_by_profile": {
-    "indie": 1254.4,
+    "indie": 704.2,
+    "americana": 261.4,
     "bluegrass": 178.2
    },
+   "fill_share_by_block": {
+    "dead-evening": 0.2286,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
    "bends": {},
-   "own_profile_share": 0.8578312675580467,
+   "own_profile_share": 0.8864869535861867,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7163310494674816,
+    "dead-evening": 0.7714143519888073,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -583,19 +693,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10078.0,
+   "show_minutes": 10072.2,
    "fill_minutes": {
-    "pool-short": 842.5,
-    "structural": 610.2
+    "pool-short": 786.9,
+    "structural": 321.0
    },
    "fill_minutes_by_profile": {
-    "indie": 1191.4,
-    "americana": 261.4
+    "indie": 831.2,
+    "bluegrass": 276.8
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2211,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8558492661978534,
+   "own_profile_share": 0.8900033777136449,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7111805254051161,
+    "dead-evening": 0.7789242722627135,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -607,19 +722,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10086.5,
+   "show_minutes": 10075.7,
    "fill_minutes": {
-    "pool-short": 360.9,
-    "structural": 724.1
+    "pool-short": 635.2,
+    "structural": 727.2
    },
    "fill_minutes_by_profile": {
-    "indie": 906.7,
+    "indie": 922.8,
+    "americana": 261.4,
     "bluegrass": 178.2
    },
+   "fill_share_by_block": {
+    "dead-evening": 0.2709,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
    "bends": {},
-   "own_profile_share": 0.8924318111604661,
+   "own_profile_share": 0.864785391009071,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7828457475545448,
+    "dead-evening": 0.7290538018887434,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -631,20 +752,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10075.3,
+   "show_minutes": 10078.9,
    "fill_minutes": {
-    "pool-short": 122.0,
-    "structural": 1147.7
+    "pool-short": 522.8,
+    "structural": 1261.0
    },
    "fill_minutes_by_profile": {
-    "indie": 966.5,
-    "bluegrass": 178.2,
-    "americana": 124.9
+    "indie": 1647.4,
+    "americana": 136.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.3514,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8739826009494162,
+   "own_profile_share": 0.823011917929375,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7491536965121859,
+    "dead-evening": 0.6485916479745842,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -656,19 +781,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10076.0,
+   "show_minutes": 10087.9,
    "fill_minutes": {
-    "pool-short": 406.4,
-    "structural": 859.0
+    "pool-short": 72.6,
+    "structural": 1142.6
    },
    "fill_minutes_by_profile": {
-    "indie": 1166.9,
-    "bluegrass": 98.5
+    "indie": 938.5,
+    "bluegrass": 276.8
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2399,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8744131802061852,
+   "own_profile_share": 0.8795322452241517,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7487491892484178,
+    "dead-evening": 0.7600562618855066,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -680,20 +810,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10077.4,
+   "show_minutes": 10080.8,
    "fill_minutes": {
-    "structural": 1225.8
+    "pool-short": 732.1,
+    "structural": 569.1
    },
    "fill_minutes_by_profile": {
-    "indie": 1089.4,
-    "americana": 136.5
+    "indie": 861.6,
+    "americana": 261.4,
+    "bluegrass": 178.2
    },
-   "bends": {
-    "era": 2
+   "fill_share_by_block": {
+    "dead-evening": 0.2586,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
-   "own_profile_share": 0.8783596139789281,
+   "bends": {},
+   "own_profile_share": 0.8709251504328763,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7568801885646201,
+    "dead-evening": 0.7414366278353055,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -705,19 +840,23 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10075.0,
+   "show_minutes": 10073.3,
    "fill_minutes": {
-    "pool-short": 600.4,
-    "structural": 844.1
+    "structural": 1019.3
    },
    "fill_minutes_by_profile": {
-    "indie": 1266.2,
-    "bluegrass": 178.2
+    "indie": 920.8,
+    "bluegrass": 98.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2025,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8566297971687867,
+   "own_profile_share": 0.8988082310725566,
    "own_profile_share_by_block": {
-    "dead-evening": 0.712870563551462,
+    "dead-evening": 0.797477181195101,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -729,22 +868,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10073.7,
+   "show_minutes": 10082.3,
    "fill_minutes": {
-    "pool-short": 290.4,
-    "structural": 746.3
+    "pool-short": 1230.7,
+    "structural": 220.2
    },
    "fill_minutes_by_profile": {
-    "indie": 813.3,
-    "americana": 124.9,
-    "bluegrass": 98.5
+    "indie": 1272.7,
+    "bluegrass": 178.2
    },
-   "bends": {
-    "era": 1
+   "fill_share_by_block": {
+    "dead-evening": 0.2885,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
-   "own_profile_share": 0.8970875925809753,
+   "bends": {},
+   "own_profile_share": 0.856090520161364,
    "own_profile_share_by_block": {
-    "dead-evening": 0.794220048274704,
+    "dead-evening": 0.7114686446232616,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -756,20 +897,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10081.1,
+   "show_minutes": 10074.3,
    "fill_minutes": {
-    "pool-short": 626.3,
-    "structural": 448.9
+    "pool-short": 587.2,
+    "structural": 847.5
    },
    "fill_minutes_by_profile": {
-    "indie": 760.5,
-    "bluegrass": 178.2,
-    "americana": 136.5
+    "indie": 896.6,
+    "bluegrass": 276.8,
+    "americana": 261.4
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2837,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.893344821263994,
+   "own_profile_share": 0.8575828393304245,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7869017642674689,
+    "dead-evening": 0.7162659155096869,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -781,20 +927,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10078.8,
+   "show_minutes": 10076.3,
    "fill_minutes": {
-    "structural": 1187.3
+    "pool-short": 314.0,
+    "structural": 1393.9
    },
    "fill_minutes_by_profile": {
-    "indie": 1009.0,
-    "bluegrass": 178.2
+    "indie": 1393.2,
+    "bluegrass": 178.2,
+    "americana": 136.5
    },
-   "bends": {
-    "era": 1
+   "fill_share_by_block": {
+    "dead-evening": 0.3369,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
-   "own_profile_share": 0.8822022589656011,
+   "bends": {},
+   "own_profile_share": 0.830501486448365,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7636727918740589,
+    "dead-evening": 0.6630688375693002,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -806,22 +957,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10077.4,
+   "show_minutes": 10080.5,
    "fill_minutes": {
-    "pool-short": 519.4,
-    "structural": 964.6
+    "pool-short": 286.4,
+    "structural": 1133.3
    },
    "fill_minutes_by_profile": {
-    "indie": 1044.4,
-    "americana": 261.4,
-    "bluegrass": 178.2
+    "indie": 1283.2,
+    "americana": 136.5
    },
-   "bends": {
-    "era": 1
+   "fill_share_by_block": {
+    "dead-evening": 0.2802,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
-   "own_profile_share": 0.8527364683879961,
+   "bends": {},
+   "own_profile_share": 0.8591661267007008,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7061670563766078,
+    "dead-evening": 0.7198201316537555,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -833,19 +986,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10088.2,
+   "show_minutes": 10079.5,
    "fill_minutes": {
-    "pool-short": 285.5,
-    "structural": 692.9
+    "pool-short": 941.7,
+    "structural": 649.3
    },
    "fill_minutes_by_profile": {
-    "indie": 701.7,
-    "bluegrass": 276.8
+    "indie": 1189.3,
+    "bluegrass": 276.8,
+    "americana": 124.9
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.3155,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.9030132337507406,
+   "own_profile_share": 0.8421534181420134,
    "own_profile_share_by_block": {
-    "dead-evening": 0.8054943847678787,
+    "dead-evening": 0.6845142345228831,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -857,19 +1016,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10070.8,
+   "show_minutes": 10076.5,
    "fill_minutes": {
-    "pool-short": 1195.9,
-    "structural": 204.5
+    "pool-short": 399.2,
+    "structural": 782.2
    },
    "fill_minutes_by_profile": {
-    "indie": 1222.1,
-    "bluegrass": 178.2
+    "indie": 1044.9,
+    "americana": 136.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2327,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8609475286686001,
+   "own_profile_share": 0.8827648801180731,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7199102579136784,
+    "dead-evening": 0.7672930304296957,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -881,19 +1045,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10079.0,
+   "show_minutes": 10079.5,
    "fill_minutes": {
-    "pool-short": 530.9,
-    "structural": 695.5
+    "pool-short": 300.2,
+    "structural": 1018.4
    },
    "fill_minutes_by_profile": {
-    "indie": 1090.0,
-    "americana": 136.5
+    "indie": 1015.4,
+    "bluegrass": 178.2,
+    "americana": 124.9
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2612,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8783203134449152,
+   "own_profile_share": 0.8691838268683475,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7565139662950173,
+    "dead-evening": 0.7388001220469544,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -905,20 +1075,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10078.5,
+   "show_minutes": 10092.0,
    "fill_minutes": {
-    "pool-short": 759.9,
-    "structural": 325.5
+    "pool-short": 460.1,
+    "structural": 841.3
    },
    "fill_minutes_by_profile": {
-    "indie": 782.2,
-    "bluegrass": 178.2,
-    "americana": 124.9
+    "indie": 888.2,
+    "bluegrass": 276.8,
+    "americana": 136.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2575,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8923120248444697,
+   "own_profile_share": 0.8710496957106132,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7850007141137159,
+    "dead-evening": 0.7424601871412677,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -930,19 +1105,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10080.9,
+   "show_minutes": 10065.1,
    "fill_minutes": {
-    "pool-short": 717.4,
-    "structural": 479.6
+    "pool-short": 870.6,
+    "structural": 595.4
    },
    "fill_minutes_by_profile": {
-    "indie": 1060.6,
-    "americana": 136.5
+    "indie": 1287.8,
+    "bluegrass": 178.2
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2908,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8812598984411065,
+   "own_profile_share": 0.8543459973886542,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7606142721801696,
+    "dead-evening": 0.7092239280087862,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -954,20 +1134,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10076.5,
+   "show_minutes": 10079.6,
    "fill_minutes": {
-    "pool-short": 241.3,
-    "structural": 1638.4
+    "pool-short": 419.1,
+    "structural": 1478.7
    },
    "fill_minutes_by_profile": {
-    "indie": 1341.6,
-    "bluegrass": 276.8,
+    "indie": 1636.5,
     "americana": 261.4
    },
+   "fill_share_by_block": {
+    "dead-evening": 0.3766,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
    "bends": {},
-   "own_profile_share": 0.8134499471034887,
+   "own_profile_share": 0.811715191688156,
    "own_profile_share_by_block": {
-    "dead-evening": 0.6278456580504512,
+    "dead-evening": 0.6234102565874704,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -979,19 +1163,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10071.8,
+   "show_minutes": 10069.9,
    "fill_minutes": {
-    "pool-short": 95.6,
-    "structural": 1144.3
+    "pool-short": 301.9,
+    "structural": 845.8
    },
    "fill_minutes_by_profile": {
-    "indie": 963.1,
-    "bluegrass": 276.8
+    "indie": 791.3,
+    "bluegrass": 356.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2283,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8768967842294154,
+   "own_profile_share": 0.8860193257111324,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7546374905523202,
+    "dead-evening": 0.7716680193324188,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -1003,19 +1192,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10079.9,
+   "show_minutes": 10084.5,
    "fill_minutes": {
-    "pool-short": 887.1,
-    "structural": 363.6
+    "structural": 1458.0
    },
    "fill_minutes_by_profile": {
-    "indie": 1125.8,
-    "americana": 124.9
+    "indie": 1234.5,
+    "americana": 124.9,
+    "bluegrass": 98.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2863,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8759157492457179,
+   "own_profile_share": 0.8554235454175235,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7529962607069907,
+    "dead-evening": 0.7137234495568556,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -1027,20 +1221,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10074.8,
+   "show_minutes": 10077.9,
    "fill_minutes": {
-    "pool-short": 238.7,
-    "structural": 1045.1
+    "pool-short": 410.3,
+    "structural": 869.4
    },
    "fill_minutes_by_profile": {
-    "indie": 969.2,
-    "bluegrass": 178.2,
+    "indie": 866.5,
+    "bluegrass": 276.8,
     "americana": 136.5
    },
+   "fill_share_by_block": {
+    "dead-evening": 0.2534,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
    "bends": {},
-   "own_profile_share": 0.8725670434622343,
+   "own_profile_share": 0.8730166617558461,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7459786897163341,
+    "dead-evening": 0.7465997418632241,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -1052,20 +1251,23 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10084.8,
+   "show_minutes": 10080.6,
    "fill_minutes": {
-    "pool-short": 860.1,
-    "structural": 648.8
+    "structural": 964.8
    },
    "fill_minutes_by_profile": {
-    "indie": 1205.7,
-    "bluegrass": 178.2,
+    "indie": 839.8,
     "americana": 124.9
    },
+   "fill_share_by_block": {
+    "dead-evening": 0.1918,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
    "bends": {},
-   "own_profile_share": 0.8503790746699162,
+   "own_profile_share": 0.9042944621822735,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7016534757531646,
+    "dead-evening": 0.8081533917737623,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -1077,20 +1279,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10078.3,
+   "show_minutes": 10088.1,
    "fill_minutes": {
-    "pool-short": 1066.4,
-    "structural": 356.9
+    "pool-short": 1147.7,
+    "structural": 539.7
    },
    "fill_minutes_by_profile": {
-    "indie": 1010.1,
-    "bluegrass": 276.8,
+    "indie": 1372.7,
+    "bluegrass": 178.2,
     "americana": 136.5
    },
+   "fill_share_by_block": {
+    "dead-evening": 0.3358,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
    "bends": {},
-   "own_profile_share": 0.8587740123158247,
+   "own_profile_share": 0.832732831886717,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7165407698918741,
+    "dead-evening": 0.6642487878906417,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -1102,20 +1309,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10076.2,
+   "show_minutes": 10066.7,
    "fill_minutes": {
-    "pool-short": 690.0,
-    "structural": 468.0
+    "pool-short": 135.7,
+    "structural": 1446.2
    },
    "fill_minutes_by_profile": {
-    "indie": 854.9,
-    "bluegrass": 178.2,
-    "americana": 124.9
+    "indie": 1403.7,
+    "bluegrass": 178.2
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.3123,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8850716832187862,
+   "own_profile_share": 0.8428564750389951,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7705852899463113,
+    "dead-evening": 0.6876584048266703,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -1127,19 +1338,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10072.6,
+   "show_minutes": 10077.7,
    "fill_minutes": {
-    "pool-short": 701.2,
-    "structural": 898.0
+    "structural": 1535.3
    },
    "fill_minutes_by_profile": {
-    "indie": 1420.9,
-    "bluegrass": 178.2
+    "indie": 955.3,
+    "bluegrass": 455.0,
+    "americana": 124.9
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.3034,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8412346098607157,
+   "own_profile_share": 0.8476581747252152,
    "own_profile_share_by_block": {
-    "dead-evening": 0.6836495057066589,
+    "dead-evening": 0.6966281437297467,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -1151,19 +1367,23 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10080.9,
+   "show_minutes": 10074.2,
    "fill_minutes": {
-    "structural": 1020.7
+    "pool-short": 102.3,
+    "structural": 780.3
    },
    "fill_minutes_by_profile": {
-    "indie": 581.1,
-    "americana": 261.4,
-    "bluegrass": 178.2
+    "indie": 882.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.174,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8987460453297385,
+   "own_profile_share": 0.9123957687001701,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7985826645981918,
+    "dead-evening": 0.8260440138077211,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -1175,19 +1395,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10085.6,
+   "show_minutes": 10085.1,
    "fill_minutes": {
-    "pool-short": 686.1,
-    "structural": 447.4
+    "pool-short": 621.0,
+    "structural": 584.2
    },
    "fill_minutes_by_profile": {
-    "indie": 1034.9,
-    "bluegrass": 98.5
+    "indie": 1068.7,
+    "americana": 136.5
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2399,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8876155627621367,
+   "own_profile_share": 0.8804972993648914,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7755784825575585,
+    "dead-evening": 0.7600510006504525,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -1199,20 +1424,24 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10084.9,
+   "show_minutes": 10066.0,
    "fill_minutes": {
-    "pool-short": 493.5,
-    "structural": 963.5
+    "pool-short": 292.5,
+    "structural": 661.0
    },
    "fill_minutes_by_profile": {
-    "indie": 1017.3,
-    "americana": 261.4,
+    "indie": 775.2,
     "bluegrass": 178.2
    },
+   "fill_share_by_block": {
+    "dead-evening": 0.1906,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
    "bends": {},
-   "own_profile_share": 0.8555307624958249,
+   "own_profile_share": 0.9052772830182644,
    "own_profile_share_by_block": {
-    "dead-evening": 0.712131991199934,
+    "dead-evening": 0.8093866610467733,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -1224,18 +1453,25 @@
    "misses": 0,
    "miss_share": 0.0,
    "degraded_blocks": 0,
-   "show_minutes": 10071.6,
+   "show_minutes": 10073.9,
    "fill_minutes": {
-    "pool-short": 102.3,
-    "structural": 1140.3
+    "pool-short": 282.7,
+    "structural": 1031.4
    },
    "fill_minutes_by_profile": {
-    "indie": 1242.6
+    "indie": 912.4,
+    "bluegrass": 276.8,
+    "americana": 124.9
+   },
+   "fill_share_by_block": {
+    "dead-evening": 0.2605,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
    },
    "bends": {},
-   "own_profile_share": 0.8766283503704404,
+   "own_profile_share": 0.8695578999678959,
    "own_profile_share_by_block": {
-    "dead-evening": 0.7540947547282929,
+    "dead-evening": 0.7394518998776951,
     "dead-morning": 1.0,
     "funk-afternoon": 1.0
    },
@@ -1243,47 +1479,93 @@
   }
  ],
  "total": {
-  "block_starts": 1051,
+  "block_starts": 1050,
   "misses": 0,
   "miss_share": 0.0,
   "degraded_blocks": 0,
-  "show_minutes": 504214.4,
+  "show_minutes": 503838.6,
   "fill_minutes": {
-   "pool-short": 21963.0,
-   "structural": 42805.9
+   "pool-short": 21603.8,
+   "structural": 45890.6
   },
   "fill_minutes_by_profile": {
-   "indie": 52253.1,
-   "bluegrass": 7538.0,
-   "americana": 4977.8
+   "indie": 53484.8,
+   "bluegrass": 8349.5,
+   "americana": 5660.1
+  },
+  "fill_share_by_block": {
+   "dead-evening": 0.2679,
+   "dead-morning": 0.0,
+   "funk-afternoon": 0.0
   },
   "bends": {
-   "adjacency": 4,
-   "artist_day": 4,
-   "era": 9,
-   "gap": 4
+   "artist_day": 1,
+   "era": 3,
+   "gap": 3
   },
-  "own_profile_share": 0.8715448081871452,
+  "own_profile_share": 0.8660396800099099,
   "own_profile_share_by_block": {
-   "dead-evening": 0.7429338965693736,
+   "dead-evening": 0.7320921274633705,
    "dead-morning": 1.0,
    "funk-afternoon": 1.0
   },
   "open_minutes_by_profile": {},
   "repeat_gap_days": {
-   "shows_aired": 183,
-   "repeats": 2371,
+   "shows_aired": 180,
+   "repeats": 2395,
    "min": 1.0,
    "p10": 2.0,
-   "median": 26.0,
+   "median": 25.0,
    "p90": 45.3,
    "buckets": {
     "<1d": 0,
-    "1-7d": 754,
-    "7-30d": 603,
-    "30-45d": 584,
-    "45-90d": 427,
+    "1-7d": 739,
+    "7-30d": 654,
+    "30-45d": 590,
+    "45-90d": 409,
     ">=90d": 3
+   }
+  },
+  "repeat_gap_days_by_profile": {
+   "americana": {
+    "repeats": 41,
+    "min": 6.0,
+    "p10": 8.0,
+    "median": 16.0,
+    "max": 32.0,
+    "within_7d": 4
+   },
+   "bluegrass": {
+    "repeats": 52,
+    "min": 1.99,
+    "p10": 2.9,
+    "median": 12.5,
+    "max": 32.1,
+    "within_7d": 14
+   },
+   "dead": {
+    "repeats": 1287,
+    "min": 1.0,
+    "p10": 2.0,
+    "median": 32.5,
+    "max": 48.0,
+    "within_7d": 290
+   },
+   "funk": {
+    "repeats": 655,
+    "min": 1.0,
+    "p10": 2.0,
+    "median": 12.0,
+    "max": 151.0,
+    "within_7d": 296
+   },
+   "indie": {
+    "repeats": 360,
+    "min": 1.0,
+    "p10": 2.0,
+    "median": 13.0,
+    "max": 48.9,
+    "within_7d": 135
    }
   },
   "miss_by_block": {
@@ -1293,14 +1575,14 @@
    ],
    "dead-morning": [
     0,
-    351
+    350
    ],
    "funk-afternoon": [
     0,
     350
    ]
   },
-  "distinct_shows_by_profile": {
+  "distinct_aired_by_profile": {
    "americana": [
     2,
     2
@@ -1314,7 +1596,7 @@
     113
    ],
    "funk": [
-    48,
+    45,
     89
    ],
    "indie": [
@@ -1322,11 +1604,11 @@
     18
    ]
   },
-  "shows_per_block_start": 2.43
+  "shows_per_block_start": 2.45
  },
  "occurrences_per_week": 21,
  "clock_start": "2026-11-02T13:00:00.000Z",
- "project_seconds": 2.65,
+ "project_seconds": 2.47,
  "pool": {
   "shows": 224,
   "profiles": {
@@ -1343,6 +1625,7 @@
  "clock_file": "clock-c.toml",
  "weeks_requested": 50,
  "no_interstitials": true,
+ "excluded_slugs": 0,
  "extra_frames": 1,
  "scan_seconds": 0.0
 }

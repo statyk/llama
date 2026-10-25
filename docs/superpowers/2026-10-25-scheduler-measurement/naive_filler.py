@@ -53,6 +53,7 @@ def anchors_of(clock: dict) -> tuple[list[tuple[int, str]], float]:
 def load_shows(root: Path, scan_cache: Path | None) -> tuple[list[tuple[str | None, float]], str]:
     if scan_cache is not None and scan_cache.is_file():
         pool = pickle.loads(scan_cache.read_bytes())
+        pool = pool["pool"] if isinstance(pool, dict) else pool
         return [(p.profile, p.frames * FRAME_SAMPLES / SAMPLE_RATE / 60) for p in pool], "scan-cache"
     try:
         from transmitter import aacenc, grid, pieces
@@ -60,7 +61,7 @@ def load_shows(root: Path, scan_cache: Path | None) -> tuple[list[tuple[str | No
         pool = pieces.scan_delivered(root, now_s=time.time(), quiet_s=600.0,
                                      pause_samples=grid.samples_for_seconds(0.75), extra=extra)
         if scan_cache is not None:
-            scan_cache.write_bytes(pickle.dumps(pool))
+            scan_cache.write_bytes(pickle.dumps({"root": str(root), "library": "delivered", "pool": pool}))
         return [(p.profile, p.frames * FRAME_SAMPLES / SAMPLE_RATE / 60) for p in pool], "pieces.scan_delivered"
     except ImportError:
         pass

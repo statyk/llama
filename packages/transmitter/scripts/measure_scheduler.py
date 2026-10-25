@@ -60,12 +60,16 @@ def _summarize(pps: list, clock: ClockConfig, starts: list) -> dict:
     own: dict[str, list[float]] = defaultdict(lambda: [0.0, 0.0])      # block -> [own min, total min]
     open_by_profile: Counter = Counter()
     fill_by_profile: Counter = Counter()
+    fill_by_block: Counter = Counter()
+    mins_by_block: Counter = Counter()
     degraded = sum(1 for p in starts if p.degraded)
     for p in pps:
         mins = _minutes(p.piece.frames)
         if p.fill:
             fill[p.fill] += mins
             fill_by_profile[p.piece.profile or "?"] += mins
+            fill_by_block[p.block] += mins
+        mins_by_block[p.block] += mins
         for b in p.bends:
             bends[b] += 1
         cfg = block_cfg[p.block]
@@ -84,6 +88,7 @@ def _summarize(pps: list, clock: ClockConfig, starts: list) -> dict:
         "show_minutes": round(sum(_minutes(p.piece.frames) for p in pps), 1),
         "fill_minutes": {k: round(v, 1) for k, v in sorted(fill.items())},
         "fill_minutes_by_profile": {k: round(v, 1) for k, v in fill_by_profile.most_common()},
+        "fill_share_by_block": {k: round(fill_by_block.get(k, 0.0) / v, 4) for k, v in sorted(mins_by_block.items())},
         "bends": dict(sorted(bends.items())),
         "own_profile_share": own_total[0] / own_total[1] if own_total[1] else None,
         "own_profile_share_by_block": {k: (v[0] / v[1] if v[1] else None) for k, v in sorted(own.items())},
