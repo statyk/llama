@@ -128,6 +128,31 @@ def test_violations_count_each_rule():
     assert rules.violations([same_year], None, o, rec, ck, [SLOT + 5 * HOUR]) == (0, 0, 0, 0)
 
 
+def test_violations_single_artist_exemption():
+    # spec "What counts as a bend": a single-artist pool cannot avoid the same artist in a
+    # pair or twice a day, so for its shows (`exempt`) those two rules are not applied;
+    # gap and era (same artist and year: avoidable within the pool) still are
+    ck = clock()
+    today = date(2026, 11, 2)
+    earlier = show_piece("e", artist="GD", date="1972-01-01")
+    gapped = show_piece("g", artist="GD", date="1990-01-01")
+    rec = aired(aired(Recency(), earlier, SLOT - 2 * HOUR, today), gapped, SLOT - 3 * DAY, date(2026, 10, 30))
+    o = occ()
+    a1 = show_piece("a1", artist="GD", date="1980-01-01")
+    a2 = show_piece("a2", artist="GD", date="1972-06-01")       # era: 1972 already aired today
+    a3 = show_piece("a3", artist="GD", date="1980-05-05")       # era: 1980 earlier in the sequence
+    seq, starts = [a1, a2, a3, gapped], [SLOT + i * HOUR for i in range(4)]
+    assert rules.violations(seq, "GD", o, rec, ck, starts) == (4, 1, 4, 2)
+    mono = frozenset(p.slug for p in seq)
+    assert rules.violations(seq, "GD", o, rec, ck, starts, exempt=mono) == (0, 1, 0, 2)
+    # a show outside the exempt set (fill by the same artist) is counted as always,
+    # against the exempt shows before it and the history alike
+    fill = show_piece("f", artist="GD", date="1985-01-01")
+    assert rules.violations([a1, fill], "GD", o, rec, ck, starts[:2], exempt=frozenset({"a1"})) == (1, 0, 1, 0)
+    # the default is no exemption
+    assert rules.violations([a1, fill], "GD", o, rec, ck, starts[:2]) == (2, 0, 2, 0)
+
+
 def test_violations_ignore_unknown_artists_and_years():
     ck = clock()
     a = show_piece("a", artist=None, date=None)

@@ -98,6 +98,52 @@ def test_own_profile_pair_beats_fill_even_when_pairing_breaks_adjacency():
     assert "adjacency" not in plan.bends and "artist_day" not in plan.bends
 
 
+def _mono_pool(single_artist="Grateful Dead"):
+    """A 4 h block: one single that lands it, aired a day ago (a gap break),
+    and a never-aired pair that lands it too; plus an unknown-artist short
+    show that lands nothing. History holds the single's airing."""
+    single = sp("single", 240, single_artist, profile="dead", date="1966-12-01")
+    pair = [sp("p1", 120, "Grateful Dead", profile="dead", date="1986-07-04"),
+            sp("p2", 118, "Grateful Dead", profile="dead", date="1977-11-04")]
+    unknown = show_piece("unknown", artist=None, date=None, profile="dead", frames=fr(30))
+    rec = Recency().with_piece(single, E - DAY, local_date(E - DAY))
+    return [single, *pair, unknown], rec
+
+
+@pytest.mark.parametrize("prev", [None, "Grateful Dead"])
+@pytest.mark.parametrize("profiles", [("dead",), ()], ids=["profile", "open"])
+def test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single(prev, profiles):
+    # spec "What counts as a bend": a rule the pool makes impossible (one artist: the same
+    # artist twice a day, or in a pair) is not applied within that pool at all. Counted,
+    # the pair's unavoidable adjacency outranked the single's gap break and the few
+    # singles that land a block alone repeated daily (Task 10, "Dead-repeat diagnosis").
+    own, rec = _mono_pool()
+    plan = fill(make_occ(profiles=profiles), nxt(240), own, own, rec=rec, prev_artist=prev)
+    assert sorted(slugs(plan)) == ["p1", "p2"] and plan.tier == 0
+    assert plan.bends == ()
+
+
+def test_multi_artist_pool_still_counts_adjacency_before_the_gap():
+    # the same block with the single by another artist: two artists, every rule applies,
+    # and the pair's adjacency (and artist_day) still loses to the single's gap break
+    own, rec = _mono_pool(single_artist="Phish")
+    plan = fill(make_occ(profiles=("dead",)), nxt(240), own, own, rec=rec)
+    assert slugs(plan) == ["single"] and plan.tier == 0
+    assert plan.bends == ("gap",)
+
+
+def test_fill_after_a_single_artist_pool_counts_its_rules():
+    # the exemption is the own pool's: a fill show by the same artist, drawn from the
+    # (many-artist) open pool, still breaks adjacency and artist_day, so other fill wins
+    # even though the same-artist fill scores higher
+    own = [sp("d1", 120, "Grateful Dead", profile="dead", date="1980-01-01")]
+    dead_fill = sp("dfill", 118, "Grateful Dead", profile="dead-other", date="1977-05-08")
+    other_fill = sp("ffill", 118, "Funk", profile="funk", date="1980-01-01")
+    o = make_occ(profiles=("dead",), prefer=[Prefer(years="1977", weight=2.0)])
+    plan = fill(o, nxt(240), own, own + [dead_fill, other_fill])
+    assert slugs(plan) == ["d1", "ffill"] and plan.tier == 1 and plan.fill_from == 1
+
+
 def test_open_block_takes_as_many_shows_as_land_it():
     pool = [sp(f"o{i}", 120, f"Band {i}", profile=f"x{i}") for i in range(6)]
     n = nxt(360)
@@ -566,6 +612,20 @@ def test_violation_counts_agree_with_rules():
         got = scheduler._sequence_violations(make_occ(), rec, CLOCK, E, seq, prev, start, GAP)
         starts = [at(f) for f in _start_frames(seq, start)]
         assert got == rules.violations(seq, prev, make_occ(), rec, CLOCK, starts), trial
+    # with the single-artist exemption on some of the shows (a mono own pool, then fill)
+    rng = random.Random(6)
+    dead = [p for p in pieces if p.profile == "dead"]
+    for trial in range(200):
+        seq = [rng.choice(dead if rng.random() < 0.7 else pieces) for _ in range(rng.randint(1, 5))]
+        exempt = frozenset(p.slug for p in seq if p.profile == "dead" and rng.random() < 0.8)
+        prev = rng.choice([None, "Grateful Dead", seq[0].artist])
+        start = rng.randrange(0, fr(20 * 60))
+        got = scheduler._sequence_violations(make_occ(), rec, CLOCK, E, seq, prev, start, GAP, exempt=exempt)
+        starts = [at(f) for f in _start_frames(seq, start)]
+        assert got == rules.violations(seq, prev, make_occ(), rec, CLOCK, starts, exempt=exempt), trial
+        if exempt:
+            plain = rules.violations(seq, prev, make_occ(), rec, CLOCK, starts)
+            assert got[1] == plain[1] and got[3] == plain[3]        # gap and era stay applied
 
 
 # --- speed -------------------------------------------------------------------
@@ -627,8 +687,10 @@ def test_every_offered_option_counts_and_scores_as_rules_does(monkeypatch):
     dead = [p for p in pieces if p.profile == "dead"]
     jam = [p for p in pieces if p.profile == "jam"]
     long_jam = [p for p in jam if fr(150) <= p.frames <= fr(200)]     # singles early, pairs late
+    long_dead = [p for p in dead if fr(150) <= p.frames <= fr(200)]
     cases = [
         (make_occ(profiles=("dead",), early=20, late=20, prefer=prefs), nxt(335, 20, 20), dead, pieces),
+        (make_occ(profiles=("dead",), prefer=prefs), nxt(240), long_dead, pieces),             # mono + fill
         (make_occ(profiles=(), prefer=prefs), nxt(10 * 60, 30, 30), pieces, pieces),           # chains
         (make_occ(profiles=("jam",), max_shows=3, prefer=prefs), nxt(8 * 60 + 40), jam, pieces),
         (make_occ(profiles=("jam",), prefer=prefs), nxt(240), long_jam, pieces),               # tier 1 fill
@@ -636,6 +698,10 @@ def test_every_offered_option_counts_and_scores_as_rules_does(monkeypatch):
     ]
     kinds = set()
     for occ, n, own, open_pool in cases:
+        # the single-artist exemption, restated: an own pool with exactly one known artist
+        # exempts its own shows (never fill) from adjacency and artist_day
+        own_artists = {p.artist for p in own if p.artist}
+        exempt = frozenset(p.slug for p in own) if len(own_artists) == 1 else frozenset()
         offers = _offers_of(monkeypatch, occ, n, own, open_pool, rec=rec, prev_artist="Grateful Dead")
         assert offers
         for shows, viol, terms, landing, fill_from in offers:
@@ -647,12 +713,15 @@ def test_every_offered_option_counts_and_scores_as_rules_does(monkeypatch):
                 starts.append(at(f))
                 f += p.frames + GAP
             assert landing == f - GAP + GAP
-            assert viol == rules.violations(pcs, "Grateful Dead", occ, rec, CLOCK, starts), [p.slug for p in pcs]
+            assert viol == rules.violations(pcs, "Grateful Dead", occ, rec, CLOCK, starts, exempt=exempt), \
+                [p.slug for p in pcs]
+            if viol != rules.violations(pcs, "Grateful Dead", occ, rec, CLOCK, starts):
+                kinds.add("exempt fill" if fill_from is not None else "exempt")
             assert terms == tuple(rules.score(p, occ, rec, CLOCK, s) - 1.0 for p, s in zip(pcs, starts))
             kinds.add("fill" if fill_from is not None else f"own{min(len(pcs), 3)}")
             if len(pcs) >= 2 and pcs[-1].month_day == local_date(starts[-1]).strftime("%m-%d"):
                 kinds.add("otd partner")
-    assert {"own1", "own2", "own3", "fill", "otd partner"} <= kinds
+    assert {"own1", "own2", "own3", "fill", "otd partner", "exempt", "exempt fill"} <= kinds
 
 
 def test_candidate_view_matches_the_piece():

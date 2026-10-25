@@ -17,6 +17,14 @@ own shows first (fill is the compromise to minimise). Tier 2 ranks on the
 distance outside the window first (late beats early on a tie), then
 violations, then value.
 
+A single-artist pool (spec "What counts as a bend"): when the occurrence's
+own pool (the block's profile pool; the open pool for an open or degraded
+occurrence) has exactly one known artist, its shows are candidates with
+`exempt` set, and adjacency and artist_day are not counted for them: the
+pool makes both impossible, so they are not applied within it at all (and,
+never broken by those shows, are never bends of theirs). Fill shows come
+from the open pool and are counted as always. Gap and era still apply.
+
 Search bound (plan, "Builder calls"): singles over every candidate; a pair's
 first member from the top `PAIR_FIRSTS` by score among those that can still
 land the window, its partner from the candidates whose length lands it
@@ -58,9 +66,10 @@ _CLEAN = (0, 0, 0, 0)
 
 class _C:
     """A candidate show with everything the search reads, computed once per call."""
-    __slots__ = ("piece", "slug", "frames", "artist", "year", "md", "pkg", "pref", "last", "tie", "i")
+    __slots__ = ("piece", "slug", "frames", "artist", "year", "md", "pkg", "pref", "last", "tie", "i",
+                 "exempt")
 
-    def __init__(self, piece: Piece, ranges, rec: Recency, seed: int):
+    def __init__(self, piece: Piece, ranges, rec: Recency, seed: int, exempt: bool = False):
         self.piece = piece
         self.slug = piece.slug
         self.frames = piece.frames
@@ -72,6 +81,7 @@ class _C:
         self.last = rec.last_aired_us(self.pkg) if self.pkg is not None else None
         self.tie = rules.tie_rank(seed, self.slug)
         self.i = -1
+        self.exempt = exempt          # from a single-artist pool: no adjacency or artist_day
 
 
 class _Seq:
@@ -176,8 +186,8 @@ class _Ctx:
             self._dates[us] = hit
         return us, hit[0], hit[1]
 
-    def cand(self, piece: Piece) -> _C:
-        return _C(piece, self.ranges, self.rec, self.seed)
+    def cand(self, piece: Piece, exempt: bool = False) -> _C:
+        return _C(piece, self.ranges, self.rec, self.seed, exempt)
 
     def score(self, c: _C, us: int, md: str) -> float:
         s = rules.recency_term(c.last, us, self.gap) + c.pref
@@ -187,13 +197,14 @@ class _Ctx:
 
     def viol(self, c: _C, us: int, d: date, seq: _Seq) -> tuple[int, int, int, int]:
         a = c.artist
-        adj = 1 if a and a == seq.prev else 0
+        free = c.exempt
+        adj = 1 if a and a == seq.prev and not free else 0
         gap = 1 if (self.gap > 0 and c.pkg is not None
                     and (c.pkg in seq.pkgs or rules.gap_hit(c.last, us, self.gap))) else 0
         day = era = 0
         if a:
             ra, ray = self.days.get(d)
-            if a in ra or a in seq.day_a.get(d, ()):
+            if not free and (a in ra or a in seq.day_a.get(d, ())):
                 day = 1
             if c.year is not None and ((a, c.year) in ray or (a, c.year) in seq.day_ay.get(d, ())):
                 era = 1
@@ -356,12 +367,13 @@ class _Search:
             b0, b1, b2, b3 = pv[0] + v1[0], pv[1] + v1[1], pv[2] + v1[2], pv[3] + v1[3]
             for g in partners:
                 a = g.artist
-                adj = 1 if a and a == fa else 0
+                free = g.exempt
+                adj = 1 if a and a == fa and not free else 0
                 gp = 1 if (gap_on and g.pkg is not None
                            and (g.pkg == fp or g.pkg in seq.pkgs or rules.gap_hit(g.last, us2, ctx.gap))) else 0
                 day = era = 0
                 if a:
-                    if a in ra2 or a in sa2 or (same_day and a == fa):
+                    if not free and (a in ra2 or a in sa2 or (same_day and a == fa)):
                         day = 1
                     y = g.year
                     if y is not None and ((a, y) in ray2 or (a, y) in say2 or (same_day and a == fa and y == fy)):
@@ -570,11 +582,11 @@ def _fill_cause(ctx: _Ctx, own_all: list[Piece], max_shows: int, block_start: in
 
 def _sequence_violations(occ: Occurrence, rec: Recency, clock: ClockConfig, epoch_us: int,
                          seq: Sequence[Piece], prev_artist: str | None, start_frame: int,
-                         boundary_frames: int) -> tuple[int, int, int, int]:
+                         boundary_frames: int, exempt: frozenset[str] = frozenset()) -> tuple[int, int, int, int]:
     """The search's own rule counts for `seq` laid out from `start_frame`
-    (tests hold them equal to `rules.violations`)."""
+    (tests hold them equal to `rules.violations`, `exempt` likewise)."""
     ctx = _Ctx(occ, occ, rec, clock, epoch_us, 0, boundary_frames, boundary_frames)
     s = ctx.base(start_frame, prev_artist)
     for p in seq:
-        s = ctx.extend(s, ctx.cand(p))
+        s = ctx.extend(s, ctx.cand(p, p.slug in exempt))
     return s.viol

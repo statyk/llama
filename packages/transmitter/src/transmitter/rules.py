@@ -17,7 +17,7 @@ gap rule (no division by it; every gap comparison is in float days)."""
 
 import functools
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Sequence, Set
 from datetime import date, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
@@ -116,14 +116,21 @@ class RecDays:
 
 
 def violations(seq: Sequence["Piece"], prev_artist: str | None, occ: "Occurrence", rec: "Recency",
-               clock: "ClockConfig", starts_us: Sequence[int]) -> tuple[int, int, int, int]:
+               clock: "ClockConfig", starts_us: Sequence[int], *,
+               exempt: Set[str] = frozenset()) -> tuple[int, int, int, int]:
     """Per-rule counts (`RULES` order) for shows `seq` placed at `starts_us`.
 
     adjacency: same artist as the show before (the first against `prev_artist`);
     gap: aired within `concert_gap_days`, or earlier in this sequence;
     artist_day: artist already on that local date (history or earlier here);
     era: same artist and year already on that local date. Era implies
-    artist_day, by definition."""
+    artist_day, by definition, except on an exempt show.
+
+    `exempt` (slugs): shows drawn from a single-artist pool, for which
+    adjacency and artist_day are not counted (spec "What counts as a bend":
+    a rule the pool makes impossible is not applied within that pool at
+    all). Their artist still counts against the shows after them that are
+    not exempt; gap and era apply to them as to any show."""
     tz = ZoneInfo(clock.timezone)
     gap_days = clock.rotation.concert_gap_days
     days = RecDays(rec)
@@ -135,13 +142,14 @@ def violations(seq: Sequence["Piece"], prev_artist: str | None, occ: "Occurrence
     for p, s in zip(seq, starts_us, strict=True):
         d = local_date(s, tz)
         artist, year, pkg = p.artist, p.year, p.package
-        if artist and prev == artist:
+        free = p.slug in exempt
+        if artist and prev == artist and not free:
             adj += 1
         if pkg is not None and gap_days > 0 and (pkg in seen or gap_hit(rec.last_aired_us(pkg), s, gap_days)):
             gap += 1
         if artist:
             ra, ray = days.get(d)
-            if artist in ra or artist in seq_a.get(d, ()):
+            if not free and (artist in ra or artist in seq_a.get(d, ())):
                 day += 1
             if year is not None and ((artist, year) in ray or (artist, year) in seq_ay.get(d, ())):
                 era += 1

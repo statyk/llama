@@ -90,7 +90,11 @@ class _BlockRun:
         self.done = False
         self._args = (occ, next_occ, rec, clock, epoch_us, seed, boundary_frames, final_boundary_frames, dates)
         self._own_all, self._fill_all = own_all, fill_all
-        self._own = _Pool([ctx.cand(p) for p in own_all])
+        # the single-artist exemption (`_blocksearch`): the own pool's known artists, which
+        # include its placed own shows (the projection keeps persisted own rows in it; a
+        # placed show outside it is fill, `_has_fill`); unknown artists break no rule
+        self.single_artist = len({p.artist for p in own_all if p.artist}) == 1
+        self._own = _Pool([ctx.cand(p, self.single_artist) for p in own_all])
         self._fill = _Pool([ctx.cand(p) for p in fill_all])
         self._ctx, self._rec, self._placed, self._start = ctx, rec, placed, start_frame
         self._prev_artist, self._used = prev_artist, used
