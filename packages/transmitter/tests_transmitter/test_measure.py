@@ -82,3 +82,8 @@ def test_naive_scan_cache_refuses_a_mismatch(tmp_path):
         nf.load_shows(Path("/other"), c, extra=1, pause_samples=33075)
     with pytest.raises(SystemExit):
         nf.load_shows(Path("/r"), c, extra=2, pause_samples=33075)
+    with pytest.raises(SystemExit):
+        nf.load_shows(Path("/r"), c, extra=1, pause_samples=1)
+    _cache(c, library="eligible")
+    with pytest.raises(SystemExit):
+        nf.load_shows(Path("/r"), c, extra=1, pause_samples=33075)

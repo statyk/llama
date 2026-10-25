@@ -40,7 +40,7 @@ more representative picture.
   `/Volumes/media/lma-radio/delivered`, 2,786 packages, read strictly read-only (manifests and clip headers; no audio
   decode, no writes there). `--library delivered` = `pieces.scan_delivered`, **estimated lengths only**; 224 packages are
   voiced (the `eligible` library), the other 2,562 get the 4-minute clip allowance. The scan cache is a private scratch
-  pickle keyed by root and library.
+  pickle keyed by root, library, pause and extra.
 - Constants: pause 0.75 s, show gap 2.0 s (config defaults), `extra` from `aacenc.extra_frames()` (local ffmpeg on
   synthetic silence).
 - One continuous `scheduler.project` per run, 50 weeks, from an empty plan and empty `Recency`, seed 0, no per-week restart.
@@ -162,13 +162,17 @@ estimates via the same scan; 50 seeds; JSON). 2,786 shows, 23 anchors per week, 
 
 ## Anything surprising
 
-1. **Funk concentrates on clock c, for a structural reason.** Clock c delivered: funk aired 91/221, median repeat gap 21.0 d,
-   230 repeats inside a week. The funk block runs 14:00 to 20:00 (360 min) at the default `max_shows` 2, and only the 8 funk
-   shows of 183 min or longer can complete a landing pair; the top three by sub-week repeats are newmastersounds-2008-01-18,
-   robertrandolph...-2004-07-25 and bluestraveler-1991-01-05. In 307 of 351 blocks no in-window option keeps the gap, so the
-   compromise order correctly prefers landing over rotation: a library/clock limitation, not a defect. **Reviewer probe
-   figures (scratch copy, not a committed run):** `max_shows = 3` on that block alone gives funk 221/221 aired, gap min 45 d,
-   median 60 d, none within 7 d, no misses and no fill. Clock a's funk block (22:30 Saturday only) is fine at 61/221, 49-day minimum.
+1. **Funk concentrates on clock c, mainly for a structural reason.** Committed run (clock c delivered): funk aired 91/221,
+   median repeat gap 21.0 d, 230 repeats inside a week. The funk block runs 14:00 to 20:00 (360 min) at the default
+   `max_shows` 2. The rest of this item is **reviewer probe, scratch copy** (not committed runs): only the 8 funk shows of
+   183 min or longer can complete a landing pair; the top three by sub-week repeats are newmastersounds-2008-01-18,
+   robertrandolph...-2004-07-25 and bluestraveler-1991-01-05; in 307 of 351 blocks in the probe (the committed run has 350
+   blocks) no in-window option keeps the gap, so the compromise order correctly prefers landing over rotation. This is
+   primarily a library/clock limitation; per the bends note, 30 of the 337 funk gap breaks are the search-miss defect.
+   Probe with `max_shows = 3` on that block alone (reviewer probe, scratch copy): funk 221/221 aired, gap min 45 d, median
+   60 d, none within 7 d, no misses and no fill. Side effect in the same probe: the change shifts dead-evening's start, and
+   Dead then airs 406/413 shows with 441 repeats inside 7 days (403 in the committed run). Clock a's funk block (22:30
+   Saturday only) is fine at 61/221, 49-day minimum (committed).
 2. With the 17 excluded on clock b the Dead gap minimum is 4.3 days and there are 4 repeats inside a week (b full: min 2.0,
    4); b's overnight tribute and open blocks keep the pool moving.
 3. Country is 2 packages and never dominates a figure.
@@ -176,8 +180,9 @@ estimates via the same scan; 50 seeds; JSON). 2,786 shows, 23 anchors per week, 
    the fill. Dead aired 113 of 113 with a 32-day median gap.
 5. Excl-17 raises clock a fill from 7.1% to 25.7% and clock c delivered from 0% to 23.3%: the exclusion is the cheapest
    large lever on how much of the schedule is non-Dead fill.
-6. **Clock a at symmetric +-15 concentrates bluegrass** (the Mon-Sat 12:00 to 19:00 block): only one pair lands it,
-   leftoversalmon-2000-01-28 + yondermountainstringband-2014-02-16, and those two shows account for 295 of the 301 bluegrass
-   repeats under 7 days (summary: 238/307 aired, median gap 3.0 d). Under [0, +15] no pair lands, so the block goes to fill
-   (20%) and bluegrass keeps a 54.5-day median. In short, +-15 fixes landing but hurts rotation. Operator design question:
-   whether repeated gap breaks should eventually yield to fill rather than keep airing the one landing pair.
+6. **Clock a at symmetric +-15 concentrates bluegrass** (the Mon-Sat 12:00 to 19:00 block). Committed run: bluegrass aired
+   238/307, median gap 3.0 d, 300 repeats inside 7 days. Reviewer probe, scratch copy (350 days): only one pair lands the
+   block, leftoversalmon-2000-01-28 + yondermountainstringband-2014-02-16, and those two shows account for 295 of the 301
+   sub-week repeats in the probe (300 in the committed run). Under [0, +15] (committed) no pair lands, so the block goes to
+   fill (20%) and bluegrass keeps a 54.5-day median. In short, +-15 fixes landing but hurts rotation. Operator design
+   question: whether repeated gap breaks should eventually yield to fill rather than keep airing the one landing pair.
