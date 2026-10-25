@@ -286,6 +286,16 @@ def _cfg(tmp_path):
     return tmp_path / "config.toml"
 
 
+def _titles_by_track(sws) -> dict[int, str]:
+    """`overrides.titles` read back as `show.json` track numbers. The writers store
+    each title under the filename of the track number the operator gave (piece 4
+    spec 4.2), so every key must be a filename `show.json` lists."""
+    names = [t.filename for t in read_model(sws.show, Show).tracks]
+    titles = read_overrides(sws).titles
+    assert set(titles) <= set(names), sorted(set(titles) - set(names))
+    return {names.index(f) + 1: t for f, t in titles.items()}
+
+
 def _staged_ymsb_show(tmp_path, monkeypatch, slug="ymsb2005-12-31"):
     """A cataloged show (provenance.json + a real gathered show.json, laid
     out at `root/shows/<slug>/` the way `llama fix` expects to find it)
@@ -419,8 +429,8 @@ def test_suggest_titles_writes_every_row_into_overrides(tmp_path, monkeypatch):
     monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
     result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
     assert result.exit_code == 0, result.output
-    ov = read_overrides(sws)
-    assert ov.titles == ANCHORED_GAPS
+    titles = _titles_by_track(sws)
+    assert titles == ANCHORED_GAPS
     # M11 (review round 1): pin that adopting a proposal is a `did_meta`
     # edit, so the existing redo selector stages `gather` -- confirmed
     # (rather than re-derived) in the implementation that `parsed_titles`
@@ -428,7 +438,8 @@ def test_suggest_titles_writes_every_row_into_overrides(tmp_path, monkeypatch):
     assert "--from gather" in result.output
 
 
-def test_suggest_titles_declines_when_show_json_is_stale_against_pending_exclude(tmp_path, monkeypatch):
+def test_suggest_titles_declines_when_show_json_is_stale_against_pending_exclude(tmp_path, monkeypatch,
+                                                                                 capsys):
     """C1 (final review, the merge blocker): staging `--exclude` with
     `--no-run` writes `overrides.json` without re-running `gather`, so
     `_propose_titles_for_show`'s freshly recomputed `kept` (`ia.metadata`
@@ -443,7 +454,16 @@ def test_suggest_titles_declines_when_show_json_is_stale_against_pending_exclude
     leave `overrides.titles` untouched -- this command's own `--exclude`
     refusal message ("Run the exclusion first, then `--suggest-titles` as a
     separate invocation") routes an operator straight into this exact
-    sequence, so the two-invocation workflow it recommends must be safe."""
+    sequence, so the two-invocation workflow it recommends must be safe.
+
+    Piece 4 (spec 4.2): `fix` now refuses this before any prompt with its staleness
+    check (`cli._stale`, the same comparison over gather's `final_kept`), exit 1; the
+    C1 decline in `_propose_titles_for_show` stays as the second line of defence and
+    is pinned by calling it directly."""
+    from llama.catalog import resolve_show
+    from llama.config import load_config
+    from llama.ledger import Ledger
+
     cfg = _cfg(tmp_path)
     sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
     victim = read_model(sws.show, Show).tracks[0].filename
@@ -455,14 +475,25 @@ def test_suggest_titles_declines_when_show_json_is_stale_against_pending_exclude
 
     monkeypatch.setattr("typer.confirm", lambda *a, **k: True)   # would say yes
     result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
-    assert result.exit_code == 0, result.output
-    assert "show.json is stale relative to overrides.json" in result.output
-    assert "23 files kept" in result.output
-    assert "24 tracks on disk" in result.output
-    assert "redo ymsb2005-12-31 --from gather" in result.output
+    assert result.exit_code == 1, result.output
+    assert ("ymsb2005-12-31: show.json's track list is not what gather keeps now; "
+            "re-gather under the new rule first "
+            "(llama redo ymsb2005-12-31 --from gather)") in result.output
     assert read_overrides(sws).titles == {}
     # ... and no table was printed at all.
     assert "proposal (" not in result.output
+
+    # The second line of defence, reached directly: C1 declines, writes nothing.
+    entry = resolve_show(tmp_path, Ledger(tmp_path / "ledger.jsonl"), "ymsb2005-12-31")
+    capsys.readouterr()
+    prop, picks = cli._propose_titles_for_show(cli.IAClient(), load_config(cfg), entry,
+                                               read_model(sws.show, Show))
+    assert not prop.feasible and picks == {}
+    out = capsys.readouterr().out
+    assert "show.json is stale relative to overrides.json" in out
+    assert "23 files kept" in out and "24 tracks on disk" in out
+    assert "redo ymsb2005-12-31 --from gather" in out
+    assert read_overrides(sws).titles == {}
 
 
 def test_the_untagged_tape_is_no_longer_proposable(tmp_path, monkeypatch):
@@ -599,10 +630,10 @@ def test_explicit_set_title_wins_over_the_proposal(tmp_path, monkeypatch):
     result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles",
                         "--set-title", f"{victim}=Operator Chosen Title", "--no-run")
     assert result.exit_code == 0, result.output
-    ov = read_overrides(sws)
-    assert ov.titles[victim] == "Operator Chosen Title"
+    titles = _titles_by_track(sws)
+    assert titles[victim] == "Operator Chosen Title"
     # the rest of the proposal still lands, unchanged
-    assert ov.titles == {**ANCHORED_GAPS, victim: "Operator Chosen Title"}
+    assert titles == {**ANCHORED_GAPS, victim: "Operator Chosen Title"}
 
 
 def test_never_clobbers_a_track_that_already_has_a_title(tmp_path, monkeypatch):
@@ -620,7 +651,7 @@ def test_never_clobbers_a_track_that_already_has_a_title(tmp_path, monkeypatch):
     # since the DP is asked about the whole tape -- but the 21 rows that
     # already carry a tag title are not adopted, only the 3 unresolved ones.
     assert "Midnight Blues" in result.output   # a proposed row that is NOT adopted
-    assert read_overrides(sws).titles == ANCHORED_GAPS
+    assert _titles_by_track(sws) == ANCHORED_GAPS
 
 
 def test_missing_provenance_declines_cleanly(tmp_path, monkeypatch):
@@ -943,13 +974,13 @@ def test_untagged_fixture_with_tagged_donor_renders_sibling_proposal(tmp_path, m
     assert "0s" in row1
     assert "12s" in row2 and "0s" not in row2
 
-    ov = read_overrides(sws)
+    titles = _titles_by_track(sws)
     # >= 3 exact titles, including the merged "A > B" row.
-    assert ov.titles[1] == "Song 01"
-    assert ov.titles[2] == "Song 02"
-    assert ov.titles[9] == "Song 09a > Song 09b"
-    assert ov.titles[24] == "Song 24"
-    assert 15 not in ov.titles   # I2: a declined row never reaches the write
+    assert titles[1] == "Song 01"
+    assert titles[2] == "Song 02"
+    assert titles[9] == "Song 09a > Song 09b"
+    assert titles[24] == "Song 24"
+    assert 15 not in titles   # I2: a declined row never reaches the write
 
 
 def test_suggest_titles_echoes_a_sibling_fetch_failure(tmp_path, monkeypatch):
@@ -1048,14 +1079,14 @@ def test_operator_band_sibling_titles_diverge_from_the_canonical_dp(tmp_path, mo
     result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
     assert result.exit_code == 0, result.output
     assert "band operator" in result.output
-    ov = read_overrides(sws)
-    assert ov.titles == {5: "Placeholder 5", 14: "Placeholder 14", 20: "Placeholder 20"}
+    titles = _titles_by_track(sws)
+    assert titles == {5: "Placeholder 5", 14: "Placeholder 14", 20: "Placeholder 20"}
     # the canonical DP's own (real) titles for the same 3 tracks, pinned by
     # test_below_floor_donor_with_usable_canonical_falls_through_to_dp --
     # content-different from what was actually written above.
     assert ANCHORED_GAPS == {5: "Steep Grade Sharp Curves", 14: "Jack London",
                              20: "Ewe With The Crooked Horn"}
-    assert set(ov.titles.values()).isdisjoint(ANCHORED_GAPS.values())
+    assert set(titles.values()).isdisjoint(ANCHORED_GAPS.values())
 
 
 def test_delmccoury_shaped_operator_band_confirms_only_unresolved_rows(tmp_path, monkeypatch):
@@ -1136,8 +1167,8 @@ def test_delmccoury_shaped_operator_band_confirms_only_unresolved_rows(tmp_path,
         assert f"sibling: {sibling_title!r}" in line
         assert f"setlist: {sibling_title!r}" in line   # canonical agrees with the sibling here
 
-    ov = read_overrides(sws)
-    assert ov.titles == {14: "Beaumont Rag", 15: "Sally Goodin"}
+    titles = _titles_by_track(sws)
+    assert titles == {14: "Beaumont Rag", 15: "Sally Goodin"}
 
 
 def _ymsb_canonical_items(md, cand, artist):
@@ -1221,26 +1252,40 @@ def test_below_floor_donor_with_usable_canonical_falls_through_to_dp(tmp_path, m
     assert result.exit_code == 0, result.output
     assert "sibling-align" not in result.output
     assert "proposal (duration-model)" in result.output or "proposal (sibling-duration)" in result.output
-    ov = read_overrides(sws)
-    assert ov.titles == ANCHORED_GAPS
+    titles = _titles_by_track(sws)
+    assert titles == ANCHORED_GAPS
 
 
 def test_suggest_titles_c1_staleness_guard_still_fires_before_donor_work(tmp_path, monkeypatch):
     """C1's staleness guard must refuse BEFORE the sibling arm ever loads a
     donor -- a stale `show.json` makes the track numbering untrustworthy for
     either arm, and the guard's whole point is to decline before either one
-    touches it."""
+    touches it.
+
+    Piece 4 (spec 4.2): `fix` refuses first, with its staleness check (exit 1); C1
+    is reached directly, with the sibling arm made to fail if it is ever entered."""
+    from llama.catalog import resolve_show
+    from llama.config import load_config
+    from llama.ledger import Ledger
+
     cfg = _cfg(tmp_path)
     sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
     victim = read_model(sws.show, Show).tracks[0].filename
     stage_result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--exclude", victim, "--no-run")
     assert stage_result.exit_code == 0, stage_result.output
     monkeypatch.setattr("typer.confirm", lambda *a, **k: True)   # would say yes
+    donor_work = []
+    monkeypatch.setattr(cli, "_sibling_proposal", lambda *a, **k: donor_work.append(1))
     result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
-    assert result.exit_code == 0, result.output
-    assert "show.json is stale relative to overrides.json" in result.output
+    assert result.exit_code == 1, result.output
+    assert "show.json's track list is not what gather keeps now" in result.output
     assert read_overrides(sws).titles == {}
     assert "proposal (" not in result.output
+    entry = resolve_show(tmp_path, Ledger(tmp_path / "ledger.jsonl"), "ymsb2005-12-31")
+    prop, picks = cli._propose_titles_for_show(cli.IAClient(), load_config(cfg), entry,
+                                               read_model(sws.show, Show))
+    assert not prop.feasible and "show.json is stale relative to overrides.json" in prop.reason
+    assert picks == {} and donor_work == []
 
 
 def test_weak_evidence_decline_keeps_the_dp_candidate_out_of_the_write(tmp_path, monkeypatch):
@@ -1315,9 +1360,9 @@ def test_weak_evidence_decline_keeps_the_dp_candidate_out_of_the_write(tmp_path,
     assert "(unresolved - hand-edit)" in row1
 
     # the property: the declined candidate never reaches the durable write.
-    ov = read_overrides(sws)
-    assert ov.titles == {3: "Charlie", 4: "Delta"}
-    assert 1 not in ov.titles and 2 not in ov.titles
+    titles = _titles_by_track(sws)
+    assert titles == {3: "Charlie", 4: "Delta"}
+    assert 1 not in titles and 2 not in titles
 
 
 def test_best_donor_picks_the_higher_agreement_donor_not_the_worse_one(tmp_path, monkeypatch):
@@ -1375,8 +1420,8 @@ def test_best_donor_picks_the_higher_agreement_donor_not_the_worse_one(tmp_path,
     result = cli_invoke(cfg, "fix", "twodonors2012-02-02", "--suggest-titles", "--no-run")
     assert result.exit_code == 0, result.output
     assert f"donor {donor_a_ident}" in result.output
-    ov = read_overrides(sws)
-    assert ov.titles == {2: "Bravo", 3: "Charlie"}
+    titles = _titles_by_track(sws)
+    assert titles == {2: "Bravo", 3: "Charlie"}
 
 
 def test_operator_band_donor_untitled_on_the_gaps_falls_through_to_the_dp(tmp_path, monkeypatch):
@@ -1427,8 +1472,8 @@ def test_operator_band_donor_untitled_on_the_gaps_falls_through_to_the_dp(tmp_pa
     assert "sibling track untitled" in result.output
     # ... but the canonical DP's own table is what actually confirmed.
     assert "proposal (duration-model)" in result.output or "proposal (sibling-duration)" in result.output
-    ov = read_overrides(sws)
-    assert ov.titles == ANCHORED_GAPS
+    titles = _titles_by_track(sws)
+    assert titles == ANCHORED_GAPS
 
 
 def test_suggest_titles_survives_an_effective_overrides_include(tmp_path, monkeypatch):

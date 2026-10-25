@@ -175,6 +175,10 @@ class Track(BaseModel):
     # Recorded here and NOT in ManifestTrack: the manifest is the broadcast
     # contract with emcee and stays lean; show.json is the operator's record.
     included: bool = False
+    # True when the junk filter's short-file rule (piece 4, spec 2.5) kept this
+    # file. show.json only, never in ManifestTrack; structure coverage leaves
+    # these tracks out (spec 3).
+    short_kept: bool = False
 
 
 class Show(BaseModel):
@@ -212,9 +216,13 @@ class Overrides(BaseModel):
     venue: str | None = None
     city: str | None = None
     date: str | None = None                            # YYYY-MM-DD
-    titles: dict[int, str] = Field(default_factory=dict)   # track number -> forced title
-    set_breaks: list[int] | None = None                # track numbers a break falls after
-    encore_after: int | None = None     # encore begins after this track number
+    # The three positional keys name FILES (piece 4 spec 4.1; `llama.override_keys`):
+    # an inserted track would re-point a track number silently. Typed to parse both
+    # forms, so reading never refuses; the int/numeric-string arms are the legacy
+    # (v2.17.0) track-number form, which only the resolver and the writers judge.
+    titles: dict[str, str] = Field(default_factory=dict)   # filename -> forced title
+    set_breaks: list[int | str] | None = None          # filenames a break falls after
+    encore_after: int | str | None = None              # filename the encore follows
 
 
 class ShowNotes(BaseModel):

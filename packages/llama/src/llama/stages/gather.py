@@ -11,15 +11,17 @@ from herder.limits import RateLimited
 from llama import desc_list, jerrybase, taper, title_hygiene
 from llama.config import StructureConfig
 from llama.errors import LlamaError
-from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
+from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files, short_tag_is_junk
 from llama.ia_client import IAError
 from llama.desc_list import DescRead, drop_leading_artist_items, read_desc_list
 from llama.lossless_titles import (SHIFTED_DELIVERED_NOTE, LosslessResult, apply_lossless,
                                    demoted_note)
 from llama.title_cosmetics import cosmetic_strip
 from llama.title_hygiene import DDecision, SetlistPlan
-from llama.models import (AlignedStructure, JerrybaseEvent, Candidate, Overrides, ParsedSetlist,
+from llama.models import (AlignedStructure, AlignResult, JerrybaseEvent, Candidate, Overrides,
+                          ParsedSetlist,
                           SetlistItem, Show, ShowNotes, SourcedParse, StructureInfo, Track)
+from llama.override_keys import Positions, resolve_positions
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
 from llama.siblings import DonorTape, SiblingRow, cplus_filter, propose_rows, rate_alignment
@@ -29,13 +31,13 @@ from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align
                              from_setlistfm,
                              fuzzy_norm_title, fuzzy_title_eq, is_filler, norm_title, rank_parses,
                              structure_guard, venues_equivalent,
-                             _venues_equivalent_pre1b)
+                             _FILLER, _venues_equivalent_pre1b)
 from llama.placeholders import is_junk_tag
 from llama.taper import TaperDecision
 from llama.titles import (_GLUED_NUM_PREFIX, _JOINED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
                           is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, shipped_short_tag, tag_core,
                           tag_layer, title_fraction, TagLayer)
-from llama.util import length_seconds
+from llama.util import length_seconds, slugify
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -847,6 +849,10 @@ class CanonicalBuild(NamedTuple):
     # Built from the raw parses, before the cleaning pass: an item
     # vocabulary, not the canonical. Built here and nowhere else.
     corroboration: dict[str, tuple[str, ...]] = {}
+    # FW4 item 2 (operator ruling 2026-10-25): the segue donor `blend_segues`
+    # pooled from on the setlist.fm path, G5 applied and cleaned like the
+    # canonical; None on every other path. Read by `donor_segues` only.
+    segue_donor: ParsedSetlist | None = None
 
 
 def _corroboration(parses: list[SourcedParse], descriptions: list[str], chosen_desc: str,
@@ -871,6 +877,50 @@ def _corroboration(parses: list[SourcedParse], descriptions: list[str], chosen_d
             if norm:
                 vocab.setdefault(norm, set()).add(p.source)
     return {norm: tuple(sorted(sources)) for norm, sources in vocab.items()}
+
+
+_LEADING_NON_WORD = re.compile(r"^[\W_]+")
+
+
+def _leads_with_filler(title: str) -> bool:
+    """FW4 G5's filler test: the title, past any leading punctuation (`[banter]`,
+    `-encore break-`), begins with a `structure._FILLER` word. `_FILLER` is used
+    verbatim (anchored with `.match` where `is_filler` uses `.search`)."""
+    return bool(_FILLER.match(_LEADING_NON_WORD.sub("", title)))
+
+
+def _drop_dangling_segues(parsed: ParsedSetlist) -> ParsedSetlist:
+    """FW4 G5 (operator ruling 2026-10-25): clear the segue flag of a segue
+    DONOR item followed, in the donor's own item list, by an `is_filler` item
+    or by nothing (`Ripple > Outro`, `Sugar Magnolia > Crowd`, `Excitable Boy >
+    Banter`, a `>` on the last item). That `>` notates track flow into filler,
+    not a segue into the next song, and the setlist.fm canonical has no filler
+    item for it to land before, so `blend_segues` would ship it as a segue into
+    whatever setlist.fm lists next.
+
+    Applied to the chosen donor only, after it is ranked (the donor choice is
+    unchanged), never to the canonical winner or the no-setlist.fm path.
+
+    "Followed by filler" is `_leads_with_filler`: the next entry BEGINS with a
+    `_FILLER` word (`Outro`, `Crowd`, `Banter and Guitar Tuning`, `[banter]`),
+    not merely contains one. `is_filler` (a search anywhere) is untouched and
+    is not used here, because measured at 20c4e6a its word matches inside real
+    titles cost 5 real marks: `Cumberland Blues (Band Intros)`
+    (joerussosalmostdead-2016-02-11), `Tripe Face Boogie / crowd`
+    (littlefeat-1975-09-01), `River Intro Jam` (railroadearth-2013-07-12),
+    `Boomwhacker/Toy loup W/Crowd Response chant` (kellerwilliams-2005-02-12)
+    and `Drums Intro` (deadandcompany-2015-11-20 `Terrapin Station >`). The
+    leading-word form keeps all five; it costs marks into an entry whose filler
+    word comes later (`[band intros and banter]`, `Roland Chorale Outro`,
+    `Detuning`), measured in the FW4 fix-round report."""
+    items = parsed.items
+    out = [it.model_copy(update={"segue": False})
+           if it.segue and (k + 1 == len(items) or _leads_with_filler(items[k + 1].title))
+           else it
+           for k, it in enumerate(items)]
+    if all(a is b for a, b in zip(out, items)):
+        return parsed
+    return parsed.model_copy(update={"items": out})
 
 
 def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
@@ -925,17 +975,80 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                 needs_llm = True
     source = best.source if best is not None else None
     canonical = best.parsed if best else ParsedSetlist()
+    donor = None
     if best is not None and best.source == "setlist.fm":
-        best_lma = rank_parses([p for p in parses if p.source != "setlist.fm"],
+        # The segue donor is ranked only among LMA parses that carry a segue:
+        # `blend_segues` returns the winner unchanged for a segue-less donor, so
+        # a donor picked on item count alone could strip every real segue
+        # (gratefuldead-1988-06-23 lost 5). With none, there is no donor.
+        best_lma = rank_parses([p for p in parses if p.source != "setlist.fm"
+                                and any(i.segue for i in p.parsed.items)],
                                target_count=len(kept))
-        canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
+        donor = _drop_dangling_segues(best_lma.parsed) if best_lma else None
+        canonical = blend_segues(canonical, donor)
 
     metadata_norms = show_metadata_norms(artist, candidate, meta, events)
-    canonical = _strip_head_banner(canonical, metadata_norms)
-    canonical = _drop_artist_items(canonical, artist)
-    canonical = _strip_footnote_markers(canonical)
+
+    def clean(parsed: ParsedSetlist) -> ParsedSetlist:
+        parsed = _strip_head_banner(parsed, metadata_norms)
+        parsed = _drop_artist_items(parsed, artist)
+        return _strip_footnote_markers(parsed)
+
+    canonical = clean(canonical)
+    # FW4 item 2: the donor, G5 applied and cleaned exactly as the canonical is,
+    # for `donor_segues` in compute_gather. None when `blend_segues` had nothing
+    # to transfer (no donor, or a donor left with no segue).
+    segue_donor = (clean(donor) if donor is not None and any(i.segue for i in donor.items)
+                   else None)
     return CanonicalBuild(setlist=canonical, notes=notes, source=source,
-                          needs_llm=needs_llm, corroboration=corroboration)
+                          needs_llm=needs_llm, corroboration=corroboration,
+                          segue_donor=segue_donor)
+
+
+def donor_segues(tracks: list[Track], result: AlignResult, donor: ParsedSetlist | None,
+                 aliases: dict[str, str] | None, *, shipped_sets: list[str]) -> AlignResult:
+    """FW4 item 2 (operator ruling 2026-10-25): the segue donor's own alignment
+    wins over `blend_segues`' exact-title pooling.
+
+    `result` is align() of the tracks against the blended setlist.fm canonical,
+    whose segue flags were pooled from the donor by exact `normalized` title
+    (first occurrence first), so a repeated title (`Crazy Mona`, `Turbin`) can
+    take a mark from another occurrence. Here the donor is aligned to the same
+    tracks with the same align(); on every track that alignment matches, the
+    track's segue is the matched donor item's (align()'s own rule: a merged
+    track takes its last component's). Tracks it does not match keep `result`'s
+    pooled segue, the fallback. Only `segues` changes: sets, `matched`,
+    coverage and conflicts are `result`'s. No threshold, no new constant.
+
+    The own alignment may REMOVE a pooled mark wherever it matches. It may ADD
+    one (pooled False, own True) only where the mark can mean a flow into the
+    next track (FW4 fix round 1, operator ruling on tfw4-rev Important 1): the
+    track is not the show's last, and either the SHIPPED set labels
+    (`shipped_sets`, parallel to `tracks`: after jerrybase anchoring and the
+    taper decision; fix round 2 ruling) put it in the same set as the next
+    track or the track's own title ends in `>`
+    (`>`/`->`, the taper's tag). align()'s subphrase matching lets a track take
+    a run-on parse blob's `>` (`The Music Never Stopped Touch Of Gray->`, set
+    one's closer glued to set two's opener) or a multi-song track's first
+    component's; those land across set breaks and on last tracks. Structural
+    only; no constant.
+
+    `donor` is `CanonicalBuild.segue_donor`: None (nothing pooled) returns
+    `result` unchanged."""
+    if donor is None:
+        return result
+    own = align(tracks, donor, aliases=aliases)
+    n = len(tracks)
+
+    def may_add(k: int) -> bool:
+        return k + 1 < n and (shipped_sets[k] == shipped_sets[k + 1]
+                              or tracks[k].title.rstrip().endswith(">"))
+
+    segues = [o if m and (not o or p or may_add(k)) else p
+              for k, (p, o, m) in enumerate(zip(result.segues, own.segues, own.matched))]
+    if segues == result.segues:
+        return result
+    return result.model_copy(update={"segues": segues})
 
 
 # Slice 2a's segue split: a core like `Ravine > J` is judged component by
@@ -1034,6 +1147,50 @@ def gather_cleaner(metadata_norms: set[str], artist: str) -> desc_list.Cleaner:
 
 
 @dataclass(frozen=True)
+class FinalKept:
+    """Gather's final kept list and what led to it (`final_kept`)."""
+    unexcluded: list[dict]     # filter + include, before overrides.exclude (recovery_basis's input)
+    kept: list[dict]           # gather's final kept list, in play order
+    excluded: list[dict]
+    ordering: dict
+
+
+def final_kept(files: list[dict], overrides: Overrides, want: Sequence[str], *,
+               short_keep: bool = True) -> FinalKept:
+    """Gather's final kept list: the junk filter with `overrides.include` re-admitted
+    inside it (where play order is derived), then `overrides.exclude` dropped. The ONE
+    copy (piece 4 spec 4.2): `title_inputs` builds on it, and `fix`'s staleness check
+    and the title proposal compare `show.json` with it, so no caller recomputes the
+    list its own way. `short_keep` is passed to `filter_files` (default True: the
+    piece-4 rule), and so is `overrides.exclude`, so the derivative dedupe never
+    keeps a copy the operator excluded over one they did not (FW1 fix round 1)."""
+    kept, excluded, ordering = filter_files(
+        files, want_format=want, readmit=frozenset(overrides.include),
+        short_keep=short_keep, exclude=frozenset(overrides.exclude))
+    for missing in sorted(set(overrides.include) - {f["name"] for f in kept}):
+        log.warning("overrides.include entry %r matched no file", missing)
+    unexcluded = kept
+    # Re-admission was applied inside the filter above (where play order is
+    # derived); the exclusion runs AFTER it, so a file named in both lists
+    # ends up excluded.
+    if overrides.exclude:
+        drop = set(overrides.exclude)
+        matched = {f["name"] for f in kept if f["name"] in drop}
+        for missing in sorted(drop - matched):
+            log.warning("overrides.exclude entry %r matched no file", missing)
+        for both in sorted(set(overrides.include) & drop):
+            log.warning("overrides: %r is in both include and exclude; "
+                        "exclude wins", both)
+        excluded += [{"filename": f["name"], "reasons": ["operator-excluded"],
+                      "duration_sec": length_seconds(f.get("length"))}
+                     for f in kept if f["name"] in drop]
+        kept = [f for f in kept if f["name"] not in drop]
+
+    return FinalKept(unexcluded=unexcluded, kept=kept, excluded=excluded,
+                     ordering=ordering)
+
+
+@dataclass(frozen=True)
 class TitleInputs:
     """Everything the title cascade reads, computed once by `title_inputs`."""
     kept: list[dict]
@@ -1044,6 +1201,10 @@ class TitleInputs:
     tag_gate_basis: list[dict]
     format_titles: dict[str, str] | None
     overrides: Overrides
+    # `overrides`' three filename-valued keys mapped onto `kept` once, by the one
+    # resolver (piece 4 spec 4.1). Every positional read in gather is this, never
+    # `overrides.titles`/`set_breaks`/`encore_after`.
+    positions: Positions
     cb: CanonicalBuild
     corroboration: frozenset[str]
     item_title: str | None
@@ -1056,19 +1217,22 @@ class TitleInputs:
 
 def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, identifier: str,
                  artist: str, want: Sequence[str], events: list,
-                 build: Callable[[list[dict]], CanonicalBuild]) -> TitleInputs:
+                 build: Callable[[list[dict]], CanonicalBuild], slug: str) -> TitleInputs:
     """`compute_gather`'s title prelude, as one builder (its only copy). It does
     no IO of its own: the canonical comes through `build` (the caller binds
     `build_canonical`), called once on the post-exclusion `kept`, and the two closures
     fetch only when the cascade calls them. `sibling_step` is `_sibling_transfer_full`
     bound to the show; `donor_check` is `best_donor` bound to the show, returning
-    `(donor, rows)` or None (never raising: a target without durations has no donor)."""
+    `(donor, rows)` or None (never raising: a target without durations has no donor).
+
+    `slug` is the show's LIBRARY slug (`slugify(performance_id)`), named in the
+    resolver's refusals; never a workspace dir name, which is `show` in replay's and
+    reapply's scratch dirs. The resolver runs on the final kept list, after the
+    exclusion, and raises before the canonical is built."""
     meta = md.get("metadata", {})
     files = md.get("files", [])
-    kept, excluded, ordering = filter_files(
-        files, want_format=want, readmit=frozenset(overrides.include))
-    for missing in sorted(set(overrides.include) - {f["name"] for f in kept}):
-        log.warning("overrides.include entry %r matched no file", missing)
+    fk = final_kept(files, overrides, want)
+    kept, excluded, ordering = fk.unexcluded, fk.excluded, fk.ordering
     # Computed on the unexcluded set, deliberately: it is a filename-keyed map
     # and resolve_titles only looks up names still in `kept`, so covering files
     # the operator later drops is harmless, while moving it below the exclusion
@@ -1113,21 +1277,13 @@ def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, id
     recovery_basis = [f for f in kept if f["name"] not in readmitted]
     format_titles = _recover_format_titles(files, recovery_basis, ordering)
 
-    # Re-admission was applied inside the filter above (where play order is
-    # derived); the exclusion runs AFTER it, so a file named in both lists
-    # ends up excluded.
-    if overrides.exclude:
-        drop = set(overrides.exclude)
-        matched = {f["name"] for f in kept if f["name"] in drop}
-        for missing in sorted(drop - matched):
-            log.warning("overrides.exclude entry %r matched no file", missing)
-        for both in sorted(set(overrides.include) & drop):
-            log.warning("overrides: %r is in both include and exclude; "
-                        "exclude wins", both)
-        excluded += [{"filename": f["name"], "reasons": ["operator-excluded"],
-                      "duration_sec": length_seconds(f.get("length"))}
-                     for f in kept if f["name"] in drop]
-        kept = [f for f in kept if f["name"] not in drop]
+    # The exclusion (inside `final_kept`) runs AFTER the re-admission, so a file named
+    # in both lists ends up excluded.
+    kept = fk.kept
+
+    # The one overrides resolver (piece 4 spec 4.1): filename values onto the final
+    # kept list. Refuses a legacy, mixed or dangling file before any further work.
+    positions = resolve_positions(overrides, [f["name"] for f in kept], slug=slug)
 
     # Canonical performance setlist (`build` is `build_canonical` in gather):
     # every recording's description, plus setlist.fm when configured, ranked
@@ -1169,7 +1325,7 @@ def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, id
     return TitleInputs(
         kept=kept, excluded=excluded, files=files, ordering=ordering,
         recovery_basis=recovery_basis, tag_gate_basis=tag_gate_basis,
-        format_titles=format_titles, overrides=overrides, cb=cb,
+        format_titles=format_titles, overrides=overrides, positions=positions, cb=cb,
         corroboration=frozenset(cb.corroboration), item_title=meta.get("title"),
         metadata_norms=metadata_norms, family_aliases=family_aliases, desc=desc,
         sibling_step=sibling_step, donor_check=donor_check)
@@ -1247,10 +1403,11 @@ def title_cascade(inp: TitleInputs, *,
     (slice 2) -> the deferred S fill. No rung overwrites a resolved track or an override.
     With `enabled=frozenset()` the result is exactly today's."""
     s1, s2, s3, s4 = (f"slice{k}" in enabled for k in (1, 2, 3, 4))
-    kept, overrides, cb = inp.kept, inp.overrides, inp.cb
+    kept, cb = inp.kept, inp.cb
+    forced_titles = inp.positions.titles     # 1-based track -> title (the resolver's)
     canonical = cb.setlist
     n = len(kept)
-    overridden = {k - 1 for k in overrides.titles}
+    overridden = {k - 1 for k in forced_titles}
     op_notes: list[str] = []
     struct_notes: list[str] = []
 
@@ -1284,7 +1441,7 @@ def title_cascade(inp: TitleInputs, *,
     layer_demoted = [i for i in placeholder_positions(delivered, corroboration=inp.corroboration,
                                                       item_title=inp.item_title)
                      if i not in c_changed]
-    demoted = [i for i in layer_demoted if (i + 1) not in overrides.titles]
+    demoted = [i for i in layer_demoted if (i + 1) not in forced_titles]
     for i in demoted:
         op_notes.append(f"placeholder tag title: track {i + 1} '{delivered[i]}' "
                         f"demoted to unresolved")
@@ -1298,11 +1455,11 @@ def title_cascade(inp: TitleInputs, *,
                 continue
             raw = clean_tag_title(f.get("title"))
             if (delivered[i] != raw and _GLUED_NUM_PREFIX.match(raw)
-                    and (i + 1) not in overrides.titles):
+                    and (i + 1) not in forced_titles):
                 op_notes.append(f"stripped glued track number: track {i + 1} "
                                 f"'{raw}' -> '{delivered[i]}'")
             if (delivered[i] != raw and _JOINED_NUM_PREFIX.match(raw)
-                    and (i + 1) not in overrides.titles):
+                    and (i + 1) not in forced_titles):
                 op_notes.append(f"stripped joined track number: track {i + 1} "
                                 f"'{raw}' -> '{delivered[i]}'")
     # `kept and` is load-bearing: title_fraction is 0.0 on an empty list, so an
@@ -1364,8 +1521,9 @@ def title_cascade(inp: TitleInputs, *,
                             gate_basis=inp.tag_gate_basis, corroboration=inp.corroboration,
                             item_title=inp.item_title,
                             layer=TagLayer(titles, sources, layer_demoted_set),
-                            setlist_fills=plan.fills)
-    for k, forced in overrides.titles.items():
+                            setlist_fills=plan.fills,
+                            short_kept=frozenset(inp.ordering.get("short_kept", ())))
+    for k, forced in forced_titles.items():
         if not (1 <= k <= len(tracks)):
             raise LlamaError(f"overrides.titles: no track {k} "
                              f"(show has {len(tracks)} tracks)")
@@ -1639,8 +1797,13 @@ def compute_gather(
         return build_canonical(ia, candidate, identifier, meta, kept, artist, events,
                                setlistfm=setlistfm, provider=provider)
 
+    # `slug` is the library slug (`RunWorkspace.show_ws`'s `slugify(performance_id)`),
+    # never `show_ws.dir.name`: replay and reapply point `show_ws` at a scratch dir
+    # named `show`.
     inp = title_inputs(md, overrides, ia=ia, candidate=candidate, identifier=identifier,
-                       artist=artist, want=want, events=events, build=build)
+                       artist=artist, want=want, events=events, build=build,
+                       slug=slugify(candidate.performance_id))
+    positions = inp.positions
     cascade = title_cascade(inp, enabled=enabled_slices)
     excluded, ordering, cb = inp.excluded, inp.ordering, inp.cb
     canonical, canonical_source = cb.setlist, cb.source
@@ -1655,13 +1818,13 @@ def compute_gather(
     flags = []
     # The taper step's outputs; the structure-override path never runs it.
     taper_owned, decision, step1_alignment = False, None, None
-    if overrides.set_breaks is not None or overrides.encore_after is not None:
-        breaks_in = list(overrides.set_breaks or [])
-        _validate_structure_override(len(tracks), breaks_in, overrides.encore_after)
-        labels = _sets_from_breaks(len(tracks), breaks_in, overrides.encore_after)
+    if positions.set_breaks is not None or positions.encore_after is not None:
+        breaks_in = list(positions.set_breaks or [])
+        _validate_structure_override(len(tracks), breaks_in, positions.encore_after)
+        labels = _sets_from_breaks(len(tracks), breaks_in, positions.encore_after)
         tracks = [t.model_copy(update={"set": s}) for t, s in zip(tracks, labels)]
-        breaks = sorted(set(breaks_in) | ({overrides.encore_after}
-                                          if overrides.encore_after is not None else set()))
+        breaks = sorted(set(breaks_in) | ({positions.encore_after}
+                                          if positions.encore_after is not None else set()))
         alignment = "override"
         coverage, conflicts = 1.0, []
     else:
@@ -1805,12 +1968,20 @@ def compute_gather(
         # prevent, just on the other rung).
         # On a taper-owned show only the labels are the taper's: segues and
         # `matched` stay step 1's, unchanged.
+        final_sets = result.sets if shipped_sets is None else shipped_sets
+        if alignment != "llm":
+            # FW4 item 2: where the segue donor's own alignment matches a track,
+            # its segue wins over the pooled one; only `segues` can change. Here,
+            # after the final set decision, so its add guard reads the shipped
+            # labels (fix round 2). An `align_structure` result that won replaces
+            # the deterministic one wholesale, as before item 2.
+            result = donor_segues(tracks, result, cb.segue_donor, family_aliases,
+                                  shipped_sets=final_sets)
         tracks = [t.model_copy(update={
             "set": s, "segue": g,
             "matched": None if t.title_source in TAUTOLOGICAL_TITLE_SOURCES else m})
                   for t, s, g, m in zip(tracks,
-                                        result.sets if shipped_sets is None else shipped_sets,
-                                        result.segues, result.matched)]
+                                        final_sets, result.segues, result.matched)]
         breaks = set_breaks(tracks)
         coverage, conflicts = result.coverage, result.conflicts
         if taper_owned:
@@ -1979,7 +2150,7 @@ def compute_gather(
         flags.append("no playable tracks")
 
     structure_info = None
-    if overrides.set_breaks is not None or overrides.encore_after is not None:
+    if positions.set_breaks is not None or positions.encore_after is not None:
         structure_info = StructureInfo(source="override", alignment="override",
                                        coverage=1.0, conflicts=[])
     elif canonical_source is not None or notes or taper_owned:
@@ -2020,6 +2191,12 @@ def compute_gather(
             for pos in changed:
                 paths[pos] += "+5"
             title_paths = tuple(paths)
+
+    # Spec 2.5: a short-kept track whose FINAL title (any rung) is wholly junk.
+    for t in tracks:
+        if t.short_kept and short_tag_is_junk(t.title):
+            op_notes.append(f"short-kept track {t.index} '{t.title}': "
+                            f"its final title is wholly junk")
 
     show = Show(
         performance_id=candidate.performance_id,

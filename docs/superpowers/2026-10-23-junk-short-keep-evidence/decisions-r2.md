@@ -1,0 +1,28 @@
+# Round-2 decisions for the piece-4 spec (apply exactly)
+
+Sources: rv2-b1 and rv2-b2 handback.md (session scratchpad piece45/). Both Foundation SOUND, 0 Critical. The migration drew findings in two consecutive rounds, so section 4's mechanism is restated as the simplest rule below; replace the affected text rather than patching around it.
+
+## Migration: the simplified rule (replace 4.1's parse/refusal text and 4.3's apply/undo/repair text with this)
+
+S1 Both forms always parse. The new `Overrides` model types are `titles: dict[str, str]`, `set_breaks: list[int | str] | None`, `encore_after: int | str | None`. Parsing never refuses; only the resolver (in `compute_gather`) and the writers judge legacy or mixed values. Test: the new `iter_shows` lists a library containing a legacy file, a migrated file and a mixed file without raising.
+S2 Writers refuse legacy. Every new-code writer (`fix` edit flags, triage edits, `--suggest-titles`, `--untitled`, `--no-run` included) refuses before any prompt when the show's file holds any legacy (integer) value: "run the migration". The migration refuses a mixed file by name. Two tests.
+S3 All-or-nothing, both directions. `--apply` first runs every check over every show and writes NOTHING if any show would be refused; it prints each refusal with its repair. Repairs happen while the library is still wholly legacy, with the saved old binary (`llama-2.17.0`): per refusal reason, name the route (`redo <show> --from gather` for a stale kept list or missing show.json; `fix <show> --clear-title k` for an out-of-range key; a repeated filename has no route and is listed for the operator). Repeat the dry run until 0 refused, then `--apply`. `--undo --apply` is all-or-nothing the same way: it writes nothing unless every migrated show (every show with a sidecar) is undoable. State plainly: once any file is migrated the old binary cannot run any command on this library (it reads every show's overrides on every command; catalog.py `iter_shows`) — by design, that is the loud failure.
+S4 Write order per show: (1) backup, (2) sidecar holding the hash of the bytes about to be written, (3) the new `overrides.json`; each temp + F_FULLFSYNC + rename. An interrupt then leaves either a legacy file equal to its backup (re-run continues; undo reports "already undone") or a file matching its sidecar. A re-run of an interrupted `--apply` completes the remaining legacy shows (they passed the all-show check).
+S5 Version gate: `--apply` refuses if any `llama` on PATH reports 2.17.0 or earlier, or reports a dev build (`0.1.0`, `0.0.0+unknown`). `--undo` is exempt (it runs after the old binary is reinstalled). The runbook restarts the sweep loop only after step 5 (apply) succeeds.
+S6 Undo set and post-condition: the undo set is every show with a sidecar. After undo, the old binary's `redo <show> --from gather` for every show whose `show.json` has a `short_kept` track (the operator lists them with a one-line command the spec gives).
+S7 Positional edits between migration and a show's re-gather: the staleness check refuses on every show the rule changes until it is re-gathered; the refusal message says "re-gather under the new rule first (`llama redo <show> --from gather`)", and the runbook says to triage after the bulk apply.
+
+## Filter
+
+S8 Tripwire: the bare words `follow`, `download`, `subscribe` apply to the filename stem only, or in a tag only as `follow (me|us)`; URL, `www.`, domain and `@\w{3,}` apply to stem and tag as now. (Keeps `I'll Follow the Sun`, `Follow You Down`.) A tripwire drop records its own reason, `spam-shaped name or tag`, so `show --tracks` and triage `[i]` show it.
+
+## Applying it (section 5)
+
+S9 Voiced pre-check 3 is on the re-packaged library `show.json`: its track filenames include every source file listed for that slug, each with `short_kept` set; and the manifest exists with a track count equal to show.json's.
+S10 Voicing the 37: `emcee voice <slug>` per slug (never a station-wide `emcee run` for this step), or `emcee run --dry-run` confirming the plan count first.
+S11 `deliver` refuses `--replace-voiced` whenever any batch selector is given, using the existing `other_selector` computation (this covers `--held` and future selectors); no hand-written list.
+S12 `_destination_is_voiced` errors in a batch: the preflight marks that one show refused and continues; test.
+S13 Reuse of existing audio, generalized (replace 5.4's mechanism text): before re-packaging a show whose track list changed, the unit (name them: `redo`, `fix`/triage auto-redo, `reapply`) moves the library's existing `package/audio/*` aside and pairs both it and the station copy to source files by index against the pre-regather `show.json` (equal lengths and titles at every index, else no reuse). `build_package` downloads straight to `packaged_filename(index, title)` and skips an existing name, so the old-numbered library files must never be left in place (that is what prevents a renumbered same-titled track inheriting the wrong audio). Verification uses mutagen `read_duration` (no ffprobe dependency) with the package step's existing duration tolerance. Anything unpaired or failing downloads as today.
+S14 Unvoiced re-delivery of a show whose track list changed goes through `_replace_destination` (wholesale, atomic) so the station directory does not keep old-numbered copies; voiced destinations still refuse as before.
+S15 Briefing reuse filters BOTH sides by the new show's `short_kept` filenames (covers the 173 operator-included short files).
+S16 Unverified premises to add: the duration check's pass rate on delivered station files (test: 20 delivered shows, count fallbacks); its run time over SMB (test: time one show).

@@ -1,0 +1,23 @@
+# Round-4 decisions for section 4 (final; apply exactly)
+
+Source: piece45/rv4-s/handback.md (0 Critical, 6 Important, 9 Minor; normal path passes scenarios 1, 5, 7, 8). The review budget is spent: these are the last spec changes before the operator reads it. Prefer the narrowing fix.
+
+## Important
+
+V1 The snapshot is the gate, by hash. Replace the mtime freshness gate with: `--apply` first verifies the whole snapshot (every `manifest.json` entry exists and matches its sha256; every show directory in the library at snapshot time is covered), then, per show under its lock, requires the current `overrides.json` and `show.json` to be byte-equal (sha256) to their snapshot copies before rewriting; a mismatch refuses that show and stops the run (route per V2). `--apply` records the snapshot it used in `<root>/rekey-applied.json` (snapshot dir, UTC time, shows rewritten), written durably. `--snapshot` takes the workspace migration lock and each show's lock while copying that show, names the directory by its UTC start time, and refuses a library holding any filename value (partly migrated).
+V2 Routes once the new binary is installed. Every refusal printed by `--apply` (up front or under the lock) reads: "reinstall v2.17.0, repair <show> with it (route below), then return to step 2 (dry run) and take a NEW snapshot". If any show was already rewritten in this run, it first says: "run `--restore <snapshot>` with the new binary, then reinstall v2.17.0". Remove "`--restore` is the way back" without a next step.
+V3 The post-migration self-check compares, per show, every track's (filename, title, title_source, set, segue) plus the show's set breaks and encore position, against the pre-migration candidate. Acceptance 6(d) gains the same structure comparison (all 427 break and 365 encore keys exercised end to end).
+V4 Restore empties `package/audio/` FIRST for every show unless the snapshot holds a byte-equal `package/manifest.json` (so a show packaged after the snapshot, or re-packaged, never keeps new-numbered audio beside an old-rule show.json); then restores the files. State why the order matters (a crash after emptying and before copying leaves a show that v2.17.0 re-downloads, never one with wrong audio).
+V5 Shows created after the snapshot: `--restore` REFUSES while any exists, listing each with the route `llama rm <show>` (new binary; add `--forget` if it should be re-fetched by a later get). Remove the clear-route text for these shows and "a listed show with no filename value needs nothing".
+V6 Restore takes the workspace migration lock and each show's lock. Restore runbook: stop the sweep loop and confirm no llama process (V8's check); `--restore`; reinstall v2.17.0; verify `llama --version`; restart the loop.
+
+## Minor
+
+V7 Correct the claim about old-commit harness arms: at e37f670 a migrated `overrides.json` makes the show `unreplayable` and the run still exits 0 (not loud). Rule: never run an old-commit arm against a migrated library (R6's order already ensures it); `compare` treats an arm with validation-caused unreplayable rows as invalid (state it as a harness requirement).
+V8 Gates: the version threshold is a constant in the script (`REKEY_MIN_VERSION`, the piece-4 release version); a dev build refuses. The process check lists every process whose command line runs llama (the release binary, a venv `llama`, `python -m llama`, and the sweep loop's shell) other than the script itself, and refuses if any is found.
+V9 Refusal-table routes: keys of -1 or below, duplicate keys that collapse, and a redo that cannot run (no provenance, a darked item) have no CLI route: hand edit with v2.17.0 still installed, accepted (0 today). "set them again" -> "set corrected values".
+V10 Restore states what it does not revert: the ledger, `runs/`, the cache, and reapply batch progress under `<root>/reapply/`. It lists reapply batch dirs and runs created after the snapshot so the operator can remove them (re-running a list would otherwise skip shows).
+V11 Restore lists station destinations re-delivered since the snapshot (destination manifest newer than the snapshot), the 37 re-voiced shows among them.
+V12 Pin the legacy examples to the pydantic rule: `"7.0"`, `"07"`, `"+7"`, `"7_0"` (70), `true`, `2.0` are legacy; the test uses the vendored v2.17.0 model as the oracle.
+V13 Limitation: the 28 voiced-minor shows, and any rule-changed show outside the bulk apply, refuse positional edits until re-gathered (a redo that may spend a brief).
+V14 Runbook: the post-migration self-check (step 8's repro run) happens BEFORE restarting the sweep loop.

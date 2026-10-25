@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -179,3 +180,22 @@ def test_select_shows_profile_dimension():
     assert {e.slug for e in select_shows(es, profiles={"funk"})} == {"a"}
     # repeatable: values OR together, like --state
     assert {e.slug for e in select_shows(es, profiles={"funk", "funky"})} == {"a", "b"}
+
+
+def test_iter_shows_lists_legacy_migrated_and_mixed(tmp_path):
+    """Spec 4.1 "Both forms always parse": the model never refuses a legacy, a
+    migrated or a mixed overrides.json, so listing the library never raises; only
+    the resolver and the writers judge them."""
+    forms = {
+        "a-legacy": {"titles": {"1": "X"}, "set_breaks": [1], "encore_after": 1},
+        "b-migrated": {"titles": {"a.mp3": "X"}, "set_breaks": ["a.mp3"],
+                       "encore_after": "a.mp3"},
+        "c-mixed": {"titles": {"1": "X"}, "set_breaks": ["a.mp3"]},
+    }
+    for slug, raw in forms.items():
+        ws = build(tmp_path, slug, stages={"select", "gather"})
+        ws.overrides.write_text(json.dumps(raw))
+    entries = iter_shows(tmp_path, Ledger(tmp_path / "ledger.jsonl"))
+    assert [e.slug for e in entries] == ["a-legacy", "b-migrated", "c-mixed"]
+    assert entries[1].overrides.titles == {"a.mp3": "X"}
+    assert entries[1].overrides.encore_after == "a.mp3"

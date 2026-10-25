@@ -10,6 +10,7 @@ import dataclasses
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -20,6 +21,7 @@ from llama.catalog import derive_state
 from llama.config import Config
 from llama import title_hygiene
 from llama.errors import LlamaError
+from llama.junk import basename_without_extension
 from llama.models import Briefing, Overrides, Provenance, Show, VettingResult
 from llama.setlistfm import _pick, cache_key
 from llama.stages import brief as brief_stage, package as package_stage
@@ -237,18 +239,243 @@ def _structure_changed(diff: dict) -> bool:
                 or diff["set_breaks"] or diff["alignment"])
 
 
+# --- Task 15a: a stored briefing that mentions a restored file is never reused ---
+# Operator ruling, Checkpoint B (premise 4): `run_brief` passed the whole show.json,
+# `excluded_files` ("implausibly short") included, so a stored briefing written before a
+# short file was restored routinely says that file is absent. `briefing_guard` checks
+# no file-presence claim, so reuse would ship that claim on air. A false "not reusable"
+# costs one brief call; a false "reusable" ships a false claim: every match refuses.
+
+# Every text field of `Briefing` (narration is stamped, non_attendee_sentiment a bool);
+# a test pins this against the model so a new field cannot go unread.
+BRIEFING_TEXT_FIELDS = ("context", "significance", "per_set", "notable_moments",
+                        "review_sentiment", "cautions", "mentioned_songs")
+
+_COUNT_NUM = (r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen"
+              r"|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty"
+              r"|sixty)(?:[\s-]+(?:one|two|three|four|five|six|seven|eight|nine))?")
+
+# Building blocks of the negation terms (fix rounds 4-5). They match a PUNCTUATION-NORMALISED
+# copy of each text (`_normalised`): its words joined by single spaces, a word being word
+# characters joined by single interior apostrophes (`isn't`, `aren’t`; the look-alikes
+# `` ` ``, `´`, `ʼ`, `ʻ`, `ʹ`, `‘` and `′` fold to `'` first). Every other character is a separator:
+# dashes, quotes, brackets and `;:,()`. The hyphen is read BOTH ways and a term fires on
+# any copy: as a separator (`not-listed` reads `not listed`) and as an interior joiner
+# (`return-to-astronaut` is one window word, so "no separate return-to-astronaut track"
+# fits a 3-word window). The apostrophe is read both ways too (FW2, 15b N1): a third copy
+# makes every apostrophe a separator, so a quote glued between two words ("not’listed",
+# "not‘listed’", which `’` and the fold would join into one word) reads `not listed`.
+# Each copy only adds readings, so the gate refuses more, never less. So a term is a
+# negation, a bounded window of up to N words, then the head word. `_SEP` (a space) and
+# `_WORD` (no space) are disjoint, so a window splits one way only and the match stays
+# linear.
+_NEG = r"(?:\bnot|\bnever|n['’]t|\bcannot|\bno longer|\bnowhere|\bneither|\bnor)"
+_SEP = " "
+_WORD = r"[^ ]+"
+_TOKEN = re.compile(r"\w+(?:['’]\w+)*")
+_TOKEN_HYPHENATED = re.compile(r"\w+(?:['’-]\w+)*")
+_TOKEN_SPLIT = re.compile(r"\w+")
+_APOSTROPHES = str.maketrans({"`": "'", "´": "'", "ʼ": "'", "ʻ": "'", "ʹ": "'", "‘": "'",
+                               "′": "'"})
+
+
+def _normalised(text: str) -> tuple[str, str, str]:
+    """`text`'s words, single-space separated, punctuation a separator: once with the
+    hyphen a separator too, once with it joining a word, and once with every apostrophe
+    (after the fold; `ʼ`, `ʻ` and `ʹ` are word characters until they are folded) a
+    separator too."""
+    text = text.translate(_APOSTROPHES)
+    return (" ".join(_TOKEN.findall(text)), " ".join(_TOKEN_HYPHENATED.findall(text)),
+            " ".join(_TOKEN_SPLIT.findall(text)))
+
+
+def _window(n: int, word: str = _WORD) -> str:
+    """Up to `n` arbitrary words (lazily), each preceded by a separator, then one."""
+    return rf"(?:{_SEP}{word}){{0,{n}}}?{_SEP}"
+
+
+# Exclusion/absence wording, matched ANYWHERE in the briefing (not only near a restored
+# file's name): the conservative reading of the ruling, measured in the Task 15a report.
+# Checked in this order; the first that fires names the reason. Each entry is
+# (term, raw, normalised): `raw` matches the lowercased text as it is (`track count` needs
+# `tracks 3–5`), `normalised` matches either copy `_normalised(text)` makes; either may be
+# None, and the term fires in the first field where any matches.
+_RESTORED_WORDING = tuple(
+    (term, raw and re.compile(raw), norm and re.compile(norm)) for term, raw, norm in (
+    ("excluded", r"\bexclu(?:de|ded|des|ding|sion|sions)\b", None),
+    # these three also read the normalised text (fix round 5): "too—short", "left (entirely) out"
+    # FW2 item 4: up to 2 words between, on the normalised text ("too very short",
+    # "implausibly, very short"), as `left out` already allowed
+    ("implausibly short", r"\bimplausibl[ey]\s+short\b", rf"\bimplausibl[ey]{_window(2)}short\b"),
+    ("too short", r"\btoo\s+short\b", rf"\btoo{_window(2)}short\b"),
+    ("left out", r"\b(?:left|leaves?|leaving)\s+(?:out|off)\b",
+                 rf"\b(?:left|leaves?|leaving){_window(2)}(?:out|off)\b"),
+    ("omitted", r"\bomi(?:t|ts|tted|tting|ssion|ssions)\b", None),
+    ("absent", r"\babsen(?:t|ce)\b", None),
+    ("not present", None, rf"{_NEG}{_window(3)}present\b"),
+    ("missing", r"\bmissing\b", None),
+    ("dropped", r"\bdropp(?:ed|ing)\b", None),
+    ("not represented", None, rf"{_NEG}{_window(3)}represented\b"),
+    ("not part of", None, rf"{_NEG}{_window(3)}part{_window(3)}of\b"),
+    # not [up to 5 words] track(s): "not even a separate track", "never a track". The
+    # window stops at a word starting `track` ("not tracked as separate tracks" is `not
+    # tracked separately`'s). A `track list` head counts only when no `in`/`on` sits in
+    # the window: "not a track list entry" is this term, "not in the track list" is `not in
+    # the setlist`'s. Both are later terms, so this only decides which reason is named.
+    ("not a track", None, rf"{_NEG}{_window(5, r'(?!track)[^ ]+')}tracks?\b(?![ -]?list(?:ing)?s?\b)"
+                          rf"|{_NEG}{_window(5, r'(?!track|(?:in|on) )[^ ]+')}tracks?[ -]?list(?:ing)?s?\b"),
+    # a count or a numbered range of tracks/songs/files: a restoration changes it
+    ("track count", rf"\b{_COUNT_NUM}[\s-]+(?:tracks|songs|files)\b|\b{_COUNT_NUM}-(?:track|song|file)\b"
+                    r"|\btracks?\s+\d+\s*(?:-|–|—|to|through|thru)\s*\d+", None),
+    # Tasks 15b (operator rulings, Checkpoint B) and fix rounds: these terms, and `not
+    # present`, `not represented`, `not part of` and `not a track` above, are a negation
+    # (`_NEG`; `no`/`without` for `no separate track`, a bare `no` for `not found`'s
+    # `place` and for `no … listed`) followed by a BOUNDED window of up to 2-5 words
+    # before EVERY head word, over the normalised text ("should not, in fact, have been
+    # included", "is not “officially” listed"). Heads take every inflection. `unlisted`
+    # is a plain word. Over-matching only costs a brief call; under-matching ships a
+    # false absence claim.
+    ("not included", None, rf"{_NEG}{_window(5)}includ(?:e|es|ed|ing)\b"),
+    ("not listed", None, rf"{_NEG}{_window(5)}listed\b"),
+    ("does not appear", None, rf"{_NEG}{_window(5)}appear(?:s|ed|ing)?\b"),
+    ("unlisted", r"\bunlisted\b", None),
+    # not [up to 3 words] in|on [up to 3 words] setlist | set list | set-list | tracklist |
+    # track listing, any plural: "is not even on the setlist", "not in this track listing"
+    ("not in the setlist", None, rf"{_NEG}{_window(3)}(?:in|on){_window(3)}(?:set|track)[ -]?list(?:ing)?s?\b"),
+    # no / without [up to 3 words] track(s): "no separate track", "without its own track"
+    ("no separate track", None, rf"\b(?:no|without){_window(3)}tracks?\b"),
+    # not [up to 3 words] tracked|tracking: "not tracked separately", "not separately
+    # tracked", "not tracking as a separate track"
+    ("not tracked separately", None, rf"{_NEG}{_window(3)}track(?:ed|ing)\b"),
+    # paraphrases (fix round 4): "does not show up", "cannot be found", "isn't on the
+    # tape", "is nowhere in the data", "has no place in the listing"; in|on takes the
+    # nouns tape, recording, data, listing, list, file (any plural)
+    ("not found", None, rf"{_NEG}{_window(3)}(?:show(?:s|ed|n|ing)?{_window(2)}up|found"
+                        rf"|(?:in|on){_window(2)}(?:tape|recording|data|listing|list|file)s?)\b"
+                        rf"|(?:{_NEG}|\bno){_window(3)}place\b"),
+    # fix round 5, appended last so no earlier first hit moves: the verb heads list and
+    # contain ("does not list the jam", "does not contain the reprise"; a bare `list` head
+    # in `not listed` would take "did not appear on the list" from `does not appear`)
+    ("not included or listed", None, rf"{_NEG}{_window(5)}(?:list(?:s|ed|ing)?|contain(?:s|ed|ing)?)\b"),
+    # a bare `no` before a head: "No encore is listed.", "No intro appears."
+    ("no … listed", None, rf"\bno{_window(3)}(?:listed|included|present|appear(?:s|ed|ing)?|found)\b"),
+    # FW2 item 5, the vocabulary 15b measured outside every term (t15b-rr5, over
+    # ~/.llama-harness/piece4/ckb/15a/dump.jsonl's 1,014 rows), appended last so no
+    # earlier first hit moves. Corpus counts, by 15b's own probes:
+    # `lacks`: 57 spans in 50 rows, 6 in 6 with a data subject ("his tape lacks the
+    #   intro", belafleckandtheflecktones-1995-08-25; "the track data lacks",
+    #   brotherspast-2006-11-17); a plain word, so it also refuses "lacking in top end".
+    ("lacks", r"\black(?:s|ed|ing)?\b", None),
+    # `not recorded`: 10 spans in 9 rows ("the first two songs of the night were not
+    #   recorded", hayescarll-2006-01-21)
+    ("not recorded", None, rf"{_NEG}{_window(3)}recorded\b"),
+    # `cut from the recording`: 5 rows ("were cut from the recording",
+    #   greenskybluegrass-2010-03-26); also `off`/`out` and the `not found` nouns
+    ("cut from the recording", None,
+     rf"\bcuts?{_window(2)}(?:from|off|out){_window(3)}(?:tape|recording|data|listing|list|file|show)s?\b"),
+    # data subject, then `lists|contains`, then `no`: 100 spans in 96 rows with a data
+    #   subject, "flags" left out of that count (506 in 363 for any verb, then `no`);
+    #   "the show data lists no encore" (billystrings-2017-08-29), "Setlist.fm lists no
+    #   encore". Up to 2 words between subject and verb, 1 between verb and `no`.
+    ("lists no", None,
+     r"\b(?:data|tapes?|recordings?|lists?|listings?|tracklists?|setlists?|tracks?|files?"
+     rf"|page|description|notes|fm){_window(2)}(?:list(?:s|ed)?|contain(?:s|ed)?){_window(1)}no\b"),
+))
+
+# A filename's disc/track tail (`d3t04`, `s2t01`, `D3_T02`, `t14`, `track01`).
+_TRACK_TAIL = re.compile(r"(?:(?:disc|disk|cd|set|d|s)[-_ ]?0*(\d+)[-_ ]?)?t(?:rack)?[-_ ]?0*(\d+)(?!\d)")
+
+
+def _briefing_texts(b: Briefing) -> list[tuple[str, str]]:
+    """(field, lowercased text) for every text field of `b`, per_set keys included."""
+    out = [("context", b.context), ("significance", b.significance)]
+    for key, points in b.per_set.items():
+        out += [("per_set", key)] + [("per_set", p) for p in points]
+    out += [("notable_moments", x) for x in b.notable_moments]
+    out += [("review_sentiment", b.review_sentiment)]
+    out += [("cautions", x) for x in b.cautions]
+    out += [("mentioned_songs", x) for x in b.mentioned_songs]
+    return [(f, t.lower()) for f, t in out]
+
+
+def _name_patterns(filename: str) -> list[re.Pattern]:
+    """How a briefing may name `filename`: the basename, its stem, and the stem's
+    disc/track tail as shorthand (`d3t04`, `disc 3, track 4`, a bare `t04`)."""
+    base = filename.rsplit("/", 1)[-1].lower()
+    stem = basename_without_extension(filename).lower()
+    pats = [re.compile(re.escape(base)), re.compile(re.escape(stem))]
+    for m in _TRACK_TAIL.finditer(stem):
+        disc, track = m.group(1), m.group(2)
+        if disc is not None:
+            pats.append(re.compile(rf"(?<![a-z0-9])(?:disc|disk|cd|set|d|s)\s*[-_ ]?0*{disc}"
+                                   rf"\s*[-_ ]?t(?:rack)?\s*[-_ ]?0*{track}(?!\d)"))
+            pats.append(re.compile(rf"\bdis[ck]\s*0*{disc}\W{{0,3}}track\s*0*{track}(?!\d)"))
+        pats.append(re.compile(rf"(?<![a-z0-9])t0*{track}(?!\d)"))
+    return pats
+
+
+def _restored_mentions(briefing: Briefing, restored: list[str]) -> list[tuple[str, str, str]]:
+    """Every way `briefing` mentions the restored files, in check order, as
+    (kind, what, field): ("names", filename, field) per file then
+    ("says", term, field) per wording term, each once at its first field."""
+    texts = _briefing_texts(briefing)
+    hits = []
+    for fn in restored:
+        pats = _name_patterns(fn)
+        field = next((f for f, t in texts if any(p.search(t) for p in pats)), None)
+        if field is not None:
+            hits.append(("names", fn, field))
+    both = [(f, t, _normalised(t)) for f, t in texts]
+    for term, raw, norm in _RESTORED_WORDING:
+        field = next((f for f, t, nts in both
+                      if (raw and raw.search(t)) or (norm and any(norm.search(n) for n in nts))), None)
+        if field is not None:
+            hits.append(("says", term, field))
+    return hits
+
+
+def _restored_file_mention(briefing: Briefing, restored: list[str]) -> str | None:
+    """The Task 15a refusal, or None: the first mention `_restored_mentions` finds."""
+    hits = _restored_mentions(briefing, restored) if restored else []
+    if not hits:
+        return None
+    kind, what, field = hits[0]
+    what = what if kind == "names" else f"'{what}'"
+    return f"briefing mentions a restored file: {kind} {what} in {field}"
+
+
 def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
                       narration: str) -> str | None:
     """Spec slice 6 step 3, the reuse rule: None when the stored briefing can
     ship with `new_show`; else the first failing reason. Broadcast fields are
     per-track titles, sets and segues, set_breaks, date, venue, city
-    (title_source is not one: the briefing never sees it)."""
+    (title_source is not one: the briefing never sees it).
+
+    Last (Task 15a, operator ruling at Checkpoint B): when the new show has a
+    restored file (a `short_kept` track whose filename is not among the stored
+    show's tracks), a briefing naming one or using exclusion/absence wording
+    anywhere is refused (`_restored_file_mention`). With none, the rule is
+    unchanged."""
     o, n = stored_show, new_show
+    short = {t.filename for t in n.tracks if t.short_kept}   # spec 5.3: dropped on both sides
+    ot = [t for t in o.tracks if t.filename not in short]
+    nt = [t for t in n.tracks if t.filename not in short]
+    if [t.filename for t in ot] != [t.filename for t in nt]:
+        return "tracks differ"
+
+    def break_keys(show: Show, kept: list) -> list:
+        # a break after track i is keyed by the last remaining track at or before i
+        keys = []
+        for i in show.set_breaks:
+            before = [t.filename for t in kept if t.index <= i]
+            keys.append(before[-1] if before else None)
+        return sorted(keys, key=lambda k: (k is not None, k or ""))
+
     changed = [name for name, differs in (
-        ("titles", [t.title for t in o.tracks] != [t.title for t in n.tracks]),
-        ("sets", [t.set for t in o.tracks] != [t.set for t in n.tracks]),
-        ("segues", [t.segue for t in o.tracks] != [t.segue for t in n.tracks]),
-        ("set_breaks", o.set_breaks != n.set_breaks),
+        ("titles", [t.title for t in ot] != [t.title for t in nt]),
+        ("sets", [t.set for t in ot] != [t.set for t in nt]),
+        ("segues", [t.segue for t in ot] != [t.segue for t in nt]),
+        ("set_breaks", break_keys(o, ot) != break_keys(n, nt)),
         ("date", o.date != n.date),
         ("venue", o.venue != n.venue),
         ("city", o.city != n.city),
@@ -260,7 +487,11 @@ def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
     problems = briefing_guard(normalize_briefing(briefing), new_show)   # 3a: guard the shipped form
     if problems:
         return f"briefing guard: {'; '.join(problems)}"
-    return None
+    stored_names = {t.filename for t in o.tracks}
+    # the gate scans the briefing as passed; briefing_guard scans normalize_briefing(briefing).
+    # In compute_legs they are identical; the raw form can only refuse more.
+    restored = [t.filename for t in n.tracks if t.short_kept and t.filename not in stored_names]
+    return _restored_file_mention(briefing, restored)
 
 
 def _read_briefing(ws: ShowWorkspace) -> Briefing:
@@ -443,6 +674,16 @@ class ShowReplay:
     title_sources: list[str] = dataclasses.field(default_factory=list)
     title_paths: list[str] = dataclasses.field(default_factory=list)
     cascade: dict = dataclasses.field(default_factory=dict)
+    # Piece 4 (junk short-keep). Base-arm rows (e37f670) lack these keys; readers treat a
+    # missing key as absent. Per track of `gathered.show`, before vet: `filenames`,
+    # `short_kept` (the junk filter's short-file rule kept it) and `segues`; `breaks` is
+    # `gathered.show.set_breaks`; `flags` is `legs.flags` (gather + vet + carried). The
+    # encore position is derived by readers from `sets`.
+    filenames: list[str] = dataclasses.field(default_factory=list)
+    short_kept: list[bool] = dataclasses.field(default_factory=list)
+    segues: list[bool] = dataclasses.field(default_factory=list)
+    breaks: list[int] = dataclasses.field(default_factory=list)
+    flags: list[str] = dataclasses.field(default_factory=list)
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
@@ -547,6 +788,11 @@ def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlis
         r.title_sources = [t.title_source for t in g.show.tracks]
         r.title_paths = list(g.title_paths)
         r.cascade = _cascade_dict(g.title_record)
+        r.filenames = [t.filename for t in g.show.tracks]
+        r.short_kept = [bool(t.short_kept) for t in g.show.tracks]
+        r.segues = [bool(t.segue) for t in g.show.tracks]
+        r.breaks = list(g.show.set_breaks)
+        r.flags = list(legs.flags)
     except CacheMiss as err:
         r.outcome, r.unreplayable = "unreplayable", str(err)
     except _OverridesUnreadable:

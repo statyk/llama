@@ -358,3 +358,27 @@ def test_library_passes_the_stored_proxy_for_g1(tmp_path):
     assert rows["det-show"]["today_llm"] is False and rows["det-show"]["status"] == "owned"
     assert "declined for `veto: no encore on today's LLM path`: 1" in tp.library_summary(
         list(rows.values()))
+
+
+def test_taper_probe_translates_filename_breaks(tmp_path):
+    base = {"taper_explicit": "yes", "primary": "desc-set-header", "marker_quote": "Set 2:"}
+    rows = [dict(base, slug=s) for s in ("fname-row", "fname-other", "from-show-json")]
+    s1 = [{"slug": s, "t_breaks": [2], "t_enc": 4, "renum": True} for s in
+          ("fname-row", "fname-other", "from-show-json")]
+    target = ["1", "1", "2", "2", "encore"]
+    names = [f"t{i}.mp3" for i in range(1, 6)]
+    ev, arm = _score_world(tmp_path, rows, s1, {
+        # filename-valued keys, translated through the row's own filenames
+        "fname-row": _arm_row(target, filenames=names,
+                              stripped={"set_breaks": ["t2.mp3"], "encore_after": "t4.mp3"}),
+        "fname-other": _arm_row(target, filenames=names,
+                                stripped={"set_breaks": ["t3.mp3"], "encore_after": "t4.mp3"}),
+        # a base-shaped row without filenames: the library's show.json supplies them
+        "from-show-json": _arm_row(target,
+                                   stripped={"set_breaks": ["t2.mp3"], "encore_after": "t4.mp3"})})
+    sj = tmp_path / "lib" / "shows" / "from-show-json"
+    sj.mkdir(parents=True)
+    (sj / "show.json").write_text(json.dumps({"tracks": [{"filename": n} for n in names]}))
+    got = {r["slug"]: r["class"] for r in tp.score_rows(json.loads(arm.read_text()), ev)}
+    assert got["fname-row"] == "match" and got["from-show-json"] == "match"
+    assert got["fname-other"] == "owned, renumbered target (not graded)"

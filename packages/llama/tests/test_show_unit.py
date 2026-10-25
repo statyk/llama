@@ -168,3 +168,121 @@ def test_a_failing_take_snapshot_discards_and_re_raises(tmp_path, monkeypatch, e
     assert not ran and not (ws.dir / ".txn").exists()
     monkeypatch.undo()
     assert tree_bytes(ws.dir) == before
+
+
+# --- audio set aside by a re-packaging unit (spec 5.4) ------------------------
+
+from pathlib import Path  # noqa: E402
+
+from helpers import (  # noqa: E402
+    ReuseIA,
+    audio_files,
+    packaged_reuse_show,
+    patch_fake_durations,
+    reuse_show,
+)
+from llama.audio_reuse import ASIDE_DIR, plan_reuse  # noqa: E402
+from llama.stages.package import build_package  # noqa: E402
+from llama.workspace import drop_stage_artifacts  # noqa: E402
+
+_OLD = (("A", "a.mp3", 300.0), ("Jam", "j1.mp3", 600.0), ("Jam", "j2.mp3", 602.0))
+
+
+def _repackaging_body(ws):
+    """A re-gather inserting a short file before track 2, then packaging."""
+    plan = plan_reuse(ws, None)
+    new = reuse_show(_OLD[0], ("Crowd", "s.mp3", 20.0, True), _OLD[1], _OLD[2])
+    drop_stage_artifacts(ws, "package")
+    write_artifact(ws.show, new)
+    build_package(ws, ReuseIA({t.filename: t.duration_sec for t in new.tracks}), new, reuse=plan)
+    assert (ws.dir / ASIDE_DIR).is_dir()
+
+
+def test_failed_unit_puts_aside_audio_back_under_old_names(tmp_path, monkeypatch):
+    patch_fake_durations(monkeypatch)
+    ws = packaged_reuse_show(tmp_path, reuse_show(*_OLD))
+    before = tree_bytes(ws.dir)
+    assert sorted(audio_files(ws)) == ["01 - A.mp3", "02 - Jam.mp3", "03 - Jam.mp3"]
+    _fail_inside(ws, LlamaError("after package"), lambda: _repackaging_body(ws))
+    assert tree_bytes(ws.dir) == before               # old names, old bytes, old manifest
+    assert not (ws.dir / ASIDE_DIR).exists()
+
+
+def test_failed_unit_mid_set_aside_puts_back_what_was_moved(tmp_path, monkeypatch):
+    patch_fake_durations(monkeypatch)
+    ws = packaged_reuse_show(tmp_path, reuse_show(*_OLD))
+    before = tree_bytes(ws.dir)
+    import llama.audio_reuse as audio_reuse
+    real, moved = audio_reuse.os.replace, []
+    def flaky(src, dst, *a, **k):
+        if Path(dst).parent.name == ASIDE_DIR:      # only set_aside's moves
+            if len(moved) == 2:
+                raise KeyboardInterrupt
+            moved.append(src)
+        return real(src, dst, *a, **k)
+    monkeypatch.setattr(audio_reuse.os, "replace", flaky)
+    _fail_inside(ws, KeyboardInterrupt(), lambda: _repackaging_body(ws))
+    assert len(moved) == 2
+    monkeypatch.undo()
+    assert tree_bytes(ws.dir) == before and not (ws.dir / ASIDE_DIR).exists()
+
+
+def test_successful_unit_deletes_the_aside(tmp_path, monkeypatch):
+    patch_fake_durations(monkeypatch)
+    ws = packaged_reuse_show(tmp_path, reuse_show(*_OLD))
+    with show_unit(ws, capture_view(ws)):
+        _repackaging_body(ws)
+    assert not (ws.dir / ASIDE_DIR).exists() and not (ws.dir / ".txn").exists()
+    assert sorted(audio_files(ws)) == ["01 - A.mp3", "02 - Crowd.mp3", "03 - Jam.mp3",
+                                       "04 - Jam.mp3"]
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_leftover_aside_is_deleted_at_unit_entry(tmp_path, fails):
+    ws = _show(tmp_path)
+    atomic_write_bytes(ws.dir / ASIDE_DIR / "stale.mp3", b"STALE")
+    before = tree_bytes(ws.dir)
+    del before[f"{ASIDE_DIR}/stale.mp3"]
+    seen = []
+    def body():
+        seen.append((ws.dir / ASIDE_DIR).exists())
+    if fails:
+        _fail_inside(ws, LlamaError("x"), body)        # a stale aside is never put back
+    else:
+        with show_unit(ws, capture_view(ws)):
+            body()
+    assert seen == [False]
+    assert tree_bytes(ws.dir) == before and not (ws.dir / ASIDE_DIR).exists()
+
+
+def test_a_leftover_aside_that_cannot_be_removed_refuses_before_anything_is_written(tmp_path, monkeypatch):
+    ws = _show(tmp_path)
+    atomic_write_bytes(ws.dir / ASIDE_DIR / "stale.mp3", b"STALE")
+    monkeypatch.setattr(show_unit_mod.shutil, "rmtree", lambda *a, **k: None)
+    ran = []
+    with pytest.raises(LlamaError, match="leftover audio aside"):
+        with show_unit(ws, capture_view(ws)):
+            ran.append(1)
+    assert not ran and not (ws.dir / ".txn" / "index.json").exists()
+
+
+def test_two_repackagings_in_one_unit_restore_the_original_audio(tmp_path, monkeypatch):
+    # Review (Important 1): a second set_aside in one unit must never move the
+    # first pass's files over the pre-unit originals in the aside.
+    patch_fake_durations(monkeypatch)
+    ws = packaged_reuse_show(tmp_path, reuse_show(*_OLD))
+    before = tree_bytes(ws.dir)
+    def two_passes():
+        _repackaging_body(ws)                              # inserts Crowd before track 2
+        plan = plan_reuse(ws, None)
+        back = reuse_show(*_OLD)                           # and a second pass drops it again
+        drop_stage_artifacts(ws, "package")
+        write_artifact(ws.show, back)
+        build_package(ws, ReuseIA({t.filename: t.duration_sec for t in back.tracks}), back,
+                      reuse=plan)
+    with pytest.raises(LlamaError):
+        with show_unit(ws, capture_view(ws)):
+            two_passes()
+            raise LlamaError("after package")
+    assert tree_bytes(ws.dir) == before                    # 03 - Jam.mp3 is j2's audio again
+    assert not (ws.dir / ASIDE_DIR).exists()

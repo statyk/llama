@@ -23,6 +23,8 @@ from llama.workspace import (ShowWorkspace, read_model, read_overrides,
                              write_artifact)
 
 from test_catalog import build
+from test_fix import (_SIX, _SLUG, _W_SLUG, _all_unresolved_show, _gd73_show,
+                      _windsor_show)
 from test_cli import (ANCHORED_GAPS, FIXTURES, MultiIA, _staged_anchored_ymsb_show,
                       _staged_ymsb_show, _ymsb_candidate, _ymsb_sibling_donor)
 
@@ -255,28 +257,28 @@ def test_quit_action_stops_the_walk(tmp_path, tty, monkeypatch):
 
 def test_metadata_action_writes_overrides_and_redoes_gather(tmp_path, tty, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _held_show(tmp_path)
+    ws = _gd73_show(tmp_path, monkeypatch, needs_review=True)   # show.json IS gather's list
     calls = _stub_redo(monkeypatch)
     # m, then venue/city/date/titles/breaks in order, blank for the rest kept
     r = cli_invoke(cfg, "triage",
-                  input="m\nMy Hall\nMy City\n1973-06-11\n1=Bertha\n9,17\n")
+                  input="m\nMy Hall\nMy City\n1973-06-11\n1=Bertha\n3,5\n")
     assert r.exit_code == 0, r.output
     ov = read_overrides(ws)
     assert ov.venue == "My Hall"
     assert ov.city == "My City"
     assert ov.date == "1973-06-11"
-    assert ov.titles == {1: "Bertha"}
-    assert ov.set_breaks == [9, 17]
+    assert ov.titles == {_SIX[0]: "Bertha"}          # numbers are stored as filenames
+    assert ov.set_breaks == [_SIX[2], _SIX[4]]
     assert calls == ["gather"]
     assert "packaged: /pkg" in r.output
 
 
 def test_metadata_empty_input_keeps_values_and_returns_to_prompt(tmp_path, tty, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _held_show(tmp_path)
+    ws = _gd73_show(tmp_path, monkeypatch, needs_review=True)
     calls = _stub_redo(monkeypatch)
     # first m: set real values
-    cli_invoke(cfg, "triage", input="m\nMy Hall\nMy City\n1973-06-11\n1=Bertha\n9,17\n")
+    cli_invoke(cfg, "triage", input="m\nMy Hall\nMy City\n1973-06-11\n1=Bertha\n3,5\n")
     calls.clear()
     # second invocation: m with all-blank input keeps everything, loops back
     # to the prompt (no redo), then s to finally advance
@@ -286,8 +288,8 @@ def test_metadata_empty_input_keeps_values_and_returns_to_prompt(tmp_path, tty, 
     assert ov.venue == "My Hall"
     assert ov.city == "My City"
     assert ov.date == "1973-06-11"
-    assert ov.titles == {1: "Bertha"}
-    assert ov.set_breaks == [9, 17]
+    assert ov.titles == {_SIX[0]: "Bertha"}
+    assert ov.set_breaks == [_SIX[2], _SIX[4]]
     assert calls == []          # nothing changed -> no redo triggered
 
 
@@ -389,7 +391,8 @@ def test_suggest_titles_resolution_writes_overrides_and_redoes_gather(tmp_path, 
     monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
     r = cli_invoke(cfg, "triage", "ymsb2005-12-31", input="t\n")
     assert r.exit_code == 0, r.output
-    assert read_overrides(sws).titles == ANCHORED_GAPS
+    names = [t.filename for t in read_model(sws.show, Show).tracks]
+    assert read_overrides(sws).titles == {names[n - 1]: t for n, t in ANCHORED_GAPS.items()}
     assert calls == ["gather"]
     assert "packaged: /pkg" in r.output
 
@@ -420,8 +423,9 @@ def test_suggest_titles_sibling_arm_shares_the_triage_seam(tmp_path, tty, monkey
     assert r.exit_code == 0, r.output
     assert "sibling-align" in r.output
     ov = read_overrides(sws)
-    assert ov.titles[1] == "Song 01"
-    assert ov.titles[9] == "Song 09a > Song 09b"
+    names = [t.filename for t in read_model(sws.show, Show).tracks]
+    assert ov.titles[names[0]] == "Song 01"
+    assert ov.titles[names[8]] == "Song 09a > Song 09b"
 
 
 def test_declining_the_triage_proposal_writes_nothing_and_returns_to_the_prompt(
@@ -610,7 +614,7 @@ def test_exclude_prompt_applies_nothing_on_a_mixed_input(tmp_path, tty, monkeypa
 
 def test_triage_offers_u_only_when_every_track_is_unresolved(tmp_path, tty, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _held_show(tmp_path)
+    ws = _gd73_show(tmp_path, monkeypatch, needs_review=True)   # [u] runs the staleness check
     r = cli_invoke(cfg, "triage", "gratefuldead", input="s\n")
     assert "[u]ntitled" not in r.output
     show = read_model(ws.show, Show)
@@ -624,10 +628,7 @@ def test_triage_offers_u_only_when_every_track_is_unresolved(tmp_path, tty, monk
 
 def test_triage_u_declined_writes_nothing_and_returns_to_the_prompt(tmp_path, tty, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _held_show(tmp_path)
-    show = read_model(ws.show, Show)
-    show.tracks = [t.model_copy(update={"title_source": "unresolved"}) for t in show.tracks]
-    write_artifact(ws.show, show)
+    ws = _all_unresolved_show(tmp_path, monkeypatch)
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "triage", "gratefuldead", input="u\nn\ns\n")
     assert r.exit_code == 0 and calls == [] and not ws.overrides.exists()
@@ -638,10 +639,7 @@ def test_triage_u_declined_writes_nothing_and_returns_to_the_prompt(tmp_path, tt
 
 def test_triage_u_confirmed_but_still_held_says_still_held(tmp_path, tty, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _held_show(tmp_path)
-    show = read_model(ws.show, Show)
-    show.tracks = [t.model_copy(update={"title_source": "unresolved"}) for t in show.tracks]
-    write_artifact(ws.show, show)
+    ws = _all_unresolved_show(tmp_path, monkeypatch)   # show.json IS gather's kept list
     _stub_redo(monkeypatch, result=None)
     r = cli_invoke(cfg, "triage", "gratefuldead", input="u\ny\n")
     assert r.exit_code == 0, r.output
@@ -778,13 +776,145 @@ def test_a_changed_show_refuses_once_then_the_retry_on_the_reprinted_prompt_appl
 
 
 def test_a_failed_untitled_resolution_restores_and_returns_to_the_prompt(tmp_path, tty, monkeypatch):
-    cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
-    show = read_model(ws.show, Show)
-    show.tracks = [t.model_copy(update={"title_source": "unresolved"}) for t in show.tracks]
-    write_artifact(ws.show, show)
+    cfg = _cfg(tmp_path); ws = _all_unresolved_show(tmp_path, monkeypatch)
     before = tree_bytes(ws.dir)
     monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
     r = cli_invoke(cfg, "triage", input="u\ny\ns\n")
     assert r.exit_code == 0, r.output
     assert "error: boom" in r.output and r.output.count("[u]ntitled") == 2
     assert tree_bytes(ws.dir) == before
+
+
+# --- piece 4 (junk-short-keep) Task 5: legacy, staleness, keyed exclusion, numbers ---
+
+_LEGACY_BYTES = json.dumps({"titles": {"2": "A"}})
+
+
+def _held_windsor(tmp_path, monkeypatch, *, pre_rule=True):
+    ws = _windsor_show(tmp_path, monkeypatch, pre_rule=pre_rule)
+    write_artifact(ws.show, read_model(ws.show, Show).model_copy(
+        update={"needs_review": True, "review_flags": ["research asserts wrong date: x"]}))
+    return ws
+
+
+_STALE = lambda slug: (f"{slug}: show.json's track list is not what gather keeps now; "   # noqa: E731
+                       f"re-gather under the new rule first (llama redo {slug} --from gather)")
+
+
+def test_triage_skips_a_legacy_show_before_any_prompt(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _gd73_show(tmp_path, monkeypatch, needs_review=True)
+    ws.overrides.write_text(_LEGACY_BYTES)
+    _held_show(tmp_path, slug="zheld-1974-01-01")
+    calls = _stub_redo(monkeypatch)
+    before = tree_bytes(ws.dir)
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert r.exit_code == 0, r.output
+    assert (f"error: {_SLUG}: overrides.json uses track-number keys; run the migration"
+            in r.output)
+    assert "zheld-1974-01-01" in r.output
+    assert r.output.count(PROMPT) == 1            # only the second show was asked
+    assert ws.overrides.read_text() == _LEGACY_BYTES
+    assert tree_bytes(ws.dir) == before and calls == []
+
+
+def test_triage_refuses_a_mixed_file_with_the_mixed_message(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _gd73_show(tmp_path, monkeypatch, needs_review=True)
+    ws.overrides.write_text(json.dumps({"titles": {"3": "A", _SIX[0]: "B"}}))
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert f"error: {_SLUG}: overrides.json mixes track-number and filename keys" in r.output
+    assert PROMPT not in r.output
+
+
+def test_triage_metadata_line_shows_today_numbers(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _gd73_show(tmp_path, monkeypatch, needs_review=True,
+                    overrides=Overrides(titles={_SIX[1]: "A", _SIX[4]: "B"},
+                                        set_breaks=[_SIX[2], _SIX[3]]))
+    calls = _stub_redo(monkeypatch)
+    before = ws.overrides.read_bytes()
+    r = cli_invoke(cfg, "triage", input="m\n\n\n\n\n\ns\n")
+    assert r.exit_code == 0, r.output
+    assert "[2=A, 5=B]" in r.output and "[3,4]" in r.output
+    assert ws.overrides.read_bytes() == before and calls == []   # the default writes nothing
+
+
+def test_triage_metadata_line_renders_a_dangling_key_as_its_filename(
+        tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _gd73_show(tmp_path, monkeypatch, needs_review=True)
+    write_artifact(ws.overrides, Overrides(titles={"gone.mp3": "A", _SIX[1]: "B"},
+                                           set_breaks=["gone2.mp3", _SIX[2]]))
+    calls = _stub_redo(monkeypatch)
+    before = ws.overrides.read_bytes()
+    r = cli_invoke(cfg, "triage", input="m\n\n\n\n\n\ns\n")
+    assert "[2=B, gone.mp3=A]" in r.output and "[gone2.mp3,3]" in r.output
+    assert ws.overrides.read_bytes() == before and calls == []
+    # An edited answer keeps the dangling entries as given.
+    r = cli_invoke(cfg, "triage", input="m\n\n\n\n2=B, gone.mp3=A, 4=C\n3,gone2.mp3,5\n")
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.titles == {"gone.mp3": "A", _SIX[1]: "B", _SIX[3]: "C"}
+    assert ov.set_breaks == [_SIX[2], "gone2.mp3", _SIX[4]]
+    assert calls == ["gather"]
+
+
+@pytest.mark.parametrize("answers", [
+    "m\n\n\n\n1=X\n\ns\n",        # [m] with a title edit
+    "m\n\n\n\n\n2\ns\n",          # [m] with a break edit
+])
+def test_triage_positional_metadata_refuses_when_stale(tmp_path, tty, monkeypatch, answers):
+    cfg = _cfg(tmp_path)
+    ws = _held_windsor(tmp_path, monkeypatch)
+    calls = _stub_redo(monkeypatch)
+    before = tree_bytes(ws.dir)
+    r = cli_invoke(cfg, "triage", input=answers)
+    assert r.exit_code == 0, r.output
+    assert f"error: {_STALE(_W_SLUG)}" in r.output
+    assert tree_bytes(ws.dir) == before and calls == []
+
+
+def test_triage_suggest_titles_and_untitled_refuse_when_stale(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    show = read_model(sws.show, Show)
+    write_artifact(sws.show, show.model_copy(update={"tracks": show.tracks[:-1]}))   # stale
+    calls = _stub_redo(monkeypatch)
+
+    def no_prompt(*a, **k):
+        raise AssertionError("a prompt was reached")
+    monkeypatch.setattr("typer.confirm", no_prompt)
+    monkeypatch.setattr(cli, "_propose_and_confirm_titles", no_prompt)
+    before = tree_bytes(sws.dir)
+    r = cli_invoke(cfg, "triage", "ymsb2005-12-31", input="t\nu\ns\n")
+    assert r.exit_code == 0, r.output
+    assert r.output.count(f"error: {_STALE('ymsb2005-12-31')}") == 2
+    assert tree_bytes(sws.dir) == before and calls == []
+
+
+def test_triage_venue_edit_is_not_gated_by_staleness(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _held_windsor(tmp_path, monkeypatch)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="m\nNew Hall\n\n\n\n\n")
+    assert r.exit_code == 0, r.output
+    assert "stale" not in r.output and "re-gather" not in r.output
+    assert read_overrides(ws).venue == "New Hall" and calls == ["gather"]
+
+
+def test_triage_exclusion_refuses_a_keyed_file(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _gd73_show(tmp_path, monkeypatch, needs_review=True,
+                    overrides=Overrides(titles={_SIX[1]: "A"}))
+    calls = _stub_redo(monkeypatch)
+    before = ws.overrides.read_bytes()
+    r = cli_invoke(cfg, "triage", input="e\n2\ns\n")
+    assert r.exit_code == 0, r.output
+    assert (f"error: {_SLUG}: {_SIX[1]} carries overrides.titles; clear it first with "
+            f"llama fix {_SLUG} --clear-title {_SIX[1]}") in r.output
+    assert ws.overrides.read_bytes() == before and calls == []
+    # An unkeyed file still excludes.
+    r = cli_invoke(cfg, "triage", input="e\n3\n")
+    assert read_overrides(ws).exclude == [_SIX[2]] and calls == ["gather"]

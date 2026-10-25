@@ -37,6 +37,7 @@ from llama.ledger import Ledger
 from llama.replay import (CacheOnlyIA, ShowReplay, code_identity, config_fingerprint, flag_family,
                           input_digests, replay_show, setlistfm_client, setlistfm_configured)
 from llama.models import Briefing, Track
+from llama.override_keys import classify, rekey_raw
 from llama.stages.brief import _ORDINAL_SET, _SET_COUNT_CLAIM, _claim_matches, _guard_prose
 from llama.structure import _place_tokens
 from llama.workspace import read_model
@@ -103,15 +104,53 @@ TITLE_KEYS = ("titles",)
 SHADOW_FILES = ("provenance.json", "show.json", "vetting.json", "briefing.json", "briefing.md")
 
 
-def _shadow(d: Path, shadow_root: Path, keys: tuple[str, ...]) -> tuple[ShowWorkspace, dict]:
+# The refusal texts of an overrides validation error, as a replayed row's `unreplayable` carries
+# them: e37f670's text for a migrated file, and the legacy, mixed and dangling messages of
+# `override_keys` (spec 4.1 "An old-commit harness arm is not loud").
+OVERRIDES_VALIDATION_TEXTS = (
+    "overrides.json unreadable",
+    "overrides.json uses track-number keys; run the migration",
+    "overrides.json mixes track-number and filename keys",
+    "overrides name files not in the track list",
+)
+
+
+def _rekeyed_data(d: Path, data: dict) -> tuple[dict, bool, str | None]:
+    """`data` (the parsed source `overrides.json` of `d`) re-keyed onto the filenames of
+    `d`'s `show.json` when it classifies `legacy`: `(data, rekeyed, error)`. The mapping is
+    the migration's own `rekey_raw` (spec 4.2: no second algorithm). Any failure leaves
+    `data` as it was, with the error for the row."""
+    try:
+        if classify(data) != "legacy":
+            return data, False, None
+        sj = json.loads((d / "show.json").read_text())
+        names = [t["filename"] for t in sj["tracks"]]
+        return rekey_raw(data, names), True, None
+    except Exception as err:
+        return data, False, f"{type(err).__name__}: {err}"[:200]
+
+
+def _shadow(d: Path, shadow_root: Path, keys: tuple[str, ...], *,
+            rekey: bool = False) -> tuple[ShowWorkspace, dict]:
+    ws, stripped, _ = _shadow_full(d, shadow_root, keys, rekey=rekey)
+    return ws, stripped
+
+
+def _shadow_full(d: Path, shadow_root: Path, keys: tuple[str, ...], *,
+                 rekey: bool = False) -> tuple[ShowWorkspace, dict, dict]:
     """A scratch copy of show dir `d` whose `overrides.json` has the given `keys`
     removed (`set_breaks`/`encore_after` for the structure strip, `titles` for the title
     strip; excludes, includes, narration and the rest kept:
     the adjudicator's targets are in post-exclusion numbering). Built under the run's
     scratch root; `d` is only read. An unparsable overrides file is copied unchanged,
     so the replay records it unreplayable as it would unstripped. Also returns what was
-    removed (`{key: value}` for each stripped key that was present; empty if nothing)."""
+    removed (`{key: value}` for each stripped key that was present; empty if nothing).
+
+    With `rekey`, a legacy (track-number) file is first re-keyed onto `show.json`'s
+    filenames, then stripped; the third result is `{"rekeyed": bool}` plus `"rekey_error"`
+    when the re-key failed (the file is then copied unchanged). The source is never written."""
     stripped: dict = {}
+    meta: dict = {"rekeyed": False}
     sd = shadow_root / d.name
     shutil.rmtree(sd, ignore_errors=True)
     sd.mkdir(parents=True)
@@ -126,17 +165,22 @@ def _shadow(d: Path, shadow_root: Path, keys: tuple[str, ...]) -> tuple[ShowWork
             shutil.copyfile(ov, sd / "overrides.json")
         else:
             if isinstance(data, dict):
+                if rekey:
+                    data, meta["rekeyed"], err = _rekeyed_data(d, data)
+                    if err is not None:
+                        meta["rekey_error"] = err
                 for k in keys:
                     if k in data:
                         stripped[k] = data.pop(k)
             (sd / "overrides.json").write_text(json.dumps(data, indent=1) + "\n")
-    return ShowWorkspace(sd), stripped
+    return ShowWorkspace(sd), stripped, meta
 
 
-def _replay_stripped(d: Path, *, shadow_root: Path, keys: tuple[str, ...], **kw) -> dict:
+def _replay_stripped(d: Path, *, shadow_root: Path, keys: tuple[str, ...], rekey: bool = False,
+                     **kw) -> dict:
     """`replay_show` over the shadow of `d`; the row then carries the REAL show's
     state and input digests, so arms stay comparable with an unstripped base."""
-    shadow, stripped = _shadow(d, shadow_root, keys)
+    shadow, stripped, meta = _shadow_full(d, shadow_root, keys, rekey=rekey)
     r = replay_show(shadow, **kw)
     real = ShowWorkspace(d)
     try:
@@ -149,6 +193,8 @@ def _replay_stripped(d: Path, *, shadow_root: Path, keys: tuple[str, ...], **kw)
         pass
     row = r.to_dict()
     row["stripped"] = stripped     # what strip mode removed; absent/empty = nothing
+    if rekey:
+        row.update(meta)           # rekeyed (bool) and, on a failed re-key, rekey_error
     return row
 
 
@@ -189,6 +235,7 @@ def run(args: argparse.Namespace) -> int:
     scratch.mkdir(parents=True, exist_ok=True)
     keys = ((TITLE_KEYS if args.strip_title_overrides else ())
             + (STRUCTURE_KEYS if args.strip_structure_overrides else ()))
+    rekey = bool(getattr(args, "rekey_overrides", False))
     rows: dict[str, dict] = {}
     previous = logging.root.manager.disable
     logging.disable(logging.CRITICAL)
@@ -203,8 +250,8 @@ def run(args: argparse.Namespace) -> int:
                     kw = dict(config=config, ia=ia, slfm=slfm, scratch=show_scratch,
                               delivered=delivered, enabled_slices=enabled)
                     rows[d.name] = (_replay_stripped(d, shadow_root=scratch / ".shadow",
-                                                     keys=keys, **kw)
-                                    if keys
+                                                     keys=keys, rekey=rekey, **kw)
+                                    if keys or rekey
                                     else replay_show(ShowWorkspace(d), **kw).to_dict())
                 finally:
                     shutil.rmtree(show_scratch, ignore_errors=True)
@@ -224,6 +271,7 @@ def run(args: argparse.Namespace) -> int:
         "structure_overrides_stripped": bool(args.strip_structure_overrides),
         "title_overrides_stripped": bool(args.strip_title_overrides),
         "disabled_slices": sorted(disabled),
+        **({"overrides_rekeyed": True} if rekey else {}),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "llama_file": llama.__file__,
         "root": str(root),
@@ -306,6 +354,11 @@ def _in_denominator(r: dict) -> bool:
     return r.get("state") == "unknown" and r.get("outcome") == "unreplayable"
 
 
+def _overrides_invalid(r: dict) -> bool:
+    why = r.get("unreplayable")
+    return bool(why) and any(t in str(why) for t in OVERRIDES_VALIDATION_TEXTS)
+
+
 def _gates(base: dict, cand: dict) -> None:
     problems = []
     if base.get("setlistfm_configured") != cand.get("setlistfm_configured"):
@@ -317,6 +370,12 @@ def _gates(base: dict, cand: dict) -> None:
     if bool(base.get("title_overrides_stripped")) != bool(cand.get("title_overrides_stripped")):
         problems.append("title_overrides_stripped differs")
     b, c = base["shows"], cand["shows"]
+    for arm_name, shows in (("base", b), ("candidate", c)):
+        bad = sorted(s for s, r in shows.items() if _overrides_invalid(r))
+        if bad:
+            problems.append(f"{arm_name} arm holds unreplayable row(s) from an overrides "
+                            f"validation error (replayed against a migrated or invalid "
+                            f"library): {', '.join(bad)}")
     for slug in sorted(set(b) - set(c)):
         problems.append(f"{slug} is in the base arm only")
     for slug in sorted(set(c) - set(b)):
@@ -685,11 +744,17 @@ def _tier(before: list, after: list, filler: list, base_owned: bool, cand_owned:
     return "labels renamed" if b != a else "filler labels only"
 
 
-def _is_voiced(delivery: Path | None, slug: str) -> bool:
+def _is_voiced(delivery: Path | None, slug: str) -> bool | None:
+    """True/False as `deliver` reads the station copy; None when deliver would refuse
+    it as unreadable (spec 5.5), which the callers label `unreadable`."""
     if delivery is None:
         return False
     from llama.cli import _destination_is_voiced   # a raw-JSON read of manifest.json; writes nothing
-    return _destination_is_voiced(delivery / slug)
+    from llama.errors import LlamaError
+    try:
+        return _destination_is_voiced(delivery / slug)
+    except LlamaError:
+        return None
 
 
 def _delivery_path(config_path: Path | None) -> Path | None:
@@ -720,8 +785,7 @@ def _taper_changes(base: dict, cand: dict, root: Path, delivery: Path | None) ->
             continue
         state = str(c.get("state"))
         if state == "delivered":
-            if _is_voiced(delivery, slug):
-                state = "voiced"
+            state = _state_label(delivery, slug, state)
         # Step 1's MECHANISM (deterministic/jerrybase), not its quality (rescreen2 O1);
         # nothing was overruled when labels agree.
         step1 = "overruled step1 mechanism" if before != after else "step1 mechanism"
@@ -1052,8 +1116,12 @@ def _fill_slices(r: dict) -> list[str]:
 
 
 def _state_label(delivery: Path | None, slug: str, state) -> str:
-    if state == "delivered" and _is_voiced(delivery, slug):
-        return "voiced"
+    if state == "delivered":
+        voiced = _is_voiced(delivery, slug)
+        if voiced is None:
+            return "unreadable"
+        if voiced:
+            return "voiced"
     return str(state)
 
 
@@ -1173,7 +1241,7 @@ def _title_changes(base: dict, cand: dict, root: Path, delivery: Path | None) ->
     out = ["titles changed on shows that stay unheld (base -> cand); a path is the cascade's "
            "(D, C1, C2, S, S-deferred, 4, optional +5); '(unattributed)' = no recorded path", ""]
     counts = {}
-    for st in ("packaged", "voiced", "delivered"):
+    for st in ("packaged", "voiced", "delivered", "unreadable"):
         rows = by_state.get(st, [])
         counts[st] = sum(len(c) for _, c in rows)
         if not rows:
@@ -1308,7 +1376,10 @@ def compare(args: argparse.Namespace) -> int:
     sclist = [_list_row(s, r, r.get("would_be")) for s, r in ordered
               if r.get("outcome") == "structure-changed"]
     pilot = _pilot(predicted)
-    if not stripped and not title_stripped:   # a stripped arm can never feed `reapply --from-list`
+    rekeyed = bool(base.get("overrides_rekeyed")) or bool(cand.get("overrides_rekeyed"))
+    # A stripped arm can never feed `reapply --from-list`; nor can a re-keyed one, whose digests
+    # predate the migration (spec 4.3 step 9).
+    if not stripped and not title_stripped and not rekeyed:
         for name, rows in (("predicted_list.json", predicted),
                            ("structure_changed_list.json", sclist), ("pilot_list.json", pilot)):
             (out / name).write_text(json.dumps(_list_doc(cand, rows), indent=1) + "\n")
@@ -1347,8 +1418,9 @@ def compare(args: argparse.Namespace) -> int:
         else "voiced check: off (no delivery_path in config)",
         "holds_delta.txt: 'would-hold on a fresh get' is empty in an as-is arm by construction "
         "(only an overrides-stripped arm records `stripped`)",
-    ] + (["apply lists: not written (arms replayed with --strip-structure-overrides or --strip-title-overrides)"]
-      if stripped or title_stripped else [
+    ] + (["apply lists: not written (arms replayed with --strip-structure-overrides, "
+          "--strip-title-overrides or --rekey-overrides)"]
+      if stripped or title_stripped or rekeyed else [
         f"predicted_list.json: {len(predicted)} row(s)",
         f"structure_changed_list.json: {len(sclist)} row(s)",
         f"pilot_list.json: {len(pilot)} row(s)",
@@ -1377,6 +1449,11 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--strip-title-overrides", action="store_true",
                    help="replay each show with overrides.titles removed, the fresh-get view "
                         "(a scratch copy; the arm is stamped and yields no apply lists)")
+    r.add_argument("--rekey-overrides", action="store_true",
+                   help="replay every show through the shadow copy, re-keying a legacy "
+                        "(track-number) overrides.json onto show.json's filenames first, then "
+                        "stripping; measurement only, the library is never written and the arm "
+                        "yields no apply lists")
     r.add_argument("--disable-slices", default=None, metavar="LIST",
                    help="comma-separated title-hygiene slices to switch off for this run "
                         "(e.g. slice5,slice4); stamped on the arm as disabled_slices")

@@ -1166,6 +1166,9 @@ def _songish_coverage(tracks: list["Track"], matched: list[bool]) -> float:
     that would have caught it. Ruled: coverage must be computed only over
     tracks whose titles came from independent evidence.
 
+    A `short_kept` track (the junk filter's piece-4 short-file rule, spec 3) is
+    left out too: a re-admitted `Jam >` or `Murph` neither lowers nor raises coverage.
+
     Coverage is therefore a ratio over a POSSIBLY SMALL independent-evidence
     set, not over every track: on a mostly gap-filled or mostly
     whole-tape-resolved show, a single independent measurement decides the
@@ -1184,7 +1187,8 @@ def _songish_coverage(tracks: list["Track"], matched: list[bool]) -> float:
     test_songish_coverage_is_zero_when_every_songish_track_is_adopted, which
     asserts it directly rather than trusting that reasoning."""
     songish = [m for t, m in zip(tracks, matched)
-               if not is_filler(t.title) and t.title_source not in TAUTOLOGICAL_TITLE_SOURCES]
+               if not is_filler(t.title) and t.title_source not in TAUTOLOGICAL_TITLE_SOURCES
+               and not t.short_kept]
     return (sum(songish) / len(songish)) if songish else 0.0
 
 

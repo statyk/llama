@@ -21,7 +21,8 @@ from llama.models import Overrides, Show, Track
 from llama.stages.gather import compute_gather
 from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 
-from helpers import packaged_gd73, tree_bytes
+from helpers import (audio_files, fake_source, packaged_gd73, reuse_gd73, stub_stages,
+                     tree_bytes)
 from test_catalog import build
 from test_cli import _staged_ymsb_show
 from test_stage_gather import IDENT, StubIA, make_candidate
@@ -135,18 +136,20 @@ def test_set_venue_city_date(tmp_path, monkeypatch):
 
 def test_set_title(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _gathered_show(tmp_path)
+    ws = _six_track_show(tmp_path, monkeypatch)
     _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--set-title", "1=Bertha")
     assert r.exit_code == 0, r.output
-    assert read_overrides(ws).titles == {1: "Bertha"}
+    # Stored by the file show.json's track 1 names (spec 4.2).
+    assert read_overrides(ws).titles == {_SIX[0]: "Bertha"}
 
 
 def test_clear_title(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _gathered_show(tmp_path)
+    ws = _six_track_show(tmp_path, monkeypatch)
     _stub_redo(monkeypatch)
-    cli_invoke(cfg, "fix", "gratefuldead", "--set-title", "1=Bertha")
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-title", "1=Bertha").exit_code == 0
+    assert read_overrides(ws).titles == {_SIX[0]: "Bertha"}
     r = cli_invoke(cfg, "fix", "gratefuldead", "--clear-title", "1")
     assert r.exit_code == 0, r.output
     assert read_overrides(ws).titles == {}
@@ -154,39 +157,39 @@ def test_clear_title(tmp_path, monkeypatch):
 
 def test_set_breaks_and_clear(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _gathered_show(tmp_path)
+    ws = _six_track_show(tmp_path, monkeypatch)
     _stub_redo(monkeypatch)
-    cli_invoke(cfg, "fix", "gratefuldead", "--set-breaks", "9,17")
-    assert read_overrides(ws).set_breaks == [9, 17]
+    cli_invoke(cfg, "fix", "gratefuldead", "--set-breaks", "2,4")
+    assert read_overrides(ws).set_breaks == [_SIX[1], _SIX[3]]
     cli_invoke(cfg, "fix", "gratefuldead", "--clear-set-breaks")
     assert read_overrides(ws).set_breaks is None
 
 
 def test_set_encore_and_clear(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _gathered_show(tmp_path)
+    ws = _six_track_show(tmp_path, monkeypatch)
     _stub_redo(monkeypatch)
-    cli_invoke(cfg, "fix", "gratefuldead", "--set-encore", "16")
-    assert read_overrides(ws).encore_after == 16
+    cli_invoke(cfg, "fix", "gratefuldead", "--set-encore", "5")
+    assert read_overrides(ws).encore_after == _SIX[4]
     cli_invoke(cfg, "fix", "gratefuldead", "--clear-encore")
     assert read_overrides(ws).encore_after is None
 
 
 def test_set_encore_composes_with_set_breaks(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _gathered_show(tmp_path)
+    ws = _six_track_show(tmp_path, monkeypatch)
     _stub_redo(monkeypatch)
-    cli_invoke(cfg, "fix", "gratefuldead", "--set-breaks", "7", "--set-encore", "16")
+    cli_invoke(cfg, "fix", "gratefuldead", "--set-breaks", "2", "--set-encore", "5")
     ov = read_overrides(ws)
-    assert ov.set_breaks == [7]
-    assert ov.encore_after == 16
+    assert ov.set_breaks == [_SIX[1]]
+    assert ov.encore_after == _SIX[4]
 
 
 def test_set_encore_redoes_from_gather(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    _gathered_show(tmp_path)
+    _six_track_show(tmp_path, monkeypatch)
     _stub_redo(monkeypatch)
-    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-encore", "16", "--no-run")
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-encore", "5", "--no-run")
     assert r.exit_code == 0, r.output
     assert "--from gather" in r.output
 
@@ -356,12 +359,18 @@ def test_set_title_non_numeric_errors_cleanly(tmp_path):
     assert not isinstance(r.exception, ValueError)
 
 
-def test_clear_title_non_numeric_errors_cleanly(tmp_path):
+def test_clear_title_non_numeric_is_a_filename(tmp_path, monkeypatch):
+    # Spec 4.2 "AUTHOR'S CALL": a non-number is a filename, removed as given (here a
+    # no-op: no title is keyed by it); only an empty value is a parse error.
     cfg = _cfg(tmp_path)
-    _gathered_show(tmp_path)
-    r = cli_invoke(cfg, "fix", "gratefuldead", "--clear-title", "abc")
+    ws = _gathered_show(tmp_path)
+    write_artifact(ws.overrides, Overrides(titles={"a.mp3": "Dew"}))
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--clear-title", "abc", "--no-run")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).titles == {"a.mp3": "Dew"}
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--clear-title", " ")
     assert r.exit_code != 0
-    assert "--clear-title expects" in r.output
+    assert "--clear-title expects a track number or a filename" in r.output
     assert not isinstance(r.exception, ValueError)
 
 
@@ -687,21 +696,28 @@ def test_a_no_op_exclude_still_reports_the_override_list(tmp_path, monkeypatch):
 
 # --- slice 7: --untitled (spec "Slice 7") ---
 
-def _all_unresolved_show(tmp_path, n=3):
-    ws = _held_show(tmp_path)
+def _all_unresolved_show(tmp_path, monkeypatch, *, empty=False):
+    """gd73 gathered under the current rule (its six kept files, `_SIX`) with every
+    title unresolved, so the staleness check passes. `empty`: a zero-track show over
+    metadata with no files (gather's final kept list is empty too)."""
+    ws = _gd73_show(tmp_path, monkeypatch, needs_review=True)
     show = read_model(ws.show, Show)
-    show.tracks = [Track(index=i, set="1", title=f"t{i:02d}.mp3", filename=f"t{i:02d}.mp3",
-                         title_source="unresolved") for i in range(1, n + 1)]
+    show.tracks = [] if empty else [
+        t.model_copy(update={"title": t.filename, "title_source": "unresolved"})
+        for t in show.tracks]
     show.review_flags = ["unresolved track titles"]
     write_artifact(ws.show, show)
+    if empty:
+        monkeypatch.setattr(cli, "IAClient",
+                            lambda *a, **k: StubIA({"metadata": {}, "files": []}))
     return ws
 
 
-def test_untitled_is_refused_when_any_track_is_resolved(tmp_path):
+def test_untitled_is_refused_when_any_track_is_resolved(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    _held_show(tmp_path)          # its one track is tagged
+    _gd73_show(tmp_path, monkeypatch, needs_review=True)   # every track is titled
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled")
-    assert r.exit_code != 0 and "applies only when every track is unresolved (1 of 1 resolved)" in r.output
+    assert r.exit_code != 0 and "applies only when every track is unresolved (6 of 6 resolved)" in r.output
 
 
 @pytest.mark.parametrize("flag", [["--suggest-titles"], ["--exclude", "x1"], ["--unexclude", "a"],
@@ -711,7 +727,7 @@ def test_untitled_is_refused_when_any_track_is_resolved(tmp_path):
                                   ["--set-venue", "V"], ["--set-city", "C"], ["--set-date", "1973-06-10"]])
 def test_untitled_refuses_every_combination(tmp_path, monkeypatch, flag):
     cfg = _cfg(tmp_path)
-    ws = _all_unresolved_show(tmp_path)
+    ws = _all_unresolved_show(tmp_path, monkeypatch)
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", *flag, input="y\n")
     assert r.exit_code != 0 and f"--untitled cannot be combined with {flag[0]}" in r.output
@@ -722,22 +738,22 @@ def test_untitled_refuses_every_combination(tmp_path, monkeypatch, flag):
 
 def test_untitled_lists_filenames_and_declining_writes_nothing(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _all_unresolved_show(tmp_path)
+    ws = _all_unresolved_show(tmp_path, monkeypatch)
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="n\n")
-    assert "   1  t01.mp3" in r.output and "   3  t03.mp3" in r.output
+    assert f"   1  {_SIX[0]}" in r.output and f"   6  {_SIX[5]}" in r.output
     assert "tracks on this tape (no resolved titles):" in r.output
     assert not ws.overrides.exists() and calls == []
 
 
 def test_untitled_one_confirmation_writes_titles_narration_and_one_set_then_redoes(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _all_unresolved_show(tmp_path)
+    ws = _all_unresolved_show(tmp_path, monkeypatch)
     calls = _stub_redo(monkeypatch, result=Path("/pkg"))
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
     assert r.exit_code == 0, r.output
     ov = read_overrides(ws)
-    assert ov.titles == {1: "Untitled (track 1)", 2: "Untitled (track 2)", 3: "Untitled (track 3)"}
+    assert ov.titles == {f: f"Untitled (track {i})" for i, f in enumerate(_SIX, 1)}
     assert ov.narration == "vague" and ov.set_breaks == []
     assert ov.encore_after is None
     assert calls == ["gather"] and "packaged: /pkg" in r.output
@@ -747,8 +763,9 @@ def test_untitled_clears_a_pre_existing_encore_so_the_tape_is_one_set(tmp_path, 
     """The confirmation promises "one set"; a leftover encore_after would still
     relabel the tail "encore" (final review I2)."""
     cfg = _cfg(tmp_path)
-    ws = _all_unresolved_show(tmp_path, n=6)
-    write_artifact(ws.overrides, Overrides(encore_after=3))
+    # gd73's own filenames: the real gather below resolves the written keys on them.
+    ws = _all_unresolved_show(tmp_path, monkeypatch)
+    write_artifact(ws.overrides, Overrides(encore_after=_SIX[2]))
     _stub_redo(monkeypatch, result=Path("/pkg"))
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
     assert r.exit_code == 0, r.output
@@ -763,7 +780,7 @@ def test_untitled_clears_a_pre_existing_encore_so_the_tape_is_one_set(tmp_path, 
 
 def test_untitled_is_refused_on_a_zero_track_show(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _all_unresolved_show(tmp_path, n=0)
+    ws = _all_unresolved_show(tmp_path, monkeypatch, empty=True)
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
     assert r.exit_code == 1
@@ -773,8 +790,8 @@ def test_untitled_is_refused_on_a_zero_track_show(tmp_path, monkeypatch):
 
 def test_untitled_declined_says_so_exits_zero_and_leaves_overrides_alone(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _all_unresolved_show(tmp_path)
-    write_artifact(ws.overrides, Overrides(encore_after=2))
+    ws = _all_unresolved_show(tmp_path, monkeypatch)
+    write_artifact(ws.overrides, Overrides(encore_after=_SIX[1]))
     before = ws.overrides.read_bytes()
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="n\n")
@@ -786,7 +803,7 @@ def test_untitled_declined_says_so_exits_zero_and_leaves_overrides_alone(tmp_pat
 def test_untitled_confirmed_but_still_held_says_still_held_not_declined(tmp_path, monkeypatch):
     # fw1 review M-1: written-then-held is not a decline (overrides are changed).
     cfg = _cfg(tmp_path)
-    ws = _all_unresolved_show(tmp_path)
+    ws = _all_unresolved_show(tmp_path, monkeypatch)
     calls = _stub_redo(monkeypatch, result=None)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
     assert r.exit_code == 0, r.output
@@ -796,7 +813,7 @@ def test_untitled_confirmed_but_still_held_says_still_held_not_declined(tmp_path
 
 def test_untitled_overrules_remaining_flags_then_continues_from_brief(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _all_unresolved_show(tmp_path)
+    ws = _all_unresolved_show(tmp_path, monkeypatch)
     outcomes = iter([None, Path("/pkg")])
     calls = []
 
@@ -819,7 +836,8 @@ def test_untitled_gather_makes_no_align_structure_call(tmp_path):
     # the override path (set_breaks=[]) skips align(): run the real gather on gd73 with an align provider
     # that would fail if called
     ws = ShowWorkspace(tmp_path / "s")
-    write_artifact(ws.overrides, Overrides(titles={i: f"Untitled (track {i})" for i in range(1, 7)},
+    write_artifact(ws.overrides, Overrides(titles={f: f"Untitled (track {i})"
+                                                   for i, f in enumerate(_SIX, 1)},
                                            narration="vague", set_breaks=[]))
 
     class Boom:
@@ -832,13 +850,13 @@ def test_untitled_gather_makes_no_align_structure_call(tmp_path):
 
 def test_untitled_is_refused_when_only_some_tracks_are_resolved(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    ws = _all_unresolved_show(tmp_path, n=3)
+    ws = _all_unresolved_show(tmp_path, monkeypatch)
     show = read_model(ws.show, Show)
     show.tracks[1] = show.tracks[1].model_copy(update={"title_source": "tags", "title": "Dew"})
     write_artifact(ws.show, show)
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
-    assert r.exit_code != 0 and "(1 of 3 resolved)" in r.output
+    assert r.exit_code != 0 and "(1 of 6 resolved)" in r.output
     assert not ws.overrides.exists() and calls == []
 
 
@@ -853,7 +871,8 @@ def _billy_shape(tmp_path, monkeypatch):
     # the dir name must be slugify(performance_id): process_show writes there
     sws = _staged_ymsb_show(tmp_path, monkeypatch, slug="yondermountainstringband-2005-12-31")
     write_artifact(sws.selection, {"identifier": "ymsb2005-12-31.flac16.wav"})
-    write_artifact(sws.overrides, Overrides(narration="vague", titles={1: "Kirby Hill"}))
+    write_artifact(sws.overrides, Overrides(narration="vague",
+                                            titles={"ymsb2005-12-31d01t01.mp3": "Kirby Hill"}))
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     return tmp_path / "config.toml", sws
 
@@ -871,7 +890,7 @@ def test_a_refused_structure_fix_leaves_every_file_byte_identical(tmp_path, monk
 def test_no_run_stages_bad_overrides_and_the_redo_restores_and_names_the_field(tmp_path, monkeypatch):   # C3
     cfg, sws = _billy_shape(tmp_path, monkeypatch)
     assert cli_invoke(cfg, "fix", "yonder", "--set-breaks", "10,20", "--set-encore", "20", "--no-run").exit_code == 0
-    assert read_overrides(sws).encore_after == 20
+    assert read_overrides(sws).encore_after == "ymsb2005-12-31d03t02.mp3"   # show.json's track 20
     before = tree_bytes(sws.dir)
     r = cli_invoke(cfg, "redo", "yonder", "--from", "gather")
     assert r.exit_code == 1 and "encore_after" in str(r.exception) and tree_bytes(sws.dir) == before
@@ -879,10 +898,10 @@ def test_no_run_stages_bad_overrides_and_the_redo_restores_and_names_the_field(t
 
 def test_a_fix_adding_one_override_keeps_the_others(tmp_path, monkeypatch):   # (pin)
     cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _stub_redo(monkeypatch)
-    write_artifact(ws.overrides, Overrides(exclude=["junk.mp3"], venue="Hall", titles={2: "Dew"}, narration="vague"))
+    write_artifact(ws.overrides, Overrides(exclude=["junk.mp3"], venue="Hall", titles={"a.mp3": "Dew"}, narration="vague"))
     assert cli_invoke(cfg, "fix", "gratefuldead", "--set-city", "Austin, TX").exit_code == 0
     ov = read_overrides(ws)
-    assert (ov.exclude, ov.venue, ov.titles, ov.narration, ov.city) == (["junk.mp3"], "Hall", {2: "Dew"}, "vague", "Austin, TX")
+    assert (ov.exclude, ov.venue, ov.titles, ov.narration, ov.city) == (["junk.mp3"], "Hall", {"a.mp3": "Dew"}, "vague", "Austin, TX")
 
 
 def _held(ws):
@@ -935,7 +954,8 @@ def test_fix_writes_overrides_under_the_show_lock(tmp_path, monkeypatch):
 
 
 def test_fix_refuses_when_the_show_changed_after_the_prompt(tmp_path, monkeypatch):
-    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); calls = _stub_redo(monkeypatch)
+    cfg = _cfg(tmp_path); ws = _gd73_show(tmp_path, monkeypatch, needs_review=True)
+    calls = _stub_redo(monkeypatch)
     def other_command_meanwhile(ia, config, entry, show):
         write_artifact(entry.ws.overrides, Overrides(venue="Elsewhere")); return {1: "Dew"}
     monkeypatch.setattr(cli, "_propose_and_confirm_titles", other_command_meanwhile)
@@ -945,7 +965,7 @@ def test_fix_refuses_when_the_show_changed_after_the_prompt(tmp_path, monkeypatc
 
 
 def test_untitled_failure_after_the_overrule_restores_everything(tmp_path, monkeypatch):
-    cfg = _cfg(tmp_path); ws = _all_unresolved_show(tmp_path); before = tree_bytes(ws.dir)
+    cfg = _cfg(tmp_path); ws = _all_unresolved_show(tmp_path, monkeypatch); before = tree_bytes(ws.dir)
     stages = []
     def fake(config, ia, ledger, e, stage, **kw):
         stages.append(stage)
@@ -962,7 +982,8 @@ def test_untitled_failure_after_the_overrule_restores_everything(tmp_path, monke
 def test_fix_on_a_show_with_no_show_json_takes_metadata_and_filename_edits(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
     ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
-    write_artifact(ws.overrides, Overrides(set_breaks=[10, 20], encore_after=20))
+    write_artifact(ws.overrides, Overrides(set_breaks=["gd73-06-10d1t10.mp3", "gd73-06-10d2t10.mp3"],
+                                           encore_after="gd73-06-10d2t10.mp3"))
     assert cli_invoke(cfg, "fix", "gratefuldead", "--clear-encore", "--no-run").exit_code == 0
     assert read_overrides(ws).encore_after is None
     assert cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "junk.mp3", "--no-run").exit_code == 0
@@ -994,3 +1015,429 @@ def test_a_track_number_exclude_without_show_json_refuses_and_changes_nothing(tm
     assert r.exit_code == 1 and "resolving a track number needs show.json" in r.output
     assert f"rebuild it with: llama redo {ws.dir.name} --from gather" in r.output
     assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()
+
+
+# --- piece 4 spec 4.2: writers take show.json numbers, store filenames ---
+
+_SIX = ["gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+        "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+
+
+def _six_track_show(tmp_path: Path, monkeypatch=None) -> ShowWorkspace:
+    """gd73 gathered under the current rule: its six kept files are `_SIX`. With
+    `monkeypatch`, `cli.IAClient` serves the same metadata (`_gd73_show`), as the
+    staleness check of a positional `fix` edit needs."""
+    if monkeypatch is not None:
+        ws = _gd73_show(tmp_path, monkeypatch)
+    else:
+        ws = _gathered_show(tmp_path)
+        write_artifact(ws.show, compute_gather(ShowWorkspace(tmp_path / "_gather"), StubIA(),
+                                               FakeProvider(), make_candidate(), IDENT).show)
+    assert [t.filename for t in read_model(ws.show, Show).tracks] == _SIX
+    return ws
+
+
+def test_set_title_writes_the_show_json_filename(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _six_track_show(tmp_path, monkeypatch)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-title", "3=X", "--no-run")
+    assert r.exit_code == 0, r.output
+    assert json.loads(ws.overrides.read_text())["titles"] == {_SIX[2]: "X"}
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-breaks", "2,4", "--set-encore", "5",
+                   "--no-run")
+    assert r.exit_code == 0, r.output
+    raw = json.loads(ws.overrides.read_text())
+    assert raw["set_breaks"] == [_SIX[1], _SIX[3]]
+    assert raw["encore_after"] == _SIX[4]
+    assert raw["titles"] == {_SIX[2]: "X"}
+    # A numeric --clear-title translates the same way.
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--clear-title", "3", "--no-run")
+    assert r.exit_code == 0, r.output
+    assert json.loads(ws.overrides.read_text())["titles"] == {}
+
+
+def test_edit_overrides_translates_through_show_json(tmp_path):
+    ws = _six_track_show(tmp_path)
+    ov = cli._edit_overrides(ws, set_titles={1: "A", "6": "F"}, set_breaks=[3],
+                             encore_after=4)
+    assert ov.titles == {_SIX[0]: "A", _SIX[5]: "F"}
+    assert ov.set_breaks == [_SIX[2]] and ov.encore_after == _SIX[3]
+    # A non-digit clear_titles item is a filename, removed as given.
+    ov = cli._edit_overrides(ws, clear_titles=[_SIX[5], "1"])
+    assert ov.titles == {}
+    with pytest.raises(LlamaError, match=r"^no track 7 \(show has 6 tracks\)$"):
+        cli._edit_overrides(ws, set_titles={7: "X"})
+    with pytest.raises(LlamaError, match=r"^no track 0 \(show has 6 tracks\)$"):
+        cli._edit_overrides(ws, set_breaks=[0])
+    # set_breaks=[] needs no translation (forced no breaks is preserved).
+    assert cli._edit_overrides(ws, set_breaks=[]).set_breaks == []
+
+
+def test_edit_overrides_needs_show_json_to_translate(tmp_path):
+    ws = _six_track_show(tmp_path)
+    ws.show.unlink()
+    with pytest.raises(LlamaError, match="llama redo gratefuldead-1973-06-10 --from gather"):
+        cli._edit_overrides(ws, set_titles={1: "X"})
+    with pytest.raises(LlamaError, match="llama redo gratefuldead-1973-06-10 --from gather"):
+        cli._edit_overrides(ws, encore_after=2)
+    # Nothing to translate: filename clears and the non-positional edits still work.
+    write_artifact(ws.overrides, Overrides(titles={_SIX[0]: "A"}, set_breaks=[_SIX[1]],
+                                           encore_after=_SIX[2]))
+    ov = cli._edit_overrides(ws, clear_titles=[_SIX[0]], clear_set_breaks=True,
+                             clear_encore=True, venue="Hall")
+    assert (ov.titles, ov.set_breaks, ov.encore_after, ov.venue) == ({}, None, None, "Hall")
+
+
+def test_edit_overrides_refuses_a_legacy_file(tmp_path):
+    ws = _six_track_show(tmp_path)
+    ws.overrides.write_text(json.dumps({"titles": {"3": "X"}, "set_breaks": [2]}))
+    before = ws.overrides.read_bytes()
+    for kwargs in ({"venue": "Hall"}, {"set_titles": {1: "A"}}, {"narration": "vague"},
+                   {"add_exclude": [_SIX[0]]}, {"clear_set_breaks": True}):
+        with pytest.raises(LlamaError) as e:
+            cli._edit_overrides(ws, **kwargs)
+        assert str(e.value) == ("gratefuldead-1973-06-10: overrides.json uses track-number "
+                                "keys; run the migration")
+        assert ws.overrides.read_bytes() == before
+
+
+def test_legacy_message(tmp_path):
+    ws = _six_track_show(tmp_path)
+    slug = "gratefuldead-1973-06-10"
+    assert cli._legacy_message(ws, slug) is None                      # no file
+    write_artifact(ws.overrides, Overrides(titles={_SIX[0]: "A"}))
+    assert cli._legacy_message(ws, slug) is None                      # migrated
+    ws.overrides.write_text(json.dumps({"encore_after": 4}))
+    assert cli._legacy_message(ws, slug) == (
+        f"{slug}: overrides.json uses track-number keys; run the migration")
+    # A mixed file holds a legacy value too (spec 4.1 "Writers refuse legacy": "any
+    # legacy value"): the writers refuse it, with the resolver's mixed message.
+    ws.overrides.write_text(json.dumps({"titles": {"1": "A"}, "set_breaks": [_SIX[1]]}))
+    assert cli._legacy_message(ws, slug) == (
+        f"{slug}: overrides.json mixes track-number and filename keys (filename-valued: "
+        f"set_breaks {_SIX[1]}); undo the hand edit")
+
+
+# --- piece 4 Task 4: fix's writer rules (spec 4.1 "Writers refuse legacy", 4.2) ---
+
+_SLUG = "gratefuldead-1973-06-10"
+
+
+def _gd73_show(tmp_path: Path, monkeypatch, *, overrides: Overrides | None = None,
+               needs_review: bool = False) -> ShowWorkspace:
+    """gratefuldead-1973-06-10 whose show.json is the real gather of gd73 under the
+    current rule (over `overrides`, also stored), with `cli.IAClient` serving the same
+    metadata: the staleness check compares show.json with gather's final kept list."""
+    ws = build(tmp_path, _SLUG, stages={"select", "gather"}, needs_review=needs_review)
+    gws = ShowWorkspace(tmp_path / "_gather")
+    if overrides is not None:
+        write_artifact(ws.overrides, overrides)
+        write_artifact(gws.overrides, overrides)
+    show = compute_gather(gws, StubIA(), FakeProvider(), make_candidate(), IDENT).show
+    write_artifact(ws.show, show.model_copy(update={
+        "needs_review": needs_review,
+        "review_flags": ["research asserts wrong date: x"] if needs_review else []}))
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: StubIA())
+    return ws
+
+
+_W_SLUG = "gratefuldead-1974-02-24"
+
+
+def _windsor_show(tmp_path: Path, monkeypatch, *, pre_rule: bool = False) -> ShowWorkspace:
+    """gratefuldead-1974-02-24 gathered from windsor under the current rule, which
+    keeps the short GD_022474_D3_T02.mp3 at track 17. `pre_rule` writes the show.json
+    a gather before piece 4 left: the same tracks without the short-kept one."""
+    from test_stage_gather import W_IDENT, gd74_candidate, gd74_ia
+
+    ws = build(tmp_path, _W_SLUG, stages={"select", "gather"},
+               pid="GratefulDead/1974-02-24")
+    show = compute_gather(ShowWorkspace(tmp_path / "_gather"), gd74_ia(), None,
+                          gd74_candidate(), W_IDENT).show
+    assert [t.filename for t in show.tracks if t.short_kept] == ["GD_022474_D3_T02.mp3"]
+    if pre_rule:
+        tracks = [t for t in show.tracks if not t.short_kept]
+        show = show.model_copy(update={"tracks": [
+            t.model_copy(update={"index": i}) for i, t in enumerate(tracks, 1)]})
+    write_artifact(ws.show, show)
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: gd74_ia())
+    return ws
+
+
+def _legacy_text(slug: str = _SLUG) -> str:
+    return f"{slug}: overrides.json uses track-number keys; run the migration"
+
+
+@pytest.mark.parametrize("args", [
+    ["--set-venue", "X"], ["--exclude", "1"], ["--include", "x1"], ["--narration", "vague"],
+    ["--set-title", "1=X", "--no-run"], ["--suggest-titles"], ["--untitled"], ["--overrule"]])
+def test_every_fix_flag_refuses_a_legacy_file(tmp_path, monkeypatch, args):
+    """Spec 4.1: every writer refuses a legacy file before any prompt, any other
+    refusal and any write."""
+    cfg = _cfg(tmp_path)
+    ws = _gd73_show(tmp_path, monkeypatch, needs_review=True)
+    ws.overrides.write_text(json.dumps({"titles": {"1": "X"}}))
+    before = tree_bytes(ws.dir)
+    calls = _stub_redo(monkeypatch)
+    monkeypatch.setattr(cli, "_propose_titles_for_show",
+                        lambda *a, **k: pytest.fail("proposal built for a legacy file"))
+    r = cli_invoke(cfg, "fix", "gratefuldead", *args, input="")
+    assert r.exit_code == 1, r.output
+    assert _legacy_text() in r.output
+    assert "Title every track" not in r.output and "write " not in r.output
+    assert tree_bytes(ws.dir) == before and calls == []
+
+
+@pytest.mark.parametrize("args", [
+    ["--set-title", "2=X"], ["--set-breaks", "2"], ["--set-encore", "2"],
+    ["--suggest-titles"], ["--untitled"]])
+def test_positional_edit_refuses_when_stale(tmp_path, monkeypatch, args):
+    """Spec 4.2: until a show is re-gathered under the new rule its show.json is not
+    gather's final kept list, so a number would name the wrong file; a positional
+    edit refuses before any prompt and writes nothing. A clear cannot mis-point and
+    skips the check."""
+    cfg = _cfg(tmp_path)
+    ws = _windsor_show(tmp_path, monkeypatch, pre_rule=True)
+    write_artifact(ws.overrides, Overrides(set_breaks=["GD_022474_D2_T01.mp3"]))
+    before = tree_bytes(ws.dir)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead-1974", *args, input="")
+    assert r.exit_code == 1, r.output
+    assert (f"{_W_SLUG}: show.json's track list is not what gather keeps now; re-gather "
+            f"under the new rule first (llama redo {_W_SLUG} --from gather)") in r.output
+    assert "Title every track" not in r.output and "proposal" not in r.output
+    assert tree_bytes(ws.dir) == before and calls == []
+    r = cli_invoke(cfg, "fix", "gratefuldead-1974", "--clear-set-breaks")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).set_breaks is None and calls == ["gather"]
+
+
+def test_a_fresh_show_passes_the_staleness_check(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _windsor_show(tmp_path, monkeypatch)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead-1974", "--set-title", "17=Tuning", "--no-run")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).titles == {"GD_022474_D3_T02.mp3": "Tuning"}
+
+
+def test_exclude_then_title_numbers_are_show_json_numbers(tmp_path, monkeypatch):
+    """Spec 4.2 "Behaviour change": `--exclude 3 --set-title 7=X` titles show.json's
+    track 7 (v2.17.0 put it on old track 8, the post-exclusion position 7)."""
+    cfg = _cfg(tmp_path)
+    ws = _windsor_show(tmp_path, monkeypatch)
+    show = read_model(ws.show, Show)
+    r = cli_invoke(cfg, "fix", "gratefuldead-1974", "--exclude", "3",
+                   "--set-title", "7=X", "--no-run")
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.exclude == [show.tracks[2].filename]
+    assert ov.titles == {show.tracks[6].filename: "X"}
+
+
+def test_exclude_and_title_on_the_same_file_refuses(tmp_path, monkeypatch):   # Review Focus 3
+    cfg = _cfg(tmp_path)
+    ws = _gd73_show(tmp_path, monkeypatch)
+    before = tree_bytes(ws.dir)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "3", "--set-title", "3=X")
+    assert r.exit_code == 1, r.output
+    f = _SIX[2]
+    assert (f"{_SLUG}: {f} carries overrides.titles; clear it first with "
+            f"llama fix {_SLUG} --clear-title {f}") in r.output
+    assert tree_bytes(ws.dir) == before and calls == []
+
+
+_KEYED = {"titles": (Overrides(titles={_SIX[3]: "Dew"}), f"--clear-title {_SIX[3]}"),
+          "set_breaks": (Overrides(set_breaks=[_SIX[3]]), "--clear-set-breaks"),
+          "encore_after": (Overrides(encore_after=_SIX[3]), "--clear-encore")}
+
+
+@pytest.mark.parametrize("no_run", [False, True])
+@pytest.mark.parametrize("target", ["4", _SIX[3]])
+@pytest.mark.parametrize("key", list(_KEYED))
+def test_exclusion_refuses_a_keyed_file(tmp_path, monkeypatch, key, target, no_run):
+    cfg = _cfg(tmp_path)
+    ov, flag = _KEYED[key]
+    ws = _gd73_show(tmp_path, monkeypatch, overrides=ov)
+    before = tree_bytes(ws.dir)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", target,
+                   *(["--no-run"] if no_run else []))
+    assert r.exit_code == 1, r.output
+    assert (f"{_SLUG}: {_SIX[3]} carries overrides.{key}; clear it first with "
+            f"llama fix {_SLUG} {flag}") in r.output
+    assert tree_bytes(ws.dir) == before and calls == []
+
+
+def test_exclude_with_its_own_clear_is_allowed(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _gd73_show(tmp_path, monkeypatch, overrides=Overrides(titles={_SIX[3]: "Dew"}))
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "4", "--clear-title", "4",
+                   "--no-run")
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.exclude == [_SIX[3]] and ov.titles == {}
+
+    ws.overrides.unlink()
+    ws = _gd73_show(tmp_path / "e", monkeypatch, overrides=Overrides(encore_after=_SIX[3]))
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(_cfg(tmp_path / "e"), "fix", "gratefuldead", "--exclude", "4",
+                   "--clear-encore")
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.exclude == [_SIX[3]] and ov.encore_after is None and calls == ["gather"]
+
+
+def test_replacing_a_key_frees_its_old_file_for_exclusion(tmp_path, monkeypatch):
+    """A `--set-breaks`/`--set-encore` in the same invocation replaces the stored
+    value, so the file it named no longer carries the key; the new value's file does."""
+    cfg = _cfg(tmp_path)
+    ws = _gd73_show(tmp_path, monkeypatch,
+                    overrides=Overrides(set_breaks=[_SIX[3]], encore_after=_SIX[4]))
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "4", "--set-breaks", "2",
+                   "--no-run")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).set_breaks == [_SIX[1]]
+    # The staged exclusion makes show.json stale; a fresh show for the second half.
+    ws = _gd73_show(tmp_path / "b", monkeypatch,
+                    overrides=Overrides(set_breaks=[_SIX[3]], encore_after=_SIX[4]))
+    cfg = _cfg(tmp_path / "b")
+    before = tree_bytes(ws.dir)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "3", "--set-encore", "3",
+                   "--no-run")
+    assert r.exit_code == 1, r.output
+    assert (f"{_SLUG}: {_SIX[2]} carries overrides.encore_after; clear it first with "
+            f"llama fix {_SLUG} --clear-encore") in r.output
+    assert tree_bytes(ws.dir) == before
+
+
+def test_clear_flags_work_without_show_json(tmp_path, monkeypatch):
+    """Spec 4.2 "A key whose file vanished": the three clears need no show.json and no
+    staleness check, so a dangling key is cleared with fix; a positional set refuses
+    and names the repair."""
+    cfg = _cfg(tmp_path)
+    ws = build(tmp_path, _SLUG, stages={"select"})
+    write_artifact(ws.overrides, Overrides(titles={"gone.mp3": "X", "kept.mp3": "Y"},
+                                           set_breaks=["gone2.mp3"], encore_after="gone3.mp3"))
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--clear-title", "gone.mp3", "--no-run")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).titles == {"kept.mp3": "Y"}
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--clear-set-breaks", "--no-run").exit_code == 0
+    assert read_overrides(ws).set_breaks is None
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--clear-encore", "--no-run").exit_code == 0
+    assert read_overrides(ws).encore_after is None
+    before = tree_bytes(ws.dir)
+    for args in (["--set-title", "1=X"], ["--clear-title", "1"], ["--set-breaks", "2"],
+                 ["--set-encore", "2"]):
+        r = cli_invoke(cfg, "fix", "gratefuldead", *args, "--no-run")
+        assert r.exit_code == 1, (args, r.output)
+        assert f"rebuild it with: llama redo {_SLUG} --from gather" in r.output, args
+        assert tree_bytes(ws.dir) == before
+
+
+def test_clear_title_by_filename_skips_the_staleness_check(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _windsor_show(tmp_path, monkeypatch, pre_rule=True)
+    write_artifact(ws.overrides, Overrides(titles={"GD_022474_D1_T01.mp3": "X"}))
+    r = cli_invoke(cfg, "fix", "gratefuldead-1974", "--clear-title", "GD_022474_D1_T01.mp3",
+                   "--no-run")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).titles == {}
+
+
+def test_suggest_titles_kept_list_comes_from_final_kept(tmp_path, monkeypatch):
+    """The proposal's kept list is gather's own `final_kept` over the stored overrides
+    (spec 4.2 "one shared helper"); the staleness check is the other caller."""
+    import llama.stages.gather as gather_mod
+
+    cfg = _cfg(tmp_path)
+    stored = Overrides(exclude=[_SIX[5]], venue="Hall")
+    ws = _gd73_show(tmp_path, monkeypatch, overrides=stored, needs_review=True)
+    real = gather_mod.final_kept
+    calls = []
+
+    def spy(files, overrides, want, **kw):
+        calls.append(overrides)
+        return real(files, overrides, want, **kw)
+    monkeypatch.setattr(gather_mod, "final_kept", spy)
+    _stub_redo(monkeypatch)
+    cli_invoke(cfg, "fix", "gratefuldead", "--suggest-titles", input="n\n")
+    assert len(calls) == 2 and all(c == stored for c in calls)   # _stale, then the proposal
+
+    calls.clear()
+    from llama.catalog import resolve_show
+    from llama.ledger import Ledger
+    entry = resolve_show(tmp_path, Ledger(tmp_path / "ledger.jsonl"), _SLUG)
+    cli._propose_titles_for_show(StubIA(), cli.load_config(cfg), entry,
+                                 read_model(ws.show, Show))
+    assert calls == [stored]
+
+
+def test_fix_auto_redo_of_a_delivered_show_reuses_the_station_copy(tmp_path, monkeypatch):
+    import shutil
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    cfg, ws, ia = reuse_gd73(tmp_path, monkeypatch, old, delivery=True)
+    station = tmp_path / "station" / ws.dir.name
+    shutil.copytree(ws.package_dir, station)
+    for p in (ws.package_dir / "audio").iterdir():         # deliver purged the library audio
+        p.unlink()
+    stub_stages(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague")
+    assert r.exit_code == 0, r.output
+    assert ia.downloads == []                              # both files came from the station copy
+    names = audio_files(ws)
+    assert {n: fake_source(ws.package_dir / "audio" / n) for n in names} == {
+        "01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3"}
+    assert sorted(p.name for p in (station / "audio").iterdir()) == ["01 - A.mp3", "02 - B.mp3"]
+
+
+def test_held_regather_then_overrule_never_reuses_old_audio_by_name(tmp_path, monkeypatch):   # Review Focus 6
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0), ("C", "c.mp3", 500.0))
+    cfg, ws, ia = reuse_gd73(tmp_path, monkeypatch, old)
+    # the re-gather renumbers: new 01 'A' and 02 'B' share their old files' names but not their sources
+    new = (("A", "a2.mp3", 310.0), ("B", "b2.mp3", 410.0))
+    ia.lengths.update({"a2.mp3": 310.0, "b2.mp3": 410.0})
+    stub_stages(monkeypatch, new, hold=["research asserts wrong date: 1974-01-01"])
+    r = cli_invoke(cfg, "redo", "gratefuldead", "--from", "gather")
+    assert r.exit_code == 0, r.output
+    assert read_model(ws.show, Show).needs_review is True
+    assert not (ws.package_dir / "manifest.json").exists()
+    assert sorted(audio_files(ws)) == ["01 - A.mp3", "02 - B.mp3", "03 - C.mp3"]   # old audio still in place
+    stub_stages(monkeypatch)
+    from llama.models import Briefing
+    write_artifact(ws.briefing_json, Briefing(context="c", significance="s"))
+    write_artifact(ws.briefing_md, "# Briefing\n")
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--overrule")
+    assert r.exit_code == 0, r.output
+    assert sorted(ia.downloads) == ["a2.mp3", "b2.mp3"]   # nothing re-used by name
+    names = audio_files(ws)
+    assert {n: fake_source(ws.package_dir / "audio" / n) for n in names} == {
+        "01 - A.mp3": "a2.mp3", "02 - B.mp3": "b2.mp3"}   # and no old-numbered file is left
+    assert not (ws.dir / ".audio-aside").exists()
+
+
+def test_held_reselection_then_overrule_never_ships_the_old_items_station_audio(tmp_path, monkeypatch):
+    import shutil
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    cfg, ws, ia = reuse_gd73(tmp_path, monkeypatch, old, delivery=True)
+    station = tmp_path / "station" / ws.dir.name
+    shutil.copytree(ws.package_dir, station)             # delivered from item gd73
+    old_bytes = {p.read_bytes() for p in (station / "audio").iterdir()}
+    for p in (ws.package_dir / "audio").iterdir():       # deliver purged the library audio
+        p.unlink()
+    # a re-selection picks another item with the same file names, and the re-gather holds
+    stub_stages(monkeypatch, old, identifier="gd73-other-taper",
+                hold=["research asserts wrong date: 1974-01-01"])
+    r = cli_invoke(cfg, "redo", "gratefuldead", "--from", "gather")
+    assert r.exit_code == 0, r.output
+    assert read_model(ws.show, Show).identifier == "gd73-other-taper"
+    stub_stages(monkeypatch)
+    from llama.models import Briefing
+    write_artifact(ws.briefing_json, Briefing(context="c", significance="s"))
+    write_artifact(ws.briefing_md, "# Briefing\n")
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--overrule")
+    assert r.exit_code == 0, r.output
+    assert ia.downloads == ["a.mp3", "b.mp3"]            # every track from the new item
+    assert not ({p.read_bytes() for p in (ws.package_dir / "audio").iterdir()} & old_bytes)

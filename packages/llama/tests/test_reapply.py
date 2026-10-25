@@ -1,6 +1,7 @@
 """llama reapply: exactly the harness's computation, applied under the show lock
 with show.json written last (spec slice 6)."""
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -56,7 +57,7 @@ def _stale(ws) -> None:
 
 def _stub_package(monkeypatch, fail_first=False, flags=()):
     calls = []
-    def fake(show_ws, ia, show, force=False, profile=None):
+    def fake(show_ws, ia, show, force=False, profile=None, reuse=None):
         if (show_ws.package_dir / "manifest.json").exists() and not force:
             return show_ws.package_dir, []          # the real early return on an existing manifest
         calls.append(show.performance_id)
@@ -248,7 +249,7 @@ def test_package_flags_land_in_the_one_final_show_json_write(tmp_path, monkeypat
 def test_show_json_is_not_rewritten_before_the_package_is_built(tmp_path, monkeypatch):
     root, config, ledger, entry, _ = _env(tmp_path)
     seen = []
-    def fake(show_ws, ia, show, force=False, profile=None):
+    def fake(show_ws, ia, show, force=False, profile=None, reuse=None):
         seen.append(read_model(show_ws.show, Show).needs_review)
         write_artifact(show_ws.package_dir / "manifest.json", {"schema_version": 3, "tracks": []})
         return show_ws.package_dir, []
@@ -265,7 +266,7 @@ def test_reapply_holds_the_show_lock_throughout(tmp_path, monkeypatch):
             with file_lock(ws_dir / ".lock", blocking=False):
                 pass
     held_during_package = []
-    def fake(show_ws, ia, show, force=False, profile=None):
+    def fake(show_ws, ia, show, force=False, profile=None, reuse=None):
         assert_locked(show_ws.dir)
         held_during_package.append(True)
         write_artifact(show_ws.package_dir / "manifest.json", {"schema_version": 3, "tracks": []})
@@ -364,10 +365,51 @@ def test_cli_reapply_names_form(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
     ledger.record(LedgerEntry(performance_id="GratefulDead/1973-06-10", artist="Grateful Dead", date="1973-06-10",
                               status="delivered", run="r1", recorded_at="2026-10-01T00:00:00+00:00"))
-    r = cli_invoke(root / "config.toml", "reapply", "gratefuldead-1973-06-10")   # the library's own config
+    # Task 16 interface (spec 5.5): the hint needs a delivery_path to check the station
+    # copy; with none there is no hint (pinned by test_reapply_hint_suppressed_for_a_voiced_destination).
+    cfg = tmp_path / "with-station.toml"
+    cfg.write_text(f'root = "{root}"\ndelivery_path = "{tmp_path / "station"}"\n\n[jerrybase]\nenabled = false\n')
+    r = cli_invoke(cfg, "reapply", "gratefuldead-1973-06-10")   # the library's config plus a delivery_path
     assert r.exit_code == 0, r.output
     assert "reapplied: gratefuldead-1973-06-10 -> cleared" in r.output
     assert "  re-deliver with: llama deliver gratefuldead-1973-06-10" in r.output
+
+
+@pytest.mark.parametrize("station", ["voiced", "unvoiced", "unreadable", "missing", "no delivery_path"])
+def test_reapply_hint_suppressed_for_a_voiced_destination(tmp_path, monkeypatch, station):
+    """Spec 5.5: the `re-deliver with` hint is printed only for a destination that is
+    not voiced; an unreadable one prints the refusal deliver would give instead, and
+    with no delivery_path there is nothing to check and no hint."""
+    from conftest import cli_invoke
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _stub_package(monkeypatch)
+    import llama.cli as cli
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    ledger.record(LedgerEntry(performance_id="GratefulDead/1973-06-10", artist="Grateful Dead", date="1973-06-10",
+                              status="delivered", run="r1", recorded_at="2026-10-01T00:00:00+00:00"))
+    st = tmp_path / "station"
+    out = st / HELD
+    cfg = root / "config.toml"
+    if station != "no delivery_path":
+        cfg = tmp_path / "with-station.toml"
+        cfg.write_text(f'root = "{root}"\ndelivery_path = "{st}"\n\n[jerrybase]\nenabled = false\n')
+        st.mkdir()
+    if station in ("voiced", "unvoiced", "unreadable"):
+        out.mkdir()
+        (out / "manifest.json").write_text(
+            "{not json" if station == "unreadable"
+            else json.dumps({"dj_audio": {"presenter": None} if station == "voiced" else None}))
+    r = cli_invoke(cfg, "reapply", HELD)
+    assert r.exit_code == 0, r.output
+    assert f"reapplied: {HELD} -> cleared" in r.output
+    hint = f"  re-deliver with: llama deliver {HELD}"
+    if station in ("unvoiced", "missing"):
+        assert hint in r.output
+    else:
+        assert "re-deliver with" not in r.output
+    text = " ".join(r.output.split())
+    unreadable = f"refusing to deliver {HELD}: cannot read {out / 'manifest.json'} ("
+    assert (unreadable in text) == (station == "unreadable")
 
 
 def test_cli_reapply_reports_a_failure_continues_and_exits_1(tmp_path, monkeypatch):
@@ -1090,7 +1132,10 @@ def test_a_cleared_outcome_is_not_dropped(tmp_path, monkeypatch):
 
 def test_reapply_on_refused_overrides_raises_and_writes_nothing(tmp_path, monkeypatch):   # (pin)
     root, config, ledger, entry, _ = _env(tmp_path)
-    write_artifact(entry.ws.overrides, Overrides(set_breaks=[2, 4], encore_after=4))
+    # gd73's tracks 2 and 4, then the encore after track 4: gather refuses the encore.
+    write_artifact(entry.ws.overrides, Overrides(
+        set_breaks=["gd73-06-10d1t02.mp3", "gd73-06-10d2t01.mp3"],
+        encore_after="gd73-06-10d2t01.mp3"))
     before = _snapshot(entry.ws)
     with pytest.raises(LlamaError, match="overrides\\.(encore_after|set_breaks)"):
         _run(config, ledger, entry)
@@ -1144,3 +1189,131 @@ def test_reapply_processes_a_self_filled_stored_llm_show(tmp_path, monkeypatch):
                        dry_run=False, echo=lambda s: None, allow_structure_change=True)
     assert out.outcome == "cleared" and "show.json" in out.written
     assert {t.title_source for t in read_model(entry.ws.show, Show).tracks} == {"desc-position"}
+
+
+def test_reapply_reuses_the_briefing_of_a_held_show_that_gained_a_short_file(tmp_path, monkeypatch):
+    # Task 11: the stored show.json predates the short-keep rule and lacks track 3;
+    # the item's cached metadata now makes that file short, so the replay keeps it
+    # as short_kept. The stored briefing must still be reused.
+    root, config, ledger, entry, _ = _env(tmp_path)
+    md_path = root / "cache" / "md_gd73-06-10.sbd.hollister.174.sbeok.shnf.json"
+    md = json.loads(md_path.read_text())
+    for f in md["files"]:
+        if f["name"].startswith("gd73-06-10d1t03"):
+            f["length"] = "20"
+    md_path.write_text(json.dumps(md))
+    show = read_model(entry.ws.show, Show)
+    tracks = [t.model_copy(update={"index": i}) for i, t in
+              enumerate((t for t in show.tracks if "d1t03" not in t.filename), 1)]
+    write_artifact(entry.ws.show, show.model_copy(update={"tracks": tracks, "set_breaks": [2, 4]}))
+    _stub_package(monkeypatch)
+    out = reapply_show(config, object(), ledger, entry, providers=_providers(), row=None, dry_run=False,
+                       echo=lambda s: None, allow_structure_change=True)
+    assert out.outcome == "cleared" and out.briefing == "reuse", out
+
+
+# --- audio re-use (spec 5.4) --------------------------------------------------
+
+def _old_packaged_audio(ws):
+    """Fake audio under old names, and a library manifest whose titles match the
+    stored show.json, so a plan pairs every source file with its old copy."""
+    from helpers import ReuseIA, fake_audio
+    show = read_model(ws.show, Show)
+    ia = ReuseIA({t.filename: t.duration_sec for t in show.tracks})
+    audio = ws.package_dir / "audio"
+    shutil.rmtree(audio, ignore_errors=True)           # the fixture's own audio
+    audio.mkdir(parents=True)
+    old = {}
+    for t in show.tracks:
+        name = f"{t.index:02d} - OLD.mp3"
+        old[name] = fake_audio(t.filename, t.duration_sec)
+        (audio / name).write_bytes(old[name])
+    write_artifact(ws.package_dir / "manifest.json", {
+        "schema_version": 3, "source": {"identifier": show.identifier},
+        "tracks": [{"index": t.index, "title": t.title, "filename": f"{t.index:02d} - OLD.mp3"}
+                   for t in show.tracks]})
+    return ia, old
+
+
+def test_reapply_reuses_audio_and_puts_it_back_on_failure(tmp_path, monkeypatch):
+    from helpers import audio_files, fake_source, patch_fake_durations
+    patch_fake_durations(monkeypatch)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    ia, old = _old_packaged_audio(entry.ws)
+    real_write = reapply_mod.write_artifact
+
+    def fail_on_show(path, data):
+        if path == entry.ws.show:
+            raise OSError("disk full")                 # the commit marker
+        return real_write(path, data)
+    monkeypatch.setattr(reapply_mod, "write_artifact", fail_on_show)
+    with pytest.raises(OSError, match="disk full"):
+        _run(config, ledger, entry, ia=ia)
+    assert audio_files(entry.ws) == old                # exactly the old names and bytes
+    assert ia.downloads == []                          # reused, never downloaded
+    assert not (entry.ws.package_dir / "manifest.json").exists()
+    assert not (entry.ws.dir / ".audio-aside").exists()
+    assert read_model(entry.ws.show, Show).needs_review is True
+    monkeypatch.setattr(reapply_mod, "write_artifact", real_write)
+    out = _run(config, ledger, entry, ia=ia)           # a re-run completes it (the dropped manifest
+    assert out.outcome == "cleared"                    # is not restored, so this one downloads)
+    names = audio_files(entry.ws)
+    assert not any("OLD" in n for n in names) and len(names) == len(old)
+    assert None not in {fake_source(entry.ws.package_dir / "audio" / n) for n in names}
+    assert not (entry.ws.dir / ".audio-aside").exists()
+
+
+def test_reapply_dry_run_leaves_a_leftover_aside(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    aside = entry.ws.dir / ".audio-aside"
+    aside.mkdir()
+    (aside / "01 - OLD.mp3").write_bytes(b"old")
+    out = _run(config, ledger, entry, dry_run=True)
+    assert out.outcome.startswith("dry-run")
+    assert (aside / "01 - OLD.mp3").read_bytes() == b"old"
+    # a real apply deletes it at entry, as show_unit does: a failure after that never
+    # puts the leftover's file into package/audio/
+    real_write = reapply_mod.write_artifact
+
+    def fail_on_show(path, data):
+        if path == entry.ws.show:
+            raise OSError("disk full")
+        return real_write(path, data)
+    monkeypatch.setattr(reapply_mod, "write_artifact", fail_on_show)
+    _stub_package(monkeypatch)
+    with pytest.raises(OSError, match="disk full"):
+        _run(config, ledger, entry)
+    assert not aside.exists()
+    audio = entry.ws.package_dir / "audio"
+    assert not (audio / "01 - OLD.mp3").exists()
+
+
+def test_reapply_refuses_when_a_leftover_aside_cannot_be_removed(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    aside = entry.ws.dir / ".audio-aside"
+    aside.mkdir()
+    (aside / "01 - OLD.mp3").write_bytes(b"old")
+    monkeypatch.setattr(reapply_mod, "discard_aside", lambda ws: None)   # removal fails
+    _stub_package(monkeypatch)
+    before = _snapshot(entry.ws)
+    with pytest.raises(LlamaError, match="cannot remove leftover audio aside"):
+        _run(config, ledger, entry)
+    assert (aside / "01 - OLD.mp3").read_bytes() == b"old"
+    assert not (entry.ws.package_dir / "audio" / "01 - OLD.mp3").exists()
+    assert _snapshot(entry.ws) == before
+
+
+def test_reapply_after_a_held_reselection_never_reuses_the_old_items_audio(tmp_path, monkeypatch):
+    from helpers import audio_files, patch_fake_durations
+    patch_fake_durations(monkeypatch)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    ia, old = _old_packaged_audio(entry.ws)          # packaged from the show's item
+    # the show was re-selected onto another item with the same file names and held: the
+    # library manifest still names the item the audio came from
+    manifest = entry.ws.package_dir / "manifest.json"
+    data = json.loads(manifest.read_text())
+    data["source"]["identifier"] = "an-older-item"
+    manifest.write_text(json.dumps(data))
+    _run(config, ledger, entry, ia=ia)
+    assert len(ia.downloads) == len(old)             # every track fetched, none re-used
+    assert not (set(audio_files(entry.ws).values()) & set(old.values()))

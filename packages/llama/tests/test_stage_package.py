@@ -213,3 +213,192 @@ def test_build_package_returns_its_flags_and_never_writes_show_json(tmp_path: Pa
                      "duration mismatch on 02 - Dark Star.mp3: file 100s vs metadata 1800s"]
     assert sws.show.read_bytes() == before
     assert build_package(sws, StubIA(), show) == (pkg, [])   # an existing manifest short-circuits
+
+
+# --- re-using existing audio (spec 5.4) --------------------------------------
+
+from helpers import (  # noqa: E402
+    ReuseIA,
+    audio_files,
+    fake_source,
+    packaged_reuse_show,
+    patch_fake_durations,
+    reuse_show,
+)
+from llama.audio_reuse import ASIDE_DIR, plan_reuse  # noqa: E402
+from llama.show_unit import show_unit  # noqa: E402
+from llama.stages.package import build_package  # noqa: E402
+from llama.workspace import drop_stage_artifacts  # noqa: E402
+
+
+def _sources(ws) -> dict[str, str | None]:
+    return {n: fake_source(ws.package_dir / "audio" / n) for n in audio_files(ws)}
+
+
+def _repackage(ws, new, plan, lengths=None):
+    """What a re-packaging unit does after `plan_reuse`: the re-gather writes
+    the new show.json, the manifest is dropped, the package is rebuilt."""
+    drop_stage_artifacts(ws, "package")
+    write_artifact(ws.show, new)
+    ia = ReuseIA(lengths or {t.filename: t.duration_sec for t in new.tracks})
+    build_package(ws, ia, new, reuse=plan)
+    return ia
+
+
+def test_changed_list_sets_old_audio_aside_and_reuses_it_under_the_new_name(tmp_path, monkeypatch):
+    patch_fake_durations(monkeypatch)
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0), ("X", "x.mp3", 500.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    plan = plan_reuse(ws, None)
+    new = reuse_show(old[0], old[1], ("Crowd", "s.mp3", 20.0, True), old[2])
+    ia = _repackage(ws, new, plan)
+    assert ia.downloads == ["s.mp3"]                     # only the new short file
+    assert _sources(ws) == {"01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3",
+                            "03 - Crowd.mp3": "s.mp3", "04 - X.mp3": "x.mp3"}
+    assert "03 - X.mp3" not in audio_files(ws)           # no old-numbered file left
+    m = json.loads((ws.package_dir / "manifest.json").read_text())
+    assert [t["filename"] for t in m["tracks"]] == list(_sources(ws))
+
+
+def test_same_title_renumbered_never_inherits_the_wrong_audio(tmp_path, monkeypatch):
+    # Old track 4 and new track 4 are both "Jam" but different source files,
+    # with lengths inside the duration tolerance: left in place, the old
+    # "04 - Jam.mp3" would ship as new track 4 and no flag would say so.
+    patch_fake_durations(monkeypatch)
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0),
+           ("Jam", "j1.mp3", 600.0), ("Jam", "j2.mp3", 602.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    plan = plan_reuse(ws, None)
+    new = reuse_show(old[0], old[1], ("Crowd", "s.mp3", 20.0, True), old[2], old[3])
+    ia = _repackage(ws, new, plan)
+    assert ia.downloads == ["s.mp3"]
+    assert _sources(ws) == {"01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3",
+                            "03 - Crowd.mp3": "s.mp3", "04 - Jam.mp3": "j1.mp3",
+                            "05 - Jam.mp3": "j2.mp3"}
+    assert json.loads(ws.show.read_text())["review_flags"] == []
+
+
+def test_unchanged_list_and_matching_manifest_keeps_files_in_place(tmp_path, monkeypatch):
+    # (pin) the library manifest's names equal the new packaged names: nothing
+    # is set aside, copied or downloaded; the files are re-tagged where they are.
+    patch_fake_durations(monkeypatch)
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    audio = ws.package_dir / "audio"
+    inodes = {p.name: p.stat().st_ino for p in audio.iterdir()}
+    plan = plan_reuse(ws, None)
+    import llama.audio_reuse as audio_reuse
+    calls = []
+    monkeypatch.setattr(audio_reuse, "set_aside", lambda *a: calls.append("set_aside"))
+    monkeypatch.setattr(audio_reuse, "reuse_into", lambda *a, **k: calls.append("reuse_into"))
+    ia = _repackage(ws, reuse_show(*old), plan)
+    assert ia.downloads == [] and calls == []
+    assert not (ws.dir / ASIDE_DIR).exists()
+    assert {p.name: p.stat().st_ino for p in audio.iterdir()} == inodes
+    assert _sources(ws) == {"01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3"}
+
+
+def test_audio_without_a_library_manifest_is_set_aside(tmp_path, monkeypatch):
+    # Review Focus 6: a held re-gather already wrote the new list to show.json
+    # and dropped the manifest, leaving old-numbered audio in package/audio/.
+    patch_fake_durations(monkeypatch)
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0),
+           ("Jam", "j1.mp3", 600.0), ("Jam", "j2.mp3", 602.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    new = reuse_show(old[0], old[1], ("Crowd", "s.mp3", 20.0, True), old[2], old[3])
+    drop_stage_artifacts(ws, "package")
+    write_artifact(ws.show, new)                          # the held re-gather
+    with show_unit(ws, None):
+        plan = plan_reuse(ws, None)                       # e.g. a later fix --overrule
+        assert plan.library_names is None and plan.library == {}
+        ia = ReuseIA({t.filename: t.duration_sec for t in new.tracks})
+        build_package(ws, ia, new, reuse=plan)
+        assert sorted(p.name for p in (ws.dir / ASIDE_DIR).iterdir()) == [
+            "01 - A.mp3", "02 - B.mp3", "03 - Jam.mp3", "04 - Jam.mp3"]
+    # none reused by name: every track downloads, new track 4 included
+    assert ia.downloads == ["a.mp3", "b.mp3", "s.mp3", "j1.mp3", "j2.mp3"]
+    assert _sources(ws)["04 - Jam.mp3"] == "j1.mp3"
+    assert sorted(audio_files(ws)) == ["01 - A.mp3", "02 - B.mp3", "03 - Crowd.mp3",
+                                       "04 - Jam.mp3", "05 - Jam.mp3"]
+    assert not (ws.dir / ASIDE_DIR).exists()              # gone after success
+
+
+def test_retitle_only_change_reuses_under_the_new_name(tmp_path, monkeypatch):
+    patch_fake_durations(monkeypatch)
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0), ("X", "x.mp3", 500.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    plan = plan_reuse(ws, None)                           # pairs x.mp3 -> 03 - X.mp3
+    ia = _repackage(ws, reuse_show(old[0], old[1], ("Y", "x.mp3", 500.0)), plan)
+    assert ia.downloads == []
+    assert _sources(ws) == {"01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3", "03 - Y.mp3": "x.mp3"}
+    assert "03 - X.mp3" not in audio_files(ws)
+
+
+def test_build_package_without_reuse_never_sets_aside(tmp_path, monkeypatch):
+    # (pin) reuse=None is today's behaviour: an old-numbered file stays where
+    # it is and a name that already exists is not downloaded again.
+    patch_fake_durations(monkeypatch)
+    old = (("A", "a.mp3", 300.0), ("X", "x.mp3", 500.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    drop_stage_artifacts(ws, "package")
+    new = reuse_show(old[0], ("Crowd", "s.mp3", 20.0, True), old[1])
+    ia = ReuseIA({t.filename: t.duration_sec for t in new.tracks})
+    build_package(ws, ia, new)
+    assert ia.downloads == ["s.mp3", "x.mp3"]
+    assert sorted(audio_files(ws)) == ["01 - A.mp3", "02 - Crowd.mp3", "02 - X.mp3", "03 - X.mp3"]
+    assert not (ws.dir / ASIDE_DIR).exists()
+
+
+def test_a_new_source_under_an_unchanged_name_is_not_kept_in_place(tmp_path, monkeypatch):
+    # Review (Minor 1): the same packaged names but a different source file at
+    # track 2; the old "02 - Jam.mp3" is j1's audio and must not ship as j0's.
+    patch_fake_durations(monkeypatch)
+    old = (("A", "a.mp3", 300.0), ("Jam", "j1.mp3", 600.0), ("B", "b.mp3", 400.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    plan = plan_reuse(ws, None)
+    ia = _repackage(ws, reuse_show(old[0], ("Jam", "j0.mp3", 601.0), old[2]), plan)
+    assert ia.downloads == ["j0.mp3"]
+    assert _sources(ws) == {"01 - A.mp3": "a.mp3", "02 - Jam.mp3": "j0.mp3", "03 - B.mp3": "b.mp3"}
+
+
+def test_an_aside_this_call_did_not_make_is_never_read(tmp_path, monkeypatch):
+    # Review (Important 1): with the files kept in place, a missing file is
+    # never filled from an aside some earlier call left behind.
+    patch_fake_durations(monkeypatch)
+    from helpers import fake_audio
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    (ws.package_dir / "audio" / "02 - B.mp3").unlink()
+    stale = ws.dir / ASIDE_DIR / "02 - B.mp3"
+    stale.parent.mkdir(parents=True)
+    stale.write_bytes(fake_audio("other.mp3", 400.0))
+    plan = plan_reuse(ws, None)
+    ia = _repackage(ws, reuse_show(*old), plan)
+    assert ia.downloads == ["b.mp3"]
+    assert _sources(ws) == {"01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3"}
+
+
+def test_a_different_identifier_pairs_nothing_but_still_sets_the_old_audio_aside(tmp_path, monkeypatch):
+    # Review (Important 1): same file names, another archive.org item. Neither the library
+    # nor the station copy may be used, and no old-numbered file may be left in place.
+    import shutil
+    patch_fake_durations(monkeypatch)
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    ws = packaged_reuse_show(tmp_path, reuse_show(*old))
+    station = tmp_path / "station" / ws.dir.name
+    shutil.copytree(ws.package_dir, station)
+    plan = plan_reuse(ws, station)
+    assert plan.identifier == "gd73" and plan.library and plan.station
+    drop_stage_artifacts(ws, "package")
+    new = reuse_show(*old).model_copy(update={"identifier": "gd73-other-taper"})
+    ia = ReuseIA({t.filename: t.duration_sec for t in new.tracks})
+    build_package(ws, ia, new, reuse=plan)
+    assert ia.downloads == ["a.mp3", "b.mp3"]
+    assert sorted(audio_files(ws)) == ["01 - A.mp3", "02 - B.mp3"]
+    aside = ws.dir / ASIDE_DIR                              # the old audio waits there for the unit
+    assert sorted(p.name for p in aside.iterdir()) == ["01 - A.mp3", "02 - B.mp3"]
+
+
+def test_a_plan_without_a_show_json_has_no_identifier(tmp_path):
+    ws = ShowWorkspace(tmp_path / "shows" / "s")
+    assert plan_reuse(ws, None).identifier is None

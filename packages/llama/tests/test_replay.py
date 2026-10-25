@@ -467,7 +467,8 @@ def test_show_replay_to_dict_has_the_contract_keys_plus_date():
         "set_changes", "segue_changes", "set_breaks", "alignment", "notes", "digests",
         "slfm_miss", "unreplayable", "taper_owned", "sets", "filler", "taper_source",
         "taper_reason", "step1_alignment", "self_filled", "desc_position", "titles",
-        "title_sources", "title_paths", "cascade"]
+        "title_sources", "title_paths", "cascade", "filenames", "short_kept", "segues", "breaks",
+        "flags"]
     assert r.to_dict()["date"] is None
 
 
@@ -611,6 +612,25 @@ def test_replay_show_fills_the_row_of_a_clearing_held_show(tmp_path):
     assert r.digests == input_digests(ws)
     assert r.title_changes == [] and r.venue is None and r.date is None
     assert r.slfm_miss is False
+
+
+def test_record_carries_filenames_short_kept_and_flags(tmp_path):
+    ws, show = _library_show(tmp_path, held=True, with_briefing=True)
+    r = _replay(tmp_path, ws)
+    n = len(r.titles)
+    assert n > 0
+    assert r.filenames == [t.filename for t in show.tracks]
+    assert len(r.filenames) == n
+    assert r.short_kept == [False] * n and len(r.segues) == n
+    assert all(isinstance(b, bool) for b in r.segues)
+    assert r.breaks == sorted(r.breaks) and all(isinstance(b, int) for b in r.breaks)
+    assert r.flags == r.gather_flags + r.vet_flags
+    d = r.to_dict()
+    assert {"filenames", "short_kept", "segues", "breaks", "flags"} <= set(d)
+    # defaults: a row that never replayed carries them empty
+    empty = ShowReplay(slug="x", state="missing")
+    assert (empty.filenames, empty.short_kept, empty.segues, empty.breaks, empty.flags) == \
+        ([], [], [], [], [])
 
 
 def test_replay_show_core_flags_drop_package_and_briefing_families(tmp_path):
@@ -862,3 +882,485 @@ def test_compute_legs_threads_enabled_slices(tmp_path):
     r = replay_show(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"), slfm=None,
                     scratch=tmp_path / "s2", delivered=set(), enabled_slices=frozenset())
     assert r.self_filled is False and r.title_sources == ["setlist"] * 6
+
+
+# --- Task 11: briefing reuse leaves out short-kept tracks (spec 5.3) ---
+
+def _bt(index, fn, title, set_="1", segue=False, **kw):
+    return Track(index=index, set=set_, title=title, filename=fn, title_source="tags", segue=segue, **kw)
+
+
+def _reuse_briefing():
+    return Briefing(context="c", significance="s", per_set={"1": ["x"], "2": ["y"]})
+
+
+def test_reuse_ignores_an_inserted_short_kept_track():
+    old = _show()
+    banter = _bt(2, "banter.mp3", "Banter", "1", short_kept=True)
+    tracks = [old.tracks[0], banter,
+              old.tracks[1].model_copy(update={"index": 3}), old.tracks[2].model_copy(update={"index": 4})]
+    new = old.model_copy(update={"tracks": tracks, "set_breaks": [1]})
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") is None
+
+
+def test_reuse_ignores_an_already_included_short_file_on_both_sides():
+    # the 173 case: the file is in both shows, short_kept only on the new one
+    old_tracks = [_bt(1, "a.mp3", "Dew"), _bt(2, "banter.mp3", "Banter"),
+                  _bt(3, "b.mp3", "Star", "2")]
+    old = _show(tracks=old_tracks, set_breaks=[2])
+    new_tracks = [t.model_copy(update={"short_kept": t.filename == "banter.mp3"}) for t in old_tracks]
+    new = old.model_copy(update={"tracks": new_tracks})
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") is None
+
+
+def test_a_real_track_title_change_still_forces_a_brief():  # (pin)
+    old = _show()
+    banter = _bt(2, "banter.mp3", "Banter", "1", short_kept=True)
+    real = old.tracks[1].model_copy(update={"index": 3, "title": "Dark Star"})
+    new = old.model_copy(update={"tracks": [old.tracks[0], banter, real,
+                                            old.tracks[2].model_copy(update={"index": 4})]})
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") == "broadcast fields changed: titles"
+
+
+def test_banter_sliding_across_a_set_boundary_keeps_the_brief():
+    old = _show()   # a, b | ... break after track 1
+    banter = _bt(2, "banter.mp3", "Banter", "1", short_kept=True)
+    tracks = [old.tracks[0], banter,
+              old.tracks[1].model_copy(update={"index": 3}), old.tracks[2].model_copy(update={"index": 4})]
+    # the break now falls after the banter file (track 2) instead of track 1
+    new = old.model_copy(update={"tracks": tracks, "set_breaks": [2]})
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") is None
+
+
+def test_a_moved_real_break_forces_a_brief():
+    old = _show()
+    new = old.model_copy(update={"set_breaks": [2]})
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") == "broadcast fields changed: set_breaks"
+
+
+def test_guard_still_runs_on_reuse():  # (pin)
+    old = _show()
+    banter = _bt(2, "banter.mp3", "Banter", "1", short_kept=True)
+    tracks = [old.tracks[0], banter,
+              old.tracks[1].model_copy(update={"index": 3}), old.tracks[2].model_copy(update={"index": 4})]
+    new = old.model_copy(update={"tracks": tracks})
+    bad = _reuse_briefing().model_copy(update={"mentioned_songs": ["Nope"]})
+    assert briefing_reusable(old, new, bad, "full").startswith("briefing guard: briefing mentions unknown song: Nope")
+
+
+# --- Task 15a: reuse refuses a briefing that mentions a restored file (operator ruling,
+# Checkpoint B, premise 4) ---
+
+_RESTORED = "gd76-07-18d3t04.mp3"
+
+
+def _restored_pair(fn=_RESTORED, stored_has_it=False):
+    """(stored, new): `fn` is a short-kept insertion in the new show; with
+    `stored_has_it` the stored show already carried it as a track (the 173 case)."""
+    old = _show()
+    short = _bt(2, fn, "St. Stephen", "1", short_kept=True)
+    tracks = [old.tracks[0], short,
+              old.tracks[1].model_copy(update={"index": 3}), old.tracks[2].model_copy(update={"index": 4})]
+    new = old.model_copy(update={"tracks": tracks})
+    if stored_has_it:
+        old = old.model_copy(update={"tracks": [t.model_copy(update={"short_kept": False}) for t in tracks]})
+    return old, new
+
+
+def _with_caution(text):
+    return _reuse_briefing().model_copy(update={"cautions": [text]})
+
+
+def test_restored_file_named_in_cautions_refuses():
+    old, new = _restored_pair()
+    b = _with_caution("A second file, gd76-07-18d3t04.mp3, sits where the reprise belongs.")
+    reason = briefing_reusable(old, new, b, "full")
+    assert reason == "briefing mentions a restored file: names gd76-07-18d3t04.mp3 in cautions"
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") is None   # control
+
+
+@pytest.mark.parametrize("text", [
+    "File gd76-07-18d3t04 holds the reprise.",                # the stem, no extension
+    "The reprise sits in d3t04.",                             # the d-t shorthand
+    "Two short files (d3t03, d3t04) sit between the songs.",
+    "The reprise is on disc 3, track 4 of the tape.",
+    "See D3_T04 for the reprise.",
+])
+def test_restored_file_stem_and_shorthand_refuse(text):
+    old, new = _restored_pair()
+    assert briefing_reusable(old, new, _with_caution(text), "full").startswith(
+        "briefing mentions a restored file: names gd76-07-18d3t04.mp3 in cautions")
+
+
+def test_a_bare_track_tail_refuses():
+    old, new = _restored_pair(fn="soulive2009-09-12t14.mp3")
+    b = _with_caution("The morph is file t14 on the archive page.")
+    assert briefing_reusable(old, new, b, "full") == \
+        "briefing mentions a restored file: names soulive2009-09-12t14.mp3 in cautions"
+
+
+@pytest.mark.parametrize("text, term", [
+    ("Two files were excluded from the show data.", "excluded"),
+    ("One file was dropped as implausibly short.", "implausibly short"),
+    ("A 31-second opening file is too short to be a song.", "too short"),
+    ("Two short files were left out of this track list.", "left out"),
+    ("A 31-second opening file was left off the program.", "left out"),
+    ("The show data leaves out three short archive tracks.", "left out"),
+    ("The supplied track list omits Supplication.", "omitted"),
+    ("Supplication is absent from the supplied track list.", "absent"),
+    ("The drum passages are not present as separate tracks.", "not present"),
+    ("The reprise is missing here.", "missing"),
+    ("Two files were dropped from the track list.", "dropped"),
+    ("The tease is not represented as a track in this listing.", "not represented"),
+    ("Three short files are not part of the setlist.", "not part of"),
+    ("A reprise was played, but it is not a titled track in the recording data.", "not a track"),
+    ("The drums are not separate tracks here.", "not a track"),
+    ("Fifteen tracks as recorded.", "track count"),
+    ("Set 2 has 15 tracks.", "track count"),
+    ("It runs 26 songs, a 5-song encore.", "track count"),
+    ("Twenty-one songs in the main set.", "track count"),
+    ("The main set covers tracks 1 through 14 of the recording.", "track count"),
+    # Task 15b (operator ruling, Checkpoint B): four more phrasings, with inflections
+    ("The reprise is not included in the supplied data.", "not included"),
+    ("The reprise isn't included in the supplied data.", "not included"),
+    ("The reprise has not been included here.", "not included"),
+    ("Both reprises aren\u2019t included here.", "not included"),
+    ("The reprise is not listed in the supplied data.", "not listed"),
+    ("The drums aren't listed anywhere.", "not listed"),
+    ("The reprise has not been listed.", "not listed"),
+    ("The reprise does not appear in the supplied data.", "does not appear"),
+    ("The reprise doesn't appear in the supplied data.", "does not appear"),
+    ("The reprises do not appear there.", "does not appear"),
+    ("The reprise did not appear on the list.", "does not appear"),
+    ("The reprises don't appear there.", "does not appear"),
+    ("The reprise didn't appear on the list.", "does not appear"),
+    ("The reprise is not appearing in the list.", "does not appear"),
+    ("An unlisted reprise follows.", "unlisted"),
+    # controller scope change: two more measured phrasings
+    ("The reprise is not in the setlist.", "not in the setlist"),
+    ("The reprise is not in the set list.", "not in the setlist"),
+    ("The reprise is not in the track list.", "not in the setlist"),
+    ("The reprise is not on the setlist.", "not in the setlist"),
+    ("The reprise is not on the tracklist.", "not in the setlist"),
+    ("The reprise isn't in the setlist.", "not in the setlist"),
+    ("The reprise is not in this track listing.", "not in the setlist"),
+    ("The drums get no separate track.", "no separate track"),
+    ("The drums get no track of their own; the reprise has no track of its own.", "no separate track"),
+    ("The reprise has no track.", "no separate track"),
+    ("The jam has no own track here.", "no separate track"),
+    # fix round 1: be-passive, cannot, adverbs
+    ("It should not be included.", "not included"),
+    ("The reprise cannot be included here.", "not included"),
+    ("The reprise won't be included here.", "not included"),
+    ("The reprise is not explicitly included.", "not included"),
+    ("The reprise will not be listed.", "not listed"),
+    ("The reprise won't be listed.", "not listed"),
+    ("The reprise cannot be listed.", "not listed"),
+    ("The reprise is not separately listed.", "not listed"),
+    # set-list variants
+    ("The reprise is not in the set-list.", "not in the setlist"),
+    ("The reprise is not on the track-list.", "not in the setlist"),
+    ("The reprise is not in the setlists.", "not in the setlist"),
+    ("The reprise is not on the track lists.", "not in the setlist"),
+    ("The reprise is not on the archived setlist.", "not in the setlist"),
+    ("The reprise is not in the broadcast setlist.", "not in the setlist"),
+    ("The reprise is not on the recording's track list.", "not in the setlist"),
+    # track variants
+    ("The drums get no dedicated track.", "no separate track"),
+    ("The drums get no standalone track.", "no separate track"),
+    ("The drums get no separately titled track.", "no separate track"),
+    ("The drums come without a separate track.", "no separate track"),
+    ("The drums come without a track.", "no separate track"),
+    # new term
+    ("The drums are not tracked separately.", "not tracked separately"),
+    ("The drums were not tracked separately.", "not tracked separately"),
+    ("Drums and space are not tracked as separate songs.", "not tracked separately"),
+    ("Drums and space aren't tracked as separate tracks.", "not tracked separately"),
+    # fix round 2: bounded windows
+    ("It should not have been included.", "not included"),
+    ("The reprise has not yet been included.", "not included"),
+    ("The reprise would not have been listed.", "not listed"),
+    ("The reprise has not yet been listed.", "not listed"),
+    ("The reprise is not even listed.", "not listed"),
+    ("The reprise is not in the tracklisting.", "not in the setlist"),
+    ("The reprise is not in the track-listing.", "not in the setlist"),
+    ("The reprise is not in the tracklistings.", "not in the setlist"),
+    ("The drums come without its own track.", "no separate track"),
+    ("The drums get no separately-titled track.", "no separate track"),
+    ("Drums are not tracked as a separate song.", "not tracked separately"),
+    ("Drums are not separately tracked.", "not tracked separately"),
+    ("Drums are not tracked individually.", "not tracked separately"),
+    # fix round 3: windowed present/represented/appear/part of, never, punctuation
+    ("The reprise does not even appear in the data.", "does not appear"),
+    ("The reprise doesn't actually appear in the data.", "does not appear"),
+    ("The reprise is not actually present.", "not present"),
+    ("The reprise is not even represented.", "not represented"),
+    ("The reprise is not really part of the data.", "not part of"),
+    ("The reprise was never included.", "not included"),
+    ("The reprise is never listed.", "not listed"),
+    ("The reprise never appeared in the data.", "does not appear"),
+    ("The reprise has never been listed.", "not listed"),
+    ("The reprise is never present.", "not present"),
+    ("The reprise is not, however, listed.", "not listed"),
+    ("The reprise is not (yet) listed.", "not listed"),
+    ("The reprise should not, in fact, have been included.", "not included"),
+    ("The reprise is not, however, present.", "not present"),
+    ("The reprise is never in the setlist.", "not in the setlist"),
+    ("The drums are not, as it happens, tracked separately.", "not tracked separately"),
+    ("The drums get no (separate) track.", "no separate track"),
+    ("There are no distinct tracks for the drums.", "no separate track"),
+    # fix round 4: a punctuation-normalised text, one bounded window before every head word
+    ("The reprise is not actually in the setlist.", "not in the setlist"),
+    ("The reprise is not even on the setlist.", "not in the setlist"),
+    ("The drums are not even a separate track.", "not a track"),
+    ("The drums are never a separate track.", "not a track"),
+    ("The drums are not really a track.", "not a track"),
+    ("The reprise is no longer present.", "not present"),
+    ("The reprise is no longer included.", "not included"),
+    ("The reprise is nowhere listed.", "not listed"),
+    ("The reprise is not \u2014 strictly speaking \u2014 listed.", "not listed"),
+    ('The reprise is not "officially" listed.', "not listed"),
+    ("The reprise is not \u201cofficially\u201d listed.", "not listed"),
+    ('The reprise is not officially "listed".', "not listed"),
+    ("The reprise is not \u2018listed\u2019.", "not listed"),
+    ("The reprise is not [yet] listed.", "not listed"),
+    ("The reprise is not; listed.", "not listed"),
+    ("The reprise is not: strictly, present.", "not present"),
+    ("The jam is not, in fact, a separate track.", "not a track"),
+    ("The jam isn't, strictly speaking, its own track.", "not a track"),
+    ("Neither reprise is listed.", "not listed"),
+    ("Nor is the reprise listed.", "not listed"),
+    ("The reprise is not a track list entry.", "not a track"),   # (pin) as on 16003b7
+    # fix round 4: paraphrases, one new term appended last
+    ("The reprise does not show up in the data.", "not found"),
+    ("The reprise isn't on the tape.", "not found"),
+    ("The reprise cannot be found.", "not found"),
+    ("The reprise is nowhere in the data.", "not found"),
+    ("The reprise has no place in the listing.", "not found"),
+    # fix round 5: every head inflection, bare no, hyphen and apostrophe forms
+    ("The recording does not include the song that opened the show.", "not included"),
+    ("The track data does not include that return as a separate entry.", "not included"),
+    ("The track data does not list the jam separately.", "not included or listed"),
+    ("This recording does not contain the reprise.", "not included or listed"),
+    ("No encore is listed.", "no \u2026 listed"),
+    ("No reprise is included.", "no \u2026 listed"),
+    ("No intro appears.", "no \u2026 listed"),
+    ("The drums are not separately-tracked.", "not tracked separately"),
+    ("The reprise is not officially-listed.", "not listed"),
+    ("There is a not-included reprise.", "not included"),
+    ("The reprise is not-listed.", "not listed"),
+    ("The reprise isn`t listed.", "not listed"),
+    ("The reprise isn\u00b4t listed.", "not listed"),
+    ("The reprise isn\u02bct listed.", "not listed"),
+    ("The drums are not tracking as a separate track.", "not tracked separately"),
+    ("Two short files were left \u2014 out.", "left out"),
+    ("The reprise was left (entirely) out.", "left out"),
+    ("The opening file is too\u2014short to be a song.", "too short"),
+    ("The opening file is implausibly\u2014short.", "implausibly short"),
+    # (pin) corpus sentences a hyphen-split copy alone would lose: the hyphen-joined copy keeps them
+    ("The show data has no separate return-to-astronaut track.", "no separate track"),
+    ("The encore split is not in the set-break data.", "not found"),
+])
+def test_each_absence_wording_refuses(text, term):
+    old, new = _restored_pair()
+    assert briefing_reusable(old, new, _with_caution(text), "full") == \
+        f"briefing mentions a restored file: says '{term}' in cautions"
+
+
+# --- FW2 (final review fix wave items 3-5): the gate refuses more, never less ---
+
+@pytest.mark.parametrize("text, term", [
+    # item 3 (15b N1, m-2): a quote-like character glued between two words. `’` was
+    # already an interior joiner in `_TOKEN`; the fold made `‘`, `` ` ``, `´`, `ʼ`, `′`
+    # joiners too. A third copy with every apostrophe a separator reads them apart.
+    ("The reprise is not‘listed’.", "not listed"),
+    ("The reprise is not’listed.", "not listed"),
+    ("The reprise is not`listed`.", "not listed"),
+    ("The reprise is not´listed.", "not listed"),
+    ("The reprise is notʼlisted.", "not listed"),
+    ("The reprise is not′listed.", "not listed"),
+    ("The reprise is not‘included.", "not included"),
+    ("The reprise isn´t listed.", "not listed"),
+    ("The reprise isn't listed.", "not listed"),
+    # item 4: up to two words between `too`/`implausibly` and `short`
+    ("The opening file is too very short to be a song.", "too short"),
+    ("The opening file is too, frankly, short to be a song.", "too short"),
+    ("The opening file is implausibly, very short.", "implausibly short"),
+    ("The opening file is implausible and short.", "implausibly short"),
+])
+def test_fw2_absence_wording_refuses(text, term):
+    old, new = _restored_pair()
+    assert briefing_reusable(old, new, _with_caution(text), "full") == \
+        f"briefing mentions a restored file: says '{term}' in cautions"
+
+
+# FW3 (FW2 review Minor M1): `ʻ` (U+02BB) and `ʹ` (U+02B9) are modifier letters, so
+# `\w` reads them as word characters and "notʻlisted" stayed one word in every copy.
+# They fold to `'` like `ʼ`, so the apostrophe-split copy reads `not listed`. Refuse-only.
+@pytest.mark.parametrize("mark", ["ʻ", "ʹ"])
+def test_fw3_modifier_letter_apostrophes_fold(mark):
+    from llama.replay import _normalised
+    assert _normalised(f"the reprise is not{mark}listed.")[2] == "the reprise is not listed"
+    old, new = _restored_pair()
+    assert briefing_reusable(old, new, _with_caution(f"The reprise is not{mark}listed."),
+                             "full") == "briefing mentions a restored file: says 'not listed' in cautions"
+
+
+# Item 5, the measured vocabulary. Corpus counts are t15b-rr5's, over
+# ~/.llama-harness/piece4/ckb/15a/dump.jsonl (1,014 rows; every row is refused by some
+# other term too, so none of these moves a corpus verdict):
+#   lacks:          57 spans in 50 rows; 6 in 6 with a data subject (4 real piece-absence
+#                   claims: brotherspast-2006-11-17, joerussosalmostdead-2018-03-10,
+#                   belafleckandtheflecktones-1995-08-25, thetravelinmccourys-2014-05-24)
+#   not recorded:   10 spans in 9 rows (hayescarll-2006-01-21 x2, meatpuppets-1988-02-06,
+#                   greenskybluegrass-2012-03-21: songs not on the tape)
+#   cut from:       5 rows (greenskybluegrass-2010-03-26)
+#   lists no:       verb-then-no 506 spans in 363 rows; with a data subject, excluding
+#                   "flags", 100 spans in 96 rows (billystrings-2017-08-29)
+@pytest.mark.parametrize("text, term", [
+    ("His tape lacks the intro.", "lacks"),
+    ("The page lists entries the track data lacks.", "lacks"),
+    ("The opening songs were not recorded.", "not recorded"),
+    ("The opener was never actually recorded.", "not recorded"),
+    ("The opening songs were cut from the recording.", "cut from the recording"),
+    ("The opener was cut off the tape.", "cut from the recording"),
+    ("The show data lists no encore.", "lists no"),
+    ("The tape contains no reprise.", "lists no"),
+    ("Setlist.fm lists no encore.", "lists no"),
+])
+def test_fw2_measured_vocabulary_refuses(text, term):
+    old, new = _restored_pair()
+    assert briefing_reusable(old, new, _with_caution(text), "full") == \
+        f"briefing mentions a restored file: says '{term}' in cautions"
+
+
+@pytest.mark.parametrize("slug, text, term", [
+    ("belafleckandtheflecktones-1995-08-25",
+     'His tape lacks the intro and about 20 seconds of "Vix', "lacks"),
+    ("brotherspast-2006-11-17",
+     "The page lists entries the track data lacks: a return to One Rabbit Race at the end",
+     "lacks"),
+    ("hayescarll-2006-01-21",
+     "According to the taper, the first two songs of the night were not recorded, so the "
+     "opener on the recording, 'Wish", "not recorded"),
+    ("greenskybluegrass-2010-03-26",
+     "The show's first two songs were cut from the recording at the sound engineer's request",
+     "cut from the recording"),
+    ("billystrings-2017-08-29",
+     "The show data lists no encore; all 21 tracks are labeled set 1", "lists no"),
+])
+def test_fw2_corpus_sentences_fire_their_term(slug, text, term):
+    """The corpus wording itself (dump.jsonl, the row named): the term is among the hits,
+    whichever term comes first in the sentence (`two songs` is a track count)."""
+    from llama.replay import _restored_mentions
+    b = _with_caution(text)
+    assert ("says", term, "cautions") in _restored_mentions(b, [_RESTORED]), slug
+
+
+def test_fw2_the_new_terms_come_last():
+    """Appended after every earlier term, so no earlier first hit moves."""
+    from llama.replay import _RESTORED_WORDING
+    names = [t for t, _, _ in _RESTORED_WORDING]
+    assert names[-4:] == ["lacks", "not recorded", "cut from the recording", "lists no"]
+    assert names[:-4][-2:] == ["not included or listed", "no … listed"]
+
+
+# --- FW2 item 15 (T11 pins): the reuse rule's own branches ---
+
+def test_reuse_refuses_when_a_non_short_filename_differs():
+    old = _show()
+    renamed = old.tracks[1].model_copy(update={"filename": "b2.mp3"})
+    new = old.model_copy(update={"tracks": [old.tracks[0], renamed, old.tracks[2]]})
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") == "tracks differ"
+
+
+def test_a_none_break_key_on_both_sides_reuses():
+    """(pin) Stored: a break after track 0 is impossible, so both sides carry the
+    short-kept first track: the stored show already had it as a plain track."""
+    old_tracks = [_bt(1, "intro.mp3", "Intro"), _bt(2, "a.mp3", "Dew"),
+                  _bt(3, "b.mp3", "Star", "2")]
+    old = _show(tracks=old_tracks, set_breaks=[1, 2])
+    new_tracks = [t.model_copy(update={"short_kept": t.filename == "intro.mp3"})
+                  for t in old_tracks]
+    new = old.model_copy(update={"tracks": new_tracks})
+    # the break after track 1 keys None on both sides (no remaining track at or before it)
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") is None
+
+
+def test_a_none_break_key_against_a_real_one_forces_a_brief():
+    """(pin) A break after the short-kept first track (key None) against one after a
+    real track (key `a.mp3`), either way round: a moved break."""
+    old_tracks = [_bt(1, "intro.mp3", "Intro"), _bt(2, "a.mp3", "Dew"),
+                  _bt(3, "b.mp3", "Star", "2")]
+    new_tracks = [t.model_copy(update={"short_kept": t.filename == "intro.mp3"})
+                  for t in old_tracks]
+    for was, now in (([1], [2]), ([2], [1])):
+        old = _show(tracks=old_tracks, set_breaks=was)
+        new = old.model_copy(update={"tracks": new_tracks, "set_breaks": now})
+        assert briefing_reusable(old, new, _reuse_briefing(), "full") == \
+            "broadcast fields changed: set_breaks", (was, now)
+
+
+def test_wording_refuses_anywhere_not_only_about_the_restored_file():
+    # the conservative choice: the wording need not be about the restored file
+    old, new = _restored_pair()
+    b = _with_caution("The encore is missing from every circulating tape.")
+    assert briefing_reusable(old, new, b, "full") == \
+        "briefing mentions a restored file: says 'missing' in cautions"
+
+
+def test_a_briefing_mentioning_neither_still_reuses():  # (pin)
+    old, new = _restored_pair()
+    b = _reuse_briefing().model_copy(update={
+        "context": "The band played the Fillmore.", "cautions": ["Research is thin.",
+        "The recording includes a short intro track before the set's music begins."]})
+    assert briefing_reusable(old, new, b, "full") is None
+
+
+def test_an_already_kept_short_file_does_not_trigger_the_gate():  # (pin)
+    # the file was a track in the stored show, so the brief saw it: not restored
+    old, new = _restored_pair(stored_has_it=True)
+    b = _with_caution("gd76-07-18d3t04.mp3 is implausibly short; the drums are missing.")
+    assert briefing_reusable(old, new, b, "full") is None
+
+
+def test_no_restored_file_is_todays_rule():  # (pin)
+    old = _show()
+    b = _with_caution("Two files were excluded as implausibly short; d3t04 is missing.")
+    assert briefing_reusable(old, old, b, "full") is None
+    # and the earlier reasons still come first, unchanged
+    old2, new2 = _restored_pair()
+    moved = new2.model_copy(update={"venue": "W"})
+    assert briefing_reusable(old2, moved, b, "full") == "broadcast fields changed: venue"
+
+
+def test_the_gate_is_case_insensitive():
+    old, new = _restored_pair(fn="GD_022474_D3_T02.mp3")
+    for text in ("See gd_022474_d3_t02.MP3.", "Dropped as IMPLAUSIBLY SHORT.", "File d3t02 holds it."):
+        assert briefing_reusable(old, new, _with_caution(text), "full").startswith(
+            "briefing mentions a restored file"), text
+
+
+@pytest.mark.parametrize("update, field", [
+    ({"context": "Its file gd76-07-18d3t04.mp3 is short."}, "context"),
+    ({"significance": "Its file gd76-07-18d3t04.mp3 is short."}, "significance"),
+    ({"per_set": {"1": ["Its file gd76-07-18d3t04.mp3 is short."], "2": ["y"]}}, "per_set"),
+    ({"per_set": {"1": ["x"], "gd76-07-18d3t04.mp3": ["y"]}}, "per_set"),
+    ({"notable_moments": ["Its file gd76-07-18d3t04.mp3 is short."]}, "notable_moments"),
+    ({"review_sentiment": "Its file gd76-07-18d3t04.mp3 is short."}, "review_sentiment"),
+    ({"cautions": ["Its file gd76-07-18d3t04.mp3 is short."]}, "cautions"),
+    ({"mentioned_songs": ["gd76-07-18d3t04.mp3"]}, "mentioned_songs"),
+])
+def test_every_text_field_is_read(update, field):
+    from llama.replay import _restored_file_mention
+    b = _reuse_briefing().model_copy(update=update)
+    assert _restored_file_mention(b, [_RESTORED]) == \
+        f"briefing mentions a restored file: names {_RESTORED} in {field}"
+
+
+def test_the_scanned_fields_are_every_text_field_of_briefing():  # (pin)
+    from llama.replay import BRIEFING_TEXT_FIELDS, _briefing_texts
+    assert set(BRIEFING_TEXT_FIELDS) == set(Briefing.model_fields) - {"narration", "non_attendee_sentiment"}
+    full = Briefing(context="c", significance="s", per_set={"1": ["x"]}, notable_moments=["m"],
+                    review_sentiment="r", cautions=["k"], mentioned_songs=["Dew"])
+    assert {f for f, _ in _briefing_texts(full)} == set(BRIEFING_TEXT_FIELDS)

@@ -166,15 +166,19 @@ def test_gather_recovers_structure_from_sibling(tmp_path: Path):
     """Regression: gratefuldead-1974-02-24 shipped with every track in set 1."""
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, gd74_ia(), FakeProvider(), gd74_candidate(), W_IDENT)
-    assert len(show.tracks) == 27
+    # Piece 4 (spec 1, 2.3): the 82 s `Weather Report Suite Part I >` (D3_T02,
+    # track 17) is a short-only drop whose tag is not junk, so it is now kept.
+    assert len(show.tracks) == 28
     sets = [t.set for t in show.tracks]
     assert sets[:11] == ["1"] * 11                     # US Blues .. Playin' In The Band
-    assert sets[11:26] == ["2"] * 15                   # Cumberland Blues .. Not Fade Away
-    assert sets[26] == "encore"                        # E: It's All Over Now, Baby Blue
-    assert show.set_breaks == [11, 26]
+    assert sets[11:27] == ["2"] * 16                   # Cumberland Blues .. Not Fade Away
+    assert sets[27] == "encore"                        # E: It's All Over Now, Baby Blue
+    assert show.set_breaks == [11, 27]
     assert show.structure is not None
     assert show.structure.source == f"lma:{M_IDENT}"
     assert show.structure.alignment == "deterministic"
+    # `Part I` does not match the canonical `Part 1`, but it is short-kept and
+    # spec 3's coverage clause leaves short-kept tracks out, so coverage is 1.0.
     assert show.structure.coverage == 1.0
     # segues from the sibling's taper notation
     assert show.tracks[6].segue is True                # China Cat Sunflower >
@@ -189,21 +193,27 @@ def test_align_result_matched_reaches_the_track(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, gd74_ia(), FakeProvider(), gd74_candidate(), W_IDENT)
     assert show.structure.alignment == "deterministic"
+    # Piece 4 (spec 1, 2.3): the kept 82 s `Weather Report Suite Part I >`
+    # (track 17) does not match the canonical `Part 1`; it is the one unmatched
+    # track, but it is short-kept, so spec 3's coverage clause leaves it out.
     assert show.structure.coverage == 1.0
     assert all(t.matched is not None for t in show.tracks), \
         "the deterministic path measures every track"
-    # coverage 1.0 on this fixture means every track matched -- a weaker
-    # `any(... is True)` would pass even if `matched` were fed the wrong
-    # per-track boolean list (e.g. segues, which is also list[bool] and also
-    # has some True values), so it wouldn't catch that class of mistake.
-    assert all(t.matched is True for t in show.tracks)
+    # Every other track matched -- a weaker `any(... is True)` would pass even
+    # if `matched` were fed the wrong per-track boolean list (e.g. segues,
+    # which is also list[bool] and also has some True values), so it wouldn't
+    # catch that class of mistake.
+    assert [t.index for t in show.tracks if t.matched is not True] == [17]
 
 
 def test_override_path_leaves_matched_unmeasured(tmp_path: Path):
     """The override path skips align() and forces coverage to 1.0, so there is
     no per-track match data. None must mean unknown, never matched."""
     sws = ShowWorkspace(tmp_path / "show")
-    write_artifact(sws.overrides, Overrides(set_breaks=[11], encore_after=26))
+    # encore_after names the last set-2 file, D4_T06 (track 27 since piece 4 keeps
+    # D3_T02 at track 17, spec 1); the break follows D2_T01, track 11.
+    write_artifact(sws.overrides, Overrides(set_breaks=["GD_022474_D2_T01.mp3"],
+                                            encore_after="GD_022474_D4_T06.mp3"))
     show = run_gather(sws, gd74_ia(), FakeProvider(), gd74_candidate(), W_IDENT)
     assert show.structure.alignment == "override"
     assert all(t.matched is None for t in show.tracks)
@@ -226,7 +236,7 @@ def test_gather_setlistfm_wins_with_lma_segues(tmp_path: Path):
     show = run_gather(sws, gd74_ia(), FakeProvider(), gd74_candidate(), W_IDENT,
                       setlistfm=client)
     assert show.structure.source == "setlist.fm"
-    assert show.set_breaks == [11, 26]
+    assert show.set_breaks == [11, 27]                 # piece 4 keeps D3_T02 (spec 1)
     assert show.tracks[6].segue is True                # blended back from the LMA parse
 
 
@@ -1284,7 +1294,7 @@ def test_gather_exclude_no_match_warns_and_is_noop(tmp_path: Path, caplog):
 
 def test_gather_title_override_forces_title(tmp_path: Path):
     ws = ShowWorkspace(tmp_path / "s")
-    write_artifact(ws.overrides, Overrides(titles={1: "Custom Opener"}))
+    write_artifact(ws.overrides, Overrides(titles={"gd73-06-10d1t01.mp3": "Custom Opener"}))
     show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
     assert show.tracks[0].title == "Custom Opener"
     assert show.tracks[0].title_source == "override"
@@ -1296,8 +1306,9 @@ def test_gather_title_override_forces_title(tmp_path: Path):
 def test_gather_title_override_out_of_range_errors(tmp_path: Path):
     from llama.errors import LlamaError
     ws = ShowWorkspace(tmp_path / "s")
-    write_artifact(ws.overrides, Overrides(titles={999: "Nope"}))
-    with pytest.raises(LlamaError):
+    # A title naming a file not in the track list (spec 4.1: the dangling refusal).
+    write_artifact(ws.overrides, Overrides(titles={"gd73-06-10d9t99.mp3": "Nope"}))
+    with pytest.raises(LlamaError, match="overrides name files not in the track list"):
         run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
 
 
@@ -1314,7 +1325,8 @@ def test_gather_venue_city_date_overrides(tmp_path: Path):
 
 def test_gather_set_breaks_override_numbers_sets(tmp_path: Path):
     ws = ShowWorkspace(tmp_path / "s")
-    write_artifact(ws.overrides, Overrides(set_breaks=[2, 4]))
+    write_artifact(ws.overrides, Overrides(set_breaks=["gd73-06-10d1t02.mp3",
+                                                       "gd73-06-10d2t01.mp3"]))
     show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
     # 6-track fixture -> sets: 1,1 | 2,2 | 3,3
     assert [t.set for t in show.tracks] == ["1", "1", "2", "2", "3", "3"]
@@ -1326,8 +1338,9 @@ def test_gather_set_breaks_override_numbers_sets(tmp_path: Path):
 def test_gather_set_breaks_out_of_range_errors(tmp_path: Path):
     from llama.errors import LlamaError
     ws = ShowWorkspace(tmp_path / "s")
-    write_artifact(ws.overrides, Overrides(set_breaks=[99]))
-    with pytest.raises(LlamaError):
+    # A break after the last track is out of range (gd73 has 6 tracks).
+    write_artifact(ws.overrides, Overrides(set_breaks=["gd73-06-10d3t01.mp3"]))
+    with pytest.raises(LlamaError, match="out of range"):
         run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
 
 
@@ -1820,16 +1833,17 @@ def test_overrides_accepts_encore_after():
     from llama.models import Overrides
 
     assert Overrides().encore_after is None
-    assert Overrides(encore_after=16).encore_after == 16
+    assert Overrides(encore_after="gd73-06-10d2t01.mp3").encore_after == "gd73-06-10d2t01.mp3"
+    assert Overrides(encore_after=16).encore_after == 16     # the legacy form still parses
 
 
 def test_gather_encore_override_labels_tracks_and_implies_a_break(tmp_path: Path):
     """encore_after alone (no set_breaks) implies a break at that track, so
     the operator does not list it twice, and show.set_breaks reports it."""
     ws = ShowWorkspace(tmp_path / "s")
-    write_artifact(ws.overrides, Overrides(encore_after=4))
+    write_artifact(ws.overrides, Overrides(encore_after="gd73-06-10d2t01.mp3"))
     show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
-    # 6-track fixture, encore_after=4 -> tracks 1-4 unbroken, 5-6 are the encore
+    # 6-track fixture, encore after track 4 (d2t01) -> tracks 1-4 unbroken, 5-6 are the encore
     assert [t.set for t in show.tracks][-2:] == ["encore", "encore"]
     assert show.set_breaks == [4]
     assert show.structure is not None and show.structure.alignment == "override"
@@ -2380,6 +2394,164 @@ def test_build_canonical_corroboration_skips_items_that_normalize_to_nothing():
     assert set(cb.corroboration) == {fuzzy_norm_title("Morning Dew"), fuzzy_norm_title("From A Sibling")}
 
 
+# --- FW3 (A): the segue donor is ranked only among segue-bearing LMA parses ---
+#
+# When setlist.fm wins the canonical (every item `segue=False`), the segues are
+# blended back from the best LMA parse. `blend_segues` returns the winner
+# unchanged when that donor has no segue at all, so a donor picked on item count
+# alone could strip every real segue (gratefuldead-1988-06-23 lost 5 real marks).
+
+_DONOR_SLFM = [["Bertha", "Deal"],
+               ["Scarlet Begonias", "Fire On The Mountain", "Estimated Prophet",
+                "Eyes Of The World"],
+               ["Brokedown Palace"]]
+_DONOR_FLAT = ("Set 1\nBertha\nDeal\nSet 2\nScarlet Begonias\nFire On The Mountain\n"
+               "Estimated Prophet\nEyes Of The World\nEncore\nBrokedown Palace")
+_DONOR_SEGUED = ("Set 1\nBertha > Deal\nSet 2\nScarlet Begonias > Fire On The Mountain\n"
+                 "Estimated Prophet > Eyes Of The World\nDrums\nEncore\nBrokedown Palace")
+
+
+def _donor_build(chosen_desc, sib_desc, n_kept):
+    """build_canonical with setlist.fm present, the chosen recording and one
+    sibling. Only `len(kept)` matters to build_canonical, so `kept` is a stub."""
+    base = json.loads(FIXTURE.read_text())
+    chosen = dict(base["metadata"], description=chosen_desc)
+    sib = {"metadata": dict(base["metadata"], description=sib_desc), "files": []}
+    ia = MultiIA({IDENT: {"metadata": chosen, "files": base["files"]}, "sib": sib})
+    cand = make_candidate().model_copy(update={"recordings": [RecordingSummary(identifier=IDENT),
+                                                               RecordingSummary(identifier="sib")]})
+    kept = [{"name": f"t{i:02d}.mp3"} for i in range(n_kept)]
+    return build_canonical(ia, cand, IDENT, chosen, kept, "Grateful Dead", [],
+                           setlistfm=_FakeSetlistFM(*_DONOR_SLFM, encore=True))
+
+
+def _segued(cb):
+    return [i.title for i in cb.setlist.items if i.segue]
+
+
+def test_build_canonical_segue_donor_skips_a_closer_in_count_parse_with_no_segue():
+    # The chosen description (7 items, |7-7|=0) wins the count tie-break over the
+    # sibling (8 items, |8-7|=1) but carries no `>`; the sibling's segues must still
+    # reach the setlist.fm canonical.
+    cb = _donor_build(_DONOR_FLAT, _DONOR_SEGUED, 7)
+    assert cb.source == "setlist.fm"
+    assert [i.title for i in cb.setlist.items] == [n for s in _DONOR_SLFM for n in s]
+    assert _segued(cb) == ["Bertha", "Scarlet Begonias", "Estimated Prophet"]
+
+
+def test_build_canonical_no_segue_bearing_lma_parse_leaves_setlistfm_unchanged():
+    # (pin) No LMA parse carries a segue: no donor, the setlist.fm canonical as is.
+    cb = _donor_build(_DONOR_FLAT, _DONOR_FLAT.replace("Encore", "Drums\nEncore"), 7)
+    assert cb.source == "setlist.fm"
+    assert [(i.title, i.set) for i in cb.setlist.items] == [
+        (n, lbl) for s, lbl in zip(_DONOR_SLFM, ["1", "2", "encore"]) for n in s]
+    assert _segued(cb) == []
+
+
+def test_build_canonical_segue_donor_best_by_count_is_unchanged():
+    # (pin) The segue-bearing chosen parse is already the closest by count, so the
+    # donor is the one today's ranking picks; a segue-less sibling changes nothing.
+    chosen = _DONOR_SEGUED.replace("\nDrums", "")
+    cb = _donor_build(chosen, _DONOR_FLAT.replace("Encore", "Drums\nSpace\nEncore"), 7)
+    assert cb.source == "setlist.fm"
+    assert _segued(cb) == ["Bertha", "Scarlet Begonias", "Estimated Prophet"]
+
+
+# --- FW4 item 1 (G5): no segue transfer from a donor item followed by filler or by nothing ---
+#
+# Operator ruling 2026-10-25 (FW4). A donor that writes `>` into the crowd, an outro
+# or banter (`Ripple > Outro`, `Sugar Magnolia > Crowd`, `Excitable Boy > Banter`), or
+# after its last item, is notating track flow, not a segue into the next song; the
+# setlist.fm canonical has no such filler item, so the mark landed on the song and
+# shipped as a segue into whatever setlist.fm lists next.
+
+
+def _fw4_build(slfm_sets, chosen_desc, donor_desc, n_kept, *, encore=True):
+    """build_canonical with a setlist.fm canonical (`slfm_sets`), the chosen
+    recording and one sibling (the segue donor). Only `len(kept)` matters here."""
+    base = json.loads(FIXTURE.read_text())
+    chosen = dict(base["metadata"], description=chosen_desc)
+    sib = {"metadata": dict(base["metadata"], description=donor_desc), "files": []}
+    ia = MultiIA({IDENT: {"metadata": chosen, "files": base["files"]}, "sib": sib})
+    cand = make_candidate().model_copy(update={"recordings": [RecordingSummary(identifier=IDENT),
+                                                               RecordingSummary(identifier="sib")]})
+    kept = [{"name": f"t{i:02d}.mp3"} for i in range(n_kept)]
+    return build_canonical(ia, cand, IDENT, chosen, kept, "Grateful Dead", [],
+                           setlistfm=_FakeSetlistFM(*slfm_sets, encore=encore))
+
+
+# deadandcompany-2015-11-20: setlist.fm's names, and the donor
+# (deadandco2015-11-20.at4041-bp4025.flac16f) verbatim.
+_DC15_SLFM = [["Shakedown Street", "Brown-Eyed Women", "Minglewood Blues",
+               "They Love Each Other", "Black-Throated Wind", "Sugaree",
+               "The Music Never Stopped"],
+              ["Iko Iko", "Eyes of the World", "Let It Grow", "Terrapin Station", "Drums",
+               "Space", "The Wheel", "Looks Like Rain", "Sugar Magnolia"],
+              ["Ripple"]]
+_DC15_DONOR = ("Set One\n01. Intro > Shakedown Street >\n02. Brown-Eyed Women >\n"
+               "03. New Minglewood Blues >\n04. They Love Each Other\n05. Black-Throated Wind\n"
+               "06. Sugaree\n07. The Music Never Stopped > Outro\nSet Two\n08. Intro > Iko Iko\n"
+               "09. Eyes of the World >\n10. Let It Grow >\n11. Terrapin Station >\n"
+               "12. Drums Intro > Drums >\n13. Space >\n14. The Wheel >\n15. Looks Like Rain >\n"
+               "16. Sugar Magnolia >\n17. Crowd\nEncore\n18. Ripple > Outro")
+_DC15_CHOSEN = ("01 Shakedown Street\n02 Brown Eyed Women\n03 New Minglewood Blues\n"
+                "04 They Love Each Other\n05 Black Throated Wind\n06 Sugaree\n"
+                "07 The Music Never Stopped\n08 Aiko Aiko\n09 Eyes Of The World\n10 Let It Grow\n"
+                "11 Terrapin Station\n12 Drums\n13 Space\n14 The Wheel\n15 Looks Like Rain\n"
+                "16 Sugar Magnolia\n17 E: Ripple")
+
+
+def test_g5_dc15_closers_into_outro_or_crowd_transfer_no_mark():
+    # (a) `Music Never Stopped > Outro`, `Sugar Magnolia > Crowd`, `Ripple > Outro`
+    # transfer nothing. `Terrapin Station > Drums Intro` does (fix round 1: `Drums
+    # Intro` does not BEGIN with a filler word; it was G5's one expected real loss).
+    # Every interior song-to-song mark stays.
+    cb = _fw4_build(_DC15_SLFM, _DC15_CHOSEN, _DC15_DONOR, 17)
+    assert cb.source == "setlist.fm"
+    assert _segued(cb) == ["Shakedown Street", "Brown-Eyed Women", "Eyes of the World",
+                           "Let It Grow", "Terrapin Station", "Drums", "Space", "The Wheel",
+                           "Looks Like Rain"]
+
+
+# warrenzevon-2000-04-22: the donor (WZ2000-04-22.Solo.sbd.Fixed.happyjack.Flac16) verbatim.
+_WZ00_SLFM = [["Werewolves of London", "Excitable Boy", "Seminole Bingo",
+               "For My Next Trick I'll Need a Volunteer", "Don't Let Us Get Sick",
+               "Poor Poor Pitiful Me", "My Shit's Fucked Up", "Porcelain Monkey",
+               "Detox Mansion", "Lawyers, Guns and Money"]]
+_WZ00_DONOR = ("01. Werewolves Of London\n02. Excitable Boy >\n         Banter\n"
+               "03. Seminole Bingo\n04. For My Next Trick I'll Need A Volunteer\n"
+               "05. Don't Let Us Get Sick >\n         Banter and  Switches to Guitar\n"
+               "06.  Poor Poor Pitiful Me >\n         Banter and Guitar Tuning\n"
+               "07.  My Shit's Fucked Up >\n          Banter *\n08. Porcelain Monkey\n"
+               "09. Detox Mansion >\n        Guitar Solo\n10 Lawyers, Guns & Money")
+_WZ00_CHOSEN = "\n".join(f"{i:02d}. {t}" for i, t in enumerate(_WZ00_SLFM[0], 1))
+
+
+def test_g5_wz00_song_into_banter_transfers_no_mark():
+    # (b) `Excitable Boy > Banter`-shaped items transfer nothing; `Detox Mansion >
+    # Guitar Solo` is not filler and still transfers.
+    cb = _fw4_build(_WZ00_SLFM, _WZ00_CHOSEN, _WZ00_DONOR, 10, encore=False)
+    assert cb.source == "setlist.fm"
+    assert _segued(cb) == ["Detox Mansion"]
+
+
+# furthur-2011-07-28's set-2 tail: the donor
+# (furthur2011-07-28.avatone-ck1.bryonsos.115580.flac16) ends `23. Johnny B Goode >`.
+_FU11_SLFM = [["Morning Dew", "Mountains of the Moon", "Let It Grow", "Sugar Magnolia"],
+              ["Johnny B. Goode"]]
+_FU11_DONOR = ("Set 2:\n18. Morning Dew >\n19. Mountains Of The Moon >\n20. Let It Grow >\n"
+               "21. Sugar Magnolia >\n22. Donor Rap >\n23. Johnny B Goode >")
+_FU11_CHOSEN = "Morning Dew\nMountains Of The Moon\nLet It Grow\nSugar Magnolia\nJohnny B Goode"
+
+
+def test_g5_donor_final_item_segue_transfers_no_mark():
+    # (c) a `>` on the donor's last item is a segue into nothing.
+    cb = _fw4_build(_FU11_SLFM, _FU11_CHOSEN, _FU11_DONOR, 5)
+    assert cb.source == "setlist.fm"
+    assert _segued(cb) == ["Morning Dew", "Mountains of the Moon", "Let It Grow",
+                           "Sugar Magnolia"]
+
+
 # --- slice 2b on a captured tape: furthur2012-07-15, every tag "tmp" ---
 
 FURTHUR = FIXTURES / "furthur2012-07-15.json"
@@ -2392,13 +2564,28 @@ def _furthur_candidate():
                      recordings=[RecordingSummary(identifier=F_IDENT)])
 
 
+def _furthur_without_short_tuning(md=None):
+    """The furthur item without its `10.tuningup.*` files: the 19-file tape the
+    filter kept before piece 4. Since piece 4 the mp3 copy (tag `tmp`, tagged
+    under spec 2.2) is kept while the FLAC copy (`Tuning Up`, junk under 2.3) is
+    not, so the tests about the 19-file shape build it explicitly."""
+    md = md or json.loads(FURTHUR.read_text())
+    md["files"] = [f for f in md["files"] if not f["name"].startswith("10.tuningup.")]
+    return md
+
+
 def test_2b_demotes_a_whole_tmp_tape_and_notes_each_track(tmp_path):
+    """Every mp3 tag is `tmp`: 2b demotes and notes each track. Since piece 4
+    the 01:54 `10.tuningup.mp3` (tag `tmp`, tagged under spec 2.2) is kept, so
+    the tape's 20 files match the description's 20 entries and D fills every
+    demoted track from it; before, 19 files left them all unresolved."""
     sws = ShowWorkspace(tmp_path / "s")
     res = compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
                          F_IDENT, jerrybase_enabled=False)
-    assert all(t.title_source == "unresolved" for t in res.show.tracks)
-    assert all(t.title == t.filename for t in res.show.tracks)
-    assert "unresolved track titles" in res.show.review_flags
+    assert len(res.show.tracks) == 20
+    assert all(t.title_source == "desc-position" for t in res.show.tracks)
+    assert [t.title for t in res.show.tracks][9:11] == ["Tuning Up", "Terrapin Station"]
+    assert "unresolved track titles" not in res.show.review_flags
     demotions = [n for n in res.notes if n.startswith("placeholder tag title: ")]
     assert len(demotions) == len(res.show.tracks)
     assert demotions[0] == f"placeholder tag title: track 1 '{'tmp'}' demoted to unresolved"
@@ -2415,12 +2602,20 @@ def test_2b_does_not_touch_a_real_tagged_tape(tmp_path):
 def test_2b_files_the_format_sibling_it_does_not_recover_from(tmp_path):
     """The furthur mp3s are all `tmp` (a real title by `is_real_title`, so
     `_RECOVER_BELOW` never fires), while the FLAC copy is fully tagged: the count
-    is filed as a note, and recovery is not triggered."""
+    is filed as a note, and recovery is not triggered.
+
+    Run on the 19-file shape: on the captured item piece 4 keeps the mp3
+    `10.tuningup.mp3` (`tmp`, spec 2.2) but not its FLAC original (`Tuning Up`,
+    junk under 2.3), so 20 mp3s against 19 FLACs have no stem bijection and no
+    note is filed."""
     sws = ShowWorkspace(tmp_path / "s")
-    res = compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
+    res = compute_gather(sws, StubIA(_furthur_without_short_tuning()), None, _furthur_candidate(),
                          F_IDENT, jerrybase_enabled=False)
     assert ("format sibling tagged: Flac title fraction 1.00 "
             "(recovery not triggered; filed, not acted on)") in res.notes
+    captured = compute_gather(ShowWorkspace(tmp_path / "c"), StubIA(json.loads(FURTHUR.read_text())),
+                              None, _furthur_candidate(), F_IDENT, jerrybase_enabled=False)
+    assert not any(n.startswith("format sibling tagged") for n in captured.notes)
     # notes never reach the LLM (ruling 6)
     conflicts = res.show.structure.conflicts if res.show.structure else []
     assert not any("placeholder tag title" in c or "format sibling" in c
@@ -2450,7 +2645,8 @@ def test_2b_never_judges_an_override_title(tmp_path):
     """Spec 576-577 (orchestrator ruling M9): a track position named in
     `overrides.titles` gets neither a demotion nor a demotion note."""
     sws = ShowWorkspace(tmp_path / "s")
-    write_artifact(sws.overrides, Overrides(titles={1: "Tuning Up", 3: "Two Djinn"}))
+    write_artifact(sws.overrides, Overrides(titles={"01.tuningup.mp3": "Tuning Up",
+                                                    "03.twodjinn.mp3": "Two Djinn"}))
     res = compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
                          F_IDENT, jerrybase_enabled=False)
     tracks = res.show.tracks
@@ -2480,7 +2676,10 @@ def test_2b_demotes_a_recovered_sibling_format_placeholder_and_files_no_sibling_
             f["title"] = f"Track {f['name'][:2]}"
     sws = ShowWorkspace(tmp_path / "s")
     res = compute_gather(sws, StubIA(md), None, _furthur_candidate(), F_IDENT, jerrybase_enabled=False)
-    assert {t.title_source for t in res.show.tracks} == {"unresolved"}
+    # Since piece 4 `10.tuningup` is kept in both formats (the mp3's tag is its
+    # original's `Track 10`, spec 2.2), so 20 tracks match the description's 20
+    # entries and D fills every track 2b demoted (`sibling-format` had 2b not fired).
+    assert {t.title_source for t in res.show.tracks} == {"desc-position"}
     assert "placeholder tag title: track 1 'Track 01' demoted to unresolved" in res.notes
     assert not any(n.startswith("format sibling tagged") for n in res.notes)
 
@@ -2510,7 +2709,11 @@ def test_2b_item_title_reaches_the_recording_level_class(tmp_path):
         f["title"] = item if i % 2 else item + " !"
     sws = ShowWorkspace(tmp_path / "s")
     res = compute_gather(sws, StubIA(md), None, _furthur_candidate(), F_IDENT, jerrybase_enabled=False)
-    assert {t.title_source for t in res.show.tracks} == {"unresolved"}
+    # Since piece 4 `10.tuningup.mp3` (tagged with the item title, spec 2.2) is
+    # kept, the 20 tracks match the description's 20 entries and D fills every
+    # track 2b demoted (`tags` had 2b not fired).
+    assert {t.title_source for t in res.show.tracks} == {"desc-position"}
+    assert any(n.startswith("placeholder tag title: track 1 ") for n in res.notes)
 
 
 # --- slice 2a on a captured tape: tnd2006-12-13, "J >" tags ---
@@ -2660,8 +2863,9 @@ def test_2a_never_judges_an_overridden_position(tmp_path):
     sws = ShowWorkspace(tmp_path / "s")
     j_names = _files_tagged(ia, "J >")
     probe = compute_gather(ShowWorkspace(tmp_path / "probe"), ia, None, cand, T_IDENT, jerrybase_enabled=False)
-    n = next(t.index for t in probe.show.tracks if t.filename in j_names)
-    write_artifact(sws.overrides, Overrides(titles={n: "Jam"}))
+    j = next(t for t in probe.show.tracks if t.filename in j_names)
+    n = j.index
+    write_artifact(sws.overrides, Overrides(titles={j.filename: "Jam"}))
     res = compute_gather(sws, ia, None, cand, T_IDENT, jerrybase_enabled=False)
     assert (res.show.tracks[n - 1].title, res.show.tracks[n - 1].title_source) == ("Jam", "override")
     assert not any(note.startswith(f"accepted short tag title: track {n} ") for note in res.notes)
@@ -2681,7 +2885,9 @@ def test_2c_strips_railroad_earths_glued_numbers_and_notes_each(tmp_path):
     titles = [t.title for t in res.show.tracks]
     assert titles[:2] == ["Pig In A Pen", "Midnight Moonlight"]
     assert "stripped glued track number: track 1 '01Pig In A Pen' -> 'Pig In A Pen'" in res.notes
-    assert sum(n.startswith("stripped glued track number:") for n in res.notes) == 23
+    # 25: piece 4 keeps the two short banter tracks, `08Peter Rowan Banter` and
+    # `24Todd Banter` (spec 1, 2.3: stage banter is kept), and 2c strips theirs too.
+    assert sum(n.startswith("stripped glued track number:") for n in res.notes) == 25
     assert not any(n.startswith("stripped joined track number:") for n in res.notes)
 
 
@@ -2704,7 +2910,8 @@ def test_2d_strips_joined_numbers_and_notes_each(tmp_path):
                          cand, R_IDENT, jerrybase_enabled=False)
     assert [t.title for t in res.show.tracks][:2] == ["Pig In A Pen", "Midnight Moonlight"]
     assert "stripped joined track number: track 1 '01-Pig In A Pen' -> 'Pig In A Pen'" in res.notes
-    assert sum(n.startswith("stripped joined track number:") for n in res.notes) == 23
+    # 25: piece 4 keeps the two short banter tracks (spec 1, 2.3); 2d strips theirs too.
+    assert sum(n.startswith("stripped joined track number:") for n in res.notes) == 25
     assert not any(n.startswith("stripped glued track number:") for n in res.notes)
 
 
@@ -2744,8 +2951,10 @@ def test_2c_ships_and_notes_railroad_earths_titles_without_footnote_marks(tmp_pa
     for want in ("The Cuckoo", "Cold Rain And Snow", "Walls Of Time"):
         assert want in titles
     assert not any(t.rstrip().endswith(("#", "^")) for t in titles)
-    assert "stripped glued track number: track 19 '20The Cuckoo #' -> 'The Cuckoo'" in res.notes
-    assert "stripped glued track number: track 21 '22Walls Of Time #^' -> 'Walls Of Time'" in res.notes
+    # Track numbers one later than before piece 4: `08Peter Rowan Banter` is now
+    # kept at track 8 (spec 1, 2.3: stage banter is kept).
+    assert "stripped glued track number: track 20 '20The Cuckoo #' -> 'The Cuckoo'" in res.notes
+    assert "stripped glued track number: track 22 '22Walls Of Time #^' -> 'Walls Of Time'" in res.notes
 
 
 # --- slice 1: venue tripwire steps, the swap, the signature, 1d (spec "Slice 1") ---
@@ -3466,9 +3675,10 @@ def test_structure_override_bypasses_the_taper(tmp_path, monkeypatch):
     def boom(*a, **k):
         raise AssertionError("decide_taper must not run on the override path")
 
-    oracle = _oracle(tmp_path, monkeypatch, md, overrides=Overrides(set_breaks=[3]))
+    breaks = Overrides(set_breaks=["tb1999-07-04t03.mp3"])
+    oracle = _oracle(tmp_path, monkeypatch, md, overrides=breaks)
     monkeypatch.setattr(taper_mod, "decide_taper", boom)
-    res = _tp_gather(tmp_path, md, overrides=Overrides(set_breaks=[3]))
+    res = _tp_gather(tmp_path, md, overrides=breaks)
     assert res.taper_owned is False
     assert res.taper is None and res.step1_alignment is None
     assert res.show.structure.alignment == "override"
@@ -3623,7 +3833,9 @@ def test_umphreys_2004_04_14_taper_owned_identical_to_today(tmp_path, monkeypatc
     assert res.taper.source == "description"
     assert res.taper_owned is True
     assert _labels(res) == _labels(oracle)
-    assert res.show.set_breaks == oracle.show.set_breaks == [11, 18]
+    # Piece 4 (spec 1): set 2's 01:14 `Front Porch >` (d2t02) is now kept, so the
+    # set-2 break falls one track later.
+    assert res.show.set_breaks == oracle.show.set_breaks == [11, 19]
     assert _labels(res)[-2:] == ["encore", "encore"]
     assert res.show.review_flags == oracle.show.review_flags
     assert res.show.structure.alignment == oracle.show.structure.alignment == "deterministic"
@@ -3978,7 +4190,8 @@ def test_sibling_transfer_split_is_identical():
     assert donor.identifier == M_IDENT
 
     # No anchors: the pair routes to `no-anchors`; the donor is still returned.
-    target = _gd74_target(list(range(27)))
+    # Every track blanked: 28 since piece 4 keeps Windsor's D3_T02 (spec 1).
+    target = _gd74_target(list(range(28)))
     out, notes = gather_mod._sibling_transfer(ia, cand, W_IDENT, want, target, norms)
     assert notes == [f"sibling alignment skipped ({M_IDENT}): tape has no independent anchors"]
     assert [t.model_dump() for t in out] == [t.model_dump() for t in target]
@@ -4338,3 +4551,579 @@ def test_cosmetic_strip_off_when_slice5_disabled(tmp_path: Path):
                          enabled_slices=title_hygiene.ALL_SLICES - {"slice5"})
     assert res.show.tracks[1].title == "06:58 - China Cat Sunflower"
     assert not any(n.startswith("cosmetic title strip") for n in res.notes)
+
+
+# --- Piece 4, Task 2: Track.short_kept, coverage and the junk note ----------
+
+def _sk_md(titles, description, short=(8,)):
+    """`_tp_md` with the 1-based tracks in `short` only 20 s long (below the floor)."""
+    return _tp_md(titles, description, lengths={i: "00:20" for i in short})
+
+
+_SK_TITLES = TP_SONGS + ["Murph"]
+
+
+def test_unmatched_short_kept_track_does_not_lower_coverage(tmp_path):
+    with_short = _tp_gather(tmp_path, _sk_md(_SK_TITLES, TP_DESC), sub="a")
+    murph = [t for t in with_short.show.tracks if t.title == "Murph"]
+    assert len(murph) == 1 and murph[0].short_kept is True
+    without = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC), sub="b")
+    assert with_short.show.structure.coverage == without.show.structure.coverage
+    assert not any("low-confidence" in f for f in with_short.show.review_flags)
+
+
+def test_short_kept_survives_to_show_json(tmp_path):
+    """Through align(), the structure-override path and taper ownership."""
+    md = _sk_md(_SK_TITLES, TP_DESC)
+    plain = _tp_gather(tmp_path, md, sub="a")
+    assert [t.title for t in plain.show.tracks if t.short_kept] == ["Murph"]
+    ovr = _tp_gather(tmp_path, md, sub="b",
+                     overrides=Overrides(set_breaks=["tb1999-07-04t03.mp3", "tb1999-07-04t06.mp3"]))
+    assert [t.title for t in ovr.show.tracks if t.short_kept] == ["Murph"]
+    owned = _tp_gather(tmp_path, md, sub="c")
+    assert owned.taper_owned is True
+    assert [t.title for t in owned.show.tracks if t.short_kept] == ["Murph"]
+    from llama.models import ManifestTrack
+    assert "short_kept" not in ManifestTrack.model_fields
+
+
+def test_old_show_json_reads_short_kept_false():
+    t = Track.model_validate({"index": 1, "set": "1", "title": "A", "filename": "a.mp3",
+                              "title_source": "tags"})
+    assert t.short_kept is False
+
+
+def _sk_junk_md(short):
+    titles = ["Alpha", "Bravo", None, "Delta", "Echo"]
+    md = _tp_md(titles, "1. Alpha\n2. Bravo\n3. Crowd Noise\n4. Delta\n5. Echo",
+                lengths={3: "00:20"} if short else None)
+    for f in md["files"]:
+        if f.get("title") is None:
+            f.pop("title", None)
+    return md
+
+
+def test_wholly_junk_final_title_notes(tmp_path):
+    """Spec 2.5: a short-kept track whose final title is wholly junk is noted."""
+    res = _tp_gather(tmp_path, _sk_junk_md(True), sub="a")
+    t3 = res.show.tracks[2]
+    assert t3.title == "Crowd Noise" and t3.short_kept is True
+    assert "short-kept track 3 'Crowd Noise': its final title is wholly junk" in res.notes
+    res2 = _tp_gather(tmp_path, _sk_junk_md(False), sub="b")
+    assert res2.show.tracks[2].title == "Crowd Noise" and not res2.show.tracks[2].short_kept
+    assert not any("wholly junk" in n for n in res2.notes)
+
+
+def test_short_kept_file_votes_like_any_kept_file(tmp_path):
+    """(pin) spec 2.5: a short-kept file is in both recording-level bases; an
+    operator-included file is left out of both."""
+    from test_title_cascade import _inputs_like_gather
+    ia = StubIA(_sk_md(_SK_TITLES, TP_DESC))
+    inp = _inputs_like_gather(ShowWorkspace(tmp_path / "a"), ia, _tp_candidate(), TP_IDENT)
+    assert "tb1999-07-04t08.mp3" in inp.ordering["short_kept"]
+    for basis in (inp.recovery_basis, inp.tag_gate_basis):
+        assert "tb1999-07-04t08.mp3" in [f["name"] for f in basis]
+    # a short file the rule drops (a wholly junk tag) and the operator re-admits
+    ia2 = StubIA(_sk_md(_SK_TITLES + ["Crowd Noise"], TP_DESC, short=(8, 9)))
+    sws2 = ShowWorkspace(tmp_path / "b")
+    write_artifact(sws2.overrides, Overrides(include=["tb1999-07-04t09.mp3"]))
+    inp2 = _inputs_like_gather(sws2, ia2, _tp_candidate(), TP_IDENT)
+    assert "tb1999-07-04t09.mp3" in [f["name"] for f in inp2.kept]
+    assert "tb1999-07-04t09.mp3" not in inp2.ordering["short_kept"]
+    for basis in (inp2.recovery_basis, inp2.tag_gate_basis):
+        names = [f["name"] for f in basis]
+        assert "tb1999-07-04t09.mp3" not in names
+        assert "tb1999-07-04t08.mp3" in names
+
+
+def test_furthur_tuning_up_short_kept_is_noted_wholly_junk(tmp_path):
+    """Spec 2.5: the kept mp3 `10.tuningup.mp3` (own tag `tmp`) is filled `Tuning Up`
+    by D; that final title is wholly junk, so the note fires."""
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_furthur_md()), None,
+                         _furthur_candidate(), F_IDENT)
+    t10 = res.show.tracks[9]
+    assert (t10.title, t10.short_kept) == ("Tuning Up", True)
+    assert "short-kept track 10 'Tuning Up': its final title is wholly junk" in res.notes
+
+
+# --- piece 4 spec 4.1: filename-valued positional overrides, one resolver ---
+
+def _windsor_kept() -> list[str]:
+    md = json.loads((FIXTURES / "gd74_windsor_metadata.json").read_text())
+    kept, _, _ = filter_files(md["files"], want_format=("VBR MP3",))
+    return [f["name"] for f in kept]
+
+
+def test_delmccoury_shape_through_gather(tmp_path: Path):
+    """The delmccouryband-2008-05-24 shape (18 filename titles plus `set_breaks: []`):
+    the structure-override path, forced no breaks, each title on its own file."""
+    names = _windsor_kept()
+    titles = {names[i]: f"Song {i + 1}" for i in range(18)}
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(titles=titles, set_breaks=[]))
+    res = compute_gather(sws, gd74_ia(), None, gd74_candidate(), W_IDENT)
+    show = res.show
+    assert show.structure.alignment == "override"
+    assert show.set_breaks == []
+    assert {t.set for t in show.tracks} == {"1"}
+    by_file = {t.filename: t for t in show.tracks}
+    for name, title in titles.items():
+        assert by_file[name].title == title and by_file[name].title_source == "override"
+
+
+def test_gather_refuses_a_legacy_overrides_file(tmp_path: Path):
+    from llama.errors import LlamaError
+    sws = ShowWorkspace(tmp_path / "show")
+    sws.dir.mkdir(parents=True)
+    sws.overrides.write_text(json.dumps({"titles": {"1": "Custom Opener"}}))
+    with pytest.raises(LlamaError) as e:
+        compute_gather(sws, StubIA(), None, make_candidate(), IDENT)
+    # The library slug of the performance, never the workspace dir name (`show`).
+    assert str(e.value) == ("gratefuldead-1973-06-10: overrides.json uses track-number "
+                            "keys; run the migration")
+
+
+def test_filename_title_follows_its_file_across_an_insertion(tmp_path: Path):
+    """Piece 4 keeps the short D3_T02 at track 17 of windsor, shifting every later
+    file one place. A title keyed by filename stays on its file: D3_T03 (track 17
+    before the insertion, 18 now) carries it, and the file now at 17 does not."""
+    names = _windsor_kept()
+    assert names[16] == "GD_022474_D3_T02.mp3" and names[17] == "GD_022474_D3_T03.mp3"
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(titles={"GD_022474_D3_T03.mp3": "Forced"},
+                                            encore_after="GD_022474_D4_T06.mp3"))
+    show = compute_gather(sws, gd74_ia(), None, gd74_candidate(), W_IDENT).show
+    assert show.tracks[16].short_kept and show.tracks[16].title != "Forced"
+    assert show.tracks[17].filename == "GD_022474_D3_T03.mp3"
+    assert show.tracks[17].title == "Forced" and show.tracks[17].title_source == "override"
+    assert [t.set for t in show.tracks][-1] == "encore"
+    assert show.tracks[26].filename == "GD_022474_D4_T06.mp3"
+    assert show.set_breaks == [27]
+
+
+# --- piece 4 spec 4.2: gather's final kept list is one shared helper ---
+
+_GD73_INCLUDE = "FOLLOW-ME @BYPIKENO.mp3"          # the spam file, junk-dropped
+_GD73_EXCLUDE = "gd73-06-10d2t01.mp3"
+
+
+def test_title_inputs_unchanged_by_final_kept():   # (pin)
+    """`title_inputs`' filter / include / exclude block moved into `final_kept`
+    verbatim: on gd73 with a re-admission and an exclusion, the kept list, the
+    excluded rows, the ordering and the recovery basis are what they were before the
+    move (literal values captured on 853239a)."""
+    from llama.junk import FORMAT_BY_AUDIO
+    from llama.stages.gather import title_inputs
+
+    class CB:
+        corroboration = ()
+    seen = []
+
+    def build(kept):
+        seen.append([f["name"] for f in kept])
+        return CB()
+    ia = StubIA()
+    inp = title_inputs(ia.metadata(IDENT),
+                       Overrides(include=[_GD73_INCLUDE], exclude=[_GD73_EXCLUDE]),
+                       ia=ia, candidate=make_candidate(), identifier=IDENT,
+                       artist="Grateful Dead", want=FORMAT_BY_AUDIO["mp3"], events=[],
+                       build=build, slug="gratefuldead-1973-06-10")
+    kept = [_GD73_INCLUDE, "gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3",
+            "gd73-06-10d1t03.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+    assert [f["name"] for f in inp.kept] == kept and seen == [kept]
+    assert inp.excluded == [{"filename": _GD73_EXCLUDE, "reasons": ["operator-excluded"],
+                             "duration_sec": 1908.0}]
+    assert inp.ordering == {"order_source": "filename", "reordered": False,
+                            "format": "VBR MP3", "readmitted": [_GD73_INCLUDE],
+                            "short_kept": []}
+    assert [f["name"] for f in inp.recovery_basis] == [
+        "gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+        _GD73_EXCLUDE, "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+
+
+def test_final_kept_is_title_inputs_block(caplog):
+    """`final_kept` returns the unexcluded list (filter + include), the final kept
+    list, the excluded rows and the ordering, with the block's warnings; and
+    `short_keep` reaches the filter."""
+    from llama.junk import FORMAT_BY_AUDIO
+    from llama.stages.gather import FinalKept, final_kept
+
+    files = StubIA().metadata(IDENT)["files"]
+    want = FORMAT_BY_AUDIO["mp3"]
+    ov = Overrides(include=[_GD73_INCLUDE, "nope.mp3"],
+                   exclude=[_GD73_EXCLUDE, _GD73_INCLUDE, "gone.mp3"])
+    with caplog.at_level("WARNING"):
+        fk = final_kept(files, ov, want)
+    assert isinstance(fk, FinalKept)
+    assert [f["name"] for f in fk.unexcluded] == [
+        _GD73_INCLUDE, "gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+        _GD73_EXCLUDE, "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+    assert [f["name"] for f in fk.kept] == [
+        "gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+        "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+    assert [e["filename"] for e in fk.excluded] == [_GD73_INCLUDE, _GD73_EXCLUDE]
+    assert fk.ordering["readmitted"] == [_GD73_INCLUDE]
+    msgs = [r.getMessage() for r in caplog.records]
+    assert "overrides.include entry 'nope.mp3' matched no file" in msgs
+    assert "overrides.exclude entry 'gone.mp3' matched no file" in msgs
+    assert (f"overrides: {_GD73_INCLUDE!r} is in both include and exclude; "
+            "exclude wins") in msgs
+    # short_keep is passed through to the filter.
+    calls = []
+    real = gather_mod.filter_files
+
+    def spy(*a, **k):
+        calls.append(k.get("short_keep"))
+        return real(*a, **k)
+    with patch.object(gather_mod, "filter_files", spy):
+        final_kept(files, Overrides(), want)
+        final_kept(files, Overrides(), want, short_keep=False)
+    assert calls == [True, False]
+
+
+# --- FW4 item 2: the segue donor's own alignment wins over exact-title pooling ---
+#
+# Operator ruling 2026-10-25 (FW4). `blend_segues` pools donor items by exact
+# `normalized` title and pops the first occurrence onto each setlist.fm item, so a
+# repeated title can take a mark from another occurrence. Wherever the donor's own
+# align() matches a track, the track's segue is now that donor item's, by position;
+# pooling stays the fallback for tracks the donor's own alignment does not cover.
+
+
+def _fw4_gather(tmp_path, tags, chosen_desc, slfm_sets, *, sib_desc=None,
+                creator="Taper Band", encore=True):
+    """compute_gather on a one- or two-recording item with a setlist.fm canonical.
+    With `sib_desc`, a sibling recording carries that description (the donor when the
+    chosen description has no segue)."""
+    md = _tp_md(tags, chosen_desc, creator=creator)
+    cand = _tp_candidate()
+    if sib_desc is None:
+        ia = StubIA(md)
+    else:
+        sib = {"metadata": dict(md["metadata"], identifier="sib", description=sib_desc),
+               "files": [], "reviews": []}
+        ia = MultiIA({TP_IDENT: md, "sib": sib})
+        cand = cand.model_copy(update={"recordings": [RecordingSummary(identifier=TP_IDENT),
+                                                       RecordingSummary(identifier="sib")]})
+    return compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, TP_IDENT,
+                          setlistfm=_FakeSetlistFM(*slfm_sets, encore=encore))
+
+
+def _segued_tracks(res):
+    return [t.index for t in res.show.tracks if t.segue]
+
+
+# radiators-2010-10-29, set one: the selected recording's own description
+# (rads2010-10-29.flac16) verbatim, its tags, and setlist.fm's names.
+_RADS_S1_TAGS = ["Todd Baker Intro", "Metric", "Deal", "Crazy Mona>Break On Through>Crazy Mona",
+                 "This Wheel's On Fire", "Taking the Long Way Down", "River Run"]
+_RADS_S1_DESC = ("~set one - disc one~\n1. Todd Baker Intro\n2. Metric\n3. Deal\n"
+                 "4. Crazy Mona>Break On Through>Crazy Mona\n5. This Wheel's On Fire\n"
+                 "6. Taking the Long Way Down\n7. River Run")
+_RADS_S1_SLFM = [["Them Changes", "Metric", "Deal", "Crazy Mona",
+                  "San Francisco Girls (Return of the Native)", "Over Under Sideways Down",
+                  "Break On Through (to the Other Side)", "Who Dat?", "Crazy Mona",
+                  "This Wheel's on Fire", "Long Way Down", "Out on the Rolling Sea", "River Run"]]
+
+
+def test_fw4_radiators_medley_own_alignment_places_no_mark(tmp_path):
+    # (d) `4. Crazy Mona > Break On Through > Crazy Mona` then `5. This Wheel's On Fire`:
+    # the donor (the chosen description) aligns to track 4 as a merge run ending on the
+    # unmarked second `Crazy Mona`, so no mark ships; pooling had moved the first
+    # occurrence's `>` onto it.
+    res = _fw4_gather(tmp_path, _RADS_S1_TAGS, _RADS_S1_DESC, _RADS_S1_SLFM, encore=False)
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == []
+
+
+# radiators-2010-10-29, set two.
+_RADS_S2_TAGS = ["House of Blue Lights", "City of Refuge>",
+                 "I've Got a Feeling>It's Your Thing>Mr. Big Stuff>I've Got a Feeling>Slow Down",
+                 "I Don't Speak Love>", "I Just Want to Make Love to You"]
+_RADS_S2_DESC = ("~set two - disc two~\n2. House of Blue Lights\n3. City of Refuge>\n"
+                 "4. I've Got a Feeling>It's Your Thing>Mr. Big Stuff>I've Got a Feeling>Slow Down\n"
+                 "5. I Don't Speak Love>\n6. I Just Want to Make Love to You")
+_RADS_S2_SLFM = [["House of Blue Lights", "I'm Gonna Run to the City of Refuge", "Higher Ground",
+                  "I'm Gonna Run to the City of Refuge", "I've Got a Feeling", "It's Your Thing",
+                  "Mr. Big Stuff", "Everybody's Got Something to Hide Except Me and My Monkey",
+                  "I've Got a Feeling", "Slow Down", "I Don't Speak Love", "And Your Bird Can Sing",
+                  "I Just Want to Make Love to You"]]
+
+
+def test_fw4_radiators_own_alignment_by_position_both_ways(tmp_path):
+    # (d) Track 3, a medley ending on the unmarked `Slow Down`, loses the pooled mark;
+    # track 2 `City of Refuge>` gains the donor's own mark, which pooling could not
+    # transfer (setlist.fm names it `I'm Gonna Run to the City of Refuge`).
+    res = _fw4_gather(tmp_path, _RADS_S2_TAGS, _RADS_S2_DESC, _RADS_S2_SLFM, encore=False)
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == [2, 4]
+
+
+# moe-2008-03-07: the donor is the sibling moe2008-03-07.mk4.nbox.722.16bit, verbatim;
+# the tags are the selected recording's; setlist.fm's names.
+_MOE_TAGS = ["intro", "Not Coming Down>", "Wormwood ->", "Cathedral", "Bullet ->", "Okayalright",
+             "Down Boy ->", "George", "Crab Eyes ->", "Spaz Rx", "Wind it Up",
+             "Queen Of Everything ->", "Bullet", "Rebubula ->", "Plane Crash ->", "Drums ->",
+             "Plane Crash", "crowd", "E: Raise A Glass", "September ->", "Rebubula"]
+_MOE_DONOR = ("Set I\n01.\t-Also Sprach Zarathustra Intro-\n02.\tNot Coming Down >\n03.\tWormwood >\n"
+              "04.\tCathedral\n05.   \tBullet >\n06.\tOkayalraight\n07.\tDown Boy >\n08.\tGeorge\n"
+              "Set II\n01.\tIntro\n02.\tCrab Eyes >\n03.\tSpaz Medicine >\n04.\tWind It Up\n"
+              "05.\tQueen Of Everything >\n06.\tBullet\n07.\tRebubula >\n08.\tPlane Crash\n"
+              "09.\t-encore break-\n10.\tRaise A Glass*\n11.\t-al.nouncements/banter-\n"
+              "12.\tSeptember >\n13.\tRebubula")
+_MOE_SLFM = [["Not Coming Down", "Wormwood", "Cathedral", "Bullet", "Okayalright", "Down Boy",
+              "George"],
+             ["Crab Eyes", "Spaz Medicine", "Wind It Up", "Queen of Everything", "Bullet",
+              "Rebubula", "Plane Crash"],
+             ["Raise a Glass", "September", "Rebubula"]]
+# The marks shipped, exactly: the pooled fallback (2, 3, 7, 9, 12) and the own
+# alignment's (14, 20); 5 `Bullet ->` is the known loss.
+MOE_SEGUED = [2, 3, 7, 9, 12, 14, 20]
+
+
+def test_fw4_pooling_stays_the_fallback_where_own_alignment_does_not_cover(tmp_path):
+    # (e) (pin of the fallback) A donor repeating `Bullet` and `Rebubula`. Its own
+    # alignment does not reach tracks 2, 3, 7, 9 and 12 (its set-two `Intro` takes track
+    # 1 and moves its pointer past set one), so their pooled marks, each corroborated by
+    # the track's own `>`/`->` tag, still ship; 14 and 20 are the own alignment's.
+    # Exact: track 5 `Bullet ->` is a KNOWN real loss (FW4 handback): the own
+    # alignment lands it on the set-two `Bullet`, unmarked, and removes the pooled mark.
+    chosen = "\n".join(t.rstrip(" ->") for t in _MOE_TAGS)
+    res = _fw4_gather(tmp_path, _MOE_TAGS, chosen, _MOE_SLFM, sib_desc=_MOE_DONOR)
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == MOE_SEGUED
+
+
+# gratefuldead-1988-06-23: the donor gd88-06-23.dsbd.terrapin-flyer.13051.sbeok.shnf,
+# verbatim; the tags; setlist.fm's names.
+_GD88_TAGS = ["Aiko", "Minglewood", "It Must Have Been The Roses",
+              "Me and My Uncle -> Mexicali Blues", "Stagger Lee", "When I Paint My Masterpiece",
+              "Bird Song", "The Promised Land", "Hey Pocky Way", "Believe It Or Not",
+              "Man Smart, Woman Smarter", "He's Gone", "Drums", "Space", "I Need A Miracle",
+              "Gimmie Some Lovin'", "All Along The Watchtower", "Morning Dew", "Brokedown Palace"]
+_GD88_DONOR = ("Iko Iko, Minglewood Blues, It Must Have Been The Roses, Me & My Uncle-> Mexicali "
+               "Blues, Stagger Lee, When I Paint My Masterpiece, Bird Song, Promised Land Hey Pocky "
+               "Way, Believe It Or Not, Women Are Smarter, He's Gone-> Drums-> Jam-> I Need A "
+               "Miracle-> Gimme Some Lovin'-> All Along The Watchtower-> Morning Dew, E:Blackbird-> "
+               "E: Brokedown Palace")
+_GD88_SLFM = [["Iko Iko", "Minglewood Blues", "It Must Have Been the Roses", "Me and My Uncle",
+               "Mexicali Blues", "Stagger Lee", "When I Paint My Masterpiece", "Bird Song",
+               "Promised Land"],
+              ["Hey Pocky A-Way", "Believe It or Not", "Man Smart, Woman Smarter", "He's Gone",
+               "Drums", "Space", "I Need a Miracle", "Gimme Some Lovin'",
+               "All Along the Watchtower", "Morning Dew"],
+              ["Blackbird", "Brokedown Palace"]]
+
+
+def _gd88(tmp_path):
+    return _fw4_gather(tmp_path, _GD88_TAGS, "\n".join(_GD88_TAGS), _GD88_SLFM,
+                       sib_desc=_GD88_DONOR, creator="Grateful Dead")
+
+
+def test_fw4_gd88_regained_marks_still_ship(tmp_path):
+    # (f) (pin) FW3's regained marks: He's Gone, Drums, I Need A Miracle, Watchtower.
+    # Exact: 14 `Space` is item 2's own gain (pinned with its mechanism below).
+    res = _gd88(tmp_path)
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == [12, 13, 14, 15, 17]
+
+
+def test_fw4_gd88_space_takes_the_donors_jam_mark(tmp_path):
+    # Item 2 by position: the donor's own alignment matches track 14 `Space` to its
+    # `Jam ->` (align()'s Space-after-Drums rule), a mark pooling cannot transfer
+    # (setlist.fm's `Space` has no donor item of that title).
+    res = _gd88(tmp_path)
+    assert _segued_tracks(res) == [12, 13, 14, 15, 17]
+
+
+def test_fw4_donor_segues_none_is_a_no_op():
+    from llama.models import AlignResult
+    from llama.stages.gather import donor_segues
+    r = AlignResult(sets=["1"], segues=[True], matched=[True], coverage=1.0, conflicts=[],
+                    merge_conflicts=[])
+    assert donor_segues([], r, None, None, shipped_sets=["1"]) is r
+
+
+def test_fw4_segue_donor_carries_g5_and_the_canonical_cleaning():
+    # The donor item 2 aligns is G5's (no `Ripple > Outro` mark) and is cleaned like
+    # the canonical; with no setlist.fm canonical there is none.
+    cb = _fw4_build(_DC15_SLFM, _DC15_CHOSEN, _DC15_DONOR, 17)
+    d = cb.segue_donor
+    assert d is not None
+    assert [i.title for i in d.items if i.segue] == [
+        "Intro", "Shakedown Street", "Brown-Eyed Women", "New Minglewood Blues", "Intro",
+        "Eyes of the World", "Let It Grow", "Terrapin Station", "Drums Intro", "Drums", "Space",
+        "The Wheel", "Looks Like Rain"]
+    base = json.loads(FIXTURE.read_text())
+    kept, _, _ = filter_files(base["files"], want_format=("VBR MP3",))
+    assert build_canonical(StubIA(base), make_candidate(), IDENT, base["metadata"], kept,
+                           "Grateful Dead", []).segue_donor is None
+
+
+# --- FW4 fix round 1 ---
+#
+# G5 fires only when the next donor entry BEGINS with a filler word; a real title that
+# carries one later (`(Band Intros)`, `/ crowd`, `Intro Jam`, `W/Crowd Response chant`)
+# keeps the mark. Each shape is the donor's own text, verbatim.
+
+
+@pytest.mark.parametrize("slfm, donor, segued", [
+    # joerussosalmostdead-2016-02-11 (JRAD2016-02-11...CollegeStMusicHallNewHavenCT)
+    ([["St. Stephen", "Space", "Let It Grow", "Eyes of the World", "Cumberland Blues"]],
+     "04 Let It Grow -->\n05 Eyes Of The World -->\n06 Cumberland Blues (Band Intros)",
+     ["Let It Grow", "Eyes of the World"]),
+    # littlefeat-1975-09-01 (lf1975-09-01.flac16)
+    ([["Teenage Nervous Breakdown", "Cold, Cold, Cold", "Dixie Chicken", "Tripe Face Boogie",
+       "Willin'"]],
+     "Teenage Nervous Breakdown\nCold Cold Cold >\nDixie Chicken >\nTripe Face Boogie / crowd\n"
+     "Willin'",
+     ["Cold, Cold, Cold", "Dixie Chicken"]),
+    # railroadearth-2013-07-12 (rre2013-07-12, the selected run-on set line)
+    ([["Black Bear", "Stillwater Getaway", "The Forecast", "Mighty River", "Peace on Earth"]],
+     "Set II: Warhead Boogie> Black Bear> Stillwater Getaway, The Forecast> River Intro Jam> "
+     "Mighty River> Peace on Earth,",
+     ["Black Bear", "The Forecast", "Mighty River"]),
+    # kellerwilliams-2005-02-12 (kw2005-02-12.flac)
+    ([["Shapes of M+M's", "Breathe", "Up in My Cadillac", "Boomwhacker", "Breathe", "Yoni"]],
+     "02. Breathe >\n03. Up in my Cadillac >\n04. Boomwhacker/Toy loup W/Crowd Response chant >\n"
+     "05. Breathe",
+     ["Breathe", "Up in My Cadillac"]),
+])
+def test_fw4r1_g5_keeps_a_mark_into_a_title_carrying_a_filler_word(slfm, donor, segued):
+    cb = _fw4_build(slfm, "\n".join(n for s in slfm for n in s), donor,
+                    sum(len(s) for s in slfm), encore=False)
+    assert cb.source == "setlist.fm"
+    assert _segued(cb) == segued
+
+
+def test_fw4r1_g5_runs_after_the_donor_ranking():
+    # (pin) The chosen parse is the closest by count among segue-bearing parses, and its
+    # only segue is `Ripple > Outro`. G5 clears it after ranking: no donor, no transfer,
+    # and the sibling's real `Bertha >` is NOT promoted in its place.
+    # (setlist.fm needs five songs to count; `from_setlistfm`.)
+    chosen = "Bertha\nDeal\nSugaree\nRipple >\nOutro"
+    sib = "Bertha > Deal\nSugaree\nRipple\nOne\nTwo\nThree"
+    cb = _fw4_build([["Bertha", "Deal", "Sugaree", "Ripple", "Brokedown Palace"]], chosen, sib,
+                    5, encore=False)
+    assert cb.source == "setlist.fm"
+    assert _segued(cb) == []
+    assert cb.segue_donor is None
+
+
+# Item 2's ADD guard: the own alignment adds a mark only on a track that is not the
+# show's last and is in the same set as the next track (canonical alignment), or whose
+# own title ends in `>`.
+
+# warrenzevon-2000-05-29: the selected description's last lines, verbatim; setlist.fm's
+# names. Track 3 is the show's last track, a four-song file whose first component matches
+# the donor's `Play It All Night Long >`.
+_WZ0529_TAGS = ["Roland the Headless Thompson Gunner",
+                "Werewolves of London > Back In the High Life Again [Jennings, Winwood]",
+                "Play It All Night Long > [Encore:] 5D (Fifth Dimension) [McGuinn] > "
+                "I'll Sleep When I'm Dead > Lawyers, Guns and Money"]
+_WZ0529_DESC = ("09. Roland the Headless Thompson Gunner\n"
+                "10. Werewolves of London > Back In the High Life Again  [Jennings, Winwood]\n"
+                "11. Play It All Night Long > [Encore:] 5D (Fifth Dimension)  [McGuinn] > "
+                "I'll Sleep When I'm Dead > Lawyers, Guns and Money")
+_WZ0529_SLFM = [["Roland the Headless Thompson Gunner", "Werewolves of London",
+                 "Back in the High Life Again", "Play It All Night Long", "5D (Fifth Dimension)",
+                 "I'll Sleep When I'm Dead", "Lawyers, Guns and Money"]]
+
+
+def test_fw4r1_no_gain_on_the_last_track(tmp_path):
+    res = _fw4_gather(tmp_path, _WZ0529_TAGS, _WZ0529_DESC, _WZ0529_SLFM, encore=False)
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == []
+
+
+# gratefuldead-1987-03-27: the selected one-line description (gd87-03-27.nak.braverman),
+# verbatim, whose parse glues set one's closer to set two's opener:
+# `The Music Never Stopped Touch Of Gray->`. Tags and setlist.fm's names.
+_GD87_TAGS = ["Alabama Getaway", "Greatest Story Ever Told", "West LA Fadeaway",
+              "Little Red Rooster", "Brown-Eyed Women", "Beat It On Down the Line",
+              "Tennessee Jed", "The Music Never Stopped", "Touch of Grey", "Samson & Delilah",
+              "Cumberland Blues", "Estimated Prophet", "Eyes of the World", "drums", "space",
+              "Uncle John's Band", "Morning Dew", "Johnny B. Goode"]
+_GD87_DESC = ("Alabama Getaway-> Greatest Story Ever Told, West L.A. Fadeaway, Little Red Rooster, "
+              "Brown Eyed Women, Beat It On Down The Line, Tennessee Jed, The Music Never Stopped "
+              "Touch Of Gray-> Samson & Delilah, Cumberland Blues, Estimated Prophet-> Eyes Of The "
+              "World-> Jam-> Drums-> Space-> Uncle John's Band-> Morning Dew, E: Johnny B. Goode")
+_GD87_SLFM = [["Alabama Getaway", "Greatest Story Ever Told", "West L.A. Fadeaway",
+               "The Little Red Rooster", "Brown-Eyed Women", "Beat It on Down the Line",
+               "Tennessee Jed", "The Music Never Stopped"],
+              ["Touch of Grey", "Samson and Delilah", "Cumberland Blues", "Estimated Prophet",
+               "Eyes of the World", "Drums", "Space", "Uncle John's Band", "Morning Dew"],
+              ["Johnny B. Goode"]]
+
+
+def _gd87(tmp_path, tags=_GD87_TAGS):
+    return _fw4_gather(tmp_path, tags, _GD87_DESC, _GD87_SLFM, creator="Grateful Dead")
+
+
+def test_fw4r1_no_cross_set_gain_from_a_run_on_blob(tmp_path):
+    # Track 8 (set one's closer) matches the blob and would take its `->`; set two
+    # follows, so the gain is declined. The interior marks still ship.
+    res = _gd87(tmp_path)
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == [1, 12, 13, 14, 15, 16]
+
+
+def test_fw4r1_cross_set_gain_ships_when_the_track_is_tagged(tmp_path):
+    # (pin) The same shape with the track's own tag ending in `>`: the taper's own mark.
+    tags = list(_GD87_TAGS)
+    tags[7] = "The Music Never Stopped >"
+    res = _gd87(tmp_path, tags)
+    assert _segued_tracks(res) == [1, 8, 12, 13, 14, 15, 16]
+
+
+def test_fw4r1_removal_on_the_last_track_still_happens(tmp_path):
+    # (pin) Removals are unguarded: radiators-2010-10-29's medley as the show's last
+    # track still loses the pooled mark its own alignment does not place.
+    res = _fw4_gather(tmp_path, _RADS_S1_TAGS[:4], "\n".join(_RADS_S1_DESC.split("\n")[:5]),
+                      _RADS_S1_SLFM, encore=False)
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == []
+
+
+# --- FW4 fix round 2: rule (b) reads the SHIPPED set labels ---
+
+# joerussosalmostdead-2017-04-29: the selected description (JRAD2017-04-29.1stBankCenter.
+# TelefunkenM60.FLAC24) verbatim, its tags and setlist.fm's names. setlist.fm has no
+# `Morfbeats`, so the canonical alignment leaves tracks 10-11 in set one (inherited) while
+# the taper's `SET TWO` marker ships them in set two, with `Dark Star`.
+_JRAD17_TAGS = ["Intro", "Shelter from the Storm", "Bertha", "Let it Grow", "Help->Slipnot",
+                "Throwing Stones", "It Must Have Been the Roses", "Gonesville", "Shakedown Street",
+                "***Second Set Intro***", "Morfbeats", "Dark Star",
+                "Mississippi Half Step Uptown Toodleloo", "Estimated Prophet",
+                "Terrapin Station Suite", "The Other One", "Eyes of the World", "***crowd noise***",
+                "One More Saturday Night", "Not Fade Away", "Ripple", "Born to Run"]
+_JRAD17_DESC = ("SET ONEShelter from the Storm->\nBertha->\nLet it Grow->\nHelp/Slipnot>\n"
+                "Throwing Stones\nMust Have Been the Roses>\nGonesville->\nShakedown Street\n"
+                "SET TWO\nMorfbeats->\nDark Star->\nHalf Step->\nEstimated Prophet->\n"
+                "Terrapin Suite->\nThe Other One\nEyes of the World\nENCORE 1\n"
+                "One More Saturday Night\nNot Fade Away\nENCORE 2\nRipple\nBorn to Run")
+_JRAD17_SLFM = [["Shelter From the Storm", "Bertha", "Let It Grow", "Help on the Way", "Slipknot!",
+                 "Throwing Stones", "It Must Have Been the Roses", "Gonesville",
+                 "Shakedown Street"],
+                ["Dark Star", "Mississippi Half-Step Uptown Toodeloo", "Estimated Prophet",
+                 "Terrapin Station", "The Other One", "Eyes of the World"],
+                ["One More Saturday Night", "Not Fade Away", "Ripple", "Born to Run"]]
+
+
+def test_fw4r2_gain_ships_when_the_shipped_sets_agree(tmp_path):
+    # Track 11 `Morfbeats` takes the donor's `Morfbeats->`: its canonical set (one) differs
+    # from track 12's (two), but the shipped labels put both in set two.
+    res = _fw4_gather(tmp_path, _JRAD17_TAGS, _JRAD17_DESC, _JRAD17_SLFM,
+                      creator="Joe Russo's Almost Dead")
+    t = res.show.tracks
+    assert res.show.structure.source == "setlist.fm"
+    assert t[10].set == t[11].set == "2"
+    assert _segued_tracks(res) == [2, 3, 4, 5, 7, 8, 11, 12, 13, 14]
+
+
+def test_fw4r2_gain_across_a_shipped_set_break_is_still_declined(tmp_path):
+    # (pin) gratefuldead-1987-03-27's blob: tracks 8 and 9 ship in different sets.
+    res = _gd87(tmp_path)
+    t = res.show.tracks
+    assert t[7].set != t[8].set
+    assert 8 not in _segued_tracks(res)

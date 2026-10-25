@@ -1,0 +1,37 @@
+{"row": 1, "verdict": "music", "kind": "segue-piece", "hole": true, "confidence": "high", "why": "Sugar Magnolia Jam sits between Wharf Rat -> and Good Lovin; sibling shows it merged into Wharf Rat"}
+{"row": 2, "verdict": "music", "kind": "segue-piece", "hole": true, "confidence": "medium", "why": "percussion> 46s bridging tracks tagged > on both sides"}
+{"row": 3, "verdict": "music", "kind": "segue-piece", "hole": true, "confidence": "high", "why": "Eat > is a named setlist item in the Nemo>Eat>Nemo>Eat chain; dropping leaves gap"}
+{"row": 4, "verdict": "music", "kind": "segue-piece", "hole": true, "confidence": "high", "why": "Jam -> merges with Vampire Blues in sibling (resid 8)"}
+{"row": 5, "verdict": "music", "kind": "segue-piece", "hole": true, "confidence": "high", "why": "Space > between Summer Sun > and Blood Red Roses >"}
+{"row": 6, "verdict": "music", "kind": "continuation", "hole": true, "confidence": "high", "why": "Search reprise after Drums; sibling Search>Drums>Search; neighbour Drums also dropped"}
+{"row": 7, "verdict": "music", "kind": "continuation", "hole": true, "confidence": "medium", "why": "Cryptical Envelopment reprise after The Other One per setlist"}
+{"row": 8, "verdict": "music", "kind": "continuation", "hole": true, "confidence": "high", "why": "Overture (end) with -> into next; part of split Overture"}
+{"row": 9, "verdict": "music", "kind": "segue-piece", "hole": true, "confidence": "high", "why": "WRS Prelude > leads into Part I; sibling merges them"}
+{"row": 10, "verdict": "music", "kind": "fragment", "hole": false, "confidence": "low", "why": "Named song 82s, probably a tease/short; no segue tags, not in sibling"}
+{"row": 11, "verdict": "music", "kind": "segue-piece", "hole": true, "confidence": "high", "why": "Hey Bulldog Jam -> between Throwing Stones segments; operator included it"}
+{"row": 12, "verdict": "music", "kind": "fragment", "hole": true, "confidence": "medium", "why": "Isn't She Lovely > medley piece tagged > into Squeeze"}
+{"row": 13, "verdict": "music", "kind": "segue-piece", "hole": true, "confidence": "medium", "why": "Stella Blue Jam; sibling merges with next-set track; operator included"}
+{"row": 14, "verdict": "music", "kind": "whole-song", "hole": false, "confidence": "high", "why": "Maple Leaf Rag is a short complete piano rag with timestamp; operator included"}
+{"row": 15, "verdict": "unsure", "kind": null, "hole": false, "confidence": "low", "why": "Tag \"people heart Gerg\" reads like spoken banter, but sibling merges it exactly (resid 0) with One Of These Days (possible intro)"}
+{"row": 16, "verdict": "music", "kind": "fragment", "hole": false, "confidence": "low", "why": "Fireworks Solo listed by taper as an item; 39s is short, maybe a cut"}
+{"row": 17, "verdict": "music", "kind": "whole-song", "hole": true, "confidence": "high", "why": "Supplication in setlist chain Lazy Lightning-> Supplication-> Let It Grow"}
+{"row": 18, "verdict": "unsure", "kind": null, "hole": false, "confidence": "low", "why": "Swine Flu Poem is probably a spoken poem (junk) but taper numbers it as a track"}
+{"row": 19, "verdict": "unsure", "kind": null, "hole": false, "confidence": "low", "why": "curfew? is banter-like 22s, but sibling merges it exactly with Used to Be a Cop (resid 0-2) suggesting song tail"}
+{"row": 20, "verdict": "music", "kind": "whole-song", "hole": false, "confidence": "high", "why": "Team America cover, complete short song, 146s"}
+{"row": 21, "verdict": "music", "kind": "fragment", "hole": false, "confidence": "medium", "why": "Whole Lotta Love tease 30s; neighbours are intro/outro/thanks junk"}
+{"row": 22, "verdict": "music", "kind": "whole-song", "hole": true, "confidence": "medium", "why": "Toccata and Fugue encore piece, taper-listed, > into Therapy"}
+{"row": 23, "verdict": "music", "kind": "fragment", "hole": false, "confidence": "medium", "why": "Something is a named setlist song at 49s, probably a short cover tease/snippet"}
+{"row": 24, "verdict": "music", "kind": "continuation", "hole": true, "confidence": "high", "why": "Carry That Weight completes Golden Slumbers medley (both dropped); setlist flow into Let It Grow"}
+{"row": 25, "verdict": "music", "kind": "fragment", "hole": false, "confidence": "low", "why": "Layla 60s listed in setlist; probably a tease/outro; sibling alone match is crowd"}
+{"row": 26, "verdict": "music", "kind": "continuation", "hole": false, "confidence": "medium", "why": "Star Trek Theme second part (1:05) in a Star Trek/Final Frontier sequence"}
+{"row": 27, "verdict": "music", "kind": "continuation", "hole": true, "confidence": "high", "why": "42 follows Moshi Moshi jam ->; sibling merged with that jam (resid 110)"}
+{"row": 28, "verdict": "music", "kind": "continuation", "hole": true, "confidence": "medium", "why": "7-11 in encore Floodlights > 7-11 per setlist; operator included"}
+{"row": 29, "verdict": "junk", "kind": null, "hole": false, "confidence": "high", "why": "set 1 tuning"}
+{"row": 30, "verdict": "junk", "kind": null, "hole": false, "confidence": "high", "why": "Tuning/Banter"}
+{"row": 31, "verdict": "junk", "kind": null, "hole": false, "confidence": "high", "why": "Set Intro spoken intro"}
+{"row": 32, "verdict": "junk", "kind": null, "hole": false, "confidence": "medium", "why": "Donor Rap is a spoken appeal"}
+{"row": 33, "verdict": "junk", "kind": null, "hole": false, "confidence": "high", "why": "tuning"}
+{"row": 34, "verdict": "music", "kind": "whole-song", "hole": false, "confidence": "high", "why": "Life During Wartime 486s whole song; dropped only by filename convention mismatch"}
+{"row": 35, "verdict": "music", "kind": "whole-song", "hole": false, "confidence": "high", "why": "Easy To Love You 281s full song; convention-mismatch drop"}
+{"row": 36, "verdict": "music", "kind": "whole-song", "hole": false, "confidence": "high", "why": "waves 310s full song; convention-mismatch drop"}
+{"row": 37, "verdict": "music", "kind": "whole-song", "hole": false, "confidence": "high", "why": "Burning On The Inside 712s, taper-listed opener song; convention-mismatch drop"}

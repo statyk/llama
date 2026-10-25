@@ -1,0 +1,7 @@
+# t13-fix2 report
+Status: DONE
+Commit: eba7afc fix(reuse): pair a manifest only with the item it was packaged from
+Changes: plan_reuse pairs the library and the station manifest only when its own source.identifier equals show.json's identifier (missing/unreadable/empty = no pairing; library_names still read; build_package one-step guard kept). Minor 2: test_reapply_refuses... now asserts _snapshot == before. Minor 3: identifier build_package test asserts the aside exists and holds exactly 01 - A.mp3 and 02 - B.mp3. The reapply _old_packaged_audio fixture manifest gained source.identifier.
+New tests: test_audio_reuse.py (station mismatch/None/empty, library mismatch/None), test_fix.py::test_held_reselection_then_overrule_never_ships_the_old_items_station_audio, test_reapply.py::test_reapply_after_a_held_reselection_never_reuses_the_old_items_audio (library manifest naming another item; changing show.json's identifier there hit the replay cache, so the manifest is the one altered).
+RED: ran against a scratch copy of HEAD (04afb6f) source with the new tests, PYTHONPATH-shadowed, llama.__file__ confirmed in scratch: 7 failed, 3 passed (all 5 audio_reuse mismatch cases, the fix test and the reapply test; the reapply test's final form was re-run: 0 downloads vs 6).
+GREEN: covering files (test_audio_reuse, test_stage_package, test_redo_cmd, test_fix, test_reapply) pass; full suite ./.venv/bin/python -m pytest -q -p no:cacheprovider: 5065 passed, 1 skipped, 8 deselected.

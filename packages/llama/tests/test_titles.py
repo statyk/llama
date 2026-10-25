@@ -788,3 +788,12 @@ def test_resolve_titles_layer_and_fills():
     # Empty fills: no S fill at all, even on a count-matched canonical.
     tracks = resolve_titles(files, make_setlist(), layer=layer, setlist_fills={})
     assert [t.title_source for t in tracks].count("setlist") == 0
+
+
+def test_resolve_titles_stamps_short_kept():
+    """Spec 2.5: the cascade stamps `short_kept` from the filter's ordering."""
+    files = make_files(["Morning Dew", "China Cat Sunflower", "I Know You Rider",
+                        "Dark Star", "Eyes of the World", "Johnny B. Goode"])
+    tracks = resolve_titles(files, make_setlist(), short_kept=frozenset({"d2t01.mp3"}))
+    assert [t.short_kept for t in tracks] == [False, False, False, True, False, False]
+    assert not any(t.short_kept for t in resolve_titles(files, make_setlist()))

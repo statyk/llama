@@ -1,0 +1,41 @@
+{"row": 1, "decision": "keep", "rule_R_right": true, "kind": "crowd", "confidence": "medium", "why": "Crowd call-back between songs, 35s; harmless, part of show feel."}
+{"row": 2, "decision": "keep", "rule_R_right": true, "kind": "fragment", "confidence": "high", "why": "Drums>Space segment inside the setlist chain."}
+{"row": 3, "decision": "keep", "rule_R_right": true, "kind": "segue-or-continuation", "confidence": "high", "why": "Antelope reprise segment; description lists it."}
+{"row": 4, "decision": "keep", "rule_R_right": true, "kind": "fragment", "confidence": "medium", "why": "Jam leads set I per setlist 'I: Jam->The Grateful Dead'."}
+{"row": 5, "decision": "keep", "rule_R_right": true, "kind": "fragment", "confidence": "high", "why": "Drums segue in Dead chain."}
+{"row": 6, "decision": "keep", "rule_R_right": true, "kind": "segue-or-continuation", "confidence": "high", "why": "Mountain Jam piece in chain."}
+{"row": 7, "decision": "keep", "rule_R_right": true, "kind": "fragment", "confidence": "high", "why": "Drums > in setlist."}
+{"row": 8, "decision": "keep", "rule_R_right": true, "kind": "fragment", "confidence": "high", "why": "China Cat tease, musical."}
+{"row": 9, "decision": "keep", "rule_R_right": true, "kind": "fragment", "confidence": "high", "why": "Maggie's Farm tease, musical."}
+{"row": 10, "decision": "keep", "rule_R_right": true, "kind": "fragment", "confidence": "high", "why": "High Time tease, musical."}
+{"row": 11, "decision": "keep", "rule_R_right": true, "kind": "spoken-band", "confidence": "medium", "why": "24s Intro at start; band/MC intro."}
+{"row": 12, "decision": "keep", "rule_R_right": true, "kind": "spoken-band", "confidence": "medium", "why": "Intro/Crowd 93s, listed track 1 of set; announcement/crowd."}
+{"row": 13, "decision": "keep", "rule_R_right": true, "kind": "spoken-band", "confidence": "high", "why": "Band thanks at end."}
+{"row": 14, "decision": "keep", "rule_R_right": true, "kind": "spoken-band", "confidence": "medium", "why": "Set-2 Intro 16s, listed track."}
+{"row": 15, "decision": "keep", "rule_R_right": true, "kind": "spoken-band", "confidence": "medium", "why": "Intro > 77s leading into first song."}
+{"row": 16, "decision": "keep", "rule_R_right": true, "kind": "spoken-band", "confidence": "medium", "why": "37s Intro listed in tracklist."}
+{"row": 17, "decision": "keep", "rule_R_right": true, "kind": "spoken-band", "confidence": "high", "why": "Band banter 84s listed in tracklist."}
+{"row": 18, "decision": "keep", "rule_R_right": true, "kind": "spoken-broadcast", "confidence": "medium", "why": "45s DJ intro of the broadcast, listed track; part of the recording."}
+{"row": 19, "decision": "keep", "rule_R_right": true, "kind": "spoken-broadcast", "confidence": "medium", "why": "32s radio announcers mid-show; spoken segment, harm of keeping small."}
+{"row": 20, "decision": "keep", "rule_R_right": true, "kind": "spoken-broadcast", "confidence": "high", "why": "Stage/radio announcements; operator says keep announcements."}
+{"row": 21, "decision": "keep", "rule_R_right": true, "kind": "crowd", "confidence": "low", "why": "148s encore-break crowd; long, but dropping is the worse error. Debatable."}
+{"row": 22, "decision": "drop", "rule_R_right": false, "kind": "tuning", "confidence": "low", "why": "119s crowd/tuning jam at tape start; not in setlist; tuning-dominant."}
+{"row": 23, "decision": "keep", "rule_R_right": true, "kind": "crowd", "confidence": "low", "why": "26s crowd between songs; harmless."}
+{"row": 24, "decision": "keep", "rule_R_right": true, "kind": "crowd", "confidence": "low", "why": "96s encore break, crowd and likely band return; debatable."}
+{"row": 25, "decision": "drop", "rule_R_right": false, "kind": "tuning", "confidence": "medium", "why": "99s crowd/tuning at set-2 opening, no banter/talk."}
+{"row": 26, "decision": "drop", "rule_R_right": false, "kind": "tuning", "confidence": "low", "why": "168s Intro/Tuning at start of set; mostly tuning, but may hold an intro."}
+{"row": 27, "decision": "keep", "rule_R_right": true, "kind": "spoken-band", "confidence": "low", "why": "52s tuning/banter with countdown; banter component, under 60s."}
+{"row": 28, "decision": "keep", "rule_R_right": true, "kind": "spoken-band", "confidence": "medium", "why": "Disc 2 'Intro' 48s per tracklist, start of Set II."}
+{"row": 29, "decision": "keep", "rule_R_right": true, "kind": "crowd", "confidence": "low", "why": "66s 'Crowd' filename between songs; description useless (just 'Schoeps MK4V')."}
+{"row": 30, "decision": "keep", "rule_R_right": true, "kind": "spoken-band", "confidence": "high", "why": "d1t18 = '18. banter' per tracklist."}
+{"row": 31, "decision": "drop", "rule_R_right": false, "kind": "silence-or-tape-edge", "confidence": "high", "why": "Track09 8s = 'Silent Track (very short)' in description (9th entry)."}
+{"row": 32, "decision": "keep", "rule_R_right": true, "kind": "song", "confidence": "high", "why": "d2t04 = 'WRS Prelude' per setlist; 85s real song piece."}
+{"row": 33, "decision": "keep", "rule_R_right": false, "kind": "segue-or-continuation", "confidence": "high", "why": "Tracklist: '0:50 Going In The Right Direction' reprise (song), not junk. 0:25 band intros follows."}
+{"row": 34, "decision": "drop", "rule_R_right": true, "kind": "silence-or-tape-edge", "confidence": "medium", "why": "5s final file of disc 2 under blank 'Instrumentals' entries; no content evidence."}
+{"row": 35, "decision": "drop", "rule_R_right": true, "kind": "tuning", "confidence": "medium", "why": "44s Tuning between songs."}
+{"row": 36, "decision": "drop", "rule_R_right": true, "kind": "tuning", "confidence": "high", "why": "76s tuning at tape start."}
+{"row": 37, "decision": "drop", "rule_R_right": true, "kind": "silence-or-tape-edge", "confidence": "high", "why": "5s Silence."}
+{"row": 38, "decision": "drop", "rule_R_right": true, "kind": "tuning", "confidence": "medium", "why": "57s Tuning between songs."}
+{"row": 39, "decision": "keep", "rule_R_right": false, "kind": "spoken-band", "confidence": "medium", "why": "53s band banter promoting their CD; stage talk, not an ad insert. Rule R wrongly drops on 'promote'."}
+{"row": 40, "decision": "drop", "rule_R_right": true, "kind": "non-performance", "confidence": "low", "why": "35s 'Intro Music' (walk-on/PA music); could be band's own entrance tape. Few seconds barely hurts."}
+{"row": 41, "decision": "drop", "rule_R_right": true, "kind": "non-performance", "confidence": "high", "why": "KZEW radio commercial."}

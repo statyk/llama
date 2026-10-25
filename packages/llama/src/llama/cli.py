@@ -5,6 +5,7 @@ import sys
 import tempfile
 import textwrap
 import traceback
+from collections.abc import Collection, Mapping
 from contextlib import ExitStack, contextmanager
 from datetime import date, datetime, timezone
 from enum import Enum
@@ -21,6 +22,7 @@ from herder.usage import read_usage
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
+from llama.audio_reuse import plan_reuse
 from llama.catalog import library_performance_ids
 from llama.cli_select import ShowState
 from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
@@ -1390,14 +1392,124 @@ def _resolve_show(config, ledger, name: str):
 _UNSET = object()
 
 
+def _legacy_message(sws, slug: str) -> str | None:
+    """The writers' refusal for the stored `overrides.json` (piece 4 spec 4.1
+    "Writers refuse legacy"): the legacy message when its positional values are
+    track numbers, the mixed message when it mixes the two forms (a mixed file
+    holds a legacy value too, and only undoing the hand edit repairs it), else None
+    (no file, no positional value, or filename-valued). Judged on the file as
+    stored, by `override_keys`' own test. `fix` and triage reuse it before any
+    prompt; `_edit_overrides` before any write."""
+    from llama.override_keys import refusal
+
+    if not sws.overrides.exists():
+        return None
+    try:
+        data = json.loads(sws.overrides.read_text())
+    except (OSError, ValueError):
+        return None          # unreadable: `read_overrides` raises its own error
+    return refusal(slug, data) if isinstance(data, dict) else None
+
+
+def _refuse_legacy(sws, slug: str) -> None:
+    """`fix`'s first check (spec 4.1 "Writers refuse legacy"): exit 1 with
+    `_legacy_message`'s text when the stored file holds any legacy value, before
+    any flag parsing, prompt, lock or write. Triage uses `_legacy_message` itself,
+    since it prints the text and moves on to the next show instead of exiting."""
+    refused = _legacy_message(sws, slug)
+    if refused is not None:
+        typer.echo(refused, err=True)
+        raise typer.Exit(1)
+
+
+def _stale(ia, config, sws, slug: str) -> str | None:
+    """The staleness refusal (spec 4.2), or None: a track number names a file through
+    `show.json`, which is only safe while `show.json`'s filename list IS gather's final
+    kept list, computed by gather's own helper (`gather.final_kept`) over the overrides
+    as stored, i.e. before this invocation's edits. Until a show is re-gathered under
+    the short-keep rule they differ on every show the rule changes. Needs `show.json`;
+    reads the selected item's metadata (cached by gather)."""
+    from llama import junk
+    from llama.stages import gather
+    from llama.workspace import read_overrides
+
+    show = read_model(sws.show, Show)
+    files = ia.metadata(show.identifier).get("files", [])
+    fk = gather.final_kept(files, read_overrides(sws),
+                           junk.FORMAT_BY_AUDIO[config.audio_format])
+    if [f["name"] for f in fk.kept] == [t.filename for t in show.tracks]:
+        return None
+    return (f"{slug}: show.json's track list is not what gather keeps now; re-gather "
+            f"under the new rule first (llama redo {slug} --from gather)")
+
+
+def _keyed_files(sws, extra: Mapping[str, str] = {},
+                 cleared: Collection[str] = ()) -> dict[str, str]:
+    """filename -> the positional key it carries (`titles`, `set_breaks` or
+    `encore_after`) once this invocation's edits land: the stored keys minus those it
+    clears (`cleared` holds `titles:<file>`, `set_breaks`, `encore_after`), plus its
+    new ones (`extra`). A file carrying several keys maps to the first in that order;
+    clearing it reveals the next. Called after `_refuse_legacy`, so stored values are
+    filenames."""
+    from llama.workspace import read_overrides
+
+    ov = read_overrides(sws)
+    out: dict[str, str] = {}
+    for f in ov.titles:
+        if f"titles:{f}" not in cleared:
+            out.setdefault(str(f), "titles")
+    if "set_breaks" not in cleared:
+        for f in ov.set_breaks or ():
+            out.setdefault(str(f), "set_breaks")
+    if "encore_after" not in cleared and ov.encore_after is not None:
+        out.setdefault(str(ov.encore_after), "encore_after")
+    for f, key in extra.items():
+        out.setdefault(f, key)
+    return out
+
+
+def _exclusion_refusal(slug: str, file: str, key: str) -> str:
+    """Spec 4.2 "Exclusion refuses up front on a keyed file"."""
+    flag = {"titles": f"--clear-title {file}", "set_breaks": "--clear-set-breaks",
+            "encore_after": "--clear-encore"}[key]
+    return (f"{slug}: {file} carries overrides.{key}; clear it first with "
+            f"llama fix {slug} {flag}")
+
+
 def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
                     narration=None,
                     venue=_UNSET, city=_UNSET, date=_UNSET, set_titles=None,
                     clear_titles=(), set_breaks=_UNSET, clear_set_breaks=False,
                     encore_after=_UNSET, clear_encore=False):
+    """Apply one edit to `overrides.json`. The positional arguments take TRACK
+    NUMBERS, the `show.json` numbering the operator saw (`show --tracks`), and are
+    stored as that track's filename (piece 4 spec 4.2 "Writers take track
+    numbers"): `set_titles` keys, `set_breaks` items, `encore_after`, and the
+    all-digit `clear_titles` items (any other item is a filename, removed as given).
+    Refuses (LlamaError, nothing written) a legacy or mixed file, a number outside
+    `show.json`'s track list, and a number to translate with no `show.json`."""
     from llama.workspace import read_overrides
 
+    slug = show_ws.dir.name
+    refused = _legacy_message(show_ws, slug)
+    if refused is not None:
+        raise LlamaError(refused)
     ov = read_overrides(show_ws)
+    names: list[str] | None = None
+
+    def to_file(n) -> str:
+        nonlocal names
+        if isinstance(n, str) and not n.strip().isdigit():
+            return n      # a filename (a dangling key triage's editor keeps), as given
+        n = int(n)
+        if names is None:
+            if not show_ws.show.exists():
+                raise LlamaError(f"track {n} names a file through show.json, which is "
+                                 f"missing; rebuild it with: llama redo {slug} --from gather")
+            names = [t.filename for t in read_model(show_ws.show, Show).tracks]
+        if not 1 <= n <= len(names):
+            raise LlamaError(f"no track {n} (show has {len(names)} tracks)")
+        return names[n - 1]
     # Adding to one list removes the same name from the other, so no call that
     # sets only one of them can leave a file in both -- which is what makes
     # gather's "exclude wins" tiebreak (a defined answer for a hand-mangled
@@ -1418,9 +1530,13 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
             include.append(f)
     titles = dict(ov.titles)
     for n in clear_titles:
-        titles.pop(int(n), None)
+        titles.pop(to_file(n) if str(n).strip().isdigit() else str(n), None)
     for n, t in (set_titles or {}).items():
-        titles[int(n)] = t
+        titles[to_file(n)] = t
+    if set_breaks is not _UNSET and set_breaks is not None:
+        set_breaks = [to_file(n) for n in set_breaks]
+    if encore_after is not _UNSET and encore_after is not None:
+        encore_after = to_file(encore_after)
     data = ov.model_copy(update={
         "exclude": exclude,
         "include": include,
@@ -1741,8 +1857,17 @@ def _metadata_editor(entry) -> dict | None:
     cur_venue = ov.venue if ov.venue is not None else (s.venue or "")
     cur_city = ov.city if ov.city is not None else (s.city or "")
     cur_date = ov.date if ov.date is not None else (s.date or "")
-    cur_titles = ", ".join(f"{n}={t}" for n, t in sorted(ov.titles.items()))
-    cur_breaks = ",".join(str(n) for n in (ov.set_breaks or []))
+    # Overrides are stored as filenames; the operator sees and types today's
+    # `show.json` track numbers. A key whose file is not in show.json (dangling)
+    # shows as its filename, and typed back as given it is kept.
+    number = {t.filename: t.index for t in s.tracks}
+
+    def shown(f) -> str:
+        return str(number.get(f, f))
+    numbered = sorted((f for f in ov.titles if f in number), key=number.get)
+    dangling_titles = [f for f in ov.titles if f not in number]
+    cur_titles = ", ".join(f"{shown(f)}={ov.titles[f]}" for f in numbered + dangling_titles)
+    cur_breaks = ",".join(shown(f) for f in (ov.set_breaks or []))
 
     venue = typer.prompt("venue", default=cur_venue, show_default=True)
     city = typer.prompt("city", default=cur_city, show_default=True)
@@ -1763,18 +1888,23 @@ def _metadata_editor(entry) -> dict | None:
             if not spec:
                 continue
             n, sep, t = spec.partition("=")
-            if not sep or not n.strip().isdigit():
+            n = n.strip()
+            if sep and n in dangling_titles:
+                parsed_titles[n] = t
+            elif not sep or not n.isdigit():
                 typer.echo(f"title overrides expects N=Title, got {spec!r}")
                 return None
-            parsed_titles[int(n.strip())] = t
+            else:
+                parsed_titles[int(n)] = t
 
     breaks_val = None
     if breaks_changed:
         parts = [x.strip() for x in breaks_in.split(",") if x.strip()]
-        if not all(p.isdigit() for p in parts):
+        dangling_breaks = {f for f in (ov.set_breaks or []) if f not in number}
+        if not all(p.isdigit() or p in dangling_breaks for p in parts):
             typer.echo(f"set breaks expects comma-separated track numbers, got {breaks_in!r}")
             return None
-        breaks_val = [int(p) for p in parts]
+        breaks_val = [int(p) if p.isdigit() else p for p in parts]
 
     return dict(venue=venue if venue != cur_venue else _UNSET,
                 city=city if city != cur_city else _UNSET,
@@ -1830,6 +1960,18 @@ def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
     return ("packaged", pkg) if pkg else ("held", None)
 
 
+def _stale_in_triage(ia, config, entry) -> str | None:
+    """`_stale` for a triage prompt: the refusal text, or None when the track list is
+    current. Without a `show.json` there is nothing to compare; the writer's own
+    refusal names the rebuild. An archive error is the refusal's text, never "fresh"."""
+    if not entry.ws.show.exists():
+        return None
+    try:
+        return _stale(ia, config, entry.ws, entry.slug)
+    except LlamaError as exc:     # IAError included
+        return str(exc)
+
+
 def _interactive_resolve(config, ia, ledger, entry) -> None:
     # Every successful edit leaves the show, so this view stays valid; a ShowChanged
     # refusal re-enters this function, which re-captures it.
@@ -1845,6 +1987,12 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
         return
     _print_show_entry(entry)
     if entry.state != "held":
+        return
+    # Spec 4.1: every triage edit writes overrides.json, so a legacy (or mixed) file
+    # refuses the whole show before any prompt; the walkthrough goes on to the next.
+    refused = _legacy_message(entry.ws, entry.slug)
+    if refused is not None:
+        typer.echo(f"error: {refused}", err=True)
         return
     # Task 8: offered only on a hold this feature can actually help with --
     # `entry.flags` is `derive_state`'s (== `show.review_flags`) for a held
@@ -1885,6 +2033,13 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             if not files:
                 typer.echo("nothing selected; skipping")
                 return
+            # Spec 4.2: a keyed file cannot be excluded; same text as `fix --exclude`.
+            keyed = _keyed_files(entry.ws)
+            hits = [f for f in files if f in keyed]
+            for f in hits:
+                typer.echo(f"error: {_exclusion_refusal(entry.slug, f, keyed[f])}", err=True)
+            if hits:
+                continue   # back to the prompt, nothing written
             edit = lambda: _edit_overrides(entry.ws, add_exclude=files)  # noqa: E731
             stage = "gather"
         elif choice == "i" and include_offered:
@@ -1909,6 +2064,16 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             kwargs = _metadata_editor(entry)
             if kwargs is None:
                 continue   # nothing changed - back to the prompt, same show
+            # Spec 4.2: only a positional edit (a title or break by number) names a
+            # file through show.json; venue, city, date, a cleared title and a kept
+            # dangling key do not, so they are not gated, as in `fix`.
+            positional = bool(kwargs["set_titles"]) and any(
+                isinstance(k, int) for k in kwargs["set_titles"]) or (
+                isinstance(kwargs["set_breaks"], list)
+                and any(isinstance(k, int) for k in kwargs["set_breaks"]))
+            if positional and (stale := _stale_in_triage(ia, config, entry)):
+                typer.echo(f"error: {stale}", err=True)
+                continue
             edit = lambda: _edit_overrides(entry.ws, **kwargs)  # noqa: E731
             lines.append(f"{entry.slug}: metadata override updated")
             stage = "gather"
@@ -1932,6 +2097,9 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
                 typer.echo(f"{entry.slug}: no provenance.json/show.json to "
                            "propose titles from", err=True)
                 continue
+            if stale := _stale_in_triage(ia, config, entry):
+                typer.echo(f"error: {stale}", err=True)
+                continue
             show = read_model(entry.ws.show, Show)
             picks = _propose_and_confirm_titles(ia, config, entry, show)
             if not picks:
@@ -1950,6 +2118,9 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             edit = lambda: _edit_overrides(entry.ws, set_titles=picks)  # noqa: E731
             stage = "gather"
         elif choice == "u" and untitled_offered:
+            if stale := _stale_in_triage(ia, config, entry):
+                typer.echo(f"error: {stale}", err=True)
+                continue
             try:
                 status, pkg = _untitled_resolution(config, ia, ledger, entry,
                                                    read_model(entry.ws.show, Show), view)
@@ -2297,16 +2468,42 @@ def _deliver_pointer(slug: str, reasons: list[str]) -> str:
     return f"  re-package: llama redo {slug} --from package"
 
 
+def _read_destination_manifest(out: Path) -> dict | None:
+    """`out/manifest.json` as raw JSON (llama never imports emcee). None only
+    when it does not exist (`FileNotFoundError`: the manifest or `out` itself
+    is missing). Any other read error, invalid JSON or a non-object raises
+    LlamaError (spec 5.5): a station copy llama cannot read is never assumed
+    unvoiced, since re-delivering over a voiced one would un-voice it."""
+    mf = out / "manifest.json"
+    try:
+        m = json.loads(mf.read_text())
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as exc:
+        raise LlamaError(f"refusing to deliver {out.name}: cannot read {mf} ({exc}); "
+                         "check the station copy by hand") from exc
+    if not isinstance(m, dict):
+        raise LlamaError(f"refusing to deliver {out.name}: cannot read {mf} (not a JSON "
+                         f"object: {type(m).__name__}); check the station copy by hand")
+    return m
+
+
 def _destination_is_voiced(out: Path) -> bool:
     """True when `out/manifest.json` is a JSON object whose `dj_audio` is
-    non-null -- emcee's mark that it voiced this delivered package. Read as
-    raw JSON (llama never imports emcee); anything unreadable or not an
-    object counts as not voiced."""
-    try:
-        m = json.loads((out / "manifest.json").read_text())
-    except (OSError, ValueError):
-        return False
-    return isinstance(m, dict) and m.get("dj_audio") is not None
+    non-null -- emcee's mark that it voiced this delivered package. False only
+    when the manifest (or `out`) does not exist; anything unreadable raises
+    LlamaError (see `_read_destination_manifest`)."""
+    m = _read_destination_manifest(out)
+    return m is not None and m.get("dj_audio") is not None
+
+
+def _track_filenames(manifest: dict) -> list | None:
+    """A manifest's track `filename`s in order; None when `tracks` is not a
+    list of objects (a destination like that is replaced, never merged)."""
+    tracks = manifest.get("tracks")
+    if not isinstance(tracks, list) or not all(isinstance(t, dict) for t in tracks):
+        return None
+    return [t.get("filename") for t in tracks]
 
 
 def _replace_destination(pkg: Path, out: Path, target_dir: Path) -> None:
@@ -2346,14 +2543,36 @@ def _sweep_swap_leftovers(target_dir: Path, name: str) -> None:
                    "voiced audio — remove it by hand once checked", err=True)
 
 
+class _VoicedDestination(LlamaError):
+    """`_deliver_one`'s refusal of a destination emcee has voiced. Its text names
+    `--replace-voiced`; a selector batch, which refuses that flag, prints
+    `batch_text()` instead, naming the by-name re-delivery (FW2 item 6)."""
+
+    def __init__(self, slug: str, out: Path):
+        self.slug, self.out = slug, out
+        super().__init__(self._text("pass"))
+
+    def _text(self, route: str) -> str:
+        return (f"refusing to deliver {self.slug}: {self.out} is already voiced by emcee; "
+                f"re-delivering would un-voice it ({route} --replace-voiced to replace it "
+                "with a fresh, unvoiced copy)")
+
+    def batch_text(self) -> str:
+        return self._text("re-deliver it by name with")
+
+
 def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     """Copy one resolved show's package to `dest` (or config.delivery_path)
     and record the delivery in the ledger; returns the destination path.
     Raises LlamaError on refusal -- no destination, a deliver-gate
     refusal from `catalog.deliver_refusals` (none of its three legs is
-    overridable), or a destination emcee has already voiced (re-delivering
-    would silently un-voice it) unless `replace_voiced`, which replaces it
-    wholesale with a fresh, unvoiced copy."""
+    overridable), a destination manifest that exists but cannot be read,
+    or a destination emcee has already voiced (re-delivering would silently
+    un-voice it) unless `replace_voiced`, which replaces it wholesale with a
+    fresh, unvoiced copy. An unvoiced destination whose track list differs
+    from the package's is replaced wholesale too (spec 5.5), so no
+    old-numbered file survives beside the new manifest; one with the same
+    list, or with no manifest at all, is overlaid as before."""
     import json as _json
 
     from llama.catalog import deliver_refusals
@@ -2365,15 +2584,13 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
         raise LlamaError("no --dest given and no delivery_path in config")
     with file_lock(show_ws.lock):
         out = target_dir / show_dir.name
-        voiced = _destination_is_voiced(out)
+        dest_manifest = _read_destination_manifest(out)   # LlamaError: unreadable, refuse
+        voiced = dest_manifest is not None and dest_manifest.get("dj_audio") is not None
         # Ahead of the gate: deliver purged this show's audio, so the gate's
         # missing-audio pointer would send the operator to re-download a show
         # that this refusal then turns away regardless.
         if voiced and not replace_voiced:
-            raise LlamaError(
-                f"refusing to deliver {entry.slug}: {out} is already voiced "
-                "by emcee; re-delivering would un-voice it (pass "
-                "--replace-voiced to replace it with a fresh, unvoiced copy)")
+            raise _VoicedDestination(entry.slug, out)
         reasons = deliver_refusals(show_ws)
         if reasons:
             message = f"refusing to deliver {entry.slug}: {'; '.join(reasons)}"
@@ -2381,7 +2598,9 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
         pkg = show_dir / "package"
         manifest = _json.loads((pkg / "manifest.json").read_text())
         _sweep_swap_leftovers(target_dir, show_dir.name)
-        if voiced:
+        dest_files = None if dest_manifest is None else _track_filenames(dest_manifest)
+        if voiced or (dest_manifest is not None
+                      and (dest_files is None or dest_files != _track_filenames(manifest))):
             _replace_destination(pkg, out, target_dir)
         else:
             shutil.copytree(pkg, out, dirs_exist_ok=True)
@@ -2412,7 +2631,9 @@ def _purge_after_delivery(show_ws, out: Path, slug: str) -> None:
         typer.echo(f"library audio purged ({catalog.human_bytes(r.freed)} freed)")
 
 
-def _deliver_batch(config, ledger, sel, dest, yes, replace_voiced=False) -> None:
+def _deliver_batch(config, ledger, sel, dest, yes) -> None:
+    """A selector batch. Never replaces a voiced destination: `deliver`
+    refuses `--replace-voiced` with any selector (spec 5.5)."""
     from llama.catalog import iter_shows
     from llama.cli_select import HELD_NOTE, apply_selector, split_held
 
@@ -2425,19 +2646,31 @@ def _deliver_batch(config, ledger, sel, dest, yes, replace_voiced=False) -> None
         return
     marks: dict[str, str] = {}
     note = None
+    unreadable: set[str] = set()
     target_dir = dest or config.delivery_path
     if target_dir is not None:
-        voiced = [e.slug for e in kept if _destination_is_voiced(target_dir / e.ws.dir.name)]
-        if replace_voiced:
-            marks = {slug: "  (voiced: DJ script/audio will be discarded)" for slug in voiced}
-        elif voiced:
+        voiced = []
+        for e in kept:
+            try:
+                if _destination_is_voiced(target_dir / e.ws.dir.name):
+                    voiced.append(e.slug)
+            except LlamaError as exc:
+                # This show alone is refused; the rest of the batch goes on.
+                typer.echo(str(exc), err=True)
+                unreadable.add(e.slug)
+                marks[e.slug] = "  (refused: destination manifest unreadable)"
+        if voiced:
             note = (f"note: {len(voiced)} destination(s) already voiced by emcee will be "
-                    "refused (pass --replace-voiced to replace them)")
+                    "refused (re-deliver each by name with --replace-voiced)")
     if not _confirm_plan(kept, "deliver", yes, marks=marks, note=note):
         return
     for e in kept:
+        if e.slug in unreadable:
+            continue
         try:
-            out = _deliver_one(config, ledger, e, dest, replace_voiced)
+            out = _deliver_one(config, ledger, e, dest)
+        except _VoicedDestination as exc:
+            typer.echo(exc.batch_text(), err=True)
         except LlamaError as exc:
             typer.echo(str(exc), err=True)
         except OSError as exc:
@@ -2464,18 +2697,23 @@ def deliver(
     replace_voiced: bool = typer.Option(
         False, "--replace-voiced",
         help="Replace a destination emcee has already voiced with a fresh, "
-             "unvoiced copy (discards its DJ script and audio)"),
+             "unvoiced copy (discards its DJ script and audio); one named show "
+             "only, never a selector"),
 ):
     """Copy a show package to the station's watched folder and record delivery.
 
     Requires a clean package: packaged, file-complete, and not held for
     review. None of these three legs is overridable. A destination emcee has
     already voiced is refused (re-delivering would un-voice it) unless
-    --replace-voiced, which swaps in a fresh, unvoiced copy.
+    --replace-voiced, which swaps in a fresh, unvoiced copy and takes one
+    named show only, never a selector.
     """
     from llama.cli_select import build_selector
 
     other_selector = any([held, packaged, state, artist, run, profile])
+    if replace_voiced and other_selector:
+        typer.echo("--replace-voiced takes one named show, never a selector", err=True)
+        raise typer.Exit(1)
     if name is not None and other_selector:
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
@@ -2502,7 +2740,7 @@ def deliver(
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
     _note_unknown_profiles(config, profile)
-    _deliver_batch(config, ledger, sel, dest, yes, replace_voiced)
+    _deliver_batch(config, ledger, sel, dest, yes)
 
 
 def _redo_show(config, ia, ledger, entry, from_stage: str, *,
@@ -2535,6 +2773,10 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
                          "reprocess it via its run first")
     prov = read_model(show_ws.provenance, Provenance)   # under the caller's lock
     keep_research = not with_research and from_stage in ("select", "gather")
+    # Spec 5.4: pair the existing audio with the CURRENT show.json and manifests
+    # before the re-gather rewrites or drops them.
+    reuse = plan_reuse(show_ws, config.delivery_path / show_ws.dir.name
+                       if config.delivery_path else None)
     drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
     # Keep the winnow assessment (quality_score + recording_complaints) so
     # select-recording still avoids complained-about recordings; override only
@@ -2551,7 +2793,8 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
                         prov.run, config.audio_format,
                         setlistfm=make_client(config), structure_cfg=config.structure,
                         jerrybase_enabled=config.jerrybase.enabled,
-                        selection_cfg=config.selection, profile=prov.profile)
+                        selection_cfg=config.selection, profile=prov.profile,
+                        audio_reuse=reuse)
 
 
 class NarrationMode(str, Enum):
@@ -2808,10 +3051,10 @@ def _propose_titles_for_show(ia, config, entry, show):
     events=[]` unconditionally, which meant an operator with a setlist.fm
     key configured would confirm a proposal built from a strictly weaker
     LMA-only canonical than the one `gather` actually consumes. `kept` is
-    filtered against `entry.overrides.exclude` for the same reason (Task 8
-    review finding A1): `run_gather` drops excluded files from `kept`
-    *before* calling `build_canonical` (gather.py), so on a show with prior
-    exclusions an unfiltered `kept` here could rank a different winning
+    gather's own final kept list (`gather.final_kept`: filter, include,
+    exclude) for the same reason (Task 8 review finding A1; piece 4 spec 4.2
+    "one shared helper"): `run_gather` builds the canonical over that list,
+    so a list computed any other way here could rank a different winning
     parse (`rank_parses(..., target_count=len(kept))` feeds the `plausible`
     tier) than the redo the confirmation triggers will itself compute.
     `entry.overrides` (not a fresh `read_overrides` call) is deliberate, and
@@ -2850,39 +3093,33 @@ def _propose_titles_for_show(ia, config, entry, show):
     """
     from llama import jerrybase
     from llama.correspondence import propose_titles, sibling_item_durations
-    from llama.junk import FORMAT_BY_AUDIO, filter_files
+    from llama.junk import FORMAT_BY_AUDIO
     from llama.models import TitleProposal
     from llama.setlistfm import make_client
-    from llama.stages.gather import build_canonical
+    from llama.stages.gather import build_canonical, final_kept
 
     cand = entry.provenance.candidate
-    meta = ia.metadata(show.identifier).get("metadata", {})
+    md = ia.metadata(show.identifier)
+    meta = md.get("metadata", {})
     want = FORMAT_BY_AUDIO[config.audio_format]
-    # `readmit=` is not optional here: gather applies overrides.include INSIDE
-    # filter_files, so a recomputation without it is one file short of every
-    # correctly-gathered show that has an effective include -- and the C1 guard
-    # below then declines forever, blaming a stale show.json that is in fact
-    # exactly what gather just wrote. Both reviewer seats found this
-    # independently on the whole-branch review; pinned by
-    # test_suggest_titles_survives_an_effective_overrides_include.
-    kept, _, _ = filter_files(ia.metadata(show.identifier).get("files", []),
-                              want_format=want,
-                              readmit=frozenset(entry.overrides.include))
-    if entry.overrides.exclude:
-        drop = set(entry.overrides.exclude)
-        kept = [f for f in kept if f["name"] not in drop]
-    # C1 (final review): `kept` is recomputed here straight from
-    # `ia.metadata` + `entry.overrides.exclude`, but `show.tracks` is
-    # whatever `show.json` last had `gather` write -- NOT re-derived. Those
-    # two agree only when the most recent `gather` redo already saw the
-    # current `overrides.exclude` (and cache). When they disagree (an
-    # `--exclude`/`--unexclude` staged with `--no-run`, or a redo that died
-    # after `_edit_overrides` wrote `overrides.json` but before `gather`
-    # completed, or a refreshed metadata cache changing the file list), the
-    # DP below still runs over `show.tracks`' STALE 1-based numbering while
-    # `overrides.titles` gets applied post-exclusion by `gather` -- a
-    # confirmed proposal then writes titles onto the wrong tracks with no
-    # error and no flag (reproduced end to end: three titles landed on three
+    # gather's own final kept list (spec 4.2 "one shared helper"), over the stored
+    # overrides: include is applied inside the filter (a recomputation without it
+    # was one file short of every show with an effective include --
+    # test_suggest_titles_survives_an_effective_overrides_include), then exclude.
+    kept = final_kept(md.get("files", []), entry.overrides, want).kept
+    # C1 (final review), now the second line of defence behind `fix`'s staleness
+    # check (`_stale`, the same comparison, run before any prompt): `show.tracks`
+    # is whatever `show.json` last had `gather` write -- NOT re-derived -- and
+    # the proposal's picks are track numbers in THAT numbering, stored as the
+    # filename show.json's track N names (`_edit_overrides`). Those agree with
+    # what gather will key them against only while show.json IS gather's final
+    # kept list. When they disagree (an `--exclude`/`--unexclude` staged with
+    # `--no-run`, a redo that died after `_edit_overrides` wrote
+    # `overrides.json` but before `gather` completed, a refreshed metadata
+    # cache changing the file list, or a show not yet re-gathered under the
+    # short-keep rule), a confirmed proposal would title files the DP never
+    # judged against those positions, with no error and no flag (reproduced
+    # end to end, by position, before piece 4: three titles landed on three
     # wrong files). Comparing the filename LISTS, not just lengths, also
     # catches the metadata-cache-refresh case, where lengths could still
     # match by coincidence. This must be a hard decline, not a warning --
@@ -3002,12 +3239,24 @@ def fix(
     config, ia, ledger = _setup()
     entry = _resolve_show(config, ledger, name)
     sws = entry.ws
+    # Spec 4.1 "Writers refuse legacy": first, on every invocation, before any flag
+    # parsing, prompt, lock or other refusal.
+    _refuse_legacy(sws, entry.slug)
     view = capture_view(sws)   # what every check and prompt below is judged against
 
     def refuse_no_show_json():
         typer.echo(f"no show.json in {sws.dir} (state: {entry.state}); "
                    f"rebuild it with: llama redo {entry.slug} --from gather", err=True)
         raise typer.Exit(1)
+
+    def refuse_if_stale():
+        # Spec 4.2: a track number names a file through show.json, which must be
+        # gather's final kept list. Before any prompt; with no lock held, like every
+        # refusal here (the unit's view check re-verifies what it judged).
+        stale = _stale(ia, config, sws, entry.slug)
+        if stale is not None:
+            typer.echo(stale, err=True)
+            raise typer.Exit(1)
 
     if untitled:
         # Spec Slice 7. Every refusal precedes the confirmation prompt and any
@@ -3034,6 +3283,7 @@ def fix(
             typer.echo(f"no provenance.json in {entry.ws.dir} - "
                        "reprocess it via its run first", err=True)
             raise typer.Exit(1)
+        refuse_if_stale()
         show = read_model(sws.show, Show)
         resolved, total = _untitled_counts(show)
         if total == 0 or resolved:
@@ -3054,12 +3304,16 @@ def fix(
             typer.echo(f'--set-title expects N="Title" with a track number, got {spec!r}', err=True)
             raise typer.Exit(1)
         parsed_titles[int(n.strip())] = t
-    clear_title_nums = []
+    # A number is show.json's track N; anything else is a filename, removed as given
+    # (spec 4.2 "AUTHOR'S CALL": it clears a key whose file vanished, with no
+    # show.json and no staleness check).
+    clear_title_items: list[int | str] = []
     for spec in (clear_title or []):
-        if not str(spec).strip().isdigit():
-            typer.echo(f"--clear-title expects a track number, got {spec!r}", err=True)
+        spec = str(spec)
+        if not spec.strip():
+            typer.echo("--clear-title expects a track number or a filename, got ''", err=True)
             raise typer.Exit(1)
-        clear_title_nums.append(int(str(spec).strip()))
+        clear_title_items.append(int(spec.strip()) if spec.strip().isdigit() else spec)
     breaks_val = None
     if set_breaks:
         parts = [x.strip() for x in set_breaks.split(",") if x.strip()]
@@ -3076,14 +3330,13 @@ def fix(
 
     if suggest_titles:
         # I2 (review round 1): the proposal is computed over the CURRENT
-        # track list, but a same-invocation --exclude/--unexclude renumbers
-        # tracks (titles.py's index=pos+1 over the post-exclusion kept
-        # list), while overrides.titles is applied by that same 1-based
-        # position (gather.py). Any picked index still in range after the
-        # renumbering would land on the wrong track with no error -- exactly
-        # the silent-wrong-title failure this whole feature exists to
-        # prevent. Refuse the combination outright rather than trying to
-        # re-derive the post-exclusion numbering here.
+        # track list, but a same-invocation --exclude/--unexclude/--include
+        # changes which files the re-gather keeps, and so the numbering the
+        # operator would confirm a proposal against: the picks are stored by
+        # the filename show.json's track N names today (spec 4.2), and the
+        # gather that follows renumbers around the edit. Refuse the
+        # combination outright rather than proposing over a track list the
+        # redo is about to change.
         if exclude or unexclude or include:
             # C1 (final review): naming only "run the exclusion first, then
             # --suggest-titles" used to be the attack path INTO C1 -- an
@@ -3110,8 +3363,51 @@ def fix(
                 f"or `--no-run` followed by `llama redo {entry.slug} --from gather`), "
                 "then --suggest-titles as a separate invocation.", err=True)
             raise typer.Exit(1)
-        if not sws.show.exists():
-            refuse_no_show_json()
+
+    numeric_clears = [n for n in clear_title_items if isinstance(n, int)]
+    positional = bool(parsed_titles or set_breaks or set_encore or suggest_titles)
+    if (positional or numeric_clears) and not sws.show.exists():
+        refuse_no_show_json()
+    if positional:
+        # Not for the --clear-* flags: removing a key cannot mis-point (spec 4.2).
+        refuse_if_stale()
+
+    if exclude:
+        # Spec 4.2 "Exclusion refuses up front on a keyed file", with or without
+        # --no-run: an excluded file must not keep a title, break or encore key
+        # (gather would refuse it as dangling). Judged on the keys once THIS
+        # invocation's edits land: its own clears free a file, a --set-breaks /
+        # --set-encore replaces the stored value, and its new keys count too.
+        try:
+            targets = _resolve_exclude_tokens(sws, exclude)
+        except LlamaError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1)
+        names = ([t.filename for t in read_model(sws.show, Show).tracks]
+                 if sws.show.exists() else [])
+
+        def file_of(n: int) -> str | None:
+            return names[n - 1] if 1 <= n <= len(names) else None
+        extra: dict[str, str] = {}
+        for key, nums in (("titles", parsed_titles), ("set_breaks", breaks_val or ()),
+                          ("encore_after", () if encore_val is None else (encore_val,))):
+            for n in nums:
+                if (f := file_of(n)) is not None:
+                    extra.setdefault(f, key)
+        cleared = {f"titles:{file_of(n) if isinstance(n, int) else n}"
+                   for n in clear_title_items}
+        if clear_set_breaks or set_breaks:
+            cleared.add("set_breaks")
+        if clear_encore or set_encore:
+            cleared.add("encore_after")
+        keyed = _keyed_files(sws, extra, cleared)
+        hits = [f for f in dict.fromkeys(targets) if f in keyed]
+        for f in hits:
+            typer.echo(_exclusion_refusal(entry.slug, f, keyed[f]), err=True)
+        if hits:
+            raise typer.Exit(1)
+
+    if suggest_titles:
         if entry.provenance is None:
             # M7 (review round 1): match the two nearest analogues --
             # _redo_show (raises LlamaError, caught by callers) and triage's
@@ -3132,7 +3428,7 @@ def fix(
         # -- the guard above already exits before this point whenever any of
         # them is set.
         other_edit_requested = bool(
-            set_venue or set_city or set_date or parsed_titles or clear_title_nums
+            set_venue or set_city or set_date or parsed_titles or clear_title_items
             or set_breaks or clear_set_breaks or set_encore or clear_encore
             or narration is not None or overrule)
         picks = _propose_and_confirm_titles(ia, config, entry, show)
@@ -3153,7 +3449,7 @@ def fix(
 
     did_files = bool(exclude or unexclude or include)
     did_meta = bool(set_venue or set_city or set_date or parsed_titles
-                    or clear_title_nums or set_breaks or clear_set_breaks
+                    or clear_title_items or set_breaks or clear_set_breaks
                     or set_encore or clear_encore)
     did_narration = narration is not None
 
@@ -3231,7 +3527,7 @@ def fix(
                 city=set_city if set_city is not None else _UNSET,
                 date=set_date if set_date is not None else _UNSET,
                 set_titles=parsed_titles or None,
-                clear_titles=clear_title_nums,
+                clear_titles=clear_title_items,
                 set_breaks=breaks_val if set_breaks else _UNSET,
                 clear_set_breaks=clear_set_breaks,
                 encore_after=encore_val if set_encore else _UNSET,
@@ -3494,9 +3790,25 @@ def reapply(
             continue
         typer.echo(f"reapplied: {out.slug} -> {out.outcome}")
         if out.delivered and out.outcome == "cleared":
-            typer.echo(f"  re-deliver with: llama deliver {out.slug}")
+            _echo_redeliver_hint(config, out.slug)
     if failed:
         raise typer.Exit(1)
+
+
+def _echo_redeliver_hint(config, slug: str) -> None:
+    """Spec 5.5: `re-deliver with` only for a destination that is not voiced
+    (a voiced one goes to the operator's re-voice list, never a plain
+    `deliver`); an unreadable one prints deliver's refusal instead; with no
+    delivery_path there is nothing to check, so no hint."""
+    if config.delivery_path is None:
+        return
+    try:
+        voiced = _destination_is_voiced(config.delivery_path / slug)
+    except LlamaError as exc:
+        typer.echo(f"  {exc}")
+        return
+    if not voiced:
+        typer.echo(f"  re-deliver with: llama deliver {slug}")
 
 
 def _meter_pct(reading) -> str:
@@ -3628,7 +3940,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
                    + (" (re-run with --allow-structure-change after checking)"
                       if skipped_structure else ""))
         if out.delivered and out.outcome == "cleared":
-            typer.echo(f"  re-deliver with: llama deliver {slug}")
+            _echo_redeliver_hint(config, slug)
         if _meter_applies(config, pace):
             typer.echo(f"  meter: 5h {_meter_pct(reading)}% -> "
                        f"{_meter_pct(_meter(config, pace))}%")

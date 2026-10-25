@@ -1,5 +1,6 @@
 """scripts/replay_holds.py run: offline replay of a fixture library, zero writes
 outside the scratch directory, identity check (spec slice 0 acceptance 3)."""
+import hashlib
 import json
 import logging
 import os
@@ -829,8 +830,9 @@ def test_venue_changes_ignores_an_identical_diff_and_counts_a_flag_change(tmp_pa
 
 # --- piece 2: --strip-structure-overrides, stamped arms ---
 
-_OVERRIDES = {"exclude": ["nonexistent-track.mp3"], "titles": {"1": "Forced Title"},
-              "set_breaks": [3], "encore_after": 5}
+# Filename-valued (piece 4 spec 4.1): gd73's tracks 1, 3 and 5.
+_OVERRIDES = {"exclude": ["nonexistent-track.mp3"], "titles": {"gd73-06-10d1t01.mp3": "Forced Title"},
+              "set_breaks": ["gd73-06-10d1t03.mp3"], "encore_after": "gd73-06-10d2t02.mp3"}
 
 
 def test_strip_mode_removes_only_structure_overrides(tmp_path, monkeypatch):
@@ -854,14 +856,14 @@ def test_strip_mode_removes_only_structure_overrides(tmp_path, monkeypatch):
     assert rh.main(["run", "--out", str(out), "--all", "--strip-structure-overrides",
                     "--config", str(root / "config.toml"), "--scratch", str(scratch)]) == 0
     assert seen["overrides"] == {"exclude": ["nonexistent-track.mp3"],
-                                 "titles": {"1": "Forced Title"}}
+                                 "titles": {"gd73-06-10d1t01.mp3": "Forced Title"}}
     assert scratch in seen["dir"].parents                  # the shadow lives under the scratch root
     assert live.read_bytes() == live_bytes                 # the live file is untouched
     arm = json.loads(out.read_text())
     assert arm["structure_overrides_stripped"] is True
     row = arm["shows"]["gratefuldead-1973-06-10"]
     assert row["state"] == "held" and row["unreplayable"] is None
-    assert row["stripped"] == {"set_breaks": [3], "encore_after": 5}
+    assert row["stripped"] == {"set_breaks": ["gd73-06-10d1t03.mp3"], "encore_after": "gd73-06-10d2t02.mp3"}
     assert "stripped" not in json.loads(
         (lambda p: (rh.main(["run", "--out", str(p), "--all", "--config",
                              str(root / "config.toml")]), p.read_text())[1])(
@@ -945,10 +947,10 @@ def _run_strip(tmp_path, monkeypatch, flags):
 
 def test_strip_titles_removes_only_titles(tmp_path, monkeypatch):
     seen, arm = _run_strip(tmp_path, monkeypatch, ["--strip-title-overrides"])
-    assert seen == {"exclude": ["nonexistent-track.mp3"], "set_breaks": [3], "encore_after": 5}
+    assert seen == {"exclude": ["nonexistent-track.mp3"], "set_breaks": ["gd73-06-10d1t03.mp3"], "encore_after": "gd73-06-10d2t02.mp3"}
     assert arm["title_overrides_stripped"] is True
     assert arm["structure_overrides_stripped"] is False
-    assert arm["shows"]["gratefuldead-1973-06-10"]["stripped"] == {"titles": {"1": "Forced Title"}}
+    assert arm["shows"]["gratefuldead-1973-06-10"]["stripped"] == {"titles": {"gd73-06-10d1t01.mp3": "Forced Title"}}
 
 
 def test_both_strip_flags_together(tmp_path, monkeypatch):
@@ -957,7 +959,7 @@ def test_both_strip_flags_together(tmp_path, monkeypatch):
     assert seen == {"exclude": ["nonexistent-track.mp3"]}
     assert arm["title_overrides_stripped"] is True and arm["structure_overrides_stripped"] is True
     assert arm["shows"]["gratefuldead-1973-06-10"]["stripped"] == {
-        "titles": {"1": "Forced Title"}, "set_breaks": [3], "encore_after": 5}
+        "titles": {"gd73-06-10d1t01.mp3": "Forced Title"}, "set_breaks": ["gd73-06-10d1t03.mp3"], "encore_after": "gd73-06-10d2t02.mp3"}
 
 
 def test_shadow_takes_the_keys_as_a_contract(tmp_path):
@@ -1502,6 +1504,51 @@ def test_voiced_marked_from_station_manifest(tmp_path):
     assert "v-no" in text.split("== delivered")[1]
 
 
+def test_compare_labels_an_unreadable_destination_and_does_not_crash(tmp_path):
+    """Spec 5.5: a station manifest deliver would refuse as unreadable is labelled
+    `unreadable` (not `voiced`, not `delivered`) in every compare report, and compare
+    still writes them all."""
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    st = tmp_path / "station"
+    for slug, body in (("v-bad", "{not json"), ("v-list", "[1, 2]"), ("v-no", json.dumps({"dj_audio": None}))):
+        _stored(root, slug, ["A"])
+        _p3(b, slug, CLEAN_SLUG, "delivered")
+        _p3(c, slug, CLEAN_SLUG, "delivered", outcome="clean-changed", titles=["B"],
+            title_sources=["tags"], title_paths=["C1"])
+        (st / slug).mkdir(parents=True)
+        (st / slug / "manifest.json").write_text(body)
+    # a taper row too, so `_taper_changes` reaches the station copy
+    slug = "show-moved"
+    for arm in (b, c):
+        _clone(arm, CLEAN_SLUG, slug, "delivered")
+        _row(arm, slug).update(outcome="clears", set_changes=[], segue_changes=[], notes=[])
+    (root / "shows" / slug).mkdir(parents=True)
+    (root / "shows" / slug / "show.json").write_text(json.dumps(
+        {"tracks": [{"index": i + 1, "set": s} for i, s in enumerate(["1", "1", "1", "2", "2"])]}))
+    _row(b, slug)["sets"] = ["1", "1", "1", "2", "2"]
+    _row(b, slug)["filler"] = [False] * 5
+    _owned(_row(c, slug), ["1", "1", "2", "2", "2"], source="notes", step1="jerrybase")
+    (st / slug).mkdir(parents=True)
+    (st / slug / "manifest.json").write_text("{not json")
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out),
+                    "--config", cfg_with(tmp_path, root, st)]) == 0
+    text = (out / "title_changes.txt").read_text()
+    assert "== unreadable" in text
+    unreadable_part = text.split("== unreadable")[1].split("\n== ")[0]
+    assert "v-bad" in unreadable_part and "v-list" in unreadable_part and "v-no" not in unreadable_part
+    assert "v-no" in text.split("== delivered")[1].split("\n== ")[0]
+    assert "== voiced" not in text
+    rows = json.loads((out / "title_rows.json").read_text())["shows"]
+    assert rows["v-bad"]["state"] == "unreadable" and rows["v-no"]["state"] == "delivered"
+    taper = (out / "taper_changes.txt").read_text()
+    moved = [l for l in taper.splitlines() if "show-moved" in l][0]
+    assert "[unreadable]" in moved
+
+
 def test_needs_llm_counts_d_agreement_and_llm_branch(tmp_path):
     base, cand, root = _clone_slugs(tmp_path, None)
     b, c = json.loads(base.read_text()), json.loads(cand.read_text())
@@ -1653,3 +1700,125 @@ def test_summary_states_the_disabled_slices_of_both_arms(tmp_path):
     assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
     summary = (out / "summary.txt").read_text()
     assert 'disabled slices: base ["slice5"], cand []' in summary.splitlines()
+
+
+# --- piece 4: --rekey-overrides and the compare gates ---
+
+SLUG = "gratefuldead-1973-06-10"
+_LEGACY = {"exclude": ["nonexistent-track.mp3"], "titles": {"1": "Forced Title"},
+           "set_breaks": [3], "encore_after": 5}
+
+
+def _rekey_run(tmp_path, monkeypatch, overrides, flags=()):
+    root = tmp_path / "lib"
+    shows = build_library(root)
+    live = shows[SLUG].overrides
+    live.write_text(json.dumps(overrides))
+    live_hash = hashlib.sha256(live.read_bytes()).hexdigest()
+    seen = {}
+    real = rh.replay_show
+
+    def spy(ws, **kw):
+        if ws.dir.name == SLUG:
+            seen["overrides"] = json.loads(ws.overrides.read_text())
+        return real(ws, **kw)
+
+    monkeypatch.setattr(rh, "replay_show", spy)
+    out = tmp_path / "arm.json"
+    assert rh.main(["run", "--out", str(out), "--all", "--rekey-overrides", *flags,
+                    "--config", str(root / "config.toml"),
+                    "--scratch", str(tmp_path / "scratch")]) == 0
+    assert hashlib.sha256(live.read_bytes()).hexdigest() == live_hash    # the library is untouched
+    names = [t["filename"] for t in json.loads(shows[SLUG].show.read_text())["tracks"]]
+    return seen["overrides"], json.loads(out.read_text()), names
+
+
+def test_rekey_shadow_maps_legacy_and_leaves_the_library_alone(tmp_path, monkeypatch):
+    seen, arm, names = _rekey_run(tmp_path, monkeypatch, _LEGACY)
+    assert seen == {"exclude": ["nonexistent-track.mp3"], "titles": {names[0]: "Forced Title"},
+                    "set_breaks": [names[2]], "encore_after": names[4]}
+    row = arm["shows"][SLUG]
+    assert row["rekeyed"] is True and "rekey_error" not in row
+    assert row["unreplayable"] is None
+    assert arm["overrides_rekeyed"] is True
+    assert row["filenames"]                        # the piece-4 record fields ride along
+    # the digests are the REAL (legacy) file's, so the arm stays comparable with a base arm
+    assert row["digests"]["overrides.json"] == hashlib.sha256(
+        json.dumps(_LEGACY).encode()).hexdigest()
+
+
+def test_rekey_then_strip(tmp_path, monkeypatch):
+    seen, arm, names = _rekey_run(tmp_path, monkeypatch, _LEGACY,
+                                  ["--strip-title-overrides", "--strip-structure-overrides"])
+    assert seen == {"exclude": ["nonexistent-track.mp3"]}
+    row = arm["shows"][SLUG]
+    assert row["rekeyed"] is True
+    assert row["stripped"] == {"titles": {names[0]: "Forced Title"}, "set_breaks": [names[2]],
+                               "encore_after": names[4]}
+
+
+def test_rekey_failure_is_recorded_not_raised(tmp_path, monkeypatch):
+    bad = dict(_LEGACY, titles={"99": "Beyond the tape"})
+    seen, arm, names = _rekey_run(tmp_path, monkeypatch, bad)
+    assert seen == bad                              # copied unchanged
+    row = arm["shows"][SLUG]
+    assert row["rekeyed"] is False and "99" in row["rekey_error"]
+    assert row["outcome"] == "unreplayable"          # the legacy refusal surfaces in the replay
+
+
+def test_rekey_leaves_filename_and_empty_overrides_alone(tmp_path, monkeypatch):
+    ov = {"exclude": [], "set_breaks": []}
+    seen, arm, _ = _rekey_run(tmp_path, monkeypatch, ov)
+    assert seen == ov and arm["shows"][SLUG]["rekeyed"] is False
+
+
+def test_unflagged_run_has_no_rekey_stamp(tmp_path):
+    root = tmp_path / "lib"
+    build_library(root)
+    out = tmp_path / "arm.json"
+    assert rh.main(["run", "--out", str(out), "--all", "--config", str(root / "config.toml")]) == 0
+    arm = json.loads(out.read_text())
+    assert not arm.get("overrides_rekeyed") and "rekeyed" not in arm["shows"][SLUG]
+
+
+def test_compare_accepts_rekeyed_candidate_and_writes_no_apply_lists(tmp_path):
+    root = tmp_path / "lib"
+    build_library(root, held_for_real=True)
+    cfg = str(root / "config.toml")
+    base, cand = tmp_path / "base.json", tmp_path / "cand.json"
+    assert rh.main(["run", "--out", str(base), "--all", "--config", cfg]) == 0
+    assert rh.main(["run", "--out", str(cand), "--all", "--rekey-overrides", "--config", cfg]) == 0
+    out = tmp_path / "out"
+    out.mkdir()
+    for name in ("predicted_list.json", "structure_changed_list.json", "pilot_list.json"):
+        (out / name).write_text("stale")
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    assert not list(out.glob("*_list.json"))
+    assert "apply lists: not written" in (out / "summary.txt").read_text()
+    out2 = tmp_path / "out2"                     # either arm rekeyed
+    assert rh.main(["compare", str(cand), str(base), "--out", str(out2)]) == 0
+    assert not list(out2.glob("*_list.json"))
+
+
+@pytest.mark.parametrize("text", [
+    "overrides.json unreadable",
+    "LlamaError: s: overrides.json uses track-number keys; run the migration",
+    "LlamaError: s: overrides.json mixes track-number and filename keys (filename-valued: titles a.mp3)",
+    "LlamaError: s: overrides name files not in the track list: titles a.mp3; clear them with llama fix",
+])
+def test_compare_refuses_an_arm_with_overrides_validation_unreplayable(tmp_path, capsys, text):
+    root = tmp_path / "lib"
+    build_library(root, held_for_real=True)
+    cfg = str(root / "config.toml")
+    base = tmp_path / "base.json"
+    assert rh.main(["run", "--out", str(base), "--all", "--config", cfg]) == 0
+    for who in ("base", "cand"):
+        arm = json.loads(base.read_text())
+        arm["shows"][SLUG]["outcome"] = "unreplayable"
+        arm["shows"][SLUG]["unreplayable"] = text
+        bad = tmp_path / f"bad-{who}.json"
+        bad.write_text(json.dumps(arm))
+        args = ["compare", str(bad), str(base)] if who == "base" else ["compare", str(base), str(bad)]
+        assert rh.main(args + ["--out", str(tmp_path / f"o-{who}")]) == 2
+        err = capsys.readouterr().err
+        assert SLUG in err and "overrides" in err

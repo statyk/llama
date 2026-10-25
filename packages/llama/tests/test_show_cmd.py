@@ -548,3 +548,23 @@ def test_show_tracks_prints_desc_position():
         SimpleNamespace(tracks=tracks, excluded_files=[]))[1:1 + len(tracks)]
     assert "desc-position " in lines[0], lines[0]
     assert len({line.index(" 5:00") for line in lines}) == 1
+
+
+def test_show_prints_the_stored_mapping(tmp_path: Path):
+    """(pin) `llama show` prints the filename-keyed overrides as stored, a dangling
+    key included; it translates nothing."""
+    cfg = _cfg(tmp_path)
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    write_artifact(ws.overrides, {
+        "titles": {"d1t02.mp3": "Bertha", "gone.mp3": "Ghost"},
+        "set_breaks": ["d1t03.mp3", "gone2.mp3"], "encore_after": "gone3.mp3"})
+    r = cli_invoke(cfg, "show", "gratefuldead")
+    assert r.exit_code == 0, r.output
+    for text in ("d1t02.mp3", "Bertha", "gone.mp3", "Ghost", "d1t03.mp3", "gone2.mp3",
+                 "encore_after=gone3.mp3"):
+        assert text in r.output, text
+    r = cli_invoke(cfg, "show", "gratefuldead", "--json")
+    ov = json.loads(r.output)["overrides"]
+    assert ov["titles"] == {"d1t02.mp3": "Bertha", "gone.mp3": "Ghost"}
+    assert ov["set_breaks"] == ["d1t03.mp3", "gone2.mp3"]
+    assert ov["encore_after"] == "gone3.mp3"

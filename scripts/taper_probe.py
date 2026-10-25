@@ -706,16 +706,39 @@ def _expectation(kind: str, r: dict, graded: str | None) -> tuple[str, str]:
     return "as expected", f"owned; the taper's structure ships, differing from the target ({graded})"
 
 
-def _fix_applied(stripped: dict | None, t_breaks, t_enc) -> bool:
+def _to_position(v, names: list[str] | None):
+    """A stripped override value as a 1-based track position: a filename (piece 4) through
+    `names`, an int (a base arm) as is, anything else (None) unchanged. A filename not in
+    `names` stays a string, so it equals nothing numeric."""
+    if isinstance(v, str) and names and v in names:
+        return names.index(v) + 1
+    return v
+
+
+def _arm_filenames(a: dict, arm: dict, slug: str) -> list[str] | None:
+    """The row's own `filenames`, else the library's show.json for `slug` (a base arm row has
+    none)."""
+    if a.get("filenames"):
+        return list(a["filenames"])
+    try:
+        sj = json.loads((Path(arm.get("root") or ".") / "shows" / slug / "show.json").read_text())
+        return [t["filename"] for t in sj["tracks"]]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _fix_applied(stripped: dict | None, t_breaks, t_enc, names: list[str] | None = None) -> bool:
     """A renumbered row is gradable when the overrides strip mode removed ARE the
     adjudicator's target: its include/exclude edits (kept) and its `--set-breaks`/
     `--set-encore` (stripped) were all applied, so the stripped replay is in the target's
     own numbering. Nothing stripped (or a different value) means the library does not hold
-    the adjudicator's fix."""
+    the adjudicator's fix. Filename-valued keys are read as the track positions they name
+    in `names` (the row's `filenames`); int values (base arms) are used as is."""
     if not stripped:
         return False
-    return (sorted(stripped.get("set_breaks") or []) == sorted(t_breaks or [])
-            and stripped.get("encore_after") == t_enc)
+    got = [_to_position(v, names) for v in stripped.get("set_breaks") or []]
+    return (sorted(got) == sorted(t_breaks or [])
+            and _to_position(stripped.get("encore_after"), names) == t_enc)
 
 
 def score_rows(arm: dict, evidence: Path) -> list[dict]:
@@ -745,7 +768,8 @@ def score_rows(arm: dict, evidence: Path) -> list[dict]:
             row["owned_breaks"] = breaks_of(sets)
             if tb is None and te is None:
                 row["class"] = "owned, no target"
-            elif row["renum"] and not _fix_applied(a.get("stripped"), tb, te):
+            elif row["renum"] and not _fix_applied(a.get("stripped"), tb, te,
+                                                   _arm_filenames(a, arm, slug)):
                 row["class"] = "owned, renumbered target (not graded)"
             elif max([*(tb or []), te or 0], default=0) > len(sets):
                 row["class"] = "owned, target does not fit the tape (not graded)"

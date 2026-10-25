@@ -76,12 +76,17 @@ def _library(root: Path) -> Path:
                                  RecordingSummary(identifier=M_IDENT)])
     mapping = {W_IDENT: json.loads((FIXTURES / "gd74_windsor_metadata.json").read_text()),
                M_IDENT: json.loads((FIXTURES / "gd74_miller_metadata.json").read_text())}
-    for f in mapping[W_IDENT]["files"]:        # sibling-align's shape (test_title_cascade)
+    # sibling-align's shape (test_title_cascade._gd74_blank_ia): without D3_T02, which
+    # piece 4 keeps (spec 1) and which would let the whole-tape S rung fill the blanks.
+    mapping[W_IDENT]["files"] = [f for f in mapping[W_IDENT]["files"]
+                                 if not f["name"].startswith("GD_022474_D3_T02.")]
+    for f in mapping[W_IDENT]["files"]:
         if f["name"].endswith(("D1_T04.mp3", "D1_T05.mp3", "D1_T06.mp3")):
             f["title"] = None
     ws = _gathered_show(root, GD74, gd74, W_IDENT, mapping)
-    write_artifact(ws.overrides, Overrides(titles={1: "Operator Title", 4: "Fourth"},
-                                           set_breaks=[10]))
+    write_artifact(ws.overrides, Overrides(titles={"GD_022474_D1_T01.mp3": "Operator Title",
+                                                   "GD_022474_D1_T04.mp3": "Fourth"},
+                                           set_breaks=["GD_022474_D1_T10.mp3"]))
 
     num = json.loads((FIXTURES / "gd73_metadata.json").read_text())
     num["metadata"]["description"] = NUMBERED_DESC
@@ -158,8 +163,9 @@ def test_strips_titles_and_structure_overrides_in_the_shadow(tmp_path):
     _, rows = _dump(tmp_path)
     assert hashlib.sha256(live.read_bytes()).hexdigest() == before
     r = next(r for r in rows if r["slug"] == GD74)
-    assert r["stripped"] == {"titles": {"1": "Operator Title", "4": "Fourth"}, "set_breaks": [10],
-                              "encore_after": None}
+    assert r["stripped"] == {"titles": {"GD_022474_D1_T01.mp3": "Operator Title",
+                                        "GD_022474_D1_T04.mp3": "Fourth"},
+                             "set_breaks": ["GD_022474_D1_T10.mp3"], "encore_after": None}
     assert r["structure_override"] is True and r["title_override"] is True
     assert r["today"][0]["title"] != "Operator Title"
     assert r["today_as_is"][0] == {"title": "Operator Title", "source": "override"}
@@ -816,3 +822,17 @@ def test_packets_refuses_when_no_root_is_recorded(tmp_path, capsys):
     (cmp_dir / "title_rows.json").write_text(json.dumps(tr))
     assert thp.main(["packets", "--cmp", str(cmp_dir), "--dump", str(dump), "--out", str(tmp_path / "o")]) == 2
     assert "pass --root" in capsys.readouterr().err
+
+
+def test_title_hygiene_probe_reads_filename_titles(tmp_path):
+    _library(tmp_path / "lib")
+    _, rows = _dump(tmp_path)
+    r = next(r for r in rows if r["slug"] == GD74)
+    names = [t["filename"] for t in json.loads(
+        (tmp_path / "lib" / "shows" / GD74 / "show.json").read_text())["tracks"]]
+    pos = lambda f: names.index(f) + 1     # noqa: E731
+    # filename-valued overrides, as the probe stripped them, also read as track positions
+    assert r["stripped_positions"]["titles"] == {str(pos("GD_022474_D1_T01.mp3")): "Operator Title",
+                                                 str(pos("GD_022474_D1_T04.mp3")): "Fourth"}   # JSON keys
+    assert r["stripped_positions"]["set_breaks"] == [pos("GD_022474_D1_T10.mp3")]
+    assert r["stripped_positions"]["encore_after"] is None

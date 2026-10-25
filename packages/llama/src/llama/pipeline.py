@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from herder import provider_ladder
+from llama.audio_reuse import ReusePlan
 from llama.config import Config
 from llama.ledger import Ledger
 from llama.models import LedgerEntry, Provenance, Show, ShortlistEntry
@@ -124,6 +125,7 @@ def process_show(
     jerrybase_enabled: bool = True,
     force_stage: str | None = None,
     profile: str | None = None,
+    audio_reuse: ReusePlan | None = None,
 ) -> Path | None:
     cand = entry.candidate
     show_ws = run_ws.show_ws(cand.performance_id)
@@ -165,7 +167,7 @@ def process_show(
         log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(blocking))
         return None
     with step(f"[{pid}] packaging"):
-        pkg = run_package(show_ws, ia, show, force=force, profile=profile)
+        pkg = run_package(show_ws, ia, show, force=force, profile=profile, reuse=audio_reuse)
     show = read_model(show_ws.show, Show)  # package may have flagged it
     if show.needs_review:
         log.warning("holding %s: flagged during packaging (%s)",

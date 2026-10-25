@@ -1,5 +1,7 @@
+from dataclasses import replace
 from pathlib import Path
 
+from llama import audio_reuse
 from llama.audio import packaged_filename, read_duration, tag_audio
 from llama.errors import LlamaError
 from llama.manifest import build_manifest, m3u_text
@@ -11,7 +13,7 @@ from llama.models import (
     VettingResult,
 )
 from llama.status import detail
-from llama.util import reviews_digest
+from llama.util import length_seconds, reviews_digest
 from llama.workspace import (
     ShowWorkspace,
     read_json,
@@ -25,12 +27,28 @@ FLAG_PREFIX = "duration mismatch on "
 
 
 def build_package(show_ws: ShowWorkspace, ia, show: Show,
-                  force: bool = False, profile: str | None = None) -> tuple[Path, list[str]]:
+                  force: bool = False, profile: str | None = None, *,
+                  reuse: audio_reuse.ReusePlan | None = None) -> tuple[Path, list[str]]:
     """Build the package (audio, briefing copies, research, reviews, m3u,
     manifest last) and return `(package dir, package-stage flags)`. Writes no
     `show.json`: `run_package` replaces its own flags with these, and `llama
     reapply` (spec slice 6) writes them in its one final `show.json` write. An existing
-    manifest short-circuits with no flags unless `force`."""
+    manifest short-circuits with no flags unless `force`.
+
+    `reuse` (spec 5.4, from `audio_reuse.plan_reuse` before the re-gather)
+    re-uses audio this show already has instead of downloading it. The files
+    in `package/audio/` stay in place only when the library manifest's names,
+    read at plan time, equal the new packaged names; otherwise they are moved
+    aside first, because a name that exists is never downloaded and an
+    old-numbered file would be inherited by a renumbered track sharing its
+    title. The decision is made from what is on disk, never from show.json
+    (a held re-gather can already have written the new list over audio that
+    carries the old numbering). A still-missing file is then copied from the
+    paired aside or station file when its length checks out, else
+    downloaded; the aside is read only when this call made it, and
+    `set_aside` refuses an aside that already exists. The caller's unit puts the aside back on failure and deletes
+    it on success. `reuse=None` is the old behaviour; under `force` every
+    file downloads as before (the aside step still runs)."""
     pkg = show_ws.package_dir
     manifest_path = pkg / "manifest.json"
     if manifest_path.exists() and not force:
@@ -38,7 +56,24 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
 
     audio_dir = pkg / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
-    md5s = {f["name"]: f.get("md5") for f in ia.metadata(show.identifier).get("files", [])}
+    files = ia.metadata(show.identifier).get("files", [])
+    md5s = {f["name"]: f.get("md5") for f in files}
+
+    if reuse is not None:
+        if reuse.identifier is not None and reuse.identifier != show.identifier:
+            # A different archive.org item: file names may match, the audio is another
+            # taper's. Nothing old is paired; the old audio is still set aside below.
+            reuse = replace(reuse, library={}, station={})
+        names = [packaged_filename(t.index, t.title, Path(t.filename).suffix) for t in show.tracks]
+        # In place only when every name AND the source paired under it are unchanged.
+        in_place = (reuse.library_names is not None and list(reuse.library_names) == names
+                    and all(reuse.library.get(t.filename) == n for t, n in zip(show.tracks, names)))
+        if not in_place and any(p.is_file() for p in audio_dir.iterdir()):
+            audio_reuse.set_aside(show_ws)
+        else:
+            # The aside is read only when THIS call filled it.
+            reuse = replace(reuse, library={})
+        lengths = {f["name"]: length_seconds(f.get("length")) for f in files}
 
     venue_city = ", ".join(p for p in [show.venue, show.city] if p)
 
@@ -48,8 +83,15 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
         out_name = packaged_filename(t.index, t.title, Path(t.filename).suffix)
         dest = audio_dir / out_name
         if not dest.exists() or force:
-            detail(f"downloading {t.index}/{len(show.tracks)}: {t.filename}")
-            ia.download_file(show.identifier, t.filename, dest, md5=md5s.get(t.filename))
+            placed = None
+            if reuse is not None and not force:
+                placed = audio_reuse.reuse_into(dest, t.filename, lengths.get(t.filename), reuse,
+                                                show_ws, tolerance=DURATION_TOLERANCE_S)
+            if placed is None:
+                detail(f"downloading {t.index}/{len(show.tracks)}: {t.filename}")
+                ia.download_file(show.identifier, t.filename, dest, md5=md5s.get(t.filename))
+            else:
+                detail(f"re-using {t.index}/{len(show.tracks)}: {t.filename} ({placed} copy)")
         tag_audio(
             dest,
             artist=show.artist,
@@ -99,9 +141,10 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
 
 
 def run_package(show_ws: ShowWorkspace, ia, show: Show,
-                force: bool = False, profile: str | None = None) -> Path:
+                force: bool = False, profile: str | None = None, *,
+                reuse: audio_reuse.ReusePlan | None = None) -> Path:
     built = force or not (show_ws.package_dir / "manifest.json").exists()
-    pkg, flags = build_package(show_ws, ia, show, force=force, profile=profile)
+    pkg, flags = build_package(show_ws, ia, show, force=force, profile=profile, reuse=reuse)
     if built:
         # Replace this stage's own flags (a redo's stale verdict included).
         current = read_model(show_ws.show, Show)
