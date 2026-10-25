@@ -709,7 +709,7 @@ def main(argv: list[str] | None = None) -> int      # [--config P] [--snapshot |
 
 All commands run from the main checkout, branch code, as `/Users/shawn/projects/llama/.venv/bin/python scripts/rekey_overrides.py …`. Do not activate that venv (no `.venv/bin` on PATH): its dev `llama` reports `0.1.0`, and `--apply`'s version gate refuses it, naming the path. Migration-day arms get their own names under `~/.llama-harness/piece4/` (`migration-base.json`, `migration-cand.json`, `migration-post.json`) and never overwrite Task 9's evidence (`base.json`, `cand.json`).
 
-1. Stop the sweep loop. The dry run's process check must print no `llama` process.
+1. Stop the sweep loop. The dry run's process check must print no `llama` process (it cannot see an interactive loop sleeping between passes: stop that by hand).
 2. With v2.17.0 still installed: the dry run (no option). It prints every refusal with its route and what the process check finds.
 3. Repair each refusal with v2.17.0 by its route; repeat 2-3 until `0 refused`.
    Then, still before step 4, run both acceptance arms back to back with the code being released (spec 4.3 "post-migration self-check": both arms run and compared before the migration): the base arm from the e37f670 tree (`~/.llama-harness/piece4/base-e37f670`, Task 9 Step 1) with `--out ~/.llama-harness/piece4/migration-base.json`, and `scripts/replay_holds.py run --all --rekey-overrides --out ~/.llama-harness/piece4/migration-cand.json`; `compare` passes its gates (a refusal is the operator's call, as at Task 9 Step 3). Never run the base arm after step 6 (spec 4.1).
@@ -722,7 +722,7 @@ All commands run from the main checkout, branch code, as `/Users/shawn/projects/
 
 ## Appendix B: restore runbook (operator; spec 4.3 "Restore runbook")
 
-1. Stop the sweep loop; the process check must find no `llama` process.
+1. Stop the sweep loop; the process check must find no `llama` process (it cannot see an interactive loop sleeping between passes: stop that by hand).
 2. `--restore <root>/rekey-snapshot-<time>` with the new binary still installed. If it lists shows created after the snapshot, `llama rm <show>` each (add `--forget` when a later `get` should re-fetch it) and re-run. Read its "not reverted" lists: remove the listed reapply batch dirs and runs; re-deliver the listed station destinations from the restored library later.
 3. Reinstall v2.17.0 from the release.
 4. `llama --version` reports `2.17.0`.

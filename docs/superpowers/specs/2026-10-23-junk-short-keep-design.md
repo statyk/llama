@@ -311,7 +311,8 @@ below unfreeze `blend_segues`' pooling, and nothing else in `structure.py`.
   `.match`; `is_filler` and `_FILLER` untouched) or by nothing: `Ripple > Outro`, `Sugar
   Magnolia > Crowd`, `Excitable Boy > Banter`, a final `>`. Applied to the chosen donor after it
   is ranked, never to the canonical winner. Leading-word only because a search anywhere cost 5
-  real marks on titles such as `Cumberland Blues (Band Intros)`.
+  real marks on titles such as `Cumberland Blues (Band Intros)`. It reopens 1 false mark
+  (`warrenzevon-1994-02-07` #16).
 - **Own alignment wins over pooling (FW4 item 2).** `donor_segues` aligns the donor to the
   tracks with the same `align()`; on every track that alignment matches, the track's segue is
   the donor item's, and `blend_segues`' exact-title pooling stays the fallback where it does not.
@@ -466,7 +467,7 @@ metadata of the item `show.json` names; a missing `selection.json` does not matt
 
 **Runbook, in order** (section 5 refers here):
 1. Stop the sweep loop. Confirm with the process check (below) that no `llama` process is
-   running.
+   running (it cannot see an interactive loop sleeping between passes: stop that by hand).
 2. With v2.17.0 still installed, run the dry run. It checks every show and prints each refusal
    with its repair route, and prints what the process check finds.
 3. Repair each refusal with the installed v2.17.0 `llama`, by the route in the table below.
@@ -608,7 +609,8 @@ snapshot is listed as re-delivered too (Checkpoint C Q7): a show listed only for
 needs no `--replace-voiced`.
 
 **Restore runbook.**
-1. Stop the sweep loop, and confirm with the process check that no `llama` process is running.
+1. Stop the sweep loop, and confirm with the process check that no `llama` process is running
+   (it cannot see an interactive loop sleeping between passes: stop that by hand).
 2. Run `--restore <snapshot-dir>`, with the new binary still installed.
 3. Reinstall v2.17.0 from the release.
 4. Verify that `llama --version` reports 2.17.0.
@@ -642,7 +644,7 @@ The bulk apply of pieces 1-5 is planned separately. Piece 4 needs these things f
 
 1. **Order.** The runbook in 4.3 comes first.
 2. **The list.** The rule changes 1,537 shows: 1,536 gain a file, and 1 held show changes only
-   its flags.
+   its flags. (Design-time counts; the Checkpoint C counts are in the evidence's `acceptance.md`.)
 
    | state | changes | of which music restored |
    |---|---|---|
@@ -712,8 +714,9 @@ The bulk apply of pieces 1-5 is planned separately. Piece 4 needs these things f
      1,014 of 1,014, and the reuse arm's 901 of 901; the wording arm alone fires on every one,
      the name arm on 406 and never alone. In practice regeneration is **100%** on today's library
      (the ruling expected about 98%): of 1,410 changed shows with a briefing, 1,112 are `fresh`,
-     298 `none` (held), 0 `reuse`. The bulk apply budgets about 1,000 fresh briefings, plus the
-     de-doubling's (13) and the segue donor's (371).
+     298 `none` (held), 0 `reuse`. The bulk apply budgets about 1,110 fresh briefings for the rule
+     (Checkpoint B), plus the de-doubling's 13, the segue-bearing donor's 34 (FW3 (A)) and
+     FW4's 371 (measured against cand-d): about 1,530.
 4. **Re-use existing audio** (owned by this branch). Re-packaging a show whose track list
    changed would otherwise download audio llama already has: a delivered show's library audio
    was purged at delivery, and a packaged, held or briefed show's library audio carries the old
