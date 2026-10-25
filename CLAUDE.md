@@ -34,6 +34,11 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   before emcee recorded it, by whole-word matching each presenter's `name`
   in the script text — exactly one match writes, zero or several leave `?`.
   Dry run unless `--apply`.
+  `python scripts/backfill_tts_record.py [--station-root P] [--apply]` is a
+  one-off (imports emcee): it fills `dj_audio.tts` on packages voiced before
+  emcee recorded it, for the operator-vouched presenters in its `BACKFILL`
+  table only (`phil` voxtral, `jamesbrown` mlx_audio), with `voice:
+  "unknown"` (the clone hash is never recomputed). Dry run unless `--apply`.
   `python scripts/purge_delivered_audio.py [--config P] [--dest P] [--apply]`
   is a one-off (imports llama): it applies deliver's audio purge, same
   verification, to shows delivered before deliver did it. Dry run unless
