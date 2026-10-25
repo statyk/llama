@@ -521,7 +521,7 @@ def test_status_list_tts_cell_recorded_unrecorded_unvoiced_drifted_unresolved(tm
     assert f"{VOX} (now: unresolved)" in rows["unres"]
     assert "mlx_audio Qwen3-TTS-12Hz-1.7B-Base-bf16" in rows["mlx"]
     assert "mlx-community" not in out
-    assert " fake " in rows["nomodel"] + " " and "None" not in rows["nomodel"]
+    assert rows["nomodel"].endswith(f"  ?  fake (now: {VOX})")  # no model: bare backend, no "None"
     # the TTS column sits right after the voiced-by column
     assert f"voxtral" in rows["ok"] and rows["ok"].index(" ? ") < rows["ok"].index(VOX)
 
@@ -575,6 +575,27 @@ def test_status_resolves_each_profile_once(tmp_path, monkeypatch):
         seen.clear()
         json.loads(runner.invoke(app, ["status", "--json"]).output)
         assert sorted(seen) == ["alpha", "beta"]
+        seen.clear()
+        summary = runner.invoke(app, ["status"])
+        assert summary.exit_code == 0, summary.output
+        assert seen == []  # the summary path resolves nothing
+
+
+def test_status_error_row_has_no_now(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="boom", voiced=True, profile="beta")  # beta would drift
+    _set_tts(station / "boom", _vox())
+    path = station / "boom" / "manifest.json"
+    m = json.loads(path.read_text())
+    del m["tracks"][0]["filename"]  # loads as v3, but assess raises
+    path.write_text(json.dumps(m))
+
+    by = {r["slug"]: r for r in json.loads(runner.invoke(app, ["status", "--json"]).output)}
+    assert by["boom"]["state"] == "error"
+    assert by["boom"]["tts_now"] is None and by["boom"]["tts_drifted"] is None
+    rows = _rows(runner.invoke(app, ["status", "--list"]).output)
+    assert VOX in rows["boom"] and "(now:" not in rows["boom"]
+    assert runner.invoke(app, ["status", "--drifted"]).output.strip() == "no packages match"
 
 
 def test_status_tts_filter_exact_none_repeatable_and_ands_with_profile(tmp_path, monkeypatch):

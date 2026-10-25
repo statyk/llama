@@ -7,8 +7,8 @@ mirroring llama's `cli.py:57-65` pattern.
 import json
 import sys
 import traceback
-from dataclasses import dataclass
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import NoReturn
@@ -753,6 +753,65 @@ def _profile_cell(s: PackageStatus) -> str:
     return cell
 
 
+def _recorded_tts(s: PackageStatus) -> tuple[str, str | None] | None:
+    """(backend, model) of the recorded `dj_audio.tts`; None when the package
+    is not voiced or the record is unusable (no `tts`, or `backend` not a
+    non-empty string)."""
+    if not s.voiced or s.tts is None:
+        return None
+    backend = s.tts.get("backend")
+    if not isinstance(backend, str) or not backend:
+        return None
+    model = s.tts.get("model")
+    return backend, (model if isinstance(model, str) and model else None)
+
+
+@dataclass(frozen=True)
+class _TtsView:
+    recorded: tuple[str, str | None] | None   # usable recorded (backend, model)
+    now: tuple[str, str | None] | None        # resolved (backend, model)
+    unresolved: str | None                # why "now" did not resolve
+    has_now: bool                         # False: error/unsupported row, no "now" at all
+
+    @property
+    def drifted(self) -> bool | None:
+        if self.recorded is None or self.now is None:
+            return None
+        return self.recorded != self.now
+
+
+class _TtsNow:
+    """What would voice a package today (its effective profile -> presenter ->
+    `resolve_tts`), computed once per distinct profile per command: resolving
+    reads the presenter TOML from disk."""
+
+    def __init__(self, config: EmceeConfig) -> None:
+        self._config = config
+        self._by_profile: dict[str | None, tuple[tuple[str, str | None] | None, str | None]] = {}
+
+    def _resolve(self, profile: str | None) -> tuple[tuple[str, str | None] | None, str | None]:
+        if profile not in self._by_profile:
+            try:
+                presenter, _title = resolve_assignment(self._config, profile)
+                resolution = resolve_tts(self._config, presenter)
+                self._by_profile[profile] = ((resolution.backend, resolution.model), None)
+            except (EmceeError, OSError, ValueError) as exc:
+                # EmceeError covers TTSResolutionError and PresenterError;
+                # load_presenter's read_text can also raise OSError/UnicodeDecodeError
+                # (a ValueError), which it does not wrap.
+                self._by_profile[profile] = (None, str(exc))
+        return self._by_profile[profile]
+
+    def view(self, s: PackageStatus) -> _TtsView:
+        recorded = _recorded_tts(s)
+        if s.state in ("error", "unsupported"):
+            return _TtsView(recorded, None, None, False)
+        if s.move_problem is not None:
+            return _TtsView(recorded, None, s.move_problem, True)
+        now, err = self._resolve(s.profile)
+        return _TtsView(recorded, now, err, True)
+
+
 def _status_json_row(config: EmceeConfig, s: PackageStatus, tts_now: _TtsNow) -> dict:
     view = assignment_for(config, s.profile)
     presenter, source = view.presenter, view.source
@@ -798,71 +857,12 @@ def _voiced_by_cell(config: EmceeConfig, s: PackageStatus) -> str:
     return s.voiced_by
 
 
-def _tts_label(backend: str, model: object) -> str:
+def _tts_label(backend: str, model: str | None) -> str:
     """`<backend> <model>`, any organisation prefix dropped from the model
     (text after the last `/`); just `<backend>` when there is no model."""
     if isinstance(model, str) and model:
         return f"{backend} {model.rsplit('/', 1)[-1]}"
     return backend
-
-
-def _recorded_tts(s: PackageStatus) -> tuple[str, object] | None:
-    """(backend, model) of the recorded `dj_audio.tts`; None when the package
-    is not voiced or the record is unusable (no `tts`, or `backend` not a
-    non-empty string)."""
-    if not s.voiced or s.tts is None:
-        return None
-    backend = s.tts.get("backend")
-    if not isinstance(backend, str) or not backend:
-        return None
-    model = s.tts.get("model")
-    return backend, (model if isinstance(model, str) and model else None)
-
-
-@dataclass(frozen=True)
-class _TtsView:
-    recorded: tuple[str, object] | None   # usable recorded (backend, model)
-    now: tuple[str, object] | None        # resolved (backend, model)
-    unresolved: str | None                # why "now" did not resolve
-    has_now: bool                         # False: error/unsupported row, no "now" at all
-
-    @property
-    def drifted(self) -> bool | None:
-        if self.recorded is None or self.now is None:
-            return None
-        return self.recorded != self.now
-
-
-class _TtsNow:
-    """What would voice a package today (its effective profile -> presenter ->
-    `resolve_tts`), computed once per distinct profile per command: resolving
-    reads the presenter TOML from disk."""
-
-    def __init__(self, config: EmceeConfig) -> None:
-        self._config = config
-        self._by_profile: dict[str | None, tuple[tuple[str, object] | None, str | None]] = {}
-
-    def _resolve(self, profile: str | None) -> tuple[tuple[str, object] | None, str | None]:
-        if profile not in self._by_profile:
-            try:
-                presenter, _title = resolve_assignment(self._config, profile)
-                resolution = resolve_tts(self._config, presenter)
-                self._by_profile[profile] = ((resolution.backend, resolution.model), None)
-            except (EmceeError, OSError, ValueError) as exc:
-                # EmceeError covers TTSResolutionError and PresenterError;
-                # load_presenter's read_text can also raise OSError/UnicodeDecodeError
-                # (a ValueError), which it does not wrap.
-                self._by_profile[profile] = (None, str(exc))
-        return self._by_profile[profile]
-
-    def view(self, s: PackageStatus) -> _TtsView:
-        recorded = _recorded_tts(s)
-        if s.state in ("error", "unsupported"):
-            return _TtsView(recorded, None, None, False)
-        if s.move_problem is not None:
-            return _TtsView(recorded, None, s.move_problem, True)
-        now, err = self._resolve(s.profile)
-        return _TtsView(recorded, now, err, True)
 
 
 def _tts_cell(s: PackageStatus, v: _TtsView) -> str:
@@ -899,6 +899,15 @@ def _note_unmatched_tts(statuses: list[PackageStatus], names) -> None:
     for name in names or []:
         if name != "none" and name not in known:
             typer.echo(f"note: no package is voiced with tts {name!r}", err=True)
+
+
+def _tts_match(s: PackageStatus, names: Sequence[str]) -> bool:
+    """`--tts` filter: recorded backend in `names`; a voiced package with no
+    usable record matches `none`."""
+    rec = _recorded_tts(s)
+    if rec is None:
+        return s.voiced and "none" in names
+    return rec[0] in names
 
 
 def _echo_status_summary(config: EmceeConfig, statuses: list[PackageStatus]) -> None:
@@ -948,7 +957,7 @@ def status_cmd(
         help="Only shows voiced on this TTS backend (none = unrecorded; repeatable); implies --list"),
     drifted: bool = typer.Option(
         False, "--drifted",
-        help="Only shows whose presenter now resolves to a different TTS; implies --list"),
+        help="Only shows whose voice now resolves to a different TTS backend or model; implies --list"),
     station_root: Path = typer.Option(
         None, "--station-root",
         help="Override \\[station] root for this invocation"),
@@ -980,12 +989,7 @@ def status_cmd(
     if state:
         statuses = [s for s in statuses if s.state in state]
     if tts:
-        def _tts_match(s: PackageStatus) -> bool:
-            rec = _recorded_tts(s)
-            if rec is None:
-                return s.voiced and "none" in tts
-            return rec[0] in tts
-        statuses = [s for s in statuses if _tts_match(s)]
+        statuses = [s for s in statuses if _tts_match(s, tts)]
     if drifted:
         statuses = [s for s in statuses if tts_now.view(s).drifted]
 
