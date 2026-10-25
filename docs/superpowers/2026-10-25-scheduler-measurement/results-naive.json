@@ -1,0 +1,273 @@
+{
+ "overran": 15,
+ "not_fillable": 17,
+ "gaps": 1100,
+ "no_anchor_show": 0,
+ "overran_share": 0.013636363636363636,
+ "not_fillable_share": 0.015454545454545455,
+ "miss_share": 0.02909090909090909,
+ "window_minutes": 15.0,
+ "anchors_per_week": 23,
+ "seeds": 50,
+ "shows": 2786,
+ "exclude_profiles": [
+  "dead",
+  "dead-family",
+  "funk"
+ ],
+ "estimator": "scan-cache",
+ "root": "/Volumes/media/lma-radio/delivered",
+ "clock": "clock-a.toml",
+ "per_seed": [
+  {
+   "seed": 0,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 1,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 2,
+   "overran": 0,
+   "not_fillable": 1
+  },
+  {
+   "seed": 3,
+   "overran": 0,
+   "not_fillable": 1
+  },
+  {
+   "seed": 4,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 5,
+   "overran": 1,
+   "not_fillable": 0
+  },
+  {
+   "seed": 6,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 7,
+   "overran": 0,
+   "not_fillable": 1
+  },
+  {
+   "seed": 8,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 9,
+   "overran": 0,
+   "not_fillable": 1
+  },
+  {
+   "seed": 10,
+   "overran": 1,
+   "not_fillable": 1
+  },
+  {
+   "seed": 11,
+   "overran": 0,
+   "not_fillable": 2
+  },
+  {
+   "seed": 12,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 13,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 14,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 15,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 16,
+   "overran": 1,
+   "not_fillable": 0
+  },
+  {
+   "seed": 17,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 18,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 19,
+   "overran": 0,
+   "not_fillable": 1
+  },
+  {
+   "seed": 20,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 21,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 22,
+   "overran": 1,
+   "not_fillable": 1
+  },
+  {
+   "seed": 23,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 24,
+   "overran": 0,
+   "not_fillable": 2
+  },
+  {
+   "seed": 25,
+   "overran": 1,
+   "not_fillable": 0
+  },
+  {
+   "seed": 26,
+   "overran": 2,
+   "not_fillable": 0
+  },
+  {
+   "seed": 27,
+   "overran": 1,
+   "not_fillable": 0
+  },
+  {
+   "seed": 28,
+   "overran": 1,
+   "not_fillable": 1
+  },
+  {
+   "seed": 29,
+   "overran": 0,
+   "not_fillable": 1
+  },
+  {
+   "seed": 30,
+   "overran": 1,
+   "not_fillable": 0
+  },
+  {
+   "seed": 31,
+   "overran": 0,
+   "not_fillable": 1
+  },
+  {
+   "seed": 32,
+   "overran": 1,
+   "not_fillable": 0
+  },
+  {
+   "seed": 33,
+   "overran": 1,
+   "not_fillable": 0
+  },
+  {
+   "seed": 34,
+   "overran": 0,
+   "not_fillable": 1
+  },
+  {
+   "seed": 35,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 36,
+   "overran": 1,
+   "not_fillable": 0
+  },
+  {
+   "seed": 37,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 38,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 39,
+   "overran": 1,
+   "not_fillable": 0
+  },
+  {
+   "seed": 40,
+   "overran": 1,
+   "not_fillable": 0
+  },
+  {
+   "seed": 41,
+   "overran": 0,
+   "not_fillable": 1
+  },
+  {
+   "seed": 42,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 43,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 44,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 45,
+   "overran": 0,
+   "not_fillable": 1
+  },
+  {
+   "seed": 46,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 47,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 48,
+   "overran": 0,
+   "not_fillable": 0
+  },
+  {
+   "seed": 49,
+   "overran": 0,
+   "not_fillable": 0
+  }
+ ]
+}
