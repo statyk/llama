@@ -3,8 +3,8 @@
 **Date:** 2026-10-25
 **Scope:** `packages/transmitter` only: the clock, the scheduler that replaces
 phase 1's shuffle planner, station IDs and schedule announcements, rotation
-history, and the `schedule`, `library` and `announcements` commands. Possibly a
-small `antenna/public/` change so the player shows something sensible during a
+history, and the `schedule`, `library` and `announcements` commands. Plus a
+small `antenna/public/` change so the player shows the station name during a
 station break (see "Timeline"). llama, emcee and herder are untouched.
 **Parent:** `docs/superpowers/specs/2026-10-09-playout-design.md` ("Scheduler
 (phase 3)", plus the phase list). This document replaces the parent's anchor and
@@ -19,18 +19,17 @@ The risk here is **on-air continuity and the listening experience**. Money and
 data are not at risk. The scheduler only chooses what plays and when. It adds no
 R2 writes beyond what phase 1 already makes, because the segment count is fixed
 by wall-clock time, not by content, and `timeline.json` is still written once per
-publish batch. It reads the station root and a new interstitials folder, and it
-writes only transmitter's own workspace.
+publish batch. It reads the station root (including a new interstitials folder
+inside it), and it writes only transmitter's own workspace.
 
 **Strict surfaces (irreversible once wrong):**
 - **The frozen prefix.** A rendered segment may already be published, and
   published keys are immutable and cached for a year. The scheduler must never
-  change a plan row whose audio is rendered. It plans only after the render
-  frontier, starting from whatever prefix it is given, including one an older
-  clock or the phase-1 planner produced.
+  change a frozen row (defined under "The frontier" in "Planning"). It plans
+  only after the frontier, starting from whatever prefix it is given, including
+  one an older clock or the phase-1 planner produced.
 - **Never cut a show and never leave silence.** These are the parent's operator
-  rules, unchanged. Every gap is the configured inter-show gap, plus an
-  interstitial when one is placed.
+  rules, unchanged. Every gap follows the gap layout rule in "Planning".
 - **Never list a segment that does not exist.** Unchanged and owned by
   render/publish. The scheduler must not give them a plan they cannot render.
 
@@ -49,8 +48,9 @@ So this phase has three goals:
 1. A clock config that can express **any clock the operator will plausibly
    want**.
 2. A scheduler that **goes on air as soon as it is built**, with a clock suited
-   to today's voiced library (roughly 80/20 Dead/funk). It must handle a clock
-   that asks for more than the library has without drama.
+   to today's voiced library (roughly 60/34 Dead/funk by voiced airtime, about
+   22 days of audio in all). It must handle a clock that asks for more than the
+   library has without drama.
 3. A way to **try a clock edit before it airs**.
 
 Until the library is much larger the station is in **soft launch**: the
@@ -87,12 +87,13 @@ country 2 (0) 125.
    one concert of its profile** (normally at most two) when that lands the next
    block inside its window. In a profile mixing 150-minute jam-band shows with
    60–90-minute traditional acts, two short shows can fill a long block.
-3. **Compromise in this order** (operator-confirmed) when a block can't be
-   filled exactly:
-   1. the next block starts early or late **within its wiggle room**;
-   2. a concert from another profile (the open-time pool) fills the remaining
+3. **Land the next block on time, then compromise** (operator-confirmed
+   order). Within the block's own profile, choose shows so the next block starts
+   inside its wiggle room (closest to nominal is best). When that is impossible,
+   compromise in this order:
+   1. a concert from another profile (the open-time pool) fills the remaining
       time;
-   3. the next block starts **outside** its window. This is a **miss**: it is
+   2. the next block starts **outside** its window. This is a **miss**: it is
       recorded and reported, and never cuts a show or leaves silence.
    Filling with other profiles is a compromise to minimise, not a design goal.
 4. **Open time.** A block with no profile pool takes whatever fits. Each show
@@ -102,12 +103,14 @@ country 2 (0) 125.
    clips, placed between shows and rotated.
 6. **Schedule announcements** that name upcoming **blocks** (not specific
    concerts): "Stay tuned for Here Comes the Funk at 11, followed by Gravel &
-   Steel at 1." They play at block boundaries. Both IDs and announcements count
-   toward timing: they are short pieces of known length.
+   Steel at 1." They play at the boundary into a block and at a show boundary
+   inside the block before it. Both IDs and announcements count toward timing:
+   they are short pieces of known length.
 7. **Rotation rules** designed for the final library (below). They are
    preferences that **bend rather than block** when the library is too small.
-8. **Rotation history** (`aired.jsonl`): one row per piece once its air time
-   has passed. It drives recency, and later the web page's recently played list.
+8. **Rotation history** (`aired.jsonl`): one row per piece once it has been
+   published and its air time has passed. It drives recency, and later the web
+   page's recently played list.
 9. **Commands:** `transmitter schedule` (preview, and a draft clock),
    `transmitter library`, `transmitter announcements`, and new `status` lines.
 10. **Room for partial sets.** Playing one set of a multi-set show, with
@@ -148,9 +151,11 @@ timezone = "America/New_York"
 wiggle_minutes = 15              # default for every block: start may be this early or late
 
 [announce]
-# {title}/{time} = the next block; {next_title}/{next_time} = the one after it
-two = "Stay tuned for {title} at {time}, followed by {next_title} at {next_time}."
-one = "Stay tuned for {title} at {time}."
+# {title}/{time} = the block named first; {next_title}/{next_time} = the one after it
+next = "Coming up next, {title}. Then at {next_time}, {next_title}."
+next_one = "Coming up next, {title}."
+later = "Stay tuned for {title} at {time}, followed by {next_title} at {next_time}."
+later_one = "Stay tuned for {title} at {time}."
 
 [open]                           # what open time and fill may play
 exclude_profiles = []
@@ -178,16 +183,19 @@ prefer = [ { years = "1972-1977", weight = 1.5 } ]
   `source.profile`, so a show's DJ intro always names the block's program even
   after an `emcee move` or an `[assign.artists]` rule. Today the two never
   differ: 219 of 221 voiced packages predate the field, and the 2 that have it
-  match. *(My call, from the builder check.)* Open time and fill draw from every eligible package except
-  `[open] exclude_profiles`. A package with no `source.profile` is open-time
-  only. A block whose pool has no eligible show is **open time for that
-  occurrence**: it is not announced, and `status` notes it.
+  match. *(My call, from the builder check.)* Open time and fill draw from every
+  eligible package except `[open] exclude_profiles`. When that leaves the open
+  pool empty, the exclusion is bent (the last rule to bend); `PlanError` is
+  raised only when nothing at all is eligible. A package with no
+  `source.profile` is open-time only. A block whose pool has no eligible show is
+  **open time for that occurrence**: it is not announced, and `status` notes it.
 - **Preferences** (`prefer`): soft weights, as in the parent. `years` matches
   the show date's year range. `on_this_day` is a global rotation preference
   (below) and may be overridden per block.
 - **Local time** follows the parent: `zoneinfo`; a nonexistent local time
   (DST spring-forward) resolves to the next valid instant and an ambiguous one
-  to its first occurrence.
+  to its first occurrence. A block occurrence that resolves to zero length
+  (spring-forward collapsing two starts) is dropped.
 - **Wiggle room** is symmetric by default (`wiggle_minutes`). A block may set
   separate `early_minutes` and `late_minutes` instead, and the measurement
   below needs that for a like-for-like baseline. *(My call: symmetric default,
@@ -195,10 +203,17 @@ prefer = [ { years = "1972-1977", weight = 1.5 } ]
 - **No clock file** means one implicit all-week open block. That is phase 1's
   behaviour (any eligible show, back to back) with the rotation rules added, so
   rollout needs no clock. The phase-1 shuffle planner (`choose_next`/`extend`)
-  is retired. *(My call.)*
+  is retired; its `[planner]` config keys stay (see "Selection score and
+  rotation rules"). *(My call.)* `status` says "no clock: open all week" when
+  the file is absent.
+- **Read at every plan step**, not only at start. An invalid `clock.toml` fails
+  the step with an alert and leaves the plan untouched; the published lead
+  carries the station while the operator fixes it. `schedule --clock <file>` is
+  the way to check an edit before moving it into place (the runbook says so).
 
-**Clock edits reach air after the frozen prefix**, so within about one lead
-(24 h). This is phase 1's existing property and does not change.
+**Clock edits.** Rows after the frontier are re-planned at every plan step, so
+a clock edit reaches air once the frozen prefix (at most about one lead) has
+aired. Phase 1 never re-plans persisted rows; this is new.
 
 ## Scheduling
 
@@ -219,14 +234,38 @@ timeline. Concretely:
 - rotation history records which package a piece came from, so a future set
   piece counts against its concert's recency.
 
-Plan rows gain the fields this needs (at least `kind` and `block`), and
-`plan.jsonl` written by phase 1 must still load.
+Code below the scheduler that is package-shaped today, and must be made
+piece-aware as part of this phase:
+- render-time re-validation, which looks rows up in the station scan by slug;
+- `service.row_analysis`, which re-evaluates `root/row.dir`;
+- the publisher's per-slug notes and show-page loop;
+- `build_timeline`'s `recent`;
+- the meaning of `PlanRow.dir`.
+
+**Plan rows.**
+- Rows carry what history needs at decision time: at least `kind`, `block`,
+  `nominal_start`, `miss` and `bends`. Field detail is the plan's.
+- `PlanRow.from_json` ignores unknown keys, so `plan.jsonl` written by phase 1
+  still loads and an older reader still loads scheduler rows. This lands in the
+  plan's first deployable task and is deployed to hugo before the scheduler, so
+  a later rollback lands on a reader that tolerates scheduler rows. The runbook
+  names that commit as the oldest safe rollback target, and says never to
+  truncate `plan.jsonl` by hand.
+
+**Unverified premise:** the frame model holds for single-clip pieces. The plan
+tests `planned_frames` against a real encode of an ID clip.
 
 ### Selection score and rotation rules
 
 The parent's score is the starting point: recency (never aired highest, then
 days since last aired) plus the block's preference weights plus the
-`on_this_day` boost.
+`on_this_day` boost. Ties break deterministically on phase 1's
+`shuffle_rank(seed, slug)`, so `[planner] seed` stays as a config key when
+`choose_next`/`extend` are retired; so does `start_delay_minutes`.
+
+**The compromise order outranks every rotation rule.** Rotation rules only rank
+options within the same tier: a block filled from its own profile always beats
+one that keeps a rotation rule by using fill.
 
 The rotation rules are designed for the final library, and every one is soft:
 
@@ -241,11 +280,14 @@ The rotation rules are designed for the final library, and every one is soft:
 - **Bending.** When the library can't satisfy a rule, the scheduler relaxes
   rules, softest first, rather than leaving a block empty or reaching for
   filler. The proposed order is: era, then same-artist-same-day, then the
-  concert gap, then adjacency. The builder may refine it.
-- **Rules a block's own pool makes impossible don't count as bends.** For
-  example, a single-artist Dead block can't avoid the Grateful Dead twice a day,
-  so that is not worth reporting. Bends caused by scarcity in a mixed pool are
-  counted.
+  concert gap, then adjacency. The builder may refine it. `[open]
+  exclude_profiles` bends last, and only when the open pool is otherwise empty.
+- **What counts as a bend.** A bend is counted only when an option that kept the
+  rule existed in the same tier and was passed over. A rule the pool makes
+  impossible (a single-artist Dead pool cannot avoid the same artist twice a day
+  or in a pair) is not applied within that pool at all, and is not a bend. The
+  same holds for the concert gap when the pool's eligible airtime is shorter
+  than the gap: least recently aired first still applies.
 - **Reporting.** Bends appear in `schedule` and as aggregate counts in
   `status`, and never as alerts.
 - **Tunable.** Every default can be changed in the clock file.
@@ -253,15 +295,40 @@ The rotation rules are designed for the final library, and every one is soft:
 ### Planning
 
 The scheduler is **pure**: (frozen prefix, eligible pieces with lengths,
-clock, history, now) → the plan from the frontier onward. It is deterministic,
-so `schedule`'s preview and the live plan agree for the same inputs.
+clock, history, now) → the plan from the frontier onward.
 
+- **The frontier.**
+  - Let R = max(`PublishState.listed_bound()`, the highest segment index with a
+    file in `render/seg/<epoch>/`). Publish deletes a local segment file once
+    its horizon is confirmed, so files alone are not evidence; `listed_bound`
+    covers those.
+  - A row is **frozen** when it overlaps any segment at or below R. A row
+    spanning the boundary is frozen whole. Encode presence is irrelevant (an ID
+    clip's encode is shared by many rows).
+  - Every plan step truncates the plan to the frozen rows and re-plans
+    everything after them from the current clock, library and history. So a
+    clock edit needs no detection; it takes effect at the next plan step for
+    every row not yet frozen.
+  - The first new row starts exactly at last-frozen.end + gap (or at the run
+    start for a fresh run), as `replan_from` does today. A re-plan may never
+    start earlier than that.
+  - `plan_step`'s early return ("plan already covers until_frame") must not
+    skip the truncate-and-re-plan. The builder decides how often a plan step
+    runs, but a step that runs re-plans the unfrozen tail.
+- **Gap layout.** Every row that is not a run start starts at the previous
+  row's end + `gap_frames` (the configured inter-show gap), interstitials
+  included. A boundary with an interstitial is therefore show, gap, clip, gap,
+  show. This is asserted whenever new rows are written, not on load, so plans
+  written under an earlier `show_gap_seconds` still load.
 - **Block by block in time order.** For each block occurrence, choose 1 to
   `max_shows` shows from its pool, plus the interstitials at its boundaries, so
   that the next block's start lands inside its wiggle room. Prefer landing
   close to the nominal time, and prefer higher summed score. Then apply the
   compromise order (Goals 3).
-  - **Fill** goes at the end of the block, before the next one starts.
+  - **Fill** goes at the end of the block, before the next one starts. It is
+    reported by cause: "pool short" (the block's own pool could not fill it) or
+    "longer than max_shows" (structural: the block is longer than `max_shows`
+    of its shows can fill). Only "pool short" is a compromise.
   - A **show that would overrun** the next block's window is avoided when an
     alternative exists.
   - **Overlapping windows** resolve as a late start plus a miss, never a cut,
@@ -271,68 +338,94 @@ so `schedule`'s preview and the live plan agree for the same inputs.
   that show is the one that rescues a harder block tomorrow; how far to go
   there is a builder call. The parent planned anchor to anchor over a 7-day
   lookahead.
-- **Mid-block starts.** The plan may begin inside a block: after a clock edit,
-  after phase 1's prefix, or at a fresh run after an outage longer than the
-  lead. The occurrence in progress is then that block, and it is filled so the
-  next block lands in its window. *(My call.)*
-- **Persistence.** `plan.jsonl` persists only up to the lead, as today, except
-  a block committed with its announcement (see "Station IDs and
-  announcements"). Beyond
-  that the plan is recomputed on every plan step from the prefix. A choice
-  made for a block that extends past the lead may change before it renders.
-  That is fine, because only rendered rows are frozen.
+- **Mid-block starts.** A re-plan usually begins inside a block: it starts at
+  the frontier wherever that falls, including the end of a phase-1 prefix or a
+  fresh run after an outage longer than the lead. The occurrence in progress is
+  then that block, and it is filled so the next block lands in its window. *(My
+  call.)*
+- **Persistence.** `plan.jsonl` persists rows up to the lead, as today. Only
+  frozen rows are fixed; every plan step re-plans the rest, and beyond the lead
+  the plan is recomputed from the prefix. A choice made for a block that extends
+  past the lead may change before it renders. That is fine, because only frozen
+  rows are fixed. Trimming `plan.jsonl` is the builder's call, but it never
+  trims a row the timeline's 24 h window or the frozen prefix still needs.
 - **Exact timing.**
-  - Placement uses the exact frame counts render will produce, as today
-    (`Station.frames_of`).
-  - **Search may use estimates.** The manifest's `total_duration_sec` plus DJ
-    clip durations is enough to choose shows, and analysing every eligible
-    package in one plan step is not acceptable. Phase 2's verification
-    measured one plan step analysing a few shows over NFS at about 17 minutes.
-  - The analyses of chosen shows are made before their rows are written. Any
-    remaining backfill is the builder's call (incremental, a bounded number per
-    step, idle time).
-  - An estimate that turns out wrong by more than the wiggle room must still
-    produce a valid plan; it may produce a miss.
-  - The watchdog must keep being fed during a long plan step.
+  - Each piece carries its exact frame count when its analysis is cached, else
+    an **estimate**: the manifest's `total_duration_sec` plus each DJ clip's
+    length from its file size at emcee's 64 kbps (the sizes `file_set_key`
+    already stats); for `--library delivered` on unvoiced packages, a flat
+    4-minute clip allowance. Estimates are cached by file-set key and marked as
+    estimates.
+  - The scheduler is pure **for given lengths**: preview and live agree when
+    they see the same cache state.
+  - A plan step runs the scheduler on best-known lengths, analyses the pieces
+    whose rows it is about to write (those up to `until_frame`), substitutes
+    their exact counts, runs the scheduler **once more** with them, and writes.
+    There is no further iteration: if exact counts now push a block outside its
+    window, that is a miss. Written rows always carry exact frame counts, never
+    estimates: if the second run picks a piece that has no exact count yet, the
+    plan is written only up to the row before it, and a later step analyses it.
+  - Interstitial clips are short and are always analysed exactly (never
+    estimated) when the pool is scanned.
+  - Analysis per step stays bounded by the rows written (the service's existing
+    `max_new` pacing stands). Analysing the rest of the eligible library to
+    replace estimates is background work whose pacing is the builder's call;
+    the watchdog keeps being fed.
+  - `total_duration_sec` counts an unmeasured track as 0, so such a show is
+    under-estimated until analysed. Accepted.
+  - **Unverified premise,** tested in the plan's first task on hugo: estimates
+    land within seconds of decoded counts (compare the analyses in
+    `~/.transmitter/cache/` with the estimate), and one cold analysis's duration
+    on hugo.
 - **Re-validation.** Phase 1's rules stand: a piece that fails re-validation
   before encoding is skipped at its boundary, and the plan is re-made from
   there (`plan-changed`).
+  - Interstitial rows re-validate against the interstitials folder: the file is
+    present, has the same file-set key, and is past the quiet period. A failing
+    clip is removed from the interstitial pool for the rest of that call, and
+    its boundary is re-planned without it.
+  - One `render_step` call has a hard cap on re-plans, since a re-plan that
+    writes no segment could otherwise repeat without bound. Exceeding it fails
+    the step (alerted).
 
 ### Station IDs and announcements
 
 - **Placement.**
   - At every boundary between two shows, place a **station ID** (rotated, least
     recently used first), unless the boundary carries an announcement.
-  - At each **block boundary**, place an **announcement** naming the next block
-    and the one after it. Open time without a title is skipped, and the `one`
-    template is used when only one block qualifies.
+  - At the boundary into block X, place a **`next`** announcement: it names X
+    as starting now and, when it qualifies, the block after X with its nominal
+    time.
+  - At a show boundary inside the block before X, when there is one, place a
+    **`later`** announcement: it names X with its nominal time and, when it
+    qualifies, the block after X.
+  - Each template has a two-block form and a one-block form. If X is untitled,
+    no announcement is placed there (a station ID is). If the block after X is
+    untitled or degraded to open time, the one-block form is used. A two-block
+    form that fails only on the second block falls back to the one-block form,
+    not to an ID.
   - The builder may choose a lighter cadence for IDs if every boundary proves
     too often. *(My call: every show boundary.)*
-- **Truthful or silent.** An announcement airs only when the plan really does
-  start each block it names within that block's window and on its own profile,
-  that is, not degraded to open time. Otherwise it is dropped, and a station ID
-  takes its place if one exists. The stated time is the nominal time.
-- **Locked with its block** (operator ruling 2026-10-25: a promise kept where
-  possible, not a guarantee).
-  - When the scheduler places an announcement at the boundary into block X, it
-    also commits X's whole contents in the same plan step, persisted to
-    `plan.jsonl` even past the lead and placed by exact analysed frame counts,
-    never estimates. The start of the block after X is then fixed when the
-    announcement's audio freezes.
-  - X's shows would be analysed within hours for rendering anyway, so this
-    moves the work earlier rather than adding to it.
-  - Committed rows past the frontier stay re-plannable only for the existing
-    reasons: a render-time re-validation skip (a re-voiced or pulled package)
-    or a clock edit. A re-plan of a committed block treats keeping the
-    announced start in its window as a strong preference, not a hard
-    constraint.
-  - A promise that still breaks is logged (`announcement-broken`) and
-    recorded in history. It is not an alert.
-  - Absent operator intervention in those few hours, an announcement is true.
+- **Truthful or silent.** An announcement is placed only when, in the plan
+  being written, X (and the second block when named) starts within its window
+  and on its own profile, that is, not degraded to open time. Otherwise it is
+  dropped, and a station ID takes its place if one exists. The stated time is
+  the nominal time. The second block's profile is a prediction made when the
+  announcement is placed; that is an accepted limitation, counted under
+  `announcement-broken`.
+- **A promise kept where possible** (operator ruling 2026-10-25: a promise, not
+  a guarantee). Every block is already planned to land the next block in its
+  window, which is exactly what an announcement promises, so no lock is needed:
+  the block the announcement names is re-planned like any other until frozen,
+  and the scheduler's own objective keeps the promise unless the library or
+  clock changes. An announcement whose promise breaks anyway (the named block
+  starts outside its window or degrades to open time) is logged
+  `announcement-broken` and recorded in history, not alerted.
 - **The text is derived from the clock alone**, so the set of announcements a
-  clock can need is finite: at most one or two per block start per week, which
-  is a few dozen. Each announcement's id is a hash of its text, so editing a
-  title or template creates new ids, and stale clips are simply never chosen.
+  clock can need is finite: at most four per block start in the weekly sequence
+  (two templates, each in two forms), under a hundred for a typical clock. Each
+  announcement's id is a hash of its text, so editing a title or template
+  creates new ids, and stale clips are simply never chosen.
 - **Time phrasing** ("at 11", "at 11:30", "at 1") is formatted from the
   nominal time. The builder picks a default the operator can edit in the
   templates.
@@ -347,13 +440,13 @@ transmitter has no voice of its own and runs on hugo, away from the TTS keys.
 In this phase the operator voices clips on the Mac with `emcee say`, which
 writes `<file>.mp3` beside `<file>.txt`.
 
-- **Folder.** A configured interstitials folder (`[interstitials] dir` in
-  `config.toml`; unset means none) that both the Mac and hugo can reach, outside
-  every scanner's view:
-  - transmitter's own package scan skips directories without `manifest.json`;
-  - emcee's and llama's scans must also not see it. The builder verifies this
-    and records it.
-  transmitter only reads this folder.
+- **Folder.** `<station root>/interstitials/` by default, configurable with
+  `[interstitials] dir` in `config.toml`. It holds no `manifest.json`, so no
+  scanner sees it: transmitter's (`station.py:226`) and emcee's
+  (`station.py:323-326`) scans skip directories without one, as does
+  `scripts/backfill_voiced_by.py:42`, and llama's deliver touches only
+  `<dest>/<slug>` and never lists the root (`cli.py:2300-2385`). transmitter
+  only reads this folder.
 - **Naming.**
   - station IDs are `id-*.mp3`, the operator's own, any number;
   - announcements are `ann-<id>.mp3`.
@@ -362,10 +455,11 @@ writes `<file>.mp3` beside `<file>.txt`.
   `--export DIR` writes `ann-<id>.txt` for the missing ones into DIR, an
   explicit operator-chosen write.
 - **Operator workflow:**
-  1. Export the scripts.
-  2. Move them to the Mac.
-  3. Run `emcee say` over each.
-  4. Copy the MP3s into the folder.
+  1. Export the scripts, straight into the interstitials folder when hugo's
+     mount of the station root is writable, else elsewhere and copy them into
+     the folder.
+  2. On the Mac, run `emcee say` over each; it writes `ann-<id>.mp3` beside its
+     script, in the folder.
   The runbook gets a copy-paste version.
 - **Loudness.** Clips are loudness-normalised with the speech target, as DJ
   clips are.
@@ -375,8 +469,9 @@ writes `<file>.mp3` beside `<file>.txt`.
 
 ### Rotation history
 
-- **`aired.jsonl`** gets one row per piece once its air time has passed. A row
-  records at least:
+- **`aired.jsonl`** gets one row per piece that was published: its end is at or
+  before the end of segment `PublishState.last`, and at or before now. A row
+  cut by recovery records its cut end. A row records at least:
   - kind;
   - package slug (and, for future set pieces, which set);
   - block name;
@@ -384,7 +479,10 @@ writes `<file>.mp3` beside `<file>.txt`.
   - whether that boundary was a miss;
   - which rules bent.
   The service tick appends to it.
-- **At rollout,** it is backfilled once from `plan.jsonl` rows already aired.
+- **Identity** is (epoch id, start_frame). The appender adds only rows not
+  already present, so restarts never double-append.
+- **At rollout,** it is backfilled once from `plan.jsonl` rows, by the same
+  rule.
 - **Recency** counts both aired rows and frozen rows not yet aired.
 - **Unknown fields** are ignored on read, so old rows still load.
 
@@ -395,11 +493,12 @@ writes `<file>.mp3` beside `<file>.txt`.
   covering the timeline's span (name, title, nominal start, actual start), as
   data only. Showing it is phase 4.
 - **Interstitials** must not make the player say "We'll be back shortly." That
-  is what `nowplaying.js` shows when no show covers the instant. The builder
-  chooses the smallest fix that holds: an entry the player already renders
-  well, or a minimal `antenna/public/` change (e.g., the station name during a
-  break).
-- **Show pages** and `notes/` are per show, and interstitials have none.
+  is what `nowplaying.js` shows when no show covers the instant. Interstitial
+  entries carry `kind: "interstitial"`, and the player treats them as a break
+  showing the station name (a small `antenna/public/` change). R2 writes stay
+  as phase 1's.
+- **Show pages** and `notes/` are per show. Interstitial entries are excluded
+  from the notes and show-page publishing loop and from `recent`.
 
 ## Commands
 
@@ -409,7 +508,8 @@ writes `<file>.mp3` beside `<file>.txt`.
     misses, bent rules, blocks that became open time, and missing announcement
     audio.
   - Ends with a summary over the span: misses, fill minutes as a share of the
-    span, bends by rule, and the shortest repeat gap.
+    span (split into "pool short" and "longer than max_shows"), bends by rule,
+    and the shortest repeat gap.
   - Defaults are 7 days, the live clock and the eligible library.
   - `--clock` previews a draft from the current frozen prefix and history
     without touching the live plan. Read-only: it writes nothing.
@@ -423,12 +523,14 @@ writes `<file>.mp3` beside `<file>.txt`.
   by reason.
 - **`transmitter announcements [--clock FILE] [--export DIR]`:** as above.
 - **`transmitter status`** gains:
-  - the current and next block;
-  - misses and fill minutes over the last 24 h and the planned next 24 h;
+  - the current and next block, or "no clock: open all week";
+  - misses and fill minutes (split by cause) over the last 24 h and the planned
+    next 24 h;
   - bend counts;
   - blocks degraded to open time;
   - missing announcement audio.
-  None of these are alerts.
+  None of these are alerts. The next-24 h figures come from persisted plan rows
+  only: `status` never runs the scheduler or scans the library.
 
 ## Measurement
 
@@ -443,21 +545,29 @@ available manifest".
   - (c) a soft-launch clock for today's voiced library (Dead/funk, open time).
 - **What to report:**
   - misses;
-  - fill share;
+  - fill share, by cause;
   - bends by rule;
   - the repeat-gap distribution;
   - the share of block airtime on its own profile;
-  - for (a), a comparison with the parent's naive-filler table.
+  - for (a), a comparison with the naive-filler baseline below.
 - **No pass threshold.** The library isn't representative and the clock isn't
   final, so the measurement is evidence for the operator, not a gate. One
   exception, made like-for-like *(my call, from the builder check)*:
-  - Re-run the parent's naive filler
-    (`docs/superpowers/2026-10-10-playout-review/feasibility-sim.py`) on the
-    same library and clock (a), as the baseline. Do not use the parent's frozen
-    table: it ran over 256 packages.
+  - The baseline is the parent's naive filler
+    (`docs/superpowers/2026-10-10-playout-review/feasibility-sim.py`), re-run on
+    the same library and clock (a). It needs edits first: the station root as an
+    argument; separate "overran" and "not fillable" counts (it currently folds
+    overruns in as a ×1000 weight and prints one figure); the same length
+    estimate the scheduler uses; and its fill exclusion (`dead`, `funk`,
+    `dead-family`) expressed in clock (a) as `[open] exclude_profiles`. The
+    edited script is committed beside the evidence doc.
+  - The baseline is re-derived, not copied: the parent's two-column table came
+    from a variant not in the repo, and ran over 256 packages.
   - Run the scheduler on clock (a) with the parent's window semantics: start in
     `[nominal, nominal + 15 min]` (`early_minutes = 0`, `late_minutes = 15`).
-    The scheduler keeps its own features (`max_shows`, interstitials off).
+    The scheduler keeps its own features (`max_shows`, interstitials off). Run
+    it over at least 50 consecutive weeks with history accumulating (one week is
+    22 block starts, too coarse), against the naive script's 50 seeds.
   - Pass: the scheduler's share of block starts outside the window is no
     higher than the naive script's "overran" plus "not fillable" (its silences
     count as misses).
@@ -469,22 +579,38 @@ available manifest".
   is pure, so test it on fixture libraries built from real manifest durations
   (the delivered library's distribution).
 - **What the tests must cover:**
-  - block expansion over a week, including DST transitions and blocks
-    crossing midnight;
+  - block expansion over a week, including DST transitions, blocks crossing
+    midnight, and a zero-length occurrence being dropped;
   - pool filtering and degradation to open time;
+  - an empty open pool bending `[open] exclude_profiles`, and `PlanError` only
+    when nothing is eligible;
   - pairing within a block;
-  - the compromise order;
+  - the compromise order, and its precedence over every rotation rule;
+  - fill reported by cause;
   - misses and overlapping windows;
   - each rotation rule and the bend order;
-  - not-counted bends for single-artist pools;
-  - determinism;
+  - bends counted only when a keeping option existed, and not for rules a
+    single-artist pool makes impossible;
+  - determinism for given lengths, including the seed tie-break;
+  - estimates, the one exact-count re-pass, and written rows carrying exact
+    counts;
   - mid-block starts and a phase-1 prefix;
-  - interstitial placement, rotation and truthfulness;
+  - the gap layout, asserted on write and not on load;
+  - interstitial placement, rotation and truthfulness, including `next`/`later`
+    selection and the one-block fallback;
+  - interstitial re-validation and the re-plan cap in `render_step`;
   - missing audio;
   - announcement ids being stable for unchanged text;
-  - `aired.jsonl` append and backfill;
-  - old `plan.jsonl` rows loading;
-  - the frozen-prefix invariant (no rendered row changes under any clock edit);
+  - `aired.jsonl` append (published rows only, no double-append across
+    restarts, cut ends) and backfill;
+  - old `plan.jsonl` rows loading, and unknown row keys being ignored;
+  - an invalid `clock.toml` failing the step and leaving the plan untouched;
+  - the frozen-prefix invariant (no frozen row changes under any clock edit),
+    including a state where published segments' local files have been deleted
+    and one where rendered segments are unpublished (publish stopped by a guard
+    trip or the budget);
+  - every plan step re-planning the unfrozen tail, despite `plan_step`'s early
+    return;
   - the timeline's `anchors` and interstitial entries.
 - **Mutation testing.** The strict surfaces get it: a mutant that lets the
   scheduler alter a frozen row must fail a named test.
@@ -496,11 +622,12 @@ available manifest".
 - the search algorithm and its lookahead;
 - the score's exact form and the rotation defaults;
 - the exact clock field names;
-- the plan-row fields;
+- the plan-row fields beyond the minimum;
+- how often a plan step runs;
 - how analysis backfill is paced;
+- how `plan.jsonl` is trimmed;
 - ID cadence if every boundary proves too much;
 - the time-phrasing default;
-- the interstitial timeline representation;
 - how `schedule`'s output is laid out.
 
 Each is constrained by the sections above.
@@ -508,12 +635,20 @@ Each is constrained by the sections above.
 ## Calls made in this document (not operator decisions)
 
 - the clock in its own file;
+- the clock read at every plan step, and an invalid one failing the step;
 - symmetric wiggle by default;
 - no clock = one open block, and the phase-1 shuffle retired;
+- `[planner] seed` kept as the scheduler's tie-break;
+- the frontier definition, with every unfrozen row re-planned each step;
+- one exact-count re-pass per plan step;
 - mid-block starts treated as that block;
 - an ID at every show boundary;
-- the interstitials folder, naming and export workflow;
+- the `next` and `later` announcement templates;
+- the interstitials folder inside the station root, its naming and the export
+  workflow;
 - announcements dropped when untrue;
+- bends counted only when an option keeping the rule existed;
+- the tolerant plan-row reader shipped before the scheduler;
 - `anchors` filled now and rendered in phase 4;
 - `--library delivered` included;
 - the one measurement floor and how it's made like-for-like;
