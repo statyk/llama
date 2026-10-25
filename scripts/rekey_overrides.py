@@ -23,6 +23,14 @@ metadata of the item `show.json` names.
 `.audio-aside/`, the `.lock` aside) into `<root>/rekey-snapshot-<UTC start>/`, each copy
 verified against its source's sha256 and flushed, then writes `manifest.json` last. It is
 the migration's only rollback point: a directory without `manifest.json` is no snapshot.
+
+`--apply` refuses, writing nothing, unless the newest snapshot verifies, every `llama` on
+PATH reports at least REKEY_MIN_VERSION and no llama process runs; then, under the
+migration lock, unless every show passes its checks and every legacy show's
+`overrides.json` and `show.json` are byte-equal to their snapshot copies. Each legacy show
+is then re-checked under its lock, rewritten on the raw JSON (`override_keys.rekey_raw`)
+durably, and recorded in `<root>/rekey-applied.json`. A refusal there stops the run; a
+re-run continues with the remaining legacy shows.
 """
 from __future__ import annotations
 
@@ -50,7 +58,8 @@ from llama.junk import FORMAT_BY_AUDIO
 from llama.errors import LlamaError
 from llama.locks import Locked, file_lock
 from llama.models import Overrides, Show
-from llama.override_keys import classify, filename_values, legacy_int
+from llama.override_keys import (POSITIONAL_KEYS, classify, filename_values, legacy_int,
+                                 rekey_raw, resolve_positions)
 from llama.replay import CacheMiss, CacheOnlyIA
 from llama.stages.gather import _validate_structure_override, final_kept
 from llama.workspace import ShowWorkspace
@@ -751,6 +760,379 @@ def find_snapshot(root: Path) -> Path | None:
     return found[-1] if found else None
 
 
+# --- --apply (spec 4.3 "`--apply`", "Routes for an `--apply` refusal") ---
+
+_VERSION = re.compile(r"[0-9]+(?:\.[0-9]+)+")
+_VERSION_TIMEOUT_S = 120
+
+# The refusals only --apply makes: the per-show snapshot comparison (up front and under
+# the show lock) and the round-trip check on the rewritten object. Each is printed with
+# the `then:` line, which already names the NEW snapshot.
+NEW_SNAPSHOT_ROUTE = ("nothing in the show itself: the NEW snapshot records it as it is now, "
+                      "and the dry run re-checks it")
+APPLY_REASONS = {
+    "not in the snapshot": NEW_SNAPSHOT_ROUTE,
+    "changed since the snapshot": NEW_SNAPSHOT_ROUTE,
+    "rekey does not round-trip": ("none by hand: this is a defect in the migration; report it "
+                                  "(the show was not rewritten)"),
+}
+_COMPARED = ("overrides.json", "show.json")
+
+
+def _numeric(v: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in v.split("."))
+
+
+def version_ok(text: str) -> bool:
+    """`llama --version` output (whitespace aside) is a dotted version of at least
+    REKEY_MIN_VERSION, compared numerically (2.9.0 is below 2.18.0). Anything else is
+    not: a dev build's `0.1.0` or `0.0.0+unknown`, a pre-release or local suffix, extra
+    words or lines."""
+    t = text.strip()
+    if not _VERSION.fullmatch(t):
+        return False
+    got, want = _numeric(t), _numeric(REKEY_MIN_VERSION)
+    n = max(len(got), len(want))
+    return got + (0,) * (n - len(got)) >= want + (0,) * (n - len(want))
+
+
+def llama_versions() -> list[tuple[str, str]]:
+    """(path, its `--version` output) for every `llama` that `which -a llama` lists, in
+    PATH order. A binary that fails to run reports `exit <n>: <output>` or `error: ...`
+    in place of its version (version_ok refuses both). Raises OSError when `which`
+    itself fails."""
+    done = subprocess.run(["which", "-a", "llama"], capture_output=True, text=True)
+    if done.returncode not in (0, 1):
+        raise OSError(f"which -a llama exited {done.returncode}: {done.stderr.strip()}")
+    paths = list(dict.fromkeys(l.strip() for l in done.stdout.splitlines() if l.strip()))
+    out = []
+    for p in paths:
+        try:
+            r = subprocess.run([p, "--version"], capture_output=True, text=True,
+                               timeout=_VERSION_TIMEOUT_S)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            out.append((p, f"error: {type(exc).__name__}: {exc}"))
+            continue
+        text = r.stdout.strip()
+        if r.returncode != 0:
+            text = f"exit {r.returncode}: {(r.stdout + r.stderr).strip()}"
+        out.append((p, text))
+    return out
+
+
+def _version_gate(echo) -> None:
+    try:
+        found = llama_versions()
+    except Exception as exc:
+        raise _Refused(f"version check failed: {type(exc).__name__}: {exc}") from exc
+    if not found:
+        raise _Refused("no llama on PATH")
+    low = [(p, out) for p, out in found if not version_ok(out)]
+    if low:
+        for p, out in low:
+            echo(f"llama on PATH below {REKEY_MIN_VERSION}: {p} {' | '.join(out.splitlines())}")
+        raise _Refused(f"refusing: every llama on PATH must report at least "
+                       f"{REKEY_MIN_VERSION} (runbook step 5)")
+    for p, out in found:
+        echo(f"llama on PATH: {p} {out}")
+
+
+def _snapshot_gate(root: Path) -> tuple[Path, dict]:
+    """The newest snapshot and its manifest, when it verifies; else `_Refused`."""
+    snap = find_snapshot(root)
+    if snap is None:
+        raise _Refused(f"no verified snapshot: no {SNAPSHOT_PREFIX}* directory holding "
+                       f"{MANIFEST} under {root} (runbook step 4)")
+    problems = verify_snapshot(snap)
+    if problems:
+        raise _Refused(f"no verified snapshot: {snap}: " + "; ".join(problems))
+    return snap, json.loads((snap / MANIFEST).read_bytes())
+
+
+def _sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _snapshot_mismatch(snap: Path, files: dict, slug: str, name: str,
+                       data: bytes | None) -> str | None:
+    """Why `data` (show file `name` as read now; None = absent) is not byte-equal to its
+    snapshot copy, else None. A file the snapshot holds no copy of fails."""
+    key = f"{slug}/{name}"
+    want = files.get(key)
+    copy = snap / "shows" / key
+    if want is None or copy.is_symlink() or not copy.is_file():
+        return f"{name}: no copy in {snap.name}"
+    if data is None:
+        return f"{name}: missing now; {snap.name} holds a copy"
+    got = _sha(data)
+    if got != want:
+        return f"{name}: sha256 {got[:12]} now, {want[:12]} in {snap.name}"
+    if _sha(copy.read_bytes()) != want:
+        return f"{name}: the copy in {snap.name} no longer matches its manifest"
+    return None
+
+
+def _compare_with_snapshot(ws: ShowWorkspace, snap: Path, files: dict,
+                           data: dict[str, bytes | None] | None = None) -> Refusal | None:
+    slug = ws.dir.name
+    problems = []
+    for name in _COMPARED:
+        try:
+            got = data[name] if data is not None else _read(ws.dir / name)
+        except OSError as exc:
+            problems.append(f"{name}: unreadable ({exc})")
+            continue
+        p = _snapshot_mismatch(snap, files, slug, name, got)
+        if p:
+            problems.append(p)
+    if not problems:
+        return None
+    return Refusal(slug=slug, reason="changed since the snapshot", detail="; ".join(problems),
+                   route=APPLY_REASONS["changed since the snapshot"])
+
+
+def _expected_rewrite(ov_bytes: bytes, show_bytes: bytes) -> bytes:
+    """The bytes --apply writes for a legacy overrides.json over that show.json."""
+    names = [t.filename for t in Show.model_validate_json(show_bytes).tracks]
+    return json.dumps(rekey_raw(json.loads(ov_bytes), names), indent=2).encode()
+
+
+def _round_trip_problem(raw: dict, data: dict, names: list[str], slug: str) -> str | None:
+    """None when the rewritten object `data` resolves, over `names`, to exactly the
+    positions the legacy `raw` held, and every other key is unchanged."""
+    try:
+        pos = resolve_positions(Overrides.model_validate(data), names, slug=slug)
+    except Exception as exc:
+        return f"the rewritten file does not resolve: {_first_line(exc)}"
+    sb, enc = raw.get("set_breaks"), raw.get("encore_after")
+    want = ({legacy_int(k): t for k, t in (raw.get("titles") or {}).items()},
+            None if sb is None else [legacy_int(v) for v in sb],
+            None if enc is None else legacy_int(enc))
+    got = (pos.titles, pos.set_breaks, pos.encore_after)
+    if got != want:
+        return f"the rewritten file resolves to {got}, the legacy file held {want}"
+
+    def rest(d: dict) -> list:
+        return [(k, v) for k, v in d.items() if k not in POSITIONAL_KEYS]
+    if list(data) != list(raw) or rest(data) != rest(raw):
+        return "a key other than titles/set_breaks/encore_after changed"
+    return None
+
+
+def _durable_write(path: Path, data: bytes) -> None:
+    """Replace `path` with `data`: a temp file in its directory, flushed (F_FULLFSYNC),
+    renamed over it, then the directory flushed."""
+    tmp = path.parent / f".{path.name}.rekey.tmp"
+    tmp.unlink(missing_ok=True)            # only a killed run leaves one; both locks are held
+    try:
+        _write_copy(tmp, data)
+        os.replace(tmp, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            tmp.unlink(missing_ok=True)
+        raise
+    _sync_dir(path.parent)
+
+
+def _write_record(root: Path, record: dict) -> None:
+    _durable_write(root / APPLIED, json.dumps(record, indent=2).encode())
+
+
+def _read_record(root: Path, snap: Path) -> dict:
+    """`rekey-applied.json`, continued, or a fresh record when there is none. Refuses
+    (`_Refused`) one that is unreadable or names a snapshot other than `snap`: a
+    successful --restore renames the record, so one naming another snapshot is
+    unexplained."""
+    path = root / APPLIED
+    if not os.path.lexists(path):
+        return {"snapshot": snap.name, "updated_at": None, "shows": []}
+    try:
+        rec = json.loads(path.read_bytes())
+        if not (isinstance(rec, dict) and isinstance(rec.get("snapshot"), str)
+                and isinstance(rec.get("shows"), list)
+                and all(isinstance(s, str) for s in rec["shows"])):
+            raise ValueError("not a {snapshot, updated_at, shows} object")
+    except Exception as exc:
+        raise _Refused(f"refusing to apply: {path} unreadable ({_first_line(exc)}); repair it "
+                       f"by hand") from exc
+    if rec["snapshot"] != snap.name:
+        raise _Refused(f"refusing to apply: {path} records snapshot {rec['snapshot']}, not "
+                       f"the newest one, {snap.name}; a --restore renames it, so find out "
+                       f"which snapshot its shows were rewritten from before moving it aside")
+    return rec
+
+
+def _interrupted(root: Path, snap: Path, files: dict, record: dict) -> list[str]:
+    """Shows rewritten by an interrupted --apply but not recorded: overrides.json is
+    filename-form, not in the record, and byte-equal to what --apply writes from the
+    snapshot's legacy overrides.json and its show.json. Anything else is left alone."""
+    out = []
+    for d in _show_dirs(root):
+        slug = d.name
+        if slug in record["shows"] or _form(ShowWorkspace(d)) != "filename":
+            continue
+        try:
+            ov = (snap / "shows" / slug / "overrides.json").read_bytes()
+            sh = (snap / "shows" / slug / "show.json").read_bytes()
+            if (files.get(f"{slug}/overrides.json") != _sha(ov)
+                    or files.get(f"{slug}/show.json") != _sha(sh)
+                    or classify(json.loads(ov)) != "legacy"):
+                continue
+            if _read(d / "overrides.json") == _expected_rewrite(ov, sh):
+                out.append(slug)
+        except Exception:
+            continue
+    return out
+
+
+def _rekey_show(ws: ShowWorkspace, ia, want, *, root: Path, snap: Path, files: dict,
+                record: dict) -> Rekey | list[Refusal]:
+    """Spec 4.3 `--apply` steps 1-4 for one legacy show, under its lock: re-check (each
+    file byte-equal to its snapshot copy, then check_show on exactly those bytes), map,
+    write durably, record durably. The refusals when it writes nothing."""
+    slug = ws.dir.name
+    with file_lock(ws.lock):
+        read = {name: _read(ws.dir / name) for name in _COMPARED}
+        changed = _compare_with_snapshot(ws, snap, files, read)
+        if changed:
+            return [changed]
+        ov_bytes, show_bytes = read["overrides.json"], read["show.json"]
+        got = check_show(ws, ia, want, overrides_bytes=ov_bytes, show_bytes=show_bytes)
+        if got is None:
+            return [Refusal(slug=slug, reason="changed since the snapshot",
+                            detail="no legacy value under the show lock",
+                            route=APPLY_REASONS["changed since the snapshot"])]
+        if not isinstance(got, Rekey):
+            return got
+        raw = json.loads(ov_bytes)
+        names = [t.filename for t in Show.model_validate_json(show_bytes).tracks]
+        data = rekey_raw(raw, names)
+        bad = _round_trip_problem(raw, data, names, slug)
+        if bad:
+            return [Refusal(slug=slug, reason="rekey does not round-trip", detail=bad,
+                            route=APPLY_REASONS["rekey does not round-trip"])]
+        _durable_write(ws.overrides, json.dumps(data, indent=2).encode())
+        if slug not in record["shows"]:
+            record["shows"].append(slug)
+        record["updated_at"] = datetime.now(timezone.utc).isoformat()
+        _write_record(root, record)
+        return got
+
+
+def _print_apply_refusals(root: Path, snap: Path, refusals: list[Refusal], echo) -> None:
+    """Each refusal with --apply's routes: `first:` --restore when the library holds a
+    migrated show (v2.17.0 cannot run on it), `then:` the v2.17.0 repair and a NEW
+    snapshot, `repair:` the route with the slug pasted in."""
+    migrated = any(_form(ShowWorkspace(d)) == "filename" for d in _show_dirs(root))
+    for r in sorted(refusals, key=lambda r: r.slug):      # stable: each show's own order
+        echo(f"refused: {r.slug}: {r.reason} ({r.detail})")
+        if migrated:
+            echo(f"  first: run --restore {snap} with the new binary, then reinstall v2.17.0")
+        echo(f"  then: reinstall v2.17.0, repair {r.slug} with it (route below), then return "
+             f"to step 2 (dry run) and take a NEW snapshot")
+        echo(f"  repair: {r.route.replace('<show>', r.slug)}")
+
+
+def _summary(root: Path, verb: str, n: int, refused: set[str], rekeys: set[str],
+             migrated: set[str]) -> str:
+    total = {d.name for d in _show_dirs(root)}
+    none = total - refused - rekeys - migrated
+    return (f"{n} {verb}, {len(refused)} refused, {len(migrated - refused)} already migrated, "
+            f"{len(none)} without positional keys")
+
+
+def apply(root: Path, ia, want, *, echo) -> int:
+    """Migrate (spec 4.3 "`--apply`"). The gates, in order (a verified newest snapshot,
+    every llama on PATH at REKEY_MIN_VERSION, no llama process), then the migration
+    lock, then every check over every show plus the snapshot comparison: any failure
+    prints and writes nothing. Then each legacy show, sorted, under its lock
+    (`_rekey_show`); a refusal or an error there stops the run. 0 when every legacy
+    show was rewritten (or none was left), else 1."""
+    shows_dir = root / "shows"
+    try:
+        if not shows_dir.is_dir():
+            raise _Refused(f"refusing to apply: {shows_dir} is not a directory")
+        snap, manifest = _snapshot_gate(root)
+        echo(f"snapshot: {snap}")
+        _version_gate(echo)
+        _process_gate(echo)
+    except _Refused as exc:
+        echo(str(exc))
+        return 1
+    with contextlib.ExitStack() as stack:
+        try:
+            stack.enter_context(file_lock(root / LOCK, blocking=False))
+        except Locked:
+            echo(f"refusing to apply: {root / LOCK} is held by another rekey_overrides run")
+            return 1
+        try:
+            if find_snapshot(root) != snap:
+                raise _Refused(f"refusing to apply: a newer snapshot than {snap.name} appeared "
+                               f"before the migration lock; re-run --apply")
+            record = _read_record(root, snap)
+        except _Refused as exc:
+            echo(str(exc))
+            return 1
+        return _apply_locked(root, ia, want, snap, manifest, record, echo=echo)
+
+
+def _apply_locked(root: Path, ia, want, snap: Path, manifest: dict, record: dict, *,
+                  echo) -> int:
+    files: dict = manifest["files"]
+    recorded = set(manifest["slugs"])
+    rekeys, refused, migrated = check_library(root, ia, want)
+    for d in library_shows(root):
+        if d.name not in recorded:
+            refused.append(Refusal(slug=d.name, reason="not in the snapshot",
+                                   detail=f"created after {snap.name}",
+                                   route=APPLY_REASONS["not in the snapshot"]))
+    for r in rekeys:
+        if r.slug in recorded:
+            changed = _compare_with_snapshot(ShowWorkspace(root / "shows" / r.slug), snap,
+                                             files)
+            if changed:
+                refused.append(changed)
+    rekey_slugs, migrated_slugs = {r.slug for r in rekeys}, set(migrated)
+    if refused:
+        _print_apply_refusals(root, snap, refused, echo)
+        bad = {r.slug for r in refused}
+        echo(_summary(root, "to rekey", len(rekey_slugs - bad), bad, rekey_slugs,
+                      migrated_slugs))
+        echo("nothing written")
+        return 1
+
+    pending = _interrupted(root, snap, files, record)
+    if pending:
+        record["shows"] += pending
+        record["updated_at"] = datetime.now(timezone.utc).isoformat()
+        _write_record(root, record)
+        for slug in pending:
+            echo(f"recorded: {slug} (rewritten by an interrupted --apply)")
+
+    done = 0
+    todo = sorted(rekeys, key=lambda r: r.slug)
+    for i, r in enumerate(todo):
+        ws = ShowWorkspace(root / "shows" / r.slug)
+        try:
+            got = _rekey_show(ws, ia, want, root=root, snap=snap, files=files, record=record)
+        except Exception as exc:
+            echo(f"error: {r.slug}: {type(exc).__name__}: {exc}")
+            echo(f"stopped: {len(todo) - i - 1} legacy show(s) after it not reached; re-run "
+                 f"--apply to continue (a show already rewritten is skipped and recorded)")
+            echo(_summary(root, "rekeyed", done, set(), rekey_slugs, migrated_slugs))
+            return 1
+        if isinstance(got, Rekey):
+            echo(_rekey_line("rekeyed", got))
+            done += 1
+            continue
+        _print_apply_refusals(root, snap, got, echo)
+        echo(f"stopped: {len(todo) - i - 1} legacy show(s) after it not reached")
+        echo(_summary(root, "rekeyed", done, {r.slug}, rekey_slugs, migrated_slugs))
+        return 1
+    echo(_summary(root, "rekeyed", done, set(), rekey_slugs, migrated_slugs))
+    return 0
+
+
 # --- main ---
 
 def _check_identity() -> None:
@@ -819,6 +1201,8 @@ def main(argv: list[str] | None = None) -> int:
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--snapshot", action="store_true",
                       help="copy every show's metadata into <root>/rekey-snapshot-<UTC>/")
+    mode.add_argument("--apply", action="store_true",
+                      help="re-key every legacy show, checked against the newest snapshot")
     args = ap.parse_args(argv)
     try:
         _check_identity()
@@ -837,6 +1221,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     ia = CacheOnlyIA(config.root / "cache")
     want = FORMAT_BY_AUDIO[config.audio_format]
+    if args.apply:
+        return apply(config.root, ia, want, echo=print)
     return dry_run(config.root, ia, want)
 
 

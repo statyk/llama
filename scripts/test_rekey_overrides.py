@@ -26,9 +26,11 @@ F = ["gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
 
 @pytest.fixture(autouse=True)
 def _hermetic(tmp_path_factory, monkeypatch):
-    """main's default config is never ~/.llama, and no test reads the real process table."""
+    """main's default config is never ~/.llama, no test reads the real process table, and
+    no test runs this machine's `llama` (--apply's version gate sees one good binary)."""
     monkeypatch.setattr(rk, "DEFAULT_ROOT", tmp_path_factory.mktemp("default-root"))
     monkeypatch.setattr(rk, "_ps_lines", lambda: [])
+    monkeypatch.setattr(rk, "llama_versions", lambda: [("/usr/local/bin/llama", "2.18.0")])
 
 
 def _show(root: Path, *, date="1973-06-10", titles=None, set_breaks=None, encore_after=None,
@@ -606,7 +608,7 @@ def test_snapshot_names_its_directory_by_the_utc_start_and_refuses_an_existing_o
 
 def test_lock_only_show_dir_is_not_a_show(tmp_path, capsys):
     """An `rm` husk (show_unit limitation 2) is not recorded, not copied and not a
-    coverage gap. (--apply's and --restore's coverage checks are Tasks 19 and 20.)"""
+    coverage gap: --apply does not refuse on it. (--restore's is Task 20.)"""
     root = tmp_path / "lib"
     _show(root, titles={1: "Dew"})
     husk = root / "shows" / "gratefuldead-1973-06-12"
@@ -620,6 +622,11 @@ def test_lock_only_show_dir_is_not_a_show(tmp_path, capsys):
     assert manifest["slugs"] == [SLUG]
     assert not (snap / "shows" / husk.name).exists()
     assert rk.verify_snapshot(snap) == []
+    rc, out = _apply(root, capsys)
+    assert rc == 0, out
+    assert f"rekeyed: {SLUG} (1 titles, 0 breaks)" in out.splitlines()
+    assert husk.name not in out
+    assert sorted(p.name for p in husk.iterdir()) == [".lock"]
 
 
 def test_a_show_dir_holding_only_audio_fails_the_snapshot(tmp_path, capsys):
@@ -921,3 +928,550 @@ def test_verify_snapshot_ignores_unlisted_files(tmp_path, capsys):
     (snap / "shows" / SLUG / ".DS_Store").write_bytes(b"\0finder")
     (snap / "shows" / SLUG / "stray.json").write_text("{}")
     assert rk.verify_snapshot(snap) == []
+
+
+# --- --apply (plan Task 19; spec 4.3 "`--apply`", "Routes for an `--apply` refusal") ---
+
+from helpers import tree_bytes
+from llama.override_keys import classify, rekey_raw
+
+D1, D2, D3, D4 = "1973-06-10", "1973-06-11", "1973-06-12", "1973-06-13"
+S1, S2, S3, S4 = (f"gratefuldead-{d}" for d in (D1, D2, D3, D4))
+THEN = ("  then: reinstall v2.17.0, repair {slug} with it (route below), then return to "
+        "step 2 (dry run) and take a NEW snapshot")
+FIRST = "  first: run --restore {snap} with the new binary, then reinstall v2.17.0"
+
+
+def _apply(root: Path, capsys) -> tuple[int, str]:
+    rc = rk.main(["--config", str(_config(root)), "--apply"])
+    return rc, capsys.readouterr().out
+
+
+def _snapped(root: Path, capsys, now=None) -> Path:
+    """Take a snapshot of the library as it is (through `snapshot`, so the migration lock
+    file exists afterwards, as after a real `--snapshot`)."""
+    _config(root)
+    snap = rk.snapshot(root, echo=lambda *a: None, now=now)
+    capsys.readouterr()
+    assert rk.verify_snapshot(snap) == []
+    return snap
+
+
+def _three(root: Path) -> list[ShowWorkspace]:
+    """Titles only; breaks plus encore; `set_breaks: []` plus titles."""
+    return [_show(root, date=D1, titles={1: "Dew", 4: "Star"}),
+            _show(root, date=D2, set_breaks=[3], encore_after=5),
+            _show(root, date=D3, titles={2: "Cat"}, set_breaks=[])]
+
+
+def _record(root: Path) -> dict:
+    return json.loads((root / rk.APPLIED).read_text())
+
+
+def _refused_block(lines: list[str], slug: str, reason: str) -> list[str]:
+    """The refusal line for `slug`/`reason` and every indented line under it."""
+    i = next(i for i, l in enumerate(lines) if l.startswith(f"refused: {slug}: {reason} ("))
+    j = i + 1
+    while j < len(lines) and lines[j].startswith("  "):
+        j += 1
+    return lines[i:j]
+
+
+def test_version_ok():
+    for good in ("2.18.0", "2.18.0\n", " 2.18.1 ", "2.19", "2.18", "3.0.0", "10.0.0",
+                 "2.100.0"):
+        assert rk.version_ok(good), good
+    for bad in ("2.17.0", "2.17.9", "2.9.0", "0.1.0", "0.0.0+unknown", "", "junk",
+                "llama 2.18.0", "v2.18.0", "2.18.0rc1", "2.18.0+dirty", "2.18.0\n2.18.0",
+                "2", "2..18", "２.18.0"):
+        assert not rk.version_ok(bad), bad
+
+
+def test_llama_versions_reads_every_llama_on_path(tmp_path, monkeypatch):
+    """`which -a llama`, then `<path> --version` for each; a failing binary is reported
+    with its exit status (version_ok then refuses it)."""
+    monkeypatch.undo()          # the autouse stub replaces llama_versions; use the real one
+    bins = []
+    for name, body in (("a", "echo 2.18.0"), ("b", "echo 0.1.0"), ("c", "echo oops >&2; exit 3")):
+        d = tmp_path / name
+        d.mkdir()
+        exe = d / "llama"
+        exe.write_text(f"#!/bin/sh\n{body}\n")
+        exe.chmod(0o755)
+        bins.append(str(exe))
+    monkeypatch.setenv("PATH", ":".join(str(Path(b).parent) for b in bins) + ":/usr/bin:/bin")
+    got = rk.llama_versions()
+    assert got[:2] == [(bins[0], "2.18.0"), (bins[1], "0.1.0")]
+    assert got[2][0] == bins[2] and "3" in got[2][1] and "oops" in got[2][1]
+    assert not rk.version_ok(got[2][1])
+    assert len(got) == 3
+    monkeypatch.setenv("PATH", str(tmp_path / "empty") + ":/usr/bin:/bin")
+    assert rk.llama_versions() == []
+
+
+def test_apply_refuses_without_a_snapshot(tmp_path, capsys):
+    root = tmp_path / "lib"
+    _three(root)
+    _config(root)
+    before = tree_bytes(root)
+    rc, out = _apply(root, capsys)
+    assert rc == 1
+    assert any(l.startswith("no verified snapshot: ") for l in out.splitlines()), out
+    assert "rekeyed" not in out
+    assert tree_bytes(root) == before
+    assert not (root / rk.LOCK).exists()
+
+
+@pytest.mark.parametrize("damage", ["deleted", "changed", "manifest"])
+def test_apply_refuses_a_snapshot_with_a_deleted_or_changed_file(tmp_path, capsys, damage):
+    root = tmp_path / "lib"
+    _three(root)
+    snap = _snapped(root, capsys)
+    victim = snap / "shows" / S2 / "provenance.json"
+    if damage == "deleted":
+        victim.unlink()
+    elif damage == "changed":
+        victim.write_bytes(victim.read_bytes() + b" ")
+    else:
+        (snap / "manifest.json").unlink()      # no manifest: no snapshot at all
+    before = tree_bytes(root)
+    rc, out = _apply(root, capsys)
+    assert rc == 1
+    (line,) = [l for l in out.splitlines() if l.startswith("no verified snapshot: ")]
+    if damage != "manifest":
+        assert f"{S2}/provenance.json" in line
+    assert "rekeyed" not in out
+    assert tree_bytes(root) == before
+
+
+def test_apply_uses_the_newest_snapshot(tmp_path, capsys):
+    """An older verified snapshot does not rescue a damaged newest one."""
+    root = tmp_path / "lib"
+    _three(root)
+    _snapped(root, capsys, now=datetime(2026, 10, 24, 1, 0, 0, tzinfo=timezone.utc))
+    new = _snapped(root, capsys, now=datetime(2026, 10, 24, 2, 0, 0, tzinfo=timezone.utc))
+    (new / "shows" / S1 / "show.json").unlink()
+    before = tree_bytes(root)
+    rc, out = _apply(root, capsys)
+    assert rc == 1
+    assert f"{S1}/show.json" in out
+    assert tree_bytes(root) == before
+
+
+def test_apply_refuses_a_show_the_snapshot_does_not_cover(tmp_path, capsys):
+    """Shows created or edited after the snapshot: all refused up front, nothing
+    written, the consistent show included."""
+    root = tmp_path / "lib"
+    _show(root, date=D1, titles={1: "Dew"})
+    ws2 = _show(root, date=D2, titles={2: "Cat"})
+    ws3 = _show(root, date=D3, titles={3: "Dew"})
+    snap = _snapped(root, capsys)
+    _show(root, date=D4, titles={1: "Dew"})                       # created after
+    # Same content, other bytes: still legacy and consistent, so only the snapshot
+    # comparison can refuse it.
+    ws2.overrides.write_text(json.dumps(json.loads(ws2.overrides.read_text())))
+    ws3.show.write_text(json.dumps(json.loads(ws3.show.read_text())))
+    for ws in (ws2, ws3):
+        assert isinstance(rk.check_show(ws, _ia(root), WANT), rk.Rekey)
+    before = tree_bytes(root)
+    rc, out = _apply(root, capsys)
+    lines = out.splitlines()
+    assert rc == 1
+    b4 = _refused_block(lines, S4, "not in the snapshot")
+    b2 = _refused_block(lines, S2, "changed since the snapshot")
+    b3 = _refused_block(lines, S3, "changed since the snapshot")
+    assert "overrides.json" in b2[0] and "show.json" in b3[0]
+    assert snap.name in b4[0]
+    for slug, block in ((S2, b2), (S3, b3), (S4, b4)):
+        assert block[1] == THEN.format(slug=slug)
+        assert block[2].startswith("  repair: ")
+    assert not any(l.startswith(f"refused: {S1}") for l in lines)
+    assert "--restore" not in out
+    assert "rekeyed" not in out.replace("0 rekeyed", "")
+    assert tree_bytes(root) == before
+
+
+@pytest.mark.parametrize("versions,expect", [
+    ([("/a/llama", "2.17.0")], ["llama on PATH below 2.18.0: /a/llama 2.17.0"]),
+    ([("/a/llama", "0.1.0")], ["llama on PATH below 2.18.0: /a/llama 0.1.0"]),
+    ([("/a/llama", "0.0.0+unknown")], ["llama on PATH below 2.18.0: /a/llama 0.0.0+unknown"]),
+    ([], ["no llama on PATH"]),
+    ([("/a/llama", "2.18.0"), ("/b/llama", "2.17.0")],
+     ["llama on PATH below 2.18.0: /b/llama 2.17.0"]),
+], ids=["2.17.0", "0.1.0", "dev-unknown", "none", "one-good-one-low"])
+def test_apply_refuses_a_low_or_dev_or_missing_llama(tmp_path, capsys, monkeypatch, versions,
+                                                     expect):
+    root = tmp_path / "lib"
+    _three(root)
+    _snapped(root, capsys)
+    monkeypatch.setattr(rk, "llama_versions", lambda: versions)
+    before = tree_bytes(root)
+    rc, out = _apply(root, capsys)
+    lines = out.splitlines()
+    assert rc == 1
+    for line in expect:
+        assert line in lines, out
+    assert "/a/llama 2.18.0" not in out
+    assert "rekeyed" not in out
+    assert tree_bytes(root) == before
+
+
+def test_apply_refuses_a_failed_version_check(tmp_path, capsys, monkeypatch):
+    root = tmp_path / "lib"
+    _three(root)
+    _snapped(root, capsys)
+
+    def boom():
+        raise OSError("no which")
+    monkeypatch.setattr(rk, "llama_versions", boom)
+    before = tree_bytes(root)
+    rc, out = _apply(root, capsys)
+    assert rc == 1
+    assert "no which" in out
+    assert tree_bytes(root) == before
+
+
+def test_apply_refuses_while_llama_runs(tmp_path, capsys, monkeypatch):
+    root = tmp_path / "lib"
+    _three(root)
+    _snapped(root, capsys)
+    line = "601 1 /usr/local/bin/llama run resume --all"
+    monkeypatch.setattr(rk, "_ps_lines", lambda: [line])
+    before = tree_bytes(root)
+    rc, out = _apply(root, capsys)
+    assert rc == 1
+    assert "llama processes running:" in out.splitlines()
+    assert f"  {line}" in out.splitlines()
+    assert "rekeyed" not in out
+    assert tree_bytes(root) == before
+
+    def boom():
+        raise OSError("no ps")
+    monkeypatch.setattr(rk, "_ps_lines", boom)
+    rc, out = _apply(root, capsys)
+    assert rc == 1
+    assert "process check failed: OSError: no ps" in out
+    assert tree_bytes(root) == before
+
+
+def test_a_held_migration_lock_refuses_the_apply(tmp_path, capsys):
+    root = tmp_path / "lib"
+    _three(root)
+    _snapped(root, capsys)
+    before = tree_bytes(root)
+    with file_lock(root / rk.LOCK):
+        rc, out = _apply(root, capsys)
+    assert rc == 1
+    assert rk.LOCK in out
+    assert tree_bytes(root) == before
+
+
+def test_apply_writes_nothing_when_any_show_would_be_refused(tmp_path, capsys):
+    root = tmp_path / "lib"
+    _show(root, date=D1, titles={1: "Dew"})
+    _show(root, date=D2, legacy={"titles": {"1": "Wrong"}})
+    _show(root, date=D3, set_breaks=[3], encore_after=5)
+    _snapped(root, capsys)
+    before = tree_bytes(root)
+    rc, out = _apply(root, capsys)
+    lines = out.splitlines()
+    assert rc == 1
+    block = _refused_block(lines, S2, "title not applied")
+    assert block[1:] == [THEN.format(slug=S2),
+                         f"  repair: `llama redo {S2} --from gather`"]
+    assert "--restore" not in out
+    assert not any(l.startswith("rekeyed:") for l in lines)
+    assert tree_bytes(root) == before
+    assert not (root / rk.APPLIED).exists()
+
+
+def test_apply_rekeys_and_records(tmp_path, capsys):
+    root = tmp_path / "lib"
+    wss = _three(root)
+    old = [json.loads(ws.overrides.read_text()) for ws in wss]
+    gathered = [json.loads(ws.show.read_text()) for ws in wss]
+    snap = _snapped(root, capsys)
+    rc, out = _apply(root, capsys)
+    lines = out.splitlines()
+    assert rc == 0, out
+    assert [l for l in lines if l.startswith("rekeyed:")] == [
+        f"rekeyed: {S1} (2 titles, 0 breaks)",
+        f"rekeyed: {S2} (0 titles, 1 breaks, encore)",
+        f"rekeyed: {S3} (1 titles, 0 breaks)"]
+    for ws, o in zip(wss, old):
+        assert ws.overrides.read_bytes() == json.dumps(rekey_raw(o, F), indent=2).encode()
+        assert classify(json.loads(ws.overrides.read_text())) == "filename"
+    assert json.loads(wss[2].overrides.read_text())["set_breaks"] == []
+    rec = _record(root)
+    assert set(rec) == {"snapshot", "updated_at", "shows"}
+    assert rec["snapshot"] == snap.name
+    assert rec["shows"] == [S1, S2, S3]
+    assert datetime.fromisoformat(rec["updated_at"]).utcoffset().total_seconds() == 0
+    assert not [p for p in root.rglob("*.tmp")]
+    # A later gather of each show (today's code reads only the filename form) lands every
+    # title, break and encore on the same files.
+    for ws, date, was in zip(wss, (D1, D2, D3), gathered):
+        ov = ws.overrides.read_bytes()
+        library_show(root, held=False, date=date)
+        now = json.loads(ws.show.read_text())
+        assert ws.overrides.read_bytes() == ov
+        assert [(t["filename"], t["title"], t["title_source"], t["set"]) for t in now["tracks"]] \
+            == [(t["filename"], t["title"], t["title_source"], t["set"]) for t in was["tracks"]]
+        assert now["set_breaks"] == was["set_breaks"]
+    assert [t["title"] for t in json.loads(wss[0].show.read_text())["tracks"]][0] == "Dew"
+    assert json.loads(wss[1].show.read_text())["set_breaks"] == [3, 5]
+    assert json.loads(wss[2].show.read_text())["set_breaks"] == []
+
+
+def test_unknown_keys_survive_the_raw_rewrite(tmp_path, capsys):
+    root = tmp_path / "lib"
+    legacy = {"zz": {"a": 1}, "narration": "vague", "titles": {"4": "Star", "1": "Dew"},
+              "exclude": [], "venue": None, "yy": [1, "2", None]}
+    ws = _show(root, titles={1: "Dew", 4: "Star"}, legacy=legacy)
+    _snapped(root, capsys)
+    rc, out = _apply(root, capsys)
+    assert rc == 0, out
+    got = json.loads(ws.overrides.read_text())
+    assert list(got.items()) == [("zz", {"a": 1}), ("narration", "vague"),
+                                 ("titles", {F[3]: "Star", F[0]: "Dew"}), ("exclude", []),
+                                 ("venue", None), ("yy", [1, "2", None])]
+    assert list(got["titles"]) == [F[3], F[0]]
+
+
+def _edit_under_the_lock(monkeypatch, slug: str, edit):
+    """Run `edit` on `slug`'s workspace just before the per-show step for it: after the
+    up-front checks passed."""
+    real = rk._rekey_show
+
+    def wrapped(ws, *args, **kwargs):
+        if ws.dir.name == slug:
+            edit(ws)
+        return real(ws, *args, **kwargs)
+    monkeypatch.setattr(rk, "_rekey_show", wrapped)
+
+
+@pytest.mark.parametrize("which", ["overrides.json", "show.json"])
+def test_edit_after_the_snapshot_refuses_under_the_lock(tmp_path, capsys, monkeypatch, which):
+    root = tmp_path / "lib"
+    ws1, ws2, ws3 = _three(root)
+    snap = _snapped(root, capsys)
+    third = tree_bytes(ws3.dir)
+
+    def edit(ws):
+        p = ws.dir / which
+        p.write_text(json.dumps(json.loads(p.read_text())))   # same content, other bytes
+    _edit_under_the_lock(monkeypatch, S2, edit)
+    rc, out = _apply(root, capsys)
+    lines = out.splitlines()
+    assert rc == 1
+    assert f"rekeyed: {S1} (2 titles, 0 breaks)" in lines
+    assert not any(l.startswith((f"rekeyed: {S2}", f"rekeyed: {S3}")) for l in lines)
+    block = _refused_block(lines, S2, "changed since the snapshot")
+    assert which in block[0]
+    assert block[1] == FIRST.format(snap=snap)
+    assert block[2] == THEN.format(slug=S2)
+    assert block[3].startswith("  repair: ")
+    assert classify(json.loads(ws1.overrides.read_text())) == "filename"
+    assert classify(json.loads(ws2.overrides.read_text())) == "legacy"
+    assert tree_bytes(ws3.dir) == third
+    assert _record(root)["shows"] == [S1]
+
+
+def test_a_check_failing_under_the_lock_refuses_and_stops(tmp_path, capsys, monkeypatch):
+    """The checks are re-run on what was read under the lock: here the cached metadata
+    changes after the up-front pass, so the kept list differs."""
+    root = tmp_path / "lib"
+    ws1, ws2, ws3 = _three(root)
+    snap = _snapped(root, capsys)
+    _edit_under_the_lock(monkeypatch, S2, lambda ws: _drop_first_file(root))
+    rc, out = _apply(root, capsys)
+    lines = out.splitlines()
+    assert rc == 1
+    block = _refused_block(lines, S2, "kept list differs")
+    assert block[1] == FIRST.format(snap=snap)
+    assert classify(json.loads(ws2.overrides.read_text())) == "legacy"
+    assert classify(json.loads(ws3.overrides.read_text())) == "legacy"
+    assert _record(root)["shows"] == [S1]
+
+
+def _drop_first_file(root: Path):
+    path = root / "cache" / f"md_{IDENT}.json"
+    md = json.loads(path.read_text())
+    md["files"] = [f for f in md["files"] if f["name"] != F[0]]
+    path.write_text(json.dumps(md))
+
+
+def test_interrupted_apply_continues(tmp_path, capsys, monkeypatch):
+    """An exception after the first show's rename and before its record: a re-run
+    records it (its file is exactly what the migration writes), rekeys the rest and
+    never rewrites it again."""
+    root = tmp_path / "lib"
+    ws1, ws2, ws3 = _three(root)
+    snap = _snapped(root, capsys)
+    real = rk._write_record
+
+    def boom(*a, **k):
+        raise RuntimeError("power cut")
+    monkeypatch.setattr(rk, "_write_record", boom)
+    rc, out = _apply(root, capsys)
+    assert rc == 1
+    assert "power cut" in out
+    assert classify(json.loads(ws1.overrides.read_text())) == "filename"
+    assert classify(json.loads(ws2.overrides.read_text())) == "legacy"
+    assert not (root / rk.APPLIED).exists()
+    first = ws1.overrides.read_bytes()
+    monkeypatch.setattr(rk, "_write_record", real)
+    rc, out = _apply(root, capsys)
+    lines = out.splitlines()
+    assert rc == 0, out
+    assert not any(l.startswith(f"rekeyed: {S1}") for l in lines)
+    assert f"rekeyed: {S2} (0 titles, 1 breaks, encore)" in lines
+    assert f"rekeyed: {S3} (1 titles, 0 breaks)" in lines
+    assert ws1.overrides.read_bytes() == first
+    rec = _record(root)
+    assert rec["snapshot"] == snap.name
+    assert rec["shows"] == [S1, S2, S3]
+
+
+def test_interrupted_after_the_record_continues(tmp_path, capsys, monkeypatch):
+    """A failure on the second show: the first is recorded, a re-run finishes."""
+    root = tmp_path / "lib"
+    _three(root)
+    _snapped(root, capsys)
+    real = rk._rekey_show
+
+    def fail_second(ws, *a, **k):
+        if ws.dir.name == S2:
+            raise OSError("disk full")
+        return real(ws, *a, **k)
+    monkeypatch.setattr(rk, "_rekey_show", fail_second)
+    rc, out = _apply(root, capsys)
+    assert rc == 1 and "disk full" in out
+    assert _record(root)["shows"] == [S1]
+    monkeypatch.setattr(rk, "_rekey_show", real)
+    rc, out = _apply(root, capsys)
+    assert rc == 0, out
+    assert _record(root)["shows"] == [S1, S2, S3]
+
+
+def _hand_restore(root: Path, snap: Path):
+    """Stand-in for Task 20's `--restore` (not built yet): copy every snapshotted file
+    back and rename the record as a successful restore does."""
+    m = json.loads((snap / "manifest.json").read_text())
+    for key in m["files"]:
+        (root / "shows" / key).write_bytes((snap / "shows" / key).read_bytes())
+    (root / rk.APPLIED).rename(root / "rekey-applied.restored-20261024T013000Z.json")
+
+
+def test_apply_after_a_restore_starts_a_fresh_record(tmp_path, capsys):
+    root = tmp_path / "lib"
+    ws1, ws2, ws3 = _three(root)
+    first = _snapped(root, capsys, now=datetime(2026, 10, 24, 1, 0, 0, tzinfo=timezone.utc))
+    rc, out = _apply(root, capsys)
+    assert rc == 0, out
+    assert _record(root)["shows"] == [S1, S2, S3]
+    _hand_restore(root, first)
+    assert classify(json.loads(ws1.overrides.read_text())) == "legacy"
+    ws2.overrides.unlink()                    # repaired with v2.17.0: no overrides now
+    ws3.overrides.unlink()
+    second = _snapped(root, capsys, now=datetime(2026, 10, 24, 2, 0, 0, tzinfo=timezone.utc))
+    rc, out = _apply(root, capsys)
+    assert rc == 0, out
+    rec = _record(root)
+    assert rec["snapshot"] == second.name
+    assert rec["shows"] == [S1]
+
+
+def test_a_record_of_another_snapshot_refuses(tmp_path, capsys):
+    """rekey-applied.json naming a snapshot other than the newest (no restore renamed
+    it) is ambiguous: refused, nothing written."""
+    root = tmp_path / "lib"
+    _three(root)
+    _snapped(root, capsys)
+    (root / rk.APPLIED).write_text(json.dumps(
+        {"snapshot": "rekey-snapshot-20200101T000000Z", "updated_at": "2020-01-01T00:00:00+00:00",
+         "shows": []}, indent=2))
+    before = tree_bytes(root)
+    rc, out = _apply(root, capsys)
+    assert rc == 1
+    assert "rekey-snapshot-20200101T000000Z" in out
+    assert tree_bytes(root) == before
+    (root / rk.APPLIED).write_text("{")
+    before = tree_bytes(root)
+    rc, out = _apply(root, capsys)
+    assert rc == 1
+    assert rk.APPLIED in out
+    assert tree_bytes(root) == before
+
+
+def test_apply_output_and_exit_codes(tmp_path, capsys):
+    root = tmp_path / "lib"
+    _show(root, date=D1, titles={1: "Dew"}, set_breaks=[3], encore_after=5)
+    _show(root, date=D2)                                    # no overrides.json
+    _show(root, date=D3, legacy={"set_breaks": []})         # no positional value
+    _snapped(root, capsys)
+    rc, out = _apply(root, capsys)
+    lines = out.splitlines()
+    assert rc == 0, out
+    assert "llama processes running: none" in lines
+    assert f"rekeyed: {S1} (1 titles, 1 breaks, encore)" in lines
+    assert lines[-1] == "1 rekeyed, 0 refused, 0 already migrated, 2 without positional keys"
+    assert "refused:" not in out
+    # A re-run has nothing left to do and succeeds.
+    rc, out = _apply(root, capsys)
+    lines = out.splitlines()
+    assert rc == 0, out
+    assert not any(l.startswith("rekeyed:") for l in lines)
+    assert lines[-1] == "0 rekeyed, 0 refused, 1 already migrated, 2 without positional keys"
+    assert _record(root)["shows"] == [S1]
+    # A refusal: exit 1, and the summary counts it.
+    _show(root, date=D4, legacy={"titles": {"9": "X"}})
+    rc, out = _apply(root, capsys)
+    assert rc == 1
+    assert out.splitlines()[-2:] == [
+        "0 to rekey, 1 refused, 1 already migrated, 2 without positional keys",
+        "nothing written"]
+
+
+def test_a_rekey_that_does_not_round_trip_is_refused(tmp_path, capsys, monkeypatch):
+    """The rewritten object must resolve to exactly the legacy positions: a mapping
+    defect refuses the show and writes nothing for it."""
+    root = tmp_path / "lib"
+    ws1, ws2, ws3 = _three(root)
+    _snapped(root, capsys)
+    real = rk.rekey_raw
+
+    def swapped(raw, names):
+        return real(raw, [names[1], names[0], *names[2:]])
+    monkeypatch.setattr(rk, "rekey_raw", swapped)
+    before = tree_bytes(ws1.dir)
+    rc, out = _apply(root, capsys)
+    assert rc == 1
+    block = _refused_block(out.splitlines(), S1, "rekey does not round-trip")
+    assert block[1] == THEN.format(slug=S1)
+    assert tree_bytes(ws1.dir) == before
+    assert not (root / rk.APPLIED).exists()
+    assert "rekeyed" not in out.replace("0 rekeyed", "")
+
+
+def test_a_migrated_show_apply_did_not_write_is_not_recorded(tmp_path, capsys, monkeypatch):
+    """Only a file byte-equal to what --apply writes from the snapshot is taken as an
+    interrupted run's: any other filename-form file is neither recorded nor rewritten."""
+    root = tmp_path / "lib"
+    ws1, ws2, ws3 = _three(root)
+    _snapped(root, capsys)
+    monkeypatch.setattr(rk, "_write_record", lambda *a, **k: (_ for _ in ()).throw(
+        RuntimeError("power cut")))
+    assert _apply(root, capsys)[0] == 1
+    monkeypatch.undo()
+    monkeypatch.setattr(rk, "_ps_lines", lambda: [])
+    monkeypatch.setattr(rk, "llama_versions", lambda: [("/a/llama", "2.18.0")])
+    edited = json.loads(ws1.overrides.read_text())
+    edited["titles"][F[0]] = "Other"
+    ws1.overrides.write_text(json.dumps(edited, indent=2))
+    edited_bytes = ws1.overrides.read_bytes()
+    rc, out = _apply(root, capsys)
+    assert rc == 0, out
+    assert "recorded:" not in out
+    assert _record(root)["shows"] == [S2, S3]
+    assert ws1.overrides.read_bytes() == edited_bytes
