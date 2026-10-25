@@ -44,7 +44,7 @@ T20. REMOVE the absorption rule (`shows=()` when the window has passed) and its 
 T21. Open blocks: for an open occurrence (`is_open`) the own pool IS the open pool; `degraded=True` only for a profile block whose own pool is empty (it is then filled from the open pool and not announced).
 T22. Search bound: pair partners come from candidates whose length lands the window (sort the pool by frames once; bisect the landing range), capped at the top 64 by score; first members from the top 32; tier-1 fill uses the same bound. State the bound: per occurrence at most 32 × 64 pair evaluations per prefix, 5 prefixes.
 T23. Score: keep `mean(score)` and record it as a builder call: a summed score would always prefer more shows over fewer, against Goal 2's "normally at most two".
-T24. Tier 1 requiring at least one own show (when the own pool is non-empty) is kept and recorded as an interpretation to confirm with the operator: the block keeps its profile at its time and the NEXT block slips, rather than the block airing only other profiles. (The orchestrator does not change it without the operator.)
+T24. Tier 1 requires at least one own show (when the own pool is non-empty). Operator ruling 2026-10-25: if it happens, the following block starting late is preferable to not playing the scheduled profile at all. Record it in the plan as that ruling (not an open interpretation), and in the Builder calls list.
 T25. Tests added: `test_softest_rule_bends_first` (an option breaking only era beats one breaking only artist_day, beats gap, beats adjacency); `test_placed_prefix_at_max_shows_has_an_option`; `test_early_landing_block_gets_no_extra_show`.
 T26. Fixture: commit the generator script (`tests_transmitter/fixtures/make_library_durations.py`, deterministic seed) instead of a README note.
 
@@ -79,4 +79,4 @@ T45. `schedule`, `status`, `announcements` use `live_clock(ws, save=False)` and 
 T46. Absorbed-occurrence counting is moot (T20); misses are counted from first-show rows.
 
 ## Calls to record in the plan header area (a short "Builder calls" list after Review Focus)
-- `mean(score)` within a tier (T23); tier 1 keeps ≥1 own show (T24, to confirm with the operator); open blocks unbounded; implicit clock = open block ±12 h; no background analysis; no `plan.jsonl` trimming; `announcements --days`; search bound (T22).
+- `mean(score)` within a tier (T23); tier 1 keeps ≥1 own show (T24, operator ruling); open blocks unbounded; implicit clock = open block ±12 h; no background analysis; no `plan.jsonl` trimming; `announcements --days`; search bound (T22).
