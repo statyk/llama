@@ -10,6 +10,7 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 import llama.cli as cli
@@ -363,18 +364,6 @@ def test_unvoiced_existing_destination_still_overlays(tmp_path: Path):
     assert (dest / SLUG / "extra.txt").read_text() == "keep me"
 
 
-def test_unparseable_destination_manifest_is_not_voiced(tmp_path: Path):
-    build_ready(tmp_path, SLUG)
-    dest = tmp_path / "inbox"
-    assert _deliver(tmp_path, dest).exit_code == 0
-    (dest / SLUG / "manifest.json").write_text("[1, 2]")   # non-object
-    _repackaged(tmp_path)
-    assert _deliver(tmp_path, dest).exit_code == 0
-    (dest / SLUG / "manifest.json").write_text("{not json")
-    _repackaged(tmp_path)
-    assert _deliver(tmp_path, dest).exit_code == 0
-
-
 def test_batch_refusal_of_voiced_show_continues_with_the_rest(tmp_path: Path):
     build_ready(tmp_path, "aready-1973-06-10")
     build_ready(tmp_path, "bready-1973-06-11")
@@ -488,19 +477,29 @@ def _batch_voiced(tmp_path):
     return cfg, dest
 
 
-def test_batch_replace_voiced_marks_only_voiced_and_replaces_it(tmp_path: Path):
+def test_batch_replace_voiced_is_refused_and_a_single_name_replaces(tmp_path: Path):
+    """Spec 5.5: a batch with --replace-voiced is refused outright (nothing
+    delivered, the voiced copy untouched); the voiced show is replaced by a
+    single-name invocation instead."""
     cfg, dest = _batch_voiced(tmp_path)
+    before = tree_bytes(dest)
 
     r = runner.invoke(cli.app, ["--config", cfg, "deliver", "--state", "packaged",
                                 "--state", "delivered", "--replace-voiced", "--yes",
                                 "--dest", str(dest)])
 
+    assert r.exit_code == 1, r.output
+    assert SELECTOR_REFUSAL in r.output
+    assert "(voiced:" not in r.output and "delivered:" not in r.output
+    assert tree_bytes(dest) == before
+
+    r = runner.invoke(cli.app, ["--config", cfg, "deliver", "aready-1973-06-10",
+                                "--replace-voiced", "--dest", str(dest)])
+
     assert r.exit_code == 0, r.output
-    marker = "(voiced: DJ script/audio will be discarded)"
-    lines = {ln.split()[0]: ln for ln in r.output.splitlines() if ln.startswith("  ")}
-    assert marker in lines["aready-1973-06-10"]
-    assert marker not in lines["bready-1973-06-11"]
     assert not (dest / "aready-1973-06-10" / "dj-audio").exists()
+    m = json.loads((dest / "aready-1973-06-10" / "manifest.json").read_text())
+    assert m.get("dj_audio") is None
 
 
 def test_batch_without_flag_notes_how_many_will_be_refused(tmp_path: Path):
@@ -510,7 +509,7 @@ def test_batch_without_flag_notes_how_many_will_be_refused(tmp_path: Path):
                                 "--state", "delivered", "--yes", "--dest", str(dest)])
 
     assert ("note: 1 destination(s) already voiced by emcee will be refused "
-            "(pass --replace-voiced to replace them)") in r.output
+            "(re-deliver each by name with --replace-voiced)") in r.output
     assert "(voiced:" not in r.output
     assert (dest / "aready-1973-06-10" / "dj-audio").exists()
 
@@ -542,3 +541,278 @@ def test_purged_show_with_replace_voiced_still_needs_its_audio(tmp_path: Path):
     assert r.exit_code == 1
     assert "1 of 1 audio files missing" in r.output
     assert (dest / SLUG / "dj-audio").exists()
+
+
+# --- Task 16 (spec 5.5): --replace-voiced takes one name; unreadable
+# destinations refuse; a changed track list replaces an unvoiced destination ---
+
+from helpers import tree_bytes  # noqa: E402
+
+SELECTOR_REFUSAL = "--replace-voiced takes one named show, never a selector"
+
+
+@pytest.mark.parametrize("selector", [["--held"], ["--packaged"], ["--state", "packaged"],
+                                      ["--artist", "X"], ["--run", "R"], ["--profile", "P"],
+                                      # two that match the voiced show, which today's code replaces
+                                      ["--state", "delivered"], ["--artist", "Grateful Dead"]])
+def test_replace_voiced_with_any_selector_refuses(tmp_path: Path, selector):
+    dest, out = _delivered_voiced(tmp_path)
+    before = tree_bytes(dest)
+    ledger_before = (tmp_path / "ledger.jsonl").read_bytes()
+
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", *selector,
+                                "--replace-voiced", "--yes", "--dest", str(dest)])
+
+    assert r.exit_code == 1, r.output
+    assert SELECTOR_REFUSAL in r.output
+    assert "show(s) to deliver" not in r.output
+    assert tree_bytes(dest) == before
+    assert (out / "dj-audio" / "intro.mp3").read_bytes() == b"voice"
+    assert (tmp_path / "ledger.jsonl").read_bytes() == ledger_before
+
+
+def test_replace_voiced_selector_refusal_comes_before_setup(tmp_path: Path, monkeypatch):
+    def boom():
+        raise AssertionError("_setup reached")
+    monkeypatch.setattr(cli, "_setup", boom)
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--packaged",
+                                "--replace-voiced"])
+    assert r.exit_code == 1, r.output
+    assert SELECTOR_REFUSAL in r.output
+
+
+def test_replace_voiced_single_name_still_replaces(tmp_path: Path):
+    """(pin) A single named show with --replace-voiced is unchanged."""
+    dest, out = _delivered_voiced(tmp_path)
+    r = _deliver(tmp_path, dest, "--replace-voiced")
+    assert r.exit_code == 0, r.output
+    m = json.loads((out / "manifest.json").read_text())
+    assert m.get("dj_audio") is None
+    assert not (out / "dj-audio").exists()
+    assert [p.name for p in dest.iterdir()] == [SLUG]
+
+
+def _make_unreadable(out: Path, how: str) -> None:
+    mf = out / "manifest.json"
+    if how == "invalid json":
+        mf.write_text("{not json")
+    elif how == "json list":
+        mf.write_text("[1, 2]")
+    elif how == "permission":
+        mf.chmod(0)
+    else:
+        raise AssertionError(how)
+
+
+@pytest.mark.parametrize("how", ["invalid json", "json list", "permission"])
+def test_unreadable_destination_manifest_refuses_the_show(tmp_path: Path, how):
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    out = dest / SLUG
+    _repackaged(tmp_path)
+    (tmp_path / "ledger.jsonl").unlink()   # append-once: clear so a new row is visible
+    _make_unreadable(out, how)
+    if how == "permission":
+        try:
+            (out / "manifest.json").read_text()
+        except PermissionError:
+            pass
+        else:
+            pytest.skip("running as a user that ignores file permissions")
+    try:
+        before = tree_bytes(dest) if how != "permission" else None
+        lib_audio = tmp_path / "shows" / SLUG / "package" / "audio" / "01 - Morning Dew.mp3"
+
+        for extra in ([], ["--replace-voiced"]):
+            r = _deliver(tmp_path, dest, *extra)
+            assert r.exit_code == 1, r.output
+            text = " ".join(r.output.split())
+            assert (f"refusing to deliver {SLUG}: cannot read {out / 'manifest.json'} (") in text
+            assert "); check the station copy by hand" in text
+            assert "delivered:" not in r.output
+            if before is not None:
+                assert tree_bytes(dest) == before
+            assert sorted(p.name for p in dest.iterdir()) == [SLUG]   # no swap siblings
+            assert lib_audio.read_text() == "x"                       # nothing purged
+            assert not (tmp_path / "ledger.jsonl").exists() or \
+                Ledger(tmp_path / "ledger.jsonl").entries() == []
+    finally:
+        (out / "manifest.json").chmod(0o644)
+
+
+def test_batch_preflight_marks_an_unreadable_destination_and_continues(tmp_path: Path):
+    build_ready(tmp_path, "aready-1973-06-10")
+    build_ready(tmp_path, "bready-1973-06-11")
+    dest = tmp_path / "inbox"
+    cfg = _cfg(tmp_path)
+    assert runner.invoke(cli.app, ["--config", cfg, "deliver", "aready-1973-06-10",
+                                   "--dest", str(dest)]).exit_code == 0
+    (dest / "aready-1973-06-10" / "manifest.json").write_text("{not json")
+    _repackaged(tmp_path, "aready-1973-06-10")
+    before_a = tree_bytes(dest / "aready-1973-06-10")
+
+    r = runner.invoke(cli.app, ["--config", cfg, "deliver", "--state", "packaged",
+                                "--state", "delivered", "--yes", "--dest", str(dest)])
+
+    assert r.exit_code == 0, r.output
+    lines = {ln.split()[0]: ln for ln in r.output.splitlines() if ln.startswith("  ")
+             and ln.split() and ln.split()[0].endswith(("-10", "-11"))}
+    assert lines["aready-1973-06-10"] == \
+        "  aready-1973-06-10  (refused: destination manifest unreadable)"
+    assert lines["bready-1973-06-11"] == "  bready-1973-06-11"
+    assert f"delivered: {dest / 'bready-1973-06-11'}" in r.output
+    assert f"delivered: {dest / 'aready-1973-06-10'}" not in r.output
+    assert tree_bytes(dest / "aready-1973-06-10") == before_a
+    assert (tmp_path / "shows" / "aready-1973-06-10" / "package" / "audio"
+            / "01 - Morning Dew.mp3").read_text() == "x"
+    assert (dest / "bready-1973-06-11" / "manifest.json").exists()
+
+
+def test_missing_destination_manifest_is_unvoiced(tmp_path: Path):
+    """(pin) A destination directory without a manifest is not voiced: the
+    copy merges into it as today."""
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    out = dest / SLUG
+    out.mkdir(parents=True)
+    (out / "extra.txt").write_text("keep me")
+
+    r = _deliver(tmp_path, dest)
+
+    assert r.exit_code == 0, r.output
+    assert (out / "manifest.json").exists()
+    assert (out / "extra.txt").read_text() == "keep me"
+    assert cli._destination_is_voiced(tmp_path / "nowhere") is False
+    assert cli._destination_is_voiced(out / "no-such-dir") is False
+
+
+def _retrack_library(tmp_path: Path, slug: str = SLUG) -> None:
+    """Re-package the library show with a changed track list: a restored
+    short track ahead of the old one renumbers it."""
+    pkg = tmp_path / "shows" / slug / "package"
+    m = json.loads((pkg / "manifest.json").read_text())
+    m["tracks"] = [{"index": 1, "set": "1", "title": "Intro", "filename": "01 - Intro.mp3"},
+                   {"index": 2, "set": "1", "title": "Morning Dew",
+                    "filename": "02 - Morning Dew.mp3"}]
+    (pkg / "manifest.json").write_text(json.dumps(m))
+    for f in (pkg / "audio").iterdir():
+        f.unlink()
+    (pkg / "audio" / "01 - Intro.mp3").write_text("i")
+    (pkg / "audio" / "02 - Morning Dew.mp3").write_text("x")
+
+
+def test_changed_track_list_replaces_an_unvoiced_destination(tmp_path: Path):
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    out = dest / SLUG
+    assert (out / "audio" / "01 - Morning Dew.mp3").exists()
+    (out / "extra.txt").write_text("stale")
+    _retrack_library(tmp_path)
+
+    r = _deliver(tmp_path, dest)
+
+    assert r.exit_code == 0, r.output
+    assert sorted(p.name for p in (out / "audio").iterdir()) == \
+        ["01 - Intro.mp3", "02 - Morning Dew.mp3"]
+    assert not (out / "audio" / "01 - Morning Dew.mp3").exists()   # the old-numbered copy
+    assert not (out / "extra.txt").exists()                         # wholesale, not merged
+    m = json.loads((out / "manifest.json").read_text())
+    assert [t["filename"] for t in m["tracks"]] == ["01 - Intro.mp3", "02 - Morning Dew.mp3"]
+    assert [p.name for p in dest.iterdir()] == [SLUG]               # no swap siblings
+
+
+def test_changed_track_list_replace_failure_leaves_the_old_destination(
+        tmp_path: Path, monkeypatch):
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    out = dest / SLUG
+    _retrack_library(tmp_path)
+    before = tree_bytes(dest)
+    real = Path.rename
+
+    def fake(self, target):
+        if ".deliver-" in self.name and target == out:
+            raise OSError("rename in failed")
+        return real(self, target)
+
+    monkeypatch.setattr(Path, "rename", fake)
+    r = _deliver(tmp_path, dest)
+
+    assert r.exit_code != 0
+    assert isinstance(r.exception, OSError), r.output
+    monkeypatch.undo()
+    assert [p.name for p in dest.iterdir()] == [SLUG]
+    assert tree_bytes(dest) == before
+
+
+def test_changed_track_list_copy_failure_leaves_the_old_destination(
+        tmp_path: Path, monkeypatch):
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    _retrack_library(tmp_path)
+    before = tree_bytes(dest)
+    real = shutil.copytree
+
+    def boom(src, dst, *a, **k):
+        if k.get("dirs_exist_ok"):
+            raise AssertionError("merged copy used for a changed track list")
+        real(src, dst)
+        raise OSError("disk full")
+
+    monkeypatch.setattr(shutil, "copytree", boom)
+    r = _deliver(tmp_path, dest)
+
+    assert r.exit_code != 0
+    assert isinstance(r.exception, OSError), r.output
+    monkeypatch.undo()
+    assert [p.name for p in dest.iterdir()] == [SLUG]
+    assert tree_bytes(dest) == before
+
+
+def test_unchanged_track_list_still_overlays(tmp_path: Path):
+    """(pin) Today's overlay for an unvoiced destination with the same track list."""
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    (dest / SLUG / "extra.txt").write_text("keep me")
+
+    _repackaged(tmp_path)
+    r = _deliver(tmp_path, dest)
+
+    assert r.exit_code == 0, r.output
+    assert (dest / SLUG / "extra.txt").read_text() == "keep me"
+
+
+def test_voiced_destination_still_refuses_without_the_flag(tmp_path: Path):
+    """(pin) A voiced destination refuses without --replace-voiced, even when the
+    library's track list changed."""
+    dest, out = _delivered_voiced(tmp_path)
+    _retrack_library(tmp_path)
+    before = tree_bytes(dest)
+
+    r = _deliver(tmp_path, dest)
+
+    assert r.exit_code == 1
+    assert "is already voiced by emcee" in " ".join(r.output.split())
+    assert tree_bytes(dest) == before
+
+
+def test_destination_without_a_usable_track_list_is_replaced(tmp_path: Path):
+    """An unvoiced destination manifest whose `tracks` is not a list of objects
+    cannot be compared: it is replaced wholesale, never merged."""
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    out = dest / SLUG
+    (out / "manifest.json").write_text(json.dumps({"dj_audio": None, "tracks": "bogus"}))
+    (out / "audio" / "00 - stale.mp3").write_text("old")
+    _repackaged(tmp_path)
+
+    r = _deliver(tmp_path, dest)
+
+    assert r.exit_code == 0, r.output
+    assert sorted(p.name for p in (out / "audio").iterdir()) == ["01 - Morning Dew.mp3"]

@@ -1504,6 +1504,51 @@ def test_voiced_marked_from_station_manifest(tmp_path):
     assert "v-no" in text.split("== delivered")[1]
 
 
+def test_compare_labels_an_unreadable_destination_and_does_not_crash(tmp_path):
+    """Spec 5.5: a station manifest deliver would refuse as unreadable is labelled
+    `unreadable` (not `voiced`, not `delivered`) in every compare report, and compare
+    still writes them all."""
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    st = tmp_path / "station"
+    for slug, body in (("v-bad", "{not json"), ("v-list", "[1, 2]"), ("v-no", json.dumps({"dj_audio": None}))):
+        _stored(root, slug, ["A"])
+        _p3(b, slug, CLEAN_SLUG, "delivered")
+        _p3(c, slug, CLEAN_SLUG, "delivered", outcome="clean-changed", titles=["B"],
+            title_sources=["tags"], title_paths=["C1"])
+        (st / slug).mkdir(parents=True)
+        (st / slug / "manifest.json").write_text(body)
+    # a taper row too, so `_taper_changes` reaches the station copy
+    slug = "show-moved"
+    for arm in (b, c):
+        _clone(arm, CLEAN_SLUG, slug, "delivered")
+        _row(arm, slug).update(outcome="clears", set_changes=[], segue_changes=[], notes=[])
+    (root / "shows" / slug).mkdir(parents=True)
+    (root / "shows" / slug / "show.json").write_text(json.dumps(
+        {"tracks": [{"index": i + 1, "set": s} for i, s in enumerate(["1", "1", "1", "2", "2"])]}))
+    _row(b, slug)["sets"] = ["1", "1", "1", "2", "2"]
+    _row(b, slug)["filler"] = [False] * 5
+    _owned(_row(c, slug), ["1", "1", "2", "2", "2"], source="notes", step1="jerrybase")
+    (st / slug).mkdir(parents=True)
+    (st / slug / "manifest.json").write_text("{not json")
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out),
+                    "--config", cfg_with(tmp_path, root, st)]) == 0
+    text = (out / "title_changes.txt").read_text()
+    assert "== unreadable" in text
+    unreadable_part = text.split("== unreadable")[1].split("\n== ")[0]
+    assert "v-bad" in unreadable_part and "v-list" in unreadable_part and "v-no" not in unreadable_part
+    assert "v-no" in text.split("== delivered")[1].split("\n== ")[0]
+    assert "== voiced" not in text
+    rows = json.loads((out / "title_rows.json").read_text())["shows"]
+    assert rows["v-bad"]["state"] == "unreadable" and rows["v-no"]["state"] == "delivered"
+    taper = (out / "taper_changes.txt").read_text()
+    moved = [l for l in taper.splitlines() if "show-moved" in l][0]
+    assert "[unreadable]" in moved
+
+
 def test_needs_llm_counts_d_agreement_and_llm_branch(tmp_path):
     base, cand, root = _clone_slugs(tmp_path, None)
     b, c = json.loads(base.read_text()), json.loads(cand.read_text())

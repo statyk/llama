@@ -17,6 +17,11 @@
   reuse-check --cand CAND.json [--sample 20 --seed 47] --out DIR
          `reuse_check.md`: how well audio re-use (spec 5.4) would cover a re-package of the delivered,
          unvoiced shows the candidate changes (premises 6-8). Read-only; nothing is copied.
+  voiced-precheck --list voiced-severe-final.json SLUG
+         the check before one `deliver SLUG --replace-voiced` (spec 5.5): the slug is in the
+         list, its station copy is voiced, the library show.json has every listed source file
+         with `short_kept` set, and package/manifest.json has as many tracks as show.json.
+         Prints each check; exit 0 only when all pass, else 1. Reads only; writes nothing.
   repro  --pre PRE.json --post POST.json --out DIR
          the post-migration self-check (spec 4.3 steps 7 and 9). Writes `repro.md`; exit 1
          on any difference, a show in one arm only, or a replayable row lacking the fields.
@@ -768,6 +773,97 @@ def reuse_check(args) -> int:
     return 0
 
 
+def voiced_precheck(args) -> int:
+    """Spec 5.5's check before one single-name `deliver <slug> --replace-voiced`. Read-only:
+    the list, the config, the station manifest and the library show are only read."""
+    from llama.cli import _destination_is_voiced   # deliver's own reading of the station copy
+    from llama.errors import LlamaError
+
+    slug = args.slug
+    fails: list[str] = []
+    oks: list[str] = []
+    listed: list[str] = []
+    try:
+        entries = json.loads(args.list.expanduser().read_text())
+        rows = [e for e in entries if isinstance(e, dict) and e.get("slug") == slug]
+    except (OSError, ValueError, TypeError) as exc:
+        rows = None
+        fails.append(f"in the list: cannot read {args.list} ({exc})")
+    if rows is not None:
+        if not rows:
+            fails.append(f"in the list: {slug} is not in {args.list}")
+        else:
+            try:
+                listed = [f[0] for r in rows for f in r["files"]]
+            except (KeyError, TypeError, IndexError) as exc:
+                fails.append(f"in the list: {slug}'s files are malformed ({exc!r})")
+            else:
+                if listed:
+                    oks.append(f"in the list: {len(listed)} listed file(s)")
+                else:
+                    fails.append(f"in the list: {slug} lists no files")
+    try:
+        cfg = load_config(args.config or DEFAULT_ROOT / "config.toml")
+    except Exception as exc:   # noqa: BLE001 - reported as a failed check
+        fails.append(f"config: cannot load ({exc})")
+        cfg = None
+    if cfg is not None:
+        if cfg.delivery_path is None:
+            fails.append("destination voiced: no delivery_path in the config")
+        else:
+            out = cfg.delivery_path.expanduser() / slug
+            try:
+                voiced = _destination_is_voiced(out)
+            except LlamaError as exc:
+                fails.append(f"destination voiced: {exc}")
+            else:
+                if voiced:
+                    oks.append(f"destination voiced: {out}")
+                else:
+                    fails.append(f"destination voiced: {out}: destination is not voiced"
+                                 + ("" if (out / "manifest.json").is_file() else " (no station manifest)"))
+        ws = ShowWorkspace(cfg.root.expanduser() / "shows" / slug)
+        try:
+            show = read_model(ws.show, Show)
+        except Exception as exc:   # noqa: BLE001 - reported as a failed check
+            fails.append(f"library show.json: {ws.show}: show.json unreadable ({exc})")
+            show = None
+        if show is not None:
+            by_name = {t.filename: t for t in show.tracks}
+            bad = []
+            for f in listed:
+                t = by_name.get(f)
+                if t is None:
+                    bad.append(f"short_kept: {f}: not in show.json")
+                elif not t.short_kept:
+                    bad.append(f"short_kept: {f}: short_kept is not set")
+            fails += bad
+            if listed and not bad:
+                oks.append(f"short_kept: all {len(listed)} listed file(s) in show.json, short_kept set")
+            mf = ws.package_dir / "manifest.json"
+            try:
+                m = json.loads(mf.read_text())
+            except FileNotFoundError:
+                fails.append(f"library manifest: {mf}: package/manifest.json is missing")
+            except (OSError, ValueError) as exc:
+                fails.append(f"library manifest: {mf}: unreadable ({exc})")
+            else:
+                tracks = m.get("tracks") if isinstance(m, dict) else None
+                if not isinstance(tracks, list):
+                    fails.append(f"library manifest: {mf}: package/manifest.json has no track list")
+                elif len(tracks) != len(show.tracks):
+                    fails.append(f"library manifest: package/manifest.json has {len(tracks)} tracks, "
+                                 f"show.json has {len(show.tracks)}")
+                else:
+                    oks.append(f"library manifest: {len(tracks)} tracks, as show.json")
+    for line in oks:
+        print(f"  ok: {line}")
+    for line in fails:
+        print(f"  FAIL: {line}")
+    print(f"voiced-precheck {slug}: " + ("pass" if not fails else f"{len(fails)} check(s) failed"))
+    return 0 if not fails else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -803,10 +899,15 @@ def main(argv: list[str] | None = None) -> int:
     rc.add_argument("--seed", type=int, default=47)
     rc.add_argument("--config", type=Path)
     rc.add_argument("--out", type=Path, required=True)
+    vp = sub.add_parser("voiced-precheck")
+    vp.add_argument("--list", type=Path, required=True)
+    vp.add_argument("--config", type=Path)
+    vp.add_argument("slug")
     args = ap.parse_args(argv)
     try:
         return {"arms": arms, "repro": repro, "packets": packets, "score": score,
-                "sibvocab": sibvocab, "reuse-check": reuse_check}[args.cmd](args)
+                "sibvocab": sibvocab, "reuse-check": reuse_check,
+                "voiced-precheck": voiced_precheck}[args.cmd](args)
     except Refusal as err:
         print(f"refusing: {err}", file=sys.stderr)
         return 2

@@ -2468,16 +2468,42 @@ def _deliver_pointer(slug: str, reasons: list[str]) -> str:
     return f"  re-package: llama redo {slug} --from package"
 
 
+def _read_destination_manifest(out: Path) -> dict | None:
+    """`out/manifest.json` as raw JSON (llama never imports emcee). None only
+    when it does not exist (`FileNotFoundError`: the manifest or `out` itself
+    is missing). Any other read error, invalid JSON or a non-object raises
+    LlamaError (spec 5.5): a station copy llama cannot read is never assumed
+    unvoiced, since re-delivering over a voiced one would un-voice it."""
+    mf = out / "manifest.json"
+    try:
+        m = json.loads(mf.read_text())
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as exc:
+        raise LlamaError(f"refusing to deliver {out.name}: cannot read {mf} ({exc}); "
+                         "check the station copy by hand") from exc
+    if not isinstance(m, dict):
+        raise LlamaError(f"refusing to deliver {out.name}: cannot read {mf} (not a JSON "
+                         f"object: {type(m).__name__}); check the station copy by hand")
+    return m
+
+
 def _destination_is_voiced(out: Path) -> bool:
     """True when `out/manifest.json` is a JSON object whose `dj_audio` is
-    non-null -- emcee's mark that it voiced this delivered package. Read as
-    raw JSON (llama never imports emcee); anything unreadable or not an
-    object counts as not voiced."""
-    try:
-        m = json.loads((out / "manifest.json").read_text())
-    except (OSError, ValueError):
-        return False
-    return isinstance(m, dict) and m.get("dj_audio") is not None
+    non-null -- emcee's mark that it voiced this delivered package. False only
+    when the manifest (or `out`) does not exist; anything unreadable raises
+    LlamaError (see `_read_destination_manifest`)."""
+    m = _read_destination_manifest(out)
+    return m is not None and m.get("dj_audio") is not None
+
+
+def _track_filenames(manifest: dict) -> list | None:
+    """A manifest's track `filename`s in order; None when `tracks` is not a
+    list of objects (a destination like that is replaced, never merged)."""
+    tracks = manifest.get("tracks")
+    if not isinstance(tracks, list) or not all(isinstance(t, dict) for t in tracks):
+        return None
+    return [t.get("filename") for t in tracks]
 
 
 def _replace_destination(pkg: Path, out: Path, target_dir: Path) -> None:
@@ -2522,9 +2548,13 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     and record the delivery in the ledger; returns the destination path.
     Raises LlamaError on refusal -- no destination, a deliver-gate
     refusal from `catalog.deliver_refusals` (none of its three legs is
-    overridable), or a destination emcee has already voiced (re-delivering
-    would silently un-voice it) unless `replace_voiced`, which replaces it
-    wholesale with a fresh, unvoiced copy."""
+    overridable), a destination manifest that exists but cannot be read,
+    or a destination emcee has already voiced (re-delivering would silently
+    un-voice it) unless `replace_voiced`, which replaces it wholesale with a
+    fresh, unvoiced copy. An unvoiced destination whose track list differs
+    from the package's is replaced wholesale too (spec 5.5), so no
+    old-numbered file survives beside the new manifest; one with the same
+    list, or with no manifest at all, is overlaid as before."""
     import json as _json
 
     from llama.catalog import deliver_refusals
@@ -2536,7 +2566,8 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
         raise LlamaError("no --dest given and no delivery_path in config")
     with file_lock(show_ws.lock):
         out = target_dir / show_dir.name
-        voiced = _destination_is_voiced(out)
+        dest_manifest = _read_destination_manifest(out)   # LlamaError: unreadable, refuse
+        voiced = dest_manifest is not None and dest_manifest.get("dj_audio") is not None
         # Ahead of the gate: deliver purged this show's audio, so the gate's
         # missing-audio pointer would send the operator to re-download a show
         # that this refusal then turns away regardless.
@@ -2552,7 +2583,9 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
         pkg = show_dir / "package"
         manifest = _json.loads((pkg / "manifest.json").read_text())
         _sweep_swap_leftovers(target_dir, show_dir.name)
-        if voiced:
+        dest_files = None if dest_manifest is None else _track_filenames(dest_manifest)
+        if voiced or (dest_manifest is not None
+                      and (dest_files is None or dest_files != _track_filenames(manifest))):
             _replace_destination(pkg, out, target_dir)
         else:
             shutil.copytree(pkg, out, dirs_exist_ok=True)
@@ -2583,7 +2616,9 @@ def _purge_after_delivery(show_ws, out: Path, slug: str) -> None:
         typer.echo(f"library audio purged ({catalog.human_bytes(r.freed)} freed)")
 
 
-def _deliver_batch(config, ledger, sel, dest, yes, replace_voiced=False) -> None:
+def _deliver_batch(config, ledger, sel, dest, yes) -> None:
+    """A selector batch. Never replaces a voiced destination: `deliver`
+    refuses `--replace-voiced` with any selector (spec 5.5)."""
     from llama.catalog import iter_shows
     from llama.cli_select import HELD_NOTE, apply_selector, split_held
 
@@ -2596,19 +2631,29 @@ def _deliver_batch(config, ledger, sel, dest, yes, replace_voiced=False) -> None
         return
     marks: dict[str, str] = {}
     note = None
+    unreadable: set[str] = set()
     target_dir = dest or config.delivery_path
     if target_dir is not None:
-        voiced = [e.slug for e in kept if _destination_is_voiced(target_dir / e.ws.dir.name)]
-        if replace_voiced:
-            marks = {slug: "  (voiced: DJ script/audio will be discarded)" for slug in voiced}
-        elif voiced:
+        voiced = []
+        for e in kept:
+            try:
+                if _destination_is_voiced(target_dir / e.ws.dir.name):
+                    voiced.append(e.slug)
+            except LlamaError as exc:
+                # This show alone is refused; the rest of the batch goes on.
+                typer.echo(str(exc), err=True)
+                unreadable.add(e.slug)
+                marks[e.slug] = "  (refused: destination manifest unreadable)"
+        if voiced:
             note = (f"note: {len(voiced)} destination(s) already voiced by emcee will be "
-                    "refused (pass --replace-voiced to replace them)")
+                    "refused (re-deliver each by name with --replace-voiced)")
     if not _confirm_plan(kept, "deliver", yes, marks=marks, note=note):
         return
     for e in kept:
+        if e.slug in unreadable:
+            continue
         try:
-            out = _deliver_one(config, ledger, e, dest, replace_voiced)
+            out = _deliver_one(config, ledger, e, dest)
         except LlamaError as exc:
             typer.echo(str(exc), err=True)
         except OSError as exc:
@@ -2635,18 +2680,23 @@ def deliver(
     replace_voiced: bool = typer.Option(
         False, "--replace-voiced",
         help="Replace a destination emcee has already voiced with a fresh, "
-             "unvoiced copy (discards its DJ script and audio)"),
+             "unvoiced copy (discards its DJ script and audio); one named show "
+             "only, never a selector"),
 ):
     """Copy a show package to the station's watched folder and record delivery.
 
     Requires a clean package: packaged, file-complete, and not held for
     review. None of these three legs is overridable. A destination emcee has
     already voiced is refused (re-delivering would un-voice it) unless
-    --replace-voiced, which swaps in a fresh, unvoiced copy.
+    --replace-voiced, which swaps in a fresh, unvoiced copy and takes one
+    named show only, never a selector.
     """
     from llama.cli_select import build_selector
 
     other_selector = any([held, packaged, state, artist, run, profile])
+    if replace_voiced and other_selector:
+        typer.echo("--replace-voiced takes one named show, never a selector", err=True)
+        raise typer.Exit(1)
     if name is not None and other_selector:
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
@@ -2673,7 +2723,7 @@ def deliver(
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
     _note_unknown_profiles(config, profile)
-    _deliver_batch(config, ledger, sel, dest, yes, replace_voiced)
+    _deliver_batch(config, ledger, sel, dest, yes)
 
 
 def _redo_show(config, ia, ledger, entry, from_stage: str, *,
@@ -3723,9 +3773,25 @@ def reapply(
             continue
         typer.echo(f"reapplied: {out.slug} -> {out.outcome}")
         if out.delivered and out.outcome == "cleared":
-            typer.echo(f"  re-deliver with: llama deliver {out.slug}")
+            _echo_redeliver_hint(config, out.slug)
     if failed:
         raise typer.Exit(1)
+
+
+def _echo_redeliver_hint(config, slug: str) -> None:
+    """Spec 5.5: `re-deliver with` only for a destination that is not voiced
+    (a voiced one goes to the operator's re-voice list, never a plain
+    `deliver`); an unreadable one prints deliver's refusal instead; with no
+    delivery_path there is nothing to check, so no hint."""
+    if config.delivery_path is None:
+        return
+    try:
+        voiced = _destination_is_voiced(config.delivery_path / slug)
+    except LlamaError as exc:
+        typer.echo(f"  {exc}")
+        return
+    if not voiced:
+        typer.echo(f"  re-deliver with: llama deliver {slug}")
 
 
 def _meter_pct(reading) -> str:
@@ -3857,7 +3923,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
                    + (" (re-run with --allow-structure-change after checking)"
                       if skipped_structure else ""))
         if out.delivered and out.outcome == "cleared":
-            typer.echo(f"  re-deliver with: llama deliver {slug}")
+            _echo_redeliver_hint(config, slug)
         if _meter_applies(config, pace):
             typer.echo(f"  meter: 5h {_meter_pct(reading)}% -> "
                        f"{_meter_pct(_meter(config, pace))}%")

@@ -828,3 +828,96 @@ def test_reuse_check_refuses_when_the_share_drops_mid_scan(tmp_path, monkeypatch
     assert skp.main(["reuse-check", "--cand", str(tmp_path / "cand.json"), "--config", str(cfg),
                      "--out", str(tmp_path / "out")]) == 2
     assert not (tmp_path / "out").exists()
+
+
+# ---- voiced-precheck (spec 5.5, the 37 voiced re-deliveries) ----
+
+PRE_SLUG = "gratefuldead-1977-05-13"
+
+
+def _pre_world(tmp_path, *, voiced=True, short_kept=(True, True), manifest_tracks=3,
+               station_body=None, in_list=True, delivery=True):
+    from llama.models import Show, Track
+    from llama.workspace import write_artifact
+    lib, st = tmp_path / "lib", tmp_path / "station"
+    files = ["gd1977-05-13d1t01.mp3", "gd1977-05-13d2t06.mp3", "gd1977-05-13d3t01.mp3"]
+    kept = {"gd1977-05-13d2t06.mp3": short_kept[0], "gd1977-05-13d3t01.mp3": short_kept[1]}
+    tracks = [Track(index=i + 1, set="1", title=f"T{i + 1}", filename=f, title_source="tags",
+                    short_kept=kept.get(f, False)) for i, f in enumerate(files)]
+    ws = lib / "shows" / PRE_SLUG
+    write_artifact(ws / "show.json", Show(performance_id="GratefulDead/1977-05-13", identifier="gd77",
+                                          artist="Grateful Dead", date="1977-05-13", tracks=tracks))
+    if manifest_tracks is not None:
+        write_artifact(ws / "package" / "manifest.json",
+                       {"tracks": [{"index": i + 1, "filename": f"{i + 1:02d} - T.mp3"}
+                                   for i in range(manifest_tracks)]})
+    (st / PRE_SLUG).mkdir(parents=True)
+    if station_body is None:
+        station_body = json.dumps({"dj_audio": {"presenter": None} if voiced else None})
+    if station_body is not False:
+        (st / PRE_SLUG / "manifest.json").write_text(station_body)
+    entries = [{"slug": "other-show", "files": [["x.mp3", 10.0, "X", "music"]]}]
+    if in_list:
+        entries.append({"slug": PRE_SLUG, "files": [["gd1977-05-13d2t06.mp3", 32.0, "Drums", "music"],
+                                                    ["gd1977-05-13d3t01.mp3", 60.0, "Drums", "music"]]})
+    lst = tmp_path / "voiced-severe-final.json"
+    lst.write_text(json.dumps(entries))
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(f'root = "{lib}"\n' + (f'delivery_path = "{st}"\n' if delivery else ""))
+    return cfg, lst, lib, st
+
+
+def _pre(cfg, lst, capsys, slug=PRE_SLUG):
+    rc = skp.main(["voiced-precheck", "--list", str(lst), "--config", str(cfg), slug])
+    return rc, capsys.readouterr().out
+
+
+def test_voiced_precheck_passes_and_names_each_failure(tmp_path, capsys):
+    cfg, lst, lib, st = _pre_world(tmp_path / "ok")
+    before = (_tree_hash(lib), _tree_hash(st), lst.read_bytes())
+    rc, out = _pre(cfg, lst, capsys)
+    assert rc == 0, out
+    assert "FAIL" not in out and f"voiced-precheck {PRE_SLUG}: pass" in out
+    assert (_tree_hash(lib), _tree_hash(st), lst.read_bytes()) == before   # read-only
+
+    cases = [
+        (dict(in_list=False), [f"{PRE_SLUG} is not in"]),
+        (dict(voiced=False), ["destination is not voiced"]),
+        (dict(station_body=False), ["destination is not voiced"]),
+        (dict(station_body="{not json"),
+         [f"refusing to deliver {PRE_SLUG}: cannot read ", "check the station copy by hand"]),
+        (dict(delivery=False), ["no delivery_path in the config"]),
+        (dict(short_kept=(True, False)), ["gd1977-05-13d3t01.mp3: short_kept is not set"]),
+        (dict(manifest_tracks=None), ["package/manifest.json is missing"]),
+        (dict(manifest_tracks=2), ["package/manifest.json has 2 tracks, show.json has 3"]),
+        (dict(voiced=False, short_kept=(False, False), manifest_tracks=4),
+         ["destination is not voiced", "gd1977-05-13d2t06.mp3: short_kept is not set",
+          "gd1977-05-13d3t01.mp3: short_kept is not set",
+          "package/manifest.json has 4 tracks, show.json has 3"]),
+    ]
+    for i, (kw, expected) in enumerate(cases):
+        cfg, lst, lib, st = _pre_world(tmp_path / f"c{i}", **kw)
+        rc, out = _pre(cfg, lst, capsys)
+        assert rc == 1, (kw, out)
+        fails = [l for l in out.splitlines() if "FAIL" in l]
+        for e in expected:
+            assert any(e in l for l in fails), (kw, e, out)
+        assert f"voiced-precheck {PRE_SLUG}: pass" not in out
+
+
+def test_voiced_precheck_names_a_listed_file_missing_from_show_json(tmp_path, capsys):
+    cfg, lst, lib, st = _pre_world(tmp_path)
+    entries = json.loads(lst.read_text())
+    entries[-1]["files"].append(["gd1977-05-13d9t09.mp3", 20.0, "Gone", "music"])
+    lst.write_text(json.dumps(entries))
+    rc, out = _pre(cfg, lst, capsys)
+    assert rc == 1
+    assert any("gd1977-05-13d9t09.mp3: not in show.json" in l for l in out.splitlines() if "FAIL" in l)
+
+
+def test_voiced_precheck_unreadable_show_json_fails(tmp_path, capsys):
+    cfg, lst, lib, st = _pre_world(tmp_path)
+    (lib / "shows" / PRE_SLUG / "show.json").write_text("{not json")
+    rc, out = _pre(cfg, lst, capsys)
+    assert rc == 1
+    assert any("show.json unreadable" in l for l in out.splitlines() if "FAIL" in l)

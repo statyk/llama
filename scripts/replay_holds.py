@@ -744,11 +744,17 @@ def _tier(before: list, after: list, filler: list, base_owned: bool, cand_owned:
     return "labels renamed" if b != a else "filler labels only"
 
 
-def _is_voiced(delivery: Path | None, slug: str) -> bool:
+def _is_voiced(delivery: Path | None, slug: str) -> bool | None:
+    """True/False as `deliver` reads the station copy; None when deliver would refuse
+    it as unreadable (spec 5.5), which the callers label `unreadable`."""
     if delivery is None:
         return False
     from llama.cli import _destination_is_voiced   # a raw-JSON read of manifest.json; writes nothing
-    return _destination_is_voiced(delivery / slug)
+    from llama.errors import LlamaError
+    try:
+        return _destination_is_voiced(delivery / slug)
+    except LlamaError:
+        return None
 
 
 def _delivery_path(config_path: Path | None) -> Path | None:
@@ -779,8 +785,7 @@ def _taper_changes(base: dict, cand: dict, root: Path, delivery: Path | None) ->
             continue
         state = str(c.get("state"))
         if state == "delivered":
-            if _is_voiced(delivery, slug):
-                state = "voiced"
+            state = _state_label(delivery, slug, state)
         # Step 1's MECHANISM (deterministic/jerrybase), not its quality (rescreen2 O1);
         # nothing was overruled when labels agree.
         step1 = "overruled step1 mechanism" if before != after else "step1 mechanism"
@@ -1111,8 +1116,12 @@ def _fill_slices(r: dict) -> list[str]:
 
 
 def _state_label(delivery: Path | None, slug: str, state) -> str:
-    if state == "delivered" and _is_voiced(delivery, slug):
-        return "voiced"
+    if state == "delivered":
+        voiced = _is_voiced(delivery, slug)
+        if voiced is None:
+            return "unreadable"
+        if voiced:
+            return "voiced"
     return str(state)
 
 
@@ -1232,7 +1241,7 @@ def _title_changes(base: dict, cand: dict, root: Path, delivery: Path | None) ->
     out = ["titles changed on shows that stay unheld (base -> cand); a path is the cascade's "
            "(D, C1, C2, S, S-deferred, 4, optional +5); '(unattributed)' = no recorded path", ""]
     counts = {}
-    for st in ("packaged", "voiced", "delivered"):
+    for st in ("packaged", "voiced", "delivered", "unreadable"):
         rows = by_state.get(st, [])
         counts[st] = sum(len(c) for _, c in rows)
         if not rows:

@@ -365,10 +365,51 @@ def test_cli_reapply_names_form(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
     ledger.record(LedgerEntry(performance_id="GratefulDead/1973-06-10", artist="Grateful Dead", date="1973-06-10",
                               status="delivered", run="r1", recorded_at="2026-10-01T00:00:00+00:00"))
-    r = cli_invoke(root / "config.toml", "reapply", "gratefuldead-1973-06-10")   # the library's own config
+    # Task 16 interface (spec 5.5): the hint needs a delivery_path to check the station
+    # copy; with none there is no hint (pinned by test_reapply_hint_suppressed_for_a_voiced_destination).
+    cfg = tmp_path / "with-station.toml"
+    cfg.write_text(f'root = "{root}"\ndelivery_path = "{tmp_path / "station"}"\n\n[jerrybase]\nenabled = false\n')
+    r = cli_invoke(cfg, "reapply", "gratefuldead-1973-06-10")   # the library's config plus a delivery_path
     assert r.exit_code == 0, r.output
     assert "reapplied: gratefuldead-1973-06-10 -> cleared" in r.output
     assert "  re-deliver with: llama deliver gratefuldead-1973-06-10" in r.output
+
+
+@pytest.mark.parametrize("station", ["voiced", "unvoiced", "unreadable", "missing", "no delivery_path"])
+def test_reapply_hint_suppressed_for_a_voiced_destination(tmp_path, monkeypatch, station):
+    """Spec 5.5: the `re-deliver with` hint is printed only for a destination that is
+    not voiced; an unreadable one prints the refusal deliver would give instead, and
+    with no delivery_path there is nothing to check and no hint."""
+    from conftest import cli_invoke
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _stub_package(monkeypatch)
+    import llama.cli as cli
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    ledger.record(LedgerEntry(performance_id="GratefulDead/1973-06-10", artist="Grateful Dead", date="1973-06-10",
+                              status="delivered", run="r1", recorded_at="2026-10-01T00:00:00+00:00"))
+    st = tmp_path / "station"
+    out = st / HELD
+    cfg = root / "config.toml"
+    if station != "no delivery_path":
+        cfg = tmp_path / "with-station.toml"
+        cfg.write_text(f'root = "{root}"\ndelivery_path = "{st}"\n\n[jerrybase]\nenabled = false\n')
+        st.mkdir()
+    if station in ("voiced", "unvoiced", "unreadable"):
+        out.mkdir()
+        (out / "manifest.json").write_text(
+            "{not json" if station == "unreadable"
+            else json.dumps({"dj_audio": {"presenter": None} if station == "voiced" else None}))
+    r = cli_invoke(cfg, "reapply", HELD)
+    assert r.exit_code == 0, r.output
+    assert f"reapplied: {HELD} -> cleared" in r.output
+    hint = f"  re-deliver with: llama deliver {HELD}"
+    if station in ("unvoiced", "missing"):
+        assert hint in r.output
+    else:
+        assert "re-deliver with" not in r.output
+    text = " ".join(r.output.split())
+    unreadable = f"refusing to deliver {HELD}: cannot read {out / 'manifest.json'} ("
+    assert (unreadable in text) == (station == "unreadable")
 
 
 def test_cli_reapply_reports_a_failure_continues_and_exits_1(tmp_path, monkeypatch):
