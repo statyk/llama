@@ -22,6 +22,7 @@ blocks (ineligible while it runs, eligible again when it lands).
 import errno
 import hashlib
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Literal
@@ -216,7 +217,8 @@ def _evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligib
     total = manifest.get("total_duration_sec")
     dj_profile = (manifest.get("dj_audio") or {}).get("profile")
     meta.update(
-        total_duration_sec=float(total) if isinstance(total, (int, float)) and not isinstance(total, bool) else None,
+        total_duration_sec=(float(total) if isinstance(total, (int, float)) and not isinstance(total, bool)
+                            and math.isfinite(total) and total >= 0 else None),
         voiced_profile=dj_profile if isinstance(dj_profile, str) and dj_profile else source.get("profile"),
         sizes=sizes)
     return Show(slug, pkg_dir, entries, key, meta)

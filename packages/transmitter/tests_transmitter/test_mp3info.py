@@ -9,7 +9,8 @@ HDR = bytes([0xFF, 0xFB, 0x90, 0x00])      # MPEG-1 L3, 128 kbps, 44.1 kHz
 
 
 def _id3_file(path):
-    tag = b"ID3\x03\x00\x00" + bytes([0, 0, 0, 100]) + b"\0" * 100
+    # a false 64 kbps sync inside the tag body: not skipping the tag changes the answer
+    tag = b"ID3\x03\x00\x00" + bytes([0, 0, 0, 100]) + b"\xff\xfb\x50\x00" + b"\0" * 96
     path.write_bytes(tag + HDR + b"\0" * 16_000)
     return path
 
@@ -47,3 +48,21 @@ def test_reserved_headers_are_skipped(tmp_path):
     p = tmp_path / "r.mp3"       # layer II header, then a valid one at offset 4
     p.write_bytes(bytes([0xFF, 0xFD, 0x90, 0x00]) + HDR + b"\0" * 100)
     assert mp3_seconds(p) == pytest.approx(104 * 8 / 128_000)
+
+
+def test_mpeg25_layer3(tmp_path):
+    p = tmp_path / "h.mp3"
+    p.write_bytes(bytes([0xFF, 0xE3, 0x80, 0x00]) + b"\0" * 996)   # MPEG-2.5 L3, 64 kbps
+    assert mp3_seconds(p) == pytest.approx(1000 * 8 / 64_000)
+
+
+def test_reserved_sample_rate_is_none(tmp_path):
+    p = tmp_path / "s.mp3"
+    p.write_bytes(bytes([0xFF, 0xFB, 0x9C, 0x00]) + b"\0" * 100)     # rate index 3
+    assert mp3_seconds(p) is None
+
+
+def test_header_beyond_64kib_is_none(tmp_path):
+    p = tmp_path / "f.mp3"
+    p.write_bytes(b"\0" * 70_000 + HDR + b"\0" * 100)
+    assert mp3_seconds(p) is None

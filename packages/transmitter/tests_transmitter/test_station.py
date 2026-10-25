@@ -297,7 +297,25 @@ def test_voiced_profile_falls_back_to_source_profile(tmp_path):
 
 
 def test_file_set_key_unchanged(tmp_path):
+    import hashlib
     pkg = build_package(make_root(tmp_path))
     rels = station.read_m3u(pkg / "broadcast.m3u")
+    h = hashlib.sha256()          # the pre-task formula, computed independently
+    for rel in rels:
+        st = (pkg / rel).stat()
+        h.update(json.dumps([rel, st.st_size, st.st_mtime_ns]).encode() + b"\n")
+    expected = h.hexdigest()[:20]
     key, sizes = station.file_set_key_and_sizes(pkg, rels)
-    assert station.file_set_key(pkg, rels) == key and list(sizes) == rels
+    assert key == expected and station.file_set_key(pkg, rels) == expected
+    assert sizes == {rel: (pkg / rel).stat().st_size for rel in rels}
+
+
+def test_non_finite_total_duration_is_none(tmp_path):
+    pkg = build_package(make_root(tmp_path))
+    for bad in ("NaN", "Infinity", "-5"):
+        m = json.loads((pkg / "manifest.json").read_text())
+        m["total_duration_sec"] = 1
+        text = json.dumps(m).replace('"total_duration_sec": 1', f'"total_duration_sec": {bad}')
+        (pkg / "manifest.json").write_text(text)
+        set_age(pkg, 3600)
+        assert _eval(pkg).meta["total_duration_sec"] is None, bad

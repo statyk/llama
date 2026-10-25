@@ -17,6 +17,7 @@ from pathlib import Path
 from transmitter import aacenc, analysis, grid, mp3info, pieces, render, station
 from transmitter.config import load_config
 from transmitter.grid import FRAME_SAMPLES, SAMPLE_RATE
+from transmitter.workspace import Workspace
 
 
 def _is_64k(show: station.Show) -> bool:
@@ -40,8 +41,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="time one cold analysis of SLUG (nothing is cached) and exit")
     args = ap.parse_args(argv)
 
+    if not args.config.is_file():
+        print(f"error: --config {args.config} is not an existing file", file=sys.stderr)
+        return 2
     cfg = load_config(args.config)
-    cache_dir = cfg.root / "cache"
+    cache_dir = Workspace(cfg.root).cache_dir
     shows, _skipped = station.scan(cfg.station.root, now_s=time.time(),
                                    quiet_s=cfg.station.quiet_minutes * 60)
     if args.time_one:
