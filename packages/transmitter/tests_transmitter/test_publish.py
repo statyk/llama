@@ -480,9 +480,9 @@ def test_guard_blocks_publishing_is_the_only_cache_writer(tmp_path):
 
 def test_publish_site_never_asks_for_an_interstitial_analysis(tmp_path):
     bucket = FakeBucket()
-    rows = [PlanRow(seq=0, slug="band-1", dir="band-1", key="k1", start_frame=100 * 441, frames=441 * 50,
+    rows = [PlanRow(seq=0, slug="band-1", dir="band-1", key="k1", start_frame=100 * 441, frames=441 * 4,
                     run_start=True),
-            PlanRow(seq=1, slug="ann-1", dir="interstitials", key="k2", start_frame=150 * 441, frames=441,
+            PlanRow(seq=1, slug="ann-1", dir="interstitials", key="k2", start_frame=104 * 441, frames=441,
                     kind="interstitial", role="id")]
     p = make_publisher(tmp_path, bucket, rows=rows)
     asked = []

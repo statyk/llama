@@ -426,7 +426,8 @@ Run the `transmitter` commands below as `<user>` on hugo with the env file loade
 
 ### Rolling transmitter back
 
-- The oldest safe rollback target is the commit that made plan rows tolerate scheduler fields (the one that keeps non-show rows out of the timeline, `_publish_site` and `row_analysis`). A build from before it cannot read scheduler rows in `plan.jsonl`: plan, render and publish wedge. That commit is also the one that keeps interstitial rows out of `timeline.json`, `notes/` and `show/`.
+- The commit that made plan rows tolerate scheduler fields writes phase-1-shaped rows only (a scheduler field is written only when it differs from its default), so rolling back from it to the build before it stays safe until a scheduler build writes its first scheduler row.
+- A build from before that commit cannot read a plan that holds scheduler rows: plan, render and publish wedge. Once the scheduler has run, that commit is the oldest safe rollback target. It is also the commit that keeps interstitial rows out of `timeline.json`, `notes/` and `show/`.
 - Never truncate `plan.jsonl` by hand: a shortened plan restarts the run over segment keys already published (and immutable).
 - Before rolling back past the commit adding `[interstitials]`, remove `[interstitials]` from `config.toml`, or the older build refuses the unknown section.
 

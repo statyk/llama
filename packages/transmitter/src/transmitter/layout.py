@@ -20,6 +20,9 @@ from transmitter.errors import LayoutError
 from transmitter.grid import SEGMENT_FRAMES
 
 
+_PHASE1_FIELDS = frozenset({"seq", "slug", "dir", "key", "start_frame", "frames", "run_start", "cut_frame"})
+
+
 @dataclass(frozen=True)
 class PlanRow:
     seq: int
@@ -53,11 +56,16 @@ class PlanRow:
         return self.cut_frame if self.cut_frame is not None else self.start_frame + self.frames
 
     def to_json(self) -> dict:
+        # Phase-1 fields always, exactly as the phase-1 build wrote them; a
+        # scheduler field only when it differs from its default, so a phase-1
+        # row serialises byte-identically and an older build can still read it.
         out: dict[str, Any] = {}
         for f in fields(self):
             if f.name == "extra":
                 continue
             v = getattr(self, f.name)
+            if f.name not in _PHASE1_FIELDS and v == f.default:
+                continue
             if f.name == "bends":
                 v = list(v)
             elif f.name == "names":

@@ -142,3 +142,20 @@ def test_scheduler_fields_round_trip_as_tuples():
     back = PlanRow.from_json(json.loads(json.dumps(r.to_json())))
     assert back == r and back.names == (("dead-evening", "2096-10-02T23:00:00Z"),)
     assert back.bends == ("era",)
+
+
+def test_phase1_row_serialises_to_exactly_the_phase1_keys():
+    r = PlanRow(seq=0, slug="a", dir="a", key="k", start_frame=0, frames=10)
+    assert set(r.to_json()) == {"seq", "slug", "dir", "key", "start_frame", "frames", "run_start", "cut_frame"}
+
+
+def test_plan_rewrite_leaves_phase1_keys_unchanged(tmp_path):
+    import json
+    from transmitter import planner
+    p = tmp_path / "plan.jsonl"
+    line = {"seq": 0, "slug": "a", "dir": "a", "key": "k", "start_frame": 0, "frames": 441,
+            "run_start": True, "cut_frame": None}
+    p.write_text(json.dumps(line, sort_keys=True) + "\n")
+    before = p.read_text()
+    planner.write_plan(p, planner.read_plan(p))
+    assert p.read_text() == before
