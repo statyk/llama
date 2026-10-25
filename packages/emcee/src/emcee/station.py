@@ -10,6 +10,7 @@ deliberately NOT the fifth: it cannot see rules or moves.
 """
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -207,7 +208,8 @@ def profile_change_reason(voiced: str | None, effective: Effective,
     return f"{head} (delivered profile; no rule or move applies)"
 
 
-def assess(pkg: Package, config: EmceeConfig, moves: Moves) -> Assessment:
+def assess(pkg: Package, config: EmceeConfig, moves: Moves,
+           manifest: dict | None = None) -> Assessment:
     """All five legs. Callers must have already screened out unsupported
     (pre-v3) packages: this assumes `pkg.manifest()` succeeds and lets
     `UnsupportedPackage`/`EmceeError` (or a bare KeyError from a malformed
@@ -216,8 +218,12 @@ def assess(pkg: Package, config: EmceeConfig, moves: Moves) -> Assessment:
     The profile check runs only when `dj_audio` is present: the voiced
     profile (`manifest_voiced_profile`; a legacy block reads as llama's
     profile) must equal the effective one. A missing `tts`, or a different
-    presenter, never fails it."""
-    manifest = pkg.manifest()
+    presenter, never fails it.
+
+    `manifest`, when given, is the already-read (and validated) manifest;
+    otherwise it is read here."""
+    if manifest is None:
+        manifest = pkg.manifest()
     effective = effective_profile(config, moves, manifest)
     reasons: list[str] = []
 
@@ -286,10 +292,13 @@ def identity(manifest: object, config: EmceeConfig, moves: Moves) -> dict:
             "move_problem": move_target_problem(config, moves, manifest)}
 
 
-def package_status(pkg: Package, config: EmceeConfig, moves: Moves) -> PackageStatus:
-    """A loadable v3 package's status. May raise on a malformed manifest."""
-    manifest = pkg.manifest()
-    a = assess(pkg, config, moves)
+def package_status(pkg: Package, config: EmceeConfig, moves: Moves,
+                   manifest: dict | None = None) -> PackageStatus:
+    """A loadable v3 package's status. May raise on a malformed manifest.
+    `manifest`, when given, is the already-read one (no second read)."""
+    if manifest is None:
+        manifest = pkg.manifest()
+    a = assess(pkg, config, moves, manifest)
     return PackageStatus(path=pkg.dir, state="ready" if a.ok else "pending", reasons=a.reasons,
                          profile_reason=a.profile_reason,
                          missing_tracks=a.missing_tracks, clips=a.clips,
@@ -306,6 +315,9 @@ def unsupported_status(pkg: Package) -> PackageStatus:
                          performance_id=manifest_performance_id(raw))
 
 
+SCAN_WORKERS = 16
+
+
 def scan(station_root: Path, config: EmceeConfig, moves: Moves) -> list[PackageStatus]:
     """Every direct subdirectory of `station_root` containing a
     `manifest.json` is a package; anything else is skipped, and so are
@@ -318,17 +330,23 @@ def scan(station_root: Path, config: EmceeConfig, moves: Moves) -> list[PackageS
     root = Path(station_root)
     if not root.is_dir():
         return []
-    statuses: list[PackageStatus] = []
-    for entry in sorted(root.iterdir()):
+
+    def check(entry: Path) -> PackageStatus | None:
         if not entry.is_dir() or entry.name.startswith("."):
-            continue
+            return None
         if not (entry / "manifest.json").exists():
-            continue
+            return None
         pkg = Package(entry)
         try:
-            pkg.manifest()
+            manifest = pkg.manifest()
         except UnsupportedPackage:
-            statuses.append(unsupported_status(pkg))
-            continue
-        statuses.append(package_status(pkg, config, moves))
-    return statuses
+            return unsupported_status(pkg)
+        return package_status(pkg, config, moves, manifest)
+
+    # Per-package work is I/O-latency-bound (a network share), so check
+    # packages concurrently. `map` yields in input (sorted) order and
+    # re-raises a worker's exception here, so `scan` fails as it always has.
+    entries = sorted(root.iterdir())
+    with ThreadPoolExecutor(max_workers=SCAN_WORKERS) as pool:
+        results = list(pool.map(check, entries))
+    return [r for r in results if r is not None]

@@ -213,3 +213,67 @@ def test_scan_skips_dot_prefixed_dirs_even_with_a_manifest(tmp_path):
     build_package(tmp_path, slug=".show-a.old-abc123", voiced=True)
 
     assert {s.path.name for s in scan(tmp_path, EmceeConfig(), no_moves())} == {"show-a"}
+
+
+# --- concurrent scan + single manifest read ---------------------------------
+
+
+def _mixed_station(root):
+    build_package(root, slug="a-ready", voiced=True)
+    build_package(root, slug="b-pending", voiced=False)
+    old = build_package(root, slug="c-old")
+    data = json.loads((old / "manifest.json").read_text())
+    data["schema_version"] = 2
+    (old / "manifest.json").write_text(json.dumps(data))
+    build_package(root, slug=".d-swap", voiced=True)
+    (root / "e-no-manifest").mkdir()
+    (root / "f-file.txt").write_text("x")
+    for i in range(20):
+        build_package(root, slug=f"g-{i:02d}", voiced=bool(i % 2))
+
+
+def test_scan_concurrent_matches_sequential_in_order(tmp_path, monkeypatch):
+    from emcee import station
+
+    _mixed_station(tmp_path)
+    concurrent = scan(tmp_path, EmceeConfig(), no_moves())
+    monkeypatch.setattr(station, "SCAN_WORKERS", 1)
+    sequential = scan(tmp_path, EmceeConfig(), no_moves())
+
+    assert concurrent == sequential
+    names = [s.path.name for s in concurrent]
+    assert names == sorted(names)
+    assert names[:3] == ["a-ready", "b-pending", "c-old"]
+    assert [s.state for s in concurrent[:3]] == ["ready", "pending", "unsupported"]
+
+
+def test_scan_reads_each_manifest_once(tmp_path, monkeypatch):
+    from collections import Counter
+
+    _mixed_station(tmp_path)
+    reads = Counter()
+    real = Package.manifest
+
+    def spy(self):
+        reads[self.dir.name] += 1
+        return real(self)
+
+    monkeypatch.setattr(Package, "manifest", spy)
+    scan(tmp_path, EmceeConfig(), no_moves())
+
+    assert reads["a-ready"] == reads["b-pending"] == reads["g-00"] == 1
+    assert reads["c-old"] == 1
+    assert set(reads.values()) == {1}
+
+
+def test_scan_worker_exception_propagates(tmp_path):
+    import pytest
+
+    _mixed_station(tmp_path)
+    bad = build_package(tmp_path, slug="g-10a")
+    data = json.loads((bad / "manifest.json").read_text())
+    del data["tracks"][0]["filename"]
+    (bad / "manifest.json").write_text(json.dumps(data))
+
+    with pytest.raises(KeyError):
+        scan(tmp_path, EmceeConfig(), no_moves())

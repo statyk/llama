@@ -212,7 +212,7 @@ def _scan_broad(root: Path, config: EmceeConfig, moves: Moves) -> list[PackageSt
                                           **ident))
             continue
         try:
-            statuses.append(package_status(pkg, config, moves))
+            statuses.append(package_status(pkg, config, moves, manifest))
         except Exception as exc:
             statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc),
                                           **identity(manifest, config, moves)))
