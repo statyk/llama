@@ -287,11 +287,50 @@ def test_repro_refuses_rows_without_the_fields(tmp_path):
 
 
 def test_repro_treats_equal_unreplayable_as_equal(tmp_path):
+    # FW2 item 10: each arm also carries one replayable row, since an arm with none is
+    # now refused (test_repro_refuses_an_arm_with_no_replayable_row)
     u = {"outcome": "unreplayable", "unreplayable": "CacheMiss: x"}
-    assert run_repro(tmp_path, {"s": u}, {"s": dict(u)}) == 0
+    assert run_repro(tmp_path, {"s": u, "r": arm_row()}, {"s": dict(u), "r": arm_row()}) == 0
     assert "CacheMiss: x" in (tmp_path / "out" / "repro.md").read_text()
     v = {"outcome": "unreplayable", "unreplayable": "other"}
-    assert run_repro(tmp_path, {"s": u}, {"s": v}) == 1
+    assert run_repro(tmp_path, {"s": u, "r": arm_row()}, {"s": v, "r": arm_row()}) == 1
+
+
+# --- FW2 item 10 (final review T7): repro never passes on nothing ---
+
+def test_repro_refuses_two_empty_arms(tmp_path):
+    assert run_repro(tmp_path, {}, {}) == 1
+    md = (tmp_path / "out" / "repro.md").read_text()
+    assert "refused: the pre arm has no replayable row" in md
+    assert "refused: the post arm has no replayable row" in md
+
+
+def test_repro_refuses_an_arm_with_no_replayable_row(tmp_path):
+    u = {"outcome": "unreplayable", "unreplayable": "CacheMiss: x"}
+    assert run_repro(tmp_path, {"s": u}, {"s": dict(u)}) == 1
+    assert run_repro(tmp_path, {"s": arm_row(), "t": u}, {"s": u, "t": dict(u)}) == 1
+    md = (tmp_path / "out" / "repro.md").read_text()
+    assert "refused: the post arm has no replayable row" in md
+    assert "the pre arm has no replayable row" not in md
+
+
+def _write_rooted(p, root, shows):
+    p.write_text(json.dumps({"root": root, "shows": shows}))
+
+
+def test_repro_refuses_arms_from_different_roots(tmp_path):
+    _write_rooted(tmp_path / "pre.json", "/lib/a", {"s": arm_row()})
+    _write_rooted(tmp_path / "post.json", "/lib/b", {"s": arm_row()})
+    args = ["repro", "--pre", str(tmp_path / "pre.json"), "--post", str(tmp_path / "post.json"),
+            "--out", str(tmp_path / "out")]
+    assert skp.main(args) == 1
+    assert "refused: the arms' roots differ: pre '/lib/a', post '/lib/b'" in \
+        (tmp_path / "out" / "repro.md").read_text()
+    _write_rooted(tmp_path / "post.json", None, {"s": arm_row()})   # one arm without a root
+    assert skp.main(args) == 1
+    _write_rooted(tmp_path / "post.json", "/lib/a", {"s": arm_row()})
+    assert skp.main(args) == 0
+    assert "refused" not in (tmp_path / "out" / "repro.md").read_text()
 
 
 # --- fix round 1: per-field reproduction, class precedence, the library-root guard ---

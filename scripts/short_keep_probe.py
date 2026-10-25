@@ -24,7 +24,9 @@
          Prints each check; exit 0 only when all pass, else 1. Reads only; writes nothing.
   repro  --pre PRE.json --post POST.json --out DIR
          the post-migration self-check (spec 4.3 steps 7 and 9). Writes `repro.md`; exit 1
-         on any difference, a show in one arm only, or a replayable row lacking the fields.
+         on any difference, a show in one arm only, or a replayable row lacking the fields;
+         also exit 1, comparing nothing, when either arm has no replayable row or the
+         arms' `root` differ.
 
 `--ref-dir` holds the reference JSONL arms (one row per show, keyed `slug`; tracks are
 `file`/`title`/`src`/`set`/`segue`). Run with the tree's own interpreter. Nothing but
@@ -571,9 +573,39 @@ def _row_key(r: dict) -> dict:
             "encore": encore_file(r["filenames"], r["sets"])}
 
 
+def _arm_root(path: Path) -> object:
+    """The arm's top-level `root` (None when absent); `_load_arm` has already read it."""
+    try:
+        return json.loads(Path(path).expanduser().read_text()).get("root")
+    except (OSError, ValueError, AttributeError) as err:
+        raise Refusal(f"cannot read arm {path}: {err}")
+
+
+def _repro_refusals(pre: dict, post: dict, pre_root: object, post_root: object) -> list[str]:
+    """Why the two arms cannot be compared at all (final review T7, FW2 item 10): an arm
+    with no replayable row would pass on nothing, and arms of different libraries
+    compare nothing that matters."""
+    out = [f"the {side} arm has no replayable row"
+           for side, arm in (("pre", pre), ("post", post))
+           if not any(not _unreplayable(r) for r in arm.values())]
+    if pre_root != post_root:
+        out.append(f"the arms' roots differ: pre {pre_root!r}, post {post_root!r}")
+    return out
+
+
 def repro(args) -> int:
     out = _guard_out(args.out, args.config, ("pre arm", args.pre), ("post arm", args.post))
     pre, post = _load_arm(args.pre), _load_arm(args.post)
+    refused = _repro_refusals(pre, post, _arm_root(args.pre), _arm_root(args.post))
+    if refused:
+        # Written, not skipped, so a stale passing repro.md cannot outlive the refusal.
+        out.mkdir(parents=True, exist_ok=True)
+        md = ["# short-keep post-migration self-check", "", f"llama: {llama.__file__}", ""]
+        md += [f"refused: {r}" for r in refused]
+        (out / "repro.md").write_text("\n".join(md) + "\n")
+        for r in refused:
+            print(f"repro: refused: {r}")
+        return 1
     diffs, equal_unrep, total_equal = [], [], 0
     for slug in sorted(set(pre) | set(post)):
         a, b = pre.get(slug), post.get(slug)

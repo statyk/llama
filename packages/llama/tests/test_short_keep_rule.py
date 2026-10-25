@@ -152,6 +152,33 @@ def test_ruling1_short_nonzero_file_still_kept():
     assert ordering["short_kept"] == ["band1t06.mp3"]
 
 
+def test_a_one_second_tagged_file_is_kept():  # (pin)
+    """FW2 item 14 (final review, T10): the zero-duration exception's boundary. A 1 s
+    file is no stub: its only reason is the short arm, so the rule keeps it."""
+    files = [_mp3(f"band1t0{i}.mp3") for i in range(1, 6)]
+    files.append(_mp3("band1t06.mp3", title="Promised Land", length="1"))
+    files.append(_mp3("band1t07.mp3"))
+    _, legacy_excluded, _ = filter_files(files, short_keep=False)
+    assert _reasons(legacy_excluded) == {"band1t06.mp3": ["implausibly short"]}
+    kept, excluded, ordering = filter_files(files)
+    assert "band1t06.mp3" in _names(kept)
+    assert excluded == []
+    assert ordering["short_kept"] == ["band1t06.mp3"]
+
+
+def test_a_call_sign_wrap_up_drops_as_non_performance():  # (pin)
+    """FW2 item 14 (final review, T10): NONPERF's `wrap\\w*` qualifier after a call
+    sign. `KBFH Wrap-Up` is wholly junk, so the short file stays dropped."""
+    assert short_tag_is_junk("KBFH Wrap-Up") is True
+    files = [_mp3(f"band1t0{i}.mp3") for i in range(1, 6)]
+    files.append(_mp3("band1t06.mp3", title="KBFH Wrap-Up", length="30"))
+    files.append(_mp3("band1t07.mp3"))
+    kept, excluded, ordering = filter_files(files)
+    assert "band1t06.mp3" not in _names(kept)
+    assert _reasons(excluded) == {"band1t06.mp3": ["implausibly short"]}
+    assert ordering["short_kept"] == []
+
+
 @pytest.mark.parametrize("tag", ["Not Fade Away Chant", "Crowd Doing Not Fade Away"])
 def test_a_not_fade_away_crowd_chant_is_kept_operator_ruling(tag):  # (pin)
     """Operator ruling 2, Checkpoint B (2026-10-24): "An NFA chant should absolutely
