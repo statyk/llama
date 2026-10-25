@@ -1076,6 +1076,20 @@ def test_a_bare_track_tail_refuses():
     ("The drums were not tracked separately.", "not tracked separately"),
     ("Drums and space are not tracked as separate songs.", "not tracked separately"),
     ("Drums and space aren't tracked as separate tracks.", "not tracked separately"),
+    # fix round 2: bounded windows
+    ("It should not have been included.", "not included"),
+    ("The reprise has not yet been included.", "not included"),
+    ("The reprise would not have been listed.", "not listed"),
+    ("The reprise has not yet been listed.", "not listed"),
+    ("The reprise is not even listed.", "not listed"),
+    ("The reprise is not in the tracklisting.", "not in the setlist"),
+    ("The reprise is not in the track-listing.", "not in the setlist"),
+    ("The reprise is not in the tracklistings.", "not in the setlist"),
+    ("The drums come without its own track.", "no separate track"),
+    ("The drums get no separately-titled track.", "no separate track"),
+    ("Drums are not tracked as a separate song.", "not tracked separately"),
+    ("Drums are not separately tracked.", "not tracked separately"),
+    ("Drums are not tracked individually.", "not tracked separately"),
     ("There are no distinct tracks for the drums.", "no separate track"),
 ])
 def test_each_absence_wording_refuses(text, term):
