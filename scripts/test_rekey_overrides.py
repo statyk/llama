@@ -608,7 +608,7 @@ def test_snapshot_names_its_directory_by_the_utc_start_and_refuses_an_existing_o
 
 def test_lock_only_show_dir_is_not_a_show(tmp_path, capsys):
     """An `rm` husk (show_unit limitation 2) is not recorded, not copied and not a
-    coverage gap: --apply does not refuse on it. (--restore's is Task 20.)"""
+    coverage gap: neither --apply nor --restore refuses on it."""
     root = tmp_path / "lib"
     _show(root, titles={1: "Dew"})
     husk = root / "shows" / "gratefuldead-1973-06-12"
@@ -627,6 +627,13 @@ def test_lock_only_show_dir_is_not_a_show(tmp_path, capsys):
     assert f"rekeyed: {SLUG} (1 titles, 0 breaks)" in out.splitlines()
     assert husk.name not in out
     assert sorted(p.name for p in husk.iterdir()) == [".lock"]
+    # --restore does not refuse on it either, and leaves it alone.
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 0, out
+    assert husk.name not in out
+    assert sorted(p.name for p in husk.iterdir()) == [".lock"]
+    assert classify(json.loads((root / "shows" / SLUG / "overrides.json").read_text())) \
+        == "legacy"
 
 
 def test_a_show_dir_holding_only_audio_fails_the_snapshot(tmp_path, capsys):
@@ -1354,15 +1361,6 @@ def test_interrupted_after_the_record_continues(tmp_path, capsys, monkeypatch):
     assert _record(root)["shows"] == [S1, S2, S3]
 
 
-def _hand_restore(root: Path, snap: Path):
-    """Stand-in for Task 20's `--restore` (not built yet): copy every snapshotted file
-    back and rename the record as a successful restore does."""
-    m = json.loads((snap / "manifest.json").read_text())
-    for key in m["files"]:
-        (root / "shows" / key).write_bytes((snap / "shows" / key).read_bytes())
-    (root / rk.APPLIED).rename(root / "rekey-applied.restored-20261024T013000Z.json")
-
-
 def test_apply_after_a_restore_starts_a_fresh_record(tmp_path, capsys):
     root = tmp_path / "lib"
     ws1, ws2, ws3 = _three(root)
@@ -1370,7 +1368,9 @@ def test_apply_after_a_restore_starts_a_fresh_record(tmp_path, capsys):
     rc, out = _apply(root, capsys)
     assert rc == 0, out
     assert _record(root)["shows"] == [S1, S2, S3]
-    _hand_restore(root, first)
+    rc, out = _restore(root, first, capsys)
+    assert rc == 0, out
+    assert not (root / rk.APPLIED).exists()
     assert classify(json.loads(ws1.overrides.read_text())) == "legacy"
     ws2.overrides.unlink()                    # repaired with v2.17.0: no overrides now
     ws3.overrides.unlink()
@@ -1475,3 +1475,349 @@ def test_a_migrated_show_apply_did_not_write_is_not_recorded(tmp_path, capsys, m
     assert "recorded:" not in out
     assert _record(root)["shows"] == [S2, S3]
     assert ws1.overrides.read_bytes() == edited_bytes
+
+
+# --- --restore (plan Task 20; spec 4.3 "`--restore <snapshot-dir>`", "Why audio comes
+# first", "What restore does not revert", "Restore runbook") ---
+
+import os
+import re
+
+NOT_REVERTED = "not reverted: the ledger, runs/, the cache, reapply batch progress"
+NEXT = ("next: reinstall v2.17.0 from the release; check llama --version reports 2.17.0; "
+        "restart the sweep loop")
+RESTORED_RECORD = re.compile(r"rekey-applied\.restored-\d{8}T\d{6}Z\.json")
+
+
+def _restore(root: Path, snap: Path, capsys, station: Path | None = None) -> tuple[int, str]:
+    cfg = _config(root)
+    if station is not None:
+        cfg.write_text(f'root = "{root}"\ndelivery_path = "{station}"\n\n'
+                       f'[jerrybase]\nenabled = false\n')
+    rc = rk.main(["--config", str(cfg), "--restore", str(snap)])
+    return rc, capsys.readouterr().out
+
+
+def _outside_audio(ws: ShowWorkspace) -> dict[str, bytes]:
+    return {r: b for r, b in tree_bytes(ws.dir).items() if not r.startswith("package/audio/")}
+
+
+def _audio(ws: ShowWorkspace) -> list[str]:
+    d = ws.package_dir / "audio"
+    return sorted(p.name for p in d.iterdir()) if d.exists() else []
+
+
+def _package(ws: ShowWorkspace, manifest: str, audio: dict[str, bytes]):
+    (ws.package_dir / "audio").mkdir(parents=True, exist_ok=True)
+    (ws.package_dir / "manifest.json").write_text(manifest)
+    for name, data in audio.items():
+        (ws.package_dir / "audio" / name).write_bytes(data)
+
+
+def _restored_records(root: Path) -> list[Path]:
+    return sorted(p for p in root.iterdir() if RESTORED_RECORD.fullmatch(p.name))
+
+
+def test_restore_refuses_a_hash_mismatch_and_writes_nothing(tmp_path, capsys):
+    root = tmp_path / "lib"
+    _three(root)
+    snap = _snapped(root, capsys)
+    assert _apply(root, capsys)[0] == 0
+    victim = snap / "shows" / S2 / "show.json"
+    victim.write_bytes(victim.read_bytes() + b" ")
+    before = tree_bytes(root)
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 1
+    (line,) = [l for l in out.splitlines() if l.startswith("refusing to restore: ")]
+    assert f"{S2}/show.json" in line
+    assert "restored:" not in out
+    assert tree_bytes(root) == before
+    assert (root / rk.APPLIED).exists()
+    # No manifest at all: no snapshot.
+    (snap / "manifest.json").unlink()
+    before = tree_bytes(root)
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 1 and "no manifest.json" in out
+    assert tree_bytes(root) == before
+
+
+def test_restore_refuses_while_a_show_created_after_the_snapshot_exists(tmp_path, capsys):
+    root = tmp_path / "lib"
+    _three(root)
+    snap = _snapped(root, capsys)
+    assert _apply(root, capsys)[0] == 0
+    _show(root, date=D4, titles={1: "Dew"})
+    before = tree_bytes(root)
+    rc, out = _restore(root, snap, capsys)
+    lines = out.splitlines()
+    assert rc == 1
+    i = lines.index(f"created after the snapshot: {S4}")
+    assert lines[i + 1] == (f"  route: llama rm {S4} (add --forget if a later get should "
+                            f"re-fetch it)")
+    assert any(l.startswith("refusing to restore: ") for l in lines)
+    assert not any(l.startswith(f"created after the snapshot: {s}")
+                   for l in lines for s in (S1, S2, S3))
+    assert "restored:" not in out
+    assert tree_bytes(root) == before
+
+
+def test_restore_refuses_while_llama_runs(tmp_path, capsys, monkeypatch):
+    root = tmp_path / "lib"
+    _three(root)
+    snap = _snapped(root, capsys)
+    assert _apply(root, capsys)[0] == 0
+    line = "601 1 /bin/zsh -c while true; do llama run resume --all; sleep 600; done"
+    monkeypatch.setattr(rk, "_ps_lines", lambda: [line])
+    before = tree_bytes(root)
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 1
+    assert "llama processes running:" in out.splitlines()
+    assert f"  {line}" in out.splitlines()
+    assert "restored:" not in out
+    assert tree_bytes(root) == before
+
+    def boom():
+        raise OSError("no ps")
+    monkeypatch.setattr(rk, "_ps_lines", boom)
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 1
+    assert "process check failed: OSError: no ps" in out
+    assert tree_bytes(root) == before
+
+
+def test_a_held_migration_lock_refuses_the_restore(tmp_path, capsys):
+    root = tmp_path / "lib"
+    _three(root)
+    snap = _snapped(root, capsys)
+    assert _apply(root, capsys)[0] == 0
+    before = tree_bytes(root)
+    with file_lock(root / rk.LOCK):
+        rc, out = _restore(root, snap, capsys)
+    assert rc == 1
+    assert rk.LOCK in out and "restored:" not in out
+    assert tree_bytes(root) == before
+
+
+def test_restore_puts_every_file_back_byte_equal_and_deletes_files_written_since(tmp_path,
+                                                                                capsys):
+    root = tmp_path / "lib"
+    ws = _full_show(root)                 # its .audio-aside/ predates the snapshot
+    other = _show(root, date=D2, titles={2: "Cat"})
+    other.notes.unlink(missing_ok=True)   # so its notes.json below is written since
+    ws_notes = ws.notes.read_bytes()
+    snap = _snapped(root, capsys)
+    assert _apply(root, capsys)[0] == 0
+    assert classify(json.loads(ws.overrides.read_text())) == "filename"
+    _edit_show(ws, lambda d: d.update(review_flags=["something new"]))
+    ws.notes.write_text('{"notes": ["new"]}')
+    ws.briefing_json.write_text("{}")
+    (ws.dir / ".txn" / "package").mkdir(parents=True)
+    (ws.dir / ".txn" / "show.json").write_text("{}")
+    (ws.dir / ".txn" / "package" / "manifest.json").write_text("{}")
+    (ws.package_dir / "extra").mkdir()
+    (ws.package_dir / "extra" / "x.txt").write_text("x")
+    other.notes.write_text("{}")
+    assert (ws.dir / ".audio-aside" / F[1]).exists()
+    lock_before = ws.lock.read_bytes()
+    rc, out = _restore(root, snap, capsys)
+    lines = out.splitlines()
+    assert rc == 0, out
+    assert f"restored: {SLUG}" in lines and f"restored: {S2}" in lines
+    for w in (ws, other):
+        assert _outside_audio(w) == tree_bytes(snap / "shows" / w.dir.name)
+    assert classify(json.loads(ws.overrides.read_text())) == "legacy"
+    assert not (ws.dir / ".txn").exists()
+    assert not (ws.dir / ".audio-aside").exists()
+    assert not (ws.package_dir / "extra").exists()
+    assert ws.notes.read_bytes() == ws_notes and not other.notes.exists()
+    assert ws.lock.exists() and ws.lock.read_bytes() == lock_before
+    assert _audio(ws) == [F[0]]          # package/manifest.json unchanged: audio kept
+    assert not [p for p in root.rglob("*.tmp")]
+    assert lines[-1] == NEXT
+    assert NOT_REVERTED in lines
+
+
+def test_restore_empties_audio_unless_the_manifest_is_byte_equal(tmp_path, capsys):
+    root = tmp_path / "lib"
+    same = _show(root, date=D1, titles={1: "Dew"})
+    repack = _show(root, date=D2, titles={2: "Cat"})
+    fresh = _show(root, date=D3, titles={3: "Dew"})
+    _package(same, '{"tracks": ["a"]}', {F[0]: b"old a"})
+    _package(repack, '{"tracks": ["b"]}', {F[0]: b"old b"})
+    snap = _snapped(root, capsys)
+    assert _apply(root, capsys)[0] == 0
+    _package(repack, '{"tracks": ["b", "new"]}', {F[0]: b"new b0", F[1]: b"new b1"})
+    _package(fresh, '{"tracks": ["c"]}', {F[0]: b"new c"})
+    rc, out = _restore(root, snap, capsys)
+    lines = out.splitlines()
+    assert rc == 0, out
+    assert _audio(same) == [F[0]]
+    assert (same.package_dir / "audio" / F[0]).read_bytes() == b"old a"
+    assert f"restored: {S1}" in lines
+    assert _audio(repack) == []
+    assert (repack.package_dir / "manifest.json").read_text() == '{"tracks": ["b"]}'
+    assert f"restored: {S2} (audio emptied)" in lines
+    assert _audio(fresh) == []
+    assert not (fresh.package_dir / "manifest.json").exists()
+    assert f"restored: {S3} (audio emptied)" in lines
+    for w in (same, repack, fresh):
+        assert _outside_audio(w) == tree_bytes(snap / "shows" / w.dir.name)
+
+
+@pytest.mark.parametrize("fail_at", ["overrides.json", "show.json"])
+def test_crash_after_emptying_then_rerun_leaves_no_audio_beside_the_restored_manifest(
+        tmp_path, capsys, monkeypatch, fail_at):
+    """A crash in the copy step, before (`overrides.json`) or after (`show.json`) the
+    package manifest is copied back: the audio was emptied first, so a re-run, which
+    may then find the manifests equal, never keeps the new-numbered audio."""
+    root = tmp_path / "lib"
+    ws = _show(root, date=D1, titles={1: "Dew"})
+    _show(root, date=D2, titles={2: "Cat"})
+    _package(ws, '{"tracks": ["old"]}', {F[0]: b"old"})
+    snap = _snapped(root, capsys)
+    assert _apply(root, capsys)[0] == 0
+    _package(ws, '{"tracks": ["new"]}', {F[0]: b"new 0", F[1]: b"new 1"})
+    _edit_show(ws, lambda d: d.update(review_flags=["re-gathered"]))
+    real = rk._durable_write
+
+    def crash(path, data):
+        if path.parent == ws.dir and path.name == fail_at:
+            raise RuntimeError("power cut")
+        return real(path, data)
+    monkeypatch.setattr(rk, "_durable_write", crash)
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 1 and "power cut" in out
+    assert _audio(ws) == []
+    want_manifest = fail_at == "show.json"
+    assert ((ws.package_dir / "manifest.json").read_text() == '{"tracks": ["old"]}') \
+        == want_manifest
+    assert (root / rk.APPLIED).exists()
+    monkeypatch.setattr(rk, "_durable_write", real)
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 0, out
+    assert _audio(ws) == []
+    assert (ws.package_dir / "manifest.json").read_text() == '{"tracks": ["old"]}'
+    assert _outside_audio(ws) == tree_bytes(snap / "shows" / S1)
+
+
+def test_restore_lists_what_it_does_not_revert(tmp_path, capsys):
+    root = tmp_path / "lib"
+    station = tmp_path / "station"
+    _three(root)
+    (root / "reapply" / "oldbatch").mkdir(parents=True)
+    (root / "runs" / "old-run").mkdir(parents=True)
+    for slug in (S1, S2, S3):
+        (station / slug).mkdir(parents=True)
+        (station / slug / "manifest.json").write_text('{"dj_audio": null}')
+    (station / S2 / "song.mp3").write_bytes(b"audio")
+    time.sleep(0.05)
+    snap = _snapped(root, capsys)
+    time.sleep(0.05)
+    assert _apply(root, capsys)[0] == 0
+    (root / "reapply" / "newbatch").mkdir()
+    (root / "reapply" / "newbatch" / "progress.jsonl").write_text("")
+    (root / "runs" / "new-run").mkdir()
+    (station / S2 / "manifest.json").write_text('{"dj_audio": {"presenter": "phil"}}')
+    (station / S3 / "manifest.json").write_text('{"dj_audio": null}')
+    (station / "gratefuldead-1973-06-14").mkdir()
+    (station / "gratefuldead-1973-06-14" / "manifest.json").write_text("{")
+    station_before = _tree_state(station)
+    _set_writable(station, False)
+    try:
+        rc, out = _restore(root, snap, capsys, station=station)
+    finally:
+        _set_writable(station, True)
+    lines = out.splitlines()
+    assert rc == 0, out
+    assert _tree_state(station) == station_before
+    assert NOT_REVERTED in lines
+    assert f"  {root / 'reapply' / 'newbatch'}" in lines
+    assert f"  {root / 'runs' / 'new-run'}" in lines
+    assert f"  {station / S2} (voiced)" in lines
+    assert f"  {station / S3}" in lines
+    assert f"  {station / 'gratefuldead-1973-06-14'} (unreadable)" in lines
+    for gone in ("oldbatch", "old-run", str(station / S1)):
+        assert not any(l.strip().startswith(str(root)) and l.endswith(gone) for l in lines)
+        assert not any(l.strip() == gone or l.strip().startswith(gone + " ") for l in lines)
+    assert (root / "reapply" / "newbatch" / "progress.jsonl").exists()   # listed, not removed
+    assert (root / "runs" / "new-run").is_dir()
+    assert lines[-1] == NEXT
+    # The lists follow the restore and precede the next steps.
+    assert lines.index(NOT_REVERTED) > max(i for i, l in enumerate(lines)
+                                           if l.startswith("restored: "))
+
+
+def test_restore_without_a_delivery_path_skips_the_station_list(tmp_path, capsys):
+    root = tmp_path / "lib"
+    _three(root)
+    snap = _snapped(root, capsys)
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 0, out
+    assert any("no delivery_path" in l for l in out.splitlines())
+
+
+def test_restore_recreates_a_show_removed_since(tmp_path, capsys):
+    root = tmp_path / "lib"
+    ws1, ws2, ws3 = _three(root)
+    snap = _snapped(root, capsys)
+    assert _apply(root, capsys)[0] == 0
+    shutil.rmtree(ws2.dir)
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 0, out
+    assert f"restored: {S2}" in out.splitlines()     # it had no audio to empty
+    assert _outside_audio(ws2) == tree_bytes(snap / "shows" / S2)
+    assert classify(json.loads(ws2.overrides.read_text())) == "legacy"
+
+
+def test_restore_renames_the_applied_record(tmp_path, capsys, monkeypatch):
+    root = tmp_path / "lib"
+    _three(root)
+    snap = _snapped(root, capsys)
+    assert _apply(root, capsys)[0] == 0
+    rec = (root / rk.APPLIED).read_bytes()
+    # A failed restore leaves the record in place.
+    real = rk._durable_write
+
+    def crash(path, data):
+        if path.parent.name == S3:
+            raise OSError("disk full")
+        return real(path, data)
+    monkeypatch.setattr(rk, "_durable_write", crash)
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 1 and "disk full" in out
+    assert f"restored: {S1}" in out.splitlines()
+    assert (root / rk.APPLIED).read_bytes() == rec
+    assert _restored_records(root) == []
+    assert not out.splitlines()[-1] == NEXT
+    monkeypatch.setattr(rk, "_durable_write", real)
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 0, out
+    assert not (root / rk.APPLIED).exists()
+    (renamed,) = _restored_records(root)
+    assert renamed.read_bytes() == rec
+    assert f"renamed: {root / rk.APPLIED} -> {renamed}" in out.splitlines()
+    # A restore with no record renames nothing.
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 0, out
+    assert _restored_records(root) == [renamed]
+    assert "renamed:" not in out
+
+
+def test_restore_never_follows_a_symlink_out_of_the_show_dir(tmp_path, capsys):
+    """A symlinked package/audio/ or stray directory is removed as a link: nothing
+    outside the show dir is deleted."""
+    root = tmp_path / "lib"
+    ws = _show(root, date=D1, titles={1: "Dew"})
+    snap = _snapped(root, capsys)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "keep.mp3").write_bytes(b"keep")
+    ws.package_dir.mkdir()
+    (ws.package_dir / "audio").symlink_to(outside)
+    (ws.dir / ".txn").symlink_to(outside)
+    rc, out = _restore(root, snap, capsys)
+    assert rc == 0, out
+    assert (outside / "keep.mp3").read_bytes() == b"keep"
+    assert not os.path.lexists(ws.dir / ".txn")
+    assert not os.path.lexists(ws.package_dir / "audio")
+    assert _outside_audio(ws) == tree_bytes(snap / "shows" / S1)

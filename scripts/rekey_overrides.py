@@ -31,6 +31,16 @@ migration lock, unless every show passes its checks and every legacy show's
 is then re-checked under its lock, rewritten on the raw JSON (`override_keys.rekey_raw`)
 durably, and recorded in `<root>/rekey-applied.json`. A refusal there stops the run; a
 re-run continues with the remaining legacy shows.
+
+`--restore <snapshot-dir>` is the wholesale rollback (no version gate). It refuses, writing
+nothing, while llama runs, when the snapshot does not verify, or while a show directory the
+snapshot does not record exists. Then, under the migration lock and each recorded show's
+lock: it empties `package/audio/` unless the snapshot's `package/manifest.json` is
+byte-equal to the current one (audio first, so a crash never leaves new-numbered audio
+beside a restored manifest), copies every snapshotted file back durably, and deletes every
+other file outside `package/audio/` (the `.lock` aside). It lists what it does not revert
+(reapply batches, runs, station destinations re-delivered since; the station is only
+read), and renames `rekey-applied.json` once every show is restored.
 """
 from __future__ import annotations
 
@@ -41,6 +51,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -1133,6 +1144,310 @@ def _apply_locked(root: Path, ia, want, snap: Path, manifest: dict, record: dict
     return 0
 
 
+# --- --restore (spec 4.3 "`--restore <snapshot-dir>`", "Why audio comes first", "What
+# restore does not revert", "Restore runbook") ---
+
+UNCOVERED_ROUTE = "llama rm {slug} (add --forget if a later get should re-fetch it)"
+NOT_REVERTED = "not reverted: the ledger, runs/, the cache, reapply batch progress"
+RESTORE_NEXT = ("reinstall v2.17.0 from the release; check llama --version reports 2.17.0; "
+                "restart the sweep loop")
+_PKG_MANIFEST = "package/manifest.json"
+_AUDIO = "package/audio"
+
+
+def _restore_record_name(now: datetime) -> str:
+    return f"rekey-applied.restored-{now.astimezone(timezone.utc).strftime(_STAMP)}.json"
+
+
+def _unlink_entry(path: Path) -> None:
+    """Remove `path` without following a symlink: a real directory is removed with its
+    contents (rmtree never follows a link inside), anything else is unlinked."""
+    st = os.lstat(path)
+    if stat.S_ISDIR(st.st_mode):
+        shutil.rmtree(path)
+    else:
+        os.unlink(path)
+
+
+def _empty_audio(d: Path) -> bool:
+    """Step 1: delete everything in `d/package/audio/`, flushed before any metadata is
+    copied back. A `package/audio` (or `package`) that is not a real directory is
+    removed as a link, never followed. True when anything was removed."""
+    pkg, audio = d / "package", d / _AUDIO
+    if os.path.lexists(pkg) and not stat.S_ISDIR(os.lstat(pkg).st_mode):
+        os.unlink(pkg)
+        _sync_dir(d)
+        return True
+    if not os.path.lexists(audio):
+        return False
+    if not stat.S_ISDIR(os.lstat(audio).st_mode):
+        os.unlink(audio)
+        _sync_dir(pkg)
+        return True
+    with os.scandir(audio) as it:
+        entries = [Path(e.path) for e in it]
+    for p in entries:
+        _unlink_entry(p)
+    if entries:
+        _sync_dir(audio)
+    return bool(entries)
+
+
+def _check_inside(d: Path, rel: str) -> Path:
+    """`d/rel`, refusing (`OSError`) when any directory on the way is not a real
+    directory: a copy must never be written through a link out of the show dir."""
+    p = d
+    for part in PurePosixPath(rel).parts[:-1]:
+        p = p / part
+        if os.path.lexists(p) and not stat.S_ISDIR(os.lstat(p).st_mode):
+            raise OSError(f"{p}: not a directory; repair it by hand")
+    return d / rel
+
+
+def _copy_back(d: Path, snap_show: Path, wanted: dict[str, str]) -> None:
+    """Step 2: every snapshotted file back, each verified against the manifest's sha256
+    before it is written (temp in its directory, flushed, renamed). A file already
+    byte-equal to its copy is left as it is."""
+    for rel in sorted(wanted):
+        data = (snap_show / rel).read_bytes()
+        if _sha(data) != wanted[rel]:
+            raise OSError(f"{snap_show.name}/{rel}: the snapshot copy no longer matches its "
+                          f"manifest")
+        dst = _check_inside(d, rel)
+        if os.path.lexists(dst) and stat.S_ISDIR(os.lstat(dst).st_mode):
+            raise OSError(f"{dst}: a directory where the snapshot holds a file; repair it "
+                          f"by hand")
+        if (os.path.lexists(dst) and not os.path.islink(dst)
+                and dst.is_file() and dst.read_bytes() == data):
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        _durable_write(dst, data)
+
+
+def _delete_unlisted(d: Path, wanted: dict[str, str]) -> None:
+    """Step 3: delete every entry under `d` outside `package/audio/` that the snapshot
+    does not list (the top-level `.lock` aside), then the directories left empty.
+    Nothing is followed through a symlink."""
+    touched: set[Path] = set()
+
+    def walk(p: Path, rel: str) -> bool:
+        """True when `p` (a real directory) is left empty."""
+        with os.scandir(p) as it:
+            entries = sorted(it, key=lambda e: e.name)
+        left = False
+        for e in entries:
+            r = f"{rel}/{e.name}" if rel else e.name
+            if r == ".lock" or (r == _AUDIO and e.is_dir(follow_symlinks=False)):
+                left = True                 # kept: the lock, and the audio (step 1's)
+                continue
+            if e.is_dir(follow_symlinks=False):
+                if walk(Path(e.path), r):
+                    os.rmdir(e.path)
+                    touched.add(p)
+                else:
+                    left = True
+            elif r in wanted:
+                left = True
+            else:
+                os.unlink(e.path)
+                touched.add(p)
+        return not left
+    walk(d, "")
+    for p in sorted(touched, key=lambda p: len(p.parts), reverse=True):
+        if os.path.isdir(p):
+            _sync_dir(p)
+
+
+def _restore_show(root: Path, snap: Path, slug: str, wanted: dict[str, str]) -> bool:
+    """Steps 1-3 for one recorded slug, under its show lock (a show directory removed
+    since is re-created). True when step 1 removed any audio."""
+    d = root / "shows" / slug
+    if os.path.lexists(d) and not stat.S_ISDIR(os.lstat(d).st_mode):
+        raise OSError(f"{d}: not a directory; repair it by hand")
+    snap_show = snap / "shows" / slug
+    with file_lock(ShowWorkspace(d).lock):
+        # 1. Audio first, unless the snapshot holds a byte-equal package manifest.
+        cur = d / _PKG_MANIFEST
+        keep = False
+        if _PKG_MANIFEST in wanted and os.path.lexists(cur) and not os.path.islink(cur) \
+                and cur.is_file():
+            snap_bytes = (snap_show / _PKG_MANIFEST).read_bytes()
+            keep = (_sha(snap_bytes) == wanted[_PKG_MANIFEST]
+                    and cur.read_bytes() == snap_bytes)
+        emptied = False if keep else _empty_audio(d)
+        # 2. Copy every snapshotted file back.
+        _copy_back(d, snap_show, wanted)
+        # 3. Delete what was written since.
+        _delete_unlisted(d, wanted)
+    return emptied
+
+
+def _after(path: Path, since: float) -> bool:
+    st = os.stat(path)
+    return getattr(st, "st_birthtime", st.st_mtime) > since
+
+
+def _created_since(parent: Path, since: float) -> list[Path]:
+    if not parent.is_dir():
+        return []
+    return sorted(p for p in parent.iterdir()
+                  if p.is_dir() and not p.is_symlink() and _after(p, since))
+
+
+def _station_since(delivery: Path, since: float) -> list[str]:
+    """`<delivery>/<slug>` for every destination whose manifest.json is newer than
+    `since`, marked `(voiced)` or `(unreadable)`. Read-only: stat and read, nothing
+    else; dot-prefixed entries (llama's swap siblings) are not destinations."""
+    out = []
+    for dest in sorted(p for p in delivery.iterdir()
+                       if not p.name.startswith(".") and p.is_dir()):
+        m = dest / "manifest.json"
+        try:
+            st = os.stat(m)
+        except FileNotFoundError:
+            continue
+        except OSError:
+            out.append(f"{dest} (unreadable)")
+            continue
+        if st.st_mtime <= since:
+            continue
+        try:
+            data = json.loads(m.read_bytes())
+            voiced = data.get("dj_audio") is not None
+        except Exception:
+            out.append(f"{dest} (unreadable)")
+            continue
+        out.append(f"{dest} (voiced)" if voiced else str(dest))
+    return out
+
+
+def _print_not_reverted(root: Path, delivery: Path | None, since: float, echo) -> None:
+    echo(NOT_REVERTED)
+    for parent, header in (
+            (root / "reapply", "reapply batches created since the snapshot (remove each by "
+                               "hand, or re-running its list skips shows):"),
+            (root / "runs", "runs created since the snapshot (the operator may remove "
+                            "each):")):
+        echo(header)
+        try:
+            found = _created_since(parent, since)
+        except OSError as exc:
+            echo(f"  warning: cannot list {parent}: {exc}")
+            continue
+        for p in found:
+            echo(f"  {p}")
+        if not found:
+            echo("  (none)")
+    if delivery is None:
+        echo("station destinations: no delivery_path configured; not listed")
+        return
+    echo("station destinations re-delivered since the snapshot (each keeps its new package "
+         "until it is re-delivered from the restored library):")
+    try:
+        found = _station_since(delivery, since)
+    except OSError as exc:
+        echo(f"  warning: cannot list {delivery}: {exc}")
+        return
+    for line in found:
+        echo(f"  {line}")
+    if not found:
+        echo("  (none)")
+
+
+def _rename_record(root: Path, echo) -> None:
+    """`rekey-applied.json`, if present, renamed `rekey-applied.restored-<UTC>.json`
+    and the root flushed. Never over an existing file (`OSError`)."""
+    src = root / APPLIED
+    if not os.path.lexists(src):
+        return
+    dst = root / _restore_record_name(datetime.now(timezone.utc))
+    if os.path.lexists(dst):
+        raise OSError(f"{dst} exists; re-run --restore in a second")
+    os.rename(src, dst)
+    _sync_dir(root)
+    echo(f"renamed: {src} -> {dst}")
+
+
+def restore(root: Path, snap: Path, *, delivery: Path | None, echo) -> int:
+    """Roll the library's metadata back to snapshot `snap` (spec 4.3 "`--restore`").
+    Gates, each refusing with nothing written: the process check, `verify_snapshot`, no
+    show directory outside the snapshot's slugs (a `.lock`-only husk aside). Then, under
+    the migration lock, each recorded slug, sorted, under its show lock: audio first,
+    then the copies back, then the deletions. Then what restore does not revert, the
+    record's rename (only once every slug is restored) and the runbook's next steps.
+    0 on success, else 1."""
+    try:
+        _process_gate(echo)
+        problems = verify_snapshot(snap)
+        if problems:
+            raise _Refused(f"refusing to restore: {snap}: " + "; ".join(problems))
+        manifest = json.loads((snap / MANIFEST).read_bytes())
+        _uncovered_gate(root, snap, manifest, echo)
+    except _Refused as exc:
+        echo(str(exc))
+        return 1
+    with contextlib.ExitStack() as stack:
+        try:
+            stack.enter_context(file_lock(root / LOCK, blocking=False))
+        except Locked:
+            echo(f"refusing to restore: {root / LOCK} is held by another rekey_overrides run")
+            return 1
+        try:
+            _uncovered_gate(root, snap, manifest, echo)     # again, under the lock
+        except _Refused as exc:
+            echo(str(exc))
+            return 1
+        return _restore_locked(root, snap, manifest, delivery=delivery, echo=echo)
+
+
+def _uncovered_gate(root: Path, snap: Path, manifest: dict, echo) -> None:
+    recorded = set(manifest["slugs"])
+    try:
+        extra = [d.name for d in library_shows(root) if d.name not in recorded]
+    except OSError as exc:
+        raise _Refused(f"refusing to restore: cannot list {root / 'shows'}: {exc}") from exc
+    if extra:
+        for slug in extra:
+            echo(f"created after the snapshot: {slug}")
+            echo(f"  route: {UNCOVERED_ROUTE.format(slug=slug)}")
+        raise _Refused(f"refusing to restore: {len(extra)} show(s) above were created after "
+                       f"{snap.name}; remove each first (nothing written)")
+
+
+def _restore_locked(root: Path, snap: Path, manifest: dict, *, delivery: Path | None,
+                    echo) -> int:
+    by_slug: dict[str, dict[str, str]] = {s: {} for s in manifest["slugs"]}
+    for key, sha in manifest["files"].items():
+        slug, rel = key.split("/", 1)
+        by_slug[slug][rel] = sha
+    slugs = sorted(by_slug)
+    emptied = 0
+    for i, slug in enumerate(slugs):
+        try:
+            if _restore_show(root, snap, slug, by_slug[slug]):
+                emptied += 1
+                echo(f"restored: {slug} (audio emptied)")
+            else:
+                echo(f"restored: {slug}")
+        except Exception as exc:
+            echo(f"error: {slug}: {type(exc).__name__}: {exc}")
+            echo(f"stopped: {len(slugs) - i - 1} show(s) after it not reached; re-run "
+                 f"--restore {snap} to finish ({APPLIED} is renamed only once every show "
+                 f"is restored)")
+            return 1
+    echo(f"{len(slugs)} restored from {snap.name}, {emptied} with package/audio/ emptied "
+         f"(v2.17.0's llama redo <show> --from package re-downloads it)")
+    since = datetime.fromisoformat(manifest["created_at"]).timestamp()
+    _print_not_reverted(root, delivery, since, echo)
+    try:
+        _rename_record(root, echo)
+    except OSError as exc:
+        echo(f"error: renaming {root / APPLIED}: {exc}")
+        return 1
+    echo(f"next: {RESTORE_NEXT}")
+    return 0
+
+
 # --- main ---
 
 def _check_identity() -> None:
@@ -1203,6 +1518,8 @@ def main(argv: list[str] | None = None) -> int:
                       help="copy every show's metadata into <root>/rekey-snapshot-<UTC>/")
     mode.add_argument("--apply", action="store_true",
                       help="re-key every legacy show, checked against the newest snapshot")
+    mode.add_argument("--restore", type=Path, metavar="SNAPSHOT_DIR", default=None,
+                      help="roll every show's metadata back to that snapshot")
     args = ap.parse_args(argv)
     try:
         _check_identity()
@@ -1212,6 +1529,8 @@ def main(argv: list[str] | None = None) -> int:
     except _Refused as exc:
         print(str(exc), file=sys.stderr)
         return 1
+    if args.restore is not None:
+        return restore(config.root, args.restore, delivery=config.delivery_path, echo=print)
     if args.snapshot:
         try:
             snapshot(config.root, echo=print)
