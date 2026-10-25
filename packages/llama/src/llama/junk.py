@@ -247,24 +247,18 @@ def _apply_short_rule(
     # then takes the position of its listing, keyed by `_listing_key` (the
     # same key the dedupe computes inline).
     #
-    # Fix wave I-2: the pool is then collapsed to one derivative per original
-    # (`_dedupe_derivatives`), as filter_files collapses the final kept list
-    # before deriving its order, and for the same reason: on a doubled
-    # X.mp3/X_vbr.mp3 tape the shared track tags would otherwise force filename
-    # order here while the final list is in track-tag order. A dropped copy
-    # takes its kept copy's position.
+    # Both copies of a doubled derivative (X.mp3 / X_vbr.mp3) stay in this pool:
+    # filter_files decides its final order as if a copy `_dedupe_derivatives`
+    # drops were still there (fix wave I-2), so this order and that one agree.
     base = kept + tagged_keep
     pool = sorted(base + [f for f, _, _ in untagged], key=lambda f: f["name"])
     listings, _ = _dedupe_duplicate_listings(pool)
-    listings, _, merged = _dedupe_derivatives(listings)
     nums = [_track_number(f, orig_tracks) for f in listings]
     if listings and all(n is not None for n in nums) and len(set(nums)) == len(nums):
         order = [f for _, f in sorted(zip(nums, listings), key=lambda p: p[0])]
     else:
         order = listings
     pos = {_listing_key(f): i for i, f in enumerate(order)}
-    for dropped, copy in merged:
-        pos[_listing_key(dropped)] = pos[_listing_key(copy)]
     base_pos = [pos[_listing_key(f)] for f in base]
     lo, hi = (min(base_pos), max(base_pos)) if base_pos else (None, None)
     untagged_keep = [
@@ -389,11 +383,10 @@ def _dedupe_duplicate_listings(kept: list[dict]) -> tuple[list[dict], list[dict]
     return [winners[k] for k in order], excluded
 
 
-
 # --- Fix wave I-2: at most one derivative per original -----------------------
 # Some items carry two VBR MP3 derivatives of every original, `X.mp3` and
-# `X_vbr.mp3` (archive.org re-derived the item and kept the older copy). They
-# have different basenames, so `_dedupe_duplicate_listings` keeps both, and the
+# `X_vbr.mp3` (the plain one is the newer derivation; see below). They have
+# different basenames, so `_dedupe_duplicate_listings` keeps both, and the
 # show plays every song twice. Before piece 4 the short arm at least dropped both
 # copies of a short piece, so a hand repair (`fix --exclude` of every long
 # `_vbr`) left a correct show; the short-keep rule re-admitted both copies of
@@ -418,13 +411,21 @@ def _derivative_preference(f: dict) -> tuple[bool, str]:
     return (vbr != PREFER_VBR_DERIVATIVE, f["name"])
 
 
-def _dedupe_derivatives(kept: list[dict]) -> tuple[list[dict], list[dict], list[tuple[dict, dict]]]:
+def _dedupe_derivatives(kept: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
     """Keep at most one derivative per `original` (I-2). A file that is not a
     derivative, or has no `original`, is never a duplicate. Returns (kept in
     input order, an `excluded` entry per dropped copy with reason
-    DUPLICATE_DERIVATIVE_REASON, and (dropped, kept copy) pairs, which the
-    short-keep rule's play order reads to place a dropped copy at its kept
-    copy's position). Runs after `_dedupe_duplicate_listings`, unchanged."""
+    DUPLICATE_DERIVATIVE_REASON, the dropped files themselves). Runs after
+    `_dedupe_duplicate_listings`, which is unchanged.
+
+    The step only DROPS: filter_files decides play order as if the dropped
+    copies were still there. A dropped copy shares its kept copy's original and
+    so its track tag, which makes the tags non-unique and the order filename
+    order, as before the step. Measured (FW1 M2): letting the dedupe unmask the
+    tags reorders exactly one library show, wrongly - jrad2023-05-12, whose
+    renamed originals carry stale tags (`16.5 Morning Dew` tagged 18, after the
+    encore `17 Casey Jones`) and whose stale `14 The Other One.mp3` derivative
+    was the duplicate that kept it in its (correct) filename order."""
     groups: dict[str, list[dict]] = {}
     for f in kept:
         if f.get("source") == "derivative" and f.get("original"):
@@ -433,7 +434,7 @@ def _dedupe_derivatives(kept: list[dict]) -> tuple[list[dict], list[dict], list[
               for orig, copies in groups.items() if len(copies) > 1}
     out: list[dict] = []
     excluded: list[dict] = []
-    pairs: list[tuple[dict, dict]] = []
+    dropped: list[dict] = []
     for f in kept:
         w = winner.get(f.get("original")) if f.get("source") == "derivative" else None
         if w is None or w is f:
@@ -441,8 +442,8 @@ def _dedupe_derivatives(kept: list[dict]) -> tuple[list[dict], list[dict], list[
             continue
         excluded.append({"filename": f["name"], "reasons": [DUPLICATE_DERIVATIVE_REASON],
                          "duration_sec": length_seconds(f.get("length"))})
-        pairs.append((f, w))
-    return out, excluded, pairs
+        dropped.append(f)
+    return out, excluded, dropped
 
 
 def _kept_running_time(kept: list[dict]) -> float:
@@ -451,16 +452,17 @@ def _kept_running_time(kept: list[dict]) -> float:
 
 def _choose_format(
     files: list[dict], wanted: tuple[str, ...], orig_tracks: dict[str, object],
-) -> tuple[str, list[dict], list[dict], set[str]]:
+) -> tuple[str, list[dict], list[dict], set[str], list[dict]]:
     """Fix wave I-1 (operator ruling 2026-10-25), the `short_keep=True` path:
     among `wanted`, the format whose KEPT files have the greatest total running
     time wins; `wanted`'s order breaks ties only. "Kept" is after the junk arms,
     the short-keep rule and both dedupes (a format listed twice must not win on
     its doubled time). When no format keeps anything, the first format with any
     audio is returned, so `excluded` explains (unchanged). Returns (format,
-    kept, excluded incl. both dedupes' drops, names the rule kept)."""
-    fallback: tuple[str, list[dict], list[dict], set[str]] | None = None
-    best: tuple[float, tuple[str, list[dict], list[dict], set[str]]] | None = None
+    kept, excluded incl. both dedupes' drops, names the rule kept, the files
+    the derivative dedupe dropped)."""
+    fallback: tuple[str, list[dict], list[dict], set[str], list[dict]] | None = None
+    best: tuple[float, tuple[str, list[dict], list[dict], set[str], list[dict]]] | None = None
     for fmt in wanted:
         audio = [f for f in files if f.get("format") == fmt]
         if not audio:
@@ -468,8 +470,9 @@ def _choose_format(
         fmt_kept, fmt_excluded, fmt_short = _keep_and_exclude(
             files, audio, short_keep=True, orig_tracks=orig_tracks)
         fmt_kept, dup_excluded = _dedupe_duplicate_listings(fmt_kept)
-        fmt_kept, deriv_excluded, _ = _dedupe_derivatives(fmt_kept)
-        entry = (fmt, fmt_kept, fmt_excluded + dup_excluded + deriv_excluded, fmt_short)
+        fmt_kept, deriv_excluded, deriv_dropped = _dedupe_derivatives(fmt_kept)
+        entry = (fmt, fmt_kept, fmt_excluded + dup_excluded + deriv_excluded, fmt_short,
+                 deriv_dropped)
         if fallback is None:
             fallback = entry
         if fmt_kept:
@@ -478,7 +481,7 @@ def _choose_format(
                 best = (secs, entry)
     if best is not None:
         return best[1]
-    return fallback or ("", [], [], set())
+    return fallback or ("", [], [], set(), [])
 
 
 def filter_files(
@@ -543,7 +546,8 @@ def filter_files(
     if short_keep:
         # Fix wave I-1 and I-2: format by kept running time, then at most one
         # derivative per original (both inside `_choose_format`).
-        matched, kept, excluded, short_kept = _choose_format(files, wanted, orig_tracks)
+        matched, kept, excluded, short_kept, deriv_dropped = _choose_format(
+            files, wanted, orig_tracks)
     else:
         # The legacy filter, v2.17.0's exactly (orchestrator ruling): the first
         # format with a non-empty kept set wins, and no derivative dedupe.
@@ -564,6 +568,7 @@ def filter_files(
 
         kept, dup_excluded = _dedupe_duplicate_listings(kept)
         excluded = excluded + dup_excluded
+        deriv_dropped = []
 
     # Operator re-admission (overrides.include). All three positions are
     # load-bearing:
@@ -596,6 +601,12 @@ def filter_files(
             excluded = [e for e in excluded if e["filename"] not in readmitted]
 
     nums = [_track_number(f, orig_tracks) for f in kept]
+    # Fix wave I-2: the order is decided as if every derivative the dedupe
+    # dropped (and readmit did not return) were still in `kept`, so the dedupe
+    # never changes play order (see `_dedupe_derivatives`). Empty with
+    # `short_keep=False`.
+    order_nums = nums + [_track_number(f, orig_tracks) for f in deriv_dropped
+                         if f["name"] not in readmitted]
     short_kept_names = sorted({f["name"] for f in kept} & short_kept)
     # `readmitted` is the set this call ACTUALLY returned to `kept`, which is
     # NOT the same as the caller's `readmit` request: a name that was never
@@ -608,7 +619,7 @@ def filter_files(
                 "readmitted": sorted(readmitted), "short_kept": short_kept_names}
     # Track-tag order only when complete and unique: per-disc numbering
     # restarts at 1, which makes duplicates ambiguous.
-    if kept and all(n is not None for n in nums) and len(set(nums)) == len(nums):
+    if kept and all(n is not None for n in order_nums) and len(set(order_nums)) == len(order_nums):
         by_track = [f for _, f in sorted(zip(nums, kept), key=lambda p: p[0])]
         ordering = {"order_source": "track-tags", "reordered": by_track != kept,
                     "format": matched, "readmitted": sorted(readmitted),

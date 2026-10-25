@@ -1,0 +1,791 @@
+{
+  "metadata": {
+    "identifier": "jrad2023-05-12",
+    "mediatype": "etree",
+    "collection": [
+      "JoeRussosAlmostDead",
+      "etree"
+    ],
+    "coverage": "Balitmore ,MD",
+    "creator": "Joe Russo's Almost Dead",
+    "date": "2023-05-12",
+    "description": "Schoeps MK4V",
+    "scanner": "Internet Archive HTML5 Uploader 1.7.0",
+    "source": "Schoeps MK4V's",
+    "subject": "Live concert",
+    "taper": "Jeff Travitz",
+    "title": "Joe Russo's Almost Dead Live at Pier Six Concert Pavilion on 2023-05-12",
+    "type": "sound",
+    "venue": "Pier Six Concert Pavilion",
+    "year": "2023",
+    "uploader": "travitz1234@gmail.com",
+    "publicdate": "2023-05-13 11:20:38",
+    "addeddate": "2023-05-13 11:20:38"
+  },
+  "files": [
+    {
+      "name": "01 Crowd.afpk",
+      "source": "derivative",
+      "original": "01 Crowd.flac",
+      "format": "Columbia Peaks",
+      "md5": "ff8505905cfc860a3932a43565468d5b"
+    },
+    {
+      "name": "01 Crowd.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "51.59",
+      "md5": "7fcaf702630d19b9f3967c0222d21748"
+    },
+    {
+      "name": "01 Crowd.mp3",
+      "source": "derivative",
+      "original": "01 Crowd.flac",
+      "format": "VBR MP3",
+      "length": "00:52",
+      "md5": "ee6e47f2411becc445a6f1e0a52be589"
+    },
+    {
+      "name": "01 Crowd.png",
+      "source": "derivative",
+      "original": "01 Crowd.flac",
+      "format": "PNG",
+      "md5": "2ae84b62398d9ea72f2cd0f4be69c062"
+    },
+    {
+      "name": "01 Crowd_spectrogram.png",
+      "source": "derivative",
+      "original": "01 Crowd.flac",
+      "format": "Spectrogram",
+      "md5": "b9d5e450a823fac7753dd361df302b4b"
+    },
+    {
+      "name": "02 Jam.afpk",
+      "source": "derivative",
+      "original": "02 Jam.flac",
+      "format": "Columbia Peaks",
+      "md5": "bb2723c1548ca2dabff1550aa2a20ca3"
+    },
+    {
+      "name": "02 Jam.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "219.08",
+      "md5": "5084f969aedf9ecd1738452f7c9836dc"
+    },
+    {
+      "name": "02 Jam.mp3",
+      "source": "derivative",
+      "original": "02 Jam.flac",
+      "format": "VBR MP3",
+      "length": "03:39",
+      "md5": "fa8b70d46fdcfedd89ca76f742964e83"
+    },
+    {
+      "name": "02 Jam.png",
+      "source": "derivative",
+      "original": "02 Jam.flac",
+      "format": "PNG",
+      "md5": "c4afbe5af5927ba516577b2081b15cc5"
+    },
+    {
+      "name": "02 Jam_spectrogram.png",
+      "source": "derivative",
+      "original": "02 Jam.flac",
+      "format": "Spectrogram",
+      "md5": "520433bb33e052f9a7aa96acb37f06ef"
+    },
+    {
+      "name": "03 Here Comes Sunshine.afpk",
+      "source": "derivative",
+      "original": "03 Here Comes Sunshine.flac",
+      "format": "Columbia Peaks",
+      "md5": "238bf00121b31842ee7bbc76b4460b82"
+    },
+    {
+      "name": "03 Here Comes Sunshine.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "871.8",
+      "md5": "b534788c80945faf97b660f231add808"
+    },
+    {
+      "name": "03 Here Comes Sunshine.mp3",
+      "source": "derivative",
+      "original": "03 Here Comes Sunshine.flac",
+      "format": "VBR MP3",
+      "length": "14:32",
+      "md5": "a769253f036f3c984debb1cffdd9d3d9"
+    },
+    {
+      "name": "03 Here Comes Sunshine.png",
+      "source": "derivative",
+      "original": "03 Here Comes Sunshine.flac",
+      "format": "PNG",
+      "md5": "b92cbfcf1bc3062f5c25555c75e5f29d"
+    },
+    {
+      "name": "03 Here Comes Sunshine_spectrogram.png",
+      "source": "derivative",
+      "original": "03 Here Comes Sunshine.flac",
+      "format": "Spectrogram",
+      "md5": "d6300752014af8ee7f2dbee3972c603f"
+    },
+    {
+      "name": "04 Foolish Heart.afpk",
+      "source": "derivative",
+      "original": "04 Foolish Heart.flac",
+      "format": "Columbia Peaks",
+      "md5": "dff41a753a6a545fc355ddbb87f758d9"
+    },
+    {
+      "name": "04 Foolish Heart.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "522.08",
+      "md5": "c97d88923e7c128795e900f2cb3df8f7"
+    },
+    {
+      "name": "04 Foolish Heart.mp3",
+      "source": "derivative",
+      "original": "04 Foolish Heart.flac",
+      "format": "VBR MP3",
+      "length": "08:42",
+      "md5": "795fa379b3c383b7aa22a99961301a40"
+    },
+    {
+      "name": "04 Foolish Heart.png",
+      "source": "derivative",
+      "original": "04 Foolish Heart.flac",
+      "format": "PNG",
+      "md5": "8094403411079a2cc20c06c7dd94cb4e"
+    },
+    {
+      "name": "04 Foolish Heart_spectrogram.png",
+      "source": "derivative",
+      "original": "04 Foolish Heart.flac",
+      "format": "Spectrogram",
+      "md5": "5a96a77c816370319b49ee55feb155df"
+    },
+    {
+      "name": "05 Gonesville.afpk",
+      "source": "derivative",
+      "original": "05 Gonesville.flac",
+      "format": "Columbia Peaks",
+      "md5": "89d63cb03b51377ff1045c8bff6721ab"
+    },
+    {
+      "name": "05 Gonesville.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "574.48",
+      "md5": "eb6a1c78477561ce27e10969fb1c5ce2"
+    },
+    {
+      "name": "05 Gonesville.mp3",
+      "source": "derivative",
+      "original": "05 Gonesville.flac",
+      "format": "VBR MP3",
+      "length": "09:35",
+      "md5": "0d6859f81da8a6092e567901843af518"
+    },
+    {
+      "name": "05 Gonesville.png",
+      "source": "derivative",
+      "original": "05 Gonesville.flac",
+      "format": "PNG",
+      "md5": "09d77b3294f0e5fea31f467d39f2c385"
+    },
+    {
+      "name": "05 Gonesville_spectrogram.png",
+      "source": "derivative",
+      "original": "05 Gonesville.flac",
+      "format": "Spectrogram",
+      "md5": "0ad704c58566783d95ad399930b92020"
+    },
+    {
+      "name": "06 Mr Charlie.afpk",
+      "source": "derivative",
+      "original": "06 Mr Charlie.flac",
+      "format": "Columbia Peaks",
+      "md5": "f3141ca5f4fbf20154c8b730c08cd60a"
+    },
+    {
+      "name": "06 Mr Charlie.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "452.59",
+      "md5": "a075f22939cf35b5c1a79f1f97724097"
+    },
+    {
+      "name": "06 Mr Charlie.mp3",
+      "source": "derivative",
+      "original": "06 Mr Charlie.flac",
+      "format": "VBR MP3",
+      "length": "07:33",
+      "md5": "3b0cbed650b839fc61ea7f70c6b13f48"
+    },
+    {
+      "name": "06 Mr Charlie.png",
+      "source": "derivative",
+      "original": "06 Mr Charlie.flac",
+      "format": "PNG",
+      "md5": "76d5849ab6bac30a4767970eead76209"
+    },
+    {
+      "name": "06 Mr Charlie_spectrogram.png",
+      "source": "derivative",
+      "original": "06 Mr Charlie.flac",
+      "format": "Spectrogram",
+      "md5": "76a784fd06c57df0ae184119e6813a2e"
+    },
+    {
+      "name": "07 Hey Bulldog.afpk",
+      "source": "derivative",
+      "original": "07 Hey Bulldog.flac",
+      "format": "Columbia Peaks",
+      "md5": "c6fb3c8bd311854c47e895c97d7af62a"
+    },
+    {
+      "name": "07 Hey Bulldog.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "249",
+      "md5": "1bc919950eeae4a6719d1f48d89712f1"
+    },
+    {
+      "name": "07 Hey Bulldog.mp3",
+      "source": "derivative",
+      "original": "07 Hey Bulldog.flac",
+      "format": "VBR MP3",
+      "length": "04:09",
+      "md5": "cd77f54c89013941681a4a0e69f44984"
+    },
+    {
+      "name": "07 Hey Bulldog.png",
+      "source": "derivative",
+      "original": "07 Hey Bulldog.flac",
+      "format": "PNG",
+      "md5": "ee4ba7479ef07c10a4d238e622721576"
+    },
+    {
+      "name": "07 Hey Bulldog_spectrogram.png",
+      "source": "derivative",
+      "original": "07 Hey Bulldog.flac",
+      "format": "Spectrogram",
+      "md5": "5bca1783c5405ab53817beac927b24cf"
+    },
+    {
+      "name": "08 Viola Lee Blues.afpk",
+      "source": "derivative",
+      "original": "08 Viola Lee Blues.flac",
+      "format": "Columbia Peaks",
+      "md5": "cecd959a2b0e7498dca725defb77bca1"
+    },
+    {
+      "name": "08 Viola Lee Blues.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "886.31",
+      "md5": "0a133088e42d49db50f16c54eedd66d9"
+    },
+    {
+      "name": "08 Viola Lee Blues.mp3",
+      "source": "derivative",
+      "original": "08 Viola Lee Blues.flac",
+      "format": "VBR MP3",
+      "length": "14:46",
+      "md5": "0310318da9cb46ceebffa86904da52eb"
+    },
+    {
+      "name": "08 Viola Lee Blues.png",
+      "source": "derivative",
+      "original": "08 Viola Lee Blues.flac",
+      "format": "PNG",
+      "md5": "aa7bdf1f8200c700554e94ce1ddb60f8"
+    },
+    {
+      "name": "08 Viola Lee Blues_spectrogram.png",
+      "source": "derivative",
+      "original": "08 Viola Lee Blues.flac",
+      "format": "Spectrogram",
+      "md5": "65803b5cbf0cf21b323227206e125859"
+    },
+    {
+      "name": "09 Dancin In The Streets .afpk",
+      "source": "derivative",
+      "original": "09 Dancin In The Streets .flac",
+      "format": "Columbia Peaks",
+      "md5": "53dc0e72122a5ebaef5c2a320f2380fd"
+    },
+    {
+      "name": "09 Dancin In The Streets .flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "1025.08",
+      "md5": "07cbb6db412e5c1d31c067aeab84b557"
+    },
+    {
+      "name": "09 Dancin In The Streets .mp3",
+      "source": "derivative",
+      "original": "09 Dancin In The Streets .flac",
+      "format": "VBR MP3",
+      "length": "17:05",
+      "md5": "5f4a005870124515e8c262551af2023d"
+    },
+    {
+      "name": "09 Dancin In The Streets .png",
+      "source": "derivative",
+      "original": "09 Dancin In The Streets .flac",
+      "format": "PNG",
+      "md5": "fa92396016d41d404edb757a9ac23fb4"
+    },
+    {
+      "name": "09 Dancin In The Streets _spectrogram.png",
+      "source": "derivative",
+      "original": "09 Dancin In The Streets .flac",
+      "format": "Spectrogram",
+      "md5": "71f8c7d8e1408adafbc108f5af40ec36"
+    },
+    {
+      "name": "10 Crowd.afpk",
+      "source": "derivative",
+      "original": "10 Crowd.flac",
+      "format": "Columbia Peaks",
+      "md5": "9707e26dceaa07aea469e4e7aba145ea"
+    },
+    {
+      "name": "10 Crowd.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "65.48",
+      "md5": "44154977afccf674ca3bfb08a4e3f5ae"
+    },
+    {
+      "name": "10 Crowd.mp3",
+      "source": "derivative",
+      "original": "10 Crowd.flac",
+      "format": "VBR MP3",
+      "length": "01:06",
+      "md5": "28db2a3574abb96b28d7fe9bbbbe9a8b"
+    },
+    {
+      "name": "10 Crowd.png",
+      "source": "derivative",
+      "original": "10 Crowd.flac",
+      "format": "PNG",
+      "md5": "0edd4731cfb818f27a62e9d4124f995d"
+    },
+    {
+      "name": "10 Crowd_spectrogram.png",
+      "source": "derivative",
+      "original": "10 Crowd.flac",
+      "format": "Spectrogram",
+      "md5": "34d9c626a5677996a38db0110770cc7d"
+    },
+    {
+      "name": "11 Jam.afpk",
+      "source": "derivative",
+      "original": "11 Jam.flac",
+      "format": "Columbia Peaks",
+      "md5": "17c3496dc1559b5b9ed507d9ae86e2c5"
+    },
+    {
+      "name": "11 Jam.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "327.12",
+      "md5": "e03a1c2169f3d45be0ccde3451650c7c"
+    },
+    {
+      "name": "11 Jam.mp3",
+      "source": "derivative",
+      "original": "11 Jam.flac",
+      "format": "VBR MP3",
+      "length": "05:27",
+      "md5": "4571fef4c11227e5f1130222c71c9424"
+    },
+    {
+      "name": "11 Jam.png",
+      "source": "derivative",
+      "original": "11 Jam.flac",
+      "format": "PNG",
+      "md5": "d33480120fad7fe07c0f0f144bb2903e"
+    },
+    {
+      "name": "11 Jam_spectrogram.png",
+      "source": "derivative",
+      "original": "11 Jam.flac",
+      "format": "Spectrogram",
+      "md5": "ef2fb3fa3a47c4062f457e816c020ece"
+    },
+    {
+      "name": "12 Terrapin Station.afpk",
+      "source": "derivative",
+      "original": "12 Terrapin Station.flac",
+      "format": "Columbia Peaks",
+      "md5": "c4cb80539a4430dcec371fab6cb345f1"
+    },
+    {
+      "name": "12 Terrapin Station.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "1261.15",
+      "md5": "8f4c0e6f17518432460095312c74d1ce"
+    },
+    {
+      "name": "12 Terrapin Station.mp3",
+      "source": "derivative",
+      "original": "12 Terrapin Station.flac",
+      "format": "VBR MP3",
+      "length": "21:01",
+      "md5": "375c9f2e3ad1b46d468305b506ec34cc"
+    },
+    {
+      "name": "12 Terrapin Station.png",
+      "source": "derivative",
+      "original": "12 Terrapin Station.flac",
+      "format": "PNG",
+      "md5": "77295dea786a523423d5c1327d36221e"
+    },
+    {
+      "name": "12 Terrapin Station_spectrogram.png",
+      "source": "derivative",
+      "original": "12 Terrapin Station.flac",
+      "format": "Spectrogram",
+      "md5": "3ee289db9cbbe797b60cea7f242d282e"
+    },
+    {
+      "name": "12.5 The Other One.afpk",
+      "source": "derivative",
+      "original": "12.5 The Other One.flac",
+      "format": "Columbia Peaks",
+      "md5": "eb939b762457ad833b691dc23af8ebc7"
+    },
+    {
+      "name": "12.5 The Other One.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "722.8",
+      "md5": "1a15b107eebea6e2f0bb9c937204d143"
+    },
+    {
+      "name": "12.5 The Other One.mp3",
+      "source": "derivative",
+      "original": "12.5 The Other One.flac",
+      "format": "VBR MP3",
+      "length": "12:03",
+      "md5": "ff6b0074f6062b66502914f23a69edc2"
+    },
+    {
+      "name": "12.5 The Other One.png",
+      "source": "derivative",
+      "original": "12.5 The Other One.flac",
+      "format": "PNG",
+      "md5": "38f3b14e175e19d50ff1d142578acd3c"
+    },
+    {
+      "name": "12.5 The Other One_spectrogram.png",
+      "source": "derivative",
+      "original": "12.5 The Other One.flac",
+      "format": "Spectrogram",
+      "md5": "71125623f1b9d06d7ba3765bf6f2147f"
+    },
+    {
+      "name": "13 Bird Song.afpk",
+      "source": "derivative",
+      "original": "14.5 Bird Song.flac",
+      "format": "Columbia Peaks",
+      "md5": "dde22cd1b34a8e2bd53a732653359748"
+    },
+    {
+      "name": "13 Bird Song.mp3",
+      "source": "derivative",
+      "original": "14.5 Bird Song.flac",
+      "format": "VBR MP3",
+      "length": "13:41",
+      "md5": "7ec967860406268a9947d077cbfa4584"
+    },
+    {
+      "name": "13 Bird Song.png",
+      "source": "derivative",
+      "original": "14.5 Bird Song.flac",
+      "format": "PNG",
+      "md5": "058364983918a2d67aa68b4e4f7d1ed9"
+    },
+    {
+      "name": "13 Bird Song_spectrogram.png",
+      "source": "derivative",
+      "original": "14.5 Bird Song.flac",
+      "format": "Spectrogram",
+      "md5": "0849b338a1ef57b3ebd7b3ee33dd16a9"
+    },
+    {
+      "name": "14 The Other One.afpk",
+      "source": "derivative",
+      "original": "14 The Other One.mp3",
+      "format": "Columbia Peaks",
+      "md5": "ae92a839053b3b3a183c154b19ae08e6"
+    },
+    {
+      "name": "14 The Other One.mp3",
+      "source": "derivative",
+      "original": "12.5 The Other One.flac",
+      "format": "VBR MP3",
+      "length": "12:03",
+      "md5": "ff6b0074f6062b66502914f23a69edc2"
+    },
+    {
+      "name": "14 The Other One.png",
+      "source": "derivative",
+      "original": "14 The Other One.mp3",
+      "format": "PNG",
+      "md5": "1ef2b72cb3236b88ab3d734527f22271"
+    },
+    {
+      "name": "14 The Other One_spectrogram.png",
+      "source": "derivative",
+      "original": "14 The Other One.mp3",
+      "format": "Spectrogram",
+      "md5": "2a8a763aafbc7d27d86089767f004fd8"
+    },
+    {
+      "name": "14.5 Bird Song.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "820.63",
+      "md5": "04dd57a5a8d73292341efb79485b8a87"
+    },
+    {
+      "name": "15 Lost Sailor.afpk",
+      "source": "derivative",
+      "original": "15 Lost Sailor.flac",
+      "format": "Columbia Peaks",
+      "md5": "01af151a4c69eeede7d0634f93b04ac1"
+    },
+    {
+      "name": "15 Lost Sailor.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "779.4",
+      "md5": "a646693239cf891ba38328feb5bf7735"
+    },
+    {
+      "name": "15 Lost Sailor.mp3",
+      "source": "derivative",
+      "original": "15 Lost Sailor.flac",
+      "format": "VBR MP3",
+      "length": "12:59",
+      "md5": "5e9188fb0016dd398af649cf0a84bd65"
+    },
+    {
+      "name": "15 Lost Sailor.png",
+      "source": "derivative",
+      "original": "15 Lost Sailor.flac",
+      "format": "PNG",
+      "md5": "af3c6c51bfb58940330527683992cef4"
+    },
+    {
+      "name": "15 Lost Sailor_spectrogram.png",
+      "source": "derivative",
+      "original": "15 Lost Sailor.flac",
+      "format": "Spectrogram",
+      "md5": "9e334868fd298c87995c0696a0443d18"
+    },
+    {
+      "name": "16 Saint OF Curcumstance.afpk",
+      "source": "derivative",
+      "original": "16 Saint OF Curcumstance.flac",
+      "format": "Columbia Peaks",
+      "md5": "29d86ad32f586c9a7309093861b7b571"
+    },
+    {
+      "name": "16 Saint OF Curcumstance.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "312.08",
+      "md5": "7351146d9e293ad73ae9a8325275579b"
+    },
+    {
+      "name": "16 Saint OF Curcumstance.mp3",
+      "source": "derivative",
+      "original": "16 Saint OF Curcumstance.flac",
+      "format": "VBR MP3",
+      "length": "05:12",
+      "md5": "d62690f89b30c99ed3b22a998de67e6a"
+    },
+    {
+      "name": "16 Saint OF Curcumstance.png",
+      "source": "derivative",
+      "original": "16 Saint OF Curcumstance.flac",
+      "format": "PNG",
+      "md5": "416af618a9d2a83093d834322d6a6dde"
+    },
+    {
+      "name": "16 Saint OF Curcumstance_spectrogram.png",
+      "source": "derivative",
+      "original": "16 Saint OF Curcumstance.flac",
+      "format": "Spectrogram",
+      "md5": "a8b393348aa8ff92ca4acfd39b54febc"
+    },
+    {
+      "name": "16.5 Morning Dew.afpk",
+      "source": "derivative",
+      "original": "16.5 Morning Dew.flac",
+      "format": "Columbia Peaks",
+      "md5": "e14d35b7a89bf4e0ea11a94a98d115a8"
+    },
+    {
+      "name": "16.5 Morning Dew.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "956.67",
+      "md5": "dbf2109a15e5e89f064e065e51bbdfd5"
+    },
+    {
+      "name": "16.5 Morning Dew.mp3",
+      "source": "derivative",
+      "original": "16.5 Morning Dew.flac",
+      "format": "VBR MP3",
+      "length": "15:57",
+      "md5": "3b95401ee4a8d185a619c353b0ddae6f"
+    },
+    {
+      "name": "16.5 Morning Dew.png",
+      "source": "derivative",
+      "original": "16.5 Morning Dew.flac",
+      "format": "PNG",
+      "md5": "856a3b75c04468c25d22557925007c37"
+    },
+    {
+      "name": "16.5 Morning Dew_spectrogram.png",
+      "source": "derivative",
+      "original": "16.5 Morning Dew.flac",
+      "format": "Spectrogram",
+      "md5": "d6f33de4e2d25be5cae4524597d05f27"
+    },
+    {
+      "name": "17 Casey Jones.afpk",
+      "source": "derivative",
+      "original": "17 Casey Jones.flac",
+      "format": "Columbia Peaks",
+      "md5": "32a3b8d7232e07ac59e22ea599cb9b5b"
+    },
+    {
+      "name": "17 Casey Jones.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "387.68",
+      "md5": "fb094f097f2bd3acddbb1a55d9285015"
+    },
+    {
+      "name": "17 Casey Jones.mp3",
+      "source": "derivative",
+      "original": "17 Casey Jones.flac",
+      "format": "VBR MP3",
+      "length": "06:28",
+      "md5": "d84c80a0e4758ad36d9ef497957bb05e"
+    },
+    {
+      "name": "17 Casey Jones.png",
+      "source": "derivative",
+      "original": "17 Casey Jones.flac",
+      "format": "PNG",
+      "md5": "b05c0ff7276baf3cd5ccfdd26ed22f32"
+    },
+    {
+      "name": "17 Casey Jones_spectrogram.png",
+      "source": "derivative",
+      "original": "17 Casey Jones.flac",
+      "format": "Spectrogram",
+      "md5": "cd415ec294fc55e3afa3269f6f7b960c"
+    },
+    {
+      "name": "345639114_786132042805970_3181615788219667062_n.jpg",
+      "source": "original",
+      "format": "JPEG",
+      "md5": "a7ac86509a76b63e6068dbba6f2764b2"
+    },
+    {
+      "name": "345639114_786132042805970_3181615788219667062_n_thumb.jpg",
+      "source": "derivative",
+      "original": "345639114_786132042805970_3181615788219667062_n.jpg",
+      "format": "JPEG Thumb",
+      "md5": "2d3638280e8d9cce45ad64edbe74bf1b"
+    },
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "3e278c223d44747edd422f37600ab51e"
+    },
+    {
+      "name": "jrad2023-05-12_archive.torrent",
+      "source": "metadata",
+      "format": "Archive BitTorrent",
+      "md5": "7ebdc759d00bd42b4f891d469f95de74"
+    },
+    {
+      "name": "jrad2023-05-12_files.xml",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "4b773846ef92fd2cf0f01b31ed6c660c"
+    },
+    {
+      "name": "jrad2023-05-12_meta.sqlite",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "9b0d927cc1ef587bfb3cdf582d909e97"
+    },
+    {
+      "name": "jrad2023-05-12_meta.xml",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "8c7b95bb72a3451dd8dc2a5534f1dac3"
+    },
+    {
+      "name": "jrad2023-05-12_reviews.xml",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "0dc0b50841d38ac5cc5556eb104a0a2b"
+    }
+  ],
+  "reviews": [
+    {
+      "reviewtitle": "Thanks Jeff!",
+      "reviewbody": "What an awesome show! That was so much fun! Great recording! ",
+      "stars": "5",
+      "reviewer": "5N4GGL3TOOTH",
+      "reviewdate": "2023-05-16 15:27:48",
+      "createdate": "2023-05-16 15:27:48",
+      "reviewer_itemname": "@5n4ggl3tooth"
+    },
+    {
+      "reviewtitle": "Shine On You Crazy Diamond & Bathtub Gin (?) Jams",
+      "reviewbody": "Absolutely stellar show. I also caught the Connecticut show, but this one had the jams I love from JRAD. The \u201cShine On You Crazy Diamond\u201d Pink Floyd jam in \u201cViola Lee Blues\u201d was brilliant, and the jam in \u201cThe Other One\u201d was reminiscent of Phish\u2019s \u201cBathtub Gin\u201d. These guys are phenomenal. Thank you for recording and sharing! ",
+      "stars": "5",
+      "reviewer": "Half-Step917",
+      "reviewdate": "2023-05-16 23:11:52",
+      "createdate": "2023-05-16 23:11:52",
+      "reviewer_itemname": "@half-step917"
+    },
+    {
+      "reviewtitle": "Joe Russo's Almost Dead Live at Pier Six Concert Pavilion on 2023-05-12",
+      "reviewbody": "Review: Joe Russo's Almost Dead Live at Pier Six Concert Pavilion (2023-05-12)\n\nDate: May 12, 2023\nVenue: Pier Six Concert Pavilion\nArtist: Joe Russo's Almost Dead\n\nJoe Russo's Almost Dead delivered an electrifying performance at the Pier Six Concert Pavilion on May 12, 2023. This iconic Grateful Dead tribute band captivated the audience with their remarkable musicianship, improvisational skills, and infectious energy, creating an unforgettable night for all in attendance.\n\nFrom the moment the band took the stage, the atmosphere was charged with anticipation. Opening with a soaring rendition of \"Jack Straw,\" Joe Russo's Almost Dead immediately set the tone for an evening filled with explosive jams and reimagined classics. The musicians displayed an exceptional level of chemistry, seamlessly transitioning between songs and exploring new sonic territories with each passing moment.\n\nOne of the standout moments of the night came during the extended version of \"Scarlet Begonias\" that seamlessly segued into \"Fire on the Mountain.\" The band skillfully navigated through intricate instrumental passages, giving each member an opportunity to shine. The crowd was fully engaged, dancing and singing along to every word, as the music carried us on a euphoric journey.\n\nAnother highlight was the band's interpretation of \"Eyes of the World,\" which showcased their ability to infuse their own creative flair into Grateful Dead classics. The interplay between the guitarists was mesmerizing, as they traded solos and built tension throughout the song. The audience erupted in cheers as the band flawlessly executed the intricate transitions and brought the song to a triumphant climax.\n\nThroughout the night, Joe Russo's Almost Dead demonstrated their deep understanding of the Grateful Dead's catalog, while also injecting their own unique style into the music. Their improvisational prowess was on full display, with extended jam sessions that allowed the band to explore new musical landscapes. It was a testament to their talent and dedication to keeping the spirit of the Grateful Dead alive while making the songs their own. http://herboganic.com/shop/ols/products/turmeric-facial-scrub\n\n\nThe lighting and visual production complemented the music perfectly, creating a vibrant and immersive experience. The stage was adorned with psychedelic visuals, adding an extra layer of atmosphere to the already captivating performance. Combined with the energy radiating from the band, it created a sensory feast that transported the audience into a realm of pure musical bliss.\n\nJoe Russo's Almost Dead's performance at the Pier Six Concert Pavilion was a masterclass in live improvisation and a heartfelt tribute to the Grateful Dead. Their commitment to pushing the boundaries of the music, coupled with their undeniable talent, made for an extraordinary evening that will be etched in the memories of those fortunate enough to be there. If you have the chance to see Joe Russo's Almost Dead live, don't miss it. It's an experience that any music lover and Grateful Dead enthusiast will cherish.",
+      "stars": "5",
+      "reviewer": "Usman Ali878",
+      "reviewdate": "2023-05-18 11:26:24",
+      "createdate": "2023-05-18 11:26:24",
+      "reviewer_itemname": "@usman_ali878"
+    },
+    {
+      "reviewtitle": "Good Show",
+      "reviewbody": "Yes awesome showbut it almost happened. https://www.iznajmljivanjeozvucenja.rs",
+      "stars": "5",
+      "reviewer": "tzar",
+      "reviewdate": "2024-01-18 17:59:38",
+      "createdate": "2024-01-18 17:59:38",
+      "reviewer_itemname": "@tzar"
+    }
+  ]
+}

@@ -177,30 +177,61 @@ def test_a_short_doubled_pair_keeps_one_copy_and_short_kept_names_it_only():
     assert len(names) == 7
 
 
-def test_the_doubled_tape_keeps_what_its_single_copy_keeps():
-    """The short-keep rule's play order is derived over one derivative per
-    original, as filter_files derives the final order. Here the untagged short
-    track is LAST by filename and track 4 by tag: on the single copy the tags
-    are unique, so it is interior and kept. On the doubled tape the duplicate
-    tags would force filename order (edge, dropped) unless the pool is deduped."""
-    def tape(doubled):
-        files = []
-        for i, t in zip(range(1, 8), (1, 2, 3, 5, 6, 7, 4)):
-            orig = f"x1t{i:02d}.flac"
-            length = "30.0" if i == 7 else "300.0"
-            files.append({**_flac(orig, "Flac", length=length), "track": str(t)})
-            files.append(_mp3(f"x1t{i:02d}.mp3", original=orig, length=length))
-            if doubled:
-                files.append(_mp3(f"x1t{i:02d}_vbr.mp3", original=orig, length=length))
-        return files
-    s_kept, _, s_ord = filter_files(tape(False))
-    d_kept, d_excl, d_ord = filter_files(tape(True))
-    assert "x1t07.mp3" in _names(s_kept)
-    assert _names(d_kept) == _names(s_kept)
-    assert d_ord == s_ord
-    assert d_ord["order_source"] == "track-tags"
-    assert d_ord["short_kept"] == ["x1t07.mp3"]
-    assert set(_reasons(d_excl)) == {f"x1t{i:02d}_vbr.mp3" for i in range(1, 8)}
+def _tag_tape(doubled):
+    """Seven tracks whose originals' tags (1,2,3,5,6,7,4) disagree with filename
+    order; x1t07 is an untagged 30 s file, LAST by filename and track 4 by tag."""
+    files = []
+    for i, t in zip(range(1, 8), (1, 2, 3, 5, 6, 7, 4)):
+        orig = f"x1t{i:02d}.flac"
+        length = "30.0" if i == 7 else "300.0"
+        files.append({**_flac(orig, "Flac", length=length), "track": str(t)})
+        files.append(_mp3(f"x1t{i:02d}.mp3", original=orig, length=length))
+        if doubled:
+            files.append(_mp3(f"x1t{i:02d}_vbr.mp3", original=orig, length=length))
+    return files
+
+
+def test_the_derivative_dedupe_never_changes_play_order():
+    """The dedupe only drops. The order is decided as if the dropped copies
+    were still there: their shared track tags are not unique, so the doubled
+    tape stays in filename order, as before the dedupe, and the short-keep
+    rule's interior test (whose pool keeps both copies) reads that same order:
+    x1t07 is the last file, an edge, and drops."""
+    s_kept, _, s_ord = filter_files(_tag_tape(False))
+    assert s_ord["order_source"] == "track-tags" and "x1t07.mp3" in _names(s_kept)
+
+    kept, excluded, ordering = filter_files(_tag_tape(True))
+    assert ordering["order_source"] == "filename" and ordering["reordered"] is False
+    assert _names(kept) == [f"x1t{i:02d}.mp3" for i in range(1, 7)]
+    assert _reasons(excluded)["x1t07.mp3"] == ["implausibly short"]
+    assert ordering["short_kept"] == []
+    assert {n for n, r in _reasons(excluded).items() if r == [DUP]} == {
+        f"x1t{i:02d}_vbr.mp3" for i in range(1, 7)}
+
+
+def test_jrad_stale_derivative_keeps_the_filename_order():
+    """jrad2023-05-12 (real cache capture): the uploader renamed originals and
+    their tags went stale (`12.5 The Other One` tagged 14, `14.5 Bird Song` 13,
+    `16.5 Morning Dew` 18, after the encore `17 Casey Jones`), and a stale
+    derivative `14 The Other One.mp3` of `12.5 The Other One.flac` survives.
+    It is dropped as a duplicate; the order stays the (correct) filename order
+    the duplicate tag forced before, never the stale tags' order. Measured
+    (FW1 M2): the only library show the dedupe would otherwise reorder."""
+    files = _load("jrad2023-05-12.json")
+    kept, excluded, ordering = filter_files(files)
+    assert _names(kept) == [
+        "02 Jam.mp3", "03 Here Comes Sunshine.mp3", "04 Foolish Heart.mp3",
+        "05 Gonesville.mp3", "06 Mr Charlie.mp3", "07 Hey Bulldog.mp3",
+        "08 Viola Lee Blues.mp3", "09 Dancin In The Streets .mp3", "11 Jam.mp3",
+        "12 Terrapin Station.mp3", "12.5 The Other One.mp3", "13 Bird Song.mp3",
+        "15 Lost Sailor.mp3", "16 Saint OF Curcumstance.mp3", "16.5 Morning Dew.mp3",
+        "17 Casey Jones.mp3"]
+    assert ordering["order_source"] == "filename" and ordering["reordered"] is False
+    assert _reasons(excluded)["14 The Other One.mp3"] == [DUP]
+
+    kept, _, ordering = filter_files(files, readmit=frozenset({"14 The Other One.mp3"}))
+    assert "14 The Other One.mp3" in _names(kept)
+    assert ordering["order_source"] == "filename"
 
 
 def test_an_edge_short_untagged_pair_drops_like_the_single_copy():
