@@ -60,6 +60,14 @@ class Workspace:
         return self.root / "plan.jsonl"
 
     @property
+    def clock_path(self) -> Path:
+        return self.root / "clock.toml"
+
+    @property
+    def clock_last_good_path(self) -> Path:
+        return self.root / "clock.last-good.toml"
+
+    @property
     def cache_dir(self) -> Path:
         return self.root / "cache"
 
