@@ -261,6 +261,42 @@ def fallback_render(
                   "horizon deferred (the next publish batch carries the version)"))
 
 
+@app.command()
+def announcements(
+    clock_file: Path = typer.Option(None, "--clock", help="Clock file (default: the live clock)"),
+    days: float = typer.Option(8.0, "--days", help="How far ahead to list needed announcements"),
+    export: Path = typer.Option(None, "--export", help="Write ann-<id>.txt scripts for the missing ones here"),
+    config: Path = CONFIG_OPT,
+):
+    """List the announcements the clock needs (present or missing); export the missing scripts for `emcee say`."""
+    from transmitter import announce, interstitials
+    from transmitter.clock import live_clock, load_clock
+    from transmitter.workspace import Workspace
+
+    cfg = load_config(config)
+    if clock_file is not None:
+        clock = load_clock(clock_file)
+    else:
+        lc = live_clock(Workspace(cfg.root), save=False)
+        if lc.problem:
+            typer.echo(f"note: {lc.problem}", err=True)
+        clock = lc.clock
+    folder = interstitials.folder(cfg)
+    have: set[str] = set()
+    if folder is not None:
+        have = {s.meta["ann_id"] for s in interstitials.scan(folder, now_s=float("inf"), quiet_s=0.0)
+                if s.meta["role"] == "ann"}
+    rows = announce.needed(clock, service.now_us(), days)
+    for r in rows:
+        typer.echo(f"{r.id}  {'present' if r.id in have else 'missing'}  {r.text}")
+    if export is not None:
+        missing = [r for r in rows if r.id not in have]
+        export.mkdir(parents=True, exist_ok=True)
+        for r in missing:
+            (export / f"ann-{r.id}.txt").write_text(r.text + "\n", encoding="utf-8")
+        typer.echo(f"exported {len(missing)} script(s) to {export}")
+
+
 def main_cli() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     try:

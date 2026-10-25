@@ -117,6 +117,10 @@ class AntennaConfig(_StrictModel):
     station_name: str = "llama radio"
 
 
+class InterstitialsConfig(_StrictModel):
+    dir: Path | None = None            # default: <station root>/interstitials
+
+
 class TransmitterConfig(_StrictModel):
     root: Path = Field(default_factory=default_root)
     station: StationConfig = Field(default_factory=StationConfig)
@@ -125,6 +129,7 @@ class TransmitterConfig(_StrictModel):
     publish: PublishConfig = Field(default_factory=PublishConfig)
     antenna: AntennaConfig = Field(default_factory=AntennaConfig)
     alerts: AlertsConfig = Field(default_factory=AlertsConfig)
+    interstitials: InterstitialsConfig = Field(default_factory=InterstitialsConfig)
 
     @model_validator(mode="after")
     def _guard_stale_outlasts_the_cache(self):
@@ -164,6 +169,11 @@ DEFAULT_CONFIG_TOML = """\
 # root = "/nfs/media/station"
 # a package must be untouched this long before it may air
 quiet_minutes = 10.0
+
+[interstitials]
+# station IDs (id-*.mp3) and schedule announcements (ann-<id>.mp3); transmitter
+# only reads this folder. Default: <station root>/interstitials
+# dir = "/nfs/media/station/interstitials"
 
 [planner]
 # seed of the fixed shuffled order

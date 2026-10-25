@@ -241,3 +241,40 @@ def test_plan_and_render_refuse_while_locked(tmp_path, monkeypatch):
             assert type(result.exception).__name__ == "PlanLocked"
             assert "another transmitter plan or render holds the lock" in str(result.exception)
     assert not (tmp_path / "tx" / "plan.jsonl").exists()
+
+
+def test_announcements_export_writes_missing_scripts_only(tmp_path, monkeypatch):
+    import os
+    import time
+
+    from transmitter import announce
+    from transmitter.clock import load_clock
+
+    root = tmp_path / "ws"
+    monkeypatch.setenv("TRANSMITTER_ROOT", str(root))
+    station_root = tmp_path / "station"
+    folder = station_root / "interstitials"
+    folder.mkdir(parents=True)
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(f'[station]\nroot = "{station_root}"\n')
+    clock = tmp_path / "clock.toml"
+    clock.write_text('timezone = "America/New_York"\n\n[[block]]\nname = "a"\ntitle = "Funk"\nstart = "19:00"\n')
+    need = announce.needed(load_clock(clock), int(time.time() * 1_000_000), 8)
+    texts = {r.id: r.text for r in need}
+    assert len(texts) == 4                      # a daily block follows itself
+    present = need[0].id
+    clip = folder / f"ann-{present}.mp3"
+    clip.write_bytes(b"ID3x")
+    os.utime(clip, (time.time() - 3600,) * 2)
+    out = tmp_path / "out"
+    result = CliRunner().invoke(app, ["announcements", "--config", str(cfg), "--clock", str(clock),
+                                      "--export", str(out)])
+    assert result.exit_code == 0, result.output
+    assert f"{present}  present" in result.output
+    others = [i for i in texts if i != present]
+    for other in others:
+        assert f"{other}  missing  {texts[other]}" in result.output
+        assert (out / f"ann-{other}.txt").read_text(encoding="utf-8") == texts[other] + "\n"
+    assert sorted(p.name for p in out.iterdir()) == sorted(f"ann-{i}.txt" for i in others)
+    assert "exported 3 script(s)" in result.output
+    assert not list(root.rglob("clock.last-good.toml"))
