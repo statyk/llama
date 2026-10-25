@@ -4777,3 +4777,176 @@ def test_final_kept_is_title_inputs_block(caplog):
         final_kept(files, Overrides(), want)
         final_kept(files, Overrides(), want, short_keep=False)
     assert calls == [True, False]
+
+
+# --- FW4 item 2: the segue donor's own alignment wins over exact-title pooling ---
+#
+# Operator ruling 2026-10-25 (FW4). `blend_segues` pools donor items by exact
+# `normalized` title and pops the first occurrence onto each setlist.fm item, so a
+# repeated title can take a mark from another occurrence. Wherever the donor's own
+# align() matches a track, the track's segue is now that donor item's, by position;
+# pooling stays the fallback for tracks the donor's own alignment does not cover.
+
+
+def _fw4_gather(tmp_path, tags, chosen_desc, slfm_sets, *, sib_desc=None,
+                creator="Taper Band", encore=True):
+    """compute_gather on a one- or two-recording item with a setlist.fm canonical.
+    With `sib_desc`, a sibling recording carries that description (the donor when the
+    chosen description has no segue)."""
+    md = _tp_md(tags, chosen_desc, creator=creator)
+    cand = _tp_candidate()
+    if sib_desc is None:
+        ia = StubIA(md)
+    else:
+        sib = {"metadata": dict(md["metadata"], identifier="sib", description=sib_desc),
+               "files": [], "reviews": []}
+        ia = MultiIA({TP_IDENT: md, "sib": sib})
+        cand = cand.model_copy(update={"recordings": [RecordingSummary(identifier=TP_IDENT),
+                                                       RecordingSummary(identifier="sib")]})
+    return compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, TP_IDENT,
+                          setlistfm=_FakeSetlistFM(*slfm_sets, encore=encore))
+
+
+def _segued_tracks(res):
+    return [t.index for t in res.show.tracks if t.segue]
+
+
+# radiators-2010-10-29, set one: the selected recording's own description
+# (rads2010-10-29.flac16) verbatim, its tags, and setlist.fm's names.
+_RADS_S1_TAGS = ["Todd Baker Intro", "Metric", "Deal", "Crazy Mona>Break On Through>Crazy Mona",
+                 "This Wheel's On Fire", "Taking the Long Way Down", "River Run"]
+_RADS_S1_DESC = ("~set one - disc one~\n1. Todd Baker Intro\n2. Metric\n3. Deal\n"
+                 "4. Crazy Mona>Break On Through>Crazy Mona\n5. This Wheel's On Fire\n"
+                 "6. Taking the Long Way Down\n7. River Run")
+_RADS_S1_SLFM = [["Them Changes", "Metric", "Deal", "Crazy Mona",
+                  "San Francisco Girls (Return of the Native)", "Over Under Sideways Down",
+                  "Break On Through (to the Other Side)", "Who Dat?", "Crazy Mona",
+                  "This Wheel's on Fire", "Long Way Down", "Out on the Rolling Sea", "River Run"]]
+
+
+def test_fw4_radiators_medley_own_alignment_places_no_mark(tmp_path):
+    # (d) `4. Crazy Mona > Break On Through > Crazy Mona` then `5. This Wheel's On Fire`:
+    # the donor (the chosen description) aligns to track 4 as a merge run ending on the
+    # unmarked second `Crazy Mona`, so no mark ships; pooling had moved the first
+    # occurrence's `>` onto it.
+    res = _fw4_gather(tmp_path, _RADS_S1_TAGS, _RADS_S1_DESC, _RADS_S1_SLFM, encore=False)
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == []
+
+
+# radiators-2010-10-29, set two.
+_RADS_S2_TAGS = ["House of Blue Lights", "City of Refuge>",
+                 "I've Got a Feeling>It's Your Thing>Mr. Big Stuff>I've Got a Feeling>Slow Down",
+                 "I Don't Speak Love>", "I Just Want to Make Love to You"]
+_RADS_S2_DESC = ("~set two - disc two~\n2. House of Blue Lights\n3. City of Refuge>\n"
+                 "4. I've Got a Feeling>It's Your Thing>Mr. Big Stuff>I've Got a Feeling>Slow Down\n"
+                 "5. I Don't Speak Love>\n6. I Just Want to Make Love to You")
+_RADS_S2_SLFM = [["House of Blue Lights", "I'm Gonna Run to the City of Refuge", "Higher Ground",
+                  "I'm Gonna Run to the City of Refuge", "I've Got a Feeling", "It's Your Thing",
+                  "Mr. Big Stuff", "Everybody's Got Something to Hide Except Me and My Monkey",
+                  "I've Got a Feeling", "Slow Down", "I Don't Speak Love", "And Your Bird Can Sing",
+                  "I Just Want to Make Love to You"]]
+
+
+def test_fw4_radiators_own_alignment_by_position_both_ways(tmp_path):
+    # (d) Track 3, a medley ending on the unmarked `Slow Down`, loses the pooled mark;
+    # track 2 `City of Refuge>` gains the donor's own mark, which pooling could not
+    # transfer (setlist.fm names it `I'm Gonna Run to the City of Refuge`).
+    res = _fw4_gather(tmp_path, _RADS_S2_TAGS, _RADS_S2_DESC, _RADS_S2_SLFM, encore=False)
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == [2, 4]
+
+
+# moe-2008-03-07: the donor is the sibling moe2008-03-07.mk4.nbox.722.16bit, verbatim;
+# the tags are the selected recording's; setlist.fm's names.
+_MOE_TAGS = ["intro", "Not Coming Down>", "Wormwood ->", "Cathedral", "Bullet ->", "Okayalright",
+             "Down Boy ->", "George", "Crab Eyes ->", "Spaz Rx", "Wind it Up",
+             "Queen Of Everything ->", "Bullet", "Rebubula ->", "Plane Crash ->", "Drums ->",
+             "Plane Crash", "crowd", "E: Raise A Glass", "September ->", "Rebubula"]
+_MOE_DONOR = ("Set I\n01.\t-Also Sprach Zarathustra Intro-\n02.\tNot Coming Down >\n03.\tWormwood >\n"
+              "04.\tCathedral\n05.   \tBullet >\n06.\tOkayalraight\n07.\tDown Boy >\n08.\tGeorge\n"
+              "Set II\n01.\tIntro\n02.\tCrab Eyes >\n03.\tSpaz Medicine >\n04.\tWind It Up\n"
+              "05.\tQueen Of Everything >\n06.\tBullet\n07.\tRebubula >\n08.\tPlane Crash\n"
+              "09.\t-encore break-\n10.\tRaise A Glass*\n11.\t-al.nouncements/banter-\n"
+              "12.\tSeptember >\n13.\tRebubula")
+_MOE_SLFM = [["Not Coming Down", "Wormwood", "Cathedral", "Bullet", "Okayalright", "Down Boy",
+              "George"],
+             ["Crab Eyes", "Spaz Medicine", "Wind It Up", "Queen of Everything", "Bullet",
+              "Rebubula", "Plane Crash"],
+             ["Raise a Glass", "September", "Rebubula"]]
+
+
+def test_fw4_pooling_stays_the_fallback_where_own_alignment_does_not_cover(tmp_path):
+    # (e) (pin of the fallback) A donor repeating `Bullet` and `Rebubula`. Its own
+    # alignment does not reach tracks 2, 3, 7, 9 and 12 (its set-two `Intro` takes track
+    # 1 and moves its pointer past set one), so their pooled marks, each corroborated by
+    # the track's own `>`/`->` tag, still ship; 14 and 20 are the own alignment's.
+    chosen = "\n".join(t.rstrip(" ->") for t in _MOE_TAGS)
+    res = _fw4_gather(tmp_path, _MOE_TAGS, chosen, _MOE_SLFM, sib_desc=_MOE_DONOR)
+    assert res.show.structure.source == "setlist.fm"
+    assert {2, 3, 7, 9, 12, 14, 20} <= set(_segued_tracks(res))
+
+
+# gratefuldead-1988-06-23: the donor gd88-06-23.dsbd.terrapin-flyer.13051.sbeok.shnf,
+# verbatim; the tags; setlist.fm's names.
+_GD88_TAGS = ["Aiko", "Minglewood", "It Must Have Been The Roses",
+              "Me and My Uncle -> Mexicali Blues", "Stagger Lee", "When I Paint My Masterpiece",
+              "Bird Song", "The Promised Land", "Hey Pocky Way", "Believe It Or Not",
+              "Man Smart, Woman Smarter", "He's Gone", "Drums", "Space", "I Need A Miracle",
+              "Gimmie Some Lovin'", "All Along The Watchtower", "Morning Dew", "Brokedown Palace"]
+_GD88_DONOR = ("Iko Iko, Minglewood Blues, It Must Have Been The Roses, Me & My Uncle-> Mexicali "
+               "Blues, Stagger Lee, When I Paint My Masterpiece, Bird Song, Promised Land Hey Pocky "
+               "Way, Believe It Or Not, Women Are Smarter, He's Gone-> Drums-> Jam-> I Need A "
+               "Miracle-> Gimme Some Lovin'-> All Along The Watchtower-> Morning Dew, E:Blackbird-> "
+               "E: Brokedown Palace")
+_GD88_SLFM = [["Iko Iko", "Minglewood Blues", "It Must Have Been the Roses", "Me and My Uncle",
+               "Mexicali Blues", "Stagger Lee", "When I Paint My Masterpiece", "Bird Song",
+               "Promised Land"],
+              ["Hey Pocky A-Way", "Believe It or Not", "Man Smart, Woman Smarter", "He's Gone",
+               "Drums", "Space", "I Need a Miracle", "Gimme Some Lovin'",
+               "All Along the Watchtower", "Morning Dew"],
+              ["Blackbird", "Brokedown Palace"]]
+
+
+def _gd88(tmp_path):
+    return _fw4_gather(tmp_path, _GD88_TAGS, "\n".join(_GD88_TAGS), _GD88_SLFM,
+                       sib_desc=_GD88_DONOR, creator="Grateful Dead")
+
+
+def test_fw4_gd88_regained_marks_still_ship(tmp_path):
+    # (f) (pin) FW3's regained marks: He's Gone, Drums, I Need A Miracle, Watchtower.
+    res = _gd88(tmp_path)
+    assert res.show.structure.source == "setlist.fm"
+    assert {12, 13, 15, 17} <= set(_segued_tracks(res))
+
+
+def test_fw4_gd88_space_takes_the_donors_jam_mark(tmp_path):
+    # Item 2 by position: the donor's own alignment matches track 14 `Space` to its
+    # `Jam ->` (align()'s Space-after-Drums rule), a mark pooling cannot transfer
+    # (setlist.fm's `Space` has no donor item of that title).
+    res = _gd88(tmp_path)
+    assert _segued_tracks(res) == [12, 13, 14, 15, 17]
+
+
+def test_fw4_donor_segues_none_is_a_no_op():
+    from llama.models import AlignResult
+    from llama.stages.gather import donor_segues
+    r = AlignResult(sets=["1"], segues=[True], matched=[True], coverage=1.0, conflicts=[],
+                    merge_conflicts=[])
+    assert donor_segues([], r, None, None) is r
+
+
+def test_fw4_segue_donor_carries_g5_and_the_canonical_cleaning():
+    # The donor item 2 aligns is G5's (no `Ripple > Outro` mark) and is cleaned like
+    # the canonical; with no setlist.fm canonical there is none.
+    cb = _fw4_build(_DC15_SLFM, _DC15_CHOSEN, _DC15_DONOR, 17)
+    d = cb.segue_donor
+    assert d is not None
+    assert [i.title for i in d.items if i.segue] == [
+        "Intro", "Shakedown Street", "Brown-Eyed Women", "New Minglewood Blues", "Intro",
+        "Eyes of the World", "Let It Grow", "Drums Intro", "Drums", "Space", "The Wheel",
+        "Looks Like Rain"]
+    base = json.loads(FIXTURE.read_text())
+    kept, _, _ = filter_files(base["files"], want_format=("VBR MP3",))
+    assert build_canonical(StubIA(base), make_candidate(), IDENT, base["metadata"], kept,
+                           "Grateful Dead", []).segue_donor is None

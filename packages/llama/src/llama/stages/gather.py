@@ -18,7 +18,8 @@ from llama.lossless_titles import (SHIFTED_DELIVERED_NOTE, LosslessResult, apply
                                    demoted_note)
 from llama.title_cosmetics import cosmetic_strip
 from llama.title_hygiene import DDecision, SetlistPlan
-from llama.models import (AlignedStructure, JerrybaseEvent, Candidate, Overrides, ParsedSetlist,
+from llama.models import (AlignedStructure, AlignResult, JerrybaseEvent, Candidate, Overrides,
+                          ParsedSetlist,
                           SetlistItem, Show, ShowNotes, SourcedParse, StructureInfo, Track)
 from llama.override_keys import Positions, resolve_positions
 from llama.prompts import load_prompt
@@ -848,6 +849,10 @@ class CanonicalBuild(NamedTuple):
     # Built from the raw parses, before the cleaning pass: an item
     # vocabulary, not the canonical. Built here and nowhere else.
     corroboration: dict[str, tuple[str, ...]] = {}
+    # FW4 item 2 (operator ruling 2026-10-25): the segue donor `blend_segues`
+    # pooled from on the setlist.fm path, G5 applied and cleaned like the
+    # canonical; None on every other path. Read by `donor_segues` only.
+    segue_donor: ParsedSetlist | None = None
 
 
 def _corroboration(parses: list[SourcedParse], descriptions: list[str], chosen_desc: str,
@@ -948,6 +953,7 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                 needs_llm = True
     source = best.source if best is not None else None
     canonical = best.parsed if best else ParsedSetlist()
+    donor = None
     if best is not None and best.source == "setlist.fm":
         # The segue donor is ranked only among LMA parses that carry a segue:
         # `blend_segues` returns the winner unchanged for a segue-less donor, so
@@ -960,11 +966,47 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
         canonical = blend_segues(canonical, donor)
 
     metadata_norms = show_metadata_norms(artist, candidate, meta, events)
-    canonical = _strip_head_banner(canonical, metadata_norms)
-    canonical = _drop_artist_items(canonical, artist)
-    canonical = _strip_footnote_markers(canonical)
+
+    def clean(parsed: ParsedSetlist) -> ParsedSetlist:
+        parsed = _strip_head_banner(parsed, metadata_norms)
+        parsed = _drop_artist_items(parsed, artist)
+        return _strip_footnote_markers(parsed)
+
+    canonical = clean(canonical)
+    # FW4 item 2: the donor, G5 applied and cleaned exactly as the canonical is,
+    # for `donor_segues` in compute_gather. None when `blend_segues` had nothing
+    # to transfer (no donor, or a donor left with no segue).
+    segue_donor = (clean(donor) if donor is not None and any(i.segue for i in donor.items)
+                   else None)
     return CanonicalBuild(setlist=canonical, notes=notes, source=source,
-                          needs_llm=needs_llm, corroboration=corroboration)
+                          needs_llm=needs_llm, corroboration=corroboration,
+                          segue_donor=segue_donor)
+
+
+def donor_segues(tracks: list[Track], result: AlignResult, donor: ParsedSetlist | None,
+                 aliases: dict[str, str] | None) -> AlignResult:
+    """FW4 item 2 (operator ruling 2026-10-25): the segue donor's own alignment
+    wins over `blend_segues`' exact-title pooling.
+
+    `result` is align() of the tracks against the blended setlist.fm canonical,
+    whose segue flags were pooled from the donor by exact `normalized` title
+    (first occurrence first), so a repeated title (`Crazy Mona`, `Turbin`) can
+    take a mark from another occurrence. Here the donor is aligned to the same
+    tracks with the same align(); on every track that alignment matches, the
+    track's segue is the matched donor item's (align()'s own rule: a merged
+    track takes its last component's). Tracks it does not match keep `result`'s
+    pooled segue, the fallback. Only `segues` changes: sets, `matched`,
+    coverage and conflicts are `result`'s. No threshold, no new constant.
+
+    `donor` is `CanonicalBuild.segue_donor`: None (nothing pooled) returns
+    `result` unchanged."""
+    if donor is None:
+        return result
+    own = align(tracks, donor, aliases=aliases)
+    segues = [o if m else p for p, o, m in zip(result.segues, own.segues, own.matched)]
+    if segues == result.segues:
+        return result
+    return result.model_copy(update={"segues": segues})
 
 
 # Slice 2a's segue split: a core like `Ravine > J` is judged component by
@@ -1748,6 +1790,9 @@ def compute_gather(
         # "Help" — safe only inside the Garcia universe) was computed above,
         # before the adopt_gap_titles call, and is reused here unchanged.
         result = align(tracks, canonical, aliases=family_aliases)
+        # FW4 item 2: where the segue donor's own alignment matches a track, its
+        # segue wins over the pooled one; only `segues` can change.
+        result = donor_segues(tracks, result, cb.segue_donor, family_aliases)
         alignment = "deterministic"
         # Jerrybase closers are ground truth for where breaks fall, so anchoring
         # is tried on its own evidence and wins whenever it succeeds — it is not
