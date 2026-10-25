@@ -39,8 +39,8 @@ Evidence for the operator, and for the one floor check the spec's Measurement se
 - Clocks: (a) the naive script's five anchors, windows `[nominal, nominal + 15 min]`, `[open] exclude_profiles = dead, funk,
   dead-family`; (b) **illustrative only, not the operator's clock**: dead-tribute overnight 00:00 (max 3 shows), dead 07:00
   and 20:00, bluegrass 12:00, a Mon-Fri 15:00 rotation (americana, indie, southern, jam, livetronica), funk weekend
-  afternoons, an open 18:00 stretch, default 15-minute windows; (c) soft launch: dead 08:00 and 20:00, funk 14:00, the
-  no open block at all: every other profile reaches air only as fill (`exclude_profiles` = dead, funk).
+  afternoons, an open 18:00 stretch, default 15-minute windows; (c) soft launch: dead 08:00 and 20:00, funk 14:00,
+  with no open block at all: every other profile reaches air only as fill (`exclude_profiles` = dead, funk).
 
 ## Results, 50 weeks per clock
 
