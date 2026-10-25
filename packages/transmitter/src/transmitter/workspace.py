@@ -60,6 +60,10 @@ class Workspace:
         return self.root / "plan.jsonl"
 
     @property
+    def aired_path(self) -> Path:
+        return self.root / "aired.jsonl"
+
+    @property
     def clock_path(self) -> Path:
         return self.root / "clock.toml"
 

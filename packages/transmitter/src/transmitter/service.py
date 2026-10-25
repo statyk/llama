@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Callable, Mapping
 
-from transmitter import alerts, analysis, cloudstate, grid, monitor, pipeline, publish, r2, relay, sdnotify, station
+from transmitter import alerts, analysis, cloudstate, grid, history, monitor, pipeline, publish, r2, relay, sdnotify, station
 from transmitter.alerts import NtfyChannel
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
@@ -227,7 +227,7 @@ class Runner:
         """Run one step; no error ends the loop (the next tick retries). A step
         that succeeds resolves `resolves`; every step ends with a watchdog ping.
         True when the step observed (ran), i.e. unless it was skipped on
-        PublishLocked: a skipped step neither advances nor resets the 3-
+        PublishLocked/PlanLocked: a skipped step neither advances nor resets the 3-
         consecutive gate of the codes it declares (alerts.STEP_CODES)."""
         try:
             fn()
@@ -244,7 +244,7 @@ class Runner:
             alerts.alert("frame-count-drift", f"{exc}; filling halted (publishing continues) "
                                               "until transmitter is restarted")
         except (PublishLocked, PlanLocked) as exc:
-            # An operator's manual publish/fallback overlaps this tick; the next one retries.
+            # An operator's manual publish/fallback (or plan/render) overlaps this tick; the next one retries.
             log.warning("%s step skipped: %s", name, exc)
             return False
         except Exception as exc:
@@ -253,6 +253,10 @@ class Runner:
         finally:
             self.notify("WATCHDOG=1")
         return True
+
+    def _append_history(self, t_us: int) -> None:
+        ws = self.st.ws
+        history.append_aired(ws, self.st.epoch, read_plan(ws.plan_path), load_publish_state(ws).last, t_us)
 
     def _read_lead(self, t_us: int) -> tuple[bool, int | None]:
         """(readable, lead). An unreadable publish.json is alerted, not raised:
@@ -328,6 +332,9 @@ class Runner:
                 ran.add("render")
         if self._step("publish", lambda: publish_all(self.p, t_us, self.held, self.notify)):
             ran.add("publish")
+        # Not in `ran` and not a declared step: end_observation rejects unknown
+        # steps, so `history` is an ungated event code.
+        self._step("history", lambda: self._append_history(t_us), resolves=("history",))
         ok, lead = self._read_lead(t_us)
         if ok and lead is not None and lead >= self.st.lead_us - grid.D_US:
             self.filling = False

@@ -873,3 +873,37 @@ def test_tick_skips_plan_and_render_while_the_plan_lock_is_held(tmp_path, caplog
     assert "ALERT" not in caplog.text
     assert "plan step skipped" in caplog.text and "render step skipped" in caplog.text
     assert published == [1]
+
+
+def test_tick_appends_aired_rows_after_publishing(tmp_path):
+    st, _ = make_station(tmp_path)
+    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)
+    runner.filling = True
+    runner.tick(NOW)
+    t = NOW + 3 * 3600 * 1_000_000
+    runner.tick(t)
+    from transmitter.history import load_aired
+    from transmitter.state import load_publish_state
+    last = load_publish_state(st.ws).last
+    plan = read_plan(st.ws.plan_path)
+    assert last is not None and plan
+    aired = load_aired(st.ws)
+    due = [r for r in plan if r.end_frame <= (last + 1) * grid.SEGMENT_FRAMES]
+    assert due and [a.start_frame for a in aired] == [r.start_frame for r in due]
+    runner.tick(t)
+    assert len(load_aired(st.ws)) == len(due)           # idempotent
+
+
+def test_history_failure_alerts_and_the_tick_completes(tmp_path, monkeypatch):
+    st, _ = make_station(tmp_path)
+    rec = _Rec()
+    alerts.configure(alerts.Dispatcher(tmp_path / "alerts.json", [rec], 6 * 3600.0))
+    try:
+        def boom(*a, **k):
+            raise OSError("disk full")
+        monkeypatch.setattr(service.history, "append_aired", boom)
+        runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)
+        runner.tick(NOW)                                 # end_observation does not raise
+        assert "history" in alerts._dispatcher.active()
+    finally:
+        alerts.configure(None)
