@@ -369,3 +369,18 @@ def test_scan_lists_a_marked_package_as_ineligible_with_its_reason(tmp_path):
     assert [s.slug for s in shows] == ["band-2005-11-01"]
     assert [(i.slug, i.reasons[0]) for i in skipped] == [
         ("band-2005-11-02", "awaiting fix from llama: pending re-processing")]
+
+
+def test_a_long_awaiting_fix_reason_is_capped(tmp_path):
+    pkg = build_package(make_root(tmp_path))
+    mark_awaiting_fix(pkg, {"reason": "word " * 200})
+    got = _eval(pkg).reasons[0]
+    prefix = "awaiting fix from llama: "
+    assert got.startswith(prefix) and got.endswith("\u2026")
+    assert len(got) - len(prefix) == 200
+
+
+def test_a_reason_of_exactly_the_cap_is_not_truncated(tmp_path):
+    pkg = build_package(make_root(tmp_path))
+    mark_awaiting_fix(pkg, {"reason": "x" * 200})
+    assert _eval(pkg).reasons[0] == "awaiting fix from llama: " + "x" * 200

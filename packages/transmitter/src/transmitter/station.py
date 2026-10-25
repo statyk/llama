@@ -35,6 +35,7 @@ from typing import Iterable, Literal
 from transmitter.errors import StationRootError
 
 MARKER = ".station-root"
+MAX_REASON_CHARS = 200     # the contract says one line; do not trust it
 
 
 @dataclass(frozen=True)
@@ -138,6 +139,8 @@ def awaiting_fix_reason(manifest: dict) -> str | None:
     if isinstance(reason, str):
         reason = " ".join(reason.split())
         if reason:
+            if len(reason) > MAX_REASON_CHARS:
+                reason = reason[:MAX_REASON_CHARS - 1] + "\u2026"
             return f"awaiting fix from llama: {reason}"
     return "awaiting fix from llama"
 

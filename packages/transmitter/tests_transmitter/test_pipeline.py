@@ -5,7 +5,7 @@ import time
 import pytest
 
 from tests_transmitter.helpers import NOW, FakeEngine, make_station, mark_awaiting_fix, payloads, set_age
-from transmitter import grid, pipeline, segment
+from transmitter import grid, pipeline, segment, station
 from transmitter.errors import FrameCountDrift, LayoutError, PlanError, StationRootError
 from transmitter.grid import SEGMENT_FRAMES as F
 from transmitter.layout import segment_pieces
@@ -1260,7 +1260,9 @@ def test_render_step_drops_a_planned_show_marked_awaiting_a_fix(tmp_path):
     st, logs = make_station(tmp_path, engine=engine)
     rows = pipeline.plan_step(st, NOW)
     victim = rows[1]
-    mark_awaiting_fix(st.cfg.station.root / victim.dir)    # manifest only: the file-set key is unchanged
+    pkg = st.cfg.station.root / victim.dir
+    mark_awaiting_fix(pkg)                                  # manifest only
+    assert station.file_set_key(pkg, station.read_m3u(pkg / "broadcast.m3u")) == victim.key
     assert victim.slug not in {s.slug for s in st.scan_now(NOW)}
     report = pipeline.render_step(st, NOW)
     assert report.replanned == [victim.slug]

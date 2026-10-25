@@ -341,10 +341,12 @@ def library_pieces() -> list:
 
 def mark_awaiting_fix(pkg: Path, value="__default__", *, age_s: float = 3600.0) -> None:
     """Write llama's `awaiting_fix` mark into a delivered package's manifest
-    in place (changing nothing else), then age the package past the quiet period."""
+    in place (changing nothing else), then age ONLY manifest.json past the quiet
+    period: like llama, it touches no other file, so the file-set key is unchanged."""
     if value == "__default__":
         value = {"reason": "pending re-processing", "marked_at": "2026-10-25T00:00:00Z"}
     m = json.loads((pkg / "manifest.json").read_text())
     m["awaiting_fix"] = value
     (pkg / "manifest.json").write_text(json.dumps(m))
-    set_age(pkg, age_s)
+    t = time.time() - age_s
+    os.utime(pkg / "manifest.json", (t, t))
