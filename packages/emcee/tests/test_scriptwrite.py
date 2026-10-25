@@ -345,7 +345,8 @@ def test_scriptwrite_prompt_forbids_time_anchored_to_the_present():
     # next week" all went out in delivered scripts (operator, 2026-10-25).
     prompt = load_prompt("scriptwrite")
     assert "Timeless:" in prompt
-    for phrase in ('"this year"', '"last month"', '"recently"', '"these days"', '"next week"'):
+    for phrase in ('"this year"', '"last month"', '"last November"', '"recently"',
+                   '"these days"', '"next week"'):
         assert phrase in prompt
     assert "next broadcast" not in prompt
     assert "without saying when" in prompt

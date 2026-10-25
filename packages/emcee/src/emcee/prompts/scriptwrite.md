@@ -8,18 +8,19 @@ than buried mid-clause. Prefer wording where a listener's stress lands right
 without any markup; e.g. "it wasn't even their best show that same week" (stress
 on "week"), not a construction that invites stress on the wrong word.
 
-Four hard rules for spoken delivery:
+Four hard rules for the broadcast:
 - Segues in words, never symbols: say one song goes "into" the next — never
   write ">" (the voice reads it as "greater than"), and spell out "and" for
   "&". No symbols in the prose at all.
 - No very short sentences: never a one- or two-word sentence (a bare "Here's
   set two." makes the voice garble). Fold short lines into fuller ones.
 - Timeless: this broadcast may air years from now, so never anchor anything to
-  the present — no "this year", "last month", "recently", "these days" or
-  "next week", and no claims about how a band, person or venue is doing now.
-  If the briefing dates something relative to when it was written, give the
-  concrete year or leave it out. Time relative to the concert is fine ("the
-  next year", "later that night", "seven months after this show").
+  the present — no "this year", "last month", "last November", "recently",
+  "these days" or "next week", and no claims about how a band, person or
+  venue is doing now. If the briefing dates something relative to when it
+  was written, give the concrete year or leave it out. Time relative to the concert is fine ("the
+  next year", "later that night", "a song they had only recently brought
+  back", "seven months after this show").
 - Show ID in every break: every lead-in AND the outro must re-state the show's
   identity — artist, date, venue and/or city — at least once, so a listener
   tuning in mid-broadcast learns what they are hearing.
