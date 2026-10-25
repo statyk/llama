@@ -438,8 +438,9 @@ Exactly 23 rows differ, and they are FW1 M2's 23 de-doubled shows, set-equal
   - 11 shows go `clean` → `clean-changed`, because the track list changed.
   - `stringcheeseincident-1999-12-31` goes `clean-changed` → `clean`, because it was hand-repaired
     to the single list.
-  - Briefing goes `reuse` → `fresh` on 13 GD shows (`briefing_reusable` refuses: the stored list is
-    the doubled one), and `fresh` → `reuse` on sci.
+  - Briefing goes `reuse` → `fresh` on 12 GD shows (`briefing_reusable` refuses: the stored list is
+    the doubled one) and `none` → `fresh` on `gratefuldead-1989-07-18`; `fresh` → `reuse` on sci.
+    That is 13 fresh briefs at apply.
 - **Segue marks move on 9 GD shows** (read-only investigation t22-seg, Opus,
   `.superpowers/sdd/junk-short-keep/t22-seg/handback.md`; evidence under `~/.llama-harness/piece4/t22-seg/`).
   - **The cause is not FW1's rule and not `align()`.** `gather.build_canonical` ranks the LMA parses
