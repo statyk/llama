@@ -153,3 +153,12 @@ def test_a_non_string_briefing_file_is_an_unreadable_briefing(tmp_path, file_ref
     (pkg / "manifest.json").write_text(json.dumps(data))
     manifest, briefing = site.read_package_notes(pkg)
     assert manifest is not None and briefing is None
+
+
+def test_timeline_lists_no_interstitial_rows():
+    rows = [_row(0, "a", 0), _row(1, "b", 1087, kind="interstitial")]
+    analyses = {k: _analysis(k) for k in "ab"}
+    now = EPOCH.epoch_us + grid.frame_to_us(2000)
+    tl = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=5, pause_samples=0)
+    assert [s["slug"] for s in tl["shows"]] == ["show-a"]
+    assert tl["recent"] == ["show-a"]

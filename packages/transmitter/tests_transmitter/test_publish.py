@@ -476,3 +476,19 @@ def test_guard_blocks_publishing_is_the_only_cache_writer(tmp_path):
                if re.search(r"(write_json|atomic_write_text)\([^)]*guard_cache_path|guard_cache_path\.write",
                             f.read_text())]
     assert writers == ["publish.py"]
+
+
+def test_publish_site_never_asks_for_an_interstitial_analysis(tmp_path):
+    bucket = FakeBucket()
+    rows = [PlanRow(seq=0, slug="band-1", dir="band-1", key="k1", start_frame=100 * 441, frames=441 * 50,
+                    run_start=True),
+            PlanRow(seq=1, slug="ann-1", dir="interstitials", key="k2", start_frame=150 * 441, frames=441,
+                    kind="interstitial", role="id")]
+    p = make_publisher(tmp_path, bucket, rows=rows)
+    asked = []
+    inner = p.analysis_for
+    p.analysis_for = lambda row: (asked.append(row), inner(row))[1]
+    _segs(p, range(100, 110))
+    publish.publish_batch(p, _now(p))
+    assert asked and all(r.kind == "show" for r in asked)
+    assert [s["slug"] for s in bucket.json("timeline.json")["shows"]] == ["band-1"]

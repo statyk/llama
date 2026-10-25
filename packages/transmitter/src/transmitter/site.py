@@ -43,6 +43,8 @@ def build_timeline(rows: Sequence[PlanRow], analyses: Mapping[str, ShowAnalysis]
     lo, hi = now_us - DAY_US, epoch.start_us(last_n + 1)
     shows = []
     for row in rows:
+        if row.kind != "show":
+            continue
         start_us, end_us = row_span_us(row, epoch)
         if end_us <= lo or start_us >= hi:
             continue

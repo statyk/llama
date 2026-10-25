@@ -81,6 +81,8 @@ def row_analysis(st: pipeline.Station, row: PlanRow) -> ShowAnalysis | None:
     A lost `cache/` can make this recompute long enough to meet WatchdogSec
     (it is not followed by a watchdog ping). Acceptable: the cache is never garbage-collected, so this is reachable only
     after an operator deleted `cache/` (or a decode mismatch dropped an entry)."""
+    if row.kind != "show":
+        return None              # before the cache: a clip's analysis is cached too
     cached = analysis.load_cached(st.ws.cache_dir, row.key)
     if cached is not None:
         return cached

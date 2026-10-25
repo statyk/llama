@@ -839,3 +839,19 @@ def test_the_runner_wires_its_notify_into_the_station(tmp_path):
     st2.notify = own
     service.Runner(st2, _publisher(st2, FakeBucket()), sleep=lambda s: None, notify=rec)
     assert st2.notify is own
+
+
+def test_row_analysis_ignores_interstitial_rows_even_when_cached(tmp_path):
+    import json
+    from transmitter import analysis
+    from transmitter.layout import PlanRow
+    st, _ = make_station(tmp_path)
+    sa = analysis.ShowAnalysis("kk", "ann", (), -18.0, -2.0, {})
+    st.ws.cache_dir.mkdir(parents=True, exist_ok=True)
+    (st.ws.cache_dir / "kk.json").write_text(json.dumps(sa.to_json()))
+    assert analysis.load_cached(st.ws.cache_dir, "kk") is not None
+    show_row = PlanRow(seq=0, slug="ann", dir="x", key="kk", start_frame=0, frames=441)
+    assert service.row_analysis(st, show_row) is not None       # the cache is live for a show row
+    row = PlanRow(seq=0, slug="ann", dir="interstitials", key="kk", start_frame=0, frames=441,
+                  kind="interstitial", role="id")
+    assert service.row_analysis(st, row) is None

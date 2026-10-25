@@ -150,6 +150,8 @@ def _parse_row(data: object) -> PlanRow:
         raise TypeError(f"run_start must be a boolean, got {row.run_start!r}")
     if row.cut_frame is not None and (not isinstance(row.cut_frame, int) or isinstance(row.cut_frame, bool)):
         raise TypeError(f"cut_frame must be an integer or null, got {row.cut_frame!r}")
+    if not isinstance(row.kind, str) or not row.kind:
+        raise TypeError(f"kind must be a non-empty string, got {row.kind!r}")
     return row
 
 

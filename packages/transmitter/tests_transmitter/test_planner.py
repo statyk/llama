@@ -159,3 +159,22 @@ def test_a_corrupt_plan_is_a_plan_error_naming_the_file_and_line(tmp_path, bad):
     path.write_text(path.read_text() + bad + "\n")
     with pytest.raises(PlanError, match=rf"plan\.jsonl: line 2: "):
         planner.read_plan(path)
+
+
+def test_read_plan_keeps_unknown_keys_through_write(tmp_path):
+    import json
+    p = tmp_path / "plan.jsonl"
+    p.write_text(json.dumps({"seq": 0, "slug": "a", "dir": "a", "key": "k", "start_frame": 0,
+                             "frames": 441, "run_start": True, "cut_frame": None, "zz": 7}) + "\n")
+    rows = planner.read_plan(p)
+    planner.write_plan(p, rows)
+    assert json.loads(p.read_text())["zz"] == 7
+
+
+def test_read_plan_still_type_checks_known_fields(tmp_path):
+    import json
+    p = tmp_path / "plan.jsonl"
+    p.write_text(json.dumps({"seq": "0", "slug": "a", "dir": "a", "key": "k", "start_frame": 0,
+                             "frames": 441, "run_start": True, "cut_frame": None}) + "\n")
+    with pytest.raises(PlanError):
+        planner.read_plan(p)

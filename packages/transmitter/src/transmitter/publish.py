@@ -241,6 +241,8 @@ def _publish_site(p: Publisher, rows: list[PlanRow], last: int, now_us: int, not
     lo, hi = now_us - site.DAY_US, p.epoch.start_us(last + 1)
     analyses = {}
     for r in rows:                                   # only rows the timeline window can list
+        if r.kind != "show":
+            continue
         start_us, end_us = site.row_span_us(r, p.epoch)
         if r.key not in analyses and end_us > lo and start_us < hi:
             a = p.analysis_for(r)

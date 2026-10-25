@@ -424,6 +424,12 @@ Run the `transmitter` commands below as `<user>` on hugo with the env file loade
   - *A pre-upgrade `guard-cache.json`.* On hugo, a `guard-cache.json` written before the upgrade lacks the `guard_evaluated_at` key and is treated as unknown (no false `guard-stale`). Expected.
   - *A future-dated budget raise.* If `state/budget.json`'s `written_at` is ahead of the Worker's clock (hugo's clock skewed ahead), the guard re-evaluates every minute until that time passes. Those are GraphQL reads, which are not billed; NTP on hugo keeps the window to seconds.
 
+### Rolling transmitter back
+
+- The oldest safe rollback target is the commit that made plan rows tolerate scheduler fields (the one that keeps non-show rows out of the timeline, `_publish_site` and `row_analysis`). A build from before it cannot read scheduler rows in `plan.jsonl`: plan, render and publish wedge. That commit is also the one that keeps interstitial rows out of `timeline.json`, `notes/` and `show/`.
+- Never truncate `plan.jsonl` by hand: a shortened plan restarts the run over segment keys already published (and immutable).
+- Before rolling back past the commit adding `[interstitials]`, remove `[interstitials]` from `config.toml`, or the older build refuses the unknown section.
+
 ### 7.1 Alert keys
 
 What each alert means and how to respond: `docs/playout-incident-runbook.md`.

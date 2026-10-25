@@ -116,3 +116,29 @@ def test_unreadable_encode_is_a_layout_error(tmp_path):
     store = FrameStore(tmp_path, fake_frame("silence", 0))
     with pytest.raises(LayoutError, match="d.aac"):
         store.frame_count("d")
+
+
+def test_phase1_row_loads_with_defaults():
+    r = PlanRow.from_json({"seq": 0, "slug": "a", "dir": "a", "key": "k", "start_frame": 0,
+                           "frames": 10, "run_start": True, "cut_frame": None})
+    assert r.kind == "show" and r.block is None and r.bends == () and dict(r.extra) == {}
+
+
+def test_unknown_keys_survive_a_round_trip():
+    data = {"seq": 1, "slug": "a", "dir": "a", "key": "k", "start_frame": 0, "frames": 10,
+            "run_start": False, "cut_frame": None, "future_field": {"x": 1}}
+    r = PlanRow.from_json(data)
+    assert r.extra["future_field"] == {"x": 1}
+    assert PlanRow.from_json(r.to_json()).to_json() == r.to_json()
+    assert r.to_json()["future_field"] == {"x": 1}
+
+
+def test_scheduler_fields_round_trip_as_tuples():
+    import json
+    r = PlanRow(seq=2, slug="ann-abc", dir="interstitials", key="k2", start_frame=5, frames=3,
+                kind="interstitial", role="next", block="dead-evening",
+                nominal_start="2096-10-02T23:00:00Z", names=(("dead-evening", "2096-10-02T23:00:00Z"),),
+                bends=("era",))
+    back = PlanRow.from_json(json.loads(json.dumps(r.to_json())))
+    assert back == r and back.names == (("dead-evening", "2096-10-02T23:00:00Z"),)
+    assert back.bends == ("era",)

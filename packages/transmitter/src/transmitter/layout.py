@@ -10,9 +10,10 @@ call for an fMP4 fragment writer if the container spike fails.
 """
 
 from collections import OrderedDict
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Sequence
+from types import MappingProxyType
+from typing import Any, Mapping, Sequence
 
 from transmitter import adts, segment
 from transmitter.errors import LayoutError
@@ -29,17 +30,59 @@ class PlanRow:
     frames: int         # the encoder's full output for this show
     run_start: bool = False        # first row of a contiguous run (start-up or recovery)
     cut_frame: int | None = None   # set when an outage cut the show (recovery)
+    # Scheduler fields (all optional so phase-1 rows load unchanged).
+    kind: str = "show"             # "show" | "interstitial"; consumers skip kinds they do not know
+    block: str | None = None
+    nominal_start: str | None = None   # ISO UTC; with `block` identifies the occurrence
+    role: str | None = None        # "show" | "id" | "next" | "later"
+    miss: bool | None = None
+    degraded: bool = False
+    fill: str | None = None        # "pool-short" | "structural"
+    bends: tuple[str, ...] = ()
+    names: tuple[tuple[str, str], ...] = ()
+    package: str | None = None
+    announcement_broken: bool = False
+    # Unknown keys from the plan file, carried through a rewrite.
+    extra: Mapping[str, Any] = field(default_factory=dict, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
 
     @property
     def end_frame(self) -> int:
         return self.cut_frame if self.cut_frame is not None else self.start_frame + self.frames
 
     def to_json(self) -> dict:
-        return asdict(self)
+        out: dict[str, Any] = {}
+        for f in fields(self):
+            if f.name == "extra":
+                continue
+            v = getattr(self, f.name)
+            if f.name == "bends":
+                v = list(v)
+            elif f.name == "names":
+                v = [list(n) for n in v]
+            out[f.name] = v
+        for k, v in self.extra.items():
+            out.setdefault(k, v)             # known fields win on collision
+        return out
 
     @classmethod
-    def from_json(cls, data: dict) -> "PlanRow":
-        return cls(**data)
+    def from_json(cls, data: Mapping[str, Any]) -> "PlanRow":
+        known = {f.name for f in fields(cls) if f.name != "extra"}
+        kw = {k: v for k, v in data.items() if k in known}
+        extra = {k: v for k, v in data.items() if k not in known}
+        if "bends" in kw:
+            if not isinstance(kw["bends"], (list, tuple)):
+                raise TypeError(f"bends must be a list, got {kw['bends']!r}")
+            kw["bends"] = tuple(kw["bends"])
+        if "names" in kw:
+            n = kw["names"]
+            if not isinstance(n, (list, tuple)) or not all(
+                    isinstance(x, (list, tuple)) and len(x) == 2 for x in n):
+                raise TypeError(f"names must be a list of pairs, got {n!r}")
+            kw["names"] = tuple(tuple(x) for x in n)
+        return cls(**kw, extra=extra)
 
 
 @dataclass(frozen=True)
