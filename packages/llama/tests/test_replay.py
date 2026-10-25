@@ -1048,6 +1048,34 @@ def test_a_bare_track_tail_refuses():
     ("The drums get no track of their own; the reprise has no track of its own.", "no separate track"),
     ("The reprise has no track.", "no separate track"),
     ("The jam has no own track here.", "no separate track"),
+    # fix round 1: be-passive, cannot, adverbs
+    ("It should not be included.", "not included"),
+    ("The reprise cannot be included here.", "not included"),
+    ("The reprise won't be included here.", "not included"),
+    ("The reprise is not explicitly included.", "not included"),
+    ("The reprise will not be listed.", "not listed"),
+    ("The reprise won't be listed.", "not listed"),
+    ("The reprise cannot be listed.", "not listed"),
+    ("The reprise is not separately listed.", "not listed"),
+    # set-list variants
+    ("The reprise is not in the set-list.", "not in the setlist"),
+    ("The reprise is not on the track-list.", "not in the setlist"),
+    ("The reprise is not in the setlists.", "not in the setlist"),
+    ("The reprise is not on the track lists.", "not in the setlist"),
+    ("The reprise is not on the archived setlist.", "not in the setlist"),
+    ("The reprise is not in the broadcast setlist.", "not in the setlist"),
+    ("The reprise is not on the recording's track list.", "not in the setlist"),
+    # track variants
+    ("The drums get no dedicated track.", "no separate track"),
+    ("The drums get no standalone track.", "no separate track"),
+    ("The drums get no separately titled track.", "no separate track"),
+    ("The drums come without a separate track.", "no separate track"),
+    ("The drums come without a track.", "no separate track"),
+    # new term
+    ("The drums are not tracked separately.", "not tracked separately"),
+    ("The drums were not tracked separately.", "not tracked separately"),
+    ("Drums and space are not tracked as separate songs.", "not tracked separately"),
+    ("Drums and space aren't tracked as separate tracks.", "not tracked separately"),
     ("There are no distinct tracks for the drums.", "no separate track"),
 ])
 def test_each_absence_wording_refuses(text, term):

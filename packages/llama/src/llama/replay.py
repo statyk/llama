@@ -277,14 +277,18 @@ _RESTORED_WORDING = tuple((term, re.compile(p)) for term, p in (
                     r"|\btracks?\s+\d+\s*(?:-|–|—|to|through|thru)\s*\d+"),
     # Task 15b (operator ruling, Checkpoint B): the four measured phrasings, with
     # not/n't, perfect and progressive inflections (the refusing direction)
-    ("not included", r"(?:\bnot|n['’]t)\s+(?:(?:been|yet|being)\s+)?included\b"),
-    ("not listed", r"(?:\bnot|n['’]t)\s+(?:(?:been|yet|being)\s+)?listed\b"),
+    ("not included", r"(?:\bnot|n['’]t|\bcannot)\s+(?:(?:be|been|yet|being)\s+)?(?:\w+ly\s+)?included\b"),
+    ("not listed", r"(?:\bnot|n['’]t|\bcannot)\s+(?:(?:be|been|yet|being)\s+)?(?:\w+ly\s+)?listed\b"),
     ("does not appear", r"(?:\bnot|n['’]t)\s+appear(?:s|ed|ing)?\b"),
     ("unlisted", r"\bunlisted\b"),
     # controller scope change: "not in/on the setlist (track list)" and "no (separate) track"
-    ("not in the setlist", r"(?:\bnot|n['’]t)\s+(?:in|on)\s+(?:the\s+|this\s+|that\s+|its\s+)?"
-                           r"(?:set\s?list|track\s?list(?:ing)?)\b"),
-    ("no separate track", r"\bno\s+(?:(?:separate|own|distinct|individual|titled)\s+)?tracks?\b"),
+    ("not in the setlist", r"(?:\bnot|n['’]t)\s+(?:in|on)\s+(?:[\w'’-]+\s+){0,3}?"
+                           r"(?:set[\s-]?lists?|track[\s-]?lists?|track\s+listings?)\b"),
+    ("no separate track", r"\b(?:no|without(?:\s+an?)?)\s+(?:(?:separate|separately\s+titled|own|distinct|individual"
+                          r"|titled|dedicated|standalone|stand-alone)\s+)?tracks?\b"),
+    # fix round 1: "not tracked separately", "not tracked as separate songs"
+    ("not tracked separately", r"(?:\bnot|n['’]t)\s+(?:been\s+)?tracked\s+(?:separately"
+                               r"|as\s+(?:separate|individual|distinct|their\s+own)\b)"),
 ))
 
 # A filename's disc/track tail (`d3t04`, `s2t01`, `D3_T02`, `t14`, `track01`).
