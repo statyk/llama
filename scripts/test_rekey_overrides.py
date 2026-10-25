@@ -164,7 +164,7 @@ def test_each_refusal_reason_with_its_route(tmp_path, capsys, case, legacy, muta
     rc, out = _run(root, capsys)
     lines = out.splitlines()
     i = lines.index(f"refused: gratefuldead-1973-06-10: {reason} ({r.detail})")
-    assert lines[i + 1] == f"  repair: {route}"
+    assert lines[i + 1] == f"  repair: {route.replace('<show>', r.slug)}"
     assert "0 to rekey, 1 refused, 0 already migrated, 0 without positional keys" in lines
     assert rc == 1
 
@@ -440,3 +440,67 @@ def test_a_failed_process_check_fails_the_dry_run(tmp_path, capsys, monkeypatch)
     assert "process check failed: OSError: no ps" in out.splitlines()
     assert "would rekey: gratefuldead-1973-06-10 (1 titles, 0 breaks)" in out.splitlines()
     assert rc == 1
+
+
+def test_kept_list_is_compared_in_order(tmp_path):
+    """Two show.json filenames swapped (same multiset) is not today's kept list."""
+    root = tmp_path / "lib"
+    ws = _show(root, set_breaks=[3], encore_after=5)
+
+    def swap(d):
+        a, b = d["tracks"][0]["filename"], d["tracks"][1]["filename"]
+        d["tracks"][0]["filename"], d["tracks"][1]["filename"] = b, a
+    _edit_show(ws, swap)
+    got = rk.check_show(ws, _ia(root), WANT)
+    assert [r.reason for r in got] == ["kept list differs"]
+    assert f"first difference at track 1: {F[1]} vs {F[0]}" in got[0].detail
+
+
+def test_a_matching_title_that_is_not_an_override_is_not_applied(tmp_path):
+    root = tmp_path / "lib"
+    ws = _show(root, legacy={"titles": {"1": "Morning Dew"}})
+    assert json.loads(ws.show.read_text())["tracks"][0]["title_source"] == "tags"
+    got = rk.check_show(ws, _ia(root), WANT)
+    assert [r.reason for r in got] == ["title not applied"]
+    assert "title_source tags" in got[0].detail
+
+
+def test_a_negative_key_without_show_json_is_reported(tmp_path):
+    root = tmp_path / "lib"
+    ws = _show(root, legacy={"titles": {"-1": "X"}})
+    ws.show.unlink()
+    got = rk.check_show(ws, _ia(root), WANT)
+    assert [r.reason for r in got] == ["no show.json", "title out of range"]
+    assert got[1].route == HAND
+
+
+def test_title_out_of_range_names_the_number_each_key_reads_as(tmp_path):
+    root = tmp_path / "lib"
+    ws = _show(root, legacy={"titles": {"7_0": "X", "+9": "Y", "-2": "Z"}})
+    got = [r for r in rk.check_show(ws, _ia(root), WANT) if r.reason == "title out of range"]
+    assert [r.detail for r in got] == [
+        "titles keys '7_0' (reads as 70), '+9' (reads as 9) outside 1..6",
+        "titles keys '-2' (reads as -2) outside 1..6"]
+
+
+def test_printed_routes_name_the_show(tmp_path, capsys):
+    root = tmp_path / "lib"
+    ws = _show(root, legacy={"titles": {"1": "Wrong"}})
+    (r,) = rk.check_show(ws, _ia(root), WANT)
+    assert r.route == rk.REASONS["title not applied"]     # the dataclass keeps the template
+    rc, out = _run(root, capsys)
+    assert "  repair: `llama redo gratefuldead-1973-06-10 --from gather`" in out.splitlines()
+    assert "<show>" not in out
+
+
+def test_dry_run_notes_what_the_process_check_cannot_see(tmp_path, capsys, monkeypatch):
+    root = tmp_path / "lib"
+    _show(root, titles={1: "Dew"})
+    note = ("note: the process check cannot see a sweep loop typed at an interactive prompt "
+            "while it sleeps; stop it by hand (runbook step 1)")
+    for ps in ([], ["601 1 /usr/local/bin/llama get q"]):
+        monkeypatch.setattr(rk, "_ps_lines", lambda ps=ps: ps)
+        rc, out = _run(root, capsys)
+        lines = out.splitlines()
+        i = next(i for i, l in enumerate(lines) if l.startswith("llama processes running:"))
+        assert lines[i + 1 + len(ps)] == note

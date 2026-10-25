@@ -115,6 +115,16 @@ def _quoted(keys: Iterable[str]) -> str:
     return ", ".join(repr(str(k)) for k in keys)
 
 
+def _reads_as(keys: Iterable[str]) -> str:
+    """Each key with the number v2.17.0 reads it as (`'7_0' (reads as 70)`)."""
+    return ", ".join(f"{str(k)!r} (reads as {legacy_int(k)})" for k in keys)
+
+
+def _first_line(exc: BaseException) -> str:
+    text = str(exc).strip()
+    return text.splitlines()[0] if text else type(exc).__name__
+
+
 def check_show(ws: ShowWorkspace, ia, want: Sequence[str], *,
                overrides_bytes: bytes | None = None,
                show_bytes: bytes | None = None) -> Rekey | list[Refusal] | None:
@@ -145,8 +155,7 @@ def check_show(ws: ShowWorkspace, ia, want: Sequence[str], *,
             raise ValueError(f"a JSON {type(raw).__name__}, not an object")
         ov = Overrides.model_validate_json(overrides_bytes)
     except Exception as exc:   # invalid JSON, or the new model cannot read it
-        first = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
-        return [refuse("unreadable", f"overrides.json: {first}")]
+        return [refuse("unreadable", f"overrides.json: {_first_line(exc)}")]
 
     kind = classify(raw)
     if kind == "mixed":
@@ -189,14 +198,13 @@ def check_show(ws: ShowWorkspace, ia, want: Sequence[str], *,
         else:
             show = Show.model_validate_json(show_bytes)
     except Exception as exc:
-        first = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
-        add("no show.json", f"show.json unreadable: {first}")
+        add("no show.json", f"show.json unreadable: {_first_line(exc)}")
 
     if show is None:
         # Without a track list only a key of -1 or below is known to be out of range.
         negative = [k for k in titles if legacy_int(k) <= -1]
         if negative:
-            add("title out of range", f"titles keys {_quoted(negative)} below 1",
+            add("title out of range", f"titles keys {_reads_as(negative)} below 1",
                 HAND_EDIT_ROUTE)
         return out
 
@@ -208,9 +216,9 @@ def check_show(ws: ShowWorkspace, ia, want: Sequence[str], *,
     cli = [k for k in outside if legacy_int(k) > -1]
     negative = [k for k in outside if legacy_int(k) <= -1]
     if cli:
-        add("title out of range", f"titles keys {_quoted(cli)} outside 1..{n_tracks}")
+        add("title out of range", f"titles keys {_reads_as(cli)} outside 1..{n_tracks}")
     if negative:
-        add("title out of range", f"titles keys {_quoted(negative)} outside 1..{n_tracks}",
+        add("title out of range", f"titles keys {_reads_as(negative)} outside 1..{n_tracks}",
             HAND_EDIT_ROUTE)
 
     # title not applied: the track at the key is not an override with exactly that title.
@@ -311,6 +319,10 @@ _SEPARATORS = re.compile(r"&&|\|\||[;|\n]")
 _ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 _LEADERS = frozenset({"do", "then", "else", "("})
 SELF_SCRIPT = "rekey_overrides.py"
+# What the check cannot see: a loop typed at an interactive prompt runs in the login
+# shell (`-zsh`, no `-c`), so while it sleeps nothing in ps names llama.
+PROCESS_NOTE = ("note: the process check cannot see a sweep loop typed at an interactive "
+                "prompt while it sleeps; stop it by hand (runbook step 1)")
 
 
 def _unquote(word: str) -> str:
@@ -426,8 +438,10 @@ def _rekey_line(verb: str, r: Rekey) -> str:
 
 
 def _print_refusal(r: Refusal) -> None:
+    """The route with the slug in place of `<show>`, so it can be pasted (the Refusal
+    keeps REASONS' template)."""
     print(f"refused: {r.slug}: {r.reason} ({r.detail})")
-    print(f"  repair: {r.route}")
+    print(f"  repair: {r.route.replace('<show>', r.slug)}")
 
 
 def dry_run(root: Path, ia, want) -> int:
@@ -445,6 +459,7 @@ def dry_run(root: Path, ia, want) -> int:
                 print(f"  {line}")
         else:
             print("llama processes running: none")
+    print(PROCESS_NOTE)
 
     rekeys, refused, migrated = check_library(root, ia, want)
     by_slug: dict[str, list[Refusal]] = {}
