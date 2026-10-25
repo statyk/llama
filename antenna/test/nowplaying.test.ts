@@ -45,7 +45,10 @@ describe("nowPlayingText", () => {
   it("formats show and file, or says the station will be back", () => {
     const np = findNowPlaying(TIMELINE, t("2026-10-10T12:05:00Z"));
     expect(nowPlayingText(np, true)).toBe("Cracker — 2005-11-01, Knickerbockers, Lincoln, NE USA · One Fine Day");
-    expect(nowPlayingText(null, true)).toBe("We'll be back shortly.");
+    expect(nowPlayingText(null, true)).toBe("llama radio");
+    expect(nowPlayingText(null, true, "llama radio")).toBe("llama radio");
+    expect(nowPlayingText(null, true, "KXYZ")).toBe("KXYZ");
+    expect(nowPlayingText(null, false, "llama radio")).toBe("Tuning in…");
     expect(nowPlayingText(null, false)).toBe("Tuning in…");
   });
 });

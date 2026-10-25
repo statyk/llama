@@ -158,5 +158,5 @@ setInterval(() => {
     return;
   }
   const at = playbackDateMs();
-  if (at !== null) nowPlaying.textContent = nowPlayingText(findNowPlaying(timeline, at), timeline !== null);
+  if (at !== null) nowPlaying.textContent = nowPlayingText(findNowPlaying(timeline, at), timeline !== null, document.title);
 }, 1000);
