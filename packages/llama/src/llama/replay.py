@@ -255,6 +255,18 @@ _COUNT_NUM = (r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|t
               r"|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty"
               r"|sixty)(?:[\s-]+(?:one|two|three|four|five|six|seven|eight|nine))?")
 
+# Building blocks of the negation terms: a negation, then a bounded window of up to 3-5
+# arbitrary words whose separators may include commas and parentheses.
+_NEG = r"(?:\bnot|\bnever|n['’]t|\bcannot)"
+_SEP = r"[\s,()]+"
+_WORD = r"[\w'’-]+"
+
+
+def _window(n: int) -> str:
+    """Up to `n` arbitrary words (lazily), each preceded by a separator."""
+    return rf"(?:{_SEP}{_WORD}){{0,{n}}}?{_SEP}"
+
+
 # Exclusion/absence wording, matched ANYWHERE in the briefing (not only near a restored
 # file's name): the conservative reading of the ruling, measured in the Task 15a report.
 # Checked in this order; the first that fires names the reason.
@@ -265,33 +277,33 @@ _RESTORED_WORDING = tuple((term, re.compile(p)) for term, p in (
     ("left out", r"\b(?:left|leaves?|leaving)\s+(?:out|off)\b"),
     ("omitted", r"\bomi(?:t|ts|tted|tting|ssion|ssions)\b"),
     ("absent", r"\babsen(?:t|ce)\b"),
-    ("not present", r"\bnot\s+present\b"),
+    ("not present", rf"{_NEG}{_window(3)}present\b"),
     ("missing", r"\bmissing\b"),
     ("dropped", r"\bdropp(?:ed|ing)\b"),
-    ("not represented", r"\bnot\s+represented\b"),
-    ("not part of", r"\bnot\s+part\s+of\b"),
+    ("not represented", rf"{_NEG}{_window(3)}represented\b"),
+    ("not part of", rf"{_NEG}{_window(3)}part\s+of\b"),
     ("not a track", r"\bnot\s+(?:a\s+|as\s+(?:a\s+)?|its\s+own\s+)?"
                     r"(?:separate\s+|titled\s+|distinct\s+|individual\s+)?tracks?\b"),
     # a count or a numbered range of tracks/songs/files: a restoration changes it
     ("track count", rf"\b{_COUNT_NUM}[\s-]+(?:tracks|songs|files)\b|\b{_COUNT_NUM}-(?:track|song|file)\b"
                     r"|\btracks?\s+\d+\s*(?:-|–|—|to|through|thru)\s*\d+"),
-    # Tasks 15b (operator rulings, Checkpoint B) and fix rounds: each class is closed by a
-    # negation (`not`, `n't`, `cannot`; `no`/`without` for tracks) followed by a BOUNDED
-    # window of up to N arbitrary words and then the noun/verb, rather than by listing
-    # auxiliaries and adverbs ("should not have been included", "is not even listed").
-    # Over-matching only costs a brief call; under-matching ships a false absence claim.
-    ("not included", r"(?:\bnot|n['’]t|\bcannot)(?:\s+[\w'’-]+){0,3}?\s+included\b"),
-    ("not listed", r"(?:\bnot|n['’]t|\bcannot)(?:\s+[\w'’-]+){0,3}?\s+listed\b"),
-    ("does not appear", r"(?:\bnot|n['’]t)\s+appear(?:s|ed|ing)?\b"),
+    # Tasks 15b (operator rulings, Checkpoint B) and fix rounds: these terms, and `not present`,
+    # `not represented` and `not part of` above, are a negation (`not`, `never`, `n't`,
+    # `cannot`; `no`/`without` for tracks) followed by a BOUNDED window of up to 3-5
+    # arbitrary words (commas and parentheses count as separators) and then the head
+    # word, rather than a list of auxiliaries and adverbs ("should not, in fact, have been
+    # included"). `unlisted` is a plain word. Over-matching only costs a brief call;
+    # under-matching ships a false absence claim.
+    ("not included", rf"{_NEG}{_window(5)}included\b"),
+    ("not listed", rf"{_NEG}{_window(5)}listed\b"),
+    ("does not appear", rf"{_NEG}{_window(5)}appear(?:s|ed|ing)?\b"),
     ("unlisted", r"\bunlisted\b"),
-    # not in/on [up to 3 words] setlist | set list | set-list | tracklist | track listing, any plural
-    ("not in the setlist", r"(?:\bnot|n['’]t)\s+(?:in|on)\s+(?:[\w'’-]+\s+){0,3}?"
-                           r"(?:set|track)[\s-]?list(?:ing)?s?\b"),
+    # not|never in/on [up to 3 words] setlist | set list | set-list | tracklist | track listing, any plural
+    ("not in the setlist", rf"{_NEG}{_SEP}(?:in|on){_window(3)}(?:set|track)[\s-]?list(?:ing)?s?\b"),
     # no / without [up to 3 words] track(s): "no separate track", "without its own track"
-    ("no separate track", r"\b(?:no|without)\s+(?:[\w'’-]+\s+){0,3}?tracks?\b"),
-    # not [up to 2 words] tracked: "not tracked separately", "not separately tracked",
-    # "not tracked as a separate song", "not tracked individually"
-    ("not tracked separately", r"(?:\bnot|n['’]t)\s+(?:[\w'’-]+\s+){0,2}?tracked\b"),
+    ("no separate track", rf"\b(?:no|without){_window(3)}tracks?\b"),
+    # not [up to 3 words] tracked: "not tracked separately", "not separately tracked", "not tracked individually"
+    ("not tracked separately", rf"{_NEG}{_window(3)}tracked\b"),
 ))
 
 # A filename's disc/track tail (`d3t04`, `s2t01`, `D3_T02`, `t14`, `track01`).
