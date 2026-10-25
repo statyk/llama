@@ -9,7 +9,6 @@ fall in line. Phase 3's scheduler replaces `choose_next`/`extend`; the plan
 file, recovery cut and re-plan rules stay.
 """
 
-import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -18,12 +17,9 @@ from typing import Callable, Mapping, Sequence
 from transmitter.errors import PlanError, TransmitterError
 from transmitter.grid import SEGMENT_FRAMES
 from transmitter.layout import PlanRow, validate_rows
+from transmitter.rules import tie_rank as shuffle_rank  # moved; re-exported until Task 11 retires the shuffle
 from transmitter.station import Show
 from transmitter.workspace import atomic_write_text
-
-
-def shuffle_rank(seed: int, slug: str) -> str:
-    return hashlib.sha256(f"{seed}:{slug}".encode()).hexdigest()
 
 
 def choose_next(eligible: Sequence[Show], last_seq: Mapping[str, int], seed: int,
