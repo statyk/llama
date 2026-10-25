@@ -285,3 +285,22 @@ def make_publisher(tmp_path: Path, bucket: "FakeBucket", *, batch: int = 360, bu
     p.sleeps = sleeps
     p.analyses = analyses
     return p
+
+
+LIBRARY_DURATIONS = Path(__file__).parent / "fixtures" / "library_durations.json"
+
+
+def show_piece(slug: str, *, artist: str | None = None, date: str | None = None,
+               profile: str | None = None, frames: int = 441_000, exact: bool = True):
+    """A scheduler show `Piece` with no files behind it."""
+    from transmitter.pieces import Piece
+    from transmitter.station import Show
+    meta = {"artist": artist, "date": date, "voiced_profile": profile}
+    return Piece("show", Show(slug, Path(slug), (), f"k-{slug}", meta), slug, frames, exact)
+
+
+def library_pieces() -> list:
+    """The fixture library (`fixtures/make_library_durations.py`) as show pieces."""
+    rows = json.loads(LIBRARY_DURATIONS.read_text())
+    return [show_piece(r["slug"], artist=r["artist"], date=r["date"], profile=r["profile"],
+                       frames=r["frames"]) for r in rows]
