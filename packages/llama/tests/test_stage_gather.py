@@ -2503,12 +2503,14 @@ _DC15_CHOSEN = ("01 Shakedown Street\n02 Brown Eyed Women\n03 New Minglewood Blu
 
 def test_g5_dc15_closers_into_outro_or_crowd_transfer_no_mark():
     # (a) `Music Never Stopped > Outro`, `Sugar Magnolia > Crowd`, `Ripple > Outro`
-    # transfer nothing; neither does `Terrapin Station > Drums Intro` (the one real
-    # mark G5 is measured to cost, tfw3-rev). Every interior song-to-song mark stays.
+    # transfer nothing. `Terrapin Station > Drums Intro` does (fix round 1: `Drums
+    # Intro` does not BEGIN with a filler word; it was G5's one expected real loss).
+    # Every interior song-to-song mark stays.
     cb = _fw4_build(_DC15_SLFM, _DC15_CHOSEN, _DC15_DONOR, 17)
     assert cb.source == "setlist.fm"
     assert _segued(cb) == ["Shakedown Street", "Brown-Eyed Women", "Eyes of the World",
-                           "Let It Grow", "Drums", "Space", "The Wheel", "Looks Like Rain"]
+                           "Let It Grow", "Terrapin Station", "Drums", "Space", "The Wheel",
+                           "Looks Like Rain"]
 
 
 # warrenzevon-2000-04-22: the donor (WZ2000-04-22.Solo.sbd.Fixed.happyjack.Flac16) verbatim.
@@ -4874,6 +4876,9 @@ _MOE_SLFM = [["Not Coming Down", "Wormwood", "Cathedral", "Bullet", "Okayalright
              ["Crab Eyes", "Spaz Medicine", "Wind It Up", "Queen of Everything", "Bullet",
               "Rebubula", "Plane Crash"],
              ["Raise a Glass", "September", "Rebubula"]]
+# The marks shipped, exactly: the pooled fallback (2, 3, 7, 9, 12) and the own
+# alignment's (14, 20); 5 `Bullet ->` is the known loss.
+MOE_SEGUED = [2, 3, 7, 9, 12, 14, 20]
 
 
 def test_fw4_pooling_stays_the_fallback_where_own_alignment_does_not_cover(tmp_path):
@@ -4881,10 +4886,12 @@ def test_fw4_pooling_stays_the_fallback_where_own_alignment_does_not_cover(tmp_p
     # alignment does not reach tracks 2, 3, 7, 9 and 12 (its set-two `Intro` takes track
     # 1 and moves its pointer past set one), so their pooled marks, each corroborated by
     # the track's own `>`/`->` tag, still ship; 14 and 20 are the own alignment's.
+    # Exact: track 5 `Bullet ->` is a KNOWN real loss (FW4 handback): the own
+    # alignment lands it on the set-two `Bullet`, unmarked, and removes the pooled mark.
     chosen = "\n".join(t.rstrip(" ->") for t in _MOE_TAGS)
     res = _fw4_gather(tmp_path, _MOE_TAGS, chosen, _MOE_SLFM, sib_desc=_MOE_DONOR)
     assert res.show.structure.source == "setlist.fm"
-    assert {2, 3, 7, 9, 12, 14, 20} <= set(_segued_tracks(res))
+    assert _segued_tracks(res) == MOE_SEGUED
 
 
 # gratefuldead-1988-06-23: the donor gd88-06-23.dsbd.terrapin-flyer.13051.sbeok.shnf,
@@ -4915,9 +4922,10 @@ def _gd88(tmp_path):
 
 def test_fw4_gd88_regained_marks_still_ship(tmp_path):
     # (f) (pin) FW3's regained marks: He's Gone, Drums, I Need A Miracle, Watchtower.
+    # Exact: 14 `Space` is item 2's own gain (pinned with its mechanism below).
     res = _gd88(tmp_path)
     assert res.show.structure.source == "setlist.fm"
-    assert {12, 13, 15, 17} <= set(_segued_tracks(res))
+    assert _segued_tracks(res) == [12, 13, 14, 15, 17]
 
 
 def test_fw4_gd88_space_takes_the_donors_jam_mark(tmp_path):
@@ -4944,9 +4952,134 @@ def test_fw4_segue_donor_carries_g5_and_the_canonical_cleaning():
     assert d is not None
     assert [i.title for i in d.items if i.segue] == [
         "Intro", "Shakedown Street", "Brown-Eyed Women", "New Minglewood Blues", "Intro",
-        "Eyes of the World", "Let It Grow", "Drums Intro", "Drums", "Space", "The Wheel",
-        "Looks Like Rain"]
+        "Eyes of the World", "Let It Grow", "Terrapin Station", "Drums Intro", "Drums", "Space",
+        "The Wheel", "Looks Like Rain"]
     base = json.loads(FIXTURE.read_text())
     kept, _, _ = filter_files(base["files"], want_format=("VBR MP3",))
     assert build_canonical(StubIA(base), make_candidate(), IDENT, base["metadata"], kept,
                            "Grateful Dead", []).segue_donor is None
+
+
+# --- FW4 fix round 1 ---
+#
+# G5 fires only when the next donor entry BEGINS with a filler word; a real title that
+# carries one later (`(Band Intros)`, `/ crowd`, `Intro Jam`, `W/Crowd Response chant`)
+# keeps the mark. Each shape is the donor's own text, verbatim.
+
+
+@pytest.mark.parametrize("slfm, donor, segued", [
+    # joerussosalmostdead-2016-02-11 (JRAD2016-02-11...CollegeStMusicHallNewHavenCT)
+    ([["St. Stephen", "Space", "Let It Grow", "Eyes of the World", "Cumberland Blues"]],
+     "04 Let It Grow -->\n05 Eyes Of The World -->\n06 Cumberland Blues (Band Intros)",
+     ["Let It Grow", "Eyes of the World"]),
+    # littlefeat-1975-09-01 (lf1975-09-01.flac16)
+    ([["Teenage Nervous Breakdown", "Cold, Cold, Cold", "Dixie Chicken", "Tripe Face Boogie",
+       "Willin'"]],
+     "Teenage Nervous Breakdown\nCold Cold Cold >\nDixie Chicken >\nTripe Face Boogie / crowd\n"
+     "Willin'",
+     ["Cold, Cold, Cold", "Dixie Chicken"]),
+    # railroadearth-2013-07-12 (rre2013-07-12, the selected run-on set line)
+    ([["Black Bear", "Stillwater Getaway", "The Forecast", "Mighty River", "Peace on Earth"]],
+     "Set II: Warhead Boogie> Black Bear> Stillwater Getaway, The Forecast> River Intro Jam> "
+     "Mighty River> Peace on Earth,",
+     ["Black Bear", "The Forecast", "Mighty River"]),
+    # kellerwilliams-2005-02-12 (kw2005-02-12.flac)
+    ([["Shapes of M+M's", "Breathe", "Up in My Cadillac", "Boomwhacker", "Breathe", "Yoni"]],
+     "02. Breathe >\n03. Up in my Cadillac >\n04. Boomwhacker/Toy loup W/Crowd Response chant >\n"
+     "05. Breathe",
+     ["Breathe", "Up in My Cadillac"]),
+])
+def test_fw4r1_g5_keeps_a_mark_into_a_title_carrying_a_filler_word(slfm, donor, segued):
+    cb = _fw4_build(slfm, "\n".join(n for s in slfm for n in s), donor,
+                    sum(len(s) for s in slfm), encore=False)
+    assert cb.source == "setlist.fm"
+    assert _segued(cb) == segued
+
+
+def test_fw4r1_g5_runs_after_the_donor_ranking():
+    # (pin) The chosen parse is the closest by count among segue-bearing parses, and its
+    # only segue is `Ripple > Outro`. G5 clears it after ranking: no donor, no transfer,
+    # and the sibling's real `Bertha >` is NOT promoted in its place.
+    # (setlist.fm needs five songs to count; `from_setlistfm`.)
+    chosen = "Bertha\nDeal\nSugaree\nRipple >\nOutro"
+    sib = "Bertha > Deal\nSugaree\nRipple\nOne\nTwo\nThree"
+    cb = _fw4_build([["Bertha", "Deal", "Sugaree", "Ripple", "Brokedown Palace"]], chosen, sib,
+                    5, encore=False)
+    assert cb.source == "setlist.fm"
+    assert _segued(cb) == []
+    assert cb.segue_donor is None
+
+
+# Item 2's ADD guard: the own alignment adds a mark only on a track that is not the
+# show's last and is in the same set as the next track (canonical alignment), or whose
+# own title ends in `>`.
+
+# warrenzevon-2000-05-29: the selected description's last lines, verbatim; setlist.fm's
+# names. Track 3 is the show's last track, a four-song file whose first component matches
+# the donor's `Play It All Night Long >`.
+_WZ0529_TAGS = ["Roland the Headless Thompson Gunner",
+                "Werewolves of London > Back In the High Life Again [Jennings, Winwood]",
+                "Play It All Night Long > [Encore:] 5D (Fifth Dimension) [McGuinn] > "
+                "I'll Sleep When I'm Dead > Lawyers, Guns and Money"]
+_WZ0529_DESC = ("09. Roland the Headless Thompson Gunner\n"
+                "10. Werewolves of London > Back In the High Life Again  [Jennings, Winwood]\n"
+                "11. Play It All Night Long > [Encore:] 5D (Fifth Dimension)  [McGuinn] > "
+                "I'll Sleep When I'm Dead > Lawyers, Guns and Money")
+_WZ0529_SLFM = [["Roland the Headless Thompson Gunner", "Werewolves of London",
+                 "Back in the High Life Again", "Play It All Night Long", "5D (Fifth Dimension)",
+                 "I'll Sleep When I'm Dead", "Lawyers, Guns and Money"]]
+
+
+def test_fw4r1_no_gain_on_the_last_track(tmp_path):
+    res = _fw4_gather(tmp_path, _WZ0529_TAGS, _WZ0529_DESC, _WZ0529_SLFM, encore=False)
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == []
+
+
+# gratefuldead-1987-03-27: the selected one-line description (gd87-03-27.nak.braverman),
+# verbatim, whose parse glues set one's closer to set two's opener:
+# `The Music Never Stopped Touch Of Gray->`. Tags and setlist.fm's names.
+_GD87_TAGS = ["Alabama Getaway", "Greatest Story Ever Told", "West LA Fadeaway",
+              "Little Red Rooster", "Brown-Eyed Women", "Beat It On Down the Line",
+              "Tennessee Jed", "The Music Never Stopped", "Touch of Grey", "Samson & Delilah",
+              "Cumberland Blues", "Estimated Prophet", "Eyes of the World", "drums", "space",
+              "Uncle John's Band", "Morning Dew", "Johnny B. Goode"]
+_GD87_DESC = ("Alabama Getaway-> Greatest Story Ever Told, West L.A. Fadeaway, Little Red Rooster, "
+              "Brown Eyed Women, Beat It On Down The Line, Tennessee Jed, The Music Never Stopped "
+              "Touch Of Gray-> Samson & Delilah, Cumberland Blues, Estimated Prophet-> Eyes Of The "
+              "World-> Jam-> Drums-> Space-> Uncle John's Band-> Morning Dew, E: Johnny B. Goode")
+_GD87_SLFM = [["Alabama Getaway", "Greatest Story Ever Told", "West L.A. Fadeaway",
+               "The Little Red Rooster", "Brown-Eyed Women", "Beat It on Down the Line",
+               "Tennessee Jed", "The Music Never Stopped"],
+              ["Touch of Grey", "Samson and Delilah", "Cumberland Blues", "Estimated Prophet",
+               "Eyes of the World", "Drums", "Space", "Uncle John's Band", "Morning Dew"],
+              ["Johnny B. Goode"]]
+
+
+def _gd87(tmp_path, tags=_GD87_TAGS):
+    return _fw4_gather(tmp_path, tags, _GD87_DESC, _GD87_SLFM, creator="Grateful Dead")
+
+
+def test_fw4r1_no_cross_set_gain_from_a_run_on_blob(tmp_path):
+    # Track 8 (set one's closer) matches the blob and would take its `->`; set two
+    # follows, so the gain is declined. The interior marks still ship.
+    res = _gd87(tmp_path)
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == [1, 12, 13, 14, 15, 16]
+
+
+def test_fw4r1_cross_set_gain_ships_when_the_track_is_tagged(tmp_path):
+    # (pin) The same shape with the track's own tag ending in `>`: the taper's own mark.
+    tags = list(_GD87_TAGS)
+    tags[7] = "The Music Never Stopped >"
+    res = _gd87(tmp_path, tags)
+    assert _segued_tracks(res) == [1, 8, 12, 13, 14, 15, 16]
+
+
+def test_fw4r1_removal_on_the_last_track_still_happens(tmp_path):
+    # (pin) Removals are unguarded: radiators-2010-10-29's medley as the show's last
+    # track still loses the pooled mark its own alignment does not place.
+    res = _fw4_gather(tmp_path, _RADS_S1_TAGS[:4], "\n".join(_RADS_S1_DESC.split("\n")[:5]),
+                      _RADS_S1_SLFM, encore=False)
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == []

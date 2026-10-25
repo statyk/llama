@@ -31,7 +31,7 @@ from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align
                              from_setlistfm,
                              fuzzy_norm_title, fuzzy_title_eq, is_filler, norm_title, rank_parses,
                              structure_guard, venues_equivalent,
-                             _venues_equivalent_pre1b)
+                             _FILLER, _venues_equivalent_pre1b)
 from llama.placeholders import is_junk_tag
 from llama.taper import TaperDecision
 from llama.titles import (_GLUED_NUM_PREFIX, _JOINED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
@@ -879,6 +879,16 @@ def _corroboration(parses: list[SourcedParse], descriptions: list[str], chosen_d
     return {norm: tuple(sorted(sources)) for norm, sources in vocab.items()}
 
 
+_LEADING_NON_WORD = re.compile(r"^[\W_]+")
+
+
+def _leads_with_filler(title: str) -> bool:
+    """FW4 G5's filler test: the title, past any leading punctuation (`[banter]`,
+    `-encore break-`), begins with a `structure._FILLER` word. `_FILLER` is used
+    verbatim (anchored with `.match` where `is_filler` uses `.search`)."""
+    return bool(_FILLER.match(_LEADING_NON_WORD.sub("", title)))
+
+
 def _drop_dangling_segues(parsed: ParsedSetlist) -> ParsedSetlist:
     """FW4 G5 (operator ruling 2026-10-25): clear the segue flag of a segue
     DONOR item followed, in the donor's own item list, by an `is_filler` item
@@ -890,11 +900,23 @@ def _drop_dangling_segues(parsed: ParsedSetlist) -> ParsedSetlist:
 
     Applied to the chosen donor only, after it is ranked (the donor choice is
     unchanged), never to the canonical winner or the no-setlist.fm path.
-    `is_filler` is used as is. Measured cost: one real mark (deadandcompany-
-    2015-11-20 `Terrapin Station > Drums Intro`; `intro` is filler)."""
+
+    "Followed by filler" is `_leads_with_filler`: the next entry BEGINS with a
+    `_FILLER` word (`Outro`, `Crowd`, `Banter and Guitar Tuning`, `[banter]`),
+    not merely contains one. `is_filler` (a search anywhere) is untouched and
+    is not used here, because measured at 20c4e6a its word matches inside real
+    titles cost 5 real marks: `Cumberland Blues (Band Intros)`
+    (joerussosalmostdead-2016-02-11), `Tripe Face Boogie / crowd`
+    (littlefeat-1975-09-01), `River Intro Jam` (railroadearth-2013-07-12),
+    `Boomwhacker/Toy loup W/Crowd Response chant` (kellerwilliams-2005-02-12)
+    and `Drums Intro` (deadandcompany-2015-11-20 `Terrapin Station >`). The
+    leading-word form keeps all five; it costs marks into an entry whose filler
+    word comes later (`[band intros and banter]`, `Roland Chorale Outro`,
+    `Detuning`), measured in the FW4 fix-round report."""
     items = parsed.items
     out = [it.model_copy(update={"segue": False})
-           if it.segue and (k + 1 == len(items) or is_filler(items[k + 1].title)) else it
+           if it.segue and (k + 1 == len(items) or _leads_with_filler(items[k + 1].title))
+           else it
            for k, it in enumerate(items)]
     if all(a is b for a, b in zip(out, items)):
         return parsed
@@ -998,12 +1020,30 @@ def donor_segues(tracks: list[Track], result: AlignResult, donor: ParsedSetlist 
     pooled segue, the fallback. Only `segues` changes: sets, `matched`,
     coverage and conflicts are `result`'s. No threshold, no new constant.
 
+    The own alignment may REMOVE a pooled mark wherever it matches. It may ADD
+    one (pooled False, own True) only where the mark can mean a flow into the
+    next track (FW4 fix round 1, operator ruling on tfw4-rev Important 1): the
+    track is not the show's last, and either the canonical alignment puts it in
+    the same set as the next track or the track's own title ends in `>`
+    (`>`/`->`, the taper's tag). align()'s subphrase matching lets a track take
+    a run-on parse blob's `>` (`The Music Never Stopped Touch Of Gray->`, set
+    one's closer glued to set two's opener) or a multi-song track's first
+    component's; those land across set breaks and on last tracks. Structural
+    only; no constant.
+
     `donor` is `CanonicalBuild.segue_donor`: None (nothing pooled) returns
     `result` unchanged."""
     if donor is None:
         return result
     own = align(tracks, donor, aliases=aliases)
-    segues = [o if m else p for p, o, m in zip(result.segues, own.segues, own.matched)]
+    n = len(tracks)
+
+    def may_add(k: int) -> bool:
+        return k + 1 < n and (result.sets[k] == result.sets[k + 1]
+                              or tracks[k].title.rstrip().endswith(">"))
+
+    segues = [o if m and (not o or p or may_add(k)) else p
+              for k, (p, o, m) in enumerate(zip(result.segues, own.segues, own.matched))]
     if segues == result.segues:
         return result
     return result.model_copy(update={"segues": segues})
