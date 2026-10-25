@@ -152,6 +152,23 @@ def test_ruling1_short_nonzero_file_still_kept():
     assert ordering["short_kept"] == ["band1t06.mp3"]
 
 
+@pytest.mark.parametrize("tag", ["Not Fade Away Chant", "Crowd Doing Not Fade Away"])
+def test_a_not_fade_away_crowd_chant_is_kept_operator_ruling(tag):  # (pin)
+    """Operator ruling 2, Checkpoint B (2026-10-24): "An NFA chant should absolutely
+    not be dropped; other crowd chants could go either way but inclusion is safer."
+    The library tags `Not Fade Away Chant` (deadandcompany-2015-11-17) and `Crowd
+    Doing Not Fade Away` (thedead-2015-07-05) are kept by the short rule: no later
+    vocabulary change may drop them."""
+    assert short_tag_is_junk(tag) is False
+    files = [_mp3(f"band1t0{i}.mp3") for i in range(1, 6)]
+    files.append(_mp3("band1t06.mp3", title=tag, length="40.0"))
+    files.append(_mp3("band1t07.mp3"))
+    kept, excluded, ordering = filter_files(files)
+    assert "band1t06.mp3" in _names(kept)
+    assert excluded == []
+    assert ordering["short_kept"] == ["band1t06.mp3"]
+
+
 # --- the spam tripwire (spec 2.3) ---
 
 @pytest.mark.parametrize("filename", [
