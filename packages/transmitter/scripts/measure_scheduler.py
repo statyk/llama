@@ -188,8 +188,10 @@ def measure(pool: list, clock: ClockConfig, *, weeks: int, start_date: date | No
 def load_pool(root: Path, library: str, *, pause_samples: int, extra: int, scan_cache: Path | None = None) -> list:
     if scan_cache is not None and scan_cache.is_file():
         got = pickle.loads(scan_cache.read_bytes())
-        if not (isinstance(got, dict) and got.get("root") == str(root) and got.get("library") == library):
-            raise SystemExit(f"error: {scan_cache} was scanned for another root/library; remove it or use another path")
+        key = {"root": str(root), "library": library, "pause_samples": pause_samples, "extra": extra}
+        if not (isinstance(got, dict) and all(got.get(k) == v for k, v in key.items())):
+            raise SystemExit(f"error: {scan_cache} was scanned for another root/library/pause/extra; "
+                             "remove it or use another path")
         return got["pool"]
     if library == "delivered":
         pool = pieces.scan_delivered(root, now_s=time.time(), quiet_s=QUIET_SECONDS,
@@ -199,7 +201,8 @@ def load_pool(root: Path, library: str, *, pause_samples: int, extra: int, scan_
         lengths = pieces.LengthCache(None, pause_samples, extra)
         pool, _ = pieces.build_pool(shows, [], lengths=lengths, clip_dir="", read_only=True)
     if scan_cache is not None:
-        scan_cache.write_bytes(pickle.dumps({"root": str(root), "library": library, "pool": pool}))      # the caller's own scratch file, never the library
+        scan_cache.write_bytes(pickle.dumps({"root": str(root), "library": library, "pause_samples": pause_samples,
+                                         "extra": extra, "pool": pool}))      # the caller's own scratch file, never the library
     return pool
 
 

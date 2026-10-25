@@ -38,3 +38,47 @@ def test_two_weeks_on_the_fixture_library():
     assert by and all({"repeats", "min", "median", "within_7d"} <= set(v) for v in by.values())
     aired, pool_n = res["total"]["distinct_aired_by_profile"]["dead"]
     assert 0 < aired <= pool_n
+
+
+NAIVE = Path(__file__).resolve().parents[3] / "docs" / "superpowers" / "2026-10-25-scheduler-measurement" / "naive_filler.py"
+
+
+def _load_naive():
+    spec = importlib.util.spec_from_file_location("naive_filler", NAIVE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _cache(path, **over):
+    import pickle
+    key = {"root": "/r", "library": "delivered", "pause_samples": 33075, "extra": 1, "pool": library_pieces()[:3]}
+    key.update(over)
+    path.write_bytes(pickle.dumps(key))
+
+
+def test_measure_scan_cache_refuses_a_mismatch(tmp_path):
+    import pytest
+    ms = _load()
+    c = tmp_path / "c.pkl"
+    _cache(c)
+    assert len(ms.load_pool(Path("/r"), "delivered", pause_samples=33075, extra=1, scan_cache=c)) == 3
+    for kw in (dict(library="eligible"), dict(pause_samples=1), dict(extra=2)):
+        args = dict(library="delivered", pause_samples=33075, extra=1) | kw
+        with pytest.raises(SystemExit):
+            ms.load_pool(Path("/r"), args.pop("library"), scan_cache=c, **args)
+    with pytest.raises(SystemExit):
+        ms.load_pool(Path("/other"), "delivered", pause_samples=33075, extra=1, scan_cache=c)
+
+
+def test_naive_scan_cache_refuses_a_mismatch(tmp_path):
+    import pytest
+    nf = _load_naive()
+    c = tmp_path / "c.pkl"
+    _cache(c)
+    shows, _ = nf.load_shows(Path("/r"), c, extra=1, pause_samples=33075)
+    assert len(shows) == 3
+    with pytest.raises(SystemExit):
+        nf.load_shows(Path("/other"), c, extra=1, pause_samples=33075)
+    with pytest.raises(SystemExit):
+        nf.load_shows(Path("/r"), c, extra=2, pause_samples=33075)

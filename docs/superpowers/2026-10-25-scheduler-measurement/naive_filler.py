@@ -50,21 +50,30 @@ def anchors_of(clock: dict) -> tuple[list[tuple[int, str]], float]:
     return out, float(late if late is not None else clock.get("wiggle_minutes", 15))
 
 
-def load_shows(root: Path, scan_cache: Path | None) -> tuple[list[tuple[str | None, float]], str]:
-    if scan_cache is not None and scan_cache.is_file():
-        pool = pickle.loads(scan_cache.read_bytes())
-        pool = pool["pool"] if isinstance(pool, dict) else pool
-        return [(p.profile, p.frames * FRAME_SAMPLES / SAMPLE_RATE / 60) for p in pool], "scan-cache"
+def load_shows(root: Path, scan_cache: Path | None, *, extra: int | None = None,
+               pause_samples: int | None = None) -> tuple[list[tuple[str | None, float]], str]:
+    """`extra`/`pause_samples` default to the measured/config values; they are part of the cache key."""
     try:
         from transmitter import aacenc, grid, pieces
-        extra = aacenc.extra_frames()
-        pool = pieces.scan_delivered(root, now_s=time.time(), quiet_s=600.0,
-                                     pause_samples=grid.samples_for_seconds(0.75), extra=extra)
-        if scan_cache is not None:
-            scan_cache.write_bytes(pickle.dumps({"root": str(root), "library": "delivered", "pool": pool}))
-        return [(p.profile, p.frames * FRAME_SAMPLES / SAMPLE_RATE / 60) for p in pool], "pieces.scan_delivered"
+        if extra is None:
+            extra = aacenc.extra_frames()
+        if pause_samples is None:
+            pause_samples = grid.samples_for_seconds(0.75)
     except ImportError:
-        pass
+        pieces = None
+    if pieces is not None:
+        key = {"root": str(root), "library": "delivered", "pause_samples": pause_samples, "extra": extra}
+        if scan_cache is not None and scan_cache.is_file():
+            got = pickle.loads(scan_cache.read_bytes())
+            if not (isinstance(got, dict) and all(got.get(k) == v for k, v in key.items())):
+                raise SystemExit(f"error: {scan_cache} was scanned for another root/library/pause/extra; "
+                                 "remove it or use another path")
+            return [(p.profile, p.frames * FRAME_SAMPLES / SAMPLE_RATE / 60) for p in got["pool"]], "scan-cache"
+        pool = pieces.scan_delivered(root, now_s=time.time(), quiet_s=600.0,
+                                     pause_samples=pause_samples, extra=extra)
+        if scan_cache is not None:
+            scan_cache.write_bytes(pickle.dumps({**key, "pool": pool}))
+        return [(p.profile, p.frames * FRAME_SAMPLES / SAMPLE_RATE / 60) for p in pool], "pieces.scan_delivered"
     shows = []
     for m in sorted(glob.glob(str(root / "*" / "manifest.json"))):
         try:

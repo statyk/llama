@@ -28,9 +28,9 @@ station-wide, not Dead). After the fix: 384 of 413. The old station-wide
 repeat statistics and the old tables are gone.
 
 A library defect also matters and is independent of the scheduler: **17 Dead packages list every track twice** (consecutive
-identical titles; `doubled-dead.txt`, 1974-09-11 is a voiced one). They are the only own shows and pairs that fill the
-300-minute dead-am block alone or a 12-hour two-show block, so they dominate the Dead blocks the scheduler can fill from
-own shows. Every figure below is given with the full library and with these 17 excluded ("excl-17"). The operator
+identical titles; `doubled-dead.txt`, 1974-09-11 is a voiced one). They are the only single shows that land the
+300-minute dead-am block alone (fresh pairs of undoubled shows also land it), and the only own shows and pairs that land a
+12-hour two-show block, so they dominate the 12-hour Dead blocks the scheduler can fill from own shows. Every figure below is given with the full library and with these 17 excluded ("excl-17"). The operator
 expects the library to shrink before it grows (some delivered shows will be held pending llama fixes), so excl-17 is the
 more representative picture.
 
@@ -72,7 +72,7 @@ more representative picture.
 | c eligible full | 224 | 1050 | 0 (0.0%) | 45891 / 21604 = 13.4% | 86.6% | 113/113 | 1.0 / 32.5 / 290 |
 | c eligible excl-17 | 223 | 1050 | 0 (0.0%) | 106221 / 0 = 21.1% | 78.9% | 112/112 | 1.01 / 30.0 / 177 |
 
-Misses were zero in every week of every run. Bends by rule (a bend is counted only when a rule-keeping option existed):
+Misses were zero in every week of every run. Bends by rule (a bend is counted only when a rule-keeping option was **offered by the bounded search**; see the note below the table):
 
 | run | bends by rule |
 |---|---|
@@ -85,6 +85,12 @@ Misses were zero in every week of every run. Bends by rule (a bend is counted on
 | c delivered excl-17 | {'artist_day': 1, 'era': 1} |
 | c eligible full | {'artist_day': 1, 'era': 3, 'gap': 3} |
 | c eligible excl-17 | {'artist_day': 3, 'era': 8, 'gap': 6} |
+
+**Bends are undercounted.** The count includes only options the bounded search offered. The review's exhaustive probes
+(scratch copies, not committed runs) found gap-keeping options that land but were never offered: **clock a dead-family,
+35 of 35 gap-breaking first calls; clock c funk, 30 of 337**. Cause: `_blocksearch.py` first-show selection ignores whether
+a rule-keeping partner exists (a Task 8 follow-up). The zero-gap-bend entries above and the dead-family figures (43/225
+aired, 7-day minimum) therefore partly reflect that search miss, not the library.
 
 Distinct shows aired / pool by profile, with that profile's repeat gap (min and median, days, over the whole span):
 
@@ -109,13 +115,22 @@ next window):
 | a full | dead-pm | 0.0% | 100.0% |
 | a excl-17 | dead-am | 0.0% | 100.0% |
 | a excl-17 | dead-pm | 40.9% | 59.1% |
+| a +-15 full | dead-am | 0.0% | 100.0% |
 | a +-15 full | dead-pm | 0.0% | 100.0% |
-| c delivered full | dead-evening | 0.0% | 100.0% |
-| c delivered excl-17 | dead-evening | 46.5% | 53.5% |
-| c eligible full | dead-evening | 26.8% | 73.2% |
-| c eligible excl-17 | dead-evening | 42.0% | 58.0% |
-| b full | overnight-tribute | 0.0% | 100.0% |
+| b full | dead-morning | 0.0% | 100.0% |
+| b full | dead-evening | 0.0% | 100.0% |
+| b excl-17 | dead-morning | 0.0% | 100.0% |
 | b excl-17 | dead-evening | 0.0% | 100.0% |
+| c delivered full | dead-morning | 0.0% | 100.0% |
+| c delivered full | dead-evening | 0.0% | 100.0% |
+| c delivered excl-17 | dead-morning | 0.0% | 100.0% |
+| c delivered excl-17 | dead-evening | 46.5% | 53.5% |
+| c eligible full | dead-morning | 0.0% | 100.0% |
+| c eligible full | dead-evening | 26.8% | 73.2% |
+| c eligible excl-17 | dead-morning | 0.0% | 100.0% |
+| c eligible excl-17 | dead-evening | 42.0% | 58.0% |
+
+Overnight-tribute on b is 100% own, 0% fill in both runs. Every row above is from the committed JSON.
 
 - **Full library, clock a**: dead-am and dead-pm have no fill, but the repeat gap shows the cost: Dead min 1.0 day, median 13,
   403 of 982 repeats inside a week. These come from the 12-hour dead-pm block (19:00 to 07:00), which only the doubled
@@ -147,11 +162,13 @@ estimates via the same scan; 50 seeds; JSON). 2,786 shows, 23 anchors per week, 
 
 ## Anything surprising
 
-1. **Funk still concentrates** where Dead no longer does: clock c delivered, funk aired 91/221 with
-   median repeat gap 21.0 d and 230 repeats inside a week
-   (the funk pool is multi-artist, so the 9260dbd exemption does not apply; clock a's funk block, which is 22:30 Saturday only,
-   is fine at 61 of 221 and a 49-day minimum). This was not investigated: it may be the same lexicographic-count shape with a
-   different cause (a 6-hour funk window landed by a few own pairs), or the library's funk lengths.
+1. **Funk concentrates on clock c, for a structural reason.** Clock c delivered: funk aired 91/221, median repeat gap 21.0 d,
+   230 repeats inside a week. The funk block runs 14:00 to 20:00 (360 min) at the default `max_shows` 2, and only the 8 funk
+   shows of 183 min or longer can complete a landing pair; the top three by sub-week repeats are newmastersounds-2008-01-18,
+   robertrandolph...-2004-07-25 and bluestraveler-1991-01-05. In 307 of 351 blocks no in-window option keeps the gap, so the
+   compromise order correctly prefers landing over rotation: a library/clock limitation, not a defect. **Reviewer probe
+   figures (scratch copy, not a committed run):** `max_shows = 3` on that block alone gives funk 221/221 aired, gap min 45 d,
+   median 60 d, none within 7 d, no misses and no fill. Clock a's funk block (22:30 Saturday only) is fine at 61/221, 49-day minimum.
 2. With the 17 excluded on clock b the Dead gap minimum is 4.3 days and there are 4 repeats inside a week (b full: min 2.0,
    4); b's overnight tribute and open blocks keep the pool moving.
 3. Country is 2 packages and never dominates a figure.
@@ -159,3 +176,8 @@ estimates via the same scan; 50 seeds; JSON). 2,786 shows, 23 anchors per week, 
    the fill. Dead aired 113 of 113 with a 32-day median gap.
 5. Excl-17 raises clock a fill from 7.1% to 25.7% and clock c delivered from 0% to 23.3%: the exclusion is the cheapest
    large lever on how much of the schedule is non-Dead fill.
+6. **Clock a at symmetric +-15 concentrates bluegrass** (the Mon-Sat 12:00 to 19:00 block): only one pair lands it,
+   leftoversalmon-2000-01-28 + yondermountainstringband-2014-02-16, and those two shows account for 295 of the 301 bluegrass
+   repeats under 7 days (summary: 238/307 aired, median gap 3.0 d). Under [0, +15] no pair lands, so the block goes to fill
+   (20%) and bluegrass keeps a 54.5-day median. In short, +-15 fixes landing but hurts rotation. Operator design question:
+   whether repeated gap breaks should eventually yield to fill rather than keep airing the one landing pair.
