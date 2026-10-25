@@ -45,9 +45,28 @@ def test_gap_zero_disables_the_gap_rule_without_dividing():
     a = show_piece("a", artist="A", date="1980-01-05")
     rec = aired(Recency(), a, SLOT - HOUR, date(2026, 11, 2))
     ck = clock(concert_gap_days=0)
-    assert rules.score(a, occ(), rec, ck, SLOT) == 0.9
+    # gap 0: the recency term grows over GAP0_RECENCY_HORIZON_DAYS (an hour ago: almost nothing)
+    assert rules.score(a, occ(), rec, ck, SLOT) == pytest.approx(0.9 * (1 / 24) / 365)
     assert rules.score(show_piece("n", date="1980-01-06"), occ(), rec, ck, SLOT) == 1.0
     assert rules.violations([a, a], None, occ(), rec, ck, [SLOT, SLOT + HOUR])[1] == 0
+
+
+def test_gap_zero_ranks_least_recently_aired_first():
+    assert rules.GAP0_RECENCY_HORIZON_DAYS == 365
+    ck = clock(concert_gap_days=0)
+    rec = Recency()
+    shows = {}
+    for days in (1, 60, 400):
+        p = shows[days] = show_piece(f"s{days}", artist=f"A{days}", date="1980-01-05")
+        rec = aired(rec, p, SLOT - days * DAY, date(2026, 11, 2))
+    never = show_piece("n", artist="N", date="1980-01-05")
+    score = {k: rules.score(p, occ(), rec, ck, SLOT) for k, p in shows.items()}
+    assert rules.score(never, occ(), rec, ck, SLOT) == 1.0 > score[400] > score[60] > score[1]
+    assert score[400] == pytest.approx(0.9)                     # saturates past the horizon
+    assert score[60] == pytest.approx(0.9 * 60 / 365) and score[1] == pytest.approx(0.9 / 365)
+    # gap > 0 is unchanged
+    assert rules.recency_term(SLOT - 60 * DAY, SLOT, 45) == 0.9
+    assert rules.recency_term(SLOT - 9 * DAY, SLOT, 45) == pytest.approx(0.9 * 9 / 45)
 
 
 def test_huge_gap_loads_and_scores_without_overflow():

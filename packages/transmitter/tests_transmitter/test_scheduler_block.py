@@ -460,6 +460,19 @@ def test_gap_zero_never_counts_a_gap_bend():
     assert plan.bends == () and plan.tier == 0
 
 
+def test_gap_zero_prefers_the_show_aired_longer_ago():
+    # equal in everything but recency: aired yesterday vs 200 days ago. The tie rank is
+    # arranged to favour yesterday's show, so only the recency term can pick the older one
+    first, second = sorted(("x", "y"), key=lambda s: rules.tie_rank(7, s))
+    yday, old = sp(first, 118, "A", date="1980-01-05"), sp(second, 118, "B", date="1981-02-06")
+    rec = Recency().with_piece(yday, E - DAY, local_date(E - DAY))
+    rec = rec.with_piece(old, E - 200 * DAY, local_date(E - 200 * DAY))
+    ck = ClockConfig(timezone=TZ, rotation=RotationConfig(concert_gap_days=0),
+                     block=[BlockConfig(name="b", start="18:00")])
+    plan = fill(make_occ(), nxt(120), [yday, old], rec=rec, clock=ck)
+    assert slugs(plan) == [second] and plan.bends == ()
+
+
 # --- consistency and the fixture --------------------------------------------
 
 def _start_frames(plan_shows, start_frame, gap=GAP):

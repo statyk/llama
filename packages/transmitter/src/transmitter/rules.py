@@ -3,7 +3,8 @@ rotation rules").
 
 Pure functions over a piece, its slot and the rotation history. The score is
 additive and never negative: a recency term (1.0 never aired, else
-0.9 x the fraction of the concert gap elapsed, saturating at 0.9) plus the
+0.9 x the fraction of the concert gap elapsed, saturating at 0.9; with gap 0
+the fraction of `GAP0_RECENCY_HORIZON_DAYS`) plus the
 block's matching `years` weights plus the on-this-day weight. Weights are
 finite but unbounded, so a score may be +inf; it is never NaN (no term is
 negative, so no inf - inf arises), and callers compare tuples, never
@@ -31,6 +32,9 @@ RULES = ("adjacency", "gap", "artist_day", "era")
 DAY_US = 86_400_000_000
 NEVER_AIRED = 1.0
 AIRED_CEILING = 0.9
+# With concert_gap_days = 0 the recency term grows over this many days instead
+# of the gap (no gap rule is counted; least recently aired still ranks first).
+GAP0_RECENCY_HORIZON_DAYS = 365
 _UNIX = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
@@ -45,12 +49,15 @@ def local_date(us: int, tz: ZoneInfo) -> date:
 
 
 def recency_term(last_us: int | None, slot_us: int, gap_days: float) -> float:
+    """1.0 never aired; else 0.9 x the fraction of the concert gap elapsed,
+    saturating at 0.9. With `gap_days == 0` (no gap rule) the fraction is
+    taken over `GAP0_RECENCY_HORIZON_DAYS` instead, so least recently aired
+    still ranks first (operator ruling, R16)."""
     if last_us is None:
         return NEVER_AIRED
-    if gap_days <= 0:
-        return AIRED_CEILING
     days = abs(slot_us - last_us) / DAY_US
-    return AIRED_CEILING * min(days / gap_days, 1.0)
+    horizon = gap_days if gap_days > 0 else GAP0_RECENCY_HORIZON_DAYS
+    return AIRED_CEILING * min(days / horizon, 1.0)
 
 
 def gap_hit(last_us: int | None, slot_us: int, gap_days: float) -> bool:
