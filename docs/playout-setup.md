@@ -358,7 +358,7 @@ The billing period starts on day 11 of each month, 00:00 UTC (the committed var 
    | `[alerts] guard_stale_minutes` | `45.0` | `state/guard.json` not evaluated for this long means the guard is dead. It must be at least `[publish] guard_check_minutes + 16` (the cache refresh plus the guard's 15-minute cadence and the cron lag), or the config is refused |
    | `[publish] guard_check_minutes` | `15.0` | how often hugo refreshes its cache of the guard's state; an unexpected 403 alerts only after `guard_check_minutes + 2` consecutive checks |
    | `[antenna] site_url` | unset | public base URL: Open Graph links and the dead-clock check (unset = no check) |
-   | `[antenna] station_name` (phase 1) | `llama radio` | the station name in alert subjects and in the titles of relayed pushes |
+   | `[antenna] station_name` (phase 1) | `llama radio` | the station name on the public show pages (`<title>`, `og:site_name`, the back link) and in hugo's own alert subjects and the titles of relayed pushes. Set it to `LMA Radio` at the phase-3 cutover (7.4 step 7) |
 
    Env-file secrets (`/etc/transmitter/<user>.env`): `SMTP_USERNAME`, `SMTP_PASSWORD` (a Gmail App Password) and `NTFY_TOKEN` (optional; it covers both hugo's own pushes and the relayed antenna ones). With no channel configured, alerts reach only the journal.
 5. **The watchdog.** transmitter pings systemd after every step, every publish batch, every batch of prune deletes and every show encode, so the longest silence is one show's encode (~10-20 min) or one show's analysis in the plan step (~8 min on 10-23) against `WatchdogSec=45min`. After restoring `~/.transmitter` **without** `cache/`, the first publish recomputes analyses for about 48 h of shows and may meet `WatchdogSec`: the service restarts and continues (each analysis is cached as it completes; at most one batch, up to 360 segments, is re-PUT per kill, within the daily PUT budget).
@@ -555,7 +555,7 @@ late_minutes = 30
 
 Announcement texts and ids derive from the clock alone: the id is a hash of the rendered text, so editing the templates, titles, `time_format` or zones retires the clips already voiced (re-export and re-voice). The two-block forms (`next`, `later`) are used only when the following occurrence is a DIFFERENT block starting within 12 h of X's start (`announce.TWO_BLOCK_MAX_HOURS`); otherwise the one-block forms. A time names every zone in `[announce] zones` (default Eastern, Pacific).
 
-`[interstitials] dir` must be an absolute path (default `<station root>/interstitials`). Station IDs are any `id-*.mp3` in it. The station's on-air name is "LMA Radio" (exact capitalisation): use it in the station IDs; the player shows it between shows (its page title).
+`[interstitials] dir` must be an absolute path (default `<station root>/interstitials`). Station IDs are any `id-*.mp3` in it. The station's on-air name is "LMA Radio" (exact capitalisation): use it in the station IDs; the player shows it between shows (its page title). The show pages and alerts take it from `station_name` (7.4 step 8).
 
 Copy-paste workflow:
 
@@ -578,6 +578,7 @@ Missing audio degrades gracefully: two-block form, then one-block form, then a s
 5. Create the interstitials folder (`[interstitials] dir`, absolute; default `<station root>/interstitials`), then voice station IDs (`id-*.mp3`) and the announcements (7.3).
 6. Check with `transmitter status` and `transmitter schedule`.
 7. The player change (`antenna/public/nowplaying.js` and `player.js`, commit `6e0e282`) reaches listeners only after the assets deploy; run it from `antenna/` (operator step): `ANTENNA_BUCKET=<bucket> npm run deploy:assets`. Until then station breaks show "We'll be back shortly."
+8. Set `station_name = "LMA Radio"` under `[antenna]` in hugo's `config.toml` and `STATION_NAME` in `antenna/wrangler.jsonc` to the same value (they must match, section 6.2 step 6). This renames alert subjects and relayed push titles too, not only the show pages. hugo reads its config at start, so the hugo side takes effect at the service restart (step 1; restart again if the edit comes later); the antenna side takes effect at the next Worker deploy (operator step: `npx wrangler deploy --dry-run`, then `npx wrangler deploy`).
 
 ### 7.5 Rolling transmitter back
 
