@@ -7,6 +7,7 @@ mirroring llama's `cli.py:57-65` pattern.
 import json
 import sys
 import traceback
+from dataclasses import dataclass
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +27,7 @@ from emcee.presenters import (
 )
 from emcee.audio import render_speech_mp3
 from emcee.process import (ad_hoc_bed, ad_hoc_speech, assignment_for, presenter_label,
+                           resolve_assignment,
                            process_package, resolve_voicing, speech_for_voicing)
 from emcee.speech_text import load_lexicon, normalize_for_speech
 from emcee.tts.bed import load_bed_pcm
@@ -751,16 +753,26 @@ def _profile_cell(s: PackageStatus) -> str:
     return cell
 
 
-def _status_json_row(config: EmceeConfig, s: PackageStatus) -> dict:
+def _status_json_row(config: EmceeConfig, s: PackageStatus, tts_now: _TtsNow) -> dict:
     view = assignment_for(config, s.profile)
     presenter, source = view.presenter, view.source
     if s.profile is None and s.state in ("error", "unsupported"):
         presenter = source = None  # unreadable manifest: no profile, so no assignment
+    tts_view = tts_now.view(s)
     return {"slug": s.path.name, "state": s.state, "reasons": s.reasons,
             "profile": s.profile, "delivered_profile": s.delivered_profile,
             "profile_source": s.profile_source, "voiced_by": s.voiced_by,
             "assigned_presenter": presenter, "assignment_source": source,
-            "tts": s.tts, "move_problem": s.move_problem}
+            "tts": s.tts, "move_problem": s.move_problem,
+            "tts_now": _tts_now_json(tts_view), "tts_drifted": tts_view.drifted}
+
+
+def _tts_now_json(v: _TtsView) -> dict | None:
+    if not v.has_now:
+        return None
+    if v.now is None:
+        return {"unresolved": v.unresolved}
+    return {"backend": v.now[0], "model": v.now[1]}
 
 
 def _note_unmatched_profiles(statuses: list[PackageStatus], names) -> None:
@@ -786,6 +798,109 @@ def _voiced_by_cell(config: EmceeConfig, s: PackageStatus) -> str:
     return s.voiced_by
 
 
+def _tts_label(backend: str, model: object) -> str:
+    """`<backend> <model>`, any organisation prefix dropped from the model
+    (text after the last `/`); just `<backend>` when there is no model."""
+    if isinstance(model, str) and model:
+        return f"{backend} {model.rsplit('/', 1)[-1]}"
+    return backend
+
+
+def _recorded_tts(s: PackageStatus) -> tuple[str, object] | None:
+    """(backend, model) of the recorded `dj_audio.tts`; None when the package
+    is not voiced or the record is unusable (no `tts`, or `backend` not a
+    non-empty string)."""
+    if not s.voiced or s.tts is None:
+        return None
+    backend = s.tts.get("backend")
+    if not isinstance(backend, str) or not backend:
+        return None
+    model = s.tts.get("model")
+    return backend, (model if isinstance(model, str) and model else None)
+
+
+@dataclass(frozen=True)
+class _TtsView:
+    recorded: tuple[str, object] | None   # usable recorded (backend, model)
+    now: tuple[str, object] | None        # resolved (backend, model)
+    unresolved: str | None                # why "now" did not resolve
+    has_now: bool                         # False: error/unsupported row, no "now" at all
+
+    @property
+    def drifted(self) -> bool | None:
+        if self.recorded is None or self.now is None:
+            return None
+        return self.recorded != self.now
+
+
+class _TtsNow:
+    """What would voice a package today (its effective profile -> presenter ->
+    `resolve_tts`), computed once per distinct profile per command: resolving
+    reads the presenter TOML from disk."""
+
+    def __init__(self, config: EmceeConfig) -> None:
+        self._config = config
+        self._by_profile: dict[str | None, tuple[tuple[str, object] | None, str | None]] = {}
+
+    def _resolve(self, profile: str | None) -> tuple[tuple[str, object] | None, str | None]:
+        if profile not in self._by_profile:
+            try:
+                presenter, _title = resolve_assignment(self._config, profile)
+                resolution = resolve_tts(self._config, presenter)
+                self._by_profile[profile] = ((resolution.backend, resolution.model), None)
+            except (EmceeError, OSError, ValueError) as exc:
+                # EmceeError covers TTSResolutionError and PresenterError;
+                # load_presenter's read_text can also raise OSError/UnicodeDecodeError
+                # (a ValueError), which it does not wrap.
+                self._by_profile[profile] = (None, str(exc))
+        return self._by_profile[profile]
+
+    def view(self, s: PackageStatus) -> _TtsView:
+        recorded = _recorded_tts(s)
+        if s.state in ("error", "unsupported"):
+            return _TtsView(recorded, None, None, False)
+        if s.move_problem is not None:
+            return _TtsView(recorded, None, s.move_problem, True)
+        now, err = self._resolve(s.profile)
+        return _TtsView(recorded, now, err, True)
+
+
+def _tts_cell(s: PackageStatus, v: _TtsView) -> str:
+    """`-` unvoiced, `?` voiced with no usable record, else the recorded label,
+    plus `(now: X)` on drift or `(now: unresolved)` when "now" cannot be told."""
+    if not s.voiced:
+        return "-"
+    if v.recorded is None:
+        return "?"
+    cell = _tts_label(*v.recorded)
+    if v.drifted:
+        cell += f" (now: {_tts_label(*v.now)})"
+    elif v.has_now and v.now is None:
+        cell += " (now: unresolved)"
+    return cell
+
+
+def _voiced_on_cell(members: list[PackageStatus]) -> str:
+    """`voxtral 112, mlx_audio 3, ? 2`: voiced packages by recorded backend,
+    count descending then name; empty when none is voiced."""
+    counts: dict[str, int] = {}
+    for m in members:
+        if m.voiced:
+            rec = _recorded_tts(m)
+            key = rec[0] if rec is not None else "?"
+            counts[key] = counts.get(key, 0) + 1
+    return ", ".join(f"{k} {n}" for k, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
+
+
+def _note_unmatched_tts(statuses: list[PackageStatus], names) -> None:
+    """One stderr note per requested `--tts` backend no package records
+    (`none` is a keyword, never noted)."""
+    known = {rec[0] for s in statuses if (rec := _recorded_tts(s)) is not None}
+    for name in names or []:
+        if name != "none" and name not in known:
+            typer.echo(f"note: no package is voiced with tts {name!r}", err=True)
+
+
 def _echo_status_summary(config: EmceeConfig, statuses: list[PackageStatus]) -> None:
     """One row per profile (sorted; `(none)` then `(unknown)` last, each only
     when non-empty) with ready/pending/other counts, then a total line."""
@@ -801,18 +916,18 @@ def _echo_status_summary(config: EmceeConfig, statuses: list[PackageStatus]) -> 
     keys = sorted(k for k in groups if k not in ("(none)", "(unknown)"))
     keys += [k for k in ("(none)", "(unknown)") if k in groups]
 
-    rows = [("profile", "presenter", "ready", "pending", "other")]
+    rows = [("profile", "presenter", "ready", "pending", "other", "voiced on")]
     for key in keys:
         members = groups[key]
         presenter = ("" if key == "(unknown)"
                      else presenter_label(assignment_for(config, members[0].profile)))
         count = lambda *states: sum(1 for m in members if m.state in states)  # noqa: E731
         rows.append((key, presenter, str(count("ready")), str(count("pending")),
-                     str(count("unsupported", "error"))))
+                     str(count("unsupported", "error")), _voiced_on_cell(members)))
     total = lambda *states: sum(1 for s in statuses if s.state in states)  # noqa: E731
     rows.append(("total", "", str(total("ready")), str(total("pending")),
-                 str(total("unsupported", "error"))))
-    widths = [max(len(r[c]) for r in rows) for c in range(5)]
+                 str(total("unsupported", "error")), _voiced_on_cell(statuses)))
+    widths = [max(len(r[c]) for r in rows) for c in range(6)]
     for r in rows:
         typer.echo("  ".join(f"{cell:<{w}}" for cell, w in zip(r, widths)).rstrip())
 
@@ -828,33 +943,22 @@ def status_cmd(
     state: list[str] = typer.Option(
         None, "--state",
         help="Only this state: ready|pending|unsupported|error (repeatable); implies --list"),
+    tts: list[str] = typer.Option(
+        None, "--tts",
+        help="Only shows voiced on this TTS backend (none = unrecorded; repeatable); implies --list"),
+    drifted: bool = typer.Option(
+        False, "--drifted",
+        help="Only shows whose presenter now resolves to a different TTS; implies --list"),
     station_root: Path = typer.Option(
         None, "--station-root",
         help="Override \\[station] root for this invocation"),
 ):
-    """Summary of the station by profile; `--list` for every package.
+    """Station status: one row per profile, or `--list` for every show.
 
-    Profiles are EFFECTIVE profiles: a recorded move (`emcee move`), else an
-    `\\[assign.artists]` rule, else the llama profile. With no flags: one row
-    per profile -- its assigned presenter and how many packages are ready /
-    pending / other (unsupported + error), plus a total. `--list`/`-l`,
-    `--profile NAME` or `--state STATE` switch to the per-show table (slug,
-    profile, state, voiced-by, reasons); a profile a move or rule changed
-    reads `southern (from funk)`, and a move whose target has no
-    `\\[assign.profiles]` entry adds `[no assign entry]`. "pending" no longer
-    means "off air": a package pending only for a profile change keeps
-    airing its old voicing until it is re-voiced. `--json` is always
-    per-show and adds `profile`, `delivered_profile`, `profile_source`,
-    `voiced_by`, `assigned_presenter`, `assignment_source`, `tts` (the
-    recorded TTS, null when absent) and `move_problem`. Recorded moves that
-    match no package are counted in a `note:` on stderr.
-
-    States: "ready" (fully voiced and broadcast-assembled), "pending" (not
-    yet, or not fully, processed), "unsupported" (pre-v3 manifest --
-    re-deliver from llama). Same `\\[station] root` resolution (including
-    `--station-root`) and the same broad per-package error handling as
-    `run`: a structurally malformed manifest renders as an "error" row with
-    its exception message instead of crashing the whole table.
+    Profiles are effective (a move or artist rule can override llama's).
+    A show pending only for a profile change keeps airing its old voicing
+    until it is re-voiced. TTS drift `(now: ...)` is display-only and never
+    makes a show pending.
     """
     config = load_config()
     root = _resolve_station_root(config, station_root)
@@ -866,16 +970,28 @@ def status_cmd(
         raise typer.BadParameter(
             f"unknown state {bad[0]!r}; expected one of {', '.join(_STATUS_STATES)}",
             param_hint="--state")
-    filtered = bool(profile or state)
+    filtered = bool(profile or state or tts or drifted)
     station_empty = not statuses
     _note_unmatched_profiles(statuses, profile)
+    _note_unmatched_tts(statuses, tts)
+    tts_now = _TtsNow(config)
     if profile:
         statuses = [s for s in statuses if s.profile in profile]
     if state:
         statuses = [s for s in statuses if s.state in state]
+    if tts:
+        def _tts_match(s: PackageStatus) -> bool:
+            rec = _recorded_tts(s)
+            if rec is None:
+                return s.voiced and "none" in tts
+            return rec[0] in tts
+        statuses = [s for s in statuses if _tts_match(s)]
+    if drifted:
+        statuses = [s for s in statuses if tts_now.view(s).drifted]
 
     if json_output:
-        typer.echo(json.dumps([_status_json_row(config, s) for s in statuses], indent=2))
+        typer.echo(json.dumps([_status_json_row(config, s, tts_now) for s in statuses],
+                              indent=2))
     elif not statuses:
         typer.echo("no packages found" if station_empty or not filtered
                    else "no packages match")
@@ -887,10 +1003,12 @@ def status_cmd(
         pwidth = max(len(p) for p in profiles)
         cells = [_voiced_by_cell(config, s) for s in statuses]
         vwidth = max(len(c) for c in cells)
-        for s, pcell, cell in zip(statuses, profiles, cells):
+        ttss = [_tts_cell(s, tts_now.view(s)) for s in statuses]
+        twidth = max(len(c) for c in ttss)
+        for s, pcell, cell, tcell in zip(statuses, profiles, cells, ttss):
             reasons = "; ".join(s.reasons)
             typer.echo(f"{s.path.name:<{width}}  {pcell:<{pwidth}}  "
-                       f"{s.state:<12}  {cell:<{vwidth}}  {reasons}".rstrip())
+                       f"{s.state:<12}  {cell:<{vwidth}}  {tcell:<{twidth}}  {reasons}".rstrip())
     if stale:
         typer.echo(_stale_note(stale), err=True)
 

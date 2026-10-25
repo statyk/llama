@@ -441,12 +441,39 @@ emcee's own factual guard, not llama's.
     emcee status                       # summary by (effective) profile: ready / pending / other
     emcee status --list                # per show; a moved show reads "southern (from funk)"
     emcee status --json
+    emcee status --tts voxtral         # only shows voiced on that TTS backend (repeatable; none = unrecorded)
+    emcee status --drifted             # only shows whose presenter now resolves to a different TTS
     emcee move tedeschitrucksband-2012-11-29 southern
                                        # voice this show as southern from the next run on
     emcee move tedeschitrucksband-2012-11-29 --delivered
                                        # back to llama's profile (exempts it from an artist rule)
     emcee move tedeschitrucksband-2012-11-29 --clear
     emcee move --list                  # every recorded move; `missing` = no package has it
+
+**Reading `emcee status`.** Profiles are effective: a recorded move, else an
+artist rule, else llama's. The summary has one row per profile (assigned
+presenter; ready / pending / other counts, other = unsupported + error; and
+`voiced on`, the voiced shows by recorded TTS backend, `?` = no usable
+record) plus a total. `--list`, `--profile`, `--state`, `--tts` and
+`--drifted` switch to the per-show table: slug, profile, state, voiced-by,
+TTS, reasons. A moved show reads `southern (from funk)`, and a move whose
+target has no assign entry adds `[no assign entry]`. The TTS cell is the
+recorded `<backend> <model>` (`-` unvoiced, `?` no usable record), plus
+`(now: <backend model>)` when what would voice the show today (effective
+profile, presenter, TTS) has a different backend or model, or
+`(now: unresolved)` when that cannot be resolved; the voice hash is not
+compared. Drift is display-only: it never makes a show pending, and
+"pending" never means off air (a show pending only for a profile change keeps
+airing its old voicing). `--json` is always per-show, filters apply, and rows
+carry `slug`, `state`, `reasons`, `profile`, `delivered_profile`,
+`profile_source`, `voiced_by`, `assigned_presenter`, `assignment_source`,
+`tts` (as recorded, null if absent), `move_problem`, `tts_now`
+(`{backend, model}`, `{unresolved: <message>}`, or null for error and
+unsupported rows) and `tts_drifted` (null without a record or a resolved
+"now"). States: ready, pending, unsupported (pre-v3 manifest: re-deliver from
+llama), error (a malformed manifest renders as a row with its exception
+message). Unmatched `--profile`/`--tts` values and recorded moves matching no
+package are noted on stderr.
 
 **Ad-hoc narration.** Apart from the package pipeline entirely — no package,
 no script, no LLM, so it works on a station with no `[llm]` backend

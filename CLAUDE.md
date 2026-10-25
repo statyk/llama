@@ -267,10 +267,10 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   re-scripts on every call, a real LLM's regenerated text usually
   invalidates every clip's cache too — in practice `--fresh` normally
   re-renders every clip, not just the named one; `--force` re-synthesizes
-  all of them unconditionally), `emcee status` (default: a summary by profile; `--list`/`-l`
-  gives the per-package table of ready/pending/unsupported/`error`, `--profile`
-  and `--state` filter and switch to that table on their own, `--json` is
-  always per-show; a `--profile` no package carries prints a `note:` rather
+  all of them unconditionally), `emcee status` (default: a summary by profile, ending in `voiced on`, the voiced packages by recorded TTS backend; `--list`/`-l`
+  gives the per-package table of ready/pending/unsupported/`error` with a TTS column (the recorded `<backend> <model>`, `?` = no usable record, `(now: X)` when the presenter now resolves to a different backend/model, `(now: unresolved)` when it cannot resolve; the voice hash is not compared; display only, drift never changes readiness), `--profile`,
+  `--state`, `--tts BACKEND` (`none` = voiced, no record) and `--drifted` filter and switch to that table on their own, `--json` is
+  always per-show and adds `tts_now`/`tts_drifted`; `station.scan` checks packages on `SCAN_WORKERS = 16` threads and reads each manifest once, output unchanged; a `--profile` no package carries prints a `note:` rather
   than looking like an empty queue; the voicing presenter is the
   recorded `dj_audio.presenter` — null is the house narrator, an absent key
   means voiced before it was recorded and shows `?`), `emcee move <show> <profile>|--delivered|--clear`, `emcee move --list` (one-off profile moves in `<emcee root>/moves.json`, keyed by `source.performance_id`; flock + atomic write; a move to an unassigned profile other than the delivered one is refused), `emcee say <text-file>` (ad-hoc
