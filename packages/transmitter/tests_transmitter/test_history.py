@@ -117,7 +117,8 @@ def test_unusable_rows_are_skipped_not_loaded(tmp_path, caplog):
     append_aired(ws, EP, [_row(0, 0)], 0, _end_us(5 * S))
     good = json.loads(ws.aired_path.read_text())
     bad = [{**good, "start": ""}, {**good, "start_frame": "0"}, {**good, "end_frame": True},
-           {**good, "end": "garbage"}, {**good, "slug": 5}, {k: v for k, v in good.items() if k != "start"}]
+           {**good, "end": "garbage"}, {**good, "slug": 5}, {k: v for k, v in good.items() if k != "start"},
+           {**good, "package": ["band-1"]}, {**good, "package": {"slug": "band-1"}}, {**good, "package": 7}]
     with open(ws.aired_path, "a") as f:
         for b in bad:
             f.write(json.dumps(b) + "\n")

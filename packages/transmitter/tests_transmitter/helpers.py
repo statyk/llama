@@ -59,7 +59,8 @@ def set_age(pkg: Path, age_s: float) -> None:
 
 def build_package(root: Path, slug: str = "band-2005-11-01", *, tracks: int = 3,
                   voiced: bool = True, profile: str | None = "indie", age_s: float = 3600.0,
-                  audio: Callable[[Path, int], None] | None = None) -> Path:
+                  audio: Callable[[Path, int], None] | None = None, artist: str = "Band",
+                  date: str = "2005-11-01") -> Path:
     """A v3 package shaped like a real delivered one (cracker-2005-11-01):
     broadcast.m3u = dj-audio/set1-intro.mp3, audio/NN - Song N.mp3 ...,
     dj-audio/99-outro.mp3. `audio(path, index)` writes each audio file
@@ -73,8 +74,8 @@ def build_package(root: Path, slug: str = "band-2005-11-01", *, tracks: int = 3,
              "duration_sec": 60.0, "segue": False} for i in range(1, tracks + 1)]
     manifest = {
         "schema_version": 3,
-        "show": {"artist": "Band", "date": "2005-11-01", "venue": "Club", "city": "Lincoln, NE"},
-        "source": {"performance_id": "Band/2005-11-01", "identifier": "band2005",
+        "show": {"artist": artist, "date": date, "venue": "Club", "city": "Lincoln, NE"},
+        "source": {"performance_id": f"{artist}/{date}", "identifier": "band2005",
                    "url": "https://archive.org/details/band2005", "lineage": "AUD > CDR",
                    "profile": profile},
         "tracks": rows, "set_breaks": [],
@@ -151,8 +152,10 @@ class FakeEngine:
     payload is '<key>:<i>', so segment contents can be read back."""
 
     def __init__(self, samples_per_file: int = 60 * 44_100, extra: int = 1,
-                 fail: set[str] | None = None, drift: int = 0, pause_seconds: float = 0.75):
+                 fail: set[str] | None = None, drift: int = 0, pause_seconds: float = 0.75,
+                 clip_samples: int | None = None):
         self.samples_per_file = samples_per_file
+        self.clip_samples = clip_samples       # an interstitial clip's length (default: samples_per_file)
         self.extra = extra
         self.fail = fail or set()
         self.drift = drift
@@ -164,7 +167,8 @@ class FakeEngine:
         # Computes like production's analyze, but never writes the analysis
         # cache: tests that publish prove the timeline does not depend on it.
         self.analyzed.append(show.slug)
-        files = tuple(FileAnalysis(e.path, e.kind, e.title, self.samples_per_file) for e in show.entries)
+        n = self.clip_samples if self.clip_samples is not None and show.meta.get("role") else self.samples_per_file
+        files = tuple(FileAnalysis(e.path, e.kind, e.title, n) for e in show.entries)
         return ShowAnalysis(key=show.key, slug=show.slug, files=files, tracks_i_lufs=-20.0,
                             tracks_tp_dbfs=-3.0, meta=dict(show.meta))
 
@@ -183,18 +187,47 @@ class FakeEngine:
         return frames
 
 
-def make_station(tmp_path: Path, n_packages: int = 3, engine=None) -> tuple[Station, list[str]]:
+def make_station(tmp_path: Path, n_packages: int = 3, engine=None, *, clock: str | None = None,
+                 lead_hours: float = 0.1, quiet_minutes: float = 0.0,
+                 packages: list[dict] | None = None, ids: tuple[str, ...] = ()) -> tuple[Station, list[str]]:
+    """A station over `n_packages` packages (`band-2005-11-NN`, all by "Band"),
+    or over `packages` (build_package keyword dicts, each with a `slug`).
+    `clock` is written to the workspace's clock.toml (else the implicit
+    clock); `ids` are station-ID clips (`id-<name>.mp3`) in the default
+    interstitials folder."""
     root = make_root(tmp_path)
-    for i in range(n_packages):
-        build_package(root, f"band-2005-11-{i + 1:02d}")
+    for spec in packages if packages is not None else [
+            {"slug": f"band-2005-11-{i + 1:02d}"} for i in range(n_packages)]:
+        build_package(root, **spec)
+    for name in ids:
+        add_clip(root, f"id-{name}.mp3")
     cfg = TransmitterConfig(root=tmp_path / "tx",
-                            station={"root": root, "quiet_minutes": 0},
+                            station={"root": root, "quiet_minutes": quiet_minutes},
                             planner={"start_delay_minutes": 0.5},
-                            render={"lead_hours": 0.1, "low_water_hours": 0.05})
+                            render={"lead_hours": lead_hours, "low_water_hours": lead_hours / 2})
     logs: list[str] = []
-    st = Station(ws=Workspace(cfg.root), cfg=cfg, epoch=Epoch("etest", E),
-                 engine=engine or FakeEngine(), log=logs.append)
+    ws = Workspace(cfg.root)
+    if clock is not None:
+        write_clock(ws, clock)
+    st = Station(ws=ws, cfg=cfg, epoch=Epoch("etest", E), engine=engine or FakeEngine(), log=logs.append)
     return st, logs
+
+
+def add_clip(root: Path, name: str, *, mtime_s: float | None = None) -> Path:
+    """An interstitial clip in `<root>/interstitials` (placeholder bytes: the
+    fake engine never decodes). `mtime_s` defaults to an hour ago."""
+    folder = Path(root) / "interstitials"
+    folder.mkdir(exist_ok=True)
+    path = folder / name
+    path.write_bytes(b"ID3clip-" + name.encode())
+    t = time.time() - 3600 if mtime_s is None else mtime_s
+    os.utime(path, (t, t))
+    return path
+
+
+def write_clock(ws: Workspace, text: str) -> None:
+    ws.root.mkdir(parents=True, exist_ok=True)
+    ws.clock_path.write_text(text)
 
 
 class FakeBucket:

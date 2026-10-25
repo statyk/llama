@@ -63,6 +63,9 @@ class AiredRow:
         for name in ("epoch_id", "kind", "slug"):
             if not isinstance(kw.get(name), str):
                 raise TypeError(f"{name} must be a string, got {kw.get(name)!r}")
+        if kw.get("package") is not None and not isinstance(kw["package"], str):
+            # recency() indexes by package: a list or dict would raise inside the plan step
+            raise TypeError(f"package must be a string or null, got {kw['package']!r}")
         for name in ("start", "end"):
             v = kw.get(name)
             if not isinstance(v, str) or not v:
