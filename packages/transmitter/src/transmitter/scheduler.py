@@ -12,10 +12,13 @@ rotation history, every block occurrence in turn (shows via `fill_block`'s
 runs) with the station IDs and announcements at its boundaries, laid out
 exactly; see `project`."""
 
+import bisect
 import statistics
-from collections.abc import Sequence
+import sys
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Final, NamedTuple
 from zoneinfo import ZoneInfo
 
 from transmitter import rules
@@ -25,7 +28,7 @@ from transmitter._blocksearch import (  # noqa: F401  (re-exported: tests reach 
 from transmitter.announce import Form, ann_id, text_for, two_block_ok
 from transmitter.clock import ClockConfig, Occurrence, occurrences
 from transmitter.errors import PlanError
-from transmitter.grid import frame_to_us, iso_to_us
+from transmitter.grid import frame_to_us, frames_ceil, iso_to_us, samples_for_seconds
 from transmitter.history import Recency
 from transmitter.layout import PlanRow
 from transmitter.pieces import Piece
@@ -59,7 +62,7 @@ class _BlockRun:
     def __init__(self, occ: Occurrence, next_occ: Occurrence, *, start_frame: int, placed: Sequence[Piece],
                  own_pool: Sequence[Piece], open_pool: Sequence[Piece], boundary_frames: int,
                  final_boundary_frames: int, prev_artist: str | None, rec: Recency, clock: ClockConfig,
-                 epoch_us: int, seed: int, used: frozenset[str]):
+                 epoch_us: int, seed: int, used: frozenset[str], block_start: int | None = None):
         placed = tuple(placed)
         own_all = _dedupe(own_pool)
         degraded = not occ.is_open and not own_all
@@ -73,8 +76,11 @@ class _BlockRun:
 
         dates: dict = {}
         ctx = _Ctx(occ, next_occ, rec, clock, epoch_us, seed, boundary_frames, final_boundary_frames, dates)
-        # the block's own start: every run, and every live continuation, judges the cause from it
-        block_start = start_frame - sum(p.frames + boundary_frames for p in placed)
+        # the block's own start: every run, and every live continuation, judges the cause from it.
+        # `block_start` gives it exactly (the projection knows its first show's frame); else it
+        # is estimated back from `start_frame` with `boundary_frames` after each placed show
+        if block_start is None:
+            block_start = start_frame - sum(p.frames + boundary_frames for p in placed)
         self.cause = _fill_cause(ctx, own_all, occ.max_shows, block_start) if profile_block else None
         self.degraded = degraded
         self.profile_block = profile_block
@@ -88,6 +94,7 @@ class _BlockRun:
         self._fill = _Pool([ctx.cand(p) for p in fill_all])
         self._ctx, self._rec, self._placed, self._start = ctx, rec, placed, start_frame
         self._prev_artist, self._used = prev_artist, used
+        self.used = used
         self._limit = len(own_all) + len(fill_all) + 1     # one show per run, never twice
 
     @property
@@ -189,6 +196,11 @@ EXCLUDE_BEND = "exclude_profiles"
 _BEND_ORDER = rules.RULES + (EXCLUDE_BEND,)
 _CHUNK_US = 14 * 86_400_000_000
 
+# `used` for a run starting at frame F: the shows (persisted or projected) that
+# started in [F - USED_WINDOW_FRAMES, F). Anchored to the frame line, never to now.
+USED_WINDOW_HOURS = 24
+USED_WINDOW_FRAMES = frames_ceil(samples_for_seconds(USED_WINDOW_HOURS * 3600))
+
 
 @dataclass(frozen=True, eq=False)
 class SchedulerInput:
@@ -197,10 +209,9 @@ class SchedulerInput:
     `rows` is the persisted plan in order; `start_frame`/`run_start` place the
     next piece. `rec` is the caller's history: aired rows plus every persisted
     row (`history.recency`); `project` adds only the pieces it projects, never
-    a persisted row again. `now_us` decides which persisted show rows are not
-    yet aired (their end is after it): those, with the projection's own picks,
-    are `used` (no repeat while the pool has others). None counts every
-    persisted show row as unaired: a preview from a plan with nothing aired."""
+    a persisted row again. Nothing here reads the wall clock: `used` (no repeat
+    while the pool has others) is the shows, persisted or projected, that
+    started within `USED_WINDOW_HOURS` before a run's start frame."""
     rows: Sequence[PlanRow]
     start_frame: int
     run_start: bool
@@ -210,7 +221,6 @@ class SchedulerInput:
     epoch_us: int
     gap_frames: int
     seed: int
-    now_us: int | None
 
 
 @dataclass(frozen=True)
@@ -317,7 +327,21 @@ class _Occs:
         return self.at(self.pos(occ) + 1)
 
 
-_STOP = object()
+class _Stop:
+    """`boundary`/`show` past the horizon."""
+    __slots__ = ()
+
+
+_STOP: Final = _Stop()
+
+
+class _Choice(NamedTuple):
+    """A boundary's interstitial: the clip (None: nothing), its role, the
+    occurrences it names and, for a two-block `next`, X's run to adopt."""
+    clip: Piece | None
+    role: str
+    names: tuple[tuple[str, str], ...]
+    run: "_BlockRun | None"
 
 
 class _Projection:
@@ -336,8 +360,10 @@ class _Projection:
         self.B = self.pools.boundary
         rows = list(inp.rows)
         self.rec = inp.rec
-        self.used = {r.slug for r in rows
-                     if r.kind == "show" and (inp.now_us is None or self._us(r.end_frame) > inp.now_us)}
+        # every show laid out so far, persisted or projected, by start frame (for `used_at`)
+        shows = sorted((r.start_frame, r.slug) for r in rows if r.kind == "show")
+        self._show_starts = [f for f, _ in shows]
+        self._show_slugs = [slug for _, slug in shows]
         last_show = next((r for r in reversed(rows) if r.kind == "show"), None)
         hit = self.pools.by_slug.get(last_show.slug) if last_show is not None else None
         self.prev_artist = hit.artist if hit is not None else None
@@ -353,6 +379,8 @@ class _Projection:
         self._enter(occ)
         self.placed = [self._row_piece(r) for r in placed_rows]
         self.placed_bends = {b for r in placed_rows for b in r.bends}
+        self.block_start = placed_rows[0].start_frame if placed_rows else None
+        self.later_done = any(r.role == "later" and (r.block, r.nominal_start) == occ.key for r in rows)
         # its persisted own shows: kept in its own pool even if the pool no longer lists them
         # as own (a moved or vanished package), so they are never mistaken for fill
         self.extra_own = [p for r, p in zip(placed_rows, self.placed) if r.fill is None and not r.degraded]
@@ -408,29 +436,46 @@ class _Projection:
         self.occ = occ
         self.placed: list[Piece] = []
         self.placed_bends: set[str] = set()
+        self.block_start: int | None = None     # the frame of its first show
+        self.later_done = False                 # a `later` already plays in it
         self.extra_own: list[Piece] = []
         self.run: _BlockRun | None = None
         self.run_k = 0
 
     # --- runs ---
 
-    def _new_run(self, occ: Occurrence, start: int, placed: Sequence[Piece], rec: Recency, used: set[str],
-                 prev_artist: str | None) -> _BlockRun:
+    def used_at(self, frame: int, extra: Iterable[str] = ()) -> frozenset[str]:
+        """`used` for a run starting at `frame`: the shows laid out so far that
+        started in `[frame - USED_WINDOW_FRAMES, frame)`, plus `extra`."""
+        lo = bisect.bisect_left(self._show_starts, frame - USED_WINDOW_FRAMES)
+        hi = bisect.bisect_left(self._show_starts, frame)
+        return frozenset(self._show_slugs[lo:hi]).union(extra)
+
+    def _new_run(self, occ: Occurrence, start: int, placed: Sequence[Piece], rec: Recency,
+                 prev_artist: str | None, extra_used: Iterable[str] = ()) -> _BlockRun:
         own = self.pools.own(occ)
-        if placed and self.extra_own and own and occ.key == self.occ.key:
+        current = occ.key == self.occ.key
+        if placed and self.extra_own and own and current:
             have = {p.slug for p in own}
             own = own + [p for p in self.extra_own if p.slug not in have]
         return _BlockRun(occ, self.occs.after(occ), start_frame=start, placed=placed, own_pool=own,
                          open_pool=self.pools.open, boundary_frames=self.B, final_boundary_frames=self.B,
                          prev_artist=prev_artist, rec=rec, clock=self.clock, epoch_us=self.inp.epoch_us,
-                         seed=self.inp.seed, used=frozenset(used))
+                         seed=self.inp.seed, used=self.used_at(start, extra_used),
+                         block_start=self.block_start if placed and current else None)
 
     def _run_at(self, start: int) -> tuple[_BlockRun, int]:
         """The current occurrence's run whose next show starts at `start`: the
-        active one when its own layout agrees (continuation-closed), else new."""
-        if self.run is None or self.run.start_of(self.run_k) != start:
-            self.run = self._new_run(self.occ, start, tuple(self.placed), self.rec, self.used, self.prev_artist)
-            self.run_k = 0
+        active one when it is what a fresh run would be (its own layout agrees,
+        which is continuation-closure, and its `used` excludes the same shows),
+        else new."""
+        run = self.run
+        if run is not None and run.start_of(self.run_k) == start:
+            placed = {p.slug for p in self.placed}
+            if run.used | placed == self.used_at(start) | placed:
+                return run, self.run_k
+        self.run = self._new_run(self.occ, start, tuple(self.placed), self.rec, self.prev_artist)
+        self.run_k = 0
         return self.run, self.run_k
 
     # --- interstitials ---
@@ -458,7 +503,7 @@ class _Projection:
     def _names(x: Occurrence, y: Occurrence | None) -> tuple[tuple[str, str], ...]:
         return (x.key,) if y is None else (x.key, y.key)
 
-    def _try_next(self, x: Occurrence, s: int):
+    def _try_next(self, x: Occurrence, s: int) -> _Choice | None:
         """`next` before X's first show, its clip at `s`: X must start in its
         window with the clip in place; Y (two-block) where X's run lands it."""
         for form, y in self._forms(x, "next", "next_one"):
@@ -470,44 +515,52 @@ class _Projection:
                 continue
             xrun = None
             if y is not None:
-                xrun = self._new_run(x, x_start, (), self.rec, self.used, self.prev_artist)
+                xrun = self._new_run(x, x_start, (), self.rec, self.prev_artist)
                 if not self._in_window(y, xrun.complete()[-1].landing):
                     continue                     # fails only on Y: the one-block form
-            return clip, "next", self._names(x, y), xrun
+            return _Choice(clip, "next", self._names(x, y), xrun)
         return None
 
-    def _try_later(self, run: _BlockRun, k: int, s: int):
-        """`later` at the current block's last internal boundary (clip at `s`),
-        naming the occurrence after it: X's start is predicted with the clip,
-        the block's last show and a boundary estimate in place."""
+    def _try_later(self, s: int) -> _Choice | None:
+        """`later` at the current block's last internal boundary, its clip at
+        `s`, naming the occurrence after it. Judged with the clip in place:
+        the block re-planned from after the clip must play exactly one more
+        show (else the boundary is not the last one and gets an ID). X's start
+        is that run's landing; Y is judged on X's run from there."""
         x = self.occs.after(self.occ)
-        last = run.step(k).shows[0].piece
+        saved = (self.run, self.run_k)
         for form, y in self._forms(x, "later", "later_one"):
             clip = self._ann(form, x, y)
             if clip is None:
                 continue
             l_start = s + clip.frames + self.gap
-            x_start = l_start + last.frames + self.B
+            run, k = self._run_at(l_start)
+            step = run.step(k)
+            if not step.shows or run.step(k + 1).shows:
+                continue                         # with this clip the block is not one show from its end
+            x_start = run.step(k + 1).landing
             if not self._in_window(x, x_start):
                 continue
             if y is not None:
+                last = step.shows[0].piece
                 us = self._us(l_start)
                 rec = self.rec.with_piece(last, us, rules.local_date(us, self.tz))
-                xrun = self._new_run(x, x_start, (), rec, self.used | {last.slug}, last.artist)
+                xrun = self._new_run(x, x_start, (), rec, last.artist, extra_used=(last.slug,))
                 if not self._in_window(y, xrun.complete()[-1].landing):
                     continue
-            return clip, "later", self._names(x, y), None
+            return _Choice(clip, "later", self._names(x, y), None)   # the run from l_start is active
+        self.run, self.run_k = saved
         return None
 
     # --- steps ---
 
-    def boundary(self, last_pos: int):
+    def boundary(self, last_pos: int) -> PlannedPiece | _Stop | None:
         """The interstitial after a show: an announcement, a station ID or
-        nothing (None: the next piece is the show). `_STOP` past the horizon."""
+        nothing (None: the next piece is the show). `_STOP` past the horizon.
+        At most one `later` per occurrence (`later_done`, from the rows)."""
         s = self.start
         id_clip = self._station_id()
         m = s + (id_clip.frames + self.gap if id_clip is not None else 0)     # the next show, after an ID
-        run = k = None
         if not self.placed:
             kind, target = "into", self.occ          # a mid-block entry: this occurrence's first show
         else:
@@ -521,21 +574,25 @@ class _Projection:
         choice = None
         if kind == "into":
             choice = self._try_next(target, s)
-        elif kind == "last":
-            choice = self._try_later(run, k, s)
-        clip, role, names, xrun = choice if choice is not None else (id_clip, "id", (), None)
+        elif kind == "last" and not self.later_done:
+            choice = self._try_later(s)
+        if choice is None:
+            choice = _Choice(id_clip, "id", (), None)    # the decision at m stands
         if target.key != self.occ.key:
             self._enter(target)
         self.after_show = False
-        if clip is None:
+        if choice.clip is None:
             return None
-        pp = PlannedPiece(clip, s, self.run_start, target.block.name, target.nominal_iso, role, names=names)
-        self._add(clip, s)
-        if xrun is not None:
-            self.run, self.run_k = xrun, 0
+        pp = PlannedPiece(choice.clip, s, self.run_start, target.block.name, target.nominal_iso, choice.role,
+                          names=choice.names)
+        self._add(choice.clip, s)
+        if choice.role == "later":
+            self.later_done = True
+        if choice.run is not None:
+            self.run, self.run_k = choice.run, 0
         return pp
 
-    def show(self, last_pos: int):
+    def show(self, last_pos: int) -> PlannedPiece | _Stop:
         s = self.start
         while True:
             if self.occs.pos(self.occ) > last_pos:
@@ -556,18 +613,20 @@ class _Projection:
         pp = PlannedPiece(piece, s, self.run_start, occ.block.name, occ.nominal_iso, "show",
                           miss=None if self.placed else not self._in_window(occ, s),
                           degraded=run.degraded, fill=run.cause if is_fill else None, bends=bends)
+        if not self.placed:
+            self.block_start = s
         self.placed.append(piece)
         self.placed_bends.update(bends)
         self.run_k = k + 1
         self._add(piece, s)
-        self.used.add(piece.slug)
+        self._show_starts.append(s)
+        self._show_slugs.append(piece.slug)
         self.prev_artist = piece.artist
         self.after_show = True
         return pp
 
-    def horizon(self, until_frame: int | None, ahead: int) -> int:
-        if until_frame is None:
-            return ahead
+    def clock_horizon(self, until_frame: int, ahead: int) -> int:
+        """`ahead` past the occurrence in progress at `until_frame` by the clock."""
         t = self._us(until_frame)
         i = 0
         while self.occs.at(i).end_us <= t:
@@ -587,7 +646,12 @@ def project(inp: SchedulerInput, *, until_frame: int | None = None, ahead: int =
     show rows placed; otherwise (phase-1 rows, a fresh run, an edited clock)
     the occurrence in progress at `start_frame`, or the next one when
     `start_frame` already lies in its window. Occurrences follow in sequence,
-    never skipped; each gets at least one show.
+    never skipped; each gets at least one show. With `until_frame` the
+    projection runs until a piece reaches it (blocks that land early put
+    fewer frames in a clock day), then `ahead` more occurrences, and at least
+    through the occurrence in progress at `until_frame` by the clock plus
+    `ahead`. `ahead` must be at least 1 (the boundary into the next
+    occurrence belongs to it); piece [0] does not depend on it.
 
     After a show (not at a run start) comes its boundary: before X's first
     show a `next` for X; at a block's last internal boundary a `later` for
@@ -603,16 +667,22 @@ def project(inp: SchedulerInput, *, until_frame: int | None = None, ahead: int =
     from its exact start, the boundaries after it estimated as gap, typical
     ID, gap (one gap with no ID pool); a block whose next boundary differs is
     re-planned from the exact start, as a live step would."""
+    if ahead < 1:
+        raise ValueError(f"ahead must be at least 1, got {ahead}")
     p = _Projection(inp)
-    last_pos = p.horizon(until_frame, ahead)
+    if until_frame is None:
+        last_pos = ahead
+    else:
+        clock_pos = p.clock_horizon(until_frame, ahead)
+        last_pos = sys.maxsize                   # until a piece reaches until_frame
     out: list[PlannedPiece] = []
     while True:
-        pp = p.boundary(last_pos) if p.after_show else None
-        if pp is _STOP:
+        got = p.boundary(last_pos) if p.after_show else None
+        if got is None:
+            got = p.show(last_pos)
+        if isinstance(got, _Stop):
             break
-        if pp is None:
-            pp = p.show(last_pos)
-            if pp is _STOP:
-                break
-        out.append(pp)
+        out.append(got)
+        if last_pos == sys.maxsize and got.end_frame >= until_frame:
+            last_pos = max(clock_pos, p.occs.index[(got.block, got.nominal_start)] + ahead)
     return out

@@ -76,10 +76,9 @@ def occ(clock, name, day=0):
     raise LookupError(name)
 
 
-def mk(pool, clock, *, rows=(), start=0, run_start=True, rec=None, seed=7, now_us=None, gap=GAP):
+def mk(pool, clock, *, rows=(), start=0, run_start=True, rec=None, seed=7, gap=GAP):
     return SchedulerInput(rows=tuple(rows), start_frame=start, run_start=run_start, pool=list(pool), clock=clock,
-                          rec=rec if rec is not None else Recency(), epoch_us=E, gap_frames=gap, seed=seed,
-                          now_us=now_us)
+                          rec=rec if rec is not None else Recency(), epoch_us=E, gap_frames=gap, seed=seed)
 
 
 def shows_of(pieces, o=None):
@@ -477,25 +476,40 @@ def test_plan_error_only_when_no_show_is_eligible():
     assert pieces and all(p.degraded for p in shows_of(pieces))
 
 
-def test_used_holds_persisted_shows_until_they_air():
-    # gap 0 (no gap rule) and a 1977 preference: only `used` keeps yesterday's persisted,
-    # unaired favourite out of today's block; once its row has aired it returns
+def test_used_is_the_shows_started_in_the_24_hours_before_a_run():
+    # gap 0 (no gap rule) and a 1977 preference: only `used` keeps yesterday's persisted
+    # favourite (started at 10:00) out of today's block, and only for runs that start
+    # within 24 h of it: from 10:00 today it is free again, whatever the wall clock
+    assert scheduler.USED_WINDOW_HOURS == 24
+    assert scheduler.USED_WINDOW_FRAMES == -(-24 * 3600 * 44_100 // 1024)
     clock = clk({"name": "o", "start": "00:00", "wiggle_minutes": 60,
                  "prefer": [{"years": "1977", "weight": 2.0}]}, gap_days=0)
     fav = sp("fav", 120, "Fav", date="1977-05-08")
     pool = [fav] + [sp(f"s{i}", 120, f"Act {i}") for i in range(14)]
-    row = PlanRow(seq=0, slug="fav", dir="fav", key=fav.key, start_frame=-fr(180), frames=fav.frames,
+    row = PlanRow(seq=0, slug="fav", dir="fav", key=fav.key, start_frame=fr(-14 * 60), frames=fav.frames,
                   run_start=True, block="o", nominal_start=occ(clock, "o", -1).nominal_iso, role="show",
                   miss=False, package="fav")
+    # yesterday's block continues after fav with other shows up to midnight
     rec = Recency().with_piece(fav, at(row.start_frame), ld(at(row.start_frame)))
-    base = dict(rows=[row], start=row.end_frame + GAP, run_start=False, rec=rec)
+    pieces = project(mk(pool, clock, rows=[row], start=row.end_frame + GAP, run_start=False, rec=rec))
+    today = shows_of(pieces, occ(clock, "o"))
+    favs = [p for p in today if p.piece.slug == "fav"]
+    assert len(favs) == 1
+    assert favs[0].start_frame >= row.start_frame + scheduler.USED_WINDOW_FRAMES
+    assert all(p.start_frame < row.start_frame + scheduler.USED_WINDOW_FRAMES + fr(125) for p in favs)
+    assert project(mk(pool, clock, rows=[row], start=row.end_frame + GAP, run_start=False, rec=rec)) == pieces
 
-    def today(now_us):
-        return {p.piece.slug for p in shows_of(project(mk(pool, clock, now_us=now_us, **base)), occ(clock, "o"))}
 
-    assert "fav" not in today(None)
-    assert "fav" not in today(at(row.end_frame) - 1)
-    assert "fav" in today(at(row.end_frame))
+def test_used_window_is_half_open_on_the_frame_line():
+    clock = clk({"name": "o", "start": "00:00", "wiggle_minutes": 60})
+    fav = sp("fav", 120, "Fav")
+    pool = [fav] + [sp(f"s{i}", 120, f"Act {i}") for i in range(3)]
+    f = fr(12 * 60)
+    for start, inside in ((f - scheduler.USED_WINDOW_FRAMES, True), (f - scheduler.USED_WINDOW_FRAMES - 1, False),
+                          (f - 1, True)):
+        row = PlanRow(seq=0, slug="fav", dir="fav", key=fav.key, start_frame=start, frames=1, run_start=True)
+        p = scheduler._Projection(mk(pool, clock, rows=[row], start=f, run_start=True))
+        assert ("fav" in p.used_at(f)) is inside, start
 
 
 def test_implicit_clock_never_records_a_miss():
@@ -523,7 +537,27 @@ def test_until_frame_extends_the_horizon():
     assert seen == want
     assert project(mk(pool, DAYCLOCK, start=fr(12 * 60)), until_frame=fr(13 * 60)) == \
         project(mk(pool, DAYCLOCK, start=fr(12 * 60)))
-    assert len(project(mk(pool, DAYCLOCK, start=fr(12 * 60)), ahead=0)) < len(pieces)
+    assert len(project(mk(pool, DAYCLOCK, start=fr(12 * 60)), ahead=1)) < len(pieces)
+
+
+def test_ahead_below_one_is_refused():
+    with pytest.raises(ValueError, match="ahead"):
+        project(mk(daypool(), DAYCLOCK, start=fr(12 * 60)), ahead=0)
+
+
+def test_until_frame_is_reached_by_the_projected_pieces_when_blocks_land_early():
+    # four 6 h blocks a day, each allowed one 60-min show: every block lands early, so the
+    # projection covers ~4 h of frames per clock day; it still runs until a piece reaches
+    # until_frame, then `ahead` more occurrences
+    clock = clk(*({"name": f"b{h}", "start": f"{h:02d}:00", "profiles": ["p"], "max_shows": 1}
+                  for h in (0, 6, 12, 18)))
+    pool = [sp(f"s{i}", 60, f"Act {i}") for i in range(8)] + IDS
+    until = fr(30 * 60)
+    pieces = project(mk(pool, clock), until_frame=until)
+    assert pieces[-1].end_frame >= until
+    reach = next(i for i, p in enumerate(pieces) if p.end_frame >= until)
+    keys = list(dict.fromkeys((p.block, p.nominal_start) for p in pieces))
+    assert len(keys) - 1 - keys.index((pieces[reach].block, pieces[reach].nominal_start)) == 2
 
 
 # --- rows ----------------------------------------------------------------------
@@ -603,3 +637,88 @@ def test_block_bends_match_the_block_plan_and_sit_on_the_show_that_bent_them():
     rows = shows_of(pieces, b)
     assert [p.piece for p in rows] == list(plan.shows)
     assert [p.bends for p in rows] == [("gap",) if p.piece.slug == "a1" else () for p in rows]
+
+
+
+def test_one_fill_cause_per_block_whatever_the_id_lengths():
+    # The two longest own shows (70 + 60) would land 30 s before the next window opens:
+    # "structural". s3 (70) aired-artist-today keeps the block on s1 + s2 (60 + 60), which
+    # land ~10 min early, then three 4-min fill shows. IDs of 5, 5 and 60 s (the estimate
+    # uses 5): judged from an estimated block start, the fill after the 60-s ID would read
+    # the block 55 s late and call it "pool-short".
+    id5a, id5b, id60 = clip("id-a", 5), clip("id-b", 5), clip("id-z", 60)
+    s1, s2, s3 = sp("s1", 60, "S1"), sp("s2", 60, "S2"), sp("s3", 70, "S3")
+    rec = Recency().with_piece(id60, E - MIN, ld(E - MIN))              # the long ID rotates last
+    rec = rec.with_piece(sp("xs3", 60, "S3"), E + 8 * 60 * MIN, ld(E + 8 * 60 * MIN))
+    b_ = 2 * GAP + id5a.frames
+    t0 = at(fr(12 * 60) + s3.frames + s1.frames + 2 * b_)
+    nominal = E + (14 * 60 + 45) * MIN
+    early = (nominal - (t0 + 30_000_000)) / MIN
+    clock = clk({"name": "b", "start": "12:00", "profiles": ["p"], "max_shows": 2},
+                {"name": "n", "start": "14:45", "early_minutes": early, "late_minutes": 10})
+    funk = [sp(f"f{i}", 4, f"Funk {i}", profile="funk") for i in range(6)]
+    pieces = project(mk([s1, s2, s3] + funk + [id5a, id5b, id60], clock, start=fr(12 * 60), rec=rec))
+    rows = shows_of(pieces, occ(clock, "b"))
+    assert sorted(p.piece.slug for p in rows[:2]) == ["s1", "s2"]
+    assert [p.piece.slug for p in pieces if p.role == "id"][:3][2] == "id-z"
+    fills = [p.fill for p in rows[2:]]
+    assert len(fills) >= 2 and set(fills) == {"structural"}, fills
+
+
+# --- `later`: once per block, at its last boundary ------------------------------
+
+LATER_CLOCKS = {
+    "repro": REPRO_CLOCK,
+    "day": DAYCLOCK,
+    "eve": clk({"name": "day", "title": "Daytime", "start": "06:00"},
+               {"name": "dead", "title": "Dead Hour", "start": "19:00", "profiles": ["dead"], "max_shows": 2},
+               {"name": "late", "title": "Late Night", "start": "23:30"}),
+}
+
+
+@pytest.mark.parametrize("name", sorted(LATER_CLOCKS))
+def test_later_only_at_the_last_boundary_over_varied_lengths(name):
+    import random
+    clock = LATER_CLOCKS[name]
+    lib = library_pieces()
+    for seed in range(3):
+        rng = random.Random(seed)
+        ids = [clip(f"id-{k}", rng.uniform(5, 30)) for k in range(4)]
+        anns = [clip(f"ann-{n.id}", rng.uniform(4, 20), "ann", n.id)
+                for n in announce.needed(clock, E - DAY, days=8)]
+        pieces = project(mk(lib + ids + anns, clock, start=fr(12 * 60), seed=seed),
+                         until_frame=fr(12 * 60 + 4 * 24 * 60))
+        per: dict = {}
+        for p in pieces:
+            per.setdefault((p.block, p.nominal_start), []).append(p.role)
+        laters = 0
+        for key, roles in per.items():
+            assert roles.count("later") <= 1, (name, seed, key, roles)
+            if "later" in roles:
+                laters += 1
+                assert roles[roles.index("later") + 1:] == ["show"], (name, seed, key, roles)
+        assert laters >= 3, (name, seed)
+
+
+def test_a_persisted_later_turns_a_later_last_boundary_into_an_id():
+    # o already played its `later` (a re-plan after it added a show): the boundary before
+    # o's new last show is "last" again, but gets a station ID
+    clock = clk({"name": "o", "start": "12:00"},
+                {"name": "x", "title": "Ex", "start": "18:00", "profiles": ["p"], "max_shows": 2},
+                {"name": "y", "start": "22:00"})
+    o, x = occ(clock, "o"), occ(clock, "x")
+    lat = ann("later_one", x, None, clock)
+    a1, a2 = sp("a1", 119, "A1", profile="r"), sp("a2", 119, "A2", profile="r")
+    pool = [a1, a2] + [sp(f"p{i}", 119 + i * 0.1, f"P{i}") for i in range(4)] + IDS + all_anns(clock)
+    rows, f = [], fr(12 * 60)
+    for i, (pc, role) in enumerate(((a1, "show"), (lat, "later"), (a2, "show"))):
+        rows.append(PlanRow(seq=i, slug=pc.slug, dir=pc.dir, key=pc.key, start_frame=f, frames=pc.frames,
+                            run_start=i == 0, kind=pc.kind, block="o", nominal_start=o.nominal_iso, role=role,
+                            names=(x.key,) if role == "later" else (), package=pc.package))
+        f += pc.frames + GAP
+    rec = Recency()
+    for r, pc in zip(rows, (a1, lat, a2)):
+        rec = rec.with_piece(pc, at(r.start_frame), ld(at(r.start_frame)))
+    pieces = project(mk(pool, clock, rows=rows, start=f, run_start=False, rec=rec))
+    assert [p.role for p in pieces[:2]] == ["id", "show"] and pieces[1].block == "o"
+    assert not any(p.role == "later" and p.block == "o" for p in pieces)
