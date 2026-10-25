@@ -239,12 +239,12 @@ def test_status_summary_rows_counts_labels_and_order(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     lines = [ln.split() for ln in result.output.splitlines()]
-    assert lines[0] == ["profile", "presenter", "ready", "pending", "other"]
-    assert lines[1] == ["alpha", "dflt", "(default)", "1", "0", "0"]
-    assert lines[2] == ["beta", "bob", "1", "1", "0"]
+    assert lines[0] == ["profile", "presenter", "ready", "pending", "other", "voiced", "on"]
+    assert lines[1] == ["alpha", "dflt", "(default)", "1", "0", "0", "?", "1"]
+    assert lines[2] == ["beta", "bob", "1", "1", "0", "?", "1"]
     assert lines[3] == ["(none)", "dflt", "(default)", "0", "1", "0"]
     assert lines[4] == ["(unknown)", "0", "0", "1"]  # blank presenter
-    assert lines[5] == ["total", "2", "2", "1"]
+    assert lines[5] == ["total", "2", "2", "1", "?", "2"]
     assert len(lines) == 6
     assert "slug" not in result.output
 
@@ -441,3 +441,302 @@ def test_status_broad_scan_skips_dot_prefixed_dirs(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     assert {r["slug"] for r in json.loads(result.output)} == {
         "ready-show", "pending-show", "unsupported-show"}
+
+
+# ---------------------------------------------------------------------------
+# Recorded TTS, drift against the current resolution, --tts / --drifted
+# ---------------------------------------------------------------------------
+
+from unittest.mock import patch  # noqa: E402
+
+import emcee.cli as cli_mod  # noqa: E402
+from emcee.presenters import Presenter, save_presenter  # noqa: E402
+from emcee.tts.resolve import DEFAULT_MODELS  # noqa: E402
+
+VOX = f"voxtral {DEFAULT_MODELS['voxtral']}"
+ELEVEN = f"elevenlabs {DEFAULT_MODELS['elevenlabs']}"
+
+
+def _set_tts(pkg_dir: Path, tts) -> None:
+    """Rewrite a voiced fixture's recorded TTS: a dict, or None to drop it."""
+    path = pkg_dir / "manifest.json"
+    m = json.loads(path.read_text())
+    if tts is None:
+        m["dj_audio"].pop("tts", None)
+    else:
+        m["dj_audio"]["tts"] = tts
+    path.write_text(json.dumps(m))
+
+
+def _tts_station(tmp_path, monkeypatch):
+    """House voice = voxtral. alpha -> house; beta -> bob (pinned elevenlabs);
+    gamma -> ghost (no presenter file: unresolved now)."""
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    home.mkdir(parents=True)
+    (home / "config.toml").write_text(
+        f'[station]\nroot = "{station}"\n\n[tts]\nbackend = "voxtral"\nvoice = "v"\n\n'
+        '[assign.profiles.beta]\npresenter = "bob"\n'
+        '[assign.profiles.gamma]\npresenter = "ghost"\n')
+    save_presenter(home, Presenter(id="bob", name="Bob", sex="male", voice="x",
+                                   character="c", tts="elevenlabs"))
+    return station
+
+
+def _vox(voice="h1", model=None):
+    return {"backend": "voxtral", "model": model or DEFAULT_MODELS["voxtral"], "voice": voice}
+
+
+def _rows(out: str) -> dict[str, str]:
+    return {ln.split()[0]: ln for ln in out.splitlines() if ln.strip()}
+
+
+def test_status_list_tts_cell_recorded_unrecorded_unvoiced_drifted_unresolved(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="ok", voiced=True, profile="alpha")
+    _set_tts(station / "ok", _vox())
+    build_package(station, slug="legacy", voiced=True, profile="alpha")  # no tts key
+    build_package(station, slug="bad", voiced=True, profile="alpha")
+    _set_tts(station / "bad", {"backend": "", "model": "m"})
+    build_package(station, slug="unv", voiced=False, profile="alpha")
+    build_package(station, slug="drift", voiced=True, profile="beta")
+    _set_tts(station / "drift", _vox())
+    build_package(station, slug="unres", voiced=True, profile="gamma")
+    _set_tts(station / "unres", _vox())
+    build_package(station, slug="mlx", voiced=True, profile="alpha")
+    _set_tts(station / "mlx", {"backend": "mlx_audio",
+                               "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"})
+    build_package(station, slug="nomodel", voiced=True, profile="alpha")
+    _set_tts(station / "nomodel", {"backend": "fake", "model": None})
+
+    out = runner.invoke(app, ["status", "--list"]).output
+    rows = _rows(out)
+
+    assert VOX in rows["ok"] and "(now:" not in rows["ok"]
+    assert "?" in rows["legacy"].split() and "(now:" not in rows["legacy"]
+    assert "?" in rows["bad"].split()
+    assert "(now:" not in rows["unv"] and VOX not in rows["unv"]
+    assert f"{VOX} (now: {ELEVEN})" in rows["drift"]
+    assert f"{VOX} (now: unresolved)" in rows["unres"]
+    assert "mlx_audio Qwen3-TTS-12Hz-1.7B-Base-bf16" in rows["mlx"]
+    assert "mlx-community" not in out
+    assert rows["nomodel"].endswith(f"  ?  fake (now: {VOX})")  # no model: bare backend, no "None"
+    # the TTS column sits right after the voiced-by column
+    assert f"voxtral" in rows["ok"] and rows["ok"].index(" ? ") < rows["ok"].index(VOX)
+
+
+def test_status_drift_ignores_the_voice_hash(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="v1", voiced=True, profile="alpha")
+    _set_tts(station / "v1", _vox(voice="unknown"))
+    build_package(station, slug="v2", voiced=True, profile="alpha")
+    _set_tts(station / "v2", _vox(voice="some-other-hash"))
+
+    rows = _rows(runner.invoke(app, ["status", "--list"]).output)
+    by = {r["slug"]: r for r in json.loads(runner.invoke(app, ["status", "--json"]).output)}
+
+    assert "(now:" not in rows["v1"] and "(now:" not in rows["v2"]
+    assert by["v1"]["tts_drifted"] is False and by["v2"]["tts_drifted"] is False
+    assert runner.invoke(app, ["status", "--drifted"]).output.strip() == "no packages match"
+
+
+def test_status_no_record_never_drifts(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="legacy", voiced=True, profile="beta")  # beta would drift
+    build_package(station, slug="legacy-g", voiced=True, profile="gamma")
+
+    by = {r["slug"]: r for r in json.loads(runner.invoke(app, ["status", "--json"]).output)}
+
+    assert by["legacy"]["tts_drifted"] is None and by["legacy-g"]["tts_drifted"] is None
+    assert by["legacy"]["tts_now"] == {"backend": "elevenlabs", "model": DEFAULT_MODELS["elevenlabs"]}
+    assert "(now:" not in _rows(runner.invoke(app, ["status", "--list"]).output)["legacy-g"]
+
+
+def test_status_resolves_each_profile_once(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    for slug in ("b1", "b2", "b3"):
+        build_package(station, slug=slug, voiced=True, profile="beta")
+        _set_tts(station / slug, _vox())
+    build_package(station, slug="a1", voiced=True, profile="alpha")
+    _set_tts(station / "a1", _vox())
+
+    real = cli_mod.resolve_assignment
+    seen: list = []
+
+    def spy(config, profile):
+        seen.append(profile)
+        return real(config, profile)
+
+    with patch.object(cli_mod, "resolve_assignment", spy):
+        result = runner.invoke(app, ["status", "--list"])
+        assert result.exit_code == 0, result.output
+        assert sorted(seen) == ["alpha", "beta"]
+        seen.clear()
+        json.loads(runner.invoke(app, ["status", "--json"]).output)
+        assert sorted(seen) == ["alpha", "beta"]
+        seen.clear()
+        summary = runner.invoke(app, ["status"])
+        assert summary.exit_code == 0, summary.output
+        assert seen == []  # the summary path resolves nothing
+
+
+def test_status_error_row_has_no_now(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="boom", voiced=True, profile="beta")  # beta would drift
+    _set_tts(station / "boom", _vox())
+    path = station / "boom" / "manifest.json"
+    m = json.loads(path.read_text())
+    del m["tracks"][0]["filename"]  # loads as v3, but assess raises
+    path.write_text(json.dumps(m))
+
+    by = {r["slug"]: r for r in json.loads(runner.invoke(app, ["status", "--json"]).output)}
+    assert by["boom"]["state"] == "error"
+    assert by["boom"]["tts_now"] is None and by["boom"]["tts_drifted"] is None
+    rows = _rows(runner.invoke(app, ["status", "--list"]).output)
+    assert VOX in rows["boom"] and "(now:" not in rows["boom"]
+    assert runner.invoke(app, ["status", "--drifted"]).output.strip() == "no packages match"
+
+
+def test_status_tts_filter_exact_none_repeatable_and_ands_with_profile(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="vox-a", voiced=True, profile="alpha")
+    _set_tts(station / "vox-a", _vox())
+    build_package(station, slug="vox-b", voiced=True, profile="beta")
+    _set_tts(station / "vox-b", _vox())
+    build_package(station, slug="el", voiced=True, profile="beta")
+    _set_tts(station / "el", {"backend": "elevenlabs", "model": "m", "voice": "v"})
+    build_package(station, slug="legacy", voiced=True, profile="alpha")
+    build_package(station, slug="unv", voiced=False, profile="alpha")
+
+    def slugs(*args):
+        out = runner.invoke(app, ["status", *args]).output
+        return {ln.split()[0] for ln in out.splitlines() if ln.strip()}
+
+    assert slugs("--tts", "voxtral") == {"vox-a", "vox-b"}
+    assert "no packages match" in runner.invoke(app, ["status", "--tts", "vox"]).output  # exact
+    assert slugs("--tts", "none") == {"legacy"}  # voiced without a usable record only
+    assert slugs("--tts", "voxtral", "--tts", "elevenlabs") == {"vox-a", "vox-b", "el"}
+    assert slugs("--tts", "voxtral", "--tts", "none") == {"vox-a", "vox-b", "legacy"}
+    assert slugs("--tts", "voxtral", "--profile", "beta") == {"vox-b"}
+    only = json.loads(runner.invoke(app, ["status", "--json", "--tts", "elevenlabs"]).output)
+    assert [r["slug"] for r in only] == ["el"]
+
+
+def test_status_tts_unmatched_value_is_noted_but_none_is_not(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="vox-a", voiced=True, profile="alpha")
+    _set_tts(station / "vox-a", _vox())
+
+    r = runner.invoke(app, ["status", "--tts", "mlx_audio"])
+    assert "note: no package is voiced with tts 'mlx_audio'" in r.output  # CliRunner mixes stderr
+    r = runner.invoke(app, ["status", "--tts", "none"])
+    assert "note:" not in r.output
+    r = runner.invoke(app, ["status", "--tts", "voxtral"])
+    assert "note:" not in r.output
+
+
+def test_status_drifted_filter_and_both_filters_imply_list(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="ok", voiced=True, profile="alpha")
+    _set_tts(station / "ok", _vox())
+    build_package(station, slug="drift", voiced=True, profile="beta")
+    _set_tts(station / "drift", _vox())
+    build_package(station, slug="unres", voiced=True, profile="gamma")
+    _set_tts(station / "unres", _vox())
+
+    out = runner.invoke(app, ["status", "--drifted"]).output
+    assert [ln.split()[0] for ln in out.splitlines()] == ["drift"]  # list view, not summary
+    out = runner.invoke(app, ["status", "--tts", "voxtral"]).output
+    assert {ln.split()[0] for ln in out.splitlines()} == {"ok", "drift", "unres"}
+    out = runner.invoke(app, ["status", "--drifted", "--profile", "alpha"]).output
+    assert "no packages match" in out
+    js = json.loads(runner.invoke(app, ["status", "--json", "--drifted"]).output)
+    assert [r["slug"] for r in js] == ["drift"]
+
+
+def test_status_move_problem_makes_now_unresolved(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="mv", voiced=True, profile="alpha")
+    _set_tts(station / "mv", _vox())
+    from tests.helpers import write_moves_file
+    perf = json.loads((station / "mv" / "manifest.json").read_text())["source"]["performance_id"]
+    write_moves_file(tmp_path / "home", {perf: "nosuchprofile"})
+
+    by = {r["slug"]: r for r in json.loads(runner.invoke(app, ["status", "--json"]).output)}
+
+    assert by["mv"]["move_problem"] is not None
+    assert by["mv"]["tts_now"] == {"unresolved": by["mv"]["move_problem"]}
+    assert by["mv"]["tts_drifted"] is None
+    assert "(now: unresolved)" in _rows(runner.invoke(app, ["status", "--list"]).output)["mv"]
+
+
+def test_status_json_tts_now_and_drifted_values_and_existing_keys(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="ok", voiced=True, profile="alpha")
+    _set_tts(station / "ok", _vox())
+    build_package(station, slug="drift", voiced=True, profile="beta")
+    _set_tts(station / "drift", _vox())
+    build_package(station, slug="unres", voiced=True, profile="gamma")
+    _set_tts(station / "unres", _vox())
+    build_package(station, slug="unv", voiced=False, profile="alpha")
+    v2 = station / "v2"
+    v2.mkdir()
+    (v2 / "manifest.json").write_text('{"schema_version": 2}')
+
+    by = {r["slug"]: r for r in json.loads(runner.invoke(app, ["status", "--json"]).output)}
+
+    now_vox = {"backend": "voxtral", "model": DEFAULT_MODELS["voxtral"]}
+    assert by["ok"]["tts_now"] == now_vox and by["ok"]["tts_drifted"] is False
+    assert by["drift"]["tts_now"] == {"backend": "elevenlabs",
+                                      "model": DEFAULT_MODELS["elevenlabs"]}
+    assert by["drift"]["tts_drifted"] is True
+    assert list(by["unres"]["tts_now"]) == ["unresolved"]
+    assert "ghost" in by["unres"]["tts_now"]["unresolved"]
+    assert by["unres"]["tts_drifted"] is None
+    assert by["unv"]["tts_now"] == now_vox and by["unv"]["tts_drifted"] is None
+    assert by["v2"]["tts_now"] is None and by["v2"]["tts_drifted"] is None
+    for key in ("slug", "state", "reasons", "profile", "delivered_profile", "profile_source",
+                "voiced_by", "assigned_presenter", "assignment_source", "tts", "move_problem"):
+        assert key in by["ok"]
+    assert by["ok"]["tts"] == _vox()
+
+
+def test_status_summary_voiced_on_column(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    for i in range(3):
+        build_package(station, slug=f"a-vox{i}", voiced=True, profile="alpha")
+        _set_tts(station / f"a-vox{i}", _vox())
+    for i in range(2):
+        build_package(station, slug=f"a-mlx{i}", voiced=True, profile="alpha")
+        _set_tts(station / f"a-mlx{i}", {"backend": "mlx_audio", "model": "m"})
+    build_package(station, slug="a-old", voiced=True, profile="alpha")  # ?
+    build_package(station, slug="a-el", voiced=True, profile="alpha")
+    _set_tts(station / "a-el", {"backend": "elevenlabs", "model": "m"})
+    build_package(station, slug="a-el2", voiced=True, profile="alpha")
+    _set_tts(station / "a-el2", {"backend": "elevenlabs", "model": "m"})
+    build_package(station, slug="b-unv", voiced=False, profile="beta")
+    build_package(station, slug="c1", voiced=True, profile="gamma")
+    _set_tts(station / "c1", _vox())
+
+    out = runner.invoke(app, ["status"]).output
+    lines = out.splitlines()
+
+    assert lines[0].split()[-2:] == ["voiced", "on"]
+    rows = {ln.split()[0]: ln for ln in lines[1:]}
+    # count descending, then name; backend only, no model
+    assert rows["alpha"].endswith("voxtral 3, elevenlabs 2, mlx_audio 2, ? 1")
+    assert rows["beta"].endswith("0")  # nothing voiced: empty cell (rstrip leaves pending/other)
+    assert "voxtral" not in rows["beta"]
+    assert rows["gamma"].endswith("voxtral 1")
+    assert rows["total"].endswith("voxtral 4, elevenlabs 2, mlx_audio 2, ? 1")
+
+
+def test_status_help_stays_short_and_has_no_eaten_markup(tmp_path, monkeypatch):
+    monkeypatch.setenv("EMCEE_ROOT", str(tmp_path / "home"))
+    out = runner.invoke(app, ["status", "--help"]).output
+    before_options = out.split("Options")[0]
+
+    assert len([ln for ln in before_options.splitlines() if ln.strip()]) <= 8
+    assert "``" not in out
+    assert "--tts" in out and "--drifted" in out
