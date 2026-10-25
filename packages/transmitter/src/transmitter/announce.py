@@ -14,6 +14,11 @@ Form = Literal["next", "next_one", "later", "later_one"]
 
 _US_PER_DAY = 86_400_000_000
 
+# Operator ruling 2026-10-25: the two-block forms (`next`, `later`) name the
+# following occurrence only when it is a different block starting within this
+# many hours of X's start; otherwise the one-block forms are used.
+TWO_BLOCK_MAX_HOURS = 12
+
 
 def _fmt(local: datetime, time_format: str) -> str:
     if time_format == "24h":
@@ -46,6 +51,15 @@ def text_for(form: Form, x: Occurrence, y: Occurrence | None, ann: AnnounceConfi
     return render(getattr(ann, form), x, y, ann)
 
 
+def two_block_ok(x: Occurrence, y: Occurrence | None) -> bool:
+    """Whether the occurrence after X may be named by a two-block form: it is a
+    different block and starts within `TWO_BLOCK_MAX_HOURS` of X. Shared by
+    `needed` and the scheduler's placement (which adds its own conditions:
+    Y titled, not degraded, starting within its window)."""
+    return (y is not None and y.block.name != x.block.name
+            and y.nominal_us - x.nominal_us <= TWO_BLOCK_MAX_HOURS * 3600 * 1_000_000)
+
+
 @dataclass(frozen=True)
 class Needed:
     id: str
@@ -75,7 +89,7 @@ def needed(clock: ClockConfig, from_us: int, days: float = 8) -> list[Needed]:
         add("next_one", x, None)
         add("later_one", x, None)
         y = occs[n + 1] if n + 1 < len(occs) else None
-        if y is not None and y.block.title:
+        if two_block_ok(x, y) and y.block.title:
             add("next", x, y)
             add("later", x, y)
     return out

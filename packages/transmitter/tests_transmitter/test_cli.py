@@ -261,7 +261,7 @@ def test_announcements_export_writes_missing_scripts_only(tmp_path, monkeypatch)
     clock.write_text('timezone = "America/New_York"\n\n[[block]]\nname = "a"\ntitle = "Funk"\nstart = "19:00"\n')
     need = announce.needed(load_clock(clock), int(time.time() * 1_000_000), 8)
     texts = {r.id: r.text for r in need}
-    assert len(texts) == 4                      # a daily block follows itself
+    assert len(texts) == 2                      # a daily block follows itself: one-block forms only
     present = need[0].id
     clip = folder / f"ann-{present}.mp3"
     clip.write_bytes(b"ID3x")
@@ -276,7 +276,7 @@ def test_announcements_export_writes_missing_scripts_only(tmp_path, monkeypatch)
         assert f"{other}  missing  {texts[other]}" in result.output
         assert (out / f"ann-{other}.txt").read_text(encoding="utf-8") == texts[other] + "\n"
     assert sorted(p.name for p in out.iterdir()) == sorted(f"ann-{i}.txt" for i in others)
-    assert "exported 3 script(s)" in result.output
+    assert "exported 1 script(s)" in result.output
     assert not list(root.rglob("clock.last-good.toml"))
 
 

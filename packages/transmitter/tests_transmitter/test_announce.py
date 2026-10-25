@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from transmitter.announce import ann_id, needed, render_time, text_for
+from transmitter.announce import TWO_BLOCK_MAX_HOURS, ann_id, needed, render_time, text_for, two_block_ok
 from transmitter.clock import AnnounceConfig, BlockConfig, ClockConfig, Zone, occurrences
 
 UTC = timezone.utc
@@ -60,6 +60,7 @@ def test_needed_skips_untitled_blocks_and_uses_one_forms():
     assert by_block["A"] == {"next_one", "later_one"}      # B follows and is untitled
     assert "B" not in by_block
     assert by_block["C"] == {"next_one", "later_one", "next", "later"}
+    assert by_block["D"] == {"next_one", "later_one"}      # A follows a week later
     assert len({r.id for r in n}) == len(n)
     assert [r.nominal_iso for r in n] == sorted(r.nominal_iso for r in n)
 
@@ -75,3 +76,36 @@ def test_needed_excludes_occurrences_at_or_after_the_span_end():
     d = (a.nominal_us - start) / 86_400_000_000
     assert ("A", a.nominal_iso) not in names(d)
     assert ("A", a.nominal_iso) in names(d + 1e-6)
+
+
+def test_two_block_forms_need_a_different_block_within_twelve_hours():
+    assert TWO_BLOCK_MAX_HOURS == 12
+    c = _clock({"name": "A", "title": "Alpha", "start": "08:00"},
+               {"name": "B", "title": "Beta", "start": "20:00"})
+    o = occurrences(c, us(2096, 10, 1), us(2096, 10, 4))
+    a = next(i for i, x in enumerate(o) if x.block.name == "A")
+    x, y = o[a], o[a + 1]
+    assert y.block.name == "B" and y.nominal_us - x.nominal_us == 12 * 3600 * 1_000_000
+    assert two_block_ok(x, y)                            # exactly 12 h: still two-block
+    assert not two_block_ok(x, None)
+    assert not two_block_ok(x, x)                        # the same block following itself
+    late = type(y)(y.block, y.nominal_us + 1, y.lo_us, y.hi_us, y.end_us, y.local_date)
+    assert not two_block_ok(x, late)                     # one microsecond past 12 h
+
+
+def test_needed_uses_one_block_forms_for_a_block_that_follows_itself():
+    c = _clock({"name": "a", "title": "Funk", "start": "19:00"})
+    n = needed(c, us(2096, 10, 1), days=7)
+    assert {r.form for r in n} == {"next_one", "later_one"}
+    assert len(n) == 2                                   # the same text every day
+
+
+def test_needed_uses_one_block_forms_past_twelve_hours():
+    c = _clock({"name": "A", "title": "Alpha", "start": "07:00"},
+               {"name": "B", "title": "Beta", "start": "19:01"})
+    n = needed(c, us(2096, 10, 1), days=7)
+    by_block = {}
+    for r in n:
+        by_block.setdefault(r.block, set()).add(r.form)
+    assert by_block["A"] == {"next_one", "later_one"}    # B is 12 h 1 min after A
+    assert by_block["B"] == {"next_one", "later_one", "next", "later"}   # A is 11 h 59 min after B
