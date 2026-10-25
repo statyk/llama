@@ -255,22 +255,29 @@ _COUNT_NUM = (r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|t
               r"|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty"
               r"|sixty)(?:[\s-]+(?:one|two|three|four|five|six|seven|eight|nine))?")
 
-# Building blocks of the negation terms (fix round 4). They match a PUNCTUATION-NORMALISED
+# Building blocks of the negation terms (fix rounds 4-5). They match a PUNCTUATION-NORMALISED
 # copy of each text (`_normalised`): its words joined by single spaces, a word being word
-# characters joined by single interior apostrophes or hyphens (`isn't`, `aren’t`,
-# `set-list`). Every other character (dashes, quotes, brackets, `;:,()`) is a separator,
-# so a term is a negation, a bounded window of up to N words, then the head word. `_SEP`
-# (a space) and `_WORD` (no space) are disjoint, so a window splits one way only and the
-# match stays linear.
+# characters joined by single interior apostrophes (`isn't`, `aren’t`; the look-alikes
+# `` ` ``, `´`, `ʼ`, `‘` and `′` fold to `'` first). Every other character is a separator:
+# dashes, quotes, brackets and `;:,()`. The hyphen is read BOTH ways and a term fires on
+# either copy: as a separator (`not-listed` reads `not listed`) and as an interior joiner
+# (`return-to-astronaut` is one window word, so "no separate return-to-astronaut track"
+# fits a 3-word window). So a term is a negation, a bounded window of up to N words,
+# then the head word. `_SEP` (a space) and `_WORD` (no space) are disjoint, so a
+# window splits one way only and the match stays linear.
 _NEG = r"(?:\bnot|\bnever|n['’]t|\bcannot|\bno longer|\bnowhere|\bneither|\bnor)"
 _SEP = " "
 _WORD = r"[^ ]+"
-_TOKEN = re.compile(r"\w+(?:['’-]\w+)*")
+_TOKEN = re.compile(r"\w+(?:['’]\w+)*")
+_TOKEN_HYPHENATED = re.compile(r"\w+(?:['’-]\w+)*")
+_APOSTROPHES = str.maketrans({"`": "'", "´": "'", "ʼ": "'", "‘": "'", "′": "'"})
 
 
-def _normalised(text: str) -> str:
-    """`text`'s words, single-space separated; punctuation becomes a separator."""
-    return " ".join(_TOKEN.findall(text))
+def _normalised(text: str) -> tuple[str, str]:
+    """`text`'s words, single-space separated, punctuation a separator: once with the
+    hyphen a separator too, once with it joining a word."""
+    text = text.translate(_APOSTROPHES)
+    return " ".join(_TOKEN.findall(text)), " ".join(_TOKEN_HYPHENATED.findall(text))
 
 
 def _window(n: int, word: str = _WORD) -> str:
@@ -281,54 +288,66 @@ def _window(n: int, word: str = _WORD) -> str:
 # Exclusion/absence wording, matched ANYWHERE in the briefing (not only near a restored
 # file's name): the conservative reading of the ruling, measured in the Task 15a report.
 # Checked in this order; the first that fires names the reason. Each entry is
-# (term, pattern, normalised): a `normalised` term matches `_normalised(text)`, the
-# others the lowercased text as it is (`track count` needs `tracks 3–5`).
-_RESTORED_WORDING = tuple((term, re.compile(p), norm) for term, p, norm in (
-    ("excluded", r"\bexclu(?:de|ded|des|ding|sion|sions)\b", False),
-    ("implausibly short", r"\bimplausibl[ey]\s+short\b", False),
-    ("too short", r"\btoo\s+short\b", False),
-    ("left out", r"\b(?:left|leaves?|leaving)\s+(?:out|off)\b", False),
-    ("omitted", r"\bomi(?:t|ts|tted|tting|ssion|ssions)\b", False),
-    ("absent", r"\babsen(?:t|ce)\b", False),
-    ("not present", rf"{_NEG}{_window(3)}present\b", True),
-    ("missing", r"\bmissing\b", False),
-    ("dropped", r"\bdropp(?:ed|ing)\b", False),
-    ("not represented", rf"{_NEG}{_window(3)}represented\b", True),
-    ("not part of", rf"{_NEG}{_window(3)}part{_window(3)}of\b", True),
+# (term, raw, normalised): `raw` matches the lowercased text as it is (`track count` needs
+# `tracks 3–5`), `normalised` matches either copy `_normalised(text)` makes; either may be
+# None, and the term fires in the first field where any matches.
+_RESTORED_WORDING = tuple(
+    (term, raw and re.compile(raw), norm and re.compile(norm)) for term, raw, norm in (
+    ("excluded", r"\bexclu(?:de|ded|des|ding|sion|sions)\b", None),
+    # these three also read the normalised text (fix round 5): "too—short", "left (entirely) out"
+    ("implausibly short", r"\bimplausibl[ey]\s+short\b", r"\bimplausibl[ey] short\b"),
+    ("too short", r"\btoo\s+short\b", r"\btoo short\b"),
+    ("left out", r"\b(?:left|leaves?|leaving)\s+(?:out|off)\b",
+                 rf"\b(?:left|leaves?|leaving){_window(2)}(?:out|off)\b"),
+    ("omitted", r"\bomi(?:t|ts|tted|tting|ssion|ssions)\b", None),
+    ("absent", r"\babsen(?:t|ce)\b", None),
+    ("not present", None, rf"{_NEG}{_window(3)}present\b"),
+    ("missing", r"\bmissing\b", None),
+    ("dropped", r"\bdropp(?:ed|ing)\b", None),
+    ("not represented", None, rf"{_NEG}{_window(3)}represented\b"),
+    ("not part of", None, rf"{_NEG}{_window(3)}part{_window(3)}of\b"),
     # not [up to 5 words] track(s): "not even a separate track", "never a track". The
     # window stops at a word starting `track` ("not tracked as separate tracks" is `not
     # tracked separately`'s). A `track list` head counts only when no `in`/`on` sits in
     # the window: "not a track list entry" is this term, "not in the track list" is `not in
     # the setlist`'s. Both are later terms, so this only decides which reason is named.
-    ("not a track", rf"{_NEG}{_window(5, r'(?!track)[^ ]+')}tracks?\b(?![ -]?list(?:ing)?s?\b)"
-                    rf"|{_NEG}{_window(5, r'(?!track|(?:in|on) )[^ ]+')}tracks?[ -]?list(?:ing)?s?\b", True),
+    ("not a track", None, rf"{_NEG}{_window(5, r'(?!track)[^ ]+')}tracks?\b(?![ -]?list(?:ing)?s?\b)"
+                          rf"|{_NEG}{_window(5, r'(?!track|(?:in|on) )[^ ]+')}tracks?[ -]?list(?:ing)?s?\b"),
     # a count or a numbered range of tracks/songs/files: a restoration changes it
     ("track count", rf"\b{_COUNT_NUM}[\s-]+(?:tracks|songs|files)\b|\b{_COUNT_NUM}-(?:track|song|file)\b"
-                    r"|\btracks?\s+\d+\s*(?:-|–|—|to|through|thru)\s*\d+", False),
+                    r"|\btracks?\s+\d+\s*(?:-|–|—|to|through|thru)\s*\d+", None),
     # Tasks 15b (operator rulings, Checkpoint B) and fix rounds: these terms, and `not
     # present`, `not represented`, `not part of` and `not a track` above, are a negation
-    # (`_NEG`; `no`/`without` for `no separate track`, `no` also for `not found`'s
-    # `place`) followed by a BOUNDED window of up to 2-5 words before EVERY head word,
-    # over the normalised text ("should not, in fact, have been included", "is not
-    # “officially” listed"). `unlisted` is a plain word. Over-matching only costs a
-    # brief call; under-matching ships a false absence claim.
-    ("not included", rf"{_NEG}{_window(5)}included\b", True),
-    ("not listed", rf"{_NEG}{_window(5)}listed\b", True),
-    ("does not appear", rf"{_NEG}{_window(5)}appear(?:s|ed|ing)?\b", True),
-    ("unlisted", r"\bunlisted\b", False),
+    # (`_NEG`; `no`/`without` for `no separate track`, a bare `no` for `not found`'s
+    # `place` and for `no … listed`) followed by a BOUNDED window of up to 2-5 words
+    # before EVERY head word, over the normalised text ("should not, in fact, have been
+    # included", "is not “officially” listed"). Heads take every inflection. `unlisted`
+    # is a plain word. Over-matching only costs a brief call; under-matching ships a
+    # false absence claim.
+    ("not included", None, rf"{_NEG}{_window(5)}includ(?:e|es|ed|ing)\b"),
+    ("not listed", None, rf"{_NEG}{_window(5)}listed\b"),
+    ("does not appear", None, rf"{_NEG}{_window(5)}appear(?:s|ed|ing)?\b"),
+    ("unlisted", r"\bunlisted\b", None),
     # not [up to 3 words] in|on [up to 3 words] setlist | set list | set-list | tracklist |
     # track listing, any plural: "is not even on the setlist", "not in this track listing"
-    ("not in the setlist", rf"{_NEG}{_window(3)}(?:in|on){_window(3)}(?:set|track)[ -]?list(?:ing)?s?\b", True),
+    ("not in the setlist", None, rf"{_NEG}{_window(3)}(?:in|on){_window(3)}(?:set|track)[ -]?list(?:ing)?s?\b"),
     # no / without [up to 3 words] track(s): "no separate track", "without its own track"
-    ("no separate track", rf"\b(?:no|without){_window(3)}tracks?\b", True),
-    # not [up to 3 words] tracked: "not tracked separately", "not separately tracked", "not tracked individually"
-    ("not tracked separately", rf"{_NEG}{_window(3)}tracked\b", True),
+    ("no separate track", None, rf"\b(?:no|without){_window(3)}tracks?\b"),
+    # not [up to 3 words] tracked|tracking: "not tracked separately", "not separately
+    # tracked", "not tracking as a separate track"
+    ("not tracked separately", None, rf"{_NEG}{_window(3)}track(?:ed|ing)\b"),
     # paraphrases (fix round 4): "does not show up", "cannot be found", "isn't on the
     # tape", "is nowhere in the data", "has no place in the listing"; in|on takes the
     # nouns tape, recording, data, listing, list, file (any plural)
-    ("not found", rf"{_NEG}{_window(3)}(?:show(?:s|ed|n|ing)?{_window(2)}up|found"
-                  rf"|(?:in|on){_window(2)}(?:tape|recording|data|listing|list|file)s?)\b"
-                  rf"|(?:{_NEG}|\bno){_window(3)}place\b", True),
+    ("not found", None, rf"{_NEG}{_window(3)}(?:show(?:s|ed|n|ing)?{_window(2)}up|found"
+                        rf"|(?:in|on){_window(2)}(?:tape|recording|data|listing|list|file)s?)\b"
+                        rf"|(?:{_NEG}|\bno){_window(3)}place\b"),
+    # fix round 5, appended last so no earlier first hit moves: the verb heads list and
+    # contain ("does not list the jam", "does not contain the reprise"; a bare `list` head
+    # in `not listed` would take "did not appear on the list" from `does not appear`)
+    ("not included or listed", None, rf"{_NEG}{_window(5)}(?:list(?:s|ed|ing)?|contain(?:s|ed|ing)?)\b"),
+    # a bare `no` before a head: "No encore is listed.", "No intro appears."
+    ("no … listed", None, rf"\bno{_window(3)}(?:listed|included|present|appear(?:s|ed|ing)?|found)\b"),
 ))
 
 # A filename's disc/track tail (`d3t04`, `s2t01`, `D3_T02`, `t14`, `track01`).
@@ -374,9 +393,10 @@ def _restored_mentions(briefing: Briefing, restored: list[str]) -> list[tuple[st
         field = next((f for f, t in texts if any(p.search(t) for p in pats)), None)
         if field is not None:
             hits.append(("names", fn, field))
-    normalised = [(f, _normalised(t)) for f, t in texts]
-    for term, pat, norm in _RESTORED_WORDING:
-        field = next((f for f, t in (normalised if norm else texts) if pat.search(t)), None)
+    both = [(f, t, _normalised(t)) for f, t in texts]
+    for term, raw, norm in _RESTORED_WORDING:
+        field = next((f for f, t, nts in both
+                      if (raw and raw.search(t)) or (norm and any(norm.search(n) for n in nts))), None)
         if field is not None:
             hits.append(("says", term, field))
     return hits

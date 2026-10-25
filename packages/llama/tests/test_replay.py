@@ -1137,6 +1137,29 @@ def test_a_bare_track_tail_refuses():
     ("The reprise cannot be found.", "not found"),
     ("The reprise is nowhere in the data.", "not found"),
     ("The reprise has no place in the listing.", "not found"),
+    # fix round 5: every head inflection, bare no, hyphen and apostrophe forms
+    ("The recording does not include the song that opened the show.", "not included"),
+    ("The track data does not include that return as a separate entry.", "not included"),
+    ("The track data does not list the jam separately.", "not included or listed"),
+    ("This recording does not contain the reprise.", "not included or listed"),
+    ("No encore is listed.", "no \u2026 listed"),
+    ("No reprise is included.", "no \u2026 listed"),
+    ("No intro appears.", "no \u2026 listed"),
+    ("The drums are not separately-tracked.", "not tracked separately"),
+    ("The reprise is not officially-listed.", "not listed"),
+    ("There is a not-included reprise.", "not included"),
+    ("The reprise is not-listed.", "not listed"),
+    ("The reprise isn`t listed.", "not listed"),
+    ("The reprise isn\u00b4t listed.", "not listed"),
+    ("The reprise isn\u02bct listed.", "not listed"),
+    ("The drums are not tracking as a separate track.", "not tracked separately"),
+    ("Two short files were left \u2014 out.", "left out"),
+    ("The reprise was left (entirely) out.", "left out"),
+    ("The opening file is too\u2014short to be a song.", "too short"),
+    ("The opening file is implausibly\u2014short.", "implausibly short"),
+    # (pin) corpus sentences a hyphen-split copy alone would lose: the hyphen-joined copy keeps them
+    ("The show data has no separate return-to-astronaut track.", "no separate track"),
+    ("The encore split is not in the set-break data.", "not found"),
 ])
 def test_each_absence_wording_refuses(text, term):
     old, new = _restored_pair()
