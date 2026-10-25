@@ -275,6 +275,16 @@ _RESTORED_WORDING = tuple((term, re.compile(p)) for term, p in (
     # a count or a numbered range of tracks/songs/files: a restoration changes it
     ("track count", rf"\b{_COUNT_NUM}[\s-]+(?:tracks|songs|files)\b|\b{_COUNT_NUM}-(?:track|song|file)\b"
                     r"|\btracks?\s+\d+\s*(?:-|–|—|to|through|thru)\s*\d+"),
+    # Task 15b (operator ruling, Checkpoint B): the four measured phrasings, with
+    # not/n't, perfect and progressive inflections (the refusing direction)
+    ("not included", r"(?:\bnot|n['’]t)\s+(?:(?:been|yet|being)\s+)?included\b"),
+    ("not listed", r"(?:\bnot|n['’]t)\s+(?:(?:been|yet|being)\s+)?listed\b"),
+    ("does not appear", r"(?:\bnot|n['’]t)\s+appear(?:s|ed|ing)?\b"),
+    ("unlisted", r"\bunlisted\b"),
+    # controller scope change: "not in/on the setlist (track list)" and "no (separate) track"
+    ("not in the setlist", r"(?:\bnot|n['’]t)\s+(?:in|on)\s+(?:the\s+|this\s+|that\s+|its\s+)?"
+                           r"(?:set\s?list|track\s?list(?:ing)?)\b"),
+    ("no separate track", r"\bno\s+(?:(?:separate|own|distinct|individual|titled)\s+)?tracks?\b"),
 ))
 
 # A filename's disc/track tail (`d3t04`, `s2t01`, `D3_T02`, `t14`, `track01`).
@@ -381,6 +391,8 @@ def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
     if problems:
         return f"briefing guard: {'; '.join(problems)}"
     stored_names = {t.filename for t in o.tracks}
+    # the gate scans the briefing as passed; briefing_guard scans normalize_briefing(briefing).
+    # In compute_legs they are identical; the raw form can only refuse more.
     restored = [t.filename for t in n.tracks if t.short_kept and t.filename not in stored_names]
     return _restored_file_mention(briefing, restored)
 
