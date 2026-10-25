@@ -19,10 +19,10 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from transmitter import rules
-from transmitter.announce import Form, ann_id, text_for, two_block_ok
 from transmitter._blocksearch import (  # noqa: F401  (re-exported: tests reach these)
     FILL_PREFIXES, MAX_FILL, NEAR_EACH_SIDE, PAIR_FIRSTS, PAIR_PARTNERS, _C, _Ctx, _Pool, _Search, _Seq,
     _Step, _Tier, _choose, _dedupe, _excluded, _fill_cause, _has_fill, _sequence_violations)
+from transmitter.announce import Form, ann_id, text_for, two_block_ok
 from transmitter.clock import ClockConfig, Occurrence, occurrences
 from transmitter.errors import PlanError
 from transmitter.grid import frame_to_us, iso_to_us
@@ -353,7 +353,8 @@ class _Projection:
         self._enter(occ)
         self.placed = [self._row_piece(r) for r in placed_rows]
         self.placed_bends = {b for r in placed_rows for b in r.bends}
-        # persisted own shows the pool no longer lists as own (a moved or vanished package)
+        # its persisted own shows: kept in its own pool even if the pool no longer lists them
+        # as own (a moved or vanished package), so they are never mistaken for fill
         self.extra_own = [p for r, p in zip(placed_rows, self.placed) if r.fill is None and not r.degraded]
 
     # --- frames, time, pieces ---
