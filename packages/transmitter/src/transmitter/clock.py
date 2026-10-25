@@ -24,6 +24,7 @@ DEFAULT_LATER_ONE = "Stay tuned for {title} at {time}."
 _TWO_FIELDS = {"title", "time", "next_title", "next_time"}
 _ONE_FIELDS = {"title", "time"}
 _DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+_MAX_WINDOW_MIN = 7 * 24 * 60
 _UNIX = datetime(1970, 1, 1, tzinfo=timezone.utc)
 _US = timedelta(microseconds=1)
 
@@ -31,7 +32,9 @@ _US = timedelta(microseconds=1)
 class _StrictModel(BaseModel):
     """Unknown keys are an error. Set on a shared base because pydantic does
     not propagate model_config to nested models."""
-    model_config = ConfigDict(extra="forbid")
+    # Stricter than config's base: a clock that loads must never crash planning,
+    # so inf/nan are refused (they overflow the window arithmetic).
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
 def _check_tz(name: str) -> str:
@@ -113,9 +116,9 @@ class BlockConfig(_StrictModel):
     start: str
     profiles: list[str] = Field(default_factory=list)
     max_shows: int | None = Field(default=None, ge=1)
-    wiggle_minutes: float | None = Field(default=None, ge=0)
-    early_minutes: float | None = Field(default=None, ge=0)
-    late_minutes: float | None = Field(default=None, ge=0)
+    wiggle_minutes: float | None = Field(default=None, ge=0, le=_MAX_WINDOW_MIN)
+    early_minutes: float | None = Field(default=None, ge=0, le=_MAX_WINDOW_MIN)
+    late_minutes: float | None = Field(default=None, ge=0, le=_MAX_WINDOW_MIN)
     prefer: list[Prefer] = Field(default_factory=list)
 
     @field_validator("start")
@@ -161,7 +164,7 @@ class RotationConfig(_StrictModel):
 
 class ClockConfig(_StrictModel):
     timezone: str
-    wiggle_minutes: float = Field(default=15, ge=0)
+    wiggle_minutes: float = Field(default=15, ge=0, le=_MAX_WINDOW_MIN)
     announce: AnnounceConfig = Field(default_factory=AnnounceConfig)
     open: OpenConfig = Field(default_factory=OpenConfig)
     rotation: RotationConfig = Field(default_factory=RotationConfig)
@@ -220,7 +223,7 @@ def _parse(text: str, path: Path) -> ClockConfig:
 def load_clock(path: Path) -> ClockConfig:
     path = Path(path)
     try:
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
         raise ConfigError(f"cannot read clock at {path}: {exc}") from exc
     return _parse(text, path)

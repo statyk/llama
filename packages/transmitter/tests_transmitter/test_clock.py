@@ -240,5 +240,46 @@ def test_open_block_is_unbounded_profile_block_defaults_to_two():
     o, p, q = starting(occurrences(c, start, start + 4 * 3600 * 1_000_000), start)[:3]
     assert (o.max_shows, p.max_shows, q.max_shows) == (None, 2, 5)
     assert o.is_open and not p.is_open
-    with pytest.raises(Exception):
-        BlockConfig(name="x", start="01:00", max_shows=0)
+
+
+def test_max_shows_zero_is_a_config_error(tmp_path):
+    bad(tmp_path, HEAD + BLK + "max_shows = 0\n")
+
+
+def test_non_finite_and_oversized_values_are_config_errors(tmp_path):
+    bad(tmp_path, HEAD + "wiggle_minutes = inf\n" + BLK)
+    bad(tmp_path, HEAD + BLK + "wiggle_minutes = inf\n")
+    bad(tmp_path, HEAD + BLK + "early_minutes = 0\nlate_minutes = inf\n")
+    bad(tmp_path, HEAD + "[rotation]\nconcert_gap_days = inf\n" + BLK)
+    bad(tmp_path, HEAD + BLK + "prefer = [{ on_this_day = 1, weight = inf }]\n")
+    bad(tmp_path, HEAD + BLK + "wiggle_minutes = 10081\n")
+    bad(tmp_path, HEAD + "wiggle_minutes = 1e12\n" + BLK)
+    load_clock(write(tmp_path, HEAD + BLK + "wiggle_minutes = 10080\n"))
+
+
+def test_last_good_not_rewritten_when_identical(tmp_path):
+    ws = Workspace(tmp_path)
+    ws.clock_path.write_text(VALID)
+    live_clock(ws)
+    before = ws.clock_last_good_path.stat()
+    live_clock(ws)
+    after = ws.clock_last_good_path.stat()
+    assert (before.st_ino, before.st_mtime_ns) == (after.st_ino, after.st_mtime_ns)
+
+
+def test_failed_last_good_copy_is_swallowed(tmp_path):
+    ws = Workspace(tmp_path)
+    ws.clock_path.write_text(VALID)
+    ws.clock_last_good_path.mkdir()
+    lc = live_clock(ws)
+    assert lc.source == "clock" and lc.problem is None
+
+
+def test_unreadable_clock_file_falls_back(tmp_path):
+    ws = Workspace(tmp_path)
+    ws.clock_path.mkdir()
+    lc = live_clock(ws)
+    assert lc.source == "implicit" and lc.problem
+    ws.clock_last_good_path.write_text(VALID)
+    lc = live_clock(ws)
+    assert lc.source == "last-good" and lc.problem
