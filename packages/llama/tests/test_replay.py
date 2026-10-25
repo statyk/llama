@@ -1109,6 +1109,34 @@ def test_a_bare_track_tail_refuses():
     ("The drums are not, as it happens, tracked separately.", "not tracked separately"),
     ("The drums get no (separate) track.", "no separate track"),
     ("There are no distinct tracks for the drums.", "no separate track"),
+    # fix round 4: a punctuation-normalised text, one bounded window before every head word
+    ("The reprise is not actually in the setlist.", "not in the setlist"),
+    ("The reprise is not even on the setlist.", "not in the setlist"),
+    ("The drums are not even a separate track.", "not a track"),
+    ("The drums are never a separate track.", "not a track"),
+    ("The drums are not really a track.", "not a track"),
+    ("The reprise is no longer present.", "not present"),
+    ("The reprise is no longer included.", "not included"),
+    ("The reprise is nowhere listed.", "not listed"),
+    ("The reprise is not \u2014 strictly speaking \u2014 listed.", "not listed"),
+    ('The reprise is not "officially" listed.', "not listed"),
+    ("The reprise is not \u201cofficially\u201d listed.", "not listed"),
+    ('The reprise is not officially "listed".', "not listed"),
+    ("The reprise is not \u2018listed\u2019.", "not listed"),
+    ("The reprise is not [yet] listed.", "not listed"),
+    ("The reprise is not; listed.", "not listed"),
+    ("The reprise is not: strictly, present.", "not present"),
+    ("The jam is not, in fact, a separate track.", "not a track"),
+    ("The jam isn't, strictly speaking, its own track.", "not a track"),
+    ("Neither reprise is listed.", "not listed"),
+    ("Nor is the reprise listed.", "not listed"),
+    ("The reprise is not a track list entry.", "not a track"),   # (pin) as on 16003b7
+    # fix round 4: paraphrases, one new term appended last
+    ("The reprise does not show up in the data.", "not found"),
+    ("The reprise isn't on the tape.", "not found"),
+    ("The reprise cannot be found.", "not found"),
+    ("The reprise is nowhere in the data.", "not found"),
+    ("The reprise has no place in the listing.", "not found"),
 ])
 def test_each_absence_wording_refuses(text, term):
     old, new = _restored_pair()
