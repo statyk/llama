@@ -1821,3 +1821,221 @@ def test_restore_never_follows_a_symlink_out_of_the_show_dir(tmp_path, capsys):
     assert not os.path.lexists(ws.dir / ".txn")
     assert not os.path.lexists(ws.package_dir / "audio")
     assert _outside_audio(ws) == tree_bytes(snap / "shows" / S1)
+
+
+# --- FW2 (final review fix wave items 7-9, 11-13) ---
+
+def test_first_restore_line_on_the_up_front_refusal_after_an_interrupted_run(
+        tmp_path, capsys, monkeypatch):
+    """(pin) Item 7 (Task 19 Minor 1): an interrupted --apply left S1 rewritten and
+    unrecorded; the re-run refuses S2 and S3 up front, and since the library holds a
+    migrated show every refusal names --restore first. Nothing is written."""
+    root = tmp_path / "lib"
+    ws1, ws2, ws3 = _three(root)
+    snap = _snapped(root, capsys)
+    real = rk._write_record
+    monkeypatch.setattr(rk, "_write_record", lambda *a, **k: (_ for _ in ()).throw(
+        RuntimeError("power cut")))
+    assert _apply(root, capsys)[0] == 1
+    assert classify(json.loads(ws1.overrides.read_text())) == "filename"
+    monkeypatch.setattr(rk, "_write_record", real)
+    _drop_first_file(root)                       # S2, S3: the kept list now differs
+    before = tree_bytes(root)
+    rc, out = _apply(root, capsys)
+    lines = out.splitlines()
+    assert rc == 1
+    for slug in (S2, S3):
+        block = _refused_block(lines, slug, "kept list differs")
+        assert block[1] == FIRST.format(snap=snap)
+        assert block[2] == THEN.format(slug=slug)
+    assert "first: run --restore" in out
+    assert lines[-1] == "nothing written"
+    assert "recorded:" not in out
+    assert tree_bytes(root) == before
+    assert not (root / rk.APPLIED).exists()
+
+
+def test_check_show_under_the_lock_judges_the_bytes_read_there(tmp_path, capsys, monkeypatch):
+    """(pin) Item 8 (Task 19 Minor 2): `_rekey_show` hands check_show the bytes it read
+    under the show lock, never None (which would make it re-read the files)."""
+    root = tmp_path / "lib"
+    wss = _three(root)
+    want = {ws.dir.name: (ws.overrides.read_bytes(), ws.show.read_bytes()) for ws in wss}
+    _snapped(root, capsys)
+    real_check, real_rekey = rk.check_show, rk._rekey_show
+    inside: list[str] = []
+    calls: list[tuple] = []
+
+    def rekey(ws, *a, **k):
+        inside.append(ws.dir.name)
+        try:
+            return real_rekey(ws, *a, **k)
+        finally:
+            inside.pop()
+
+    def check(ws, ia, want_, **kw):
+        if inside:
+            calls.append((ws.dir.name, kw.get("overrides_bytes"), kw.get("show_bytes")))
+        return real_check(ws, ia, want_, **kw)
+    monkeypatch.setattr(rk, "_rekey_show", rekey)
+    monkeypatch.setattr(rk, "check_show", check)
+    rc, out = _apply(root, capsys)
+    assert rc == 0, out
+    assert [c[0] for c in calls] == [S1, S2, S3]
+    for slug, ov, sh in calls:
+        assert ov is not None and sh is not None, slug
+        assert (ov, sh) == want[slug], slug
+
+
+def test_restore_repeats_a_listing_failure_before_next(tmp_path, capsys):
+    """Item 9 (Task 20 Minor 1): a station or runs listing failure is printed where it
+    happens and again just before `next:`, so it is not lost in a long scroll."""
+    root = tmp_path / "lib"
+    _three(root)
+    snap = _snapped(root, capsys)
+    assert _apply(root, capsys)[0] == 0
+    station = tmp_path / "station"
+    station.write_text("not a directory")         # unlistable delivery_path
+    (root / "runs").mkdir()
+    (root / "runs").chmod(0)
+    try:
+        rc, out = _restore(root, snap, capsys, station=station)
+    finally:
+        (root / "runs").chmod(0o755)
+    lines = out.splitlines()
+    assert rc == 0, out
+    (sw,) = {l for l in lines if l.startswith(f"  warning: cannot list {station}: ")}
+    (rw,) = {l for l in lines if l.startswith(f"  warning: cannot list {root / 'runs'}: ")}
+    assert lines.count(sw) == 2 and lines.count(rw) == 2
+    assert lines[-1] == NEXT
+    assert lines[-3:-1] == [rw, sw]
+    assert lines.index(sw) < lines.index(NEXT) - 2
+
+
+def test_snapshot_flushes_the_root_after_its_manifest(tmp_path, capsys, monkeypatch):
+    """Item 11 (T18): the root is flushed after manifest.json is renamed into place, so
+    the snapshot directory's own entry in the root is durable too."""
+    root = tmp_path / "lib"
+    _three(root)
+    _config(root)
+    real = rk._sync_dir
+    seen: list[bool] = []
+
+    def spy(d):
+        if Path(d) == root:
+            seen.append(any(root.glob(f"{rk.SNAPSHOT_PREFIX}*/{rk.MANIFEST}")))
+        return real(d)
+    monkeypatch.setattr(rk, "_sync_dir", spy)
+    snap = rk.snapshot(root, echo=lambda *a: None)
+    assert seen and seen[-1] is True
+    assert rk.verify_snapshot(snap) == []
+
+
+def test_restore_refuses_a_snapshot_the_applied_record_does_not_name(tmp_path, capsys):
+    """Item 12 (T20): rekey-applied.json names the snapshot the shows were rewritten
+    from; restoring another (an older one, a mistyped path) would discard every edit
+    between the two. Refused, nothing written; the named one restores."""
+    root = tmp_path / "lib"
+    ws1, _, _ = _three(root)
+    old = _snapped(root, capsys, now=datetime(2026, 10, 24, 1, 0, 0, tzinfo=timezone.utc))
+    new = _snapped(root, capsys, now=datetime(2026, 10, 24, 2, 0, 0, tzinfo=timezone.utc))
+    assert _apply(root, capsys)[0] == 0
+    assert _record(root)["snapshot"] == new.name
+    before = tree_bytes(root)
+    rc, out = _restore(root, old, capsys)
+    assert rc == 1
+    (line,) = [l for l in out.splitlines() if l.startswith("refusing to restore: ")]
+    assert new.name in line and old.name in line
+    assert "restored:" not in out
+    assert tree_bytes(root) == before
+    # an unreadable record refuses too
+    rec = (root / rk.APPLIED).read_bytes()
+    (root / rk.APPLIED).write_text("{")
+    before = tree_bytes(root)
+    rc, out = _restore(root, new, capsys)
+    assert rc == 1 and rk.APPLIED in out and "restored:" not in out
+    assert tree_bytes(root) == before
+    (root / rk.APPLIED).write_bytes(rec)
+    rc, out = _restore(root, new, capsys)
+    assert rc == 0, out
+    assert classify(json.loads(ws1.overrides.read_text())) == "legacy"
+
+
+def _migrated_three(root: Path, capsys):
+    wss = _three(root)
+    (wss[1].dir / "extra").mkdir()
+    (wss[1].dir / "extra" / "x.txt").write_text("snapshotted")
+    snap = _snapped(root, capsys)
+    assert _apply(root, capsys)[0] == 0
+    return wss, snap
+
+
+def _stopped_at_s2(root, snap, wss, capsys, message):
+    third = tree_bytes(wss[2].dir)
+    rec = (root / rk.APPLIED).read_bytes()
+    rc, out = _restore(root, snap, capsys)
+    lines = out.splitlines()
+    assert rc == 1
+    assert f"restored: {S1}" in lines
+    assert f"error: {S2}: OSError: {message}" in lines
+    i = lines.index(f"error: {S2}: OSError: {message}")
+    assert lines[i + 1].startswith("stopped: 1 show(s) after it not reached; re-run --restore")
+    assert lines[i + 1:] == lines[-1:]                       # nothing printed after the stop
+    assert not any(l.startswith(f"restored: {S3}") for l in lines)
+    assert tree_bytes(wss[2].dir) == third                  # S3 untouched: still migrated
+    assert classify(json.loads(wss[2].overrides.read_text())) == "filename"
+    assert (root / rk.APPLIED).read_bytes() == rec           # the record is not renamed
+    assert _restored_records(root) == []
+    return lines
+
+
+def test_restore_stops_at_a_directory_where_the_snapshot_holds_a_file(tmp_path, capsys):
+    """Item 13 (T20): `_copy_back`'s directory-for-a-file refusal."""
+    root = tmp_path / "lib"
+    wss, snap = _migrated_three(root, capsys)
+    assert f"{S2}/show.json" in json.loads((snap / rk.MANIFEST).read_text())["files"]
+    target = wss[1].show
+    target.unlink()
+    target.mkdir()
+    (target / "inside").write_text("keep")
+    _stopped_at_s2(root, snap, wss, capsys,
+                   f"{target}: a directory where the snapshot holds a file; repair it by hand")
+    assert (target / "inside").read_text() == "keep"
+
+
+def test_restore_stops_at_a_link_on_the_way_to_a_copy(tmp_path, capsys):
+    """Item 13 (T20): `_check_inside` refuses a copy through a non-directory: nothing is
+    written through the link, and nothing outside the show dir is touched."""
+    root = tmp_path / "lib"
+    wss, snap = _migrated_three(root, capsys)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "x.txt").write_text("outside")
+    shutil.rmtree(wss[1].dir / "extra")
+    (wss[1].dir / "extra").symlink_to(outside)
+    _stopped_at_s2(root, snap, wss, capsys,
+                   f"{wss[1].dir / 'extra'}: not a directory; repair it by hand")
+    assert (outside / "x.txt").read_text() == "outside"
+    assert sorted(p.name for p in outside.iterdir()) == ["x.txt"]
+    assert (wss[1].dir / "extra").is_symlink()
+
+
+def test_restore_stops_at_a_record_rename_collision(tmp_path, capsys, monkeypatch):
+    """Item 13 (T20): every show restored, then the record's rename target exists: the
+    rename is refused, the record and the existing file are left as they are, and no
+    `next:` is printed."""
+    root = tmp_path / "lib"
+    wss, snap = _migrated_three(root, capsys)
+    name = "rekey-applied.restored-20261024T030000Z.json"
+    monkeypatch.setattr(rk, "_restore_record_name", lambda now: name)
+    (root / name).write_text("an earlier restore's record")
+    rec = (root / rk.APPLIED).read_bytes()
+    rc, out = _restore(root, snap, capsys)
+    lines = out.splitlines()
+    assert rc == 1
+    assert all(f"restored: {s}" in lines for s in (S1, S2, S3))
+    assert lines[-1] == (f"error: renaming {root / rk.APPLIED}: {root / name} exists; "
+                         f"re-run --restore in a second")
+    assert NEXT not in lines and "renamed:" not in out
+    assert (root / rk.APPLIED).read_bytes() == rec
+    assert (root / name).read_text() == "an earlier restore's record"

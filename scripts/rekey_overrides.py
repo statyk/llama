@@ -33,14 +33,16 @@ durably, and recorded in `<root>/rekey-applied.json`. A refusal there stops the 
 re-run continues with the remaining legacy shows.
 
 `--restore <snapshot-dir>` is the wholesale rollback (no version gate). It refuses, writing
-nothing, while llama runs, when the snapshot does not verify, or while a show directory the
+nothing, while llama runs, when the snapshot does not verify, when `rekey-applied.json`
+exists and names another snapshot (or cannot be read), or while a show directory the
 snapshot does not record exists. Then, under the migration lock and each recorded show's
 lock: it empties `package/audio/` unless the snapshot's `package/manifest.json` is
 byte-equal to the current one (audio first, so a crash never leaves new-numbered audio
 beside a restored manifest), copies every snapshotted file back durably, and deletes every
 other file outside `package/audio/` (the `.lock` aside). It lists what it does not revert
 (reapply batches, runs, station destinations re-delivered since; the station is only
-read), and renames `rekey-applied.json` once every show is restored.
+read; a listing failure is repeated just before `next:`), and renames
+`rekey-applied.json` once every show is restored.
 """
 from __future__ import annotations
 
@@ -666,6 +668,7 @@ def _take_snapshot(root: Path, *, echo, now: datetime | None) -> Path:
         _write_copy(tmp, json.dumps(manifest, indent=2).encode())
         os.rename(tmp, snap / MANIFEST)
         _sync_dir(snap)
+        _sync_dir(root)                 # the snapshot directory's own entry (FW2 item 11)
         problems = verify_snapshot(snap)
         if problems:
             raise _SnapshotFailed("the written snapshot does not verify: "
@@ -1321,7 +1324,14 @@ def _station_since(delivery: Path, since: float) -> list[str]:
     return out
 
 
-def _print_not_reverted(root: Path, delivery: Path | None, since: float, echo) -> None:
+def _print_not_reverted(root: Path, delivery: Path | None, since: float, echo) -> list[str]:
+    """What restore does not revert, listed. Returns the listing-failure warnings, which
+    the caller repeats just before `next:` (FW2 item 9)."""
+    warnings: list[str] = []
+
+    def warn(line: str) -> None:
+        warnings.append(line)
+        echo(line)
     echo(NOT_REVERTED)
     for parent, header in (
             (root / "reapply", "reapply batches created since the snapshot (remove each by "
@@ -1332,7 +1342,7 @@ def _print_not_reverted(root: Path, delivery: Path | None, since: float, echo) -
         try:
             found = _created_since(parent, since)
         except OSError as exc:
-            echo(f"  warning: cannot list {parent}: {exc}")
+            warn(f"  warning: cannot list {parent}: {exc}")
             continue
         for p in found:
             echo(f"  {p}")
@@ -1340,18 +1350,19 @@ def _print_not_reverted(root: Path, delivery: Path | None, since: float, echo) -
             echo("  (none)")
     if delivery is None:
         echo("station destinations: no delivery_path configured; not listed")
-        return
+        return warnings
     echo("station destinations re-delivered since the snapshot (each keeps its new package "
          "until it is re-delivered from the restored library):")
     try:
         found = _station_since(delivery, since)
     except OSError as exc:
-        echo(f"  warning: cannot list {delivery}: {exc}")
-        return
+        warn(f"  warning: cannot list {delivery}: {exc}")
+        return warnings
     for line in found:
         echo(f"  {line}")
     if not found:
         echo("  (none)")
+    return warnings
 
 
 def _rename_record(root: Path, echo) -> None:
@@ -1370,8 +1381,9 @@ def _rename_record(root: Path, echo) -> None:
 
 def restore(root: Path, snap: Path, *, delivery: Path | None, echo) -> int:
     """Roll the library's metadata back to snapshot `snap` (spec 4.3 "`--restore`").
-    Gates, each refusing with nothing written: the process check, `verify_snapshot`, no
-    show directory outside the snapshot's slugs (a `.lock`-only husk aside). Then, under
+    Gates, each refusing with nothing written: the process check, `verify_snapshot`, a
+    `rekey-applied.json` naming `snap` if there is one (`_record_gate`), no show
+    directory outside the snapshot's slugs (a `.lock`-only husk aside). Then, under
     the migration lock, each recorded slug, sorted, under its show lock: audio first,
     then the copies back, then the deletions. Then what restore does not revert, the
     record's rename (only once every slug is restored) and the runbook's next steps.
@@ -1382,6 +1394,7 @@ def restore(root: Path, snap: Path, *, delivery: Path | None, echo) -> int:
         if problems:
             raise _Refused(f"refusing to restore: {snap}: " + "; ".join(problems))
         manifest = json.loads((snap / MANIFEST).read_bytes())
+        _record_gate(root, snap)
         _uncovered_gate(root, snap, manifest, echo)
     except _Refused as exc:
         echo(str(exc))
@@ -1393,11 +1406,35 @@ def restore(root: Path, snap: Path, *, delivery: Path | None, echo) -> int:
             echo(f"refusing to restore: {root / LOCK} is held by another rekey_overrides run")
             return 1
         try:
-            _uncovered_gate(root, snap, manifest, echo)     # again, under the lock
+            _record_gate(root, snap)                        # both again, under the lock
+            _uncovered_gate(root, snap, manifest, echo)
         except _Refused as exc:
             echo(str(exc))
             return 1
         return _restore_locked(root, snap, manifest, delivery=delivery, echo=echo)
+
+
+def _record_gate(root: Path, snap: Path) -> None:
+    """Refuses (`_Refused`) a restore from any snapshot but the one `rekey-applied.json`
+    names (FW2 item 12, final review T20): the shows were rewritten from that one, and
+    restoring an older one would silently discard every edit between the two. An
+    unreadable record refuses too. No record (none taken, or renamed by a restore): no
+    check."""
+    path = root / APPLIED
+    if not os.path.lexists(path):
+        return
+    try:
+        rec = json.loads(path.read_bytes())
+        named = rec.get("snapshot") if isinstance(rec, dict) else None
+        if not isinstance(named, str):
+            raise ValueError("no snapshot name")
+    except Exception as exc:
+        raise _Refused(f"refusing to restore: {path} unreadable ({_first_line(exc)}); repair "
+                       f"it by hand (nothing written)") from exc
+    if named != snap.name:
+        raise _Refused(f"refusing to restore: {path} records the shows as rewritten from "
+                       f"snapshot {named}, not {snap.name}; restore from {root / named} "
+                       f"(nothing written)")
 
 
 def _uncovered_gate(root: Path, snap: Path, manifest: dict, echo) -> None:
@@ -1438,12 +1475,14 @@ def _restore_locked(root: Path, snap: Path, manifest: dict, *, delivery: Path | 
     echo(f"{len(slugs)} restored from {snap.name}, {emptied} with package/audio/ emptied "
          f"(v2.17.0's llama redo <show> --from package re-downloads it)")
     since = datetime.fromisoformat(manifest["created_at"]).timestamp()
-    _print_not_reverted(root, delivery, since, echo)
+    warnings = _print_not_reverted(root, delivery, since, echo)
     try:
         _rename_record(root, echo)
     except OSError as exc:
         echo(f"error: renaming {root / APPLIED}: {exc}")
         return 1
+    for line in warnings:               # again, where the operator reads next (FW2 item 9)
+        echo(line)
     echo(f"next: {RESTORE_NEXT}")
     return 0
 
