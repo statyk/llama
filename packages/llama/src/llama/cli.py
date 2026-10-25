@@ -2543,6 +2543,24 @@ def _sweep_swap_leftovers(target_dir: Path, name: str) -> None:
                    "voiced audio — remove it by hand once checked", err=True)
 
 
+class _VoicedDestination(LlamaError):
+    """`_deliver_one`'s refusal of a destination emcee has voiced. Its text names
+    `--replace-voiced`; a selector batch, which refuses that flag, prints
+    `batch_text()` instead, naming the by-name re-delivery (FW2 item 6)."""
+
+    def __init__(self, slug: str, out: Path):
+        self.slug, self.out = slug, out
+        super().__init__(self._text("pass"))
+
+    def _text(self, route: str) -> str:
+        return (f"refusing to deliver {self.slug}: {self.out} is already voiced by emcee; "
+                f"re-delivering would un-voice it ({route} --replace-voiced to replace it "
+                "with a fresh, unvoiced copy)")
+
+    def batch_text(self) -> str:
+        return self._text("re-deliver it by name with")
+
+
 def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     """Copy one resolved show's package to `dest` (or config.delivery_path)
     and record the delivery in the ledger; returns the destination path.
@@ -2572,10 +2590,7 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
         # missing-audio pointer would send the operator to re-download a show
         # that this refusal then turns away regardless.
         if voiced and not replace_voiced:
-            raise LlamaError(
-                f"refusing to deliver {entry.slug}: {out} is already voiced "
-                "by emcee; re-delivering would un-voice it (pass "
-                "--replace-voiced to replace it with a fresh, unvoiced copy)")
+            raise _VoicedDestination(entry.slug, out)
         reasons = deliver_refusals(show_ws)
         if reasons:
             message = f"refusing to deliver {entry.slug}: {'; '.join(reasons)}"
@@ -2654,6 +2669,8 @@ def _deliver_batch(config, ledger, sel, dest, yes) -> None:
             continue
         try:
             out = _deliver_one(config, ledger, e, dest)
+        except _VoicedDestination as exc:
+            typer.echo(exc.batch_text(), err=True)
         except LlamaError as exc:
             typer.echo(str(exc), err=True)
         except OSError as exc:

@@ -514,6 +514,26 @@ def test_batch_without_flag_notes_how_many_will_be_refused(tmp_path: Path):
     assert (dest / "aready-1973-06-10" / "dj-audio").exists()
 
 
+def test_batch_voiced_refusal_names_the_single_name_route(tmp_path: Path):
+    """FW2 item 6 (Task 16 Minor 6): inside a batch, where --replace-voiced is refused,
+    the per-show refusal names the by-name re-delivery, never `pass --replace-voiced`.
+    The single-name text is unchanged (test_redeliver_over_voiced_is_refused_...)."""
+    cfg, dest = _batch_voiced(tmp_path)
+    out = dest / "aready-1973-06-10"
+
+    r = runner.invoke(cli.app, ["--config", cfg, "deliver", "--state", "packaged",
+                                "--state", "delivered", "--yes", "--dest", str(dest)])
+
+    text = " ".join(r.output.split())
+    assert r.exit_code == 0, r.output
+    assert (f"refusing to deliver aready-1973-06-10: {out} is already voiced by emcee; "
+            "re-delivering would un-voice it (re-deliver it by name with "
+            "--replace-voiced to replace it with a fresh, unvoiced copy)") in text
+    assert "(pass --replace-voiced" not in text
+    assert (dest / "aready-1973-06-10" / "dj-audio").exists()   # untouched
+    assert "delivered:" in r.output and "bready-1973-06-11" in r.output
+
+
 def test_purged_show_with_voiced_destination_names_voicing_first(tmp_path: Path):
     """Without --replace-voiced a re-delivery over a voiced copy is refused
     anyway, so pointing the operator at a full re-download first would cost a
