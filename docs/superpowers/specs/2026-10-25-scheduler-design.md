@@ -11,7 +11,7 @@ show is airing (see "Timeline"). llama, emcee and herder are untouched.
 fill model where they differ. The parent still governs everything about
 rendering, publishing, the clock Worker and the cost guard.
 **Review mode:** Fable (operator, 2026-10-25). Stakes paragraph confirmed by the operator the same day.
-**Status:** design, awaiting review.
+**Status:** approved by the operator 2026-10-25 (after two review rounds).
 
 ## Stakes
 
@@ -157,7 +157,9 @@ next = "Coming up next, {title}. Then at {next_time}, {next_title}."
 next_one = "Coming up next, {title}."
 later = "Stay tuned for {title} at {time}, followed by {next_title} at {next_time}."
 later_one = "Stay tuned for {title} at {time}."
-# time_format = ...              how {time} reads ("11", "11:30"); the builder picks the default
+# time_format = ...              how one zone's time reads ("11", "11:30"); the builder picks the default
+zones = [ { tz = "America/New_York", label = "Eastern" },
+          { tz = "America/Los_Angeles", label = "Pacific" } ]   # {time} names every zone, in order
 
 [open]                           # what open time and fill may play
 exclude_profiles = []
@@ -447,13 +449,18 @@ clock, history) → the next row(s) to append to it.
   clock can need is finite: at most four per block start in the weekly sequence
   (two templates, each in two forms), under a hundred for a typical clock. Each
   announcement's id is a hash of its rendered text, so operator edits
-  (templates, titles, `time_format`) change ids and stale clips are simply
-  never chosen. The shipped defaults for the templates and `time_format` are
+  (templates, titles, `time_format`, `zones`) change ids and stale clips are simply
+  never chosen. The shipped defaults for the templates, `time_format` and `zones` are
   part of the clock contract: changing one in a later release retires every
   clip voiced from it, so such a change is a deliberate, noted breaking change.
-- **Time phrasing** ("at 11", "at 11:30", "at 1") is formatted from the
-  nominal time by `[announce] time_format` in the clock file. The builder picks
-  the default.
+- **Time phrasing.** The station is on the Internet, so a stated time always
+  names its time zone, and may name several (operator, 2026-10-25). `{time}`
+  renders the nominal time in each of `[announce] zones`, in order, each
+  followed by its spoken label: "11 Eastern, 8 Pacific". Each zone's time is
+  formatted by `[announce] time_format` ("11", "11:30"; the builder picks the
+  default). The default zones are Eastern and Pacific
+  (`America/New_York`, `America/Los_Angeles`). Labels are the operator's words
+  ("Eastern" covers EST and EDT alike).
 - **Missing audio.** If no audio exists for a needed announcement, a two-block
   form falls back to the one-block form's clip if present, then to a station ID;
   a one-block form falls back to a station ID. `status` lists what is missing.
@@ -675,7 +682,8 @@ Each is constrained by the sections above.
 - the clock in its own file;
 - the clock read at every plan step, with the last valid copy used when it is
   invalid;
-- `[announce] time_format` in the clock file;
+- `[announce] time_format` and `zones` in the clock file, Eastern and Pacific
+  by default;
 - symmetric wiggle by default;
 - no clock = one open block, and the phase-1 shuffle retired;
 - `[planner] seed` kept as the scheduler's tie-break;
