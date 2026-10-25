@@ -350,3 +350,95 @@ def test_sci_unrepaired_ships_each_original_once():
     assert Counter(f["original"] for f in kept).most_common(1)[0][1] == 1
     assert not any(n.endswith("_vbr.mp3") for n in _names(kept))
     assert sum(e["reasons"] == [DUP] for e in excluded) == 29
+
+
+# --- fix round 1 -------------------------------------------------------------
+# C-1: in a group without a `_vbr` copy (a stale derivative left by a renamed or
+# re-split original), the copy named after its original is kept, not the first by
+# name. I-1: an operator-excluded copy is never the kept copy; `final_kept` passes
+# `overrides.exclude` into the filter, the dedupe leaves those copies out of the
+# grouping, and the exclusion drops them afterwards as `operator-excluded`.
+
+GD84 = "gd1984-04-13.132772.Sennheiser-holbrook.flac24.json"
+GD85 = "gd1985-07-01.176684.senn.nd41.strizak.flac2448.json"
+
+
+def test_gd1984_stale_copies_lose_to_the_copies_named_after_their_originals():
+    """gd1984-04-13 (real cache capture): `gd1984-04-13(24Bit48khz)d2t01.mp3`
+    (Scarlet > Fire) and `...d1t11.mp3` (U.S. Blues, titled with a filename
+    residue) are stale derivatives of the d2t01 and d2t11 originals. Name order
+    kept them: Scarlet became track 1, before set 1, and U.S. Blues closed set 1.
+    The copies named after their originals are kept: Scarlet opens set 2 and
+    U.S. Blues is the last track."""
+    kept, excluded, _ = filter_files(_load(GD84))
+    names = _names(kept)
+    assert names[0] == "gd1984-04-1324Bit48khzd1t01.mp3"
+    assert names[-1] == "gd1984-04-1324Bit48khzd2t11.mp3"
+    assert names[names.index("gd1984-04-1324Bit48khzd1t10.mp3") + 1] == \
+        "gd1984-04-1324Bit48khzd2t01.mp3"
+    reasons = _reasons(excluded)
+    assert reasons["gd1984-04-13(24Bit48khz)d2t01.mp3"] == [DUP]
+    assert reasons["gd1984-04-1324Bit48khzd1t11.mp3"] == [DUP]
+
+
+def test_gd1985_baby_blue_stays_the_encore():
+    """gd1985-07-01 (real cache capture): the stale `...s2t012 Baby Blue.flac.mp3`
+    sorted as set 2's second track; the copy named after its original
+    (`...s2t12 Baby Blue.flac.flac`) is kept and stays last."""
+    kept, excluded, _ = filter_files(_load(GD85))
+    assert _names(kept)[-1] == "gd1985-07-01s2t12 Baby Blue.flac.mp3"
+    assert _reasons(excluded)["gd1985-07-01s2t012 Baby Blue.flac.mp3"] == [DUP]
+
+
+def test_an_operator_exclude_of_the_plain_copy_keeps_the_vbr():
+    files = _doubled()
+    fk = final_kept(files, Overrides(exclude=["x1t03.mp3"]), ("VBR MP3",))
+    names = _names(fk.kept)
+    assert "x1t03_vbr.mp3" in names and "x1t03.mp3" not in names
+    assert len(names) == 7
+    assert _reasons(fk.excluded)["x1t03.mp3"] == ["operator-excluded"]
+    assert fk.ordering["order_source"] == "filename"
+
+
+def test_both_copies_excluded_stay_out():
+    """(pin) Excluding both copies drops the song, as the operator asked."""
+    fk = final_kept(_doubled(), Overrides(exclude=["x1t03.mp3", "x1t03_vbr.mp3"]),
+                    ("VBR MP3",))
+    assert not any(n.startswith("x1t03") for n in _names(fk.kept))
+    assert len(fk.kept) == 6
+
+
+def test_sci_ships_the_same_songs_at_either_preference(monkeypatch, caplog):
+    """The operator's `_vbr` excludes no longer depend on which copy the dedupe
+    prefers: at either PREFER_VBR_DERIVATIVE value the same 25 songs ship (every
+    original not excluded in both copies), and no exclude matches nothing. At
+    the default each ships once. (With the flip, the five short plain copies the
+    operator INCLUDED are re-admitted beside their kept `_vbr` copies, so those
+    five ship twice: `include` re-admits, by design. A flip has to revisit those
+    includes; deferred M-2.)"""
+    files = _load("sci1999-12-31.dsbd.shnf.json")
+    ov = Overrides(exclude=SCI_EXCLUDE, include=SCI_INCLUDE)
+    shipped = {}
+    for prefer_vbr in (False, True):
+        monkeypatch.setattr(junk, "PREFER_VBR_DERIVATIVE", prefer_vbr)
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            fk = final_kept(files, ov, ("VBR MP3",))
+        origins = [f["original"] for f in fk.kept]
+        assert len(set(origins)) == 25, prefer_vbr
+        if not prefer_vbr:
+            assert len(origins) == 25
+        shipped[prefer_vbr] = set(origins)
+        assert not [r for r in caplog.records if "matched no file" in r.getMessage()]
+    assert shipped[False] == shipped[True]
+
+
+def test_the_exclude_pass_through_leaves_the_legacy_filter_alone():
+    """(pin) Orchestrator ruling: with short_keep=False the filter is v2.17.0's,
+    whatever `exclude` holds."""
+    files = _doubled(short=(4,), titles={4: "Drums"})
+    kept, excluded, ordering = filter_files(
+        files, short_keep=False, exclude=frozenset({"x1t03.mp3", "x1t05_vbr.mp3"}))
+    o_kept, o_excl, o_ord = _v2_17_0().filter_files(files, "VBR MP3")
+    ordering.pop("short_kept")
+    assert (_names(kept), excluded, ordering) == (_names(o_kept), o_excl, o_ord)

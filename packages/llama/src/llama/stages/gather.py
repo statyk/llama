@@ -1050,10 +1050,11 @@ def final_kept(files: list[dict], overrides: Overrides, want: Sequence[str], *,
     copy (piece 4 spec 4.2): `title_inputs` builds on it, and `fix`'s staleness check
     and the title proposal compare `show.json` with it, so no caller recomputes the
     list its own way. `short_keep` is passed to `filter_files` (default True: the
-    piece-4 rule)."""
+    piece-4 rule), and so is `overrides.exclude`, so the derivative dedupe never
+    keeps a copy the operator excluded over one they did not (FW1 fix round 1)."""
     kept, excluded, ordering = filter_files(
         files, want_format=want, readmit=frozenset(overrides.include),
-        short_keep=short_keep)
+        short_keep=short_keep, exclude=frozenset(overrides.exclude))
     for missing in sorted(set(overrides.include) - {f["name"] for f in kept}):
         log.warning("overrides.include entry %r matched no file", missing)
     unexcluded = kept

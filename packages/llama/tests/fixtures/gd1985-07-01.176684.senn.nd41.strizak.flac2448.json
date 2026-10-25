@@ -1,0 +1,909 @@
+{
+  "metadata": {
+    "identifier": "gd1985-07-01.176684.senn.nd41.strizak.flac2448",
+    "mediatype": "etree",
+    "collection": [
+      "GratefulDead",
+      "etree",
+      "etree"
+    ],
+    "creator": "Grateful Dead",
+    "date": "1985-07-01",
+    "description": "<div>Set I</div><div>Dancing In The Street</div><div>Dupree's Diamond Blues</div><div>Walkin' Blues</div><div>Jack-A-Roe</div><div>My Brother Esau</div><div>Stagger Lee</div><div>Let It Grow &gt;</div><div>Keep Your Day Job</div><div><br /></div><div>Set II</div><div>Scarlet Begonias &gt;</div><div>Fire On The Mountain &gt;</div><div>Playing In The Band &gt;</div><div>Uncle John's Band &gt;</div><div>Drums &gt;</div><div>Space &gt;</div><div>Dear Mr. Fantasy &gt;</div><div>Goin' Down The Road Feeling Bad &gt;</div><div>Good Lovin'</div><div><br /></div><div>(I Can't Get No) Satisfaction &gt;</div><div>It's All Over Now Baby Blue</div><div><br /></div><div>Comment</div><div>Jerry Garcia - Guitar</div><div>Bob Weir - Guitar</div><div>Brent Mydland - Keyboards</div><div>Phil Lesh - Bass</div><div>Bill Kreutzmann - Drums</div><div>Mickey Hart - Drums</div>",
+    "scanner": "Internet Archive HTML5 Uploader 1.7.0",
+    "subject": "Audience;Tom Strizak;24 bit",
+    "title": "Grateful Dead Live at Merriweather Post Pavilion on 1985-07-01",
+    "type": "sound",
+    "venue": "Merriweather Post Pavilion",
+    "year": "1985",
+    "uploader": "mvernon54@yahoo.com",
+    "publicdate": "2026-03-20 11:30:28",
+    "addeddate": "2026-03-20 11:30:28",
+    "coverage": "Columbia, MD",
+    "source": "Master cassette 2- Sennheiser MD441 mounted in standard stereo configuration< (mic stand at approx. 7.5' height) > Sony TC-D5M (dolby - On B) TDK MA90 Cassette. Location: Taper Section on lawn slightly right of center approx. 8' back from last row of pavilion seating.",
+    "lineage": "Analog Master cassette played back on Nakamichi  CR-1A > Behringer XR-18 audio mixer > ZOOM H-5 digital recorder 24bit/48Khz WAV > Reaper v7.61 *DAW (final audio editing and mastering) > Audacity *DAW (tracking and conversion from WAV file to FLAC 24bit 48khz file set)",
+    "taper": "Tom Strizak",
+    "transferer": "Tom Strizak",
+    "md5s": "b0d3e6fb8459b52435279f4901e5691c *gd1985-07-01s1t01 Crowd Tuning.flac.flac\r\n7aa40116b7c70c9832f2b7bf7436111c *gd1985-07-01s1t02 Dancin In The Streets.flac.flac\r\n04dfe4d5eb51a242e5cd0d657d52d87f *gd1985-07-01s1t03 Duprees Diamond Blues.flac.flac\r\n92d76f845c4eebc26db153322b2e0b87 *gd1985-07-01s1t04 Walkin Blues.flac.flac\r\nfe2293e7cb68ff238aaac6f7398aeea4 *gd1985-07-01s1t05 Jack A Roe.flac.flac\r\n2d1916ceb49424c38785f702725709ae *gd1985-07-01s1t06 My Brother Essau.flac.flac\r\n63eebf3f556d06c8604cd60e46093764 *gd1985-07-01s1t07 Stagger Lee.flac.flac\r\nc856f77291578f3ec34702110e498bc1 *gd1985-07-01s1t08 Let It Grow.flac.flac\r\n708ba81da368bbdfb5248fd5a55db3cb *gd1985-07-01s1t09 Dayjob.flac.flac\r\n6a43dc3a31bbbeb2971b5e60b3fc3b25 *gd1985-07-01s2t01 Crowd Tuning.flac.flac\r\nf669223b156a4ca43461915c8819606f *gd1985-07-01s2t02 Scarlet.flac.flac\r\n218e6e147b9c44a9900e453c8a75651a *gd1985-07-01s2t03 Fire.flac.flac\r\n48a44264f94c6059d1f5186b2469ff5c *gd1985-07-01s2t04 Playin.flac.flac\r\n139f634597e0d75c8b74ea162180a3d8 *gd1985-07-01s2t05 Uncle Johns.flac.flac\r\nc8108f33b0051cb85b74f990d24d5891 *gd1985-07-01s2t06 Drums.flac.flac\r\n2ee2985ed661fecb48f1e7c1e2557565 *gd1985-07-01s2t07 Space.flac.flac\r\n8ffc2b3567f0877f7440ac95872b017f *gd1985-07-01s2t08 Dear Mr Fantasy.flac\r\ndc78d2e245cef6c6645b50b3e0ee042b *gd1985-07-01s2t09 GTRFB.flac.flac\r\n22b7da43216b6b08f7ef8d03db467493 *gd1985-07-01s2t10 Good Lovin.flac.flac\r\n8d2ea3bf2948054a702dc5df07726ad4 *gd1985-07-01s2t11 Satisfaction.flac.flac\r\n590aa4b0c81cb4d2214d58405b68c97e *gd1985-07-01s2t012 Baby Blue.flac.flac",
+    "etreedb": "https://etreedb.org/shn/176684"
+  },
+  "files": [
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "0907c3f244b73cb6139f74ab55cbe8b2"
+    },
+    {
+      "name": "gd1985-07-01.176684.senn.nd41.strizak.flac2448_archive.torrent",
+      "source": "metadata",
+      "format": "Archive BitTorrent",
+      "md5": "a67b561c2b8a9d4e3c40fe85874085c0"
+    },
+    {
+      "name": "gd1985-07-01.176684.senn.nd41.strizak.flac2448_files.xml",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "4b1f78e687955c8eab64c9ad710e2b65"
+    },
+    {
+      "name": "gd1985-07-01.176684.senn.nd41.strizak.flac2448_meta.sqlite",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "eed05092ad1b5ee85ff0fd44a5b07c1a"
+    },
+    {
+      "name": "gd1985-07-01.176684.senn.nd41.strizak.flac2448_meta.xml",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "de8444ea1f986c6e3c29e93ac19c7877"
+    },
+    {
+      "name": "gd1985-07-01.176684.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "3cd3a83174fa2cc1f7faf113c47fde42"
+    },
+    {
+      "name": "gd1985-07-01.ffp",
+      "source": "original",
+      "format": "Flac FingerPrint",
+      "md5": "7286c9b3fa01282497e301e0adc0a042"
+    },
+    {
+      "name": "gd1985-07-01.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "7ecbb46f669f20fa2dd1b6eebeffd84a"
+    },
+    {
+      "name": "gd1985-07-01s1t01 Crowd Tuning.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t01 Crowd Tuning.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "7d6fbe3bf37ea01ba129eb55ca0c13a3"
+    },
+    {
+      "name": "gd1985-07-01s1t01 Crowd Tuning.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "83.39",
+      "md5": "b0d3e6fb8459b52435279f4901e5691c",
+      "title": "gd1985-07-01s1t01 Crowd Tuning.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t01 Crowd Tuning.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t01 Crowd Tuning.flac.flac",
+      "format": "VBR MP3",
+      "length": "01:23",
+      "md5": "634841e640518189fa5e0f547ed543d7",
+      "title": "gd1985-07-01s1t01 Crowd Tuning.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t01 Crowd Tuning.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t01 Crowd Tuning.flac.flac",
+      "format": "PNG",
+      "md5": "64648281f02d2415f9e9261c08f44da8"
+    },
+    {
+      "name": "gd1985-07-01s1t01 Crowd Tuning.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t01 Crowd Tuning.flac.flac",
+      "format": "Spectrogram",
+      "md5": "36b6cf87095cdbff4c3cb909665baae4"
+    },
+    {
+      "name": "gd1985-07-01s1t02 Dancin In The Streets.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t02 Dancin In The Streets.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "8314450619bbbe3f6bcd635788a37c4b"
+    },
+    {
+      "name": "gd1985-07-01s1t02 Dancin In The Streets.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "381.83",
+      "md5": "7aa40116b7c70c9832f2b7bf7436111c",
+      "title": "gd1985-07-01s1t02 Dancin In The Streets.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t02 Dancin In The Streets.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t02 Dancin In The Streets.flac.flac",
+      "format": "VBR MP3",
+      "length": "06:22",
+      "md5": "c351ad96c519aab7a58021251b0bbe18",
+      "title": "gd1985-07-01s1t02 Dancin In The Streets.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t02 Dancin In The Streets.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t02 Dancin In The Streets.flac.flac",
+      "format": "PNG",
+      "md5": "9e418ce79f932f89d20e67c8b4e2524a"
+    },
+    {
+      "name": "gd1985-07-01s1t02 Dancin In The Streets.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t02 Dancin In The Streets.flac.flac",
+      "format": "Spectrogram",
+      "md5": "be0df43c62cf4e6bf5651abde4b016d2"
+    },
+    {
+      "name": "gd1985-07-01s1t03 Duprees Diamond Blues.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t03 Duprees Diamond Blues.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "818df4af4e2777834fb3e18041c99902"
+    },
+    {
+      "name": "gd1985-07-01s1t03 Duprees Diamond Blues.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "424.7",
+      "md5": "04dfe4d5eb51a242e5cd0d657d52d87f",
+      "title": "gd1985-07-01s1t03 Duprees Diamond Blues.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t03 Duprees Diamond Blues.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t03 Duprees Diamond Blues.flac.flac",
+      "format": "VBR MP3",
+      "length": "07:05",
+      "md5": "2bdf8734afb9157cd9701ed5ad7fd739",
+      "title": "gd1985-07-01s1t03 Duprees Diamond Blues.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t03 Duprees Diamond Blues.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t03 Duprees Diamond Blues.flac.flac",
+      "format": "PNG",
+      "md5": "c13f60d4fc0d14a45ef1a1b36741261a"
+    },
+    {
+      "name": "gd1985-07-01s1t03 Duprees Diamond Blues.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t03 Duprees Diamond Blues.flac.flac",
+      "format": "Spectrogram",
+      "md5": "15151634bf6215608812c65399fe8534"
+    },
+    {
+      "name": "gd1985-07-01s1t04 Walkin Blues.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t04 Walkin Blues.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "fb202e16e155b3e1b2ff1f5093d848d1"
+    },
+    {
+      "name": "gd1985-07-01s1t04 Walkin Blues.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "500.48",
+      "md5": "92d76f845c4eebc26db153322b2e0b87",
+      "title": "gd1985-07-01s1t04 Walkin Blues.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t04 Walkin Blues.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t04 Walkin Blues.flac.flac",
+      "format": "VBR MP3",
+      "length": "08:21",
+      "md5": "5badb85ae09250ed2ee54013aa9a2a74",
+      "title": "gd1985-07-01s1t04 Walkin Blues.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t04 Walkin Blues.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t04 Walkin Blues.flac.flac",
+      "format": "PNG",
+      "md5": "74a3ba6ee5c4aed2686cf910d96c70fc"
+    },
+    {
+      "name": "gd1985-07-01s1t04 Walkin Blues.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t04 Walkin Blues.flac.flac",
+      "format": "Spectrogram",
+      "md5": "008df562bc122b89e73f684639d84135"
+    },
+    {
+      "name": "gd1985-07-01s1t05 Jack A Roe.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t05 Jack A Roe.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "f6b26a477182971a1fe2b1d689aa2e42"
+    },
+    {
+      "name": "gd1985-07-01s1t05 Jack A Roe.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "347.6",
+      "md5": "fe2293e7cb68ff238aaac6f7398aeea4",
+      "title": "gd1985-07-01s1t05 Jack A Roe.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t05 Jack A Roe.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t05 Jack A Roe.flac.flac",
+      "format": "VBR MP3",
+      "length": "05:48",
+      "md5": "6bb9faff22014864326b9457efe70198",
+      "title": "gd1985-07-01s1t05 Jack A Roe.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t05 Jack A Roe.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t05 Jack A Roe.flac.flac",
+      "format": "PNG",
+      "md5": "0cddfbc6817d32aa9e074d4b0c2ce785"
+    },
+    {
+      "name": "gd1985-07-01s1t05 Jack A Roe.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t05 Jack A Roe.flac.flac",
+      "format": "Spectrogram",
+      "md5": "8679dbb49c79ed35e79469a765047d81"
+    },
+    {
+      "name": "gd1985-07-01s1t06 My Brother Essau.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t06 My Brother Essau.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "f93c94a46dbb59571aaad492f5087e96"
+    },
+    {
+      "name": "gd1985-07-01s1t06 My Brother Essau.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "360.66",
+      "md5": "2d1916ceb49424c38785f702725709ae",
+      "title": "gd1985-07-01s1t06 My Brother Essau.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t06 My Brother Essau.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t06 My Brother Essau.flac.flac",
+      "format": "VBR MP3",
+      "length": "06:01",
+      "md5": "e8781ecb5684d4859c6741263a1ed889",
+      "title": "gd1985-07-01s1t06 My Brother Essau.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t06 My Brother Essau.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t06 My Brother Essau.flac.flac",
+      "format": "PNG",
+      "md5": "70b14e921aa852b7444a66d6ea1a65ff"
+    },
+    {
+      "name": "gd1985-07-01s1t06 My Brother Essau.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t06 My Brother Essau.flac.flac",
+      "format": "Spectrogram",
+      "md5": "113c1fff56b72be887f096be72366261"
+    },
+    {
+      "name": "gd1985-07-01s1t07 Stagger Lee.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t07 Stagger Lee.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "2915bc35ab33336e9176d8c48ee2e807"
+    },
+    {
+      "name": "gd1985-07-01s1t07 Stagger Lee.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "433.85",
+      "md5": "63eebf3f556d06c8604cd60e46093764",
+      "title": "gd1985-07-01s1t07 Stagger Lee.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t07 Stagger Lee.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t07 Stagger Lee.flac.flac",
+      "format": "VBR MP3",
+      "length": "07:14",
+      "md5": "b6185d6a49d72992a02e70f03b5f5a46",
+      "title": "gd1985-07-01s1t07 Stagger Lee.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t07 Stagger Lee.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t07 Stagger Lee.flac.flac",
+      "format": "PNG",
+      "md5": "eb961d0fd8d42467607b42d422e91853"
+    },
+    {
+      "name": "gd1985-07-01s1t07 Stagger Lee.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t07 Stagger Lee.flac.flac",
+      "format": "Spectrogram",
+      "md5": "c077ebfcf7755fa63ac71a9026bfa6f9"
+    },
+    {
+      "name": "gd1985-07-01s1t08 Let It Grow.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t08 Let It Grow.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "8593f28a45bca9095f8623182b364343"
+    },
+    {
+      "name": "gd1985-07-01s1t08 Let It Grow.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "751.82",
+      "md5": "c856f77291578f3ec34702110e498bc1",
+      "title": "gd1985-07-01s1t08 Let It Grow.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t08 Let It Grow.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t08 Let It Grow.flac.flac",
+      "format": "VBR MP3",
+      "length": "12:32",
+      "md5": "3138f2456fefb4499632700545d9a5b7",
+      "title": "gd1985-07-01s1t08 Let It Grow.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t08 Let It Grow.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t08 Let It Grow.flac.flac",
+      "format": "PNG",
+      "md5": "949d9bd0b2d92278009927e356b5d806"
+    },
+    {
+      "name": "gd1985-07-01s1t08 Let It Grow.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t08 Let It Grow.flac.flac",
+      "format": "Spectrogram",
+      "md5": "7c641cd6c64e70150a80f4757d8e83f9"
+    },
+    {
+      "name": "gd1985-07-01s1t09 Dayjob.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t09 Dayjob.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "335e8a7e4a2d2dc764ff02338450ea20"
+    },
+    {
+      "name": "gd1985-07-01s1t09 Dayjob.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "257.94",
+      "md5": "708ba81da368bbdfb5248fd5a55db3cb",
+      "title": "gd1985-07-01s1t09 Dayjob.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t09 Dayjob.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t09 Dayjob.flac.flac",
+      "format": "VBR MP3",
+      "length": "04:18",
+      "md5": "e8f1bcf4b0b9e86ffd867cf0d2322ca7",
+      "title": "gd1985-07-01s1t09 Dayjob.flac"
+    },
+    {
+      "name": "gd1985-07-01s1t09 Dayjob.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t09 Dayjob.flac.flac",
+      "format": "PNG",
+      "md5": "fd1b6f8f5f04a2c04380f7db70d76576"
+    },
+    {
+      "name": "gd1985-07-01s1t09 Dayjob.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s1t09 Dayjob.flac.flac",
+      "format": "Spectrogram",
+      "md5": "b2aadcd11f204769e8759590c9b08669"
+    },
+    {
+      "name": "gd1985-07-01s2t01 Crowd Tuning.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t01 Crowd Tuning.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "3eb781b2d99d74b64a7e67ffc11e5385"
+    },
+    {
+      "name": "gd1985-07-01s2t01 Crowd Tuning.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "68.76",
+      "md5": "6a43dc3a31bbbeb2971b5e60b3fc3b25",
+      "title": "gd1985-07-01s2t01 Crowd Tuning.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t01 Crowd Tuning.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t01 Crowd Tuning.flac.flac",
+      "format": "VBR MP3",
+      "length": "01:09",
+      "md5": "7319b89e8da5c5b64b5aab477a1508a4",
+      "title": "gd1985-07-01s2t01 Crowd Tuning.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t01 Crowd Tuning.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t01 Crowd Tuning.flac.flac",
+      "format": "PNG",
+      "md5": "ba1e0606fd354baae55afca1b6a4d17a"
+    },
+    {
+      "name": "gd1985-07-01s2t01 Crowd Tuning.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t01 Crowd Tuning.flac.flac",
+      "format": "Spectrogram",
+      "md5": "b6c16aa4249ac5b240acaa0ef5015b2e"
+    },
+    {
+      "name": "gd1985-07-01s2t012 Baby Blue.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t12 Baby Blue.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "abbd043067617f8da3e1675f3f898e90"
+    },
+    {
+      "name": "gd1985-07-01s2t012 Baby Blue.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t12 Baby Blue.flac.flac",
+      "format": "VBR MP3",
+      "length": "07:15",
+      "md5": "c07133c1daa2b55b6e7fca964cd6eb65",
+      "title": "gd1985-07-01s2t012 Baby Blue.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t012 Baby Blue.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t12 Baby Blue.flac.flac",
+      "format": "PNG",
+      "md5": "2b2dc610f5e40fe2492872550d4cbf7b"
+    },
+    {
+      "name": "gd1985-07-01s2t012 Baby Blue.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t12 Baby Blue.flac.flac",
+      "format": "Spectrogram",
+      "md5": "b2c448d583f9c0586b77e651bfff6f2c"
+    },
+    {
+      "name": "gd1985-07-01s2t02 Scarlet.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t02 Scarlet.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "763acef6da7d13da604e4313fc244098"
+    },
+    {
+      "name": "gd1985-07-01s2t02 Scarlet.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "669.81",
+      "md5": "f669223b156a4ca43461915c8819606f",
+      "title": "gd1985-07-01s2t02 Scarlet.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t02 Scarlet.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t02 Scarlet.flac.flac",
+      "format": "VBR MP3",
+      "length": "11:10",
+      "md5": "c12fb869fd9d857ce688ca9f94cc6022",
+      "title": "gd1985-07-01s2t02 Scarlet.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t02 Scarlet.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t02 Scarlet.flac.flac",
+      "format": "PNG",
+      "md5": "07861de052468211d08ff1d0e64bf656"
+    },
+    {
+      "name": "gd1985-07-01s2t02 Scarlet.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t02 Scarlet.flac.flac",
+      "format": "Spectrogram",
+      "md5": "aedaf874045db1643df023273755401c"
+    },
+    {
+      "name": "gd1985-07-01s2t03 Fire.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t03 Fire.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "47f36a3516f5a5c29a8ff18f9552f558"
+    },
+    {
+      "name": "gd1985-07-01s2t03 Fire.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "688.26",
+      "md5": "218e6e147b9c44a9900e453c8a75651a",
+      "title": "gd1985-07-01s2t03 Fire.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t03 Fire.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t03 Fire.flac.flac",
+      "format": "VBR MP3",
+      "length": "11:28",
+      "md5": "f2b8d8e9837409bdbb571ac9eb7ba1ce",
+      "title": "gd1985-07-01s2t03 Fire.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t03 Fire.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t03 Fire.flac.flac",
+      "format": "PNG",
+      "md5": "5766cceb16748f3b6c0eb82be48373f6"
+    },
+    {
+      "name": "gd1985-07-01s2t03 Fire.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t03 Fire.flac.flac",
+      "format": "Spectrogram",
+      "md5": "50564607ddcc8a62772ef16914d2dd3e"
+    },
+    {
+      "name": "gd1985-07-01s2t04 Playin.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t04 Playin.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "82c45b4dfe1b2cd9afb1912845f4507f"
+    },
+    {
+      "name": "gd1985-07-01s2t04 Playin.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "538.97",
+      "md5": "48a44264f94c6059d1f5186b2469ff5c",
+      "title": "gd1985-07-01s2t04 Playin.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t04 Playin.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t04 Playin.flac.flac",
+      "format": "VBR MP3",
+      "length": "08:59",
+      "md5": "702d192a9e92315b52a7ca16ed6c3f53",
+      "title": "gd1985-07-01s2t04 Playin.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t04 Playin.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t04 Playin.flac.flac",
+      "format": "PNG",
+      "md5": "b0b9be8729f9395176affec43bb4dc6d"
+    },
+    {
+      "name": "gd1985-07-01s2t04 Playin.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t04 Playin.flac.flac",
+      "format": "Spectrogram",
+      "md5": "e5ecb27e47cac3148eaef2f9b0666c7c"
+    },
+    {
+      "name": "gd1985-07-01s2t05 Uncle Johns.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t05 Uncle Johns.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "8c4b6ada17277edaccd494f1c2ba4e37"
+    },
+    {
+      "name": "gd1985-07-01s2t05 Uncle Johns.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "728.8",
+      "md5": "139f634597e0d75c8b74ea162180a3d8",
+      "title": "gd1985-07-01s2t05 Uncle Johns.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t05 Uncle Johns.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t05 Uncle Johns.flac.flac",
+      "format": "VBR MP3",
+      "length": "12:09",
+      "md5": "9dc3e0c07c72fcd0a64c59d08b708513",
+      "title": "gd1985-07-01s2t05 Uncle Johns.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t05 Uncle Johns.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t05 Uncle Johns.flac.flac",
+      "format": "PNG",
+      "md5": "eded31099f3a6abbb374c49584f0cf1d"
+    },
+    {
+      "name": "gd1985-07-01s2t05 Uncle Johns.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t05 Uncle Johns.flac.flac",
+      "format": "Spectrogram",
+      "md5": "5d4c369356e6350591fce6f1ea1f3a01"
+    },
+    {
+      "name": "gd1985-07-01s2t06 Drums.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t06 Drums.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "a283408e7c895d377b1bc9d659d71ce0"
+    },
+    {
+      "name": "gd1985-07-01s2t06 Drums.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "466.22",
+      "md5": "c8108f33b0051cb85b74f990d24d5891",
+      "title": "gd1985-07-01s2t06 Drums.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t06 Drums.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t06 Drums.flac.flac",
+      "format": "VBR MP3",
+      "length": "07:46",
+      "md5": "dbdc6bfd1c60408188641c8a3e1c8e93",
+      "title": "gd1985-07-01s2t06 Drums.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t06 Drums.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t06 Drums.flac.flac",
+      "format": "PNG",
+      "md5": "eb47ef1535faf1a4cd7552d3320bb539"
+    },
+    {
+      "name": "gd1985-07-01s2t06 Drums.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t06 Drums.flac.flac",
+      "format": "Spectrogram",
+      "md5": "297e311db82eb561c865734003ab976b"
+    },
+    {
+      "name": "gd1985-07-01s2t07 Space.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t07 Space.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "6fd270e1bbea597af8b49479d1d9fbc9"
+    },
+    {
+      "name": "gd1985-07-01s2t07 Space.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "591.09",
+      "md5": "2ee2985ed661fecb48f1e7c1e2557565",
+      "title": "gd1985-07-01s2t07 Space.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t07 Space.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t07 Space.flac.flac",
+      "format": "VBR MP3",
+      "length": "09:51",
+      "md5": "c3ef70d9127a7d7dc1ed357937ccb326",
+      "title": "gd1985-07-01s2t07 Space.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t07 Space.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t07 Space.flac.flac",
+      "format": "PNG",
+      "md5": "a232ebd55d014c7f5e3576ccc2d26ecc"
+    },
+    {
+      "name": "gd1985-07-01s2t07 Space.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t07 Space.flac.flac",
+      "format": "Spectrogram",
+      "md5": "761bd0d50a9e2cd5889b175980e5e081"
+    },
+    {
+      "name": "gd1985-07-01s2t08 Dear Mr Fantasy.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t08 Dear Mr Fantasy.flac",
+      "format": "Columbia Peaks",
+      "md5": "90af229ea5d663ffdecafa1e06190301"
+    },
+    {
+      "name": "gd1985-07-01s2t08 Dear Mr Fantasy.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "363.35",
+      "md5": "8ffc2b3567f0877f7440ac95872b017f",
+      "title": "gd1985-07-01s2t08 Dear Mr Fantasy"
+    },
+    {
+      "name": "gd1985-07-01s2t08 Dear Mr Fantasy.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t08 Dear Mr Fantasy.flac",
+      "format": "VBR MP3",
+      "length": "06:03",
+      "md5": "0f23cd72ae7f7b84484dcf2e8f6d806e",
+      "title": "gd1985-07-01s2t08 Dear Mr Fantasy"
+    },
+    {
+      "name": "gd1985-07-01s2t08 Dear Mr Fantasy.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t08 Dear Mr Fantasy.flac",
+      "format": "PNG",
+      "md5": "cd8ecc87b97cb2200e154f9134d456a1"
+    },
+    {
+      "name": "gd1985-07-01s2t08 Dear Mr Fantasy_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t08 Dear Mr Fantasy.flac",
+      "format": "Spectrogram",
+      "md5": "8b5bf305523d6725445fcad59f810b79"
+    },
+    {
+      "name": "gd1985-07-01s2t09 GTRFB.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t09 GTRFB.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "a4063b0b9e668918237ab36ae3a95cf2"
+    },
+    {
+      "name": "gd1985-07-01s2t09 GTRFB.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "351.11",
+      "md5": "dc78d2e245cef6c6645b50b3e0ee042b",
+      "title": "gd1985-07-01s2t09 GTRFB.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t09 GTRFB.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t09 GTRFB.flac.flac",
+      "format": "VBR MP3",
+      "length": "05:51",
+      "md5": "1a3fef708c6b1383a39b4b9e038e8f2e",
+      "title": "gd1985-07-01s2t09 GTRFB.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t09 GTRFB.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t09 GTRFB.flac.flac",
+      "format": "PNG",
+      "md5": "f928e81314ed8a08cad402769723c5ec"
+    },
+    {
+      "name": "gd1985-07-01s2t09 GTRFB.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t09 GTRFB.flac.flac",
+      "format": "Spectrogram",
+      "md5": "629cddb5b4ed0045eeefd2e6a2961296"
+    },
+    {
+      "name": "gd1985-07-01s2t10 Good Lovin.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t10 Good Lovin.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "e1674ed3f73b15c67c71fc655caad2a2"
+    },
+    {
+      "name": "gd1985-07-01s2t10 Good Lovin.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "484.56",
+      "md5": "22b7da43216b6b08f7ef8d03db467493",
+      "title": "gd1985-07-01s2t10 Good Lovin.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t10 Good Lovin.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t10 Good Lovin.flac.flac",
+      "format": "VBR MP3",
+      "length": "08:05",
+      "md5": "2b1261db6e230d92df983b0a234ffc72",
+      "title": "gd1985-07-01s2t10 Good Lovin.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t10 Good Lovin.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t10 Good Lovin.flac.flac",
+      "format": "PNG",
+      "md5": "b3053f35cd813a438f31630eed826ca0"
+    },
+    {
+      "name": "gd1985-07-01s2t10 Good Lovin.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t10 Good Lovin.flac.flac",
+      "format": "Spectrogram",
+      "md5": "58ac60d3a408b5bccc70e60a1063b716"
+    },
+    {
+      "name": "gd1985-07-01s2t11 Satisfaction.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t11 Satisfaction.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "871152f089a88aa2637af38fc7d021f8"
+    },
+    {
+      "name": "gd1985-07-01s2t11 Satisfaction.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "384.59",
+      "md5": "8d2ea3bf2948054a702dc5df07726ad4",
+      "title": "gd1985-07-01s2t11 Satisfaction.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t11 Satisfaction.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t11 Satisfaction.flac.flac",
+      "format": "VBR MP3",
+      "length": "06:25",
+      "md5": "15fb7e702b716525f1dd8986d0268843",
+      "title": "gd1985-07-01s2t11 Satisfaction.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t11 Satisfaction.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t11 Satisfaction.flac.flac",
+      "format": "PNG",
+      "md5": "531ff128f29f2ae2d3b12d851a8923d9"
+    },
+    {
+      "name": "gd1985-07-01s2t11 Satisfaction.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t11 Satisfaction.flac.flac",
+      "format": "Spectrogram",
+      "md5": "abe786485917d3e66cb2b5edde03fe36"
+    },
+    {
+      "name": "gd1985-07-01s2t12 Baby Blue.flac.afpk",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t12 Baby Blue.flac.flac",
+      "format": "Columbia Peaks",
+      "md5": "abbd043067617f8da3e1675f3f898e90"
+    },
+    {
+      "name": "gd1985-07-01s2t12 Baby Blue.flac.flac",
+      "source": "original",
+      "format": "24bit Flac",
+      "length": "435.45",
+      "md5": "590aa4b0c81cb4d2214d58405b68c97e",
+      "title": "gd1985-07-01s2t012 Baby Blue.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t12 Baby Blue.flac.mp3",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t12 Baby Blue.flac.flac",
+      "format": "VBR MP3",
+      "length": "07:15",
+      "md5": "99a1eb2a271cc8ceff375ecbbd6647ee",
+      "title": "gd1985-07-01s2t012 Baby Blue.flac"
+    },
+    {
+      "name": "gd1985-07-01s2t12 Baby Blue.flac.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t12 Baby Blue.flac.flac",
+      "format": "PNG",
+      "md5": "b1b49243af551027d8ad86b50d5bda1c"
+    },
+    {
+      "name": "gd1985-07-01s2t12 Baby Blue.flac_spectrogram.png",
+      "source": "derivative",
+      "original": "gd1985-07-01s2t12 Baby Blue.flac.flac",
+      "format": "Spectrogram",
+      "md5": "2ff4a23c0d854d0f8cca48e2e60a2623"
+    }
+  ],
+  "reviews": []
+}
