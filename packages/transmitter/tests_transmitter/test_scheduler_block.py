@@ -178,8 +178,11 @@ def _continue(occ, n, own, open_pool, plan, i, start_frame=0, rec=None):
 def test_fill_cause_is_judged_on_the_whole_own_pool_from_the_block_start():
     # a, b then fill: the two longest own shows (150 + 140) overrun the window, so the
     # block is pool-short, however many own shows already sit in front of the fill
+    # The two 30-min shows make the placed shows matter at i=2: the longest two of
+    # the own shows NOT yet placed (c 140 + d 30) would land before the window, i.e.
+    # "structural", if "longest" left out the placed a and b.
     a, b, c = sp("a", 60, "A"), sp("b", 150, "B"), sp("c", 140, "C")
-    own = [a, b, c]
+    own = [a, b, c, sp("d", 30, "D"), sp("e", 30, "E")]
     funk = [sp("f", 28, "F", profile="funk")]
     occ, n = make_occ(max_shows=2), nxt(240)
     plan = fill(occ, n, own, own + funk)
@@ -210,6 +213,24 @@ def test_structural_cause_is_judged_from_the_block_start():
     assert plan.tier == 1 and plan.fill_from == 2 and plan.fill_cause == "structural"
     for i in (1, 2):
         again = _continue(occ, n, own, own + funk, plan, i)
+        assert again.shows == plan.shows[i:] and again.fill_cause == "structural"
+
+
+def test_block_start_counts_the_boundary_after_each_placed_show():
+    # a 10-min boundary: from the block's start two 60-min shows land at 140 min, before
+    # lo (145): "structural". Dropping the boundary term after the placed show would put
+    # the block start 10 min later, land at 150 (inside the window) and say "pool-short".
+    gap = fr(10)
+    own = [sp(f"s{i}", 60, f"Act {i}") for i in range(4)]
+    funk = [sp("f", 20, "Funk", profile="funk")]
+    occ, n = make_occ(max_shows=2), nxt(160)
+    plan = fill(occ, n, own, own + funk, gap=gap)
+    assert plan.tier == 1 and plan.fill_from == 2 and plan.fill_cause == "structural"
+    rec, f = Recency(), 0
+    for i, p in enumerate(plan.shows[:2], 1):
+        rec = rec.with_piece(p, at(f), local_date(at(f)))
+        f += p.frames + gap
+        again = fill(occ, n, own, own + funk, rec=rec, placed=plan.shows[:i], start_frame=f, gap=gap)
         assert again.shows == plan.shows[i:] and again.fill_cause == "structural"
 
 
