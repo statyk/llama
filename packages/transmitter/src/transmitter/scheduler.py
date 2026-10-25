@@ -51,7 +51,7 @@ from transmitter.clock import ClockConfig, Occurrence
 from transmitter.errors import PlanError
 from transmitter.grid import FRAME_SAMPLES, SAMPLE_RATE
 from transmitter.history import Recency
-from transmitter.pieces import Piece, _date_parts
+from transmitter.pieces import Piece
 
 PAIR_FIRSTS = 32
 PAIR_PARTNERS = 64
@@ -86,7 +86,8 @@ class _C:
         self.slug = piece.slug
         self.frames = piece.frames
         self.artist = piece.artist
-        self.year, self.md = _date_parts(piece.show.meta.get("date"))
+        self.year = piece.year
+        self.md = piece.month_day
         self.pkg = piece.package
         self.pref = rules.year_weight(self.year, ranges)
         self.last = rec.last_aired_us(self.pkg) if self.pkg is not None else None
@@ -492,16 +493,15 @@ def _excluded(pool: list[Piece], placed: frozenset[str], used: frozenset[str]) -
     return placed
 
 
-def _has_fill(occ: Occurrence, placed: tuple) -> bool:
-    """A placed show from another profile: the block is already into its fill."""
-    return any(p.profile not in occ.block.profiles for p in placed)
+def _has_fill(own_slugs: frozenset[str], placed: tuple) -> bool:
+    """A placed show outside the own pool: the block is already into its fill."""
+    return any(p.slug not in own_slugs for p in placed)
 
 
 class _Step(NamedTuple):
     shows: tuple            # of _C
     tier: int
     fill_from: int | None
-    cause: str | None
     landing: int
     bends: tuple[str, ...]
 
@@ -535,13 +535,16 @@ def fill_block(occ: Occurrence, next_occ: Occurrence, *, start_frame: int, place
 
     dates: dict = {}
     ctx = _Ctx(occ, next_occ, rec, clock, epoch_us, seed, boundary_frames, final_boundary_frames, dates)
+    # the block's own start: every run, and every live continuation, judges the cause from it
+    block_start = start_frame - sum(p.frames + boundary_frames for p in placed)
+    cause = _fill_cause(ctx, own_all, occ.max_shows, block_start) if profile_block else None
     own = _Pool([ctx.cand(p) for p in own_all])
     fill = _Pool([ctx.cand(p) for p in fill_all])
     steps: list[_Step] = []
     start = start_frame
     for _ in range(len(own_all) + len(fill_all) + 1):     # one show per run, never twice
         step = _choose(ctx, occ, own, own_all, fill, fill_all, placed, start, prev_artist, used, degraded,
-                       profile_block and _has_fill(occ, placed))
+                       profile_block and _has_fill(own_slugs, placed))
         steps.append(step)
         if not step.shows:
             break
@@ -560,7 +563,7 @@ def fill_block(occ: Occurrence, next_occ: Occurrence, *, start_frame: int, place
     if not ctx.LO <= last.landing <= ctx.HI:
         tier = 2
     else:
-        tier = 1 if profile_block and _has_fill(occ, placed) else 0
+        tier = 1 if profile_block and _has_fill(own_slugs, placed) else 0
     show_bends: list[tuple[str, ...]] = []
     acc: set[str] = set()
     for s in reversed(steps):
@@ -568,7 +571,7 @@ def fill_block(occ: Occurrence, next_occ: Occurrence, *, start_frame: int, place
         show_bends.append(tuple(r for r in rules.RULES if r in acc))
     show_bends.reverse()
     return BlockPlan(shows=shows, fill_from=fill_from,
-                     fill_cause=steps[fill_from].cause if fill_from is not None else None,
+                     fill_cause=cause if fill_from is not None else None,
                      tier=tier, landing_frame=last.landing, bends=show_bends[0], degraded=degraded,
                      show_bends=tuple(show_bends[:-1]))
 
@@ -598,7 +601,7 @@ def _choose(ctx: _Ctx, occ: Occurrence, own: _Pool, own_all: list[Piece], fill: 
         if len(seq.shows) >= 2:
             offer_window(seq.shows, (), seq.viol, seq.terms, ctx.landing(seq))
     if t0.best is not None:
-        return _step(t0, 0, None)
+        return _step(t0, 0)
 
     # nothing lands: own options just short of or just past the window feed
     # tier 1 (as prefixes) and tier 2
@@ -636,26 +639,23 @@ def _choose(ctx: _Ctx, occ: Occurrence, own: _Pool, own_all: list[Piece], fill: 
 
             _Search(ctx, fill, excluded).run(seq, MAX_FILL, offer_fill, window=True)
     if t1.best is not None:
-        return _step(t1, 1, _fill_cause(ctx, own_all, placed, placed_slugs, max_shows, start_frame))
-    return _step(t2, 2, None)
+        return _step(t1, 1)
+    return _step(t2, 2)
 
 
-def _step(tier: _Tier, n: int, cause: str | None) -> _Step:
+def _step(tier: _Tier, n: int) -> _Step:
     shows, landing, _, fill_from = tier.best
-    return _Step(shows, n, fill_from if n == 1 else None, cause, landing, tier.bends())
+    return _Step(shows, n, fill_from if n == 1 else None, landing, tier.bends())
 
 
-def _fill_cause(ctx: _Ctx, own_all: list[Piece], placed: tuple, placed_slugs: frozenset[str],
-                max_shows: int | None, start_frame: int) -> str:
-    """"structural" when the max_shows longest own shows still land before the window."""
-    need = (max_shows or 0) - len(placed)
-    longest = sorted((p.frames for p in own_all if p.slug not in placed_slugs), reverse=True)
-    if need > len(longest):
+def _fill_cause(ctx: _Ctx, own_all: list[Piece], max_shows: int, block_start: int) -> str:
+    """"structural" when the max_shows longest shows of the whole own pool (placed
+    own shows included), laid out from the block's start, still land before the
+    window; else "pool-short" (a pool with fewer than max_shows shows is short)."""
+    longest = sorted((p.frames for p in own_all), reverse=True)
+    if max_shows > len(longest):
         return "pool-short"
-    if need <= 0:
-        landing = start_frame - ctx.boundary + ctx.final
-    else:
-        landing = start_frame + sum(longest[:need]) + (need - 1) * ctx.boundary + ctx.final
+    landing = block_start + sum(longest[:max_shows]) + (max_shows - 1) * ctx.boundary + ctx.final
     return "structural" if landing < ctx.LO else "pool-short"
 
 

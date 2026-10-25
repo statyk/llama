@@ -165,6 +165,62 @@ def test_structural_fill_when_block_is_longer_than_max_shows_can_cover():
     assert len(plan.shows) - plan.fill_from <= 3
 
 
+def _continue(occ, n, own, open_pool, plan, i, start_frame=0, rec=None):
+    """The same block re-filled with plan.shows[:i] placed (rec holding them at their starts)."""
+    r = rec if rec is not None else Recency()
+    f = start_frame
+    for p in plan.shows[:i]:
+        r = r.with_piece(p, at(f), local_date(at(f)))
+        f += p.frames + GAP
+    return fill(occ, n, own, open_pool, rec=r, placed=plan.shows[:i], start_frame=f)
+
+
+def test_fill_cause_is_judged_on_the_whole_own_pool_from_the_block_start():
+    # a, b then fill: the two longest own shows (150 + 140) overrun the window, so the
+    # block is pool-short, however many own shows already sit in front of the fill
+    a, b, c = sp("a", 60, "A"), sp("b", 150, "B"), sp("c", 140, "C")
+    own = [a, b, c]
+    funk = [sp("f", 28, "F", profile="funk")]
+    occ, n = make_occ(max_shows=2), nxt(240)
+    plan = fill(occ, n, own, own + funk)
+    assert slugs(plan) == ["a", "b", "f"] and plan.tier == 1 and plan.fill_from == 2
+    assert plan.fill_cause == "pool-short"
+    for i in (1, 2):
+        again = _continue(occ, n, own, own + funk, plan, i)
+        assert again.shows == plan.shows[i:] and again.fill_cause == "pool-short"
+
+
+def test_structural_cause_holds_through_a_continuation():
+    own = [sp(f"s{i}", 60, f"Act {i}") for i in range(5)]
+    funk = [sp("f1", 120, "Funk A", profile="funk"), sp("f2", 118, "Funk B", profile="funk")]
+    occ, n = make_occ(), nxt(360)
+    plan = fill(occ, n, own, own + funk)
+    assert plan.fill_cause == "structural"
+    for i in range(1, plan.fill_from + 1):
+        assert _continue(occ, n, own, own + funk, plan, i).fill_cause == "structural"
+
+
+def test_structural_cause_is_judged_from_the_block_start():
+    # two 60-min shows from the block start land before lo (structural); judged from after the
+    # first placed show they would not, which must not turn a continuation into "pool-short"
+    own = [sp(f"s{i}", 60, f"Act {i}") for i in range(4)]
+    funk = [sp("f", 45, "Funk", profile="funk")]
+    occ, n = make_occ(), nxt(165)
+    plan = fill(occ, n, own, own + funk)
+    assert plan.tier == 1 and plan.fill_from == 2 and plan.fill_cause == "structural"
+    for i in (1, 2):
+        again = _continue(occ, n, own, own + funk, plan, i)
+        assert again.shows == plan.shows[i:] and again.fill_cause == "structural"
+
+
+def test_own_membership_is_the_own_pool_not_the_profile_field():
+    # a placed show the caller counts as own (it is in own_pool) is not fill, whatever its profile says
+    odd = sp("odd", 60, "Odd", profile="elsewhere")
+    own = [odd, sp("b", 58, "B")]
+    plan = fill(make_occ(), nxt(120), own, own, start_frame=fr(60) + GAP, placed=(odd,))
+    assert slugs(plan) == ["b"] and plan.tier == 0 and plan.fill_from is None
+
+
 def test_fill_keeps_at_least_one_own_show():
     # a 4 h fill show alone would land on the nominal time; the block still opens with its own show
     own = [sp("o1", 60, "Own")]
@@ -235,7 +291,7 @@ def test_early_landing_block_gets_no_extra_show():
 
 def test_placed_shows_supply_the_previous_artist():
     placed = (sp("p1", 60, "Same"),)
-    own = [sp("same", 58, "Same"), sp("diff", 58, "Diff")]
+    own = [sp("same", 58, "Same"), sp("diff", 58, "Diff"), placed[0]]     # callers pass placed own shows
     start = fr(60) + GAP
     plan = fill(make_occ(), nxt(120), own, start_frame=start, placed=placed, prev_artist="Other")
     assert slugs(plan) == ["diff"]
@@ -502,3 +558,74 @@ def test_fill_block_is_fast_on_a_3000_piece_pool():
     assert fill(make_occ(profiles=()), nxt(12 * 60, 60, 60), pool, pool).tier == 0
     assert fill(make_occ(profiles=()), nxt(24 * 60, 720, 720), pool, pool).tier == 0   # the implicit clock
     assert time.perf_counter() - t0 < 2.0
+
+
+# --- the search's own rule and score arithmetic agrees with rules.py --------
+
+def _offers_of(monkeypatch, occ, n, own, open_pool, *, rec, prev_artist, start_frame=0, clock=CLOCK):
+    """Every option the first run of fill_block offers to a tier, as
+    (shows, viol, terms, landing, fill_from)."""
+    seen = []
+    orig = scheduler._Tier.offer
+
+    def spy(self, ctx, pre, viol, seq_shows, extra, terms, landing, fill_from):
+        if ctx.rec is rec:                                      # the first run: no show placed yet
+            seen.append((seq_shows + extra, viol, terms, landing, fill_from))
+        return orig(self, ctx, pre, viol, seq_shows, extra, terms, landing, fill_from)
+
+    monkeypatch.setattr(scheduler._Tier, "offer", spy)
+    fill(occ, n, own, open_pool, rec=rec, prev_artist=prev_artist, start_frame=start_frame, clock=clock)
+    monkeypatch.undo()
+    return seen
+
+
+def test_every_offered_option_counts_and_scores_as_rules_does(monkeypatch):
+    pieces = library_pieces()
+    rec = _aired_history(pieces)
+    rng = random.Random(9)
+    # same-day artists from history and on-this-day matches either side of local midnight
+    for p in rng.sample(pieces, 30):
+        rec = rec.with_piece(p, E - rng.randrange(1, 18) * 60 * MIN, local_date(E))
+    prefs = PREFS + [Prefer(on_this_day=2.5)]
+    # on-this-day shows for a partner's slot on either local date (E is 18:00 on 11-02)
+    pieces = pieces + [sp(f"otd{i}", 140 + 8 * i, "Grateful Dead", profile="dead",
+                          date=f"197{i}-11-0{2 + i % 2}") for i in range(8)]
+    dead = [p for p in pieces if p.profile == "dead"]
+    jam = [p for p in pieces if p.profile == "jam"]
+    long_jam = [p for p in jam if fr(150) <= p.frames <= fr(200)]     # singles early, pairs late
+    cases = [
+        (make_occ(profiles=("dead",), early=20, late=20, prefer=prefs), nxt(335, 20, 20), dead, pieces),
+        (make_occ(profiles=(), prefer=prefs), nxt(10 * 60, 30, 30), pieces, pieces),           # chains
+        (make_occ(profiles=("jam",), max_shows=3, prefer=prefs), nxt(8 * 60 + 40), jam, pieces),
+        (make_occ(profiles=("jam",), prefer=prefs), nxt(240), long_jam, pieces),               # tier 1 fill
+        (make_occ(profiles=("jam",), prefer=prefs), nxt(100), long_jam, pieces),               # tier 2
+    ]
+    kinds = set()
+    for occ, n, own, open_pool in cases:
+        offers = _offers_of(monkeypatch, occ, n, own, open_pool, rec=rec, prev_artist="Grateful Dead")
+        assert offers
+        for shows, viol, terms, landing, fill_from in offers:
+            if not shows:
+                continue
+            pcs = [c.piece for c in shows]
+            starts, f = [], 0
+            for p in pcs:
+                starts.append(at(f))
+                f += p.frames + GAP
+            assert landing == f - GAP + GAP
+            assert viol == rules.violations(pcs, "Grateful Dead", occ, rec, CLOCK, starts), [p.slug for p in pcs]
+            assert terms == tuple(rules.score(p, occ, rec, CLOCK, s) - 1.0 for p, s in zip(pcs, starts))
+            kinds.add("fill" if fill_from is not None else f"own{min(len(pcs), 3)}")
+            if len(pcs) >= 2 and pcs[-1].month_day == local_date(starts[-1]).strftime("%m-%d"):
+                kinds.add("otd partner")
+    assert {"own1", "own2", "own3", "fill", "otd partner"} <= kinds
+
+
+def test_candidate_view_matches_the_piece():
+    o = make_occ(prefer=PREFS)
+    rec = Recency()
+    ctx = scheduler._Ctx(o, nxt(120), rec, CLOCK, E, 7, GAP, GAP)
+    for p in library_pieces()[:50] + [sp("nodate", 60, "N", date=None)]:
+        c = ctx.cand(p)
+        assert (c.year, c.md, c.artist, c.pkg, c.frames) == (p.year, p.month_day, p.artist, p.package, p.frames)
+        assert ctx.score(c, at(0), ctx.day(0)[2]) == rules.score(p, o, rec, CLOCK, at(0))
