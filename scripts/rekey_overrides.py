@@ -18,24 +18,37 @@ With no option it is a DRY RUN: it checks every show, prints what it would re-ke
 every refusal with its repair route, and what the process check finds. It takes no lock
 and creates no file. Its checks read only `overrides.json`, `show.json` and the cached
 metadata of the item `show.json` names.
+
+`--snapshot` copies every show's metadata (every file outside `package/audio/` and
+`.audio-aside/`, the `.lock` aside) into `<root>/rekey-snapshot-<UTC start>/`, each copy
+verified against its source's sha256 and flushed, then writes `manifest.json` last. It is
+the migration's only rollback point: a directory without `manifest.json` is no snapshot.
 """
 from __future__ import annotations
 
 import argparse
+import contextlib
+import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import time
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 
 import llama
+from llama.audio_reuse import ASIDE_DIR
+from llama.catalog import _sync_fd, human_bytes
 from llama.config import DEFAULT_ROOT, load_config
 from llama.junk import FORMAT_BY_AUDIO
 from llama.errors import LlamaError
+from llama.locks import Locked, file_lock
 from llama.models import Overrides, Show
 from llama.override_keys import classify, filename_values, legacy_int
 from llama.replay import CacheMiss, CacheOnlyIA
@@ -418,6 +431,326 @@ def _ps_lines() -> list[str]:
     return done.stdout.splitlines()
 
 
+# --- --snapshot (spec 4.3 "`--snapshot`") ---
+
+MANIFEST = "manifest.json"
+_MANIFEST_TMP = ".manifest.json.tmp"
+_STAMP = "%Y%m%dT%H%M%SZ"
+
+
+def _is_husk(d: Path) -> bool:
+    """A show directory holding no file other than its top-level `.lock`: an `rm` husk
+    (show_unit limitation 2). It is not a show. Anything that is not a real directory
+    (a file, a symlink, anything else) counts as content, at any depth."""
+    def empty(p: Path, top: bool) -> bool:
+        with os.scandir(p) as it:
+            for e in it:
+                if top and e.name == ".lock":
+                    continue
+                if e.is_dir(follow_symlinks=False):
+                    if not empty(Path(e.path), False):
+                        return False
+                else:
+                    return False
+        return True
+    return empty(d, True)
+
+
+def library_shows(root: Path) -> list[Path]:
+    """Every show directory under `<root>/shows`, sorted, `.lock`-only husks left out:
+    the set the snapshot records and every coverage check compares against."""
+    return [d for d in _show_dirs(root) if not _is_husk(d)]
+
+
+def _form_problem(data: bytes | None) -> str | None:
+    """Why an overrides.json (its bytes, None = absent) bars a snapshot: it holds a
+    filename value (`filename` or `mixed`), or it cannot be read as an object, so it
+    cannot be shown not to. None when it is fine (absent, none or legacy)."""
+    if data is None:
+        return None
+    try:
+        raw = json.loads(data)
+    except Exception as exc:
+        return f"unreadable ({_first_line(exc)})"
+    if not isinstance(raw, dict):
+        return f"unreadable (a JSON {type(raw).__name__}, not an object)"
+    kind = classify(raw)
+    if kind in ("filename", "mixed"):
+        named = ", ".join(f"{k} {f}" for k, f in filename_values(raw))
+        return f"{kind} (filename-valued: {named})"
+    return None
+
+
+def _process_gate(echo) -> None:
+    """The process check (spec 4.3): refuse while anything other than this script runs
+    llama, or when the check itself cannot run."""
+    try:
+        found = llama_processes(_ps_lines(), self_pid=os.getpid())
+    except Exception as exc:
+        raise _Refused(f"process check failed: {type(exc).__name__}: {exc}") from exc
+    if found:
+        echo("llama processes running:")
+        for line in found:
+            echo(f"  {line}")
+        raise _Refused("refusing: llama is running; stop it first (runbook step 1)")
+    echo("llama processes running: none")
+    echo(PROCESS_NOTE)
+
+
+def _write_copy(dst: Path, data: bytes) -> None:
+    """Create `dst` (never over an existing file) holding `data`, flushed to stable
+    storage (`F_FULLFSYNC`) before it is closed."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    try:
+        view = memoryview(data)
+        while view:
+            view = view[os.write(fd, view):]
+        _sync_fd(fd)
+    finally:
+        os.close(fd)
+
+
+def _sync_dir(d: Path) -> None:
+    fd = os.open(d, os.O_RDONLY)
+    try:
+        _sync_fd(fd)
+    finally:
+        os.close(fd)
+
+
+class _SnapshotFailed(Exception):
+    pass
+
+
+def _metadata_files(d: Path) -> list[str]:
+    """Posix relpaths of every file under show dir `d` outside `package/audio/` and
+    `.audio-aside/`, the top-level `.lock` aside, sorted. A symlink or any other
+    non-regular entry fails the snapshot: it cannot be copied faithfully."""
+    out: list[str] = []
+
+    def walk(p: Path, rel: str) -> None:
+        with os.scandir(p) as it:
+            entries = sorted(it, key=lambda e: e.name)
+        for e in entries:
+            r = f"{rel}/{e.name}" if rel else e.name
+            real_dir = e.is_dir(follow_symlinks=False)
+            if r == ".lock" or (real_dir and r in (ASIDE_DIR, "package/audio")):
+                continue
+            if real_dir:
+                walk(Path(e.path), r)
+            elif e.is_file(follow_symlinks=False):
+                out.append(r)
+            else:
+                raise _SnapshotFailed(f"{d.name}/{r}: not a regular file or directory")
+    walk(d, "")
+    return out
+
+
+def snapshot(root: Path, *, echo, now: datetime | None = None) -> Path:
+    """Take the migration's rollback point (spec 4.3 "`--snapshot`") and return its
+    directory. Refuses (`_Refused`, nothing created, the lock file included) while llama
+    runs or when any show's overrides.json holds a filename value or cannot be read.
+    Then, under the migration lock and each show's lock, copies every metadata file,
+    verifies each copy's sha256 against its source and flushes it, and writes
+    `manifest.json` last, durably. Any failure leaves no manifest.json, removes the
+    partial directory and raises `_Refused` (KeyboardInterrupt and the like re-raised)."""
+    shows_dir = root / "shows"
+    if not shows_dir.is_dir():
+        raise _Refused(f"refusing to snapshot: {shows_dir} is not a directory")
+    _process_gate(echo)
+    barred = []
+    try:
+        shows = library_shows(root)
+    except OSError as exc:
+        raise _Refused(f"refusing to snapshot: cannot list {shows_dir}: {exc}") from exc
+    for d in shows:
+        try:
+            problem = _form_problem(_read(d / "overrides.json"))
+        except OSError as exc:
+            problem = f"unreadable ({exc})"
+        if problem:
+            barred.append(f"  {d.name}: {problem}")
+    if barred:
+        for line in barred:
+            echo(line)
+        raise _Refused(f"refusing to snapshot: {len(barred)} show(s) above hold a filename "
+                       f"value or an unreadable overrides.json; a partly migrated library is "
+                       f"no rollback point")
+
+    with contextlib.ExitStack() as stack:
+        try:
+            stack.enter_context(file_lock(root / LOCK, blocking=False))
+        except Locked as exc:
+            raise _Refused(f"refusing to snapshot: {root / LOCK} is held by another "
+                           f"rekey_overrides run") from exc
+        return _take_snapshot(root, echo=echo, now=now)
+
+
+def _take_snapshot(root: Path, *, echo, now: datetime | None) -> Path:
+    start = datetime.now(timezone.utc) if now is None else now
+    if start.utcoffset() is None:
+        raise ValueError("snapshot: `now` must be timezone-aware")
+    start = start.astimezone(timezone.utc)
+    snap = root / (SNAPSHOT_PREFIX + start.strftime(_STAMP))
+    try:
+        snap.mkdir()
+    except FileExistsError as exc:
+        raise _Refused(f"refusing to snapshot: {snap} exists") from exc
+    t0 = time.monotonic()
+    try:
+        files: dict[str, str] = {}
+        size = 0
+        slugs = [d.name for d in library_shows(root)]
+        out_shows = snap / "shows"
+        out_shows.mkdir()
+        for i, slug in enumerate(slugs):
+            if i and i % 100 == 0:
+                echo(f"  {i}/{len(slugs)} shows copied")
+            d = root / "shows" / slug
+            if d.is_symlink() or not d.is_dir():
+                raise _SnapshotFailed(f"{slug}: no longer a show directory")
+            with file_lock(ShowWorkspace(d).lock):
+                rels = _metadata_files(d)
+                if not rels:
+                    raise _SnapshotFailed(
+                        f"{slug}: holds no file outside package/audio/ and {ASIDE_DIR}/ "
+                        f"to snapshot; remove or repair the directory by hand")
+                top = out_shows / slug
+                dirs = {top}
+                for rel in rels:
+                    data = (d / rel).read_bytes()
+                    want = hashlib.sha256(data).hexdigest()
+                    dst = out_shows / slug / rel
+                    _write_copy(dst, data)
+                    got = hashlib.sha256(dst.read_bytes()).hexdigest()
+                    if got != want:
+                        raise _SnapshotFailed(f"{slug}/{rel}: the copy differs from its "
+                                              f"source (sha256 {got} vs {want})")
+                    if rel == "overrides.json":
+                        problem = _form_problem(data)
+                        if problem:
+                            raise _SnapshotFailed(f"{slug}: overrides.json changed before "
+                                                  f"its show lock: {problem}")
+                    files[f"{slug}/{rel}"] = want
+                    size += len(data)
+                    p = dst.parent
+                    while p != top:             # every directory the copy created
+                        dirs.add(p)
+                        p = p.parent
+                for p in sorted(dirs, key=lambda p: len(p.parts), reverse=True):
+                    _sync_dir(p)
+        _sync_dir(out_shows)
+        manifest = {"created_at": start.isoformat(), "slugs": slugs, "files": files}
+        tmp = snap / _MANIFEST_TMP
+        _write_copy(tmp, json.dumps(manifest, indent=2).encode())
+        os.rename(tmp, snap / MANIFEST)
+        _sync_dir(snap)
+        problems = verify_snapshot(snap)
+        if problems:
+            raise _SnapshotFailed("the written snapshot does not verify: "
+                                  + "; ".join(problems))
+    except BaseException as exc:
+        removed = _discard_partial(snap)
+        if not isinstance(exc, Exception):
+            raise
+        what = str(exc) if isinstance(exc, (_SnapshotFailed, _Refused)) \
+            else f"{type(exc).__name__}: {exc}"
+        tail = (f"removed {snap}" if removed else
+                f"could not remove {snap}; it has no {MANIFEST}, so it is no snapshot: "
+                f"remove it by hand")
+        raise _Refused(f"snapshot failed: {what}; {tail}") from exc
+    echo(f"snapshot: {snap} ({len(slugs)} shows, {len(files)} files, {human_bytes(size)}, "
+         f"{time.monotonic() - t0:.1f} s)")
+    return snap
+
+
+def _discard_partial(snap: Path) -> bool:
+    """Remove a failed snapshot: manifest.json first, so whatever remains is no
+    snapshot, then the directory. True when it is gone."""
+    try:
+        (snap / MANIFEST).unlink(missing_ok=True)
+    except OSError:
+        pass
+    shutil.rmtree(snap, ignore_errors=True)
+    return not snap.exists() and not os.path.lexists(snap)
+
+
+def _key_problem(key: str) -> str | None:
+    p = PurePosixPath(key)
+    if (not key or p.is_absolute() or "\\" in key or len(p.parts) < 2
+            or any(part in ("", ".", "..") for part in key.split("/"))):
+        return f"{key!r}: not a <slug>/<path> entry inside the snapshot"
+    return None
+
+
+def verify_snapshot(snap: Path) -> list[str]:
+    """Problems with snapshot directory `snap`; [] means it verifies: `manifest.json` is
+    readable and well-formed, every entry's file exists under `shows/` with its sha256,
+    every recorded slug has an entry and every entry belongs to a recorded slug. A file
+    the manifest does not list (a Finder `.DS_Store`) is no problem: nothing reads it."""
+    mpath = snap / MANIFEST
+    if not mpath.is_file():
+        return [f"no {MANIFEST}"]
+    try:
+        m = json.loads(mpath.read_bytes())
+    except Exception as exc:
+        return [f"{MANIFEST} unreadable: {_first_line(exc)}"]
+    if not isinstance(m, dict):
+        return [f"{MANIFEST} unreadable: a JSON {type(m).__name__}, not an object"]
+    problems = []
+    created = m.get("created_at")
+    try:
+        if (not isinstance(created, str)
+                or datetime.fromisoformat(created).utcoffset() != timedelta(0)):
+            raise ValueError
+    except ValueError:
+        problems.append(f"{MANIFEST}: created_at {created!r} is not a UTC ISO time")
+    slugs, files = m.get("slugs"), m.get("files")
+    if not isinstance(slugs, list) or not all(isinstance(s, str) and s for s in slugs):
+        problems.append(f"{MANIFEST}: slugs is not a list of names")
+        slugs = None
+    if not isinstance(files, dict) or not all(isinstance(v, str) for v in files.values()):
+        problems.append(f"{MANIFEST}: files is not a path -> sha256 object")
+        files = None
+    if slugs is None or files is None:
+        return problems
+    recorded = set(slugs)
+    covered = set()
+    for key, sha in files.items():
+        bad = _key_problem(key)
+        if bad:
+            problems.append(bad)
+            continue
+        slug = key.split("/", 1)[0]
+        if slug not in recorded:
+            problems.append(f"{key}: {slug} is not a recorded slug")
+        covered.add(slug)
+        path = snap / "shows" / key
+        if path.is_symlink() or not path.is_file():
+            problems.append(f"{key}: missing from the snapshot")
+            continue
+        try:
+            got = hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError as exc:
+            problems.append(f"{key}: unreadable ({exc})")
+            continue
+        if got != sha:
+            problems.append(f"{key}: sha256 {got} differs from the manifest's {sha}")
+    for slug in slugs:
+        if slug not in covered:
+            problems.append(f"{slug}: recorded slug has no entry")
+    return problems
+
+
+def find_snapshot(root: Path) -> Path | None:
+    """The lexically newest `rekey-snapshot-*` directory under `root` that holds a
+    `manifest.json` (it is not verified here: `verify_snapshot`)."""
+    found = sorted(p for p in root.glob(SNAPSHOT_PREFIX + "*")
+                   if p.is_dir() and (p / MANIFEST).is_file())
+    return found[-1] if found else None
+
+
 # --- main ---
 
 def _check_identity() -> None:
@@ -483,6 +816,9 @@ def main(argv: list[str] | None = None) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", type=Path, default=None,
                     help="config file (default ~/.llama/config.toml, as llama)")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--snapshot", action="store_true",
+                      help="copy every show's metadata into <root>/rekey-snapshot-<UTC>/")
     args = ap.parse_args(argv)
     try:
         _check_identity()
@@ -492,6 +828,13 @@ def main(argv: list[str] | None = None) -> int:
     except _Refused as exc:
         print(str(exc), file=sys.stderr)
         return 1
+    if args.snapshot:
+        try:
+            snapshot(config.root, echo=print)
+        except _Refused as exc:
+            print(str(exc))
+            return 1
+        return 0
     ia = CacheOnlyIA(config.root / "cache")
     want = FORMAT_BY_AUDIO[config.audio_format]
     return dry_run(config.root, ia, want)
