@@ -2457,6 +2457,99 @@ def test_build_canonical_segue_donor_best_by_count_is_unchanged():
     assert _segued(cb) == ["Bertha", "Scarlet Begonias", "Estimated Prophet"]
 
 
+# --- FW4 item 1 (G5): no segue transfer from a donor item followed by filler or by nothing ---
+#
+# Operator ruling 2026-10-25 (FW4). A donor that writes `>` into the crowd, an outro
+# or banter (`Ripple > Outro`, `Sugar Magnolia > Crowd`, `Excitable Boy > Banter`), or
+# after its last item, is notating track flow, not a segue into the next song; the
+# setlist.fm canonical has no such filler item, so the mark landed on the song and
+# shipped as a segue into whatever setlist.fm lists next.
+
+
+def _fw4_build(slfm_sets, chosen_desc, donor_desc, n_kept, *, encore=True):
+    """build_canonical with a setlist.fm canonical (`slfm_sets`), the chosen
+    recording and one sibling (the segue donor). Only `len(kept)` matters here."""
+    base = json.loads(FIXTURE.read_text())
+    chosen = dict(base["metadata"], description=chosen_desc)
+    sib = {"metadata": dict(base["metadata"], description=donor_desc), "files": []}
+    ia = MultiIA({IDENT: {"metadata": chosen, "files": base["files"]}, "sib": sib})
+    cand = make_candidate().model_copy(update={"recordings": [RecordingSummary(identifier=IDENT),
+                                                               RecordingSummary(identifier="sib")]})
+    kept = [{"name": f"t{i:02d}.mp3"} for i in range(n_kept)]
+    return build_canonical(ia, cand, IDENT, chosen, kept, "Grateful Dead", [],
+                           setlistfm=_FakeSetlistFM(*slfm_sets, encore=encore))
+
+
+# deadandcompany-2015-11-20: setlist.fm's names, and the donor
+# (deadandco2015-11-20.at4041-bp4025.flac16f) verbatim.
+_DC15_SLFM = [["Shakedown Street", "Brown-Eyed Women", "Minglewood Blues",
+               "They Love Each Other", "Black-Throated Wind", "Sugaree",
+               "The Music Never Stopped"],
+              ["Iko Iko", "Eyes of the World", "Let It Grow", "Terrapin Station", "Drums",
+               "Space", "The Wheel", "Looks Like Rain", "Sugar Magnolia"],
+              ["Ripple"]]
+_DC15_DONOR = ("Set One\n01. Intro > Shakedown Street >\n02. Brown-Eyed Women >\n"
+               "03. New Minglewood Blues >\n04. They Love Each Other\n05. Black-Throated Wind\n"
+               "06. Sugaree\n07. The Music Never Stopped > Outro\nSet Two\n08. Intro > Iko Iko\n"
+               "09. Eyes of the World >\n10. Let It Grow >\n11. Terrapin Station >\n"
+               "12. Drums Intro > Drums >\n13. Space >\n14. The Wheel >\n15. Looks Like Rain >\n"
+               "16. Sugar Magnolia >\n17. Crowd\nEncore\n18. Ripple > Outro")
+_DC15_CHOSEN = ("01 Shakedown Street\n02 Brown Eyed Women\n03 New Minglewood Blues\n"
+                "04 They Love Each Other\n05 Black Throated Wind\n06 Sugaree\n"
+                "07 The Music Never Stopped\n08 Aiko Aiko\n09 Eyes Of The World\n10 Let It Grow\n"
+                "11 Terrapin Station\n12 Drums\n13 Space\n14 The Wheel\n15 Looks Like Rain\n"
+                "16 Sugar Magnolia\n17 E: Ripple")
+
+
+def test_g5_dc15_closers_into_outro_or_crowd_transfer_no_mark():
+    # (a) `Music Never Stopped > Outro`, `Sugar Magnolia > Crowd`, `Ripple > Outro`
+    # transfer nothing; neither does `Terrapin Station > Drums Intro` (the one real
+    # mark G5 is measured to cost, tfw3-rev). Every interior song-to-song mark stays.
+    cb = _fw4_build(_DC15_SLFM, _DC15_CHOSEN, _DC15_DONOR, 17)
+    assert cb.source == "setlist.fm"
+    assert _segued(cb) == ["Shakedown Street", "Brown-Eyed Women", "Eyes of the World",
+                           "Let It Grow", "Drums", "Space", "The Wheel", "Looks Like Rain"]
+
+
+# warrenzevon-2000-04-22: the donor (WZ2000-04-22.Solo.sbd.Fixed.happyjack.Flac16) verbatim.
+_WZ00_SLFM = [["Werewolves of London", "Excitable Boy", "Seminole Bingo",
+               "For My Next Trick I'll Need a Volunteer", "Don't Let Us Get Sick",
+               "Poor Poor Pitiful Me", "My Shit's Fucked Up", "Porcelain Monkey",
+               "Detox Mansion", "Lawyers, Guns and Money"]]
+_WZ00_DONOR = ("01. Werewolves Of London\n02. Excitable Boy >\n         Banter\n"
+               "03. Seminole Bingo\n04. For My Next Trick I'll Need A Volunteer\n"
+               "05. Don't Let Us Get Sick >\n         Banter and  Switches to Guitar\n"
+               "06.  Poor Poor Pitiful Me >\n         Banter and Guitar Tuning\n"
+               "07.  My Shit's Fucked Up >\n          Banter *\n08. Porcelain Monkey\n"
+               "09. Detox Mansion >\n        Guitar Solo\n10 Lawyers, Guns & Money")
+_WZ00_CHOSEN = "\n".join(f"{i:02d}. {t}" for i, t in enumerate(_WZ00_SLFM[0], 1))
+
+
+def test_g5_wz00_song_into_banter_transfers_no_mark():
+    # (b) `Excitable Boy > Banter`-shaped items transfer nothing; `Detox Mansion >
+    # Guitar Solo` is not filler and still transfers.
+    cb = _fw4_build(_WZ00_SLFM, _WZ00_CHOSEN, _WZ00_DONOR, 10, encore=False)
+    assert cb.source == "setlist.fm"
+    assert _segued(cb) == ["Detox Mansion"]
+
+
+# furthur-2011-07-28's set-2 tail: the donor
+# (furthur2011-07-28.avatone-ck1.bryonsos.115580.flac16) ends `23. Johnny B Goode >`.
+_FU11_SLFM = [["Morning Dew", "Mountains of the Moon", "Let It Grow", "Sugar Magnolia"],
+              ["Johnny B. Goode"]]
+_FU11_DONOR = ("Set 2:\n18. Morning Dew >\n19. Mountains Of The Moon >\n20. Let It Grow >\n"
+               "21. Sugar Magnolia >\n22. Donor Rap >\n23. Johnny B Goode >")
+_FU11_CHOSEN = "Morning Dew\nMountains Of The Moon\nLet It Grow\nSugar Magnolia\nJohnny B Goode"
+
+
+def test_g5_donor_final_item_segue_transfers_no_mark():
+    # (c) a `>` on the donor's last item is a segue into nothing.
+    cb = _fw4_build(_FU11_SLFM, _FU11_CHOSEN, _FU11_DONOR, 5)
+    assert cb.source == "setlist.fm"
+    assert _segued(cb) == ["Morning Dew", "Mountains of the Moon", "Let It Grow",
+                           "Sugar Magnolia"]
+
+
 # --- slice 2b on a captured tape: furthur2012-07-15, every tag "tmp" ---
 
 FURTHUR = FIXTURES / "furthur2012-07-15.json"

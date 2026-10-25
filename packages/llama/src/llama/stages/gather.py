@@ -874,6 +874,28 @@ def _corroboration(parses: list[SourcedParse], descriptions: list[str], chosen_d
     return {norm: tuple(sorted(sources)) for norm, sources in vocab.items()}
 
 
+def _drop_dangling_segues(parsed: ParsedSetlist) -> ParsedSetlist:
+    """FW4 G5 (operator ruling 2026-10-25): clear the segue flag of a segue
+    DONOR item followed, in the donor's own item list, by an `is_filler` item
+    or by nothing (`Ripple > Outro`, `Sugar Magnolia > Crowd`, `Excitable Boy >
+    Banter`, a `>` on the last item). That `>` notates track flow into filler,
+    not a segue into the next song, and the setlist.fm canonical has no filler
+    item for it to land before, so `blend_segues` would ship it as a segue into
+    whatever setlist.fm lists next.
+
+    Applied to the chosen donor only, after it is ranked (the donor choice is
+    unchanged), never to the canonical winner or the no-setlist.fm path.
+    `is_filler` is used as is. Measured cost: one real mark (deadandcompany-
+    2015-11-20 `Terrapin Station > Drums Intro`; `intro` is filler)."""
+    items = parsed.items
+    out = [it.model_copy(update={"segue": False})
+           if it.segue and (k + 1 == len(items) or is_filler(items[k + 1].title)) else it
+           for k, it in enumerate(items)]
+    if all(a is b for a, b in zip(out, items)):
+        return parsed
+    return parsed.model_copy(update={"items": out})
+
+
 def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                     kept: list[dict], artist: str, events, *,
                     setlistfm=None, provider=None) -> CanonicalBuild:
@@ -934,7 +956,8 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
         best_lma = rank_parses([p for p in parses if p.source != "setlist.fm"
                                 and any(i.segue for i in p.parsed.items)],
                                target_count=len(kept))
-        canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
+        donor = _drop_dangling_segues(best_lma.parsed) if best_lma else None
+        canonical = blend_segues(canonical, donor)
 
     metadata_norms = show_metadata_norms(artist, candidate, meta, events)
     canonical = _strip_head_banner(canonical, metadata_norms)
