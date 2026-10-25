@@ -267,6 +267,8 @@ def _apply_short_rule(
                          interior=lo is not None and lo < pos[_listing_key(f)] < hi) == "keep"
     ]
 
+    # Both derivatives of one original may come back here; filter_files keeps one
+    # (`_dedupe_derivatives`, fix wave I-2), so this rule itself never chooses a copy.
     back = tagged_keep + untagged_keep
     back_ids = {id(f) for f in back}
     new_excluded: list[dict] = []
@@ -400,16 +402,24 @@ DUPLICATE_DERIVATIVE_REASON = "duplicate derivative"
 # the newer file (the re-derivation) in 2017 of 2017 pairs, and `_vbr`'s bitrate
 # is a median 2.6% higher; of the 48 cached pairs whose durations differ by more
 # than 2 s, the plain copy is never the shorter (FW1 review). Set True to keep the
-# `_vbr` copy instead; nothing else needs to change. The preference chooses only
-# among copies the operator has NOT excluded (`_dedupe_derivatives`' `avoid`), so
-# an operator's `fix --exclude` of either copy keeps the other at either value.
+# `_vbr` copy instead. The operator's own choices outrank it, which is what keeps a
+# flip to this one line: a copy the operator has excluded (`_dedupe_derivatives`'
+# `avoid`) is never the kept copy, and a copy the operator has included (`prefer`,
+# FW2 addition B) is, so `fix --exclude` of either copy keeps the other, and an
+# `include` naming one copy ships that copy alone, at either value. (Before B a flip
+# shipped stringcheeseincident-1999-12-31's five included short plain copies twice:
+# the flip dropped them as duplicates and `include` re-admitted them beside their
+# `_vbr` copies.)
 PREFER_VBR_DERIVATIVE = False
 
 
-def _derivative_preference(f: dict) -> tuple[bool, bool, str]:
+def _derivative_preference(f: dict, prefer: frozenset[str] = frozenset()
+                           ) -> tuple[bool, bool, bool, str]:
     """Sort key among derivatives of one original: lowest is kept.
 
-    1. A copy whose stem ends `_vbr` sorts after a plain one (before it with
+    0. A copy in `prefer` (the operator's `overrides.include`, FW2 addition B) sorts
+       first: the operator chose it.
+    1. Then a copy whose stem ends `_vbr` sorts after a plain one (before it with
        `PREFER_VBR_DERIVATIVE`).
     2. Then a copy whose stem is NOT its original's stem sorts last (fix round 1,
        C-1). A group with no `_vbr` copy is a stale derivative left by a renamed
@@ -423,18 +433,22 @@ def _derivative_preference(f: dict) -> tuple[bool, bool, str]:
     stem = basename_without_extension(f["name"])
     vbr = stem.endswith("_vbr")
     stale = stem != basename_without_extension(str(f.get("original") or ""))
-    return (vbr != PREFER_VBR_DERIVATIVE, stale, f["name"])
+    return (f["name"] not in prefer, vbr != PREFER_VBR_DERIVATIVE, stale, f["name"])
 
 
 def _dedupe_derivatives(
     kept: list[dict], avoid: frozenset[str] = frozenset(),
+    prefer: frozenset[str] = frozenset(),
 ) -> tuple[list[dict], list[dict], list[dict]]:
     """Keep at most one derivative per `original` (I-2). A file that is not a
     derivative, or has no `original`, is never a duplicate. Neither is a file in
     `avoid` (the operator's `overrides.exclude`, fix round 1 I-1): it passes
     through untouched for the caller's exclusion to drop as `operator-excluded`,
     and the kept copy is chosen among the others, so excluding the preferred
-    copy keeps the other one instead of silently losing the song. Returns (kept in
+    copy keeps the other one instead of silently losing the song. A file in
+    `prefer` (the operator's `overrides.include`, FW2 addition B) wins its group, so
+    the other copy drops and the song ships once; when both copies are included, one
+    still drops, and `include` re-admits it. Returns (kept in
     input order, an `excluded` entry per dropped copy with reason
     DUPLICATE_DERIVATIVE_REASON, the dropped files themselves). Runs after
     `_dedupe_duplicate_listings`, which is unchanged.
@@ -451,7 +465,7 @@ def _dedupe_derivatives(
     for f in kept:
         if f.get("source") == "derivative" and f.get("original") and f["name"] not in avoid:
             groups.setdefault(f["original"], []).append(f)
-    winner = {orig: min(copies, key=_derivative_preference)
+    winner = {orig: min(copies, key=lambda f: _derivative_preference(f, prefer))
               for orig, copies in groups.items() if len(copies) > 1}
     out: list[dict] = []
     excluded: list[dict] = []
@@ -468,19 +482,31 @@ def _dedupe_derivatives(
     return out, excluded, dropped
 
 
-def _kept_running_time(kept: list[dict]) -> float:
-    return sum(length_seconds(f.get("length")) or 0.0 for f in kept)
+def _kept_running_time(kept: list[dict], avoid: frozenset[str] = frozenset()) -> float:
+    """Total length of `kept`, leaving out an `avoid`ed (operator-excluded) derivative
+    whose original another, non-avoided kept derivative also carries (FW2 addition A,
+    FW1 re-review N-1): `_dedupe_derivatives` never drops an avoided copy, so without
+    this a doubled song the operator repaired by excluding one copy would count twice.
+    Every other excluded file still counts, so an exclude never moves the format away
+    from the one the filename-keyed overrides were written against."""
+    held = {f.get("original") for f in kept
+            if f.get("source") == "derivative" and f.get("original") and f["name"] not in avoid}
+    return sum(length_seconds(f.get("length")) or 0.0 for f in kept
+               if not (f["name"] in avoid and f.get("source") == "derivative"
+                       and f.get("original") in held))
 
 
 def _choose_format(
     files: list[dict], wanted: tuple[str, ...], orig_tracks: dict[str, object],
-    avoid: frozenset[str] = frozenset(),
+    avoid: frozenset[str] = frozenset(), prefer: frozenset[str] = frozenset(),
 ) -> tuple[str, list[dict], list[dict], set[str], list[dict]]:
     """Fix wave I-1 (operator ruling 2026-10-25), the `short_keep=True` path:
     among `wanted`, the format whose KEPT files have the greatest total running
     time wins; `wanted`'s order breaks ties only. "Kept" is after the junk arms,
     the short-keep rule and both dedupes (a format listed twice must not win on
-    its doubled time). When no format keeps anything, the first format with any
+    its doubled time; nor one doubled by an operator-excluded copy,
+    `_kept_running_time`). `avoid` and `prefer` are the operator's exclude and
+    include, for `_dedupe_derivatives`. When no format keeps anything, the first format with any
     audio is returned, so `excluded` explains (unchanged). Returns (format,
     kept, excluded incl. both dedupes' drops, names the rule kept, the files
     the derivative dedupe dropped)."""
@@ -493,13 +519,14 @@ def _choose_format(
         fmt_kept, fmt_excluded, fmt_short = _keep_and_exclude(
             files, audio, short_keep=True, orig_tracks=orig_tracks)
         fmt_kept, dup_excluded = _dedupe_duplicate_listings(fmt_kept)
-        fmt_kept, deriv_excluded, deriv_dropped = _dedupe_derivatives(fmt_kept, avoid)
+        fmt_kept, deriv_excluded, deriv_dropped = _dedupe_derivatives(fmt_kept, avoid, prefer)
         entry = (fmt, fmt_kept, fmt_excluded + dup_excluded + deriv_excluded, fmt_short,
                  deriv_dropped)
         if fallback is None:
             fallback = entry
         if fmt_kept:
-            secs = _kept_running_time(fmt_kept)
+            # The rule (I-1): the greatest kept running time wins; never "first non-empty".
+            secs = _kept_running_time(fmt_kept, avoid)
             if best is None or secs > best[0]:   # strict: earlier format wins a tie
                 best = (secs, entry)
     if best is not None:
@@ -552,7 +579,8 @@ def filter_files(
     `exclude` is `overrides.exclude`, read by that dedupe only: an excluded copy
     is never grouped (never chosen, never dropped as a duplicate) and stays in
     `kept` for the caller to drop (`gather.final_kept`). This filter excludes
-    nothing itself. Ignored with `short_keep=False`.
+    nothing itself. Ignored with `short_keep=False`. The dedupe also reads
+    `readmit`: an included copy wins its group (FW2 addition B).
 
     `readmit` is `overrides.include`: source filenames the operator has ruled
     back in. They are returned to `kept` and removed from `excluded` after the
@@ -576,7 +604,7 @@ def filter_files(
         # Fix wave I-1 and I-2: format by kept running time, then at most one
         # derivative per original (both inside `_choose_format`).
         matched, kept, excluded, short_kept, deriv_dropped = _choose_format(
-            files, wanted, orig_tracks, exclude)
+            files, wanted, orig_tracks, exclude, readmit)
     else:
         # The legacy filter, v2.17.0's exactly (orchestrator ruling): the first
         # format with a non-empty kept set wins, and no derivative dedupe.

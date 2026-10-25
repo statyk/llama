@@ -130,6 +130,45 @@ def test_short_keep_false_keeps_the_first_non_empty_choice():
     assert (_names(kept), excluded, ordering) == (_names(o_kept), o_excl, o_ord)
 
 
+def _flac_derivs(doubled=(3,)):
+    """7 `24bit Flac` originals (300 s each) and a `Flac` derivative of each, the
+    derivatives of `doubled` listed twice (`x1tNN.flac`, `x1tNN_vbr.flac`): the same
+    running time in both formats once each original counts once."""
+    files = []
+    for i in range(1, 8):
+        orig = f"o1t{i:02d}.flac"
+        files.append(_flac(orig, "24bit Flac"))
+        for name in [f"x1t{i:02d}.flac"] + ([f"x1t{i:02d}_vbr.flac"] if i in doubled else []):
+            files.append({"name": name, "format": "Flac", "source": "derivative",
+                          "original": orig, "length": "300.0"})
+    return files
+
+
+def test_an_excluded_duplicate_copy_does_not_double_its_formats_time():
+    """FW2 addition A (FW1 re-review N-1): the operator excluded the plain copy of a
+    doubled pair, so the dedupe keeps the `_vbr` copy and never drops the excluded one.
+    The format's running time counts that song once: 2100 s in each format, a tie the
+    preference order breaks, exactly as with no exclude at all. Before the fix the
+    excluded copy counted too (2400 s) and `Flac` won on its doubled time."""
+    files = _flac_derivs()
+    want = ("24bit Flac", "Flac")
+    assert filter_files(files, want)[2]["format"] == "24bit Flac"            # no exclude
+    _, _, ordering = filter_files(files, want, exclude=frozenset({"x1t03.flac"}))
+    assert ordering["format"] == "24bit Flac"
+    _, _, ordering = filter_files(files, want, exclude=frozenset({"x1t03_vbr.flac"}))
+    assert ordering["format"] == "24bit Flac"
+
+
+def test_an_excluded_single_copy_still_counts_toward_its_format():  # (pin)
+    """FW2 addition A, the other half of the ruling: an excluded file with no twin is
+    NOT subtracted, so an exclude never moves the format away from the one the
+    operator's filename-keyed overrides were written against."""
+    files = _flac_derivs(doubled=())
+    kept, _, ordering = filter_files(files, FLAC, exclude=frozenset({"x1t05.flac"}))
+    assert ordering["format"] == "Flac"
+    assert "x1t05.flac" in _names(kept)        # left for final_kept to drop
+
+
 # --- I-2: at most one derivative per original --------------------------------
 
 def _doubled(n=7, *, short=(), titles=None, vbr_title=True, tracks=False):
@@ -265,8 +304,27 @@ def test_an_edge_short_untagged_pair_drops_like_the_single_copy():
     assert ordering["short_kept"] == []
 
 
+def test_an_included_copy_wins_the_copy_choice(monkeypatch):
+    """FW2 addition B (FW1 re-review N-2): an operator-included copy is the kept copy,
+    the way an excluded one never is; the other copy drops as a duplicate, so the song
+    ships once. (It replaces test_include_re_admits_a_dropped_duplicate, whose
+    include of the `_vbr` copy re-admitted it beside the plain one: the song twice.)"""
+    for prefer_vbr, include in ((False, "x1t03_vbr.mp3"), (True, "x1t03.mp3")):
+        monkeypatch.setattr(junk, "PREFER_VBR_DERIVATIVE", prefer_vbr)
+        kept, excluded, ordering = filter_files(_doubled(), readmit=frozenset({include}))
+        names = _names(kept)
+        other = "x1t03.mp3" if include.endswith("_vbr.mp3") else "x1t03_vbr.mp3"
+        assert include in names and other not in names, prefer_vbr
+        assert _reasons(excluded)[other] == [DUP]
+        assert ordering["readmitted"] == []          # never dropped, so never re-admitted
+        assert len(names) == 7
+
+
 def test_include_re_admits_a_dropped_duplicate():
-    kept, excluded, ordering = filter_files(_doubled(), readmit=frozenset({"x1t03_vbr.mp3"}))
+    """Both copies included: one is still the kept copy and the other drops as a
+    duplicate, which `include` re-admits (no exclusion reason is refused)."""
+    both = frozenset({"x1t03.mp3", "x1t03_vbr.mp3"})
+    kept, excluded, ordering = filter_files(_doubled(), readmit=both)
     assert "x1t03_vbr.mp3" in _names(kept) and "x1t03.mp3" in _names(kept)
     assert ordering["readmitted"] == ["x1t03_vbr.mp3"]
     assert "x1t03_vbr.mp3" not in _reasons(excluded)
@@ -411,11 +469,10 @@ def test_both_copies_excluded_stay_out():
 def test_sci_ships_the_same_songs_at_either_preference(monkeypatch, caplog):
     """The operator's `_vbr` excludes no longer depend on which copy the dedupe
     prefers: at either PREFER_VBR_DERIVATIVE value the same 25 songs ship (every
-    original not excluded in both copies), and no exclude matches nothing. At
-    the default each ships once. (With the flip, the five short plain copies the
-    operator INCLUDED are re-admitted beside their kept `_vbr` copies, so those
-    five ship twice: `include` re-admits, by design. A flip has to revisit those
-    includes; deferred M-2.)"""
+    original not excluded in both copies), EACH ONCE, and no exclude matches nothing.
+    FW2 addition B: the five short plain copies the operator INCLUDED win the copy
+    choice at either value (before it, the flip dropped them as duplicates and
+    `include` re-admitted them beside their kept `_vbr` copies: five songs twice)."""
     files = _load("sci1999-12-31.dsbd.shnf.json")
     ov = Overrides(exclude=SCI_EXCLUDE, include=SCI_INCLUDE)
     shipped = {}
@@ -426,8 +483,9 @@ def test_sci_ships_the_same_songs_at_either_preference(monkeypatch, caplog):
             fk = final_kept(files, ov, ("VBR MP3",))
         origins = [f["original"] for f in fk.kept]
         assert len(set(origins)) == 25, prefer_vbr
-        if not prefer_vbr:
-            assert len(origins) == 25
+        assert len(origins) == 25, prefer_vbr
+        names = _names(fk.kept)
+        assert all(n in names for n in SCI_INCLUDE), prefer_vbr
         shipped[prefer_vbr] = set(origins)
         assert not [r for r in caplog.records if "matched no file" in r.getMessage()]
     assert shipped[False] == shipped[True]
