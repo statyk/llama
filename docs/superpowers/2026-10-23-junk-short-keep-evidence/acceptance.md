@@ -357,3 +357,143 @@ Verbatim:
 3. "Confirmed" — `REKEY_MIN_VERSION = 2.18.0`.
 
 Plus "Go for the next tasks" (Tasks 16-21, then Checkpoint C).
+
+## Checkpoint C (Task 22, at `65be006`, after the final review and both fix waves)
+
+Measured 2026-10-25 03:04-03:18 EDT by the peer orchestrator (orch-r5), under
+`~/.llama-harness/piece4/`. Read-only against the library; no migration has run. A preliminary
+Task 22 at `a693878` (orch-r4, before the fix waves) is superseded by this section: its `cand-c`
+rows equalled `cand-b2` on every field, and its dry run equals the one below.
+
+### Final review, fix waves and rulings
+
+- **Final whole-branch review** (Opus, `.superpowers/sdd/junk-short-keep/tfin-rev/handback.md`), then one fix wave, run as two
+  dispatches in llama-db's order: FW1 (`a693878..1bcccd1`, I-1 + I-2, one fix round, review clean)
+  and FW2 (`1bcccd1..65be006`, review items 3-15 + N-1, N-2, m-1; Opus review: Approved, 0
+  Critical/Important, 4 Minors deferred).
+- **Operator rulings (Shawn, 2026-10-25 ~01:00, relayed by llama-db), verbatim.** On I-1:
+  "\"first format with at least one file left\" seems like the problem. What's the logic of that?
+  Why would we pick a format with 1 file for a concert containing many songs?" On I-2: "Yes, fix
+  it in this branch."
+- **llama-db's rulings on them, verbatim.**
+  - I-1 (replaces the reviewer's narrow fix): "the format choice picks the format whose KEPT files
+    have the greatest total running time; FORMAT_BY_AUDIO preference order breaks ties only (and
+    keep the existing fallback for \"no format keeps anything\", so `excluded` still explains)."
+  - I-2 generalized (overrides Checkpoint A ruling 5's "not in this branch"): "within the winning
+    format, keep at most one derivative per `original` across ALL kept files, long and short ...
+    Which copy: the plain X.mp3 (the newer re-derivation ...). Put the preference in one named
+    place — Shawn may still flip it to _vbr ... Dropped copies go to `excluded` with their own
+    reason (e.g. \"duplicate derivative\")."
+  - Both supersede the plan's Global Constraint on `filter_files`' format choice and CLAUDE.md's
+    "first format whose kept set is non-empty" (queued for Task 23).
+- **FW1 measurements** (`1bcccd1`; lists under `~/.llama-harness/piece4/fw1/`):
+  - Cache, 15,607 items: under mp3, 0 format flips; under flac, 31 flips, all to `24bit Flac`
+    with more tracks and running time. Under mp3, 111 items lose 1,970 duplicate copies and
+    nothing else changes. In the 23 non-`_vbr` copy groups, the copy kept is the one named after
+    its original (23/23), which is also the newer file (23/23).
+  - Library, 3,983 shows: 23 shows / 414 files change, every one a `_vbr` dropped as
+    `duplicate derivative`. Nothing else drops, adds or reorders, and no song loses its last copy.
+  - Selected recording: changes on 20 GD dates (`fw1/m3_changed-r1.json`). Those re-gather and
+    re-research in the bulk apply.
+- **FW2 measurements** (`~/.llama-harness/piece4/fw2/`, by its implementer):
+  - The briefing-reuse gate over `dump.jsonl` refuses 1014/1014, and the reuse arm 901/901. No row
+    loses a term or changes reason.
+  - The A/B copy-choice changes leave the 179 library shows that have includes/excludes unchanged.
+
+### Arms
+
+| arm | sha | ran (EDT) | output sha256 |
+|---|---|---|---|
+| base (Checkpoint A, unchanged) | `e37f67024eb3df6ae7fad19357ef3c8a1f84b34c` | 2026-10-24 04:40 | `base.json` b8ea3d048d6cd12e… |
+| candidate `cand-c2` (`--rekey-overrides`) | `65be006d19bafefead24dadb69f0e284ca3b2947` (clean) | 03:04-03:05:51 | `cand-c2.json` f502c0c5dac8d050… |
+
+The `config_fingerprint` is the same on both (3f1af9a8…), and the candidate's `llama.__file__` is
+inside the worktree. There are 0 `rekey_error` rows.
+
+### Gates
+
+- **`compare`:** with `--no-repro-gate` (operator ruling 2026-10-24 ~11:25, "--no-repro-gate
+  approved"), rc 0, and the baseline reproduces 127/148 as at Checkpoint A.
+  `~/.llama-harness/piece4/compare-c2/`.
+- **`arms`:** rc 0. **`BLOCKS MERGE (0)`** (`arms-c2/arms.md`, sha256 c154d3aa75d21743…). Counts:
+  changed 1545, files added 2624, same 1447, unchanged 2438, flags-changed 43, added 34,
+  cleared 21. The pre-fix-wave `arms-c` had changed 1531, files added 2639, added 34, cleared 20.
+- **Tallies:** clean 1653, clean-changed 1308, needs-brief 4, needs-llm 654, newly-held 220,
+  still-held 135, still-held-package 1, structure-changed 8. Against `cand-c`: clean -11,
+  clean-changed +11, the rest equal.
+
+### What the fix waves moved (cand-c vs cand-c2)
+
+Exactly 23 rows differ, and they are FW1 M2's 23 de-doubled shows, set-equal
+(`ckc2/c_vs_c2_rowdiff.json`, `ckc2/dedoubled23.txt` sha256 b22ea0d9e4eb564a…).
+
+- **Titles and structure on the kept files.**
+  - Unchanged: titles, title sources and set labels.
+  - Play order is kept on 23/23 shows, and every set break lands on the same song (now the plain
+    copy).
+  - 0 non-`_vbr` files are dropped.
+  - This closes the Checkpoint C question r4 left unmeasured (sibling-format / slice-3 C /
+    sibling-align could have fired).
+- **Outcomes.**
+  - 11 shows go `clean` → `clean-changed`, because the track list changed.
+  - `stringcheeseincident-1999-12-31` goes `clean-changed` → `clean`, because it was hand-repaired
+    to the single list.
+  - Briefing goes `reuse` → `fresh` on 13 GD shows (`briefing_reusable` refuses: the stored list is
+    the doubled one), and `fresh` → `reuse` on sci.
+- **Segue marks move on 9 GD shows** (read-only investigation t22-seg, Opus,
+  `.superpowers/sdd/junk-short-keep/t22-seg/handback.md`; evidence under `~/.llama-harness/piece4/t22-seg/`).
+  - **The cause is not FW1's rule and not `align()`.** `gather.build_canonical` ranks the LMA parses
+    by `target_count=len(kept)` to pick the segue donor for `blend_segues` (and the canonical
+    itself when there is no setlist.fm). The doubled count steered that choice arbitrarily.
+    - Patching only `junk._dedupe_derivatives` to a no-op reproduces cand-c's segues exactly, on
+      18/18 arm-rows.
+  - **Song-level result** over the 9 shows: 33 marks change, 21 gained and 12 lost.
+    - The de-doubled arm is right on 18, wrong on 9, unclear on 6.
+    - Agreement with the description majority over 179 voted tracks: doubled 153, de-doubled 156.
+  - **The doubled arm's "right" marks sit on the wrong transition** ("Bird Song > Bird Song"
+    across the `_vbr` twin).
+  - **Worst case: `gratefuldead-1988-06-23`** (delivered) loses 5 real marks (He's Gone > Drums >
+    Space > I Need A Miracle >, Watchtower >; 8/9-8/8 of descriptions). The new donor is the chosen
+    recording's description, which has no `>` at all.
+  - **The wrong ones fall into three pre-existing classes:**
+    - (A) a donor that carries no segues;
+    - (B) run-on chosen descriptions (parse_setlist's documented merge);
+    - (C) `blend_segues` pooling by exact title (`Space` vs `Jam`).
+  - **Fix (A), tested in memory only:** rank the donor only among LMA parses that carry a segue.
+    It restores 4 of 1988-06-23's 5 marks and changes nothing on the other 8 shows (agreement
+    160/179). Its effect on the rest of the library is unmeasured. It is not built: it is a
+    Checkpoint C question.
+- **Flags:**
+  - `gratefuldead-1972-11-18` (needs-llm both arms) surfaces 15 `research asserts unknown song`.
+    The 4a gate's `asserted` count had been doubled (16 vs 15); now it is 9 vs 15. The tape is 1
+    set of 9 songs against jerrybase's 2, so the flags are accurate.
+  - `gratefuldead-1990-07-14` and `gratefuldead-1989-07-18` lose `low-confidence structure
+    alignment`, because coverage doubles (0.47 → 0.95, 0.5 → 1.0). 1990-07-14 gains a jerrybase
+    closer flag that the doubled ambiguity had hidden. Both stay needs-llm (stored alignment
+    `llm`).
+
+### Migration dry run (read-only, real library)
+
+`./.venv/bin/python scripts/rekey_overrides.py`, rc 0, at 03:07: **606 to rekey, 0 refused, 0
+already migrated, 3377 without positional keys.** The output equals the Checkpoint C preliminary
+(`ckc/dryrun.out`), timestamps aside: 3,203 titles / 427 breaks / 365 encore keys, which is spec
+4.3 "Measured today" exactly. The process check printed `llama processes running: none` plus the
+interactive-loop note. Checked afterwards: no `~/.llama/.rekey.lock`, and nothing under `~/.llama`
+newer than the marker. Output `~/.llama-harness/piece4/ckc2/dryrun.out` (sha256 0efd271c5cf4495e…).
+As expected, the de-doubling does not move it, because the dry run judges legacy `show.json` with
+`short_keep=False`, which stays v2.17.0 byte-identical.
+
+### Suite
+
+`./.venv/bin/python -m pytest -q -p no:cacheprovider` at `65be006`: **5442 passed, 1 skipped, 8
+deselected, 26 warnings in 52.39s**, rc 0. `llama.__file__` was inside the worktree. The 26
+warnings are the pre-existing Python 3.14 `multiprocessing` fork() DeprecationWarnings
+(test_atomic_write / concurrency / ledger_concurrency / locks / sessions), at the same count as
+every task since the baseline.
+
+### Mutation record
+
+`docs/superpowers/2026-10-24-junk-short-keep-sdd/mutation.md` (Task 21): 21 mutants, 20 caught by
+a predicted test, 1 survived the predicted test ((j): a plan prediction error, ruled, no gap), and
+0 hangs. The fix waves came after it and carry their own scratch mutants: FW1, 6 + 3; FW2, 9; each
+red as predicted (implementer reports).
