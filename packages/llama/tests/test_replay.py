@@ -1167,6 +1167,128 @@ def test_each_absence_wording_refuses(text, term):
         f"briefing mentions a restored file: says '{term}' in cautions"
 
 
+# --- FW2 (final review fix wave items 3-5): the gate refuses more, never less ---
+
+@pytest.mark.parametrize("text, term", [
+    # item 3 (15b N1, m-2): a quote-like character glued between two words. `’` was
+    # already an interior joiner in `_TOKEN`; the fold made `‘`, `` ` ``, `´`, `ʼ`, `′`
+    # joiners too. A third copy with every apostrophe a separator reads them apart.
+    ("The reprise is not‘listed’.", "not listed"),
+    ("The reprise is not’listed.", "not listed"),
+    ("The reprise is not`listed`.", "not listed"),
+    ("The reprise is not´listed.", "not listed"),
+    ("The reprise is notʼlisted.", "not listed"),
+    ("The reprise is not′listed.", "not listed"),
+    ("The reprise is not‘included.", "not included"),
+    ("The reprise isn´t listed.", "not listed"),
+    ("The reprise isn't listed.", "not listed"),
+    # item 4: up to two words between `too`/`implausibly` and `short`
+    ("The opening file is too very short to be a song.", "too short"),
+    ("The opening file is too, frankly, short to be a song.", "too short"),
+    ("The opening file is implausibly, very short.", "implausibly short"),
+    ("The opening file is implausible and short.", "implausibly short"),
+])
+def test_fw2_absence_wording_refuses(text, term):
+    old, new = _restored_pair()
+    assert briefing_reusable(old, new, _with_caution(text), "full") == \
+        f"briefing mentions a restored file: says '{term}' in cautions"
+
+
+# Item 5, the measured vocabulary. Corpus counts are t15b-rr5's, over
+# ~/.llama-harness/piece4/ckb/15a/dump.jsonl (1,014 rows; every row is refused by some
+# other term too, so none of these moves a corpus verdict):
+#   lacks:          57 spans in 50 rows; 6 in 6 with a data subject (4 real piece-absence
+#                   claims: brotherspast-2006-11-17, joerussosalmostdead-2018-03-10,
+#                   belafleckandtheflecktones-1995-08-25, thetravelinmccourys-2014-05-24)
+#   not recorded:   10 spans in 9 rows (hayescarll-2006-01-21 x2, meatpuppets-1988-02-06,
+#                   greenskybluegrass-2012-03-21: songs not on the tape)
+#   cut from:       5 rows (greenskybluegrass-2010-03-26)
+#   lists no:       verb-then-no 506 spans in 363 rows; with a data subject, excluding
+#                   "flags", 100 spans in 96 rows (billystrings-2017-08-29)
+@pytest.mark.parametrize("text, term", [
+    ("His tape lacks the intro.", "lacks"),
+    ("The page lists entries the track data lacks.", "lacks"),
+    ("The opening songs were not recorded.", "not recorded"),
+    ("The opener was never actually recorded.", "not recorded"),
+    ("The opening songs were cut from the recording.", "cut from the recording"),
+    ("The opener was cut off the tape.", "cut from the recording"),
+    ("The show data lists no encore.", "lists no"),
+    ("The tape contains no reprise.", "lists no"),
+    ("Setlist.fm lists no encore.", "lists no"),
+])
+def test_fw2_measured_vocabulary_refuses(text, term):
+    old, new = _restored_pair()
+    assert briefing_reusable(old, new, _with_caution(text), "full") == \
+        f"briefing mentions a restored file: says '{term}' in cautions"
+
+
+@pytest.mark.parametrize("slug, text, term", [
+    ("belafleckandtheflecktones-1995-08-25",
+     'His tape lacks the intro and about 20 seconds of "Vix', "lacks"),
+    ("brotherspast-2006-11-17",
+     "The page lists entries the track data lacks: a return to One Rabbit Race at the end",
+     "lacks"),
+    ("hayescarll-2006-01-21",
+     "According to the taper, the first two songs of the night were not recorded, so the "
+     "opener on the recording, 'Wish", "not recorded"),
+    ("greenskybluegrass-2010-03-26",
+     "The show's first two songs were cut from the recording at the sound engineer's request",
+     "cut from the recording"),
+    ("billystrings-2017-08-29",
+     "The show data lists no encore; all 21 tracks are labeled set 1", "lists no"),
+])
+def test_fw2_corpus_sentences_fire_their_term(slug, text, term):
+    """The corpus wording itself (dump.jsonl, the row named): the term is among the hits,
+    whichever term comes first in the sentence (`two songs` is a track count)."""
+    from llama.replay import _restored_mentions
+    b = _with_caution(text)
+    assert ("says", term, "cautions") in _restored_mentions(b, [_RESTORED]), slug
+
+
+def test_fw2_the_new_terms_come_last():
+    """Appended after every earlier term, so no earlier first hit moves."""
+    from llama.replay import _RESTORED_WORDING
+    names = [t for t, _, _ in _RESTORED_WORDING]
+    assert names[-4:] == ["lacks", "not recorded", "cut from the recording", "lists no"]
+    assert names[:-4][-2:] == ["not included or listed", "no … listed"]
+
+
+# --- FW2 item 15 (T11 pins): the reuse rule's own branches ---
+
+def test_reuse_refuses_when_a_non_short_filename_differs():
+    old = _show()
+    renamed = old.tracks[1].model_copy(update={"filename": "b2.mp3"})
+    new = old.model_copy(update={"tracks": [old.tracks[0], renamed, old.tracks[2]]})
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") == "tracks differ"
+
+
+def test_a_none_break_key_on_both_sides_reuses():
+    """(pin) Stored: a break after track 0 is impossible, so both sides carry the
+    short-kept first track: the stored show already had it as a plain track."""
+    old_tracks = [_bt(1, "intro.mp3", "Intro"), _bt(2, "a.mp3", "Dew"),
+                  _bt(3, "b.mp3", "Star", "2")]
+    old = _show(tracks=old_tracks, set_breaks=[1, 2])
+    new_tracks = [t.model_copy(update={"short_kept": t.filename == "intro.mp3"})
+                  for t in old_tracks]
+    new = old.model_copy(update={"tracks": new_tracks})
+    # the break after track 1 keys None on both sides (no remaining track at or before it)
+    assert briefing_reusable(old, new, _reuse_briefing(), "full") is None
+
+
+def test_a_none_break_key_against_a_real_one_forces_a_brief():
+    """(pin) A break after the short-kept first track (key None) against one after a
+    real track (key `a.mp3`), either way round: a moved break."""
+    old_tracks = [_bt(1, "intro.mp3", "Intro"), _bt(2, "a.mp3", "Dew"),
+                  _bt(3, "b.mp3", "Star", "2")]
+    new_tracks = [t.model_copy(update={"short_kept": t.filename == "intro.mp3"})
+                  for t in old_tracks]
+    for was, now in (([1], [2]), ([2], [1])):
+        old = _show(tracks=old_tracks, set_breaks=was)
+        new = old.model_copy(update={"tracks": new_tracks, "set_breaks": now})
+        assert briefing_reusable(old, new, _reuse_briefing(), "full") == \
+            "broadcast fields changed: set_breaks", (was, now)
+
+
 def test_wording_refuses_anywhere_not_only_about_the_restored_file():
     # the conservative choice: the wording need not be about the restored file
     old, new = _restored_pair()

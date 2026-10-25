@@ -260,24 +260,31 @@ _COUNT_NUM = (r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|t
 # characters joined by single interior apostrophes (`isn't`, `aren’t`; the look-alikes
 # `` ` ``, `´`, `ʼ`, `‘` and `′` fold to `'` first). Every other character is a separator:
 # dashes, quotes, brackets and `;:,()`. The hyphen is read BOTH ways and a term fires on
-# either copy: as a separator (`not-listed` reads `not listed`) and as an interior joiner
+# any copy: as a separator (`not-listed` reads `not listed`) and as an interior joiner
 # (`return-to-astronaut` is one window word, so "no separate return-to-astronaut track"
-# fits a 3-word window). So a term is a negation, a bounded window of up to N words,
-# then the head word. `_SEP` (a space) and `_WORD` (no space) are disjoint, so a
-# window splits one way only and the match stays linear.
+# fits a 3-word window). The apostrophe is read both ways too (FW2, 15b N1): a third copy
+# makes every apostrophe a separator, so a quote glued between two words ("not’listed",
+# "not‘listed’", which `’` and the fold would join into one word) reads `not listed`.
+# Each copy only adds readings, so the gate refuses more, never less. So a term is a
+# negation, a bounded window of up to N words, then the head word. `_SEP` (a space) and
+# `_WORD` (no space) are disjoint, so a window splits one way only and the match stays
+# linear.
 _NEG = r"(?:\bnot|\bnever|n['’]t|\bcannot|\bno longer|\bnowhere|\bneither|\bnor)"
 _SEP = " "
 _WORD = r"[^ ]+"
 _TOKEN = re.compile(r"\w+(?:['’]\w+)*")
 _TOKEN_HYPHENATED = re.compile(r"\w+(?:['’-]\w+)*")
+_TOKEN_SPLIT = re.compile(r"\w+")
 _APOSTROPHES = str.maketrans({"`": "'", "´": "'", "ʼ": "'", "‘": "'", "′": "'"})
 
 
-def _normalised(text: str) -> tuple[str, str]:
+def _normalised(text: str) -> tuple[str, str, str]:
     """`text`'s words, single-space separated, punctuation a separator: once with the
-    hyphen a separator too, once with it joining a word."""
+    hyphen a separator too, once with it joining a word, and once with every apostrophe
+    (after the fold; `ʼ` is a word character until it is folded) a separator too."""
     text = text.translate(_APOSTROPHES)
-    return " ".join(_TOKEN.findall(text)), " ".join(_TOKEN_HYPHENATED.findall(text))
+    return (" ".join(_TOKEN.findall(text)), " ".join(_TOKEN_HYPHENATED.findall(text)),
+            " ".join(_TOKEN_SPLIT.findall(text)))
 
 
 def _window(n: int, word: str = _WORD) -> str:
@@ -295,8 +302,10 @@ _RESTORED_WORDING = tuple(
     (term, raw and re.compile(raw), norm and re.compile(norm)) for term, raw, norm in (
     ("excluded", r"\bexclu(?:de|ded|des|ding|sion|sions)\b", None),
     # these three also read the normalised text (fix round 5): "too—short", "left (entirely) out"
-    ("implausibly short", r"\bimplausibl[ey]\s+short\b", r"\bimplausibl[ey] short\b"),
-    ("too short", r"\btoo\s+short\b", r"\btoo short\b"),
+    # FW2 item 4: up to 2 words between, on the normalised text ("too very short",
+    # "implausibly, very short"), as `left out` already allowed
+    ("implausibly short", r"\bimplausibl[ey]\s+short\b", rf"\bimplausibl[ey]{_window(2)}short\b"),
+    ("too short", r"\btoo\s+short\b", rf"\btoo{_window(2)}short\b"),
     ("left out", r"\b(?:left|leaves?|leaving)\s+(?:out|off)\b",
                  rf"\b(?:left|leaves?|leaving){_window(2)}(?:out|off)\b"),
     ("omitted", r"\bomi(?:t|ts|tted|tting|ssion|ssions)\b", None),
@@ -348,6 +357,27 @@ _RESTORED_WORDING = tuple(
     ("not included or listed", None, rf"{_NEG}{_window(5)}(?:list(?:s|ed|ing)?|contain(?:s|ed|ing)?)\b"),
     # a bare `no` before a head: "No encore is listed.", "No intro appears."
     ("no … listed", None, rf"\bno{_window(3)}(?:listed|included|present|appear(?:s|ed|ing)?|found)\b"),
+    # FW2 item 5, the vocabulary 15b measured outside every term (t15b-rr5, over
+    # ~/.llama-harness/piece4/ckb/15a/dump.jsonl's 1,014 rows), appended last so no
+    # earlier first hit moves. Corpus counts, by 15b's own probes:
+    # `lacks`: 57 spans in 50 rows, 6 in 6 with a data subject ("his tape lacks the
+    #   intro", belafleckandtheflecktones-1995-08-25; "the track data lacks",
+    #   brotherspast-2006-11-17); a plain word, so it also refuses "lacking in top end".
+    ("lacks", r"\black(?:s|ed|ing)?\b", None),
+    # `not recorded`: 10 spans in 9 rows ("the first two songs of the night were not
+    #   recorded", hayescarll-2006-01-21)
+    ("not recorded", None, rf"{_NEG}{_window(3)}recorded\b"),
+    # `cut from the recording`: 5 rows ("were cut from the recording",
+    #   greenskybluegrass-2010-03-26); also `off`/`out` and the `not found` nouns
+    ("cut from the recording", None,
+     rf"\bcuts?{_window(2)}(?:from|off|out){_window(3)}(?:tape|recording|data|listing|list|file|show)s?\b"),
+    # data subject, then `lists|contains`, then `no`: 100 spans in 96 rows with a data
+    #   subject, "flags" left out of that count (506 in 363 for any verb, then `no`);
+    #   "the show data lists no encore" (billystrings-2017-08-29), "Setlist.fm lists no
+    #   encore". Up to 2 words between subject and verb, 1 between verb and `no`.
+    ("lists no", None,
+     r"\b(?:data|tapes?|recordings?|lists?|listings?|tracklists?|setlists?|tracks?|files?"
+     rf"|page|description|notes|fm){_window(2)}(?:list(?:s|ed)?|contain(?:s|ed)?){_window(1)}no\b"),
 ))
 
 # A filename's disc/track tail (`d3t04`, `s2t01`, `D3_T02`, `t14`, `track01`).
