@@ -253,6 +253,19 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   flags, `--transcribe` drafts `voice_clone_text` on the mlx-audio server's
   STT model and writes it only on confirmation; `voice_clone` is stored as an
   absolute path), `emcee config init`.
+- Read-only scheduler views (no lock, never write; `schedule` uses `load_epoch`, so with no
+  `epoch.json` it previews from a provisional in-memory epoch and says so):
+  `transmitter schedule [--days 7] [--clock FILE] [--library eligible|delivered]` (the persisted
+  plan from now, then what the scheduler would append: per block its nominal/actual start and slip,
+  shows with `~` on estimated lengths, fill cause, station breaks, MISS, degraded, bent rules and
+  missing announcement audio, then a summary; a block entered mid-way, i.e. the phase-1 cutover or
+  a fresh run after an outage, records MISS on its first show by design),
+  `transmitter library` (eligible shows by profile with count/median/p10/p90, the interstitial
+  pool, ineligible packages by first reason incl. `awaiting fix from llama`). `status` reads
+  persisted rows and the interstitials folder only: clock source, current/next block, misses and
+  fill minutes by cause for the last and next 24 h, bends, degraded blocks, missing announcement
+  audio; none of it alerts. `scripts/probe_estimates.py --time-one SLUG` prints an ineligible
+  package's reasons (or `not found`).
 - Run (transmitter, playout on hugo — phases 1-2): `transmitter run` (service
   loop: plan/render once the lead drops below `low_water_hours`, and keep
   filling until it is back at `lead_hours`; publish + prune every minute;

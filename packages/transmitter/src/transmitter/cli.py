@@ -238,6 +238,32 @@ def status(config: Path = CONFIG_OPT):
         typer.echo(line)
 
 
+@app.command()
+def schedule(
+    days: float = typer.Option(7.0, "--days", min=0.1, help="How far ahead to preview"),
+    clock_file: Path = typer.Option(None, "--clock", exists=True, dir_okay=False,
+                                    help="Preview a draft clock file (default: the live clock)"),
+    library: str = typer.Option("eligible", "--library",
+                                help="eligible (the station's pool) or delivered (every delivered package, "
+                                     "voiced or not, on estimated lengths)"),
+    config: Path = CONFIG_OPT,
+):
+    """Preview the persisted plan from now, then what the scheduler would append. Read-only: writes nothing.
+
+    A block entered mid-way (phase-1 cutover, a fresh run) records MISS on its first show, by design."""
+    cfg = load_config(config)
+    for line in service.schedule_report(cfg, service.now_us(), days=days, clock_file=clock_file, library=library):
+        typer.echo(line)
+
+
+@app.command()
+def library(config: Path = CONFIG_OPT):
+    """Eligible shows by profile (count, median, p10, p90), the interstitial pool, ineligible packages by reason."""
+    cfg = load_config(config)
+    for line in service.library_report(cfg, service.now_us()):
+        typer.echo(line)
+
+
 @fallback_app.command("render")
 def fallback_render(
     loop: Path = typer.Argument(..., exists=True, dir_okay=False, help="Station-ID loop audio"),

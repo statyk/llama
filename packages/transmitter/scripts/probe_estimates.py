@@ -33,6 +33,17 @@ def _is_64k(show: station.Show) -> bool:
     return bool(flags) and all(flags)
 
 
+def _why_not_eligible(slug: str, root: Path | None, ineligible: list[station.Ineligible]) -> str:
+    """Why `slug` is not an eligible package: its Ineligible reasons (a quiet period is among them), or
+    'not found' when the station root has no such package."""
+    got = next((i for i in ineligible if i.slug == slug), None)
+    if got is not None:
+        return f"error: package {slug!r} is not eligible: " + "; ".join(got.reasons)
+    if root is not None and (Path(root) / slug).is_dir():
+        return f"error: package {slug!r} is not eligible (no reason reported)"
+    return f"error: package {slug!r} not found in the station root"
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", type=Path, required=True, help="transmitter config.toml")
@@ -51,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.time_one:
         match = [s for s in shows if s.slug == args.time_one]
         if not match:
-            print(f"error: no eligible package {args.time_one!r}", file=sys.stderr)
+            print(_why_not_eligible(args.time_one, cfg.station.root, _skipped), file=sys.stderr)
             return 1
         t0 = time.monotonic()
         result = analysis.analyze_show(match[0], cfg.render.ffmpeg)

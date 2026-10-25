@@ -326,3 +326,168 @@ def test_announcements_notes_a_missing_interstitials_folder(tmp_path, monkeypatc
     assert "note: no interstitials folder (" in result.output
     assert result.output.count("note: no interstitials folder") == 1
     assert "missing" in result.output
+
+
+# --- schedule, library, status (Task 13) ---------------------------------------
+
+import json  # noqa: E402
+
+from tests_transmitter.helpers import E, add_clip, mark_awaiting_fix  # noqa: E402
+from transmitter import announce, clock as clock_mod  # noqa: E402
+from transmitter.workspace import write_json  # noqa: E402
+
+_CLOCK = 'timezone = "UTC"\n' + "".join(
+    f'[[block]]\nname = "b{h:02d}"\ntitle = "Block {h}"\nstart = "{h:02d}:00"\nprofiles = ["indie"]\n'
+    for h in range(0, 24, 2))
+
+
+def _tree(path):
+    return {str(p.relative_to(path)): p.read_bytes() for p in sorted(path.rglob("*")) if p.is_file()}
+
+
+def _setup(tmp_path, monkeypatch, *, epoch=True, clock=_CLOCK, ids=(), packages=3):
+    tx = tmp_path / "tx"
+    monkeypatch.setenv("TRANSMITTER_ROOT", str(tx))
+    engine = FakeEngine()
+    monkeypatch.setattr(service, "make_engine", lambda ws, cfg: engine)
+    root = make_root(tmp_path)
+    for i in range(packages):
+        build_package(root, f"band-2005-11-0{i + 1}")
+    for name in ids:
+        add_clip(root, f"id-{name}.mp3")
+    tx.mkdir()
+    if epoch:
+        ws = Workspace(tx)
+        write_json(ws.epoch_path, {"epoch_id": "etest", "epoch": service.grid.us_to_iso(
+            service.now_us() - 3_600_000_000), "d": 10.24})
+    if clock is not None:
+        (tx / "clock.toml").write_text(clock)
+    return tx, root, engine, _config(tmp_path, root)
+
+
+def test_schedule_writes_nothing(tmp_path, monkeypatch):
+    tx, root, engine, cfg = _setup(tmp_path, monkeypatch, ids=("a",))
+    (tx / "clock.last-good.toml").write_text("# older\n" + _CLOCK)
+    before = _tree(tx)
+    result = CliRunner().invoke(app, ["schedule", "--days", "1", "--config", str(cfg)])
+    assert result.exit_code == 0, result.output
+    assert "Block" in result.output and "summary" in result.output
+    assert _tree(tx) == before                     # clock.last-good.toml, cache/, alerts.json, plan: untouched
+    assert engine.analyzed == []                   # no analysis requested
+
+
+def test_schedule_with_no_epoch_previews_and_creates_none(tmp_path, monkeypatch):
+    tx, root, engine, cfg = _setup(tmp_path, monkeypatch, epoch=False)
+    result = CliRunner().invoke(app, ["schedule", "--days", "1", "--config", str(cfg)])
+    assert result.exit_code == 0, result.output
+    assert "no epoch yet" in result.output
+    assert not (tx / "epoch.json").exists()
+    assert not (tx / "epoch.lock").exists()
+
+
+def test_schedule_marks_estimates(tmp_path, monkeypatch):
+    tx, root, engine, cfg = _setup(tmp_path, monkeypatch)
+    result = CliRunner().invoke(app, ["schedule", "--days", "1", "--config", str(cfg)])
+    assert result.exit_code == 0, result.output
+    assert "~" in result.output and "min)" in result.output
+
+
+def test_schedule_lists_missing_announcement_audio(tmp_path, monkeypatch):
+    tx, root, engine, cfg = _setup(tmp_path, monkeypatch, ids=("a",))
+    live = clock_mod.load_clock(tx / "clock.toml")
+    need = announce.needed(live, service.now_us(), 2)
+    assert need
+    have = need[0]
+    add_clip(root, f"ann-{have.id}.mp3")
+    result = CliRunner().invoke(app, ["schedule", "--days", "1", "--config", str(cfg)])
+    assert result.exit_code == 0, result.output
+    assert "missing announcement audio" in result.output
+    assert f"ann-{need[1].id}.mp3" in result.output and f"ann-{have.id}.mp3" not in result.output
+    assert "announcement(s) missing" in result.output
+
+
+def test_schedule_draft_clock_and_delivered_library(tmp_path, monkeypatch):
+    tx, root, engine, cfg = _setup(tmp_path, monkeypatch, clock=None)
+    draft = tmp_path / "draft.toml"
+    draft.write_text(_CLOCK)
+    build_package(root, "unvoiced-2005-11-09", voiced=False)
+    result = CliRunner().invoke(app, ["schedule", "--days", "1", "--clock", str(draft), "--library", "delivered",
+                                      "--config", str(cfg)])
+    assert result.exit_code == 0, result.output
+    assert "Block" in result.output
+    assert not (tx / "clock.toml").exists()
+
+
+def test_library_reports_profiles_pool_and_ineligible(tmp_path, monkeypatch):
+    tx, root, engine, cfg = _setup(tmp_path, monkeypatch, ids=("hello",))
+    mark_awaiting_fix(build_package(root, "held-2005-11-05"))
+    build_package(root, "plain-2005-11-06", voiced=False)
+    add_clip(root, "ann-abc123def456.mp3")
+    result = CliRunner().invoke(app, ["library", "--config", str(cfg)])
+    assert result.exit_code == 0, result.output
+    out = result.output
+    assert "indie" in out and "3 shows" in out and "median" in out and "p10" in out and "p90" in out
+    assert "id-hello" in out and "ann-abc123def456" in out
+    assert "awaiting fix from llama" in out and "held-2005-11-05" in out
+    assert engine.analyzed == []
+
+
+def test_status_says_no_clock_open_all_week(tmp_path, monkeypatch):
+    tx, root, engine, cfg = _setup(tmp_path, monkeypatch, clock=None)
+    result = CliRunner().invoke(app, ["status", "--config", str(cfg)])
+    assert result.exit_code == 0, result.output
+    assert "clock      no clock: open all week" in result.output
+    assert "anchors" not in result.output
+
+
+def test_status_reads_persisted_rows_only(tmp_path, monkeypatch):
+    from transmitter import scheduler, pipeline
+    tx, root, engine, cfg = _setup(tmp_path, monkeypatch, ids=("a",))
+    from transmitter.config import load_config
+    st = service.open_station(load_config(cfg), service.now_us())
+    pipeline.plan_step(st, service.now_us())
+    n_analyzed = len(engine.analyzed)
+
+    def boom(*a, **k):
+        raise AssertionError("status must not run the scheduler")
+
+    monkeypatch.setattr(scheduler, "project", boom)
+    monkeypatch.setattr(service.station, "scan", boom)
+    result = CliRunner().invoke(app, ["status", "--config", str(cfg)])
+    assert result.exit_code == 0, result.output
+    assert "clock      clock.toml" in result.output
+    assert "block      " in result.output
+    assert "last 24 h" in result.output and "next 24 h" in result.output
+    assert "announce" in result.output
+    assert len(engine.analyzed) == n_analyzed
+
+
+def test_status_names_the_show_not_the_clip_on_air(tmp_path, monkeypatch):
+    from transmitter.layout import PlanRow
+    from transmitter.planner import write_plan
+    tx, root, engine, cfg = _setup(tmp_path, monkeypatch)
+    now = service.now_us()
+    ws = Workspace(tx)
+    frame = (now - service.load_epoch(ws).epoch_us) * 44_100 // (1024 * 1_000_000)
+    write_plan(ws.plan_path, [PlanRow(seq=0, slug="id-hello", dir="interstitials", key="k", start_frame=frame - 10,
+                                      frames=1000, run_start=False, kind="interstitial", role="id",
+                                      block="b00", nominal_start="2026-11-02T00:00:00Z")])
+    result = CliRunner().invoke(app, ["status", "--config", str(cfg)])
+    assert "on air     station break" in result.output and "on air     id-hello" not in result.output
+
+
+def test_status_block_lines_name_the_current_and_next_block(tmp_path, monkeypatch):
+    from transmitter import grid, pipeline
+    from transmitter.config import load_config
+    from transmitter.planner import read_plan
+    tx, root, engine, cfg_path = _setup(tmp_path, monkeypatch, ids=("a",))
+    cfg = load_config(cfg_path)
+    st = service.open_station(cfg, service.now_us())
+    pipeline.plan_step(st, service.now_us())
+    rows = read_plan(st.ws.plan_path)
+    t = st.epoch.epoch_us + (rows[0].start_frame + 10) * grid.FRAME_SAMPLES * 1_000_000 // grid.SAMPLE_RATE
+    lines = service.status_lines(cfg, t)
+    block = next(l for l in lines if l.startswith("block      "))
+    assert block.startswith("block      now Block ") and "; next " in block
+    assert any(l.startswith("last 24 h ") and "misses" in l for l in lines)
+    assert any(l.startswith("bends      ") for l in lines) and any(l.startswith("degraded   ") for l in lines)

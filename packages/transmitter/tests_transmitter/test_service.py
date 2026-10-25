@@ -586,7 +586,7 @@ def test_status_shows_the_cloud_state_and_active_alerts(tmp_path):
     assert "killswitch enabled" in text
     assert "offair     ON since 2026-10-20T05:00:00.000Z (objection)" in text
     assert "alerts     cloud: tripped-blind" in text
-    assert "anchors    none" in text
+    assert "clock      no clock: open all week" in text
 
 
 def test_status_without_cloud_access_still_prints_the_local_half(tmp_path):

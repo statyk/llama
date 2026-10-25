@@ -58,3 +58,9 @@ def scan(folder: Path | None, *, now_s: float, quiet_s: float) -> list[Show]:
         shows.append(Show(p.stem, Path(folder), (Entry(name, "clip", title),), key,
                           {"role": role, "ann_id": ann_id, "sizes": sizes}))
     return sorted(shows, key=lambda s: s.slug)
+
+
+def ann_ids(folder: Path | None) -> set[str]:
+    """The announcement ids whose audio is in the folder (a directory read;
+    ignores the quiet period, as `transmitter announcements` does)."""
+    return {s.meta["ann_id"] for s in scan(folder, now_s=float("inf"), quiet_s=0.0) if s.meta["role"] == "ann"}
