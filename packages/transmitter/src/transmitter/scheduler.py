@@ -13,12 +13,14 @@ Within a tier options rank on the rule violations (`rules.RULES` order,
 lexicographic), then on value, then on the tie ranks of their shows in order.
 Value is the block's score surplus `sum(score - 1.0)` (1.0 is a never-aired
 show) minus `0.5 * |landing - nominal| / max(early, late)`. A surplus rather
-than a mean: like the mean it does not favour more shows (a show adds only
-what it scores above a never-aired one), and unlike the mean it is additive,
-so a block continued from a persisted prefix ranks its remaining options
-exactly as the first call did. Tier 1 ranks on the number of own shows first
-(fill is the compromise to minimise). Tier 2 ranks on the distance outside
-the window first (late beats early on a tie), then violations, then value.
+than the plan's mean: like the mean it does not favour more shows (a show
+adds only what it scores above a never-aired one), and unlike the mean it
+gives a continued block's "no more shows" option a value (0) without the
+placed shows' scores, which history cannot reproduce (`Recency` keeps only
+their latest airing: the placement itself). Tier 1 ranks on the number of
+own shows first (fill is the compromise to minimise). Tier 2 ranks on the
+distance outside the window first (late beats early on a tie), then
+violations, then value.
 
 Search bound (plan, "Builder calls"): singles over every candidate; a pair's
 first member from the top `PAIR_FIRSTS` by score among those that can still
@@ -592,6 +594,9 @@ def _choose(ctx: _Ctx, occ: Occurrence, own: _Pool, own_all: list[Piece], fill: 
     if placed:
         offer_window((), (), _CLEAN, (), ctx.landing(base))
     chain = search.run(base, kmax, offer_window, window=True) if own else [base]
+    for seq in chain[1:]:              # the greedy prefixes are options in their own right
+        if len(seq.shows) >= 2:
+            offer_window(seq.shows, (), seq.viol, seq.terms, ctx.landing(seq))
     if t0.best is not None:
         return _step(t0, 0, None)
 

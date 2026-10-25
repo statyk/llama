@@ -306,6 +306,55 @@ def test_softest_rule_bends_first():
     assert order == ["day", "dayera", "gap", "adj"]
 
 
+def test_value_is_the_score_surplus_minus_the_distance_term():
+    # an open block whose placed show lands 30 min early in a +-60 min window (distance term 0.25):
+    # a never-aired show landing on the nominal time (surplus 0) is worth adding; one aired 30 days
+    # ago (score 0.9 * 30/45 = 0.6, surplus -0.4) is not, so the block stops where it is
+    placed = (sp("p", 120, "P"),)
+    start = fr(120) + GAP
+    n = nxt(150, 60, 60)
+    fresh = sp("fresh", 30 - 4 / 60, "F")           # lands within a frame or two of the nominal time
+    stale = sp("stale", 30 - 4 / 60, "S")
+    rec = Recency().with_piece(placed[0], E, local_date(E))
+    assert slugs(fill(make_occ(profiles=()), n, [fresh, placed[0]], start_frame=start, placed=placed,
+                      rec=rec)) == ["fresh"]
+    rec = rec.with_piece(stale, E - 30 * DAY, local_date(E - 30 * DAY))
+    plan = fill(make_occ(profiles=()), n, [stale, placed[0]], start_frame=start, placed=placed, rec=rec)
+    assert plan.shows == () and plan.tier == 0
+
+
+def test_value_sums_surplus_rather_than_averaging_it():
+    # pair (y +0.7, z -0.1: surplus 0.6) lands 60 min early in a +-60 window (distance 0.5);
+    # x (never aired, surplus 0) lands 12 min early (0.1). Summed: 0.1 > -0.1, the pair.
+    # Averaged it would be -0.2 < -0.1, the single.
+    o = make_occ(prefer=[Prefer(years="1977", weight=0.7)])
+    x, y, z = sp("x", 228, "X"), sp("y", 90, "Y", date="1977-05-08"), sp("z", 90, "Z")
+    rec = Recency().with_piece(z, E - 100 * DAY, local_date(E - 100 * DAY))
+    plan = fill(o, nxt(240, 60, 60), [x, y, z], rec=rec)
+    assert sorted(slugs(plan)) == ["y", "z"] and plan.tier == 0
+
+
+def test_pair_firsts_are_drawn_from_shows_that_can_still_land():
+    # the 33 best-scoring shows are too long to start a landing pair; the two that can, do
+    o = make_occ(max_shows=2, prefer=[Prefer(years="1977", weight=5.0)])
+    long_ = [sp(f"l{i:02d}", 300 + i, f"Long {i}", date="1977-05-08") for i in range(33)]
+    short = [sp("s1", 120, "S1"), sp("s2", 116, "S2")]
+    plan = fill(o, nxt(240), long_ + short)
+    assert sorted(slugs(plan)) == ["s1", "s2"] and plan.tier == 0
+
+
+def test_a_miss_prefers_late_over_early_at_equal_distance():
+    n = nxt(120)
+    lo_f = -((-(n.lo_us - E) * 44_100) // 1_024_000_000)
+    hi_f = ((n.hi_us - E + 1) * 44_100 - 1) // 1_024_000_000
+    d = fr(20)
+    early = show_piece("early", artist="A", date="1980-01-01", profile="p", frames=lo_f - d - GAP)
+    late = show_piece("late", artist="B", date="1980-01-01", profile="p", frames=hi_f + d - GAP)
+    for seed in range(4):
+        plan = fill(make_occ(), n, [early, late], seed=seed)
+        assert slugs(plan) == ["late"] and plan.tier == 2
+
+
 def test_deterministic_with_seed_tiebreak():
     pool = [sp(f"t{i}", 118, f"Band {i}") for i in range(6)]
     for seed in (1, 2, 3):
@@ -336,7 +385,7 @@ def test_gap_zero_never_counts_a_gap_bend():
 
 # --- consistency and the fixture --------------------------------------------
 
-def _start_us_of(plan_shows, start_frame, gap=GAP):
+def _start_frames(plan_shows, start_frame, gap=GAP):
     out, f = [], start_frame
     for p in plan_shows:
         out.append(f)
@@ -349,7 +398,7 @@ def _continue_matches(occ, n, own, open_pool, rec=None):
     re-filling the block reproduces the rest of the first choice."""
     rec = rec if rec is not None else Recency()
     first = fill(occ, n, own, open_pool, rec=rec)
-    starts = _start_us_of(first.shows, 0)
+    starts = _start_frames(first.shows, 0)
     for i in range(1, len(first.shows)):
         placed = first.shows[:i]
         r = rec
@@ -425,7 +474,7 @@ def test_violation_counts_agree_with_rules():
         prev = rng.choice([None, "Grateful Dead", seq[0].artist])
         start = rng.randrange(0, fr(20 * 60))
         got = scheduler._sequence_violations(make_occ(), rec, CLOCK, E, seq, prev, start, GAP)
-        starts = [at(f) for f in _start_us_of(seq, start)]
+        starts = [at(f) for f in _start_frames(seq, start)]
         assert got == rules.violations(seq, prev, make_occ(), rec, CLOCK, starts), trial
 
 
