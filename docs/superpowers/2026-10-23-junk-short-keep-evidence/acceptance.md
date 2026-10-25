@@ -347,3 +347,13 @@ Verbatim: "2". Option 2 as it was put to him, verbatim: "Reuse only when the bri
   - Over those 1,410: 1,112 `fresh`, 298 `none` (held), 0 `reuse`.
   - The 1,685 reuses that remain are all on shows with no restored file.
   - In practice the ruling's "~98% regenerate" is **100%** on today's library.
+
+## Checkpoint B rulings (Shawn, 2026-10-24 ~20:30, relayed by llama-db)
+
+Verbatim:
+
+1. "Go ahead and add them" — the Task 15a deferred Minor: add the measured phrasings "not included", "not listed", "does not appear", "unlisted" to the briefing-reuse gate before merge (strict surface). Built as Task 15b, with the gate counts re-measured.
+2. "An NFA chant should absolutely not be dropped; other crowd chants could go either way but inclusion is safer." — the 6 crowd-chant keeps (NFA Chant, 2x 'Crowd Doing Not Fade Away', Unity College chanting, crowd/tuning jam, crowd/1812 Overture) STAY KEPT. No vocabulary change. A pin test holds a Not Fade Away crowd-chant tag kept by the short rule (Task 15b); the spec section 7 text is queued for Task 23.
+3. "Confirmed" — `REKEY_MIN_VERSION = 2.18.0`.
+
+Plus "Go for the next tasks" (Tasks 16-21, then Checkpoint C).
