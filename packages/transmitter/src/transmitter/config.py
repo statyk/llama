@@ -184,7 +184,7 @@ quiet_minutes = 10.0
 # dir = "/nfs/media/station/interstitials"
 
 [planner]
-# seed of the fixed shuffled order
+# seed of the scheduler's deterministic tie-break
 seed = 0
 # a fresh run (first start, or after an outage longer than the lead) begins
 # this far ahead of now

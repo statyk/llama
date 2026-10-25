@@ -226,6 +226,11 @@ class Station:
                 self._ping()
                 chosen = run2 if run2.piece.exact else dataclasses.replace(run1, piece=measured)
             row = to_row(chosen, next_seq)
+            # The first row goes at the caller's start, never prev.end + gap: on the
+            # render skip path `replan_from` hands back the dropped row's own start,
+            # laid with the gap of its day; after a show_gap_seconds change, prev.end
+            # + the new gap could fall inside an already-written segment (a cut).
+            # plan_step checks its own start against the gap before calling.
             expected = start if not appended else appended[-1].end_frame + self.gap_frames
             if row.start_frame != expected or row.run_start != mark:
                 raise LayoutError(f"scheduler laid row {row.seq} ({row.slug}) at frame {row.start_frame} "
@@ -311,6 +316,9 @@ def plan_step(st: Station, now_us: int, *, max_new: int | None = None) -> list[P
         if rows[-1].end_frame >= st.until_frame(now_us):
             return rows
         start, run_start = next_start(rows, st.gap_frames), False
+        if start != rows[-1].end_frame + st.gap_frames:      # internal-bug guard
+            raise LayoutError(f"plan_step's next start {start} is not the gap after the last "
+                              f"row ({rows[-1].end_frame} + {st.gap_frames})")
     # Extend before touching anything: a PlanError (e.g. every package
     # momentarily changing) must leave both the plan and the segments as they were.
     rows = st.extend(rows, pool, now_us, start_frame=start, run_start=run_start, max_new=max_new)

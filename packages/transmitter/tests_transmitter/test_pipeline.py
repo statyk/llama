@@ -1182,3 +1182,74 @@ def test_scenario_crash_between_append_and_render(tmp_path):
     assert st.ws.plan_path.read_text() == text
     first_n = rows[0].start_frame // F
     assert report.written == list(range(first_n, st.epoch.index_at(NOW + st.lead_us) + 1))
+
+
+# --- fix round 1 ---------------------------------------------------------------
+
+def test_scenario_skip_path_after_a_show_gap_seconds_change(tmp_path):
+    # Rows planned under gap A, some segments rendered, then the operator shrinks
+    # the gap to B and a later show fails to encode: the skip path re-plans from
+    # the dropped row's OWN start (prev.end + A), never prev.end + B (which could
+    # land inside an already-written segment), and lays the new rows with gap B.
+    st, logs = clock_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    old_gap = st.gap_frames
+    first_n = rows[0].start_frame // F
+    assert pipeline.render_step(st, NOW, limit=3).written == [first_n, first_n + 1, first_n + 2]
+    i, victim = next((i, r) for i, r in enumerate(rows) if i > 0 and r.kind == "show"
+                     and r.start_frame >= (first_n + 3) * F)
+    render_cfg = st.cfg.render.model_copy(update={"show_gap_seconds": 0.5})
+    st2 = dataclasses.replace(st, cfg=st.cfg.model_copy(update={"render": render_cfg}))
+    new_gap = st2.gap_frames
+    assert new_gap < old_gap
+    st2.engine.fail |= {victim.slug}
+    report = pipeline.render_step(st2, NOW)                            # no LayoutError
+    assert victim.slug in report.replanned
+    new = read_plan(st.ws.plan_path)
+    assert new[:i] == rows[:i] and _gap_ok(rows[:i], old_gap)          # old rows keep the old gap
+    assert new[i].start_frame == victim.start_frame == new[i - 1].end_frame + old_gap
+    assert victim.slug not in {r.slug for r in new[i:]}
+    assert _gap_ok(new[i:], new_gap)                                   # later rows use the new gap
+    assert report.covered
+    assert report.written[-1] == st.epoch.index_at(NOW + st.lead_us)
+
+
+def test_a_frame_count_change_under_the_same_pause_and_extra_is_re_measured(tmp_path):
+    # The count changes while pause and extra do not (so the length cache is not
+    # rebuilt): the length this Station learned at plan time must be forgotten,
+    # or the in-place re-plan would reuse the stale count and mismatch again.
+    st, logs = make_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    st.engine.samples_per_file += 44_100                               # every show is now longer
+    show0 = next(s for s in st.scan_now(NOW) if s.slug == rows[0].slug)
+    new_frames = exact_frames(st, show0)
+    assert new_frames != rows[0].frames
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned[0] == rows[0].slug
+    assert len(report.replanned) == len(set(report.replanned))         # each re-planned once, in place
+    new = read_plan(st.ws.plan_path)
+    assert (new[0].slug, new[0].start_frame, new[0].frames) == (rows[0].slug, rows[0].start_frame, new_frames)
+    assert st.engine.encoded[0] == rows[0].slug
+    assert report.covered
+
+
+def test_announcement_broken_when_the_named_block_degrades_to_open_time(tmp_path):
+    clock = short_clock().replace('start = "05:00"\n', 'start = "05:00"\nprofiles = ["polka"]\n')
+    st, logs = clock_station(tmp_path, clock=clock)                    # no polka shows: b05 degrades
+    x = _occurrence(clock, "b05")
+    rows, out = _persisted_ann_then_extend(st, x, x.nominal_us, names=((x.block.name, x.nominal_iso),))
+    first = out[len(rows)]
+    assert (first.kind, first.block, first.miss, first.degraded) == ("show", "b05", False, True)
+    assert first.announcement_broken is True
+    assert f"announcement-broken: b05 {x.nominal_iso}" in logs
+
+
+def test_plan_step_guards_the_first_appended_rows_start(tmp_path, monkeypatch):
+    st, _ = make_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    later = NOW + 20 * 60 * 1_000_000
+    _publish_through(st, later)
+    monkeypatch.setattr(pipeline, "next_start", lambda rows, gap: rows[-1].end_frame + gap + 1)
+    with pytest.raises(LayoutError, match="next start"):
+        pipeline.plan_step(st, later)
+    assert read_plan(st.ws.plan_path) == rows
