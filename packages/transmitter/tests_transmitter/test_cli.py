@@ -1,3 +1,5 @@
+import json
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -28,10 +30,14 @@ def test_config_init_stdout():
     result = CliRunner().invoke(app, ["config", "init", "--stdout"])
     assert result.exit_code == 0 and result.output == DEFAULT_CONFIG_TOML
 
-from tests_transmitter.helpers import FakeBucket, FakeEngine, build_package, make_root
-from transmitter import aacenc, fallback, service
+from tests_transmitter.helpers import FakeBucket, FakeEngine, add_clip, build_package, make_root, mark_awaiting_fix
+from transmitter import aacenc, announce, fallback, grid, scheduler, service
+from transmitter import clock as clock_mod
+from transmitter.config import load_config
+from transmitter.layout import PlanRow
+from transmitter.planner import read_plan, write_plan
 from transmitter.state import save_fallback_version
-from transmitter.workspace import Workspace
+from transmitter.workspace import Workspace, write_json
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -330,11 +336,7 @@ def test_announcements_notes_a_missing_interstitials_folder(tmp_path, monkeypatc
 
 # --- schedule, library, status (Task 13) ---------------------------------------
 
-import json  # noqa: E402
 
-from tests_transmitter.helpers import E, add_clip, mark_awaiting_fix  # noqa: E402
-from transmitter import announce, clock as clock_mod  # noqa: E402
-from transmitter.workspace import write_json  # noqa: E402
 
 _CLOCK = 'timezone = "UTC"\n' + "".join(
     f'[[block]]\nname = "b{h:02d}"\ntitle = "Block {h}"\nstart = "{h:02d}:00"\nprofiles = ["indie"]\n'
@@ -497,12 +499,7 @@ def test_status_block_lines_name_the_current_and_next_block(tmp_path, monkeypatc
 
 # --- fix round 1 ---------------------------------------------------------------
 
-import re  # noqa: E402
 
-from transmitter import grid, history, scheduler  # noqa: E402
-from transmitter.config import load_config  # noqa: E402
-from transmitter.layout import PlanRow  # noqa: E402
-from transmitter.planner import read_plan, write_plan  # noqa: E402
 
 
 def _fh(hours: float) -> int:
@@ -545,7 +542,6 @@ def test_schedule_after_a_plan_continues_it_and_writes_nothing(tmp_path, monkeyp
     assert len(inp.rows) == len(rows)              # the persisted rows are the base (not a fresh run)
     assert inp.rec.count >= len(rows)              # rotation history includes them
     assert any("Band 2005-11-0" in l for l in lines)
-    assert engine.analyzed == [] or set(engine.analyzed) <= {r.slug for r in rows} or True
 
 
 def _plan_block_second_show(tmp_path, monkeypatch):
@@ -621,7 +617,6 @@ def _status_plan(tmp_path, monkeypatch):
             r(5, 30 + 0.5, "c", 5, fill="structural"),
             r(6, 30 + 2, "d", 6, miss=True, fill="pool-short", bends=("gap",)),
             r(7, 30 + 30, "e", 7, miss=True, fill="pool-short")]
-    rows[0] = PlanRow(**{**rows[0].__dict__, "start_frame": 0, "run_start": True}) if False else rows[0]
     write_plan(Workspace(tx).plan_path, rows)
     return tx, cfg, e, rows
 
@@ -662,3 +657,49 @@ def test_schedule_open_time_shows_no_slip(tmp_path, monkeypatch):
     lines = service.schedule_report(cfg, service.now_us(), days=0.2)
     heads = [l for l in lines if " starts " in l]
     assert heads and not any(re.search(r"\([+-]\d+ min\)", l) for l in heads)
+
+
+def _aligned(epoch_us: int, iso: str) -> int:
+    f = (grid.iso_to_us(iso) - epoch_us) * grid.SAMPLE_RATE // (grid.FRAME_SAMPLES * 1_000_000)
+    return f // grid.SEGMENT_FRAMES * grid.SEGMENT_FRAMES
+
+
+def test_schedule_keeps_a_late_block_whose_nominal_start_is_inside_the_horizon(tmp_path, monkeypatch):
+    tx, root, engine, cfg, _ = _st_cfg(tmp_path, monkeypatch)
+    e = grid.iso_to_us("2096-10-02T05:00:00Z")
+    write_json(Workspace(tx).epoch_path, {"epoch_id": "etest", "epoch": grid.us_to_iso(e), "d": 10.24})
+    iso = lambda h: grid.us_to_iso(grid.iso_to_us(f"2096-10-02T{h}Z"))      # noqa: E731
+    s1 = _aligned(e, "2096-10-02T10:00:00Z")
+    rows = [PlanRow(seq=0, slug="band-2005-11-01", dir="d", key="k1", start_frame=s1, frames=_fh(3), run_start=True,
+                    block="b10", nominal_start=iso("10:00:00"), role="show", miss=False, package="band-2005-11-01")]
+    rows.append(PlanRow(seq=1, slug="band-2005-11-02", dir="d", key="k2", start_frame=rows[0].end_frame + 87,
+                        frames=_fh(0.5), block="b12", nominal_start=iso("12:00:00"), role="show", miss=True,
+                        fill="structural", package="band-2005-11-02"))
+    rows.append(PlanRow(seq=2, slug="band-2005-11-03", dir="d", key="k3", start_frame=rows[1].end_frame + 87,
+                        frames=_fh(0.5), block="b12", nominal_start=iso("12:00:00"), role="show",
+                        fill="pool-short", package="band-2005-11-03"))
+    write_plan(Workspace(tx).plan_path, rows)
+    t = grid.iso_to_us("2096-10-02T10:30:00Z")
+    lines = service.schedule_report(cfg, t, days=0.1)                    # horizon 12:54; Block 12's show airs 13:00
+    head = next(l for l in lines if re.match(r"^\w{3} \d\d-\d\d \d\d:\d\d  Block 12", l))
+    assert "MISS" in head
+    assert any(re.match(r"summary\s+\d+ block occurrence\(s\) over \d+ h; misses 1;", l) for l in lines)
+    assert any("[fill: longer than max_shows]" in l for l in lines) and any("[fill: pool short]" in l for l in lines)
+    assert any(l.startswith("fill ") and "pool short 30 min, longer than max_shows 30 min" in l for l in lines)
+
+
+def test_schedule_does_not_pull_old_phase1_rows_into_the_unscheduled_view(tmp_path, monkeypatch):
+    tx, root, engine, cfg, _ = _st_cfg(tmp_path, monkeypatch)
+    e = grid.iso_to_us("2096-09-28T05:00:00Z")
+    write_json(Workspace(tx).epoch_path, {"epoch_id": "etest", "epoch": grid.us_to_iso(e), "d": 10.24})
+    old = _aligned(e, "2096-09-30T10:00:00Z")
+    cur = _aligned(e, "2096-10-02T10:00:00Z")
+    rows = [PlanRow(seq=0, slug="band-2005-11-01", dir="d", key="k1", start_frame=old, frames=_fh(1), run_start=True,
+                    package="band-2005-11-01"),
+            PlanRow(seq=1, slug="band-2005-11-02", dir="d", key="k2", start_frame=cur, frames=_fh(1), run_start=True,
+                    package="band-2005-11-02")]
+    write_plan(Workspace(tx).plan_path, rows)
+    t = e + grid.frame_to_us(cur) + 30 * 60_000_000
+    lines = service.schedule_report(cfg, t, days=0.1)
+    assert not any("09-30" in l for l in lines)
+    assert any(l.startswith("(unscheduled)") or "(unscheduled)" in l for l in lines)

@@ -617,14 +617,14 @@ def schedule_report(cfg: TransmitterConfig, t_us: int, *, days: float = 7.0, clo
                                    clock=clock, rec=rec, epoch_us=epoch.epoch_us, gap_frames=st.gap_frames,
                                    seed=cfg.planner.seed)
     projected = scheduler.project(inp, until_frame=until_f, ahead=1)
-    live = {(r.block, r.nominal_start) for r in base if r.end_frame > now_f}
+    live = {(r.block, r.nominal_start) for r in base if r.end_frame > now_f and r.block is not None}
     shown = [r for r in base if r.end_frame > now_f or (r.block, r.nominal_start) in live]
     missing = missing_announcements(cfg, clock, t_us, days + 1)
     views = report.block_views(shown, projected, clock, epoch, missing=missing, meta_of=meta_of, since_frame=now_f)
-    # trim by when the occurrence's shows air, not its nominal start: an open-time block can air for hours
-    # before its (next) nominal start
-    views = [v for v in views if (any(sh.start_us < until_us for sh in v.shows) if v.shows
-                                  else v.nominal_us is None or v.nominal_us < until_us)]
+    # keep an occurrence whose nominal start OR whose first show is inside the horizon (an open-time block can
+    # air for hours before its next nominal start; a late block keeps its MISS)
+    views = [v for v in views if v.nominal_us is None or v.nominal_us < until_us
+             or any(sh.start_us < until_us for sh in v.shows)]
     lines.append("")
     lines += report.schedule_lines(views, report.summary(views, until_us - t_us))
     return lines
