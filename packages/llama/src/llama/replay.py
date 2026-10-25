@@ -258,7 +258,7 @@ _COUNT_NUM = (r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|t
 # Building blocks of the negation terms (fix rounds 4-5). They match a PUNCTUATION-NORMALISED
 # copy of each text (`_normalised`): its words joined by single spaces, a word being word
 # characters joined by single interior apostrophes (`isn't`, `aren’t`; the look-alikes
-# `` ` ``, `´`, `ʼ`, `‘` and `′` fold to `'` first). Every other character is a separator:
+# `` ` ``, `´`, `ʼ`, `ʻ`, `ʹ`, `‘` and `′` fold to `'` first). Every other character is a separator:
 # dashes, quotes, brackets and `;:,()`. The hyphen is read BOTH ways and a term fires on
 # any copy: as a separator (`not-listed` reads `not listed`) and as an interior joiner
 # (`return-to-astronaut` is one window word, so "no separate return-to-astronaut track"
@@ -275,13 +275,15 @@ _WORD = r"[^ ]+"
 _TOKEN = re.compile(r"\w+(?:['’]\w+)*")
 _TOKEN_HYPHENATED = re.compile(r"\w+(?:['’-]\w+)*")
 _TOKEN_SPLIT = re.compile(r"\w+")
-_APOSTROPHES = str.maketrans({"`": "'", "´": "'", "ʼ": "'", "‘": "'", "′": "'"})
+_APOSTROPHES = str.maketrans({"`": "'", "´": "'", "ʼ": "'", "ʻ": "'", "ʹ": "'", "‘": "'",
+                               "′": "'"})
 
 
 def _normalised(text: str) -> tuple[str, str, str]:
     """`text`'s words, single-space separated, punctuation a separator: once with the
     hyphen a separator too, once with it joining a word, and once with every apostrophe
-    (after the fold; `ʼ` is a word character until it is folded) a separator too."""
+    (after the fold; `ʼ`, `ʻ` and `ʹ` are word characters until they are folded) a
+    separator too."""
     text = text.translate(_APOSTROPHES)
     return (" ".join(_TOKEN.findall(text)), " ".join(_TOKEN_HYPHENATED.findall(text)),
             " ".join(_TOKEN_SPLIT.findall(text)))

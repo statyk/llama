@@ -1194,6 +1194,18 @@ def test_fw2_absence_wording_refuses(text, term):
         f"briefing mentions a restored file: says '{term}' in cautions"
 
 
+# FW3 (FW2 review Minor M1): `ʻ` (U+02BB) and `ʹ` (U+02B9) are modifier letters, so
+# `\w` reads them as word characters and "notʻlisted" stayed one word in every copy.
+# They fold to `'` like `ʼ`, so the apostrophe-split copy reads `not listed`. Refuse-only.
+@pytest.mark.parametrize("mark", ["ʻ", "ʹ"])
+def test_fw3_modifier_letter_apostrophes_fold(mark):
+    from llama.replay import _normalised
+    assert _normalised(f"the reprise is not{mark}listed.")[2] == "the reprise is not listed"
+    old, new = _restored_pair()
+    assert briefing_reusable(old, new, _with_caution(f"The reprise is not{mark}listed."),
+                             "full") == "briefing mentions a restored file: says 'not listed' in cautions"
+
+
 # Item 5, the measured vocabulary. Corpus counts are t15b-rr5's, over
 # ~/.llama-harness/piece4/ckb/15a/dump.jsonl (1,014 rows; every row is refused by some
 # other term too, so none of these moves a corpus verdict):
