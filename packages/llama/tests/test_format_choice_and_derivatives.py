@@ -209,6 +209,20 @@ def test_the_derivative_dedupe_never_changes_play_order():
         f"x1t{i:02d}_vbr.mp3" for i in range(1, 7)}
 
 
+# The originals' `track` tags of jrad2023-05-12, copied from the raw cache entry:
+# capture_fixture.py's slim shape drops `track`, and the stale tags are the point.
+JRAD_TRACKS = {
+    "01 Crowd.flac": "01", "02 Jam.flac": "02", "03 Here Comes Sunshine.flac": "03",
+    "04 Foolish Heart.flac": "04", "05 Gonesville.flac": "05", "06 Mr Charlie.flac": "06",
+    "07 Hey Bulldog.flac": "07", "08 Viola Lee Blues.flac": "08",
+    "09 Dancin In The Streets .flac": "09", "10 Crowd.flac": "10", "11 Jam.flac": "11",
+    "12 Terrapin Station.flac": "12", "12.5 The Other One.flac": "14",
+    "14.5 Bird Song.flac": "13", "15 Lost Sailor.flac": "15",
+    "16 Saint OF Curcumstance.flac": "16", "16.5 Morning Dew.flac": "18",
+    "17 Casey Jones.flac": "17",
+}
+
+
 def test_jrad_stale_derivative_keeps_the_filename_order():
     """jrad2023-05-12 (real cache capture): the uploader renamed originals and
     their tags went stale (`12.5 The Other One` tagged 14, `14.5 Bird Song` 13,
@@ -217,7 +231,8 @@ def test_jrad_stale_derivative_keeps_the_filename_order():
     It is dropped as a duplicate; the order stays the (correct) filename order
     the duplicate tag forced before, never the stale tags' order. Measured
     (FW1 M2): the only library show the dedupe would otherwise reorder."""
-    files = _load("jrad2023-05-12.json")
+    files = [{**f, "track": JRAD_TRACKS[f["name"]]} if f["name"] in JRAD_TRACKS else f
+             for f in _load("jrad2023-05-12.json")]
     kept, excluded, ordering = filter_files(files)
     assert _names(kept) == [
         "02 Jam.mp3", "03 Here Comes Sunshine.mp3", "04 Foolish Heart.mp3",
@@ -232,6 +247,13 @@ def test_jrad_stale_derivative_keeps_the_filename_order():
     kept, _, ordering = filter_files(files, readmit=frozenset({"14 The Other One.mp3"}))
     assert "14 The Other One.mp3" in _names(kept)
     assert ordering["order_source"] == "filename"
+
+    # Guard: without the stale derivative the same tags DO reorder the tape, so
+    # the assertions above are not passing for want of live tags.
+    single = [f for f in files if f["name"] != "14 The Other One.mp3"]
+    kept, _, ordering = filter_files(single)
+    assert ordering["order_source"] == "track-tags" and ordering["reordered"] is True
+    assert _names(kept)[-1] == "16.5 Morning Dew.mp3"
 
 
 def test_an_edge_short_untagged_pair_drops_like_the_single_copy():
