@@ -1,37 +1,54 @@
 """Plan and render steps over the workspace (spec "Lead", "Frozen means
-rendered", "Recovery after an outage longer than the lead").
+rendered", "Recovery after an outage longer than the lead"; scheduler spec
+"Planning", "Re-validation").
 
 plan_step extends plan.jsonl until it covers now + lead (or starts a fresh
-run after an outage); render_step writes segment files
-render/seg/<epoch_id>/<N>.aac in ascending N from the next unpublished
-segment to now + lead, encoding each show the first time a segment needs it.
-Before encoding, a show is re-validated against the current station scan;
-a failing or no-longer-eligible show is skipped at its boundary and the plan
+run after an outage). The scheduler (`scheduler.project`) chooses each
+appended row from the end of the persisted plan, on the live clock
+(`Station.clock`), the piece pool (`Station.scan_pieces`: eligible packages
+and the interstitials folder) and the rotation history; rows are only ever
+appended, and every written row carries an exact frame count (`Station.extend`).
+
+render_step writes segment files render/seg/<epoch_id>/<N>.aac in ascending
+N from the next unpublished segment to now + lead, encoding each piece (a
+show or an interstitial clip) the first time a segment needs it. Before
+encoding, a piece is re-validated against the current scan; a failing,
+vanished or unknown-kind piece is skipped at its boundary and the plan
 re-extended from there; a re-voiced show, or one whose frame count changed
 with the config or encoder, is re-planned in place (excluded only if it
-mismatches again in the same call). Encoded shows are frozen: their segments are built from the
-encode regardless of later package changes. A show already on air whose
-encode was lost is re-encoded when its package is unchanged, and refused
-(LayoutError) otherwise -- never re-planned into a mid-show cut.
+mismatches again in the same call). One call re-plans at most
+`len(clip pool) + rows in the lead + 10` times. Encoded pieces are frozen:
+their segments are built from the encode regardless of later package
+changes. A piece already on air whose encode was lost is re-encoded when its
+files are unchanged, and refused (LayoutError) otherwise -- never re-planned
+into a mid-show cut.
 """
 
+import dataclasses
 import math
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Protocol
 
-from transmitter import aacenc, analysis as analysis_mod, grid, render, station
+from transmitter import aacenc, alerts, analysis as analysis_mod, clock as clock_mod, grid, history
+from transmitter import interstitials, render, station
 from transmitter.analysis import ShowAnalysis
+from transmitter.clock import ClockConfig
 from transmitter.config import TransmitterConfig
-from transmitter.errors import AnalysisStale, FrameCountDrift, LayoutError, TransmitterError
+from transmitter.errors import AnalysisStale, FrameCountDrift, LayoutError, PlanError, TransmitterError
 from transmitter.grid import SEGMENT_FRAMES
-from transmitter.layout import FrameStore, PlanRow, rows_overlapping
-from transmitter.planner import (cut_for_recovery, extend, next_start, publish_next, read_plan,
-                                 replan_from, write_plan)
+from transmitter.layout import FrameStore, PlanRow, rows_overlapping, validate_rows
+from transmitter.pieces import LengthCache, Piece, build_pool
+from transmitter.planner import cut_for_recovery, next_start, publish_next, read_plan, replan_from, write_plan
+from transmitter.scheduler import SchedulerInput, project, to_row
 from transmitter.state import load_publish_state
 from transmitter.station import Ineligible, Show
 from transmitter.workspace import Epoch, Workspace, atomic_write_bytes
+
+KINDS = ("show", "interstitial")
+ANNOUNCEMENT_ROLES = ("next", "later")
+CLOCK_PROBLEM_MAX = 300
 
 
 class Engine(Protocol):
@@ -76,6 +93,7 @@ class Station:
     scan: Scanner | None = None
     log: Callable[[str], None] = print
     notify: Callable[[str], object] | None = None   # the service's sd_notify; fed during long plan steps
+    lengths: LengthCache | None = None              # piece lengths; see length_cache()
 
     def scan_now(self, now_us: int) -> list[Show]:
         """Eligible shows; raises StationRootError when the root is unusable."""
@@ -115,12 +133,137 @@ class Station:
         """The frame count the current config and encoder give this analysis."""
         return render.planned_frames(analysis, self.pause_samples, self.engine.extra_frames())
 
-    def extend(self, rows: list[PlanRow], shows: list[Show], now_us: int, *, start_frame: int,
+    def length_cache(self) -> LengthCache:
+        """`lengths`, (re)built from exactly the inputs `planned_frames` uses
+        (the analysis cache, `pause_samples`, the encoder's extra frames), so
+        an "exact" length always agrees with what render will encode. A
+        config or encoder change since it was built rebuilds it."""
+        pause, extra = self.pause_samples, self.engine.extra_frames()
+        lc = self.lengths
+        if lc is None or lc.pause_samples != pause or lc.extra != extra \
+                or lc.cache_dir != Path(self.ws.cache_dir):
+            lc = self.lengths = LengthCache(self.ws.cache_dir, pause, extra)
+        return lc
+
+    def scan_pieces(self, now_us: int, *, read_only: bool = False) -> list[Piece]:
+        """The piece pool: eligible packages (estimated unless their analysis
+        is cached or learned) and the interstitials folder's clips (analysed
+        exactly unless `read_only`). Raises StationRootError like `scan_now`."""
+        shows = self.scan_now(now_us)
+        folder = interstitials.folder(self.cfg)
+        clips = interstitials.scan(folder, now_s=now_us / 1e6, quiet_s=self.cfg.station.quiet_minutes * 60)
+        clip_dir = interstitials.row_dir(self.cfg, folder) if folder is not None else ""
+        pool, dropped = build_pool(shows, clips, lengths=self.length_cache(), clip_dir=clip_dir,
+                                   analyze_clip=None if read_only else self.frames_of, read_only=read_only)
+        for clip, exc in dropped:
+            self.log(f"skipping {clip.slug}: {exc}")
+        return pool
+
+    def clock(self) -> ClockConfig:
+        """The live clock (saving the last-good copy). An invalid clock.toml is
+        alerted and planning goes on with the last good copy, else the
+        implicit clock; a valid one (or none) resolves the alert."""
+        lc = clock_mod.live_clock(self.ws)
+        if lc.problem:
+            alerts.alert("clock", f"{condense_clock_problem(lc.problem)}; planning with the {lc.source} clock")
+        else:
+            alerts.resolve("clock")
+        return lc.clock
+
+    def _ping(self) -> None:
+        if self.notify is not None:
+            self.notify("WATCHDOG=1")
+
+    def extend(self, rows: list[PlanRow], pool: list[Piece], now_us: int, *, start_frame: int,
                run_start: bool, max_new: int | None = None) -> list[PlanRow]:
-        return extend(rows, shows, frames_of=self.frames_of, seed=self.cfg.planner.seed,
-                      gap_frames=self.gap_frames, until_frame=self.until_frame(now_us),
-                      start_frame=start_frame, run_start=run_start, max_new=max_new,
-                      on_skip=lambda s, e: self.log(f"skipping {s.slug}: {e}"))
+        """Append scheduler rows from `start_frame` until the plan covers
+        `until_frame(now_us)` (at most `max_new`); never changes a row of
+        `rows`. Per row (spec "Exact timing"): run the scheduler on the
+        best-known lengths; analyse its pick when estimated; run it once more
+        with the exact count; append run 2's pick when analysed, else run 1's
+        analysed pick. A pick that cannot be measured is skipped for the rest
+        of the call. Every written row carries an exact frame count."""
+        clock = self.clock()
+        lengths = self.length_cache()
+        aired = history.load_aired(self.ws)
+        pool = list(pool)
+        meta = {p.package: (p.artist, p.date) for p in pool if p.kind == "show"}
+
+        def meta_of(package: str) -> tuple[str | None, str | None]:
+            return meta.get(package, (None, None))
+
+        until = self.until_frame(now_us)
+        out = list(rows)
+        appended: list[PlanRow] = []
+        next_seq = max((r.seq for r in out), default=-1) + 1
+        start, mark = start_frame, run_start
+        while (not out or out[-1].end_frame < until) and (max_new is None or len(appended) < max_new):
+            # every persisted row (and each row appended so far) is history; the
+            # projection adds only what it projects
+            rec = history.recency(aired, out, self.epoch, clock.timezone, meta_of)
+            inp = SchedulerInput(rows=tuple(out), start_frame=start, run_start=mark, pool=tuple(pool),
+                                 clock=clock, rec=rec, epoch_us=self.epoch.epoch_us,
+                                 gap_frames=self.gap_frames, seed=self.cfg.planner.seed)
+            run1 = project(inp, ahead=1)[0]     # piece [0] does not depend on `ahead`
+            self._ping()
+            chosen = run1
+            if not run1.piece.exact:
+                piece = run1.piece
+                frames, exact = lengths.length(piece.show)     # learned earlier in this process?
+                if not exact:
+                    try:
+                        frames = self.frames_of(piece.show)
+                        if frames <= 0:
+                            raise PlanError(f"{piece.slug} measures {frames} frames")
+                    except TransmitterError as exc:
+                        self.log(f"skipping {piece.slug}: {exc}")
+                        pool = [p for p in pool if (p.kind, p.slug) != (piece.kind, piece.slug)]
+                        continue
+                    lengths.mark_exact(piece.key, frames)
+                measured = dataclasses.replace(piece, frames=frames, exact=True)
+                pool = [measured if (p.kind, p.slug) == (piece.kind, piece.slug) else p for p in pool]
+                run2 = project(dataclasses.replace(inp, pool=tuple(pool)), ahead=1)[0]
+                self._ping()
+                chosen = run2 if run2.piece.exact else dataclasses.replace(run1, piece=measured)
+            row = to_row(chosen, next_seq)
+            expected = start if not appended else appended[-1].end_frame + self.gap_frames
+            if row.start_frame != expected or row.run_start != mark:
+                raise LayoutError(f"scheduler laid row {row.seq} ({row.slug}) at frame {row.start_frame} "
+                                  f"(run_start={row.run_start}); the gap layout puts it at {expected}")
+            if _announcement_broken(row, out):
+                row = dataclasses.replace(row, announcement_broken=True)
+                self.log(f"announcement-broken: {row.block} {row.nominal_start}")
+            out.append(row)
+            appended.append(row)
+            next_seq += 1
+            start, mark = row.end_frame + self.gap_frames, False
+        validate_rows(out)
+        return out
+
+
+def condense_clock_problem(problem: str) -> str:
+    """`live_clock`'s problem on one readable line: pydantic's multi-line
+    message without its errors.pydantic.dev links and `[type=...]` tails."""
+    parts = []
+    for line in problem.splitlines():
+        line = line.strip()
+        if not line or line.startswith("For further information"):
+            continue
+        cut = line.find(" [type=")
+        parts.append(line[:cut] if cut >= 0 else line)
+    text = "; ".join(parts)
+    return text if len(text) <= CLOCK_PROBLEM_MAX else text[:CLOCK_PROBLEM_MAX - 3] + "..."
+
+
+def _announcement_broken(row: PlanRow, persisted: list[PlanRow]) -> bool:
+    """A block's first show row breaks the promise of every persisted
+    announcement naming its occurrence when it starts outside its window or
+    degraded to open time (spec "A promise kept where possible")."""
+    if row.kind != "show" or row.miss is None or not (row.miss or row.degraded):
+        return False
+    occ = (row.block, row.nominal_start)
+    return any(r.kind == "interstitial" and r.role in ANNOUNCEMENT_ROLES and occ in r.names
+               for r in persisted)
 
 
 def _drop_unpublished_segments(st: Station, last: int | None) -> None:
@@ -134,7 +277,7 @@ def _drop_unpublished_segments(st: Station, last: int | None) -> None:
 
 
 def plan_step(st: Station, now_us: int, *, max_new: int | None = None) -> list[PlanRow]:
-    shows = st.scan_now(now_us)              # StationRootError: refuse, plan untouched
+    pool = st.scan_pieces(now_us)            # StationRootError: refuse, plan untouched
     rows = read_plan(st.ws.plan_path)
     pub = load_publish_state(st.ws)
     # The highest segment R2 may list: local `last`, or above it when a crash
@@ -170,7 +313,7 @@ def plan_step(st: Station, now_us: int, *, max_new: int | None = None) -> list[P
         start, run_start = next_start(rows, st.gap_frames), False
     # Extend before touching anything: a PlanError (e.g. every package
     # momentarily changing) must leave both the plan and the segments as they were.
-    rows = st.extend(rows, shows, now_us, start_frame=start, run_start=run_start, max_new=max_new)
+    rows = st.extend(rows, pool, now_us, start_frame=start, run_start=run_start, max_new=max_new)
     if run_start:
         # A new run renumbers everything after the last published segment. Drop
         # the old plan's unpublished files BEFORE the new plan lands, so a crash
@@ -229,11 +372,15 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None,
     target = st.epoch.index_at(now_us + st.lead_us)
     seg_dir = st.ws.seg_dir(st.epoch.epoch_id)
     store = FrameStore(st.ws.shows_dir, st.engine.silent_frame())
-    shows: dict[str, Show] | None = None
-    excluded: set[str] = set()
-    # Slugs re-planned in place this call: a second mismatch excludes them, so
+    pieces: dict[tuple[str, str], Piece] | None = None     # the scan, keyed (kind, slug)
+    excluded: set[tuple[str, str]] = set()
+    # Pieces re-planned in place this call: a second mismatch excludes them, so
     # a measurement that never settles cannot loop forever.
-    mismatched: set[str] = set()
+    mismatched: set[tuple[str, str]] = set()
+    # A re-plan writes no segment, so the call's re-plans are capped (spec
+    # "Re-validation": above the clip pool plus the rows in the lead).
+    cap: int | None = None
+    replans = 0
     while n <= target and (limit is None or len(report.written) < limit):
         path = seg_dir / f"{n}.aac"
         if path.exists():
@@ -247,36 +394,50 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None,
             if store.has(r.key):
                 continue
             # Its earlier segments are already rendered (frozen): its encode was
-            # lost (render/shows cleaned or not restored). An unchanged package
+            # lost (render/shows cleaned or not restored). An unchanged piece
             # re-encodes to the planned frame count -- the FrameCountDrift check
-            # below proves it -- so the show carries on. Anything that would
-            # re-plan it instead cuts it mid-air: refuse (see `reason` below).
+            # below proves it -- so it carries on. Anything that would re-plan
+            # it instead cuts it mid-air: refuse (see `reason` below).
             on_air = r.start_frame < n * SEGMENT_FRAMES
-            if shows is None:
-                shows = {s.slug: s for s in st.scan_now(now_us)}
-            show = shows.get(r.slug)
+            if pieces is None:
+                pool = st.scan_pieces(now_us)
+                pieces = {(p.kind, p.slug): p for p in pool}
+                cap = (sum(p.kind == "interstitial" for p in pool)
+                       + len(rows_overlapping(rows, n * SEGMENT_FRAMES, (target + 1) * SEGMENT_FRAMES)) + 10)
+            ident = (r.kind, r.slug)
+            piece = pieces.get(ident)
+            what = "package" if r.kind == "show" else "clip"
             reason = None
             exclude = True
-            if show is None:
-                reason = "no longer eligible"
-            elif show.key != r.key:
-                reason = "package changed"
-                exclude = r.slug in mismatched
+            if r.kind not in KINDS:
+                reason = f"unknown kind {r.kind!r}"
+            elif piece is None:
+                reason = "no longer eligible" if r.kind == "show" else \
+                    "no longer in the interstitials folder (or inside its quiet period)"
+            elif piece.key != r.key:
+                reason = f"{what} changed"
+                # a re-voiced show is re-planned in place; a changed clip fails
+                # re-validation and leaves the pool for the rest of the call
+                exclude = ident in mismatched or r.kind != "show"
             else:
                 try:
-                    analysis = st.engine.analyze(show)
+                    analysis = st.engine.analyze(piece.show)
                     planned = st.planned_frames(analysis)
                     if planned != r.frames:
                         # A config or encoder change since planning (clip pause,
                         # extra_frames): re-plan after the frontier, never encode
-                        # against the stale count.
+                        # against the stale count. The re-plan measures it afresh.
                         reason = (f"planned frame count changed: {planned} now, {r.frames} in the "
                                   "plan (config or encoder change)")
-                        exclude = r.slug in mismatched
+                        exclude = ident in mismatched
+                        lengths = st.length_cache()
+                        lengths.forget(piece.key)
+                        frames, exact = lengths.length(piece.show)
+                        pieces[ident] = dataclasses.replace(piece, frames=frames, exact=exact)
                     else:
-                        frames = st.engine.encode_show(show, analysis, store.path(r.key))
+                        frames = st.engine.encode_show(piece.show, analysis, store.path(r.key))
                         if notify is not None:
-                            notify("WATCHDOG=1")    # a step can encode several shows
+                            notify("WATCHDOG=1")    # a step can encode several pieces
                         if frames != r.frames:
                             store.path(r.key).unlink(missing_ok=True)
                             raise FrameCountDrift(f"{r.slug}: encoded {frames} frames, plan says "
@@ -290,15 +451,18 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None,
                                   f"encode {r.key} is missing and cannot be re-made ({reason}); "
                                   "refusing to re-plan into a mid-show cut")
             if reason is not None:
-                # A re-voice or a frame-count model change re-plans the show in
+                if replans >= cap:
+                    raise PlanError(f"render re-planned {replans} times in one call; stopping")
+                replans += 1
+                # A re-voice or a frame-count model change re-plans the piece in
                 # place (re-measured under the current key and model); excluding
                 # it would wedge a station with nothing else eligible.
                 if exclude:
-                    excluded.add(r.slug)
+                    excluded.add(ident)
                 else:
-                    mismatched.add(r.slug)
+                    mismatched.add(ident)
                 kept, start, run_start = replan_from(rows, rows.index(r))
-                pool = [s for s in shows.values() if s.slug not in excluded]
+                pool = [p for key, p in pieces.items() if key not in excluded]
                 rows = st.extend(kept, pool, now_us, start_frame=start, run_start=run_start)
                 write_plan(st.ws.plan_path, rows)
                 st.log(f"plan-changed: skipped {r.slug} at frame {r.start_frame} ({reason})")

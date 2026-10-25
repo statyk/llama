@@ -54,6 +54,10 @@ def make_reader_client(cfg: TransmitterConfig):
 
 
 def open_station(cfg: TransmitterConfig, t_us: int) -> pipeline.Station:
+    """The station. Its piece-length cache (`Station.length_cache`) is built
+    on first use from the workspace's analysis cache, the clip pause and the
+    encoder's extra frames -- exactly what `planned_frames` uses -- so a
+    command that never plans (publish, status) never probes the encoder."""
     ws = Workspace(cfg.root)
     return pipeline.Station(ws=ws, cfg=cfg, epoch=load_or_create_epoch(ws, t_us),
                             engine=make_engine(ws, cfg), log=log.info)

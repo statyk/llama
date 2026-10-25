@@ -155,7 +155,7 @@ def budget(
 
 @app.command()
 def plan(config: Path = CONFIG_OPT):
-    """Extend the plan to cover now + lead (phase 1: fixed shuffled order)."""
+    """Extend the plan to cover now + lead (the scheduler, on the live clock)."""
     cfg = load_config(config)
     t = service.now_us()
     st = service.open_station(cfg, t)

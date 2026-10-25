@@ -953,3 +953,20 @@ def test_history_does_not_append_for_another_epochs_publish_state(tmp_path, monk
         assert "history" in alerts._dispatcher.active()
     finally:
         alerts.configure(None)
+
+
+def test_open_station_lengths_match_what_render_plans_with(tmp_path, monkeypatch):
+    # The piece-length cache is built from the station's own analysis cache,
+    # clip pause and encoder extra -- what planned_frames uses -- so an "exact"
+    # length never disagrees with render; a changed encoder rebuilds it.
+    from transmitter.config import TransmitterConfig
+
+    engine = FakeEngine(pause_seconds=1.0, extra=3)
+    monkeypatch.setattr(service, "make_engine", lambda ws, cfg: engine)
+    cfg = TransmitterConfig(root=tmp_path / "tx", render={"clip_pause_seconds": 1.0})
+    st = service.open_station(cfg, NOW)
+    lc = st.length_cache()
+    assert (lc.cache_dir, lc.pause_samples, lc.extra) == (st.ws.cache_dir, st.pause_samples, 3)
+    assert st.length_cache() is lc and st.lengths is lc
+    engine.extra = 4
+    assert st.length_cache() is not lc and st.length_cache().extra == 4

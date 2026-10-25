@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from tests_transmitter.helpers import show_piece
-from transmitter import planner, rules
+from transmitter import rules
 from transmitter.clock import BlockConfig, ClockConfig, Occurrence, Prefer, RotationConfig
 from transmitter.grid import iso_to_us
 from transmitter.history import Recency
@@ -164,7 +164,6 @@ def test_rules_are_hardest_first():
     assert rules.RULES == ("adjacency", "gap", "artist_day", "era")
 
 
-def test_tie_rank_is_the_planner_shuffle_rank():
-    assert rules.tie_rank(7, "alpha") == planner.shuffle_rank(7, "alpha")
+def test_tie_rank_is_stable_and_seeded():
+    assert rules.tie_rank(7, "alpha") == rules.tie_rank(7, "alpha")
     assert rules.tie_rank(7, "alpha") != rules.tie_rank(8, "alpha")
-    assert planner.shuffle_rank is rules.tie_rank

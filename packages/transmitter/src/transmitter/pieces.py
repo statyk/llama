@@ -118,6 +118,11 @@ class LengthCache:
     def mark_exact(self, key: str, frames: int) -> None:
         self._exact[key] = frames
 
+    def forget(self, key: str) -> None:
+        """Drop what this process learned for `key`, so the next `length`
+        re-reads the analysis cache (else estimates)."""
+        self._exact.pop(key, None)
+
     def length(self, show: Show) -> tuple[int, bool]:
         key = show.key
         if key in self._exact:
