@@ -265,13 +265,13 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   persisted rows, the clock files and the interstitials folder only: clock source, current/next block, misses and
   fill minutes by cause for the last and next 24 h, bends, degraded blocks, missing announcement
   audio; none of it alerts. `scripts/probe_estimates.py --time-one SLUG` prints an ineligible
-  package's reasons (or `not found`). `transmitter announcements [--days 8] [--export DIR]` lists
+  package's reasons (or `not found`). `transmitter announcements [--days 8] [--clock FILE] [--export DIR]` lists
   the announcements the clock needs and writes `ann-<id>.txt` for the missing ones; voice them on
   the Mac with `emcee say` into `<station root>/interstitials` (`id-*.mp3` are station IDs).
   Clock: `<TRANSMITTER_ROOT>/clock.toml` + `clock.last-good.toml`; edit a draft and check it with
   `schedule --clock draft.toml` first. `plan` and `render` share a non-waiting plan lock
   (`PlanLocked`). Runbook: `docs/playout-setup.md` 7.2-7.3.
-- Run (transmitter, playout on hugo — phases 1-2): `transmitter run` (service
+- Run (transmitter, playout on hugo — phases 1-3): `transmitter run` (service
   loop: plan/render once the lead drops below `low_water_hours`, and keep
   filling until it is back at `lead_hours`; publish + prune every minute;
   `--once` runs one tick), `transmitter plan|render|publish|status`,
@@ -458,8 +458,8 @@ Anything but `"on"` is the rollback: cron's loop exactly as before, and the obje
 
 transmitter must stay Python 3.11-compatible (hugo is Debian 12: Python 3.11,
 ffmpeg 5.1); the Debian-12 script above is the gate for that. Design:
-`docs/superpowers/specs/2026-10-09-playout-design.md` (phases 1–2 built; the
-scheduler and the full player are phases 3–4).
+`docs/superpowers/specs/2026-10-09-playout-design.md` (phases 1–3 built; the
+full player is phase 4).
 **Scheduler (phase 3; spec `docs/superpowers/specs/2026-10-25-scheduler-design.md`, measurement
 `docs/superpowers/2026-10-25-scheduler-measurement/evidence.md`).** Append-only: it extends the
 persisted plan from its end, never rewriting a row, and pieces are shows plus one-clip

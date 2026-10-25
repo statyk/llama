@@ -227,6 +227,18 @@ message points at that; check R2 latency and status. A restart clears it
 (`sudo systemctl restart transmitter@<user>`); if it comes straight back,
 investigate before looping restarts. It resolves once passes are fresh again.
 
+### `clock` (event, no "resolved")
+Sent at once; deduped by `repeat_hours`. This is hugo's scheduler code, not the cloud "clock" family in section 5.
+**Means:** `clock.toml` is invalid and planning runs on `clock.last-good.toml` (or the implicit open clock if there is none).
+**Effect:** newly planned blocks follow the old clock; nothing already planned changes.
+**Do:** fix `clock.toml` and check it with `transmitter schedule --clock <file>`. The alert first fires, and later clears, at the next fill.
+
+### `history` (event, no "resolved")
+Sent at once; deduped by `repeat_hours`.
+**Means:** `aired.jsonl` was not appended. Causes include `publish.json`'s epoch differing from the station epoch, or any other append failure (disk, permissions).
+**Effect:** rotation recency goes stale until it is fixed; air is unaffected.
+**Do:** read the alert text and the journal for the cause; for an epoch mismatch compare `publish.json` with `epoch.json`.
+
 ## 5. Cloud alerts (antenna Worker)
 
 While the station is **blocked** (tripped or off-air), the clock writes an
