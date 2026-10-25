@@ -6,7 +6,7 @@ import os
 import tomllib
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from transmitter import grid
 from transmitter.errors import ConfigError
@@ -118,7 +118,15 @@ class AntennaConfig(_StrictModel):
 
 
 class InterstitialsConfig(_StrictModel):
-    dir: Path | None = None            # default: <station root>/interstitials
+    dir: Path | None = None            # absolute; default: <station root>/interstitials
+
+    @field_validator("dir")
+    @classmethod
+    def _absolute(cls, v: Path | None) -> Path | None:
+        if v is not None and not v.is_absolute():
+            raise ValueError("interstitials.dir must be an absolute path (a relative one would "
+                             "resolve against the service's cwd)")
+        return v
 
 
 class TransmitterConfig(_StrictModel):

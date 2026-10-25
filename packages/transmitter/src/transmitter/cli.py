@@ -283,6 +283,9 @@ def announcements(
         clock = lc.clock
     folder = interstitials.folder(cfg)
     have: set[str] = set()
+    if folder is None or not folder.is_dir():
+        typer.echo(f"note: no interstitials folder ({folder or 'set [station] root or [interstitials] dir'}); "
+                   "every announcement is listed as missing", err=True)
     if folder is not None:
         have = {s.meta["ann_id"] for s in interstitials.scan(folder, now_s=float("inf"), quiet_s=0.0)
                 if s.meta["role"] == "ann"}

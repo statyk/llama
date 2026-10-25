@@ -3,10 +3,11 @@
 reads it. Each clip becomes a one-clip `Show`, so analysis, encode and the
 frame store are reused unchanged."""
 
+import stat
 from pathlib import Path
 
 from transmitter.config import TransmitterConfig
-from transmitter.station import Entry, Show, file_set_key
+from transmitter.station import Entry, Show, file_set_key_and_sizes
 
 FOLDER_NAME = "interstitials"
 
@@ -49,11 +50,11 @@ def scan(folder: Path | None, *, now_s: float, quiet_s: float) -> list[Show]:
             continue
         try:
             st = p.stat()
-            if not p.is_file() or st.st_size == 0 or now_s - st.st_mtime < quiet_s:
+            if not stat.S_ISREG(st.st_mode) or st.st_size == 0 or now_s - st.st_mtime < quiet_s:
                 continue
-            key = file_set_key(Path(folder), [name])
+            key, sizes = file_set_key_and_sizes(Path(folder), [name])
         except OSError:
             continue
         shows.append(Show(p.stem, Path(folder), (Entry(name, "clip", title),), key,
-                          {"role": role, "ann_id": ann_id, "sizes": {name: st.st_size}}))
+                          {"role": role, "ann_id": ann_id, "sizes": sizes}))
     return sorted(shows, key=lambda s: s.slug)

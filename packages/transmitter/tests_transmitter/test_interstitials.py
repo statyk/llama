@@ -67,3 +67,30 @@ def test_interstitials_folder_is_invisible_to_the_package_scan(tmp_path):
     _clip(root / "interstitials", "id-a.mp3")
     shows, skipped = station.scan(root, now_s=time.time(), quiet_s=0)
     assert [s.slug for s in shows] == ["band-2005-11-01"] and skipped == []
+
+
+def test_oserror_on_one_file_skips_only_that_file(tmp_path, monkeypatch):
+    _clip(tmp_path, "id-a.mp3")
+    _clip(tmp_path, "id-b.mp3")
+    real = os.stat
+
+    def flaky(path, *a, **kw):
+        if str(path).endswith("id-a.mp3"):
+            raise OSError("gone")
+        return real(path, *a, **kw)
+
+    monkeypatch.setattr(os, "stat", flaky)
+    assert [s.slug for s in interstitials.scan(tmp_path, now_s=time.time(), quiet_s=0)] == ["id-b"]
+
+
+def test_a_directory_named_like_a_clip_is_skipped(tmp_path):
+    (tmp_path / "id-x.mp3").mkdir()
+    _clip(tmp_path, "id-y.mp3")
+    assert [s.slug for s in interstitials.scan(tmp_path, now_s=time.time(), quiet_s=0)] == ["id-y"]
+
+
+def test_relative_interstitials_dir_is_a_config_error():
+    import pytest
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="absolute"):
+        TransmitterConfig(interstitials={"dir": "relative/dir"})

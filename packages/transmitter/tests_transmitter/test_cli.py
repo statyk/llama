@@ -278,3 +278,51 @@ def test_announcements_export_writes_missing_scripts_only(tmp_path, monkeypatch)
     assert sorted(p.name for p in out.iterdir()) == sorted(f"ann-{i}.txt" for i in others)
     assert "exported 3 script(s)" in result.output
     assert not list(root.rglob("clock.last-good.toml"))
+
+
+GOOD_CLOCK = 'timezone = "America/New_York"\n\n[[block]]\nname = "a"\ntitle = "Funk"\nstart = "19:00"\n'
+
+
+def _ws(tmp_path, monkeypatch, with_root=True):
+    root = tmp_path / "ws"
+    root.mkdir()
+    monkeypatch.setenv("TRANSMITTER_ROOT", str(root))
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(f'[station]\nroot = "{tmp_path / "station"}"\n' if with_root else "")
+    return root, cfg
+
+
+def test_announcements_live_clock_writes_no_last_good_copy(tmp_path, monkeypatch):
+    root, cfg = _ws(tmp_path, monkeypatch)
+    (root / "clock.toml").write_text(GOOD_CLOCK)
+    result = CliRunner().invoke(app, ["announcements", "--config", str(cfg)])
+    assert result.exit_code == 0, result.output
+    assert "Stay tuned for Funk at 7 Eastern, 4 Pacific." in result.output
+    assert not (root / "clock.last-good.toml").exists()
+
+
+def test_announcements_invalid_live_clock_notes_and_writes_no_copy(tmp_path, monkeypatch):
+    root, cfg = _ws(tmp_path, monkeypatch)
+    (root / "clock.toml").write_text("not = [valid")
+    result = CliRunner().invoke(app, ["announcements", "--config", str(cfg)])
+    assert result.exit_code == 0, result.output
+    assert "note: " in result.output and "clock" in result.output
+    assert not (root / "clock.last-good.toml").exists()
+
+
+def test_announcements_bad_clock_file_exits_1(tmp_path, monkeypatch):
+    _, cfg = _ws(tmp_path, monkeypatch)
+    bad = tmp_path / "bad.toml"
+    bad.write_text("not = [valid")
+    result = CliRunner().invoke(app, ["announcements", "--config", str(cfg), "--clock", str(bad)])
+    assert result.exit_code == 1
+
+
+def test_announcements_notes_a_missing_interstitials_folder(tmp_path, monkeypatch):
+    root, cfg = _ws(tmp_path, monkeypatch, with_root=False)
+    (root / "clock.toml").write_text(GOOD_CLOCK)
+    result = CliRunner().invoke(app, ["announcements", "--config", str(cfg)])
+    assert result.exit_code == 0
+    assert "note: no interstitials folder (" in result.output
+    assert result.output.count("note: no interstitials folder") == 1
+    assert "missing" in result.output

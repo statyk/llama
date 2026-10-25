@@ -62,3 +62,16 @@ def test_needed_skips_untitled_blocks_and_uses_one_forms():
     assert by_block["C"] == {"next_one", "later_one", "next", "later"}
     assert len({r.id for r in n}) == len(n)
     assert [r.nominal_iso for r in n] == sorted(r.nominal_iso for r in n)
+
+
+def test_needed_excludes_occurrences_at_or_after_the_span_end():
+    c = _clock({"name": "A", "title": "Alpha", "start": "10:00", "days": ["mon"]},
+               {"name": "C", "title": "Gamma", "start": "12:00", "days": ["mon"]})
+    start = us(2096, 10, 1)
+    first = occurrences(c, start, start + 14 * 86_400_000_000)
+    a = next(o for o in first if o.block.name == "A" and o.nominal_us >= start)
+    # span ends exactly at A's nominal time: A is excluded; one microsecond later it is included
+    names = lambda until_days: {(r.block, r.nominal_iso) for r in needed(c, start, until_days)}
+    d = (a.nominal_us - start) / 86_400_000_000
+    assert ("A", a.nominal_iso) not in names(d)
+    assert ("A", a.nominal_iso) in names(d + 1e-6)
