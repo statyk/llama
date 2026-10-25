@@ -264,7 +264,7 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   pool, ineligible packages by first reason incl. `awaiting fix from llama`). `status` reads
   persisted rows, the clock files and the interstitials folder only: clock source, current/next block, misses and
   fill minutes by cause for the last and next 24 h, bends, degraded blocks, missing announcement
-  audio; none of it alerts. `scripts/probe_estimates.py --time-one SLUG` prints an ineligible
+  audio; none of it alerts. `packages/transmitter/scripts/probe_estimates.py --config <config.toml> --time-one SLUG` prints an ineligible
   package's reasons (or `not found`). `transmitter announcements [--days 8] [--clock FILE] [--export DIR]` lists
   the announcements the clock needs and writes `ann-<id>.txt` for the missing ones; voice them on
   the Mac with `emcee say` into `<station root>/interstitials` (`id-*.mp3` are station IDs).
@@ -465,7 +465,7 @@ full player is phase 4).
 persisted plan from its end, never rewriting a row, and pieces are shows plus one-clip
 interstitials (announcements, station IDs) from `[interstitials] dir` (absolute; default
 `<station root>/interstitials`). The clock file is strict; an invalid one alerts `clock` and
-planning continues on `clock.last-good.toml`, else one all-week open block. Announcement ids are
+planning continues on `clock.last-good.toml`, else a daily 00:00 open block with a ±12 h window. Announcement ids are
 a hash of the rendered text, so template edits retire voiced clips; missing audio degrades
 two-block, one-block, station ID, gap. `aired.jsonl` (append-only rotation history, backfilled
 from `plan.jsonl`) refuses appends on an epoch mismatch (alert `history`). A package manifest

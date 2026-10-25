@@ -23,7 +23,7 @@ Alerts come from two places, and each one handles repeats differently.
 
 | Source | Subject looks like | State file | Repeats while active | "resolved" message |
 |---|---|---|---|---|
-| **hugo** (`transmitter`) | `<station>: <code>` | `~/.transmitter/alerts.json` on hugo | at most once per 6 h (`[alerts] repeat_hours`), with "(N more since the last message)" | **level codes only**: `dead-clock`, `guard-stale`, `station-root`, `plan`, `render`, `monitor-stalled` |
+| **hugo** (`transmitter`) | `<station>: <code>` | `~/.transmitter/alerts.json` on hugo | at most once per 6 h (`[alerts] repeat_hours`), with "(N more since the last message)" | **level codes** (`dead-clock`, `guard-stale`, `station-root`, `plan`, `render`, `monitor-stalled`) **and the event codes `clock` and `history`** |
 | **cloud** (antenna Worker) | `<station>: <title>` | `state/alerts.json` in R2 | every 6 h (`ALERT_REPEAT_HOURS`) | every key except the three "once" keys (`budget-50…`, `budget-80…`, `budget-file-invalid`) and `waf-corrected`; it arrives **15 min** after the condition clears (cooldown) |
 
 **Silence after the first message is not evidence of recovery.**
@@ -33,7 +33,7 @@ Alerts come from two places, and each one handles repeats differently.
 - **A hugo event alert** (`prune`, `publish`, `put-budget`, `horizon-held`,
   `frame-count-drift`, `publish-state`, `dead-clock-check`): you get
   one message, then nothing for 6 h even if it fires every minute. It never
-  sends "resolved". The journal is the only place that shows whether it is
+  sends "resolved" (the exceptions are `clock` and `history`, which do). The journal is the only place that shows whether it is
   still happening, because every fire is logged there:
 
   ```
@@ -72,7 +72,7 @@ left (`LEAD_FLOOR_HOURS`).
 |---|---|
 | **Now: listeners affected or about to be** | `dead-clock`, `tripped-spend`, `tripped-blind`, `guard-state-corrupt`, `offair-corrupt`, `clock-inputs`, `clock-failed` (if it repeats), `guard-crashed`, `guard-unknown` (if it persists), `horizon-refused`, `offair-without-fallback` |
 | **Today: will affect listeners within hours if ignored** | `frame-count-drift` (never recovers alone), `monitor-stalled`, `lead-low`, `put-budget`, `horizon-held`, `publish-state`, `station-root`, `plan`/`render` (if they persist), `publish` (if it persists), `guard-reading-failing`, `metronome-down` (if it persists), `waf-api` (while blocked), `guard-stale` |
-| **When convenient: no listener impact** | `prune`, `dead-clock-check`, `index-write`, `budget-unreadable`, `budget-file-invalid`, `guard-write`, `waf-corrected`, `budget-50…`, `budget-80…`, `horizon-missing` (on a fresh start) |
+| **When convenient: no listener impact** | `prune`, `dead-clock-check`, `clock`, `history`, `index-write`, `budget-unreadable`, `budget-file-invalid`, `guard-write`, `waf-corrected`, `budget-50…`, `budget-80…`, `horizon-missing` (on a fresh start) |
 
 ## 4. hugo alerts
 
@@ -227,16 +227,17 @@ message points at that; check R2 latency and status. A restart clears it
 (`sudo systemctl restart transmitter@<user>`); if it comes straight back,
 investigate before looping restarts. It resolves once passes are fresh again.
 
-### `clock` (event, no "resolved")
+### `clock` (event, has "resolved")
 Sent at once; deduped by `repeat_hours`. This is hugo's scheduler code, not the cloud "clock" family in section 5.
 **Means:** `clock.toml` is invalid and planning runs on `clock.last-good.toml` (or the implicit open clock if there is none).
 **Effect:** newly planned blocks follow the old clock; nothing already planned changes.
-**Do:** fix `clock.toml` and check it with `transmitter schedule --clock <file>`. The alert first fires, and later clears, at the next fill.
+**Do:** fix `clock.toml` and check it with `transmitter schedule --clock <file>`. The alert first fires at the next fill, and "resolved" is sent at the next fill once the clock is valid or absent.
 
-### `history` (event, no "resolved")
+### `history` (event, has "resolved")
 Sent at once; deduped by `repeat_hours`.
 **Means:** `aired.jsonl` was not appended. Causes include `publish.json`'s epoch differing from the station epoch, or any other append failure (disk, permissions).
 **Effect:** rotation recency goes stale until it is fixed; air is unaffected.
+"Resolved" is sent on the next successful tick.
 **Do:** read the alert text and the journal for the cause; for an epoch mismatch compare `publish.json` with `epoch.json`.
 
 ## 5. Cloud alerts (antenna Worker)

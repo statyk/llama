@@ -460,7 +460,7 @@ What each alert means and how to respond: `docs/playout-incident-runbook.md`.
 **hugo** (transmitter, `~/.transmitter/alerts.json`):
 
 - **Level codes**, active until resolved: `dead-clock` and `guard-stale` (resolved by the monitor), `station-root` and `plan` (by a successful plan step), `render` (by a successful render step), `monitor-stalled` (new: fired by the main tick when the monitor thread has completed no pass for 5 min or is not alive, **sent at once**; resolved by the main tick once passes are fresh again).
-- **Event codes**, re-sent at most every `repeat_hours` and dropped from the active list once `repeat_hours` pass without a new fire: `publish`, `prune`, `publish-state`, `put-budget`, `horizon-held`, `frame-count-drift`, `dead-clock-check` (the dead-clock monitor itself raised an error; not the same as `dead-clock`), `clock` (phase 3: `clock.toml` is invalid and planning runs on the last-good copy, else the implicit open block; this is hugo's scheduler clock, not the cloud "clock" family), `history` (phase 3: `aired.jsonl` was not appended, e.g. the `publish.json` epoch differs from the station epoch).
+- **Event codes**, re-sent at most every `repeat_hours` and dropped from the active list once `repeat_hours` pass without a new fire: `publish`, `prune`, `publish-state`, `put-budget`, `horizon-held`, `frame-count-drift`, `dead-clock-check` (the dead-clock monitor itself raised an error; not the same as `dead-clock`), `clock` (phase 3: `clock.toml` is invalid and planning runs on the last-good copy, else the implicit open block; this is hugo's scheduler clock, not the cloud "clock" family; unlike the other event codes it sends "resolved", at the next fill once the clock is valid or absent), `history` (phase 3: `aired.jsonl` was not appended, e.g. the `publish.json` epoch differs from the station epoch; it also sends "resolved", on the next successful tick).
 - **Gate.** Gated at 3: `prune`, `publish`, `publish-state`, `station-root`, `plan`, `render`, `dead-clock-check`. Sent at once: `put-budget` (spend), `frame-count-drift` (latches `halted`, fires once), `monitor-stalled`, `clock`, `history`. Unchanged (already debounced): `dead-clock`, `guard-stale`, `horizon-held`.
 
 **The monitor thread.** The dead-clock check and the relay run on a daemon thread every 60 s, independent of plan, render and publish (a plan step analysing shows over NFS used to delay `dead-clock` by 13+ min). The thread starts when `[antenna] site_url` or hugo's ntfy is configured; each part runs only if its own configuration is present. It has its own get-only R2 reader (short timeouts), never writes to R2, never touches `guard-cache.json` and never pings the watchdog, so the watchdog still means "the main loop is alive". It reads `state/guard.json` and `state/offair.json` itself (2 class-B GETs a minute; with the relay's GET of `state/alert-relay.json`, about 3 a minute, ~130k a month, ~1.3% of the 10M allowance) instead of using hugo's 15-minute cache. `transmitter run --once` runs one tick and then one dead-clock check on the main thread; it does not relay and starts no thread.
@@ -483,8 +483,9 @@ What each alert means and how to respond: `docs/playout-incident-runbook.md`.
 
 The scheduler appends to the persisted plan from the plan's end, driven by the clock: `<TRANSMITTER_ROOT>/clock.toml` (default `~/.transmitter/clock.toml`). Each time it loads a valid clock it keeps a copy as `clock.last-good.toml`. The pieces it plans are shows plus one-clip interstitials (announcements, station IDs) from the interstitials folder.
 
-- **No clock file:** planning uses the implicit clock, a daily 00:00 open block with a 12 h window (so `schedule` shows seven `open` occurrences a week), and `transmitter status` says `no clock: open all week`.
+- **No clock file:** planning uses the implicit clock, a daily 00:00 open block with a ±12 h window (so `schedule` shows seven `open` occurrences a week), and `transmitter status` says `no clock: open all week`.
 - **The clock is strict.** Unknown keys and bad values are errors; non-finite numbers are rejected; window fields may not exceed one week. `Prefer.weight` must be > 0 and `on_this_day` >= 0. `concert_gap_days = 0` disables the gap rule (the least recently aired show still ranks first, over a 365-day horizon). `max_shows` defaults to 2 for a profile block and is unbounded for an open block; a long profile block whose pool cannot fill it at `max_shows` gets fill; `schedule` labels the cause "pool short" or "longer than max_shows". Raising `max_shows` is a clock choice (real blocks will mostly be 2-3 h).
+- **A block runs until the next block's start; every hour of the week belongs to some block.**
 - **Edit a draft, never the live file.** The first time, write `draft.toml` from the example below; afterwards copy `clock.toml` to a draft. Edit it, check it, then move it into place:
   ```
   transmitter schedule --clock draft.toml      # previews the next --days (default 7) under the draft
@@ -494,7 +495,7 @@ The scheduler appends to the persisted plan from the plan's end, driven by the c
 - **An invalid live clock** alerts `clock` (first at the next fill, not at once; it clears at the next fill after the fix). `status` shows `clock      last-good (invalid clock at …)`, or `clock      no clock: open all week (invalid clock at …)` when there is no last-good copy. Planning continues on `clock.last-good.toml`, else on the implicit clock.
 - **Edits reach air after the persisted plan:** about one lead plus one show (the plan is append-only; rows already persisted are never rewritten).
 - **Reading `schedule` / `status`.** A block entered mid-way (the phase-1 cutover, a fresh run after an outage) records a MISS on its first show by design. Bends are counted once per block and only for options the bounded search offered, so they may undercount. `transmitter library` lists eligible shows by profile, the interstitial pool, and ineligible packages by first reason.
-- **`awaiting_fix`.** A delivered package whose manifest carries a non-null top-level `awaiting_fix` is not airable: `library` lists it under `awaiting fix from llama` (without the reason; `scripts/probe_estimates.py --time-one SLUG` prints it) and the station scan shows the reason. A planned row not yet encoded is dropped by render's skip path; a show already encoding or on air finishes. Known limitation: if a marked show is on air and its `render/shows/<key>.aac` is lost by hand, render refuses to re-make it (`LayoutError`) until recovery cuts a new run.
+- **`awaiting_fix`.** A delivered package whose manifest carries a non-null top-level `awaiting_fix` is not airable: `library` lists it under `awaiting fix from llama` (without the reason; `packages/transmitter/scripts/probe_estimates.py --config <config.toml> --time-one SLUG` prints it, and is where to see the reason). A planned row not yet encoded is dropped by render's skip path; a show already encoding or on air finishes. Known limitation: if a marked show is on air and its `render/shows/<key>.aac` is lost by hand, render refuses to re-make it (`LayoutError`) until recovery cuts a new run.
 - **Rotation history.** `aired.jsonl` in the workspace is append-only, one row per published-and-past piece, idempotent across restarts, and backfilled from `plan.jsonl` on first run. A crash can leave a partial last line; it is skipped with a warning on every load (harmless; remove that one fragment by hand, with the service stopped, if the warning bothers you). History appends refuse (alert `history`) when `publish.json`'s epoch differs from the station epoch.
 - **Plan lock.** The service holds one non-waiting plan lock only during its plan/render steps while filling; a manual `transmitter plan`/`render` normally succeeds otherwise, and refuses with `PlanLocked` only on overlap.
 
@@ -519,20 +520,21 @@ zones = [
 ]
 
 [open]
-# Profiles that never air in an open block (no profiles listed on the block).
+# Profiles left out of open time and of profile blocks' fill. The exclusion bends,
+# and only when the open pool would otherwise be empty.
 exclude_profiles = []
 
 [rotation]
 concert_gap_days = 45              # 0 disables the gap rule
 on_this_day_weight = 3.0
 
-# Blocks of 2-3 h. A block with no profiles is an open block (max_shows unbounded).
+# A block runs until the next block's start. A block with no profiles is an open block (max_shows unbounded).
 [[block]]
 name = "evening-dead"
 title = "Dead Evening"
 days = ["fri", "sat"]              # or "daily"
 start = "20:00"                    # HH:MM local
-profiles = ["deadheads"]           # llama profile names
+profiles = ["dead"]                # llama profile names
 max_shows = 2                      # default 2 for a profile block
 wiggle_minutes = 20                # or early_minutes + late_minutes together, not both
 prefer = [
@@ -541,10 +543,10 @@ prefer = [
 ]
 
 [[block]]
-name = "afternoon-open"
-title = "Afternoon Mix"
+name = "late-open"
+title = "Late Mix"
 days = "daily"
-start = "14:00"
+start = "23:00"
 early_minutes = 10
 late_minutes = 30
 ```
@@ -571,7 +573,7 @@ Missing audio degrades gracefully: two-block form, then one-block form, then a s
 
 1. Deploy HEAD to hugo and restart the service (`sudo systemctl restart transmitter@<user>`).
 2. The first tick backfills `aired.jsonl` from `plan.jsonl`.
-3. The block in progress at cutover records a MISS on its first show; that is by design, not a fault.
+3. The scheduler appends from the end of the phase-1 plan, which runs about a lead (~a day) ahead of air. The MISS therefore lands on the block where that plan ends, at the first fill after the deploy, not on the block airing at cutover; that is by design, not a fault.
 4. `clock.toml` is optional: without it the station runs the implicit open clock (open all week). Add one later from the example in 7.2.
 5. Create the interstitials folder (`[interstitials] dir`, absolute; default `<station root>/interstitials`), then voice station IDs (`id-*.mp3`) and the announcements (7.3).
 6. Check with `transmitter status` and `transmitter schedule`.
