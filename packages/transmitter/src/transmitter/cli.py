@@ -10,6 +10,7 @@ import typer
 from transmitter import aacenc, cloudstate, fallback, grid, pipeline, service
 from transmitter.config import DEFAULT_CONFIG_TOML, default_root, load_config
 from transmitter.errors import CloudStateError, ConfigError, TransmitterError
+from transmitter.locks import plan_lock
 from transmitter.workspace import atomic_write_text
 
 app = typer.Typer(help="Plan, render and publish the station's HLS stream",
@@ -158,7 +159,8 @@ def plan(config: Path = CONFIG_OPT):
     cfg = load_config(config)
     t = service.now_us()
     st = service.open_station(cfg, t)
-    rows = pipeline.plan_step(st, t)
+    with plan_lock(st.ws):
+        rows = pipeline.plan_step(st, t)
     for r in rows[-10:]:
         typer.echo(f"{grid.us_to_iso(st.epoch.epoch_us + grid.frame_to_us(r.start_frame))}  {r.slug}")
 
@@ -169,8 +171,9 @@ def render(config: Path = CONFIG_OPT):
     cfg = load_config(config)
     t = service.now_us()
     st = service.open_station(cfg, t)
-    pipeline.plan_step(st, t)
-    report = pipeline.render_step(st, t)
+    with plan_lock(st.ws):
+        pipeline.plan_step(st, t)
+        report = pipeline.render_step(st, t)
     extra = f"; re-planned around {', '.join(report.replanned)}" if report.replanned else ""
     typer.echo(f"wrote {len(report.written)} segment(s){extra}")
 

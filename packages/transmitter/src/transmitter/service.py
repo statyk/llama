@@ -21,8 +21,9 @@ from transmitter.alerts import NtfyChannel
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
 from transmitter.deadclock import DeadClockMonitor
-from transmitter.errors import CloudDocumentError, ConfigError, FrameCountDrift, PublishLocked, StationRootError, TransmitterError
+from transmitter.errors import CloudDocumentError, ConfigError, FrameCountDrift, PlanLocked, PublishLocked, StationRootError, TransmitterError
 from transmitter.layout import PlanRow
+from transmitter.locks import plan_lock
 from transmitter.monitor import MonitorLoop
 from transmitter.planner import read_plan
 from transmitter.state import load_fallback_version, load_publish_state
@@ -242,7 +243,7 @@ class Runner:
             log.error("%s step: frame-count drift; filling halted", name, exc_info=True)
             alerts.alert("frame-count-drift", f"{exc}; filling halted (publishing continues) "
                                               "until transmitter is restarted")
-        except PublishLocked as exc:
+        except (PublishLocked, PlanLocked) as exc:
             # An operator's manual publish/fallback overlaps this tick; the next one retries.
             log.warning("%s step skipped: %s", name, exc)
             return False
@@ -312,12 +313,18 @@ class Runner:
         if not self.halted and (lead is None or lead < low_water_us):
             self.filling = True
         if self.filling:
-            if self._step("plan", lambda: pipeline.plan_step(self.st, t_us, max_new=1),
-                          resolves=("plan", "station-root")):
+            def plan() -> None:
+                with plan_lock(self.st.ws):
+                    pipeline.plan_step(self.st, t_us, max_new=1)
+
+            def render() -> None:
+                with plan_lock(self.st.ws):
+                    pipeline.render_step(
+                        self.st, t_us, limit=self.st.cfg.publish.batch_segments, notify=self.notify)
+
+            if self._step("plan", plan, resolves=("plan", "station-root")):
                 ran.add("plan")
-            if self._step("render", lambda: pipeline.render_step(
-                    self.st, t_us, limit=self.st.cfg.publish.batch_segments, notify=self.notify),
-                    resolves=("render",)):
+            if self._step("render", render, resolves=("render",)):
                 ran.add("render")
         if self._step("publish", lambda: publish_all(self.p, t_us, self.held, self.notify)):
             ran.add("publish")

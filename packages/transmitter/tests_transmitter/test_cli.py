@@ -225,3 +225,19 @@ def test_run_hands_the_runner_the_dead_clock_monitor(tmp_path, monkeypatch):
     result = CliRunner().invoke(app, ["run", "--once", "--config", str(_config(tmp_path, root))])
     assert result.exit_code == 0, result.output
     assert seen["monitor"] is sentinel and seen["run_once"] == 1 and "run" not in seen
+
+
+def test_plan_and_render_refuse_while_locked(tmp_path, monkeypatch):
+    from transmitter.locks import plan_lock
+    monkeypatch.setenv("TRANSMITTER_ROOT", str(tmp_path / "tx"))
+    monkeypatch.setattr(service, "make_engine", lambda ws, cfg: FakeEngine())
+    root = make_root(tmp_path)
+    build_package(root, "band-2005-11-01")
+    cfg = str(_config(tmp_path, root))
+    with plan_lock(Workspace(tmp_path / "tx")):
+        for cmd in ("plan", "render"):
+            result = CliRunner().invoke(app, [cmd, "--config", cfg])
+            assert result.exit_code == 1, result.output
+            assert type(result.exception).__name__ == "PlanLocked"
+            assert "another transmitter plan or render holds the lock" in str(result.exception)
+    assert not (tmp_path / "tx" / "plan.jsonl").exists()

@@ -855,3 +855,21 @@ def test_row_analysis_ignores_interstitial_rows_even_when_cached(tmp_path):
     row = PlanRow(seq=0, slug="ann", dir="interstitials", key="kk", start_frame=0, frames=441,
                   kind="interstitial", role="id")
     assert service.row_analysis(st, row) is None
+
+
+def test_tick_skips_plan_and_render_while_the_plan_lock_is_held(tmp_path, caplog, monkeypatch):
+    from transmitter.locks import plan_lock
+    st, _ = make_station(tmp_path)
+    bucket = FakeBucket()
+    runner = service.Runner(st, _publisher(st, bucket), sleep=lambda s: None)
+    runner.filling = True
+    published = []
+    monkeypatch.setattr(service, "publish_all", lambda *a, **k: published.append(1))
+    before = st.ws.plan_path.read_bytes() if st.ws.plan_path.exists() else None
+    with plan_lock(st.ws), caplog.at_level(logging.WARNING):
+        runner.tick(NOW)
+    after = st.ws.plan_path.read_bytes() if st.ws.plan_path.exists() else None
+    assert after == before
+    assert "ALERT" not in caplog.text
+    assert "plan step skipped" in caplog.text and "render step skipped" in caplog.text
+    assert published == [1]

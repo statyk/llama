@@ -106,6 +106,10 @@ class Workspace:
         return self.root / "publish.lock"
 
     @property
+    def plan_lock_path(self) -> Path:
+        return self.root / "plan.lock"
+
+    @property
     def alerts_path(self) -> Path:
         return self.root / "alerts.json"
 
