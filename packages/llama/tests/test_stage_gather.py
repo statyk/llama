@@ -4941,7 +4941,7 @@ def test_fw4_donor_segues_none_is_a_no_op():
     from llama.stages.gather import donor_segues
     r = AlignResult(sets=["1"], segues=[True], matched=[True], coverage=1.0, conflicts=[],
                     merge_conflicts=[])
-    assert donor_segues([], r, None, None) is r
+    assert donor_segues([], r, None, None, shipped_sets=["1"]) is r
 
 
 def test_fw4_segue_donor_carries_g5_and_the_canonical_cleaning():
@@ -5083,3 +5083,47 @@ def test_fw4r1_removal_on_the_last_track_still_happens(tmp_path):
                       _RADS_S1_SLFM, encore=False)
     assert res.show.structure.source == "setlist.fm"
     assert _segued_tracks(res) == []
+
+
+# --- FW4 fix round 2: rule (b) reads the SHIPPED set labels ---
+
+# joerussosalmostdead-2017-04-29: the selected description (JRAD2017-04-29.1stBankCenter.
+# TelefunkenM60.FLAC24) verbatim, its tags and setlist.fm's names. setlist.fm has no
+# `Morfbeats`, so the canonical alignment leaves tracks 10-11 in set one (inherited) while
+# the taper's `SET TWO` marker ships them in set two, with `Dark Star`.
+_JRAD17_TAGS = ["Intro", "Shelter from the Storm", "Bertha", "Let it Grow", "Help->Slipnot",
+                "Throwing Stones", "It Must Have Been the Roses", "Gonesville", "Shakedown Street",
+                "***Second Set Intro***", "Morfbeats", "Dark Star",
+                "Mississippi Half Step Uptown Toodleloo", "Estimated Prophet",
+                "Terrapin Station Suite", "The Other One", "Eyes of the World", "***crowd noise***",
+                "One More Saturday Night", "Not Fade Away", "Ripple", "Born to Run"]
+_JRAD17_DESC = ("SET ONEShelter from the Storm->\nBertha->\nLet it Grow->\nHelp/Slipnot>\n"
+                "Throwing Stones\nMust Have Been the Roses>\nGonesville->\nShakedown Street\n"
+                "SET TWO\nMorfbeats->\nDark Star->\nHalf Step->\nEstimated Prophet->\n"
+                "Terrapin Suite->\nThe Other One\nEyes of the World\nENCORE 1\n"
+                "One More Saturday Night\nNot Fade Away\nENCORE 2\nRipple\nBorn to Run")
+_JRAD17_SLFM = [["Shelter From the Storm", "Bertha", "Let It Grow", "Help on the Way", "Slipknot!",
+                 "Throwing Stones", "It Must Have Been the Roses", "Gonesville",
+                 "Shakedown Street"],
+                ["Dark Star", "Mississippi Half-Step Uptown Toodeloo", "Estimated Prophet",
+                 "Terrapin Station", "The Other One", "Eyes of the World"],
+                ["One More Saturday Night", "Not Fade Away", "Ripple", "Born to Run"]]
+
+
+def test_fw4r2_gain_ships_when_the_shipped_sets_agree(tmp_path):
+    # Track 11 `Morfbeats` takes the donor's `Morfbeats->`: its canonical set (one) differs
+    # from track 12's (two), but the shipped labels put both in set two.
+    res = _fw4_gather(tmp_path, _JRAD17_TAGS, _JRAD17_DESC, _JRAD17_SLFM,
+                      creator="Joe Russo's Almost Dead")
+    t = res.show.tracks
+    assert res.show.structure.source == "setlist.fm"
+    assert t[10].set == t[11].set == "2"
+    assert _segued_tracks(res) == [2, 3, 4, 5, 7, 8, 11, 12, 13, 14]
+
+
+def test_fw4r2_gain_across_a_shipped_set_break_is_still_declined(tmp_path):
+    # (pin) gratefuldead-1987-03-27's blob: tracks 8 and 9 ship in different sets.
+    res = _gd87(tmp_path)
+    t = res.show.tracks
+    assert t[7].set != t[8].set
+    assert 8 not in _segued_tracks(res)

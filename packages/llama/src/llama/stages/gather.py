@@ -1006,7 +1006,7 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
 
 
 def donor_segues(tracks: list[Track], result: AlignResult, donor: ParsedSetlist | None,
-                 aliases: dict[str, str] | None) -> AlignResult:
+                 aliases: dict[str, str] | None, *, shipped_sets: list[str]) -> AlignResult:
     """FW4 item 2 (operator ruling 2026-10-25): the segue donor's own alignment
     wins over `blend_segues`' exact-title pooling.
 
@@ -1023,8 +1023,10 @@ def donor_segues(tracks: list[Track], result: AlignResult, donor: ParsedSetlist 
     The own alignment may REMOVE a pooled mark wherever it matches. It may ADD
     one (pooled False, own True) only where the mark can mean a flow into the
     next track (FW4 fix round 1, operator ruling on tfw4-rev Important 1): the
-    track is not the show's last, and either the canonical alignment puts it in
-    the same set as the next track or the track's own title ends in `>`
+    track is not the show's last, and either the SHIPPED set labels
+    (`shipped_sets`, parallel to `tracks`: after jerrybase anchoring and the
+    taper decision; fix round 2 ruling) put it in the same set as the next
+    track or the track's own title ends in `>`
     (`>`/`->`, the taper's tag). align()'s subphrase matching lets a track take
     a run-on parse blob's `>` (`The Music Never Stopped Touch Of Gray->`, set
     one's closer glued to set two's opener) or a multi-song track's first
@@ -1039,7 +1041,7 @@ def donor_segues(tracks: list[Track], result: AlignResult, donor: ParsedSetlist 
     n = len(tracks)
 
     def may_add(k: int) -> bool:
-        return k + 1 < n and (result.sets[k] == result.sets[k + 1]
+        return k + 1 < n and (shipped_sets[k] == shipped_sets[k + 1]
                               or tracks[k].title.rstrip().endswith(">"))
 
     segues = [o if m and (not o or p or may_add(k)) else p
@@ -1830,9 +1832,6 @@ def compute_gather(
         # "Help" — safe only inside the Garcia universe) was computed above,
         # before the adopt_gap_titles call, and is reused here unchanged.
         result = align(tracks, canonical, aliases=family_aliases)
-        # FW4 item 2: where the segue donor's own alignment matches a track, its
-        # segue wins over the pooled one; only `segues` can change.
-        result = donor_segues(tracks, result, cb.segue_donor, family_aliases)
         alignment = "deterministic"
         # Jerrybase closers are ground truth for where breaks fall, so anchoring
         # is tried on its own evidence and wins whenever it succeeds — it is not
@@ -1969,12 +1968,20 @@ def compute_gather(
         # prevent, just on the other rung).
         # On a taper-owned show only the labels are the taper's: segues and
         # `matched` stay step 1's, unchanged.
+        final_sets = result.sets if shipped_sets is None else shipped_sets
+        if alignment != "llm":
+            # FW4 item 2: where the segue donor's own alignment matches a track,
+            # its segue wins over the pooled one; only `segues` can change. Here,
+            # after the final set decision, so its add guard reads the shipped
+            # labels (fix round 2). An `align_structure` result that won replaces
+            # the deterministic one wholesale, as before item 2.
+            result = donor_segues(tracks, result, cb.segue_donor, family_aliases,
+                                  shipped_sets=final_sets)
         tracks = [t.model_copy(update={
             "set": s, "segue": g,
             "matched": None if t.title_source in TAUTOLOGICAL_TITLE_SOURCES else m})
                   for t, s, g, m in zip(tracks,
-                                        result.sets if shipped_sets is None else shipped_sets,
-                                        result.segues, result.matched)]
+                                        final_sets, result.segues, result.matched)]
         breaks = set_breaks(tracks)
         coverage, conflicts = result.coverage, result.conflicts
         if taper_owned:
