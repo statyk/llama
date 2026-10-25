@@ -89,13 +89,20 @@ def _inside(pkg_dir: Path, rel: str) -> bool:
     return True
 
 
-def file_set_key(pkg_dir: Path, rels: Iterable[str]) -> str:
-    """The cache/plan key of a show: its broadcast.m3u paths + sizes + mtimes."""
+def file_set_key_and_sizes(pkg_dir: Path, rels: Iterable[str]) -> tuple[str, dict[str, int]]:
+    """The show key and each entry's size, from one stat per entry."""
     h = hashlib.sha256()
+    sizes: dict[str, int] = {}
     for rel in rels:
         st = (pkg_dir / rel).stat()
+        sizes[rel] = st.st_size
         h.update(json.dumps([rel, st.st_size, st.st_mtime_ns]).encode() + b"\n")
-    return h.hexdigest()[:20]
+    return h.hexdigest()[:20], sizes
+
+
+def file_set_key(pkg_dir: Path, rels: Iterable[str]) -> str:
+    """The cache/plan key of a show: its broadcast.m3u paths + sizes + mtimes."""
+    return file_set_key_and_sizes(pkg_dir, rels)[0]
 
 
 def _clips(dj_audio: dict) -> dict[str, str]:
@@ -194,7 +201,7 @@ def _evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligib
     if reasons:
         return Ineligible(slug, tuple(reasons))
     try:
-        key = file_set_key(pkg_dir, rels)
+        key, sizes = file_set_key_and_sizes(pkg_dir, rels)
     except OSError as exc:
         return Ineligible(slug, (f"changing: {exc}",))
     entries = tuple(
@@ -206,6 +213,12 @@ def _evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligib
     source = manifest.get("source") or {}
     meta = {k: show_meta.get(k) for k in ("artist", "date", "venue", "city")}
     meta.update(profile=source.get("profile"), url=source.get("url"), lineage=source.get("lineage"))
+    total = manifest.get("total_duration_sec")
+    dj_profile = (manifest.get("dj_audio") or {}).get("profile")
+    meta.update(
+        total_duration_sec=float(total) if isinstance(total, (int, float)) and not isinstance(total, bool) else None,
+        voiced_profile=dj_profile if isinstance(dj_profile, str) and dj_profile else source.get("profile"),
+        sizes=sizes)
     return Show(slug, pkg_dir, entries, key, meta)
 
 

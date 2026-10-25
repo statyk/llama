@@ -274,3 +274,30 @@ def test_require_root_is_dir_oserror_is_station_root_error(tmp_path, monkeypatch
     monkeypatch.setattr(Path, "is_dir", is_dir)
     with pytest.raises(StationRootError, match=str(root)):
         station.require_root(root)
+
+
+def test_show_meta_carries_estimate_inputs(tmp_path):
+    root = make_root(tmp_path)
+    pkg = build_package(root, "band-2005-11-01")
+    m = json.loads((pkg / "manifest.json").read_text())
+    m["total_duration_sec"] = 180.0
+    m["dj_audio"]["profile"] = "funk"
+    (pkg / "manifest.json").write_text(json.dumps(m))
+    set_age(pkg, 3600)
+    show = station.evaluate(pkg, now_s=time.time(), quiet_s=0)
+    assert show.meta["total_duration_sec"] == 180.0 and show.meta["voiced_profile"] == "funk"
+    assert set(show.meta["sizes"]) == {e.path for e in show.entries}
+    assert all(v == (pkg / k).stat().st_size for k, v in show.meta["sizes"].items())
+
+
+def test_voiced_profile_falls_back_to_source_profile(tmp_path):
+    pkg = build_package(make_root(tmp_path))
+    show = _eval(pkg)
+    assert show.meta["voiced_profile"] == "indie" and show.meta["total_duration_sec"] is None
+
+
+def test_file_set_key_unchanged(tmp_path):
+    pkg = build_package(make_root(tmp_path))
+    rels = station.read_m3u(pkg / "broadcast.m3u")
+    key, sizes = station.file_set_key_and_sizes(pkg, rels)
+    assert station.file_set_key(pkg, rels) == key and list(sizes) == rels
