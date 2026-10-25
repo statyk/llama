@@ -57,8 +57,9 @@ file whose tag says tuning, silence or a fade was music by any source.
 ## 1. The rule (operator ruling 1)
 
 A file whose **only** drop reason is the short-duration arm is **kept**, unless:
-- it trips the spam-shape tripwire (2.3); or
-- its tag is wholly junk (2.3).
+- it trips the spam-shape tripwire (2.3);
+- its tag is wholly junk (2.3); or
+- its duration is zero (2.3, Checkpoint A ruling): an audio-less stub keeps `implausibly short`.
 
 An untagged file follows 2.4.
 
@@ -75,7 +76,8 @@ An untagged file follows 2.4.
   - provenance;
   - `missing duration`;
   - duplicate-listing;
-  - a file failing the short arm and another arm (7 files).
+  - a file failing the short arm and another arm (7 files);
+  - a zero-duration file, which keeps `implausibly short` (2.3, Checkpoint A ruling).
 - **Operator `exclude` always wins.** It is applied after the filter, as today.
 - **`include` is unchanged.** A file the rule now keeps is no longer in `excluded`, so `include`
   re-admits nothing for it. 173 kept files are already operator-included.
@@ -187,8 +189,11 @@ def short_is_spam(filename, own_title, original_title):
   optional `-FM`) with a spoken qualifier, the call letters **case-sensitive** (the scoped
   `(?-i:...)` inside the `re.I` pattern), so `kdhx intro` and `wake intro` stay kept; and
   `host #<n>`. A bare `PA` is not a term (`Ardmore, PA` stays kept). Measured over the 3,547
-  rows: exactly those 6 files newly drop, with no song, segue or fragment among the rows
-  newly dropped by any other path.
+  rows: the four alternatives newly drop exactly those 6 files, and no other row changes
+  through them. Three of the six carry census kind `music` or `music-fragment` (the two PA
+  playbacks and the `HOST #12` intermission); the ruling classes them as non-performance. The
+  task review re-measured independently over 13,202 short drops and all 75,277 library track
+  titles: only the ruled rows change, and every new hit is broadcast or PA material.
 - **Zero-duration files (Checkpoint A ruling, 2026-10-24).** In `_apply_short_rule`'s first
   loop a file whose `duration_sec` is zero (`length_seconds("00:00")` is `0.0`, not `None`, so
   the `missing duration` arm does not fire) is not re-decided: it keeps `implausibly short`.
@@ -201,8 +206,10 @@ def short_is_spam(filename, own_title, original_title):
   `Stage Banter: Consummation Station` (`thegourds-2009-10-17`): it is the band's stage banter
   (`station` without id/plug), which the census regex had mis-classed.
 
-**Measured:** 651 junk and 34 non-performance drops, no music among them, and none
-operator-included. No sibling has a track of its own at any of these positions. 360 of them fold
+**Measured:** 651 junk and 34 non-performance drops at the original vocabulary (685), no music
+among them, and none operator-included. After the Checkpoint A additions above the junk-test
+drops number 691 (the 6 files added, 3 of which carry census kind `music`, ruled
+non-performance). No sibling has a track of its own at any of these positions. 360 of them fold
 into a neighbouring song's file on a sibling, e.g. `gratefuldead-1984-04-17` `01Tuning.mp3`
 into Jack Straw. That is how tapers carry tuning and crowd noise, and it is today's behaviour.
 
@@ -225,7 +232,9 @@ into Jack Straw. That is how tapers carry tuning and crowd noise, and it is toda
 
 - **The rule lives in `junk._keep_and_exclude`** (2.2-2.4). A file the junk test or 2.4 drops
   keeps the reason `implausibly short`, so `show --tracks`, triage `[i]` and `fix --include` read
-  it as today. A tripwire drop records `spam-shaped name or tag` (2.3).
+  it as today. A tripwire drop records `spam-shaped name or tag` (2.3). A zero-duration file
+  keeps `implausibly short`, never the tripwire's reason, even when its name is spam-shaped: the
+  skip runs first and only ever drops (2.3).
 - **`filter_files` gains `short_keep: bool = True`.** `False` reproduces today's filter exactly.
   Only the migration's consistency check (4.3) passes it.
 - **`filter_files` returns the names the rule kept** as `ordering["short_kept"]`.
@@ -242,6 +251,79 @@ into Jack Straw. That is how tapers carry tuning and crowd noise, and it is toda
   under `short_tag_is_junk`, gather writes an operator note to `notes.json`. Measured: 2 files,
   `(crowd)` via `setlist-gap` on `thenewdeal-2005-09-17` and `Crowd Noise` via `desc-position`
   on `buckethead-2004-06-04`.
+
+### 2.6 Format choice and doubled derivatives (fix wave FW1, operator rulings 2026-10-25)
+
+Both rulings came from the final whole-branch review and are built in `junk.filter_files`. They
+change the plan's Global Constraint on the format choice and v2.17.0's "first format whose kept
+set is non-empty".
+
+- **The format choice (I-1).** Among the wanted formats, the winner is the format whose
+  **kept** files have the greatest total running time. `FORMAT_BY_AUDIO`'s order breaks ties
+  only, and the "no format keeps anything" fallback (the first format with any audio, so
+  `excluded` still explains) is unchanged. "Kept" means after the junk arms, the short rule and
+  both dedupes (duplicate listings, then derivatives), so a format listed twice does not win on
+  its doubled time. `_kept_running_time` also leaves out an operator-excluded derivative whose
+  original another, non-excluded kept derivative carries, so a doubled song the operator
+  repaired by excluding one copy does not count twice (FW2 addition A).
+  - Operator, on the first-non-empty rule: "Why would we pick a format with 1 file for a concert
+    containing many songs?" The case was `tsp2007-07-28.csb.flac24`: a lone 61 s `Flac` file
+    the short rule now keeps beat the whole show in `24bit Flac`.
+  - Measured over the 15,607 cached items: under mp3, 0 format flips; under flac, 31 flips, all
+    to `24bit Flac`, with more tracks and running time.
+- **Doubled derivatives (I-2; supersedes Checkpoint A ruling 5, "not in this branch").** Within
+  the winning format, `_dedupe_derivatives` keeps at most one derivative per `original` across
+  all kept files, long and short. A dropped copy goes to `excluded` with the reason
+  `duplicate derivative`. It runs after the duplicate-listing dedupe, before `include`'s
+  re-admission, and only drops: play order is decided as if the dropped copies were still there.
+  - **Which copy:** a copy in the operator's `include` first; then the plain `X.mp3` over
+    `X_vbr.mp3` (`PREFER_VBR_DERIVATIVE = False`, one named constant); then the copy whose stem
+    is its original's stem (a group with no `_vbr` copy is a stale derivative of a renamed or
+    re-split original); then name order. A copy in the operator's `exclude` is never grouped,
+    so excluding one copy keeps the other and the song ships once.
+  - **Measured basis:** over 104 cached items and 2,017 pairs, the plain `X.mp3` is the newer
+    file in 2017 of 2017; in the 23 non-`_vbr` groups the copy named after its original is the
+    newer file in 23 of 23.
+  - **Measured effect:** 23 library shows / 414 files change, every one a `_vbr` dropped as
+    `duplicate derivative`. Nothing else drops, adds or reorders, and no song loses its last
+    copy. The selected recording changes on 20 GD dates (they re-gather and re-research in the
+    bulk apply).
+  - **No flip.** Checkpoint C Q1/Q2 (Shawn, "Recommendations accepted on all points"): keep the
+    plain copy. A flip to `_vbr` would air truncated copies, since in all 13 library / 48 cache
+    pairs whose durations differ the truncated copy is the `_vbr` one (e.g. 16 s against 725 s).
+    A flip needs a duration tie-break or refusal first (filed, section 7).
+- `short_keep=False` reproduces v2.17.0 exactly: first non-empty format, no derivative dedupe.
+  Only the migration's consistency check passes it.
+
+### 2.7 The segue donor (fix waves FW3 and FW4)
+
+The cause of both: the de-doubling above changed which LMA parse `build_canonical` ranks as the
+segue donor for `blend_segues` (it ranks by `target_count=len(kept)`), and
+`gratefuldead-1988-06-23` lost 5 real marks. The plan froze structure behaviour; the rulings
+below unfreeze `blend_segues`' pooling, and nothing else in `structure.py`.
+
+- **(A) The donor is segue-bearing (Checkpoint C Q6, "Go on both. Recommendations accepted on
+  all points").** When setlist.fm wins the canonical, the segue donor is ranked only among LMA
+  parses carrying at least one segue; with none there is no donor.
+- **G5 (FW4 ruling, Shawn 2026-10-25 ~10:10, "Let's do that targeted fix").**
+  `_drop_dangling_segues` clears the segue flag of a donor item followed by an entry that begins
+  with a filler word (`_leads_with_filler`, `structure._FILLER` used verbatim, anchored with
+  `.match`; `is_filler` and `_FILLER` untouched) or by nothing: `Ripple > Outro`, `Sugar
+  Magnolia > Crowd`, `Excitable Boy > Banter`, a final `>`. Applied to the chosen donor after it
+  is ranked, never to the canonical winner. Leading-word only because a search anywhere cost 5
+  real marks on titles such as `Cumberland Blues (Band Intros)`.
+- **Own alignment wins over pooling (FW4 item 2).** `donor_segues` aligns the donor to the
+  tracks with the same `align()`; on every track that alignment matches, the track's segue is
+  the donor item's, and `blend_segues`' exact-title pooling stays the fallback where it does not.
+  Only `segues` changes. The own alignment may remove a pooled mark wherever it matches. It may
+  add one only when the track is not the show's last AND either its **shipped** set label (after
+  jerrybase anchoring and the taper decision) equals the next track's or its own title ends in
+  `>` or `->`. Skipped when `align_structure` (the LLM) won.
+- **Measured** (whole-library arms, cand-g against cand-d): G5 removes 23 false marks and loses
+  0 real ones. Item 2 removes 107 marks (the 11 target marks on 5 shows among them) and adds
+  about 2,000 well-supported ones, and loses 6 real marks through a wrong-item alignment. Item 2
+  reaches about 1,050 shows (as first built) and costs 371 more fresh briefings at the bulk apply.
+- Classes B and C and the residue are filed follow-ups (section 7).
 
 ## 3. Coverage (ruling 5)
 
@@ -425,6 +507,9 @@ blocked until each is taken; 0 shows are refused today.
 **The process check.** `--snapshot`, `--apply` and `--restore` refuse when any process other
 than the script itself has a command line that runs llama: the release binary, a venv `llama`,
 `python -m llama`, or the sweep loop's shell. The refusal lists each process found.
+**Limitation:** a sweep loop typed at an interactive prompt and sleeping between passes runs
+in the login shell and is invisible to the check. The dry run prints a note saying so, and
+step 1 of the runbook (stop the loop) is the operator's.
 
 **`--snapshot`.** It runs the process check and takes the migration lock (`<root>/.rekey.lock`,
 flock). It refuses a library holding any filename value, since a partly migrated library is no
@@ -505,13 +590,22 @@ with wrong audio.
 A restored show's `show.json` is the old rule's again, so v2.17.0's positional edits read the
 numbering they write against.
 
+**Wrong-snapshot refusal.** `--restore` also refuses, and writes nothing, when
+`<root>/rekey-applied.json` exists and names another snapshot than the one given, or cannot be
+read: the shows were rewritten from the recorded snapshot, and restoring an older one would
+silently discard every edit between the two. The refusal prints the snapshot to use. With no
+record (none taken, or renamed) there is no check. A successful restore renames the record to
+`rekey-applied.restored-<UTC>.json`.
+
 **What restore does not revert.** The ledger, `runs/`, the cache, and reapply batch progress
 under `<root>/reapply/`. Restore lists the reapply batch directories and the runs created after
 the snapshot, so the operator can remove them: re-running the same list would otherwise skip
 shows. It does not touch the station either. It lists every station destination re-delivered
 since the snapshot (a destination manifest newer than the snapshot), the 37 re-voiced shows
 among them. Those keep the new packages until each show is re-delivered from the restored
-library.
+library. The test is the manifest's mtime, so a manifest that emcee re-voiced in place since the
+snapshot is listed as re-delivered too (Checkpoint C Q7): a show listed only for that reason
+needs no `--replace-voiced`.
 
 **Restore runbook.**
 1. Stop the sweep loop, and confirm with the process check that no `llama` process is running.
@@ -529,7 +623,9 @@ per show:
 - the show's set breaks and encore position.
 
 This is a per-show comparison, not `compare`'s digest gate, since every migrated
-`overrides.json` has a new digest. Any difference stops the apply and is investigated. The bulk
+`overrides.json` has a new digest. Any difference stops the apply and is investigated.
+`short_keep_probe.py repro` refuses to compare, and says why, when either arm has no replayable
+row or the two arms name different library roots (an empty arm would pass on nothing). The bulk
 apply's requirement: its apply lists come from that post-migration re-run, so their
 `input_digests` match the migrated files.
 
@@ -578,6 +674,46 @@ The bulk apply of pieces 1-5 is planned separately. Piece 4 needs these things f
    - Without piece 4, 1,129 would be reusable (the other 286 already differ from their stored
      show for other reasons). Piece 4 itself costs 116: 113 because a real track's title, set
      or segue changes, and 3 set breaks.
+
+   **Superseded by the restored-file gate below.** The 1,017 figure assumed a briefing stays
+   true when a file is restored; premise 4 (section 8) failed that test.
+
+   **The restored-file gate (Task 15a, operator ruling at Checkpoint B, 2026-10-24 ~14:25,
+   "2").** `run_brief` passes the whole `show.json` to the LLM, `excluded_files`
+   (`implausibly short`) and `structure.conflicts` included, so a stored briefing routinely
+   says a restored file is absent (all 10 hand-read briefings of the 37 voiced-severe shows
+   did), and `briefing_guard` checks no claim about which files are present. So when the new
+   show has a **restored** file (a `short_kept` track whose filename is not among the stored
+   show's tracks; the 173 already-included files do not count) `briefing_reusable` also refuses
+   a briefing that mentions one, anywhere in any text field of `Briefing`
+   (`BRIEFING_TEXT_FIELDS`, pinned against the model): by filename, stem or disc/track tail, or
+   by exclusion or absence wording. The reason starts `briefing mentions a restored file`.
+   Deterministic, and conservative on purpose: a false "not reusable" costs one brief call, a
+   false "reusable" ships a false claim on air. The rejected alternatives: a fresh brief for
+   every restored show unconditionally, and editing stored briefings.
+   - **The wording vocabulary** is `replay._RESTORED_WORDING`, matched on the lowercased text and
+     on punctuation-normalised copies (hyphen read as separator and as joiner, apostrophe read
+     both ways): `excluded`, `implausibly short`, `too short`, `left out`, `omitted`, `absent`,
+     `not present`, `missing`, `dropped`, `not represented`, `not part of`, `not a track`,
+     `track count` (a count or range of tracks), then Task 15b's (Checkpoint B ruling 1, "Go
+     ahead and add them") `not included`, `not listed`, `does not appear`, `unlisted`, `not in
+     the setlist`, `no separate track`, `not tracked separately`, `not found` and its
+     paraphrases, `not included or listed`, `no ... listed`, and FW2's `lacks`, `not
+     recorded`, `cut from the recording`, `lists no` (a data subject, then `lists` or
+     `contains`, then `no`).
+   - **The 15b design:** a negation (`not`, `never`, `n't`, `cannot`, `no longer`, `nowhere`,
+     `neither`, `nor`) followed by a bounded window of up to N words (2 to 5, per term) before
+     the head word, over the normalised text, so "is not “officially” listed" and "should not,
+     in fact, have been included" match. `too` and `implausibly` take a 2-word window ("too
+     very short"). The apostrophe separator copy makes "not’listed" read `not listed`; FW3 M1
+     folds U+02BB and U+02B9 into `_APOSTROPHES` with the other look-alikes. Every addition only
+     refuses more, never less.
+   - **Measured:** over the 1,014 reusable stored briefings of changed shows the gate refuses
+     1,014 of 1,014, and the reuse arm's 901 of 901; the wording arm alone fires on every one,
+     the name arm on 406 and never alone. In practice regeneration is **100%** on today's library
+     (the ruling expected about 98%): of 1,410 changed shows with a briefing, 1,112 are `fresh`,
+     298 `none` (held), 0 `reuse`. The bulk apply budgets about 1,000 fresh briefings, plus the
+     de-doubling's (13) and the segue donor's (371).
 4. **Re-use existing audio** (owned by this branch). Re-packaging a show whose track list
    changed would otherwise download audio llama already has: a delivered show's library audio
    was purged at delivery, and a packaged, held or briefed show's library audio carries the old
@@ -609,8 +745,16 @@ The bulk apply of pieces 1-5 is planned separately. Piece 4 needs these things f
      duration, a duration mismatch) downloads from archive.org exactly as today. New short-kept
      files are in neither copy, so they always download. Moved-aside files that were not reused
      are deleted once the unit succeeds; a failed unit puts them back under their old names.
+   - **Identifier gating (Task 13).** Index pairing with equal titles ties a file to its source
+     only within ONE archive.org item: file names repeat across items (138 of 288 multi-item GD
+     dates share mp3 names), and a re-selection to another item would have shipped the old
+     item's audio under the new identifier. So a library or station manifest pairs only when its
+     `source.identifier` equals `show.json`'s (`audio_reuse.plan_reuse`); a manifest with no
+     readable identifier pairs nothing. `ReusePlan.identifier` records the plan-time identifier,
+     and `build_package` re-checks it against the show it packages: a mismatch discards the
+     pairings (the old audio is still set aside), so everything downloads.
    - **Why this is enough.** Both copies came from md5-verified downloads, and the index pairing
-     with equal titles ties each file to its source. The station copy was also checked against
+     with equal titles, within one item (above), ties each file to its source. The station copy was also checked against
      the library at delivery (`catalog.purge_package_audio`), and it is what airs today. The
      worst case of a bad reuse is re-shipping audio this show already packaged. This is not a
      strict surface.
@@ -769,6 +913,19 @@ These stay with `fix --include` and the adjudicator.
   the untagged file, or the adjudicator, resolves it.
 - **`derektrucksband-2004-11-20`** loses 12 `setlist` titles to a kept untagged interior file,
   and holds.
+- **Crowd chants stay kept (Checkpoint B ruling 2, 2026-10-24).** Operator, verbatim: "An NFA
+  chant should absolutely not be dropped; other crowd chants could go either way but inclusion
+  is safer." The six crowd-chant keeps (`Not Fade Away Chant`, two `Crowd Doing Not Fade Away`,
+  `Unity College chanting`, `crowd/tuning jam`, `crowd/1812 Overture`) stay kept, with no
+  vocabulary change. `test_a_not_fade_away_crowd_chant_is_kept_operator_ruling` pins that a Not
+  Fade Away crowd-chant tag is kept by the short rule, so no later vocabulary change drops it.
+- **Non-performance false-positive class.** The Checkpoint A additions can drop a short song
+  whose title reads as a broadcast term: a K or W band abbreviation or all-caps title beside a
+  spoken qualifier (the call letters are case-sensitive, so `kdhx intro` and `wake intro` stay
+  kept), and a title that reads `<x> music` for `exit`, `closing` or `outro`, e.g. `Exit Music
+  (For a Film)`. Measured over the library: 0 song-titled drops beyond the 6 ruled files.
+- **A destination with audio but no `manifest.json` merges** (Task 16 Minor 1). `deliver`
+  overlays it as before rather than refusing. Operator: "Leave it, low risk and unlikely."
 - **Spam with a lying tag.** A short clip that matches the naming convention, has no spam marker
   in its filename and carries a lying song tag is admitted. Measured: 0.
 - **Interior timing.** The interior test runs before dedupe, re-admission and exclusion. A file
@@ -782,10 +939,24 @@ These stay with `fix --include` and the adjudicator.
   crowd and tuning tags (about 200 of 5,024 sibling short keeps; e.g. `crown/tuning`,
   `Tunings`, `Set I: Tuning`, `Tune Up (AUD)`, `gd81-09-12 s1t01 Crowd`,
   `JKB110506_03 Noise`). They are seconds of junk, the error the operator ranks cheaper.
-- **Known follow-up: doubled `_vbr` derivatives (Checkpoint A ruling, 2026-10-24).** 20 GD
-  shows ship every song twice (`X.mp3` and `X_vbr.mp3`). Pre-existing and not part of piece 4;
-  a separate fix after it: keep one derivative per original within the winning format. Not on
-  air (all unvoiced).
+- **Doubled `_vbr` derivatives: built in this branch (2.6; supersedes the Checkpoint A ruling
+  of 2026-10-24 that deferred it).** 20 GD shows shipped every song twice (`X.mp3` and
+  `X_vbr.mp3`); not on air (all unvoiced). Filed: a `_vbr` preference flip needs a duration
+  tie-break or refusal first (2.6), and FW2 M2 (a pair whose copies are BOTH operator-excluded
+  counts twice in its format's running time; latent, multi-format items only, 0 library shows).
+- **Segue donor, filed follow-ups (2.7).**
+  - Class B: run-on chosen descriptions (`parse_setlist`'s documented merge).
+  - Class C: `blend_segues`' exact-title pooling of `Space` and `Jam`, where the own alignment
+    does not cover the track.
+  - On the LLM `align_structure` branch item 2 does not apply, and pooled marks still feed
+    `correspondence._merge_legal` and the `align_structure` prompt.
+  - An in-track flow into a non-filler solo (`warrenzevon-1994-02-07` #15, `^ > Dr. Babyhead
+    Solo`).
+  - 4 real gains declined under a wrong shipped set label (upstream).
+- **Two re-selections orphan operator overrides** (`gratefuldead-1970-05-06`,
+  `gratefuldead-1985-11-10`): the bulk apply surfaces them (the dangling-key refusal names the
+  `llama fix --clear-*` route) and they are fixed by hand afterwards (Checkpoint C Q3). The 20 GD
+  dates whose selected recording changes re-gather at the apply (Q4).
 - **Inclusion errors the rule cannot see:**
   - `Silent Track`, named only in the description;
   - tuning-dominant mixes such as `crowd/tuning jam`;
@@ -809,6 +980,8 @@ These stay with `fix --include` and the adjudicator.
 4. **Briefing reuse is safe.** A reused briefing never claims the absence of a restored piece.
    - Test: 10 of the 37 voiced-severe briefings read by hand. `briefing_guard` already runs on
      every reuse.
+   - **Result (Checkpoint B): failed.** All 10 stored briefings claimed a restored file absent,
+     excluded or not a track. The restored-file gate in 5.3 is the response.
 5. **No other positional key exists.**
    - Test: a grep over every reader of `Overrides` and `Track.index` in `llama`, `scripts` and
      `emcee` (emcee reads only the manifest).
