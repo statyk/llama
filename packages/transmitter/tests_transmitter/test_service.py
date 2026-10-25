@@ -894,7 +894,7 @@ def test_tick_appends_aired_rows_after_publishing(tmp_path):
     assert len(load_aired(st.ws)) == len(due)           # idempotent
 
 
-def test_history_failure_alerts_and_the_tick_completes(tmp_path, monkeypatch):
+def test_history_failure_alerts_and_the_tick_completes(tmp_path, monkeypatch, caplog):
     st, _ = make_station(tmp_path)
     rec = _Rec()
     alerts.configure(alerts.Dispatcher(tmp_path / "alerts.json", [rec], 6 * 3600.0))
@@ -904,6 +904,52 @@ def test_history_failure_alerts_and_the_tick_completes(tmp_path, monkeypatch):
         monkeypatch.setattr(service.history, "append_aired", boom)
         runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)
         runner.tick(NOW)                                 # end_observation does not raise
+        assert "history" in alerts._dispatcher.active()
+        assert "alert end_observation failed" not in caplog.text
+    finally:
+        alerts.configure(None)
+
+
+def _record_history(monkeypatch):
+    seen = []
+    monkeypatch.setattr(service.history, "append_aired",
+                        lambda ws, epoch, rows, last, now: seen.append(last) or 0)
+    return seen
+
+
+def test_history_runs_after_publish_and_sees_the_advanced_last(tmp_path, monkeypatch):
+    from transmitter.state import PublishState, save_publish_state
+    st, _ = make_station(tmp_path)
+    seen = _record_history(monkeypatch)
+    monkeypatch.setattr(service, "publish_all", lambda *a, **k: save_publish_state(
+        st.ws, PublishState(epoch_id=st.epoch.epoch_id, first=0, last=7)))
+    ran: set[str] = set()
+    service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)._tick(NOW, ran)
+    assert seen == [7]
+    assert "history" not in ran
+
+
+def test_history_uses_last_not_the_listed_bound(tmp_path, monkeypatch):
+    from transmitter.state import PublishState, save_publish_state
+    st, _ = make_station(tmp_path)
+    save_publish_state(st.ws, PublishState(epoch_id=st.epoch.epoch_id, first=0, last=3, high_water=9))
+    seen = _record_history(monkeypatch)
+    monkeypatch.setattr(service, "publish_all", lambda *a, **k: None)
+    service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None).tick(NOW)
+    assert seen == [3]
+
+
+def test_history_does_not_append_for_another_epochs_publish_state(tmp_path, monkeypatch):
+    from transmitter.state import PublishState, save_publish_state
+    st, _ = make_station(tmp_path)
+    rec = _Rec()
+    alerts.configure(alerts.Dispatcher(tmp_path / "alerts.json", [rec], 6 * 3600.0))
+    try:
+        save_publish_state(st.ws, PublishState(epoch_id="other", first=0, last=3))
+        seen = _record_history(monkeypatch)
+        monkeypatch.setattr(service, "publish_all", lambda *a, **k: None)
+        service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None).tick(NOW)
+        assert seen == []
         assert "history" in alerts._dispatcher.active()
     finally:
         alerts.configure(None)

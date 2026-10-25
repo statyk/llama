@@ -256,7 +256,11 @@ class Runner:
 
     def _append_history(self, t_us: int) -> None:
         ws = self.st.ws
-        history.append_aired(ws, self.st.epoch, read_plan(ws.plan_path), load_publish_state(ws).last, t_us)
+        state = load_publish_state(ws)
+        if state.epoch_id is not None and state.epoch_id != self.st.epoch.epoch_id:
+            raise TransmitterError(f"published state belongs to epoch {state.epoch_id}, not "
+                                   f"{self.st.epoch.epoch_id}; aired.jsonl was not appended")
+        history.append_aired(ws, self.st.epoch, read_plan(ws.plan_path), state.last, t_us)
 
     def _read_lead(self, t_us: int) -> tuple[bool, int | None]:
         """(readable, lead). An unreadable publish.json is alerted, not raised:

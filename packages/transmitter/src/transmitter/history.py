@@ -10,7 +10,7 @@ a corrupt line skipped with a warning, never raising). Identity is
 import json
 import logging
 import os
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, fields
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 from transmitter import grid
 from transmitter.layout import PlanRow
+from transmitter.pieces import _date_parts
 from transmitter.workspace import Epoch, Workspace
 
 log = logging.getLogger(__name__)
@@ -55,6 +56,18 @@ class AiredRow:
     def from_json(cls, data: dict) -> "AiredRow":
         known = {f.name for f in fields(cls)}
         kw = {k: v for k, v in data.items() if k in known}
+        for name in ("start_frame", "end_frame"):
+            v = kw.get(name)
+            if not isinstance(v, int) or isinstance(v, bool):
+                raise TypeError(f"{name} must be an int, got {v!r}")
+        for name in ("epoch_id", "kind", "slug"):
+            if not isinstance(kw.get(name), str):
+                raise TypeError(f"{name} must be a string, got {kw.get(name)!r}")
+        for name in ("start", "end"):
+            v = kw.get(name)
+            if not isinstance(v, str) or not v:
+                raise TypeError(f"{name} must be a non-empty ISO string, got {v!r}")
+            grid.iso_to_us(v)
         if "bends" in kw:
             if not isinstance(kw["bends"], (list, tuple)):
                 raise TypeError(f"bends must be a list, got {kw['bends']!r}")
@@ -124,6 +137,11 @@ def append_aired(ws: Workspace, epoch: Epoch, rows: Sequence[PlanRow], pub_last:
         return 0
     ws.aired_path.parent.mkdir(parents=True, exist_ok=True)
     with open(ws.aired_path, "a") as f:
+        if f.tell() > 0:
+            with open(ws.aired_path, "rb") as g:
+                g.seek(-1, os.SEEK_END)
+                if g.read(1) != b"\n":
+                    f.write("\n")         # a crash cut the last row short: do not join onto it
         for r in new:
             f.write(json.dumps(r.to_json(), sort_keys=True) + "\n")
         f.flush()
@@ -131,54 +149,55 @@ def append_aired(ws: Workspace, epoch: Epoch, rows: Sequence[PlanRow], pub_last:
     return len(new)
 
 
-def _local_date(us: int, tz: str) -> str:
+def _local_date(us: int, tz: str) -> date:
     dt = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(microseconds=us)
-    return dt.astimezone(ZoneInfo(tz)).date().isoformat()
+    return dt.astimezone(ZoneInfo(tz)).date()
 
 
-def _year_of(d: str | None) -> int | None:
-    try:
-        return int(d[:4]) if d else None
-    except ValueError:
-        return None
-
-
-@dataclass(frozen=True)
-class _Use:
-    start_us: int
-    local_date: str
-    kind: str
-    slug: str
-    package: str | None
-    artist: str | None
-    year: int | None
+def _check_date(d: Any) -> date:
+    if isinstance(d, datetime) or not isinstance(d, date):
+        raise TypeError(f"local_date must be a datetime.date, got {type(d).__name__}")
+    return d
 
 
 @dataclass(frozen=True)
 class Recency:
-    uses: tuple[_Use, ...] = field(default=())
+    """Indexed at build time: shows by package, other kinds by clip slug, and
+    show uses by local date. `with_piece` copies only the entries it touches."""
+    _aired: Mapping[str, int] = field(default_factory=dict)
+    _used: Mapping[str, int] = field(default_factory=dict)
+    _by_date: Mapping[date, tuple[tuple[str, int | None], ...]] = field(default_factory=dict)
+    count: int = 0
 
     def last_aired_us(self, package: str) -> int | None:
-        xs = [u.start_us for u in self.uses if u.kind == "show" and u.package == package]
-        return max(xs) if xs else None
+        return self._aired.get(package)
 
     def last_used_us(self, clip_slug: str) -> int | None:
-        xs = [u.start_us for u in self.uses if u.kind != "show" and u.slug == clip_slug]
-        return max(xs) if xs else None
+        return self._used.get(clip_slug)
 
-    def artists_on(self, local_date: date | str) -> list[str]:
-        d = str(local_date)
-        return [u.artist for u in self.uses if u.kind == "show" and u.local_date == d and u.artist]
+    def artists_on(self, local_date: date) -> list[str]:
+        return [a for a, _ in self._by_date.get(_check_date(local_date), ())]
 
-    def artist_years_on(self, local_date: date | str) -> list[tuple[str, int]]:
-        d = str(local_date)
-        return [(u.artist, u.year) for u in self.uses
-                if u.kind == "show" and u.local_date == d and u.artist and u.year is not None]
+    def artist_years_on(self, local_date: date) -> list[tuple[str, int]]:
+        return [(a, y) for a, y in self._by_date.get(_check_date(local_date), ()) if y is not None]
 
-    def with_piece(self, piece: Any, start_us: int, local_date: date | str) -> "Recency":
+    def with_piece(self, piece: Any, start_us: int, local_date: date) -> "Recency":
         """A new index including a piece the projection itself chose."""
-        use = _Use(start_us, str(local_date), piece.kind, piece.slug, piece.package, piece.artist, piece.year)
-        return Recency(self.uses + (use,))
+        d = _check_date(local_date)
+        aired, used, by_date = dict(self._aired), dict(self._used), dict(self._by_date)
+        _index(aired, used, by_date, start_us, d, piece.kind, piece.slug, piece.package, piece.artist, piece.year)
+        return Recency(aired, used, by_date, self.count + 1)
+
+
+def _index(aired: dict, used: dict, by_date: dict, start_us: int, d: date, kind: str, slug: str,
+           package: str | None, artist: str | None, year: int | None) -> None:
+    if kind == "show":
+        if package is not None:
+            aired[package] = max(start_us, aired.get(package, start_us))
+        if artist:
+            by_date[d] = by_date.get(d, ()) + ((artist, year),)
+    else:
+        used[slug] = max(start_us, used.get(slug, start_us))
 
 
 def recency(aired: Sequence[AiredRow], rows: Sequence[PlanRow], epoch: Epoch, tz: str,
@@ -186,17 +205,20 @@ def recency(aired: Sequence[AiredRow], rows: Sequence[PlanRow], epoch: Epoch, tz
     """Aired rows plus persisted plan rows, deduped by (epoch_id, start_frame);
     `meta_of(package)` gives (artist, date) from the current scan."""
     seen: set[tuple[str, int]] = set()
-    uses: list[_Use] = []
+    a_idx: dict[str, int] = {}
+    u_idx: dict[str, int] = {}
+    d_idx: dict[date, tuple[tuple[str, int | None], ...]] = {}
 
     def add(epoch_id: str, start_frame: int, start_us: int, kind: str, slug: str, package: str | None) -> None:
         if (epoch_id, start_frame) in seen:
             return
         seen.add((epoch_id, start_frame))
         artist, d = meta_of(package) if package else (None, None)
-        uses.append(_Use(start_us, _local_date(start_us, tz), kind, slug, package, artist, _year_of(d)))
+        _index(a_idx, u_idx, d_idx, start_us, _local_date(start_us, tz), kind, slug, package, artist,
+               _date_parts(d)[0])
 
     for a in aired:
         add(a.epoch_id, a.start_frame, grid.iso_to_us(a.start), a.kind, a.slug, a.package or package_of(a))
     for r in rows:
         add(epoch.epoch_id, r.start_frame, _start_us(epoch, r.start_frame), r.kind, r.slug, package_of(r))
-    return Recency(tuple(uses))
+    return Recency(a_idx, u_idx, d_idx, len(seen))
