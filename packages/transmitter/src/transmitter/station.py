@@ -17,6 +17,11 @@ move` or an `[assign.artists]` rule, is "pending" there). It is deliberately
 NOT mirrored here: transmitter cannot see emcee's rules or moves, and such a
 package keeps airing its existing voicing until its re-voice clears the DJ
 blocks (ineligible while it runs, eligible again when it lands).
+
+llama's `awaiting_fix` mark (a non-null top-level manifest field, written in
+place on the station copy) makes a package ineligible: it is about to be
+re-processed and re-delivered, so it is neither voiced nor aired. The reason
+is listed first among the package's reasons.
 """
 
 import errno
@@ -120,6 +125,23 @@ def _clips(dj_audio: dict) -> dict[str, str]:
     return out
 
 
+def awaiting_fix_reason(manifest: dict) -> str | None:
+    """llama's `awaiting_fix` mark: None when the package carries none (absent
+    or null), else the ineligibility reason. ANY non-null value means "not to
+    be aired" -- the inner shape is display only, so a malformed value (a
+    string, a list, a number, a bool, a dict without a usable `reason`) never
+    raises and never lets the package through."""
+    mark = manifest.get("awaiting_fix")
+    if mark is None:
+        return None
+    reason = mark.get("reason") if isinstance(mark, dict) else None
+    if isinstance(reason, str):
+        reason = " ".join(reason.split())
+        if reason:
+            return f"awaiting fix from llama: {reason}"
+    return "awaiting fix from llama"
+
+
 def evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligible:
     """Never raises for a package that is changing under us: an OSError (ESTALE,
     EIO, EACCES, a vanished file or a symlink loop, which `_inside` converts to
@@ -143,6 +165,9 @@ def _evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligib
         return Ineligible(slug, (f"unsupported manifest (schema_version {version!r}; need >= 3)",))
 
     reasons: list[str] = []
+    held = awaiting_fix_reason(manifest)
+    if held is not None:
+        reasons.append(held)         # first: the reason an operator should see
     if manifest.get("dj_notes") is None or not (pkg_dir / "dj-notes.md").exists():
         reasons.append("no DJ script (dj_notes block + dj-notes.md required)")
 

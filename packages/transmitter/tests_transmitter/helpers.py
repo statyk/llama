@@ -337,3 +337,14 @@ def library_pieces() -> list:
     rows = json.loads(LIBRARY_DURATIONS.read_text())
     return [show_piece(r["slug"], artist=r["artist"], date=r["date"], profile=r["profile"],
                        frames=r["frames"]) for r in rows]
+
+
+def mark_awaiting_fix(pkg: Path, value="__default__", *, age_s: float = 3600.0) -> None:
+    """Write llama's `awaiting_fix` mark into a delivered package's manifest
+    in place (changing nothing else), then age the package past the quiet period."""
+    if value == "__default__":
+        value = {"reason": "pending re-processing", "marked_at": "2026-10-25T00:00:00Z"}
+    m = json.loads((pkg / "manifest.json").read_text())
+    m["awaiting_fix"] = value
+    (pkg / "manifest.json").write_text(json.dumps(m))
+    set_age(pkg, age_s)

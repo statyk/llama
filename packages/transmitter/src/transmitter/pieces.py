@@ -220,6 +220,8 @@ def scan_delivered(root: Path, *, now_s: float, quiet_s: float, pause_samples: i
             version = manifest.get("schema_version") if isinstance(manifest, dict) else None
             if not isinstance(version, int) or isinstance(version, bool) or version < 3:
                 continue
+            if station.awaiting_fix_reason(manifest) is not None:
+                continue         # held from broadcast until llama re-delivers it
             got = station.evaluate(pkg, now_s=now_s, quiet_s=quiet_s)
             if isinstance(got, Show):
                 frames = estimate_frames(got, pause_samples=pause_samples, extra=extra,

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_transmitter.helpers import build_package, make_root, set_age
+from tests_transmitter.helpers import build_package, make_root, mark_awaiting_fix, set_age
 from transmitter import station
 from transmitter.errors import StationRootError
 from transmitter.station import Entry, Ineligible, Show
@@ -319,3 +319,53 @@ def test_non_finite_total_duration_is_none(tmp_path):
         (pkg / "manifest.json").write_text(text)
         set_age(pkg, 3600)
         assert _eval(pkg).meta["total_duration_sec"] is None, bad
+
+
+@pytest.mark.parametrize("value,reason", [
+    ({"reason": "bulk apply", "marked_at": "2026-10-25T00:00:00Z"}, "awaiting fix from llama: bulk apply"),
+    ({"reason": "  two\nlines \r\n here  "}, "awaiting fix from llama: two lines here"),
+    ({"marked_at": "2026-10-25T00:00:00Z"}, "awaiting fix from llama"),
+    ({"reason": ""}, "awaiting fix from llama"),
+    ({"reason": "   "}, "awaiting fix from llama"),
+    ({"reason": 7}, "awaiting fix from llama"),
+    ({}, "awaiting fix from llama"),
+    ("later", "awaiting fix from llama"),
+    ("", "awaiting fix from llama"),
+    (["x"], "awaiting fix from llama"),
+    (0, "awaiting fix from llama"),
+    (True, "awaiting fix from llama"),
+    (False, "awaiting fix from llama"),
+])
+def test_awaiting_fix_makes_a_voiced_package_ineligible(tmp_path, value, reason):
+    pkg = build_package(make_root(tmp_path))
+    mark_awaiting_fix(pkg, value)
+    result = _eval(pkg)
+    assert isinstance(result, Ineligible)
+    assert result.reasons[0] == reason, result.reasons
+
+
+@pytest.mark.parametrize("present", [False, True])
+def test_absent_or_null_awaiting_fix_is_eligible(tmp_path, present):
+    pkg = build_package(make_root(tmp_path))
+    if present:
+        mark_awaiting_fix(pkg, None)
+    assert isinstance(_eval(pkg), Show)
+
+
+def test_awaiting_fix_is_reported_alongside_other_legs_and_first(tmp_path):
+    pkg = build_package(make_root(tmp_path), voiced=False)
+    mark_awaiting_fix(pkg)
+    result = _eval(pkg)
+    assert isinstance(result, Ineligible)
+    assert result.reasons[0] == "awaiting fix from llama: pending re-processing"
+    assert any("no DJ audio" in r for r in result.reasons)
+
+
+def test_scan_lists_a_marked_package_as_ineligible_with_its_reason(tmp_path):
+    root = make_root(tmp_path)
+    build_package(root, "band-2005-11-01")
+    mark_awaiting_fix(build_package(root, "band-2005-11-02"))
+    shows, skipped = station.scan(root, now_s=time.time(), quiet_s=600.0)
+    assert [s.slug for s in shows] == ["band-2005-11-01"]
+    assert [(i.slug, i.reasons[0]) for i in skipped] == [
+        ("band-2005-11-02", "awaiting fix from llama: pending re-processing")]

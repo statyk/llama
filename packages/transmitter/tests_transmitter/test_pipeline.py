@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from tests_transmitter.helpers import NOW, FakeEngine, make_station, payloads, set_age
+from tests_transmitter.helpers import NOW, FakeEngine, make_station, mark_awaiting_fix, payloads, set_age
 from transmitter import grid, pipeline, segment
 from transmitter.errors import FrameCountDrift, LayoutError, PlanError, StationRootError
 from transmitter.grid import SEGMENT_FRAMES as F
@@ -1253,3 +1253,35 @@ def test_plan_step_guards_the_first_appended_rows_start(tmp_path, monkeypatch):
     with pytest.raises(LayoutError, match="next start"):
         pipeline.plan_step(st, later)
     assert read_plan(st.ws.plan_path) == rows
+
+
+def test_render_step_drops_a_planned_show_marked_awaiting_a_fix(tmp_path):
+    engine = FakeEngine()
+    st, logs = make_station(tmp_path, engine=engine)
+    rows = pipeline.plan_step(st, NOW)
+    victim = rows[1]
+    mark_awaiting_fix(st.cfg.station.root / victim.dir)    # manifest only: the file-set key is unchanged
+    assert victim.slug not in {s.slug for s in st.scan_now(NOW)}
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned == [victim.slug]
+    new_rows = read_plan(st.ws.plan_path)
+    assert new_rows[:1] == rows[:1]
+    assert new_rows[1].start_frame == victim.start_frame
+    assert victim.slug not in {r.slug for r in new_rows}
+    assert victim.slug not in engine.encoded
+    assert any("plan-changed" in m and victim.slug in m and "no longer eligible" in m for m in logs)
+    assert new_rows[-1].start_frame + new_rows[-1].frames >= rows[-1].start_frame   # plan still covered
+
+
+def test_render_step_lets_a_marked_show_already_on_air_finish_as_planned(tmp_path):
+    engine = FakeEngine()
+    st, logs = make_station(tmp_path, engine=engine)
+    rows, mid_n = _render_until_mid_show(st)
+    victim = rows[1]                                         # mid-render: some segments encoded
+    mark_awaiting_fix(st.cfg.station.root / victim.dir)
+    assert victim.slug not in {s.slug for s in st.scan_now(NOW)}
+    report = pipeline.render_step(st, NOW)                   # no LayoutError, no drop
+    assert report.replanned == []
+    assert report.written[0] == mid_n
+    assert read_plan(st.ws.plan_path) == rows
+    assert not any("plan-changed" in m for m in logs)

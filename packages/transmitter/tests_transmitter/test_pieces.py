@@ -10,7 +10,7 @@ from transmitter.pieces import (LengthCache, Piece, build_pool, estimate_frames,
                                 scan_delivered)
 from transmitter.render import planned_frames
 from transmitter.station import Entry, Show
-from tests_transmitter.helpers import build_package, make_root
+from tests_transmitter.helpers import build_package, make_root, mark_awaiting_fix
 
 
 def _show(tmp_path, kinds, total=100.0):
@@ -190,3 +190,20 @@ def test_scan_delivered_uses_the_file_set_key_of_an_eligible_package(tmp_path):
     show = station.evaluate(pkg, now_s=4e9, quiet_s=0)
     assert got.key == show.key and not got.key.startswith("m-")
     assert got.frames == estimate_frames(show, pause_samples=PAUSE, extra=1) and got.exact is False
+
+
+@pytest.mark.parametrize("voiced", [True, False])
+@pytest.mark.parametrize("value", ["__default__", "later", {}, True])
+def test_scan_delivered_leaves_out_a_package_awaiting_a_fix(tmp_path, voiced, value):
+    root = make_root(tmp_path)
+    build_package(root, "band-2005-11-01")
+    mark_awaiting_fix(build_package(root, "band-2005-11-02", voiced=voiced), value)
+    pieces = scan_delivered(root, now_s=4e9, quiet_s=0, pause_samples=PAUSE, extra=1)
+    assert [p.slug for p in pieces] == ["band-2005-11-01"]
+
+
+def test_scan_delivered_keeps_a_package_with_a_null_mark(tmp_path):
+    root = make_root(tmp_path)
+    mark_awaiting_fix(build_package(root, voiced=False), None)
+    assert [p.slug for p in scan_delivered(root, now_s=4e9, quiet_s=0, pause_samples=PAUSE, extra=1)] \
+        == ["band-2005-11-01"]
