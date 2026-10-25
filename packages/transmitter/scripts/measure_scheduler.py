@@ -113,6 +113,19 @@ def _repeat_gaps(pps: list, epoch_us: int) -> dict:
     return out
 
 
+def _gaps_by_profile(pps: list, epoch_us: int) -> dict:
+    last: dict[str, int] = {}
+    gaps: dict[str, list[float]] = defaultdict(list)
+    for p in pps:
+        us = epoch_us + grid.frame_to_us(p.start_frame)
+        if p.piece.slug in last:
+            gaps[p.piece.profile or "?"].append((us - last[p.piece.slug]) / 86_400_000_000)
+        last[p.piece.slug] = us
+    return {k: {"repeats": len(v), "min": round(min(v), 2), "p10": round(_quantile(v, 0.1), 1),
+                "median": round(statistics.median(v), 1), "max": round(max(v), 1),
+                "within_7d": sum(1 for g in v if g < 7)} for k, v in sorted(gaps.items())}
+
+
 def measure(pool: list, clock: ClockConfig, *, weeks: int, start_date: date | None = None,
             seed: int = 0, gap_seconds: float = GAP_SECONDS) -> dict:
     tz = ZoneInfo(clock.timezone)
@@ -130,8 +143,13 @@ def measure(pool: list, clock: ClockConfig, *, weeks: int, start_date: date | No
     out = project(inp, until_frame=until_frame, ahead=2)
     elapsed = time.monotonic() - t0
 
+    epoch_local = (datetime.fromtimestamp(epoch_us / 1e6, tz)).date()
+
     def week_of(p) -> int:
-        return (iso_to_us(p.nominal_start) - epoch_us) // WEEK_US
+        """Week index in LOCAL dates: 7-day spans of the local calendar from the start day,
+        so a DST change does not move a block into the next week."""
+        d = datetime.fromtimestamp(iso_to_us(p.nominal_start) / 1e6, tz).date()
+        return (d - epoch_local).days // 7
 
     shows = [p for p in out if p.role == "show" and 0 <= week_of(p) < weeks]
     starts = [p for p in shows if p.miss is not None]
@@ -142,6 +160,7 @@ def measure(pool: list, clock: ClockConfig, *, weeks: int, start_date: date | No
     per_week_occ = sum(len(b.weekdays()) for b in clock.block)
     total = _summarize(shows, clock, starts)
     total["repeat_gap_days"] = _repeat_gaps(shows, epoch_us)
+    total["repeat_gap_days_by_profile"] = _gaps_by_profile(shows, epoch_us)
     # a block that landed early / was missed, by block name
     miss_by_block: Counter = Counter(p.block for p in starts if p.miss)
     starts_by_block: Counter = Counter(p.block for p in starts)
@@ -150,7 +169,7 @@ def measure(pool: list, clock: ClockConfig, *, weeks: int, start_date: date | No
     for p in shows:
         aired[p.piece.profile or "?"].add(p.piece.slug)
     pool_n = Counter(p.profile or "?" for p in pool if p.kind == "show")
-    total["distinct_shows_by_profile"] = {k: [len(aired.get(k, ())), n] for k, n in sorted(pool_n.items())}
+    total["distinct_aired_by_profile"] = {k: [len(aired.get(k, ())), n] for k, n in sorted(pool_n.items())}
     total["shows_per_block_start"] = round(len(shows) / len(starts), 2) if starts else None
     return {
         "weeks": per_week, "total": total, "occurrences_per_week": per_week_occ,
@@ -163,7 +182,10 @@ def measure(pool: list, clock: ClockConfig, *, weeks: int, start_date: date | No
 
 def load_pool(root: Path, library: str, *, pause_samples: int, extra: int, scan_cache: Path | None = None) -> list:
     if scan_cache is not None and scan_cache.is_file():
-        return pickle.loads(scan_cache.read_bytes())
+        got = pickle.loads(scan_cache.read_bytes())
+        if not (isinstance(got, dict) and got.get("root") == str(root) and got.get("library") == library):
+            raise SystemExit(f"error: {scan_cache} was scanned for another root/library; remove it or use another path")
+        return got["pool"]
     if library == "delivered":
         pool = pieces.scan_delivered(root, now_s=time.time(), quiet_s=QUIET_SECONDS,
                                      pause_samples=pause_samples, extra=extra)
@@ -172,7 +194,7 @@ def load_pool(root: Path, library: str, *, pause_samples: int, extra: int, scan_
         lengths = pieces.LengthCache(None, pause_samples, extra)
         pool, _ = pieces.build_pool(shows, [], lengths=lengths, clip_dir="", read_only=True)
     if scan_cache is not None:
-        scan_cache.write_bytes(pickle.dumps(pool))      # the caller's own scratch file, never the library
+        scan_cache.write_bytes(pickle.dumps({"root": str(root), "library": library, "pool": pool}))      # the caller's own scratch file, never the library
     return pool
 
 
@@ -185,6 +207,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-interstitials", action="store_true")
     ap.add_argument("--start-date", type=date.fromisoformat, default=date(2026, 11, 2))
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--exclude-slugs", type=Path, default=None, help="file of package slugs, one per line, to drop from the pool")
     ap.add_argument("--extra", type=int, default=None, help="encoder extra frames (default: measured with ffmpeg)")
     ap.add_argument("--scan-cache", type=Path, default=None, help="pickle of the scanned pool (your own scratch file)")
     ap.add_argument("--out", type=Path, required=True)
@@ -194,9 +217,15 @@ def main(argv: list[str] | None = None) -> int:
     t0 = time.monotonic()
     pool = load_pool(a.root, a.library, pause_samples=pause, extra=extra, scan_cache=a.scan_cache)
     scan_s = time.monotonic() - t0
+    excluded = 0
+    if a.exclude_slugs is not None:
+        drop = {ln.strip() for ln in a.exclude_slugs.read_text().splitlines() if ln.strip() and not ln.startswith("#")}
+        before = len(pool)
+        pool = [p for p in pool if p.slug not in drop]
+        excluded = before - len(pool)
     res = measure(pool, load_clock(a.clock), weeks=a.weeks, start_date=a.start_date, seed=a.seed)
     res.update(library=a.library, root=str(a.root), clock_file=a.clock.name, weeks_requested=a.weeks,
-               no_interstitials=a.no_interstitials, extra_frames=extra, scan_seconds=round(scan_s, 1))
+               no_interstitials=a.no_interstitials, excluded_slugs=excluded, extra_frames=extra, scan_seconds=round(scan_s, 1))
     a.out.write_text(json.dumps(res, indent=1) + "\n")
     t = res["total"]
     print(f"{a.clock.name}: {t['block_starts']} block starts, {t['misses']} outside window "

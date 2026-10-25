@@ -34,3 +34,7 @@ def test_two_weeks_on_the_fixture_library():
     assert sum(w["block_starts"] for w in res["weeks"]) == res["total"]["block_starts"]
     for key in ("misses", "miss_share", "fill_minutes", "bends", "repeat_gap_days", "own_profile_share"):
         assert key in res["total"]
+    by = res["total"]["repeat_gap_days_by_profile"]
+    assert by and all({"repeats", "min", "median", "within_7d"} <= set(v) for v in by.values())
+    aired, pool_n = res["total"]["distinct_aired_by_profile"]["dead"]
+    assert 0 < aired <= pool_n

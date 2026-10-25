@@ -1,0 +1,18 @@
+# 17 Dead packages that list every track twice (task 10 review); excluded in the "excluded-17" variants
+gratefuldead-1966-12-01
+gratefuldead-1968-10-13
+gratefuldead-1969-04-21
+gratefuldead-1974-05-25
+gratefuldead-1974-09-11
+gratefuldead-1978-12-30
+gratefuldead-1987-06-30
+gratefuldead-1987-07-06
+gratefuldead-1988-03-27
+gratefuldead-1988-06-23
+gratefuldead-1989-07-18
+gratefuldead-1989-08-19
+gratefuldead-1990-03-16
+gratefuldead-1990-07-14
+gratefuldead-1991-04-05
+gratefuldead-1991-10-31
+gratefuldead-1995-03-18
