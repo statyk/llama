@@ -498,3 +498,21 @@ every task since the baseline.
 a predicted test, 1 survived the predicted test ((j): a plan prediction error, ruled, no gap), and
 0 hangs. The fix waves came after it and carry their own scratch mutants: FW1, 6 + 3; FW2, 9; each
 red as predicted (implementer reports).
+
+### Checkpoint C rulings (Shawn, 2026-10-25 ~09:05, relayed by llama-db)
+
+Verbatim: **"Go on both. Recommendations accepted on all points"**.
+
+llama-db's reading, verbatim: "your recommendation stands on every question — Q1 no _vbr flip; Q2
+keep "named after its original"; Q3 let the bulk apply surface gd1970-05-06 / gd1985-11-10, fix by
+hand; Q4 accept the 20 re-selections; Q5 leave stale _vbr excludes; Q6 BUILD fix (A) in this branch
+(Opus implementer, Opus review, whole-library replay arm vs cand-c2, STOP and report on any
+unexplained move); Q7 no code change, one runbook line in Task 23; Q8 accept; Q9 M1 rides with (A),
+M2 left."
+
+The questions, as put (orch-r5's Checkpoint C report): Q1 flip the copy preference to `_vbr`; Q2
+the copy pick in the 23 non-`_vbr` groups; Q3 the 2 re-selections that orphan operator overrides;
+Q4 the 20 selected-recording changes; Q5 the stale `_vbr` excludes on the 5 hand-repaired shows;
+Q6 fix (A), the segue donor; Q7 `--restore`'s mtime "re-delivered" listing; Q8 FW2's refuse-more
+concerns; Q9 FW2 review Minors M1 (apostrophe look-alikes) and M2 (a both-excluded pair counted
+twice).
