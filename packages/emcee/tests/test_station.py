@@ -2,7 +2,12 @@
 readiness() legs on a single package."""
 
 import json
+from collections import Counter
 
+import pytest
+
+from emcee import station
+from emcee.cli import _scan_broad
 from emcee.config import EmceeConfig
 from emcee.package_io import Package
 from emcee.station import PackageStatus, readiness, scan
@@ -233,8 +238,6 @@ def _mixed_station(root):
 
 
 def test_scan_concurrent_matches_sequential_in_order(tmp_path, monkeypatch):
-    from emcee import station
-
     _mixed_station(tmp_path)
     concurrent = scan(tmp_path, EmceeConfig(), no_moves())
     monkeypatch.setattr(station, "SCAN_WORKERS", 1)
@@ -248,8 +251,6 @@ def test_scan_concurrent_matches_sequential_in_order(tmp_path, monkeypatch):
 
 
 def test_scan_reads_each_manifest_once(tmp_path, monkeypatch):
-    from collections import Counter
-
     _mixed_station(tmp_path)
     reads = Counter()
     real = Package.manifest
@@ -267,8 +268,6 @@ def test_scan_reads_each_manifest_once(tmp_path, monkeypatch):
 
 
 def test_scan_worker_exception_propagates(tmp_path):
-    import pytest
-
     _mixed_station(tmp_path)
     bad = build_package(tmp_path, slug="g-10a")
     data = json.loads((bad / "manifest.json").read_text())
@@ -277,3 +276,21 @@ def test_scan_worker_exception_propagates(tmp_path):
 
     with pytest.raises(KeyError):
         scan(tmp_path, EmceeConfig(), no_moves())
+
+
+def test_scan_broad_reads_each_manifest_once(tmp_path, monkeypatch):
+    # The fallback walk (taken whenever one package makes scan() raise)
+    # passes its validated manifest on rather than re-reading it.
+    _mixed_station(tmp_path)
+    reads = Counter()
+    real = Package.manifest
+
+    def spy(self):
+        reads[self.dir.name] += 1
+        return real(self)
+
+    monkeypatch.setattr(Package, "manifest", spy)
+    statuses = _scan_broad(tmp_path, EmceeConfig(), no_moves())
+
+    assert len(statuses) == 23
+    assert set(reads.values()) == {1}
