@@ -2394,6 +2394,69 @@ def test_build_canonical_corroboration_skips_items_that_normalize_to_nothing():
     assert set(cb.corroboration) == {fuzzy_norm_title("Morning Dew"), fuzzy_norm_title("From A Sibling")}
 
 
+# --- FW3 (A): the segue donor is ranked only among segue-bearing LMA parses ---
+#
+# When setlist.fm wins the canonical (every item `segue=False`), the segues are
+# blended back from the best LMA parse. `blend_segues` returns the winner
+# unchanged when that donor has no segue at all, so a donor picked on item count
+# alone could strip every real segue (gratefuldead-1988-06-23 lost 5 real marks).
+
+_DONOR_SLFM = [["Bertha", "Deal"],
+               ["Scarlet Begonias", "Fire On The Mountain", "Estimated Prophet",
+                "Eyes Of The World"],
+               ["Brokedown Palace"]]
+_DONOR_FLAT = ("Set 1\nBertha\nDeal\nSet 2\nScarlet Begonias\nFire On The Mountain\n"
+               "Estimated Prophet\nEyes Of The World\nEncore\nBrokedown Palace")
+_DONOR_SEGUED = ("Set 1\nBertha > Deal\nSet 2\nScarlet Begonias > Fire On The Mountain\n"
+                 "Estimated Prophet > Eyes Of The World\nDrums\nEncore\nBrokedown Palace")
+
+
+def _donor_build(chosen_desc, sib_desc, n_kept):
+    """build_canonical with setlist.fm present, the chosen recording and one
+    sibling. Only `len(kept)` matters to build_canonical, so `kept` is a stub."""
+    base = json.loads(FIXTURE.read_text())
+    chosen = dict(base["metadata"], description=chosen_desc)
+    sib = {"metadata": dict(base["metadata"], description=sib_desc), "files": []}
+    ia = MultiIA({IDENT: {"metadata": chosen, "files": base["files"]}, "sib": sib})
+    cand = make_candidate().model_copy(update={"recordings": [RecordingSummary(identifier=IDENT),
+                                                               RecordingSummary(identifier="sib")]})
+    kept = [{"name": f"t{i:02d}.mp3"} for i in range(n_kept)]
+    return build_canonical(ia, cand, IDENT, chosen, kept, "Grateful Dead", [],
+                           setlistfm=_FakeSetlistFM(*_DONOR_SLFM, encore=True))
+
+
+def _segued(cb):
+    return [i.title for i in cb.setlist.items if i.segue]
+
+
+def test_build_canonical_segue_donor_skips_a_closer_in_count_parse_with_no_segue():
+    # The chosen description (7 items, |7-7|=0) wins the count tie-break over the
+    # sibling (8 items, |8-7|=1) but carries no `>`; the sibling's segues must still
+    # reach the setlist.fm canonical.
+    cb = _donor_build(_DONOR_FLAT, _DONOR_SEGUED, 7)
+    assert cb.source == "setlist.fm"
+    assert [i.title for i in cb.setlist.items] == [n for s in _DONOR_SLFM for n in s]
+    assert _segued(cb) == ["Bertha", "Scarlet Begonias", "Estimated Prophet"]
+
+
+def test_build_canonical_no_segue_bearing_lma_parse_leaves_setlistfm_unchanged():
+    # (pin) No LMA parse carries a segue: no donor, the setlist.fm canonical as is.
+    cb = _donor_build(_DONOR_FLAT, _DONOR_FLAT.replace("Encore", "Drums\nEncore"), 7)
+    assert cb.source == "setlist.fm"
+    assert [(i.title, i.set) for i in cb.setlist.items] == [
+        (n, lbl) for s, lbl in zip(_DONOR_SLFM, ["1", "2", "encore"]) for n in s]
+    assert _segued(cb) == []
+
+
+def test_build_canonical_segue_donor_best_by_count_is_unchanged():
+    # (pin) The segue-bearing chosen parse is already the closest by count, so the
+    # donor is the one today's ranking picks; a segue-less sibling changes nothing.
+    chosen = _DONOR_SEGUED.replace("\nDrums", "")
+    cb = _donor_build(chosen, _DONOR_FLAT.replace("Encore", "Drums\nSpace\nEncore"), 7)
+    assert cb.source == "setlist.fm"
+    assert _segued(cb) == ["Bertha", "Scarlet Begonias", "Estimated Prophet"]
+
+
 # --- slice 2b on a captured tape: furthur2012-07-15, every tag "tmp" ---
 
 FURTHUR = FIXTURES / "furthur2012-07-15.json"

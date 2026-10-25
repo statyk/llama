@@ -927,7 +927,12 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
     source = best.source if best is not None else None
     canonical = best.parsed if best else ParsedSetlist()
     if best is not None and best.source == "setlist.fm":
-        best_lma = rank_parses([p for p in parses if p.source != "setlist.fm"],
+        # The segue donor is ranked only among LMA parses that carry a segue:
+        # `blend_segues` returns the winner unchanged for a segue-less donor, so
+        # a donor picked on item count alone could strip every real segue
+        # (gratefuldead-1988-06-23 lost 5). With none, there is no donor.
+        best_lma = rank_parses([p for p in parses if p.source != "setlist.fm"
+                                and any(i.segue for i in p.parsed.items)],
                                target_count=len(kept))
         canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
 
