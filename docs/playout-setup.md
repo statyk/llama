@@ -555,7 +555,7 @@ late_minutes = 30
 
 Announcement texts and ids derive from the clock alone: the id is a hash of the rendered text, so editing the templates, titles, `time_format` or zones retires the clips already voiced (re-export and re-voice). The two-block forms (`next`, `later`) are used only when the following occurrence is a DIFFERENT block starting within 12 h of X's start (`announce.TWO_BLOCK_MAX_HOURS`); otherwise the one-block forms. A time names every zone in `[announce] zones` (default Eastern, Pacific).
 
-`[interstitials] dir` must be an absolute path (default `<station root>/interstitials`). Station IDs are any `id-*.mp3` in it. Use the same station name in the IDs and in the player's `document.title` ("llama radio"); the spec's station-ID example says "LMA Radio", so pick one.
+`[interstitials] dir` must be an absolute path (default `<station root>/interstitials`). Station IDs are any `id-*.mp3` in it. The station's on-air name is "LMA Radio" (exact capitalisation): use it in the station IDs; the player shows it between shows (its page title).
 
 Copy-paste workflow:
 

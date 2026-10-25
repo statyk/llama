@@ -48,7 +48,7 @@ export function findNowPlaying(timeline, atMs) {
   return null;
 }
 
-export function nowPlayingText(np, timelineLoaded, stationName = "llama radio") {
+export function nowPlayingText(np, timelineLoaded, stationName = "LMA Radio") {
   if (!np) return timelineLoaded ? stationName : "Tuning in…";
   const s = np.show;
   const where = [s.venue, s.city].filter(Boolean).join(", ");
