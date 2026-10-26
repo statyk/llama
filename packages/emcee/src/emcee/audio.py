@@ -53,6 +53,7 @@ def detail(text: str) -> None:
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 _ABBREVIATIONS = {"mr.", "mrs.", "ms.", "dr.", "st.", "vs.", "jr.", "sr.",
                    "mt.", "ft.", "etc.", "inc.", "co.", "ave."}
+_DOTTED_ABBREV_RE = re.compile(r"(?:[A-Za-z]\.){2,}")
 _MIN_FRAGMENT_LEN = 20
 _SILENCE_MS = 180
 
@@ -70,6 +71,20 @@ def _split_sentences(text: str) -> list[str]:
     enough for DJ patter, not a general-purpose sentence segmenter.
     """
     raw_parts = [p.strip() for p in _SENTENCE_SPLIT_RE.split(text.strip()) if p.strip()]
+    # Pre-pass: a part ending in a dotted abbreviation ("U.S.", "D.C.") is not a
+    # sentence end; join it to the next part. Runs before the merge loop below so
+    # that loop still sees real sentence boundaries. Repeats, so "U.S. B.B." chains.
+    joined: list[str] = []
+    carry = ""
+    for part in raw_parts:
+        part = f"{carry} {part}" if carry else part
+        last_word = re.sub(r"^[^A-Za-z0-9]+", "", part.rsplit(None, 1)[-1])
+        carry = part if _DOTTED_ABBREV_RE.fullmatch(last_word) else ""
+        if not carry:
+            joined.append(part)
+    if carry:
+        joined.append(carry)
+    raw_parts = joined
     sentences: list[str] = []
     for part in raw_parts:
         if sentences:

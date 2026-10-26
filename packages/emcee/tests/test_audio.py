@@ -106,6 +106,44 @@ def test_split_whitespace_only_input():
     assert _split_sentences("   ") == [""]
 
 
+OUTRO_1974_05_19 = (  # gratefuldead-1974-05-19 outro, verbatim (spec section 4)
+    "And that brings us to the end of the Grateful Dead at the Portland Memorial Coliseum in "
+    "Portland, Oregon, on May nineteenth, 1974. Think back over that second set: Truckin' "
+    "sprinting ahead at full force, then the jam stretching out and turning quieter and slinkier "
+    "under Keith's electric piano before it settled into Not Fade Away, then Goin Down The Road "
+    "Feelin Bad, and finally Bob Weir shouting his way through One More Saturday Night. The "
+    "encore was U.S. Blues, still a new song that spring, where I'd say the real star was Phil "
+    "Lesh's bass, while Garcia and Keith Godchaux took the solo on together like a beast with "
+    "two heads. Earlier in the night we also had the Weather Report Suite and a Wharf Rat full "
+    "of pregnant pauses that, to my ear, belongs among the best. Tonight's recording came from "
+    "the master soundboard reels, and the same concert was officially released in 2018 as part "
+    "of the Pacific Northwest box set. As I see it, the universe hands out only so many nights "
+    "like this one, and the tapes are how we hold on to them. I'm Professor Chapman, and this "
+    "has been One More from the Archive. Join me next time, when we'll pull another reel off "
+    "the shelf and see what it remembers.")
+
+
+@pytest.mark.parametrize("token", ["U.S.", "D.C.", "L.A.", "B.B.", "K.C.", "U.K."])
+def test_split_keeps_dotted_abbreviation_with_what_follows(token):
+    # Prefix >= 20 chars so the short-fragment merge cannot be the reason.
+    text = f"Tonight the band played a long version of {token} Blues for the crowd."
+    assert _split_sentences(text) == [text]
+
+
+def test_split_real_sentence_end_after_dotted_abbreviation_is_harmless():
+    text = "They finally made it to Washington, D.C. The band came out swinging after that."
+    assert _split_sentences(text) == [text]
+
+
+def test_split_outro_keeps_us_blues_without_gluing_three_sentences():
+    pieces = _split_sentences(OUTRO_1974_05_19)
+    assert any("U.S. Blues, still a new song" in p for p in pieces)
+    assert not any(p.endswith("U.S.") for p in pieces)
+    # The pre-pass runs before the short-fragment merge: the "Saturday Night." sentence and
+    # the "U.S. Blues" sentence stay separate pieces (no ~500-character piece).
+    assert max(len(p) for p in pieces) < 320
+
+
 # ---------------------------------------------------------------------------
 # _bitrate_for_rate
 # ---------------------------------------------------------------------------
