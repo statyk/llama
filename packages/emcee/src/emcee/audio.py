@@ -24,6 +24,7 @@ from emcee.speech_text import Lexicon, normalize_for_speech
 from emcee.tts.bed import Bed, load_bed_pcm, mix_bed
 from emcee.tts.loudness import LOUDNESS_VERSION, normalize_speech
 from emcee.tts.provider import SpeechBlocked, SpeechDefect, SpeechError
+from emcee.tts.room_tone import ROOM_TONE_VERSION, fill_room_tone
 from emcee.workspace import atomic_write_bytes, atomic_write_text
 
 
@@ -57,6 +58,8 @@ _ABBREVIATIONS = {"mr.", "mrs.", "ms.", "dr.", "st.", "vs.", "jr.", "sr.",
 _DOTTED_ABBREV_RE = re.compile(r"(?:[A-Za-z]\.){2,}")
 _MIN_FRAGMENT_LEN = 20
 _SILENCE_MS = 180
+# Joins the planned chunks when hashing them into the cache key (never in text).
+_CHUNK_SEP = "\x1f"
 
 
 def _split_sentences(text: str) -> list[str]:
@@ -182,11 +185,13 @@ def _encode_mp3(pcm: bytes, framerate: int, channels: int) -> bytes:
 
 
 def _chunked_pcm(text: str, speech, *, chunking: Chunking) -> tuple[bytes, int, int]:
-    """Sentence-by-sentence synthesis + PCM concat (no encode). Returns
+    """Chunk-by-chunk synthesis + PCM concat (no encode). Returns
     (pcm, framerate, channels). See _synthesize_chunked for the rationale;
-    this is its PCM half, shared with the bed path. Each sentence's PCM is
-    loudness-normalized (normalize_speech) before the silence gap is appended."""
-    sentences = _split_sentences(text)
+    this is its PCM half, shared with the bed path. The chunks are
+    `plan_chunks(text, chunking.ceiling)`. Each chunk's PCM is
+    loudness-normalized (normalize_speech) before the silence gap is appended,
+    and room tone fills exact-silence runs last when `chunking.room_tone`."""
+    sentences = plan_chunks(text, chunking.ceiling)
     frames: list[bytes] = []
     framerate = channels = sampwidth = None
     for i, sentence in enumerate(sentences):
@@ -211,7 +216,10 @@ def _chunked_pcm(text: str, speech, *, chunking: Chunking) -> tuple[bytes, int, 
         if i < len(sentences) - 1:
             silence_frames = int(framerate * (_SILENCE_MS / 1000))
             frames.append(bytes(silence_frames * channels * sampwidth))
-    return b"".join(frames), framerate, channels
+    pcm = b"".join(frames)
+    if chunking.room_tone:
+        pcm = fill_room_tone(pcm, framerate, channels, seed_text=text)
+    return pcm, framerate, channels
 
 
 def _synthesize_chunked(text: str, speech, *, chunking: Chunking) -> bytes:
@@ -302,8 +310,8 @@ def render_speech_mp3(text: str, speech, *, chunking: Chunking | None,
       (`mix_bed`), and encode once via lameenc. Hard-fails when the bed's
       sample rate does not match the voice audio, or the voice is not mono.
       The voice is loudness-normalized first (tts/loudness.normalize_speech).
-    - `chunking`: (when not None) sentence-by-sentence synthesis concatenated as PCM, one
-      encode at the end (`_synthesize_chunked`); each sentence loudness-normalized.
+    - `chunking`: (when not None) chunk-by-chunk synthesis (`plan_chunks`) concatenated as PCM,
+      one encode at the end (`_synthesize_chunked`); each chunk loudness-normalized.
     - neither: a single whole-passage call, shipping the provider's own MP3
       untouched (not loudness-normalized: this path never holds PCM).
 
@@ -315,6 +323,10 @@ def render_speech_mp3(text: str, speech, *, chunking: Chunking | None,
     (`_locate_block`) so the error names it; this is the one renderer
     `emcee say` and DJ clips share, so both get it.
     """
+    if chunking is None:
+        # Single newlines are wraps and blank lines mean nothing to an unchunked
+        # call; a "\n" must reach neither the provider nor _locate_block.
+        text = " ".join(text.split())
     try:
         return _render(text, speech, chunking=chunking, bed_pcm=bed_pcm, bed_rate=bed_rate,
                        bed_gain_db=bed_gain_db)
@@ -333,6 +345,22 @@ def _segment_texts(notes: ScriptNotes) -> list[tuple[str, str]]:
     segs = [(f"set{key}-intro", notes.set_intros[key]) for key in ordered]
     segs.append(("99-outro", notes.outro))
     return segs
+
+
+def _render_key(spoken: str, speech, *, chunking: Chunking | None, bed_key: str,
+                loud_key: str) -> str:
+    """The DJ-clip cache key. The unchunked string is the pre-chunking formula,
+    byte for byte. A chunked one adds the digest of the planned chunks (so a
+    new ceiling that plans differently re-renders, one that plans the same
+    does not) and, when room tone is on, its version."""
+    key = f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunking is not None}{bed_key}{loud_key}"
+    if chunking is not None:
+        # Outside any f-string expression: a backslash there is a SyntaxError on 3.11.
+        joined = _CHUNK_SEP.join(plan_chunks(spoken, chunking.ceiling))
+        key += "\nchunks=" + hashlib.sha256(joined.encode()).hexdigest()[:16]
+        if chunking.room_tone:
+            key += f"\ntone={ROOM_TONE_VERSION}"
+    return hashlib.sha256(key.encode()).hexdigest()
 
 
 def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
@@ -395,9 +423,8 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
         spoken = normalize_for_speech(text, lexicon)
         filename = f"{stem}.mp3"
         dest = audio_dir / filename
-        key = hashlib.sha256(
-            f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunking is not None}{bed_key}{loud_key}".encode()
-        ).hexdigest()
+        key = _render_key(spoken, speech, chunking=chunking, bed_key=bed_key,
+                          loud_key=loud_key)
         keys[filename] = key
         if (force and filename not in rendered) or not dest.exists() or cached.get(filename) != key:
             detail(f"synthesizing {filename}")

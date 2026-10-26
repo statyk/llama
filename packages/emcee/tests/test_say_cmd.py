@@ -29,7 +29,11 @@ def _write_config(root: Path, **tts) -> None:
     root.mkdir(parents=True, exist_ok=True)
     lines = ["[tts]", 'backend = "fake"', 'voice = "test-voice"']
     for key, value in tts.items():
-        lines.append(f'{key} = {value!r}' if isinstance(value, str) else f"{key} = {value}")
+        if isinstance(value, bool):
+            value = str(value).lower()  # TOML spells booleans lowercase
+            lines.append(f"{key} = {value}")
+        else:
+            lines.append(f'{key} = {value!r}' if isinstance(value, str) else f"{key} = {value}")
     (root / "config.toml").write_text("\n".join(lines) + "\n")
 
 
@@ -131,7 +135,7 @@ def test_say_raw_skips_normalization(tmp_path, monkeypatch):
     assert speech.calls == ["Scarlet > Fire, the whole way."]
 
 
-def test_say_chunks_by_sentence_by_default(tmp_path, monkeypatch):
+def test_say_chunks_by_packed_chunks_by_default(tmp_path, monkeypatch):
     speech, _ = _arm_speech(monkeypatch)
     src = _text_file(tmp_path, "First sentence here. Second sentence here.")
 
@@ -139,7 +143,8 @@ def test_say_chunks_by_sentence_by_default(tmp_path, monkeypatch):
 
     # Chunking defaults ON for `say`: an arbitrary text file routinely
     # exceeds Voxtral's per-request cap, which a whole-passage call cannot.
-    assert speech.calls == ["First sentence here.", "Second sentence here."]
+    # ... and a short passage packs into one chunk at the default ceiling of 250.
+    assert speech.calls == ["First sentence here. Second sentence here."]
 
 
 def test_say_no_chunk_sends_the_whole_passage_in_one_call(tmp_path, monkeypatch):
@@ -321,3 +326,29 @@ def test_say_with_no_voice_flags_sends_the_house_transcript(tmp_path, monkeypatc
     result = runner.invoke(app, ["say", str(_text_file(tmp_path, "Good evening to all of you out there."))])
     assert result.exit_code == 0, result.output
     assert server.speech_bodies and all(b["ref_text"] == HOUSE_TEXT for b in server.speech_bodies)
+
+
+def test_say_hard_wrapped_file_is_one_paragraph(tmp_path, monkeypatch):
+    from emcee.audio import plan_chunks
+    speech, _ = _arm_speech(monkeypatch)
+    wrapped = ("Tonight we go back to Portland in the\nspring of 1974. The band was on\n"
+               "fire and the room knew it. Listen for the\nlong jam after Truckin'.")
+    src = _text_file(tmp_path, wrapped)
+
+    _run(["say", str(src)], tmp_path, monkeypatch)
+
+    assert speech.calls == plan_chunks(" ".join(wrapped.split()), 250)
+    assert all("\n" not in c for c in speech.calls)
+
+
+def test_say_forwards_chunk_chars_and_room_tone(tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr("emcee.audio.fill_room_tone",
+                        lambda pcm, fr, ch, *, seed_text: (seen.append(seed_text), pcm)[1])
+    speech, _ = _arm_speech(monkeypatch)
+    src = _text_file(tmp_path, "First sentence here, long enough. Second sentence here, also long.")
+
+    _run(["say", str(src)], tmp_path, monkeypatch, chunk_chars=50, room_tone=False)
+
+    assert len(speech.calls) == 2  # ceiling 50 splits what 250 packs into one
+    assert seen == []  # room_tone = false reached the renderer
