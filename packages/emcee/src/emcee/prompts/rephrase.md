@@ -16,6 +16,7 @@ Rules:
 - Introduce no song titles, people, places, dates, numbers or facts that the
   segment does not already contain.
 - No symbols; write for the ear; no one- or two-word sentences.
+- Keep the blank lines between paragraphs, written as \n\n inside the JSON string.
 {{feedback}}
 The full segment:
 

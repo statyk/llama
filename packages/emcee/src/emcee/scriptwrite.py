@@ -193,6 +193,12 @@ def render_notes_md(notes: ScriptNotes, manifest: dict) -> str:
     return "\n".join(lines)
 
 
+def _unescape_breaks(text: str) -> str:
+    """A model that double-escapes writes a literal backslash-n pair where it
+    means a paragraph break; turn each into a real newline."""
+    return text.replace("\\n", "\n")
+
+
 def write_script(
     pkg: Package,
     provider,
@@ -245,6 +251,10 @@ def write_script(
             provider, "scriptwrite", ScriptNotes,
             template=load_prompt("scriptwrite"), feedback=feedback, **inputs,
         )
+        notes = notes.model_copy(update={
+            "set_intros": {k: _unescape_breaks(v) for k, v in notes.set_intros.items()},
+            "outro": _unescape_breaks(notes.outro),
+        })
         problems = script_guard(notes, manifest, narration)
         if not problems:
             return notes
@@ -271,7 +281,7 @@ def rephrase_segment(provider, segment_text: str, blocked_text: str,
         segment=segment_text, blocked=blocked_text,
         categories=", ".join(categories) or "unspecified", feedback=note,
     )
-    return result.text.strip()
+    return _unescape_breaks(result.text).strip()
 
 
 _DIGITS = re.compile(r"\d+")

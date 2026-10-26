@@ -596,3 +596,50 @@ def test_rephrase_problems_typography_noise_is_not_an_edit():
 def test_fold_normalizes_typography():
     from emcee.scriptwrite import _fold
     assert _fold("It’s  “fine” – ok\n") == 'It\'s "fine" - ok'
+
+
+# ---------------------------------------------------------------------------
+# Paragraphs: the prompts ask for them, and a literal backslash-n is unescaped.
+# ---------------------------------------------------------------------------
+
+
+def test_scriptwrite_prompt_asks_for_paragraphs_as_escaped_breaks():
+    prompt = load_prompt("scriptwrite")
+    assert "paragraph" in prompt
+    assert "\\n\\n" in prompt
+    assert "never a raw line break" in prompt
+
+
+def test_rephrase_prompt_asks_to_keep_paragraph_breaks():
+    prompt = load_prompt("rephrase")
+    assert "\\n\\n" in prompt
+    assert "blank line" in prompt
+
+
+def test_write_script_round_trips_escaped_breaks(tmp_path):
+    pkg = Package(build_package(tmp_path))
+    reply = json.dumps(notes_dict(
+        outro="A first thought here.\n\nA second thought here. I Know You Rider."))
+    assert "\\n\\n" in reply   # the wire form is a JSON escape
+    notes = write_script(pkg, FakeProvider(completes=[reply]), presenter=None, title=None)
+    assert "A first thought here.\n\nA second thought here." in notes.outro
+
+
+def test_write_script_unescapes_double_escaped_breaks(tmp_path):
+    pkg = Package(build_package(tmp_path))
+    reply = json.dumps(notes_dict(
+        set_intros={"1": "Tonight: the Dead at RFK.\\n\\nOpens with Morning Dew.",
+                    "2": "China Cat leads set two."},
+        outro="A first thought here.\\n\\nA second thought here. I Know You Rider.",
+    ))
+    notes = write_script(pkg, FakeProvider(completes=[reply]), presenter=None, title=None)
+    assert "\\n" not in notes.outro
+    assert "\n\n" in notes.outro
+    assert "\\n" not in notes.set_intros["1"]
+    assert "Tonight: the Dead at RFK.\n\nOpens with Morning Dew." == notes.set_intros["1"]
+
+
+def test_rephrase_segment_unescapes_literal_breaks():
+    provider = FakeProvider(completes=[json.dumps({"text": "One thought.\\n\\nTwo thought."})])
+    out = rephrase_segment(provider, SEG, "x", [])
+    assert out == "One thought.\n\nTwo thought."
