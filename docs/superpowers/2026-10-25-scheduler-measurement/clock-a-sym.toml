@@ -1,0 +1,35 @@
+# Clock (a): the naive script's five anchors in the clock format.
+# 07:00 dead, 12:00 bluegrass, 19:00 dead daily; Saturday 22:30 funk; Sunday 15:00 dead-family.
+# Variant: the default symmetric window, wiggle_minutes = 15 (nominal +-15 min).
+timezone = "America/New_York"
+wiggle_minutes = 15
+
+[open]
+exclude_profiles = ["dead", "funk", "dead-family"]
+
+[[block]]
+name = "dead-am"
+start = "07:00"
+profiles = ["dead"]
+
+[[block]]
+name = "bluegrass"
+start = "12:00"
+profiles = ["bluegrass"]
+
+[[block]]
+name = "dead-pm"
+start = "19:00"
+profiles = ["dead"]
+
+[[block]]
+name = "funk"
+start = "22:30"
+days = ["sat"]
+profiles = ["funk"]
+
+[[block]]
+name = "dead-family"
+start = "15:00"
+days = ["sun"]
+profiles = ["dead-family"]

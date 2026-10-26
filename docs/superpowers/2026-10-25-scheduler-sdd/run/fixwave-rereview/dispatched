@@ -1,0 +1,4 @@
+budget-min: 25
+role: reviewer
+model: opus
+what: scoped re-review of fix wave 00afe1f..dbd3601

@@ -68,6 +68,10 @@ class PublishLocked(TransmitterError):
     """Another publish or prune holds the local lock."""
 
 
+class PlanLocked(TransmitterError):
+    """Another plan or render holds the local plan lock."""
+
+
 class PutBudgetExceeded(TransmitterError):
     """The local daily PUT budget is spent; publishing stops until tomorrow (UTC)."""
 

@@ -1,0 +1,32 @@
+progress: reading consumers
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/publish/packages/transmitter/src/transmitter/__init__.py
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_publish_site_never_asks_for_an_interstitial_analysis
+1 failed, 42 deselected in 2.23s
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/site/packages/transmitter/src/transmitter/__init__.py
+ERROR packages/transmitter/tests_transmitter/test_site.py - FileNotFoundError...
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.14s
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/service/packages/transmitter/src/transmitter/__init__.py
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_row_analysis_ignores_interstitial_rows_even_when_cached
+1 failed, 61 deselected in 0.31s
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/publish/antenna/templates/show.html'
+E   FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/site/antenna/templates/show.html'
+ERROR packages/transmitter/tests_transmitter/test_site.py - FileNotFoundError...
+== control / test_publish
+1 passed, 42 deselected in 0.12s
+== control / test_site
+1 passed, 18 deselected in 0.08s
+== publish / test_publish
+1 passed, 42 deselected in 0.08s
+== publish / test_site
+1 passed, 18 deselected in 0.07s
+== site / test_publish
+1 passed, 42 deselected in 0.11s
+== site / test_site
+E       AssertionError: assert ['show-a', 'show-b'] == ['show-a']
+E         
+E         Left contains one more item: 'show-b'
+E         Use -v to get more diff
+1 failed, 18 deselected in 0.08s

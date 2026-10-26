@@ -1,0 +1,4 @@
+Sun Oct 25 19:11:29 EDT 2026 final-review started
+Sun Oct 25 19:11:48 EDT 2026 pass 2: source read
+Sun Oct 25 19:12:21 EDT 2026 controller cancellation received; stopping after pass 1 (docs) and a partial pass 2 (pipeline/planner/layout read)
+Sun Oct 25 19:12:41 EDT 2026 handback written, sentinel touched

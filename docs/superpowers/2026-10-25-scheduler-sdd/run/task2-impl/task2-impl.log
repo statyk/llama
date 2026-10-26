@@ -1,0 +1,24 @@
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/transmitter/tests_transmitter/test_locks.py:3: in <module>
+    from transmitter.errors import PlanLocked
+E   ImportError: cannot import name 'PlanLocked' from 'transmitter.errors' (/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/errors.py)
+=========================== short test summary info ============================
+ERROR packages/transmitter/tests_transmitter/test_locks.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.23s
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_plan_command
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_zero_when_clean_or_empty
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_put_budget_stops_it
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_guard_is_tripped
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_until_a_fallback_is_rendered
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_plan_and_render_refuse_while_locked
+6 failed, 586 passed, 1 skipped in 16.42s
+........................................................................ [ 36%]
+........................................................................ [ 48%]
+........................................................................ [ 60%]
+........................................................................ [ 72%]
+........................................................................ [ 84%]
+........................................................................ [ 97%]
+........s........                                                        [100%]
+592 passed, 1 skipped in 21.74s

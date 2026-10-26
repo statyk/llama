@@ -1,0 +1,1304 @@
+{
+ "weeks": [
+  {
+   "week": 0,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10076.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 1,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10068.2,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 2,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10091.9,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 3,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10088.1,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 4,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10063.0,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 5,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10080.0,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 6,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10088.6,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 7,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10067.1,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 8,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10081.3,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 9,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10072.1,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 10,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10086.5,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 11,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10082.4,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 12,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10076.6,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 13,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10065.4,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 14,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10091.5,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 15,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10065.4,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 16,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10085.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 17,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10084.4,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 18,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10007.8,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 19,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10088.9,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 20,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10089.9,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 21,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10064.2,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 22,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10069.3,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 23,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10095.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 24,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10060.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 25,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10104.1,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 26,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10054.6,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 27,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10090.4,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 28,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10072.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 29,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10091.1,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 30,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10073.0,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 31,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10064.2,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 32,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10091.0,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 33,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10076.2,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 34,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10081.1,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 35,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10081.2,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 36,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10078.9,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 37,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10076.0,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 38,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10079.3,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 39,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10074.4,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 40,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10079.3,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 41,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10082.0,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 42,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10085.6,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 43,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10058.3,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 44,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10086.5,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 45,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10090.5,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 46,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10075.8,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 47,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10065.2,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 48,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10075.8,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  },
+  {
+   "week": 49,
+   "block_starts": 21,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10092.6,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "funk-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "funk-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {}
+  }
+ ],
+ "total": {
+  "block_starts": 1050,
+  "misses": 0,
+  "miss_share": 0.0,
+  "degraded_blocks": 0,
+  "show_minutes": 503871.1,
+  "fill_minutes": {},
+  "fill_minutes_by_profile": {},
+  "fill_share_by_block": {
+   "dead-evening": 0.0,
+   "dead-morning": 0.0,
+   "funk-afternoon": 0.0
+  },
+  "bends": {},
+  "own_profile_share": 1.0,
+  "own_profile_share_by_block": {
+   "dead-evening": 1.0,
+   "dead-morning": 1.0,
+   "funk-afternoon": 1.0
+  },
+  "open_minutes_by_profile": {},
+  "repeat_gap_days": {
+   "shows_aired": 494,
+   "repeats": 1606,
+   "min": 1.0,
+   "p10": 2.0,
+   "median": 11.0,
+   "p90": 110.0,
+   "buckets": {
+    "<1d": 0,
+    "1-7d": 633,
+    "7-30d": 346,
+    "30-45d": 34,
+    "45-90d": 366,
+    ">=90d": 227
+   }
+  },
+  "repeat_gap_days_by_profile": {
+   "dead": {
+    "repeats": 997,
+    "min": 1.0,
+    "p10": 2.0,
+    "median": 10.0,
+    "max": 327.8,
+    "within_7d": 403
+   },
+   "funk": {
+    "repeats": 609,
+    "min": 1.01,
+    "p10": 3.0,
+    "median": 21.0,
+    "max": 215.0,
+    "within_7d": 230
+   }
+  },
+  "miss_by_block": {
+   "dead-evening": [
+    0,
+    350
+   ],
+   "dead-morning": [
+    0,
+    350
+   ],
+   "funk-afternoon": [
+    0,
+    350
+   ]
+  },
+  "distinct_aired_by_profile": {
+   "?": [
+    0,
+    1
+   ],
+   "americana": [
+    0,
+    329
+   ],
+   "bluegrass": [
+    0,
+    307
+   ],
+   "country": [
+    0,
+    2
+   ],
+   "dead": [
+    403,
+    413
+   ],
+   "dead-family": [
+    0,
+    225
+   ],
+   "dead-tribute": [
+    0,
+    208
+   ],
+   "funk": [
+    91,
+    221
+   ],
+   "indie": [
+    0,
+    329
+   ],
+   "jam": [
+    0,
+    244
+   ],
+   "livetronica": [
+    0,
+    232
+   ],
+   "southern": [
+    0,
+    275
+   ]
+  },
+  "shows_per_block_start": 2.0
+ },
+ "occurrences_per_week": 21,
+ "clock_start": "2026-11-02T13:00:00.000Z",
+ "project_seconds": 12.73,
+ "pool": {
+  "shows": 2786,
+  "profiles": {
+   "dead": 413,
+   "americana": 329,
+   "indie": 329,
+   "bluegrass": 307,
+   "southern": 275,
+   "jam": 244,
+   "livetronica": 232,
+   "dead-family": 225,
+   "funk": 221,
+   "dead-tribute": 208,
+   "country": 2,
+   "?": 1
+  }
+ },
+ "seed": 0,
+ "library": "delivered",
+ "root": "/Volumes/media/lma-radio/delivered",
+ "clock_file": "clock-c.toml",
+ "weeks_requested": 50,
+ "no_interstitials": true,
+ "excluded_slugs": 0,
+ "extra_frames": 1,
+ "scan_seconds": 0.0
+}

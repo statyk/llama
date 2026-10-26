@@ -1,0 +1,165 @@
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/base/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/base/packages/transmitter/tests_transmitter/__init__.py
+.....................................................                    [100%]
+53 passed in 2.11s
+== M1 block_start=start_frame; predict RED test_structural_cause_is_judged_from_the_block_start
+IMPORTED /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m1/packages/transmitter/src/transmitter/scheduler.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m1/packages/transmitter/tests_transmitter/__init__.py
+E           AssertionError: assert ((Piece(kind='..., exact=True)) == (Piece(kind='..., exact=True))
+test_scheduler_block.py:213: AssertionError
+test_scheduler_block.py::test_structural_cause_is_judged_from_the_block_start
+1 failed, 52 passed in 2.13s
+== M2 no boundary in block_start; predict SURVIVE (margin)
+IMPORTED /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m2/packages/transmitter/src/transmitter/scheduler.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m2/packages/transmitter/tests_transmitter/__init__.py
+53 passed in 2.26s
+== M3 longest excludes placed; predict SURVIVE
+IMPORTED /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m3/packages/transmitter/src/transmitter/scheduler.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m3/packages/transmitter/tests_transmitter/__init__.py
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+        # the next block's window has already passed at start_frame: one own show still chosen, tier 2, landing late
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+E   NameError: name '_PLACED' is not defined
+../m_m3/packages/transmitter/src/transmitter/scheduler.py:655: NameError
+test_scheduler_block.py::test_single_show_landing_in_window_is_tier0
+test_scheduler_block.py::test_pair_fills_a_long_block_from_its_own_profile
+test_scheduler_block.py::test_own_profile_pair_beats_fill_even_when_pairing_breaks_adjacency
+test_scheduler_block.py::test_used_pieces_are_skipped_unless_nothing_else_is_left
+test_scheduler_block.py::test_a_block_never_plays_one_piece_twice
+test_scheduler_block.py::test_fill_when_the_own_pool_cannot_reach_the_window
+test_scheduler_block.py::test_fill_with_long_own_shows_that_cannot_combine_is_pool_short
+test_scheduler_block.py::test_structural_fill_when_block_is_longer_than_max_shows_can_cover
+test_scheduler_block.py::test_fill_cause_is_judged_on_the_whole_own_pool_from_the_block_start
+test_scheduler_block.py::test_structural_cause_holds_through_a_continuation
+test_scheduler_block.py::test_structural_cause_is_judged_from_the_block_start
+test_scheduler_block.py::test_own_membership_is_the_own_pool_not_the_profile_field
+test_scheduler_block.py::test_fill_keeps_at_least_one_own_show
+test_scheduler_block.py::test_no_own_show_follows_fill
+test_scheduler_block.py::test_miss_keeps_the_blocks_own_profile
+test_scheduler_block.py::test_overlapping_window_plays_late_with_a_miss
+test_scheduler_block.py::test_placed_prefix_at_max_shows_has_an_option
+test_scheduler_block.py::test_early_landing_block_gets_no_extra_show
+test_scheduler_block.py::test_placed_shows_supply_the_previous_artist
+test_scheduler_block.py::test_scarce_pool_repeats_rather_than_degrading
+test_scheduler_block.py::test_bend_counted_only_when_a_keeping_option_existed
+test_scheduler_block.py::test_softest_rule_bends_first
+test_scheduler_block.py::test_value_sums_surplus_rather_than_averaging_it
+test_scheduler_block.py::test_pair_firsts_are_drawn_from_shows_that_can_still_land
+test_scheduler_block.py::test_a_miss_prefers_late_over_early_at_equal_distance
+test_scheduler_block.py::test_deterministic_with_seed_tiebreak
+test_scheduler_block.py::test_infinite_scores_order_by_tie_rank
+test_scheduler_block.py::test_gap_zero_never_counts_a_gap_bend
+test_scheduler_block.py::test_continuing_a_block_reproduces_the_first_choice[False]
+test_scheduler_block.py::test_continuing_a_block_reproduces_the_first_choice[True]
+test_scheduler_block.py::test_every_fixture_profile_block_lands_or_compromises
+test_scheduler_block.py::test_fill_block_is_fast_on_a_3000_piece_pool
+test_scheduler_block.py::test_every_offered_option_counts_and_scores_as_rules_does
+33 failed, 20 passed in 2.31s
+== M3 longest excludes placed; predict SURVIVE
+IMPORTED /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m3/packages/transmitter/src/transmitter/scheduler.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m3/packages/transmitter/tests_transmitter/__init__.py
+53 passed in 2.04s
+== M3b placed own as laid + longest of rest; predict SURVIVE
+IMPORTED /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m3b/packages/transmitter/src/transmitter/scheduler.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m3b/packages/transmitter/tests_transmitter/__init__.py
+test_scheduler_block.py:190: AssertionError
+test_scheduler_block.py::test_fill_cause_is_judged_on_the_whole_own_pool_from_the_block_start
+1 failed, 52 passed in 2.07s
+== M4 _has_fill by profile field; predict RED test_own_membership_is_the_own_pool_not_the_profile_field
+IMPORTED /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m4/packages/transmitter/src/transmitter/scheduler.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m4/packages/transmitter/tests_transmitter/__init__.py
+test_scheduler_block.py:96: AssertionError
+test_scheduler_block.py:143: AssertionError
+test_scheduler_block.py:221: AssertionError
+test_scheduler_block.py:323: AssertionError
+test_scheduler_block.py:491: AssertionError
+test_scheduler_block.py:491: AssertionError
+test_scheduler_block.py:556: AssertionError
+test_scheduler_block.py::test_own_profile_pair_beats_fill_even_when_pairing_breaks_adjacency
+test_scheduler_block.py::test_fill_when_the_own_pool_cannot_reach_the_window
+test_scheduler_block.py::test_own_membership_is_the_own_pool_not_the_profile_field
+test_scheduler_block.py::test_scarce_pool_repeats_rather_than_degrading
+test_scheduler_block.py::test_continuing_a_block_reproduces_the_first_choice[False]
+test_scheduler_block.py::test_continuing_a_block_reproduces_the_first_choice[True]
+test_scheduler_block.py::test_fill_block_is_fast_on_a_3000_piece_pool
+7 failed, 46 passed in 1.82s
+== M5 pairs drop g.pkg in seq.pkgs; predict SURVIVE (unreachable)
+IMPORTED /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m5/packages/transmitter/src/transmitter/scheduler.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m5/packages/transmitter/tests_transmitter/__init__.py
+53 passed in 2.03s
+== M6 pairs drop g.pkg == fp; predict SURVIVE (unreachable)
+IMPORTED /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m6/packages/transmitter/src/transmitter/scheduler.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m6/packages/transmitter/tests_transmitter/__init__.py
+53 passed in 2.04s
+== M7 _Ctx.viol drop c.pkg in seq.pkgs; predict SURVIVE (unreachable)
+IMPORTED /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m7/packages/transmitter/src/transmitter/scheduler.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m7/packages/transmitter/tests_transmitter/__init__.py
+test_scheduler_block.py:534: AssertionError
+test_scheduler_block.py::test_violation_counts_agree_with_rules
+1 failed, 52 passed in 2.08s
+== M4f faithful old _has_fill (profile field); predict RED test_own_membership_is_the_own_pool_not_the_profile_field
+IMPORTED /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m4f/packages/transmitter/src/transmitter/scheduler.py
+test_scheduler_block.py::test_own_membership_is_the_own_pool_not_the_profile_field
+1 failed, 52 passed in 2.07s
+module /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/base/packages/transmitter/src/transmitter/scheduler.py
+[[], ['a', 'b', 'f'], 1, 2, 'pool-short', (1, ['b', 'f'], 'pool-short'), (2, ['f'], 'pool-short')]
+[[30, 30], ['a', 'b', 'f'], 1, 2, 'pool-short', (1, ['b', 'f'], 'pool-short'), (2, ['f'], 'pool-short')]
+[[20, 20, 20], ['a', 'b', 'f'], 1, 2, 'pool-short', (1, ['b', 'f'], 'pool-short'), (2, ['f'], 'pool-short')]
+module /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m_m3/packages/transmitter/src/transmitter/scheduler.py
+[[], ['a', 'b', 'f'], 1, 2, 'pool-short', (1, ['b', 'f'], 'pool-short'), (2, ['f'], 'pool-short')]
+[[30, 30], ['a', 'b', 'f'], 1, 2, 'pool-short', (1, ['b', 'f'], 'pool-short'), (2, ['f'], 'structural')]
+[[20, 20, 20], ['a', 'b', 'f'], 1, 2, 'pool-short', (1, ['b', 'f'], 'pool-short'), (2, ['f'], 'structural')]
+FAILED ../base/packages/transmitter/tests_transmitter/test_relay.py::test_relay_key_matches_antenna
+1 failed, 747 passed, 1 skipped in 19.20s

@@ -1,0 +1,8 @@
+# Task 1b handback
+Implemented: `station.awaiting_fix_reason(manifest)` (None for absent/null; else "awaiting fix from llama: <reason>" when dict with non-empty string reason, whitespace/newlines collapsed; else bare "awaiting fix from llama"; never raises). `_evaluate` appends it as the FIRST reason right after the schema_version check (so it leads the reasons list even when other legs also fail, e.g. unvoiced; it is not an early return so other reasons stay visible). `pieces.scan_delivered` skips marked packages before evaluate/_manifest_show (voiced and unvoiced).
+Malformed cases tested: string, empty string, list, 0, True, False, {}, dict without reason, empty/blank reason, non-string reason; null and absent = eligible.
+Pipeline: (1) marked second planned show, nothing encoded -> dropped via skip path, plan-changed "no longer eligible" logged, re-extended, no error; (2) marked mid-render on-air show -> continues, no LayoutError, plan unchanged, no plan-changed. Both passed against existing code once the evaluate check existed (no new pipeline code).
+TDD: RED log showed 25 failed (station, pieces, both pipeline tests) before implementation; GREEN 30 passed; full suite 859 passed, 1 skipped.
+Files: station.py, pieces.py, helpers.py (mark_awaiting_fix), test_station.py, test_pieces.py, test_pipeline.py.
+status/cli: no existing status line lists ineligible reasons (grep of cli/service/pipeline: none) -> no change; Task 13 will surface them.
+Concerns: none. Mark mtime change also triggers the quiet period (manifest.json is watched), so a freshly marked package reports both reasons.

@@ -1,0 +1,34 @@
+RED run (impl modules moved aside)
+packages/transmitter/tests_transmitter/test_announce.py:3: in <module>
+    from transmitter.announce import ann_id, needed, render_time, text_for
+E   ModuleNotFoundError: No module named 'transmitter.announce'
+=========================== short test summary info ============================
+ERROR packages/transmitter/tests_transmitter/test_interstitials.py
+ERROR packages/transmitter/tests_transmitter/test_announce.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.18s
+        cfg = tmp_path / "config.toml"
+        cfg.write_text(f'[station]\nroot = "{station_root}"\n')
+        clock = tmp_path / "clock.toml"
+        clock.write_text('timezone = "America/New_York"\n\n[[block]]\nname = "a"\ntitle = "Funk"\nstart = "19:00"\n')
+        need = announce.needed(load_clock(clock), int(time.time() * 1_000_000), 8)
+        texts = {r.id: r.text for r in need}
+>       assert len(texts) == 2
+E       AssertionError: assert 4 == 2
+E        +  where 4 = len({'e5b7d62549a9': 'Coming up next, Funk.', '80475f87730c': 'Stay tuned for Funk at 7 Eastern, 4 Pacific.', 'ead19e5ec8c...ific, Funk.', '525d3371adca': 'Stay tuned for Funk at 7 Eastern, 4 Pacific, followed by Funk at 7 Eastern, 4 Pacific.'})
+
+packages/transmitter/tests_transmitter/test_cli.py:264: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_announce.py::test_next_and_later_texts
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_announcements_export_writes_missing_scripts_only
+2 failed, 652 passed, 1 skipped in 17.39s
+packages/transmitter/tests_transmitter/test_cli.py:273: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_announcements_export_writes_missing_scripts_only
+1 failed, 653 passed, 1 skipped in 16.64s
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_announcements_export_writes_missing_scripts_only
+1 failed, 653 passed, 1 skipped in 17.37s
+......................................................................s. [ 98%]
+.......                                                                  [100%]
+654 passed, 1 skipped in 17.14s

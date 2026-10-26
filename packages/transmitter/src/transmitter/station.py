@@ -17,11 +17,17 @@ move` or an `[assign.artists]` rule, is "pending" there). It is deliberately
 NOT mirrored here: transmitter cannot see emcee's rules or moves, and such a
 package keeps airing its existing voicing until its re-voice clears the DJ
 blocks (ineligible while it runs, eligible again when it lands).
+
+llama's `awaiting_fix` mark (a non-null top-level manifest field, written in
+place on the station copy) makes a package ineligible: it is about to be
+re-processed and re-delivered, so it is neither voiced nor aired. The reason
+is listed first among the package's reasons.
 """
 
 import errno
 import hashlib
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Literal
@@ -29,6 +35,7 @@ from typing import Iterable, Literal
 from transmitter.errors import StationRootError
 
 MARKER = ".station-root"
+MAX_REASON_CHARS = 200     # the contract says one line; do not trust it
 
 
 @dataclass(frozen=True)
@@ -89,13 +96,20 @@ def _inside(pkg_dir: Path, rel: str) -> bool:
     return True
 
 
-def file_set_key(pkg_dir: Path, rels: Iterable[str]) -> str:
-    """The cache/plan key of a show: its broadcast.m3u paths + sizes + mtimes."""
+def file_set_key_and_sizes(pkg_dir: Path, rels: Iterable[str]) -> tuple[str, dict[str, int]]:
+    """The show key and each entry's size, from one stat per entry."""
     h = hashlib.sha256()
+    sizes: dict[str, int] = {}
     for rel in rels:
         st = (pkg_dir / rel).stat()
+        sizes[rel] = st.st_size
         h.update(json.dumps([rel, st.st_size, st.st_mtime_ns]).encode() + b"\n")
-    return h.hexdigest()[:20]
+    return h.hexdigest()[:20], sizes
+
+
+def file_set_key(pkg_dir: Path, rels: Iterable[str]) -> str:
+    """The cache/plan key of a show: its broadcast.m3u paths + sizes + mtimes."""
+    return file_set_key_and_sizes(pkg_dir, rels)[0]
 
 
 def _clips(dj_audio: dict) -> dict[str, str]:
@@ -110,6 +124,25 @@ def _clips(dj_audio: dict) -> dict[str, str]:
     if isinstance(outro, str) and outro:
         out[outro] = "DJ outro"
     return out
+
+
+def awaiting_fix_reason(manifest: dict) -> str | None:
+    """llama's `awaiting_fix` mark: None when the package carries none (absent
+    or null), else the ineligibility reason. ANY non-null value means "not to
+    be aired" -- the inner shape is display only, so a malformed value (a
+    string, a list, a number, a bool, a dict without a usable `reason`) never
+    raises and never lets the package through."""
+    mark = manifest.get("awaiting_fix")
+    if mark is None:
+        return None
+    reason = mark.get("reason") if isinstance(mark, dict) else None
+    if isinstance(reason, str):
+        reason = " ".join(reason.split())
+        if reason:
+            if len(reason) > MAX_REASON_CHARS:
+                reason = reason[:MAX_REASON_CHARS - 1] + "\u2026"
+            return f"awaiting fix from llama: {reason}"
+    return "awaiting fix from llama"
 
 
 def evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligible:
@@ -135,6 +168,9 @@ def _evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligib
         return Ineligible(slug, (f"unsupported manifest (schema_version {version!r}; need >= 3)",))
 
     reasons: list[str] = []
+    held = awaiting_fix_reason(manifest)
+    if held is not None:
+        reasons.append(held)         # first: the reason an operator should see
     if manifest.get("dj_notes") is None or not (pkg_dir / "dj-notes.md").exists():
         reasons.append("no DJ script (dj_notes block + dj-notes.md required)")
 
@@ -194,7 +230,7 @@ def _evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligib
     if reasons:
         return Ineligible(slug, tuple(reasons))
     try:
-        key = file_set_key(pkg_dir, rels)
+        key, sizes = file_set_key_and_sizes(pkg_dir, rels)
     except OSError as exc:
         return Ineligible(slug, (f"changing: {exc}",))
     entries = tuple(
@@ -206,6 +242,13 @@ def _evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligib
     source = manifest.get("source") or {}
     meta = {k: show_meta.get(k) for k in ("artist", "date", "venue", "city")}
     meta.update(profile=source.get("profile"), url=source.get("url"), lineage=source.get("lineage"))
+    total = manifest.get("total_duration_sec")
+    dj_profile = (manifest.get("dj_audio") or {}).get("profile")
+    meta.update(
+        total_duration_sec=(float(total) if isinstance(total, (int, float)) and not isinstance(total, bool)
+                            and math.isfinite(total) and total >= 0 else None),
+        voiced_profile=dj_profile if isinstance(dj_profile, str) and dj_profile else source.get("profile"),
+        sizes=sizes)
     return Show(slug, pkg_dir, entries, key, meta)
 
 

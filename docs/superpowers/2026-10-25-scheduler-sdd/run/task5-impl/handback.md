@@ -1,0 +1,6 @@
+# task5-impl handback
+Status: DONE. Commit: see `git log -1` (transmitter: interstitials folder scan, announcement texts ...).
+Implemented: interstitials.py (folder, row_dir, scan), announce.py (render_time, render, ann_id, text_for, Needed, needed), config InterstitialsConfig + commented DEFAULT_CONFIG_TOML section, cli `announcements` (--clock/--days/--export; live_clock(save=False)).
+Tests: `./.venv/bin/python -m pytest packages/transmitter/tests_transmitter -q` -> 654 passed, 1 skipped. Render single-clip frame-count test ran and passed (ffmpeg present).
+TDD: RED captured for new test modules (ModuleNotFoundError with impl moved aside; see log). Impl was written before tests, so RED was shown by moving the modules aside, not by pre-implementation ordering. First full run: 2 failures (my test assumptions: occurrences returns an earlier b; a daily block follows itself -> 4 needed ids) fixed in tests; then a presence-check bug (scan quiet math) fixed with now_s=inf, quiet_s=0.
+Concerns/notes: "present" in `announcements` ignores the quiet period (any non-empty ann-<id>.mp3). A daily single block yields 4 ids (next/later include itself as the following occurrence). needed() looks 2 days past the span for the following occurrence.

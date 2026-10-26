@@ -1,0 +1,93 @@
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/tree/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/tree/packages/transmitter/tests_transmitter/__init__.py
+........................................................................ [ 90%]
+........                                                                 [100%]
+80 passed in 2.02s
+== M1 history before publish
+../tree/packages/transmitter/tests_transmitter/test_service.py:928: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_history_runs_after_publish_and_sees_the_advanced_last
+1 failed, 79 passed in 1.91s
+== M2 last->listed_bound
+../tree/packages/transmitter/tests_transmitter/test_service.py:939: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_history_uses_last_not_the_listed_bound
+1 failed, 79 passed in 1.49s
+== M3 history in ran
+ValueError: step(s) ['history'] do not belong to observer 'tick'
+E       AssertionError: assert 'history' not in {'history', 'lead', 'plan', 'publish', 'render'}
+../tree/packages/transmitter/tests_transmitter/test_service.py:929: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_a_raising_stalled_check_alerts_monitor_stalled_and_the_tick_goes_on
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_station_root_from_plan_survives_a_render_that_succeeds_without_scanning
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_the_tick_ends_its_observation_on_every_path
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_a_publish_locked_step_neither_advances_nor_resets
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_history_failure_alerts_and_the_tick_completes
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_history_runs_after_publish_and_sees_the_advanced_last
+8 failed, 72 passed in 1.60s
+== M4 guard drops None check
+E           ts.py:348 ALERT history: TransmitterError: published state belongs to epoch None, not etest; aired.jsonl was not appended
+../tree/packages/transmitter/tests_transmitter/test_service.py:873: AssertionError
+ERROR    transmitter:service.py:251 history step failed
+    raise TransmitterError(f"published state belongs to epoch {state.epoch_id}, not "
+transmitter.errors.TransmitterError: published state belongs to epoch None, not etest; aired.jsonl was not appended
+ERROR    transmitter.alerts:alerts.py:348 ALERT history: TransmitterError: published state belongs to epoch None, not etest; aired.jsonl was not appended
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_station_root_from_plan_survives_a_render_that_succeeds_without_scanning
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_tick_skips_plan_and_render_while_the_plan_lock_is_held
+5 failed, 75 passed in 1.58s
+== M5 no epoch guard
+../tree/packages/transmitter/tests_transmitter/test_service.py:952: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_service.py::test_history_does_not_append_for_another_epochs_publish_state
+1 failed, 79 passed in 1.64s
+== M6 end instant < now
+E       AssertionError: assert 0 == 1
+../tree/packages/transmitter/tests_transmitter/test_history.py:133: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_history.py::test_a_row_is_due_exactly_at_its_end_instant
+1 failed, 79 passed in 2.10s
+== M7 no newline guard
+../tree/packages/transmitter/tests_transmitter/test_history.py:111: AssertionError
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2761/test_a_partial_line_left_by_a_0/aired.jsonl line 2 skipped: JSONDecodeError: Unterminated string starting at: line 1 column 23 (char 22)
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2761/test_a_partial_line_left_by_a_0/aired.jsonl line 2 skipped: JSONDecodeError: Expecting ':' delimiter: line 1 column 34 (char 33)
+FAILED ../tree/packages/transmitter/tests_transmitter/test_history.py::test_a_partial_line_left_by_a_crash_is_not_joined_by_the_next_append
+1 failed, 79 passed in 5.12s
+== M8 with_piece mutates self
+E       AssertionError: assert (['Band Z'] == ['Band Z']
+../tree/packages/transmitter/tests_transmitter/test_history.py:101: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_history.py::test_artists_on_uses_the_clock_timezone
+1 failed, 79 passed in 3.12s
+== M9 datetime accepted
+>       with pytest.raises(TypeError):
+E       Failed: DID NOT RAISE TypeError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_history.py::test_a_datetime_for_a_local_date_raises
+1 failed, 79 passed in 1.63s
+== M10 from_json no ISO parse
+E       AssertionError: assert (2 == 1)
+../tree/packages/transmitter/tests_transmitter/test_history.py:126: AssertionError
+WARNING  transmitter.history:history.py:123 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2764/test_unusable_rows_are_skipped0/aired.jsonl line 2 skipped: TypeError: start must be a non-empty ISO string, got ''
+WARNING  transmitter.history:history.py:123 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2764/test_unusable_rows_are_skipped0/aired.jsonl line 3 skipped: TypeError: start_frame must be an int, got '0'
+WARNING  transmitter.history:history.py:123 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2764/test_unusable_rows_are_skipped0/aired.jsonl line 4 skipped: TypeError: end_frame must be an int, got True
+WARNING  transmitter.history:history.py:123 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2764/test_unusable_rows_are_skipped0/aired.jsonl line 6 skipped: TypeError: slug must be a string, got 5
+WARNING  transmitter.history:history.py:123 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2764/test_unusable_rows_are_skipped0/aired.jsonl line 7 skipped: TypeError: start must be a non-empty ISO string, got None
+FAILED ../tree/packages/transmitter/tests_transmitter/test_history.py::test_unusable_rows_are_skipped_not_loaded
+1 failed, 79 passed in 1.64s
+== M11 from_json bool ok
+E       AssertionError: assert (2 == 1)
+../tree/packages/transmitter/tests_transmitter/test_history.py:126: AssertionError
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2765/test_unusable_rows_are_skipped0/aired.jsonl line 2 skipped: TypeError: start must be a non-empty ISO string, got ''
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2765/test_unusable_rows_are_skipped0/aired.jsonl line 3 skipped: TypeError: start_frame must be an int, got '0'
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2765/test_unusable_rows_are_skipped0/aired.jsonl line 5 skipped: ValueError: Invalid isoformat string: 'garbage'
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2765/test_unusable_rows_are_skipped0/aired.jsonl line 6 skipped: TypeError: slug must be a string, got 5
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2765/test_unusable_rows_are_skipped0/aired.jsonl line 7 skipped: TypeError: start must be a non-empty ISO string, got None
+FAILED ../tree/packages/transmitter/tests_transmitter/test_history.py::test_unusable_rows_are_skipped_not_loaded
+1 failed, 79 passed in 1.68s
+{'package': ['x']} loaded; recency RAISES TypeError cannot use 'list' as a dict key (unhashable type: 'list')
+{'package': {'a': 1}} loaded; recency RAISES TypeError cannot use 'dict' as a dict key (unhashable type: 'dict')
+{'package': 5} loaded; recency ok 1
+{'start': '2026-01-01T00:00:00'} from_json rejects: ValueError
+{'kind': 'showx'} loaded; recency ok 1
+Recency unhashable: unhashable type: 'dict'
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:771: FileNotFoundError
+=========================== short test summary info ============================
+FAILED ../tree/packages/transmitter/tests_transmitter/test_relay.py::test_relay_key_matches_antenna
+1 failed, 692 passed, 1 skipped in 18.91s

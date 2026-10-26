@@ -1,0 +1,2512 @@
+{
+ "weeks": [
+  {
+   "week": 0,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10077.0,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 237.6,
+    "americana": 235.7,
+    "southern": 208.0,
+    "funk": 162.2
+   }
+  },
+  {
+   "week": 1,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10076.1,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 439.7,
+    "southern": 178.2,
+    "americana": 171.2,
+    "funk": 57.7
+   }
+  },
+  {
+   "week": 2,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10077.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 470.0,
+    "southern": 183.0,
+    "americana": 98.3,
+    "funk": 64.7,
+    "bluegrass": 51.3
+   }
+  },
+  {
+   "week": 3,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10078.0,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "southern": 275.0,
+    "americana": 226.3,
+    "livetronica": 218.4,
+    "indie": 112.5
+   }
+  },
+  {
+   "week": 4,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10069.6,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 235.1,
+    "indie": 209.9,
+    "funk": 161.3,
+    "bluegrass": 131.6,
+    "southern": 123.8
+   }
+  },
+  {
+   "week": 5,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10086.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1,
+    "gap": 2
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 571.1,
+    "southern": 172.5,
+    "indie": 113.7
+   }
+  },
+  {
+   "week": 6,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10080.0,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 4
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 291.3,
+    "americana": 248.8,
+    "bluegrass": 171.4,
+    "southern": 62.3,
+    "livetronica": 57.8
+   }
+  },
+  {
+   "week": 7,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10073.4,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 274.0,
+    "americana": 221.4,
+    "jam": 197.3,
+    "funk": 80.4,
+    "livetronica": 52.6,
+    "southern": 23.5
+   }
+  },
+  {
+   "week": 8,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10068.4,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 4
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 409.7,
+    "indie": 126.0,
+    "livetronica": 120.3,
+    "southern": 120.3,
+    "funk": 65.3
+   }
+  },
+  {
+   "week": 9,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10100.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 2
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "southern": 356.8,
+    "funk": 200.4,
+    "americana": 145.9,
+    "country": 120.3,
+    "indie": 24.1
+   }
+  },
+  {
+   "week": 10,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10063.9,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1,
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 250.4,
+    "americana": 243.7,
+    "funk": 131.9,
+    "jam": 116.8,
+    "southern": 106.7
+   }
+  },
+  {
+   "week": 11,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10077.2,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1,
+    "gap": 2
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 317.6,
+    "americana": 230.8,
+    "southern": 118.5,
+    "livetronica": 88.0,
+    "funk": 69.6
+   }
+  },
+  {
+   "week": 12,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10087.2,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 5
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 442.4,
+    "americana": 154.8,
+    "jam": 132.9,
+    "dead-family": 115.7
+   }
+  },
+  {
+   "week": 13,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10067.6,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 3
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 390.1,
+    "indie": 149.4,
+    "funk": 145.0,
+    "livetronica": 128.0,
+    "southern": 31.0
+   }
+  },
+  {
+   "week": 14,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10076.6,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 2
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "funk": 240.1,
+    "indie": 239.3,
+    "americana": 236.1,
+    "southern": 69.3,
+    "livetronica": 68.3
+   }
+  },
+  {
+   "week": 15,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10078.0,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 277.2,
+    "southern": 250.0,
+    "americana": 243.9,
+    "jam": 83.0
+   }
+  },
+  {
+   "week": 16,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10077.8,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 384.1,
+    "southern": 286.2,
+    "funk": 92.4,
+    "americana": 76.7
+   }
+  },
+  {
+   "week": 17,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10081.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 437.8,
+    "southern": 207.6,
+    "livetronica": 122.7,
+    "americana": 88.6
+   }
+  },
+  {
+   "week": 18,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10008.2,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1,
+    "era": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 420.3,
+    "livetronica": 180.0,
+    "americana": 178.1,
+    "jam": 34.6
+   }
+  },
+  {
+   "week": 19,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10081.2,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 3
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 344.2,
+    "americana": 308.4,
+    "southern": 173.5
+   }
+  },
+  {
+   "week": 20,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10078.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 384.7,
+    "indie": 329.2,
+    "southern": 123.4
+   }
+  },
+  {
+   "week": 21,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10081.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 479.2,
+    "americana": 134.0,
+    "southern": 129.2,
+    "funk": 128.8
+   }
+  },
+  {
+   "week": 22,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10073.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1,
+    "era": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "southern": 397.3,
+    "indie": 305.3,
+    "funk": 122.8
+   }
+  },
+  {
+   "week": 23,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10075.0,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "era": 1,
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 500.7,
+    "southern": 342.3
+   }
+  },
+  {
+   "week": 24,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10079.4,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 494.3,
+    "americana": 269.4,
+    "livetronica": 60.7
+   }
+  },
+  {
+   "week": 25,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10091.9,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 364.7,
+    "indie": 349.6,
+    "dead-family": 127.2
+   }
+  },
+  {
+   "week": 26,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10059.1,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 370.1,
+    "southern": 219.7,
+    "bluegrass": 114.1,
+    "americana": 88.0,
+    "jam": 34.6
+   }
+  },
+  {
+   "week": 27,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10067.0,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1,
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "southern": 292.1,
+    "indie": 244.3,
+    "funk": 119.1,
+    "jam": 119.0,
+    "americana": 50.2,
+    "bluegrass": 26.6
+   }
+  },
+  {
+   "week": 28,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10092.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1,
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "southern": 232.5,
+    "indie": 221.0,
+    "livetronica": 204.9,
+    "americana": 93.7,
+    "dead-family": 81.2
+   }
+  },
+  {
+   "week": 29,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10076.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 277.5,
+    "indie": 164.5,
+    "southern": 153.8,
+    "jam": 94.2,
+    "livetronica": 63.9,
+    "bluegrass": 55.8,
+    "funk": 39.4
+   }
+  },
+  {
+   "week": 30,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10076.4,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 477.8,
+    "americana": 181.7,
+    "funk": 139.8,
+    "southern": 23.5
+   }
+  },
+  {
+   "week": 31,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10079.4,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 286.1,
+    "southern": 155.4,
+    "livetronica": 153.8,
+    "jam": 121.4,
+    "americana": 85.7,
+    "funk": 44.3
+   }
+  },
+  {
+   "week": 32,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10077.8,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 409.1,
+    "americana": 187.9,
+    "southern": 184.4,
+    "funk": 72.4
+   }
+  },
+  {
+   "week": 33,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10076.8,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "southern": 319.8,
+    "funk": 236.9,
+    "americana": 135.5,
+    "indie": 89.3,
+    "jam": 34.6
+   }
+  },
+  {
+   "week": 34,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10075.2,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 430.0,
+    "indie": 214.8,
+    "southern": 116.0,
+    "dead-family": 66.0
+   }
+  },
+  {
+   "week": 35,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10091.8,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 234.0,
+    "americana": 205.7,
+    "funk": 121.6,
+    "southern": 94.5,
+    "jam": 93.8,
+    "livetronica": 88.2
+   }
+  },
+  {
+   "week": 36,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10066.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 2
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 282.9,
+    "indie": 183.1,
+    "southern": 141.1,
+    "livetronica": 120.3,
+    "jam": 93.8
+   }
+  },
+  {
+   "week": 37,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10078.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 321.5,
+    "americana": 205.6,
+    "jam": 184.1,
+    "funk": 145.9
+   }
+  },
+  {
+   "week": 38,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10076.8,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "southern": 240.9,
+    "americana": 239.4,
+    "funk": 138.7,
+    "livetronica": 115.4,
+    "indie": 113.5
+   }
+  },
+  {
+   "week": 39,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10078.8,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "era": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 358.4,
+    "southern": 240.5,
+    "funk": 143.5,
+    "indie": 76.5
+   }
+  },
+  {
+   "week": 40,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10072.6,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 273.6,
+    "southern": 234.5,
+    "americana": 118.6,
+    "bluegrass": 118.1,
+    "jam": 93.2
+   }
+  },
+  {
+   "week": 41,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10071.2,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "southern": 285.7,
+    "livetronica": 213.6,
+    "funk": 192.9,
+    "jam": 115.7,
+    "indie": 35.1
+   }
+  },
+  {
+   "week": 42,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10084.7,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 267.6,
+    "southern": 229.0,
+    "indie": 186.1,
+    "funk": 114.8
+   }
+  },
+  {
+   "week": 43,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10083.9,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1,
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "southern": 348.8,
+    "indie": 271.1,
+    "americana": 126.9,
+    "funk": 116.7
+   }
+  },
+  {
+   "week": 44,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10074.9,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 321.7,
+    "funk": 169.4,
+    "dead-family": 126.3,
+    "livetronica": 119.6,
+    "indie": 84.1
+   }
+  },
+  {
+   "week": 45,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10075.4,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "era": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 522.6,
+    "southern": 184.0,
+    "indie": 73.6,
+    "livetronica": 46.3
+   }
+  },
+  {
+   "week": 46,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10069.6,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "americana": 547.3,
+    "indie": 284.9
+   }
+  },
+  {
+   "week": 47,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10093.6,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 606.0,
+    "funk": 222.7,
+    "southern": 31.0
+   }
+  },
+  {
+   "week": 48,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10075.5,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {},
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "indie": 445.4,
+    "southern": 159.6,
+    "funk": 125.3,
+    "jam": 116.7
+   }
+  },
+  {
+   "week": 49,
+   "block_starts": 42,
+   "misses": 0,
+   "miss_share": 0.0,
+   "degraded_blocks": 0,
+   "show_minutes": 10082.3,
+   "fill_minutes": {},
+   "fill_minutes_by_profile": {},
+   "fill_share_by_block": {
+    "bluegrass": 0.0,
+    "dead-evening": 0.0,
+    "dead-morning": 0.0,
+    "fri-livetronica": 0.0,
+    "mon-americana": 0.0,
+    "open-evening": 0.0,
+    "overnight-tribute": 0.0,
+    "thu-jam": 0.0,
+    "tue-indie": 0.0,
+    "wed-southern": 0.0,
+    "weekend-afternoon": 0.0
+   },
+   "bends": {
+    "artist_day": 1,
+    "gap": 1
+   },
+   "own_profile_share": 1.0,
+   "own_profile_share_by_block": {
+    "bluegrass": 1.0,
+    "dead-evening": 1.0,
+    "dead-morning": 1.0,
+    "fri-livetronica": 1.0,
+    "mon-americana": 1.0,
+    "overnight-tribute": 1.0,
+    "thu-jam": 1.0,
+    "tue-indie": 1.0,
+    "wed-southern": 1.0,
+    "weekend-afternoon": 1.0
+   },
+   "open_minutes_by_profile": {
+    "southern": 423.8,
+    "funk": 206.8,
+    "americana": 114.7,
+    "indie": 95.7
+   }
+  }
+ ],
+ "total": {
+  "block_starts": 2100,
+  "misses": 0,
+  "miss_share": 0.0,
+  "degraded_blocks": 0,
+  "show_minutes": 503825.0,
+  "fill_minutes": {},
+  "fill_minutes_by_profile": {},
+  "fill_share_by_block": {
+   "bluegrass": 0.0,
+   "dead-evening": 0.0,
+   "dead-morning": 0.0,
+   "fri-livetronica": 0.0,
+   "mon-americana": 0.0,
+   "open-evening": 0.0,
+   "overnight-tribute": 0.0,
+   "thu-jam": 0.0,
+   "tue-indie": 0.0,
+   "wed-southern": 0.0,
+   "weekend-afternoon": 0.0
+  },
+  "bends": {
+   "artist_day": 15,
+   "era": 5,
+   "gap": 41
+  },
+  "own_profile_share": 1.0,
+  "own_profile_share_by_block": {
+   "bluegrass": 1.0,
+   "dead-evening": 1.0,
+   "dead-morning": 1.0,
+   "fri-livetronica": 1.0,
+   "mon-americana": 1.0,
+   "overnight-tribute": 1.0,
+   "thu-jam": 1.0,
+   "tue-indie": 1.0,
+   "wed-southern": 1.0,
+   "weekend-afternoon": 1.0
+  },
+  "open_minutes_by_profile": {
+   "indie": 13781.4,
+   "americana": 10709.2,
+   "southern": 8249.2,
+   "funk": 4073.0,
+   "livetronica": 2222.8,
+   "jam": 1665.7,
+   "bluegrass": 668.9,
+   "dead-family": 516.4,
+   "country": 120.3
+  },
+  "repeat_gap_days": {
+   "shows_aired": 1683,
+   "repeats": 2072,
+   "min": 1.99,
+   "p10": 37.0,
+   "median": 50.0,
+   "p90": 161.1,
+   "buckets": {
+    "<1d": 0,
+    "1-7d": 5,
+    "7-30d": 99,
+    "30-45d": 198,
+    "45-90d": 1260,
+    ">=90d": 510
+   }
+  },
+  "repeat_gap_days_by_profile": {
+   "americana": {
+    "repeats": 39,
+    "min": 47.04,
+    "p10": 53.0,
+    "median": 127.0,
+    "max": 260.0,
+    "within_7d": 0
+   },
+   "bluegrass": {
+    "repeats": 292,
+    "min": 45.0,
+    "p10": 46.0,
+    "median": 65.5,
+    "max": 339.9,
+    "within_7d": 0
+   },
+   "dead": {
+    "repeats": 797,
+    "min": 1.99,
+    "p10": 28.0,
+    "median": 47.0,
+    "max": 329.4,
+    "within_7d": 4
+   },
+   "dead-tribute": {
+    "repeats": 686,
+    "min": 2.86,
+    "p10": 45.0,
+    "median": 47.0,
+    "max": 306.1,
+    "within_7d": 1
+   },
+   "funk": {
+    "repeats": 83,
+    "min": 47.04,
+    "p10": 48.9,
+    "median": 92.0,
+    "max": 328.9,
+    "within_7d": 0
+   },
+   "indie": {
+    "repeats": 105,
+    "min": 45.0,
+    "p10": 50.0,
+    "median": 77.0,
+    "max": 293.0,
+    "within_7d": 0
+   },
+   "jam": {
+    "repeats": 14,
+    "min": 46.08,
+    "p10": 48.0,
+    "median": 70.0,
+    "max": 140.0,
+    "within_7d": 0
+   },
+   "livetronica": {
+    "repeats": 18,
+    "min": 59.0,
+    "p10": 62.1,
+    "median": 132.0,
+    "max": 275.1,
+    "within_7d": 0
+   },
+   "southern": {
+    "repeats": 38,
+    "min": 46.0,
+    "p10": 50.0,
+    "median": 70.0,
+    "max": 292.1,
+    "within_7d": 0
+   }
+  },
+  "miss_by_block": {
+   "bluegrass": [
+    0,
+    350
+   ],
+   "dead-evening": [
+    0,
+    350
+   ],
+   "dead-morning": [
+    0,
+    350
+   ],
+   "fri-livetronica": [
+    0,
+    50
+   ],
+   "mon-americana": [
+    0,
+    50
+   ],
+   "open-evening": [
+    0,
+    350
+   ],
+   "overnight-tribute": [
+    0,
+    350
+   ],
+   "thu-jam": [
+    0,
+    50
+   ],
+   "tue-indie": [
+    0,
+    50
+   ],
+   "wed-southern": [
+    0,
+    50
+   ],
+   "weekend-afternoon": [
+    0,
+    100
+   ]
+  },
+  "distinct_aired_by_profile": {
+   "?": [
+    0,
+    1
+   ],
+   "americana": [
+    181,
+    329
+   ],
+   "bluegrass": [
+    233,
+    307
+   ],
+   "country": [
+    1,
+    2
+   ],
+   "dead": [
+    404,
+    413
+   ],
+   "dead-family": [
+    5,
+    225
+   ],
+   "dead-tribute": [
+    208,
+    208
+   ],
+   "funk": [
+    148,
+    221
+   ],
+   "indie": [
+    217,
+    329
+   ],
+   "jam": [
+    70,
+    244
+   ],
+   "livetronica": [
+    75,
+    232
+   ],
+   "southern": [
+    141,
+    275
+   ]
+  },
+  "shows_per_block_start": 1.79
+ },
+ "occurrences_per_week": 42,
+ "clock_start": "2026-11-02T05:00:00.000Z",
+ "project_seconds": 32.08,
+ "pool": {
+  "shows": 2786,
+  "profiles": {
+   "dead": 413,
+   "americana": 329,
+   "indie": 329,
+   "bluegrass": 307,
+   "southern": 275,
+   "jam": 244,
+   "livetronica": 232,
+   "dead-family": 225,
+   "funk": 221,
+   "dead-tribute": 208,
+   "country": 2,
+   "?": 1
+  }
+ },
+ "seed": 0,
+ "library": "delivered",
+ "root": "/Volumes/media/lma-radio/delivered",
+ "clock_file": "clock-b.toml",
+ "weeks_requested": 50,
+ "no_interstitials": true,
+ "excluded_slugs": 0,
+ "extra_frames": 1,
+ "scan_seconds": 0.0
+}

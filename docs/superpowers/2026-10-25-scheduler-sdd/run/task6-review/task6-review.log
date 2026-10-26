@@ -1,0 +1,8 @@
+/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py
+show-str CRASH AttributeError 'str' object has no attribute 'get'
+source-str CRASH AttributeError 'str' object has no attribute 'get'
+intro-list CRASH TypeError cannot use 'list' as a dict key (unhashable type: 'list')
+tracks-null-total OK [('band-2005-11-01', 18089, 180.0)]
+dj-profile-list-outro OK [('band-2005-11-01', 18089, 180.0)]
+.................                                                        [100%]
+17 passed in 0.10s

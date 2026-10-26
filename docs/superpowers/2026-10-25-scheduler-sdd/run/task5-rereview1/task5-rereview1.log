@@ -1,0 +1,56 @@
+3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)]
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t5rr/tree/packages/transmitter/src/transmitter/__init__.py
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t5rr/tree/packages/transmitter/tests_transmitter/__init__.py
+baseline scratch: 662 passed 1 skipped, 1 failed test_relay_key_matches_antenna (antenna/src not in archive; scratch artifact)
+=== M1-save-true (expect red: test_announcements_live_clock_writes_no_last_good_copy)
+E       AssertionError: assert not True
+../tree/packages/transmitter/tests_transmitter/test_cli.py:301: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_cli.py::test_announcements_live_clock_writes_no_last_good_copy
+1 failed, 21 passed in 0.71s
+=== M2a-break (expect red: test_oserror_on_one_file_skips_only_that_file)
+                raise OSError("gone")
+E       AssertionError: assert [] == ['id-b']
+../tree/packages/transmitter/tests_transmitter/test_interstitials.py:83: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_interstitials.py::test_oserror_on_one_file_skips_only_that_file
+1 failed, 8 passed in 0.44s
+=== M2b-no-skip (expect red: test_oserror_on_one_file_skips_only_that_file)
+                raise OSError("gone")
+>           raise OSError("gone")
+E           OSError: gone
+../tree/packages/transmitter/tests_transmitter/test_interstitials.py:79: OSError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_interstitials.py::test_oserror_on_one_file_skips_only_that_file
+1 failed, 8 passed in 0.44s
+=== M3-no-dir-check (expect red: test_a_directory_named_like_a_clip_is_skipped)
+E       AssertionError: assert ['id-x', 'id-y'] == ['id-y']
+../tree/packages/transmitter/tests_transmitter/test_interstitials.py:89: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_interstitials.py::test_a_directory_named_like_a_clip_is_skipped
+1 failed, 8 passed in 0.12s
+=== M4a-no-until (expect red: test_needed_excludes_occurrences_at_or_after_the_span_end)
+E       AssertionError: assert ('A', '2096-10-01T14:00:00.000Z') not in {('A', '2096-10-01T14:00:00.000Z'), ('C', '2096-09-24T16:00:00.000Z')}
+../tree/packages/transmitter/tests_transmitter/test_announce.py:76: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_announce.py::test_needed_excludes_occurrences_at_or_after_the_span_end
+1 failed, 6 passed in 0.06s
+=== M4b-gt (expect red: test_needed_excludes_occurrences_at_or_after_the_span_end)
+E       AssertionError: assert ('A', '2096-10-01T14:00:00.000Z') not in {('A', '2096-10-01T14:00:00.000Z'), ('C', '2096-09-24T16:00:00.000Z')}
+../tree/packages/transmitter/tests_transmitter/test_announce.py:76: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_announce.py::test_needed_excludes_occurrences_at_or_after_the_span_end
+1 failed, 6 passed in 0.06s
+=== M5-no-clock-note (expect red: test_announcements_invalid_live_clock_notes_and_writes_no_copy)
+E       AssertionError: assert ('note: ' in 'note: no interstitials folder (/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2730/test_announcements_invalid_liv0/station/interstitials); every announcement is listed as missing\n' and 'clock' in 'note: no interstitials folder (/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2730/test_announcements_invalid_liv0/station/interstitials); every announcement is listed as missing\n')
+../tree/packages/transmitter/tests_transmitter/test_cli.py:309: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_cli.py::test_announcements_invalid_live_clock_notes_and_writes_no_copy
+1 failed, 21 passed in 0.39s
+=== M6-no-folder-note (expect red: test_announcements_notes_a_missing_interstitials_folder)
+E       AssertionError: assert 'note: no interstitials folder (' in 'e5b7d62549a9  missing  Coming up next, Funk.\n80475f87730c  missing  Stay tuned for Funk at 7 Eastern, 4 Pacific.\nea...Funk.\n525d3371adca  missing  Stay tuned for Funk at 7 Eastern, 4 Pacific, followed by Funk at 7 Eastern, 4 Pacific.\n'
+../tree/packages/transmitter/tests_transmitter/test_cli.py:326: AssertionError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_cli.py::test_announcements_notes_a_missing_interstitials_folder
+1 failed, 21 passed in 0.39s
+=== M7-relative-ok (expect red: both relative-dir tests)
+>       with pytest.raises(ConfigError, match="absolute"):
+E       Failed: DID NOT RAISE ConfigError
+        from pydantic import ValidationError
+>       with pytest.raises(ValidationError, match="absolute"):
+E       Failed: DID NOT RAISE ValidationError
+FAILED ../tree/packages/transmitter/tests_transmitter/test_config.py::test_relative_interstitials_dir_raises_config_error_on_load
+FAILED ../tree/packages/transmitter/tests_transmitter/test_interstitials.py::test_relative_interstitials_dir_is_a_config_error
+2 failed, 24 passed in 0.12s

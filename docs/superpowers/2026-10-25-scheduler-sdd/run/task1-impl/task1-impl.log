@@ -1,0 +1,23 @@
+
+[notice] A new release of pip is available: 26.2.1 -> 26.2.2
+[notice] To update, run: /Users/shawn/projects/llama/.claude/worktrees/scheduler/.venv/bin/python -m pip install --upgrade pip
+        assert service.row_analysis(st, show_row) is not None       # the cache is live for a show row
+>       row = PlanRow(seq=0, slug="ann", dir="interstitials", key="kk", start_frame=0, frames=441,
+                      kind="interstitial", role="id")
+E       TypeError: PlanRow.__init__() got an unexpected keyword argument 'kind'
+
+packages/transmitter/tests_transmitter/test_service.py:855: TypeError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_layout.py::test_phase1_row_loads_with_defaults
+FAILED packages/transmitter/tests_transmitter/test_layout.py::test_unknown_keys_survive_a_round_trip
+FAILED packages/transmitter/tests_transmitter/test_layout.py::test_scheduler_fields_round_trip_as_tuples
+FAILED packages/transmitter/tests_transmitter/test_planner.py::test_read_plan_keeps_unknown_keys_through_write
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_timeline_lists_no_interstitial_rows
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_publish_site_never_asks_for_an_interstitial_analysis
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_row_analysis_ignores_interstitial_rows_even_when_cached
+7 failed, 156 passed in 3.95s
+........................................................................ [ 73%]
+........................................................................ [ 85%]
+........................................................................ [ 98%]
+..s........                                                              [100%]
+586 passed, 1 skipped in 18.19s

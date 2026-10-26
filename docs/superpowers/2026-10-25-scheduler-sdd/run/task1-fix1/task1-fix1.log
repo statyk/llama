@@ -1,0 +1,11 @@
+........................................................................ [ 97%]
+....s........                                                            [100%]
+588 passed, 1 skipped in 15.85s
+/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/tests_transmitter/test_publish.py:493: AssertionError
+=========================== short test summary info ============================
+FAILED ../../../../../../../../Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/tests_transmitter/test_publish.py::test_publish_site_never_asks_for_an_interstitial_analysis
+1 failed, 42 deselected in 0.10s
+.                                                                        [100%]
+1 passed, 42 deselected in 0.10s
+FAILED ../../../../../../../../Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/tests_transmitter/test_site.py::test_timeline_lists_no_interstitial_rows
+1 failed, 18 deselected in 0.09s

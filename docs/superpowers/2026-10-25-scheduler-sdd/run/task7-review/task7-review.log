@@ -1,0 +1,49 @@
+WARNING:transmitter.history:/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpt7idczst/aired.jsonl line 2 skipped: JSONDecodeError: Unterminated string starting at: line 1 column 19 (char 18)
+WARNING:transmitter.history:/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpt7idczst/aired.jsonl line 2 skipped: JSONDecodeError: Expecting ':' delimiter: line 1 column 30 (char 29)
+WARNING:transmitter.history:/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpt7idczst/aired.jsonl line 2 skipped: JSONDecodeError: Expecting ':' delimiter: line 1 column 30 (char 29)
+WARNING:transmitter.history:/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpt7idczst/aired.jsonl line 2 skipped: JSONDecodeError: Expecting ':' delimiter: line 1 column 30 (char 29)
+/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py
+first 1
+second 2
+'{"announcement_broken": false, "bends": [], "block": null, "degraded": false, "end": "2023-11-14T22:13:30.240Z", "end_frame": 441, "epoch_id": "e", "fill": null, "kind": "show", "miss": null, "nominal_start": null, "package": "s0", "role": null, "slug": "s0", "start": "2023-11-14T22:13:20.000Z", "start_frame": 0}\n{"epoch_id": "e", "start_fr{"announcement_broken": false, "bends": [], "block": null, "degraded": false, "end": "2023-11-14T22:13:40.480Z", "end_frame": 882, "epoch_id": "e", "fill": null, "kind": "show", "miss": null, "nominal_start": null, "package": "s1", "role": null, "slug": "s1", "start": "2023-11-14T22:13:30.240Z", "start_frame": 441}\n{"announcement_broken": false, "bends": [], "block": null, "degraded": false, "end": "2023-11-14T22:13:50.720Z", "end_frame": 1323, "epoch_id": "e", "fill": null, "kind": "show", "miss": null, "nominal_start": null, "package": "s2", "role": null, "slug": "s2", "start": "2023-11-14T22:13:40.480Z", "start_frame": 882}\n'
+loaded [0, 882]
+third 1
+loaded [0, 882, 441]
+loaded minimal [AiredRow(epoch_id='old', start_frame=0, end_frame=441, kind='show', slug='x', package=None, block=None, nominal_start=None, role=None, miss=None, degraded=False, fill=None, bends=(), announcement_broken=False, start='', end='')]
+recency raised ValueError Invalid isoformat string: ''
+str sf append 1
+int date raised TypeError 'int' object is not subscriptable
+end==now 1
+mutant1 (history in ran): expected red = none in test_history_failure... (weakness); maybe gate tests
+ValueError: step(s) ['history'] do not belong to observer 'tick'
+ERROR    transmitter:service.py:237 plan step: root gone
+ERROR    transmitter.alerts:alerts.py:348 ALERT station-root: StationRootError: root gone
+WARNING  transmitter.alerts:alerts.py:371 alert end_observation failed for tick
+Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut1/packages/transmitter/src/transmitter/alerts.py", line 369, in end_observation
+    _dispatcher.end_observation(observer, steps)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut1/packages/transmitter/src/transmitter/alerts.py", line 308, in end_observation
+    raise ValueError(f"step(s) {foreign} do not belong to observer {observer!r}")
+ValueError: step(s) ['history'] do not belong to observer 'tick'
+=========================== short test summary info ============================
+FAILED ../packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 22 passed in 1.16s
+..                                                                       [100%]
+2 passed in 0.59s
+mutant now<= -> < : expected red none
+== m_now
+72 passed in 1.62s
+mutant history before publish: expected red test_tick_appends_aired_rows_after_publishing
+== m_order
+65 passed in 1.33s
+mutant pub_last -> listed_bound: expected red none
+== m_bound
+72 passed in 1.32s
+mutant history moved before publish: expected red test_tick_appends_aired_rows_after_publishing
+65 passed in 1.36s
+........................................................................ [ 87%]
+.........s                                                               [100%]
+81 passed, 1 skipped in 1.41s
+probes and mutants done; writing report

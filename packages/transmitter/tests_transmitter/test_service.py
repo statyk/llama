@@ -586,7 +586,7 @@ def test_status_shows_the_cloud_state_and_active_alerts(tmp_path):
     assert "killswitch enabled" in text
     assert "offair     ON since 2026-10-20T05:00:00.000Z (objection)" in text
     assert "alerts     cloud: tripped-blind" in text
-    assert "anchors    none" in text
+    assert "clock      no clock: open all week" in text
 
 
 def test_status_without_cloud_access_still_prints_the_local_half(tmp_path):
@@ -855,3 +855,118 @@ def test_row_analysis_ignores_interstitial_rows_even_when_cached(tmp_path):
     row = PlanRow(seq=0, slug="ann", dir="interstitials", key="kk", start_frame=0, frames=441,
                   kind="interstitial", role="id")
     assert service.row_analysis(st, row) is None
+
+
+def test_tick_skips_plan_and_render_while_the_plan_lock_is_held(tmp_path, caplog, monkeypatch):
+    from transmitter.locks import plan_lock
+    st, _ = make_station(tmp_path)
+    bucket = FakeBucket()
+    runner = service.Runner(st, _publisher(st, bucket), sleep=lambda s: None)
+    runner.filling = True
+    published = []
+    monkeypatch.setattr(service, "publish_all", lambda *a, **k: published.append(1))
+    before = st.ws.plan_path.read_bytes() if st.ws.plan_path.exists() else None
+    with plan_lock(st.ws), caplog.at_level(logging.WARNING):
+        runner.tick(NOW)
+    after = st.ws.plan_path.read_bytes() if st.ws.plan_path.exists() else None
+    assert after == before
+    assert "ALERT" not in caplog.text
+    assert "plan step skipped" in caplog.text and "render step skipped" in caplog.text
+    assert published == [1]
+
+
+def test_tick_appends_aired_rows_after_publishing(tmp_path):
+    st, _ = make_station(tmp_path)
+    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)
+    runner.filling = True
+    runner.tick(NOW)
+    t = NOW + 3 * 3600 * 1_000_000
+    runner.tick(t)
+    from transmitter.history import load_aired
+    from transmitter.state import load_publish_state
+    last = load_publish_state(st.ws).last
+    plan = read_plan(st.ws.plan_path)
+    assert last is not None and plan
+    aired = load_aired(st.ws)
+    due = [r for r in plan if r.end_frame <= (last + 1) * grid.SEGMENT_FRAMES]
+    assert due and [a.start_frame for a in aired] == [r.start_frame for r in due]
+    runner.tick(t)
+    assert len(load_aired(st.ws)) == len(due)           # idempotent
+
+
+def test_history_failure_alerts_and_the_tick_completes(tmp_path, monkeypatch, caplog):
+    st, _ = make_station(tmp_path)
+    rec = _Rec()
+    alerts.configure(alerts.Dispatcher(tmp_path / "alerts.json", [rec], 6 * 3600.0))
+    try:
+        def boom(*a, **k):
+            raise OSError("disk full")
+        monkeypatch.setattr(service.history, "append_aired", boom)
+        runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)
+        runner.tick(NOW)                                 # end_observation does not raise
+        assert "history" in alerts._dispatcher.active()
+        assert "alert end_observation failed" not in caplog.text
+    finally:
+        alerts.configure(None)
+
+
+def _record_history(monkeypatch):
+    seen = []
+    monkeypatch.setattr(service.history, "append_aired",
+                        lambda ws, epoch, rows, last, now: seen.append(last) or 0)
+    return seen
+
+
+def test_history_runs_after_publish_and_sees_the_advanced_last(tmp_path, monkeypatch):
+    from transmitter.state import PublishState, save_publish_state
+    st, _ = make_station(tmp_path)
+    seen = _record_history(monkeypatch)
+    monkeypatch.setattr(service, "publish_all", lambda *a, **k: save_publish_state(
+        st.ws, PublishState(epoch_id=st.epoch.epoch_id, first=0, last=7)))
+    ran: set[str] = set()
+    service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)._tick(NOW, ran)
+    assert seen == [7]
+    assert "history" not in ran
+
+
+def test_history_uses_last_not_the_listed_bound(tmp_path, monkeypatch):
+    from transmitter.state import PublishState, save_publish_state
+    st, _ = make_station(tmp_path)
+    save_publish_state(st.ws, PublishState(epoch_id=st.epoch.epoch_id, first=0, last=3, high_water=9))
+    seen = _record_history(monkeypatch)
+    monkeypatch.setattr(service, "publish_all", lambda *a, **k: None)
+    service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None).tick(NOW)
+    assert seen == [3]
+
+
+def test_history_does_not_append_for_another_epochs_publish_state(tmp_path, monkeypatch):
+    from transmitter.state import PublishState, save_publish_state
+    st, _ = make_station(tmp_path)
+    rec = _Rec()
+    alerts.configure(alerts.Dispatcher(tmp_path / "alerts.json", [rec], 6 * 3600.0))
+    try:
+        save_publish_state(st.ws, PublishState(epoch_id="other", first=0, last=3))
+        seen = _record_history(monkeypatch)
+        monkeypatch.setattr(service, "publish_all", lambda *a, **k: None)
+        service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None).tick(NOW)
+        assert seen == []
+        assert "history" in alerts._dispatcher.active()
+    finally:
+        alerts.configure(None)
+
+
+def test_open_station_lengths_match_what_render_plans_with(tmp_path, monkeypatch):
+    # The piece-length cache is built from the station's own analysis cache,
+    # clip pause and encoder extra -- what planned_frames uses -- so an "exact"
+    # length never disagrees with render; a changed encoder rebuilds it.
+    from transmitter.config import TransmitterConfig
+
+    engine = FakeEngine(pause_seconds=1.0, extra=3)
+    monkeypatch.setattr(service, "make_engine", lambda ws, cfg: engine)
+    cfg = TransmitterConfig(root=tmp_path / "tx", render={"clip_pause_seconds": 1.0})
+    st = service.open_station(cfg, NOW)
+    lc = st.length_cache()
+    assert (lc.cache_dir, lc.pause_samples, lc.extra) == (st.ws.cache_dir, st.pause_samples, 3)
+    assert st.length_cache() is lc and st.lengths is lc
+    engine.extra = 4
+    assert st.length_cache() is not lc and st.length_cache().extra == 4

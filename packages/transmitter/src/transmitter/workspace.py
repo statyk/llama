@@ -60,6 +60,18 @@ class Workspace:
         return self.root / "plan.jsonl"
 
     @property
+    def aired_path(self) -> Path:
+        return self.root / "aired.jsonl"
+
+    @property
+    def clock_path(self) -> Path:
+        return self.root / "clock.toml"
+
+    @property
+    def clock_last_good_path(self) -> Path:
+        return self.root / "clock.last-good.toml"
+
+    @property
     def cache_dir(self) -> Path:
         return self.root / "cache"
 
@@ -104,6 +116,10 @@ class Workspace:
     @property
     def lock_path(self) -> Path:
         return self.root / "publish.lock"
+
+    @property
+    def plan_lock_path(self) -> Path:
+        return self.root / "plan.lock"
 
     @property
     def alerts_path(self) -> Path:

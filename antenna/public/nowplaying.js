@@ -48,8 +48,8 @@ export function findNowPlaying(timeline, atMs) {
   return null;
 }
 
-export function nowPlayingText(np, timelineLoaded) {
-  if (!np) return timelineLoaded ? "We'll be back shortly." : "Tuning in…";
+export function nowPlayingText(np, timelineLoaded, stationName = "LMA Radio") {
+  if (!np) return timelineLoaded ? stationName : "Tuning in…";
   const s = np.show;
   const where = [s.venue, s.city].filter(Boolean).join(", ");
   const head = [s.artist, [s.date, where].filter(Boolean).join(", ")].filter(Boolean).join(" — ");

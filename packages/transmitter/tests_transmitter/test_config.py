@@ -103,3 +103,10 @@ def test_alerts_defaults_and_floors(tmp_path):
             load_config(path)
     path.write_text('[publish]\nguard_check_minutes = 5\n[alerts]\nguard_stale_minutes = 21\n')
     assert load_config(path).alerts.guard_stale_minutes == 21
+
+
+def test_relative_interstitials_dir_raises_config_error_on_load(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text('[interstitials]\ndir = "rel/dir"\n')
+    with pytest.raises(ConfigError, match="absolute"):
+        load_config(p)

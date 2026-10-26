@@ -1,0 +1,83 @@
+
+added 76 packages, and audited 77 packages in 3s
+
+20 packages are looking for funding
+  run `npm fund` for details
+
+5 vulnerabilities (2 moderate, 3 high)
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/scheduler/antenna
+
+
+ Test Files  21 passed (21)
+      Tests  426 passed (426)
+   Start at  17:57:52
+   Duration  2.32s (transform 50%, tests 31%, import 13%, worker 5%)
+
+  Transform  transforming modules took 2.08s · 50% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/scheduler/antenna
+
+ ❯ test/nowplaying.test.ts (17 tests | 1 failed) 7ms
+   ❯ nowPlayingText (1)
+     × formats show and file, or says the station will be back 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/nowplaying.test.ts > nowPlayingText > formats show and file, or says the station will be back
+AssertionError: expected 'We\'ll be back shortly.' to be 'llama radio' // Object.is equality
+
+Expected: "llama radio"
+Received: "We'll be back shortly."
+
+ ❯ test/nowplaying.test.ts:48:40
+     46|     const np = findNowPlaying(TIMELINE, t("2026-10-10T12:05:00Z"));
+     47|     expect(nowPlayingText(np, true)).toBe("Cracker — 2005-11-01, Knick…
+     48|     expect(nowPlayingText(null, true)).toBe("llama radio");
+       |                                        ^
+     49|     expect(nowPlayingText(null, true, "llama radio")).toBe("llama radi…
+     50|     expect(nowPlayingText(null, true, "KXYZ")).toBe("KXYZ");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 20 passed (21)
+      Tests  1 failed | 425 passed (426)
+   Start at  17:58:00
+   Duration  1.85s (transform 49%, tests 32%, import 12%, worker 6%)
+
+    Isolate  21 workers spawned · ~420ms startup each (spawn + environment, per file)
+             at least ~560ms faster with isolate: false — reuses workers across files instead of one per file
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/scheduler/antenna
+
+
+ Test Files  21 passed (21)
+      Tests  426 passed (426)
+   Start at  17:58:06
+   Duration  1.85s (transform 48%, tests 33%, import 12%, worker 8%)
+
+    Isolate  21 workers spawned · ~415ms startup each (spawn + environment, per file)
+             at least ~553ms faster with isolate: false — reuses workers across files instead of one per file
+

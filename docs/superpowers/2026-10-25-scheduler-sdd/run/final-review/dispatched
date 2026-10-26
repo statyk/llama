@@ -1,0 +1,4 @@
+budget-min: 90
+role: reviewer
+model: fable
+what: Final whole-branch review (Fable, spec review mode)

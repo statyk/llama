@@ -10,6 +10,7 @@ import typer
 from transmitter import aacenc, cloudstate, fallback, grid, pipeline, service
 from transmitter.config import DEFAULT_CONFIG_TOML, default_root, load_config
 from transmitter.errors import CloudStateError, ConfigError, TransmitterError
+from transmitter.locks import plan_lock
 from transmitter.workspace import atomic_write_text
 
 app = typer.Typer(help="Plan, render and publish the station's HLS stream",
@@ -154,11 +155,12 @@ def budget(
 
 @app.command()
 def plan(config: Path = CONFIG_OPT):
-    """Extend the plan to cover now + lead (phase 1: fixed shuffled order)."""
+    """Extend the plan to cover now + lead (the scheduler, on the live clock)."""
     cfg = load_config(config)
     t = service.now_us()
     st = service.open_station(cfg, t)
-    rows = pipeline.plan_step(st, t)
+    with plan_lock(st.ws):
+        rows = pipeline.plan_step(st, t)
     for r in rows[-10:]:
         typer.echo(f"{grid.us_to_iso(st.epoch.epoch_us + grid.frame_to_us(r.start_frame))}  {r.slug}")
 
@@ -169,8 +171,9 @@ def render(config: Path = CONFIG_OPT):
     cfg = load_config(config)
     t = service.now_us()
     st = service.open_station(cfg, t)
-    pipeline.plan_step(st, t)
-    report = pipeline.render_step(st, t)
+    with plan_lock(st.ws):
+        pipeline.plan_step(st, t)
+        report = pipeline.render_step(st, t)
     extra = f"; re-planned around {', '.join(report.replanned)}" if report.replanned else ""
     typer.echo(f"wrote {len(report.written)} segment(s){extra}")
 
@@ -235,6 +238,32 @@ def status(config: Path = CONFIG_OPT):
         typer.echo(line)
 
 
+@app.command()
+def schedule(
+    days: float = typer.Option(7.0, "--days", min=0.1, help="How far ahead to preview"),
+    clock_file: Path = typer.Option(None, "--clock", exists=True, dir_okay=False,
+                                    help="Preview a draft clock file (default: the live clock)"),
+    library: str = typer.Option("eligible", "--library",
+                                help="eligible (the station's pool) or delivered (every delivered package, "
+                                     "voiced or not, on estimated lengths)"),
+    config: Path = CONFIG_OPT,
+):
+    """Preview the persisted plan from now, then what the scheduler would append. Read-only: writes nothing.
+
+    A block entered mid-way (phase-1 cutover, a fresh run) may record a MISS on its first show (clock file only)."""
+    cfg = load_config(config)
+    for line in service.schedule_report(cfg, service.now_us(), days=days, clock_file=clock_file, library=library):
+        typer.echo(line)
+
+
+@app.command()
+def library(config: Path = CONFIG_OPT):
+    """Eligible shows by profile (count, median, p10, p90), the interstitial pool, ineligible packages by reason."""
+    cfg = load_config(config)
+    for line in service.library_report(cfg, service.now_us()):
+        typer.echo(line)
+
+
 @fallback_app.command("render")
 def fallback_render(
     loop: Path = typer.Argument(..., exists=True, dir_okay=False, help="Station-ID loop audio"),
@@ -256,6 +285,45 @@ def fallback_render(
     typer.echo(f"fallback {build.version}: {len(build.segments)} segment(s) + notice uploaded; "
                + ("horizon updated" if written else
                   "horizon deferred (the next publish batch carries the version)"))
+
+
+@app.command()
+def announcements(
+    clock_file: Path = typer.Option(None, "--clock", help="Clock file (default: the live clock)"),
+    days: float = typer.Option(8.0, "--days", help="How far ahead to list needed announcements"),
+    export: Path = typer.Option(None, "--export", help="Write ann-<id>.txt scripts for the missing ones here"),
+    config: Path = CONFIG_OPT,
+):
+    """List the announcements the clock needs (present or missing); export the missing scripts for `emcee say`."""
+    from transmitter import announce, interstitials
+    from transmitter.clock import live_clock, load_clock
+    from transmitter.workspace import Workspace
+
+    cfg = load_config(config)
+    if clock_file is not None:
+        clock = load_clock(clock_file)
+    else:
+        lc = live_clock(Workspace(cfg.root), save=False)
+        if lc.problem:
+            typer.echo(f"note: {lc.problem}", err=True)
+        clock = lc.clock
+    folder = interstitials.folder(cfg)
+    have: set[str] = set()
+    if folder is None or not folder.is_dir():
+        typer.echo(f"note: no interstitials folder ({folder or 'set [station] root or [interstitials] dir'}); "
+                   "every announcement is listed as missing", err=True)
+    if folder is not None:
+        have = {s.meta["ann_id"] for s in interstitials.scan(folder, now_s=float("inf"), quiet_s=0.0)
+                if s.meta["role"] == "ann"}
+    rows = announce.needed(clock, service.now_us(), days)
+    for r in rows:
+        typer.echo(f"{r.id}  {'present' if r.id in have else 'missing'}  {r.text}")
+    if export is not None:
+        missing = [r for r in rows if r.id not in have]
+        export.mkdir(parents=True, exist_ok=True)
+        for r in missing:
+            (export / f"ann-{r.id}.txt").write_text(r.text + "\n", encoding="utf-8")
+        typer.echo(f"exported {len(missing)} script(s) to {export}")
 
 
 def main_cli() -> None:

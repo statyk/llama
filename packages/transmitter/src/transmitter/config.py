@@ -6,7 +6,7 @@ import os
 import tomllib
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from transmitter import grid
 from transmitter.errors import ConfigError
@@ -117,6 +117,18 @@ class AntennaConfig(_StrictModel):
     station_name: str = "llama radio"
 
 
+class InterstitialsConfig(_StrictModel):
+    dir: Path | None = None            # absolute; default: <station root>/interstitials
+
+    @field_validator("dir")
+    @classmethod
+    def _absolute(cls, v: Path | None) -> Path | None:
+        if v is not None and not v.is_absolute():
+            raise ValueError("interstitials.dir must be an absolute path (a relative one would "
+                             "resolve against the service's cwd)")
+        return v
+
+
 class TransmitterConfig(_StrictModel):
     root: Path = Field(default_factory=default_root)
     station: StationConfig = Field(default_factory=StationConfig)
@@ -125,6 +137,7 @@ class TransmitterConfig(_StrictModel):
     publish: PublishConfig = Field(default_factory=PublishConfig)
     antenna: AntennaConfig = Field(default_factory=AntennaConfig)
     alerts: AlertsConfig = Field(default_factory=AlertsConfig)
+    interstitials: InterstitialsConfig = Field(default_factory=InterstitialsConfig)
 
     @model_validator(mode="after")
     def _guard_stale_outlasts_the_cache(self):
@@ -165,8 +178,13 @@ DEFAULT_CONFIG_TOML = """\
 # a package must be untouched this long before it may air
 quiet_minutes = 10.0
 
+# [interstitials]
+# station IDs (id-*.mp3) and schedule announcements (ann-<id>.mp3); transmitter
+# only reads this folder. Default: <station root>/interstitials
+# dir = "/nfs/media/station/interstitials"
+
 [planner]
-# seed of the fixed shuffled order
+# seed of the scheduler's deterministic tie-break
 seed = 0
 # a fresh run (first start, or after an outage longer than the lead) begins
 # this far ahead of now

@@ -34,7 +34,16 @@ def test_notify_failure_is_logged_not_raised(caplog):
     assert "sd_notify(READY=1) failed" in caplog.text
 
 
-def test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping(tmp_path):
+def test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping(tmp_path, monkeypatch):
+    from transmitter import pipeline
+
+    projections: list[int] = []
+    real_project = pipeline.project
+
+    def counted(*a, **kw):
+        projections.append(1)
+        return real_project(*a, **kw)
+    monkeypatch.setattr(pipeline, "project", counted)
     st, _ = make_station(tmp_path)
     sent: list[str] = []
     runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None,
@@ -43,13 +52,15 @@ def test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stop
     assert sent[0] == "READY=1" and sent[-1] == "STOPPING=1"
     # plan; render (one show encode, then the step FAILS: no clock is injected and helpers.E
     # is far in the future -- fine, the step's ping sits in `finally`); publish and its one batch.
-    # plus one ping per analysis made through Station.frames_of (the plan step). The render
+    # and history (one more ping, even when nothing is appended); plus one ping per analysis made
+    # through Station.frames_of and one per scheduler projection (the plan step). The render
     # step's own analyze of the show it encodes (pipeline.render_step) is not routed through
-    # frames_of, so it adds no ping: of the engine's analyses, exactly the plan's count.
+    # frames_of but pings itself, once per encoded show: of the engine's analyses, the plan's
+    # count is the total minus those.
     assert len(st.engine.analyzed) >= 1
     plan_analyses = len(st.engine.analyzed) - len(st.engine.encoded)
-    assert plan_analyses >= 1
-    assert sent.count("WATCHDOG=1") == 5 + plan_analyses
+    assert plan_analyses >= 1 and len(projections) >= 1
+    assert sent.count("WATCHDOG=1") == 6 + plan_analyses + len(projections) + len(st.engine.encoded)
 
 
 def test_publish_all_feeds_the_watchdog_after_every_batch(tmp_path, monkeypatch):
@@ -104,7 +115,7 @@ def test_a_tick_that_fails_closed_on_an_unreadable_publish_state_still_pings(tmp
     assert sent == ["WATCHDOG=1"]                       # no step ran, exactly one ping
 
 
-def test_render_step_pings_after_each_show_encode(tmp_path):
+def test_render_step_pings_after_each_show_analysis_and_encode(tmp_path):
     from transmitter import pipeline
     from tests_transmitter.test_pipeline import NOW
 
@@ -115,7 +126,7 @@ def test_render_step_pings_after_each_show_encode(tmp_path):
     st.engine.encode_show = lambda *a, **k: encodes.append("e") or real(*a, **k)
     sent: list[str] = []
     pipeline.render_step(st, NOW, notify=lambda m: sent.append(m) or True)
-    assert encodes and sent == ["WATCHDOG=1"] * len(encodes)
+    assert encodes and sent == ["WATCHDOG=1"] * (2 * len(encodes))
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="abstract sockets are Linux-only")

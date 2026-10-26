@@ -1,0 +1,10 @@
+E   ImportError: cannot import name 'LengthCache' from 'transmitter.pieces' (/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/pieces.py)
+=========================== short test summary info ============================
+ERROR packages/transmitter/tests_transmitter/test_pieces.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.08s
+........................................................................ [ 74%]
+........................................................................ [ 85%]
+........................................................................ [ 95%]
+....................s........                                            [100%]
+676 passed, 1 skipped in 15.89s

@@ -1,0 +1,1 @@
+Fix round 1: helper ages only manifest.json (os.utime); drop test asserts station.file_set_key(pkg, read_m3u(...)) == victim.key after marking; awaiting_fix_reason caps reason at 200 chars (MAX_REASON_CHARS, ellipsis) with two tests (long capped, exactly-200 untouched). Full suite 861 passed, 1 skipped. Nothing else changed.

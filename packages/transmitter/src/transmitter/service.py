@@ -16,17 +16,21 @@ import time
 from pathlib import Path
 from typing import Callable, Mapping
 
-from transmitter import alerts, analysis, cloudstate, grid, monitor, pipeline, publish, r2, relay, sdnotify, station
+from transmitter import (alerts, analysis, announce, cloudstate, grid, history, interstitials, monitor, pieces, pipeline,
+                         publish, r2, relay, report, scheduler, sdnotify, station)
+from transmitter import clock as clock_mod
 from transmitter.alerts import NtfyChannel
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
 from transmitter.deadclock import DeadClockMonitor
-from transmitter.errors import CloudDocumentError, ConfigError, FrameCountDrift, PublishLocked, StationRootError, TransmitterError
+from transmitter.clock import ClockConfig
+from transmitter.errors import CloudDocumentError, ConfigError, FrameCountDrift, PlanLocked, PublishLocked, StationRootError, TransmitterError
 from transmitter.layout import PlanRow
+from transmitter.locks import plan_lock
 from transmitter.monitor import MonitorLoop
 from transmitter.planner import read_plan
 from transmitter.state import load_fallback_version, load_publish_state
-from transmitter.workspace import Workspace, load_epoch, load_or_create_epoch
+from transmitter.workspace import Epoch, Workspace, load_epoch, load_or_create_epoch
 
 log = logging.getLogger("transmitter")
 MAX_BATCHES = 100
@@ -53,6 +57,10 @@ def make_reader_client(cfg: TransmitterConfig):
 
 
 def open_station(cfg: TransmitterConfig, t_us: int) -> pipeline.Station:
+    """The station. Its piece-length cache (`Station.length_cache`) is built
+    on first use from the workspace's analysis cache, the clip pause and the
+    encoder's extra frames -- exactly what `planned_frames` uses -- so a
+    command that never plans (publish, status) never probes the encoder."""
     ws = Workspace(cfg.root)
     return pipeline.Station(ws=ws, cfg=cfg, epoch=load_or_create_epoch(ws, t_us),
                             engine=make_engine(ws, cfg), log=log.info)
@@ -226,7 +234,7 @@ class Runner:
         """Run one step; no error ends the loop (the next tick retries). A step
         that succeeds resolves `resolves`; every step ends with a watchdog ping.
         True when the step observed (ran), i.e. unless it was skipped on
-        PublishLocked: a skipped step neither advances nor resets the 3-
+        PublishLocked/PlanLocked: a skipped step neither advances nor resets the 3-
         consecutive gate of the codes it declares (alerts.STEP_CODES)."""
         try:
             fn()
@@ -242,8 +250,8 @@ class Runner:
             log.error("%s step: frame-count drift; filling halted", name, exc_info=True)
             alerts.alert("frame-count-drift", f"{exc}; filling halted (publishing continues) "
                                               "until transmitter is restarted")
-        except PublishLocked as exc:
-            # An operator's manual publish/fallback overlaps this tick; the next one retries.
+        except (PublishLocked, PlanLocked) as exc:
+            # An operator's manual publish/fallback (or plan/render) overlaps this tick; the next one retries.
             log.warning("%s step skipped: %s", name, exc)
             return False
         except Exception as exc:
@@ -252,6 +260,14 @@ class Runner:
         finally:
             self.notify("WATCHDOG=1")
         return True
+
+    def _append_history(self, t_us: int) -> None:
+        ws = self.st.ws
+        state = load_publish_state(ws)
+        if state.epoch_id is not None and state.epoch_id != self.st.epoch.epoch_id:
+            raise TransmitterError(f"published state belongs to epoch {state.epoch_id}, not "
+                                   f"{self.st.epoch.epoch_id}; aired.jsonl was not appended")
+        history.append_aired(ws, self.st.epoch, read_plan(ws.plan_path), state.last, t_us)
 
     def _read_lead(self, t_us: int) -> tuple[bool, int | None]:
         """(readable, lead). An unreadable publish.json is alerted, not raised:
@@ -312,15 +328,24 @@ class Runner:
         if not self.halted and (lead is None or lead < low_water_us):
             self.filling = True
         if self.filling:
-            if self._step("plan", lambda: pipeline.plan_step(self.st, t_us, max_new=1),
-                          resolves=("plan", "station-root")):
+            def plan() -> None:
+                with plan_lock(self.st.ws):
+                    pipeline.plan_step(self.st, t_us, max_new=1)
+
+            def render() -> None:
+                with plan_lock(self.st.ws):
+                    pipeline.render_step(
+                        self.st, t_us, limit=self.st.cfg.publish.batch_segments, notify=self.notify)
+
+            if self._step("plan", plan, resolves=("plan", "station-root")):
                 ran.add("plan")
-            if self._step("render", lambda: pipeline.render_step(
-                    self.st, t_us, limit=self.st.cfg.publish.batch_segments, notify=self.notify),
-                    resolves=("render",)):
+            if self._step("render", render, resolves=("render",)):
                 ran.add("render")
         if self._step("publish", lambda: publish_all(self.p, t_us, self.held, self.notify)):
             ran.add("publish")
+        # Not in `ran` and not a declared step: end_observation rejects unknown
+        # steps, so `history` is an ungated event code.
+        self._step("history", lambda: self._append_history(t_us), resolves=("history",))
         ok, lead = self._read_lead(t_us)
         if ok and lead is not None and lead >= self.st.lead_us - grid.D_US:
             self.filling = False
@@ -417,6 +442,80 @@ def _cloud_tail(cloud, cloud_error: str | None, t_us: int) -> list[str]:
     return [f"cloud      unavailable: {cloud_error}"] if cloud_error else []
 
 
+def _on_air_text(row: PlanRow) -> str:
+    """The show, or for an interstitial row what kind of break it is (never the clip's slug)."""
+    if row.kind != "interstitial":
+        return row.slug
+    return "station break (" + ("station ID" if row.role == "id" else "announcement") + ")"
+
+
+def clock_line(lc: clock_mod.LiveClock) -> str:
+    if lc.source == "clock":
+        return "clock      clock.toml"
+    if lc.source == "last-good":
+        return f"clock      last-good ({pipeline.condense_clock_problem(lc.problem or 'clock.toml unusable')})"
+    if lc.problem:
+        return f"clock      no clock: open all week ({pipeline.condense_clock_problem(lc.problem)})"
+    return "clock      no clock: open all week"
+
+
+def missing_announcements(cfg: TransmitterConfig, clock: ClockConfig, t_us: int, days: float = 8) -> list[announce.Needed]:
+    """The announcements the clock needs over the next `days` whose audio is not in the interstitials folder
+    (a directory read; nothing is analysed)."""
+    have = interstitials.ann_ids(interstitials.folder(cfg))
+    return [n for n in announce.needed(clock, t_us, days) if n.id not in have]
+
+
+def _block_text(row: PlanRow, clock: ClockConfig) -> str:
+    title = next((b.title or b.name for b in clock.block if b.name == row.block), row.block)
+    nominal = grid.iso_to_us(row.nominal_start) if row.nominal_start else None
+    return f"{title} ({report.local_text(nominal, clock.timezone)})" if nominal is not None else str(title)
+
+
+def _scheduler_lines(cfg: TransmitterConfig, ws: Workspace, rows: list[PlanRow], epoch: Epoch, t_us: int) -> list[str]:
+    """The scheduler's status lines, from the persisted rows and the clock alone: no scheduler run, no package
+    scan (the interstitials folder is one directory read). None of it is an alert."""
+    lc = clock_mod.live_clock(ws, save=False)
+    clock = lc.clock
+    lines = [clock_line(lc)]
+    now_f = (t_us - epoch.epoch_us) * grid.SAMPLE_RATE // (grid.FRAME_SAMPLES * 1_000_000)
+    sched = [r for r in rows if r.kind == "show" and r.block is not None]
+    cur = next((r for r in reversed(sched) if r.start_frame <= now_f), None)
+    if cur is not None and max(r.end_frame for r in sched
+                               if (r.block, r.nominal_start) == (cur.block, cur.nominal_start)) <= now_f:
+        cur = None                         # its last show has ended: between blocks (or the plan has run out)
+    upcoming = [r for r in sched if r.start_frame > now_f and (cur is None or (r.block, r.nominal_start) !=
+                                                               (cur.block, cur.nominal_start))]
+    nxt = upcoming[0] if upcoming else None
+    nxt_text = _block_text(nxt, clock) if nxt is not None else "not planned yet"
+    if cur is not None:
+        lines.append(f"block      now {_block_text(cur, clock)}; next {nxt_text}")
+    else:
+        lines.append(f"block      none now; next {nxt_text}")
+    day = 86_400_000_000
+    f24 = now_f - (day * grid.SAMPLE_RATE) // (grid.FRAME_SAMPLES * 1_000_000)
+    n24 = now_f + (day * grid.SAMPLE_RATE) // (grid.FRAME_SAMPLES * 1_000_000)
+    for label, lo, hi in (("last 24 h", f24, now_f), ("next 24 h", now_f, n24)):
+        win = [r for r in sched if lo <= r.start_frame < hi]
+        misses = sum(1 for r in win if r.miss)
+        fill = {c: sum(r.end_frame - r.start_frame for r in win if r.fill == c) for c in report.FILL_CAUSES}
+        parts = ", ".join(f"{report.fill_label(c)} {report.minutes_of(f):.0f}" for c, f in fill.items())
+        lines.append(f"{label:<10} misses {misses}; fill {report.minutes_of(sum(fill.values())):.0f} min ({parts})")
+    recent = [r for r in sched if r.start_frame >= f24]
+    bends: dict[str, int] = {}
+    for r in recent:
+        for b in r.bends:
+            bends[b] = bends.get(b, 0) + 1
+    lines.append("bends      " + (", ".join(f"{b} {bends[b]}" for b in report.BEND_ORDER if b in bends) or "none")
+                 + " (last 24 h and planned)")
+    degraded = len({(r.block, r.nominal_start) for r in recent if r.degraded})
+    lines.append(f"degraded   {degraded} block(s) played as open time (last 24 h and planned)")
+    missing = missing_announcements(cfg, clock, t_us, 8)
+    lines.append(f"announce   {len(missing)} announcement audio file(s) missing for the next 8 days"
+                 + (" (see `transmitter announcements`)" if missing else ""))
+    return lines
+
+
 def status_lines(cfg: TransmitterConfig, t_us: int, cloud: Callable[[str], dict | None] | None = None,
                  cloud_error: str | None = None) -> list[str]:
     ws = Workspace(cfg.root)
@@ -432,7 +531,7 @@ def status_lines(cfg: TransmitterConfig, t_us: int, cloud: Callable[[str], dict 
         lines.append(f"plan       {len(rows)} rows through {grid.us_to_iso(end_us)}")
         now_frame = (t_us - epoch.epoch_us) * grid.SAMPLE_RATE // (grid.FRAME_SAMPLES * 1_000_000)
         on = next((r for r in rows if r.start_frame <= now_frame < r.end_frame), None)
-        lines.append(f"on air     {on.slug}" if on else "on air     (between shows, or not started)")
+        lines.append(f"on air     {_on_air_text(on)}" if on else "on air     (between shows, or not started)")
     else:
         lines.append("plan       empty")
     if pub.last is None:
@@ -441,7 +540,7 @@ def status_lines(cfg: TransmitterConfig, t_us: int, cloud: Callable[[str], dict 
         lead_h = (epoch.start_us(pub.last + 1) - t_us) / 3_600_000_000
         lines.append(f"published  segments {pub.first}..{pub.last}; lead {lead_h:.1f} h")
     lines.append(f"fallback   {fb}" if fb else "fallback   none (run `transmitter fallback render`)")
-    lines.append("anchors    none (the scheduler and its window misses are phase 3)")
+    lines += _scheduler_lines(cfg, ws, rows, epoch, t_us)
     state = alerts.load_state(ws.alerts_path)
     if state is None:
         lines.append(f"alerts     hugo: unreadable ({ws.alerts_path})")
@@ -449,3 +548,101 @@ def status_lines(cfg: TransmitterConfig, t_us: int, cloud: Callable[[str], dict 
         hugo = alerts.active_codes(state, t_us / 1e6, cfg.alerts.repeat_hours * 3600)
         lines.append(f"alerts     hugo: {', '.join(hugo) if hugo else 'none'}")
     return lines + _cloud_tail(cloud, cloud_error, t_us)
+
+
+# --- read-only operator views: `schedule` and `library` -------------------------
+
+def _preview_station(cfg: TransmitterConfig, t_us: int) -> tuple[pipeline.Station, bool]:
+    """A station for read-only views. Never `open_station` (which creates epoch.json): with no epoch yet it
+    gets a provisional in-memory one at now. Returns (station, provisional)."""
+    ws = Workspace(cfg.root)
+    epoch = load_epoch(ws)
+    provisional = epoch is None
+    if epoch is None:
+        e_us = t_us - t_us % 1_000_000
+        epoch = Epoch("provisional", e_us)
+    return pipeline.Station(ws=ws, cfg=cfg, epoch=epoch, engine=make_engine(ws, cfg), log=log.info), provisional
+
+
+def _frame_at(epoch: Epoch, t_us: int) -> int:
+    return (t_us - epoch.epoch_us) * grid.SAMPLE_RATE // (grid.FRAME_SAMPLES * 1_000_000)
+
+
+def schedule_report(cfg: TransmitterConfig, t_us: int, *, days: float = 7.0, clock_file: Path | None = None,
+                    library: str = "eligible") -> list[str]:
+    """`transmitter schedule`: the persisted plan from now, then what the scheduler would append, over `days`.
+    Takes no lock and writes nothing (no epoch, no cache, no last-good clock copy, no alert)."""
+    if library not in ("eligible", "delivered"):
+        raise ConfigError(f"--library must be 'eligible' or 'delivered', not {library!r}")
+    st, provisional = _preview_station(cfg, t_us)
+    ws, epoch = st.ws, st.epoch
+    lines: list[str] = []
+    if clock_file is not None:
+        clock = clock_mod.load_clock(clock_file)
+        lines.append(f"clock      {clock_file} (draft; the live plan is untouched)")
+    else:
+        lc = clock_mod.live_clock(ws, save=False)
+        clock = lc.clock
+        lines.append(clock_line(lc))
+    if provisional:
+        lines.append("note       no epoch yet: previewing from a provisional epoch at now (no epoch.json is written)")
+    pool = st.scan_pieces(t_us, read_only=True)
+    if library == "delivered":
+        shows = pieces.scan_delivered(station.require_root(cfg.station.root), now_s=t_us / 1e6,
+                                      quiet_s=cfg.station.quiet_minutes * 60, pause_samples=st.pause_samples,
+                                      extra=st.engine.extra_frames())
+        pool = shows + [p for p in pool if p.kind == "interstitial"]
+        lines.append(f"library    delivered: {len(shows)} package(s), every length estimated")
+    meta = {p.package: (p.artist, p.date) for p in pool if p.kind == "show"}
+
+    def meta_of(package: str | None) -> tuple[str | None, str | None]:
+        return meta.get(package, (None, None)) if package else (None, None)
+
+    rows = [] if provisional else read_plan(ws.plan_path)
+    now_f = _frame_at(epoch, t_us)
+    until_us = t_us + int(days * 86_400_000_000)
+    until_f = _frame_at(epoch, until_us)
+    aired = history.load_aired(ws)
+    rec = history.recency(aired, rows, epoch, clock.timezone, meta_of)
+    base = rows
+    if rows and rows[-1].end_frame >= now_f:
+        start, run_start = rows[-1].end_frame + st.gap_frames, False
+    else:
+        if rows:
+            lines.append("note       the persisted plan has ended; previewing a fresh run from now")
+        base = []
+        start = (epoch.index_at(t_us) + st.start_margin_segments) * grid.SEGMENT_FRAMES
+        run_start = True
+    inp = scheduler.SchedulerInput(rows=tuple(base), start_frame=start, run_start=run_start, pool=tuple(pool),
+                                   clock=clock, rec=rec, epoch_us=epoch.epoch_us, gap_frames=st.gap_frames,
+                                   seed=cfg.planner.seed)
+    projected = scheduler.project(inp, until_frame=until_f, ahead=1)
+    live = {(r.block, r.nominal_start) for r in base if r.end_frame > now_f and r.block is not None}
+    shown = [r for r in base if r.end_frame > now_f or (r.block, r.nominal_start) in live]
+    missing = missing_announcements(cfg, clock, t_us, days + 1)
+    views = report.block_views(shown, projected, clock, epoch, missing=missing, meta_of=meta_of, since_frame=now_f)
+    # keep an occurrence whose nominal start OR whose first show is inside the horizon (an open-time block can
+    # air for hours before its next nominal start; a late block keeps its MISS)
+    views = [v for v in views if v.nominal_us is None or v.nominal_us < until_us
+             or any(sh.start_us < until_us for sh in v.shows)]
+    lines.append("")
+    lines += report.schedule_lines(views, report.summary(views, until_us - t_us))
+    return lines
+
+
+def library_report(cfg: TransmitterConfig, t_us: int) -> list[str]:
+    """`transmitter library`: eligible shows by profile, the interstitial pool, ineligible packages by reason.
+    Read-only; lengths are the cached/learned ones, else estimates."""
+    st, _ = _preview_station(cfg, t_us)
+    pool = st.scan_pieces(t_us, read_only=True)
+    texts = {n.id: n.text for n in announce.needed(clock_mod.live_clock(st.ws, save=False).clock, t_us, 8)}
+    ids = [(p.slug, report.minutes_of(p.frames)) for p in pool if p.kind == "interstitial" and p.role == "id"]
+    anns = [(p.slug, report.minutes_of(p.frames), texts.get(p.ann_id)) for p in pool
+            if p.kind == "interstitial" and p.role == "ann"]
+    stats = report.profile_stats((p.profile, report.minutes_of(p.frames), not p.exact)
+                                 for p in pool if p.kind == "show")
+    _, ineligible = station.scan(cfg.station.root, now_s=t_us / 1e6, quiet_s=cfg.station.quiet_minutes * 60)
+    by_reason: dict[str, list[str]] = {}
+    for inel in ineligible:
+        by_reason.setdefault(report.reason_key(inel.reasons[0]) if inel.reasons else "(no reason)", []).append(inel.slug)
+    return report.library_lines(report.LibraryReport(stats, ids, anns, by_reason))

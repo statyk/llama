@@ -1,0 +1,76 @@
+reading atomic_write_bytes + config strict base
+clock wiggle inf LOADS
+  occurrences CRASH OverflowError cannot convert float infinity to integer
+clock wiggle nan ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+block wiggle inf LOADS
+  occurrences CRASH OverflowError cannot convert float infinity to integer
+block early nan late 1 ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+late inf LOADS
+  occurrences CRASH OverflowError cannot convert float infinity to integer
+gap inf LOADS
+  occurrences ok
+weight inf LOADS
+  occurrences ok
+otd nan ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+tz empty ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+tz dir ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+tz abs ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+tz localtime ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+tz posix LOADS
+  occurrences ok
+start 7:00 ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+start 24:00 ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+start 19:00:00 time literal ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+tmpl conv LOADS
+  occurrences ok
+tmpl attr ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+tmpl nested spec ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+tmpl stray close ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+tmpl escaped LOADS
+  occurrences ok
+days dup ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+years desc ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+weight 0 ConfigError invalid clock at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpctt4gww9/clock.toml: 1 validati
+title empty LOADS
+  occurrences ok
+huge wiggle LOADS
+  occurrences ok
+lo iso 0125-09-08T13:20:00.000Z
+weekly: [('w', '2027-03-09T00:00:00.000Z', '2027-03-15T23:00:00.000Z')]
+daily 2027-03-13T00:00:00.000Z 2027-03-14T00:00:00.000Z 24.0
+daily 2027-03-14T00:00:00.000Z 2027-03-14T23:00:00.000Z 23.0
+daily 2027-03-14T23:00:00.000Z 2027-03-15T23:00:00.000Z 24.0
+sf b 2027-03-13T07:45:00.000Z 2027-03-13
+sf b 2027-03-14T07:00:00.000Z 2027-03-14
+fb z 2027-11-06T06:00:00.000Z 2027-11-07T05:00:00.000Z
+fb x 2027-11-07T05:00:00.000Z 2027-11-07T05:30:00.000Z
+fb y 2027-11-07T05:30:00.000Z 2027-11-07T07:00:00.000Z
+fb z 2027-11-07T07:00:00.000Z 2027-11-08T06:00:00.000Z
+Australia/Lord_Howe 2026-10-04 02:15 -> 2026-10-03T15:30:00+00:00 2026-10-04T02:30:00+11:00
+Pacific/Apia 2011-12-30 19:00 -> 2011-12-30T10:00:00+00:00 2011-12-31T00:00:00+14:00
+Europe/Dublin 2027-03-28 01:30 -> 2027-03-28T01:00:00+00:00 2027-03-28T02:00:00+01:00
+Europe/Dublin 2027-10-31 01:30 -> 2027-10-31T00:30:00+00:00 2027-10-31T01:30:00+01:00
+America/Havana 2027-03-14 00:30 -> 2027-03-14T05:00:00+00:00 2027-03-14T01:00:00-04:00
+Asia/Gaza 2027-03-27 02:30 -> 2027-03-27T00:00:00+00:00 2027-03-27T03:00:00+03:00
+..........................                                               [100%]
+26 passed in 0.07s
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t4/mut/src/packages/transmitter/src/transmitter/__init__.py
+== M1-no-zero-drop (expect: test_spring_forward_collapses_and_drops)
+FAILED ../src/packages/transmitter/tests_transmitter/test_clock.py::test_spring_forward_collapses_and_drops
+1 failed, 25 passed in 0.13s
+== M2-gap-uses-fold1 (expect: test_spring_forward_collapses_and_drops)
+FAILED ../src/packages/transmitter/tests_transmitter/test_clock.py::test_spring_forward_collapses_and_drops
+1 failed, 25 passed in 2.56s
+== M3-always-rewrite (expect: none (gap))
+26 passed in 0.08s
+== M4-exclude-running (expect: test_span_intersection_includes_running_block)
+FAILED ../src/packages/transmitter/tests_transmitter/test_clock.py::test_span_intersection_includes_running_block
+FAILED ../src/packages/transmitter/tests_transmitter/test_clock.py::test_implicit_clock_covers_everything
+2 failed, 24 passed in 0.09s
+== M5-write-oserror-propagates (expect: none (gap))
+26 passed in 0.08s
+== M6-tiebreak-reversed (expect: test_spring_forward_collapses_and_drops)
+FAILED ../src/packages/transmitter/tests_transmitter/test_clock.py::test_spring_forward_collapses_and_drops
+1 failed, 25 passed in 0.09s
+us_to_iso(lo) with 1e12-minute wiggle: OverflowError date value out of range
+hash(Occurrence): TypeError unhashable type: 'BlockConfig'

@@ -1,0 +1,20 @@
+# Clock (c): soft launch for today's voiced library (Dead and funk voiced; the rest is open time).
+timezone = "America/New_York"
+
+[open]
+exclude_profiles = ["dead", "funk"]
+
+[[block]]
+name = "dead-morning"
+start = "08:00"
+profiles = ["dead"]
+
+[[block]]
+name = "funk-afternoon"
+start = "14:00"
+profiles = ["funk"]
+
+[[block]]
+name = "dead-evening"
+start = "20:00"
+profiles = ["dead"]

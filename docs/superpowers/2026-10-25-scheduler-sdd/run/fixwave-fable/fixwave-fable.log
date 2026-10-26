@@ -1,0 +1,83 @@
+Sun Oct 25 20:13:44 EDT 2026 start fixwave-fable review
+Sun Oct 25 20:16:22 EDT 2026 reading history/scheduler/site; extracting old trees
+=== old684
+old config module: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/edf43687-b61e-447b-99c2-17122282f9d7/scratchpad/fable/old684/packages/transmitter/src/transmitter/config.py
+fixed (commented header) -> ACCEPTED
+pre-fix (uncommented header) -> REFUSED: ValidationError ['1 validation error for TransmitterConfig', 'interstitials', '  Extra inputs are not permitted [type=extra_forbidden, input_value={}, input_type=dict]']
+=== oldaf46
+old config module: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/edf43687-b61e-447b-99c2-17122282f9d7/scratchpad/fable/oldaf46/packages/transmitter/src/transmitter/config.py
+fixed (commented header) -> ACCEPTED
+pre-fix (uncommented header) -> REFUSED: ValidationError ['1 validation error for TransmitterConfig', 'interstitials', '  Extra inputs are not permitted [type=extra_forbidden, input_value={}, input_type=dict]']
+render step failed
+Traceback (most recent call last):
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/service.py", line 240, in _step
+    fn()
+    ~~^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/service.py", line 337, in render
+    pipeline.render_step(
+    ~~~~~~~~~~~~~~~~~~~~^
+        self.st, t_us, limit=self.st.cfg.publish.batch_segments, notify=self.notify)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/pipeline.py", line 481, in render_step
+    atomic_write_bytes(path, store.build_segment(n, rows))
+                             ~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/layout.py", line 209, in build_segment
+    return segment.assemble(n, parts)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/segment.py", line 13, in assemble
+    return id3.timestamp_tag(grid.segment_timestamp(ts_index)) + b"".join(frames)
+                             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/grid.py", line 32, in segment_timestamp
+    raise ValueError(f"segment index must be >= 0, got {n}")
+ValueError: segment index must be >= 0, got -215529895
+ALERT render: ValueError: segment index must be >= 0, got -215529895
+transmitter from /Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py
+sent: ['READY=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', 'STOPPING=1']
+analyzed: ['band-2005-11-03', 'band-2005-11-03'] encoded: ['band-2005-11-03'] projections (ahead values): [1, 1]
+WATCHDOG count 10 = 6 + 1 + 2 + 1 -> 10
+logs: []
+Sun Oct 25 20:18:02 EDT 2026 focused tests
+...........s............................................................ [ 53%]
+..............................................................           [100%]
+133 passed, 1 skipped, 6 deselected in 10.68s
+......                                                                   [100%]
+6 passed, 132 deselected in 2.68s
+Sun Oct 25 20:18:56 EDT 2026 mutant A in scratch copy
+--- /Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/scheduler.py	2026-10-25 15:35:25.585326837 -0400
++++ /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/edf43687-b61e-447b-99c2-17122282f9d7/scratchpad/fable/mut/packages/transmitter/src/transmitter/scheduler.py	2026-10-25 20:19:18.233561390 -0400
+@@ -498,6 +498,8 @@
+         """The forms to try for X, two-block first when Y may be named at all."""
+         if not x.block.title or self.pools.degraded(x):
+             return []                            # untitled or degraded X: never announced
++        if globals().get('MUT_ONE'):
++            return [(one, None)]             # MUTANT: ahead=1 never names Y
+         y = self.occs.after(x)
+         if two_block_ok(x, y) and y.block.title and not self.pools.degraded(y):
+             return [(two, y), (one, None)]
+@@ -676,6 +678,7 @@
+     p = _Projection(inp)
+     if until_frame is None:
+         last_pos = ahead
++        global MUT_ONE; MUT_ONE = (ahead == 1)
+     else:
+         clock_pos = p.clock_horizon(until_frame, ahead)
+         last_pos = sys.maxsize                   # until a piece reaches until_frame
+shadowed: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/edf43687-b61e-447b-99c2-17122282f9d7/scratchpad/fable/mut/packages/transmitter/src/transmitter/scheduler.py
+=================================== FAILURES ===================================
+E       AssertionError: assert [PlanRow(seq=...oxy({})), ...] == [PlanRow(seq=...oxy({})), ...]
+E         
+E         At index 19 diff: PlanRow(seq=19, slug='ann-9e643000abcc', dir='interstitials', key='k-ann-9e643000abcc', start_frame=5344085, frames=388, run_start=False, cut_frame=None, kind='interstitial', block='night', nominal_start='2026-11-03T02:30:00.000Z', role='later', miss=None, degraded=False, fill=None, bends=(), names=(('dead', '2026-11-03T17:00:00.000Z'), ('grass', '2026-11-03T22:00:00.000Z')), package=None, announcement_broken=False, extra=mappingproxy({})) != PlanRow(seq=19, slug='ann-5ff36282b94d', dir='interstitials', key='k-ann-5ff36282b94d', start_frame=5344085, fr...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+E       AssertionError: assert [PlanRow(seq=...oxy({})), ...] == [PlanRow(seq=...oxy({})), ...]
+E         
+Sun Oct 25 20:19:44 EDT 2026 mutant done; writing report
+collected 0 items / 1 error
+=============================== 1 error in 0.20s ===============================
+packages/transmitter/tests_transmitter/test_scheduler.py::test_appending_first_pieces_reproduces_one_projection[1] FAILED [ 50%]
+packages/transmitter/tests_transmitter/test_scheduler.py::test_appending_first_pieces_reproduces_one_projection[2] PASSED [100%]
+E       AssertionError: assert [PlanRow(seq=...oxy({})), ...] == [PlanRow(seq=...oxy({})), ...]
+packages/transmitter/tests_transmitter/test_scheduler.py:247: AssertionError
+FAILED packages/transmitter/tests_transmitter/test_scheduler.py::test_appending_first_pieces_reproduces_one_projection[1]
+========================= 1 failed, 1 passed in 1.67s ==========================
+Sun Oct 25 20:21:29 EDT 2026 report written, sentinel touched

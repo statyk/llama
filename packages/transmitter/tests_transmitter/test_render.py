@@ -161,3 +161,16 @@ def test_a_decode_mismatch_drops_the_cached_analysis(tmp_path):
     assert engine.analyze(show) == good                           # the next tick re-analyses
     assert engine.encode_show(show, good, out) == render.planned_frames(
         good, engine.settings.clip_pause_samples, engine.extra_frames())
+
+
+@requires_ffmpeg
+def test_a_single_clip_piece_encodes_to_its_planned_frame_count(tmp_path):
+    from transmitter import interstitials
+    folder = tmp_path / "interstitials"
+    write_mp3(folder / "id-test.mp3", stereo_sine(7.0, 300.0, 0.05, rate=24_000)[:, 0], rate=24_000)
+    [show] = interstitials.scan(folder, now_s=time.time() + 3600, quiet_s=0)
+    a = analysis.analyze_show(show)
+    settings = render.RenderSettings.from_config(RenderConfig())
+    extra = aacenc.extra_frames()
+    frames = render.render_show(show, a, tmp_path / "shows" / f"{show.key}.aac", settings=settings, extra=extra)
+    assert frames == render.planned_frames(a, settings.clip_pause_samples, extra)

@@ -1,0 +1,11 @@
+progress: reading code for A-G
+
+mut/packages/transmitter/tests_transmitter/test_scheduler.py:99: IndexError
+=========================== short test summary info ============================
+FAILED mut/packages/transmitter/tests_transmitter/test_scheduler.py::test_appending_first_pieces_reproduces_one_projection[1]
+1 failed, 1 passed, 42 deselected in 1.17s
+subtle mutant: _try_next skipped when last_pos<2
+mut/packages/transmitter/tests_transmitter/test_scheduler.py:247: AssertionError
+=========================== short test summary info ============================
+FAILED mut/packages/transmitter/tests_transmitter/test_scheduler.py::test_appending_first_pieces_reproduces_one_projection[1]
+1 failed, 1 passed, 42 deselected in 1.62s

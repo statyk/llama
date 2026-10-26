@@ -1,0 +1,25 @@
+### Finding Verdicts
+
+1. **(Important) infinite / oversized windows load and crash planning — ADDRESSED.** `clock.py:37` sets `allow_inf_nan=False` on `_StrictModel` with the requested comment. Every clock model inherits from that base (Zone, AnnounceConfig, Prefer, BlockConfig, OpenConfig, RotationConfig, ClockConfig), so the setting reaches every nested float. All four window fields are bounded `le=_MAX_WINDOW_MIN` (10080): clock `wiggle_minutes` at `clock.py:167`, block `wiggle_minutes`/`early_minutes`/`late_minutes` at `clock.py:119-121`. IMPLICIT_CLOCK's 720 still constructs. Tests are at `test_clock.py:247-256`: inf wiggle (clock and block), `late_minutes = inf` with early 0, inf `concert_gap_days`, inf prefer `weight`, 10081 and 1e12 rejected, 10080 accepted. Only the `concert_gap_days` and `weight` lines need `allow_inf_nan` (the window lines would also fail on `le`). The fix log records a mutant that removed `allow_inf_nan` and turned this test red. I ran a probe on the live tree (`transmitter.__file__` resolves in this worktree), and all three of these are rejected as ConfigError: `on_this_day_weight = inf`, `wiggle_minutes = nan`, `prefer on_this_day = nan`. A one-week window still fits `occurrences()`' ±8-day padding, and `us_to_iso` handles it without trouble.
+2. **(test gap) live_clock behaviours — ADDRESSED.** `test_clock.py:259-285`:
+   - **Not rewritten when identical:** checks that the inode and `st_mtime_ns` are unchanged. `atomic_write_bytes` renames a fresh temp file into place, so any rewrite changes the inode, and the test catches it. The fix log records an "always rewrite" mutant turning it red.
+   - **Failed copy swallowed:** last-good is made a directory, so the read gets `IsADirectoryError`, `same` becomes False, and `os.replace` raises `IsADirectoryError`, which is swallowed. The test asserts `source == "clock"` and `problem is None`. The fix log records a "propagate" mutant turning it red.
+   - **Unreadable clock.toml:** `clock_path` is made a directory, which raises an OSError that is not FileNotFoundError. The test asserts `implicit` with `problem` set, then `last-good` with `problem` set.
+3. **UTF-8 decoding — ADDRESSED.** `load_clock` now uses `read_text(encoding="utf-8")` (`clock.py:226`). `live_clock` uses `raw.decode()`, whose default is UTF-8 in Python 3 (`clock.py:249`). Both now decode the same way.
+4. **`pytest.raises(Exception)` for `max_shows=0` — ADDRESSED.** `test_clock.py:244-245` goes through `bad()`, which requires a ConfigError from `load_clock` that names `clock.toml` (`test_clock.py:115-118`).
+
+Tests: the fix report names the tests above. Its log shows 31 clock tests passing, then each of the three mutants failing exactly its predicted test (30 passed / 1 failed each), then the full transmitter suite at 640 passed, 1 skipped. That matches the diff. I did not re-run the suite.
+
+### New Breakage in the Fix Diff
+None.
+
+### Out-of-Scope Observations
+The probe below was run on the live tree (output is in task4-rereview1.log). Each value **loads** today and would become last-good. None of the code that reads these fields exists yet (it arrives with the scorer and search tasks), so each severity is judged against the plan's formulas.
+
+- **Important: `concert_gap_days = 0` loads (`ge=0`, `clock.py:161`).** The plan's scorer (plan line 596) computes `0.9 * min(days_since / concert_gap_days, 1.0)`. For any show that has aired before, that raises ZeroDivisionError at every plan step, and a saved last-good copy would keep it crashing. This existed before the fix diff, which did not touch the field. Fix it one of two ways: make the field `gt=0` here, or make the scorer task guard zero (for example, treat 0 as "no gap rule" and use a recency term of 1.0). Put whichever is chosen in that task's brief.
+- **Minor: a huge finite `concert_gap_days` (1e308) loads.** The score term is harmless, since the division gives about 0. The gap check in `violations` (plan line 597) is safe if it compares floats. It would raise OverflowError if it converts the field with `timedelta(days=...)` or `int(gap * 86_400_000_000)`. A sane upper bound such as `le=36500` would close this; otherwise the scorer task should be told to compare in float.
+- **Minor: a huge finite `weight`, `on_this_day` or `on_this_day_weight` (1e308) loads.** Adding two such values gives inf. Sorting and comparing inf scores does not crash, but subtracting one score from another would give nan and an arbitrary ordering, which is wrong output rather than a crash. An upper bound would remove the case.
+- **Minor / no crash expected: `max_shows` up to int64 max loads.** The plan's search grows `k` only until the greedy extension can add no more shows, so it is bounded by the size of the pool. `max_shows - len(placed)` and slicing by `max_shows` are both safe. It would only matter if a later task builds a `range(max_shows)` or allocates by it.
+
+### Verdict
+**Fix round:** All findings addressed, no new Critical/Important breakage. One carry-forward: before the scorer task is briefed, either reject `concert_gap_days = 0` in the clock or have the scorer guard it.

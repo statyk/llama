@@ -1,71 +1,22 @@
-"""Phase-1 trivial planner (spec "Scheduler": "Phase 1 replaces all of this
-with a trivial planner: eligible packages in a fixed shuffled order, back to
-back with the inter-show gap").
+"""The plan file and the rules that drop persisted rows (spec "Frozen means
+rendered", "Recovery after an outage longer than the lead").
 
-The order is a seeded hash rank, so adding or removing a package never
-reshuffles the others; selection is least-recently-planned first, which walks
-that order as a cycle and lets a newly eligible show air once soon and then
-fall in line. Phase 3's scheduler replaces `choose_next`/`extend`; the plan
-file, recovery cut and re-plan rules stay.
+`plan.jsonl` is append-only: the scheduler (`scheduler.project`, driven by
+`pipeline.Station.extend`) only appends to it. The only paths that drop
+persisted rows are owned by render and recovery: `replan_from` (the render-time
+skip) and `cut_for_recovery`. Phase 1's shuffle planner (`choose_next`,
+`extend`) is retired; its tie-break lives on as `rules.tie_rank`.
 """
 
-import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
-from typing import Callable, Mapping, Sequence
+from typing import Sequence
 
-from transmitter.errors import PlanError, TransmitterError
+from transmitter.errors import PlanError
 from transmitter.grid import SEGMENT_FRAMES
 from transmitter.layout import PlanRow, validate_rows
-from transmitter.station import Show
 from transmitter.workspace import atomic_write_text
-
-
-def shuffle_rank(seed: int, slug: str) -> str:
-    return hashlib.sha256(f"{seed}:{slug}".encode()).hexdigest()
-
-
-def choose_next(eligible: Sequence[Show], last_seq: Mapping[str, int], seed: int,
-                previous: str | None) -> Show:
-    if not eligible:
-        raise PlanError("no eligible packages to plan")
-    ordered = sorted(eligible, key=lambda s: (last_seq.get(s.slug, -1), shuffle_rank(seed, s.slug)))
-    if ordered[0].slug == previous and len(ordered) > 1:
-        return ordered[1]
-    return ordered[0]
-
-
-def extend(rows: Sequence[PlanRow], eligible: Sequence[Show], *, frames_of: Callable[[Show], int],
-           seed: int, gap_frames: int, until_frame: int, start_frame: int, run_start: bool,
-           max_new: int | None = None,
-           on_skip: Callable[[Show, Exception], None] = lambda show, exc: None) -> list[PlanRow]:
-    out = list(rows)
-    last_seq = {r.slug: r.seq for r in out}
-    next_seq = max((r.seq for r in out), default=-1) + 1
-    pool = list(eligible)
-    previous = out[-1].slug if out else None
-    start, mark, added = start_frame, run_start, 0
-    while (not out or out[-1].end_frame < until_frame) and (max_new is None or added < max_new):
-        chosen = choose_next(pool, last_seq, seed, previous)
-        try:
-            frames = frames_of(chosen)
-            if frames <= 0:
-                raise PlanError(f"{chosen.slug} measures {frames} frames")
-        except TransmitterError as exc:
-            on_skip(chosen, exc)
-            pool = [s for s in pool if s.slug != chosen.slug]
-            continue
-        row = PlanRow(seq=next_seq, slug=chosen.slug, dir=chosen.dir.name, key=chosen.key,
-                      start_frame=start, frames=frames, run_start=mark)
-        out.append(row)
-        last_seq[chosen.slug] = next_seq
-        next_seq += 1
-        added += 1
-        previous = chosen.slug
-        start, mark = row.end_frame + gap_frames, False
-    validate_rows(out)
-    return out
 
 
 def next_start(rows: Sequence[PlanRow], gap_frames: int) -> int:

@@ -1,0 +1,330 @@
+FF........................FFFFFFFFF                                      [100%]
+=================================== FAILURES ===================================
+______________ test_block_views_report_slip_fill_cause_and_bends _______________
+
+    def test_block_views_report_slip_fill_cause_and_bends():
+        rows = [row(0, "s1", 10, 50, miss=True, bends=("gap",)),               # starts 10 min late
+                row(1, "s2", 62, 40, fill="pool-short", bends=("era",)),
+                row(2, "id-x", 104, 1, kind="interstitial", role="id", block="b", nominal=NOM_B)]
+        proj = [planned("s3", 106, 60, miss=False)]
+        miss_ann = Needed("abc123", "Coming up", "next_one", "b", NOM_B)
+        views = report.block_views(rows, proj, CLOCK, EPOCH, missing=[miss_ann],
+                                   meta_of=lambda pkg: ("Band", "1977-05-08"))
+        a, b = views
+        assert (a.block, a.title, a.miss, a.persisted) == ("a", "Alpha", True, True)
+>       assert a.slip_minutes == 10 and a.start_local == "Mon 11-02 00:10"
+E       AssertionError: assert (10.000060466666667 == 10)
+E        +  where 10.000060466666667 = BlockView(block='a', title='Alpha', nominal_iso='2026-11-02T00:00:00Z', nominal_us=1793577600000000, nominal_local='Mo...', start_us=1793581320022494)), breaks=(), miss=True, degraded=False, bends=('gap', 'era'), missing=(), persisted=True).slip_minutes
+
+packages/transmitter/tests_transmitter/test_report.py:45: AssertionError
+_____________________________ test_summary_counts ______________________________
+
+    def test_summary_counts():
+        rows = [row(0, "s1", 10, 50, miss=True, bends=("gap",)),
+                row(1, "s2", 62, 40, fill="pool-short"),
+                row(2, "s3", 104, 30, fill="structural", miss=False, block="b", nominal=NOM_B, degraded=True),
+                row(3, "s4", 140, 20, miss=True, block="b", nominal=NOM_B, bends=("gap",))]   # not the first show
+        views = report.block_views(rows, [], CLOCK, EPOCH)
+        s = report.summary(views, 4 * 3_600_000_000)
+        assert s.misses == 1                                     # first-show rows only
+>       assert s.fill_minutes == {"pool-short": 40.0, "structural": 30.0}
+E       AssertionError: assert {'pool-short'...0018140589569} == {'pool-short'...ctural': 30.0}
+E         
+E         Differing items:
+E         {'structural': 30.00018140589569} != {'structural': 30.0}
+E         {'pool-short': 40.00024187452759} != {'pool-short': 40.0}
+E         Use -v to get more diff
+
+packages/transmitter/tests_transmitter/test_report.py:63: AssertionError
+_________________________ test_schedule_writes_nothing _________________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2958/test_schedule_writes_nothing0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d0aeed0>
+
+    def test_schedule_writes_nothing(tmp_path, monkeypatch):
+        tx, root, engine, cfg = _setup(tmp_path, monkeypatch, ids=("a",))
+        (tx / "clock.last-good.toml").write_text("# older\n" + _CLOCK)
+        before = _tree(tx)
+        result = CliRunner().invoke(app, ["schedule", "--days", "1", "--config", str(cfg)])
+>       assert result.exit_code == 0, result.output
+E       AssertionError: Usage: root [OPTIONS] COMMAND [ARGS]...
+E         Try 'root --help' for help.
+E         ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+E         │ No such command 'schedule'.                                                  │
+E         ╰──────────────────────────────────────────────────────────────────────────────╯
+E         
+E       assert 2 == 0
+E        +  where 2 = <Result SystemExit(2)>.exit_code
+
+packages/transmitter/tests_transmitter/test_cli.py:373: AssertionError
+____________ test_schedule_with_no_epoch_previews_and_creates_none _____________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2958/test_schedule_with_no_epoch_pr0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d64b930>
+
+    def test_schedule_with_no_epoch_previews_and_creates_none(tmp_path, monkeypatch):
+        tx, root, engine, cfg = _setup(tmp_path, monkeypatch, epoch=False)
+        result = CliRunner().invoke(app, ["schedule", "--days", "1", "--config", str(cfg)])
+>       assert result.exit_code == 0, result.output
+E       AssertionError: Usage: root [OPTIONS] COMMAND [ARGS]...
+E         Try 'root --help' for help.
+E         ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+E         │ No such command 'schedule'.                                                  │
+E         ╰──────────────────────────────────────────────────────────────────────────────╯
+E         
+E       assert 2 == 0
+E        +  where 2 = <Result SystemExit(2)>.exit_code
+
+packages/transmitter/tests_transmitter/test_cli.py:382: AssertionError
+________________________ test_schedule_marks_estimates _________________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2958/test_schedule_marks_estimates0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d383b60>
+
+    def test_schedule_marks_estimates(tmp_path, monkeypatch):
+        tx, root, engine, cfg = _setup(tmp_path, monkeypatch)
+        result = CliRunner().invoke(app, ["schedule", "--days", "1", "--config", str(cfg)])
+>       assert result.exit_code == 0, result.output
+E       AssertionError: Usage: root [OPTIONS] COMMAND [ARGS]...
+E         Try 'root --help' for help.
+E         ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+E         │ No such command 'schedule'.                                                  │
+E         ╰──────────────────────────────────────────────────────────────────────────────╯
+E         
+E       assert 2 == 0
+E        +  where 2 = <Result SystemExit(2)>.exit_code
+
+packages/transmitter/tests_transmitter/test_cli.py:391: AssertionError
+________________ test_schedule_lists_missing_announcement_audio ________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2958/test_schedule_lists_missing_an0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d64bee0>
+
+    def test_schedule_lists_missing_announcement_audio(tmp_path, monkeypatch):
+        tx, root, engine, cfg = _setup(tmp_path, monkeypatch, ids=("a",))
+        live = clock_mod.load_clock(tx / "clock.toml")
+        need = announce.needed(live, service.now_us(), 2)
+        assert need
+        have = need[0]
+        add_clip(root, f"ann-{have.id}.mp3")
+        result = CliRunner().invoke(app, ["schedule", "--days", "1", "--config", str(cfg)])
+>       assert result.exit_code == 0, result.output
+E       AssertionError: Usage: root [OPTIONS] COMMAND [ARGS]...
+E         Try 'root --help' for help.
+E         ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+E         │ No such command 'schedule'.                                                  │
+E         ╰──────────────────────────────────────────────────────────────────────────────╯
+E         
+E       assert 2 == 0
+E        +  where 2 = <Result SystemExit(2)>.exit_code
+
+packages/transmitter/tests_transmitter/test_cli.py:403: AssertionError
+_______________ test_schedule_draft_clock_and_delivered_library ________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2958/test_schedule_draft_clock_and_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d64b000>
+
+    def test_schedule_draft_clock_and_delivered_library(tmp_path, monkeypatch):
+        tx, root, engine, cfg = _setup(tmp_path, monkeypatch, clock=None)
+        draft = tmp_path / "draft.toml"
+        draft.write_text(_CLOCK)
+        build_package(root, "unvoiced-2005-11-09", voiced=False)
+        result = CliRunner().invoke(app, ["schedule", "--days", "1", "--clock", str(draft), "--library", "delivered",
+                                          "--config", str(cfg)])
+>       assert result.exit_code == 0, result.output
+E       AssertionError: Usage: root [OPTIONS] COMMAND [ARGS]...
+E         Try 'root --help' for help.
+E         ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+E         │ No such command 'schedule'.                                                  │
+E         ╰──────────────────────────────────────────────────────────────────────────────╯
+E         
+E       assert 2 == 0
+E        +  where 2 = <Result SystemExit(2)>.exit_code
+
+packages/transmitter/tests_transmitter/test_cli.py:416: AssertionError
+______________ test_library_reports_profiles_pool_and_ineligible _______________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2958/test_library_reports_profiles_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d64b690>
+
+    def test_library_reports_profiles_pool_and_ineligible(tmp_path, monkeypatch):
+        tx, root, engine, cfg = _setup(tmp_path, monkeypatch, ids=("hello",))
+        mark_awaiting_fix(build_package(root, "held-2005-11-05"))
+        build_package(root, "plain-2005-11-06", voiced=False)
+        add_clip(root, "ann-abc123def456.mp3")
+        result = CliRunner().invoke(app, ["library", "--config", str(cfg)])
+>       assert result.exit_code == 0, result.output
+E       AssertionError: Usage: root [OPTIONS] COMMAND [ARGS]...
+E         Try 'root --help' for help.
+E         ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+E         │ No such command 'library'.                                                   │
+E         ╰──────────────────────────────────────────────────────────────────────────────╯
+E         
+E       assert 2 == 0
+E        +  where 2 = <Result SystemExit(2)>.exit_code
+
+packages/transmitter/tests_transmitter/test_cli.py:427: AssertionError
+___________________ test_status_says_no_clock_open_all_week ____________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2958/test_status_says_no_clock_open0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d64b770>
+
+    def test_status_says_no_clock_open_all_week(tmp_path, monkeypatch):
+        tx, root, engine, cfg = _setup(tmp_path, monkeypatch, clock=None)
+        result = CliRunner().invoke(app, ["status", "--config", str(cfg)])
+        assert result.exit_code == 0, result.output
+>       assert "clock      no clock: open all week" in result.output
+E       assert 'clock      no clock: open all week' in "epoch      etest (2026-10-25T21:16:33.782Z)\nplan       empty\npublished  nothing yet\nfallback   none (run `transmit...lerts     hugo: none\ncloud      unavailable: set R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (the service's env file)\n"
+E        +  where "epoch      etest (2026-10-25T21:16:33.782Z)\nplan       empty\npublished  nothing yet\nfallback   none (run `transmit...lerts     hugo: none\ncloud      unavailable: set R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (the service's env file)\n" = <Result okay>.output
+
+packages/transmitter/tests_transmitter/test_cli.py:439: AssertionError
+____________________ test_status_reads_persisted_rows_only _____________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2958/test_status_reads_persisted_ro0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d6d8050>
+
+    def test_status_reads_persisted_rows_only(tmp_path, monkeypatch):
+        from transmitter import scheduler, pipeline
+        tx, root, engine, cfg = _setup(tmp_path, monkeypatch, ids=("a",))
+        loaded = service.load_config(cfg) if hasattr(service, "load_config") else None  # noqa: F841
+        from transmitter.config import load_config
+        st = service.open_station(load_config(cfg), service.now_us())
+        pipeline.plan_step(st, service.now_us())
+        n_analyzed = len(engine.analyzed)
+    
+        def boom(*a, **k):
+            raise AssertionError("status must not run the scheduler")
+    
+        monkeypatch.setattr(scheduler, "project", boom)
+        monkeypatch.setattr(service.station, "scan", boom)
+        result = CliRunner().invoke(app, ["status", "--config", str(cfg)])
+        assert result.exit_code == 0, result.output
+>       assert "clock      clock.toml" in result.output
+E       assert 'clock      clock.toml' in "epoch      etest (2026-10-25T21:16:33.850Z)\nplan       2 rows through 2026-10-25T22:23:02.388Z\non air     (between ...lerts     hugo: none\ncloud      unavailable: set R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (the service's env file)\n"
+E        +  where "epoch      etest (2026-10-25T21:16:33.850Z)\nplan       2 rows through 2026-10-25T22:23:02.388Z\non air     (between ...lerts     hugo: none\ncloud      unavailable: set R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (the service's env file)\n" = <Result okay>.output
+
+packages/transmitter/tests_transmitter/test_cli.py:459: AssertionError
+________________ test_status_names_the_show_not_the_clip_on_air ________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2958/test_status_names_the_show_not0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d6d9f60>
+
+    def test_status_names_the_show_not_the_clip_on_air(tmp_path, monkeypatch):
+        from transmitter.layout import PlanRow
+        from transmitter.planner import write_plan
+        tx, root, engine, cfg = _setup(tmp_path, monkeypatch)
+        now = service.now_us()
+        ws = Workspace(tx)
+        frame = (now - service.load_epoch(ws).epoch_us) * 44_100 // (1024 * 1_000_000)
+>       write_plan(ws.plan_path, [PlanRow(seq=0, slug="id-hello", dir="interstitials", key="k", start_frame=frame - 10,
+                                          frames=1000, run_start=True, kind="interstitial", role="id",
+                                          block="b00", nominal_start="2026-11-02T00:00:00Z")])
+
+packages/transmitter/tests_transmitter/test_cli.py:473: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+packages/transmitter/src/transmitter/planner.py:110: in write_plan
+    validate_rows(rows)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+rows = [PlanRow(seq=0, slug='id-hello', dir='interstitials', key='k', start_frame=155029, frames=1000, run_start=True, cut_fr...=None, degraded=False, fill=None, bends=(), names=(), package=None, announcement_broken=False, extra=mappingproxy({}))]
+
+    def validate_rows(rows: Sequence[PlanRow]) -> None:
+        prev = None
+        for r in rows:
+            if r.frames <= 0:
+                raise LayoutError(f"plan row {r.seq} ({r.slug}) has no frames")
+            if r.cut_frame is not None and not r.start_frame < r.cut_frame <= r.start_frame + r.frames:
+                raise LayoutError(f"plan row {r.seq} ({r.slug}) has a cut outside the show")
+            if r.run_start and r.start_frame % SEGMENT_FRAMES:
+>               raise LayoutError(f"plan row {r.seq} ({r.slug}) starts a run but is not segment-aligned")
+E               transmitter.errors.LayoutError: plan row 0 (id-hello) starts a run but is not segment-aligned
+
+packages/transmitter/src/transmitter/layout.py:111: LayoutError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_report.py::test_block_views_report_slip_fill_cause_and_bends
+FAILED packages/transmitter/tests_transmitter/test_report.py::test_summary_counts
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_writes_nothing
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_with_no_epoch_previews_and_creates_none
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_marks_estimates
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_lists_missing_announcement_audio
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_draft_clock_and_delivered_library
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_library_reports_profiles_pool_and_ineligible
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_status_says_no_clock_open_all_week
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_status_reads_persisted_rows_only
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_status_names_the_show_not_the_clip_on_air
+11 failed, 24 passed in 0.63s
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 41%]
+........................................................................ [ 49%]
+........................................................................ [ 57%]
+........................................................................ [ 65%]
+........................................................................ [ 73%]
+........................................................................ [ 82%]
+...............................F........................................ [ 90%]
+........................................................................ [ 98%]
+...s........                                                             [100%]
+=================================== FAILURES ===================================
+_____________ test_status_shows_the_cloud_state_and_active_alerts ______________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2960/test_status_shows_the_cloud_st0')
+
+    def test_status_shows_the_cloud_state_and_active_alerts(tmp_path):
+        import json as _json
+    
+        st = _with_epoch(make_station(tmp_path)[0])
+        (st.ws.root / "alerts.json").write_text(_json.dumps({"dead-clock": {"active": True}, "render": {"active": False},
+                                                             "publish": {"active": True, "last_fired_at": 0.0}}))
+        docs = {
+            "state/guard.json": {"schema": 1, "tripped": True, "reason": "blind", "tripped_at": "2026-10-20T06:00:00.000Z",
+                                 "last_error": "analytics: HTTP 503", "last_success": "2026-10-20T00:00:00.000Z",
+                                 "waf": {"enabled": True, "error": None}, "period": None, "evaluation": None,
+                                 "since": "2026-10-20T06:00:00.000Z", "tripped_period_start": None,
+                                 "tripped_budget_usd": None, "evaluated_at": None},
+            "state/offair.json": {"offair": True, "reason": "objection", "since": "2026-10-20T05:00:00.000Z", "until": None},
+            "state/alerts.json": {"tripped-blind": {"active": True}},
+        }
+        lines = service.status_lines(st.cfg, NOW, cloud=docs.get)
+        text = "\n".join(lines)
+        assert "alerts     hugo: dead-clock" in lines           # the 1970 publish event has gone stale
+        assert "guard      TRIPPED (blind)" in text and "reading    failing since 2026-10-20T00:00:00.000Z" in text
+        assert "killswitch enabled" in text
+        assert "offair     ON since 2026-10-20T05:00:00.000Z (objection)" in text
+        assert "alerts     cloud: tripped-blind" in text
+>       assert "anchors    none" in text
+E       AssertionError: assert 'anchors    none' in 'epoch      etest (2096-10-02T07:06:40.000Z)\nplan       empty\npublished  nothing yet\nfallback   none (run `transmit...TTP 503\nkillswitch enabled\noffair     ON since 2026-10-20T05:00:00.000Z (objection)\nalerts     cloud: tripped-blind'
+
+packages/transmitter/tests_transmitter/test_service.py:589: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_shows_the_cloud_state_and_active_alerts
+1 failed, 874 passed, 1 skipped in 30.46s
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 41%]
+........................................................................ [ 49%]
+........................................................................ [ 57%]
+........................................................................ [ 65%]
+........................................................................ [ 73%]
+........................................................................ [ 82%]
+........................................................................ [ 90%]
+........................................................................ [ 98%]
+.....s........                                                           [100%]
+877 passed, 1 skipped in 29.60s
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 41%]
+........................................................................ [ 49%]
+........................................................................ [ 57%]
+........................................................................ [ 65%]
+........................................................................ [ 73%]
+........................................................................ [ 82%]
+........................................................................ [ 90%]
+........................................................................ [ 98%]
+.....s........                                                           [100%]
+877 passed, 1 skipped in 30.35s

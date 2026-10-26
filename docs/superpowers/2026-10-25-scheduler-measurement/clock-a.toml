@@ -1,0 +1,44 @@
+# Clock (a): the naive script's five anchors in the clock format.
+# 07:00 dead, 12:00 bluegrass, 19:00 dead daily; Saturday 22:30 funk; Sunday 15:00 dead-family.
+# The parent's window semantics: a block starts in [nominal, nominal + 15 min].
+timezone = "America/New_York"
+
+[open]
+exclude_profiles = ["dead", "funk", "dead-family"]
+
+[[block]]
+name = "dead-am"
+start = "07:00"
+profiles = ["dead"]
+early_minutes = 0
+late_minutes = 15
+
+[[block]]
+name = "bluegrass"
+start = "12:00"
+profiles = ["bluegrass"]
+early_minutes = 0
+late_minutes = 15
+
+[[block]]
+name = "dead-pm"
+start = "19:00"
+profiles = ["dead"]
+early_minutes = 0
+late_minutes = 15
+
+[[block]]
+name = "funk"
+start = "22:30"
+days = ["sat"]
+profiles = ["funk"]
+early_minutes = 0
+late_minutes = 15
+
+[[block]]
+name = "dead-family"
+start = "15:00"
+days = ["sun"]
+profiles = ["dead-family"]
+early_minutes = 0
+late_minutes = 15

@@ -1,0 +1,11 @@
+check exit 0
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/scheduler/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  19:13:38
+   Duration  453ms (transform 58%, import 19%, worker 15%, tests 8%)
+
+vitest exit 0

@@ -1,0 +1,8 @@
+/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py
+otdw inf REJECTED ConfigError
+wiggle nan REJECTED ConfigError
+otd nan REJECTED ConfigError
+gap 0 LOADS concert_gap_days=0.0 on_this_day_weight=3.0 None []
+gap 1e308 LOADS concert_gap_days=1e+308 on_this_day_weight=3.0 None []
+weight 1e308 LOADS concert_gap_days=45 on_this_day_weight=3.0 None [Prefer(years='1977', on_this_day=None, weight=1e+308), Prefer(years=None, on_this_day=1e+308, weight=1.0)]
+max_shows huge LOADS concert_gap_days=45 on_this_day_weight=3.0 9223372036854775807 []

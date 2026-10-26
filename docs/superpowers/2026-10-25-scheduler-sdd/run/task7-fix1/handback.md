@@ -1,0 +1,5 @@
+# Task 7 fix round 1
+Status: DONE. Commit: see git log -1 (history fix round 1).
+Changes: (1) append writes "\n" first when file does not end in one; (2) AiredRow.from_json validates ints/strings/ISO (raises -> load skips with warning); (3) service history step raises (alerts `history`) when PublishState.epoch_id != station epoch; (4) service wiring tests: after-publish sees advanced last, uses .last not high_water, not in `ran`, no "alert end_observation failed" in caplog; (5) boundary test now == end instant; (6) Recency indexed by dicts (package, clip slug, local date), with_piece copy-on-write, `count` field replaces `uses`; (7) year via pieces._date_parts, non-string date -> None; (8) local_date is datetime.date, datetime/str raises TypeError.
+RED (log): 5 failed (partial line, unusable rows, datetime TypeError, non-string date, epoch guard). GREEN: ./.venv/bin/python -m pytest packages/transmitter/tests_transmitter -q -> 693 passed, 1 skipped.
+Note: mutants 1-3 of item 4 are pinned by the new tests by construction (not mutation-run).

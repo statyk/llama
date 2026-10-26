@@ -1,0 +1,68 @@
+[review] running full transmitter suite at HEAD
+/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py
+........................................................................ [ 82%]
+........................................................................ [ 90%]
+........................................................................ [ 98%]
+.....s........                                                           [100%]
+877 passed, 1 skipped in 29.39s
+[review] mutants wave 1
+== M0: FAILED ../m/M0/transmitter/tests_transmitter/test_cli.py::test_publish_exits_zero_when_clean_or_empty
+FAILED ../m/M0/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_put_budget_stops_it
+FAILED ../m/M0/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_guard_is_tripped
+FAILED ../m/M0/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_until_a_fallback_is_rendered
+FAILED ../m/M0/transmitter/tests_transmitter/test_cli.py::test_fallback_render_on_a_fresh_workspace_then_run_publishes_with_its_version
+FAILED ../m/M0/transmitter/tests_transmitter/test_cli.py::test_run_installs_the_alert_dispatcher_and_clears_it_afterwards
+FAILED ../m/M0/transmitter/tests_transmitter/test_cli.py::test_run_hands_the_runner_the_dead_clock_monitor
+10 failed, 28 passed in 1.34s
+== M0: 107 passed in 2.71s
+predict M1: red test_schedule_writes_nothing (last-good rewritten / alerts)
+== M1: FAILED ../m/M1/packages/transmitter/tests_transmitter/test_cli.py::test_schedule_writes_nothing
+1 failed, 106 passed in 2.02s
+predict M2: red test_schedule_writes_nothing (engine.analyzed non-empty)
+== M2: FAILED ../m/M2/packages/transmitter/tests_transmitter/test_cli.py::test_schedule_writes_nothing
+1 failed, 106 passed in 2.01s
+predict M3: red test_schedule_with_no_epoch_previews_and_creates_none
+== M3: FAILED ../m/M3/packages/transmitter/tests_transmitter/test_cli.py::test_schedule_with_no_epoch_previews_and_creates_none
+1 failed, 106 passed in 2.17s
+predict M4: SURVIVE expected (gap: no status write-snapshot test)
+== M4: 107 passed in 2.14s
+predict M5: red test_status_reads_persisted_rows_only
+== M5: FAILED ../m/M5/packages/transmitter/tests_transmitter/test_cli.py::test_status_reads_persisted_rows_only
+1 failed, 106 passed in 2.20s
+predict M7: SURVIVE expected (status counts unpinned)
+== M7: 107 passed in 2.16s
+predict M8: SURVIVE expected
+== M8: 107 passed in 2.15s
+predict M9: red test_status_names_the_show_not_the_clip_on_air
+== M9: FAILED ../m/M9/packages/transmitter/tests_transmitter/test_cli.py::test_status_names_the_show_not_the_clip_on_air
+1 failed, 106 passed in 2.18s
+predict M10: red test_schedule_marks_estimates
+== M10: FAILED ../m/M10/packages/transmitter/tests_transmitter/test_cli.py::test_schedule_marks_estimates
+1 failed, 106 passed in 2.23s
+predict M11: red test_schedule_lists_missing_announcement_audio
+== M11: FAILED ../m/M11/packages/transmitter/tests_transmitter/test_cli.py::test_schedule_lists_missing_announcement_audio
+1 failed, 106 passed in 2.19s
+predict M12: SURVIVE expected
+== M12: 107 passed in 2.16s
+predict M14: red test_time_one_prints_the_reasons_for_a_package_in_its_quiet_period
+== M14: E       assert (1 == 1 and 'not eligible' in "error: package 'fresh-2005-11-01' is not eligible: ?\n" and 'fresh-2005-11-01' in "error: package 'fresh-2005-11-01' is not eligible: ?\n" and 'quiet' in "error: package 'fresh-2005-11-01' is not eligible: ?\n")
+E        +  where "error: package 'fresh-2005-11-01' is not eligible: ?\n" = <built-in method lower of str object at 0x10b400210>()
+E        +    where <built-in method lower of str object at 0x10b400210> = "error: package 'fresh-2005-11-01' is not eligible: ?\n".lower
+FAILED ../m/M14/packages/transmitter/tests_transmitter/test_probe_estimates.py::test_time_one_prints_the_reasons_for_a_package_in_its_quiet_period
+1 failed, 106 passed in 2.16s
+predict M15: SURVIVE expected (next block can name the current block)
+== M15: 107 passed in 2.18s
+predict M16: red test_summary_counts
+== M16: FAILED ../m/M16/packages/transmitter/tests_transmitter/test_report.py::test_summary_counts
+1 failed, 106 passed in 2.19s
+predict M17: SURVIVE expected
+== M17: 107 passed in 2.17s
+predict M18: SURVIVE expected
+== M18: 107 passed in 2.16s
+predict M19: SURVIVE expected (no schedule test has a persisted plan)
+== M19: 107 passed in 2.10s
+predict M20: SURVIVE expected
+== M20: 107 passed in 2.15s
+predict M21: SURVIVE expected (history unpinned)
+== M21: 107 passed in 2.15s
+[review] mutants done; writing report

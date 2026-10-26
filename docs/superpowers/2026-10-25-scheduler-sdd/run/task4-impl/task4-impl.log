@@ -1,0 +1,8 @@
+E   ModuleNotFoundError: No module named 'transmitter.clock'
+=========================== short test summary info ============================
+ERROR packages/transmitter/tests_transmitter/test_clock.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.06s
+........................................................................ [ 90%]
+...................................................s........             [100%]
+635 passed, 1 skipped in 15.90s

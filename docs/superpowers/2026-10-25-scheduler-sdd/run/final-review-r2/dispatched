@@ -1,0 +1,4 @@
+budget-min: 120
+role: reviewer
+model: fable
+what: Final whole-branch review r2 (Fable)

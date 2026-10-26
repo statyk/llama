@@ -1,0 +1,193 @@
+== baseline suite Sun Oct 25 17:25:16 EDT 2026
+........................................................................ [ 80%]
+........................................................................ [ 89%]
+........................................................................ [ 98%]
+.......s........                                                         [100%]
+807 passed, 1 skipped in 24.30s
+== RED: AiredRow.package type check
+>       assert len(got) == 1 and len(caplog.records) == len(bad)
+E       AssertionError: assert (4 == 1)
+E        +  where 4 = len([AiredRow(epoch_id='etest', start_frame=0, end_frame=441, kind='show', slug='s0', package='s0', block=None, nominal_st...lse, fill=None, bends=(), announcement_broken=False, start='2096-10-02T07:06:40.000Z', end='2096-10-02T07:06:50.240Z')])
+
+packages/transmitter/tests_transmitter/test_history.py:127: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2880/test_unusable_rows_are_skipped0/aired.jsonl line 2 skipped: TypeError: start must be a non-empty ISO string, got ''
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2880/test_unusable_rows_are_skipped0/aired.jsonl line 3 skipped: TypeError: start_frame must be an int, got '0'
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2880/test_unusable_rows_are_skipped0/aired.jsonl line 4 skipped: TypeError: end_frame must be an int, got True
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2880/test_unusable_rows_are_skipped0/aired.jsonl line 5 skipped: ValueError: Invalid isoformat string: 'garbage'
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2880/test_unusable_rows_are_skipped0/aired.jsonl line 6 skipped: TypeError: slug must be a string, got 5
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2880/test_unusable_rows_are_skipped0/aired.jsonl line 7 skipped: TypeError: start must be a non-empty ISO string, got None
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_history.py::test_unusable_rows_are_skipped_not_loaded
+1 failed, 11 passed in 0.10s
+== GREEN: history
+............                                                             [100%]
+12 passed in 0.48s
+.......s........                                                         [100%]
+807 passed, 1 skipped in 23.72s
+== RED: new pipeline tests (before implementation)
+        st.ws.plan_path.write_text(text)
+        new = pipeline.plan_step(st, NOW)
+        assert new[:2] == old and len(new) > 2
+        assert st.ws.plan_path.read_text().startswith(text)                # phase-1 rows byte-identical
+>       assert all(r.block is not None for r in new[2:])
+E       assert False
+E        +  where False = all(<generator object test_scenario_phase1_plan_extended.<locals>.<genexpr> at 0x1093ba670>)
+
+packages/transmitter/tests_transmitter/test_pipeline.py:1079: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_written_rows_always_carry_exact_frames
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_run2_pick_unanalysed_falls_back_to_run1
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_run2_pick_is_appended_when_analysed
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_an_exact_run1_pick_is_appended_without_a_second_run
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_appended_rows_obey_the_gap_layout
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_multi_row_extend_never_repeats_a_show_or_id_while_alternatives_exist
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_extend_feeds_the_watchdog_after_each_projection
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_append_only_under_a_clock_edit
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_invalid_clock_alerts_and_plans_with_last_good
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_no_clock_plans_on_the_implicit_open_block
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_render_skips_a_vanished_interstitial_and_moves_on
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_render_skips_a_row_of_unknown_kind
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_render_replan_cap
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_interstitial_rows_are_rendered_from_the_clip_folder
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_announcement_broken_marked_on_the_named_blocks_first_show
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_announcement_kept_or_not_made_is_not_broken
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_clock_edit_mid_fill
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_skip_path_drops_an_interstitial_and_a_show
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_phase1_plan_extended
+19 failed, 41 passed in 3.25s
+   1 E       AssertionError: assert ([] == []
+   1 E       AssertionError: assert ({None} == {'open'}
+   1 E       AssertionError: assert (True and False)
+   1 E       AttributeError: 'NoneType' object has no attribute 'startswith'
+   9 E       AttributeError: 'Station' object has no attribute 'scan_pieces'
+   1 E       AttributeError: module 'transmitter.pipeline' has no attribute 'project'
+   1 E       TypeError: 'NoneType' object is not subscriptable
+== GREEN: full suite after implementation
+........................................................................ [ 95%]
+..........................s........                                      [100%]
+826 passed, 1 skipped in 28.35s
+== full suite before commit 2
+...........................s........                                     [100%]
+827 passed, 1 skipped in 29.26s
+implicit: one row 0.393s (1 projection); 24h fill 21 rows in 6.14s, 21 projections, mean 0.293s max 0.421s
+short-block: one row 0.005s (1 projection); 24h fill 27 rows in 0.10s, 27 projections, mean 0.004s max 0.005s
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/base/packages/transmitter/src/transmitter/__init__.py
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/base/packages/transmitter/tests_transmitter/__init__.py
+== mutation baseline (unmutated copy)
+64 passed in 6.77s
+== mutant 1; predicted red: test_append_only_under_a_clock_edit
+mutant 1 applied
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/m1/packages/transmitter/src/transmitter/pipeline.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/m1/packages/transmitter/tests_transmitter/__init__.py
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_recovers_after_an_outage
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_replans_a_changed_package
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_excludes_a_package_no_longer_eligible
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_skips_a_show_that_fails_to_encode
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_the_second_mismatch_rule_is_per_slug
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_the_second_mismatch_rule_is_per_slug_for_package_changes
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_recovery_cuts_at_the_high_water_mark
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_at_least_one_row_per_step_while_short
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_appended_rows_obey_the_gap_layout
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_append_only_under_a_clock_edit
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_invalid_clock_alerts_and_plans_with_last_good
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_skips_a_vanished_interstitial_and_moves_on
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_drops_a_changed_clip_for_the_rest_of_the_call
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_skips_a_row_of_unknown_kind
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_replan_cap
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_announcement_broken_marked_on_the_named_blocks_first_show
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_announcement_kept_or_not_made_is_not_broken
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_clock_edit_mid_fill
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_skip_path_drops_an_interstitial_and_a_show
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_show_gap_seconds_change
+FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_phase1_plan_extended
+21 failed, 43 passed in 5.21s
+== mutant 2; predicted red: test_written_rows_always_carry_exact_frames
+mutant 2 applied
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/m2/packages/transmitter/src/transmitter/pipeline.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/m2/packages/transmitter/tests_transmitter/__init__.py
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_writes_grid_segments_up_to_the_lead
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_fills_the_show_gap_with_silence
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_replans_a_changed_package
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_excludes_a_package_no_longer_eligible
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_skips_a_show_that_fails_to_encode
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_reencodes_a_lost_encode_of_an_unchanged_show_on_air
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_refuses_to_replan_a_show_already_on_air[changed]
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_refuses_to_replan_a_show_already_on_air[ineligible]
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_refuses_to_replan_a_show_already_on_air[render-fails]
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_refuses_to_replan_a_show_already_on_air[frames-changed]
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_replans_when_planned_frames_change
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_recovery_with_nothing_eligible_touches_nothing
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_writes_nothing_while_recovery_is_pending
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_without_a_plan_resumes_after_published_keys
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_one_package_station_replans_in_place_on_a_frame_count_change
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_one_package_station_replans_in_place_after_a_revoice
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_a_show_mismatching_twice_in_one_call_is_excluded
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_the_second_mismatch_rule_is_per_slug
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_the_second_mismatch_rule_is_per_slug_for_package_changes
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_recovery_cuts_at_the_high_water_mark
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_does_not_recover_while_r2_may_list_past_now
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_written_rows_always_carry_exact_frames
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_run2_pick_unanalysed_falls_back_to_run1
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_run2_pick_is_appended_when_analysed
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_multi_row_extend_never_repeats_a_show_or_id_while_alternatives_exist
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_skips_a_vanished_interstitial_and_moves_on
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_drops_a_changed_clip_for_the_rest_of_the_call
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_skips_a_row_of_unknown_kind
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_replan_cap
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_interstitial_rows_are_rendered_from_the_clip_folder
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_clock_edit_mid_fill
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_skip_path_drops_an_interstitial_and_a_show
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_recovery_after_a_guard_stop_longer_than_the_lead
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_phase1_plan_extended
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_crash_between_append_and_render
+35 failed, 29 passed in 7.74s
+== mutant 3; predicted red: test_appended_rows_obey_the_gap_layout
+mutant 3 applied
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/m3/packages/transmitter/src/transmitter/pipeline.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/m3/packages/transmitter/tests_transmitter/__init__.py
+FAILED ../m3/packages/transmitter/tests_transmitter/test_pipeline.py::test_appended_rows_obey_the_gap_layout
+1 failed, 63 passed in 7.58s
+== mutant 4; predicted red: test_append_only_under_a_clock_edit
+mutant 4 applied
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/m4/packages/transmitter/src/transmitter/pipeline.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/m4/packages/transmitter/tests_transmitter/__init__.py
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_nothing_eligible_is_a_plan_error_only_when_planning_is_needed
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_recovers_after_an_outage
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_replans_a_changed_package
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_excludes_a_package_no_longer_eligible
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_skips_a_show_that_fails_to_encode
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_the_second_mismatch_rule_is_per_slug
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_the_second_mismatch_rule_is_per_slug_for_package_changes
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_recovery_cuts_at_the_high_water_mark
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_at_least_one_row_per_step_while_short
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_appended_rows_obey_the_gap_layout
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_append_only_under_a_clock_edit
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_invalid_clock_alerts_and_plans_with_last_good
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_skips_a_vanished_interstitial_and_moves_on
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_drops_a_changed_clip_for_the_rest_of_the_call
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_skips_a_row_of_unknown_kind
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_replan_cap
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_announcement_broken_marked_on_the_named_blocks_first_show
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_announcement_kept_or_not_made_is_not_broken
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_clock_edit_mid_fill
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_skip_path_drops_an_interstitial_and_a_show
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_show_gap_seconds_change
+FAILED ../m4/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_phase1_plan_extended
+22 failed, 42 passed in 5.54s
+E       Failed: DID NOT RAISE LayoutError
+../m3/packages/transmitter/tests_transmitter/test_pipeline.py:840: Failed
+== mutant 3b (guard removed, extend starts each appended row at prev.end); predicted red: test_appended_rows_obey_the_gap_layout
+mutant 3b done
+mutant 3b applied
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mut/m3b/packages/transmitter/src/transmitter/pipeline.py
+FAILED ../m3b/packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_starts_a_run_ahead_of_now
+FAILED ../m3b/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_fills_the_show_gap_with_silence
+FAILED ../m3b/packages/transmitter/tests_transmitter/test_pipeline.py::test_appended_rows_obey_the_gap_layout
+FAILED ../m3b/packages/transmitter/tests_transmitter/test_pipeline.py::test_multi_row_extend_never_repeats_a_show_or_id_while_alternatives_exist
+FAILED ../m3b/packages/transmitter/tests_transmitter/test_pipeline.py::test_append_only_under_a_clock_edit
+FAILED ../m3b/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_skips_a_vanished_interstitial_and_moves_on
+FAILED ../m3b/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_skip_path_drops_an_interstitial_and_a_show
+FAILED ../m3b/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_recovery_after_a_guard_stop_longer_than_the_lead
+FAILED ../m3b/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_show_gap_seconds_change
+FAILED ../m3b/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_phase1_plan_extended
+10 failed, 54 passed in 5.86s
+== extra mutant 5 (a changed clip re-planned in place, not excluded); predicted red: test_render_drops_a_changed_clip_for_the_rest_of_the_call
+FAILED ../m5/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_drops_a_changed_clip_for_the_rest_of_the_call
+1 failed, 63 passed in 6.71s
