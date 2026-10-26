@@ -124,11 +124,17 @@ OUTRO_1974_05_19 = (  # gratefuldead-1974-05-19 outro, verbatim (spec section 4)
     "the shelf and see what it remembers.")
 
 
-@pytest.mark.parametrize("token", ["U.S.", "D.C.", "L.A.", "B.B.", "K.C.", "U.K."])
+@pytest.mark.parametrize("token", ["U.S.", "D.C.", "L.A.", "B.B.", "K.C.", "U.K.", "U.S. B.B."])
 def test_split_keeps_dotted_abbreviation_with_what_follows(token):
     # Prefix >= 20 chars so the short-fragment merge cannot be the reason.
     text = f"Tonight the band played a long version of {token} Blues for the crowd."
     assert _split_sentences(text) == [text]
+
+
+def test_split_trailing_dotted_abbreviation_keeps_its_sentence():
+    t = "The first sentence is long enough here. We played in Washington D.C."
+    assert _split_sentences(t) == [
+        "The first sentence is long enough here.", "We played in Washington D.C."]
 
 
 def test_split_real_sentence_end_after_dotted_abbreviation_is_harmless():
@@ -226,6 +232,22 @@ def test_plan_chunks_outro_respects_ceiling_except_single_pieces():
     pieces = set(_split_sentences(OUTRO_1974_05_19))
     for c in plan_chunks(OUTRO_1974_05_19, 250):
         assert len(c) <= 250 or c in pieces
+
+
+def test_plan_chunks_short_paragraph_stays_apart_from_a_packed_long_one():
+    sents = [f"Sentence number {i} keeps the long paragraph rolling on." for i in range(6)]
+    short = "Short opening paragraph here."
+    # Each pair is 109 chars (<= 120); short + one sentence + another would be 139.
+    assert plan_chunks(short + "\n\n" + " ".join(sents), 120) == [
+        short, " ".join(sents[0:2]), " ".join(sents[2:4]), " ".join(sents[4:6])]
+
+
+def test_plan_chunks_consecutive_tiny_paragraphs_all_join_the_chunk_before():
+    a = "Alpha paragraph is long enough."
+    b = "Bravo paragraph is long enough too."
+    # Ceiling 15: nothing combines, so both tiny middle chunks must fold back in turn.
+    assert plan_chunks(f"{a}\n\nHi there.\n\nOkay then.\n\n{b}", 15) == [
+        f"{a} Hi there. Okay then.", b]
 
 
 def test_plan_chunks_whitespace_only():
