@@ -1010,7 +1010,7 @@ def test_room_tone_applied_only_when_enabled(monkeypatch):
     assert seen == [text]
 
 
-def _key(text, chunking, monkeypatch=None):
+def _key(text, chunking):
     from emcee.audio import _render_key
     return _render_key(text, FakeSpeechProvider(), chunking=chunking, bed_key="", loud_key="")
 
@@ -1045,10 +1045,16 @@ def test_unchunked_collapses_whitespace_before_send_and_locate():
     speech = FakeSpeechProvider()
     render_speech_mp3(f"{P1}\n\n{P2}", speech, chunking=None)
     assert speech.calls == [f"{P1} {P2}"]
+    # A wrap inside a sentence: only collapsing BEFORE _locate_block keeps the
+    # probe calls newline-free (a break after a period is split away anyway).
+    wrapped = "Tonight we go back to Portland in the\nspring of 1974. The band was on fire.\n\n" \
+              "Listen for the long\njam after Truckin'. It stretches out and turns quiet."
     blocked = FakeSpeechProvider(block="long jam")
-    with pytest.raises(SpeechBlocked):
-        render_speech_mp3(f"{P1}\n\n{P2}", blocked, chunking=None)
-    assert blocked.calls and all("\n" not in c for c in blocked.calls)
+    with pytest.raises(SpeechBlocked) as ei:
+        render_speech_mp3(wrapped, blocked, chunking=None)
+    assert len(blocked.calls) > 1  # the whole passage, then the locating probes
+    assert all("\n" not in c for c in blocked.calls)
+    assert "\n" not in ei.value.text
 
 
 def test_process_package_forwards_configured_chunk_chars_and_room_tone(tmp_path, monkeypatch):
