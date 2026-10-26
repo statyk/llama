@@ -102,6 +102,55 @@ def _split_sentences(text: str) -> list[str]:
     return sentences or [text.strip()]
 
 
+def _greedy(items: list[str], ceiling: int) -> list[str]:
+    """Join consecutive items with one space while the result stays within `ceiling`."""
+    out: list[str] = []
+    for item in items:
+        if out and len(out[-1]) + 1 + len(item) <= ceiling:
+            out[-1] = f"{out[-1]} {item}"
+        else:
+            out.append(item)
+    return out
+
+
+def plan_chunks(text: str, ceiling: int) -> list[str]:
+    """Plan the provider calls for one segment: paragraph-aware chunks.
+
+    Blank-line paragraph breaks (CRLF included) are the only boundaries the
+    script's author marked, so they are preferred. A paragraph within `ceiling`
+    is one unit; a longer one is split into sentences and packed greedily
+    (a lone sentence over the ceiling stays whole). Units then combine greedily
+    up to `ceiling`, and any chunk shorter than `_MIN_FRAGMENT_LEN` joins its
+    neighbour even past the ceiling, since a tiny context-free clip makes the
+    backend hallucinate. Every chunk is newline-free (single newlines are
+    wraps, collapsed to spaces); whitespace-only text returns `[""]`.
+    """
+    paragraphs = [" ".join(p.split()) for p in re.split(r"\n\s*\n", text)]
+    units: list[str] = []
+    for para in paragraphs:
+        if not para:
+            continue
+        if len(para) <= ceiling:
+            units.append(para)
+        else:
+            units.extend(_greedy(_split_sentences(para), ceiling))
+    if not units:
+        return [""]
+    chunks = _greedy(units, ceiling)
+    i = 0
+    while i < len(chunks) and len(chunks) > 1:
+        if len(chunks[i]) < _MIN_FRAGMENT_LEN:
+            if i > 0:
+                chunks[i - 1] = f"{chunks[i - 1]} {chunks[i]}"
+                del chunks[i]
+                continue  # the grown chunk is already past the minimum
+            chunks[1] = f"{chunks[0]} {chunks[1]}"
+            del chunks[0]
+            continue
+        i += 1
+    return chunks
+
+
 def _bitrate_for_rate(framerate: int) -> int:
     """LAME bitrate for a given PCM sample rate, tuned for mono speech.
 

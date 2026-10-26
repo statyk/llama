@@ -27,6 +27,7 @@ from emcee.audio import (
     _bitrate_for_rate,
     _split_sentences,
     _synthesize_chunked,
+    plan_chunks,
     render_speech_mp3,
 )
 from emcee.config import EmceeConfig, TTSConfig
@@ -142,6 +143,93 @@ def test_split_outro_keeps_us_blues_without_gluing_three_sentences():
     # The pre-pass runs before the short-fragment merge: the "Saturday Night." sentence and
     # the "U.S. Blues" sentence stay separate pieces (no ~500-character piece).
     assert max(len(p) for p in pieces) < 320
+
+
+# ---------------------------------------------------------------------------
+# plan_chunks
+# ---------------------------------------------------------------------------
+
+P1 = "Tonight we go back to Portland in the spring of 1974. The band was on fire."      # 75
+P2 = "Listen for the long jam after Truckin'. It stretches out and turns quiet."        # 73
+LONG = " ".join([f"Sentence number {i} keeps the long paragraph rolling along." for i in range(8)])
+
+
+def test_plan_chunks_paragraphs_that_fit_share_a_chunk():
+    assert plan_chunks(f"{P1}\n\n{P2}", 250) == [f"{P1} {P2}"]
+
+
+def test_plan_chunks_paragraph_combined_only_when_it_fits():
+    assert plan_chunks(f"{P1}\n\n{P2}", 100) == [P1, P2]
+
+
+def test_plan_chunks_single_newline_is_a_space_two_or_more_are_a_break():
+    assert plan_chunks("Line one of a wrapped file\ncontinues here on line two.", 250) == [
+        "Line one of a wrapped file continues here on line two."]
+    assert plan_chunks(f"{P1}\n \n\n{P2}", 100) == [P1, P2]
+
+
+def test_plan_chunks_a_wrap_inside_a_long_sentence_is_not_a_boundary():
+    # Ceiling 30 < the 54-char sentence: a single newline must not become a paragraph break.
+    assert plan_chunks("Line one of a wrapped file\ncontinues here on line two.", 30) == [
+        "Line one of a wrapped file continues here on line two."]
+    wrapped = ("The jam after Truckin' stretches out for a long while and\nturns quiet "
+               "before it settles into Not Fade Away. Then the band\nheads down the road "
+               "and into One More Saturday Night to close.")
+    assert all(c.endswith(".") for c in plan_chunks(wrapped, 60))
+
+
+def test_plan_chunks_crlf_breaks_and_no_carriage_returns():      # Review Focus 1
+    chunks = plan_chunks(f"{P1}\r\n\r\n{P2}", 100)
+    assert chunks == [P1, P2]
+
+
+def test_plan_chunks_blank_trailing_paragraphs_make_no_empty_chunk():  # Review Focus 2
+    assert plan_chunks(f"{P1}\n\n   \n\n", 250) == [P1]
+
+
+def test_plan_chunks_long_paragraph_packs_sentences_never_splits_one():
+    chunks = plan_chunks(LONG, 130)
+    assert all(len(c) <= 130 for c in chunks)
+    assert " ".join(chunks) == LONG
+    assert all(c.endswith(".") for c in chunks)
+
+
+def test_plan_chunks_sentence_longer_than_ceiling_is_sent_whole():
+    big = "This one sentence " + "goes on and on " * 20 + "until it finally ends."
+    assert plan_chunks(big, 100) == [big]
+
+
+def test_plan_chunks_no_paragraphs_packs_plain_sentences():
+    assert plan_chunks(LONG, 250) == plan_chunks(LONG.replace(". ", ".\n"), 250)
+
+
+def test_plan_chunks_tiny_chunk_joins_its_neighbour_past_the_ceiling():
+    text = f"{P1}\n\nHere's set two.\n\n{P2}"           # 15-char middle paragraph
+    chunks = plan_chunks(text, 80)
+    assert chunks == [f"{P1} Here's set two.", P2]
+
+
+def test_plan_chunks_tiny_first_chunk_joins_the_next():
+    assert plan_chunks(f"Good evening.\n\n{P1}", 80) == [f"Good evening. {P1}"]
+
+
+def test_plan_chunks_whole_short_segment_is_one_chunk():          # Review Focus 3
+    assert plan_chunks("Here's set two.", 250) == ["Here's set two."]
+
+
+def test_plan_chunks_never_contains_a_newline():
+    text = f"{P1}\n{P2}\n\n{LONG}\n"
+    assert all("\n" not in c and "\r" not in c for c in plan_chunks(text, 120))
+
+
+def test_plan_chunks_outro_respects_ceiling_except_single_pieces():
+    pieces = set(_split_sentences(OUTRO_1974_05_19))
+    for c in plan_chunks(OUTRO_1974_05_19, 250):
+        assert len(c) <= 250 or c in pieces
+
+
+def test_plan_chunks_whitespace_only():
+    assert plan_chunks("  \n\n ", 250) == [""]
 
 
 # ---------------------------------------------------------------------------
