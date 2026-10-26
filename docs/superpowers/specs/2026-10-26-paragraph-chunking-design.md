@@ -1,6 +1,6 @@
 # Paragraph-aware chunking, room tone, and the abbreviation split (emcee)
 
-Status: draft, revised after spec review round 1, 2026-10-26.
+Status: reviewed (two rounds), ready for planning, 2026-10-26.
 Review mode: **Opus**.
 
 ## Why
@@ -44,8 +44,9 @@ calls, and the chunk size shapes every request). It adds no re-render spend:
 `process_package` writes a new script on every voicing, so with a real LLM every clip
 re-renders on every voicing whatever the cache key says; in practice the key matters
 within one call (repair rounds, the `rendered` set, `--force`). **Strict surfaces:**
-the content-filter recovery path (`_locate_block` and the `rephrase` repair) must keep
-working sentence by sentence; a regression there can make a blocked show unvoiceable.
+the content-filter recovery path (`_locate_block`, section 5's in-chunk narrowing and
+fallback, and the `rephrase` repair) must keep working sentence by sentence; a
+regression there can make a blocked show unvoiceable.
 The render-cache key must change whenever the rendered audio would change; a stale
 hit ships old audio for new text. Leaving it unchanged otherwise is preferred, but
 buys little given re-scripting.
@@ -101,13 +102,24 @@ same escaped `\n\n`). No code re-inserts breaks: a repaired segment that loses t
 simply packs as plain text (section 2, step 5). Re-inserting them would edit text
 around the repair's checks, on the strict path, for little gain.
 
+A reply that double-escapes the break (`\\n\\n` in the JSON) parses to the literal
+two characters backslash and `n`, which the voice would speak. `write_script` and
+`rephrase_segment` convert any literal `\n` sequence in segment text to a real
+newline before the text is used.
+
 `dj-notes.md` already renders each segment's text as-is, so paragraphs show there.
 
 ### 2. Paragraph-aware packing at a 250-character ceiling
 
 A new packer replaces the sentence-per-chunk split **for synthesis only**
-(`_chunked_pcm`, so DJ clips and `emcee say` both get it). For a segment's
-speech-normalized text and ceiling `C` (`[tts] chunk_chars`, default 250):
+(`_chunked_pcm`, so DJ clips and `emcee say` both get it).
+
+"Sentence" in this spec means one piece of `_split_sentences`' output. A piece can
+hold more than one written sentence: the splitter's short-fragment merge, the
+abbreviation rule in section 4, initials and decimals all keep text together.
+
+For a segment's speech-normalized text and ceiling `C` (`[tts] chunk_chars`,
+default 250):
 
 1. Split into paragraphs on blank lines: two or more newlines, with only whitespace
    between them, count as one break. A single newline, like any other whitespace
@@ -129,7 +141,10 @@ speech-normalized text and ceiling `C` (`[tts] chunk_chars`, default 250):
 
 Greedy packing of a long paragraph can leave a short tail chunk. That is what was
 listened to and chosen at 250, so there is no rebalancing toward a minimum chunk
-size; the 20-character guard in step 4 is the only floor.
+size; the 20-character guard in step 4 is the only floor. Likewise, step 3 can join
+a long paragraph's short first unit onto the previous chunk, so that chunk ends one
+sentence into the new paragraph (2 of 74 chunks across the harness's scripts with
+hand-placed paragraphs). That too is the packer that was chosen; no rule prevents it.
 
 Every chunk sent to a provider contains **no newline character**. This matters on
 mlx_audio: Qwen's generator splits its input on `"\n"` and renders each piece as a
@@ -151,22 +166,30 @@ with room tone taken from the same segment:
 
 - Source: the segment's quietest non-silent 20 ms frames (the lowest ~8% by RMS),
   concatenated in a pseudo-random order with short (~5 ms) crossfades until the run
-  is filled, and faded in and out against the neighbouring audio. Timing is
-  unchanged: the fill replaces silence sample for sample.
-- Pool: a frame containing an exact-zero run (a few samples or more) is left out of
-  the pool, not only an all-zero frame, so the fill itself carries no dropouts (the
-  harness left out only all-zero frames; the release listening check covers the
-  difference).
-- Edges: a zero run at the very start or end of the segment has a neighbour on one
-  side only. It is filled, faded in from zero at the clip start and out to zero at
-  the clip end (over the crossfade length), so a no-bed clip does not end on a step.
+  is filled.
+- Placement: the tone covers the zero run and overlaps the neighbouring audio by the
+  crossfade length on each side, fading in and out across that overlap and added to
+  it (as in the harness). The clip's length and timing are unchanged.
+- Pool: a frame is left out of the pool when it contains a run of exact zeros of at
+  least 1 ms (24 samples at 24 kHz), so the fill itself carries no dropouts. The
+  exclusion is applied first, and the ~8% quietest are taken over the frames that
+  remain. A shorter threshold would empty the pool, because a clean voice's quietest
+  frames have 2-4 zero samples at each zero crossing, and push the fill up into
+  speech-bearing frames (measured: about 10 dB louder on Phil). At 1 ms Phil's pool
+  is exactly as listened to, and 2-5% of Kurt's frames drop out (those next to
+  Qwen's long runs).
+- Edges: a run that starts within one crossfade length of the clip start, or ends
+  within one of the clip end, is an edge run (Qwen clips begin with a few samples of
+  dither before their first zero run). It is filled, fading in from zero at the clip
+  start or out to zero at the clip end, so a no-bed clip does not end on a step.
 - Deterministic: the frame order comes from a generator seeded with an integer
   derived from the sha256 of the spoken text (never Python's `hash()`, which is
   salted per process), so re-rendering the same text with the same audio gives the
   same bytes. Determinism is a test property; cache reuse stores bytes and does not
   depend on it.
-- The fill is a no-op when the segment has no non-silent frames to draw from (for
-  example the `fake` provider) or no qualifying zero run.
+- The fill is a no-op, never an error, when the segment has no non-silent frames to
+  draw from (for example the `fake` provider), when no eligible frames remain after
+  the pool exclusion, or when there is no qualifying zero run.
 - Mono only: the fill runs on mono PCM and is skipped when the audio has more than
   one channel (no current provider returns stereo).
 
@@ -202,7 +225,9 @@ Today one chunk is one sentence, so a refused chunk already names its sentence:
 `render_speech_mp3` re-raises a chunked `SpeechBlocked` as is ("each chunk is already
 its own request"), and the `rephrase` repair rewords exactly that sentence. A packed
 chunk can hold several sentences, so the chunked renderer (the per-chunk loop in
-`_chunked_pcm`) handles a refused chunk of more than one sentence itself:
+`_chunked_pcm`) handles a refused chunk of more than one piece of
+`_split_sentences(<the chunk's text>)` itself. A one-piece chunk is re-raised as
+today, never re-sent.
 
 - **(a) Narrow first.** Each piece of `_split_sentences(<that chunk's text>)` is
   synthesized alone as WAV (the format of the refused call), and the audio is kept.
@@ -219,17 +244,16 @@ chunk can hold several sentences, so the chunked renderer (the per-chunk loop in
   re-synthesized. The old "re-run with `[tts] chunk = true`" failure is not reachable
   on the chunked path. It still applies to `chunk = false`.
 
-`render_speech_mp3`'s chunked re-raise stays as is. A one-sentence chunk behaves
-exactly as today.
+`render_speech_mp3`'s chunked re-raise stays as is.
 
 Known limits:
 
 - When `[tts.verify]` covers the backend, the narrowing takes are verified like any
   take (they are kept, so this matters); a quality failure there fails the package
   as any quality failure does.
-- The abbreviation rule (section 4) can make a two-sentence chunk count as one
-  sentence; a trigger that exists only across that boundary then goes to the repair
-  rather than the fallback. Rare and acceptable.
+- A trigger spanning text that `_split_sentences` keeps together (its merges, the
+  abbreviation rule) or that step 4 of section 2 joined goes to the repair rather
+  than the fallback. Rare and acceptable.
 - A block caused by a name the repair must keep (Voxtral blocks the band name
   "Cracker") stays unrepairable, as today; not a regression.
 
@@ -266,13 +290,16 @@ on the next repair round or voicing.
   Below 50 nothing is gained (a sentence longer than `C` is its own unit, so tiny
   values degrade to one sentence per chunk); 1000 keeps every chunk well under
   Voxtral's 2000-character input guard. Values above ~400 were not listened to.
-  Validated under the strict config base (a non-integer or out-of-range value is a
-  load error).
+  It is a strict integer (`StrictInt`, or `Field(strict=True)`) bounded 50-1000: the
+  strict config base forbids unknown keys but does not stop pydantic coercing `"250"`
+  or `250.0`, so a string, a float or an out-of-range value is a load error.
 - `[tts] room_tone` (bool, default true): the room-tone fill, chunked path only.
-- Below the CLI / `process_package` boundary both values are passed keyword-only with
-  **no defaults** (into `_synthesize_dj_audio`, `render_speech_mp3`, the chunked
-  renderer and the key), so the key and the render always read the same value, as
-  `speech_provider_for` does.
+- Chunking on or off and its settings (ceiling, room tone) travel together as **one
+  required keyword argument** from the CLI / `process_package` boundary down through
+  `_synthesize_dj_audio`, `render_speech_mp3` and the chunked renderer, with
+  "unchunked" as one of its values. It has no default anywhere, so the cache key and
+  the render read the same settings and no caller can silently fall to a default
+  path, as with `speech_provider_for`. The exact type is the builder's.
 
 ## Settled at the builder check (coordinator's calls, not the operator's)
 
@@ -290,7 +317,8 @@ on the next repair round or voicing.
 - Function names, where the packer and room tone live (`audio.py` or small new
   modules), and test structure.
 - Exact room-tone constants, within what was listened to (20 ms frames, ~8% quietest,
-  ~5 ms crossfades, runs of ~20 ms or more).
+  ~5 ms crossfades, runs of ~20 ms or more); the 1 ms pool exclusion is fixed.
+- The exact type of the one chunking argument.
 - Whether section 5's narrowing takes pass neighbour context
   (`previous_text`/`next_text`) to a context-aware backend.
 
@@ -302,25 +330,35 @@ on the next repair round or voicing.
   no-paragraph fallback); the 20-character guard; no newline in any chunk the
   provider receives; the abbreviation rule (and that a real sentence end after one is
   harmless), including the gratefuldead-1974-05-19 outro's text with no paragraph
-  break, where no chunk exceeds the ceiling except a single sentence longer than it;
-  room tone fills exact-zero runs, keeps length, draws no frame containing a zero
-  run, fades the clip's first and last runs from and to zero, is deterministic, is a
-  no-op without non-silent frames or qualifying runs, and is skipped on non-mono
-  audio; the cache key changes when the planned chunks change (ceiling, packer,
-  splitter) and with `ROOM_TONE_VERSION`, and is unchanged on the unchunked path;
-  `room_tone = false` disables the fill and drops it from the key; `chunk_chars`
-  outside 50-1000, or not an integer, is a config error; `_locate_block` and the
-  rephrase checks still work sentence by sentence; a refused multi-sentence chunk is
-  narrowed and raised as a located block for its sentence (`whole_passage` false);
-  one whose sentences all pass alone is rendered from those takes with no further
-  synthesis call and without re-synthesizing its neighbours; `chunk = false` sends no
-  newline; the scriptwrite prompt asks for paragraphs as escaped `\n\n` and the
-  rephrase prompt asks to keep them; a fake-LLM reply with escaped `\n\n` round-trips
-  to real newlines in `ScriptNotes`.
+  break, where no chunk exceeds the ceiling except a single splitter piece longer
+  than it or a step-4 join; room tone fills exact-zero runs, overlaps and fades
+  across the neighbouring audio, keeps length, draws no frame containing a zero run
+  of 1 ms or more, fills edge runs fading from and to zero, is deterministic, is a
+  no-op (never an error) without non-silent frames, with an empty pool, or without
+  qualifying runs, and is skipped on non-mono audio; the cache key changes when the
+  planned chunks change (ceiling, packer, splitter) and with `ROOM_TONE_VERSION`, and
+  is unchanged on the unchunked path; `room_tone = false` disables the fill and drops
+  it from the key; `chunk_chars` as a string, a float, or outside 50-1000 is a config
+  error; `_locate_block` and the rephrase checks still work sentence by sentence; a
+  refused chunk of more than one piece is narrowed and raised as a located block for
+  its sentence (`whole_passage` false); one whose pieces all pass alone is rendered
+  from those takes with no further synthesis call and without re-synthesizing its
+  neighbours; `chunk = false` sends no newline; the scriptwrite prompt asks for
+  paragraphs as escaped `\n\n` and the rephrase prompt asks to keep them; a fake-LLM
+  reply with escaped `\n\n` round-trips to real newlines in `ScriptNotes`; a literal
+  `\n` sequence in segment text from `write_script` or `rephrase_segment` becomes a
+  real newline.
+- Process-level tests on the strict path: `test_chunked_repair_through_process_package`
+  also asserts that the text handed to the rephrase task as blocked is the single
+  refused sentence, not the whole chunk; and a chunked `process_package` run on a
+  fake provider that blocks only a cross-sentence string renders through the
+  fallback and the package succeeds.
 - Each new rule is shown load-bearing by mutation (break it, name the test expected
   to fail first, see it fail).
-- Docs and templates: the `emcee config init` template (pinned by
-  `test_default_config_template_matches_defaults`) gains both keys with comments; the
+- Docs and templates: the `emcee config init` template lists `chunk_chars` and
+  `room_tone`, commented like every `[tts]` key, pinned by adding them to the markers
+  in `test_default_config_template_mentions_every_section`
+  (`test_default_config_template_matches_defaults` cannot see commented keys); the
   config comments, the `--chunk` help text, the `quality.py` docstring and any other
   "sentence-by-sentence" wording are updated; the README runbook and the CLAUDE.md
   emcee bullet describe paragraph packing and room tone.
@@ -328,7 +366,12 @@ on the next repair round or voicing.
   one Kurt (Qwen) and one Phil (Voxtral) segment voiced end to end with a real
   scriptwriter run, with bed, compared with today's rendering. Phil's check confirms
   room tone is inaudible on a clean voice. The run also checks that the notes
-  contain paragraph breaks and that the log shows no invalid-JSON retries.
+  contain paragraph breaks and that the log shows no invalid-JSON retries. At no extra
+  spend, it also watches the Kurt run's log for "quality check failed" retries and
+  the mlx server's memory peak (the 16 GB host is near its limit, and 250-character
+  requests are longer than sentences), and may apply the fill offline to an existing
+  Jimmy render for a listen (Jimmy was never heard with room tone; his pool measures
+  -58 to -62 dBFS offline).
 
 ## Related operator actions (not part of this change)
 
