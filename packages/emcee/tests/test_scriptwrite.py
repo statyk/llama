@@ -342,11 +342,12 @@ def test_narration_note_vague_forbids_naming_songs():
 
 def test_scriptwrite_prompt_forbids_time_anchored_to_the_present():
     # Scripts air for years: "earlier this year", "last month" and "come back
-    # next week" all went out in delivered scripts (operator, 2026-10-25).
+    # next week" all went out in delivered scripts (operator, 2026-10-25); the
+    # stream airs at any hour, so "tonight" is banned too.
     prompt = load_prompt("scriptwrite")
     assert "Timeless:" in prompt
     for phrase in ('"this year"', '"last month"', '"last November"', '"recently"',
-                   '"these days"', '"next week"'):
+                   '"these days"', '"next week"', '"tonight"', '"this morning"'):
         assert phrase in prompt
     assert "next broadcast" not in prompt
     assert "without saying when" in prompt

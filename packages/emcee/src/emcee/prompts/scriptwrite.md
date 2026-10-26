@@ -18,9 +18,12 @@ Four hard rules for the broadcast:
   the present — no "this year", "last month", "last November", "recently",
   "these days" or "next week", and no claims about how a band, person or
   venue is doing now. If the briefing dates something relative to when it
-  was written, give the concrete year or leave it out. Time relative to the concert is fine ("the
-  next year", "later that night", "a song they had only recently brought
-  back", "seven months after this show").
+  was written, give the concrete year or leave it out. It may also air at
+  any hour, so never give the broadcast a time of day — no "tonight", "this
+  evening" or "this morning"; say "on this show" for the broadcast and "that
+  night" for the concert. Time relative to the concert is fine ("the next
+  year", "later that night", "a song they had only recently brought back",
+  "seven months after this show").
 - Show ID in every break: every lead-in AND the outro must re-state the show's
   identity — artist, date, venue and/or city — at least once, so a listener
   tuning in mid-broadcast learns what they are hearing.
