@@ -705,5 +705,38 @@ def test_chunked_repair_through_process_package(tmp_path, monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert "rephrased" in out and "blocked:" in out and "revised:" in out
+    assert f'blocked: "{BLOCKED_S2}"' in out   # the one refused sentence, not the chunk
     assert pkg.manifest()["dj_notes"]["set_intros"]["2"] == revised
     assert requested.count("rephrase") == 1
+
+
+def test_chunked_reblocked_twice_raises_and_names_the_sentence(tmp_path, monkeypatch):
+    rephrase, _ = _arm(monkeypatch, [f"{CLEAN_S1} The climax lands early tonight.",
+                                     f"{CLEAN_S1} The climax hits early tonight."])
+    pkg, _ = _setup(tmp_path)
+    config = EmceeConfig(root=tmp_path / "home", tts=TTSConfig(chunk=True))
+    before = pkg.manifest_path.read_text()
+
+    with pytest.raises(EmceeError) as ei:
+        process_package(config, pkg, FakeSpeechProvider(block="climax"),
+                        voicing=voicing_for(config, pkg))
+
+    assert "set2-intro" in str(ei.value)
+    assert "also blocked" in rephrase.calls[1][1]
+    assert '"The climax lands early tonight."' in rephrase.calls[1][1]
+    feedback = rephrase.calls[1][1].split("also blocked", 1)[1].splitlines()[0]
+    assert CLEAN_S1 not in feedback   # the sentence, not the segment or chunk
+    assert pkg.manifest_path.read_text() == before
+
+
+def test_chunked_cross_sentence_block_needs_no_rephrase(tmp_path, monkeypatch):
+    _, requested = _arm(monkeypatch, [])
+    pkg, _ = _setup(tmp_path)
+    config = EmceeConfig(root=tmp_path / "home", tts=TTSConfig(chunk=True))
+
+    process_package(config, pkg, FakeSpeechProvider(block="two. The climax"),
+                    voicing=voicing_for(config, pkg))
+
+    assert pkg.manifest()["dj_notes"]["set_intros"]["2"] == SEG2
+    assert "rephrase" not in requested
+    assert (pkg.dir / "dj-audio" / "set2-intro.mp3").exists()

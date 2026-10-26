@@ -742,13 +742,14 @@ def test_render_block_only_in_context_is_whole_passage():
     assert len(speech.calls) == 4  # whole passage + three sentences
 
 
-@pytest.mark.skip(reason="rewritten in Task 6")
-def test_render_chunked_block_needs_no_locating():
+def test_chunked_block_narrows_to_the_refused_sentence():
     speech = FakeSpeechProvider(block="climax")
     with pytest.raises(SpeechBlocked) as ei:
         render_speech_mp3(PASSAGE, speech, chunking=CHUNKED)
     assert ei.value.text == "The climax comes too early here."
-    assert speech.calls == ["First sentence is fine here.", "The climax comes too early here."]
+    assert ei.value.whole_passage is False
+    assert speech.calls == [PASSAGE, "First sentence is fine here.",
+                            "The climax comes too early here."]
 
 
 def test_render_single_sentence_block_is_not_resent():
@@ -1076,3 +1077,68 @@ def test_process_package_forwards_configured_chunk_chars_and_room_tone(tmp_path,
     seen.clear()
     assert len(calls(chunk_chars=50, room_tone=False)) == 2        # ceiling 50 splits it
     assert seen == []
+
+
+# ---------------------------------------------------------------------------
+# Content-filter narrowing inside the chunk loop (Task 6, strict surface)
+# ---------------------------------------------------------------------------
+
+from emcee.audio import _split_sentences
+
+_C = _Chunking(250, False)
+_S1, _S2, _S3 = _split_sentences(PASSAGE)
+_TAKE = int(0.3 * 24000)        # one fake take, in samples
+_GAP = int(24000 * (_SILENCE_MS / 1000))
+_M = ("The first half of the middle thought is here. "
+      "The climax lands in the second half.")
+
+
+def test_chunked_cross_sentence_block_falls_back_to_the_takes():
+    speech = FakeSpeechProvider(block="here. The climax")
+    data = render_speech_mp3(PASSAGE, speech, chunking=_C)
+    assert data.startswith(b"\xff")
+    assert speech.calls == [PASSAGE, _S1, _S2, _S3]
+
+
+def test_chunked_fallback_audio_is_the_takes_joined():
+    speech = FakeSpeechProvider(block="here. The climax")
+    pcm, rate, channels = _chunked_pcm(PASSAGE, speech, chunking=_C)
+    assert (rate, channels) == (24000, 1)
+    assert len(pcm) == (3 * _TAKE + 2 * _GAP) * 2
+    assert len(speech.calls) == 4
+
+
+def test_chunked_fallback_chunk_keeps_its_neighbours_on_both_sides():
+    speech = FakeSpeechProvider(block="here. The climax")
+    m1, m2 = _split_sentences(_M)
+    pcm, _, _ = _chunked_pcm(f"{P1}\n\n{_M}\n\n{P2}", speech, chunking=_Chunking(100, False))
+    assert speech.calls == [P1, _M, m1, m2, P2]
+    assert len(pcm) == (4 * _TAKE + 3 * _GAP) * 2
+
+
+def test_chunked_one_piece_block_is_reraised_not_resent():
+    speech = FakeSpeechProvider(block="climax")
+    chunk = "The climax comes too early here."
+    with pytest.raises(SpeechBlocked) as ei:
+        render_speech_mp3(chunk, speech, chunking=_C)
+    assert ei.value.text == chunk
+    assert speech.calls == [chunk]
+
+
+def _bed(tmp_path):
+    bed_pcm, bed_rate, _, _ = load_bed_pcm(_bed_file(tmp_path))
+    return bed_pcm, bed_rate
+
+
+def test_chunked_block_with_bed_narrows_and_falls_back(tmp_path):
+    bed_pcm, bed_rate = _bed(tmp_path)
+    speech = FakeSpeechProvider(block="climax")
+    with pytest.raises(SpeechBlocked) as ei:
+        render_speech_mp3(PASSAGE, speech, chunking=_C, bed_pcm=bed_pcm, bed_rate=bed_rate)
+    assert ei.value.text == _S2 and ei.value.whole_passage is False
+    assert speech.calls == [PASSAGE, _S1, _S2]
+
+    speech = FakeSpeechProvider(block="here. The climax")
+    data = render_speech_mp3(PASSAGE, speech, chunking=_C, bed_pcm=bed_pcm, bed_rate=bed_rate)
+    assert data.startswith(b"\xff")
+    assert speech.calls == [PASSAGE, _S1, _S2, _S3]

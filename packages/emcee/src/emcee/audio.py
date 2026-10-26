@@ -184,13 +184,37 @@ def _encode_mp3(pcm: bytes, framerate: int, channels: int) -> bytes:
     return encoder.encode(pcm) + encoder.flush()
 
 
+def _narrow_chunk(chunk: str, speech, blocked: SpeechBlocked) -> list[bytes]:
+    """A refused multi-sentence chunk, narrowed. Each piece of
+    `_split_sentences(chunk)` is synthesized alone as WAV (no neighbour context:
+    the verdict is about the sentence by itself) and the audio is kept. The first
+    piece refused is raised as an ordinary located block for that sentence
+    (whole_passage False), which the rephrase repair rewords. When every piece
+    passes, the trigger only exists across sentences and the takes are returned
+    in order: they ARE the chunk's audio, nothing is synthesized twice. A
+    one-piece chunk re-raises `blocked` without a call (a re-send would be the
+    identical refused request)."""
+    pieces = _split_sentences(chunk)
+    if len(pieces) <= 1:
+        raise blocked
+    takes: list[bytes] = []
+    for piece in pieces:
+        try:
+            takes.append(speech.synthesize(piece, fmt="wav"))
+        except SpeechBlocked as located:
+            raise located from blocked
+    return takes
+
+
 def _chunked_pcm(text: str, speech, *, chunking: Chunking) -> tuple[bytes, int, int]:
     """Chunk-by-chunk synthesis + PCM concat (no encode). Returns
     (pcm, framerate, channels). See _synthesize_chunked for the rationale;
     this is its PCM half, shared with the bed path. The chunks are
     `plan_chunks(text, chunking.ceiling)`. Each chunk's PCM is
     loudness-normalized (normalize_speech) before the silence gap is appended,
-    and room tone fills exact-silence runs last when `chunking.room_tone`."""
+    and room tone fills exact-silence runs last when `chunking.room_tone`.
+    A refused multi-sentence chunk is narrowed (`_narrow_chunk`): it either
+    raises the refused sentence or is rendered as its per-sentence takes."""
     sentences = plan_chunks(text, chunking.ceiling)
     frames: list[bytes] = []
     framerate = channels = sampwidth = None
@@ -200,22 +224,26 @@ def _chunked_pcm(text: str, speech, *, chunking: Chunking) -> tuple[bytes, int, 
         # without such a field (Voxtral) ignore these.
         previous_text = sentences[i - 1] if i > 0 else None
         next_text = sentences[i + 1] if i < len(sentences) - 1 else None
-        wav_bytes = speech.synthesize(sentence, fmt="wav",
-                                      previous_text=previous_text, next_text=next_text)
-        with wave.open(io.BytesIO(wav_bytes), "rb") as w:
-            if framerate is None:
-                framerate, channels, sampwidth = w.getframerate(), w.getnchannels(), w.getsampwidth()
-                if sampwidth != 2:
-                    raise SpeechError(
-                        f"chunked synthesis requires 16-bit PCM audio from the speech "
-                        f"backend, got {sampwidth * 8}-bit (lameenc only accepts int16 "
-                        "samples)")
-            # Each Voxtral call comes back at its own level; even them out
-            # here, per sentence and before the silence gap (see tts/loudness).
-            frames.append(normalize_speech(w.readframes(w.getnframes()), framerate))
-        if i < len(sentences) - 1:
-            silence_frames = int(framerate * (_SILENCE_MS / 1000))
-            frames.append(bytes(silence_frames * channels * sampwidth))
+        try:
+            takes = [speech.synthesize(sentence, fmt="wav",
+                                       previous_text=previous_text, next_text=next_text)]
+        except SpeechBlocked as blocked:
+            takes = _narrow_chunk(sentence, speech, blocked)
+        for j, wav_bytes in enumerate(takes):
+            with wave.open(io.BytesIO(wav_bytes), "rb") as w:
+                if framerate is None:
+                    framerate, channels, sampwidth = w.getframerate(), w.getnchannels(), w.getsampwidth()
+                    if sampwidth != 2:
+                        raise SpeechError(
+                            f"chunked synthesis requires 16-bit PCM audio from the speech "
+                            f"backend, got {sampwidth * 8}-bit (lameenc only accepts int16 "
+                            "samples)")
+                # Each Voxtral call comes back at its own level; even them out
+                # here, per sentence and before the silence gap (see tts/loudness).
+                frames.append(normalize_speech(w.readframes(w.getnframes()), framerate))
+            if j < len(takes) - 1 or i < len(sentences) - 1:
+                silence_frames = int(framerate * (_SILENCE_MS / 1000))
+                frames.append(bytes(silence_frames * channels * sampwidth))
     pcm = b"".join(frames)
     if chunking.room_tone:
         pcm = fill_room_tone(pcm, framerate, channels, seed_text=text)
