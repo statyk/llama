@@ -358,7 +358,7 @@ The billing period starts on day 11 of each month, 00:00 UTC (the committed var 
    | `[alerts] guard_stale_minutes` | `45.0` | `state/guard.json` not evaluated for this long means the guard is dead. It must be at least `[publish] guard_check_minutes + 16` (the cache refresh plus the guard's 15-minute cadence and the cron lag), or the config is refused |
    | `[publish] guard_check_minutes` | `15.0` | how often hugo refreshes its cache of the guard's state; an unexpected 403 alerts only after `guard_check_minutes + 2` consecutive checks |
    | `[antenna] site_url` | unset | public base URL: Open Graph links and the dead-clock check (unset = no check) |
-   | `[antenna] station_name` (phase 1) | `llama radio` | the station name on the public show pages (`<title>`, `og:site_name`, the back link) and in hugo's own alert subjects and the titles of relayed pushes. Set it to `LMA Radio` at the phase-3 cutover (7.4 step 8) |
+   | `[antenna] station_name` (phase 1) | `llama radio` | the station name on the public show pages (`<title>`, `og:site_name`, the back link) and in hugo's own alert subjects and the titles of relayed pushes. Set it to `LMA Radio` at the phase-3 cutover (7.4 step 2; the Worker side is step 8) |
 
    Env-file secrets (`/etc/transmitter/<user>.env`): `SMTP_USERNAME`, `SMTP_PASSWORD` (a Gmail App Password) and `NTFY_TOKEN` (optional; it covers both hugo's own pushes and the relayed antenna ones). With no channel configured, alerts reach only the journal.
 5. **The watchdog.** transmitter pings systemd after every step, every publish batch, every batch of prune deletes and every show encode, so the longest silence is one show's encode (~10-20 min) or one show's analysis in the plan step (~8 min on 10-23) against `WatchdogSec=45min`. A render-path re-plan calls `extend` with no `max_new`, so with an estimate-heavy library one render step can analyse many never-aired picks (worst case ~40-55 min) under the plan lock; the watchdog is fed per analysis, so the service survives, but publish waits that long. After restoring `~/.transmitter` **without** `cache/`, the first publish recomputes analyses for about 48 h of shows and may meet `WatchdogSec`: the service restarts and continues (each analysis is cached as it completes; at most one batch, up to 360 segments, is re-PUT per kill, within the daily PUT budget).
@@ -569,16 +569,54 @@ Copy-paste workflow:
 
 Missing audio degrades gracefully: two-block form, then one-block form, then a station ID, then a plain gap. `status` and `schedule` list what is missing. A broken promise (an announcement that named a block that then did not air) is logged `announcement-broken` and never alerted.
 
-### 7.4 Phase-3 cutover checklist
+### 7.4 Phase-3 cutover
 
-1. Deploy HEAD to hugo and restart the service (`sudo systemctl restart transmitter@<user>`).
-2. The first tick backfills `aired.jsonl` from `plan.jsonl`.
-3. The scheduler appends from the end of the phase-1 plan, which runs about a lead (~a day) ahead of air. With a clock file, a MISS may therefore land (only when the plan's end falls outside that block's window) on the block where that plan ends, at the first fill after the deploy, not on the block airing at cutover; that is by design, not a fault. With no clock file (step 4) none is recorded.
-4. `clock.toml` is optional: without it the station runs the implicit open clock (open all week). Add one later from the example in 7.2.
-5. Create the interstitials folder (`[interstitials] dir`, absolute; default `<station root>/interstitials`), then voice station IDs (`id-*.mp3`) and the announcements (7.3).
-6. Check with `transmitter status` and `transmitter schedule`.
-7. The player change (`antenna/public/nowplaying.js` and `player.js`, commit `6e0e282`) reaches listeners only after the assets deploy; run it from `antenna/` (operator step): `ANTENNA_BUCKET=<bucket> npm run deploy:assets`. Until then station breaks show "We'll be back shortly."
-8. Set `station_name = "LMA Radio"` under `[antenna]` in hugo's `config.toml` and `STATION_NAME` in `antenna/wrangler.jsonc` to the same value (they must match, section 6.2 step 6). This renames alert subjects and relayed push titles too, not only the show pages. hugo reads its config at start, so the hugo side takes effect at the service restart (do this before step 1's restart, or restart again after); the antenna side takes effect at the next Worker deploy (operator step: `npx wrangler deploy --dry-run`, then `npx wrangler deploy`). Commit the `wrangler.jsonc` edit, like `METRONOME`: an uncommitted var reverts at the next deploy from a clean checkout. The next publish pass re-PUTs the `notes/` and `show/` pages of every show in the site window (the page digest changes; a handful of PUTs). Pages of shows outside that window (aired more than a day ago) are never re-rendered and keep "llama radio".
+Commands on hugo run as `<user>` with the section 7 environment loaded:
+`set -a; . /etc/transmitter/<user>.env; set +a; export PATH=~/.venvs/transmitter/bin:$PATH`.
+Mac commands run from the repo's `antenna/`.
+
+**What to expect.** Nothing on air changes for about a day. The phase-1 plan already runs one lead (`[render] lead_hours`, default 24 h) ahead of air, and its rows are never rewritten; the scheduler appends after its end, at the first fill (when the published lead drops below `low_water_hours`, default 20 h). Cutting over with no `clock.toml` is the quiet path: the implicit clock is open all week (the old shuffle plus the rotation rules) and never records a MISS. Add blocks later (7.2).
+
+**On hugo**
+
+1. **Update the code; don't restart yet.** As 6.1 step 1:
+   ```
+   cd <repo> && git pull && git log -1 --oneline
+   ~/.venvs/transmitter/bin/pip install -e packages/transmitter
+   ```
+2. **Set the station name** (hugo reads its config only at start, so before the restart). In `~/.transmitter/config.toml`, under `[antenna]`: `station_name = "LMA Radio"`. It brands the public show pages (title, `og:site_name`, back link), hugo's alert subjects and relayed push titles, and must equal the Worker's `STATION_NAME` (step 8; 6.2 step 6). Leave `[interstitials]` out unless the folder is not `<station root>/interstitials`.
+3. **Check before restarting** (both read-only; an error here leaves the old build running untouched):
+   ```
+   transmitter schedule --days 1   # one "open" occurrence with no clock file; config or clock errors show here
+   transmitter library             # eligible shows by profile, interstitials, ineligible packages by reason
+   ```
+4. **Restart:** `sudo systemctl restart transmitter@<user>`, then `systemctl status transmitter@<user>` (active, no climbing restart count). A healthy tick writes **nothing** to the journal: transmitter logs events only (warnings, step errors, skips, recovery, `plan-changed`, `announcement-broken`). The unit is a system unit, so `journalctl -u transmitter@<user>` needs `sudo` (or membership of `systemd-journal`).
+5. **History backfill (automatic).** The first tick writes `~/.transmitter/aired.jsonl` from the plan's already-aired rows; `wc -l` on it should be non-zero and grow by one per piece that finishes airing.
+6. **Check it is ticking.** `transmitter status` twice, about ten minutes apart:
+   - `published  segments <first>..<last>; lead <X> h`: the lead counts down between fills (about 0.1 h per 6 min); `<first>` steps up about every 10 min as prune removes aired segments; `<last>` moves only at a fill.
+   - `on air` names the show (or "station break") and changes at each boundary.
+   - `clock      no clock: open all week` with no clock file; no `clock` or `history` alert.
+
+**On the Mac**
+
+7. **Player assets.** The between-shows text and page titles reach listeners only after:
+   ```
+   ANTENNA_BUCKET=<bucket> node scripts/deploy-assets.mjs --dry-run   # lists the uploads
+   ANTENNA_BUCKET=<bucket> npm run deploy:assets
+   ```
+   Reload the player (hard reload; assets cache for an hour): between shows it shows the station name, not "We'll be back shortly."
+8. **The Worker's station name.** Set `STATION_NAME` in `wrangler.jsonc` to the same value as step 2, **commit it** (like `METRONOME`: an uncommitted var reverts at the next deploy from a clean checkout; leave `METRONOME` as `"on"`), then `npx wrangler deploy --dry-run` and `npx wrangler deploy`. This also ships the off-air page with the new name. The next publish pass re-PUTs `notes/` and `show/` pages of shows in the site window (a handful of PUTs); pages of shows that aired more than a day ago keep the old name.
+
+**After the first fill** (the lead crossing `low_water_hours`, so up to about 4 h after the restart, plus the remaining phase-1 lead before its rows air)
+
+9. **Verify the scheduler:** `status` shows more `plan` rows with a later "through" time, `<last>` jumped and the lead back near `lead_hours`; `transmitter schedule` lists scheduler-planned rows after the old plan's end. With a clock file, a MISS may land on the block where the phase-1 plan ends (only when that end falls outside the block's window): by design (7.2).
+
+**Later, optional**
+
+10. **Clock:** write `draft.toml` from the 7.2 example, preview with `transmitter schedule --clock draft.toml`, then `mv draft.toml ~/.transmitter/clock.toml`. Edits reach air after the persisted plan (about one lead plus one show).
+11. **Interstitials** (7.3): create `<station root>/interstitials`. Station IDs: a text file per ID (e.g. `id-1.txt` holding "You're listening to LMA Radio."), voiced on the Mac with `emcee say id-1.txt` (writes `id-1.mp3` beside it; `--no-bed` for a dry read). Announcements: `transmitter announcements --clock draft.toml --export <dir>` on hugo, copy the `ann-*.txt` files into the folder, voice with the 7.3 loop. Clips are used once older than `[station] quiet_minutes`; until they exist, breaks fall back to an ID, else a plain gap.
+
+**If it goes wrong:** roll back per 7.5 (`git checkout af46d72`, reinstall as step 1, restart); return with `git checkout main`.
 
 ### 7.5 Rolling transmitter back
 
