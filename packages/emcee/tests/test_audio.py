@@ -953,7 +953,7 @@ def test_script_paragraph_breaks_reach_the_packer(tmp_path):
     # normalize_for_speech must keep the newlines: collapsing them first would
     # sentence-pack across the paragraph break (see PX/PY above).
     speech = FakeSpeechProvider()
-    _synthesize_dj_audio(tmp_path, make_notes(outro=f"{PX}\n\n{PY}"), speech, False,
+    _synthesize_dj_audio(tmp_path, make_notes(outro=f"{PX}\n\n{PY}", set_intros={}), speech, False,
                          chunking=Chunking(ceiling=110, room_tone=False))
     assert speech.calls == [PX, PY]
 
