@@ -41,7 +41,7 @@
     // object state/alert-relay.json, which hugo relays to its ntfy (the Worker
     // sends no ntfy). Never put an address in this file.
     "ALERT_REPEAT_HOURS": "6",
-    "STATION_NAME": "llama radio",
+    "STATION_NAME": "LMA Radio",
     // The rollback switch (metronome spec): only the exact string "on" enables
     // the metronome. Anything else is off: cron runs its own loop exactly as
     // before, and the Durable Object deletes its alarm and writes nothing.
