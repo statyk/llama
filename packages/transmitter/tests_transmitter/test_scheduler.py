@@ -90,13 +90,14 @@ def roles_in(pieces, o):
     return [p.role for p in pieces if (p.block, p.nominal_start) == o.key]
 
 
-def live(inp: SchedulerInput, until_frame: int) -> list[PlanRow]:
+def live(inp: SchedulerInput, until_frame: int, ahead: int = 2) -> list[PlanRow]:
     """The live planner: append project(...)[0] one piece at a time, the history
     growing with each appended piece (as Task 11 rebuilds it from the rows)."""
     rows: list[PlanRow] = list(inp.rows)
     rec, start, rs = inp.rec, inp.start_frame, inp.run_start
     while not rows or rows[-1].end_frame < until_frame:
-        pp = project(dataclasses.replace(inp, rows=tuple(rows), rec=rec, start_frame=start, run_start=rs))[0]
+        pp = project(dataclasses.replace(inp, rows=tuple(rows), rec=rec, start_frame=start, run_start=rs),
+                     ahead=ahead)[0]
         rows.append(to_row(pp, len(rows)))
         rec = rec.with_piece(pp.piece, at(pp.start_frame), ld(at(pp.start_frame)))
         start, rs = pp.end_frame + inp.gap_frames, False
@@ -230,7 +231,8 @@ REPRO_CLOCK = clk({"name": "dead", "title": "Dead Hour", "start": "12:00", "prof
                   {"name": "night", "start": "21:30"})
 
 
-def test_appending_first_pieces_reproduces_one_projection():
+@pytest.mark.parametrize("ahead", [1, 2])
+def test_appending_first_pieces_reproduces_one_projection(ahead):
     # exact lengths; ID clips of three different lengths, so the boundary estimate is
     # wrong at most boundaries and the blocks are re-planned from exact starts
     pool = library_pieces() + IDS + all_anns(REPRO_CLOCK, seconds=9)
@@ -241,7 +243,7 @@ def test_appending_first_pieces_reproduces_one_projection():
     inp = mk(pool, REPRO_CLOCK, start=fr(12 * 60), rec=rec)
     until = fr(12 * 60) + fr(36 * 60)
     one = project(inp, until_frame=until)
-    rows = live(inp, until)
+    rows = live(inp, until, ahead)
     assert [to_row(pp, i) for i, pp in enumerate(one[:len(rows)])] == rows
     assert {r.role for r in rows} >= {"show", "id", "next", "later"}
     assert len({(r.block, r.nominal_start) for r in rows}) >= 5

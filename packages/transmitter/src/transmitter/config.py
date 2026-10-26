@@ -178,7 +178,7 @@ DEFAULT_CONFIG_TOML = """\
 # a package must be untouched this long before it may air
 quiet_minutes = 10.0
 
-[interstitials]
+# [interstitials]
 # station IDs (id-*.mp3) and schedule announcements (ann-<id>.mp3); transmitter
 # only reads this folder. Default: <station root>/interstitials
 # dir = "/nfs/media/station/interstitials"

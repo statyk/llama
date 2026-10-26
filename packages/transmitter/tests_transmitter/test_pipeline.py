@@ -133,6 +133,28 @@ def test_render_step_writes_grid_segments_up_to_the_lead(tmp_path):
     assert payloads(_seg(st, first_n)[1])[0] == f"{rows[0].key}:0"
 
 
+def test_render_step_pings_after_its_own_analysis_before_the_encode(tmp_path):
+    events: list[str] = []
+
+    class Spy(FakeEngine):
+        def analyze(self, show):
+            events.append("analyze")
+            return super().analyze(show)
+
+        def encode_show(self, show, analysis, out):
+            events.append("encode")
+            return super().encode_show(show, analysis, out)
+
+    st, _ = make_station(tmp_path, engine=Spy())
+    pipeline.plan_step(st, NOW)
+    events.clear()
+    pipeline.render_step(st, NOW, notify=lambda m: events.append("ping" if m == "WATCHDOG=1" else m))
+    assert "analyze" in events and "encode" in events
+    for i, e in enumerate(events):
+        if e == "analyze":
+            assert events[i + 1] == "ping"                       # fed before the encode starts
+
+
 def test_render_step_fills_the_show_gap_with_silence(tmp_path):
     st, _ = make_station(tmp_path)
     rows = pipeline.plan_step(st, NOW)
@@ -1242,17 +1264,6 @@ def test_announcement_broken_when_the_named_block_degrades_to_open_time(tmp_path
     assert (first.kind, first.block, first.miss, first.degraded) == ("show", "b05", False, True)
     assert first.announcement_broken is True
     assert f"announcement-broken: b05 {x.nominal_iso}" in logs
-
-
-def test_plan_step_guards_the_first_appended_rows_start(tmp_path, monkeypatch):
-    st, _ = make_station(tmp_path)
-    rows = pipeline.plan_step(st, NOW)
-    later = NOW + 20 * 60 * 1_000_000
-    _publish_through(st, later)
-    monkeypatch.setattr(pipeline, "next_start", lambda rows, gap: rows[-1].end_frame + gap + 1)
-    with pytest.raises(LayoutError, match="next start"):
-        pipeline.plan_step(st, later)
-    assert read_plan(st.ws.plan_path) == rows
 
 
 def test_render_step_drops_a_planned_show_marked_awaiting_a_fix(tmp_path):

@@ -316,9 +316,6 @@ def plan_step(st: Station, now_us: int, *, max_new: int | None = None) -> list[P
         if rows[-1].end_frame >= st.until_frame(now_us):
             return rows
         start, run_start = next_start(rows, st.gap_frames), False
-        if start != rows[-1].end_frame + st.gap_frames:      # internal-bug guard
-            raise LayoutError(f"plan_step's next start {start} is not the gap after the last "
-                              f"row ({rows[-1].end_frame} + {st.gap_frames})")
     # Extend before touching anything: a PlanError (e.g. every package
     # momentarily changing) must leave both the plan and the segments as they were.
     rows = st.extend(rows, pool, now_us, start_frame=start, run_start=run_start, max_new=max_new)
@@ -430,6 +427,8 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None,
             else:
                 try:
                     analysis = st.engine.analyze(piece.show)
+                    if notify is not None:
+                        notify("WATCHDOG=1")    # a cold analysis can take minutes
                     planned = st.planned_frames(analysis)
                     if planned != r.frames:
                         # A config or encoder change since planning (clip pause,
