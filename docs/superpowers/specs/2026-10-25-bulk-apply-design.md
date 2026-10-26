@@ -283,7 +283,7 @@ the apply or any later redo from gather: a durable fix, not a bulk-apply patch.
   code (`migration-base.json` flags, since `show.json` no longer has them) and has a verdict
   (`~/.llama-harness/t3/verdicts/<slug>.json`, two layouts: `flags` with a per-flag
   `verdict`, and `claims`/`other_flags`; both are read), record only the flags the verdict
-  ruled spurious or false-hold or listed in `overrule_if_reheld_on`. Every other case is
+  ruled `spurious` or `flag-spurious` (the two layouts' values) or listed in `overrule_if_reheld_on`. Every other case is
   listed for Shawn, never recorded: no verdict (15 delivered, e.g. `dumpstaphunk-2008-04-25`,
   `gratefuldead-1977-05-09`), a base flag the verdict never ruled on, a flag ruled real
   (`real-fixed-by-action`, `undecidable`, etc.). The dry run prints both lists per show, with
