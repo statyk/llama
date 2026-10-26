@@ -1,0 +1,93 @@
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t1b/base/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t1b/base/packages/transmitter/tests_transmitter/__init__.py
+== base0: rc=0
+   144 passed in 7.13s
+M1 predict red: station awaiting params x13, alongside_first, scan_lists, pipeline drop test, pipeline mid-render (scan_now assert)
+== m1: rc=1
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value0-awaiting fix from llama: bulk apply]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value1-awaiting fix from llama: two lines here]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value2-awaiting fix from llama]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value3-awaiting fix from llama]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value4-awaiting fix from llama]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value5-awaiting fix from llama]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value6-awaiting fix from llama]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[later-awaiting fix from llama]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[-awaiting fix from llama]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value9-awaiting fix from llama]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[0-awaiting fix from llama]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[True-awaiting fix from llama]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[False-awaiting fix from llama]
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_is_reported_alongside_other_legs_and_first
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_station.py::test_scan_lists_a_marked_package_as_ineligible_with_its_reason
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_drops_a_planned_show_marked_awaiting_a_fix
+   FAILED ../m1/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_lets_a_marked_show_already_on_air_finish_as_planned
+   17 failed, 127 passed in 8.01s
+M2 predict red: station [{}], pieces [{}-True/False]
+== m2: rc=1
+   FAILED ../m2/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value6-awaiting fix from llama]
+   FAILED ../m2/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[value2-True]
+   FAILED ../m2/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[value2-False]
+   3 failed, 141 passed in 7.66s
+M3 predict red: station later/''/[x]/0/True/False; pieces later/True (x2 voiced)
+== m3: rc=1
+   FAILED ../m3/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[later-awaiting fix from llama]
+   FAILED ../m3/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[-awaiting fix from llama]
+   FAILED ../m3/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value9-awaiting fix from llama]
+   FAILED ../m3/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[0-awaiting fix from llama]
+   FAILED ../m3/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[True-awaiting fix from llama]
+   FAILED ../m3/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[False-awaiting fix from llama]
+   FAILED ../m3/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[later-True]
+   FAILED ../m3/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[later-False]
+   FAILED ../m3/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[True-True]
+   FAILED ../m3/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[True-False]
+   10 failed, 134 passed in 7.76s
+M3b predict red: station [reason 7] only
+== m3b: rc=1
+   FAILED ../m3b/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value5-awaiting fix from llama]
+   1 failed, 143 passed in 7.69s
+M4 predict red: pieces leaves_out x8
+== m4: rc=1
+   FAILED ../m4/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[__default__-True]
+   FAILED ../m4/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[__default__-False]
+   FAILED ../m4/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[later-True]
+   FAILED ../m4/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[later-False]
+   FAILED ../m4/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[value2-True]
+   FAILED ../m4/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[value2-False]
+   FAILED ../m4/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[True-True]
+   FAILED ../m4/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[True-False]
+   8 failed, 136 passed in 8.02s
+M5 predict red: station ''/0/False/{}; pieces {} x2
+== m5: rc=1
+   FAILED ../m5/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value6-awaiting fix from llama]
+   FAILED ../m5/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[-awaiting fix from llama]
+   FAILED ../m5/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[0-awaiting fix from llama]
+   FAILED ../m5/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[False-awaiting fix from llama]
+   FAILED ../m5/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[value2-True]
+   FAILED ../m5/packages/transmitter/tests_transmitter/test_pieces.py::test_scan_delivered_leaves_out_a_package_awaiting_a_fix[value2-False]
+   6 failed, 138 passed in 7.74s
+M6 predict red: station two-lines
+== m6: rc=1
+   FAILED ../m6/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_makes_a_voiced_package_ineligible[value1-awaiting fix from llama: two lines here]
+   1 failed, 143 passed in 7.78s
+M7 predict red: alongside_first
+== m7: rc=0
+   144 passed in 7.71s
+M7 (equivalent mutant, discarded: insert(len) == append). M7b move held reason to last; predict red: alongside_first
+FAILED ../m7b/packages/transmitter/tests_transmitter/test_station.py::test_awaiting_fix_is_reported_alongside_other_legs_and_first
+1 failed, 117 passed in 7.65s
+M9 render re-validates encoded rows against eligibility; predict red: test_render_step_lets_a_marked_show_already_on_air_finish_as_planned
+== m9: rc=1
+                           reason = f"render failed: {exc}"
+   FAILED ../m9/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_lets_a_marked_show_already_on_air_finish_as_planned
+   1 failed, 69 passed in 27.43s
+E         
+E         - a204d53cedd7e4e7e0bc
+E         + be137aeef3fac1476fd5
+
+../probe/packages/transmitter/tests_transmitter/test_probe1b.py:26: AssertionError
+=========================== short test summary info ============================
+FAILED ../probe/packages/transmitter/tests_transmitter/test_probe1b.py::test_key_unchanged_by_mark
+1 failed, 2 passed in 0.74s
+probe: mark helper's set_age re-utimes every file -> file-set key CHANGES in tests (production: unchanged). Trying helper that ages manifest.json only.
+147 passed in 7.74s
+full suite at 30a359a (scratch base)
+859 passed, 1 skipped in 30.33s

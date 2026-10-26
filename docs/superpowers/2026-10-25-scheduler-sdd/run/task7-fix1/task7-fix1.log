@@ -1,0 +1,246 @@
+.......FF.FF............................................................ [ 90%]
+.......F                                                                 [100%]
+=================================== FAILURES ===================================
+_____ test_a_partial_line_left_by_a_crash_is_not_joined_by_the_next_append _____
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2748/test_a_partial_line_left_by_a_0')
+
+    def test_a_partial_line_left_by_a_crash_is_not_joined_by_the_next_append(tmp_path):
+        ws = Workspace(tmp_path)
+        append_aired(ws, EP, [_row(0, 0)], 0, _end_us(5 * S))
+        with open(ws.aired_path, "a") as f:
+            f.write('{"epoch_id": "etest", "start_fr')              # cut off mid-write, no newline
+        assert append_aired(ws, EP, [_row(1, S)], 1, _end_us(5 * S)) == 1
+>       assert [r.start_frame for r in load_aired(ws)] == [0, S]
+E       assert [0] == [0, 441]
+E         
+E         Right contains one more item: 441
+E         Use -v to get more diff
+
+packages/transmitter/tests_transmitter/test_history.py:110: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  transmitter.history:history.py:111 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2748/test_a_partial_line_left_by_a_0/aired.jsonl line 2 skipped: JSONDecodeError: Unterminated string starting at: line 1 column 23 (char 22)
+WARNING  transmitter.history:history.py:111 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2748/test_a_partial_line_left_by_a_0/aired.jsonl line 2 skipped: JSONDecodeError: Expecting ':' delimiter: line 1 column 34 (char 33)
+__________________ test_unusable_rows_are_skipped_not_loaded ___________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2748/test_unusable_rows_are_skipped0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x10b5511d0>
+
+    def test_unusable_rows_are_skipped_not_loaded(tmp_path, caplog):
+        ws = Workspace(tmp_path)
+        append_aired(ws, EP, [_row(0, 0)], 0, _end_us(5 * S))
+        good = json.loads(ws.aired_path.read_text())
+        bad = [{**good, "start": ""}, {**good, "start_frame": "0"}, {**good, "end_frame": True},
+               {**good, "end": "garbage"}, {**good, "slug": 5}, {k: v for k, v in good.items() if k != "start"}]
+        with open(ws.aired_path, "a") as f:
+            for b in bad:
+                f.write(json.dumps(b) + "\n")
+        with caplog.at_level(logging.WARNING):
+            got = load_aired(ws)
+>       assert len(got) == 1 and caplog.text.count("skipped") == len(bad)
+E       AssertionError: assert (7 == 1)
+E        +  where 7 = len([AiredRow(epoch_id='etest', start_frame=0, end_frame=441, kind='show', slug='s0', package='s0', block=None, nominal_st...fill=None, bends=(), announcement_broken=False, start='2096-10-02T07:06:40.000Z', end='2096-10-02T07:06:50.240Z'), ...])
+
+packages/transmitter/tests_transmitter/test_history.py:125: AssertionError
+___________________ test_a_datetime_for_a_local_date_raises ____________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2748/test_a_datetime_for_a_local_da0')
+
+    def test_a_datetime_for_a_local_date_raises(tmp_path):
+        r = Recency()
+>       with pytest.raises(TypeError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE TypeError
+
+packages/transmitter/tests_transmitter/test_history.py:138: Failed
+________________ test_meta_with_a_non_string_date_gives_no_year ________________
+
+    def test_meta_with_a_non_string_date_gives_no_year():
+>       r = recency([], [_row(0, 0, slug="p0")], EP, "UTC", lambda p: ("A", 19770508))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+packages/transmitter/tests_transmitter/test_history.py:145: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+packages/transmitter/src/transmitter/history.py:201: in recency
+    add(epoch.epoch_id, r.start_frame, _start_us(epoch, r.start_frame), r.kind, r.slug, package_of(r))
+packages/transmitter/src/transmitter/history.py:196: in add
+    uses.append(_Use(start_us, _local_date(start_us, tz), kind, slug, package, artist, _year_of(d)))
+                                                                                       ^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+d = 19770508
+
+    def _year_of(d: str | None) -> int | None:
+        try:
+>           return int(d[:4]) if d else None
+                       ^^^^^
+E           TypeError: 'int' object is not subscriptable
+
+packages/transmitter/src/transmitter/history.py:141: TypeError
+________ test_history_does_not_append_for_another_epochs_publish_state _________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2748/test_history_does_not_append_f0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d2ffe70>
+
+    def test_history_does_not_append_for_another_epochs_publish_state(tmp_path, monkeypatch):
+        from transmitter.state import PublishState, save_publish_state
+        st, _ = make_station(tmp_path)
+        rec = _Rec()
+        alerts.configure(alerts.Dispatcher(tmp_path / "alerts.json", [rec], 6 * 3600.0))
+        try:
+            save_publish_state(st.ws, PublishState(epoch_id="other", first=0, last=3))
+            seen = _record_history(monkeypatch)
+            monkeypatch.setattr(service, "publish_all", lambda *a, **k: None)
+            service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None).tick(NOW)
+>           assert seen == []
+E           assert [3] == []
+E             
+E             Left contains one more item: 3
+E             Use -v to get more diff
+
+packages/transmitter/tests_transmitter/test_service.py:952: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_history.py::test_a_partial_line_left_by_a_crash_is_not_joined_by_the_next_append
+FAILED packages/transmitter/tests_transmitter/test_history.py::test_unusable_rows_are_skipped_not_loaded
+FAILED packages/transmitter/tests_transmitter/test_history.py::test_a_datetime_for_a_local_date_raises
+FAILED packages/transmitter/tests_transmitter/test_history.py::test_meta_with_a_non_string_date_gives_no_year
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_history_does_not_append_for_another_epochs_publish_state
+5 failed, 75 passed in 1.45s
+........................................................................ [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 31%]
+..............................................................F..F...... [ 41%]
+........................................................................ [ 51%]
+........................................................................ [ 62%]
+........................................................................ [ 72%]
+........................................................................ [ 82%]
+........................................................................ [ 93%]
+.....................................s........                           [100%]
+=================================== FAILURES ===================================
+__________________ test_recency_counts_persisted_unaired_rows __________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2749/test_recency_counts_persisted_0')
+
+    def test_recency_counts_persisted_unaired_rows(tmp_path):
+        meta = {"p0": ("Band A", "1977-05-08"), "p1": ("Band B", "1990-01-01")}
+>       aired = [AiredRow.from_json({"epoch_id": "etest", "start_frame": 0, "end_frame": S, "kind": "show",
+                                     "slug": "p0", "package": "p0", "start": grid.us_to_iso(E)})]
+
+packages/transmitter/tests_transmitter/test_history.py:79: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <class 'transmitter.history.AiredRow'>
+data = {'epoch_id': 'etest', 'start_frame': 0, 'end_frame': 441, 'kind': 'show', ...}
+
+    @classmethod
+    def from_json(cls, data: dict) -> "AiredRow":
+        known = {f.name for f in fields(cls)}
+        kw = {k: v for k, v in data.items() if k in known}
+        for name in ("start_frame", "end_frame"):
+            v = kw.get(name)
+            if not isinstance(v, int) or isinstance(v, bool):
+                raise TypeError(f"{name} must be an int, got {v!r}")
+        for name in ("epoch_id", "kind", "slug"):
+            if not isinstance(kw.get(name), str):
+                raise TypeError(f"{name} must be a string, got {kw.get(name)!r}")
+        for name in ("start", "end"):
+            v = kw.get(name)
+            if not isinstance(v, str) or not v:
+>               raise TypeError(f"{name} must be a non-empty ISO string, got {v!r}")
+E               TypeError: end must be a non-empty ISO string, got None
+
+packages/transmitter/src/transmitter/history.py:69: TypeError
+__________________ test_unusable_rows_are_skipped_not_loaded ___________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2749/test_unusable_rows_are_skipped0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x10b5f6140>
+
+    def test_unusable_rows_are_skipped_not_loaded(tmp_path, caplog):
+        ws = Workspace(tmp_path)
+        append_aired(ws, EP, [_row(0, 0)], 0, _end_us(5 * S))
+        good = json.loads(ws.aired_path.read_text())
+        bad = [{**good, "start": ""}, {**good, "start_frame": "0"}, {**good, "end_frame": True},
+               {**good, "end": "garbage"}, {**good, "slug": 5}, {k: v for k, v in good.items() if k != "start"}]
+        with open(ws.aired_path, "a") as f:
+            for b in bad:
+                f.write(json.dumps(b) + "\n")
+        with caplog.at_level(logging.WARNING):
+            got = load_aired(ws)
+>       assert len(got) == 1 and caplog.text.count("skipped") == len(bad)
+E       AssertionError: assert (1 == 1 and 12 == 6)
+E        +  where 1 = len([AiredRow(epoch_id='etest', start_frame=0, end_frame=441, kind='show', slug='s0', package='s0', block=None, nominal_st...lse, fill=None, bends=(), announcement_broken=False, start='2096-10-02T07:06:40.000Z', end='2096-10-02T07:06:50.240Z')])
+E        +  and   12 = <built-in method count of str object at 0x79a5115000>('skipped')
+E        +    where <built-in method count of str object at 0x79a5115000> = 'WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/...est_unusable_rows_are_skipped0/aired.jsonl line 7 skipped: TypeError: start must be a non-empty ISO string, got None\n'.count
+E        +      where 'WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/...est_unusable_rows_are_skipped0/aired.jsonl line 7 skipped: TypeError: start must be a non-empty ISO string, got None\n' = <_pytest.logging.LogCaptureFixture object at 0x10b5f6140>.text
+E        +  and   6 = len([{'announcement_broken': False, 'bends': [], 'block': None, 'degraded': False, ...}, {'announcement_broken': False, 'b...ck': None, 'degraded': False, ...}, {'announcement_broken': False, 'bends': [], 'block': None, 'degraded': False, ...}])
+
+packages/transmitter/tests_transmitter/test_history.py:125: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2749/test_unusable_rows_are_skipped0/aired.jsonl line 2 skipped: TypeError: start must be a non-empty ISO string, got ''
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2749/test_unusable_rows_are_skipped0/aired.jsonl line 3 skipped: TypeError: start_frame must be an int, got '0'
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2749/test_unusable_rows_are_skipped0/aired.jsonl line 4 skipped: TypeError: end_frame must be an int, got True
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2749/test_unusable_rows_are_skipped0/aired.jsonl line 5 skipped: ValueError: Invalid isoformat string: 'garbage'
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2749/test_unusable_rows_are_skipped0/aired.jsonl line 6 skipped: TypeError: slug must be a string, got 5
+WARNING  transmitter.history:history.py:124 /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2749/test_unusable_rows_are_skipped0/aired.jsonl line 7 skipped: TypeError: start must be a non-empty ISO string, got None
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_history.py::test_recency_counts_persisted_unaired_rows
+FAILED packages/transmitter/tests_transmitter/test_history.py::test_unusable_rows_are_skipped_not_loaded
+2 failed, 691 passed, 1 skipped in 16.34s
+........................................................................ [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 31%]
+..............................................................F......... [ 41%]
+........................................................................ [ 51%]
+........................................................................ [ 62%]
+........................................................................ [ 72%]
+........................................................................ [ 82%]
+........................................................................ [ 93%]
+.....................................s........                           [100%]
+=================================== FAILURES ===================================
+__________________ test_recency_counts_persisted_unaired_rows __________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2750/test_recency_counts_persisted_0')
+
+    def test_recency_counts_persisted_unaired_rows(tmp_path):
+        meta = {"p0": ("Band A", "1977-05-08"), "p1": ("Band B", "1990-01-01")}
+>       aired = [AiredRow.from_json({"epoch_id": "etest", "start_frame": 0, "end_frame": S, "kind": "show",
+                                     "slug": "p0", "package": "p0", "start": grid.us_to_iso(E)})]
+
+packages/transmitter/tests_transmitter/test_history.py:79: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <class 'transmitter.history.AiredRow'>
+data = {'epoch_id': 'etest', 'start_frame': 0, 'end_frame': 441, 'kind': 'show', ...}
+
+    @classmethod
+    def from_json(cls, data: dict) -> "AiredRow":
+        known = {f.name for f in fields(cls)}
+        kw = {k: v for k, v in data.items() if k in known}
+        for name in ("start_frame", "end_frame"):
+            v = kw.get(name)
+            if not isinstance(v, int) or isinstance(v, bool):
+                raise TypeError(f"{name} must be an int, got {v!r}")
+        for name in ("epoch_id", "kind", "slug"):
+            if not isinstance(kw.get(name), str):
+                raise TypeError(f"{name} must be a string, got {kw.get(name)!r}")
+        for name in ("start", "end"):
+            v = kw.get(name)
+            if not isinstance(v, str) or not v:
+>               raise TypeError(f"{name} must be a non-empty ISO string, got {v!r}")
+E               TypeError: end must be a non-empty ISO string, got None
+
+packages/transmitter/src/transmitter/history.py:69: TypeError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_history.py::test_recency_counts_persisted_unaired_rows
+1 failed, 692 passed, 1 skipped in 16.52s
+........................................................................ [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 31%]
+........................................................................ [ 41%]
+........................................................................ [ 51%]
+........................................................................ [ 62%]
+........................................................................ [ 72%]
+........................................................................ [ 82%]
+........................................................................ [ 93%]
+.....................................s........                           [100%]
+693 passed, 1 skipped in 16.76s

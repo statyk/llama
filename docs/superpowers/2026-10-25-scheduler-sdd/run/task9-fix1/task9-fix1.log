@@ -1,0 +1,153 @@
+=== fix1 RED
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+E       TypeError: SchedulerInput.__init__() missing 1 required positional argument: 'now_us'
+packages/transmitter/tests_transmitter/test_scheduler.py:80: TypeError
+=== fix1 RED (old code, temporary shim passing now_us=None)
+E       AttributeError: module 'transmitter.scheduler' has no attribute 'USED_WINDOW_HOURS'
+E                             AttributeError: module 'transmitter.scheduler' has no attribute 'USED_WINDOW_FRAMES'
+E       Failed: DID NOT RAISE ValueError
+E       AssertionError: assert 1245106 >= 4651172
+E        +  where 1245106 = PlannedPiece(piece=Piece(kind='show', show=Show(slug='s0', dir=PosixPath('s0'), entries=(), key='k-s0', meta={'artist'...'b18', nominal_start='2026-11-03T23:00:00.000Z', role='show', miss=True, degraded=False, fill=None, bends=(), names=()).end_frame
+E       AssertionError: assert (1 >= 2)
+E        +  where 1 = len(['structural'])
+E               AssertionError: ('day', 2, ('b', '2026-11-05T23:00:00.000Z'), ['id', 'show', 'later', 'show', 'later', 'show'])
+E               assert 2 <= 1
+E                +  where 2 = <built-in method count of list object at 0x10ac0a640>('later')
+E                +    where <built-in method count of list object at 0x10ac0a640> = ['id', 'show', 'later', 'show', 'later', 'show'].count
+E               AssertionError: ('eve', 0, ('late', '2026-11-03T04:30:00.000Z'), ['next', 'show', 'id', 'show', 'later', 'show', ...])
+E               assert 2 <= 1
+E                +  where 2 = <built-in method count of list object at 0x10c354c40>('later')
+E                +    where <built-in method count of list object at 0x10c354c40> = ['next', 'show', 'id', 'show', 'later', 'show', ...].count
+E               AssertionError: ('repro', 0, ('night', '2026-11-03T02:30:00.000Z'), ['id', 'show', 'id', 'show', 'id', 'show', ...])
+E               assert 2 <= 1
+E                +  where 2 = <built-in method count of list object at 0x10b3fec00>('later')
+E                +    where <built-in method count of list object at 0x10b3fec00> = ['id', 'show', 'id', 'show', 'id', 'show', ...].count
+FAILED packages/transmitter/tests_transmitter/test_scheduler.py::test_used_is_the_shows_started_in_the_24_hours_before_a_run
+FAILED packages/transmitter/tests_transmitter/test_scheduler.py::test_used_window_is_half_open_on_the_frame_line
+FAILED packages/transmitter/tests_transmitter/test_scheduler.py::test_ahead_below_one_is_refused
+FAILED packages/transmitter/tests_transmitter/test_scheduler.py::test_until_frame_is_reached_by_the_projected_pieces_when_blocks_land_early
+FAILED packages/transmitter/tests_transmitter/test_scheduler.py::test_one_fill_cause_per_block_whatever_the_id_lengths
+FAILED packages/transmitter/tests_transmitter/test_scheduler.py::test_later_only_at_the_last_boundary_over_varied_lengths[day]
+FAILED packages/transmitter/tests_transmitter/test_scheduler.py::test_later_only_at_the_last_boundary_over_varied_lengths[eve]
+FAILED packages/transmitter/tests_transmitter/test_scheduler.py::test_later_only_at_the_last_boundary_over_varied_lengths[repro]
+8 failed, 34 passed in 3.53s
+E       AssertionError: ['structural', 'pool-short', 'pool-short']
+E       assert (3 >= 2 and {'pool-short', 'structural'} == {'structural'}
+E        +  where 3 = len(['structural', 'pool-short', 'pool-short'])
+E         
+E         Extra items in the left set:
+=== fix1 GREEN attempt (items 1-6)
+42 passed in 4.82s
+2.00s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_implicit_clock_never_records_a_miss
+0.78s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_appending_first_pieces_reproduces_one_projection
+0.54s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_later_only_at_the_last_boundary_over_varied_lengths[eve]
+0.53s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_later_only_at_the_last_boundary_over_varied_lengths[day]
+0.48s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_later_only_at_the_last_boundary_over_varied_lengths[repro]
+0.20s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_project_over_a_3000_piece_pool_is_fast
+=== probe p7 re-run
+repro 0 occs 45 laters 28 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.4s
+repro 1 occs 45 laters 30 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.4s
+repro 2 occs 45 laters 29 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.4s
+repro 3 occs 45 laters 29 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.4s
+day 0 occs 45 laters 15 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.5s
+day 1 occs 45 laters 15 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.5s
+day 2 occs 45 laters 14 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.5s
+day 3 occs 45 laters 14 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.5s
+eve 0 occs 45 laters 42 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.6s
+eve 1 occs 45 laters 42 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.6s
+eve 2 occs 45 laters 45 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.6s
+eve 3 occs 45 laters 44 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.6s
+=== live vs one-shot stress after fix
+repro 11 5 ok 65 one 0.10s live 1.39s misses 1 roles ['id', 'later', 'next', 'show']
+repro 12 5 ok 65 one 0.10s live 1.27s misses 1 roles ['id', 'later', 'next', 'show']
+repro 13 4 ok 61 one 0.10s live 1.21s misses 1 roles ['id', 'later', 'next', 'show']
+implicit 11 5 ok 63 one 1.34s live 41.09s misses 0 roles ['id', 'show']
+implicit 12 5 ok 61 one 1.59s live 38.31s misses 0 roles ['id', 'show']
+implicit 13 4 ok 63 one 1.26s live 36.61s misses 0 roles ['id', 'show']
+eve 11 5 ok 67 one 0.18s live 2.38s misses 0 roles ['id', 'later', 'next', 'show']
+eve 12 5 ok 65 one 0.17s live 2.25s misses 0 roles ['id', 'later', 'next', 'show']
+eve 13 4 ok 65 one 0.15s live 2.04s misses 1 roles ['id', 'later', 'next', 'show']
+busy 11 5 ok 53 one 0.18s live 1.95s misses 1 roles ['id', 'later', 'next', 'show']
+busy 12 5 ok 51 one 0.16s live 1.80s misses 2 roles ['id', 'later', 'next', 'show']
+busy 13 4 ok 55 one 0.23s live 2.29s misses 1 roles ['id', 'later', 'next', 'show']
+mismatches 0
+=== items 1-6 full suite
+794 passed, 1 skipped in 25.01s
+clause (i) removed: later not re-judged with its clip in place
+  predicted: test_later_only_at_the_last_boundary_over_varied_lengths[*] (assert exactly one show follows)
+  red: ['test_later_only_at_the_last_boundary_over_varied_lengths[day]', 'test_later_only_at_the_last_boundary_over_varied_lengths[eve]', 'test_later_only_at_the_last_boundary_over_varied_lengths[repro]']
+  3 failed, 40 passed in 4.40s
+clause (ii) removed: no once-per-occurrence guard
+  predicted: test_a_persisted_later_turns_a_later_last_boundary_into_an_id
+  red: ['test_a_persisted_later_turns_a_later_last_boundary_into_an_id']
+  1 failed, 42 passed in 5.10s
+item 2: used ignores the window (all shows ever)
+  predicted: test_used_is_the_shows_started_in_the_24_hours_before_a_run, test_used_window_is_half_open_on_the_frame_line
+  red: ['test_used_is_the_shows_started_in_the_24_hours_before_a_run', 'test_used_window_is_half_open_on_the_frame_line']
+  2 failed, 41 passed in 4.03s
+item 3: horizon by clock only
+  predicted: test_until_frame_is_reached_by_the_projected_pieces_when_blocks_land_early
+  red: ['test_until_frame_is_reached_by_the_projected_pieces_when_blocks_land_early']
+  1 failed, 42 passed in 5.01s
+item 4: block start not passed
+  predicted: test_one_fill_cause_per_block_whatever_the_id_lengths
+  red: ['test_one_fill_cause_per_block_whatever_the_id_lengths']
+  1 failed, 42 passed in 5.02s
+reuse ignores used
+  predicted: test_appending_first_pieces_reproduces_one_projection (expect possible survivor)
+  red: ['test_used_is_the_shows_started_in_the_24_hours_before_a_run']
+  1 failed, 42 passed in 4.07s
+795 passed, 1 skipped in 24.12s
+=== item 7 RED
+E       assert 0.9 == 0.00010273972...9725 ± 1.0e-10
+E         
+E         comparison failed
+E         Obtained: 0.9
+E         Expected: 0.00010273972602739725 ± 1.0e-10
+E       AttributeError: module 'transmitter.rules' has no attribute 'GAP0_RECENCY_HORIZON_DAYS'
+E       AssertionError: assert (['y'] == ['x']
+E         
+E         At index 0 diff: 'y' != 'x'
+E         Use -v to get more diff)
+FAILED packages/transmitter/tests_transmitter/test_rules.py::test_gap_zero_disables_the_gap_rule_without_dividing
+FAILED packages/transmitter/tests_transmitter/test_rules.py::test_gap_zero_ranks_least_recently_aired_first
+=== item 7 GREEN
+797 passed, 1 skipped in 25.44s
+797 passed, 1 skipped in 24.38s

@@ -1,0 +1,79 @@
+2026-10-25T15:47:17Z task8: started; read brief/spec/modules; writing fixture generator
+BYTE-IDENTICAL
+300 300
+southern 30 117.0 83.2 164.6 5
+indie 35 89.0 59.3 133.7 5
+dead-tribute 22 170.0 128.4 225.2 3
+americana 35 110.0 78.4 154.4 5
+dead-family 24 180.0 136.2 238.1 4
+funk 24 119.0 84.0 168.8 5
+dead 44 168.0 132.9 212.4 1
+bluegrass 33 135.0 96.1 189.7 5
+country 2 126.1 109.2 143.1 2
+livetronica 25 155.0 109.5 219.6 4
+jam 26 168.0 111.0 254.7 4
+........................................................................ [ 93%]
+.......................................s........                         [100%]
+695 passed, 1 skipped in 18.44s
+dec0016 transmitter: deterministic 300-show fixture library for the scheduler tests
+=== RED run 2026-10-25T15:54:45Z
+packages/transmitter/tests_transmitter/test_scheduler_block.py:9: in <module>
+    from transmitter import rules, scheduler
+E   ImportError: cannot import name 'rules' from 'transmitter' (/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py)
+=========================== short test summary info ============================
+ERROR packages/transmitter/tests_transmitter/test_rules.py
+ERROR packages/transmitter/tests_transmitter/test_scheduler_block.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.15s
+=== GREEN full suite 2026-10-25T16:07:51Z
+........................................................................ [ 97%]
+..........s........                                                      [100%]
+738 passed, 1 skipped in 18.97s
+05f6699 transmitter: scheduler block filling with tiers, rotation rules and bend accounting
+sentinel: expect [collection error] -> CAUGHT [] | no tests ran in 0.12s
+M1_chain_score_only: expect [test_greedy_extension_keeps_the_rules_when_it_can] -> CAUGHT ['test_greedy_extension_keeps_the_rules_when_it_can'] | 1 failed, 43 passed in 1.87s
+M2_mean_value: expect [test_value_is_the_score_surplus_minus_the_distance_term] -> SURVIVED [] | 44 passed in 1.95s
+M3_no_composition: expect [test_continuing_*] -> CAUGHT ['test_no_own_show_follows_fill', 'test_continuing_an_open_block_reproduces_the_first_choice[False]'] | 2 failed, 42 passed in 0.47s
+M4_no_own_count_in_tier1: expect [test_structural_fill_when_block_is_longer_than_max_shows_can_cover] -> CAUGHT ['test_structural_fill_when_block_is_longer_than_max_shows_can_cover'] | 1 failed, 43 passed in 1.93s
+M5_fill_only_prefix: expect [test_miss_keeps_the_blocks_own_profile] -> CAUGHT ['test_miss_keeps_the_blocks_own_profile'] | 1 failed, 43 passed in 1.95s
+M6_bends_without_kept: expect [test_scarce_pool_repeats_rather_than_degrading, test_own_profile_pair_beats_fill...] -> CAUGHT ['test_own_profile_pair_beats_fill_even_when_pairing_breaks_adjacency', 'test_scarce_pool_repeats_rather_than_degrading', 'test_bend_counted_only_when_a_keeping_option_existed'] | 3 failed, 41 passed in 1.95s
+M7_rule_order_reversed: expect [test_softest_rule_bends_first] -> CAUGHT ['test_bend_counted_only_when_a_keeping_option_existed', 'test_softest_rule_bends_first'] | 2 failed, 42 passed in 2.09s
+M8_repeat_in_block: expect [test_a_block_never_plays_one_piece_twice] -> CAUGHT ['test_a_block_never_plays_one_piece_twice', 'test_open_blocks_have_no_fill_tier', 'test_continuing_an_open_block_reproduces_the_first_choice[False]', 'test_continuing_an_open_block_reproduces_the_first_choice[True]'] | 4 failed, 40 passed in 1.54s
+M9_no_feasible_first: expect [none (bound quality only)] -> SURVIVED [] | 44 passed in 1.80s
+M10_plain_sum: expect [none (exact ties only)] -> SURVIVED [] | 44 passed in 1.92s
+M11_first_tie_only: expect [none (ties among options sharing a first show)] -> SURVIVED [] | 44 passed in 1.91s
+M12_no_fill_after_fill_rule: expect [test_no_own_show_follows_fill] -> CAUGHT ['test_no_own_show_follows_fill'] | 1 failed, 43 passed in 1.97s
+M13_cause_swapped: expect [fill cause tests] -> CAUGHT ['test_fill_with_long_own_shows_that_cannot_combine_is_pool_short', 'test_structural_fill_when_block_is_longer_than_max_shows_can_cover'] | 2 failed, 42 passed in 1.99s
+M14_gap_zero_divides: expect [test_gap_zero_*] -> CAUGHT ['test_gap_zero_never_counts_a_gap_bend', 'test_gap_zero_disables_the_gap_rule_without_dividing'] | 2 failed, 42 passed in 1.96s
+M15_used_ignored: expect [test_used_pieces_are_skipped_unless_nothing_else_is_left] -> CAUGHT ['test_used_pieces_are_skipped_unless_nothing_else_is_left'] | 1 failed, 43 passed in 1.95s
+M16_era_dropped: expect [test_violations_count_each_rule (rules); scheduler agreement test] -> CAUGHT ['test_violation_counts_agree_with_rules', 'test_violations_count_each_rule'] | 2 failed, 42 passed in 1.95s
+M17_tier2_early_beats_late: expect [none? (late-vs-early tie)] -> SURVIVED [] | 44 passed in 1.93s
+M2_mean_value: expect [test_value_is_the_score_surplus_minus_the_distance_term] -> CAUGHT ['test_value_sums_surplus_rather_than_averaging_it'] | 1 failed, 46 passed in 1.97s
+M9_no_feasible_first: expect [none (bound quality only)] -> CAUGHT ['test_pair_firsts_are_drawn_from_shows_that_can_still_land'] | 1 failed, 46 passed in 1.80s
+M17_tier2_early_beats_late: expect [none? (late-vs-early tie)] -> CAUGHT ['test_a_miss_prefers_late_over_early_at_equal_distance'] | 1 failed, 46 passed in 1.94s
+M10_plain_sum: expect [none (exact ties only)] -> SURVIVED [] | 47 passed in 1.92s
+M11_first_tie_only: expect [none (ties among options sharing a first show)] -> SURVIVED [] | 47 passed in 1.92s
+dead330 6.5 ms 0 2 None None () -0.0
+dead100 3.8 ms 0 1 None None () -0.0
+open12h 61.3 ms 0 6 None None () 1.4
+open24h 243.5 ms 0 16 None None () 638.2
+fx-open12h 15.0 ms 0 6 None None () -0.0
+fx-open24h 131.8 ms 0 13 None None () 653.1
+fx-dead 0.9 ms 0 2 None None () 0.1
+fixture profile blocks: n=55 mean 0.7 ms max 5.2 ms tiers {0: 51, 1: 4, 2: 0}
+3000 tier1 34.6 ms tier 1 pool-short 2
+3000 miss 3.7 ms tier 2 None 1
+..............s........                                                  [100%]
+742 passed, 1 skipped in 18.70s
+ok packages/transmitter/src/transmitter/rules.py
+ok packages/transmitter/src/transmitter/scheduler.py
+ok packages/transmitter/tests_transmitter/test_rules.py
+ok packages/transmitter/tests_transmitter/test_scheduler_block.py
+ok packages/transmitter/tests_transmitter/test_library_fixture.py
+ok packages/transmitter/tests_transmitter/fixtures/make_library_durations.py
+ok packages/transmitter/tests_transmitter/helpers.py
+ok packages/transmitter/src/transmitter/planner.py
+5acb9f5 transmitter: scheduler block tests pin the value formula, pair firsts, late misses
+05f6699 transmitter: scheduler block filling with tiers, rotation rules and bend accounting
+dec0016 transmitter: deterministic 300-show fixture library for the scheduler tests
+c9568c8 transmitter: history fix round 1 (partial-line guard, strict AiredRow, epoch guard, indexed Recency)

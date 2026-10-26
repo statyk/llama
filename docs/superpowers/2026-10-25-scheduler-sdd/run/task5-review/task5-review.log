@@ -1,0 +1,35 @@
+from Mon 8 [('A', 'later'), ('A', 'later_one'), ('A', 'next'), ('A', 'next_one'), ('B', 'later'), ('B', 'later_one'), ('B', 'next'), ('B', 'next_one')]
+from Tue 8 [('A', 'later'), ('A', 'later_one'), ('A', 'next'), ('A', 'next_one'), ('B', 'later'), ('B', 'later_one'), ('B', 'next'), ('B', 'next_one')]
+from Wed 8 [('A', 'later'), ('A', 'later_one'), ('A', 'next'), ('A', 'next_one'), ('B', 'later'), ('B', 'later_one'), ('B', 'next'), ('B', 'next_one')]
+from Thu 8 [('A', 'later'), ('A', 'later_one'), ('A', 'next'), ('A', 'next_one'), ('B', 'later'), ('B', 'later_one'), ('B', 'next'), ('B', 'next_one')]
+from Fri 8 [('A', 'later'), ('A', 'later_one'), ('A', 'next'), ('A', 'next_one'), ('B', 'later'), ('B', 'later_one'), ('B', 'next'), ('B', 'next_one')]
+from Sat 8 [('A', 'later'), ('A', 'later_one'), ('A', 'next'), ('A', 'next_one'), ('B', 'later'), ('B', 'later_one'), ('B', 'next'), ('B', 'next_one')]
+from Sun 8 [('A', 'later'), ('A', 'later_one'), ('A', 'next'), ('A', 'next_one'), ('B', 'later'), ('B', 'later_one'), ('B', 'next'), ('B', 'next_one')]
+0.5 [('later', '2026-10-31T23:00:00.000Z'), ('later_one', '2026-10-31T23:00:00.000Z'), ('next', '2026-10-31T23:00:00.000Z'), ('next_one', '2026-10-31T23:00:00.000Z')]
+1 [('later', '2026-10-31T23:00:00.000Z'), ('later_one', '2026-10-31T23:00:00.000Z'), ('next', '2026-10-31T23:00:00.000Z'), ('next_one', '2026-10-31T23:00:00.000Z')]
+3 [('later', '2026-10-31T23:00:00.000Z'), ('later_one', '2026-10-31T23:00:00.000Z'), ('next', '2026-10-31T23:00:00.000Z'), ('next_one', '2026-10-31T23:00:00.000Z')]
+8 [('later', '2026-10-31T23:00:00.000Z'), ('later_one', '2026-10-31T23:00:00.000Z'), ('next', '2026-10-31T23:00:00.000Z'), ('next_one', '2026-10-31T23:00:00.000Z')]
+2026-07-04 23:00:00+00:00 7 Eastern, 8:30 Newfoundland, 4:45 Nepal, 11 UTC
+2026-12-04 00:00:00+00:00 7 Eastern, 8:30 Newfoundland, 5:45 Nepal, 12 UTC
+2026-03-08 07:00:00+00:00 3 Eastern, 4:30 Newfoundland, 12:45 Nepal, 7 UTC
+2026-11-01 05:30:00+00:00 1:30 Eastern, 2 Newfoundland, 11:15 Nepal, 5:30 UTC
+2026-11-01 06:30:00+00:00 1:30 Eastern, 3 Newfoundland, 12:15 Nepal, 6:30 UTC
+12 Eastern, 9 Pacific
+12 Eastern, 9 Pacific
+00:00 Eastern, 21:00 Pacific
+6:59 Eastern, 3:59 Pacific
+..............................                                           [100%]
+30 passed in 0.35s
+M1 untitled X kept: expected test_announce.py::test_needed_skips_untitled_blocks_and_uses_one_forms -> CAUGHT ['FAILED ../tree/packages/transmitter/tests_transmitter/test_announce.py::test_needed_skips_untitled_blocks_and_uses_one_forms']
+M2 untitled Y two-block: expected test_announce.py::test_needed_skips_untitled_blocks_and_uses_one_forms -> CAUGHT ['FAILED ../tree/packages/transmitter/tests_transmitter/test_announce.py::test_needed_skips_untitled_blocks_and_uses_one_forms']
+M3 no quiet: expected test_interstitials.py::test_clip_inside_quiet_period_is_not_eligible -> CAUGHT ['FAILED ../tree/packages/transmitter/tests_transmitter/test_interstitials.py::test_clip_inside_quiet_period_is_not_eligible']
+M4 export all: expected test_cli.py::test_announcements_export_writes_missing_scripts_only -> CAUGHT ['FAILED ../tree/packages/transmitter/tests_transmitter/test_cli.py::test_announcements_export_writes_missing_scripts_only']
+M5 save=True: expected test_cli.py::test_announcements_export_writes_missing_scripts_only -> SURVIVED (57 passed in 2.82s)
+M6 minutes always: expected test_announce.py::test_time_names_every_zone_in_order -> CAUGHT ['FAILED ../tree/packages/transmitter/tests_transmitter/test_announce.py::test_time_names_every_zone_in_order']
+M7 no dedupe: expected test_announce.py::test_needed_skips_untitled_blocks_and_uses_one_forms -> CAUGHT ['FAILED ../tree/packages/transmitter/tests_transmitter/test_announce.py::test_needed_skips_untitled_blocks_and_uses_one_forms']
+M8 no OSError guard per file: expected (none expected: no test) -> SURVIVED (57 passed in 2.82s)
+M9 no until bound: expected (probably none) -> SURVIVED (57 passed in 2.86s)
+M10 present honours quiet: expected test_cli.py::test_announcements_export_writes_missing_scripts_only -> CAUGHT ['FAILED ../tree/packages/transmitter/tests_transmitter/test_cli.py::test_announcements_export_writes_missing_scripts_only']
+M11 zone order reversed: expected test_announce.py::test_time_names_every_zone_in_order -> CAUGHT ['FAILED ../tree/packages/transmitter/tests_transmitter/test_announce.py::test_time_names_every_zone_in_order']
+M12 hidden files allowed / dir filter: expected (none expected) -> SURVIVED (57 passed in 2.86s)
+PosixPath('clips') 'clips' False

@@ -1,0 +1,50 @@
+predictions: MA->test_scenario_skip_path_after_a_show_gap_seconds_change; M8->test_a_frame_count_change_under_the_same_pause_and_extra_is_re_measured; M1->test_announcement_broken_when_the_named_block_degrades_to_open_time; base->all green
+base /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rr/base/packages/transmitter/src/transmitter/pipeline.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rr/base/packages/transmitter/tests_transmitter/__init__.py
+MA /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rr/MA/packages/transmitter/src/transmitter/pipeline.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rr/MA/packages/transmitter/tests_transmitter/__init__.py
+M8 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rr/M8/packages/transmitter/src/transmitter/pipeline.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rr/M8/packages/transmitter/tests_transmitter/__init__.py
+M1 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rr/M1/packages/transmitter/src/transmitter/pipeline.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rr/M1/packages/transmitter/tests_transmitter/__init__.py
+[base] >   ???
+[base] E   FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rr/base/docs/superpowers/2026-10-25-scheduler-measurement/naive_filler.py'
+[base] 
+[base] <frozen importlib._bootstrap_external>:950: FileNotFoundError
+[base] =========================== short test summary info ============================
+[base] FAILED ../base/packages/transmitter/tests_transmitter/test_measure.py::test_naive_scan_cache_refuses_a_mismatch
+[base] !!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+[base] 1 failed, 331 passed in 12.13s
+[M1] >   ???
+[M1] E   FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rr/M1/docs/superpowers/2026-10-25-scheduler-measurement/naive_filler.py'
+[M1] 
+[M1] <frozen importlib._bootstrap_external>:950: FileNotFoundError
+[M1] =========================== short test summary info ============================
+[M1] FAILED ../M1/packages/transmitter/tests_transmitter/test_measure.py::test_naive_scan_cache_refuses_a_mismatch
+[M1] !!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+[M1] 1 failed, 331 passed in 12.34s
+[M8] >   ???
+[M8] E   FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rr/M8/docs/superpowers/2026-10-25-scheduler-measurement/naive_filler.py'
+[M8] 
+[M8] <frozen importlib._bootstrap_external>:950: FileNotFoundError
+[M8] =========================== short test summary info ============================
+[M8] FAILED ../M8/packages/transmitter/tests_transmitter/test_measure.py::test_naive_scan_cache_refuses_a_mismatch
+[M8] !!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+[M8] 1 failed, 331 passed in 12.39s
+[MA] >   ???
+[MA] E   FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rr/MA/docs/superpowers/2026-10-25-scheduler-measurement/naive_filler.py'
+[MA] 
+[MA] <frozen importlib._bootstrap_external>:950: FileNotFoundError
+[MA] =========================== short test summary info ============================
+[MA] FAILED ../MA/packages/transmitter/tests_transmitter/test_measure.py::test_naive_scan_cache_refuses_a_mismatch
+[MA] !!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+[MA] 1 failed, 331 passed in 12.34s
+[base] FAILED ../base/packages/transmitter/tests_transmitter/test_relay.py::test_relay_key_matches_antenna
+[base] 1 failed, 830 passed, 1 skipped in 33.67s
+[M1] FAILED ../M1/packages/transmitter/tests_transmitter/test_pipeline.py::test_announcement_broken_when_the_named_block_degrades_to_open_time
+[M1] FAILED ../M1/packages/transmitter/tests_transmitter/test_relay.py::test_relay_key_matches_antenna
+[M1] 2 failed, 829 passed, 1 skipped in 34.58s
+[M8] FAILED ../M8/packages/transmitter/tests_transmitter/test_pipeline.py::test_a_frame_count_change_under_the_same_pause_and_extra_is_re_measured
+[M8] FAILED ../M8/packages/transmitter/tests_transmitter/test_relay.py::test_relay_key_matches_antenna
+[M8] 2 failed, 829 passed, 1 skipped in 34.58s
+[MA] FAILED ../MA/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_skip_path_after_a_show_gap_seconds_change
+[MA] FAILED ../MA/packages/transmitter/tests_transmitter/test_relay.py::test_relay_key_matches_antenna
+[MA] 2 failed, 829 passed, 1 skipped in 33.67s
+................................................                         [100%]
+48 passed in 1.92s

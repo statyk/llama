@@ -1,0 +1,54 @@
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/head/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/head/packages/transmitter/tests_transmitter/__init__.py
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/base/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/base/packages/transmitter/tests_transmitter/__init__.py
+MUTANT m1: era exempt in pairs; predicted red: test_every_offered_option_counts_and_scores_as_rules_does
+[head]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[head] E       FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/head/antenna/src/alerts.ts'
+[head] 
+[head] /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:771: FileNotFoundError
+[head] =========================== short test summary info ============================
+[head] FAILED ../head/packages/transmitter/tests_transmitter/test_relay.py::test_relay_key_matches_antenna
+[head] !!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+[head] 1 failed, 496 passed in 12.98s
+[m1] ERROR: file or directory not found: or
+[m1] 
+[m1] 
+[m1] no tests ran in 0.00s
+[head] ........................................................................ [ 71%]
+[head] ........................................................................ [ 80%]
+[head] ........................................................................ [ 89%]
+[head] ........................................................................ [ 98%]
+[head] .....s........                                                           [100%]
+[head] 805 passed, 1 skipped in 25.16s
+[m1] E                 Use -v to get more diff
+[m1] 
+[m1] ../m1/packages/transmitter/tests_transmitter/test_scheduler_block.py:716: AssertionError
+[m1] =========================== short test summary info ============================
+[m1] FAILED ../m1/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_every_offered_option_counts_and_scores_as_rules_does
+[m1] 1 failed, 62 passed in 2.10s
+[base] 2.04s call     tests_transmitter/test_scheduler.py::test_implicit_clock_never_records_a_miss
+[base] 0.83s call     tests_transmitter/test_scheduler.py::test_appending_first_pieces_reproduces_one_projection
+[base] 0.74s call     tests_transmitter/test_scheduler_block.py::test_continuing_an_open_block_reproduces_the_first_choice[False]
+[base] 0.66s call     tests_transmitter/test_scheduler_block.py::test_continuing_an_open_block_reproduces_the_first_choice[True]
+[base] 0.56s call     tests_transmitter/test_scheduler.py::test_later_only_at_the_last_boundary_over_varied_lengths[eve]
+[base] 88 passed in 6.96s
+[head] 2.05s call     tests_transmitter/test_scheduler.py::test_implicit_clock_never_records_a_miss
+[head] 0.82s call     tests_transmitter/test_scheduler.py::test_appending_first_pieces_reproduces_one_projection
+[head] 0.74s call     tests_transmitter/test_scheduler_block.py::test_continuing_an_open_block_reproduces_the_first_choice[False]
+[head] 0.69s call     tests_transmitter/test_scheduler_block.py::test_continuing_an_open_block_reproduces_the_first_choice[True]
+[head] 0.56s call     tests_transmitter/test_scheduler.py::test_later_only_at_the_last_boundary_over_varied_lengths[eve]
+[head] 94 passed in 7.06s
+[base] 2.08s call     tests_transmitter/test_scheduler.py::test_implicit_clock_never_records_a_miss
+[base] 0.80s call     tests_transmitter/test_scheduler.py::test_appending_first_pieces_reproduces_one_projection
+[base] 0.74s call     tests_transmitter/test_scheduler_block.py::test_continuing_an_open_block_reproduces_the_first_choice[False]
+[base] 0.66s call     tests_transmitter/test_scheduler_block.py::test_continuing_an_open_block_reproduces_the_first_choice[True]
+[base] 0.55s call     tests_transmitter/test_scheduler.py::test_later_only_at_the_last_boundary_over_varied_lengths[eve]
+[base] 88 passed in 6.96s
+[head] 2.05s call     tests_transmitter/test_scheduler.py::test_implicit_clock_never_records_a_miss
+[head] 0.82s call     tests_transmitter/test_scheduler.py::test_appending_first_pieces_reproduces_one_projection
+[head] 0.74s call     tests_transmitter/test_scheduler_block.py::test_continuing_an_open_block_reproduces_the_first_choice[False]
+[head] 0.67s call     tests_transmitter/test_scheduler_block.py::test_continuing_an_open_block_reproduces_the_first_choice[True]
+[head] 0.56s call     tests_transmitter/test_scheduler.py::test_later_only_at_the_last_boundary_over_varied_lengths[eve]
+[head] 94 passed in 7.06s
+...                                                                      [100%]
+3 passed in 0.94s
+SPY {('dead', True, False, True): 165, ('grass', True, False, False): 100, ('night', False, False, False): 212, ('b', True, False, True): 4, ('b', True, False, False): 6}

@@ -1,0 +1,108 @@
+== p1 0-60
+9 ('later-not-last', 85, [('show', 'b2')])
+14 ('later-not-last', 93, [('show', 'b0')])
+15 ('later-not-last', 109, [('show', 'b0')])
+19 ('later-not-last', 95, [('show', 'b2')])
+21 ('later-not-last', 89, [('show', 'b1')])
+22 ('later-not-last', 87, [('show', 'b1')])
+23 ('later-not-last', 87, [('show', 'b2')])
+24 ('later-not-last', 67, [('show', 'b1')])
+25 ('later-not-last', 85, [('show', 'b1')])
+26 ('later-not-last', 85, [('show', 'b2')])
+27 ('later-not-last', 81, [('show', 'b2')])
+29 ('later-not-last', 75, [('show', 'b2')])
+31 ('later-not-last', 109, [('show', 'b0')])
+33 ('later-not-last', 97, [('show', 'b2')])
+34 ('later-not-last', 87, [('show', 'b2')])
+35 ('later-not-last', 93, [('show', 'b2')])
+36 ('later-not-last', 87, [('show', 'b2')])
+38 ('later-not-last', 91, [('show', 'b2')])
+40 ('later-not-last', 93, [('show', 'b2')])
+43 ('later-not-last', 105, [('show', 'b0')])
+47 ('later-not-last', 93, [('show', 'b2')])
+49 ('later-not-last', 85, [('show', 'b0')])
+53 ('later-not-last', 83, [('show', 'b2')])
+55 ('later-not-last', 101, [('show', 'b0')])
+59 ('later-not-last', 85, [('show', 'b1')])
+pieces 5048
+
+real	0m2.206s
+user	0m1.650s
+sys	0m0.108s
+195 ('untruthful', 'later', 57, ('b3', '2026-11-05T01:30:00.000Z'), -18.825880583333333, False)
+195 ('untruthful', 'next', 59, ('b3', '2026-11-05T01:30:00.000Z'), -18.825880583333333, False)
+287 ('untruthful', 'later', 29, ('b3', '2026-11-03T15:00:00.000Z'), 59.46432048333333, False)
+pieces 25584
+== base
+187 ('later-not-last', 5, [('show', 'b0'), ('later', 'b0'), ('show', 'b0')]) npieces 75
+188 ('later-not-last', 29, [('show', 'b2'), ('later', 'b2'), ('show', 'b2')]) npieces 63
+190 ('later-not-last', 25, [('show', 'b0'), ('later', 'b0'), ('show', 'b0')]) npieces 99
+197 ('later-not-last', 47, [('show', 'b1'), ('later', 'b1'), ('show', 'b1')]) npieces 71
+197 ('untruthful', 'later', 47, ('b3', '2026-11-04T10:00:00.000Z'), 20.016253966666667, False) npieces 71
+199 ('untruthful', 'later', 47, ('b1', '2026-11-04T17:30:00.000Z'), -78.44137265, False) npieces 65
+231 ('later-not-last', 3, [('show', 'b0'), ('later', 'b0'), ('show', 'b0')]) npieces 97
+238 ('later-not-last', 5, [('show', 'b0'), ('id', 'b0'), ('show', 'b0')]) npieces 87
+251 ('later-not-last', 19, [('show', 'b2'), ('later', 'b2'), ('show', 'b2')]) npieces 77
+252 ('later-not-last', 11, [('show', 'b1'), ('later', 'b1'), ('show', 'b1')]) npieces 81
+293 ('later-not-last', 21, [('show', 'b2'), ('later', 'b2'), ('show', 'b2')]) npieces 87
+293 ('later-not-last', 27, [('show', 'b0'), ('later', 'b0'), ('show', 'b0')]) npieces 87
+295 ('later-not-last', 1, [('show', 'b0'), ('later', 'b0'), ('show', 'b0')]) npieces 85
+== head
+195 ('untruthful', 'later', 57, ('b3', '2026-11-05T01:30:00.000Z'), -18.825880583333333, False) npieces 87
+195 ('untruthful', 'next', 59, ('b3', '2026-11-05T01:30:00.000Z'), -18.825880583333333, False) npieces 87
+287 ('untruthful', 'later', 29, ('b3', '2026-11-03T15:00:00.000Z'), 59.46432048333333, False) npieces 77
+== base 0-800
+untruthful lines: 8  seeds:        5 later-not-last: 79 EXC: 0
+== head 0-800
+untruthful lines: 10  seeds:        7 later-not-last: 0 EXC: 0
+== p4 0-40 (head worktree)
+mismatches 0
+
+real	0m6.872s
+user	0m6.574s
+sys	0m0.106s
+== p7
+repro 0 occs 45 laters 28 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.5s
+repro 1 occs 45 laters 30 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.5s
+repro 2 occs 45 laters 29 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.5s
+repro 3 occs 45 laters 29 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.4s
+day 0 occs 45 laters 15 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.6s
+day 1 occs 45 laters 15 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.5s
+day 2 occs 45 laters 14 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.6s
+day 3 occs 45 laters 14 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.5s
+eve 0 occs 45 laters 42 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.6s
+eve 1 occs 45 laters 42 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.7s
+eve 2 occs 45 laters 45 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.6s
+eve 3 occs 45 laters 44 occs with >1 later 0 occs whose first later isn't followed by exactly one show 0 0.6s
+== mutant m1
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m1/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m1/packages/transmitter/tests_transmitter/__init__.py
+FAILED ../m1/packages/transmitter/tests_transmitter/test_scheduler.py::test_used_window_is_half_open_on_the_frame_line
+1 failed, 27 passed in 1.22s
+== mutant m2
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m2/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m2/packages/transmitter/tests_transmitter/__init__.py
+99 passed in 8.18s
+== mutant m3
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m3/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m3/packages/transmitter/tests_transmitter/__init__.py
+FAILED ../m3/packages/transmitter/tests_transmitter/test_scheduler.py::test_appending_first_pieces_reproduces_one_projection
+1 failed, 7 passed in 1.13s
+== mutant m4
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m4/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/m4/packages/transmitter/tests_transmitter/__init__.py
+E         comparison failed
+FAILED ../m4/packages/transmitter/tests_transmitter/test_rules.py::test_gap_zero_disables_the_gap_rule_without_dividing
+1 failed, 44 passed in 5.39s
+== base
+=========================== short test summary info ============================
+FAILED ../head/packages/transmitter/tests_transmitter/test_relay.py::test_relay_key_matches_antenna
+1 failed, 796 passed, 1 skipped in 29.21s
+mismatches 0
+57 rows; per-call s: median 0.98 max 1.44 total 57.4
+== head
+progress: waiting on cost.py and p4b (72h live vs one-shot)
+p4b 72h x25: mismatches 0
+progress: drafting report while cost.py head runs
+progress: still waiting for head cost
+57 rows; per-call s: median 1.13 max 1.46 total 64.8
+== default-horizon base
+41 rows; per-call s: median 0.50 max 0.79 total 22.0
+== default-horizon head
+41 rows; per-call s: median 0.61 max 0.82 total 24.7

@@ -1,0 +1,4 @@
+budget-min: 25
+role: reviewer
+model: fable
+what: Fable re-check of fix-wave code diff

@@ -1,0 +1,20 @@
+
+    def test_relative_interstitials_dir_is_a_config_error():
+        import pytest
+        from pydantic import ValidationError
+>       with pytest.raises(ValidationError, match="absolute"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValidationError
+
+packages/transmitter/tests_transmitter/test_interstitials.py:97: Failed
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_announcements_notes_a_missing_interstitials_folder
+FAILED packages/transmitter/tests_transmitter/test_config.py::test_relative_interstitials_dir_raises_config_error_on_load
+FAILED packages/transmitter/tests_transmitter/test_interstitials.py::test_relative_interstitials_dir_is_a_config_error
+3 failed, 660 passed, 1 skipped in 16.27s
+........................................................................ [ 65%]
+........................................................................ [ 75%]
+........................................................................ [ 86%]
+........................................................................ [ 97%]
+.......s........                                                         [100%]
+663 passed, 1 skipped in 16.68s

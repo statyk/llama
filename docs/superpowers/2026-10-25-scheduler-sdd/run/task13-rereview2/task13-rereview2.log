@@ -1,0 +1,53 @@
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/base/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/base/packages/transmitter/tests_transmitter/__init__.py
+baseline full suite
+........................................................................ [ 97%]
+..............s........                                                  [100%]
+886 passed, 1 skipped in 30.29s
+== R1 (expect: test_schedule_keeps_a_late_block...)
+applied
+import-ok
+FAILED ../m_R1/packages/transmitter/tests_transmitter/test_cli.py::test_schedule_keeps_a_late_block_whose_nominal_start_is_inside_the_horizon
+1 failed, 115 passed in 2.20s
+== R2 (expect: test_schedule_does_not_pull_old_phase1_rows...)
+applied
+import-ok
+FAILED ../m_R2/packages/transmitter/tests_transmitter/test_cli.py::test_schedule_does_not_pull_old_phase1_rows_into_the_unscheduled_view
+1 failed, 115 passed in 2.92s
+== M30a (expect: test_schedule_keeps_a_late_block (per-show [fill:]))
+applied
+import-ok
+FAILED ../m_M30a/packages/transmitter/tests_transmitter/test_cli.py::test_schedule_keeps_a_late_block_whose_nominal_start_is_inside_the_horizon
+1 failed, 115 passed in 2.92s
+== M30b (expect: test_schedule_keeps_a_late_block (summary fill line))
+applied
+import-ok
+FAILED ../m_M30b/packages/transmitter/tests_transmitter/test_cli.py::test_schedule_keeps_a_late_block_whose_nominal_start_is_inside_the_horizon
+1 failed, 115 passed in 2.33s
+== M17 (expect: test_schedule_trims_views_at_the_horizon)
+applied
+import-ok
+FAILED ../m_M17/packages/transmitter/tests_transmitter/test_cli.py::test_schedule_trims_views_at_the_horizon
+FAILED ../m_M17/packages/transmitter/tests_transmitter/test_cli.py::test_schedule_keeps_a_late_block_whose_nominal_start_is_inside_the_horizon
+2 failed, 114 passed in 2.38s
+== Mnom (expect: test_schedule_open_time_shows_no_slip? (show-start half))
+applied
+import-ok
+FAILED ../m_Mnom/packages/transmitter/tests_transmitter/test_cli.py::test_schedule_open_time_shows_no_slip
+1 failed, 115 passed in 2.36s
+== R1 tb
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/m_R1/packages/transmitter/tests_transmitter/test_cli.py:684: StopIteration
+== R2 tb
+E   assert not True
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/m_R2/packages/transmitter/tests_transmitter/test_cli.py:704: assert not True
+== M30a tb
+E   assert (False)
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/m_M30a/packages/transmitter/tests_transmitter/test_cli.py:687: assert (False)
+== M30b tb
+E   assert False
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/m_M30b/packages/transmitter/tests_transmitter/test_cli.py:688: assert False
+== M17 tb
+E   AssertionError: assert 4000033140000000 < 4000032981384126
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/m_M17/packages/transmitter/tests_transmitter/test_cli.py:592: AssertionError: assert 4000033140000000 < 4000032981384126
+E   assert False
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr2/m_M17/packages/transmitter/tests_transmitter/test_cli.py:686: assert False
+report+sentinel written

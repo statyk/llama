@@ -1,0 +1,146 @@
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 40%]
+........................................................................ [ 48%]
+.......................................F................................ [ 56%]
+........................................................................ [ 64%]
+........................................................................ [ 72%]
+........................................................................ [ 80%]
+........................................................................ [ 89%]
+........................................................................ [ 97%]
+..........F....Fs........                                                [100%]
+=================================== FAILURES ===================================
+_____________ test_plan_step_guards_the_first_appended_rows_start ______________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-3062/test_plan_step_guards_the_firs0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c8b1a20>
+
+    def test_plan_step_guards_the_first_appended_rows_start(tmp_path, monkeypatch):
+        st, _ = make_station(tmp_path)
+        rows = pipeline.plan_step(st, NOW)
+        later = NOW + 20 * 60 * 1_000_000
+        _publish_through(st, later)
+        monkeypatch.setattr(pipeline, "next_start", lambda rows, gap: rows[-1].end_frame + gap + 1)
+>       with pytest.raises(LayoutError, match="next start"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE LayoutError
+
+packages/transmitter/tests_transmitter/test_pipeline.py:1275: Failed
+_ test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping _
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-3062/test_the_runner_says_ready_pin0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d5f88a0>
+
+    def test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping(tmp_path, monkeypatch):
+        from transmitter import pipeline
+    
+        projections: list[int] = []
+        real_project = pipeline.project
+    
+        def counted(*a, **kw):
+            projections.append(1)
+            return real_project(*a, **kw)
+        monkeypatch.setattr(pipeline, "project", counted)
+        st, _ = make_station(tmp_path)
+        sent: list[str] = []
+        runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None,
+                                notify=lambda m: sent.append(m) or True)
+        runner.run(max_ticks=1)
+        assert sent[0] == "READY=1" and sent[-1] == "STOPPING=1"
+        # plan; render (one show encode, then the step FAILS: no clock is injected and helpers.E
+        # is far in the future -- fine, the step's ping sits in `finally`); publish and its one batch.
+        # and history (one more ping, even when nothing is appended); plus one ping per analysis made
+        # through Station.frames_of and one per scheduler projection (the plan step). The render
+        # step's own analyze of the show it encodes (pipeline.render_step) is not routed through
+        # frames_of, so it adds no ping: of the engine's analyses, exactly the plan's count.
+        assert len(st.engine.analyzed) >= 1
+        plan_analyses = len(st.engine.analyzed) - len(st.engine.encoded)
+        assert plan_analyses >= 1 and len(projections) >= 1
+>       assert sent.count("WATCHDOG=1") == 6 + plan_analyses + len(projections)
+E       AssertionError: assert 10 == ((6 + 1) + 2)
+E        +  where 10 = <built-in method count of list object at 0x10e87a3c0>('WATCHDOG=1')
+E        +    where <built-in method count of list object at 0x10e87a3c0> = ['READY=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', ...].count
+E        +  and   2 = len([1, 1])
+
+packages/transmitter/tests_transmitter/test_systemd.py:62: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    transmitter:service.py:258 render step failed
+Traceback (most recent call last):
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/service.py", line 240, in _step
+    fn()
+    ~~^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/service.py", line 337, in render
+    pipeline.render_step(
+    ~~~~~~~~~~~~~~~~~~~~^
+        self.st, t_us, limit=self.st.cfg.publish.batch_segments, notify=self.notify)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/pipeline.py", line 481, in render_step
+    atomic_write_bytes(path, store.build_segment(n, rows))
+                             ~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/layout.py", line 209, in build_segment
+    return segment.assemble(n, parts)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/segment.py", line 13, in assemble
+    return id3.timestamp_tag(grid.segment_timestamp(ts_index)) + b"".join(frames)
+                             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/grid.py", line 32, in segment_timestamp
+    raise ValueError(f"segment index must be >= 0, got {n}")
+ValueError: segment index must be >= 0, got -215529939
+ERROR    transmitter.alerts:alerts.py:348 ALERT render: ValueError: segment index must be >= 0, got -215529939
+________________ test_render_step_pings_after_each_show_encode _________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-3062/test_render_step_pings_after_e0')
+
+    def test_render_step_pings_after_each_show_encode(tmp_path):
+        from transmitter import pipeline
+        from tests_transmitter.test_pipeline import NOW
+    
+        st, _ = make_station(tmp_path)
+        pipeline.plan_step(st, NOW)
+        encodes: list[str] = []
+        real = st.engine.encode_show
+        st.engine.encode_show = lambda *a, **k: encodes.append("e") or real(*a, **k)
+        sent: list[str] = []
+        pipeline.render_step(st, NOW, notify=lambda m: sent.append(m) or True)
+>       assert encodes and sent == ["WATCHDOG=1"] * len(encodes)
+E       AssertionError: assert (['e', 'e'] and ['WATCHDOG=1'... 'WATCHDOG=1'] == ['WATCHDOG=1', 'WATCHDOG=1']
+E         
+E         Left contains 2 more items, first extra item: 'WATCHDOG=1'
+E         Use -v to get more diff)
+
+packages/transmitter/tests_transmitter/test_systemd.py:128: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_guards_the_first_appended_rows_start
+FAILED packages/transmitter/tests_transmitter/test_systemd.py::test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping
+FAILED packages/transmitter/tests_transmitter/test_systemd.py::test_render_step_pings_after_each_show_encode
+3 failed, 885 passed, 1 skipped in 32.28s
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 40%]
+........................................................................ [ 48%]
+........................................................................ [ 56%]
+........................................................................ [ 64%]
+........................................................................ [ 72%]
+........................................................................ [ 81%]
+........................................................................ [ 89%]
+........................................................................ [ 97%]
+...............s........                                                 [100%]
+887 passed, 1 skipped in 31.98s
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 40%]
+........................................................................ [ 48%]
+........................................................................ [ 56%]
+........................................................................ [ 64%]
+........................................................................ [ 72%]
+........................................................................ [ 81%]
+........................................................................ [ 89%]
+........................................................................ [ 97%]
+...............s........                                                 [100%]
+887 passed, 1 skipped in 32.40s

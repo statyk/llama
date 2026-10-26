@@ -1,0 +1,13 @@
+clock-a.toml: 1151 block starts, 0 outside window (0.0%); project 35.71 s, scan 161.5 s
+
+real	3m17.739s
+user	0m38.503s
+sys	0m6.503s
+2786 shows (scan-cache); window 15 min; 1100 gaps over 50 seeds: overran 15 (1.4%), not fillable 17 (1.5%), miss 2.9%
+clock-b.toml: 2101 block starts, 0 outside window (0.0%); project 36.53 s, scan 0.0 s
+clock-c.toml: 1051 block starts, 0 outside window (0.0%); project 14.68 s, scan 0.0 s
+clock-c.toml: 1051 block starts, 0 outside window (0.0%); project 2.55 s, scan 89.7 s
+clock-a.toml: 1151 block starts, 0 outside window (0.0%); project 34.74 s, scan 0.0 s
+clock-b.toml: 2101 block starts, 0 outside window (0.0%); project 34.98 s, scan 0.0 s
+clock-c.toml: 1051 block starts, 0 outside window (0.0%); project 12.97 s, scan 0.0 s
+clock-c.toml: 1051 block starts, 0 outside window (0.0%); project 2.65 s, scan 0.0 s

@@ -1,0 +1,22 @@
+...............................                                          [100%]
+31 passed in 0.08s
+...............................                                          [100%]
+31 passed in 0.08s
+...............................                                          [100%]
+31 passed in 0.07s
+...............................                                          [100%]
+31 passed in 0.08s
+../packages/transmitter/tests_transmitter/test_clock.py:116: Failed
+=========================== short test summary info ============================
+FAILED ../packages/transmitter/tests_transmitter/test_clock.py::test_non_finite_and_oversized_values_are_config_errors
+1 failed, 30 passed in 0.09s
+../packages/transmitter/tests_transmitter/test_clock.py:267: AssertionError
+=========================== short test summary info ============================
+FAILED ../packages/transmitter/tests_transmitter/test_clock.py::test_last_good_not_rewritten_when_identical
+1 failed, 30 passed in 0.09s
+../packages/transmitter/src/transmitter/workspace.py:30: IsADirectoryError
+=========================== short test summary info ============================
+FAILED ../packages/transmitter/tests_transmitter/test_clock.py::test_failed_last_good_copy_is_swallowed
+1 failed, 30 passed in 0.09s
+........................................................s........        [100%]
+640 passed, 1 skipped in 15.95s

@@ -1,0 +1,85 @@
+.......................................FF                                [100%]
+=================================== FAILURES ===================================
+__ test_schedule_keeps_a_late_block_whose_nominal_start_is_inside_the_horizon __
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-3035/test_schedule_keeps_a_late_blo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a08db00>
+
+    def test_schedule_keeps_a_late_block_whose_nominal_start_is_inside_the_horizon(tmp_path, monkeypatch):
+        tx, root, engine, cfg, _ = _st_cfg(tmp_path, monkeypatch)
+        e = grid.iso_to_us("2096-10-02T05:00:00Z")
+        write_json(Workspace(tx).epoch_path, {"epoch_id": "etest", "epoch": grid.us_to_iso(e), "d": 10.24})
+        iso = lambda h: grid.us_to_iso(grid.iso_to_us(f"2096-10-02T{h}:00Z"))      # noqa: E731
+        s1 = _aligned(e, "2096-10-02T10:00:00Z")
+        rows = [PlanRow(seq=0, slug="band-2005-11-01", dir="d", key="k1", start_frame=s1, frames=_fh(3), run_start=True,
+>                       block="b10", nominal_start=iso("10:00:00"), role="show", miss=False, package="band-2005-11-01")]
+                                                   ^^^^^^^^^^^^^^^
+
+packages/transmitter/tests_transmitter/test_cli.py:674: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+packages/transmitter/tests_transmitter/test_cli.py:671: in <lambda>
+    iso = lambda h: grid.us_to_iso(grid.iso_to_us(f"2096-10-02T{h}:00Z"))      # noqa: E731
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+text = '2096-10-02T10:00:00:00Z'
+
+    def iso_to_us(text: str) -> int:
+>       dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: Invalid isoformat string: '2096-10-02T10:00:00:00+00:00'
+
+packages/transmitter/src/transmitter/grid.py:78: ValueError
+____ test_schedule_does_not_pull_old_phase1_rows_into_the_unscheduled_view _____
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-3035/test_schedule_does_not_pull_ol0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ac2cc20>
+
+    def test_schedule_does_not_pull_old_phase1_rows_into_the_unscheduled_view(tmp_path, monkeypatch):
+        tx, root, engine, cfg, _ = _st_cfg(tmp_path, monkeypatch)
+        e = grid.iso_to_us("2096-09-28T05:00:00Z")
+        write_json(Workspace(tx).epoch_path, {"epoch_id": "etest", "epoch": grid.us_to_iso(e), "d": 10.24})
+        old = _aligned(e, "2096-09-30T10:00:00Z")
+        cur = _aligned(e, "2096-10-02T10:00:00Z")
+        rows = [PlanRow(seq=0, slug="band-2005-11-01", dir="d", key="k1", start_frame=old, frames=_fh(1), run_start=True,
+                        package="band-2005-11-01"),
+                PlanRow(seq=1, slug="band-2005-11-02", dir="d", key="k2", start_frame=cur, frames=_fh(1), run_start=True,
+                        package="band-2005-11-02")]
+        write_plan(Workspace(tx).plan_path, rows)
+        t = e + grid.frame_to_us(cur) + 30 * 60_000_000
+        lines = service.schedule_report(cfg, t, days=0.1)
+>       assert not any("09-30" in l for l in lines)
+E       assert not True
+E        +  where True = any(<generator object test_schedule_does_not_pull_old_phase1_rows_into_the_unscheduled_view.<locals>.<genexpr> at 0x10abf82b0>)
+
+packages/transmitter/tests_transmitter/test_cli.py:704: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_keeps_a_late_block_whose_nominal_start_is_inside_the_horizon
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_does_not_pull_old_phase1_rows_into_the_unscheduled_view
+2 failed, 39 passed in 0.95s
+E       AssertionError: assert 'MISS' in '    ! missing announcement audio ann-9ec3480d13cd.mp3: Coming up next, Block 10. Then at 8 Eastern, 5 Pacific, Block 12.'
+E       assert not True
+E        +  where True = any(<generator object test_schedule_does_not_pull_old_phase1_rows_into_the_unscheduled_view.<locals>.<genexpr> at 0x109770790>)
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_keeps_a_late_block_whose_nominal_start_is_inside_the_horizon
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_does_not_pull_old_phase1_rows_into_the_unscheduled_view
+2 failed, 39 passed in 0.85s
+E       StopIteration
+E       assert not True
+E        +  where True = any(<generator object test_schedule_does_not_pull_old_phase1_rows_into_the_unscheduled_view.<locals>.<genexpr> at 0x10948c790>)
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_keeps_a_late_block_whose_nominal_start_is_inside_the_horizon
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_does_not_pull_old_phase1_rows_into_the_unscheduled_view
+2 failed, 39 passed in 0.86s
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 40%]
+........................................................................ [ 48%]
+........................................................................ [ 56%]
+........................................................................ [ 64%]
+........................................................................ [ 73%]
+........................................................................ [ 81%]
+........................................................................ [ 89%]
+........................................................................ [ 97%]
+..............s........                                                  [100%]
+886 passed, 1 skipped in 29.58s

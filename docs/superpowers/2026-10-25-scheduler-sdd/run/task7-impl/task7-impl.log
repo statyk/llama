@@ -1,0 +1,63 @@
+........................................................................ [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 31%]
+........................................................................ [ 41%]
+........................................................................ [ 52%]
+........................................................................ [ 62%]
+........................................................................ [ 73%]
+........................................................................ [ 83%]
+........................................................................ [ 94%]
+.......................F.....s........                                   [100%]
+=================================== FAILURES ===================================
+_ test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping _
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2738/test_the_runner_says_ready_pin0')
+
+    def test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping(tmp_path):
+        st, _ = make_station(tmp_path)
+        sent: list[str] = []
+        runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None,
+                                notify=lambda m: sent.append(m) or True)
+        runner.run(max_ticks=1)
+        assert sent[0] == "READY=1" and sent[-1] == "STOPPING=1"
+        # plan; render (one show encode, then the step FAILS: no clock is injected and helpers.E
+        # is far in the future -- fine, the step's ping sits in `finally`); publish and its one batch.
+        # plus one ping per analysis made through Station.frames_of (the plan step). The render
+        # step's own analyze of the show it encodes (pipeline.render_step) is not routed through
+        # frames_of, so it adds no ping: of the engine's analyses, exactly the plan's count.
+        assert len(st.engine.analyzed) >= 1
+        plan_analyses = len(st.engine.analyzed) - len(st.engine.encoded)
+        assert plan_analyses >= 1
+>       assert sent.count("WATCHDOG=1") == 5 + plan_analyses
+E       AssertionError: assert 7 == (5 + 1)
+E        +  where 7 = <built-in method count of list object at 0x10cd3c300>('WATCHDOG=1')
+E        +    where <built-in method count of list object at 0x10cd3c300> = ['READY=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', 'WATCHDOG=1', ...].count
+
+packages/transmitter/tests_transmitter/test_systemd.py:52: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    transmitter:service.py:251 render step failed
+Traceback (most recent call last):
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/service.py", line 233, in _step
+    fn()
+    ~~^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/service.py", line 326, in render
+    pipeline.render_step(
+    ~~~~~~~~~~~~~~~~~~~~^
+        self.st, t_us, limit=self.st.cfg.publish.batch_segments, notify=self.notify)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/pipeline.py", line 310, in render_step
+    atomic_write_bytes(path, store.build_segment(n, rows))
+                             ~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/layout.py", line 209, in build_segment
+    return segment.assemble(n, parts)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/segment.py", line 13, in assemble
+    return id3.timestamp_tag(grid.segment_timestamp(ts_index)) + b"".join(frames)
+                             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/grid.py", line 32, in segment_timestamp
+    raise ValueError(f"segment index must be >= 0, got {n}")
+ValueError: segment index must be >= 0, got -215533017
+ERROR    transmitter.alerts:alerts.py:348 ALERT render: ValueError: segment index must be >= 0, got -215533017
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_systemd.py::test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping
+1 failed, 684 passed, 1 skipped in 18.55s

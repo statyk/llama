@@ -1,0 +1,232 @@
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/src/packages/transmitter/src/transmitter/__init__.py 3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)]
+scan start Sun Oct 25 14:53:47 EDT 2026
+extra 1
+2786 100.54867696762085
+dead 413 voiced 113
+[('Grateful Dead', 413)]
+funk [('Soulive', 29), ('Tedeschi Trucks Band', 25), ('Robert Randolph [and the Family Band]', 19), ('JJ Grey and MOFRO', 16), ('New Mastersounds', 13), ('Lettuce', 8), ('Dumpstaphunk', 7), ("Karl Denson's Tiny Universe", 7)] 221
+dead-family [('Furthur', 70), ('Phil Lesh and Friends', 59), ('Dead & Company', 49), ('Ratdog', 18), ('The Dead', 16), ('Zero', 3), ('Rhythm Devils', 2), ('Steve Kimock', 2)] 225
+bluegrass [('Yonder Mountain String Band', 89), ('Railroad Earth', 65), ('Greensky Bluegrass', 30), ('Bela Fleck and the Flecktones', 23), ('Billy Strings', 18), ('Hot Buttered Rum', 12), ('Leftover Salmon', 9), ('Del McCoury Band', 8)] 307
+dead minutes median 171.8 p10 140.2 p90 216.8
+dup frame counts 2
+== p2 clock-a 8w
+starts 184 misses 0 bends {'era': 4, 'gap': 53} own 0.932 fill {'structural': 5519.1}
+repeat {'shows_aired': 241, 'repeats': 146, 'min': 1.0, 'p10': 1.2, 'median': 2.0, 'p90': 14.0, 'buckets': {'<1d': 0, '1-7d': 126, '7-30d': 12, '30-45d': 2, '45-90d': 6, '>=90d': 0}}
+distinct {'americana': [17, 329], 'bluegrass': [109, 307], 'dead': [22, 413], 'dead-family': [12, 225], 'dead-tribute': [1, 208], 'funk': [16, 221], 'indie': [44, 329], 'jam': [2, 244], 'livetronica': [4, 232], 'southern': [14, 275]}
+== p3 clock-a 2w
+
+=== dead-am 2026-11-04T12:00:00.000Z start=1793793719768526 prev_artist='Grateful Dead' window frames [8217071,8255830] used=5
+CHOSEN viol(adj,gap,day,era)= (1, 1, 1, 0)  value=-1.024 landing=+1.3 min
+    gratefuldead-1966-12-01 [Grateful Dead] 299.3min last=1.0d score=0.020
+exhaustive in-window pairs: 12830; with gap kept: 12830; viol histogram: {(2, 0, 2, 0): 11426, (2, 0, 2, 1): 1382, (2, 0, 2, 2): 22}
+EXHAUSTIVE BEST viol= (2, 0, 2, 0)  value=2.971 landing=+0.9
+    gratefuldead-1986-07-04 [Grateful Dead] 112.3min last=Noned score=1.000
+    gratefuldead-1977-11-04 [Grateful Dead] 186.5min last=Noned score=4.000
+BEST GAP-KEEPING viol= (2, 0, 2, 0)  value=2.971 landing=+0.9
+    gratefuldead-1986-07-04 [Grateful Dead] 112.3min last=Noned score=1.000
+    gratefuldead-1977-11-04 [Grateful Dead] 186.5min last=Noned score=4.000
+
+=== dead-am 2026-11-06T12:00:00.000Z start=1793966522253061 prev_artist='Grateful Dead' window frames [15658946,15697705] used=6
+CHOSEN viol(adj,gap,day,era)= (1, 1, 1, 0)  value=-1.005 landing=+1.3 min
+    gratefuldead-1966-12-01 [Grateful Dead] 299.3min last=2.0d score=0.040
+exhaustive in-window pairs: 12794; with gap kept: 12794; viol histogram: {(2, 0, 2, 0): 11390, (2, 0, 2, 1): 1382, (2, 0, 2, 2): 22}
+EXHAUSTIVE BEST viol= (2, 0, 2, 0)  value=2.986 landing=+0.4
+    gratefuldead-1975-08-13 [Grateful Dead] 127.2min last=Noned score=1.000
+    gratefuldead-1977-11-06 [Grateful Dead] 171.1min last=Noned score=4.000
+BEST GAP-KEEPING viol= (2, 0, 2, 0)  value=2.986 landing=+0.4
+    gratefuldead-1975-08-13 [Grateful Dead] 127.2min last=Noned score=1.000
+    gratefuldead-1977-11-06 [Grateful Dead] 171.1min last=Noned score=4.000
+
+=== dead-am 2026-11-07T12:00:00.000Z start=1794052979060680 prev_artist='Grateful Dead' window frames [19379883,19418642] used=5
+CHOSEN viol(adj,gap,day,era)= (1, 1, 1, 0)  value=-1.002 landing=+0.8 min
+    gratefuldead-1989-07-18 [Grateful Dead] 297.8min last=1.2d score=0.024
+exhaustive in-window pairs: 12398; with gap kept: 12398; viol histogram: {(2, 0, 2, 0): 11092, (2, 0, 2, 1): 1302, (2, 0, 2, 2): 4}
+EXHAUSTIVE BEST viol= (2, 0, 2, 0)  value=2.998 landing=+0.1
+    gratefuldead-1966-05-19 [Grateful Dead] 72.4min last=Noned score=1.000
+    gratefuldead-1971-11-07 [Grateful Dead] 224.6min last=Noned score=4.000
+BEST GAP-KEEPING viol= (2, 0, 2, 0)  value=2.998 landing=+0.1
+    gratefuldead-1966-05-19 [Grateful Dead] 72.4min last=Noned score=1.000
+    gratefuldead-1971-11-07 [Grateful Dead] 224.6min last=Noned score=4.000
+
+bends {'era': 1, 'gap': 11} distinct [12, 413]
+Mon 11-02 07:00 dead-am      dead          305.1m gratefuldead-1989-08-19                  n=1 miss=False fill=None bends=()
+Mon 11-02 12:05 bluegrass    bluegrass     185.3m billystrings-2019-05-23                  n=1 miss=False fill=None bends=()
+Mon 11-02 15:10 bluegrass    bluegrass     205.5m leftoversalmon-2000-01-28                n=1 miss=None fill=None bends=()
+Mon 11-02 18:35 bluegrass    indie          24.1m elliottsmith-1999-02-22                  n=1 miss=None fill=structural bends=()
+Mon 11-02 19:00 dead-pm      dead          313.7m gratefuldead-1987-06-30                  n=1 miss=False fill=None bends=()
+Tue 11-03 00:13 dead-pm      dead          407.7m gratefuldead-1978-12-30                  n=1 miss=None fill=None bends=()
+Tue 11-03 07:01 dead-am      dead          299.3m gratefuldead-1966-12-01                  n=1 miss=False fill=None bends=()
+Tue 11-03 12:00 bluegrass    bluegrass     195.4m yondermountainstringband-2004-12-30      n=1 miss=False fill=None bends=()
+Tue 11-03 15:16 bluegrass    bluegrass     190.1m greenskybluegrass-2006-05-16             n=1 miss=None fill=None bends=()
+Tue 11-03 18:26 bluegrass    indie          33.6m smashingpumpkins-1993-06-30              n=1 miss=None fill=structural bends=()
+Tue 11-03 19:00 dead-pm      dead          424.0m gratefuldead-1974-09-11                  n=1 miss=False fill=None bends=()
+Wed 11-04 02:04 dead-pm      dead          297.8m gratefuldead-1989-07-18                  n=1 miss=None fill=None bends=()
+Wed 11-04 07:01 dead-am      dead          299.3m gratefuldead-1966-12-01                  n=2 miss=False fill=None bends=('gap',)
+Wed 11-04 12:01 bluegrass    bluegrass     177.2m railroadearth-2004-03-31                 n=1 miss=False fill=None bends=()
+Wed 11-04 14:58 bluegrass    bluegrass     193.1m yondermountainstringband-2006-10-21      n=1 miss=None fill=None bends=()
+Wed 11-04 18:11 bluegrass    americana      48.3m warrenzevon-1976-06-20                   n=1 miss=None fill=structural bends=()
+Wed 11-04 19:00 dead-pm      dead          320.7m gratefuldead-1974-05-25                  n=1 miss=False fill=None bends=()
+Thu 11-05 00:20 dead-pm      dead          407.7m gratefuldead-1978-12-30                  n=2 miss=None fill=None bends=()
+Thu 11-05 07:08 dead-am      dead          294.7m gratefuldead-1988-03-27                  n=1 miss=False fill=None bends=()
+Thu 11-05 12:03 bluegrass    bluegrass     177.7m greenskybluegrass-2008-02-29             n=1 miss=False fill=None bends=()
+Thu 11-05 15:00 bluegrass    bluegrass     190.4m yondermountainstringband-2002-04-06      n=1 miss=None fill=None bends=()
+Thu 11-05 18:11 bluegrass    southern       48.8m littlefeat-1978-06-02                    n=1 miss=None fill=structural bends=()
+Thu 11-05 19:00 dead-pm      dead          424.0m gratefuldead-1974-09-11                  n=2 miss=False fill=None bends=()
+Fri 11-06 02:04 dead-pm      dead          297.8m gratefuldead-1989-07-18                  n=2 miss=None fill=None bends=()
+Fri 11-06 07:02 dead-am      dead          299.3m gratefuldead-1966-12-01                  n=3 miss=False fill=None bends=('gap',)
+Fri 11-06 12:01 bluegrass    bluegrass     176.2m yondermountainstringband-2008-01-18      n=1 miss=False fill=None bends=()
+Fri 11-06 14:57 bluegrass    bluegrass     175.6m railroadearth-2006-10-28                 n=1 miss=None fill=None bends=()
+Fri 11-06 17:53 bluegrass    americana      75.3m joepug-2010-11-06                        n=1 miss=None fill=structural bends=()
+Fri 11-06 19:08 dead-pm      dead          358.5m gratefuldead-1991-10-31                  n=1 miss=False fill=None bends=()
+Sat 11-07 01:06 dead-pm      dead          356.0m gratefuldead-1969-04-21                  n=1 miss=None fill=None bends=()
+Sat 11-07 07:02 dead-am      dead          297.8m gratefuldead-1989-07-18                  n=3 miss=False fill=None bends=('gap',)
+Sat 11-07 12:00 bluegrass    bluegrass     169.6m yondermountainstringband-2008-02-21      n=1 miss=False fill=None bends=()
+Sat 11-07 14:50 bluegrass    bluegrass     191.9m railroadearth-2008-12-31                 n=1 miss=None fill=None bends=()
+Sat 11-07 18:02 bluegrass    indie          57.5m elliottsmith-1998-06-02                  n=1 miss=None fill=structural bends=()
+Sat 11-07 19:00 dead-pm      dead          224.6m gratefuldead-1971-11-07                  n=1 miss=False fill=None bends=()
+Sat 11-07 22:44 funk         funk          197.7m themotet-2011-10-29                      n=1 miss=False fill=None bends=()
+Sun 11-08 02:02 funk         funk          185.7m radiators-1992-12-06                     n=1 miss=None fill=None bends=()
+Sun 11-08 05:08 funk         indie         118.9m mymorningjacket-2002-11-08               n=1 miss=None fill=structural bends=()
+Sun 11-08 07:07 dead-am      dead          294.7m gratefuldead-1988-03-27                  n=2 miss=False fill=None bends=('gap',)
+Sun 11-08 12:01 bluegrass    bluegrass     178.2m yondermountainstringband-2010-10-15      n=1 miss=False fill=None bends=()
+Sun 11-08 15:00 dead-family  dead-family   174.7m furthur-2010-02-05                       n=1 miss=False fill=None bends=()
+Sun 11-08 17:54 dead-family  dead-family    66.0m philleshandfriends-1994-09-24            n=1 miss=None fill=None bends=()
+== 4-way 8w start Sun Oct 25 14:57:21 EDT 2026
+dead >=280: [282, 283, 284, 286, 295, 298, 299, 305, 314, 321, 333, 334, 343, 356, 358, 408, 424]
+dead-am 300 singles 2 unordered pairs 6950
+dead-am 300 sym singles 6 unordered pairs 10553
+dead-pm 720 singles 0 unordered pairs 5
+dead-pm 720 sym singles 0 unordered pairs 14
+dead-pm sat 210 singles 19 unordered pairs 1027
+b dead-pm 240 singles 13 unordered pairs 2442
+a_orig /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/src/packages/transmitter/src/transmitter/__init__.py
+starts 184 misses 0 bends {'era': 4, 'gap': 53} own 0.932 fill {'structural': 5519.1}
+repeat {'shows_aired': 241, 'repeats': 146, 'min': 1.0, 'p10': 1.2, 'median': 2.0, 'p90': 14.0, 'buckets': {'<1d': 0, '1-7d': 126, '7-30d': 12, '30-45d': 2, '45-90d': 6, '>=90d': 0}}
+distinct {'americana': [17, 329], 'bluegrass': [109, 307], 'dead': [22, 413], 'dead-family': [12, 225], 'dead-tribute': [1, 208], 'funk': [16, 221], 'indie': [44, 329], 'jam': [2, 244], 'livetronica': [4, 232], 'southern': [14, 275]}
+
+a_fix /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/fix/packages/transmitter/src/transmitter/__init__.py
+starts 184 misses 0 bends {} own 0.933 fill {'structural': 5370.1}
+repeat {'shows_aired': 343, 'repeats': 102, 'min': 1.0, 'p10': 2.0, 'median': 5.0, 'p90': 46.0, 'buckets': {'<1d': 0, '1-7d': 60, '7-30d': 24, '30-45d': 4, '45-90d': 14, '>=90d': 0}}
+distinct {'americana': [20, 329], 'bluegrass': [108, 307], 'dead': [130, 413], 'dead-family': [12, 225], 'dead-tribute': [2, 208], 'funk': [16, 221], 'indie': [35, 329], 'jam': [1, 244], 'livetronica': [6, 232], 'southern': [13, 275]}
+
+a_sym_orig /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/src/packages/transmitter/src/transmitter/__init__.py
+starts 184 misses 0 bends {'gap': 49} own 0.96 fill {'pool-short': 665.6, 'structural': 2536.6}
+repeat {'shows_aired': 164, 'repeats': 184, 'min': 1.0, 'p10': 1.2, 'median': 3.0, 'p90': 10.3, 'buckets': {'<1d': 0, '1-7d': 141, '7-30d': 39, '30-45d': 1, '45-90d': 3, '>=90d': 0}}
+distinct {'americana': [15, 329], 'bluegrass': [67, 307], 'dead': [26, 413], 'dead-family': [10, 225], 'funk': [16, 221], 'indie': [20, 329], 'jam': [2, 244], 'livetronica': [1, 232], 'southern': [7, 275]}
+
+a_sym_fix /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/fix/packages/transmitter/src/transmitter/__init__.py
+starts 184 misses 0 bends {} own 0.964 fill {'pool-short': 1133.2, 'structural': 1792.0}
+repeat {'shows_aired': 267, 'repeats': 137, 'min': 1.0, 'p10': 1.8, 'median': 3.0, 'p90': 20.0, 'buckets': {'<1d': 0, '1-7d': 94, '7-30d': 35, '30-45d': 1, '45-90d': 7, '>=90d': 0}}
+distinct {'americana': [13, 329], 'bluegrass': [63, 307], 'dead': [137, 413], 'dead-family': [10, 225], 'dead-tribute': [1, 208], 'funk': [16, 221], 'indie': [18, 329], 'jam': [2, 244], 'livetronica': [1, 232], 'southern': [6, 275]}
+
+b_orig /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/src/packages/transmitter/src/transmitter/__init__.py
+starts 336 misses 0 bends {'gap': 82} own 1.0 fill {}
+repeat {'shows_aired': 464, 'repeats': 96, 'min': 1.0, 'p10': 3.0, 'median': 11.0, 'p90': 41.0, 'buckets': {'<1d': 0, '1-7d': 29, '7-30d': 47, '30-45d': 17, '45-90d': 3, '>=90d': 0}}
+distinct {'americana': [40, 329], 'bluegrass': [108, 307], 'country': [1, 2], 'dead': [31, 413], 'dead-tribute': [132, 208], 'funk': [38, 221], 'indie': [52, 329], 'jam': [12, 244], 'livetronica': [18, 232], 'southern': [32, 275]}
+
+b_fix /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/fix/packages/transmitter/src/transmitter/__init__.py
+starts 336 misses 0 bends {'artist_day': 1, 'gap': 7} own 1.0 fill {}
+repeat {'shows_aired': 590, 'repeats': 46, 'min': 8.85, 'p10': 21.0, 'median': 37.5, 'p90': 47.5, 'buckets': {'<1d': 0, '1-7d': 0, '7-30d': 11, '30-45d': 21, '45-90d': 14, '>=90d': 0}}
+distinct {'americana': [39, 329], 'bluegrass': [104, 307], 'dead': [163, 413], 'dead-tribute': [133, 208], 'funk': [39, 221], 'indie': [54, 329], 'jam': [11, 244], 'livetronica': [16, 232], 'southern': [31, 275]}
+
+== 50w runs start Sun Oct 25 14:58:05 EDT 2026
+Mon 11-02 07:00 dead-am      dead          116.6m gratefuldead-1969-11-02                  n=1 miss=False fill=None bends=()
+Mon 11-02 08:56 dead-am      dead          183.6m gratefuldead-1984-10-14                  n=1 miss=None fill=None bends=()
+Mon 11-02 19:00 dead-pm      dead          313.7m gratefuldead-1987-06-30                  n=1 miss=False fill=None bends=()
+Tue 11-03 00:13 dead-pm      dead          407.7m gratefuldead-1978-12-30                  n=1 miss=None fill=None bends=()
+Tue 11-03 07:01 dead-am      dead           22.1m gratefuldead-1965-11-03                  n=1 miss=False fill=None bends=()
+Tue 11-03 07:23 dead-am      dead          281.6m gratefuldead-1973-06-10                  n=1 miss=None fill=None bends=()
+Tue 11-03 19:00 dead-pm      dead          297.8m gratefuldead-1989-07-18                  n=1 miss=False fill=None bends=()
+Tue 11-03 23:57 dead-pm      dead          424.0m gratefuldead-1974-09-11                  n=1 miss=None fill=None bends=()
+Wed 11-04 07:02 dead-am      dead          186.5m gratefuldead-1977-11-04                  n=1 miss=False fill=None bends=()
+Wed 11-04 10:08 dead-am      dead          112.3m gratefuldead-1986-07-04                  n=1 miss=None fill=None bends=()
+Wed 11-04 19:00 dead-pm      dead          320.7m gratefuldead-1974-05-25                  n=1 miss=False fill=None bends=()
+Thu 11-05 00:20 dead-pm      dead          407.7m gratefuldead-1978-12-30                  n=2 miss=None fill=None bends=()
+Thu 11-05 07:08 dead-am      dead          164.1m gratefuldead-1985-11-05                  n=1 miss=False fill=None bends=()
+Thu 11-05 09:52 dead-am      dead          127.7m gratefuldead-1968-02-14                  n=1 miss=None fill=None bends=()
+Thu 11-05 19:00 dead-pm      dead          299.3m gratefuldead-1966-12-01                  n=1 miss=False fill=None bends=()
+Thu 11-05 23:59 dead-pm      dead          424.0m gratefuldead-1974-09-11                  n=2 miss=None fill=None bends=()
+Fri 11-06 07:03 dead-am      dead          171.1m gratefuldead-1977-11-06                  n=1 miss=False fill=None bends=()
+Fri 11-06 09:54 dead-am      dead          126.1m gratefuldead-1969-03-01                  n=1 miss=None fill=None bends=()
+Fri 11-06 19:00 dead-pm      dead          407.7m gratefuldead-1978-12-30                  n=3 miss=False fill=None bends=()
+Sat 11-07 01:47 dead-pm      dead          313.7m gratefuldead-1987-06-30                  n=2 miss=None fill=None bends=()
+Sat 11-07 07:01 dead-am      dead          224.6m gratefuldead-1971-11-07                  n=1 miss=False fill=None bends=()
+Sat 11-07 10:46 dead-am      dead           80.9m gratefuldead-1968-10-12                  n=1 miss=None fill=None bends=()
+Sat 11-07 19:00 dead-pm      dead          151.2m gratefuldead-1991-04-01                  n=1 miss=False fill=None bends=()
+Sat 11-07 21:31 dead-pm      dead           58.7m gratefuldead-1967-10-22                  n=1 miss=None fill=None bends=()
+a50_orig
+starts 1151 misses 0 bends {'era': 10, 'gap': 347} own 0.924 fill {'structural': 38162.4}
+repeat {'shows_aired': 847, 'repeats': 1540, 'min': 1.0, 'p10': 1.8, 'median': 5.0, 'p90': 99.9, 'buckets': {'<1d': 0, '1-7d': 824, '7-30d': 126, '30-45d': 19, '45-90d': 399, '>=90d': 172}}
+distinct {'americana': [112, 329], 'bluegrass': [302, 307], 'dead': [39, 413], 'dead-family': [42, 225], 'dead-tribute': [15, 208], 'funk': [62, 221], 'indie': [148, 329], 'jam': [16, 244], 'livetronica': [32, 232], 'southern': [79, 275]}
+
+a50_fix
+starts 1151 misses 0 bends {'era': 3} own 0.929 fill {'pool-short': 71.9, 'structural': 35843.0}
+repeat {'shows_aired': 1177, 'repeats': 1553, 'min': 1.0, 'p10': 2.0, 'median': 46.0, 'p90': 139.4, 'buckets': {'<1d': 0, '1-7d': 414, '7-30d': 239, '30-45d': 55, '45-90d': 594, '>=90d': 251}}
+distinct {'?': [1, 1], 'americana': [106, 329], 'bluegrass': [301, 307], 'dead': [384, 413], 'dead-family': [43, 225], 'dead-tribute': [14, 208], 'funk': [61, 221], 'indie': [156, 329], 'jam': [19, 244], 'livetronica': [25, 232], 'southern': [67, 275]}
+
+a50_sym_orig
+starts 1151 misses 0 bends {'gap': 342} own 0.959 fill {'pool-short': 2308.6, 'structural': 18478.4}
+repeat {'shows_aired': 627, 'repeats': 1504, 'min': 1.0, 'p10': 2.0, 'median': 4.0, 'p90': 56.0, 'buckets': {'<1d': 0, '1-7d': 991, '7-30d': 261, '30-45d': 8, '45-90d': 182, '>=90d': 62}}
+distinct {'americana': [68, 329], 'bluegrass': [247, 307], 'dead': [50, 413], 'dead-family': [26, 225], 'dead-tribute': [10, 208], 'funk': [61, 221], 'indie': [96, 329], 'jam': [16, 244], 'livetronica': [9, 232], 'southern': [44, 275]}
+
+a50_sym_fix
+starts 1151 misses 0 bends {'era': 4} own 0.962 fill {'pool-short': 7062.5, 'structural': 12121.3}
+repeat {'shows_aired': 940, 'repeats': 1557, 'min': 1.0, 'p10': 2.0, 'median': 15.0, 'p90': 102.0, 'buckets': {'<1d': 0, '1-7d': 620, '7-30d': 258, '30-45d': 43, '45-90d': 450, '>=90d': 186}}
+distinct {'americana': [63, 329], 'bluegrass': [238, 307], 'dead': [396, 413], 'dead-family': [26, 225], 'dead-tribute': [8, 208], 'funk': [62, 221], 'indie': [87, 329], 'jam': [9, 244], 'livetronica': [10, 232], 'southern': [41, 275]}
+
+b50_fix
+starts 2101 misses 0 bends {'artist_day': 15, 'era': 5, 'gap': 41} own 1.0 fill {}
+repeat {'shows_aired': 1683, 'repeats': 2074, 'min': 1.99, 'p10': 37.0, 'median': 50.0, 'p90': 161.1, 'buckets': {'<1d': 0, '1-7d': 5, '7-30d': 99, '30-45d': 198, '45-90d': 1262, '>=90d': 510}}
+distinct {'americana': [181, 329], 'bluegrass': [233, 307], 'country': [1, 2], 'dead': [404, 413], 'dead-family': [5, 225], 'dead-tribute': [208, 208], 'funk': [148, 221], 'indie': [217, 329], 'jam': [70, 244], 'livetronica': [75, 232], 'southern': [141, 275]}
+
+c50_orig
+starts 1051 misses 0 bends {'gap': 323} own 1.0 fill {}
+repeat {'shows_aired': 153, 'repeats': 1622, 'min': 1.0, 'p10': 1.8, 'median': 4.0, 'p90': 48.0, 'buckets': {'<1d': 0, '1-7d': 1014, '7-30d': 306, '30-45d': 31, '45-90d': 249, '>=90d': 22}}
+distinct {'dead': [66, 413], 'funk': [87, 221]}
+
+c50_fix
+starts 1051 misses 0 bends {} own 1.0 fill {}
+repeat {'shows_aired': 494, 'repeats': 1608, 'min': 1.0, 'p10': 2.0, 'median': 11.0, 'p90': 110.1, 'buckets': {'<1d': 0, '1-7d': 633, '7-30d': 346, '30-45d': 34, '45-90d': 366, '>=90d': 229}}
+distinct {'dead': [403, 413], 'funk': [91, 221]}
+
+{'dead': 17}
+dead 17 [('gratefuldead-1966-12-01', 295, 52, False), ('gratefuldead-1968-10-13', 150, 22, False), ('gratefuldead-1969-04-21', 352, 44, False), ('gratefuldead-1974-05-25', 317, 48, False), ('gratefuldead-1974-09-11', 419, 45, True), ('gratefuldead-1978-12-30', 404, 52, False)]
+17
+gratefuldead-1966-12-01 295m ; gratefuldead-1968-10-13 150m ; gratefuldead-1969-04-21 352m ; gratefuldead-1974-05-25 317m ; gratefuldead-1974-09-11 419m voiced; gratefuldead-1978-12-30 404m ; gratefuldead-1987-06-30 310m ; gratefuldead-1987-07-06 272m ; gratefuldead-1988-03-27 291m ; gratefuldead-1988-06-23 282m ; gratefuldead-1989-07-18 294m ; gratefuldead-1989-08-19 301m ; gratefuldead-1990-03-16 330m ; gratefuldead-1990-07-14 329m ; gratefuldead-1991-04-05 339m ; gratefuldead-1991-10-31 354m ; gratefuldead-1995-03-18 280m 
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/fix/packages/transmitter/src/transmitter/__init__.py
+== fix-copy test suite Sun Oct 25 15:00:01 EDT 2026
+
+==================================== ERRORS ====================================
+_______________ ERROR collecting tests_transmitter/test_site.py ________________
+tests_transmitter/test_site.py:13: in <module>
+    TEMPLATE = (Path(__file__).resolve().parents[3] / "antenna" / "templates" / "show.html").read_text()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/fix/antenna/templates/show.html'
+=========================== short test summary info ============================
+ERROR tests_transmitter/test_site.py - FileNotFoundError: [Errno 2] No such f...
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+.                                                                        [100%]
+1 passed in 0.60s
+== fix-copy suite rerun Sun Oct 25 15:00:19 EDT 2026
+                    starts.append(at(f))
+                    f += p.frames + GAP
+                assert landing == f - GAP + GAP
+>               assert viol == rules.violations(pcs, "Grateful Dead", occ, rec, CLOCK, starts), [p.slug for p in pcs]
+E               AssertionError: ['otd6', 'otd2']
+E               assert (0, 0, 0, 0) == (2, 0, 2, 0)
+E                 
+E                 At index 0 diff: 0 != 2
+E                 Use -v to get more diff
+
+tests_transmitter/test_scheduler_block.py:650: AssertionError
+=========================== short test summary info ============================
+FAILED tests_transmitter/test_relay.py::test_relay_key_matches_antenna - File...
+FAILED tests_transmitter/test_scheduler_block.py::test_every_offered_option_counts_and_scores_as_rules_does
+2 failed, 796 passed, 1 skipped in 27.58s
+progress: waiting on fix-copy suite Sun Oct 25 15:00:49 EDT 2026

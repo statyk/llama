@@ -1,0 +1,23 @@
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/tree/packages/transmitter/src/transmitter/__init__.py
+FAILED ../tree/packages/transmitter/tests_transmitter/test_publish.py::test_publish_site_never_asks_for_an_interstitial_analysis
+1 failed in 0.49s
+mutant: guard removed
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:771: FileNotFoundError
+=========================== short test summary info ============================
+FAILED ../tree/packages/transmitter/tests_transmitter/test_publish.py::test_publish_site_never_asks_for_an_interstitial_analysis
+1 failed in 0.15s
+../tree/packages/transmitter/tests_transmitter/test_publish.py:487: 
+../tree/packages/transmitter/tests_transmitter/helpers.py:283: in make_publisher
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/rr1/tree/antenna/templates/show.html'
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:771: FileNotFoundError
+unmutated:
+21 passed in 0.14s
+mutant: _publish_site guard removed
+E       AssertionError: assert ([PlanRow(seq=0, slug='band-1', dir='band-1', key='k1', start_frame=44100, frames=1764, run_start=True, cut_frame=None,...=None, degraded=False, fill=None, bends=(), names=(), package=None, announcement_broken=False, extra=mappingproxy({}))] and False)
+E        +  where False = all(<generator object test_publish_site_never_asks_for_an_interstitial_analysis.<locals>.<genexpr> at 0x1099a4110>)
+1 failed in 0.14s

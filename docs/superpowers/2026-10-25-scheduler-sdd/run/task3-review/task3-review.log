@@ -1,0 +1,20 @@
+progress: reading analysis/render/aacenc
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t3mut/src/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t3mut/src/packages/transmitter/tests_transmitter/__init__.py
+M1 footer flag ignored -> SURVIVED | 89 passed in 2.59s
+M2 MPEG-2.5 uses V1 table -> SURVIVED | 89 passed in 2.58s
+M3 reserved sample rate accepted -> SURVIVED | 89 passed in 2.87s
+M4 key bytes changed -> SURVIVED | 89 passed in 2.70s
+M5 joins only after a clip -> CAUGHT | FAILED ../src/packages/transmitter/tests_transmitter/test_pieces.py::test_estimate_frames_counts_tracks_clips_and_pauses ; 1 failed, 88 passed in 2.70s
+M6 ID3 skip removed -> SURVIVED | 89 passed in 2.67s
+M7 size ignored -> CAUGHT | E         comparison failed ; FAILED ../src/packages/transmitter/tests_transmitter/test_mp3info.py::test_mp3_seconds_uses_the_given_size ; 1 failed, 88 passed in 2.73s
+M8 voiced_profile ignores dj_audio -> CAUGHT | FAILED ../src/packages/transmitter/tests_transmitter/test_station.py::test_show_meta_carries_estimate_inputs ; 1 failed, 88 passed in 2.73s
+M9 no 64KiB bound -> SURVIVED | 89 passed in 2.68s
+M10 syncsafe mask dropped -> SURVIVED | 89 passed in 2.69s
+M11 bitrate idx 15 accepted -> SURVIVED | 89 passed in 2.73s
+M4 full suite: =========================== short test summary info ============================
+M4 full suite: FAILED ../src/packages/transmitter/tests_transmitter/test_relay.py::test_relay_key_matches_antenna
+M4 full suite: 1 failed, 604 passed, 1 skipped in 16.46s
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t3mut/src/antenna/src/alerts.ts'
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:771: FileNotFoundError
+1 failed in 0.07s
+progress: writing report

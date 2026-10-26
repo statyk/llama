@@ -1,0 +1,28 @@
+pass1 start Sun Oct 25 12:16:23 EDT 2026
+pass2 scheduler read done; pass3 tests Sun Oct 25 12:18:45 EDT 2026
+scratch copies made Sun Oct 25 12:19:18 EDT 2026
+[mean] 
+[mean] real	0m13.002s
+[mean] user	0m12.820s
+[mean] sys	0m0.077s
+[base] 
+[base] real	0m13.074s
+[base] user	0m12.892s
+[base] sys	0m0.071s
+[t1] 
+[t1] real	0m13.595s
+[t1] user	0m13.401s
+[t1] sys	0m0.075s
+['a', 'b', 'f'] tier 1 fill_from 2 cause structural landing min vs nominal -1.9
+2 longest own = 290 min vs window lo 225 -> lands after lo => pool-short per brief
+.................................................                        [100%]
+============================= slowest 5 durations ==============================
+0.72s call     packages/transmitter/tests_transmitter/test_scheduler_block.py::test_continuing_an_open_block_reproduces_the_first_choice[False]
+0.65s call     packages/transmitter/tests_transmitter/test_scheduler_block.py::test_continuing_an_open_block_reproduces_the_first_choice[True]
+0.35s call     packages/transmitter/tests_transmitter/test_scheduler_block.py::test_fill_block_is_fast_on_a_3000_piece_pool
+0.03s call     packages/transmitter/tests_transmitter/test_library_fixture.py::test_generator_is_byte_identical
+0.03s call     packages/transmitter/tests_transmitter/test_scheduler_block.py::test_every_fixture_profile_block_lands_or_compromises
+49 passed in 2.28s
+checked 9254 mismatches 0
+analysis done, writing report Sun Oct 25 12:23:01 EDT 2026
+report written Sun Oct 25 12:24:17 EDT 2026

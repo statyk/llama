@@ -1,0 +1,17 @@
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/scheduler/antenna
+
+
+ Test Files  21 passed (21)
+      Tests  426 passed (426)
+   Start at  19:12:30
+   Duration  2.00s (transform 51%, tests 32%, import 10%, worker 7%)
+
+  Transform  transforming modules took 2.14s · 51% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+

@@ -1,0 +1,5 @@
+# task14-fix1 handback
+Status: DONE (docs only). Commit: see git log -1 (docs: scheduler runbook completeness ...).
+Important 1-4 and all Minor items applied: CLAUDE.md phase statements (lines 274, 461) and announcements --clock; playout-setup.md 7.1 clock/history codes + cloud-family disambiguation, 7.2 (implicit daily clock, status lines, fill wording, library/awaiting_fix, plan lock, fragment removal with service stopped, annotated clock example), 7.3 (--clock, guarded voicing loop, bed note, [station] quiet_minutes), new 7.4 cutover checklist (deploy:assets explicit), 7.5 rollback numbered after 7.1-7.4, title "phases 1 to 3"; incident runbook rows for clock and history.
+Validation: the clock example was extracted from the committed doc and loaded with transmitter.clock.load_clock via ./.venv/bin/python: loads (2 blocks). No test suites re-run (docs only).
+Concern: the incident-runbook clock entry says it "first fires, and later clears, at the next fill" per instruction, though it is an event code (no resolved message).

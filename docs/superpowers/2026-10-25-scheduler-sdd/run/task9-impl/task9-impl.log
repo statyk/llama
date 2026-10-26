@@ -1,0 +1,184 @@
+=== R12 RED
+==================================== ERRORS ====================================
+___ ERROR collecting packages/transmitter/tests_transmitter/test_announce.py ___
+ImportError while importing test module '/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/tests_transmitter/test_announce.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/transmitter/tests_transmitter/test_announce.py:3: in <module>
+    from transmitter.announce import TWO_BLOCK_MAX_HOURS, ann_id, needed, render_time, text_for, two_block_ok
+E   ImportError: cannot import name 'TWO_BLOCK_MAX_HOURS' from 'transmitter.announce' (/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/announce.py)
+=========================== short test summary info ============================
+ERROR packages/transmitter/tests_transmitter/test_announce.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+17 deselected, 1 error in 0.24s
+=== R12 GREEN (targeted)
+................................                                         [100%]
+32 passed in 0.42s
+=== R12 full suite
+........................................................................ [ 86%]
+........................................................................ [ 95%]
+.......................s........                                         [100%]
+751 passed, 1 skipped in 19.09s
+=== pure move: full suite
+.......................s........                                         [100%]
+751 passed, 1 skipped in 18.03s
+=== Task 8 test gaps, mutation check in scratch copy (PYTHONPATH-shadowed, -B, verified transmitter.__file__ in copy)
+mutant A (longest excludes placed) -> FAILED test_fill_cause_is_judged_on_the_whole_own_pool_from_the_block_start (1 failed, 43 passed) [predicted]
+mutant B (block_start drops boundary term) -> FAILED test_block_start_counts_the_boundary_after_each_placed_show (1 failed, 43 passed) [predicted]
+=== test gaps: full suite
+752 passed, 1 skipped in 18.15s
+=== lazy BlockRun refactor: full suite
+752 passed, 1 skipped in 18.47s
+752 passed, 1 skipped in 18.50s
+752 passed, 1 skipped in 18.57s
+=== projection RED
+    from transmitter.scheduler import PlannedPiece, SchedulerInput, project, to_row
+E   ImportError: cannot import name 'PlannedPiece' from 'transmitter.scheduler' (/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/scheduler.py)
+=========================== short test summary info ============================
+ERROR packages/transmitter/tests_transmitter/test_scheduler.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.20s
+=== projection first GREEN attempt
+=================================== FAILURES ===================================
+_______________ test_first_piece_continues_a_partly_filled_block _______________
+
+    def test_first_piece_continues_a_partly_filled_block():
+        # b holds one persisted show; with max_shows 2 it may add only one more, though two
+        # 75-min shows would land the next block on time: the persisted row counts
+        clock = clk({"name": "b", "start": "18:00", "profiles": ["p"], "max_shows": 2},
+                    {"name": "n", "start": "23:00"})
+        x = sp("x150", 150, "X")
+        pool = [x] + [sp(f"s{i}", 75, f"S{i}") for i in range(3)] + [clip("id-a", 10)]
+        b = occ(clock, "b")
+        row = PlanRow(seq=0, slug="x150", dir="x150", key=x.key, start_frame=fr(18 * 60), frames=x.frames,
+                      run_start=True, block="b", nominal_start=b.nominal_iso, role="show", miss=False, package="x150")
+        rec = Recency().with_piece(x, at(row.start_frame), ld(at(row.start_frame)))
+        pieces = project(mk(pool, clock, rows=[row], start=row.end_frame + GAP, run_start=False, rec=rec))
+        assert pieces[0].role == "id" and pieces[0].block == "b" and pieces[0].start_frame == row.end_frame + GAP
+        added = shows_of(pieces, "b")
+>       assert len(added) == 1 and added[0].miss is None and pieces[1] is added[0]
+E       AssertionError: assert (3 == 1)
+E        +  where 3 = len([PlannedPiece(piece=Piece(kind='show', show=Show(slug='s2', dir=PosixPath('s2'), entries=(), key='k-s2', meta={'artist...nominal_start='2026-11-03T23:00:00.000Z', role='show', miss=None, degraded=False, fill=None, bends=('gap',), names=())])
+
+packages/transmitter/tests_transmitter/test_scheduler.py:145: AssertionError
+============================= slowest 8 durations ==============================
+0.01s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_project_is_pure_and_deterministic
+
+(5 durations < 0.005s hidden.  Use -vv to show these durations.)
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_scheduler.py::test_first_piece_continues_a_partly_filled_block
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 1 passed in 0.14s
+1.17s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_implicit_clock_never_records_a_miss
+0.73s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_appending_first_pieces_reproduces_one_projection
+0.21s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_project_over_a_3000_piece_pool_is_fast
+0.01s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_until_frame_extends_the_horizon
+0.01s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_exclude_profiles_bends_when_the_open_pool_is_empty
+0.01s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_boundary_estimate_is_two_gaps_and_the_median_id
+0.01s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_station_id_between_shows_rotates_least_recent_first
+0.01s call     packages/transmitter/tests_transmitter/test_scheduler.py::test_project_is_pure_and_deterministic
+FAILED packages/transmitter/tests_transmitter/test_scheduler.py::test_used_holds_persisted_shows_until_they_air
+1 failed, 29 passed in 2.32s
+=== projection GREEN: full suite
+......................................................s........          [100%]
+782 passed, 1 skipped in 20.85s
+M1 placement ignores two_block_ok
+  predicted: test_next_announcement_at_block_start_names_x_and_y, test_titled_open_block_is_announced
+  red: NONE (survived)
+  43 passed in 2.42s
+M2 later at every internal boundary
+  predicted: test_later_on_the_last_internal_boundary_only
+  red: NONE (survived)
+  43 passed in 2.39s
+M3 ID rotation most recent first
+  predicted: test_station_id_between_shows_rotates_least_recent_first
+  red: ['test_station_id_between_shows_rotates_least_recent_first']
+  1 failed, 42 passed in 1.97s
+M4 persisted rows not in used
+  predicted: test_used_holds_persisted_shows_until_they_air, test_phase1_prefix_is_extended_mid_block
+  red: ['test_used_holds_persisted_shows_until_they_air']
+  1 failed, 42 passed in 2.43s
+M5 reuse a run whatever its start
+  predicted: test_appending_first_pieces_reproduces_one_projection
+  red: ['test_appending_first_pieces_reproduces_one_projection']
+  1 failed, 42 passed in 1.96s
+M6 no Y window check (next)
+  predicted: test_y_outside_its_window_uses_the_one_block_form
+  red: ['test_y_outside_its_window_uses_the_one_block_form']
+  1 failed, 42 passed in 2.44s
+M7 no X window check (next)
+  predicted: test_announcement_dropped_when_x_would_start_outside_its_window
+  red: ['test_announcement_dropped_when_x_would_start_outside_its_window']
+  1 failed, 42 passed in 2.44s
+M8 bends not deduped per block
+  predicted: test_exclude_profiles_bends_when_the_open_pool_is_empty
+  red: ['test_exclude_profiles_bends_when_the_open_pool_is_empty']
+  1 failed, 42 passed in 2.44s
+M9 no next-window entry
+  predicted: test_a_fresh_start_inside_the_next_window_starts_that_block
+  red: ['test_a_fresh_start_inside_the_next_window_starts_that_block']
+  1 failed, 42 passed in 2.44s
+M10 miss on every show
+  predicted: test_first_piece_continues_a_partly_filled_block, test_implicit_clock_never_records_a_miss
+  red: ['test_first_piece_continues_a_partly_filled_block', 'test_implicit_clock_never_records_a_miss']
+  2 failed, 41 passed in 2.45s
+M11 12 h exclusive
+  predicted: test_two_block_forms_need_a_different_block_within_twelve_hours
+  red: ['test_two_block_forms_need_a_different_block_within_twelve_hours']
+  1 failed, 42 passed in 2.45s
+M12 horizon ignores until_frame
+  predicted: test_until_frame_extends_the_horizon
+  red: ['test_appending_first_pieces_reproduces_one_projection', 'test_implicit_clock_never_records_a_miss', 'test_until_frame_extends_the_horizon']
+  3 failed, 40 passed in 1.59s
+M13 row bends = the whole run's bends
+  predicted: test_block_bends_match_the_block_plan_and_sit_on_the_show_that_bent_them
+  red: ['test_block_bends_match_the_block_plan_and_sit_on_the_show_that_bent_them']
+  1 failed, 42 passed in 2.45s
+M14 run start continues the named occurrence
+  predicted: test_a_run_start_after_an_outage_enters_the_occurrence_in_progress
+  red: ['test_a_run_start_after_an_outage_enters_the_occurrence_in_progress']
+  1 failed, 42 passed in 2.46s
+M15 later: no Y window check
+  predicted: (unpinned? expect survivor)
+  red: NONE (survived)
+  43 passed in 2.40s
+M16 fill cause not on rows
+  predicted: test_fill_rows_carry_the_cause_from_the_block_plan
+  red: ['test_fill_rows_carry_the_cause_from_the_block_plan']
+  1 failed, 42 passed in 2.46s
+M17 ID chosen for into even when next qualifies
+  predicted: test_next_announcement_at_block_start_names_x_and_y and others
+  red: ['test_gap_layout_for_every_projected_piece', 'test_appending_first_pieces_reproduces_one_projection', 'test_empty_id_pool_boundary_is_one_gap', 'test_next_announcement_at_block_start_names_x_and_y', 'test_later_on_the_last_internal_boundary_only', 'test_titled_open_block_is_announced', 'test_degraded_y_uses_the_one_block_form', 'test_y_outside_its_window_uses_the_one_block_form', 'test_two_block_clip_missing_falls_back_to_one_block_then_id[one]']
+  9 failed, 34 passed in 2.42s
+M1 placement ignores two_block_ok
+  predicted: test_next_announcement_at_block_start_names_x_and_y, test_titled_open_block_is_announced (R12 clip now voiced)
+  red: ['test_next_announcement_at_block_start_names_x_and_y', 'test_titled_open_block_is_announced']
+  2 failed, 43 passed in 2.47s
+M2 later at every internal boundary
+  predicted: test_later_is_only_at_the_last_internal_boundary_even_when_x_is_reachable_earlier
+  red: ['test_later_is_only_at_the_last_internal_boundary_even_when_x_is_reachable_earlier']
+  1 failed, 44 passed in 2.44s
+M15 later: no Y window check
+  predicted: test_later_falls_back_to_one_block_when_y_would_miss
+  red: ['test_later_falls_back_to_one_block_when_y_would_miss']
+  1 failed, 44 passed in 2.41s
+787 passed, 1 skipped in 21.16s
+repro 1 1 ok 65 one 0.07s live 0.90s misses 1 roles ['id', 'later', 'next', 'show']
+repro 2 0 ok 43 one 0.07s live 0.50s misses 2 roles ['later', 'next', 'show']
+repro 3 1 ok 61 one 0.06s live 0.84s misses 1 roles ['id', 'later', 'next', 'show']
+implicit 1 1 ok 61 one 0.72s live 20.69s misses 0 roles ['id', 'show']
+implicit 2 0 ok 32 one 0.78s live 9.16s misses 0 roles ['show']
+implicit 3 1 ok 59 one 0.69s live 16.11s misses 0 roles ['id', 'show']
+busy 1 1 ok 55 one 0.15s live 1.95s misses 1 roles ['id', 'later', 'next', 'show']
+busy 2 0 ok 40 one 0.11s live 0.79s misses 1 roles ['later', 'next', 'show']
+busy 3 1 ok 53 one 0.13s live 1.22s misses 1 roles ['id', 'later', 'next', 'show']
+mismatches 0
+repro 11 4 ok 65 one 0.11s live 1.42s misses 1 roles ['id', 'later', 'next', 'show']
+repro 12 4 ok 63 one 0.11s live 1.25s misses 1 roles ['id', 'later', 'next', 'show']
+busy 11 4 ok 55 one 0.12s live 1.32s misses 1 roles ['id', 'later', 'next', 'show']
+busy 12 4 ok 55 one 0.12s live 1.51s misses 2 roles ['id', 'later', 'next', 'show']
+mismatches 0
+787 passed, 1 skipped in 21.77s

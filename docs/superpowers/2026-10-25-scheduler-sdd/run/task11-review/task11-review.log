@@ -1,0 +1,50 @@
+pass1 reading source diff
+pass2 reading tests diff
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rev/base/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rev/base/packages/transmitter/tests_transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rev/base/packages/transmitter/src/transmitter/pipeline.py
+........................................................................ [ 98%]
+..                                                                       [100%]
+146 passed in 7.52s
+=== MA (predict: SURVIVES: no skip-after-gap-change test)
+resolved /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rev/MA/packages/transmitter/src/transmitter/pipeline.py
+155 passed, 1 skipped in 8.01s
+=== M1 (predict: SURVIVES: no degraded-only announcement test)
+resolved /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rev/M1/packages/transmitter/src/transmitter/pipeline.py
+155 passed, 1 skipped in 8.18s
+=== M5 (predict: RED test_multi_row_extend_never_repeats_a_show_or_id_while_alternatives_exist)
+resolved /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rev/M5/packages/transmitter/src/transmitter/pipeline.py
+FAILED ../M5/packages/transmitter/tests_transmitter/test_pipeline.py::test_multi_row_extend_never_repeats_a_show_or_id_while_alternatives_exist
+1 failed, 154 passed, 1 skipped in 8.21s
+== base (predict: base PASS, MA FAIL LayoutError)
+OK 87 22 ['plan-changed: skipped act05-1975-05-06 at frame 494675 (render failed: act05-1975-05-06: simulated decode failure)']
+1 passed in 0.55s
+== MA (predict: base PASS, MA FAIL LayoutError)
+                            raise PlanError(f"{piece.slug} measures {frames} frames")
+                    except TransmitterError as exc:
+>               raise LayoutError(f"scheduler laid row {row.seq} ({row.slug}) at frame {row.start_frame} "
+E               transmitter.errors.LayoutError: scheduler laid row 2 (act00-1970-05-01) at frame 494675 (run_start=False); the gap layout puts it at 494610
+../MA/packages/transmitter/src/transmitter/pipeline.py:231: LayoutError
+1 failed in 0.34s
+=== M8 (predict: RED test_one_package_station_replans_in_place_on_a_frame_count_change)
+resolved /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rev/M8/packages/transmitter/src/transmitter/pipeline.py
+155 passed, 1 skipped in 8.22s
+=== M9 (predict: RED test_service cache-rebuild test + frame-count-change tests)
+resolved /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rev/M9/packages/transmitter/src/transmitter/pipeline.py
+FAILED ../M9/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_replans_when_planned_frames_change
+FAILED ../M9/packages/transmitter/tests_transmitter/test_service.py::test_open_station_lengths_match_what_render_plans_with
+2 failed, 153 passed, 1 skipped in 8.35s
+=== M11 (predict: RED test_run2_pick_unanalysed_falls_back_to_run1)
+resolved /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rev/M11/packages/transmitter/src/transmitter/pipeline.py
+FAILED ../M11/packages/transmitter/tests_transmitter/test_pipeline.py::test_run2_pick_unanalysed_falls_back_to_run1
+1 failed, 154 passed, 1 skipped in 8.31s
+=== M17 (predict: RED test_render_drops_a_changed_clip_for_the_rest_of_the_call)
+resolved /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t11rev/M17/packages/transmitter/src/transmitter/pipeline.py
+                        reason = f"render failed: {exc}"
+                        reason = f"render failed: {exc}"
+FAILED ../M17/packages/transmitter/tests_transmitter/test_pipeline.py::test_nothing_eligible_is_a_plan_error_only_when_planning_is_needed
+FAILED ../M17/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_skips_a_show_that_fails_to_encode
+FAILED ../M17/packages/transmitter/tests_transmitter/test_pipeline.py::test_a_show_mismatching_twice_in_one_call_is_excluded
+FAILED ../M17/packages/transmitter/tests_transmitter/test_pipeline.py::test_a_lone_show_mismatching_twice_in_one_call_is_a_plan_error
+FAILED ../M17/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_drops_a_changed_clip_for_the_rest_of_the_call
+FAILED ../M17/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_skip_path_drops_an_interstitial_and_a_show
+6 failed, 149 passed, 1 skipped in 8.81s
+writing report

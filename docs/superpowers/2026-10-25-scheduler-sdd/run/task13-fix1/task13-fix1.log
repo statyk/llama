@@ -1,0 +1,138 @@
+.................................F....F....                              [100%]
+=================================== FAILURES ===================================
+_ test_schedule_inside_a_blocks_second_show_keeps_the_blocks_start_miss_and_bends _
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2987/test_schedule_inside_a_blocks_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108b6e7b0>
+
+    def test_schedule_inside_a_blocks_second_show_keeps_the_blocks_start_miss_and_bends(tmp_path, monkeypatch):
+        cfg, t, rows = _plan_block_second_show(tmp_path, monkeypatch)
+        lines = service.schedule_report(cfg, t, days=0.25)
+>       head = next(l for l in lines if "Block 9" in l)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+packages/transmitter/tests_transmitter/test_cli.py:579: StopIteration
+____________________ test_schedule_open_time_shows_no_slip _____________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2987/test_schedule_open_time_shows_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109761e80>
+
+    def test_schedule_open_time_shows_no_slip(tmp_path, monkeypatch):
+        tx, root, engine, cfg, _ = _st_cfg(tmp_path, monkeypatch, clock=None)
+        lines = service.schedule_report(cfg, service.now_us(), days=0.2)
+        heads = [l for l in lines if " starts " in l]
+>       assert heads and not any(re.search(r"\([+-]\d+ min\)", l) for l in heads)
+E       assert ([])
+
+packages/transmitter/tests_transmitter/test_cli.py:666: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_inside_a_blocks_second_show_keeps_the_blocks_start_miss_and_bends
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_open_time_shows_no_slip
+2 failed, 41 passed in 0.99s
+........................................................................ [  8%]
+.......................................................F................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 40%]
+........................................................................ [ 48%]
+........................................................................ [ 56%]
+........................................................................ [ 65%]
+........................................................................ [ 73%]
+........................................................................ [ 81%]
+........................................................................ [ 89%]
+........................................................................ [ 97%]
+............s........                                                    [100%]
+=================================== FAILURES ===================================
+___________________ test_schedule_trims_views_at_the_horizon ___________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-2993/test_schedule_trims_views_at_t0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108b45a90>
+
+    def test_schedule_trims_views_at_the_horizon(tmp_path, monkeypatch):
+        cfg, t, rows = _plan_block_second_show(tmp_path, monkeypatch)
+        days = 0.25
+        until = t + int(days * 86_400_000_000)
+        lines = service.schedule_report(cfg, t, days=days)
+        heads = [l for l in lines if re.match(r"^\w{3} \d\d-\d\d \d\d:\d\d  Block", l)]
+        assert heads
+        for l in heads:
+            hh, mm = map(int, re.search(r"(\d\d):(\d\d)  Block", l).groups())
+            day = int(re.search(r"10-(\d\d)", l).group(1))
+            us = grid.iso_to_us(f"2096-10-{day:02d}T{hh:02d}:{mm:02d}:00Z")
+>           assert us < until
+E           assert 4000039200000000 < 4000032981384126
+
+packages/transmitter/tests_transmitter/test_cli.py:598: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_trims_views_at_the_horizon
+1 failed, 883 passed, 1 skipped in 29.60s
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 40%]
+........................................................................ [ 48%]
+........................................................................ [ 56%]
+........................................................................ [ 65%]
+........................................................................ [ 73%]
+........................................................................ [ 81%]
+........................................................................ [ 89%]
+........................................................................ [ 97%]
+............s........                                                    [100%]
+884 passed, 1 skipped in 30.55s
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/red/packages/transmitter/src/transmitter/__init__.py
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_inside_a_blocks_second_show_keeps_the_blocks_start_miss_and_bends
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_status_numbers_over_hand_written_rows
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_status_block_is_none_between_blocks_and_after_the_plan
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_open_time_shows_no_slip
+FAILED packages/transmitter/tests_transmitter/test_report.py::test_profile_stats_and_reason_key
+5 failed, 109 passed in 2.94s
+........................................................................ [  8%]
+......................................................F................. [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 40%]
+........................................................................ [ 48%]
+........................................................................ [ 56%]
+........................................................................ [ 65%]
+........................................................................ [ 73%]
+........................................................................ [ 81%]
+........................................................................ [ 89%]
+........................................................................ [ 97%]
+............s........                                                    [100%]
+=================================== FAILURES ===================================
+_ test_schedule_inside_a_blocks_second_show_keeps_the_blocks_start_miss_and_bends _
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-3012/test_schedule_inside_a_blocks_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1080f8520>
+
+    def test_schedule_inside_a_blocks_second_show_keeps_the_blocks_start_miss_and_bends(tmp_path, monkeypatch):
+        cfg, t, rows = _plan_block_second_show(tmp_path, monkeypatch)
+        lines = service.schedule_report(cfg, t, days=0.25)
+        head = next(l for l in lines if "Block 10" in l)
+        assert "(-4 min)" in head or "(-3 min)" in head or "(-5 min)" in head
+        assert "MISS" in head and "bent: gap" in head
+>       assert not any("Block 6" in l for l in lines)                                 # an aired block is not listed
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert not True
+E        +  where True = any(<generator object test_schedule_inside_a_blocks_second_show_keeps_the_blocks_start_miss_and_bends.<locals>.<genexpr> at 0x10827b5e0>)
+
+packages/transmitter/tests_transmitter/test_cli.py:582: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_cli.py::test_schedule_inside_a_blocks_second_show_keeps_the_blocks_start_miss_and_bends
+1 failed, 883 passed, 1 skipped in 30.09s
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 40%]
+........................................................................ [ 48%]
+........................................................................ [ 56%]
+........................................................................ [ 65%]
+........................................................................ [ 73%]
+........................................................................ [ 81%]
+........................................................................ [ 89%]
+........................................................................ [ 97%]
+............s........                                                    [100%]
+884 passed, 1 skipped in 29.93s

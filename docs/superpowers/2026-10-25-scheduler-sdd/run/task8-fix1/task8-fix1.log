@@ -1,0 +1,33 @@
+=== RED fix1 items 1+3 2026-10-25T16:26:25Z
+E       AssertionError: assert 'structural' == 'pool-short'
+E       AssertionError: assert ([] == ['b']
+FAILED packages/transmitter/tests_transmitter/test_scheduler_block.py::test_fill_cause_is_judged_on_the_whole_own_pool_from_the_block_start
+FAILED packages/transmitter/tests_transmitter/test_scheduler_block.py::test_own_membership_is_the_own_pool_not_the_profile_field
+2 failed, 38 passed in 1.93s
+=== GREEN block+rules 2026-10-25T16:27:15Z
+FAILED packages/transmitter/tests_transmitter/test_scheduler_block.py::test_fill_block_is_fast_on_a_3000_piece_pool
+FAILED packages/transmitter/tests_transmitter/test_scheduler_block.py::test_every_offered_option_counts_and_scores_as_rules_does
+34 failed, 18 passed in 0.98s
+....................................................                     [100%]
+52 passed in 1.97s
+  File "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/mutate2.py", line 7
+    "sentinel": (SCHED, "PAIR_FIRSTS = 32", "PAIR_FIRSTS = 32
+                                            ^
+SyntaxError: unterminated string literal (detected at line 7)
+sentinel: expect [collection error] -> CAUGHT [] | no tests ran in 0.13s
+P1_pairs_era_same_day: expect [test_every_offered_option_counts_and_scores_as_rules_does] -> CAUGHT ['test_every_offered_option_counts_and_scores_as_rules_does'] | 1 failed, 51 passed in 1.93s
+P2_pairs_otd_dropped: expect [test_every_offered_option...] -> SURVIVED [] | 52 passed in 2.03s
+P3_pairs_gap_prefix_pkgs: expect [none expected (no repeats in a block)] -> SURVIVED [] | 52 passed in 2.02s
+P4_pairs_day_same_day: expect [test_every_offered_option...] -> CAUGHT ['test_every_offered_option_counts_and_scores_as_rules_does'] | 1 failed, 51 passed in 1.98s
+P5_cand_md_wrong: expect [test_candidate_view_matches_the_piece] -> CAUGHT ['test_candidate_view_matches_the_piece'] | 1 failed, 51 passed in 2.14s
+P6_old_cause: expect [test_fill_cause_is_judged...] -> SURVIVED [] | 52 passed in 2.05s
+.....................................................                    [100%]
+53 passed in 2.02s
+P2_pairs_otd_dropped: expect [test_every_offered_option...] -> CAUGHT ['test_every_offered_option_counts_and_scores_as_rules_does'] | 1 failed, 52 passed in 1.93s
+P6_old_cause: expect [test_fill_cause_is_judged...] -> CAUGHT ['test_structural_cause_is_judged_from_the_block_start'] | 1 failed, 52 passed in 2.09s
+P1_pairs_era_same_day: expect [test_every_offered_option_counts_and_scores_as_rules_does] -> CAUGHT ['test_every_offered_option_counts_and_scores_as_rules_does'] | 1 failed, 52 passed in 1.96s
+P4_pairs_day_same_day: expect [test_every_offered_option...] -> CAUGHT ['test_every_offered_option_counts_and_scores_as_rules_does'] | 1 failed, 52 passed in 1.97s
+=== full suite 2026-10-25T16:28:39Z
+....................s........                                            [100%]
+748 passed, 1 skipped in 18.78s
+392dfde transmitter: task 8 fix round 1 (fill cause from the block start, own-pool fill test, offer-level agreement)

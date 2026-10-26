@@ -1,0 +1,120 @@
+== BEFORE sanity probe (HEAD 20e78aa)
+transmitter: /Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py
+{"weeks": 4, "dead_block_min": 300, "dead_blocks": 30, "misses": 0, "dead_shows_aired": 60, "distinct_dead": 37, "dead_pool": 44, "fill_shows": 0, "repeat_gap_min_d": 2.0, "repeat_gap_median_d": 10.12, "repeats": 23, "bends": {}}
+transmitter: /Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py
+{"weeks": 4, "dead_block_min": 240, "dead_blocks": 30, "misses": 0, "dead_shows_aired": 30, "distinct_dead": 2, "dead_pool": 44, "fill_shows": 0, "repeat_gap_min_d": 1.0, "repeat_gap_median_d": 2.0, "repeats": 28, "bends": {"gap": 28}}
+transmitter: /Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py
+{"weeks": 4, "dead_block_min": 180, "dead_blocks": 30, "misses": 0, "dead_shows_aired": 30, "distinct_dead": 17, "dead_pool": 44, "fill_shows": 0, "repeat_gap_min_d": 6.0, "repeat_gap_median_d": 15.0, "repeats": 13, "bends": {}}
+== RED: new/extended tests before implementation
+            # the single-artist exemption, restated: an own pool with exactly one known artist
+            # exempts its own shows (never fill) from adjacency and artist_day
+            own_artists = {p.artist for p in own if p.artist}
+            exempt = frozenset(p.slug for p in own) if len(own_artists) == 1 else frozenset()
+            offers = _offers_of(monkeypatch, occ, n, own, open_pool, rec=rec, prev_artist="Grateful Dead")
+            assert offers
+            for shows, viol, terms, landing, fill_from in offers:
+                if not shows:
+                    continue
+                pcs = [c.piece for c in shows]
+                starts, f = [], 0
+                for p in pcs:
+                    starts.append(at(f))
+                    f += p.frames + GAP
+                assert landing == f - GAP + GAP
+>               assert viol == rules.violations(pcs, "Grateful Dead", occ, rec, CLOCK, starts, exempt=exempt), \
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    [p.slug for p in pcs]
+E               TypeError: violations() got an unexpected keyword argument 'exempt'
+
+packages/transmitter/tests_transmitter/test_scheduler_block.py:716: TypeError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_rules.py::test_violations_single_artist_exemption
+FAILED packages/transmitter/tests_transmitter/test_scheduler_block.py::test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[profile-None]
+FAILED packages/transmitter/tests_transmitter/test_scheduler_block.py::test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[profile-Grateful Dead]
+FAILED packages/transmitter/tests_transmitter/test_scheduler_block.py::test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[open-None]
+FAILED packages/transmitter/tests_transmitter/test_scheduler_block.py::test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[open-Grateful Dead]
+FAILED packages/transmitter/tests_transmitter/test_scheduler_block.py::test_violation_counts_agree_with_rules
+FAILED packages/transmitter/tests_transmitter/test_scheduler_block.py::test_every_offered_option_counts_and_scores_as_rules_does
+7 failed, 2 passed, 797 deselected in 0.42s
+>       assert sorted(slugs(plan)) == ["p1", "p2"] and plan.tier == 0
+E       AssertionError: assert (['single'] == ['p1', 'p2']
+E         
+E         At index 0 diff: 'single' != 'p1'
+E         Right contains one more item: 'p2'
+E         Use -v to get more diff)
+>       assert sorted(slugs(plan)) == ["p1", "p2"] and plan.tier == 0
+E       AssertionError: assert (['single'] == ['p1', 'p2']
+E         
+E         At index 0 diff: 'single' != 'p1'
+E         Right contains one more item: 'p2'
+E         Use -v to get more diff)
+== GREEN: full transmitter suite after implementation
+........................................................................ [  8%]
+........................................................................ [ 17%]
+........................................................................ [ 26%]
+........................................................................ [ 35%]
+........................................................................ [ 44%]
+........................................................................ [ 53%]
+........................................................................ [ 62%]
+........................................................................ [ 71%]
+........................................................................ [ 80%]
+........................................................................ [ 89%]
+........................................................................ [ 98%]
+.....s........                                                           [100%]
+805 passed, 1 skipped in 26.25s
+====================== 10 passed, 796 deselected in 1.30s ======================
+py3.11 grammar ok
+== AFTER sanity probe (fix in worktree)
+transmitter: /Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py
+{"weeks": 4, "dead_block_min": 300, "dead_blocks": 30, "misses": 0, "dead_shows_aired": 60, "distinct_dead": 37, "dead_pool": 44, "fill_shows": 0, "repeat_gap_min_d": 2.0, "repeat_gap_median_d": 10.12, "repeats": 23, "bends": {}}
+transmitter: /Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py
+{"weeks": 4, "dead_block_min": 240, "dead_blocks": 30, "misses": 0, "dead_shows_aired": 35, "distinct_dead": 10, "dead_pool": 44, "fill_shows": 0, "repeat_gap_min_d": 1.0, "repeat_gap_median_d": 2.0, "repeats": 25, "bends": {}}
+transmitter: /Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py
+{"weeks": 4, "dead_block_min": 180, "dead_blocks": 30, "misses": 0, "dead_shows_aired": 30, "distinct_dead": 17, "dead_pool": 44, "fill_shows": 0, "repeat_gap_min_d": 6.0, "repeat_gap_median_d": 15.0, "repeats": 13, "bends": {}}
+[112.8, 122.1, 127.4, 131.3, 134.6, 137.4, 139.9, 142.2, 144.4, 146.4, 148.4, 150.2, 152.0, 153.8, 155.5, 157.2, 158.9, 160.5, 162.2, 163.9, 165.5, 167.2, 168.8, 170.5, 172.3, 174.0, 175.8, 177.6, 179.5, 181.5, 183.5, 185.6, 187.9, 190.2, 192.8, 195.5, 198.5, 201.8, 205.5, 209.8, 214.9, 221.6, 231.2, 250.3]
+240 singles ['gratefuldead-1976-04-01'] pairs 7 distinct in pairs 7 triples 0
+300 singles [] pairs 111 distinct in pairs 38 triples 0
+== MUTANTS (scratch copies of HEAD 9260dbd, one fresh copy each; predictions written before running)
+M0 control (no change): expect all green.
+M1 _Ctx.viol exemption removed (free=False): expect RED test_violation_counts_agree_with_rules (_sequence_violations goes through viol) and test_every_offered_option_counts_and_scores_as_rules_does (singles / pair firsts mismatch rules). The regression test is NOT expected to catch it alone (pair's partner still exempt inline; single also counted).
+M2 _Search.pairs exemption removed: expect RED test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single (all 4) and test_every_offered_option_counts_and_scores_as_rules_does.
+M3 rules.violations exemption removed: expect RED test_violations_single_artist_exemption, test_violation_counts_agree_with_rules, test_every_offered_option_counts_and_scores_as_rules_does.
+M4 artist-only exemption (same-artist fill exempt too): expect RED test_fill_after_a_single_artist_pool_counts_its_rules (and the offer test via the mono+fill case).
+M5 unknown artists counted in the definition: expect RED test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single (all 4: the pool holds an unknown-artist show).
+M6 exemption for profile blocks only (the prototype's scope): expect RED test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[open-*] (2).
+-- M0_none
+imports /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t8f2/mut/M0_none/packages/transmitter/src/transmitter/__init__.py
+805 passed, 1 skipped in 27.76s
+-- M1_viol
+imports /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t8f2/mut/M1_viol/packages/transmitter/src/transmitter/__init__.py
+FAILED M1_viol/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_violation_counts_agree_with_rules
+FAILED M1_viol/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_every_offered_option_counts_and_scores_as_rules_does
+2 failed, 803 passed, 1 skipped in 27.05s
+-- M2_pairs
+imports /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t8f2/mut/M2_pairs/packages/transmitter/src/transmitter/__init__.py
+FAILED M2_pairs/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[profile-None]
+FAILED M2_pairs/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[profile-Grateful Dead]
+FAILED M2_pairs/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_every_offered_option_counts_and_scores_as_rules_does
+3 failed, 802 passed, 1 skipped in 26.48s
+-- M3_rules
+imports /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t8f2/mut/M3_rules/packages/transmitter/src/transmitter/__init__.py
+FAILED M3_rules/packages/transmitter/tests_transmitter/test_rules.py::test_violations_single_artist_exemption
+FAILED M3_rules/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_violation_counts_agree_with_rules
+FAILED M3_rules/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_every_offered_option_counts_and_scores_as_rules_does
+3 failed, 802 passed, 1 skipped in 27.40s
+-- M4_artist_only
+imports /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t8f2/mut/M4_artist_only/packages/transmitter/src/transmitter/__init__.py
+FAILED M4_artist_only/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_fill_after_a_single_artist_pool_counts_its_rules
+1 failed, 804 passed, 1 skipped in 25.42s
+-- M5_unknown_counts
+imports /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t8f2/mut/M5_unknown_counts/packages/transmitter/src/transmitter/__init__.py
+FAILED M5_unknown_counts/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[profile-None]
+FAILED M5_unknown_counts/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[profile-Grateful Dead]
+FAILED M5_unknown_counts/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[open-None]
+FAILED M5_unknown_counts/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[open-Grateful Dead]
+4 failed, 801 passed, 1 skipped in 26.20s
+-- M6_profile_only
+imports /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/t8f2/mut/M6_profile_only/packages/transmitter/src/transmitter/__init__.py
+FAILED M6_profile_only/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[open-None]
+FAILED M6_profile_only/packages/transmitter/tests_transmitter/test_scheduler_block.py::test_single_artist_pool_prefers_a_fresh_pair_over_a_recent_single[open-Grateful Dead]
+2 failed, 803 passed, 1 skipped in 25.14s

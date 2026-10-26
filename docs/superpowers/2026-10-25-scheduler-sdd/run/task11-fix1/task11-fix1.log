@@ -1,0 +1,27 @@
+== RED: fix-round tests
+E       Failed: DID NOT RAISE LayoutError
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_guards_the_first_appended_rows_start
+1 failed, 4 passed, 63 deselected in 1.68s
+== GREEN: fix-round tests + config
+.............                                                            [100%]
+85 passed in 7.17s
+== fix1 mutation baseline (copy of the working tree)
+68 passed in 7.23s
+== mutant MA; predicted red: test_scenario_skip_path_after_a_show_gap_seconds_change
+applied MA
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/fix1/MA/packages/transmitter/src/transmitter/pipeline.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/fix1/MA/packages/transmitter/tests_transmitter/__init__.py
+FAILED ../MA/packages/transmitter/tests_transmitter/test_pipeline.py::test_scenario_skip_path_after_a_show_gap_seconds_change
+1 failed, 67 passed in 6.52s
+== mutant M8; predicted red: test_a_frame_count_change_under_the_same_pause_and_extra_is_re_measured
+applied M8
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/fix1/M8/packages/transmitter/src/transmitter/pipeline.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/fix1/M8/packages/transmitter/tests_transmitter/__init__.py
+FAILED ../M8/packages/transmitter/tests_transmitter/test_pipeline.py::test_a_frame_count_change_under_the_same_pause_and_extra_is_re_measured
+1 failed, 67 passed in 7.23s
+== mutant M1; predicted red: test_announcement_broken_when_the_named_block_degrades_to_open_time
+applied M1
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/fix1/M1/packages/transmitter/src/transmitter/pipeline.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-scheduler/6a271170-52a3-49a3-b4db-a9d5cd08acfc/scratchpad/fix1/M1/packages/transmitter/tests_transmitter/__init__.py
+FAILED ../M1/packages/transmitter/tests_transmitter/test_pipeline.py::test_announcement_broken_when_the_named_block_degrades_to_open_time
+1 failed, 67 passed in 7.28s
+== full suite before fix1 commit
+...............................s........                                 [100%]
+831 passed, 1 skipped in 29.83s

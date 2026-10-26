@@ -1,0 +1,24 @@
+/Users/shawn/projects/llama/.claude/worktrees/scheduler/packages/transmitter/src/transmitter/__init__.py
+[('evening-dead', '20:00', ['fri', 'sat'], ['dead'], 2), ('late-open', '23:00', 'daily', [], None)]
+late-open Sun 11-01 23:00 24.0 h lo-hi 10 30
+late-open Mon 11-02 23:00 24.0 h lo-hi 10 30
+late-open Tue 11-03 23:00 24.0 h lo-hi 10 30
+late-open Wed 11-04 23:00 24.0 h lo-hi 10 30
+late-open Thu 11-05 23:00 21.0 h lo-hi 10 30
+evening-dead Fri 11-06 20:00 3.0 h lo-hi 20 20
+late-open Fri 11-06 23:00 21.0 h lo-hi 10 30
+evening-dead Sat 11-07 20:00 3.0 h lo-hi 20 20
+late-open Sat 11-07 23:00 24.0 h lo-hi 10 30
+late-open Sun 11-08 23:00 24.0 h lo-hi 10 30
+--
+late-open Sun 10-25 23:00 24.0 h lo-hi 10 30
+late-open Mon 10-26 23:00 24.0 h lo-hi 10 30
+late-open Tue 10-27 23:00 24.0 h lo-hi 10 30
+late-open Wed 10-28 23:00 24.0 h lo-hi 10 30
+late-open Thu 10-29 23:00 21.0 h lo-hi 10 30
+evening-dead Fri 10-30 20:00 3.0 h lo-hi 20 20
+late-open Fri 10-30 23:00 21.0 h lo-hi 10 30
+evening-dead Sat 10-31 20:00 3.0 h lo-hi 20 20
+late-open Sat 10-31 23:00 25.0 h lo-hi 10 30
+--
+implicit (720.0, 720.0) daily
