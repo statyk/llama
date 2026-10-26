@@ -79,7 +79,7 @@ class MlxAudioConfig(_StrictModel):
     resolution), so a table holding only stt_model is valid."""
     url: str = "http://127.0.0.1:8000"
     model: str | None = None
-    timeout_s: float = 600                 # per sentence request
+    timeout_s: float = 600                 # per chunk request
     stt_model: str | None = None           # speech-to-text model on the same server
 
 
@@ -342,7 +342,7 @@ backend = "claude_cli"
 # [tts.mlx_audio]
 # url = "http://127.0.0.1:8000"
 # model = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
-# timeout_s = 600            # seconds per sentence request
+# timeout_s = 600            # seconds per chunk request
 # stt_model = "mlx-community/whisper-large-v3-turbo-asr-fp16"  # speech-to-text model on the same server
 
 # Transcript verification: transcribe each newly synthesized clip on the

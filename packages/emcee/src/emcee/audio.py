@@ -44,9 +44,10 @@ def detail(text: str) -> None:
     typer.echo(text)
 
 
-# --- Sentence-level chunked synthesis ([tts] chunk, default on) ----------
-# Synthesizes each DJ-notes segment sentence-by-sentence instead of one call
-# for the whole segment, then concatenates the raw PCM and encodes a single
+# --- Chunked synthesis ([tts] chunk, default on) -------------------------
+# Synthesizes each DJ-notes segment in chunks (the script's paragraphs, packed
+# up to [tts] chunk_chars and never ending inside a sentence) instead of one
+# call for the whole segment, then concatenates the raw PCM and encodes a single
 # MP3. This noticeably improves prosody/pacing on longer patter (a single
 # long TTS call tends to rush or flatten out); the cost is more provider
 # round-trips per segment. On by default; `[tts] chunk = false` selects the
@@ -214,7 +215,7 @@ def _chunked_pcm(text: str, speech, *, chunking: Chunking) -> tuple[bytes, int, 
     loudness-normalized (normalize_speech) before the silence gap is appended,
     and room tone fills exact-silence runs last when `chunking.room_tone`.
     A refused multi-sentence chunk is narrowed (`_narrow_chunk`): it either
-    raises the refused sentence or is rendered as its per-sentence takes."""
+    raises the refused sentence or is rendered as its sentence takes."""
     sentences = plan_chunks(text, chunking.ceiling)
     frames: list[bytes] = []
     framerate = channels = sampwidth = None
@@ -239,7 +240,7 @@ def _chunked_pcm(text: str, speech, *, chunking: Chunking) -> tuple[bytes, int, 
                             f"backend, got {sampwidth * 8}-bit (lameenc only accepts int16 "
                             "samples)")
                 # Each Voxtral call comes back at its own level; even them out
-                # here, per sentence and before the silence gap (see tts/loudness).
+                # here, per chunk and before the silence gap (see tts/loudness).
                 frames.append(normalize_speech(w.readframes(w.getnframes()), framerate))
             if j < len(takes) - 1 or i < len(sentences) - 1:
                 silence_frames = int(framerate * (_SILENCE_MS / 1000))
@@ -251,10 +252,11 @@ def _chunked_pcm(text: str, speech, *, chunking: Chunking) -> tuple[bytes, int, 
 
 
 def _synthesize_chunked(text: str, speech, *, chunking: Chunking) -> bytes:
-    """Sentence-by-sentence synthesis + PCM concat + single MP3 encode.
+    """Chunk-by-chunk synthesis + PCM concat + single MP3 encode.
 
-    Splits `text`, synthesizes each sentence as WAV (fmt="wav"), concatenates
-    the raw PCM frames with ~180ms of inserted silence between sentences,
+    Packs `text` into chunks (`plan_chunks`: paragraphs up to the ceiling,
+    never ending inside a sentence), synthesizes each chunk as WAV (fmt="wav"),
+    concatenates the raw PCM frames with ~180ms of inserted silence between chunks,
     then encodes the whole thing to MP3 once via lameenc. Concatenating raw
     PCM (rather than stitching MP3 files) avoids frame-boundary/join
     artifacts between clips.
@@ -348,8 +350,11 @@ def render_speech_mp3(text: str, speech, *, chunking: Chunking | None,
     provider call.
 
     A content-filter block on an unchunked call is narrowed to one sentence
-    (`_locate_block`) so the error names it; this is the one renderer
-    `emcee say` and DJ clips share, so both get it.
+    (`_locate_block`) so the error names it. On the chunked path the renderer
+    (`_chunked_pcm` via `_narrow_chunk`) has already narrowed a blocked chunk:
+    it raises the refused sentence, or, when every sentence passes alone, keeps
+    the passing takes. This is the one renderer `emcee say` and DJ clips share,
+    so both get it.
     """
     if chunking is None:
         # Single newlines are wraps and blank lines mean nothing to an unchunked
@@ -360,7 +365,7 @@ def render_speech_mp3(text: str, speech, *, chunking: Chunking | None,
                        bed_gain_db=bed_gain_db)
     except SpeechBlocked as blocked:
         if chunking is not None:
-            raise  # each chunk is already its own request
+            raise  # _chunked_pcm already narrowed it (_narrow_chunk)
         located = _locate_block(text, speech, "wav" if bed_pcm is not None else "mp3", blocked)
         if located is blocked:
             raise
@@ -407,9 +412,12 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     is written only after this returns, so a failed run leaves no manifest
     referencing half-rendered audio.
 
-    chunking (from [tts] chunk, which defaults on; None = off): synthesize each segment sentence-by-
-    sentence and concatenate instead of one call per segment (see
-    _synthesize_chunked). Whether chunking is on is part of the cache key - chunked and
+    chunking (built by `TTSConfig.chunking(...)` from [tts] chunk, which
+    defaults on, plus chunk_chars and room_tone; None = off): synthesize each
+    segment in packed chunks and concatenate instead of one call per segment
+    (see _synthesize_chunked). On the chunked path the "chunk" part of the key
+    also carries the planned-chunk digest and `tone=<ROOM_TONE_VERSION>`, so
+    changing chunk_chars or room_tone re-renders the affected clips. Whether chunking is on is part of the cache key - chunked and
     single-call audio are different renders of the same text, so flipping
     [tts] chunk invalidates the affected clips and a redo re-synthesizes
     them (no --force needed).

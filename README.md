@@ -365,7 +365,9 @@ print instead) and point `[station] root` at the same folder llama's
                                # used when a show has no presenter assignment
     # voice_clone = "..."      # 3-25s reference WAV; clones a house voice instead
     api_key = "..."            # or MISTRAL_API_KEY / ELEVENLABS_API_KEY env var
-    # chunk = false            # one call per segment (default: per sentence, loudness-normalized)
+    # chunk = false            # one call per segment (default: paragraph-packed chunks, loudness-normalized)
+    # chunk_chars = 250        # packing ceiling, 50-1000; chunks never end inside a sentence
+    # room_tone = true         # fill exact-silence gaps in chunked clips with the clip's own room tone
     # bed = "/path/to/bed.wav" # instrumental bed under every DJ clip (24kHz mono
                                # 16-bit WAV; per-presenter override via its own `bed`)
 
@@ -496,7 +498,10 @@ resolves as a voiced package's does — the presenter's own bed, else
 `[tts] bed` — with `--bed`/`--bed-gain`/`--no-bed` overriding on the command
 line. As with DJ clips, chunking is **on** by default: an arbitrary text file
 routinely exceeds the backend's per-request character cap, which a single
-whole-passage call cannot survive. `--no-chunk` without a bed is the one render
+whole-passage call cannot survive. Chunks follow the text's paragraphs up to
+`[tts] chunk_chars` (default 250) and never end inside a sentence, and
+exact-silence gaps are filled with the clip's own room tone (`[tts] room_tone`,
+default on). `--no-chunk` without a bed is the one render
 that is not loudness-normalized (it ships the provider's own MP3).
 
 `emcee run` is the everyday command — "not broadcast-ready" *is* the work

@@ -7,7 +7,7 @@ listed in [tts.verify] backends, which also gets a transcript Verifier
 transcribes it and fails on a gross mismatch. Per `synthesize` call: at
 most two attempts; a second quality failure raises SpeechDefect, which fails
 the package rather than airing the clip. The retried unit is whatever the
-caller synthesizes: the sentence when chunked, the whole segment otherwise.
+caller synthesizes: the chunk when chunked, the whole segment otherwise.
 
 Keeps the inner `.voice`/`.model`, so cached clips are reused (never
 re-verified) and enabling verification does not invalidate the cache.
