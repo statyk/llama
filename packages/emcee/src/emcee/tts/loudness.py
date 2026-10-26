@@ -1,6 +1,6 @@
 """Loudness normalization for synthesized speech.
 
-Voxtral returns each call at its own level: the sentence chunks of one DJ clip
+Voxtral returns each call at its own level: the chunks of one DJ clip
 can differ by several dB (measured 2026-10-03 -- worst on presenters whose
 reference clip is dynamic, but present in every voice as per-call randomness).
 `normalize_speech` gains one stretch of voice PCM to a fixed speech-active level

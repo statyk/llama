@@ -82,4 +82,4 @@ def fill_room_tone(pcm: bytes, framerate: int, channels: int, *, seed_text: str)
         env[:xf] = ramp
         env[-xf:] = ramp[::-1]
         out[lo:hi] += fill[:need] * env
-    return np.clip(out, -32768, 32767).astype("<i2").tobytes() + pcm[whole:]
+    return np.clip(np.rint(out), -32768, 32767).astype("<i2").tobytes() + pcm[whole:]

@@ -189,3 +189,13 @@ def test_odd_length_pcm():
     out = _fill(x)
     assert len(out) == 24001
     assert abs(int(out[0])) <= 3 and abs(int(out[-1])) <= 3
+
+
+def test_fill_rounds_to_int16_so_a_crossfade_leaves_no_1ms_dropout():
+    # Pool frames alternating +3 / -3: each crossfade sweeps through zero. Truncating
+    # toward zero makes every |v| < 1 an exact 0 (a 40-sample, 1.7 ms run); rounding
+    # leaves 20 samples (0.8 ms), under the 1 ms rule.
+    q = np.concatenate([np.full(480, 3 if i % 2 else -3) for i in range(100)]).astype(np.int16)
+    x = np.concatenate([q, np.zeros(4800, dtype=np.int16), q])
+    out = _fill(x)
+    assert _longest_zero_run(out[len(q) + 200:len(q) + 4600]) < 24

@@ -39,6 +39,7 @@ from emcee.tts.bed import load_bed_pcm
 from emcee.tts.fake import SILENT_MP3, FakeSpeechProvider
 from emcee.tts.provider import SpeechError
 
+from emcee.config import Chunking
 from tests.helpers import CHUNKED, SENTENCES, build_package, voicing_for
 
 # ---------------------------------------------------------------------------
@@ -188,6 +189,20 @@ def test_plan_chunks_a_wrap_inside_a_long_sentence_is_not_a_boundary():
 def test_plan_chunks_crlf_breaks_and_no_carriage_returns():      # Review Focus 1
     chunks = plan_chunks(f"{P1}\r\n\r\n{P2}", 100)
     assert chunks == [P1, P2]
+
+
+# At ceiling 110 plain sentence-packing would give [X + Y's first sentence, rest],
+# so [X, Y] can only come from the paragraph break being honoured.
+PX = "Tonight we head back to Portland for a spring night."                                  # 52
+PY = "Listen for the long jam after Truckin' tonight. It stretches out and turns quiet."     # 81
+
+
+def test_plan_chunks_paragraph_break_forms_split_where_packing_would_not():
+    assert plan_chunks(f"{PX} {PY}", 110) != [PX, PY]       # the fixture discriminates
+    for sep in ("\n\n", "\r\n\r\n", "\n \n", "\n\n\n", "\r\n \r\n"):
+        chunks = plan_chunks(f"{PX}{sep}{PY}", 110)
+        assert chunks == [PX, PY], repr(sep)
+        assert not any("\r" in c for c in chunks)
 
 
 def test_plan_chunks_blank_trailing_paragraphs_make_no_empty_chunk():  # Review Focus 2
@@ -934,6 +949,15 @@ def test_cache_key_unchunked_no_bed_is_the_pre_feature_formula(tmp_path):
     assert _sidecar(tmp_path)["99-outro.mp3"] == _expected_key("o", chunk=False)
 
 
+def test_script_paragraph_breaks_reach_the_packer(tmp_path):
+    # normalize_for_speech must keep the newlines: collapsing them first would
+    # sentence-pack across the paragraph break (see PX/PY above).
+    speech = FakeSpeechProvider()
+    _synthesize_dj_audio(tmp_path, make_notes(outro=f"{PX}\n\n{PY}"), speech, False,
+                         chunking=Chunking(ceiling=110, room_tone=False))
+    assert speech.calls == [PX, PY]
+
+
 def test_cache_key_chunked_carries_the_loudness_version(tmp_path):
     _synthesize_dj_audio(tmp_path, make_notes(), FakeSpeechProvider(), False, chunking=CHUNKED)
     assert _sidecar(tmp_path)["99-outro.mp3"] == _expected_key(
@@ -976,7 +1000,7 @@ def test_chunked_sends_packed_chunks_not_sentences():
 
 def test_chunked_paragraphs_become_chunks_with_no_newline():
     speech = FakeSpeechProvider()
-    render_speech_mp3(f"{P1}\n\n{P2}", speech, chunking=_Chunking(100, False))
+    render_speech_mp3(f"{P1}\n\n{P2}", speech, chunking=Chunking(100, False))
     assert speech.calls == [P1, P2]
     assert all("\n" not in c for c in speech.calls)
     assert speech.context == [(None, P2), (P1, None)]
@@ -984,7 +1008,7 @@ def test_chunked_paragraphs_become_chunks_with_no_newline():
 
 def test_chunked_trailing_blank_paragraph_makes_no_empty_call():
     speech = FakeSpeechProvider()
-    render_speech_mp3(f"{P1}\n\n{P2}\n\n  \n", speech, chunking=_Chunking(100, False))
+    render_speech_mp3(f"{P1}\n\n{P2}\n\n  \n", speech, chunking=Chunking(100, False))
     assert speech.calls == [P1, P2]
 
 
@@ -1005,9 +1029,9 @@ def test_room_tone_applied_only_when_enabled(monkeypatch):
 
     monkeypatch.setattr("emcee.audio.fill_room_tone", recorder)
     text = f"{P1}\n\n{P2}"
-    render_speech_mp3(text, FakeSpeechProvider(), chunking=_Chunking(100, False))
+    render_speech_mp3(text, FakeSpeechProvider(), chunking=Chunking(100, False))
     assert seen == []
-    render_speech_mp3(text, FakeSpeechProvider(), chunking=_Chunking(100, True))
+    render_speech_mp3(text, FakeSpeechProvider(), chunking=Chunking(100, True))
     assert seen == [text]
 
 
@@ -1111,7 +1135,7 @@ def test_chunked_fallback_audio_is_the_takes_joined():
 def test_chunked_fallback_chunk_keeps_its_neighbours_on_both_sides():
     speech = FakeSpeechProvider(block="here. The climax")
     m1, m2 = _split_sentences(_M)
-    pcm, _, _ = _chunked_pcm(f"{P1}\n\n{_M}\n\n{P2}", speech, chunking=_Chunking(100, False))
+    pcm, _, _ = _chunked_pcm(f"{P1}\n\n{_M}\n\n{P2}", speech, chunking=Chunking(100, False))
     assert speech.calls == [P1, _M, m1, m2, P2]
     assert len(pcm) == (4 * _TAKE + 3 * _GAP) * 2
 

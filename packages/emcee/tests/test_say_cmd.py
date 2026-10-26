@@ -149,11 +149,24 @@ def test_say_chunks_by_packed_chunks_by_default(tmp_path, monkeypatch):
 
 def test_say_no_chunk_sends_the_whole_passage_in_one_call(tmp_path, monkeypatch):
     speech, _ = _arm_speech(monkeypatch)
-    src = _text_file(tmp_path, "First sentence here. Second sentence here.")
+    passage = " ".join(f"Sentence number {i} keeps the passage rolling along." for i in range(8))
+    assert len(passage) > 250       # the default ceiling would pack this into several chunks
+    src = _text_file(tmp_path, passage)
 
     _run(["say", str(src), "--no-chunk"], tmp_path, monkeypatch)
 
-    assert speech.calls == ["First sentence here. Second sentence here."]
+    assert speech.calls == [passage]
+
+
+def test_say_keeps_script_paragraph_breaks(tmp_path, monkeypatch):
+    speech, _ = _arm_speech(monkeypatch)
+    x = "Tonight we head back to Portland for a spring night."
+    y = "Listen for the long jam after Truckin' tonight. It stretches out and turns quiet."
+    src = _text_file(tmp_path, f"{x}\n\n{y}")
+
+    _run(["say", str(src)], tmp_path, monkeypatch, chunk_chars=110)
+
+    assert speech.calls == [x, y]
 
 
 # ---------------------------------------------------------------------------
