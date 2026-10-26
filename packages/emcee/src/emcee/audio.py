@@ -415,9 +415,11 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     chunking (built by `TTSConfig.chunking(...)` from [tts] chunk, which
     defaults on, plus chunk_chars and room_tone; None = off): synthesize each
     segment in packed chunks and concatenate instead of one call per segment
-    (see _synthesize_chunked). On the chunked path the "chunk" part of the key
-    also carries the planned-chunk digest and `tone=<ROOM_TONE_VERSION>`, so
-    changing chunk_chars or room_tone re-renders the affected clips. Whether chunking is on is part of the cache key - chunked and
+    (see _synthesize_chunked). On the chunked path the key (`_render_key`)
+    also gains a separate `chunks=<digest>` part, appended after bed/loud, and
+    `tone=<ROOM_TONE_VERSION>` only when room_tone is on; so changing
+    chunk_chars or room_tone re-renders only the clips whose planned chunks
+    (or tone) change. Whether chunking is on is part of the cache key - chunked and
     single-call audio are different renders of the same text, so flipping
     [tts] chunk invalidates the affected clips and a redo re-synthesizes
     them (no --force needed).

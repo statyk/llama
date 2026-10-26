@@ -669,7 +669,7 @@ def say_cmd(
              "default [tts] bed_gain_db"),
     chunk: bool = typer.Option(
         True, "--chunk/--no-chunk",
-        help="Synthesize in paragraph-packed chunks (up to [tts] chunk_chars) and "
+        help="Synthesize in paragraph-packed chunks (up to \\[tts] chunk_chars) and "
              "concatenate (default), rather than one call for the whole passage"),
     raw: bool = typer.Option(
         False, "--raw",
@@ -700,10 +700,10 @@ def say_cmd(
     file routinely exceeds the backend's per-request character cap, which a
     single whole-passage call cannot survive. `--no-chunk` restores the single
     call for short passages. Chunks follow the text's paragraphs up to
-    `[tts] chunk_chars` and never end inside a sentence; exact-silence gaps are
-    filled with the clip's own room tone (`[tts] room_tone`). Chunked and
-    bedded renders are loudness-normalized;
-    `--no-chunk` without a bed ships the provider's own MP3 un-normalized.
+    `\\[tts] chunk_chars` and never end inside a sentence; exact-silence gaps
+    are filled with the clip's own room tone (`\\[tts] room_tone`). Chunked and
+    bedded renders are loudness-normalized; `--no-chunk` without a bed ships
+    the provider's own MP3 un-normalized.
     """
     config = load_config()
     if clone_text is not None and clone is None:

@@ -678,7 +678,8 @@ and the rest of `emcee run` carries on.
    with verification on it also holds the STT model (`--transcribe` unloads
    the STT model again when verification is off). Measured on the 16 GB mini
    (evidence doc, "Memory headroom"): with Qwen 1.7B plus Whisper resident and
-   verification on, chunk-rendering a 1200-character segment kept the server at
+   verification on, chunk-rendering a 1200-character segment (measured with
+   sentence-sized chunks) kept the server at
    6.6-7.0 GB between sentences with spikes of 10-12 GB during generation
    (`phys_footprint_peak` 12 GB), and swap grew from 1.4 GB to 5.5 GB used on
    the cold run under a light desktop; the host is at its memory limit.
