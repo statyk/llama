@@ -18,6 +18,7 @@ from pathlib import Path
 
 import typer
 
+from emcee.config import Chunking
 from emcee.models import DJClips, ScriptNotes
 from emcee.speech_text import Lexicon, normalize_for_speech
 from emcee.tts.bed import Bed, load_bed_pcm, mix_bed
@@ -180,7 +181,7 @@ def _encode_mp3(pcm: bytes, framerate: int, channels: int) -> bytes:
     return encoder.encode(pcm) + encoder.flush()
 
 
-def _chunked_pcm(text: str, speech) -> tuple[bytes, int, int]:
+def _chunked_pcm(text: str, speech, *, chunking: Chunking) -> tuple[bytes, int, int]:
     """Sentence-by-sentence synthesis + PCM concat (no encode). Returns
     (pcm, framerate, channels). See _synthesize_chunked for the rationale;
     this is its PCM half, shared with the bed path. Each sentence's PCM is
@@ -213,7 +214,7 @@ def _chunked_pcm(text: str, speech) -> tuple[bytes, int, int]:
     return b"".join(frames), framerate, channels
 
 
-def _synthesize_chunked(text: str, speech) -> bytes:
+def _synthesize_chunked(text: str, speech, *, chunking: Chunking) -> bytes:
     """Sentence-by-sentence synthesis + PCM concat + single MP3 encode.
 
     Splits `text`, synthesizes each sentence as WAV (fmt="wav"), concatenates
@@ -230,18 +231,18 @@ def _synthesize_chunked(text: str, speech) -> bytes:
     if warnings persist, the documented next step is resampling to 44.1kHz
     or 48kHz (an MPEG-1 rate) before encoding - out of scope here.
     """
-    pcm, framerate, channels = _chunked_pcm(text, speech)
+    pcm, framerate, channels = _chunked_pcm(text, speech, chunking=chunking)
     return _encode_mp3(pcm, framerate, channels)
 
 
-def _segment_pcm(text: str, speech, chunk: bool) -> tuple[bytes, int, int]:
+def _segment_pcm(text: str, speech, *, chunking: Chunking | None) -> tuple[bytes, int, int]:
     """One DJ segment's voice as raw int16 PCM (pcm, framerate, channels),
     from either the chunked concat or a single whole-segment fmt='wav' call.
     Used by the bed path, which needs PCM to mix before encoding.
     The voice is loudness-normalized (normalize_speech) before it is returned,
     so the bed is mixed under an evened voice."""
-    if chunk:
-        return _chunked_pcm(text, speech)
+    if chunking is not None:
+        return _chunked_pcm(text, speech, chunking=chunking)
     wav_bytes = speech.synthesize(text, fmt="wav")
     with wave.open(io.BytesIO(wav_bytes), "rb") as w:
         if w.getsampwidth() != 2:
@@ -271,10 +272,10 @@ def _locate_block(text: str, speech, fmt: str, blocked: SpeechBlocked) -> Speech
                          whole_passage=True)
 
 
-def _render(text: str, speech, chunk: bool, bed_pcm: bytes | None,
+def _render(text: str, speech, *, chunking: Chunking | None, bed_pcm: bytes | None,
             bed_rate: int | None, bed_gain_db: float) -> bytes:
     if bed_pcm is not None:
-        pcm, rate, channels = _segment_pcm(text, speech, chunk)
+        pcm, rate, channels = _segment_pcm(text, speech, chunking=chunking)
         if rate != bed_rate:
             raise SpeechError(
                 f"bed music sample rate {bed_rate}Hz does not match the "
@@ -283,12 +284,12 @@ def _render(text: str, speech, chunk: bool, bed_pcm: bytes | None,
             raise SpeechError("bed mixing requires mono voice audio")
         return _encode_mp3(mix_bed(pcm, bed_pcm, rate, gain_db=bed_gain_db),
                            rate, channels)
-    if chunk:
-        return _synthesize_chunked(text, speech)
+    if chunking is not None:
+        return _synthesize_chunked(text, speech, chunking=chunking)
     return speech.synthesize(text)
 
 
-def render_speech_mp3(text: str, speech, *, chunk: bool = False,
+def render_speech_mp3(text: str, speech, *, chunking: Chunking | None,
                       bed_pcm: bytes | None = None, bed_rate: int | None = None,
                       bed_gain_db: float = 0.0) -> bytes:
     """One passage of already-normalized text, rendered to MP3 bytes.
@@ -301,7 +302,7 @@ def render_speech_mp3(text: str, speech, *, chunk: bool = False,
       (`mix_bed`), and encode once via lameenc. Hard-fails when the bed's
       sample rate does not match the voice audio, or the voice is not mono.
       The voice is loudness-normalized first (tts/loudness.normalize_speech).
-    - `chunk`: sentence-by-sentence synthesis concatenated as PCM, one
+    - `chunking`: (when not None) sentence-by-sentence synthesis concatenated as PCM, one
       encode at the end (`_synthesize_chunked`); each sentence loudness-normalized.
     - neither: a single whole-passage call, shipping the provider's own MP3
       untouched (not loudness-normalized: this path never holds PCM).
@@ -315,9 +316,10 @@ def render_speech_mp3(text: str, speech, *, chunk: bool = False,
     `emcee say` and DJ clips share, so both get it.
     """
     try:
-        return _render(text, speech, chunk, bed_pcm, bed_rate, bed_gain_db)
+        return _render(text, speech, chunking=chunking, bed_pcm=bed_pcm, bed_rate=bed_rate,
+                       bed_gain_db=bed_gain_db)
     except SpeechBlocked as blocked:
-        if chunk:
+        if chunking is not None:
             raise  # each chunk is already its own request
         located = _locate_block(text, speech, "wav" if bed_pcm is not None else "mp3", blocked)
         if located is blocked:
@@ -334,7 +336,7 @@ def _segment_texts(notes: ScriptNotes) -> list[tuple[str, str]]:
 
 
 def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
-                         chunk: bool = False, lexicon: Lexicon | None = None,
+                         *, chunking: Chunking | None, lexicon: Lexicon | None = None,
                          bed: Bed | None = None,
                          rendered: set[str] | None = None) -> DJClips:
     """One MP3 per ScriptNotes segment under package/dj-audio/.
@@ -349,9 +351,9 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     is written only after this returns, so a failed run leaves no manifest
     referencing half-rendered audio.
 
-    chunk (from [tts] chunk, which defaults on): synthesize each segment sentence-by-
+    chunking (from [tts] chunk, which defaults on; None = off): synthesize each segment sentence-by-
     sentence and concatenate instead of one call per segment (see
-    _synthesize_chunked). chunk is part of the cache key - chunked and
+    _synthesize_chunked). Whether chunking is on is part of the cache key - chunked and
     single-call audio are different renders of the same text, so flipping
     [tts] chunk invalidates the affected clips and a redo re-synthesizes
     them (no --force needed).
@@ -388,20 +390,20 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
         bed_key = f"\nbed={hashlib.sha256(bed_pcm).hexdigest()[:16]}:{bed.gain_db}"
     # Paths that hold PCM are loudness-normalized; the plain path ships the
     # provider's MP3 untouched, so its key (and cache) is unchanged.
-    loud_key = f"\nloud={LOUDNESS_VERSION}" if (chunk or bed is not None) else ""
+    loud_key = f"\nloud={LOUDNESS_VERSION}" if (chunking is not None or bed is not None) else ""
     for stem, text in _segment_texts(notes):
         spoken = normalize_for_speech(text, lexicon)
         filename = f"{stem}.mp3"
         dest = audio_dir / filename
         key = hashlib.sha256(
-            f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunk}{bed_key}{loud_key}".encode()
+            f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunking is not None}{bed_key}{loud_key}".encode()
         ).hexdigest()
         keys[filename] = key
         if (force and filename not in rendered) or not dest.exists() or cached.get(filename) != key:
             detail(f"synthesizing {filename}")
             try:
                 data = render_speech_mp3(
-                    spoken, speech, chunk=chunk, bed_pcm=bed_pcm, bed_rate=bed_rate,
+                    spoken, speech, chunking=chunking, bed_pcm=bed_pcm, bed_rate=bed_rate,
                     bed_gain_db=bed.gain_db if bed is not None else 0.0)
             except (SpeechBlocked, SpeechDefect) as failed:
                 failed.segment = stem

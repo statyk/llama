@@ -304,8 +304,8 @@ def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = Fal
     while True:
         try:
             clips = _synthesize_dj_audio(pkg.dir, notes, speech, force,
-                                         chunk=config.tts.chunk, lexicon=lexicon,
-                                         bed=bed, rendered=rendered)
+                                         chunking=config.tts.chunking(enabled=config.tts.chunk),
+                                         lexicon=lexicon, bed=bed, rendered=rendered)
             break
         except SpeechBlocked as blocked:
             if blocked.whole_passage or blocked.segment is None:

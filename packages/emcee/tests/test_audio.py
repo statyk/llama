@@ -15,6 +15,7 @@ Two halves, both ported from llama:
   pipeline, not scriptwriting (that's `test_scriptwrite.py`'s job).
 """
 
+import inspect
 import io
 import wave
 from pathlib import Path
@@ -38,7 +39,7 @@ from emcee.tts.bed import load_bed_pcm
 from emcee.tts.fake import SILENT_MP3, FakeSpeechProvider
 from emcee.tts.provider import SpeechError
 
-from tests.helpers import build_package, voicing_for
+from tests.helpers import CHUNKED, build_package, voicing_for
 
 # ---------------------------------------------------------------------------
 # _split_sentences
@@ -280,7 +281,7 @@ def test_synthesize_chunked_multi_sentence_produces_one_valid_mp3():
     speech = FakeSpeechProvider()
     text = ("Good evening, night owls. It's June 10th, 1973 at RFK Stadium. "
             "Let's dig in!")
-    data = _synthesize_chunked(text, speech)
+    data = _synthesize_chunked(text, speech, chunking=CHUNKED)
     assert len(data) > 0
     assert data[:3] == b"ID3" or data[0] == 0xFF  # valid MP3 framing
     # Splits into 3 raw sentences, but the short trailing "Let's dig in!"
@@ -297,7 +298,7 @@ def test_synthesize_chunked_threads_neighbor_text_as_context():
     speech = FakeSpeechProvider()
     text = ("First sentence here, plenty long. Second sentence here, also long. "
             "Third one here, quite long too.")
-    _synthesize_chunked(text, speech)
+    _synthesize_chunked(text, speech, chunking=CHUNKED)
     c1, c2, c3 = speech.calls
     # Each chunk is synthesized with its actual neighbors as context so a
     # context-aware backend keeps prosody continuous across the boundaries;
@@ -307,13 +308,13 @@ def test_synthesize_chunked_threads_neighbor_text_as_context():
 
 def test_synthesize_chunked_single_sentence_has_no_context():
     speech = FakeSpeechProvider()
-    _synthesize_chunked("Just one line tonight, spoken alone.", speech)
+    _synthesize_chunked("Just one line tonight, spoken alone.", speech, chunking=CHUNKED)
     assert speech.context == [(None, None)]
 
 
 def test_synthesize_chunked_single_sentence_still_calls_wav_once():
     speech = FakeSpeechProvider()
-    data = _synthesize_chunked("Just one line tonight.", speech)
+    data = _synthesize_chunked("Just one line tonight.", speech, chunking=CHUNKED)
     assert len(data) > 0
     assert len(speech.calls) == 1
 
@@ -341,7 +342,7 @@ class _NonSixteenBitSpeech:
 
 def test_synthesize_chunked_raises_on_non_16bit_pcm():
     with pytest.raises(SpeechError, match="16-bit"):
-        _synthesize_chunked("One sentence.", _NonSixteenBitSpeech())
+        _synthesize_chunked("One sentence.", _NonSixteenBitSpeech(), chunking=CHUNKED)
 
 
 class _StubEncoder:
@@ -371,7 +372,8 @@ def test_synthesize_chunked_picks_low_bitrate_for_24khz(monkeypatch):
     import lameenc
 
     monkeypatch.setattr(lameenc, "Encoder", _StubEncoder)
-    _synthesize_chunked("One sentence only, spoken at 24kHz.", FakeSpeechProvider())
+    _synthesize_chunked("One sentence only, spoken at 24kHz.", FakeSpeechProvider(),
+                        chunking=CHUNKED)
     assert _StubEncoder.last_bit_rate == 64
 
 
@@ -675,7 +677,7 @@ def test_chunk_false_uses_single_call_per_segment(tmp_path):
 def test_render_speech_mp3_plain_returns_the_providers_own_mp3():
     speech = FakeSpeechProvider()
 
-    data = render_speech_mp3("Just a line.", speech, chunk=False)
+    data = render_speech_mp3("Just a line.", speech, chunking=None)
 
     assert data == SILENT_MP3
     assert speech.calls == ["Just a line."]
@@ -685,7 +687,7 @@ def test_render_speech_mp3_chunked_synthesizes_each_sentence():
     speech = FakeSpeechProvider()
 
     data = render_speech_mp3("First sentence here. Second sentence here.",
-                             speech, chunk=True)
+                             speech, chunking=CHUNKED)
 
     assert speech.calls == ["First sentence here.", "Second sentence here."]
     assert data.startswith(b"\xff")  # a real lameenc-encoded MP3, not SILENT_MP3
@@ -695,8 +697,8 @@ def test_render_speech_mp3_chunked_synthesizes_each_sentence():
 def test_render_speech_mp3_with_bed_is_longer_than_without(tmp_path):
     bed_pcm, bed_rate, _, _ = load_bed_pcm(_bed_file(tmp_path))
 
-    plain = render_speech_mp3("A short read.", FakeSpeechProvider(), chunk=False)
-    bedded = render_speech_mp3("A short read.", FakeSpeechProvider(), chunk=False,
+    plain = render_speech_mp3("A short read.", FakeSpeechProvider(), chunking=None)
+    bedded = render_speech_mp3("A short read.", FakeSpeechProvider(), chunking=None,
                                bed_pcm=bed_pcm, bed_rate=bed_rate, bed_gain_db=-20.0)
 
     # mix_bed adds 1.5s of pre-roll and 2s of tail around a ~0.3s clip.
@@ -707,7 +709,7 @@ def test_render_speech_mp3_rejects_a_bed_whose_rate_differs_from_the_voice(tmp_p
     bed_pcm, _, _, _ = load_bed_pcm(_bed_file(tmp_path))
 
     with pytest.raises(SpeechError, match="does not match the voice audio"):
-        render_speech_mp3("A short read.", FakeSpeechProvider(), chunk=False,
+        render_speech_mp3("A short read.", FakeSpeechProvider(), chunking=None,
                           bed_pcm=bed_pcm, bed_rate=48000, bed_gain_db=-20.0)
 
 
@@ -723,7 +725,7 @@ PASSAGE = ("First sentence is fine here. The climax comes too early here. "
 def test_render_unchunked_block_locates_the_sentence():
     speech = FakeSpeechProvider(block="climax")
     with pytest.raises(SpeechBlocked) as ei:
-        render_speech_mp3(PASSAGE, speech)
+        render_speech_mp3(PASSAGE, speech, chunking=None)
     assert ei.value.text == "The climax comes too early here."
     assert ei.value.whole_passage is False
     assert speech.calls == [PASSAGE, "First sentence is fine here.",
@@ -734,7 +736,7 @@ def test_render_block_only_in_context_is_whole_passage():
     # The armed phrase spans a sentence boundary: only the full passage has it.
     speech = FakeSpeechProvider(block="here. The climax")
     with pytest.raises(SpeechBlocked) as ei:
-        render_speech_mp3(PASSAGE, speech)
+        render_speech_mp3(PASSAGE, speech, chunking=None)
     assert ei.value.whole_passage is True
     assert ei.value.text == PASSAGE
     assert "[tts] chunk = true" in str(ei.value)
@@ -744,7 +746,7 @@ def test_render_block_only_in_context_is_whole_passage():
 def test_render_chunked_block_needs_no_locating():
     speech = FakeSpeechProvider(block="climax")
     with pytest.raises(SpeechBlocked) as ei:
-        render_speech_mp3(PASSAGE, speech, chunk=True)
+        render_speech_mp3(PASSAGE, speech, chunking=CHUNKED)
     assert ei.value.text == "The climax comes too early here."
     assert speech.calls == ["First sentence is fine here.", "The climax comes too early here."]
 
@@ -752,7 +754,7 @@ def test_render_chunked_block_needs_no_locating():
 def test_render_single_sentence_block_is_not_resent():
     speech = FakeSpeechProvider(block="climax")
     with pytest.raises(SpeechBlocked) as ei:
-        render_speech_mp3("The climax comes too early here.", speech)
+        render_speech_mp3("The climax comes too early here.", speech, chunking=None)
     assert ei.value.text == "The climax comes too early here."
     assert speech.calls == ["The climax comes too early here."]
 
@@ -760,7 +762,7 @@ def test_render_single_sentence_block_is_not_resent():
 def test_render_non_block_error_is_not_located():
     speech = FakeSpeechProvider(fail=True)
     with pytest.raises(SpeechError) as ei:
-        render_speech_mp3(PASSAGE, speech)
+        render_speech_mp3(PASSAGE, speech, chunking=None)
     assert not isinstance(ei.value, SpeechBlocked)
     assert speech.calls == [PASSAGE]
 
@@ -769,14 +771,15 @@ def test_synthesize_tags_segment_and_persists_cache_per_segment(tmp_path):
     pkg = _pkg(tmp_path)
     blocked = make_notes(set_intros={"1": "a", "2": "the climax"})
     with pytest.raises(SpeechBlocked) as ei:
-        _synthesize_dj_audio(pkg.dir, blocked, FakeSpeechProvider(block="climax"), False)
+        _synthesize_dj_audio(pkg.dir, blocked, FakeSpeechProvider(block="climax"), False,
+                             chunking=None)
     assert ei.value.segment == "set2-intro"
     assert "in set2-intro" in str(ei.value)
     sidecar = _json.loads((pkg.dir / "dj-audio" / "segments.json").read_text())
     assert "set1-intro.mp3" in sidecar
 
     second = FakeSpeechProvider()
-    _synthesize_dj_audio(pkg.dir, make_notes(set_intros={"1": "a", "2": "b"}), second, False)
+    _synthesize_dj_audio(pkg.dir, make_notes(set_intros={"1": "a", "2": "b"}), second, False, chunking=None)
     assert second.calls == ["b", "o"]  # set 1 came from the cache
 
 
@@ -784,20 +787,20 @@ def test_synthesize_rendered_set_exempts_from_force(tmp_path):
     pkg = _pkg(tmp_path)
     rendered: set[str] = set()
     first = FakeSpeechProvider()
-    _synthesize_dj_audio(pkg.dir, make_notes(), first, True, rendered=rendered)
+    _synthesize_dj_audio(pkg.dir, make_notes(), first, True, chunking=None, rendered=rendered)
     assert len(first.calls) == 3
     assert rendered == {"set1-intro.mp3", "set2-intro.mp3", "99-outro.mp3"}
 
     second = FakeSpeechProvider()
-    _synthesize_dj_audio(pkg.dir, make_notes(outro="new outro"), second, True, rendered=rendered)
+    _synthesize_dj_audio(pkg.dir, make_notes(outro="new outro"), second, True, chunking=None, rendered=rendered)
     assert second.calls == ["new outro"]  # changed text still re-renders
 
 
 def test_synthesize_force_without_rendered_still_rerenders_everything(tmp_path):
     pkg = _pkg(tmp_path)
-    _synthesize_dj_audio(pkg.dir, make_notes(), FakeSpeechProvider(), False)
+    _synthesize_dj_audio(pkg.dir, make_notes(), FakeSpeechProvider(), False, chunking=None)
     again = FakeSpeechProvider()
-    _synthesize_dj_audio(pkg.dir, make_notes(), again, True)
+    _synthesize_dj_audio(pkg.dir, make_notes(), again, True, chunking=None)
     assert len(again.calls) == 3
 
 
@@ -863,7 +866,7 @@ def _regions(pcm: bytes, n_sentences: int) -> list[bytes]:
 
 def test_chunked_pcm_normalizes_each_sentence_to_target():
     speech = _ToneSpeech([-26.0, -20.0, -14.0])
-    pcm, rate, _ = _chunked_pcm(_THREE, speech)
+    pcm, rate, _ = _chunked_pcm(_THREE, speech, chunking=CHUNKED)
     assert len(speech.calls) == 3
     voiced = _regions(pcm, 3)
     for region in voiced:
@@ -875,7 +878,7 @@ def test_chunked_pcm_normalizes_each_sentence_to_target():
 # after the mix instead would leave this voice at its input level and fail.
 def test_segment_pcm_unchunked_normalizes_the_whole_segment():
     pcm, rate, _ = _segment_pcm("One whole segment of speech.", _ToneSpeech([-27.0]),
-                                chunk=False)
+                                chunking=None)
     assert abs(active_level_db(pcm, rate) - TARGET_DB) < 0.1
 
 
@@ -901,7 +904,7 @@ class _Odd8BitSpeech:
 
 def test_segment_pcm_non_16bit_still_raises_speech_error():
     with pytest.raises(SpeechError, match="16-bit"):
-        _segment_pcm("One sentence.", _Odd8BitSpeech(), chunk=False)
+        _segment_pcm("One sentence.", _Odd8BitSpeech(), chunking=None)
 
 
 def _expected_key(text: str, chunk: bool, bed_key: str = "", loud: bool = False) -> str:
@@ -917,12 +920,12 @@ def _sidecar(tmp_path) -> dict:
 
 
 def test_cache_key_unchunked_no_bed_is_the_pre_feature_formula(tmp_path):
-    _synthesize_dj_audio(tmp_path, make_notes(), FakeSpeechProvider(), False, chunk=False)
+    _synthesize_dj_audio(tmp_path, make_notes(), FakeSpeechProvider(), False, chunking=None)
     assert _sidecar(tmp_path)["99-outro.mp3"] == _expected_key("o", chunk=False)
 
 
 def test_cache_key_chunked_carries_the_loudness_version(tmp_path):
-    _synthesize_dj_audio(tmp_path, make_notes(), FakeSpeechProvider(), False, chunk=True)
+    _synthesize_dj_audio(tmp_path, make_notes(), FakeSpeechProvider(), False, chunking=CHUNKED)
     assert _sidecar(tmp_path)["99-outro.mp3"] == _expected_key("o", chunk=True, loud=True)
 
 
@@ -932,6 +935,16 @@ def test_cache_key_bed_carries_the_loudness_version(tmp_path):
     bed_pcm, _, _, _ = load_bed_pcm(bed_path)
     bed_key = f"\nbed={_hashlib.sha256(bed_pcm).hexdigest()[:16]}:-20.0"
     _synthesize_dj_audio(tmp_path, make_notes(), FakeSpeechProvider(), False,
-                         chunk=False, bed=Bed(path=bed_path, gain_db=-20.0))
+                         chunking=None, bed=Bed(path=bed_path, gain_db=-20.0))
     assert _sidecar(tmp_path)["99-outro.mp3"] == _expected_key(
         "o", chunk=False, bed_key=bed_key, loud=True)
+
+
+def test_chunking_has_no_default():
+    from emcee.audio import _render
+    for fn in (render_speech_mp3, _synthesize_dj_audio, _render, _segment_pcm):
+        params = inspect.signature(fn).parameters
+        assert "chunk" not in params, fn.__name__
+        p = params["chunking"]
+        assert p.kind is inspect.Parameter.KEYWORD_ONLY, fn.__name__
+        assert p.default is inspect.Parameter.empty, fn.__name__

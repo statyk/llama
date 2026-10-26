@@ -48,7 +48,7 @@ def _dj_audio(pkg_dir: Path) -> dict:
 
 
 def _fake_synth(record: list | None = None):
-    def synth(pkg_dir, notes, speech, force, chunk=False, lexicon=None, bed=None, rendered=None):
+    def synth(pkg_dir, notes, speech, force, chunking=None, lexicon=None, bed=None, rendered=None):
         if record is not None:
             record.append((speech.voice, bed.path.name if bed is not None else None))
         return DJClips(set_intros={k: f"dj-audio/set{k}-intro.mp3" for k in notes.set_intros},

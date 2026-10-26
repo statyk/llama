@@ -730,7 +730,7 @@ def say_cmd(
         bed_pcm, bed_rate, _, _ = load_bed_pcm(resolved_bed.path)
 
     data = render_speech_mp3(
-        spoken, speech, chunk=chunk, bed_pcm=bed_pcm, bed_rate=bed_rate,
+        spoken, speech, chunking=config.tts.chunking(enabled=chunk), bed_pcm=bed_pcm, bed_rate=bed_rate,
         bed_gain_db=resolved_bed.gain_db if resolved_bed is not None else 0.0)
 
     dest = out or text_file.with_suffix(".mp3")

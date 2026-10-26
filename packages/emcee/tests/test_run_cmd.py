@@ -310,7 +310,7 @@ def _hoist_probe_setup(tmp_path, monkeypatch):
         def close(self):
             pass
 
-    def fake_synth(pkg_dir, notes, speech, force, chunk=False, lexicon=None, bed=None, rendered=None):
+    def fake_synth(pkg_dir, notes, speech, force, chunking=None, lexicon=None, bed=None, rendered=None):
         from emcee.models import DJClips
         calls.append((pkg_dir.name, speech.voice, bed.path.name if bed is not None else None))
         return DJClips(
