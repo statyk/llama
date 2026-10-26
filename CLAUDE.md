@@ -259,7 +259,7 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   plan from now, then what the scheduler would append: per block its nominal/actual start and slip,
   shows with `~` on estimated lengths, fill cause, station breaks, MISS, degraded, bent rules and
   missing announcement audio, then a summary; a block entered mid-way, i.e. the phase-1 cutover or
-  a fresh run after an outage, records MISS on its first show by design),
+  a fresh run after an outage, may record a MISS on its first show: only with a clock file, and only when the plan's end lands outside that block's window),
   `transmitter library` (eligible shows by profile with count/median/p10/p90, the interstitial
   pool, ineligible packages by first reason incl. `awaiting fix from llama`). `status` reads
   persisted rows, the clock files and the interstitials folder only: clock source, current/next block, misses and

@@ -250,7 +250,7 @@ def schedule(
 ):
     """Preview the persisted plan from now, then what the scheduler would append. Read-only: writes nothing.
 
-    A block entered mid-way (phase-1 cutover, a fresh run) records MISS on its first show, by design."""
+    A block entered mid-way (phase-1 cutover, a fresh run) may record a MISS on its first show (clock file only)."""
     cfg = load_config(config)
     for line in service.schedule_report(cfg, service.now_us(), days=days, clock_file=clock_file, library=library):
         typer.echo(line)
