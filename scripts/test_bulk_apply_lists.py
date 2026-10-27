@@ -166,14 +166,39 @@ def test_famous_shows_go_to_a_packet(tmp_path):
     cfg, root, station, shows, arm = _world(tmp_path)
     famous = tmp_path / "famous.txt"
     famous.write_text("famous\n")
+    doc = json.loads(arm.read_text())
+    doc["shows"]["famous"].update(titles=["Song 1", "Renamed"], sets=["1", "2"],
+                                  segues=[False, True])
+    arm.write_text(json.dumps(doc))
     out = tmp_path / "wave.json"
     assert _run(cfg, "lists", "--arm", str(arm), "--out", str(out),
                 "--famous", str(famous)) == 0
     assert "famous" not in _listed(out)
-    packet = Path(str(out) + ".famous.txt")
-    text = packet.read_text()
-    assert "famous" in text
-    assert "*" in text                      # t2 -> t9 starred
+    text = Path(str(out) + ".famous.txt").read_text()
+    lines = text.splitlines()
+    assert lines[0] == "== famous"
+    one = next(l for l in lines if l.lstrip("* ").startswith("1 "))
+    two = next(l for l in lines if l.lstrip("* ").startswith("2 "))
+    assert not one.startswith("*")
+    assert two.startswith("*")
+    assert "set 1->2" in two and "title Song 2->Renamed" in two and "segue -->>" in two
+
+
+def test_lists_refuse_a_missing_station_root_or_delivery_path(tmp_path, capsys):
+    cfg, root, station, shows, arm = _world(tmp_path)
+    out = tmp_path / "wave.json"
+    station.rename(tmp_path / "gone")
+    assert _run(cfg, "lists", "--arm", str(arm), "--out", str(out)) == 2
+    assert not out.exists()
+    assert "not mounted or not a directory" in capsys.readouterr().err
+    assert _run(cfg, "lists", "--arm", str(arm), "--counts") == 2
+    assert capsys.readouterr().out == ""
+    (tmp_path / "gone").rename(station)
+    cfg.write_text(f'root = "{root}"\n')
+    assert _run(cfg, "lists", "--arm", str(arm), "--out", str(out)) == 2
+    assert not out.exists()
+    assert "no delivery_path in config" in capsys.readouterr().err
+    assert _run(cfg, "lists", "--arm", str(arm), "--counts") == 2
 
 
 def test_render_side_by_side_stars_differing_rows():

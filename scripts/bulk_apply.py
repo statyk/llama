@@ -1364,6 +1364,11 @@ def select_wave(root: Path, station_root: Path | None, arm: dict, *, profiles, s
 def cmd_lists(args) -> int:
     config = _config(args)
     root = config.root
+    if config.delivery_path is None:
+        raise GateRefused("no delivery_path in config")
+    if not config.delivery_path.is_dir():
+        raise GateRefused(f"station root {config.delivery_path} is not mounted or not a "
+                          f"directory")
     pin = require_pinned_code(root)
     if not args.counts and args.out is None:
         raise GateRefused("lists needs --out (or --counts)")
