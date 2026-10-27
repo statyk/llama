@@ -28,7 +28,7 @@ import replay_holds
 
 import llama
 import llama.replay
-from llama import batch_snapshot, campaign, station_mark
+from llama import batch_snapshot, campaign, reapply, station_mark
 from llama.campaign_gate import (_VERSION, GateRefused, read_pin, require_pinned_code,
                                  require_tools, retire_rekey_restore, write_pin)
 from llama.catalog import _performance_id, _sync_fd, derive_state
@@ -1208,6 +1208,284 @@ def cmd_unmark(args) -> int:
     return rc
 
 
+# --- wave lists, wave check, spot checks (plan Task 16; spec "Pacing, ordering and
+# resumability" (selection), "Re-processing", "Pacing") ---
+
+WAVE_DISK_MARGIN_BYTES = 20 * 10**9
+LIST_KINDS = ("fresh", "reuse", "needs-llm", "label-only", "held")
+NEWLY_HELD = "newly-held"
+
+
+def _side(filenames, titles, sets, segues) -> list[dict]:
+    n = max(len(filenames or []), len(titles or []), len(sets or []), len(segues or []))
+
+    def at(seq, i):
+        return seq[i] if seq and i < len(seq) else None
+    return [{"filename": at(filenames, i), "title": at(titles, i), "set": at(sets, i),
+             "segue": at(segues, i)} for i in range(n)]
+
+
+def _stored_side(stored: Show) -> list[dict]:
+    return [{"filename": t.filename, "title": t.title, "set": t.set, "segue": bool(t.segue)}
+            for t in stored.tracks]
+
+
+def _row_side(row: dict) -> list[dict]:
+    return _side(row.get("filenames"), row.get("titles"), row.get("sets"), row.get("segues"))
+
+
+def _arrow(b, a) -> str:
+    return f"{'?' if b is None else b}->{'?' if a is None else a}"
+
+
+def render_side_by_side(before: list[dict], after: list[dict]) -> list[str]:
+    """One line per track index: set, title and segue mark (before->after); a line whose
+    values differ starts with `*`. Tracks are paired by index; a side that is shorter
+    shows `?` for the missing track."""
+    lines = []
+    for i in range(max(len(before), len(after))):
+        b = before[i] if i < len(before) else {}
+        a = after[i] if i < len(after) else {}
+        differs = any(b.get(k) != a.get(k) for k in ("set", "title", "segue"))
+        mark = {None: "?", True: ">", False: "-"}
+        lines.append(f"{'*' if differs else ' '} {i + 1:>3}  set {_arrow(b.get('set'), a.get('set'))}"
+                     f"  title {_arrow(b.get('title'), a.get('title'))}"
+                     f"  segue {mark[b.get('segue')]}->{mark[a.get('segue')]}")
+    return lines
+
+
+def _famous_packet(root: Path, rows: dict[str, dict], slugs: list[str]) -> str:
+    out = []
+    for slug in slugs:
+        out.append(f"== {slug}")
+        row = rows.get(slug)
+        if row is None:
+            out.append("not in the arm")
+            continue
+        try:
+            stored = _stored_show(ShowWorkspace(root / "shows" / slug))
+        except _Unplannable as exc:
+            out.append(str(exc))
+            continue
+        if row.get("outcome") in _NO_DIFF:
+            out.append(f"no after side (outcome {row.get('outcome')})")
+            continue
+        out.extend(render_side_by_side(_stored_side(stored), _row_side(row)))
+    return "\n".join(out) + "\n"
+
+
+def _row_kind(row: dict, stored: Show | None) -> str:
+    if row.get("outcome") == "needs-llm":
+        return "needs-llm"
+    if row.get("briefing") == "none":
+        return "held"
+    if stored is not None and row_label_only(row, stored):
+        return "label-only"
+    return str(row.get("briefing"))
+
+
+def _voiced(station_root: Path | None, slug: str, problems: list[str]) -> bool | None:
+    """True/False, or None (reported in `problems`) when the station copy cannot be read.
+    No station copy is unvoiced."""
+    if station_root is None:
+        return False
+    out = station_root / slug
+    problem = _station_copy_problem(out)
+    if problem == "no station copy":
+        return False
+    if problem is not None:
+        problems.append(f"{slug}: {problem}")
+        return None
+    try:
+        return destination_voiced(out)
+    except LlamaError as exc:
+        problems.append(f"{slug}: {_one_line(exc)}")
+        return None
+
+
+def select_wave(root: Path, station_root: Path | None, arm: dict, *, profiles, states, slugs,
+                famous, reselections: set[str], problems: list[str]) -> list[dict]:
+    """Every show a wave may take, as {slug, row, kind, voiced, profile}, in slug order
+    (spec "Pacing, ordering and resumability"): awaiting fix with start `gather`, or
+    label-only with no record, or `newly-held`; never processed, a re-selection, or
+    famous. `voiced` is left to the caller to filter. Reads only; what it cannot decide
+    goes to `problems`."""
+    rows = _arm_rows(arm)
+    delivered = {e.performance_id for e in Ledger(root / "ledger.jsonl").entries()
+                 if e.status == "delivered"}
+    picked = []
+    for slug in sorted(rows):
+        if slug in famous or slug in reselections or (slugs is not None and slug not in slugs):
+            continue
+        ws = ShowWorkspace(root / "shows" / slug)
+        if not ws.dir.is_dir():
+            continue
+        row = rows[slug]
+        try:
+            rec = campaign.read_record(ws)
+        except campaign.CampaignUnreadable as exc:
+            problems.append(str(exc))
+            continue
+        if rec is not None and campaign.last_mark(rec) is not None:
+            if not campaign.awaiting_fix(rec):
+                continue                                    # processed
+            if campaign.last_mark(rec).start_stage != "gather":
+                continue                                    # a re-selection
+            listed, stored = True, None
+        else:
+            listed = row.get("outcome") == NEWLY_HELD
+            stored = None
+        if row.get("outcome") not in _NO_DIFF:
+            try:
+                stored = _stored_show(ws)
+            except _Unplannable as exc:
+                problems.append(f"{slug}: {exc}")
+                continue
+            if not listed and rec is None and row_label_only(row, stored):
+                listed = True
+        if not listed:
+            continue
+        if states and _plan_state(ws, delivered) not in states:
+            continue
+        try:
+            prov = read_model(ws.provenance, Provenance)
+            profile = prov.profile
+        except (OSError, ValueError):
+            profile = None
+        if profiles and profile not in profiles:
+            continue
+        picked.append({"slug": slug, "row": row, "profile": profile,
+                       "kind": _row_kind(row, stored)})
+    for item in picked:
+        item["voiced"] = _voiced(station_root, item["slug"], problems)
+    return picked
+
+
+def cmd_lists(args) -> int:
+    config = _config(args)
+    root = config.root
+    pin = require_pinned_code(root)
+    if not args.counts and args.out is None:
+        raise GateRefused("lists needs --out (or --counts)")
+    _, arm = _read_json_file(args.arm, "arm")
+    if not isinstance(arm, dict):
+        raise GateRefused(f"{args.arm} is not an arm")
+    if arm.get("sha") != pin.get("sha"):
+        raise GateRefused(f"the arm was written by code {arm.get('sha')}; the pin is "
+                          f"{pin.get('sha')} ({pin.get('tag')})")
+    if arm.get("config_fingerprint") != config_fingerprint(config):
+        raise GateRefused(f"the arm's config fingerprint {arm.get('config_fingerprint')} is not "
+                          f"the running config's {config_fingerprint(config)}")
+    slugs = set(_read_slugs(args.slugs)) if args.slugs else None
+    famous = _read_slugs(args.famous) if args.famous else []
+    try:
+        resel = {r["slug"] for r in json.loads(
+            (root / "campaign" / RESELECTIONS_NAME).read_text())["rows"]}
+    except FileNotFoundError:
+        resel = set()
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise GateRefused(f"{root / 'campaign' / RESELECTIONS_NAME} unreadable "
+                          f"({_one_line(exc)})") from exc
+    problems: list[str] = []
+    picked = select_wave(root, config.delivery_path, arm, profiles=set(args.profile or []),
+                         states=set(args.state or []), slugs=slugs, famous=set(famous),
+                         reselections=resel, problems=problems)
+    kinds = set(args.kind or [])
+    picked = [p for p in picked if not kinds or p["kind"] in kinds]
+    for line in problems:
+        print(line, file=sys.stderr)
+    picked = [p for p in picked if p["voiced"] is not None]    # unreadable: reported, not taken
+    if args.counts:
+        counts: dict = {}
+        for p in picked:
+            cell = counts.setdefault(p["profile"] or "(none)", {}).setdefault(
+                p["kind"], {"unvoiced": 0, "voiced": 0})
+            cell["voiced" if p["voiced"] else "unvoiced"] += 1
+        print(json.dumps(counts, indent=2, sort_keys=True))
+        return 0
+    if not args.include_voiced:
+        picked = [p for p in picked if not p["voiced"]]
+    if args.limit is not None:
+        picked = picked[:args.limit]
+    doc = {"sha": arm["sha"], "config_fingerprint": arm["config_fingerprint"],
+           "written_at": datetime.now(timezone.utc).isoformat(),
+           "campaign": {"version": pin.get("version"), "pin_sha": pin.get("sha")},
+           "rows": [{"slug": p["slug"], "outcome": p["row"].get("outcome"),
+                     "briefing": p["row"].get("briefing"), "kind": p["kind"],
+                     "digests": p["row"].get("digests") or {}} for p in picked]}
+    _write_json(args.out, doc)
+    print(f"listed {len(picked)} show(s): {args.out}")
+    if famous:
+        packet = Path(str(args.out) + ".famous.txt")
+        _write_durable(packet, _famous_packet(root, _arm_rows(arm), famous).encode())
+        print(f"famous-shows packet: {packet}")
+    return 0
+
+
+def cmd_wave_check(args) -> int:
+    config = _config(args)
+    root, station_root = config.root, config.delivery_path
+    if station_root is None:
+        raise GateRefused("no delivery_path in config")
+    if not station_root.is_dir() or not os.access(station_root, os.R_OK):
+        raise GateRefused(f"station root {station_root} is not mounted or not a readable "
+                          f"directory")
+    _, doc = _read_json_file(args.list, "wave list")
+    if not (isinstance(doc, dict) and isinstance(doc.get("rows"), list)):
+        raise GateRefused(f"{args.list} is not a wave list")
+    delivered = {e.performance_id for e in Ledger(root / "ledger.jsonl").entries()
+                 if e.status == "delivered"}
+    needed = 0
+    for row in doc["rows"]:
+        slug = row["slug"]
+        ws = ShowWorkspace(root / "shows" / slug)
+        if _plan_state(ws, delivered) != "delivered":
+            continue
+        out = station_root / slug
+        station_mark.read_station_manifest(out)             # StationUnreadable -> exit 2
+        audio = out / "audio"
+        try:
+            needed += sum(f.stat().st_size for f in audio.iterdir() if f.is_file())
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            raise GateRefused(f"{slug}: station audio unreadable ({_one_line(exc)})") from exc
+    free = shutil.disk_usage(root).free
+    print(f"needed: {needed} bytes\nfree: {free} bytes\nmargin: {WAVE_DISK_MARGIN_BYTES} bytes")
+    if needed + WAVE_DISK_MARGIN_BYTES > free:
+        raise GateRefused(f"not enough free disk under {root}: need {needed} + margin "
+                          f"{WAVE_DISK_MARGIN_BYTES} > free {free}")
+    print("wave-check: ok")
+    return 0
+
+
+def cmd_spot_check(args) -> int:
+    import random
+    config = _config(args)
+    batch = args.batch
+    progress = reapply.read_progress(batch)
+    slugs = sorted(s for s, r in progress.items() if r.get("outcome") in ("cleared", "held"))
+    seed = args.seed if args.seed is not None else random.SystemRandom().randrange(2**31)
+    print(f"seed: {seed}")
+    sample = random.Random(seed).sample(slugs, min(args.n, len(slugs)))
+    for slug in sorted(sample):
+        print(f"== {slug} ({progress[slug].get('outcome')})")
+        before_path = batch / "snapshot" / "shows" / slug / "show.json"
+        try:
+            before = _stored_side(read_model(before_path, Show))
+        except (OSError, ValueError) as exc:
+            print(f"no before state ({_one_line(exc)})")
+            continue
+        try:
+            after = _stored_side(_stored_show(ShowWorkspace(config.root / "shows" / slug)))
+        except _Unplannable as exc:
+            print(str(exc))
+            continue
+        for line in render_side_by_side(before, after):
+            print(line)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1260,6 +1538,26 @@ def main(argv: list[str] | None = None) -> int:
             "(dry run unless --apply)")
     p.add_argument("--batch", type=Path, required=True, help="campaign/marking/<id>")
     p.add_argument("--apply", action="store_true")
+    p = add("lists", cmd_lists, "write a wave list from an arm (read-only; selection rules in "
+            "the spec)")
+    p.add_argument("--arm", type=Path, required=True)
+    p.add_argument("--out", type=Path, default=None)
+    p.add_argument("--profile", action="append", default=None)
+    p.add_argument("--state", action="append", default=None)
+    p.add_argument("--slugs", type=Path, default=None)
+    p.add_argument("--kind", action="append", default=None, choices=LIST_KINDS)
+    p.add_argument("--include-voiced", action="store_true")
+    p.add_argument("--famous", type=Path, default=None,
+                   help="slugs left out of the list and written to <out>.famous.txt")
+    p.add_argument("--limit", type=int, default=None)
+    p.add_argument("--counts", action="store_true",
+                   help="print per profile/kind counts instead of a list")
+    p = add("wave-check", cmd_wave_check, "refuse a wave the station or the disk cannot take")
+    p.add_argument("--list", type=Path, required=True)
+    p = add("spot-check", cmd_spot_check, "seeded before/after sample of a reapply batch")
+    p.add_argument("--batch", type=Path, required=True)
+    p.add_argument("--n", type=int, default=5)
+    p.add_argument("--seed", type=int, default=None)
     args = ap.parse_args(argv)
     try:
         return args.fn(args)
