@@ -1,0 +1,16 @@
+### Task 16: Wave lists, wave check, spot checks and the famous-shows packet
+
+**Spec:** "Pacing, ordering and resumability" (selection), "Re-processing" (structure gate, spot checks, newly held), "Pacing" (free disk), "Known constraints". **Implementer: Sonnet.**
+
+**Files:** Modify `scripts/bulk_apply.py` (`lists`, `wave-check`, `spot-check`); Test `scripts/test_bulk_apply_lists.py` (new).
+
+**Interfaces:**
+- `lists --arm <arm> --out <list.json> [--profile P]... [--state S]... [--slugs F] [--kind fresh|reuse|needs-llm|label-only|held]... [--include-voiced] [--famous F] [--limit N] [--counts]`. The arm's `sha` must equal the pin's `sha`; the doc is `{sha, config_fingerprint, written_at, campaign: {version, pin_sha}, rows: [{slug, outcome, briefing, kind, digests}]}`, rows in slug order. A row is listed when its show is awaiting fix with start `gather`, or the row is label-only (no record), or its outcome is `newly-held`; never when processed, a re-selection, voiced (destination `dj_audio` non-null) without `--include-voiced`, or on `--famous`. Kind from the row, first match: `needs-llm` (outcome), `held` (`briefing == "none"`), `label-only` (`row_label_only`), else `fresh`/`reuse` (`briefing`). `--profile` is exact on `provenance.profile`; `--state` the derived state. `--famous` writes `<out>.famous.txt`: per slug the before (`show.json`) and after (arm row `filenames`, `titles`, `sets`, `segues`) rendered by `render_side_by_side`. `--counts` prints JSON `{profile: {kind: {"unvoiced": n, "voiced": n}}}` over every awaiting, unprocessed show instead of writing a list (the trial projection's queue).
+- `render_side_by_side(before: list[dict], after: list[dict]) -> list[str]` — rows of index, set (before→after), title (before→after), segue marks; a row whose values differ is starred.
+- `wave-check --list <list.json>`: the station root is a readable directory; every delivered row's station manifest reads (`read_station_manifest`); needed bytes = sum of each delivered row's station `audio/*` sizes; refuse (exit 2) when `needed + WAVE_DISK_MARGIN_BYTES > shutil.disk_usage(config.root).free`, `WAVE_DISK_MARGIN_BYTES = 20 * 10**9`; prints needed, free, margin.
+- `spot-check --batch <reapply batch dir> [--n 5] [--seed S]`: a seeded sample (seed printed) of the batch's `cleared`/`held` rows rendered before (the batch snapshot's `show.json`) and after (current `show.json`).
+- [ ] **Step 1: Write the failing tests:** `test_lists_select_by_profile_state_kind_and_exclude_voiced_processed_reselection`; `test_lists_refuse_an_arm_not_at_the_pin`; `test_famous_shows_go_to_a_packet`; `test_counts_shape`; `test_kind_held_from_briefing_none` (a row with `briefing == "none"` and outcome `held` → kind `held`; a `needs-llm` row with `briefing == "none"` stays `needs-llm`); `test_wave_check_refuses_when_the_disk_is_short` (monkeypatched `disk_usage`); `test_wave_check_refuses_an_unreadable_station`; `test_spot_check_is_seeded_and_side_by_side`; `test_list_feeds_reapply` (a written list loads through `reapply.load_list` at the running code).
+- [ ] **Step 2:** Run → FAIL. **Step 3: Implement.** **Step 4:** Full suite → PASS. Commit `feat(bulk): wave lists, wave check, spot checks, famous-shows packet`.
+
+---
+

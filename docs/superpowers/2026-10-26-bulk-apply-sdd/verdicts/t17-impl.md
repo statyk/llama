@@ -1,0 +1,13 @@
+# t17-impl: DONE, commit cce3309e
+Tests (scripts/test_bulk_apply_reports.py, 12): all 8 brief tests plus test_unvoiced_and_processed_shows_are_not_listed, test_non_spending_and_other_kind_rows_are_not_counted, test_similar_shapes_pool, test_align_reproduced_rate. RED before implementing: all 12 failed ("invalid choice: 'trial-report'" / revoice-list). GREEN after: 12 passed.
+Full suite: ./.venv/bin/python -m pytest -q -> 6329 passed, 1 skipped, 8 deselected.
+Meter keys used (match _meter_row exactly): meter.before/after {five_hour, five_hour_resets, seven_day, seven_day_resets}. Brief's names match.
+Design: block kind from batch list.json (slug->kind); applied rows = last progress row per slug, kind match, llm_calls>0, ordered by "at". Reset check compares five_hour_resets across ALL rows' before/after (not just first/last). Material difference = (max-min)/max of per-show cost > 0.25 (brief says "relative"; denominator is my choice). Profile->shape via --shape, else profile name = shape name; unmapped/(none) uses highest measured cost when kept apart. Small blocks (delta5<5) still count in projection and ratio, flagged with bound. Revoice: awaiting = library campaign record; presenter = emcee voiced_by; needs-llm/unreplayable arm rows last with components "unknown until re-processed" (rank continues); shows absent from arm skipped with stderr note.
+Concerns: none blocking. Block arg is <shape>-<kind>=<dir> with kind in {fresh, needs-llm}.
+
+## Fix round 1 (commit 09742a80)
+Tests: test_non_spending_and_other_kind_rows_are_not_counted now has a no-spend reuse row inside the window and a SPENDING needs-llm row outside it (block still measures: shows=20, per-show 5h 0.5, no "not contiguous"); new test_interleaved_spend_of_another_kind_means_no_measurement (spending other-kind row inside the window).
+RED (before fix): new test failed at the not-contiguous assertion (output showed shows=20, ratio 0.2, projection 0.5 points). The modified existing test already passed (outside-window row was not counted by the kind filter).
+Fix: _spending_rows / _foreign_inside; cmd_trial_report prints "<shape>-<kind>: not contiguous: N spending row(s) of another kind inside it; re-run as one block per kind" and skips the block (excluded from ratio and projection).
+Mutant (scratch copy via git archive, PYTHONPATH shadowing, bulk_apply.__file__ proven inside the copy, PYTHONDONTWRITEBYTECODE=1): kind filter removed in _block_rows -> test_non_spending_and_other_kind_rows_are_not_counted FAILED (shows=21 instead of 20); caught.
+Suite: ./.venv/bin/python -m pytest -q -> 6330 passed, 1 skipped, 8 deselected. No background shell left running.

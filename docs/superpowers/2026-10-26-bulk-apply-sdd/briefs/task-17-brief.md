@@ -1,0 +1,14 @@
+### Task 17: The ranked re-voice list and the trial report
+
+**Spec:** "Delivery after the fix" (ranked re-voice list), "The trial". **Implementer: Sonnet.**
+
+**Files:** Modify `scripts/bulk_apply.py` (`revoice-list`, `trial-report`); Test `scripts/test_bulk_apply_reports.py` (new).
+
+**Interfaces:**
+- `revoice-list --arm <arm> --emcee-status <emcee status --json file> [--backend voxtral|mlx_audio|elevenlabs]`: voiced shows (`voiced_by` non-null) that are awaiting fix; per show components from the arm row and `show.json`: `tracks` (+added/−removed by filename), `set moves` (tracks with the same filename whose set label changed), `titles` (title text changes), `segues`, `metadata` (venue, city, date changed). Ranked by `(tracks added+removed, set moves, titles, segues, metadata)` descending, then slug. Cost from `tts_now.backend`: `voxtral` → `1 Voxtral credit`, `mlx_audio` → `free (local)`, `elevenlabs` → `ElevenLabs`, missing/unresolved → `unknown`. Rows whose arm outcome is `needs-llm` print last under `unknown until re-processed`. Each row: rank, slug, presenter, backend, cost, every component.
+- `trial-report --block <shape>-<kind>=<batch dir>... --queue <counts.json> --weekly-share PCT [--shape dead=dead,dead-family ...]`: per block, the applied rows of its kind; before = the first such row's `meter.before`, after = the last one's `meter.after`; `five_hour_resets` differing → `discarded: crossed a 5-hour reset; re-run`; delta5 < `MIN_BLOCK_POINTS = 5` → reports the error bound `±1/n` per show; per-show 5h cost = delta5 / n; the 7-day ratio = Σ delta7 / Σ delta5 over every kept block; per-show 7d cost = per-show 5h × ratio. Shapes whose per-kind costs differ by more than `MATERIAL_DIFFERENCE = 0.25` (relative) are kept apart and a profile outside every shape uses the higher measured cost; otherwise one pooled figure per kind. Projection: Σ over the queue of n × per-show 7d cost, in weeks at the weekly share, per profile and total; kinds `reuse`, `label-only` and `held` cost 0 (no LLM call), only `fresh` and `needs-llm` are measured. Also the `align_reproduced` rate of the needs-LLM blocks.
+- [ ] **Step 1: Write the failing tests:** `test_ranking_is_lexicographic_and_explained`; `test_cost_from_tts_now`; `test_needs_llm_rows_last`; `test_block_cost_and_ratio` (two hand-built progress files: 20 shows moving 5h 30→40 and 7d 10→12 → 0.5 points per show 5h, ratio 0.2, 0.1 points per show 7d); `test_block_crossing_a_reset_is_discarded`; `test_small_block_reports_its_bound`; `test_projection_in_weeks` (queue rows of kind `reuse`, `label-only` and `held` add 0); `test_material_difference_keeps_shapes_apart`.
+- [ ] **Step 2:** Run → FAIL. **Step 3: Implement.** **Step 4:** Full suite → PASS. Commit `feat(bulk): ranked re-voice list and trial cost report`.
+
+---
+
