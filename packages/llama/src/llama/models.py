@@ -215,6 +215,9 @@ class Overrule(BaseModel):
     flag: str
     source: str  # "fix" | "triage" | "untitled" | "backfill"
     at: str      # UTC ISO-8601
+    # Why it was recorded (the backfill names its basis); never part of a rule's
+    # identity (`llama.overrules._ident`). None from fix/triage/untitled and old files.
+    note: str | None = None
 
 
 class Overrides(BaseModel):

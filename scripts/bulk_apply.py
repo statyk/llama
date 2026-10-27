@@ -140,6 +140,19 @@ NO_SHOW_JSON = "no show.json"
 # Each layout's false-hold verdict value: `flags[].verdict` (layout A), `claims[].verdict`
 # (layout B). A value is honoured only in its own layout.
 _RECORDED = (("flags", "spurious"), ("claims", "flag-spurious"))
+# Checkpoint A rulings (plan Task 14b). Rules (a) and (b) record only a flag still listed
+# for one of these two reasons, and never one of these kinds or rulings.
+_STILL_LISTED = (NEVER_RULED, OTHER_ONLY)
+_NEVER_KINDS = frozenset({"titles", "research-song"})
+_NEVER_RULINGS = frozenset({"research-wrong", "research-right-show-wrong"})
+_STRUCTURE_KINDS = frozenset({"jerrybase-set-count", "jerrybase-closer", "research-sets",
+                              "sets-not-found", "venue", "city"})
+# Each basis's note prefix (the path follows) and its dry-run label, in precedence order.
+_BASES = (("backfill verdict: ", "verdict"),
+          ("backfill rule a (verdict action fix): ", "rule a"),
+          ("backfill rule b (rehold overrule): ", "rule b"),
+          ("backfill rule c (delivered, no verdict): ", "rule c"),
+          ("backfill rule d (overrule_if_reheld_on, not raised by the base arm): ", "rule d"))
 
 
 class BackfillShow(NamedTuple):
@@ -163,7 +176,7 @@ def _considered(row: dict) -> bool:
     return row.get("outcome") == "newly-held" and row.get("state") != "held"
 
 
-def _verdict(verdicts: Path, slug: str) -> dict | None:
+def _verdict(verdicts: Path, slug: str, what: str = "verdict") -> dict | None:
     path = verdicts / f"{slug}.json"
     if not path.exists():
         return None
@@ -172,13 +185,13 @@ def _verdict(verdicts: Path, slug: str) -> dict | None:
     except (OSError, ValueError) as exc:
         raise LlamaError(f"{path} unreadable ({exc}); nothing planned") from exc
     if not isinstance(v, dict):
-        raise LlamaError(f"{path} is not a verdict object; nothing planned")
+        raise LlamaError(f"{path} is not a {what} object; nothing planned")
     return v
 
 
-def _rulings(v: dict) -> tuple[dict[str, list[tuple[str, bool]]], set[str], set[str]]:
+def _rulings(v: dict) -> tuple[dict[str, list[tuple[str, bool]]], list[str], set[str]]:
     """(flag -> [(verdict, is that layout's false-hold value)], flags named by
-    `action.overrule_if_reheld_on`, `other_flags` texts)."""
+    `action.overrule_if_reheld_on` in their order, `other_flags` texts)."""
     ruled: dict[str, list[tuple[str, bool]]] = {}
     for key, value in _RECORDED:
         for e in v.get(key) or []:
@@ -187,13 +200,14 @@ def _rulings(v: dict) -> tuple[dict[str, list[tuple[str, bool]]], set[str], set[
                     (str(e.get("verdict")), e.get("verdict") == value))
     action = v.get("action")
     oir = action.get("overrule_if_reheld_on") if isinstance(action, dict) else None
-    named = {f for f in oir or [] if isinstance(f, str)}
+    named = list(dict.fromkeys(f for f in oir or [] if isinstance(f, str)))
     other = {e["flag"] for e in v.get("other_flags") or []
              if isinstance(e, dict) and isinstance(e.get("flag"), str)}
     return ruled, named, other
 
 
-def _titles_rule(flag: str, show: Show, row: dict, at: str) -> Overrule | None:
+def _titles_rule(flag: str, show: Show, row: dict, at: str,
+                 note: str | None = None) -> Overrule | None:
     """The `titles` overrule built from the BASE row's `title_sources` (the files that
     were unresolved when the verdict was made), never from today's show.json. None when
     the base positions cannot be mapped onto today's track list."""
@@ -204,13 +218,31 @@ def _titles_rule(flag: str, show: Show, row: dict, at: str) -> Overrule | None:
     if not names:
         return None
     return Overrule(identifier=show.identifier, kind="titles", subject=names, flag=flag,
-                    source="backfill", at=at)
+                    source="backfill", at=at, note=note)
 
 
-def _plan_one(root: Path, row: dict, verdicts: Path, delivered: set[str],
-              at: str) -> BackfillShow | None:
+def _record(flag: str, kind: str, show: Show, row: dict, at: str,
+            note: str) -> Overrule | None:
+    """One overrulable flag's record carrying its basis `note`; a `titles` flag through
+    `_titles_rule` (None when it cannot derive the files)."""
+    if kind == "titles":
+        return _titles_rule(flag, show, row, at, note)
+    [rule] = records_for([flag], show, source="backfill", at=at)
+    return rule.model_copy(update={"note": note})
+
+
+def _basis(rule: Overrule) -> str:
+    """The dry-run label of the basis a backfill rule's note names."""
+    return next(label for prefix, label in _BASES if (rule.note or "").startswith(prefix))
+
+
+def _plan_one(root: Path, row: dict, verdicts: Path, delivered: set[str], at: str,
+              rehold: Path | None = None, base_path: Path | None = None
+              ) -> BackfillShow | None:
     """One base row's plan; None when it is not considered (the base outcome or state,
-    or the show is held today)."""
+    or the show is held today). Today's rule first, then the Checkpoint A rulings (a),
+    (b), (c); (d) adds `overrule_if_reheld_on` flags the base arm did not raise. A flag
+    is recorded once, under the first basis that records it, its note naming that basis."""
     if not _considered(row):
         return None
     slug = row["slug"]
@@ -218,19 +250,43 @@ def _plan_one(root: Path, row: dict, verdicts: Path, delivered: set[str],
     if not ws.show.exists():
         return BackfillShow(slug, [], [], NO_SHOW_JSON)
     try:
-        if derive_state(ws, delivered)[0] == "held":
+        state = derive_state(ws, delivered)[0]
+        if state == "held":
             return None
         show = read_model(ws.show, Show)
     except Exception as exc:
         return BackfillShow(slug, [], [], f"show.json unreadable: {' '.join(str(exc).split())}")
     v = _verdict(verdicts, slug)
-    if v is None:
-        return BackfillShow(slug, [], [], NO_VERDICT)
-    ruled, named, other = _rulings(v)
+    rv = _verdict(rehold, slug, "rehold verdict") if rehold is not None else None
     flags = (list(row.get("gather_flags") or []) + list(row.get("vet_flags") or [])
              + list(row.get("brief_flags") or []))
     record: list[Overrule] = []
     listed: list[tuple[str, str]] = []
+
+    def take(f: str, kind: str, note: str) -> None:
+        rule = _record(f, kind, show, row, at, note)
+        if rule is None:
+            listed.append((f, NO_TITLES))
+        else:
+            record.append(rule)
+
+    if v is None:
+        if state != "delivered":
+            return BackfillShow(slug, [], [], NO_VERDICT)
+        # (c): the operator delivered the show, i.e. accepted every flag; no exclusions.
+        note_c = _BASES[3][0] + str(base_path if base_path is not None else "the base arm")
+        for f in flags:
+            key = flag_key(f, show)
+            if key is None:
+                listed.append((f, NOT_OVERRULABLE))
+            else:
+                take(f, key.kind, note_c)
+        return BackfillShow(slug, record, listed, None)
+    vpath = verdicts / f"{slug}.json"
+    ruled, named, other = _rulings(v)
+    action = v.get("action")
+    fix = isinstance(action, dict) and action.get("kind") == "fix"
+    reheld = rv is not None and rv.get("decision") == "overrule"
     for f in flags:
         key = flag_key(f, show)
         if key is None:
@@ -238,39 +294,54 @@ def _plan_one(root: Path, row: dict, verdicts: Path, delivered: set[str],
             continue
         rulings = ruled.get(f, [])
         if f in named or (rulings and all(ok for _, ok in rulings)):
-            if key.kind == "titles":
-                rule = _titles_rule(f, show, row, at)
-                if rule is None:
-                    listed.append((f, NO_TITLES))
-                else:
-                    record.append(rule)
-            else:
-                record.extend(records_for([f], show, source="backfill", at=at))
-        elif rulings:
-            listed.append((f, f"ruled {next(vd for vd, ok in rulings if not ok)}"))
+            take(f, key.kind, _BASES[0][0] + str(vpath))
+            continue
+        if rulings:
+            why = f"ruled {next(vd for vd, ok in rulings if not ok)}"
         elif f in other:
-            listed.append((f, OTHER_ONLY))
+            why = OTHER_ONLY
         else:
-            listed.append((f, NEVER_RULED))
+            why = NEVER_RULED
+        eligible = (why in _STILL_LISTED and key.kind not in _NEVER_KINDS
+                    and not any(vd in _NEVER_RULINGS for vd, _ in rulings))
+        if eligible and fix and key.kind in _STRUCTURE_KINDS:
+            take(f, key.kind, _BASES[1][0] + str(vpath))
+        elif eligible and reheld:
+            take(f, key.kind, _BASES[2][0] + str(rehold / f"{slug}.json"))
+        else:
+            listed.append((f, why))
+    # (d): flags the verdict says to overrule if re-held on, which the base arm did not
+    # raise; one it cannot record is skipped, never listed.
+    for f in named:
+        if f in flags:
+            continue
+        key = flag_key(f, show)
+        if key is None:
+            continue
+        rule = _record(f, key.kind, show, row, at, _BASES[4][0] + str(vpath))
+        if rule is not None:
+            record.append(rule)
     return BackfillShow(slug, record, listed, None)
 
 
-def plan_backfill(root: Path, base: dict, verdicts: Path,
-                  delivered: set[str]) -> list[BackfillShow]:
+def plan_backfill(root: Path, base: dict, verdicts: Path, delivered: set[str],
+                  rehold: Path | None = None, *,
+                  base_path: Path | None = None) -> list[BackfillShow]:
     """Every base row newly held under the pre-piece-4 code (outcome `newly-held`, state
     not `held`) whose show is not held today, with the overrules to record and the flags
     listed for the operator. `delivered` is the ledger's delivered performance ids (as
-    `llama status` derives state). Reads only."""
+    `llama status` derives state); `rehold` the optional rehold-verdicts directory (rule
+    b); `base_path` the base arm's path, named by rule (c)'s note. Reads only."""
     at = datetime.now(timezone.utc).isoformat()
     out = []
     for row in _base_rows(base):
-        planned = _plan_one(root, row, verdicts, delivered, at)
+        planned = _plan_one(root, row, verdicts, delivered, at, rehold, base_path)
         if planned is not None:
             out.append(planned)
     return out
 
 
-def _print_plan(plan: list[BackfillShow], rows: dict[str, dict]) -> None:
+def _print_plan(plan: list[BackfillShow], rows: dict[str, dict], verdicts: Path) -> None:
     for s in plan:
         if s.show_reason is not None:
             print(f"{s.slug}: {s.show_reason}")
@@ -281,20 +352,27 @@ def _print_plan(plan: list[BackfillShow], rows: dict[str, dict]) -> None:
             continue
         print(f"{s.slug}:")
         for r in s.record:
-            print(f"  record: {r.flag}")
+            basis = _basis(r)
+            print(f"  record: {r.flag}" + ("" if basis == "verdict" else f" ({basis})"))
         for f, why in s.listed:
             print(f"  list: {f} ({why})")
-    with_verdict = [s for s in plan if s.show_reason is None]
-    covered = sum(1 for s in with_verdict if s.record and not s.listed)
+    per_flag = [s for s in plan if s.show_reason is None]
+    covered = sum(1 for s in per_flag if s.record and not s.listed)
     other = sum(1 for s in plan if s.show_reason not in (None, NO_VERDICT))
+    # A rule-(c) show is planned per flag but still has no verdict file.
+    no_verdict = sum(s.show_reason == NO_VERDICT
+                     or (s.show_reason is None and not (verdicts / f"{s.slug}.json").exists())
+                     for s in plan)
     line = (f"totals: shows considered {len(plan)}, "
-            f"shows with no verdict {sum(s.show_reason == NO_VERDICT for s in plan)}, "
+            f"shows with no verdict {no_verdict}, "
             f"flags recorded {sum(len(s.record) for s in plan)}, "
             f"flags listed {sum(len(s.listed) for s in plan)}, "
-            f"shows fully covered {covered} of {len(with_verdict)}")
+            f"shows fully covered {covered} of {len(per_flag)}")
     if other:
         line += f", shows listed for another reason {other}"
     print(line)
+    by = Counter(_basis(r) for s in plan for r in s.record)
+    print("recorded by basis: " + ", ".join(f"{label} {by[label]}" for _, label in _BASES))
 
 
 def _append_jsonl(path: Path, row: dict) -> None:
@@ -317,7 +395,8 @@ def _new_rules(ws: ShowWorkspace, rules: list[Overrule]) -> list[Overrule]:
 
 
 def _backfill_one(snap: Path, record: Path, root: Path, row: dict, verdicts: Path,
-                  delivered: set[str], station_root: Path | None, at: str) -> str:
+                  delivered: set[str], station_root: Path | None, at: str,
+                  rehold: Path | None = None, base_path: Path | None = None) -> str:
     """One show's unit, inside `show_unit` (which takes the show lock): re-plan, re-read
     `overrides.json`, merge, write, then `record_after` (the show's final state; nothing
     tracked is written after it) and the batch record. Any failure, Ctrl-C included,
@@ -326,7 +405,7 @@ def _backfill_one(snap: Path, record: Path, root: Path, row: dict, verdicts: Pat
     slug = row["slug"]
     ws = ShowWorkspace(root / "shows" / slug)
     with show_unit(ws, None):
-        planned = _plan_one(root, row, verdicts, delivered, at)
+        planned = _plan_one(root, row, verdicts, delivered, at, rehold, base_path)
         if planned is None or not planned.record:
             return "skipped: changed since the plan (held now, or nothing to record)"
         if ws.overrides.exists():
@@ -362,11 +441,14 @@ def cmd_backfill(args) -> int:
         raise LlamaError(f"{args.base} unreadable ({exc})") from exc
     if not args.verdicts.is_dir():
         raise LlamaError(f"no verdicts directory {args.verdicts}")
+    if args.rehold_verdicts is not None and not args.rehold_verdicts.is_dir():
+        raise LlamaError(f"no rehold-verdicts directory {args.rehold_verdicts}")
     delivered = {e.performance_id for e in Ledger(root / "ledger.jsonl").entries()
                  if e.status == "delivered"}
-    plan = plan_backfill(root, base, args.verdicts, delivered)
+    plan = plan_backfill(root, base, args.verdicts, delivered, args.rehold_verdicts,
+                         base_path=args.base)
     rows = {r["slug"]: r for r in _base_rows(base)}
-    _print_plan(plan, rows)
+    _print_plan(plan, rows, args.verdicts)
     if not args.apply:
         print("dry run: nothing written (pass --apply)")
         return 0
@@ -399,7 +481,7 @@ def cmd_backfill(args) -> int:
     for slug in targets:
         try:
             outcome = _backfill_one(snap, record, root, rows[slug], args.verdicts, delivered,
-                                    station_root, at)
+                                    station_root, at, args.rehold_verdicts, args.base)
         except Exception as exc:
             outcome = f"error: {' '.join(str(exc).split())}"
             failed.append(slug)
@@ -1782,6 +1864,8 @@ def main(argv: list[str] | None = None) -> int:
             "overrules (dry run unless --apply)")
     p.add_argument("--base", type=Path, required=True, help="the base arm (migration-base.json)")
     p.add_argument("--verdicts", type=Path, required=True, help="the verdicts directory")
+    p.add_argument("--rehold-verdicts", type=Path, default=None,
+                   help="the rehold-verdicts directory (rule b: decision overrule)")
     p.add_argument("--apply", action="store_true")
     p = add("freeze", cmd_freeze, "write the frozen needs-LLM list from an arm (once)")
     p.add_argument("--arm", type=Path, required=True)
