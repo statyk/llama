@@ -1491,6 +1491,248 @@ def cmd_spot_check(args) -> int:
     return 0
 
 
+# --- Task 17: the ranked re-voice list and the trial cost report (read-only) ---
+
+MIN_BLOCK_POINTS = 5            # a trial block's 5-hour meter must move this many points
+MATERIAL_DIFFERENCE = 0.25      # relative per-show cost gap that keeps two shapes apart
+MEASURED_KINDS = ("fresh", "needs-llm")      # the kinds that make an LLM call
+DISCARDED = "discarded: crossed a 5-hour reset; re-run"
+_BACKEND_COST = {"voxtral": "1 Voxtral credit", "mlx_audio": "free (local)",
+                 "elevenlabs": "ElevenLabs"}
+UNKNOWN_UNTIL = "unknown until re-processed"
+
+
+def _components(row: dict, stored: Show) -> dict:
+    """How different the re-processed show is, per component, paired by filename."""
+    old = {t.filename: t for t in stored.tracks}
+    names = row.get("filenames") or []
+    new = {}
+    for i, name in enumerate(names):
+        def at(key, i=i):
+            seq = row.get(key)
+            return seq[i] if seq and i < len(seq) else None
+        new[name] = {"title": at("titles"), "set": at("sets"), "segue": bool(at("segues"))}
+    added = [n for n in new if n not in old]
+    removed = [n for n in old if n not in new]
+    common = [n for n in new if n in old]
+    return {"added": len(added), "removed": len(removed),
+            "set_moves": sum(1 for n in common if new[n]["set"] != old[n].set),
+            "titles": sum(1 for n in common if new[n]["title"] != old[n].title),
+            "segues": sum(1 for n in common if new[n]["segue"] != bool(old[n].segue)),
+            "metadata": sum(1 for k in ("venue", "city", "date") if row.get(k))}
+
+
+def _backend_of(tts_now) -> str | None:
+    return tts_now.get("backend") if isinstance(tts_now, dict) else None
+
+
+def cmd_revoice_list(args) -> int:
+    config = _config(args)
+    root = config.root
+    _, arm = _read_json_file(args.arm, "arm")
+    if not isinstance(arm, dict):
+        raise GateRefused(f"{args.arm} is not an arm")
+    _, status = _read_json_file(args.emcee_status, "emcee status")
+    if not isinstance(status, list):
+        raise GateRefused(f"{args.emcee_status} is not an `emcee status --json` list")
+    rows = _arm_rows(arm)
+    known, unknown = [], []
+    for st in status:
+        if not isinstance(st, dict) or not st.get("voiced_by") or not isinstance(st.get("slug"), str):
+            continue
+        slug = st["slug"]
+        backend = _backend_of(st.get("tts_now"))
+        if args.backend and backend != args.backend:
+            continue
+        ws = ShowWorkspace(root / "shows" / slug)
+        if not ws.dir.is_dir():
+            continue
+        try:
+            rec = campaign.read_record(ws)
+        except campaign.CampaignUnreadable as exc:
+            print(str(exc), file=sys.stderr)
+            continue
+        if rec is None or campaign.last_mark(rec) is None or not campaign.awaiting_fix(rec):
+            continue
+        row = rows.get(slug)
+        if row is None:
+            print(f"{slug}: not in the arm", file=sys.stderr)
+            continue
+        item = {"slug": slug, "presenter": st["voiced_by"], "backend": backend or "unknown",
+                "cost": _BACKEND_COST.get(backend, "unknown")}
+        if row.get("outcome") in _NO_DIFF:
+            unknown.append(item)
+            continue
+        try:
+            item["c"] = _components(row, _stored_show(ws))
+        except _Unplannable as exc:
+            print(f"{slug}: {exc}", file=sys.stderr)
+            continue
+        known.append(item)
+
+    def key(it):
+        c = it["c"]
+        return (-(c["added"] + c["removed"]), -c["set_moves"], -c["titles"], -c["segues"],
+                -c["metadata"], it["slug"])
+    known.sort(key=key)
+    unknown.sort(key=lambda it: it["slug"])
+    for rank, it in enumerate(known + unknown, 1):
+        head = (f"{rank} {it['slug']} presenter {it['presenter']} backend {it['backend']} "
+                f"cost {it['cost']}")
+        if "c" in it:
+            c = it["c"]
+            print(f"{head} tracks +{c['added']}/-{c['removed']} set moves {c['set_moves']} "
+                  f"titles {c['titles']} segues {c['segues']} metadata {c['metadata']}")
+        else:
+            print(f"{head} components {UNKNOWN_UNTIL}")
+    return 0
+
+
+def _num(x: float) -> str:
+    return f"{x:.4g}"
+
+
+def _parse_block(spec: str) -> tuple[str, str, Path]:
+    left, sep, path = spec.partition("=")
+    if not sep or not path:
+        raise GateRefused(f"--block {spec!r}: expected <shape>-<kind>=<batch dir>")
+    for kind in MEASURED_KINDS:
+        if left.endswith("-" + kind) and len(left) > len(kind) + 1:
+            return left[:-len(kind) - 1], kind, Path(path)
+    raise GateRefused(f"--block {spec!r}: the kind must be one of {', '.join(MEASURED_KINDS)}")
+
+
+def _block_rows(batch: Path, kind: str) -> list[dict]:
+    """The batch's applied rows of `kind` that spent (llm_calls > 0), oldest first."""
+    _, lst = _read_json_file(batch / "list.json", "batch list")
+    if not (isinstance(lst, dict) and isinstance(lst.get("rows"), list)):
+        raise GateRefused(f"{batch / 'list.json'} is not a wave list")
+    kinds = {r.get("slug"): r.get("kind") for r in lst["rows"] if isinstance(r, dict)}
+    rows = [r for s, r in reapply.read_progress(batch).items()
+            if kinds.get(s) == kind and isinstance(r.get("llm_calls"), (int, float))
+            and r["llm_calls"] > 0]
+    return sorted(rows, key=lambda r: str(r.get("at")))
+
+
+def _meter_of(row: dict, which: str) -> dict:
+    m = (row.get("meter") or {}).get(which)
+    return m if isinstance(m, dict) else {}
+
+
+def _measure_block(rows: list[dict]) -> dict | None:
+    """{n, d5, d7} for one block, or None when the readings are unusable or the block
+    crossed a 5-hour reset."""
+    if not rows:
+        return None
+    first, last = _meter_of(rows[0], "before"), _meter_of(rows[-1], "after")
+    resets = {m.get("five_hour_resets") for r in rows for m in (_meter_of(r, "before"),
+                                                                 _meter_of(r, "after"))}
+    if len(resets) != 1:
+        return {"discarded": True}
+    vals = (first.get("five_hour"), last.get("five_hour"),
+            first.get("seven_day"), last.get("seven_day"))
+    if any(not isinstance(v, (int, float)) for v in vals):
+        return None
+    return {"n": len(rows), "d5": vals[1] - vals[0], "d7": vals[3] - vals[2]}
+
+
+def cmd_trial_report(args) -> int:
+    if not args.weekly_share > 0:
+        raise GateRefused("--weekly-share must be above 0")
+    shape_of: dict[str, str] = {}
+    for spec in args.shape or []:
+        name, sep, profiles = spec.partition("=")
+        if not sep or not name:
+            raise GateRefused(f"--shape {spec!r}: expected <shape>=<profile>,<profile>")
+        for p in profiles.split(","):
+            shape_of[p.strip()] = name
+    _, queue = _read_json_file(args.queue, "queue")
+    if not isinstance(queue, dict):
+        raise GateRefused(f"{args.queue} is not a `lists --counts` document")
+    kept: list[tuple[str, str, dict]] = []
+    for spec in args.block:
+        shape, kind, batch = _parse_block(spec)
+        label = f"{shape}-{kind}"
+        rows = _block_rows(batch, kind)
+        m = _measure_block(rows)
+        if m is None:
+            print(f"block {label}: no usable measurement ({len(rows)} spending row(s))")
+            continue
+        if m.get("discarded"):
+            print(f"block {label}: {DISCARDED}")
+            continue
+        line = f"block {label}: shows={m['n']} delta5={_num(m['d5'])} delta7={_num(m['d7'])}"
+        if m["d5"] < MIN_BLOCK_POINTS:
+            line += (f" -- delta5 {_num(m['d5'])} < {MIN_BLOCK_POINTS} points; error bound "
+                     f"±1/{m['n']} = ±{_num(1 / m['n'])} points per show")
+        print(line)
+        print(f"block {label}: per-show 5h: {_num(m['d5'] / m['n'])}")
+        kept.append((shape, kind, m))
+    sum5, sum7 = sum(m["d5"] for _, _, m in kept), sum(m["d7"] for _, _, m in kept)
+    if not kept or sum5 <= 0:
+        print("no usable block: no projection")
+        return 0
+    ratio = sum7 / sum5
+    print(f"7d/5h ratio: {_num(ratio)}")
+    cost: dict[str, dict] = {}            # kind -> {"pooled": c, "shapes": {shape: c}, "apart": b}
+    for kind in MEASURED_KINDS:
+        mine = [(s, m) for s, k, m in kept if k == kind]
+        if not mine:
+            continue
+        shapes: dict[str, list[float]] = {}
+        for s, m in mine:
+            acc = shapes.setdefault(s, [0.0, 0])
+            acc[0] += m["d5"]
+            acc[1] += m["n"]
+        per = {s: a[0] / a[1] * ratio for s, a in shapes.items()}
+        pooled = sum(m["d5"] for _, m in mine) / sum(m["n"] for _, m in mine) * ratio
+        hi, lo = max(per.values()), min(per.values())
+        apart = len(per) > 1 and hi > 0 and (hi - lo) / hi > MATERIAL_DIFFERENCE
+        cost[kind] = {"pooled": pooled, "shapes": per, "apart": apart, "max": hi}
+        for s, c in sorted(per.items()):
+            print(f"block {s}-{kind}: per-show 7d: {_num(c)}")
+        print(f"{kind}: shapes kept apart" if apart else f"{kind}: pooled {_num(pooled)} per show 7d")
+
+    def per_show(profile: str, kind: str) -> float | None:
+        c = cost.get(kind)
+        if c is None:
+            return None
+        if not c["apart"]:
+            return c["pooled"]
+        shape = shape_of.get(profile, profile)
+        return c["shapes"].get(shape, c["max"])
+
+    total = 0.0
+    unmeasured: set[str] = set()
+    for profile in sorted(queue):
+        pts = 0.0
+        for kind, cell in (queue[profile] or {}).items():
+            if kind not in MEASURED_KINDS:
+                continue                    # reuse, label-only and held make no LLM call
+            n = int(cell.get("unvoiced", 0)) + int(cell.get("voiced", 0))
+            c = per_show(profile, kind)
+            if c is None:
+                if n:
+                    unmeasured.add(kind)
+                continue
+            pts += n * c
+        total += pts
+        print(f"projection {profile}: {_num(pts)} points = {_num(pts / args.weekly_share)} weeks")
+    print(f"projection total: {_num(total)} points = {_num(total / args.weekly_share)} weeks "
+          f"at {_num(args.weekly_share)} points of the weekly meter per week")
+    for kind in sorted(unmeasured):
+        print(f"note: no usable block for kind {kind}; its shows are left out of the projection")
+    reproduced = []
+    for spec in args.block:
+        shape, kind, batch = _parse_block(spec)
+        if kind == "needs-llm":
+            reproduced += [r.get("align_reproduced") for r in _block_rows(batch, kind)
+                           if isinstance(r.get("align_reproduced"), bool)]
+    if reproduced:
+        print(f"align_reproduced: {sum(reproduced)}/{len(reproduced)}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1563,6 +1805,21 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--batch", type=Path, required=True)
     p.add_argument("--n", type=int, default=5)
     p.add_argument("--seed", type=int, default=None)
+    p = add("revoice-list", cmd_revoice_list, "rank the voiced shows awaiting fix by how "
+            "wrong they are (read-only)")
+    p.add_argument("--arm", type=Path, required=True)
+    p.add_argument("--emcee-status", type=Path, required=True,
+                   help="the file `emcee status --json` wrote")
+    p.add_argument("--backend", choices=("voxtral", "mlx_audio", "elevenlabs"), default=None)
+    p = add("trial-report", cmd_trial_report, "per-kind trial cost and the queue projection "
+            "(read-only)")
+    p.add_argument("--block", action="append", required=True,
+                   help="<shape>-<kind>=<reapply batch dir>; kind fresh or needs-llm")
+    p.add_argument("--queue", type=Path, required=True, help="`lists --counts` output")
+    p.add_argument("--weekly-share", type=float, required=True,
+                   help="points of the weekly all-models meter this work may use per week")
+    p.add_argument("--shape", action="append", default=None,
+                   help="<shape>=<profile>,<profile> (a profile alone is its own shape)")
     args = ap.parse_args(argv)
     try:
         return args.fn(args)
