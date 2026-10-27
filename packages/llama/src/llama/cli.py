@@ -35,7 +35,7 @@ from llama.models import Criteria, LedgerEntry, Overrule, ShortlistEntry, Show
 from llama.overrules import merge_rules, records_for
 from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
-from llama import pacing_state
+from llama import campaign, pacing_state
 from llama.pacing import (PaceOptions, PauseUntil, Proceed, Progress,
                           binding_forecast, decide, duration_arg, format_delta,
                           pace_options, resume_at, sleep_until)
@@ -2787,6 +2787,7 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
         raise LlamaError(f"no provenance.json in {entry.ws.dir} - "
                          "reprocess it via its run first")
     prov = read_model(show_ws.provenance, Provenance)   # under the caller's lock
+    rec = campaign.read_record(show_ws)   # an unreadable record refuses before any spend
     keep_research = not with_research and from_stage in ("select", "gather")
     # Spec 5.4: pair the existing audio with the CURRENT show.json and manifests
     # before the re-gather rewrites or drops them.
@@ -2804,12 +2805,17 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
                                          quality_score=0.0, rationale=prov.dossier))
     shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
     ws = RunWorkspace(config.root, prov.run)
-    return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
-                        prov.run, config.audio_format,
-                        setlistfm=make_client(config), structure_cfg=config.structure,
-                        jerrybase_enabled=config.jerrybase.enabled,
-                        selection_cfg=config.selection, profile=prov.profile,
-                        audio_reuse=reuse)
+    pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
+                       prov.run, config.audio_format,
+                       setlistfm=make_client(config), structure_cfg=config.structure,
+                       jerrybase_enabled=config.jerrybase.enabled,
+                       selection_cfg=config.selection, profile=prov.profile,
+                       audio_reuse=reuse)
+    mark = campaign.last_mark(rec)
+    if mark is not None and (SHOW_STAGE_ORDER.index(from_stage)
+                             <= SHOW_STAGE_ORDER.index(mark.start_stage)):
+        campaign.mark_processed(show_ws, held=pkg is None)   # last step of a committed re-gather
+    return pkg
 
 
 class NarrationMode(str, Enum):

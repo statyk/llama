@@ -233,6 +233,50 @@ def shipped_diff(stored: Show, new: Show) -> dict:
     }
 
 
+VISIBLE_FIELDS = ("files", "titles", "sets", "segues", "set_breaks", "venue", "city", "date")
+
+
+def visible_changes(stored: Show, new: Show) -> list[str]:
+    """The manifest-visible fields (VISIBLE_FIELDS order) that differ. Files are
+    compared by name, so a same-count file swap counts; titles by text only
+    (a `title_source` change is not visible)."""
+    changed = {
+        "files": [t.filename for t in stored.tracks] != [t.filename for t in new.tracks],
+        "titles": [t.title for t in stored.tracks] != [t.title for t in new.tracks],
+        "sets": [t.set for t in stored.tracks] != [t.set for t in new.tracks],
+        "segues": [bool(t.segue) for t in stored.tracks] != [bool(t.segue) for t in new.tracks],
+        "set_breaks": list(stored.set_breaks) != list(new.set_breaks),
+        "venue": stored.venue != new.venue,
+        "city": stored.city != new.city,
+        "date": stored.date != new.date,
+    }
+    return [f for f in VISIBLE_FIELDS if changed[f]]
+
+
+def row_visible_changes(row: dict, stored: Show) -> list[str]:
+    """`visible_changes` computed from an arm row (a `ShowReplay` dict)."""
+    filenames = row.get("filenames")
+    changed = {
+        "files": filenames is not None
+                 and list(filenames) != [t.filename for t in stored.tracks],
+        "titles": any(c.get("old") != c.get("new") for c in row.get("title_changes") or []),
+        "sets": any(c.get("old") != c.get("new") for c in row.get("set_changes") or []),
+        "segues": any(c.get("old") != c.get("new") for c in row.get("segue_changes") or []),
+        "set_breaks": bool(row.get("set_breaks")),
+        "venue": bool(row.get("venue")),
+        "city": bool(row.get("city")),
+        "date": bool(row.get("date")),
+    }
+    return [f for f in VISIBLE_FIELDS if changed[f]]
+
+
+def row_label_only(row: dict, stored: Show) -> bool:
+    """No manifest-visible change, but a `title_source` or `alignment` change."""
+    if row_visible_changes(row, stored):
+        return False
+    return bool(row.get("title_changes")) or bool(row.get("alignment"))
+
+
 def _structure_changed(diff: dict) -> bool:
     """Spec "structure-changed": set or segue labels, set_breaks or alignment."""
     return bool(diff["set_changes"] or diff["segue_changes"]

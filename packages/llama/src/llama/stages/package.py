@@ -1,7 +1,7 @@
 from dataclasses import replace
 from pathlib import Path
 
-from llama import audio_reuse
+from llama import audio_reuse, campaign
 from llama.audio import packaged_filename, read_duration, tag_audio
 from llama.errors import LlamaError
 from llama.manifest import build_manifest, m3u_text
@@ -137,6 +137,7 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
         context=context,
         research=research_name, reviews="reviews.md", research_vetted=vetted,
         profile=profile))
+    campaign.after_package(show_ws)       # last step, after the manifest write
     return pkg, flags
 
 

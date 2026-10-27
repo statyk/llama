@@ -1388,3 +1388,39 @@ def test_replay_sees_overrules(tmp_path):
     assert legs.vet.result.flags == [] and legs.vet.show.needs_review is False
     assert "overruled: unresolved track titles" in legs.gather.notes
     assert legs.vet.notes[-1] == "overruled: research asserts unknown song: Golden"
+
+
+# --- visible-change helpers (bulk-apply Task 3) -------------------------------
+
+def _vshow(files=("a.mp3", "b.mp3"), titles=("A", "B"), source="tags", **kw):
+    from llama.models import Show, Track
+    return Show(performance_id="x/1", identifier="i", artist="X", date="1970-01-01",
+                tracks=[Track(index=i, set="1", title=t, filename=f, title_source=source)
+                        for i, (f, t) in enumerate(zip(files, titles), 1)], **kw)
+
+
+def test_visible_changes_and_label_only():
+    from dataclasses import asdict
+    from llama.replay import (ShowReplay, VISIBLE_FIELDS, row_label_only,
+                              row_visible_changes, shipped_diff, visible_changes)
+    assert VISIBLE_FIELDS == ("files", "titles", "sets", "segues", "set_breaks",
+                              "venue", "city", "date")
+    stored = _vshow()
+    swap = _vshow(files=("a.mp3", "c.mp3"))
+    assert visible_changes(stored, swap) == ["files"]
+    relabel = _vshow(source="setlist")
+    assert visible_changes(stored, relabel) == []
+
+    def row(new):
+        r = ShowReplay(slug="s", state="packaged", filenames=[t.filename for t in new.tracks])
+        for k, v in shipped_diff(stored, new).items():
+            setattr(r, k, v)
+        return asdict(r)
+
+    assert row_label_only(row(relabel), stored) is True
+    assert row_label_only(row(swap), stored) is False
+    assert row_label_only(row(stored), stored) is False
+    combos = [swap, relabel, stored, _vshow(titles=("A", "Z"), venue="V", set_breaks=[1]),
+              _vshow(files=("a.mp3",), titles=("A",))]
+    for new in combos:
+        assert row_visible_changes(row(new), stored) == visible_changes(stored, new)
