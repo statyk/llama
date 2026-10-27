@@ -6,7 +6,10 @@ behind the version and pin gates), `snapshot` / `seal` / `restore` (thin wrapper
 `llama.batch_snapshot`) and `backfill` (plan Task 14: the overrule backfill from the
 overnight verdicts, dry run unless `--apply`); plan Task 15: `freeze` (the frozen needs-LLM
 list), `reselect-check` (the verified re-selection list, re-checked read-only), `mark` (the
-marking batch, dry run unless `--apply`) and `unmark` (its reversal, by its record). A
+marking batch, dry run unless `--apply`) and `unmark` (its reversal, by its record); plan
+Tasks 16-17: `lists` (wave lists and `--counts`), `wave-check` (a list's read-only gate),
+`spot-check` (a finished batch's sample), `revoice-list` (the ranked re-voice list for voiced
+marked shows) and `trial-report` (the trial's cost projection). A
 refused gate exits 2. Run with the pinned worktree's own interpreter:
 `./.venv/bin/python scripts/bulk_apply.py ...`.
 """
