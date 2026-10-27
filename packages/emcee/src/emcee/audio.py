@@ -230,6 +230,10 @@ def _chunked_pcm(text: str, speech, *, chunking: Chunking) -> tuple[bytes, int, 
                                        previous_text=previous_text, next_text=next_text)]
         except SpeechBlocked as blocked:
             takes = _narrow_chunk(sentence, speech, blocked)
+            # Every sentence passed alone: say so, since the extra calls are
+            # metered on hosted backends and nothing else reports them.
+            detail(f"content filter blocked chunk {i + 1}; rendered from its "
+                   f"{len(takes)} sentences ({len(takes)} extra calls)")
         for j, wav_bytes in enumerate(takes):
             with wave.open(io.BytesIO(wav_bytes), "rb") as w:
                 if framerate is None:

@@ -1124,6 +1124,20 @@ def test_chunked_cross_sentence_block_falls_back_to_the_takes():
     assert speech.calls == [PASSAGE, _S1, _S2, _S3]
 
 
+def test_chunked_fallback_is_reported(capsys):
+    speech = FakeSpeechProvider(block="here. The climax")
+    _chunked_pcm(PASSAGE, speech, chunking=_C)
+    out = capsys.readouterr().out
+    assert "content filter blocked chunk 1; rendered from its 3 sentences (3 extra calls)" in out
+
+
+def test_chunked_located_block_prints_no_fallback_line(capsys):
+    speech = FakeSpeechProvider(block="climax")
+    with pytest.raises(SpeechBlocked):
+        _chunked_pcm(PASSAGE, speech, chunking=_C)
+    assert "content filter blocked chunk" not in capsys.readouterr().out
+
+
 def test_chunked_fallback_audio_is_the_takes_joined():
     speech = FakeSpeechProvider(block="here. The climax")
     pcm, rate, channels = _chunked_pcm(PASSAGE, speech, chunking=_C)
