@@ -170,6 +170,7 @@ A new optional top-level field in a delivered package's `manifest.json`:
   shows, 23 delivered, 3 voiced: `elliottsmith-1998-06-02`, `-2000-02-20`, `-2000-11-10`),
   nor an already processed show ("The library side"). Marking shrinks the broadcast-ready
   set before it grows; the scheduler session knows.
+- **Recorded at Checkpoint B (operator, 2026-10-27):** a fifth trigger. An arm row newly held with no visible change, not label-only and not processed, is marked last in priority with the reason `newly held by today's checks: <flag kinds>` (88 packaged, 1 delivered at Checkpoint B2; mark plan 2640 = 2551 + 89 at f1f447db).
 - **Writing a mark**, per show, under the show lock: the campaign record (see "The library
   side") is written first and made durable, then the station mark, a read-modify-write on
   the raw JSON dict, never llama's `Manifest` model: re-read under the lock, only
@@ -288,6 +289,7 @@ the apply or any later redo from gather: a durable fix, not a bulk-apply patch.
   `gratefuldead-1977-05-09`), a base flag the verdict never ruled on, a flag ruled real
   (`real-fixed-by-action`, `undecidable`, etc.). The dry run prints both lists per show, with
   counts.
+- **Recorded at Checkpoint A (operator, 2026-10-27):** the backfill also records (a) on a verdict whose action kind is `fix`, every still-listed structure/closer/venue/city flag (kinds `jerrybase-set-count`, `jerrybase-closer`, `research-sets`, `sets-not-found`, `venue`, `city`), never `titles`/`research-song` or a flag ruled `research-wrong`/`research-right-show-wrong`; (b) a rehold-verdict `decision: overrule` (`~/.llama-harness/t3/rehold-verdicts/`) records every still-listed base flag except `titles` and those two rulings (parent ruling: it covers `research-song`); `escalate` stays listed; (c) a delivered show with no verdict records every base flag; (d) `overrule_if_reheld_on` entries the base arm did not raise are recorded. Every recorded overrule carries a `note` naming its basis. Measured at Checkpoint A2 (3497e77e): 195 considered, 494 recorded (verdict 316, a 32, b 9, c 15, d 122), 21 listed, 187 of 195 fully covered.
 - After the backfill the arm is re-run at the new code; "newly held" is then the genuinely
   held shows (expected about 29, about 13 delivered and 16 packaged; the arm decides).
 

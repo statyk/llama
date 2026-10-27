@@ -21,7 +21,7 @@ from llama.models import Overrides, Briefing, LedgerEntry, Show, ShowNotes, Vett
 from llama.reapply import ReapplyOutcome, reapply_show
 from llama.replay import input_digests
 from llama.stages.brief import normalize_briefing, render_briefing_md
-from llama.workspace import read_model, write_artifact
+from llama.workspace import ShowWorkspace, read_model, write_artifact
 from llama.reapply import STOP_AFTER_LLM_FAILURES, batch_dir, load_list, read_progress
 from llama.replay import config_fingerprint
 
@@ -57,7 +57,7 @@ def _stale(ws) -> None:
 
 def _stub_package(monkeypatch, fail_first=False, flags=()):
     calls = []
-    def fake(show_ws, ia, show, force=False, profile=None, reuse=None):
+    def fake(show_ws, ia, show, force=False, profile=None, reuse=None, tally=None):
         if (show_ws.package_dir / "manifest.json").exists() and not force:
             return show_ws.package_dir, []          # the real early return on an existing manifest
         calls.append(show.performance_id)
@@ -73,10 +73,21 @@ def _providers(*responses):
     return {"brief": FakeProvider(list(responses))}
 
 
-def _run(config, ledger, entry, providers=None, *, ia=None, row=None, dry_run=False):
+def _run(config, ledger, entry, providers=None, *, ia=None, row=None, dry_run=False, **kw):
     return reapply_show(config, ia if ia is not None else object(), ledger, entry,
                         providers=providers if providers is not None else _providers(),
-                        row=row, dry_run=dry_run, echo=lambda s: None)
+                        row=row, dry_run=dry_run, echo=lambda s: None, **kw)
+
+
+def _pairing_station(out, ws, **extra):
+    """A station copy at `out` whose manifest pairs with the stored show.json
+    (same item, same titles by index), so a strict re-package can proceed."""
+    show = read_model(ws.show, Show)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "manifest.json").write_text(json.dumps({
+        "source": {"identifier": show.identifier},
+        "tracks": [{"index": t.index, "title": t.title, "filename": f"{t.index:02d} - x.mp3"}
+                   for t in show.tracks], **extra}))
 
 
 def test_reapply_clears_a_held_show_with_a_reusable_briefing_and_writes_show_json_last(tmp_path, monkeypatch):
@@ -207,7 +218,7 @@ def test_a_package_failure_leaves_the_show_held_and_a_rerun_completes_it(tmp_pat
     with pytest.raises(IAError):
         _run(config, ledger, entry)
     assert read_model(entry.ws.show, Show).needs_review is True          # show.json not yet rewritten
-    assert entry.ws.vetting.exists() and entry.ws.briefing_json.exists()  # earlier writes stay
+    assert entry.ws.vetting.exists() and entry.ws.briefing_json.exists()  # restored by the unit
     out = _run(config, ledger, entry)
     assert out.outcome == "cleared"
 
@@ -249,7 +260,7 @@ def test_package_flags_land_in_the_one_final_show_json_write(tmp_path, monkeypat
 def test_show_json_is_not_rewritten_before_the_package_is_built(tmp_path, monkeypatch):
     root, config, ledger, entry, _ = _env(tmp_path)
     seen = []
-    def fake(show_ws, ia, show, force=False, profile=None, reuse=None):
+    def fake(show_ws, ia, show, force=False, profile=None, reuse=None, tally=None):
         seen.append(read_model(show_ws.show, Show).needs_review)
         write_artifact(show_ws.package_dir / "manifest.json", {"schema_version": 3, "tracks": []})
         return show_ws.package_dir, []
@@ -266,7 +277,7 @@ def test_reapply_holds_the_show_lock_throughout(tmp_path, monkeypatch):
             with file_lock(ws_dir / ".lock", blocking=False):
                 pass
     held_during_package = []
-    def fake(show_ws, ia, show, force=False, profile=None, reuse=None):
+    def fake(show_ws, ia, show, force=False, profile=None, reuse=None, tally=None):
         assert_locked(show_ws.dir)
         held_during_package.append(True)
         write_artifact(show_ws.package_dir / "manifest.json", {"schema_version": 3, "tracks": []})
@@ -308,15 +319,18 @@ def test_a_row_whose_digests_match_is_applied(tmp_path, monkeypatch):
     assert _run(config, ledger, entry, row=row).outcome == "cleared"
 
 
-def test_a_show_no_longer_held_is_skipped(tmp_path, monkeypatch):
+def test_a_show_no_longer_held_is_reapplied_extended(tmp_path, monkeypatch):
+    # Bulk-apply spec "Re-processing" (reapply extended): a briefed show that is no
+    # longer held is re-processed, not skipped; nothing visible moved and its
+    # briefing is reusable, so only show.json is written (Task 9 flow step 4).
     root, config, ledger, entry, _ = _env(tmp_path)
     show = read_model(entry.ws.show, Show); show.needs_review = False; show.review_flags = []
     write_artifact(entry.ws.show, show)
     _stale(entry.ws)
-    before = _snapshot(entry.ws)
+    before = {k: v for k, v in _snapshot(entry.ws).items() if k != "show.json"}
     out = _run(config, ledger, entry)
-    assert out.outcome == "skipped: not held" and out.written == []
-    assert _snapshot(entry.ws) == before
+    assert out.outcome == "unchanged" and out.written == ["show.json"]
+    assert {k: v for k, v in _snapshot(entry.ws).items() if k != "show.json"} == before
 
 
 def test_dry_run_predicts_and_writes_nothing(tmp_path, monkeypatch):
@@ -345,7 +359,9 @@ def test_reapply_flags_a_delivered_show_for_redelivery_and_writes_no_ledger_row(
     ledger.record(LedgerEntry(performance_id="GratefulDead/1973-06-10", artist="Grateful Dead", date="1973-06-10",
                               status="delivered", run="r1", recorded_at="2026-10-01T00:00:00+00:00"))
     n = len(ledger.entries())
-    out = _run(config, ledger, entry)
+    # a delivered show's re-package is strict (Task 9 flow step 6); this test has no
+    # station copy, so it waives it as `--allow-download` does
+    out = _run(config, ledger, entry, allow_download=True)
     assert out.delivered is True and len(ledger.entries()) == n
 
 
@@ -369,6 +385,8 @@ def test_cli_reapply_names_form(tmp_path, monkeypatch):
     # copy; with none there is no hint (pinned by test_reapply_hint_suppressed_for_a_voiced_destination).
     cfg = tmp_path / "with-station.toml"
     cfg.write_text(f'root = "{root}"\ndelivery_path = "{tmp_path / "station"}"\n\n[jerrybase]\nenabled = false\n')
+    # strict reuse (Task 9 flow step 6): a delivered show needs a station copy that pairs
+    _pairing_station(tmp_path / "station" / HELD, entry.ws, dj_audio=None)
     r = cli_invoke(cfg, "reapply", "gratefuldead-1973-06-10")   # the library's config plus a delivery_path
     assert r.exit_code == 0, r.output
     assert "reapplied: gratefuldead-1973-06-10 -> cleared" in r.output
@@ -394,12 +412,17 @@ def test_reapply_hint_suppressed_for_a_voiced_destination(tmp_path, monkeypatch,
         cfg = tmp_path / "with-station.toml"
         cfg.write_text(f'root = "{root}"\ndelivery_path = "{st}"\n\n[jerrybase]\nenabled = false\n')
         st.mkdir()
-    if station in ("voiced", "unvoiced", "unreadable"):
+    # Strict reuse (Task 9 flow step 6): a readable copy pairs with the show; an
+    # unreadable, missing or unconfigured one is waived with --allow-download, which
+    # keeps this test about the hint.
+    if station in ("voiced", "unvoiced"):
+        _pairing_station(out, entry.ws,
+                         dj_audio={"presenter": None} if station == "voiced" else None)
+    if station == "unreadable":
         out.mkdir()
-        (out / "manifest.json").write_text(
-            "{not json" if station == "unreadable"
-            else json.dumps({"dj_audio": {"presenter": None} if station == "voiced" else None}))
-    r = cli_invoke(cfg, "reapply", HELD)
+        (out / "manifest.json").write_text("{not json")
+    extra = ("--allow-download",) if station in ("unreadable", "missing", "no delivery_path") else ()
+    r = cli_invoke(cfg, "reapply", HELD, *extra)
     assert r.exit_code == 0, r.output
     assert f"reapplied: {HELD} -> cleared" in r.output
     hint = f"  re-deliver with: llama deliver {HELD}"
@@ -1240,6 +1263,7 @@ def test_reapply_reuses_audio_and_puts_it_back_on_failure(tmp_path, monkeypatch)
     patch_fake_durations(monkeypatch)
     root, config, ledger, entry, _ = _env(tmp_path)
     ia, old = _old_packaged_audio(entry.ws)
+    manifest = (entry.ws.package_dir / "manifest.json").read_bytes()
     real_write = reapply_mod.write_artifact
 
     def fail_on_show(path, data):
@@ -1251,12 +1275,13 @@ def test_reapply_reuses_audio_and_puts_it_back_on_failure(tmp_path, monkeypatch)
         _run(config, ledger, entry, ia=ia)
     assert audio_files(entry.ws) == old                # exactly the old names and bytes
     assert ia.downloads == []                          # reused, never downloaded
-    assert not (entry.ws.package_dir / "manifest.json").exists()
+    # show_unit (Task 9 flow step 1) restores every file outside package/audio/
+    assert (entry.ws.package_dir / "manifest.json").read_bytes() == manifest
     assert not (entry.ws.dir / ".audio-aside").exists()
     assert read_model(entry.ws.show, Show).needs_review is True
     monkeypatch.setattr(reapply_mod, "write_artifact", real_write)
-    out = _run(config, ledger, entry, ia=ia)           # a re-run completes it (the dropped manifest
-    assert out.outcome == "cleared"                    # is not restored, so this one downloads)
+    out = _run(config, ledger, entry, ia=ia)           # a re-run completes it, re-using the
+    assert out.outcome == "cleared" and ia.downloads == []   # restored manifest's audio
     names = audio_files(entry.ws)
     assert not any("OLD" in n for n in names) and len(names) == len(old)
     assert None not in {fake_source(entry.ws.package_dir / "audio" / n) for n in names}
@@ -1293,7 +1318,9 @@ def test_reapply_refuses_when_a_leftover_aside_cannot_be_removed(tmp_path, monke
     aside = entry.ws.dir / ".audio-aside"
     aside.mkdir()
     (aside / "01 - OLD.mp3").write_bytes(b"old")
-    monkeypatch.setattr(reapply_mod, "discard_aside", lambda ws: None)   # removal fails
+    import llama.show_unit as show_unit_mod
+    # the unit discards a leftover aside at entry (Task 9 flow step 1)
+    monkeypatch.setattr(show_unit_mod, "discard_aside", lambda ws: None)   # removal fails
     _stub_package(monkeypatch)
     before = _snapshot(entry.ws)
     with pytest.raises(LlamaError, match="cannot remove leftover audio aside"):
@@ -1317,3 +1344,1216 @@ def test_reapply_after_a_held_reselection_never_reuses_the_old_items_audio(tmp_p
     _run(config, ledger, entry, ia=ia)
     assert len(ia.downloads) == len(old)             # every track fetched, none re-used
     assert not (set(audio_files(entry.ws).values()) & set(old.values()))
+
+
+# --- Overrules persist (bulk-apply spec "Overrules persist", Task 2) ---
+
+def test_reapply_fresh_brief_overrule_goes_to_notes_brief(tmp_path, monkeypatch):
+    from llama.models import Overrule
+    root, config, ledger, entry, _ = _env(tmp_path)
+    entry.ws.briefing_json.unlink()
+    calls = _stub_package(monkeypatch)
+    ident = read_model(entry.ws.show, Show).identifier
+    write_artifact(entry.ws.overrides, Overrides(overrules=[Overrule(
+        identifier=ident, kind="briefing-song", subject=["nope"],
+        flag="briefing mentions unknown song: Nope", source="triage",
+        at="2026-10-26T00:00:00+00:00")]))
+    bad = json.dumps(dict(context="c", significance="s", per_set={"1": ["a"]}, mentioned_songs=["Nope"]))
+    out = _run(config, ledger, entry, _providers(bad, bad))
+    assert out.outcome == "cleared" and out.flags == []
+    assert read_model(entry.ws.show, Show).needs_review is False
+    assert read_model(entry.ws.notes, ShowNotes).brief == [
+        "overruled: briefing mentions unknown song: Nope"]
+    assert calls != []        # packaged
+
+
+# --- Task 4b: overruled briefing problems skip the guard retry and allow reuse ---
+
+def _nope_rule(ident):
+    from llama.models import Overrule
+    return Overrule(identifier=ident, kind="briefing-song", subject=["nope"],
+                    flag="briefing mentions unknown song: Nope", source="triage",
+                    at="2026-10-26T00:00:00+00:00")
+
+
+def test_reapply_fresh_brief_passes_rules(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    entry.ws.briefing_json.unlink()
+    _stub_package(monkeypatch)
+    ident = read_model(entry.ws.show, Show).identifier
+    write_artifact(entry.ws.overrides, Overrides(overrules=[_nope_rule(ident)]))
+    bad = json.dumps(dict(context="c", significance="s", per_set={"1": ["a"]}, mentioned_songs=["Nope"]))
+    providers = _providers(bad, bad)
+    out = _run(config, ledger, entry, providers)
+    assert out.outcome == "cleared" and out.briefing == "fresh"
+    assert len(providers["brief"].calls) == 1
+    assert read_model(entry.ws.notes, ShowNotes).brief == [
+        "overruled: briefing mentions unknown song: Nope"]
+
+
+def test_reuse_notes_overruled_problems(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    calls = _stub_package(monkeypatch)
+    stored_b = read_model(entry.ws.briefing_json, Briefing)
+    write_artifact(entry.ws.briefing_json,
+                   stored_b.model_copy(update={"mentioned_songs": ["Nope"]}))
+    ident = read_model(entry.ws.show, Show).identifier
+    write_artifact(entry.ws.overrides, Overrides(overrules=[_nope_rule(ident)]))
+    providers = _providers()
+    out = _run(config, ledger, entry, providers)
+    assert out.outcome == "cleared" and out.briefing == "reuse" and out.flags == []
+    assert providers["brief"].calls == []                 # reused: no LLM call
+    assert read_model(entry.ws.notes, ShowNotes).brief == [
+        "overruled: briefing mentions unknown song: Nope"]
+    assert read_model(entry.ws.show, Show).needs_review is False
+    assert calls != []
+
+
+def test_reuse_without_the_rule_still_writes_a_fresh_brief(tmp_path, monkeypatch):  # (pin)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _stub_package(monkeypatch)
+    stored_b = read_model(entry.ws.briefing_json, Briefing)
+    write_artifact(entry.ws.briefing_json,
+                   stored_b.model_copy(update={"mentioned_songs": ["Nope"]}))
+    ok = json.dumps(dict(context="c", significance="s", per_set={"1": ["a"], "2": ["b"], "encore": ["c"]}))
+    providers = _providers(ok)
+    out = _run(config, ledger, entry, providers)
+    assert out.briefing == "fresh" and len(providers["brief"].calls) == 1
+
+
+# --- Task 9 (bulk-apply): every state, inside show_unit, strict reuse, processed ---
+
+import hashlib
+
+from llama import campaign, station_mark
+from llama.catalog import resolve_show
+from llama.models import Provenance
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from helpers import tree_bytes  # noqa: E402
+
+CLEAN = "gratefuldead-1973-06-11"
+LONG_AGO = "2026-01-01T00:00:00.000000Z"
+REASON = "changed by the held-backlog fixes: titles"
+OK_BRIEF = json.dumps(dict(context="c", significance="s",
+                           per_set={"1": ["a"], "2": ["b"], "encore": ["c"]}))
+
+
+@pytest.fixture(autouse=True)
+def _no_emcee(monkeypatch):
+    # clear-mark reads `ps`; another session's emcee would refuse every clear.
+    monkeypatch.setattr(station_mark, "emcee_running", lambda: [])
+
+
+def _unheld(ws, *, retitle=False, title_source=None):
+    show = read_model(ws.show, Show)
+    tracks = list(show.tracks)
+    if retitle:
+        tracks[0] = tracks[0].model_copy(update={"title": "Stale Old Title"})
+    if title_source:
+        tracks[0] = tracks[0].model_copy(update={"title_source": title_source})
+    show = show.model_copy(update={"needs_review": False, "review_flags": [], "tracks": tracks})
+    write_artifact(ws.show, show)
+    return show
+
+
+def _manifest_sha(ws) -> str:
+    return hashlib.sha256((ws.package_dir / "manifest.json").read_bytes()).hexdigest()
+
+
+def _delivered_env(tmp_path, monkeypatch, *, voiced=False, marked=False, retitle=False,
+                   fresh=False, held_for_real=False):
+    """The fixture's 1973-06-10 show unheld, packaged for real (fake audio over
+    `ReuseIA`), copied to `<tmp>/station/<slug>`, its library audio purged and a
+    `delivered` ledger row, as `deliver` leaves it. `retitle`: the stored (and so
+    the delivered) track 1 carries a stale title the replay corrects; `fresh`:
+    the stored briefing.json is gone, so the replay writes one fresh brief;
+    `marked`: a campaign mark and the station mark. Returns
+    (config, config path, ledger, entry, ia, station dir)."""
+    from helpers import ReuseIA, patch_fake_durations
+    from llama.stages.package import build_package
+    patch_fake_durations(monkeypatch)
+    root, _cfg0, ledger, entry, _ = _env(tmp_path, held_for_real=held_for_real)
+    ws = entry.ws
+    show = _unheld(ws, retitle=retitle)
+    write_artifact(ws.briefing_md, render_briefing_md(read_model(ws.briefing_json, Briefing), show))
+    ia = ReuseIA({t.filename: t.duration_sec for t in show.tracks})
+    build_package(ws, ia, show)
+    station_root = tmp_path / "station"
+    out = station_root / ws.dir.name
+    shutil.copytree(ws.package_dir, out)
+    for p in (ws.package_dir / "audio").iterdir():
+        p.unlink()
+    ia.downloads.clear()
+    ledger.record(LedgerEntry(performance_id=show.performance_id, artist=show.artist,
+                              date=show.date, status="delivered", run="r1",
+                              recorded_at="2026-10-01T00:00:00+00:00"))
+    cfg = tmp_path / "with-station.toml"
+    cfg.write_text(f'root = "{root}"\ndelivery_path = "{station_root}"\n\n'
+                   '[jerrybase]\nenabled = false\n')
+    if voiced:
+        m = json.loads((out / "manifest.json").read_text())
+        m["dj_audio"] = {"dir": "dj-audio", "presenter": "phil", "profile": "dead"}
+        (out / "manifest.json").write_text(json.dumps(m, indent=2) + "\n")
+    if marked:
+        station_mark.write_mark(out, reason=REASON, marked_at=LONG_AGO)
+        campaign.add_mark(ws, reason=REASON, start_stage="gather", batch="b1", at=LONG_AGO)
+    if fresh:
+        ws.briefing_json.unlink()
+    return load_config(cfg), cfg, ledger, resolve_show(root, ledger, HELD), ia, out
+
+
+def _apply(config, ledger, entry, ia, providers=None, **kw):
+    lines = []
+    out = reapply_show(config, ia, ledger, entry,
+                       providers=providers if providers is not None else _providers(),
+                       row=None, dry_run=False, echo=lines.append, **kw)
+    return out, lines
+
+
+def test_reapply_repackages_a_changed_delivered_show_from_the_station(tmp_path, monkeypatch):
+    from helpers import audio_files
+    config, _cfg, ledger, entry, ia, out = _delivered_env(tmp_path, monkeypatch, marked=True,
+                                                          retitle=True, fresh=True)
+    station = tree_bytes(out)
+    providers = _providers(OK_BRIEF)
+    o, lines = _apply(config, ledger, entry, ia, providers)
+    assert o.outcome == "cleared" and o.kind == "fresh" and len(providers["brief"].calls) == 1
+    n = len(read_model(entry.ws.show, Show).tracks)
+    assert ia.downloads == [] and o.audio == {"reused": n, "downloaded": 0}
+    assert f"{HELD}: audio reused {n}, downloaded 0" in lines
+    assert len(audio_files(entry.ws)) == n                          # unvoiced: no purge
+    assert read_model(entry.ws.show, Show).tracks[0].title != "Stale Old Title"
+    rec = campaign.read_record(entry.ws)
+    assert rec.processed is not None and not campaign.awaiting_fix(rec)
+    assert rec.processed.manifest_sha256 == _manifest_sha(entry.ws)
+    assert not entry.ws.reuse_anchor.exists()
+    assert tree_bytes(out) == station                               # reapply never delivers
+
+
+def test_label_only_commits_show_json_only(tmp_path, monkeypatch):
+    root, config, ledger, _entry, _ = _env(tmp_path)
+    entry = resolve_show(root, ledger, CLEAN)
+    stored = read_model(entry.ws.show, Show)
+    _unheld(entry.ws, title_source="setlist")                     # not manifest-visible
+    _stale(entry.ws)
+    calls = _stub_package(monkeypatch)
+    manifest = (entry.ws.package_dir / "manifest.json").read_bytes()
+    before = {k: v for k, v in tree_bytes(entry.ws.dir).items() if k != "show.json"}
+    providers = _providers()
+    o = _run(config, ledger, entry, providers)
+    assert o.outcome == "label-only" and o.kind == "label-only" and o.written == ["show.json"]
+    assert providers["brief"].calls == [] and calls == []
+    assert (entry.ws.package_dir / "manifest.json").read_bytes() == manifest
+    after = tree_bytes(entry.ws.dir)
+    assert {k: v for k, v in after.items() if k not in ("show.json", "reuse-anchor.json")} == before
+    assert read_model(entry.ws.show, Show).tracks[0].title_source == stored.tracks[0].title_source
+
+
+def test_an_unchanged_show_commits_show_json_only_and_a_dry_run_predicts_it(tmp_path, monkeypatch):
+    root, config, ledger, _entry, _ = _env(tmp_path)
+    entry = resolve_show(root, ledger, CLEAN)
+    calls = _stub_package(monkeypatch)
+    before = _snapshot(entry.ws)
+    assert _run(config, ledger, entry, dry_run=True).outcome == "dry-run: unchanged"
+    assert _snapshot(entry.ws) == before
+    o = _run(config, ledger, entry)
+    assert o.outcome == "unchanged" and o.written == ["show.json"] and calls == []
+
+
+def test_marked_unvoiced_unchanged_show_is_repackaged_for_redelivery(tmp_path, monkeypatch):
+    # Review Focus 4: not a show.json-only commit; the station audio comes back so
+    # `deliver --fixed` can re-deliver it and clear the mark.
+    from conftest import cli_invoke
+    from helpers import audio_files
+    import llama.cli as cli
+    config, cfg, ledger, entry, ia, out = _delivered_env(tmp_path, monkeypatch, marked=True)
+    providers = _providers()
+    o, lines = _apply(config, ledger, entry, ia, providers)
+    n = len(read_model(entry.ws.show, Show).tracks)
+    assert o.outcome == "cleared" and o.kind == "reuse" and providers["brief"].calls == []
+    assert "package" in o.written and ia.downloads == []
+    assert o.audio == {"reused": n, "downloaded": 0} and len(audio_files(entry.ws)) == n
+    rec = campaign.read_record(entry.ws)
+    assert rec.processed.manifest_sha256 == _manifest_sha(entry.ws)
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: ia)
+    r = cli_invoke(cfg, "deliver", "--fixed", "--yes")
+    assert r.exit_code == 0, r.output
+    assert "awaiting_fix" not in json.loads((out / "manifest.json").read_text())
+
+
+def test_voiced_unchanged_show_commits_show_json_only_and_clear_mark_then_works(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    config, cfg, ledger, entry, ia, out = _delivered_env(tmp_path, monkeypatch, marked=True,
+                                                         voiced=True)
+    manifest = (entry.ws.package_dir / "manifest.json").read_bytes()
+    providers = _providers()
+    o, _lines = _apply(config, ledger, entry, ia, providers)
+    assert o.outcome == "unchanged" and o.written == ["show.json"] and o.kind == "label-only"
+    assert providers["brief"].calls == [] and ia.downloads == []
+    assert (entry.ws.package_dir / "manifest.json").read_bytes() == manifest
+    rec = campaign.read_record(entry.ws)
+    assert not campaign.awaiting_fix(rec) and rec.processed.manifest_sha256 == _manifest_sha(entry.ws)
+    r = cli_invoke(cfg, "clear-mark", HELD)
+    assert r.exit_code == 0, r.output
+    assert "mark cleared; the voicing is kept" in r.output
+    m = json.loads((out / "manifest.json").read_text())
+    assert "awaiting_fix" not in m and m["dj_audio"] is not None
+
+
+@pytest.mark.parametrize("tracks", ["equal", "differ"])
+def test_voiced_rider_purges_when_tracks_equal(tmp_path, monkeypatch, tracks):
+    from helpers import audio_files
+    config, _cfg, ledger, entry, ia, out = _delivered_env(
+        tmp_path, monkeypatch, voiced=True, fresh=True, retitle=tracks == "differ")
+    o, lines = _apply(config, ledger, entry, ia, _providers(OK_BRIEF))
+    assert o.outcome == "cleared" and ia.downloads == []
+    n = len(read_model(entry.ws.show, Show).tracks)
+    if tracks == "equal":
+        assert audio_files(entry.ws) == {}
+        assert any(ln.startswith(f"{HELD}: library audio purged (") for ln in lines), lines
+    else:
+        assert len(audio_files(entry.ws)) == n
+        assert (f"warning: kept library audio for {HELD}: "
+                "station copy is a different package version") in lines
+
+
+def test_newly_held_delivered_show_keeps_an_anchor(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from llama.models import Briefing as _B
+    import llama.cli as cli
+    import test_pipeline
+    config, cfg, ledger, entry, ia, out = _delivered_env(tmp_path, monkeypatch, retitle=True,
+                                                         held_for_real=True)
+    o, _lines = _apply(config, ledger, entry, ia)
+    assert o.outcome == "held" and o.kind == "none" and "drop:brief" in o.written
+    assert entry.ws.reuse_anchor.exists()
+    assert not (entry.ws.package_dir / "manifest.json").exists()
+    assert read_model(entry.ws.show, Show).needs_review is True
+    # a later `fix --overrule` re-packages from the station through the anchor
+    write_artifact(entry.ws.selection, {"identifier": read_model(entry.ws.show, Show).identifier})
+    write_artifact(entry.ws.research, "research")
+    providers = test_pipeline.fake_providers(None)
+    providers["brief"] = FakeProvider([OK_BRIEF])
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: ia)
+    r = cli_invoke(cfg, "fix", HELD, "--overrule")
+    assert r.exit_code == 0, r.output
+    assert (entry.ws.package_dir / "manifest.json").exists()
+    assert ia.downloads == [] and not entry.ws.reuse_anchor.exists()
+
+
+def test_processed_and_reselection_rows_are_skipped(tmp_path, monkeypatch):
+    root, config, ledger, _entry, _ = _env(tmp_path)
+    entry = resolve_show(root, ledger, CLEAN)
+    calls = _stub_package(monkeypatch)
+    campaign.add_mark(entry.ws, reason=REASON, start_stage="gather", batch="b1", at=LONG_AGO)
+    assert campaign.mark_processed(entry.ws, held=False)
+    before = _snapshot(entry.ws)
+    o = _run(config, ledger, entry)
+    assert o.outcome == "skipped: processed" and o.written == [] and calls == []
+    assert _snapshot(entry.ws) == before
+    campaign.add_mark(entry.ws, reason="recording re-selection: a -> b", start_stage="select",
+                      batch="b2", at="2099-01-01T00:00:00.000000Z")
+    before = _snapshot(entry.ws)
+    o = _run(config, ledger, entry)
+    assert o.outcome == f"skipped: re-selection (llama redo {CLEAN} --from select)"
+    assert o.written == [] and _snapshot(entry.ws) == before and calls == []
+
+
+def test_processed_held_show_is_not_skipped(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    calls = _stub_package(monkeypatch)
+    campaign.add_mark(entry.ws, reason=REASON, start_stage="gather", batch="b1", at=LONG_AGO)
+    assert campaign.mark_processed(entry.ws, held=True)
+    o = _run(config, ledger, entry)
+    assert o.outcome == "cleared" and calls == [read_model(entry.ws.show, Show).performance_id]
+
+
+def test_after_commit_runs_inside_the_unit(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _stub_package(monkeypatch)
+    campaign.add_mark(entry.ws, reason=REASON, start_stage="gather", batch="b1", at=LONG_AGO)
+    before = tree_bytes(entry.ws.dir)
+    seen = []
+
+    def hook(ws):
+        with pytest.raises(Locked):
+            with file_lock(ws.lock, blocking=False):
+                pass
+        seen.append((read_model(ws.show, Show).needs_review,
+                     campaign.read_record(ws).processed is not None))
+        raise RuntimeError("record_after failed")
+    with pytest.raises(RuntimeError, match="record_after failed"):
+        reapply_show(config, object(), ledger, entry, providers=_providers(), row=None,
+                     dry_run=False, echo=lambda s: None, after_commit=hook)
+    assert seen == [(False, True)]                       # committed and processed, lock held
+    assert tree_bytes(entry.ws.dir) == before            # every file restored
+    ok = []
+    out = reapply_show(config, object(), ledger, entry, providers=_providers(), row=None,
+                       dry_run=False, echo=lambda s: None, after_commit=ok.append)
+    assert out.outcome == "cleared" and ok == [entry.ws]
+
+
+def test_reapply_allow_download_by_name_only(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    config, cfg, ledger, entry, ia, out = _delivered_env(tmp_path, monkeypatch, fresh=True)
+    shutil.rmtree(out)                                   # no station dir
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers(OK_BRIEF))
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: ia)
+    before = tree_bytes(entry.ws.dir)
+    r = cli_invoke(cfg, "reapply", HELD)
+    assert r.exit_code == 1
+    text = " ".join(r.output.split())
+    assert f"FAILED {HELD}: {HELD}: station copy unreadable: no directory" in text
+    assert ("  if the station copy cannot be fixed: re-run this one show with --allow-download"
+            in r.output)
+    assert tree_bytes(entry.ws.dir) == before and ia.downloads == []
+    r = cli_invoke(cfg, "reapply", HELD, "--allow-download")
+    assert r.exit_code == 0, r.output
+    assert f"reapplied: {HELD} -> cleared" in r.output
+    n = len(read_model(entry.ws.show, Show).tracks)
+    assert len(ia.downloads) == n and f"{HELD}: audio reused 0, downloaded {n}" in r.output
+    lst = tmp_path / "list.json"
+    lst.write_text("{}")
+    r = cli_invoke(cfg, "reapply", "--from-list", str(lst), "--allow-download")
+    assert r.exit_code == 1 and "--allow-download takes one named show" in r.output
+    r = cli_invoke(cfg, "reapply", HELD, CLEAN, "--allow-download")
+    assert r.exit_code == 1 and "--allow-download takes one named show" in r.output
+
+
+def test_failure_restores_every_file(tmp_path, monkeypatch):
+    from helpers import audio_files
+    import llama.stages.package as package_stage
+    config, _cfg, ledger, entry, ia, out = _delivered_env(tmp_path, monkeypatch, marked=True,
+                                                          retitle=True, fresh=True)
+    before = tree_bytes(entry.ws.dir)
+    assert "campaign.json" in before and "reuse-anchor.json" not in before
+
+    def boom(*a, **k):
+        raise OSError("disk full")
+    monkeypatch.setattr(package_stage, "build_manifest", boom)
+    providers = _providers(OK_BRIEF)
+    with pytest.raises(OSError, match="disk full"):
+        _apply(config, ledger, entry, ia, providers)
+    assert len(providers["brief"].calls) == 1            # failed after the brief
+    assert tree_bytes(entry.ws.dir) == before            # incl. campaign.json, no anchor
+    assert audio_files(entry.ws) == {}                   # the copied audio is gone
+
+
+def test_station_check_runs_before_the_brief(tmp_path, monkeypatch):
+    from llama.audio_reuse import StationUnpaired
+    config, _cfg, ledger, entry, ia, out = _delivered_env(tmp_path, monkeypatch, fresh=True)
+    m = json.loads((out / "manifest.json").read_text())
+    m["source"]["identifier"] = "another-item"
+    (out / "manifest.json").write_text(json.dumps(m))
+    before = tree_bytes(entry.ws.dir)
+    providers = _providers(OK_BRIEF)
+    with pytest.raises(StationUnpaired, match=f"{HELD}: station copy does not pair: no copy pairs"):
+        _apply(config, ledger, entry, ia, providers)
+    assert providers["brief"].calls == [] and ia.downloads == []
+    assert tree_bytes(entry.ws.dir) == before
+
+
+def test_held_show_behaviour_unchanged(tmp_path, monkeypatch):   # (pin)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    calls = _stub_package(monkeypatch)
+    o = _run(config, ledger, entry)
+    assert o.outcome == "cleared" and o.kind == "reuse" and len(calls) == 1
+    assert o.written == ["vetting.json", "notes.json", "briefing.json", "briefing.md",
+                         "package", "show.json"]
+    # neither packaged nor delivered at entry: no anchor; no record: none written
+    assert not entry.ws.reuse_anchor.exists() and not entry.ws.campaign.exists()
+
+
+def test_unreadable_campaign_record_fails_the_row_retryably(tmp_path, monkeypatch):
+    # Review Focus 5: never "no record".
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    calls = _stub_package(monkeypatch)
+    entry.ws.campaign.write_text("{not json")
+    before = _snapshot(entry.ws)
+    with pytest.raises(campaign.CampaignUnreadable, match="cannot read campaign.json"):
+        _run(config, ledger, entry)
+    assert _snapshot(entry.ws) == before and calls == []
+    lst = _list_file(tmp_path, root, config, [entry])
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 1 and f"FAILED {HELD}: {HELD}: cannot read campaign.json" in r.output
+    assert read_progress(batch_dir(root, lst))[HELD]["retryable"] is True
+
+
+def test_a_non_held_show_not_yet_briefed_is_skipped(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _unheld(entry.ws)
+    entry.ws.briefing_json.unlink()
+    before = _snapshot(entry.ws)
+    o = _run(config, ledger, entry)
+    assert o.outcome == "skipped: not held" and o.written == []
+    assert _snapshot(entry.ws) == before
+
+
+def test_structure_gate_applies_to_a_non_held_show(tmp_path, monkeypatch):
+    root, config, ledger, _entry, _ = _env(tmp_path)
+    entry = resolve_show(root, ledger, CLEAN)
+    show = read_model(entry.ws.show, Show)
+    write_artifact(entry.ws.show, show.model_copy(update={"set_breaks": [1]}))
+    calls = _stub_package(monkeypatch)
+    before = _snapshot(entry.ws)
+    o = _run(config, ledger, entry)
+    assert o.outcome == "skipped: structure changed" and o.written == []
+    assert _snapshot(entry.ws) == before and calls == []
+    o = reapply_show(config, object(), ledger, entry, providers=_providers(OK_BRIEF), row=None,
+                     dry_run=False, echo=lambda s: None, allow_structure_change=True)
+    assert o.outcome == "cleared" and len(calls) == 1
+
+
+def test_dry_run_counts_no_brief_or_download_for_a_show_json_only_row(tmp_path, monkeypatch):
+    # A label-only / unchanged prediction commits show.json only: no package, so no
+    # download and no brief, even with the package audio missing.
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    rows = _clones(root, entry, 2)
+    lst = _list_file(tmp_path, root, config, rows)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    _scripted(monkeypatch, {"held-2": ("dry-run: label-only", "reuse"),
+                            "held-3": ("dry-run: unchanged", "fresh")})
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
+    assert r.exit_code == 0, r.output
+    assert "would: held-2 -> label-only" in r.output and "would: held-3 -> unchanged" in r.output
+    assert ("summary: 2 rows, 0 already finished, 0 fresh briefs, 0 downloads "
+            "(~175 MB each, ~0.0 GB)") in r.output
+
+
+# --- Bulk-apply Task 10: --with-gather-llm ---
+
+def _needs_align(root, config=None):
+    """Force titles the description cannot match (operator `titles` overrides on a copy of
+    the tape), so the replay's gather cannot align deterministically and reaches
+    `align_structure`; the research extraction asserts nothing, so no vet flag remains."""
+    from llama.models import ResearchVetting
+    for shows in (root / "shows").iterdir():
+        ws = ShowWorkspace(shows)
+        show = read_model(ws.show, Show)
+        write_artifact(ws.overrides, Overrides(
+            titles={t.filename: f"Zzyzx Tune {t.index}" for t in show.tracks}))
+        if ws.vetting.exists():
+            write_artifact(ws.vetting, VettingResult(vetting=ResearchVetting(
+                asserted_songs=[], asserted_dates=["1973-06-10"])))
+
+
+def _align_resp(ws, *, same=True):
+    show = read_model(ws.show, Show)
+    tracks = [{"index": t.index, "set": t.set if same else "1", "segue": t.segue if same else False,
+               "matched_title": t.title} for t in show.tracks]
+    return json.dumps({"tracks": tracks})
+
+
+def _gl_providers(align, brief=()):
+    return {"brief": FakeProvider(list(brief)), "extract_setlist": FakeProvider([]),
+            "align_structure": align}
+
+
+def test_needs_llm_show_is_reapplied_with_gather_llm(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    calls = _stub_package(monkeypatch)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    out = _run(config, ledger, entry, _gl_providers(align, [OK_BRIEF]), with_gather_llm=True,
+               allow_structure_change=True)
+    assert len(align.calls) == 1
+    assert out.outcome == "cleared" and out.kind == "needs-llm" and len(calls) == 1
+    assert read_model(entry.ws.show, Show).structure.alignment == "llm"
+
+
+def test_without_the_flag_needs_llm_writes_nothing(tmp_path, monkeypatch):   # (pin)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    _stale(entry.ws)
+    before = _snapshot(entry.ws)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    out = _run(config, ledger, entry, _gl_providers(align))
+    assert out.outcome == "needs-llm" and out.written == [] and align.calls == []
+    assert _snapshot(entry.ws) == before
+
+
+def test_no_vetting_json_stays_needs_llm(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    entry.ws.vetting.unlink()
+    _stale_notes = ShowNotes(gather=["stale note"], vet=[])
+    write_artifact(entry.ws.notes, _stale_notes)
+    before = _snapshot(entry.ws)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    out = _run(config, ledger, entry, _gl_providers(align), with_gather_llm=True)
+    assert out.outcome == "needs-llm" and out.written == [] and align.calls == []
+    assert _snapshot(entry.ws) == before
+
+
+def test_align_reproduced_true_and_false(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    _stub_package(monkeypatch)
+    # the stored alignment is not llm; align_structure IS called, so the flag is set
+    for same in (True, False):
+        before = _snapshot(entry.ws)
+        align = FakeProvider(completes=[_align_resp(entry.ws, same=same)])
+        out = _run(config, ledger, entry, _gl_providers(align, [OK_BRIEF]), with_gather_llm=True,
+                   dry_run=False, allow_structure_change=True)
+        assert out.align_reproduced is same, same
+        # restore the stored show so the second pass compares against the same record
+        for p in entry.ws.dir.iterdir():
+            if p.is_file() and p.name not in before:
+                p.unlink()
+        for name, data in before.items():
+            if data is not None:
+                (entry.ws.dir / name).write_bytes(data)
+        shutil.rmtree(entry.ws.package_dir, ignore_errors=True)
+
+
+def test_align_reproduced_is_none_when_no_llm_ran(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _stub_package(monkeypatch)
+    out = _run(config, ledger, entry, with_gather_llm=True)
+    assert out.align_reproduced is None
+
+
+def test_refusal_on_the_align_call_writes_nothing(tmp_path, monkeypatch):
+    from herder.limits import RateLimited
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    _stale(entry.ws)
+    before = _snapshot(entry.ws)
+    align = FakeProvider(completes=[RateLimited("limit")])
+    with pytest.raises(RateLimited):
+        _run(config, ledger, entry, _gl_providers(align), with_gather_llm=True)
+    assert _snapshot(entry.ws) == before
+
+
+def test_dry_run_makes_no_llm_call(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    before = _snapshot(entry.ws)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    out = _run(config, ledger, entry, _gl_providers(align), with_gather_llm=True, dry_run=True)
+    assert out.outcome == "dry-run: needs-llm" and align.calls == []
+    assert _snapshot(entry.ws) == before
+
+
+@pytest.mark.parametrize("failure", ["herder", "task"])
+def test_with_gather_llm_align_failure_is_a_retryable_row_failure(tmp_path, monkeypatch, failure):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    import shutil
+    monkeypatch.setattr("herder.tasks._sleep", lambda s: None)
+    root, config, ledger, entry, shows = _env(tmp_path)
+    for i in (2, 3, 4):
+        shutil.copytree(entry.ws.dir, root / "shows" / f"held-{i}")
+    from llama.catalog import iter_shows
+    held = [e for e in iter_shows(root, ledger) if e.state == "held"]
+    assert len(held) == 4
+    _needs_align(root, config)
+    for e in held:
+        e.ws.vetting.exists()
+    before = {e.slug: _snapshot(e.ws) for e in held}
+    lst = _list_file(tmp_path, root, config, held)
+    from herder import HerderError
+    # HerderError from the provider, or TaskFailed (validation) past the retries
+    align = FakeProvider(completes=[HerderError("boom") if failure == "herder" else "not json"] * 30)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _gl_providers(align))
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--with-gather-llm")
+    assert r.output.count("FAILED") == STOP_AFTER_LLM_FAILURES
+    assert "stopping after 3 consecutive LLM failures" in r.output
+    assert r.exit_code == 1
+    for e in held:
+        assert _snapshot(e.ws) == before[e.slug]             # no commit, no `processed`
+        assert not e.ws.campaign.exists()
+    batch = batch_dir(root, lst)
+    rows = [json.loads(line) for line in (batch / "progress.jsonl").read_text().splitlines()]
+    assert len(rows) == 3 and all(r["retryable"] and r["outcome"].startswith("failed:") for r in rows)
+
+
+def test_unpaired_delivered_show_spends_no_align_call(tmp_path, monkeypatch):
+    from llama.audio_reuse import StationUnpaired
+    config, _cfg, ledger, entry, ia, out = _delivered_env(tmp_path, monkeypatch)
+    _needs_align(config.root, config)
+    m = json.loads((out / "manifest.json").read_text())
+    m["source"]["identifier"] = "another-item"
+    (out / "manifest.json").write_text(json.dumps(m))
+    before = tree_bytes(entry.ws.dir)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    with pytest.raises(StationUnpaired, match=f"{HELD}: station copy does not pair"):
+        _apply(config, ledger, entry, ia, _gl_providers(align), with_gather_llm=True,
+               allow_structure_change=True)
+    assert align.calls == [] and ia.downloads == []
+    assert tree_bytes(entry.ws.dir) == before
+
+
+def test_cli_with_gather_llm_flag_reaches_reapply_show(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    seen = []
+    def fake(config, ia, ledger, entry, **kw):
+        seen.append(kw["with_gather_llm"])
+        return ReapplyOutcome(slug=entry.slug, outcome="unchanged", briefing="none", flags=[],
+                              delivered=False, written=[])
+    monkeypatch.setattr(reapply_mod, "reapply_show", fake)
+    cli_invoke(_cli(root), "reapply", HELD)
+    cli_invoke(_cli(root), "reapply", HELD, "--with-gather-llm")
+    assert seen == [False, True]
+
+
+def _unparseable_description(root):
+    from fixture_library import IDENT
+    cache = root / "cache" / f"md_{IDENT}.json"
+    md = json.loads(cache.read_text())
+    md["metadata"]["description"] = "An amazing night of music, seeded with love."
+    cache.write_text(json.dumps(md))
+
+
+_EXTRACT_RESP = json.dumps({"items": [{"title": "Alpha Tune", "normalized": "alpha tune",
+                                       "set": "1"}], "confidence": "low"})
+
+
+def test_align_reproduced_is_set_when_an_extract_only_show_calls_align_in_the_recompute(
+        tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root)                    # resolved titles the extracted item cannot match
+    _unparseable_description(root)        # first pass: empty canonical, extract_setlist only
+    _stub_package(monkeypatch)
+    first = reapply_mod.compute_legs(
+        entry.ws, config=config, ia=reapply_mod.CacheOnlyIA(root / "cache"), slfm=None,
+        scratch=tmp_path / "scr" / "show")
+    assert first.needs_llm == ["extract_setlist"]
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    providers = _gl_providers(align, [OK_BRIEF])
+    providers["extract_setlist"] = FakeProvider(completes=[_EXTRACT_RESP])
+    out = _run(config, ledger, entry, providers, with_gather_llm=True,
+               allow_structure_change=True)
+    assert len(align.calls) == 1 and out.kind == "needs-llm"
+    assert out.align_reproduced is not None
+
+
+def test_with_gather_llm_extract_setlist_failure_writes_nothing(tmp_path, monkeypatch):
+    from herder import HerderError
+    monkeypatch.setattr("herder.tasks._sleep", lambda s: None)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _unparseable_description(root)
+    _stale(entry.ws)
+    before = _snapshot(entry.ws)
+    providers = _gl_providers(FakeProvider([]))
+    providers["extract_setlist"] = FakeProvider(completes=[HerderError("boom")] * 12)
+    with pytest.raises(HerderError):
+        _run(config, ledger, entry, providers, with_gather_llm=True)
+    assert providers["extract_setlist"].calls and _snapshot(entry.ws) == before
+
+
+def test_align_ladder_of_providers_is_counted_and_reproduced_is_set(tmp_path, monkeypatch):
+    # production: make_providers gives each task a LIST (an escalation ladder)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root)
+    _stub_package(monkeypatch)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    providers = _gl_providers(align, [OK_BRIEF])
+    providers["align_structure"] = [align, align, align]
+    out = _run(config, ledger, entry, providers, with_gather_llm=True,
+               allow_structure_change=True)
+    assert len(align.calls) == 1 and out.kind == "needs-llm"
+    assert out.align_reproduced is not None
+
+
+def test_align_ladder_where_every_rung_raises_is_a_retryable_failure_not_a_crash(
+        tmp_path, monkeypatch):
+    from herder import HerderError
+    monkeypatch.setattr("herder.tasks._sleep", lambda s: None)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root)
+    _stale(entry.ws)
+    before = _snapshot(entry.ws)
+    align = FakeProvider(completes=[HerderError("boom")] * 12)
+    providers = _gl_providers(align)
+    providers["align_structure"] = [align, align, align]
+    with pytest.raises(HerderError):
+        _run(config, ledger, entry, providers, with_gather_llm=True)
+    assert align.calls and _snapshot(entry.ws) == before
+
+
+def test_processed_reselection_is_not_sent_back_to_select(tmp_path, monkeypatch):
+    root, config, ledger, _entry, _ = _env(tmp_path)
+    entry = resolve_show(root, ledger, CLEAN)
+    calls = _stub_package(monkeypatch)
+    campaign.add_mark(entry.ws, reason="recording re-selection: a -> b", start_stage="select",
+                      batch="b1", at=LONG_AGO)
+    assert campaign.mark_processed(entry.ws, held=False)
+    assert not campaign.awaiting_fix(campaign.read_record(entry.ws))
+    o = _run(config, ledger, entry)
+    assert o.outcome == "skipped: processed" and o.written == [] and calls == []
+
+
+def test_awaiting_reselection_still_skipped(tmp_path, monkeypatch):
+    root, config, ledger, _entry, _ = _env(tmp_path)
+    entry = resolve_show(root, ledger, CLEAN)
+    calls = _stub_package(monkeypatch)
+    campaign.add_mark(entry.ws, reason="recording re-selection: a -> b", start_stage="select",
+                      batch="b1", at=LONG_AGO)
+    o = _run(config, ledger, entry)
+    assert o.outcome == f"skipped: re-selection (llama redo {CLEAN} --from select)"
+    assert o.written == [] and calls == []
+
+
+def test_after_commit_failure_keeps_library_audio(tmp_path, monkeypatch):
+    from helpers import audio_files
+    config, _cfg, ledger, entry, ia, out = _delivered_env(
+        tmp_path, monkeypatch, voiced=True, fresh=True)
+    ws = entry.ws
+    for p in (out / "audio").iterdir():                  # the library still holds its audio
+        shutil.copy2(p, ws.package_dir / "audio" / p.name)
+    held = audio_files(ws)
+    assert held
+    before = tree_bytes(ws.dir)
+
+    def hook(_ws):
+        raise RuntimeError("record_after failed")
+    with pytest.raises(RuntimeError, match="record_after failed"):
+        reapply_show(config, ia, ledger, entry, providers=_providers(OK_BRIEF), row=None,
+                     dry_run=False, echo=lambda s: None, after_commit=hook)
+    assert audio_files(ws) == held                       # nothing purged
+    assert tree_bytes(ws.dir) == before
+
+
+# --- Task 13: wave snapshot, weekly ceiling override, trial stop, richer progress ---
+
+def _batch_env(tmp_path, monkeypatch, n_clones=0, station=False):
+    """A library, its list over the held show (+ clones), the CLI wired to the
+    fake providers and a stubbed package; optionally a station root."""
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    if station:
+        (root / "config.toml").write_text(
+            (root / "config.toml").read_text().replace(
+                'root = ', f'delivery_path = "{tmp_path / "station"}"\nroot = ', 1))
+        (tmp_path / "station").mkdir()
+    config = load_config(root / "config.toml")
+    entries = [entry] + _clones(root, entry, n_clones)
+    lst = _list_file(tmp_path, root, config, entries)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    return root, config, entries, lst
+
+
+def _meters(monkeypatch, readings):
+    """read_usage replaced by a script of (five, five_reset, seven) tuples."""
+    import llama.cli as cli
+    from herder.usage import Meter, UsageReading
+    seq = list(readings)
+    def fake(*a, **k):
+        five, reset, seven = seq.pop(0) if len(seq) > 1 else seq[0]
+        return UsageReading(five_hour=Meter(five, reset), seven_day=Meter(seven, reset))
+    monkeypatch.setattr(cli, "read_usage", fake)
+
+
+def _progress_rows(batch):
+    return [json.loads(l) for l in (batch / "progress.jsonl").read_text().splitlines()]
+
+
+def test_list_batch_takes_a_snapshot_before_the_first_write(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=1)
+    batch = batch_dir(root, lst)
+    seen = []
+    real = reapply_mod.build_package
+    def fake(show_ws, ia, show, **kw):
+        seen.append(((batch / "snapshot" / "manifest.json").exists(),
+                     (batch / "progress.jsonl").exists()))
+        write_artifact(show_ws.package_dir / "manifest.json", {"schema_version": 3, "tracks": []})
+        return show_ws.package_dir, []
+    monkeypatch.setattr(reapply_mod, "build_package", fake)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0, r.output
+    assert seen and all(s == (True, False) or s == (True, True) for s in seen)
+    assert seen[0] == (True, False)       # snapshot exists, no progress row yet
+    m = json.loads((batch / "snapshot" / "manifest.json").read_text())
+    assert set(m["slugs"]) == {e.slug for e in entries}
+    # a re-run of the same list reuses the snapshot (take refuses an existing dir)
+    before = (batch / "snapshot" / "manifest.json").read_bytes()
+    r2 = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r2.exit_code == 0, r2.output
+    assert (batch / "snapshot" / "manifest.json").read_bytes() == before
+
+
+def test_a_batch_with_progress_but_no_snapshot_warns_and_goes_on(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    batch = batch_dir(root, lst)
+    batch.mkdir(parents=True)
+    reapply_mod.record_progress(batch, "other", "cleared", retryable=False)
+    _stub_package(monkeypatch)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0, r.output
+    assert "warning: no snapshot for this batch (started before snapshots)" in r.output
+    assert not (batch / "snapshot").exists()
+
+
+def test_after_records_follow_each_write(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from llama import batch_snapshot
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=1)
+    batch = batch_dir(root, lst)
+    _stub_package(monkeypatch)
+    real = batch_snapshot.record_after
+    order = []
+    def spy(snap, slug, root_, *, station_root):
+        with pytest.raises(Locked):               # inside the show lock
+            with file_lock(root_ / "shows" / slug / ".lock", blocking=False):
+                pass
+        assert slug not in read_progress(batch)   # never after the unit / the row
+        assert read_model(root_ / "shows" / slug / "show.json", Show).needs_review is False
+        order.append(slug)
+        return real(snap, slug, root_, station_root=station_root)
+    monkeypatch.setattr(batch_snapshot, "record_after", spy)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0, r.output
+    recorded = [json.loads(l)["slug"] for l in (batch / "snapshot" / "after.jsonl").read_text().splitlines()]
+    assert recorded == order and set(order) == {e.slug for e in entries}
+
+
+def test_seven_day_ceiling_override_pauses(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from datetime import datetime, timezone
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    calls = _stub_package(monkeypatch)
+    _meters(monkeypatch, [(10, datetime(2030, 1, 1, tzinfo=timezone.utc), 41)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--seven-day-ceiling", "40")
+    assert r.exit_code == 0 and "paused: weekly window at 41%" in r.output
+    assert f"resume with: llama reapply --from-list {lst}" in r.output
+    assert calls == []
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))     # default ceiling 90
+    assert r.exit_code == 0 and "reapplied:" in r.output and len(calls) == 1
+
+
+def test_pace_options_seven_day_ceiling_override():
+    from llama import pacing
+    from llama.config import Config
+    assert pacing.pace_options(Config()).seven_day_ceiling == 90
+    assert pacing.pace_options(Config(), seven_day_ceiling=40.0).seven_day_ceiling == 40.0
+
+
+def _spend(providers):
+    """One LLM call through the (counted) brief ladder, as a real brief would make."""
+    ladder = providers["brief"]
+    for p in (ladder if isinstance(ladder, list) else [ladder]):
+        try:
+            p.complete("x")
+        except AssertionError:
+            pass            # the fake has nothing queued; the call was still made
+
+
+def _spending_stub(monkeypatch, script):
+    """reapply_show replaced by a script slug -> (spends, outcome-or-exception)."""
+    def fake(config, ia, ledger, entry, *, providers, **kw):
+        spends, step = script(entry.slug)
+        if spends:
+            _spend(providers)
+        if isinstance(step, Exception):
+            raise step
+        return ReapplyOutcome(slug=entry.slug, outcome=step, briefing="fresh",
+                              flags=[], delivered=False, written=[])
+    monkeypatch.setattr(reapply_mod, "reapply_show", fake)
+
+
+def test_stop_at_points_ends_the_block(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from datetime import datetime, timezone
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=2)
+    calls = _stub_package(monkeypatch)
+    real_show = reapply_mod.reapply_show
+    def spending(config, ia, ledger, entry, *, providers, **kw):
+        _spend(providers)       # Task 13b: only a show that spent counts into n
+        return real_show(config, ia, ledger, entry, providers=providers, **kw)
+    monkeypatch.setattr(reapply_mod, "reapply_show", spending)
+    reset = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    # (before, after) per show: block starts at 40; show 1 -> 42, show 2 -> 45
+    _meters(monkeypatch, [(40, reset, 7), (42, reset, 7), (42, reset, 7), (45, reset, 7),
+                          (45, reset, 7), (46, reset, 7)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--stop-at-points", "5")
+    assert r.exit_code == 0, r.output
+    assert "trial block done: 5h meter moved 5 points over 2 shows" in r.output
+    assert f"resume with: llama reapply --from-list {lst}" in r.output
+    assert len(calls) == 2
+
+
+def test_stop_at_points_warns_when_the_block_crosses_a_reset(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from datetime import datetime, timezone
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=1)
+    calls = _stub_package(monkeypatch)
+    r1 = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    r2 = datetime(2030, 1, 1, 5, tzinfo=timezone.utc)
+    _meters(monkeypatch, [(90, r1, 7), (3, r2, 7), (3, r2, 7), (5, r2, 7)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--stop-at-points", "5")
+    assert r.exit_code == 0, r.output
+    assert "warning: this block crossed a 5-hour reset; discard it and re-run" in r.output
+    assert "trial block done" not in r.output and len(calls) == 2
+
+
+def test_progress_rows_carry_meter_kind_audio(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from datetime import datetime, timezone
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    _stub_package(monkeypatch)
+    reset = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    _meters(monkeypatch, [(40, reset, 7), (42, reset, 8)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0, r.output
+    row = _progress_rows(batch_dir(root, lst))[0]
+    assert row["outcome"] == "cleared" and row["retryable"] is False
+    assert row["kind"] == "reuse" and "audio" in row and "align_reproduced" in row
+    iso = reset.isoformat()
+    assert row["meter"] == {
+        "before": {"five_hour": 40, "five_hour_resets": iso, "seven_day": 7, "seven_day_resets": iso},
+        "after": {"five_hour": 42, "five_hour_resets": iso, "seven_day": 8, "seven_day_resets": iso}}
+
+
+def test_progress_row_meter_is_all_null_without_a_window(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    _stub_package(monkeypatch)
+    import llama.cli as cli
+    monkeypatch.setattr(cli, "_meter_applies", lambda *a: False)
+    assert cli_invoke(_cli(root), "reapply", "--from-list", str(lst)).exit_code == 0
+    null = {"five_hour": None, "five_hour_resets": None, "seven_day": None, "seven_day_resets": None}
+    assert _progress_rows(batch_dir(root, lst))[0]["meter"] == {"before": null, "after": null}
+
+
+def _unreadable_script(monkeypatch, slugs_to_exc, default=("cleared", "reuse")):
+    from llama.station_mark import StationUnreadable
+    def fake(config, ia, ledger, entry, **kw):
+        step = slugs_to_exc.get(entry.slug, default)
+        if step == "unreadable":
+            raise StationUnreadable(f"{entry.slug}: station copy unreadable: no directory x")
+        return ReapplyOutcome(slug=entry.slug, outcome=step[0], briefing=step[1],
+                              flags=[], delivered=False, written=[])
+    monkeypatch.setattr(reapply_mod, "reapply_show", fake)
+
+
+def test_batch_stops_after_three_unreadable_station_copies(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=4)
+    _unreadable_script(monkeypatch, {e.slug: "unreadable" for e in entries})
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 1, r.output
+    assert (f"stopping after 3 consecutive unreadable station copies (is the station mounted?); "
+            f"resume with: llama reapply --from-list {lst}") in r.output
+    prog = read_progress(batch_dir(root, lst))
+    assert len(prog) == 3 and all(p["retryable"] is True for p in prog.values())
+    assert reapply_mod.STOP_AFTER_STATION_UNREADABLE == 3
+
+
+def test_a_writing_outcome_resets_the_unreadable_streak(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=4)
+    slugs = [e.slug for e in entries]
+    script = {s: "unreadable" for s in slugs}
+    script[slugs[2]] = ("cleared", "reuse")
+    _unreadable_script(monkeypatch, script)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert "stopping after" not in r.output and r.exit_code == 1    # failures -> exit 1, no stop
+    assert len(read_progress(batch_dir(root, lst))) == 5
+
+
+def test_station_unpaired_is_an_ordinary_retryable_failure(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from llama.audio_reuse import StationUnpaired
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=3)
+    def fake(config, ia, ledger, entry, **kw):
+        raise StationUnpaired(f"{entry.slug}: station copy does not pair")
+    monkeypatch.setattr(reapply_mod, "reapply_show", fake)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert "stopping after" not in r.output and r.exit_code == 1
+    prog = read_progress(batch_dir(root, lst))
+    assert len(prog) == 4 and all(p["retryable"] for p in prog.values())
+
+
+def test_a_non_dry_list_run_refuses_an_unmounted_station_before_anything(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, station=True)
+    shutil.rmtree(tmp_path / "station")
+    calls = _stub_package(monkeypatch)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 1
+    assert str(tmp_path / "station") in r.output and "mounted" in r.output
+    assert calls == [] and not batch_dir(root, lst).exists()
+    # a dry run is not refused
+    assert cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run").exit_code == 0
+
+
+def test_a_mount_drop_seen_by_record_after_is_an_unreadable_station_copy(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=3, station=True)
+    def fake(show_ws, ia, show, **kw):
+        shutil.rmtree(tmp_path / "station", ignore_errors=True)    # the mount drops mid-wave
+        write_artifact(show_ws.package_dir / "manifest.json", {"schema_version": 3, "tracks": []})
+        return show_ws.package_dir, []
+    monkeypatch.setattr(reapply_mod, "build_package", fake)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 1, r.output
+    assert "station copy unreadable" in r.output and "stopping after 3 consecutive unreadable" in r.output
+    prog = read_progress(batch_dir(root, lst))
+    assert len(prog) == 3 and all(p["retryable"] for p in prog.values())
+    # the unit restored each show: still held, no package manifest left by the failed unit
+    for e in entries[:3]:
+        assert read_model(e.ws.show, Show).needs_review is True
+
+
+def test_campaign_list_checks_installed_versions(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from llama import campaign_gate
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    data = json.loads(lst.read_text())
+    data["campaign"] = {"version": "2.20.0", "pin_sha": "a" * 40}
+    lst.write_text(json.dumps(data))
+    calls = _stub_package(monkeypatch)
+    seen = []
+    def refuse(echo, *, pin):
+        seen.append(pin)
+        raise campaign_gate.GateRefused("refusing: llama below 2.20.0: /x/llama")
+    monkeypatch.setattr(campaign_gate, "require_tools", refuse)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 1 and "refusing: llama below 2.20.0" in r.output
+    assert seen == [{"version": "2.20.0", "pin_sha": "a" * 40}]
+    assert calls == [] and not batch_dir(root, lst).exists()
+
+
+def test_campaign_list_retires_the_rekey_restore(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from llama import campaign_gate
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    data = json.loads(lst.read_text())
+    data["campaign"] = {"version": "2.20.0", "pin_sha": "a" * 40}
+    lst.write_text(json.dumps(data))
+    monkeypatch.setattr(campaign_gate, "require_tools", lambda echo, *, pin: None)
+    (root / "rekey-applied.json").write_text(json.dumps({"snapshot": "s", "shows": []}))
+    _stub_package(monkeypatch)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
+    assert "retired" not in json.loads((root / "rekey-applied.json").read_text())
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0, r.output
+    rec = json.loads((root / "rekey-applied.json").read_text())
+    assert rec["retired"]["by"] == f"bulk-apply wave {batch_dir(root, lst).name}"
+
+
+@pytest.mark.parametrize("outcome,retryable,gather_llm", [
+    ("needs-llm", False, True),
+    ("held", False, False), ("label-only", False, False), ("unchanged", False, False),
+    ("skipped: processed", False, False),
+    ("skipped: re-selection (llama redo x --from select)", False, False),
+    ("needs-llm", True, False), ("skipped: structure changed", True, False)])
+def test_retryability_per_outcome(tmp_path, monkeypatch, outcome, retryable, gather_llm):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    _unreadable_script(monkeypatch, {}, default=(outcome, "none"))
+    extra = ["--with-gather-llm"] if gather_llm else []
+    assert cli_invoke(_cli(root), "reapply", "--from-list", str(lst), *extra).exit_code == 0
+    assert read_progress(batch_dir(root, lst))[HELD]["retryable"] is retryable
+    # a re-run retries exactly the retryable rows
+    seen = []
+    def fake(config, ia, ledger, entry, **kw):
+        seen.append(entry.slug)
+        return ReapplyOutcome(slug=entry.slug, outcome=outcome, briefing="none",
+                              flags=[], delivered=False, written=[])
+    monkeypatch.setattr(reapply_mod, "reapply_show", fake)
+    cli_invoke(_cli(root), "reapply", "--from-list", str(lst), *extra)
+    assert seen == ([HELD] if retryable else [])
+
+
+def test_held_backlog_lists_still_run(tmp_path, monkeypatch):    # (pin)
+    from conftest import cli_invoke
+    root, config, ledger, entry, _ = _env(tmp_path)
+    lst = _list_file(tmp_path, root, config, [entry])    # no `campaign` key
+    import llama.cli as cli
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    _stub_package(monkeypatch)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0 and f"reapplied: {HELD} -> cleared" in r.output
+
+
+def test_the_resume_line_carries_the_ceiling_that_paused_the_run(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from datetime import datetime, timezone
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    _stub_package(monkeypatch)
+    _meters(monkeypatch, [(10, datetime(2030, 1, 1, tzinfo=timezone.utc), 41)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--seven-day-ceiling", "40",
+                   "--stop-at-points", "3")
+    assert f"resume with: llama reapply --from-list {lst} --seven-day-ceiling 40 --stop-at-points 3" in r.output
+
+
+def test_the_resume_line_carries_the_allow_flags(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=3)
+    _unreadable_script(monkeypatch, {e.slug: "unreadable" for e in entries})
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--with-gather-llm",
+                   "--allow-structure-change")
+    assert (f"resume with: llama reapply --from-list {lst} --allow-structure-change "
+            f"--with-gather-llm") in r.output
+
+
+def test_trial_count_excludes_shows_that_spent_nothing(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from datetime import datetime, timezone
+    import llama.cli as cli
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=6)
+    monkeypatch.setattr(cli, "make_providers", lambda config: {"brief": [FakeProvider([])]})
+    slugs = [e.slug for e in entries]
+    plan = {slugs[0]: (True, "cleared"),                       # spent, committed
+            slugs[1]: (False, "skipped: processed"),           # no spend
+            slugs[2]: (True, IAError("download failed")),      # spent, then failed
+            slugs[3]: (False, "skipped: inputs changed"),      # no spend
+            slugs[4]: (False, IAError("download failed")),     # failed without spending
+            slugs[5]: (True, "held"),                          # spent, held
+            slugs[6]: (False, "cleared")}                      # never reached
+    _spending_stub(monkeypatch, lambda slug: plan[slug])
+    reset = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    # (before, after) per show; the block starts at 40 and passes 45 on show 6
+    _meters(monkeypatch, [(40, reset, 7), (41, reset, 7),
+                          (41, reset, 7), (41, reset, 7),
+                          (41, reset, 7), (42, reset, 7),
+                          (42, reset, 7), (42, reset, 7),
+                          (42, reset, 7), (42, reset, 7),
+                          (42, reset, 7), (46, reset, 7)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--stop-at-points", "5")
+    assert "trial block done: 5h meter moved 6 points over 3 shows" in r.output, r.output
+    rows = {x["slug"]: x for x in _progress_rows(batch_dir(root, lst))}
+    failed = rows[slugs[2]]
+    assert failed["outcome"].startswith("failed:") and failed["retryable"] is True
+    assert failed["meter"]["before"]["five_hour"] == 41 and failed["meter"]["after"]["five_hour"] == 42
+    # the progress file reproduces n: llm_calls says which rows spent
+    assert failed["llm_calls"] > 0
+    assert rows[slugs[4]]["outcome"].startswith("failed:") and rows[slugs[4]]["llm_calls"] == 0
+    assert rows[slugs[1]]["llm_calls"] == 0
+    assert rows[slugs[0]]["llm_calls"] > 0
+    assert sum(1 for x in rows.values() if x["llm_calls"] > 0) == 3
+
+
+def test_broken_snapshot_refuses_before_the_first_show(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    prov = FakeProvider([])
+    monkeypatch.setattr(cli, "make_providers", lambda config: {"brief": [prov]})
+    calls = _stub_package(monkeypatch)
+    batch = batch_dir(root, lst)
+    (batch / "snapshot").mkdir(parents=True)
+    reapply_mod.record_progress(batch, "other", "cleared", retryable=False)
+    progress_before = (batch / "progress.jsonl").read_bytes()
+    tree_before = tree_bytes(root / "shows")
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 1, r.output
+    assert (f"refusing to run batch {batch.name}: its snapshot is unusable (no manifest.json); "
+            f"remove {batch / 'snapshot'} by hand to run without one, or restore from it first") in r.output
+    assert prov.calls == [] and calls == []
+    assert tree_bytes(root / "shows") == tree_before
+    assert (batch / "progress.jsonl").read_bytes() == progress_before

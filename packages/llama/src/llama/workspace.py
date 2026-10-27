@@ -80,6 +80,8 @@ class ShowWorkspace:
         self.briefing_md = dir / "briefing.md"
         self.overrides = dir / "overrides.json"
         self.notes = dir / "notes.json"
+        self.campaign = dir / "campaign.json"
+        self.reuse_anchor = dir / "reuse-anchor.json"
         self.package_dir = dir / "package"
         self.lock = dir / ".lock"
 

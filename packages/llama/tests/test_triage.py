@@ -918,3 +918,28 @@ def test_triage_exclusion_refuses_a_keyed_file(tmp_path, tty, monkeypatch):
     # An unkeyed file still excludes.
     r = cli_invoke(cfg, "triage", input="e\n3\n")
     assert read_overrides(ws).exclude == [_SIX[2]] and calls == ["gather"]
+
+
+# --- Overrules persist (bulk-apply spec "Overrules persist", Task 2) ---
+
+def test_triage_overrule_records(tmp_path, tty, monkeypatch):
+    from datetime import datetime
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)          # held on "research asserts wrong date: x"
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="o\n")
+    assert r.exit_code == 0, r.output
+    assert calls == ["package"]
+    rules = read_overrides(ws).overrules
+    assert [(o.identifier, o.kind, o.subject, o.flag, o.source) for o in rules] == [
+        ("gd73", "research-date", ["x"], "research asserts wrong date: x", "triage")]
+    assert datetime.fromisoformat(rules[0].at).utcoffset().total_seconds() == 0
+
+
+def test_triage_vague_records_nothing(tmp_path, tty, monkeypatch):   # (pin)
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="v\n")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).overrules == []

@@ -5127,3 +5127,115 @@ def test_fw4r2_gain_across_a_shipped_set_break_is_still_declined(tmp_path):
     t = res.show.tracks
     assert t[7].set != t[8].set
     assert 8 not in _segued_tracks(res)
+
+
+# ============================================================================
+# Overrules persist (bulk-apply spec "Overrules persist", Task 2): a flag that
+# matches a recorded overrule becomes an `overruled: <flag>` note, not a hold.
+# ============================================================================
+
+def _overrule(kind, subject=None, identifier=IDENT, flag="f"):
+    from llama.models import Overrule
+    return Overrule(identifier=identifier, kind=kind, subject=subject, flag=flag,
+                    source="fix", at="2026-10-26T00:00:00+00:00")
+
+
+def _placeholder_md():
+    """gd73 with every delivered tag a `Track N` placeholder: gather raises
+    `low-confidence structure alignment`, `setlist evidence shows multiple sets
+    but alignment found none` and `unresolved track titles` (all six unresolved)."""
+    md = json.loads(FIXTURE.read_text())
+    for i, f in enumerate(f for f in md["files"] if f.get("format") == "VBR MP3"):
+        f["title"] = f"Track {i + 1}"
+    return md
+
+
+_SETS_FLAG = "setlist evidence shows multiple sets but alignment found none"
+
+
+def _gather_with(tmp_path, rules, md=None):
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(overrules=rules))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT,
+                      align_provider=None)
+    return sws, show
+
+
+def test_gather_turns_an_overruled_flag_into_a_note(tmp_path: Path):
+    md = json.loads(FIXTURE.read_text())
+    names = ["Wharf Rat", "Sugaree", "Morning Dew", "Bertha", "Ripple", "Uncle John's Band"]
+    for f, n in zip((f for f in md["files"] if f.get("format") == "VBR MP3"), names):
+        f["title"] = n
+    _, base = _gather_with(tmp_path / "base", [], md)
+    assert base.review_flags == ["low-confidence structure alignment", _SETS_FLAG]
+
+    # the alignment rule alone: that flag becomes a note, the other still holds
+    sws, show = _gather_with(tmp_path / "one", [_overrule("alignment")], md)
+    assert show.review_flags == [_SETS_FLAG] and show.needs_review is True
+    notes = read_model(sws.notes, ShowNotes).gather
+    assert "overruled: low-confidence structure alignment" in notes
+
+    # both rules: nothing holds; show.json on disk agrees with the return value
+    sws, show = _gather_with(tmp_path / "both",
+                             [_overrule("alignment"), _overrule("sets-not-found")], md)
+    assert show.review_flags == [] and show.needs_review is False
+    assert read_model(sws.show, type(show)) == show
+    notes = read_model(sws.notes, ShowNotes).gather
+    assert notes[-2:] == ["overruled: low-confidence structure alignment",
+                          f"overruled: {_SETS_FLAG}"]
+
+    # a rule recorded on another identifier (a re-selected show) is inert
+    _, show = _gather_with(tmp_path / "other",
+                           [_overrule("alignment", identifier="gd73-other"),
+                            _overrule("sets-not-found", identifier="gd73-other")], md)
+    assert show.review_flags == base.review_flags and show.needs_review is True
+
+
+def test_unresolved_titles_overrule_needs_a_subset(tmp_path: Path):
+    md = _placeholder_md()
+    _, base = _gather_with(tmp_path / "base", [], md)
+    assert "unresolved track titles" in base.review_flags
+    files = sorted(t.filename for t in base.tracks if t.title_source == "unresolved")
+    assert len(files) == 6
+    others = [_overrule("alignment"), _overrule("sets-not-found")]
+
+    # the rule covers every unresolved file: a note
+    sws, show = _gather_with(tmp_path / "all", others + [_overrule("titles", files)], md)
+    assert show.review_flags == [] and show.needs_review is False
+    assert "overruled: unresolved track titles" in read_model(sws.notes, ShowNotes).gather
+
+    # a wider recorded set still covers it (subset)
+    _, show = _gather_with(tmp_path / "wider",
+                           others + [_overrule("titles", files + ["zz.mp3"])], md)
+    assert show.review_flags == []
+
+    # one more unresolved file than the rule recorded: still held
+    _, show = _gather_with(tmp_path / "less", others + [_overrule("titles", files[:-1])], md)
+    assert show.review_flags == ["unresolved track titles"] and show.needs_review is True
+
+
+# --- Bulk-apply Task 10: llm_failures_raise ---
+
+def _garbage_align():
+    return FakeProvider(completes=["not json"] * 6)      # validation fails past the retries
+
+
+def test_compute_gather_degrades_llm_failure_by_default(tmp_path):
+    # (pin) today's behaviour for every other caller: a failed align_structure call
+    # degrades to the low-confidence flag.
+    align = _garbage_align()
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_low_coverage_candidate()),
+                         FakeProvider(), make_candidate(), IDENT, align_provider=align,
+                         jerrybase_enabled=False)
+    assert align.calls
+    assert "low-confidence structure alignment" in res.show.review_flags
+
+
+def test_compute_gather_llm_failures_raise(tmp_path):
+    from herder import HerderError
+    align = _garbage_align()
+    with pytest.raises(HerderError):          # TaskFailed is a HerderError
+        compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_low_coverage_candidate()),
+                       FakeProvider(), make_candidate(), IDENT, align_provider=align,
+                       jerrybase_enabled=False, llm_failures_raise=True)
+    assert align.calls

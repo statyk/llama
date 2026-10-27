@@ -205,6 +205,21 @@ class Show(BaseModel):
     structure: StructureInfo | None = None
 
 
+class Overrule(BaseModel):
+    """One overruled review flag (bulk-apply spec "Overrules persist"): the flag's
+    kind and subject (`llama.overrules.flag_key`), scoped to the recording
+    (`identifier`) it was ruled on. Permissive; absent == no overrules."""
+    identifier: str
+    kind: str
+    subject: list[str] | None = None
+    flag: str
+    source: str  # "fix" | "triage" | "untitled" | "backfill"
+    at: str      # UTC ISO-8601
+    # Why it was recorded (the backfill names its basis); never part of a rule's
+    # identity (`llama.overrules._ident`). None from fix/triage/untitled and old files.
+    note: str | None = None
+
+
 class Overrides(BaseModel):
     """Hand-authored per-show operator input, durable across re-derivation.
     Read by gather (exclude, include, venue, city, date, titles, set_breaks,
@@ -223,16 +238,19 @@ class Overrides(BaseModel):
     titles: dict[str, str] = Field(default_factory=dict)   # filename -> forced title
     set_breaks: list[int | str] | None = None          # filenames a break falls after
     encore_after: int | str | None = None              # filename the encore follows
+    overrules: list[Overrule] = Field(default_factory=list)  # flags an operator overruled
 
 
 class ShowNotes(BaseModel):
     """`notes.json`: operator-facing notes, read only by `llama show` (and so
     triage). Never read by brief, vet's prompt path or package, so a note can
     never reach an LLM (held-backlog spec ruling 6). A gather artifact:
-    `run_gather` replaces the whole file (`vet` reset to []), and vet sets
-    `vet` on the file gather wrote."""
+    `run_gather` replaces the whole file (`vet` and `brief` reset to []), vet
+    sets `vet` and brief sets `brief` (its `overruled: <flag>` notes, bulk-apply
+    spec "Overrules persist") on the file gather wrote."""
     gather: list[str] = Field(default_factory=list)
     vet: list[str] = Field(default_factory=list)
+    brief: list[str] = Field(default_factory=list)
 
 
 class DJNotes(BaseModel):

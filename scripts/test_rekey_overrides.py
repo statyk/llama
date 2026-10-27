@@ -2039,3 +2039,20 @@ def test_restore_stops_at_a_record_rename_collision(tmp_path, capsys, monkeypatc
     assert NEXT not in lines and "renamed:" not in out
     assert (root / rk.APPLIED).read_bytes() == rec
     assert (root / name).read_text() == "an earlier restore's record"
+
+
+def test_retired_record_refuses_restore(tmp_path):
+    """The bulk apply retired rekey's rollback (spec "Undo"): _record_gate refuses with the
+    fixed string, whichever snapshot is asked for."""
+    root = tmp_path / "lib"
+    root.mkdir()
+    snap = root / "rekey-snapshot-20260101T000000Z"
+    (root / rk.APPLIED).write_text(json.dumps(
+        {"snapshot": snap.name, "shows": [],
+         "retired": {"at": "2026-11-01T00:00:00+00:00", "by": "bulk_apply backfill"}}))
+    with pytest.raises(rk._Refused) as exc:
+        rk._record_gate(root, snap)
+    assert str(exc.value) == (
+        "refusing to restore: the bulk apply retired this rollback at "
+        "2026-11-01T00:00:00+00:00 (bulk_apply backfill); its writes postdate the snapshot: "
+        "use scripts/bulk_apply.py restore")

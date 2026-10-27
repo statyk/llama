@@ -18,6 +18,20 @@ aside back under its old names on failure and deletes it on success.
 Anything unpaired or failing a check downloads from archive.org exactly as
 before; the worst case of a bad reuse is re-shipping audio this show already
 packaged.
+
+**Strict** (bulk-apply spec, "Audio reuse never silently falls back"): a
+delivered show's re-package (not a re-selection) plans with `strict=True`.
+Then `build_package` refuses (`StationUnpaired`, or the station mark's
+`StationUnreadable`) instead of downloading when no copy pairs, when the station
+copy is unreadable or missing, or when a source paired at plan time has no
+metadata length or its copy fails the length check; only a source no copy ever
+held downloads.
+
+**The held-outcome anchor** (`reuse-anchor.json`): the pre-commit `show.json`
+track list, written once before a packaged or delivered show is re-processed and
+removed only by a package build. When `show.json` itself pairs nothing (a held
+commit moved its titles), the station copy pairs through the anchor, and the
+library's own `package/audio/` files under the anchor's packaged names do too.
 """
 from __future__ import annotations
 
@@ -27,12 +41,25 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-from llama.audio import read_duration
+from datetime import datetime, timezone
+
+from llama.audio import packaged_filename, read_duration
 from llama.errors import LlamaError
 from llama.models import Show
-from llama.workspace import ShowWorkspace, read_model
+from llama.station_mark import StationUnreadable, read_station_manifest
+from llama.workspace import ShowWorkspace, atomic_write_bytes, read_model
 
 ASIDE_DIR = ".audio-aside"     # <show>/.audio-aside/: outside package/, skipped by show_unit
+ANCHOR = "reuse-anchor.json"   # <show>/reuse-anchor.json (`ShowWorkspace.reuse_anchor`)
+
+
+class StationUnpaired(LlamaError):
+    """`<slug>: station copy does not pair: <detail>`: a strict re-package that
+    would have downloaded audio the station copy holds. Nothing is downloaded."""
+
+
+def unpaired(show_ws: ShowWorkspace, detail: str) -> StationUnpaired:
+    return StationUnpaired(f"{show_ws.dir.name}: station copy does not pair: {detail}")
 
 
 @dataclass(frozen=True)
@@ -42,6 +69,8 @@ class ReusePlan:
     library: dict[str, str]                # source filename -> packaged name (library manifest paired)
     station: dict[str, Path]               # source filename -> <station>/audio/<packaged name>
     identifier: str | None = None          # the plan-time show.identifier; None without a show.json
+    strict: bool = False                   # a delivered show's re-package: never download a paired source
+    station_problem: str | None = None     # strict only: why the station copy cannot be read
 
 
 def _manifest_tracks(path: Path) -> list[tuple[str, str]] | None:
@@ -81,14 +110,52 @@ def _pair(show: Show | None, tracks: list[tuple[str, str]] | None) -> dict[str, 
     return {t.filename: name for t, (_title, name) in zip(show.tracks, tracks)}
 
 
-def plan_reuse(show_ws: ShowWorkspace, station_dir: Path | None) -> ReusePlan:
+def _read_anchor(show_ws: ShowWorkspace) -> tuple[str, list[tuple[str, str]]] | None:
+    """`(identifier, [(source filename, title), ...])` from the anchor; None when
+    it is missing or unreadable in any way, which pairs nothing."""
+    try:
+        data = json.loads(show_ws.reuse_anchor.read_text())
+        ident = data["identifier"]
+        tracks = [(t["filename"], t["title"]) for t in data["tracks"]]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if not (isinstance(ident, str) and ident) or not all(
+            isinstance(f, str) and f and isinstance(t, str) for f, t in tracks):
+        return None
+    return ident, tracks
+
+
+def _pair_anchor(anchor: list[tuple[str, str]],
+                 tracks: list[tuple[str, str]] | None) -> dict[str, str]:
+    """`_pair`'s rule (same length, same title at every index) against the
+    anchor's track list instead of show.json's."""
+    if tracks is None or len(tracks) != len(anchor):
+        return {}
+    if any(a_title != title for (_f, a_title), (title, _n) in zip(anchor, tracks)):
+        return {}
+    return {f: name for (f, _t), (_title, name) in zip(anchor, tracks)}
+
+
+def plan_reuse(show_ws: ShowWorkspace, station_dir: Path | None, *,
+               strict: bool = False) -> ReusePlan:
     """Pair the library and station copies with the CURRENT show.json. Without
     a readable show.json both pairings are {} (library_names is still read, so
-    the aside rule in `build_package` still runs)."""
+    the aside rule in `build_package` still runs).
+
+    When show.json pairs nothing, the anchor is tried, only when its identifier
+    equals show.json's (the item being packaged): the station copy pairs with
+    the anchor's list when the station manifest's `source.identifier` is that
+    item too; the library pairs each anchor track i with
+    `packaged_filename(i, title, suffix)` when that file is in `package/audio/`.
+
+    `strict` records in `station_problem` why the station copy cannot be read
+    (no `delivery_path`, a missing directory or manifest, an unreadable one);
+    `check_pairs` refuses on it."""
     try:
         show = read_model(show_ws.show, Show)
     except Exception:
         show = None
+    anchor = _read_anchor(show_ws)
     # A manifest pairs only when it was packaged from the SAME archive.org item as
     # show.json now names: file names repeat across items, the audio does not.
     def same_item(manifest: Path) -> bool:
@@ -96,15 +163,74 @@ def plan_reuse(show_ws: ShowWorkspace, station_dir: Path | None) -> ReusePlan:
     lib_manifest = show_ws.package_dir / "manifest.json"
     library_tracks = _manifest_tracks(lib_manifest)
     library_names = tuple(name for _t, name in library_tracks) if library_tracks is not None else None
+    library = _pair(show, library_tracks if same_item(lib_manifest) else None)
+    # The anchor speaks only for the item show.json names now: after a held
+    # re-selection it lists the OLD item's files, whose audio must not ship.
+    if anchor is not None and (show is None or anchor[0] != show.identifier):
+        anchor = None
+    if not library and anchor is not None:
+        audio = show_ws.package_dir / "audio"
+        for i, (source, title) in enumerate(anchor[1], 1):
+            name = packaged_filename(i, title, Path(source).suffix)
+            if (audio / name).is_file():
+                library[source] = name
     station: dict[str, Path] = {}
-    if station_dir is not None:
-        station = {src: station_dir / "audio" / name
-                   for src, name in _pair(show, _manifest_tracks(station_dir / "manifest.json")
-                                          if same_item(station_dir / "manifest.json") else None).items()}
-    return ReusePlan(library_names=library_names,
-                     library=_pair(show, library_tracks if same_item(lib_manifest) else None),
-                     station=station,
-                     identifier=show.identifier if show is not None else None)
+    problem: str | None = None
+    if station_dir is None:
+        if strict:
+            problem = "no delivery_path in config"
+    else:
+        if strict:
+            try:
+                read_station_manifest(station_dir)
+            except StationUnreadable as exc:
+                problem = exc.detail or str(exc)
+        st_manifest = station_dir / "manifest.json"
+        st_tracks = _manifest_tracks(st_manifest)
+        paired = _pair(show, st_tracks if same_item(st_manifest) else None)
+        if not paired and anchor is not None and _manifest_identifier(st_manifest) == anchor[0]:
+            paired = _pair_anchor(anchor[1], st_tracks)
+        station = {src: station_dir / "audio" / name for src, name in paired.items()}
+    return ReusePlan(library_names=library_names, library=library, station=station,
+                     identifier=show.identifier if show is not None else None,
+                     strict=strict, station_problem=problem)
+
+
+def check_pairs(plan: ReusePlan, show_ws: ShowWorkspace) -> None:
+    """Strict only (a no-op otherwise): refuse a station copy that cannot be read
+    (`StationUnreadable`), and refuse when nothing pairs: the station pairing is
+    empty and no library pairing names a file in `package/audio/`."""
+    if not plan.strict:
+        return
+    if plan.station_problem is not None:
+        exc = StationUnreadable(
+            f"{show_ws.dir.name}: station copy unreadable: {plan.station_problem}")
+        exc.detail = plan.station_problem
+        raise exc
+    audio = show_ws.package_dir / "audio"
+    if not plan.station and not any((audio / name).is_file() for name in plan.library.values()):
+        raise unpaired(show_ws, "no copy pairs")
+
+
+def write_anchor_if_absent(show_ws: ShowWorkspace) -> bool:
+    """Write the anchor from the current show.json unless one exists (the first
+    one is the list the existing copies were packaged from, so it is never
+    replaced). False when an anchor exists or there is no readable show.json."""
+    if show_ws.reuse_anchor.exists():
+        return False
+    try:
+        show = read_model(show_ws.show, Show)
+    except Exception:
+        return False
+    data = {"identifier": show.identifier,
+            "tracks": [{"filename": t.filename, "title": t.title} for t in show.tracks],
+            "written_at": datetime.now(timezone.utc).isoformat()}
+    atomic_write_bytes(show_ws.reuse_anchor, json.dumps(data, indent=2).encode())
+    return True
+
+
+def drop_anchor(show_ws: ShowWorkspace) -> None:
+    show_ws.reuse_anchor.unlink(missing_ok=True)
 
 
 def _aside(show_ws: ShowWorkspace) -> Path:

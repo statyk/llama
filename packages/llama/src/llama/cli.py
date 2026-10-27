@@ -5,12 +5,12 @@ import sys
 import tempfile
 import textwrap
 import traceback
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Literal
+from typing import Iterator, Literal
 
 import typer
 from typer.core import TyperGroup
@@ -22,19 +22,21 @@ from herder.usage import read_usage
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
-from llama.audio_reuse import plan_reuse
+from llama import audio_reuse
+from llama.audio_reuse import StationUnpaired, plan_reuse, write_anchor_if_absent
 from llama.catalog import library_performance_ids
 from llama.cli_select import ShowState
 from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
 from llama.download_slots import DownloadSlots
 from llama.errors import LlamaError
 from llama.ia_client import IAClient, IAError
-from llama.ledger import Ledger
+from llama.ledger import Ledger, is_delivered
 from llama.locks import Locked, RunMissing, file_lock, run_is_live, run_lock
-from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
+from llama.models import Criteria, LedgerEntry, Overrule, ShortlistEntry, Show
+from llama.overrules import merge_rules, records_for
 from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
-from llama import pacing_state
+from llama import campaign, pacing_state, station_mark
 from llama.pacing import (PaceOptions, PauseUntil, Proceed, Progress,
                           binding_forecast, decide, duration_arg, format_delta,
                           pace_options, resume_at, sleep_until)
@@ -1480,12 +1482,15 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
                     narration=None,
                     venue=_UNSET, city=_UNSET, date=_UNSET, set_titles=None,
                     clear_titles=(), set_breaks=_UNSET, clear_set_breaks=False,
-                    encore_after=_UNSET, clear_encore=False):
+                    encore_after=_UNSET, clear_encore=False,
+                    add_overrules: Sequence[Overrule] = ()):
     """Apply one edit to `overrides.json`. The positional arguments take TRACK
     NUMBERS, the `show.json` numbering the operator saw (`show --tracks`), and are
     stored as that track's filename (piece 4 spec 4.2 "Writers take track
     numbers"): `set_titles` keys, `set_breaks` items, `encore_after`, and the
     all-digit `clear_titles` items (any other item is a filename, removed as given).
+    `add_overrules` are merged into `overrules` (`overrules.merge_rules`: a record
+    already present is not added twice); every recorded overrule is kept as it is.
     Refuses (LlamaError, nothing written) a legacy or mixed file, a number outside
     `show.json`'s track list, and a number to translate with no `show.json`."""
     from llama.workspace import read_overrides
@@ -1542,6 +1547,7 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
         "include": include,
         "narration": narration or ov.narration,
         "titles": titles,
+        "overrules": merge_rules(ov.overrules, add_overrules),
     })
     if venue is not _UNSET:
         data = data.model_copy(update={"venue": venue})
@@ -1657,8 +1663,18 @@ def _resolve_include_tokens(show_ws, tokens) -> list[str]:
     return out
 
 
-def _clear_hold(show_ws):
+def _clear_hold(show_ws, *, record: str | None = None):
+    """Clear the show's hold. With `record` (the `source`: "fix", "triage" or
+    "untitled"), the flags being cleared are first recorded as overrules in
+    `overrides.json` (bulk-apply spec "Overrules persist"), so a re-gather turns them
+    into notes instead of re-holding; package-family flags are not recorded. None
+    (accept-vague) records nothing."""
     s = read_model(show_ws.show, Show)
+    if record is not None:
+        rules = records_for(s.review_flags, s, source=record,
+                            at=datetime.now(timezone.utc).isoformat())
+        if rules:
+            _edit_overrides(show_ws, add_overrules=rules)
     s.needs_review = False
     s.review_flags = []
     write_artifact(show_ws.show, s)
@@ -1922,7 +1938,8 @@ def _untitled_counts(show: Show) -> tuple[int, int]:
     return sum(1 for t in show.tracks if t.title_source != "unresolved"), n
 
 
-def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
+def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView, *,
+                         allow_download: bool = False
                          ) -> tuple[Literal["declined", "held", "packaged"], Path | None]:
     """The operator route for a tape with no resolved titles (spec Slice 7).
 
@@ -1949,12 +1966,14 @@ def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
                         narration="vague", set_breaks=[], clear_encore=True)
         lines.append(f"{entry.slug}: untitled resolution written")
         pkg = _redo_show_locked(config, ia, ledger,
-                                _resolve_show(config, ledger, entry.slug), "gather")
+                                _resolve_show(config, ledger, entry.slug), "gather",
+                                allow_download=allow_download)
         if pkg is None:
-            _clear_hold(entry.ws)
+            _clear_hold(entry.ws, record="untitled")
             lines.append(f"{entry.slug}: remaining flags overruled")
             pkg = _redo_show_locked(config, ia, ledger,
-                                    _resolve_show(config, ledger, entry.slug), "brief")
+                                    _resolve_show(config, ledger, entry.slug), "brief",
+                                    allow_download=allow_download)
     for line in lines:
         typer.echo(line)
     return ("packaged", pkg) if pkg else ("held", None)
@@ -2083,7 +2102,7 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
                 _clear_hold(entry.ws)
             stage = "brief"
         elif choice == "o":
-            edit = lambda: _clear_hold(entry.ws)  # noqa: E731
+            edit = lambda: _clear_hold(entry.ws, record="triage")  # noqa: E731
             stage = "package"
         elif choice == "t" and suggest_titles_offered:
             # Shares `_propose_and_confirm_titles`/`_propose_titles_for_show`
@@ -2248,9 +2267,9 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
             typer.echo(f"  - {f}")
         typer.echo(f"to overrule after inspecting: llama fix {entry.slug} --overrule")
     notes = _read_show_notes(sws)
-    if notes.gather or notes.vet:
+    if notes.gather or notes.vet or notes.brief:
         typer.echo("notes:")
-        for line in notes.gather + notes.vet:
+        for line in notes.gather + notes.vet + notes.brief:
             typer.echo(f"  - {line}")
     if show_tracks:
         for line in _format_tracks(s):
@@ -2561,6 +2580,48 @@ class _VoicedDestination(LlamaError):
         return self._text("re-deliver it by name with")
 
 
+class _EqualMarkedCopy(LlamaError):
+    """`--replace-voiced` on a marked, voiced destination whose re-processed show
+    equals it (bulk-apply spec, the `--replace-voiced` paragraph): replacing would
+    discard a voicing for nothing; the clear command keeps it."""
+
+    def __init__(self, slug: str):
+        super().__init__(f"refusing to replace {slug}: the re-processed show equals the "
+                         f"voiced station copy; keep the voicing with: llama clear-mark {slug}")
+
+
+def _library_manifest(show_dir: Path) -> dict | None:
+    """The library package's manifest as raw JSON, or None when it is missing or
+    unreadable (the deliver gate and the copy then refuse as before)."""
+    try:
+        m = json.loads((show_dir / "package" / "manifest.json").read_text())
+    except (OSError, ValueError):
+        return None
+    return m if isinstance(m, dict) else None
+
+
+class _AwaitingFix(LlamaError):
+    """`_deliver_one`'s refusal of a show marked for re-processing and not yet
+    processed (bulk-apply spec, "The library side")."""
+
+
+def _awaiting_fix_check(config, show_ws, slug: str) -> None:
+    """Raise `_AwaitingFix` for a marked, unprocessed show. An unreadable
+    campaign.json raises `CampaignUnreadable` (a LlamaError): never "no record"."""
+    rec = campaign.read_record(show_ws)
+    if not campaign.awaiting_fix(rec):
+        return
+    mark = campaign.last_mark(rec)
+    if mark.start_stage == "select":
+        pointer = f"  re-process it first: llama redo {slug} --from select"
+    else:
+        extra = " --with-gather-llm" if slug in campaign.frozen_slugs(config.root) else ""
+        pointer = (f"  re-process it first: llama reapply {slug} "
+                   f"--allow-structure-change{extra}")
+    raise _AwaitingFix(f"refusing to deliver {slug}: awaiting fix "
+                       f"(marked {mark.at}: {mark.reason})\n{pointer}")
+
+
 def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     """Copy one resolved show's package to `dest` (or config.delivery_path)
     and record the delivery in the ledger; returns the destination path.
@@ -2572,7 +2633,11 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     fresh, unvoiced copy. An unvoiced destination whose track list differs
     from the package's is replaced wholesale too (spec 5.5), so no
     old-numbered file survives beside the new manifest; one with the same
-    list, or with no manifest at all, is overlaid as before."""
+    list, or with no manifest at all, is overlaid as before. A destination
+    carrying a station mark (`awaiting_fix`) is always replaced wholesale, so
+    the mark goes only with a complete copy; `replace_voiced` on a marked
+    destination whose re-processed show equals it refuses and names
+    `llama clear-mark` (bulk-apply spec, "It clears by re-delivery")."""
     import json as _json
 
     from llama.catalog import deliver_refusals
@@ -2583,14 +2648,24 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     if target_dir is None:
         raise LlamaError("no --dest given and no delivery_path in config")
     with file_lock(show_ws.lock):
+        _awaiting_fix_check(config, show_ws, entry.slug)   # first, before the voiced check
         out = target_dir / show_dir.name
         dest_manifest = _read_destination_manifest(out)   # LlamaError: unreadable, refuse
         voiced = dest_manifest is not None and dest_manifest.get("dj_audio") is not None
+        marked = (dest_manifest is not None
+                  and station_mark.mark_of(dest_manifest) is not None)
         # Ahead of the gate: deliver purged this show's audio, so the gate's
         # missing-audio pointer would send the operator to re-download a show
         # that this refusal then turns away regardless.
         if voiced and not replace_voiced:
             raise _VoicedDestination(entry.slug, out)
+        if voiced and marked:
+            # Ahead of the gate too, for the same reason. A library manifest that
+            # cannot be read is left to the gate.
+            library = _library_manifest(show_dir)
+            if library is not None and not station_mark.manifest_differences(
+                    library, dest_manifest):
+                raise _EqualMarkedCopy(entry.slug)
         reasons = deliver_refusals(show_ws)
         if reasons:
             message = f"refusing to deliver {entry.slug}: {'; '.join(reasons)}"
@@ -2599,8 +2674,9 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
         manifest = _json.loads((pkg / "manifest.json").read_text())
         _sweep_swap_leftovers(target_dir, show_dir.name)
         dest_files = None if dest_manifest is None else _track_filenames(dest_manifest)
-        if voiced or (dest_manifest is not None
-                      and (dest_files is None or dest_files != _track_filenames(manifest))):
+        if voiced or marked or (dest_manifest is not None
+                                and (dest_files is None
+                                     or dest_files != _track_filenames(manifest))):
             _replace_destination(pkg, out, target_dir)
         else:
             shutil.copytree(pkg, out, dirs_exist_ok=True)
@@ -2622,7 +2698,13 @@ def _purge_after_delivery(show_ws, out: Path, slug: str) -> None:
     skipped or partial purge only warns, and keeps what it kept."""
     from llama import catalog
 
-    r = catalog.purge_package_audio(show_ws, out)
+    _echo_purge(catalog.purge_package_audio(show_ws, out), slug)
+
+
+def _echo_purge(r, slug: str) -> None:
+    """deliver's three purge messages (purged / partly purged / kept)."""
+    from llama import catalog
+
     if r.warning:
         typer.echo(f"warning: library audio for {slug} partly purged: {r.warning}", err=True)
     elif r.skipped:
@@ -2631,13 +2713,42 @@ def _purge_after_delivery(show_ws, out: Path, slug: str) -> None:
         typer.echo(f"library audio purged ({catalog.human_bytes(r.freed)} freed)")
 
 
-def _deliver_batch(config, ledger, sel, dest, yes) -> None:
+def _fixed_for_delivery(entry, target_dir: Path) -> bool:
+    """`deliver --fixed`: not awaiting fix, the campaign record processed, and the
+    station manifest marked. A station manifest that cannot be read is kept, so
+    the batch lists it as refused rather than dropping it silently. Unlocked, like
+    every selector read; `_deliver_one` re-checks only the awaiting-fix refusal
+    under the show lock (not the processed or marked tests)."""
+    if entry.awaiting_fix:
+        return False
+    try:
+        rec = campaign.read_record(entry.ws)
+    except campaign.CampaignUnreadable:
+        return False
+    if rec is None or rec.processed is None:
+        return False
+    try:
+        m = _read_destination_manifest(target_dir / entry.ws.dir.name)
+    except LlamaError:
+        return True
+    return m is not None and station_mark.mark_of(m) is not None
+
+
+def _deliver_batch(config, ledger, sel, dest, yes, fixed: bool = False) -> None:
     """A selector batch. Never replaces a voiced destination: `deliver`
-    refuses `--replace-voiced` with any selector (spec 5.5)."""
+    refuses `--replace-voiced` with any selector (spec 5.5). `fixed` keeps only
+    the shows `_fixed_for_delivery` accepts (bulk-apply spec, "Delivery after
+    the fix")."""
     from llama.catalog import iter_shows
     from llama.cli_select import HELD_NOTE, apply_selector, split_held
 
     entries = apply_selector(iter_shows(config.root, ledger), sel)
+    if fixed:
+        station = dest or config.delivery_path
+        if station is None:
+            typer.echo("no --dest given and no delivery_path in config", err=True)
+            raise typer.Exit(1)
+        entries = [e for e in entries if _fixed_for_delivery(e, station)]
     kept, dropped = split_held(entries, sel)
     if dropped:
         typer.echo(HELD_NOTE.format(n=len(dropped)))
@@ -2647,10 +2758,15 @@ def _deliver_batch(config, ledger, sel, dest, yes) -> None:
     marks: dict[str, str] = {}
     note = None
     unreadable: set[str] = set()
+    awaiting = {e.slug for e in kept if e.awaiting_fix}
+    for slug in awaiting:
+        marks[slug] = "  (refused: awaiting fix)"
     target_dir = dest or config.delivery_path
     if target_dir is not None:
         voiced = []
         for e in kept:
+            if e.slug in awaiting:
+                continue
             try:
                 if _destination_is_voiced(target_dir / e.ws.dir.name):
                     voiced.append(e.slug)
@@ -2667,6 +2783,18 @@ def _deliver_batch(config, ledger, sel, dest, yes) -> None:
     for e in kept:
         if e.slug in unreadable:
             continue
+        if e.slug in awaiting:
+            # Same refusal text as by name (also names an unreadable record).
+            try:
+                with file_lock(e.ws.lock):
+                    _awaiting_fix_check(config, e.ws, e.slug)
+            except LlamaError as exc:
+                typer.echo(str(exc), err=True)
+                continue
+            # Processed since the scan: the plan line above said refused, the show
+            # is delivered after all.
+            marks.pop(e.slug, None)
+            typer.echo(f"{e.slug}: processed since the plan was listed; delivering")
         try:
             out = _deliver_one(config, ledger, e, dest)
         except _VoicedDestination as exc:
@@ -2693,6 +2821,10 @@ def deliver(
     profile: list[str] = typer.Option(
         [], "--profile", autocompletion=_complete_profile,
         help="Selector: shows acquired by this standing profile (exact name; repeatable)"),
+    fixed: bool = typer.Option(
+        False, "--fixed",
+        help="Selector: shows re-processed since their station copy was marked "
+             "awaiting fix (station marked, library fixed)"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
     replace_voiced: bool = typer.Option(
         False, "--replace-voiced",
@@ -2706,11 +2838,14 @@ def deliver(
     review. None of these three legs is overridable. A destination emcee has
     already voiced is refused (re-delivering would un-voice it) unless
     --replace-voiced, which swaps in a fresh, unvoiced copy and takes one
-    named show only, never a selector.
+    named show only, never a selector. A station copy marked awaiting fix is
+    always replaced wholesale, which clears the mark; on a voiced one,
+    --replace-voiced refuses when the re-processed show equals it (keep the
+    voicing with `llama clear-mark`).
     """
     from llama.cli_select import build_selector
 
-    other_selector = any([held, packaged, state, artist, run, profile])
+    other_selector = any([held, packaged, state, artist, run, profile, fixed])
     if replace_voiced and other_selector:
         typer.echo("--replace-voiced takes one named show, never a selector", err=True)
         raise typer.Exit(1)
@@ -2740,11 +2875,154 @@ def deliver(
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
     _note_unknown_profiles(config, profile)
-    _deliver_batch(config, ledger, sel, dest, yes)
+    _deliver_batch(config, ledger, sel, dest, yes, fixed=fixed)
+
+
+# --- clear-mark (bulk-apply spec, "Clearing without re-delivery is only for voiced
+# destinations, one named show at a time") ------------------------------------------
+
+# `catalog.purge_package_audio`'s skip when the station's track list is not the
+# library's: after `--accept-change` that is the expected outcome, not a warning.
+_PURGE_SKIP_TRACKS_DIFFER = "station copy is a different package version"
+
+
+def _processed_since_mark(rec, mark: dict) -> bool:
+    """The record is processed after its last mark AND after the station's
+    `marked_at`. A missing record or processing, or an unparseable processing
+    time, is not processed; a station `marked_at` that is absent or unparseable
+    (a malformed mark) leaves the record's own mark as the test."""
+    if rec is None or rec.processed is None or campaign.awaiting_fix(rec):
+        return False
+    done = campaign._parse(rec.processed.at)
+    if done is None:
+        return False
+    at = mark.get("marked_at")
+    marked = campaign._parse(at) if isinstance(at, str) else None
+    return marked is None or not done < marked
+
+
+def _station_state(out: Path) -> str:
+    """After a failed clear: what the station copy holds now, for the error line."""
+    try:
+        _, data = station_mark.read_station_manifest(out)
+    except LlamaError:
+        return "check the station copy by hand"
+    if station_mark.mark_of(data) is not None:
+        return "the station copy still carries the mark (retry)"
+    return "the station copy no longer carries the mark; check it by hand"
+
+
+def _clear_mark_one(config, entry, accept_change: bool) -> None:
+    """Clear one voiced station copy's `awaiting_fix` mark, keeping its voicing,
+    when the re-processed library show equals it (or `accept_change`). Under the
+    show lock; every refusal raises LlamaError having written nothing, in the
+    plan's order: station copy unreadable, not marked, unvoiced, not processed
+    since the mark (an unreadable campaign.json refuses here too), held, library
+    manifest changed since processing, differences without `accept_change`,
+    emcee running. The station write is `station_mark.clear_mark`; the outcome
+    is recorded only after it succeeded, and a failed record write puts the
+    station mark back. Then the library audio is purged as deliver purges it."""
+    import hashlib
+
+    from llama import catalog
+
+    show_ws, slug = entry.ws, entry.slug
+    if config.delivery_path is None:
+        raise LlamaError("no delivery_path in config")
+    out = config.delivery_path / show_ws.dir.name
+    with file_lock(show_ws.lock):
+        _, station = station_mark.read_station_manifest(out)     # StationUnreadable
+        mark = station_mark.mark_of(station)
+        if mark is None:
+            raise LlamaError(f"{slug}: the station copy is not marked; nothing to clear")
+        if station.get("dj_audio") is None:
+            raise LlamaError(f"{slug}: unvoiced destination; re-deliver it instead: "
+                             f"llama deliver {slug}")
+        rec = campaign.read_record(show_ws)                       # CampaignUnreadable
+        if not _processed_since_mark(rec, mark):
+            raise LlamaError(f"{slug}: awaiting fix; re-process it first")
+        try:
+            held = show_ws.show.exists() and read_model(show_ws.show, Show).needs_review
+        except (OSError, ValueError) as exc:
+            raise LlamaError(f"{slug}: cannot read show.json "
+                             f"({' '.join(str(exc).split())}); check it by hand") from exc
+        if held:
+            raise LlamaError(f"{slug}: held for review")
+        sha = rec.processed.manifest_sha256
+        library = _library_manifest(show_ws.dir)
+        if sha is None or campaign.manifest_sha256(show_ws) != sha or library is None:
+            raise LlamaError(f"{slug}: the library package changed since it was "
+                             "processed; re-process it")
+        diffs = station_mark.manifest_differences(library, station)
+        if diffs and not accept_change:
+            raise LlamaError(f"{slug}: the station copy differs: {', '.join(diffs)}; "
+                             "pass --accept-change if the change is cosmetic")
+        running = station_mark.emcee_running()
+        if running:
+            raise LlamaError("\n".join(["refusing: emcee is running",
+                                        *(f"  {line}" for line in running)]))
+        try:
+            before, after = station_mark.clear_mark(out)
+        except OSError as exc:       # e.g. a dropped mount under `_swap_in`
+            raise LlamaError(f"{slug}: could not clear the station mark: "
+                             f"{' '.join(str(exc).split())}; {_station_state(out)}") from exc
+        outcome = "change accepted" if diffs else "equal"
+        try:
+            campaign.add_clear(show_ws, outcome)
+        except (OSError, LlamaError) as exc:
+            try:
+                station_mark.put_back(out, expect_sha256=hashlib.sha256(after).hexdigest(),
+                                      data=before)
+                what = "the station mark was put back"
+            except (OSError, LlamaError) as exc2:
+                what = (f"the station mark could not be put back "
+                        f"({' '.join(str(exc2).split())}); the station copy is cleared "
+                        "and the record says nothing: check both by hand")
+            raise LlamaError(f"{slug}: could not record the clear "
+                             f"({' '.join(str(exc).split())}); {what}") from exc
+        typer.echo("mark cleared; the voicing is kept")
+        if diffs:
+            typer.echo(f"change accepted: {', '.join(diffs)}")
+        r = catalog.purge_package_audio(show_ws, out)
+        if diffs and r.skipped == _PURGE_SKIP_TRACKS_DIFFER:
+            typer.echo("library audio kept (track lists differ)")
+        else:
+            _echo_purge(r, slug)
+
+
+@app.command("clear-mark", rich_help_panel="Fix & ship",
+             short_help="Keep a voicing: clear a station copy's awaiting-fix mark "
+                        "when the re-processed show is unchanged.")
+def clear_mark_cmd(
+    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
+    accept_change: bool = typer.Option(
+        False, "--accept-change",
+        help="Clear even though the station copy differs from the re-processed show "
+             "(you judge the change cosmetic); the station copy airs as it is"),
+):
+    """Clear the `awaiting_fix` mark on one VOICED station copy without
+    re-delivering it, so its voicing is kept.
+
+    Refuses (writing nothing) unless the station copy is marked and voiced, the
+    show was re-processed since it was marked and is not held, the library
+    package is the one that processing built, and the library and station
+    manifests agree on the recording, venue, city, date, track list, titles,
+    set labels, segues and set breaks (or --accept-change), and no emcee is
+    running. An unvoiced copy is re-delivered instead (`llama deliver`). After
+    clearing, the library audio is purged as deliver purges it; after
+    --accept-change with a different track list it is kept.
+    """
+    config, _, ledger = _setup()
+    entry = _resolve_show(config, ledger, name)
+    try:
+        _clear_mark_one(config, entry, accept_change)
+    except LlamaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
 
 
 def _redo_show(config, ia, ledger, entry, from_stage: str, *,
-               with_research: bool = False) -> Path | None:
+               with_research: bool = False, allow_download: bool = False) -> Path | None:
     """Re-run one resolved show from `from_stage` onward as one restoring unit
     (see `show_unit`); returns the package path, or None if the show was
     held/skipped. A redo shows no content, so its view is read under the lock
@@ -2753,14 +3031,38 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
 
     with show_unit(entry.ws, None):
         return _redo_show_locked(config, ia, ledger, entry, from_stage,
-                                 with_research=with_research)
+                                 with_research=with_research, allow_download=allow_download)
+
+
+ALLOW_DOWNLOAD_HINT = ("  if the station copy cannot be fixed: "
+                       "re-run this one show with --allow-download")
+ALLOW_DOWNLOAD_ONE_SHOW = "--allow-download takes one named show"
+
+
+@contextmanager
+def _strict_refusal_hint() -> Iterator[None]:
+    """For a by-name command: a strict-reuse refusal prints its reason, then the
+    `--allow-download` hint, and exits 1. Enter it OUTSIDE the show unit, so the
+    unit has restored the show before anything prints."""
+    try:
+        yield
+    except (StationUnpaired, station_mark.StationUnreadable) as exc:
+        typer.echo(str(exc), err=True)
+        typer.echo(ALLOW_DOWNLOAD_HINT, err=True)
+        raise typer.Exit(1)
 
 
 def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
-                      with_research: bool = False) -> Path | None:
+                      with_research: bool = False, allow_download: bool = False) -> Path | None:
     """`_redo_show`'s body. The caller must already be inside a `show_unit`
     for `entry.ws` (this takes no lock). Raises LlamaError on a hand-built
-    show with no provenance, ShowChanged if the show was removed meanwhile."""
+    show with no provenance, ShowChanged if the show was removed meanwhile.
+
+    A delivered show's re-package is strict (bulk-apply spec "Audio reuse never
+    silently falls back") unless it re-selects or `allow_download`: it refuses
+    (`StationUnpaired`/`StationUnreadable`) rather than download audio the
+    station copy holds. A packaged or delivered show gets the reuse anchor
+    (written once) before its artifacts are dropped."""
     from llama.models import Provenance, QualityAssessment
     from llama.show_unit import ShowChanged
     from llama.workspace import drop_stage_artifacts, read_model
@@ -2772,11 +3074,18 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
         raise LlamaError(f"no provenance.json in {entry.ws.dir} - "
                          "reprocess it via its run first")
     prov = read_model(show_ws.provenance, Provenance)   # under the caller's lock
+    rec = campaign.read_record(show_ws)   # an unreadable record refuses before any spend
     keep_research = not with_research and from_stage in ("select", "gather")
+    delivered = is_delivered(ledger, prov.performance_id)
+    strict = delivered and from_stage != "select" and not allow_download
+    if delivered or (show_ws.package_dir / "manifest.json").exists():
+        write_anchor_if_absent(show_ws)   # the list the existing copies were packaged from
     # Spec 5.4: pair the existing audio with the CURRENT show.json and manifests
     # before the re-gather rewrites or drops them.
     reuse = plan_reuse(show_ws, config.delivery_path / show_ws.dir.name
-                       if config.delivery_path else None)
+                       if config.delivery_path else None, strict=strict)
+    # The station refusals now, not at package time after gather and brief spent.
+    audio_reuse.check_pairs(reuse, show_ws)
     drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
     # Keep the winnow assessment (quality_score + recording_complaints) so
     # select-recording still avoids complained-about recordings; override only
@@ -2789,12 +3098,17 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
                                          quality_score=0.0, rationale=prov.dossier))
     shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
     ws = RunWorkspace(config.root, prov.run)
-    return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
-                        prov.run, config.audio_format,
-                        setlistfm=make_client(config), structure_cfg=config.structure,
-                        jerrybase_enabled=config.jerrybase.enabled,
-                        selection_cfg=config.selection, profile=prov.profile,
-                        audio_reuse=reuse)
+    pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
+                       prov.run, config.audio_format,
+                       setlistfm=make_client(config), structure_cfg=config.structure,
+                       jerrybase_enabled=config.jerrybase.enabled,
+                       selection_cfg=config.selection, profile=prov.profile,
+                       audio_reuse=reuse)
+    mark = campaign.last_mark(rec)
+    if mark is not None and (SHOW_STAGE_ORDER.index(from_stage)
+                             <= SHOW_STAGE_ORDER.index(mark.start_stage)):
+        campaign.mark_processed(show_ws, held=pkg is None)   # last step of a committed re-gather
+    return pkg
 
 
 class NarrationMode(str, Enum):
@@ -3232,6 +3546,11 @@ def fix(
         False, "--overrule", help="Overrule a held show: clear needs-review and its flags"),
     no_run: bool = typer.Option(
         False, "--no-run", help="Stage the resolving redo instead of running it now"),
+    allow_download: bool = typer.Option(
+        False, "--allow-download",
+        help="Re-package without the strict station reuse, downloading whatever no "
+             "copy pairs (for a delivered show whose station copy is gone or cannot "
+             "be paired)"),
 ):
     """Edit one show's overrides.json / resolve its hold, then auto-run the
     correct redo (earliest-affected stage wins on combos). --no-run stages
@@ -3290,7 +3609,9 @@ def fix(
             typer.echo(f"{entry.slug}: --untitled applies only when every track is "
                        f"unresolved ({resolved} of {total} resolved)", err=True)
             raise typer.Exit(1)
-        status, pkg = _untitled_resolution(config, ia, ledger, entry, show, view)
+        with _strict_refusal_hint():
+            status, pkg = _untitled_resolution(config, ia, ledger, entry, show, view,
+                                               allow_download=allow_download)
         if status == "declined":
             typer.echo("declined; nothing written")
             return
@@ -3469,7 +3790,7 @@ def fix(
     real_edit = False
     lines: list[str] = []   # printed after the unit: nothing writes to stdout inside it
     pkg = None
-    with show_unit(sws, view):
+    with _strict_refusal_hint(), show_unit(sws, view):   # the hint prints after the restore
         if did_files:
             try:
                 add = _resolve_exclude_tokens(sws, exclude or [])
@@ -3516,7 +3837,7 @@ def fix(
             real_edit = True
         if overrule:
             if entry.state == "held":
-                _clear_hold(sws)
+                _clear_hold(sws, record="fix")
                 lines.append(f"{entry.slug}: hold cleared")
                 real_edit = True
             else:
@@ -3536,14 +3857,16 @@ def fix(
             real_edit = True
         if real_edit and not no_run:
             pkg = _redo_show_locked(config, ia, ledger,
-                                    _resolve_show(config, ledger, entry.slug), stage)
+                                    _resolve_show(config, ledger, entry.slug), stage,
+                                    allow_download=allow_download)
 
     for line in lines:
         typer.echo(line)
     if not real_edit:
         return   # e.g. a lone --overrule on a show that was never held
     if no_run:
-        typer.echo(f"staged; next: llama redo {entry.slug} --from {stage}")
+        typer.echo(f"staged; next: llama redo {entry.slug} --from {stage}"
+                   + (" --allow-download" if allow_download else ""))
         return
     typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
 
@@ -3674,12 +3997,20 @@ def redo(
         [], "--profile", autocompletion=_complete_profile,
         help="Selector: shows acquired by this standing profile (exact name; repeatable)"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
+    allow_download: bool = typer.Option(
+        False, "--allow-download",
+        help="One named show only: re-package without the strict station reuse, "
+             "downloading whatever no copy pairs (for a delivered show whose station "
+             "copy is gone or cannot be paired)"),
 ):
     """Re-run one show (--from STAGE), a selector batch, or a whole
     --run session -- the single re-execution verb (spec §7.1)."""
     from llama.cli_select import build_selector
 
     other_selector = any([held, packaged, state, artist, profile])
+    if allow_download and (name is None or run is not None or other_selector):
+        typer.echo(ALLOW_DOWNLOAD_ONE_SHOW, err=True)
+        raise typer.Exit(1)
     # Three-form grammar: positional show | --run SESSION | selectors -- exactly one.
     if name is not None and (run is not None or other_selector):
         typer.echo("give a show OR selectors, not both", err=True)
@@ -3712,8 +4043,9 @@ def redo(
             typer.echo(f"no provenance.json in {entry.ws.dir} - "
                        "reprocess it via its run first", err=True)
             raise typer.Exit(1)
-        pkg = _redo_show(config, ia, ledger, entry, from_stage,
-                         with_research=redo_research)
+        with _strict_refusal_hint():
+            pkg = _redo_show(config, ia, ledger, entry, from_stage,
+                             with_research=redo_research, allow_download=allow_download)
         if pkg:
             typer.echo(f"packaged: {pkg}")
         else:
@@ -3736,7 +4068,7 @@ def redo(
 
 
 @app.command(rich_help_panel="Fix & ship",
-             short_help="Re-process held shows offline with the replay harness's computation.")
+             short_help="Re-process shows offline with the replay harness's computation.")
 def reapply(
     names: list[str] = typer.Argument(None, help="Show slug(s), unique substring, or path"),
     from_list: Path = typer.Option(None, "--from-list",
@@ -3747,21 +4079,50 @@ def reapply(
         False, "--allow-structure-change",
         help="apply a show whose replay changes its sets/segues/breaks; "
              "check `llama show <name>` first"),
+    allow_download: bool = typer.Option(
+        False, "--allow-download",
+        help="one named delivered show only: download audio from archive.org when the "
+             "station copy cannot be re-used"),
+    with_gather_llm: bool = typer.Option(
+        False, "--with-gather-llm",
+        help="also re-process a show whose replay needs gather's own LLM calls "
+             "(extract_setlist, align_structure); spends LLM calls, never research"),
+    seven_day_ceiling: float = typer.Option(
+        None, "--seven-day-ceiling", min=0, max=100,
+        help="--from-list only: pause when the weekly meter passes this percent "
+             "(overrides [pacing] seven_day_ceiling for this run)"),
+    stop_at_points: int = typer.Option(
+        None, "--stop-at-points", min=1,
+        help="--from-list only: stop once the 5-hour meter has moved this many points "
+             "within one window (a trial block)"),
 ):
-    """Re-process held shows in place with exactly the replay harness's
+    """Re-process shows in place with exactly the replay harness's
     computation: gather and vet offline from the cache and the stored vetting
     extraction, the stored briefing reused when it still holds (else one fresh
-    brief), then the package, with show.json written last. A show that needs
-    any other LLM call is reported as needs-llm and left untouched."""
+    brief), then the package, with show.json written last. Held, briefed,
+    packaged and delivered shows; one whose change is invisible on air commits
+    show.json only (label-only / unchanged). A delivered show re-uses the station
+    copy's audio and refuses rather than download it (see --allow-download). A
+    show that needs any other LLM call is reported as needs-llm and left
+    untouched, unless --with-gather-llm lets it call gather's own LLM touchpoints
+    (a dry run never does)."""
     from llama import reapply as reapply_mod
 
     if names and from_list is not None:
         typer.echo("give show names or --from-list, not both", err=True)
         raise typer.Exit(1)
+    if allow_download and (from_list is not None or len(names or []) != 1):
+        typer.echo(ALLOW_DOWNLOAD_ONE_SHOW, err=True)
+        raise typer.Exit(1)
     if from_list is not None:
         _reapply_list(from_list, dry_run=dry_run,
-                      allow_structure_change=allow_structure_change)
+                      allow_structure_change=allow_structure_change,
+                      with_gather_llm=with_gather_llm,
+                      seven_day_ceiling=seven_day_ceiling, stop_at_points=stop_at_points)
         return
+    if seven_day_ceiling is not None or stop_at_points is not None:
+        typer.echo("--seven-day-ceiling and --stop-at-points take --from-list", err=True)
+        raise typer.Exit(1)
     if not names:
         typer.echo("give one or more shows (or --from-list)", err=True)
         raise typer.Exit(1)
@@ -3779,7 +4140,16 @@ def reapply(
             out = reapply_mod.reapply_show(config, ia, ledger, entry, providers=providers,
                                            row=None, dry_run=dry_run,
                                            echo=lambda s: typer.echo(s, err=True),
-                                           allow_structure_change=allow_structure_change)
+                                           allow_structure_change=allow_structure_change,
+                                           with_gather_llm=with_gather_llm,
+                                           allow_download=allow_download)
+        except (StationUnpaired, station_mark.StationUnreadable) as exc:
+            # A strict-reuse refusal (the unit has restored the show): the reason,
+            # then the one-show escape hatch.
+            typer.echo(f"FAILED {slug}: {exc}", err=True)
+            typer.echo(ALLOW_DOWNLOAD_HINT, err=True)
+            failed = True
+            continue
         except (LlamaError, HerderError, IAError, TaskFailed) as exc:
             typer.echo(f"FAILED {slug}: {exc}", err=True)
             failed = True
@@ -3817,13 +4187,32 @@ def _meter_pct(reading) -> str:
     return str(reading.five_hour.percent)
 
 
-def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = False) -> None:
+def _meter_row(reading) -> dict:
+    """A progress row's meter reading: whole percents and reset instants, null when absent."""
+    def one(m):
+        return (None, None) if m is None else (
+            m.percent, m.resets_at.isoformat() if m.resets_at is not None else None)
+    five, seven = (one(getattr(reading, "five_hour", None)),
+                   one(getattr(reading, "seven_day", None)))
+    return {"five_hour": five[0], "five_hour_resets": five[1],
+            "seven_day": seven[0], "seven_day_resets": seven[1]}
+
+
+def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = False,
+                  with_gather_llm: bool = False, seven_day_ceiling: float | None = None,
+                  stop_at_points: int | None = None) -> None:
     """`llama reapply --from-list` (spec slice 6 "Batch state"): resumable
     through `<root>/reapply/<list hash>/progress.jsonl`, a pacing gate before
     every show, and two stops -- a usage-limit refusal (clean, at the show
     boundary, nothing recorded for the interrupted show) and
     STOP_AFTER_LLM_FAILURES consecutive LLM failures of any other kind. Every
-    other per-show failure is recorded retryable and the batch goes on."""
+    other per-show failure is recorded retryable and the batch goes on.
+
+    A non-dry run first snapshots the batch's shows (`<batch>/snapshot/`, reused by
+    a re-run), records each write's after-state inside the show lock, stops after
+    STOP_AFTER_STATION_UNREADABLE consecutive unreadable station copies, and can
+    end a trial block (`--stop-at-points`)."""
+    from llama import batch_snapshot, campaign_gate
     from llama import reapply as reapply_mod
     from llama.catalog import CatalogEntry, derive_state, needs_audio_download
     from llama.replay import code_identity, config_fingerprint
@@ -3837,29 +4226,128 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
     rows = data["rows"]
+    campaign_doc = data.get("campaign")
+    if campaign_doc is not None:
+        try:
+            campaign_gate.require_tools(lambda s: typer.echo(s, err=True), pin=campaign_doc)
+        except LlamaError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1)
+    station_root = config.delivery_path
+    if not dry_run and station_root is not None and not station_root.is_dir():
+        # Strict station reuse would otherwise fail every row only after its
+        # gather/brief LLM spend.
+        typer.echo(f"station root {station_root} is not a directory; "
+                   "is the station mounted?", err=True)
+        raise typer.Exit(1)
     batch = reapply_mod.batch_dir(config.root, path)
+    snap = batch / "snapshot"
     if not dry_run:
+        if snap.exists():
+            # Before any write or spend: an unusable snapshot would make every
+            # record_after raise inside the unit, each show paying its brief only
+            # to be rolled back.
+            problems = batch_snapshot.verify(snap)
+            if problems:
+                typer.echo(f"refusing to run batch {batch.name}: its snapshot is unusable "
+                           f"({problems[0]}); remove {snap} by hand to run without one, "
+                           "or restore from it first", err=True)
+                raise typer.Exit(1)
         set_capture_dir(config.root / "llm-failures")
+        fresh_batch = not (batch / "progress.jsonl").exists() and not snap.exists()
         batch.mkdir(parents=True, exist_ok=True)
         if not (batch / "list.json").exists():
             shutil.copyfile(path, batch / "list.json")
+        if fresh_batch:
+            try:
+                batch_snapshot.take(
+                    snap, config.root,
+                    [r["slug"] for r in rows if (config.root / "shows" / r["slug"]).is_dir()],
+                    station_root=station_root)
+            except LlamaError as exc:
+                typer.echo(str(exc), err=True)
+                raise typer.Exit(1)
+        elif not snap.exists():
+            typer.echo("warning: no snapshot for this batch (started before snapshots)")
+        if campaign_doc is not None:
+            campaign_gate.retire_rekey_restore(
+                config.root, by=f"bulk-apply wave {batch.name}",
+                at=datetime.now(timezone.utc).isoformat())
     progress = reapply_mod.read_progress(batch) if batch.is_dir() else {}
     finished = {s for s, r in progress.items() if not r.get("retryable", True)}
-    providers = make_providers(config)
-    pace = pace_options(config)
+    providers, llm_calls = count_llm_calls(make_providers(config))
+    pace = pace_options(config, seven_day_ceiling=seven_day_ceiling)
     state = pacing_state.read_state(config.root)
     delivered = {e.performance_id for e in ledger.entries() if e.status == "delivered"}
-    resume = f"resume with: llama reapply --from-list {path}"
+    # The command that continues THIS run: every option given is repeated, so a
+    # resumed pause keeps its ceiling and its allowances.
+    resume = (f"resume with: llama reapply --from-list {path}"
+              + (" --allow-structure-change" if allow_structure_change else "")
+              + (" --with-gather-llm" if with_gather_llm else "")
+              + (f" --seven-day-ceiling {seven_day_ceiling:g}"
+                 if seven_day_ceiling is not None else "")
+              + (f" --stop-at-points {stop_at_points}" if stop_at_points is not None else ""))
     consecutive, failed = 0, False
+    unreadable = 0
     n_finished = fresh = downloads = 0
+    block = None        # the trial block: [first before-reading, shows counted]
+    crossed_warned = False
 
-    def fail(slug: str, exc: Exception, text: str | None = None) -> None:
+    def trial(reading, after, spent: bool) -> None:
+        """Count the show into the trial block and end the block at the target.
+        Only a show during which an LLM provider was invoked (pacing's own
+        boundary rule), committed or failed, is a show that spent."""
+        nonlocal block, crossed_warned
+        if stop_at_points is None or reading is None or after is None \
+                or reading.five_hour is None or after.five_hour is None:
+            return
+        if block is None:
+            block = [reading.five_hour, 0]
+        block[1] += spent
+        start = block[0]
+        if after.five_hour.resets_at != start.resets_at:
+            if not crossed_warned:
+                typer.echo("warning: this block crossed a 5-hour reset; "
+                           "discard it and re-run")
+                crossed_warned = True
+        elif after.five_hour.percent - start.percent >= stop_at_points:
+            typer.echo(f"trial block done: 5h meter moved "
+                       f"{after.five_hour.percent - start.percent} points over "
+                       f"{block[1]} shows")
+            typer.echo(f"  {resume}")
+            raise typer.Exit(1 if failed else 0)
+
+    def fail(slug: str, exc: Exception, text: str | None = None, *,
+             reading=None, calls: int = 0) -> None:
         nonlocal failed
         failed = True
         text = text if text is not None else str(exc)
         typer.echo(f"FAILED {slug}: {text}", err=True)
         if not dry_run:
-            reapply_mod.record_progress(batch, slug, f"failed: {text}"[:300], retryable=True)
+            after = _meter(config, pace)
+            reapply_mod.record_progress(
+                batch, slug, f"failed: {text}"[:300], retryable=True,
+                extra={"llm_calls": calls,
+                       "meter": {"before": _meter_row(reading), "after": _meter_row(after)}})
+            trial(reading, after, calls > 0)
+
+    def after_hook(slug: str):
+        """The write's undo point, recorded inside the show lock (None: no snapshot)."""
+        if dry_run or not snap.exists():
+            return None
+
+        def hook(ws) -> None:
+            try:
+                batch_snapshot.record_after(snap, slug, config.root, station_root=station_root)
+            except LlamaError as exc:
+                if station_root is not None and not station_root.is_dir():
+                    # The mount dropped mid-wave: an unreadable station copy, so the
+                    # unit restores and the streak counts it.
+                    raise station_mark.StationUnreadable(
+                        f"{slug}: station copy unreadable: station root {station_root} "
+                        "is not a directory") from exc
+                raise
+        return hook
 
     for row in rows:
         slug = row["slug"]
@@ -3882,6 +4370,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             if not dry_run:
                 reapply_mod.record_progress(batch, slug, "skipped: missing", retryable=True)
             continue
+        calls_before = llm_calls()
         try:
             # Built per row, never via catalog.iter_shows: one unreadable show
             # anywhere in the library must not abort the whole batch.
@@ -3891,7 +4380,9 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             out = reapply_mod.reapply_show(config, ia, ledger, entry, providers=providers,
                                            row=row, dry_run=dry_run,
                                            echo=lambda s: typer.echo(s, err=True),
-                                           allow_structure_change=allow_structure_change)
+                                           allow_structure_change=allow_structure_change,
+                                           with_gather_llm=with_gather_llm,
+                                           after_commit=after_hook(slug))
         except RateLimited as exc:
             # Must stay above HerderError, which it subclasses. Nothing is
             # recorded: the interrupted show was not committed and re-runs.
@@ -3899,29 +4390,40 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             typer.echo(f"  {resume}")
             raise typer.Exit(1 if failed else 0)
         except (TaskFailed, HerderError) as exc:
-            fail(slug, exc)
+            fail(slug, exc, reading=reading, calls=llm_calls() - calls_before)
             consecutive += 1
             if consecutive >= reapply_mod.STOP_AFTER_LLM_FAILURES:
                 typer.echo(f"stopping after {consecutive} consecutive LLM failures; {resume}")
+                raise typer.Exit(1)
+            continue
+        except station_mark.StationUnreadable as exc:
+            # The unit has restored the show; the row stays retryable. Three in a
+            # row means the mount is gone, not three bad copies.
+            fail(slug, exc, reading=reading, calls=llm_calls() - calls_before)
+            unreadable += 1
+            if unreadable >= reapply_mod.STOP_AFTER_STATION_UNREADABLE:
+                typer.echo(f"stopping after {unreadable} consecutive unreadable station "
+                           f"copies (is the station mounted?); {resume}")
                 raise typer.Exit(1)
             continue
         except (IAError, LlamaError, ValueError, OSError) as exc:
             # ValueError covers pydantic's ValidationError and a JSON decode
             # error: a corrupt show.json/provenance.json/vetting.json/
             # overrides.json is this row's failure, never the batch's.
-            fail(slug, exc)
+            fail(slug, exc, reading=reading, calls=llm_calls() - calls_before)
             continue
         except Exception as exc:   # noqa: BLE001 - last resort, below every arm above
             # Anything else (a MutagenError tagging a download, a wrong-typed
             # reviews.json) is still this row's failure: one bad show must never
             # abort the batch, nor wedge every re-run on the same row.
-            fail(slug, exc, f"{type(exc).__name__}: {exc}")
+            fail(slug, exc, f"{type(exc).__name__}: {exc}", reading=reading,
+                 calls=llm_calls() - calls_before)
             continue
         if dry_run:
             predicted = out.outcome.removeprefix("dry-run: ")
             typer.echo(f"would: {slug} -> {predicted}")
-            if (out.outcome.startswith("dry-run: ") and predicted != "held"
-                    and not predicted.startswith("skipped")):
+            if (out.outcome.startswith("dry-run: ")
+                    and predicted in ("cleared", "needs-brief", "structure-changed")):
                 fresh += out.briefing == "fresh"
                 downloads += needs_audio_download(ws)
             continue
@@ -3935,15 +4437,23 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
         # --allow-structure-change (the structure list needs it too); a re-run
         # without it just skips the row again.
         skipped_structure = out.outcome == "skipped: structure changed"
-        reapply_mod.record_progress(batch, slug, out.outcome, retryable=skipped_structure)
+        if out.outcome in ("cleared", "held", "label-only", "unchanged"):
+            unreadable = 0
+        after = _meter(config, pace)
+        reapply_mod.record_progress(
+            batch, slug, out.outcome, retryable=reapply_mod.outcome_retryable(out.outcome, with_gather_llm),
+            extra={"kind": out.kind, "audio": out.audio,
+                   "llm_calls": llm_calls() - calls_before,
+                   "align_reproduced": out.align_reproduced,
+                   "meter": {"before": _meter_row(reading), "after": _meter_row(after)}})
         typer.echo(f"reapplied: {slug} -> {out.outcome}"
                    + (" (re-run with --allow-structure-change after checking)"
                       if skipped_structure else ""))
         if out.delivered and out.outcome == "cleared":
             _echo_redeliver_hint(config, slug)
         if _meter_applies(config, pace):
-            typer.echo(f"  meter: 5h {_meter_pct(reading)}% -> "
-                       f"{_meter_pct(_meter(config, pace))}%")
+            typer.echo(f"  meter: 5h {_meter_pct(reading)}% -> {_meter_pct(after)}%")
+        trial(reading, after, llm_calls() > calls_before)
     if dry_run:
         typer.echo(f"summary: {len(rows)} rows, {n_finished} already finished, {fresh} fresh "
                    f"briefs, {downloads} downloads (~175 MB each, "
@@ -4201,6 +4711,8 @@ def status(
     profile: list[str] = typer.Option(
         [], "--profile", autocompletion=_complete_profile,
         help="Selector: shows acquired by this standing profile (exact name; repeatable)"),
+    awaiting_fix: bool = typer.Option(
+        False, "--awaiting-fix", help="Selector: shows marked for re-processing and not yet fixed"),
     all_shows: bool = typer.Option(False, "--all", help="Include all delivered shows"),
     show_flags: bool = typer.Option(
         True, "--flags/--no-flags",
@@ -4221,7 +4733,8 @@ def status(
 
     try:
         sel = build_selector(held=held, packaged=packaged, states=state,
-                             artist=artist, run=run, profiles=profile)
+                             artist=artist, run=run, profiles=profile,
+                             awaiting_fix=awaiting_fix)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
@@ -4267,6 +4780,7 @@ def status(
                 "slug": e.slug, "state": e.state, "artist": e.artist, "date": e.date,
                 "run": e.provenance.run if e.provenance else None,
                 "flags": e.flags, "path": str(e.ws.dir),
+                "awaiting_fix": e.awaiting_fix,
                 "overrides": {"exclude": e.overrides.exclude, "narration": e.overrides.narration},
             } for e in entries],
         }, indent=2))
@@ -4277,6 +4791,8 @@ def status(
     for e in entries:
         run_name = e.provenance.run if e.provenance else "?"
         marks = []
+        if e.awaiting_fix:
+            marks.append("awaiting-fix")
         if e.overrides.narration == "vague":
             marks.append("vague")
         if e.overrides.exclude:

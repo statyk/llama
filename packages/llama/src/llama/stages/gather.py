@@ -22,6 +22,7 @@ from llama.models import (AlignedStructure, AlignResult, JerrybaseEvent, Candida
                           ParsedSetlist,
                           SetlistItem, Show, ShowNotes, SourcedParse, StructureInfo, Track)
 from llama.override_keys import Positions, resolve_positions
+from llama.overrules import split_overruled
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
 from llama.siblings import DonorTape, SiblingRow, cplus_filter, propose_rows, rate_alignment
@@ -1737,6 +1738,7 @@ def compute_gather(
     structure_cfg: StructureConfig | None = None,
     jerrybase_enabled: bool = False,
     enabled_slices: frozenset[str] = title_hygiene.ENABLED_SLICES,
+    llm_failures_raise: bool = False,
 ) -> GatherResult:
     """Gather without the writes: `run_gather` minus `should_run` and the
     three artifacts. Reads `overrides.json` from `show_ws` and nothing else
@@ -1748,7 +1750,13 @@ def compute_gather(
 
     `enabled_slices` is the set of title-hygiene slices `title_cascade` runs
     (default `title_hygiene.ENABLED_SLICES`); `frozenset()` is the title block
-    as it stood before piece 3. `run_gather` never passes it; harnesses do."""
+    as it stood before piece 3. `run_gather` never passes it; harnesses do.
+
+    `llm_failures_raise` (bulk-apply Task 10, `reapply --with-gather-llm`): a
+    `TaskFailed`/`HerderError` from the `align_structure` call re-raises instead of
+    degrading to the `low-confidence structure alignment` flag (the
+    `extract_setlist` call already raises). Default False: every other caller
+    keeps today's degradation. `RateLimited` always re-raises."""
     structure_cfg = structure_cfg or StructureConfig()
     # Operator-facing notes for notes.json are `op_notes` below, deliberately a
     # SEPARATE list from the local `notes`, which keeps flowing into
@@ -1938,6 +1946,8 @@ def compute_gather(
                     # pick up - not recorded as a per-show failure.
                     raise
                 except (TaskFailed, HerderError) as err:
+                    if llm_failures_raise:
+                        raise
                     log.warning("align_structure failed: %s", err)
             else:
                 # Reached and not taken: the flag below is still appended
@@ -2219,12 +2229,27 @@ def compute_gather(
         review_flags=flags,
         structure=structure_info,
     )
+    # Overrules (bulk-apply spec "Overrules persist"): every flag above is computed as
+    # before; one matching a recorded overrule becomes an `overruled: <flag>` operator
+    # note instead of a hold. Split on the built `show` (the `titles` key reads its
+    # unresolved tracks), last, so later extensions of this function keep it last.
+    show = _apply_overrules(show, overrides.overrules, op_notes)
     needs_llm = tuple(name for name, hit in (("extract_setlist", cb.needs_llm),
                                              ("align_structure", needs_align)) if hit)
     return GatherResult(show=show, reviews=md.get("reviews", []), notes=op_notes,
                         needs_llm=needs_llm, taper_owned=taper_owned, taper=decision,
                         step1_alignment=step1_alignment, self_filled=cascade.self_filled,
                         title_paths=title_paths, title_record=cascade.record)
+
+
+def _apply_overrules(show: Show, rules, op_notes: list[str]) -> Show:
+    """`show` with its flags that match a recorded overrule moved to `op_notes`
+    (appended, in flag order) and `needs_review` recomputed from what still holds."""
+    held, noted = split_overruled(show.review_flags, rules, show)
+    if not noted:
+        return show
+    op_notes.extend(noted)
+    return show.model_copy(update={"review_flags": held, "needs_review": bool(held)})
 
 
 def run_gather(

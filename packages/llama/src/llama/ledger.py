@@ -59,3 +59,10 @@ class Ledger:
             if cur is None or e.recorded_at >= cur.recorded_at:
                 latest[e.performance_id] = e
         return sorted(latest.values(), key=lambda e: e.recorded_at)
+
+
+def is_delivered(ledger: "Ledger", performance_id: str) -> bool:
+    """The ledger records the performance as delivered (one helper for `redo`,
+    `fix`, triage and `reapply`)."""
+    return any(e.status == "delivered" and e.performance_id == performance_id
+               for e in ledger.entries())

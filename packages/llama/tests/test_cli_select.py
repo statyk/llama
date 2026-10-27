@@ -152,3 +152,13 @@ def test_build_selector_profile_is_active():
     sel = build_selector(profiles=["funk", "jam"])
     assert sel.profiles == frozenset({"funk", "jam"}) and selector_active(sel)
     assert not selector_active(build_selector(profiles=[]))
+
+
+def test_awaiting_fix_selector():
+    a = e("a", "packaged")
+    a.awaiting_fix = True
+    b = e("b", "packaged")
+    sel = build_selector(awaiting_fix=True)
+    assert sel.awaiting_fix and selector_active(sel)
+    assert [x.slug for x in apply_selector([a, b], sel)] == ["a"]
+    assert not build_selector().awaiting_fix

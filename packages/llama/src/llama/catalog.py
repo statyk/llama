@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from llama import campaign
 from llama.errors import LlamaError
 from llama.ledger import Ledger
 from llama.locks import file_lock
@@ -41,6 +42,7 @@ class CatalogEntry:
     artist: str = ""
     date: str = ""
     overrides: Overrides = field(default_factory=Overrides)
+    awaiting_fix: bool = False            # an unreadable campaign.json counts as awaiting
 
 
 # (artifact attribute, depth, state name) from shallowest to deepest.
@@ -307,15 +309,19 @@ def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
             artist, date = prov.candidate.collection, prov.candidate.date
         entries.append(CatalogEntry(slug=d.name, ws=ws, state=state, flags=flags,
                                     provenance=prov, artist=artist, date=date,
-                                    overrides=read_overrides(ws)))
+                                    overrides=read_overrides(ws),
+                                    awaiting_fix=campaign.is_awaiting(ws)))
     return entries
 
 
 def select_shows(entries: list[CatalogEntry], *, states: set[str] | None = None,
                  artist: str | None = None,
                  run: str | None = None,
-                 profiles: set[str] | frozenset[str] | None = None) -> list[CatalogEntry]:
+                 profiles: set[str] | frozenset[str] | None = None,
+                 awaiting_fix: bool = False) -> list[CatalogEntry]:
     out = list(entries)
+    if awaiting_fix:
+        out = [e for e in out if e.awaiting_fix]
     if states:
         out = [e for e in out if e.state in states]
     if artist:

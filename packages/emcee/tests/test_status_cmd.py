@@ -239,12 +239,13 @@ def test_status_summary_rows_counts_labels_and_order(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     lines = [ln.split() for ln in result.output.splitlines()]
-    assert lines[0] == ["profile", "presenter", "ready", "pending", "other", "voiced", "on"]
-    assert lines[1] == ["alpha", "dflt", "(default)", "1", "0", "0", "?", "1"]
-    assert lines[2] == ["beta", "bob", "1", "1", "0", "?", "1"]
-    assert lines[3] == ["(none)", "dflt", "(default)", "0", "1", "0"]
-    assert lines[4] == ["(unknown)", "0", "0", "1"]  # blank presenter
-    assert lines[5] == ["total", "2", "2", "1", "?", "2"]
+    assert lines[0] == ["profile", "presenter", "ready", "pending", "other",
+                        "awaiting", "fix", "voiced", "on"]
+    assert lines[1] == ["alpha", "dflt", "(default)", "1", "0", "0", "0", "?", "1"]
+    assert lines[2] == ["beta", "bob", "1", "1", "0", "0", "?", "1"]
+    assert lines[3] == ["(none)", "dflt", "(default)", "0", "1", "0", "0"]
+    assert lines[4] == ["(unknown)", "0", "0", "1", "0"]  # blank presenter
+    assert lines[5] == ["total", "2", "2", "1", "0", "?", "2"]
     assert len(lines) == 6
     assert "slug" not in result.output
 
@@ -740,3 +741,68 @@ def test_status_help_stays_short_and_has_no_eaten_markup(tmp_path, monkeypatch):
     assert len([ln for ln in before_options.splitlines() if ln.strip()]) <= 8
     assert "``" not in out
     assert "--tts" in out and "--drifted" in out
+
+
+# --- awaiting_fix ---------------------------------------------------------
+
+
+def _marked_station(tmp_path, monkeypatch):
+    from tests.helpers import mark_awaiting_fix
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=station)
+    return station, mark_awaiting_fix
+
+
+def test_marked_voiced_package_json_row_keeps_identity(tmp_path, monkeypatch):
+    station, mark = _marked_station(tmp_path, monkeypatch)
+    pkg = build_package(station, slug="m", voiced=True, profile="dead")
+    from tests.helpers import set_dj_audio
+    set_dj_audio(pkg, presenter=None, profile="dead", profile_source="llama",
+                 tts={"backend": "fake", "model": None, "voice": "v"})
+    mark(pkg)
+
+    row = json.loads(runner.invoke(app, ["status", "--json"]).stdout)[0]
+
+    assert row["state"] == "awaiting-fix"
+    assert row["awaiting_fix"].startswith("awaiting fix from llama: ")
+    assert row["voiced_by"] is not None
+    assert row["tts"] is not None
+    assert row["tts_now"] is not None
+
+
+def test_unmarked_json_row_has_null_awaiting_fix(tmp_path, monkeypatch):
+    station, _ = _marked_station(tmp_path, monkeypatch)
+    build_package(station, slug="u", voiced=False)
+    row = json.loads(runner.invoke(app, ["status", "--json"]).stdout)[0]
+    assert row["awaiting_fix"] is None
+
+
+def test_summary_counts_awaiting_fix_per_profile(tmp_path, monkeypatch):
+    station, mark = _marked_station(tmp_path, monkeypatch)
+    mark(build_package(station, slug="a1", voiced=True, profile="alpha"))
+    build_package(station, slug="a2", voiced=True, profile="alpha")
+    mark(build_package(station, slug="b1", voiced=False, profile="beta"))
+
+    lines = [ln.split() for ln in runner.invoke(app, ["status"]).output.splitlines()]
+
+    assert lines[0][:9] == ["profile", "presenter", "ready", "pending", "other",
+                            "awaiting", "fix", "voiced", "on"]
+    rows = {ln[0]: ln for ln in lines[1:]}
+    # ready, pending, other, awaiting fix
+    assert rows["alpha"][2:6] == ["1", "0", "0", "1"], rows["alpha"]
+    assert rows["beta"][2:6] == ["0", "0", "0", "1"], rows["beta"]
+    assert rows["total"][1:5] == ["1", "0", "0", "2"], rows["total"]
+
+
+def test_status_state_filter_accepts_awaiting_fix(tmp_path, monkeypatch):
+    station, mark = _marked_station(tmp_path, monkeypatch)
+    mark(build_package(station, slug="m", voiced=True))
+    build_package(station, slug="ok", voiced=True)
+
+    result = runner.invoke(app, ["status", "--state", "awaiting-fix"])
+
+    assert result.exit_code == 0, result.output
+    assert "m " in result.output and "awaiting fix from llama: " in result.output
+    assert "ok " not in result.output

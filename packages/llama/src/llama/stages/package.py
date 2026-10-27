@@ -1,7 +1,7 @@
 from dataclasses import replace
 from pathlib import Path
 
-from llama import audio_reuse
+from llama import audio_reuse, campaign
 from llama.audio import packaged_filename, read_duration, tag_audio
 from llama.errors import LlamaError
 from llama.manifest import build_manifest, m3u_text
@@ -28,7 +28,8 @@ FLAG_PREFIX = "duration mismatch on "
 
 def build_package(show_ws: ShowWorkspace, ia, show: Show,
                   force: bool = False, profile: str | None = None, *,
-                  reuse: audio_reuse.ReusePlan | None = None) -> tuple[Path, list[str]]:
+                  reuse: audio_reuse.ReusePlan | None = None,
+                  tally: dict[str, int] | None = None) -> tuple[Path, list[str]]:
     """Build the package (audio, briefing copies, research, reviews, m3u,
     manifest last) and return `(package dir, package-stage flags)`. Writes no
     `show.json`: `run_package` replaces its own flags with these, and `llama
@@ -48,11 +49,30 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
     downloaded; the aside is read only when this call made it, and
     `set_aside` refuses an aside that already exists. The caller's unit puts the aside back on failure and deletes
     it on success. `reuse=None` is the old behaviour; under `force` every
-    file downloads as before (the aside step still runs)."""
+    file downloads as before (the aside step still runs).
+
+    A strict plan (a delivered show's re-package, bulk-apply spec) first runs
+    `audio_reuse.check_pairs`, refuses another recording, and never downloads a
+    source paired at plan time: one with no cached metadata length, or whose
+    copy is not placed, refuses with `StationUnpaired`; only an unpaired
+    source downloads (under `force` too). `tally` counts files placed from a
+    copy ("reused") and downloaded; with a plan, one `audio reused R,
+    downloaded D` line is logged. The anchor is dropped after the manifest
+    write. An unreadable campaign record refuses before anything is written."""
     pkg = show_ws.package_dir
     manifest_path = pkg / "manifest.json"
     if manifest_path.exists() and not force:
         return pkg, []
+    campaign.read_record(show_ws)         # CampaignUnreadable now, not after the manifest write
+    if tally is not None:
+        tally.setdefault("reused", 0)
+        tally.setdefault("downloaded", 0)
+    strict = reuse is not None and reuse.strict
+    if strict:
+        audio_reuse.check_pairs(reuse, show_ws)
+        if reuse.identifier is not None and reuse.identifier != show.identifier:
+            raise audio_reuse.unpaired(show_ws, "a different recording")
+        paired = set(reuse.library) | set(reuse.station)   # the plan-time pairings
 
     audio_dir = pkg / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
@@ -79,19 +99,26 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
 
     packaged: list[ManifestTrack] = []
     flags: list[str] = []
+    reused = downloaded = 0
     for t in show.tracks:
         out_name = packaged_filename(t.index, t.title, Path(t.filename).suffix)
         dest = audio_dir / out_name
         if not dest.exists() or force:
             placed = None
-            if reuse is not None and not force:
+            if reuse is not None and (strict or not force):
                 placed = audio_reuse.reuse_into(dest, t.filename, lengths.get(t.filename), reuse,
                                                 show_ws, tolerance=DURATION_TOLERANCE_S)
+            if placed is None and strict and t.filename in paired:
+                if lengths.get(t.filename) is None:
+                    raise audio_reuse.unpaired(show_ws, f"{t.filename} has no metadata length")
+                raise audio_reuse.unpaired(show_ws, f"{t.filename} failed its length check")
             if placed is None:
                 detail(f"downloading {t.index}/{len(show.tracks)}: {t.filename}")
                 ia.download_file(show.identifier, t.filename, dest, md5=md5s.get(t.filename))
+                downloaded += 1
             else:
                 detail(f"re-using {t.index}/{len(show.tracks)}: {t.filename} ({placed} copy)")
+                reused += 1
         tag_audio(
             dest,
             artist=show.artist,
@@ -105,6 +132,12 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
                                       filename=out_name,
                                       duration_sec=real if real is not None else t.duration_sec,
                                       segue=t.segue))
+
+    if tally is not None:
+        tally["reused"] += reused
+        tally["downloaded"] += downloaded
+    if reuse is not None:
+        detail(f"audio reused {reused}, downloaded {downloaded}")
 
     context = ""
     vetted = False
@@ -137,6 +170,8 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
         context=context,
         research=research_name, reviews="reviews.md", research_vetted=vetted,
         profile=profile))
+    audio_reuse.drop_anchor(show_ws)      # a package was built: the anchor has served
+    campaign.after_package(show_ws)       # last step, after the manifest write
     return pkg, flags
 
 

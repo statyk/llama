@@ -1364,3 +1364,159 @@ def test_the_scanned_fields_are_every_text_field_of_briefing():  # (pin)
     full = Briefing(context="c", significance="s", per_set={"1": ["x"]}, notable_moments=["m"],
                     review_sentiment="r", cautions=["k"], mentioned_songs=["Dew"])
     assert {f for f, _ in _briefing_texts(full)} == set(BRIEFING_TEXT_FIELDS)
+
+
+# --- Overrules persist (bulk-apply spec "Overrules persist", Task 2) ---
+
+def test_replay_sees_overrules(tmp_path):
+    from llama.overrules import records_for
+    ws, _ = _library_show(tmp_path, held=False)
+    # the replay raises a gather flag (every tag gone, the description no setlist)...
+    _untag(tmp_path, "no setlist here")
+    # ...and a vet flag (stored research asserts a song the tape does not have)
+    write_artifact(ws.vetting, VettingResult(vetting=ResearchVetting(
+        asserted_songs=["Morning Dew", "Golden"], asserted_dates=["1973-06-10"])))
+    legs = _legs(tmp_path, ws)
+    assert "unresolved track titles" in legs.gather.show.review_flags
+    assert "research asserts unknown song: Golden" in legs.vet.result.flags
+    rules = records_for(list(legs.flags), legs.replayed_show, source="fix",
+                        at="2026-10-26T00:00:00+00:00")
+    write_artifact(ws.overrides, Overrides(overrules=rules))
+
+    legs = _legs(tmp_path, ws)     # the scratch copy carries `overrules`
+    assert legs.flags == [] and legs.gather.show.needs_review is False
+    assert legs.vet.result.flags == [] and legs.vet.show.needs_review is False
+    assert "overruled: unresolved track titles" in legs.gather.notes
+    assert legs.vet.notes[-1] == "overruled: research asserts unknown song: Golden"
+
+
+# --- visible-change helpers (bulk-apply Task 3) -------------------------------
+
+def _vshow(files=("a.mp3", "b.mp3"), titles=("A", "B"), source="tags", **kw):
+    from llama.models import Show, Track
+    return Show(performance_id="x/1", identifier="i", artist="X", date="1970-01-01",
+                tracks=[Track(index=i, set="1", title=t, filename=f, title_source=source)
+                        for i, (f, t) in enumerate(zip(files, titles), 1)], **kw)
+
+
+def test_visible_changes_and_label_only():
+    from dataclasses import asdict
+    from llama.replay import (ShowReplay, VISIBLE_FIELDS, row_label_only,
+                              row_visible_changes, shipped_diff, visible_changes)
+    assert VISIBLE_FIELDS == ("files", "titles", "sets", "segues", "set_breaks",
+                              "venue", "city", "date")
+    stored = _vshow()
+    swap = _vshow(files=("a.mp3", "c.mp3"))
+    assert visible_changes(stored, swap) == ["files"]
+    relabel = _vshow(source="setlist")
+    assert visible_changes(stored, relabel) == []
+
+    def row(new):
+        r = ShowReplay(slug="s", state="packaged", filenames=[t.filename for t in new.tracks])
+        for k, v in shipped_diff(stored, new).items():
+            setattr(r, k, v)
+        return asdict(r)
+
+    assert row_label_only(row(relabel), stored) is True
+    assert row_label_only(row(swap), stored) is False
+    assert row_label_only(row(stored), stored) is False
+    combos = [swap, relabel, stored, _vshow(titles=("A", "Z"), venue="V", set_breaks=[1]),
+              _vshow(files=("a.mp3",), titles=("A",))]
+    for new in combos:
+        assert row_visible_changes(row(new), stored) == visible_changes(stored, new)
+
+
+# --- Task 4b: briefing reuse honours overruled guard problems ---
+
+def _guard_rule(song, identifier="x"):
+    from llama.models import Overrule
+    return Overrule(identifier=identifier, kind="briefing-song", subject=[song.casefold()],
+                    flag=f"briefing mentions unknown song: {song}", source="fix",
+                    at="2026-10-26T00:00:00+00:00")
+
+
+def test_briefing_reusable_accepts_all_overruled():
+    old = _show()
+    bad = _reuse_briefing().model_copy(update={"mentioned_songs": ["Nope"]})
+    assert briefing_reusable(old, old, bad, "full").startswith("briefing guard:")
+    assert briefing_reusable(old, old, bad, "full", overrules=[_guard_rule("Nope")]) is None
+
+
+def test_briefing_reusable_still_refuses_unoverruled_problem():
+    old = _show()
+    bad = _reuse_briefing().model_copy(update={"mentioned_songs": ["Nope", "Other"]})
+    assert briefing_reusable(old, old, bad, "full", overrules=[_guard_rule("Nope")]) == \
+        "briefing guard: briefing mentions unknown song: Other"
+    # a rule recorded on another recording is inert
+    assert briefing_reusable(old, old, bad.model_copy(update={"mentioned_songs": ["Nope"]}),
+                             "full", overrules=[_guard_rule("Nope", identifier="y")]) == \
+        "briefing guard: briefing mentions unknown song: Nope"
+
+
+def test_briefing_reusable_overrules_never_refuse_more():  # (pin)
+    from llama.overrules import records_for
+    from llama.stages.brief import briefing_guard, normalize_briefing
+    old = _show()
+    bad = _reuse_briefing().model_copy(update={"mentioned_songs": ["Nope"]})
+    r_old, r_new = _restored_pair()
+    renamed = old.model_copy(update={"tracks": [old.tracks[0], old.tracks[1].model_copy(
+        update={"filename": "b2.mp3"}), old.tracks[2]]})
+    cases = [
+        (old, old, _reuse_briefing(), "full"),                              # reusable
+        (old, old, bad, "full"),                                            # guard
+        (old, old, bad, "vague"),                                           # narration
+        (old, old.model_copy(update={"venue": "W"}), bad, "full"),          # broadcast field
+        (old, renamed, bad, "full"),                                        # tracks differ
+        (r_old, r_new, _with_caution("gd76-07-18d3t04.mp3 holds the reprise."), "full"),
+        (r_old, r_new, _with_caution("The encore is missing from every tape.")
+         .model_copy(update={"mentioned_songs": ["Nope"]}), "full"),        # restored wording
+    ]
+    for o, n, b, narration in cases:
+        plain = briefing_reusable(o, n, b, narration)
+        rules = records_for(briefing_guard(normalize_briefing(b), n), n, source="fix",
+                            at="2026-10-26T00:00:00+00:00") + [_guard_rule("Nope")]
+        ruled = briefing_reusable(o, n, b, narration, overrules=rules)
+        if plain is None:
+            assert ruled is None, (plain, ruled)
+        if plain is not None and not plain.startswith("briefing guard:"):
+            assert ruled == plain, (plain, ruled)          # every other refusal unchanged
+    # the restored-wording refusal still refuses with every guard problem overruled
+    worded = _with_caution("The encore is missing from every tape.").model_copy(
+        update={"mentioned_songs": ["Nope"]})
+    assert briefing_reusable(r_old, r_new, worded, "full", overrules=[_guard_rule("Nope")]) == \
+        "briefing mentions a restored file: says 'missing' in cautions"
+
+
+def test_compute_legs_reuses_with_overruled_guard_problems_and_notes_them(tmp_path):
+    ws, stored = _library_show(tmp_path, held=False, with_briefing=True)
+    b = read_model(ws.briefing_json, Briefing)
+    write_artifact(ws.briefing_json, b.model_copy(update={"mentioned_songs": ["Nope"]}))
+    legs = _legs(tmp_path, ws)
+    assert legs.brief == "fresh" and legs.brief_reason.startswith("briefing guard:")
+    write_artifact(ws.overrides, Overrides(overrules=[_guard_rule("Nope", identifier=stored.identifier)]))
+    legs = _legs(tmp_path, ws)
+    assert legs.brief == "reuse" and legs.brief_flags == [] and legs.flags == []
+    assert legs.brief_notes == ["overruled: briefing mentions unknown song: Nope"]
+    r = replay_show(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"), slfm=None,
+                    scratch=tmp_path / "s2", delivered=set())
+    assert r.briefing == "reuse" and "overruled: briefing mentions unknown song: Nope" in r.notes
+
+
+# --- Bulk-apply Task 10: gather_providers ---
+
+def test_gather_llm_set_names_the_three_verdicts():
+    from llama.replay import GATHER_LLM
+    assert GATHER_LLM == frozenset({"extract_setlist", "align_structure", "stored alignment llm"})
+
+
+def test_compute_legs_with_gather_providers_does_not_append_the_stored_alignment_verdict(tmp_path):
+    from herder import FakeProvider
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm")
+    plain = _legs(tmp_path, ws)
+    assert "stored alignment llm" in plain.needs_llm
+    fake = FakeProvider()
+    legs = compute_legs(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"),
+                        slfm=None, scratch=tmp_path / "scratch2" / ws.dir.name,
+                        gather_providers=(fake, fake), llm_failures_raise=True)
+    assert "stored alignment llm" not in legs.needs_llm
+    assert legs.needs_llm == []

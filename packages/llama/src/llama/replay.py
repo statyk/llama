@@ -13,7 +13,7 @@ import os
 import re
 import shutil
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import llama
@@ -22,7 +22,8 @@ from llama.config import Config
 from llama import title_hygiene
 from llama.errors import LlamaError
 from llama.junk import basename_without_extension
-from llama.models import Briefing, Overrides, Provenance, Show, VettingResult
+from llama.models import Briefing, Overrides, Overrule, Provenance, Show, VettingResult
+from llama.overrules import split_overruled
 from llama.setlistfm import _pick, cache_key
 from llama.stages import brief as brief_stage, package as package_stage
 from llama.stages.brief import briefing_guard, normalize_briefing
@@ -231,6 +232,50 @@ def shipped_diff(stored: Show, new: Show) -> dict:
         "alignment": _pair(_alignment(stored), _alignment(new)),
         "date": _pair(stored.date, new.date),
     }
+
+
+VISIBLE_FIELDS = ("files", "titles", "sets", "segues", "set_breaks", "venue", "city", "date")
+
+
+def visible_changes(stored: Show, new: Show) -> list[str]:
+    """The manifest-visible fields (VISIBLE_FIELDS order) that differ. Files are
+    compared by name, so a same-count file swap counts; titles by text only
+    (a `title_source` change is not visible)."""
+    changed = {
+        "files": [t.filename for t in stored.tracks] != [t.filename for t in new.tracks],
+        "titles": [t.title for t in stored.tracks] != [t.title for t in new.tracks],
+        "sets": [t.set for t in stored.tracks] != [t.set for t in new.tracks],
+        "segues": [bool(t.segue) for t in stored.tracks] != [bool(t.segue) for t in new.tracks],
+        "set_breaks": list(stored.set_breaks) != list(new.set_breaks),
+        "venue": stored.venue != new.venue,
+        "city": stored.city != new.city,
+        "date": stored.date != new.date,
+    }
+    return [f for f in VISIBLE_FIELDS if changed[f]]
+
+
+def row_visible_changes(row: dict, stored: Show) -> list[str]:
+    """`visible_changes` computed from an arm row (a `ShowReplay` dict)."""
+    filenames = row.get("filenames")
+    changed = {
+        "files": filenames is not None
+                 and list(filenames) != [t.filename for t in stored.tracks],
+        "titles": any(c.get("old") != c.get("new") for c in row.get("title_changes") or []),
+        "sets": any(c.get("old") != c.get("new") for c in row.get("set_changes") or []),
+        "segues": any(c.get("old") != c.get("new") for c in row.get("segue_changes") or []),
+        "set_breaks": bool(row.get("set_breaks")),
+        "venue": bool(row.get("venue")),
+        "city": bool(row.get("city")),
+        "date": bool(row.get("date")),
+    }
+    return [f for f in VISIBLE_FIELDS if changed[f]]
+
+
+def row_label_only(row: dict, stored: Show) -> bool:
+    """No manifest-visible change, but a `title_source` or `alignment` change."""
+    if row_visible_changes(row, stored):
+        return False
+    return bool(row.get("title_changes")) or bool(row.get("alignment"))
 
 
 def _structure_changed(diff: dict) -> bool:
@@ -445,7 +490,7 @@ def _restored_file_mention(briefing: Briefing, restored: list[str]) -> str | Non
 
 
 def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
-                      narration: str) -> str | None:
+                      narration: str, *, overrules: Sequence[Overrule] = ()) -> str | None:
     """Spec slice 6 step 3, the reuse rule: None when the stored briefing can
     ship with `new_show`; else the first failing reason. Broadcast fields are
     per-track titles, sets and segues, set_breaks, date, venue, city
@@ -455,7 +500,13 @@ def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
     restored file (a `short_kept` track whose filename is not among the stored
     show's tracks), a briefing naming one or using exclusion/absence wording
     anywhere is refused (`_restored_file_mention`). With none, the rule is
-    unchanged."""
+    unchanged.
+
+    `overrules` (bulk-apply Task 4b, parent-authorised): a guard problem matching
+    one of the show's recorded overrules (`split_overruled`, against `new_show`'s
+    identifier) does not refuse; the guard refuses only on a problem still held,
+    and names only those. Every other refusal is unchanged, so overrules can only
+    make it accept more. The default `()` is today's rule."""
     o, n = stored_show, new_show
     short = {t.filename for t in n.tracks if t.short_kept}   # spec 5.3: dropped on both sides
     ot = [t for t in o.tracks if t.filename not in short]
@@ -485,6 +536,7 @@ def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
     if briefing.narration != narration:
         return f"narration differs: briefing {briefing.narration}, overrides {narration}"
     problems = briefing_guard(normalize_briefing(briefing), new_show)   # 3a: guard the shipped form
+    problems, _overruled = split_overruled(problems, overrules, new_show)
     if problems:
         return f"briefing guard: {'; '.join(problems)}"
     stored_names = {t.filename for t in o.tracks}
@@ -504,6 +556,11 @@ def _read_briefing(ws: ShowWorkspace) -> Briefing:
 
 # --- the three legs ---
 
+# The needs-LLM verdicts `reapply --with-gather-llm` can take (bulk-apply Task 10):
+# gather's two touchpoints and the stored `llm` alignment they replace.
+# `no vetting.json` is not here: it needs the research extraction, never run by reapply.
+GATHER_LLM = frozenset({"extract_setlist", "align_structure", "stored alignment llm"})
+
 @dataclasses.dataclass
 class Legs:
     """One show's deterministic replay: gather (LLM-free), vet (over the stored
@@ -519,6 +576,9 @@ class Legs:
     briefing: Briefing | None      # the stored briefing, 3a-normalised, only when brief == "reuse"
     carried_flags: list[str]       # stored `package`-family flags, carried through
     flags: list[str]               # gather + vet + carried + brief_flags
+    # on reuse, the stored briefing's overruled guard problems as `overruled: <flag>`
+    # notes (notes.json `brief`); [] otherwise
+    brief_notes: list[str] = dataclasses.field(default_factory=list)
 
     @property
     def replayed_show(self) -> Show:
@@ -528,7 +588,9 @@ class Legs:
 
 def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlistFM | None",
                  scratch: Path,
-                 enabled_slices: frozenset[str] = title_hygiene.ENABLED_SLICES) -> Legs:
+                 enabled_slices: frozenset[str] = title_hygiene.ENABLED_SLICES,
+                 gather_providers: tuple[object, object] | None = None,
+                 llm_failures_raise: bool = False) -> Legs:
     """Replay one library show into `scratch` (recreated empty, then given a
     copy of `overrides.json` and nothing else); `ws.dir` is only read.
 
@@ -537,7 +599,13 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
     propagates; a missing `provenance.json`/`show.json` is a `LlamaError`.
     A `scratch` that is, contains or lies inside `ws.dir`, or lies inside the
     library's `shows/` (`ws.dir.parent`: another show's directory), is refused
-    before anything is deleted: the recreate is an rmtree."""
+    before anything is deleted: the recreate is an rmtree.
+
+    `gather_providers` (bulk-apply Task 10) is `(extract_setlist provider,
+    align_structure provider)`, handed to `compute_gather`: the LLM touchpoints
+    are then taken, not recorded, and the `stored alignment llm` verdict is not
+    appended (the alignment is computed fresh). `llm_failures_raise` is passed
+    through to `compute_gather`."""
     show_dir, scr = ws.dir.resolve(), scratch.resolve()
     if scr == show_dir or show_dir in scr.parents or scr in show_dir.parents:
         raise LlamaError(f"refusing scratch {scratch}: it overlaps the show directory {ws.dir}")
@@ -555,13 +623,15 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
     prov = read_model(ws.provenance, Provenance)
     stored = read_model(ws.show, Show)
 
+    extract_provider, align_provider = gather_providers or (None, None)
     gathered = compute_gather(
-        ShowWorkspace(scratch), ia, None, prov.candidate, stored.identifier,
-        audio_format=config.audio_format, align_provider=None, setlistfm=slfm,
+        ShowWorkspace(scratch), ia, extract_provider, prov.candidate, stored.identifier,
+        audio_format=config.audio_format, align_provider=align_provider, setlistfm=slfm,
         structure_cfg=config.structure, jerrybase_enabled=config.jerrybase.enabled,
-        enabled_slices=enabled_slices)
+        enabled_slices=enabled_slices, llm_failures_raise=llm_failures_raise)
     needs_llm = list(gathered.needs_llm)
-    if (stored.structure is not None and stored.structure.alignment == "llm"
+    if (gather_providers is None
+            and stored.structure is not None and stored.structure.alignment == "llm"
             and not gathered.taper_owned and not gathered.self_filled):
         # Piece 2 relaxation (taper_owned) extended by piece 3 (self_filled, spec Q2): neither
         # makes an align_structure call, so the stored `llm` alignment is replayable.
@@ -569,7 +639,10 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
 
     vet: VetOutcome | None = None
     if ws.vetting.exists():
-        vet = apply_vet(read_model(ws.vetting, VettingResult).vetting, gathered.show)
+        # Overrules (bulk-apply spec "Overrules persist"): gather read them from the
+        # scratch copy of overrides.json; vet gets the same records.
+        vet = apply_vet(read_model(ws.vetting, VettingResult).vetting, gathered.show,
+                        overrules=read_overrides(ws).overrules)
     else:
         needs_llm.append("no vetting.json")
     replayed = vet.show if vet is not None else gathered.show
@@ -580,20 +653,23 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
     # no flag", and reapply never clears a carried package flag).
     flags = list(gathered.show.review_flags) + (list(vet.result.flags) if vet else []) + carried
 
-    brief, reason, brief_flags, briefing = "none", None, [], None
+    brief, reason, brief_flags, briefing, brief_notes = "none", None, [], None, []
     if not flags:
         brief = "fresh"
         if ws.briefing_json.exists():
             stored_briefing = _read_briefing(ws)
+            overrides = read_overrides(ws)
             reason = briefing_reusable(stored, replayed, stored_briefing,
-                                       read_overrides(ws).narration)
+                                       overrides.narration, overrules=overrides.overrules)
             if reason is None:
                 brief, briefing = "reuse", stored_briefing
-                brief_flags = briefing_guard(stored_briefing, replayed)  # [] by construction
+                # held: [] by construction; overruled: the notes (Task 4b)
+                brief_flags, brief_notes = split_overruled(
+                    briefing_guard(stored_briefing, replayed), overrides.overrules, replayed)
 
     return Legs(gather=gathered, stored=stored, vet=vet, needs_llm=needs_llm, brief=brief,
                 brief_reason=reason, brief_flags=brief_flags, briefing=briefing,
-                carried_flags=carried, flags=flags + brief_flags)
+                carried_flags=carried, flags=flags + brief_flags, brief_notes=brief_notes)
 
 
 # --- outcome classification (plan "Contracts": Outcome classes) ---
@@ -774,7 +850,8 @@ def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlis
         for key in ("title_changes", "venue", "city", "date", "set_changes",
                     "segue_changes", "set_breaks", "alignment"):
             setattr(r, key, diff[key])
-        r.notes = list(legs.gather.notes) + (list(legs.vet.notes) if legs.vet is not None else [])
+        r.notes = (list(legs.gather.notes) + (list(legs.vet.notes) if legs.vet is not None else [])
+                   + list(legs.brief_notes))
         g = legs.gather
         r.taper_owned = bool(g.taper_owned)
         r.sets = [t.set for t in g.show.tracks]

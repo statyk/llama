@@ -110,7 +110,8 @@ class PaceOptions:
 
 def pace_options(config, wait: bool | None = None,
                  max_wait: str | None = None,
-                 no_pacing: bool = False) -> PaceOptions:
+                 no_pacing: bool = False, *,
+                 seven_day_ceiling: float | None = None) -> PaceOptions:
     """Config defaults with the CLI flags layered on top.
 
     `None` means "the flag was not given", so a `--no-wait` can turn off a
@@ -126,7 +127,8 @@ def pace_options(config, wait: bool | None = None,
         unknown_reset_wait_s=parse_duration(cfg.unknown_reset_wait),
         reset_skew_s=parse_duration(cfg.reset_skew),
         five_hour_ceiling=cfg.five_hour_ceiling,
-        seven_day_ceiling=cfg.seven_day_ceiling,
+        seven_day_ceiling=(cfg.seven_day_ceiling if seven_day_ceiling is None
+                           else seven_day_ceiling),
     )
 
 

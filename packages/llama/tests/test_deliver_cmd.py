@@ -836,3 +836,307 @@ def test_destination_without_a_usable_track_list_is_replaced(tmp_path: Path):
 
     assert r.exit_code == 0, r.output
     assert sorted(p.name for p in (out / "audio").iterdir()) == ["01 - Morning Dew.mp3"]
+
+
+# --- Task 4: awaiting fix (bulk-apply spec, "The library side") ----------------
+
+def _mark(ws, *, start="gather", at="2026-10-26T10:00:00.000000Z",
+          reason="changed by the held-backlog fixes: titles"):
+    from llama import campaign
+    campaign.add_mark(ws, reason=reason, start_stage=start, batch="b1", at=at)
+
+
+def test_deliver_refuses_awaiting_fix_by_name(tmp_path: Path):
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    _mark(ws)
+    dest = tmp_path / "station-inbox"
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
+                                "gratefuldead-1973-06-10", "--dest", str(dest)])
+    assert r.exit_code == 1
+    assert ("refusing to deliver gratefuldead-1973-06-10: awaiting fix (marked "
+            "2026-10-26T10:00:00.000000Z: changed by the held-backlog fixes: titles)") in r.output
+    assert ("  re-process it first: llama reapply gratefuldead-1973-06-10 "
+            "--allow-structure-change") in r.output
+    assert not dest.exists()
+    assert not (tmp_path / "ledger.jsonl").exists() or not Ledger(tmp_path / "ledger.jsonl").entries()
+
+    ws2 = build_ready(tmp_path, "gratefuldead-1973-06-11")
+    _mark(ws2, start="select", reason="recording re-selection: a -> b")
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
+                                "gratefuldead-1973-06-11", "--dest", str(dest)])
+    assert r.exit_code == 1
+    assert "  re-process it first: llama redo gratefuldead-1973-06-11 --from select" in r.output
+    assert not dest.exists()
+
+
+def test_deliver_pointer_names_with_gather_llm_for_a_frozen_show(tmp_path: Path):
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    _mark(ws)
+    (tmp_path / "campaign").mkdir()
+    froz = tmp_path / "campaign" / "needs-llm-frozen.json"
+    froz.write_text(json.dumps({"slugs": ["gratefuldead-1973-06-10"]}))
+    args = ["--config", _cfg(tmp_path), "deliver", "gratefuldead-1973-06-10",
+            "--dest", str(tmp_path / "in")]
+    r = runner.invoke(cli.app, args)
+    assert r.exit_code == 1
+    assert any(ln.endswith("--allow-structure-change --with-gather-llm")
+               for ln in r.output.splitlines())
+    froz.write_text("{corrupt")
+    r = runner.invoke(cli.app, args)
+    assert r.exit_code == 1
+    assert "--with-gather-llm" not in r.output
+    assert any(ln.endswith("--allow-structure-change") for ln in r.output.splitlines())
+
+
+def test_deliver_batch_skips_awaiting_fix(tmp_path: Path):
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    build_ready(tmp_path, "gratefuldead-1973-06-11")
+    _mark(ws)
+    dest = tmp_path / "station-inbox"
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--packaged",
+                                "--yes", "--dest", str(dest)])
+    assert "  gratefuldead-1973-06-10  (refused: awaiting fix)" in r.output
+    assert (dest / "gratefuldead-1973-06-11" / "manifest.json").exists()
+    assert not (dest / "gratefuldead-1973-06-10").exists()
+
+
+def test_batch_deliver_does_not_report_a_show_processed_meanwhile_as_refused(
+        tmp_path: Path, monkeypatch):
+    from llama import campaign
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    _mark(ws)
+    dest = tmp_path / "station-inbox"
+    real = cli._confirm_plan
+
+    def confirm_then_process(*a, **k):        # processed between the scan and the lock
+        ok = real(*a, **k)
+        assert campaign.mark_processed(ws, held=False)
+        return ok
+    monkeypatch.setattr(cli, "_confirm_plan", confirm_then_process)
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--packaged",
+                                "--yes", "--dest", str(dest)])
+    assert r.exit_code == 0, r.output
+    assert (dest / "gratefuldead-1973-06-10" / "manifest.json").exists()
+    assert ("gratefuldead-1973-06-10: processed since the plan was listed; delivering"
+            in r.output)
+    assert "refusing" not in r.output
+
+
+def test_processed_show_delivers(tmp_path: Path):
+    from llama import campaign
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    _mark(ws)
+    assert campaign.mark_processed(ws, held=False)
+    dest = tmp_path / "station-inbox"
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
+                                "gratefuldead-1973-06-10", "--dest", str(dest)])
+    assert r.exit_code == 0, r.output
+    assert (dest / "gratefuldead-1973-06-10" / "manifest.json").exists()
+
+
+def test_unreadable_campaign_record_counts_as_awaiting(tmp_path: Path):
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    ws.campaign.write_text("{not json")
+    dest = tmp_path / "station-inbox"
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
+                                "gratefuldead-1973-06-10", "--dest", str(dest)])
+    assert r.exit_code == 1
+    assert "gratefuldead-1973-06-10: cannot read campaign.json (" in r.output
+    assert "); check it by hand" in r.output
+    assert not dest.exists()
+    s = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "status", "--awaiting-fix"])
+    assert s.exit_code == 0, s.output
+    assert "gratefuldead-1973-06-10" in s.output and "[awaiting-fix]" in s.output
+
+
+# --- Task 5: a marked station copy (bulk-apply spec, "It clears by
+# re-delivery", the `--replace-voiced` paragraph, "Delivery after the fix") ---
+
+EQUAL_REFUSAL = ("refusing to replace {slug}: the re-processed show equals the voiced "
+                 "station copy; keep the voicing with: llama clear-mark {slug}")
+LONG_AGO = "2026-01-01T00:00:00.000000Z"
+
+
+def _station_mark(out: Path) -> None:
+    from llama.station_mark import write_mark
+    write_mark(out, reason="changed by the held-backlog fixes: titles", marked_at=LONG_AGO)
+
+
+def _processed(ws) -> None:
+    from llama import campaign
+    campaign.add_mark(ws, reason="changed by the held-backlog fixes: titles",
+                      start_stage="gather", batch="b1", at=LONG_AGO)
+    assert campaign.mark_processed(ws, held=False)
+
+
+def test_marked_destination_is_always_replaced(tmp_path: Path):
+    """Same track list, unvoiced, marked: the staged swap runs (never the
+    overlay), so the mark goes with a complete copy."""
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    out = dest / SLUG
+    _station_mark(out)
+    (out / "extra.txt").write_text("an overlay would keep me")
+    _repackaged(tmp_path)
+
+    r = _deliver(tmp_path, dest)
+
+    assert r.exit_code == 0, r.output
+    m = json.loads((out / "manifest.json").read_text())
+    assert "awaiting_fix" not in m
+    assert not (out / "extra.txt").exists()
+    assert [p.name for p in dest.iterdir()] == [SLUG]       # no .old-* / .deliver-* left
+    assert (out / "audio" / "01 - Morning Dew.mp3").read_text() == "x"
+
+
+def test_replace_voiced_refuses_an_equal_marked_copy(tmp_path: Path):
+    dest, out = _delivered_voiced(tmp_path)
+    _station_mark(out)
+    before = tree_bytes(dest)
+
+    r = _deliver(tmp_path, dest, "--replace-voiced")
+
+    assert r.exit_code == 1
+    assert EQUAL_REFUSAL.format(slug=SLUG) in " ".join(r.output.split())
+    assert tree_bytes(dest) == before
+    assert not (tmp_path / "ledger.jsonl").exists() or len(
+        Ledger(tmp_path / "ledger.jsonl").entries()) == 1
+
+
+def test_replace_voiced_replaces_a_changed_marked_copy(tmp_path: Path):
+    """(pin) A marked, voiced copy whose re-processed show differs is replaced
+    wholesale by `--replace-voiced`, as today; the mark goes with it."""
+    dest, out = _delivered_voiced(tmp_path)
+    _station_mark(out)
+    _retrack_library(tmp_path)
+
+    r = _deliver(tmp_path, dest, "--replace-voiced")
+
+    assert r.exit_code == 0, r.output
+    m = json.loads((out / "manifest.json").read_text())
+    assert m.get("awaiting_fix") is None and m.get("dj_audio") is None
+    assert [t["filename"] for t in m["tracks"]] == ["01 - Intro.mp3", "02 - Morning Dew.mp3"]
+    assert not (out / "dj-audio").exists()
+    assert [p.name for p in dest.iterdir()] == [SLUG]
+
+
+def test_deliver_fixed_selects_marked_and_processed(tmp_path: Path):
+    from llama import campaign
+    slugs = {k: f"{k}-1973-06-10" for k in ("afixed", "bawait", "cunmarked", "dnorec",
+                                            "evoiced")}
+    wss = {k: build_ready(tmp_path, s) for k, s in slugs.items()}
+    dest = tmp_path / "inbox"
+    cfg = _cfg(tmp_path)
+    assert runner.invoke(cli.app, ["--config", cfg, "deliver", "--packaged", "--yes",
+                                   "--dest", str(dest)]).exit_code == 0
+    for k, s in slugs.items():
+        _repackaged(tmp_path, s)
+        if k != "cunmarked":
+            _station_mark(dest / s)
+    for k in ("afixed", "cunmarked", "evoiced"):
+        _processed(wss[k])
+    campaign.add_mark(wss["bawait"], reason="r", start_stage="gather", batch="b1",
+                      at="2099-01-01T00:00:00.000000Z")
+    _voice_destination(dest / slugs["evoiced"])
+    evoiced = dest / slugs["evoiced"] / "manifest.json"
+    ev_bytes = evoiced.read_bytes()
+    untouched = {k: tree_bytes(dest / slugs[k]) for k in ("bawait", "cunmarked", "dnorec")}
+
+    r = runner.invoke(cli.app, ["--config", cfg, "deliver", "--fixed", "--yes",
+                                "--dest", str(dest)])
+
+    listed = [ln.strip() for ln in r.output.splitlines() if ln.startswith("  ")]
+    assert "2 show(s) to deliver:" in r.output, r.output
+    assert listed[:2] == [slugs["afixed"], slugs["evoiced"]]
+    m = json.loads((dest / slugs["afixed"] / "manifest.json").read_text())
+    assert "awaiting_fix" not in m
+    assert f"delivered: {dest / slugs['afixed']}" in r.output
+    text = " ".join(r.output.split())
+    assert "is already voiced by emcee" in text and "re-deliver it by name with" in text
+    assert evoiced.read_bytes() == ev_bytes
+    assert json.loads(ev_bytes)["dj_audio"] == {"dir": "dj-audio"}
+    assert json.loads(ev_bytes)["awaiting_fix"]["marked_at"] == LONG_AGO
+    for k, before in untouched.items():
+        assert tree_bytes(dest / slugs[k]) == before, k
+
+
+def test_deliver_fixed_combines_with_other_selectors(tmp_path: Path):
+    a, b = "aready-1973-06-10", "bready-1973-06-11"
+    wa, wb = build_ready(tmp_path, a), build_ready(tmp_path, b)
+    dest = tmp_path / "inbox"
+    cfg = _cfg(tmp_path)
+    assert runner.invoke(cli.app, ["--config", cfg, "deliver", "--packaged", "--yes",
+                                   "--dest", str(dest)]).exit_code == 0
+    for s, ws in ((a, wa), (b, wb)):
+        _repackaged(tmp_path, s)
+        _station_mark(dest / s)
+        _processed(ws)
+    _stamp_profile(wa, a, "dead")
+    r = runner.invoke(cli.app, ["--config", cfg, "deliver", "--fixed", "--profile", "dead",
+                                "--yes", "--dest", str(dest)])
+    assert "1 show(s) to deliver:" in r.output, r.output
+    assert "awaiting_fix" not in json.loads((dest / a / "manifest.json").read_text())
+    assert "awaiting_fix" in json.loads((dest / b / "manifest.json").read_text())
+
+
+def test_deliver_fixed_refuses_replace_voiced_and_a_name(tmp_path: Path):
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--fixed",
+                                "--replace-voiced"])
+    assert r.exit_code == 1
+    assert SELECTOR_REFUSAL in r.output
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", SLUG, "--fixed"])
+    assert r.exit_code == 1
+    assert "give a show OR selectors, not both" in r.output
+
+
+def test_deliver_fixed_with_no_marked_copy_delivers_nothing(tmp_path: Path):
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--fixed", "--yes",
+                                "--dest", str(dest)])
+    assert r.exit_code == 0, r.output
+    assert "no matching shows" in r.output
+    assert not dest.exists()
+
+
+def test_unmarked_voiced_destination_keeps_todays_route(tmp_path: Path):
+    """(pin) An unmarked voiced destination: refused without the flag; with
+    `--replace-voiced` replaced even though nothing changed (no equality test)."""
+    dest, out = _delivered_voiced(tmp_path)
+    before = tree_bytes(dest)
+    r = _deliver(tmp_path, dest)
+    assert r.exit_code == 1
+    assert "is already voiced by emcee" in " ".join(r.output.split())
+    assert tree_bytes(dest) == before
+
+    r = _deliver(tmp_path, dest, "--replace-voiced")
+    assert r.exit_code == 0, r.output
+    m = json.loads((out / "manifest.json").read_text())
+    assert m.get("dj_audio") is None
+    assert not (out / "dj-audio").exists()
+
+
+def test_deliver_fixed_lists_an_unreadable_station_copy_as_refused(tmp_path: Path):
+    """A processed show whose station manifest cannot be read: whether it is marked
+    is unknown, so the `--fixed` batch lists it as refused (never drops it silently)
+    and writes nothing to it."""
+    ws = build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    _repackaged(tmp_path)
+    _processed(ws)
+    (dest / SLUG / "manifest.json").write_text("{not json")
+    before = tree_bytes(dest)
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--fixed", "--yes",
+                                "--dest", str(dest)])
+    assert f"  {SLUG}  (refused: destination manifest unreadable)" in r.output, r.output
+    assert "delivered:" not in r.output
+    assert tree_bytes(dest) == before
+
+
+def test_deliver_fixed_needs_a_station(tmp_path: Path):
+    build_ready(tmp_path, SLUG)
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--fixed", "--yes"])
+    assert r.exit_code == 1
+    assert "no --dest given and no delivery_path in config" in r.output

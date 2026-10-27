@@ -1,0 +1,86 @@
+# SDD ledger — plan: docs/superpowers/plans/2026-10-26-bulk-apply.md
+Successor peer orchestrator orch-r2, session 6d6081a6-72bc-4b0b-afbd-ff5351b19e6a; parent llama-redo. Worktree /Users/shawn/projects/llama/.claude/worktrees/bulk-apply, branch bulk-apply, start d1bb0127.
+Predecessor ledgers (read-only): $D/orch/ledger.md (Tasks 0-10, T4b, T9b), $D/orch-r1/ledger.md (Tasks 11-15, T13b; HANDOFF carries pointers forward). Their POINTER/Ruling lines carry forward.
+Commit trailer: Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Order (parent): B-90 (read-only) -> T15b (M1/M2/M3, Opus impl) -> Task 16 (Sonnet) -> Task 17 (Sonnet) -> STOP before Task 18. Brakes 5h 85%, weekly 90%.
+
+## Escapes
+(none)
+
+## Log
+2026-10-27T02:49:44-0400 orch-r2 start: HEAD d1bb0127 clean; meter 5h 25% (resets 06:30) wk 85% (brake 90%); burn7 0.7/h.
+2026-10-27T02:51:38-0400 tick 2161412d armed (13,43); flags touched. B-90: dispatched b90-analysis (Sonnet, read-only from a git-archive snapshot of d1bb0127; output → orch-r2/checkpoint-b-addendum.md by me). T15b: brief written (.superpowers/sdd/2026-10-26-bulk-apply/task-15b-brief.md); dispatched t15b-impl (Opus), BASE d1bb0127, budget 60m.
+Ruling: B-90 runs concurrently with T15b — it reads a git-archive snapshot, never the live tree, so T15b's edits cannot contaminate it — cost if wrong: none to code; the analysis would reflect d1bb0127 (the arm's sha), which is what was asked.
+Ruling: T15b M2 — unplannable shows (missing dir / unreadable show.json) are listed by the dry run (exit 1) and make --apply refuse (exit 2, nothing written) — the spec forbids silently dropping; refusing is the safe direction for an irreversible batch — cost if wrong: an operator must fix/remove those shows (or a later flag) before --apply.
+2026-10-27T02:53:35-0400 B-90: done (b90-analysis, Sonnet). Reproduced 2551; 90 unmarked = 89 no-visible-change new gather/vet flags only (88 packaged, 1 delivered aquariumrescueunit-2005-01-08) + 1 label-only (stantonmoore-2005-05-14). Written to orch-r2/checkpoint-b-addendum.md. Open operator question: should newly-held-with-no-visible-change become a mark trigger.
+2026-10-27T03:03:19-0400 T15b: impl DONE_WITH_CONCERNS d6a9eb24 (6301 passed, 1 skipped, 8 deselected; 9 tests RED live + 1 RED vs BASE in scratch). M1 design (a): re-runs reuse the batch's at; recognise own mark from before-copy re-encode or record shas; new outcomes 'marked, before copy not saved (...)' and 'marked by this batch, no verified before copy' (listed, exit 1); unmark lists/puts back any mark_added line over this batch's station mark; 'no record line' listing. M2 mark_plan → (items, unplannable), scope: only rows the plan could mark. M3 refusal in cmd_mark. Concerns: unverified-before outcome never self-clears; private helpers (_encode, _now, _parse); not-delivered crash before record line invisible to unmark (library-only). Dispatched t15b-review (Opus).
+2026-10-27T03:10:36-0400 T15b: review ✅ spec, quality Approved (t15b-review, Opus); no Critical/Important. Mutants in scratch: M1 (_UNVERIFIED → 'already marked') and M2 (unreadable station + before copy not a problem in unmark) SURVIVED; controls M4, M8 caught.
+Ruling: the reviewer's Minor 1 (two surviving mutants on the station-mark/unmark surface) and Minor 2 (evidence (1)'s trailing-newline rule unpinned) go to a test-only fix round 1 on the T15b implementer — this is the strict, irreversible surface the parent ordered made safe before any mark --apply, and an unpinned safety branch there is the green-suite-not-pinned failure — cost if wrong: one short Opus resume plus one scoped re-review.
+Task 15b: minor (deferred): evidence (1) proves equal JSON not equal bytes; prefer evidence (2) / require sha(before)==before_sha256 when the line carries one (negligible: both writers canonical)
+Task 15b: minor (deferred): _reversal duplicates write_mark's change rule + private station_mark._encode; a public station_mark.marked_bytes would remove drift; campaign._now/_parse private imports (T15 M5 family)
+Task 15b: minor (deferred): _mark_station takes both at and batch_at (equal when set); _unmark_one still hashlib.sha256 inline beside _sha; dense for-header at unmark's before_dir loop
+Task 15b: minor (deferred): 26 fork() DeprecationWarnings under Python 3.14 from untouched llama tests (pre-existing noise)
+Task 15b: minor (deferred): a slug whose last line is 'not delivered' is never checked against the station (remote: ledger must lose its delivered entry) → POINTER T18 runbook, or extend _own_station_mark to not-delivered lines with a before copy
+Task 15b: ⚠️ (for final review): unmark keeps a mark_added:false 'marked' line's station mark (Task 15 design; library still awaiting, consistent) — does the spec's "removed only where the manifest still equals what marking wrote" want a put-back there?
+Task 15b: fix round 1 → resume t15b-impl (Opus): tests only for reviewer Minors 1a, 1b, 2. FIX_BASE d6a9eb24.
+2026-10-27T03:10:53-0400 T15b: fix round 1 sent to t15b-impl (Opus, resumed); sentinel done-fix1.
+2026-10-27T03:14:02-0400 T15b: fix round 1 DONE a2d5122d (tests only; 6305 passed, 1 skipped, 8 deselected; M1/M2/M7 each caught in scratch by its own test). Dispatched t15b-rereview (Opus).
+2026-10-27T03:15:49-0400 T15b: fix round 1/5 (3 addressed, 0 open — pinning tests for M1 _UNVERIFIED, M2 unreadable-station unmark, M7 newline recognition; each mutant re-killed by the re-reviewer in scratch; commits d6a9eb2..a2d5122); re-review t15b-rereview (Opus) clean.
+Task 15b: minor (deferred): fix-round tests carry unused locals (original, ws, cfg) and a partly used 7-tuple helper
+Task 15b: minor (deferred): crash simulated by an exception mark_apply catches, not a process death (on-disk state equivalent)
+Task 15b: complete (commits d1bb012..a2d5122, 1 fix round, review clean)
+2026-10-27T03:16:38-0400 Task 16: dispatched t16-impl (Sonnet), BASE a2d5122d, budget 60m; carries the outcome-before-row_visible_changes pointer. Meter 5h 32% (reset 06:30) wk 86%.
+Ruling: Task 16 lists — "awaiting fix with start gather" = is_awaiting and the last mark's start_stage == gather; an unreadable campaign record is NOT listed (start stage unknown) and is reported with the Contracts string '<slug>: cannot read campaign.json (<error>); check it by hand' — the spec forbids treating it as "no record", and listing it could run a re-selection through gather — cost if wrong: such shows need a hand check before they join a wave.
+Ruling: "voiced" for lists = destination_voiced (station dj_audio non-null); no station copy = unvoiced — matches Task 15's marking — cost if wrong: none expected.
+2026-10-27T03:21:00-0400 Task 16: impl DONE_WITH_CONCERNS 928b784b (6316 passed, 1 skipped, 8 deselected; 11 new tests RED live). Concerns: wave-check refuses a delivered row with no station copy; --counts excludes famous and honours filters; famous packet covers every famous slug in the arm; unreadable station manifest drops the show from lists (stderr); process slip: full.out/full.rc briefly in $D/t16-impl (removed). Dispatched t16-review (Opus).
+2026-10-27T03:26:06-0400 Task 16: review spec ❌ / Needs fixes (t16-review, Opus): Important 1 lists fails open on an unmounted/unconfigured station root (ENOENT → no copy → unvoiced; delivery_path unset → unvoiced) → voiced shows reach a wave list, exit 0 (measured by probe); Important 2 test_famous_shows_go_to_a_packet pins nothing of the after side (probe: _row_side → [] still passes). Implementer concerns judged correct/acceptable. Fix round 1 → resume t16-impl (Sonnet). FIX_BASE 928b784b.
+Task 16: minor (deferred): famous packet covers every famous slug in the arm regardless of the wave's filters (repeats per wave)
+Task 16: minor (deferred): lists exits 0 after dropping shows to stderr (mark dry run exits 1 on unplannable); --counts queue can silently shrink
+Task 16: minor (deferred): _voiced runs and reports for shows --kind later removes (filter kind before station reads)
+Task 16: minor (deferred): spot-check on a batch without progress.jsonl prints seed and exits 0; negative --n traceback; negative --limit drops tail rows
+Task 16: minor (deferred): delivered-id set built inline three times
+Task 16: minor (deferred): wave-check silently skips rows whose _plan_state is unreadable
+Task 16: minor (deferred): an awaiting unreplayable row gets kind held (ShowReplay.briefing defaults to none)
+Task 16: minor (deferred): test cannot tell the two re-selection guards apart (fixture triggers both)
+Task 16: minor (deferred): import random inside cmd_spot_check
+Task 16: ⚠️ (for T17): trial-report must read --counts JSON as written, incl. the "(none)" profile key
+2026-10-27T03:26:12-0400 Task 16: fix round 1 sent to t16-impl (Sonnet, resumed); sentinel done-fix1.
+2026-10-27T03:28:37-0400 Task 16: fix round 1 DONE c225ca33 (6317 passed, 1 skipped, 8 deselected; new test RED first; packet test RED vs _row_side mutant in scratch). Dispatched t16-rereview (Opus).
+2026-10-27T03:30:27-0400 Task 16: fix round 1/5 (2 addressed, 0 open — lists/--counts/--famous refuse an unconfigured or unmounted station root (exit 2); famous packet test pins exact before→after; commits 928b784..c225ca3); re-review t16-rereview (Opus) clean, both mutants re-killed in scratch.
+Task 16: minor (deferred): an empty mount-point dir passes is_dir (mark has the same gap); the configured station root /Volumes/media/lma-radio/delivered sits two levels below the mount, so an empty /Volumes/media fails is_dir — a shared sentinel/non-empty check would close it generally
+Task 16: minor (deferred): wave-check checks os.access(R_OK), lists/mark do not (consistency nit)
+Task 16: complete (commits a2d5122..c225ca3, 1 fix round, review clean)
+2026-10-27T03:31:19-0400 Task 17: dispatched t17-impl (Sonnet), BASE c225ca33, budget 60m. Meter 5h 36% (reset 06:29) wk 87% (brake 90%).
+Ruling: Task 17 trial-report counts, per block, only rows of the block's kind that spent (llm_calls > 0), kind taken from the batch's list.json — consistent with the T13b trial rule — and uses _meter_row's actual keys where the brief's names differ — cost if wrong: the per-show cost would be measured over a different n than the trial line printed.
+2026-10-27T03:36:12-0400 Task 17: impl DONE cce3309e (6329 passed, 1 skipped, 8 deselected; 12 tests RED live: 8 brief + 4 extra). Notes: material difference = (max-min)/max > 0.25; reset check across every row; small blocks still count, flagged ±1/n; unmapped profile = own shape; needs-llm rows rank-continue last. Dispatched t17-review (Opus).
+2026-10-27T03:36:53-0400 Task 17: t17-impl notification said 'waiting on its own background work': a leftover suite-run shell (sleep 200) from its final run; its edit (--weekly-share > 0 guard) is inside cce3309e, tree clean — no second writer. Dispatched t17-review (Opus) at 03:36:12.
+2026-10-27T03:41:46-0400 Task 17: review ✅ spec (seams verified vs real producers) / Needs fixes (t17-review, Opus): Important 1 a trial block's meter delta silently includes interleaved spending rows of another kind (wave lists run with --with-gather-llm mix fresh and needs-llm); kind filter unpinned (mutant m1 survived). Implementer interpretations all accepted. Fix round 1 → resume t17-impl (Sonnet). FIX_BASE cce3309e.
+Task 17: minor (deferred): a missing/unparseable five_hour_resets (failed meter read) reads as a crossed reset → block discarded; should be 'no usable measurement'
+Task 17: minor (deferred): material-difference denominator (max) unpinned (mutant m3 survived); name it in the constant's comment
+Task 17: minor (deferred): MIN_BLOCK_POINTS boundary (<) unpinned; d5 == 5 block should assert no bound
+Task 17: minor (deferred): unreadable campaign record drops a show from revoice-list (stderr only) — list it in the trailing unknown group
+Task 17: minor (deferred): presenter column (recorded voiced_by) and cost (current tts_now) can describe different voices after reassignment
+Task 17: minor (deferred): queue kinds outside the known five silently cost 0; non-dict cell traceback
+Task 17: minor (deferred): align_reproduced re-reads every block incl. discarded; a batch passed twice counts twice
+Task 17: minor (deferred): revoice-list does not check the arm's sha/fingerprint against the pin
+2026-10-27T03:41:57-0400 Task 17: fix round 1 sent to t17-impl (Sonnet, resumed); sentinel done-fix1. Meter 5h 39% wk 87%.
+2026-10-27T03:44:15-0400 Task 17: fix round 1 DONE 09742a80 (6330 passed, 1 skipped, 8 deselected; new interleaved test RED first; kind-filter mutant caught in scratch by the modified test). Dispatched t17-rereview (Opus).
+2026-10-27T03:47:37-0400 Task 17: fix round 1/5 (1 addressed, 0 open — a block with spending other-kind rows inside its window prints 'not contiguous' and is excluded from ratio and projection; an unmeasured kind is noted, not costed 0; commits cce3309..09742a8); re-review t17-rereview (Opus) clean; mutants M1/M2/M4 caught, M3 (exclusive window) survived.
+Task 17: minor (deferred, RECOMMEND-FIX before the trial is read): _spending_rows reads only each slug's last progress row, so an other-kind row that failed inside the window after spending, then re-ran outside it, hides its spend (probe: shows=20 delta5=10, no refusal) — read every progress line
+Task 17: minor (deferred): the inclusive window boundary is unpinned (mutant M3 survived)
+Task 17: minor (deferred): last-row collapse for the block's own kind — an earlier failed attempt's spend is in the delta but n counts the slug once (pre-existing)
+Task 17: minor (deferred): align_reproduced tally includes refused (not-contiguous) blocks; 'not contiguous' line lacks the 'block ' prefix
+Task 17: complete (commits c225ca3..09742a8, 1 fix round, review clean)
+2026-10-27T03:47:37-0400 STOP before Task 18 (parent order). Nothing in flight. Meter 5h 41% (resets 06:29) wk 87% (brake 90%).
+
+## HANDOFF (2026-10-27T03:47:37-0400)
+State: Tasks 0-17 complete, plus parent-directed T4b, T9b, T13b, T15b. HEAD 09742a80 on bulk-apply, tree clean. Suite: 6330 passed, 1 skipped, 8 deselected (./.venv/bin/python -m pytest -q, run by t17-impl at 09742a80 for its fix round; not re-run by me).
+Commits this orchestrator (orch-r2): T15b d6a9eb24 + a2d5122d; T16 928b784b + c225ca33; T17 cce3309e + 09742a80.
+B-90: $D/orch-r2/checkpoint-b-addendum.md (sha256 ed275a83…6fbf). 89 of the 90 unmarked newly-held rows have no visible change and are held only by new gather/vet flags (88 packaged, 1 delivered); 1 is label-only. Spec silent → operator question: should "newly held, no visible change" become a mark trigger?
+Open operator questions (Shawn): Checkpoint A (orch-r1/checkpoint-a.md: 62 listed flags + 15 no-verdict; rehold-verdicts; 174 non-base rulings), Checkpoint B (confirm the marking rule; plus the B-90 question above). Rulings → follow-up tasks (T14b etc.) before Task 18.
+Next: Task 18 (whole-branch review + CHECKPOINT C) waits for Shawn's A/B rulings and their follow-ups. Final review must triage deferred minors in all three ledgers; the RECOMMEND-FIX ones from orch-r2: T17 _spending_rows last-row-only (read every progress line before the trial is read); T15b ⚠️ unmark keeps a mark_added:false 'marked' line's station mark (Task 15 design — spec question); T16 empty mount-point dir passes is_dir (mark too; not exposed with the current station root).
+Carry into Task 18 (runbook/CLAUDE.md) in addition to orch-r1's list: T15b 'marked by this batch, no verified before copy' never self-clears (hand decision); a slug whose last line is 'not delivered' is never checked against the station; lists/--counts refuse an unmounted station; trial-report 'not contiguous' means re-run one block per kind; --counts JSON uses "(none)" for no profile.
+Process notes: reviewer-common.md in $D/orch-r1/ is the shared reviewer brief (reused all run). Parent-directed brief: .superpowers/sdd/2026-10-26-bulk-apply/task-15b-brief.md. Implementers showed RED for every new test; T16 impl briefly wrote temp files into its $D dir (removed). Fix rounds that only add tests were used where a reviewer's mutant survived on a strict surface (T15b).
+Rulings I made (orch-r2), in order: (1) B-90 runs concurrently with T15b from a git-archive snapshot — cost if wrong: none to code. (2) T15b M2: unplannable shows listed by the dry run (exit 1), --apply refuses (exit 2) — cost: an operator must clear them before --apply. (3) T15b reviewer Minors 1-2 (surviving mutants on the station-mark surface) → test-only fix round — cost: one short Opus resume + re-review. (4) T16 lists skip an unreadable campaign record, reported with the Contracts string — cost: hand check before such shows join a wave. (5) T16 voiced = destination_voiced, no copy = unvoiced — cost: none expected (and the unmounted case now refuses). (6) T17 block n counts only rows of the block's kind that spent, with _meter_row's keys — cost: a different n than the trial line if wrong.
+Nothing in flight: no children, no background shells, no Monitors. Tick 2161412d deleted at this handoff; STATE.md mode done.
+2026-10-27T03:47:46-0400 DISARMED: tick 2161412d deleted; armed-6d6081a6 removed; armed-global kept iff other armed-* present; STATE.md mode done, in-flight empty. No children, background shells or Monitors.

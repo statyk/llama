@@ -793,3 +793,47 @@ def test_right_show_gate_counts_curly_and_straight_apostrophes_both_ways(tape, r
     v = ResearchVetting(asserted_songs=research, asserted_dates=["1973-06-10"], context="")
     _, info = right_show_gate(v, _curly_show(tape), date_flags_raw=[])
     assert info["asserted"] == 4 and info["unknown"] == []
+
+
+# --- Overrules persist (bulk-apply spec "Overrules persist", Task 2) ---
+
+def _song_rule(song, identifier="gd73"):
+    from llama.models import Overrule
+    return Overrule(identifier=identifier, kind="research-song", subject=[song.casefold()],
+                    flag=f"research asserts unknown song: {song}", source="fix",
+                    at="2026-10-26T00:00:00+00:00")
+
+
+def test_vet_overrule():
+    other = "low-confidence setlist"
+    show = make_show().model_copy(update={"review_flags": [other], "needs_review": True})
+    vetting = ResearchVetting(asserted_songs=["Morning Dew", "Golden", "Sugaree"],
+                              asserted_dates=["1973-06-10"])
+    base = apply_vet(vetting, show)
+    assert base.result.flags == ["research asserts unknown song: Golden",
+                                 "research asserts unknown song: Sugaree"]
+
+    out = apply_vet(vetting, show, overrules=[_song_rule("Golden")])
+    assert out.result.flags == ["research asserts unknown song: Sugaree"]
+    assert out.show.review_flags == [other, "research asserts unknown song: Sugaree"]
+    assert out.show.needs_review is True
+    assert out.notes == base.notes + ["overruled: research asserts unknown song: Golden"]
+
+    # a rule on another recording is inert
+    assert apply_vet(vetting, show, overrules=[_song_rule("Golden", "gd73-other")]
+                     ).result.flags == base.result.flags
+
+
+def test_run_vet_research_reads_overrules(tmp_path):
+    from llama.models import Overrides
+    sws, show = setup(tmp_path)
+    write_artifact(sws.overrides, Overrides(overrules=[_song_rule("Golden"),
+                                                      _song_rule("Sugaree")]))
+    run_vet_research(sws, FakeProvider([vet_json(
+        asserted_songs=["Morning Dew", "Golden", "Sugaree"])]), show, "research")
+    saved = read_model(sws.show, Show)
+    assert saved.review_flags == [] and saved.needs_review is False
+    assert read_model(sws.vetting, VettingResult).flags == []
+    assert read_model(sws.notes, ShowNotes).vet == [
+        "overruled: research asserts unknown song: Golden",
+        "overruled: research asserts unknown song: Sugaree"]
