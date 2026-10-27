@@ -394,18 +394,29 @@ def test_schedule_marks_estimates(tmp_path, monkeypatch):
     assert "~" in result.output and "min)" in result.output
 
 
+_MISSING_ANN = re.compile(r"missing announcement audio ann-(\w+)\.mp3")
+
+
 def test_schedule_lists_missing_announcement_audio(tmp_path, monkeypatch):
+    # The ids come from schedule's own output, not from announce.needed()'s order:
+    # which forms the scheduler places depends on the wall clock (no `later` slot
+    # when the next block is minutes away), so a guessed id failed 12 times a day.
     tx, root, engine, cfg = _setup(tmp_path, monkeypatch, ids=("a",))
+
+    def schedule():
+        result = CliRunner().invoke(app, ["schedule", "--days", "1", "--config", str(cfg)])
+        assert result.exit_code == 0, result.output
+        return result.output, _MISSING_ANN.findall(result.output)
+
+    _, before = schedule()
     live = clock_mod.load_clock(tx / "clock.toml")
-    need = announce.needed(live, service.now_us(), 2)
-    assert need
-    have = need[0]
-    add_clip(root, f"ann-{have.id}.mp3")
-    result = CliRunner().invoke(app, ["schedule", "--days", "1", "--config", str(cfg)])
-    assert result.exit_code == 0, result.output
-    assert "missing announcement audio" in result.output
-    assert f"ann-{need[1].id}.mp3" in result.output and f"ann-{have.id}.mp3" not in result.output
-    assert "announcement(s) missing" in result.output
+    known = {n.id for n in announce.needed(live, service.now_us() - 86_400_000_000, 3)}
+    assert len(set(before)) >= 2 and set(before) <= known
+    have = before[0]
+    add_clip(root, f"ann-{have}.mp3")
+    output, after = schedule()
+    assert after and have not in after
+    assert "announcement(s) missing" in output
 
 
 def test_schedule_draft_clock_and_delivered_library(tmp_path, monkeypatch):
