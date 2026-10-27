@@ -896,6 +896,27 @@ class _DeliveredIds:
         return pid in self.ids
 
 
+def _station_root_problem(station_root: Path) -> str | None:
+    """None when the station root is a readable directory holding at least one entry whose
+    name does not start with `.`; "unreadable" when it is not a readable directory;
+    "empty" otherwise. An unmounted network share can leave its mount point as an empty
+    directory, which must not pass as a mounted station. Stops at the first entry."""
+    if not station_root.is_dir() or not os.access(station_root, os.R_OK):
+        return "unreadable"
+    try:
+        with os.scandir(station_root) as it:
+            for entry in it:
+                if not entry.name.startswith("."):
+                    return None
+    except OSError:
+        return "unreadable"
+    return "empty"
+
+
+def _empty_station_message(station_root: Path) -> str:
+    return f"station root {station_root} is empty (is the station mounted?)"
+
+
 def _station_copy_problem(out: Path) -> str | None:
     """None when the station copy's directory is there; `no station copy` only when it is
     absent (ENOENT); any other stat error (EIO, ETIMEDOUT, ENOTCONN on a flaky mount) is a
@@ -941,8 +962,10 @@ def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
         copy_problem = None
         if not delivered:
             station = _NOT_DELIVERED
-        elif not station_root.is_dir():
-            station = f"refused: station root {station_root} is not readable"
+        elif (root_problem := _station_root_problem(station_root)) is not None:
+            station = (f"refused: station root {station_root} is not readable"
+                       if root_problem == "unreadable"
+                       else f"refused: {_empty_station_message(station_root)}")
         elif (copy_problem := _station_copy_problem(out)) is not None:
             station = copy_problem
         else:
@@ -1238,8 +1261,11 @@ def cmd_mark(args) -> int:
                           f"in {root}/campaign (the dry run may use a scratch dir)")
     if station_root is None:
         raise GateRefused("no delivery_path in config")
-    if not station_root.is_dir():
+    root_problem = _station_root_problem(station_root)
+    if root_problem == "unreadable":
         raise GateRefused(f"station root {station_root} is not mounted or not a directory")
+    if root_problem == "empty":
+        raise GateRefused(_empty_station_message(station_root))
     if args.apply:
         pin = require_pinned_code(root)
         require_tools(_echo, pin=pin)
@@ -1469,9 +1495,12 @@ def cmd_lists(args) -> int:
     root = config.root
     if config.delivery_path is None:
         raise GateRefused("no delivery_path in config")
-    if not config.delivery_path.is_dir():
+    root_problem = _station_root_problem(config.delivery_path)
+    if root_problem == "unreadable":
         raise GateRefused(f"station root {config.delivery_path} is not mounted or not a "
                           f"directory")
+    if root_problem == "empty":
+        raise GateRefused(_empty_station_message(config.delivery_path))
     pin = require_pinned_code(root)
     if not args.counts and args.out is None:
         raise GateRefused("lists needs --out (or --counts)")
@@ -1535,9 +1564,12 @@ def cmd_wave_check(args) -> int:
     root, station_root = config.root, config.delivery_path
     if station_root is None:
         raise GateRefused("no delivery_path in config")
-    if not station_root.is_dir() or not os.access(station_root, os.R_OK):
+    root_problem = _station_root_problem(station_root)
+    if root_problem == "unreadable":
         raise GateRefused(f"station root {station_root} is not mounted or not a readable "
                           f"directory")
+    if root_problem == "empty":
+        raise GateRefused(_empty_station_message(station_root))
     _, doc = _read_json_file(args.list, "wave list")
     if not (isinstance(doc, dict) and isinstance(doc.get("rows"), list)):
         raise GateRefused(f"{args.list} is not a wave list")

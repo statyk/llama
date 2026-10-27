@@ -8,6 +8,7 @@ stubbed for every test: a real emcee on this machine would otherwise refuse writ
 import hashlib
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -1255,3 +1256,33 @@ def test_recognises_own_mark_on_a_copy_with_no_trailing_newline(tmp_path, monkey
     assert line["before_sha256"] == _sha(original)
     assert ba.unmark(root, batch, station_root=station, apply=True, echo=lambda m: None) == 0
     assert mf.read_bytes() == original
+
+
+def test_mark_refuses_an_empty_station_root(tmp_path, monkeypatch, capsys):
+    cfg, root, station, ws, args = _cli_fixture(tmp_path, monkeypatch)
+    shutil.rmtree(station / "d1")
+    (station / ".swap").mkdir()                 # only dot-entries still counts as empty
+    before_lib = _files(root)
+    for extra in ([], ["--apply"]):
+        assert ba.main(args + extra) == 2
+        assert (f"station root {station} is empty (is the station mounted?)"
+                in capsys.readouterr().err)
+    assert _files(root) == before_lib
+
+
+def test_mark_item_refused_when_the_station_empties_mid_batch(tmp_path, monkeypatch):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "d1", delivered=True, station=station)
+    batch = _batch(tmp_path)
+    real_now = campaign._now
+
+    def now():                                  # runs inside the item, before its station check
+        shutil.rmtree(station / "d1")
+        return real_now()
+    monkeypatch.setattr(campaign, "_now", now)
+    msgs = []
+    assert ba.mark_apply(root, [_item("d1", digests=input_digests(ws))], station_root=station,
+                         batch=batch, echo=msgs.append) == 1
+    [line] = _records(batch)
+    assert line["station"] == f"refused: station root {station} is empty (is the station mounted?)"
+    assert "d1" in _listed(msgs)

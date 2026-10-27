@@ -3,6 +3,7 @@
 
 Fixture libraries and stations under tmp_path; nothing real is touched."""
 import json
+import shutil
 import sys
 from collections import namedtuple
 from pathlib import Path
@@ -223,6 +224,7 @@ def test_counts_shape(tmp_path, capsys):
 
 def test_kind_held_from_briefing_none(tmp_path):
     cfg, root, station = _lib(tmp_path)
+    (station / "placeholder").mkdir()           # an empty station root now refuses (RF2)
     _pin(root)
     a, b = _show(root, "a", held=True), _show(root, "b")
     chg = dict(filenames=["t1.mp3", "t9.mp3"])
@@ -316,3 +318,25 @@ def test_spot_check_is_seeded_and_side_by_side(tmp_path, capsys):
     assert first.count("== s") == 3
     assert _run(cfg, "spot-check", "--batch", str(batch), "--n", "3") == 0
     assert "seed: " in capsys.readouterr().out
+
+
+def test_lists_refuse_an_empty_station_root(tmp_path, capsys):
+    cfg, root, station, shows, arm = _world(tmp_path)
+    out = tmp_path / "wave.json"
+    for child in station.iterdir():
+        shutil.rmtree(child)
+    (station / ".hidden").mkdir()               # only dot-entries still counts as empty
+    assert _run(cfg, "lists", "--arm", str(arm), "--out", str(out)) == 2
+    assert not out.exists()
+    assert (f"station root {station} is empty (is the station mounted?)"
+            in capsys.readouterr().err)
+    assert _run(cfg, "lists", "--arm", str(arm), "--counts") == 2
+    assert capsys.readouterr().out == ""
+
+
+def test_wave_check_refuses_an_empty_station_root(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    wl = _wave_list(tmp_path, cfg, ["d1"])
+    assert _run(cfg, "wave-check", "--list", str(wl)) == 2
+    assert (f"station root {station} is empty (is the station mounted?)"
+            in capsys.readouterr().err)
