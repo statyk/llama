@@ -218,20 +218,39 @@ def test_small_block_reports_its_bound(tmp_path, capsys):
     assert "error bound ±1/20 = ±0.05 points per show" in out
 
 
+def _add_row(d, slug, kind, at, calls):
+    lst = json.loads((d / "list.json").read_text())
+    lst["rows"].append({"slug": slug, "kind": kind})
+    (d / "list.json").write_text(json.dumps(lst))
+    row = {"slug": slug, "outcome": "cleared", "retryable": False, "kind": kind, "at": at,
+           "llm_calls": calls, "meter": {"before": _meter(90, 90), "after": _meter(95, 95)}}
+    with (d / "progress.jsonl").open("a") as f:
+        f.write(json.dumps(row) + "\n")
+
+
 def test_non_spending_and_other_kind_rows_are_not_counted(tmp_path, capsys):
     cfg, _, _ = _lib(tmp_path)
-    extra = [{"slug": "zz", "outcome": "cleared", "retryable": False, "kind": "reuse",
-              "at": "2026-10-27T12:00:00+00:00", "llm_calls": 0,
-              "meter": {"before": _meter(90, 90), "after": _meter(95, 95)}}]
-    d = _block(tmp_path, "b", 20, (30, 40), (10, 12), extra_rows=extra)
-    # a row in the list of another kind that did spend must not count either
-    lst = json.loads((d / "list.json").read_text())
-    lst["rows"].append({"slug": "zz", "kind": "reuse"})
-    (d / "list.json").write_text(json.dumps(lst))
+    d = _block(tmp_path, "b", 20, (30, 40), (10, 12))
+    _add_row(d, "zz", "reuse", "2026-10-27T10:05:30+00:00", 0)          # inside, no spend
+    _add_row(d, "yy", "needs-llm", "2026-10-27T12:00:00+00:00", 2)      # outside, spent
     q = _queue(tmp_path, {})
     rc, out = _report(cfg, capsys, "--block", f"dead-fresh={d}", "--queue", str(q),
                       "--weekly-share", "50")
     assert "shows=20" in out and "per-show 5h: 0.5" in out
+    assert "not contiguous" not in out
+
+
+def test_interleaved_spend_of_another_kind_means_no_measurement(tmp_path, capsys):
+    cfg, _, _ = _lib(tmp_path)
+    d = _block(tmp_path, "b", 20, (30, 40), (10, 12))
+    _add_row(d, "zz", "needs-llm", "2026-10-27T10:05:30+00:00", 2)      # inside, spent
+    q = _queue(tmp_path, {"dead": {"fresh": {"unvoiced": 5, "voiced": 0}}})
+    rc, out = _report(cfg, capsys, "--block", f"dead-fresh={d}", "--queue", str(q),
+                      "--weekly-share", "50")
+    assert ("dead-fresh: not contiguous: 1 spending row(s) of another kind inside it; "
+            "re-run as one block per kind") in out
+    assert "per-show 5h" not in out and "7d/5h ratio" not in out
+    assert "no usable block" in out
 
 
 def test_projection_in_weeks(tmp_path, capsys):

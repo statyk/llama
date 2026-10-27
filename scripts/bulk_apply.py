@@ -1602,16 +1602,30 @@ def _parse_block(spec: str) -> tuple[str, str, Path]:
     raise GateRefused(f"--block {spec!r}: the kind must be one of {', '.join(MEASURED_KINDS)}")
 
 
-def _block_rows(batch: Path, kind: str) -> list[dict]:
-    """The batch's applied rows of `kind` that spent (llm_calls > 0), oldest first."""
+def _spending_rows(batch: Path) -> list[tuple[str | None, dict]]:
+    """(list kind, last progress row) for every row that spent (llm_calls > 0), oldest first."""
     _, lst = _read_json_file(batch / "list.json", "batch list")
     if not (isinstance(lst, dict) and isinstance(lst.get("rows"), list)):
         raise GateRefused(f"{batch / 'list.json'} is not a wave list")
     kinds = {r.get("slug"): r.get("kind") for r in lst["rows"] if isinstance(r, dict)}
-    rows = [r for s, r in reapply.read_progress(batch).items()
-            if kinds.get(s) == kind and isinstance(r.get("llm_calls"), (int, float))
-            and r["llm_calls"] > 0]
-    return sorted(rows, key=lambda r: str(r.get("at")))
+    out = [(kinds.get(s), r) for s, r in reapply.read_progress(batch).items()
+           if isinstance(r.get("llm_calls"), (int, float)) and r["llm_calls"] > 0]
+    return sorted(out, key=lambda kr: str(kr[1].get("at")))
+
+
+def _block_rows(batch: Path, kind: str) -> list[dict]:
+    """The batch's applied rows of `kind` that spent (llm_calls > 0), oldest first."""
+    return [r for k, r in _spending_rows(batch) if k == kind]
+
+
+def _foreign_inside(batch: Path, kind: str) -> int:
+    """Spending rows of another kind whose time falls inside the block's own window."""
+    spent = _spending_rows(batch)
+    mine = [str(r.get("at")) for k, r in spent if k == kind]
+    if not mine:
+        return 0
+    lo, hi = mine[0], mine[-1]
+    return sum(1 for k, r in spent if k != kind and lo <= str(r.get("at")) <= hi)
 
 
 def _meter_of(row: dict, which: str) -> dict:
@@ -1654,6 +1668,11 @@ def cmd_trial_report(args) -> int:
         shape, kind, batch = _parse_block(spec)
         label = f"{shape}-{kind}"
         rows = _block_rows(batch, kind)
+        foreign = _foreign_inside(batch, kind)
+        if foreign:
+            print(f"{label}: not contiguous: {foreign} spending row(s) of another kind "
+                  f"inside it; re-run as one block per kind")
+            continue
         m = _measure_block(rows)
         if m is None:
             print(f"block {label}: no usable measurement ({len(rows)} spending row(s))")
