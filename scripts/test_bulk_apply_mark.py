@@ -201,8 +201,10 @@ def test_plan_marks_visible_changes_frozen_guard_and_reselections(tmp_path):
                _row(proc_guard, outcome="clean", stored_brief_guard=[SONG_FLAG]),
                _row(proc_changed, outcome="clean-changed", title_changes=title),
                _row(clean, outcome="clean"))
-    items = ba.mark_plan(root, arm, {"frozen", "label"},
-                         [{"slug": "resel", "stored": IDENT, "pick": OTHER}], set())
+    items, unplannable = ba.mark_plan(root, arm, {"frozen", "label"},
+                                      [{"slug": "resel", "stored": IDENT, "pick": OTHER}],
+                                      set())
+    assert unplannable == []
     got = {i.slug: (i.reason, i.start_stage) for i in items}
     assert got == {
         "swap": ("changed by the held-backlog fixes: files", "gather"),
@@ -230,7 +232,8 @@ def test_mark_plan_guard_uses_only_held_problems(tmp_path):
     other = "briefing mentions unknown song: Dark Star"
     arm = _arm(cfg, _row(allover, stored_brief_guard=[SONG_FLAG]),
                _row(some, stored_brief_guard=[SONG_FLAG, other]))
-    items = ba.mark_plan(root, arm, set(), [], set())
+    items, unplannable = ba.mark_plan(root, arm, set(), [], set())
+    assert unplannable == []
     assert {i.slug: i.reason for i in items} == {
         "some": "stored briefing fails today's guard"}
 
@@ -242,7 +245,7 @@ def test_mark_plan_skips_processed_needs_llm_row_with_diff(tmp_path):
     arm = _arm(cfg, _row(ws, outcome="needs-llm", needs_llm=["stored alignment llm"],
                          set_changes=[{"index": 2, "old": "1", "new": "2"}],
                          filenames=["t1.mp3", "t9.mp3"]))
-    assert ba.mark_plan(root, arm, {"p"}, [], set()) == []
+    assert ba.mark_plan(root, arm, {"p"}, [], set()) == ([], [])
 
 
 def test_mark_plan_ignores_needs_llm_diff_off_frozen_list(tmp_path):
@@ -254,10 +257,11 @@ def test_mark_plan_ignores_needs_llm_diff_off_frozen_list(tmp_path):
                          filenames=["t1.mp3", "t9.mp3"]),
                _row(gone, outcome="unreplayable", unreplayable="CacheMiss: x",
                     filenames=[], title_changes=[{"index": 1, "old": "a", "new": "b"}]))
-    assert ba.mark_plan(root, arm, set(), [], set()) == []
+    assert ba.mark_plan(root, arm, set(), [], set()) == ([], [])
     # the frozen list (unprocessed) or a re-selection still marks them
-    items = ba.mark_plan(root, arm, {"n"}, [{"slug": "u", "stored": IDENT, "pick": OTHER}],
-                         set())
+    items, unplannable = ba.mark_plan(root, arm, {"n"},
+                                      [{"slug": "u", "stored": IDENT, "pick": OTHER}], set())
+    assert unplannable == []
     assert {i.slug: i.start_stage for i in items} == {"n": "gather", "u": "select"}
 
 
@@ -798,3 +802,246 @@ def test_unmark_lists_processed_shows(tmp_path):
         assert any(s in m and "processed since marked: re-deliver instead" in m for m in msgs)
         assert campaign.read_record(wss[s]).model_dump_json() == recs[s]
     assert (station / "d1" / "manifest.json").read_bytes() == marked
+
+
+# --- Task 15b: M1 (a station mark without its record line), M2 (unplannable shows),
+# --- M3 (--campaign-dir with --apply) ----------------------------------------------
+
+def test_crash_after_station_write_is_reversible(tmp_path, monkeypatch):
+    """M1: a crash between the station write and its record line. The re-run recognises
+    the batch's own mark (its `marked_at` is this batch's library mark `at`) and records
+    `marked` from the saved before copy, so `unmark` puts the station copy back."""
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "d1", delivered=True, station=station)
+    mf = station / "d1" / "manifest.json"
+    original = mf.read_bytes()
+    batch = _batch(tmp_path)
+    items = [_item("d1", digests=input_digests(ws))]
+    real_write, real_append = station_mark.write_mark, ba._append_jsonl
+    wrote = []
+
+    def write_mark(o, **k):
+        result = real_write(o, **k)
+        wrote.append(o)
+        return result
+
+    def append(path, row):
+        if wrote:
+            raise RuntimeError("killed")             # the crash: after the rename
+        return real_append(path, row)
+    monkeypatch.setattr(station_mark, "write_mark", write_mark)
+    monkeypatch.setattr(ba, "_append_jsonl", append)
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 1
+    assert _records(batch) == []
+    marked_at = station_mark.mark_of(json.loads(mf.read_text()))["marked_at"]
+    assert marked_at == campaign.read_record(ws).marks[-1].at
+    monkeypatch.setattr(ba, "_append_jsonl", real_append)
+    monkeypatch.setattr(station_mark, "write_mark", real_write)
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 0
+    [line] = _records(batch)
+    assert line["station"] == "marked" and line["mark_added"] is True
+    assert line["before_sha256"] == _sha(original)
+    assert line["after_sha256"] == _sha(mf.read_bytes())
+    assert ba.unmark(root, batch, station_root=station, apply=True, echo=lambda m: None) == 0
+    assert mf.read_bytes() == original
+    assert campaign.read_record(ws).marks == []
+
+
+def _concurrent_then_unsaved(tmp_path, monkeypatch):
+    """The second before-copy save fails after `write_mark` succeeded: the station copy
+    changed between marking's read and `write_mark`'s (so the before copy is re-saved),
+    and that re-save raises."""
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "d1", delivered=True, station=station)
+    mf = station / "d1" / "manifest.json"
+    original = mf.read_bytes()
+    real_write, real_durable = station_mark.write_mark, ba._write_durable
+    pre_mark = []
+
+    def write_mark(o, **k):
+        data = json.loads(mf.read_text())
+        data["dj_notes"] = {"file": "dj-notes.md"}           # another writer, just now
+        mf.write_text(json.dumps(data, indent=2) + "\n")
+        pre_mark.append(mf.read_bytes())
+        monkeypatch.setattr(station_mark, "write_mark", real_write)
+        return real_write(o, **k)
+    saves = []
+
+    def durable(path, data):
+        if path.parent.name == "before":
+            saves.append(path)
+            if len(saves) == 2:
+                raise OSError(28, "No space left on device")
+        return real_durable(path, data)
+    monkeypatch.setattr(station_mark, "write_mark", write_mark)
+    monkeypatch.setattr(ba, "_write_durable", durable)
+    batch = _batch(tmp_path)
+    items = [_item("d1", digests=input_digests(ws))]
+    msgs = []
+    rc = ba.mark_apply(root, items, station_root=station, batch=batch, echo=msgs.append)
+    monkeypatch.setattr(ba, "_write_durable", real_durable)
+    return root, station, ws, mf, original, pre_mark[0], batch, items, rc, msgs
+
+
+def test_before_save_failure_after_write_is_not_recorded_refused(tmp_path, monkeypatch):
+    """M1: the station IS marked, so the line is not `refused: ...` (a re-run would
+    otherwise retry it, see the mark and record `already marked`). It is listed (the
+    before copy on disk is stale), and `unmark` reverses it from the record's shas."""
+    root, station, ws, mf, original, pre_mark, batch, items, rc, msgs = (
+        _concurrent_then_unsaved(tmp_path, monkeypatch))
+    assert rc == 1
+    [line] = _records(batch)
+    assert not line["station"].startswith("refused")
+    assert line["station"].startswith("marked, before copy not saved")
+    assert "No space left on device" in line["station"]
+    assert line["before_sha256"] == _sha(pre_mark)
+    assert line["after_sha256"] == _sha(mf.read_bytes())
+    assert "d1" in _listed(msgs)
+    assert (batch / "before" / "d1.json").read_bytes() == original      # stale
+    assert ba.unmark(root, batch, station_root=station, apply=True, echo=lambda m: None) == 0
+    assert mf.read_bytes() == pre_mark
+    assert campaign.read_record(ws).marks == []
+
+
+def test_rerun_heals_an_unsaved_before_copy(tmp_path, monkeypatch):
+    """M1: a re-run retries the unsaved line; the before copy is rebuilt from the station
+    copy and verified against the record's before sha, saved, and recorded `marked`."""
+    root, station, ws, mf, original, pre_mark, batch, items, rc, msgs = (
+        _concurrent_then_unsaved(tmp_path, monkeypatch))
+    marked = mf.read_bytes()
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 0
+    assert mf.read_bytes() == marked                               # no station write
+    line = _records(batch)[-1]
+    assert line["station"] == "marked"
+    assert (line["before_sha256"], line["after_sha256"]) == (_sha(pre_mark), _sha(marked))
+    assert (batch / "before" / "d1.json").read_bytes() == pre_mark
+    assert ba.unmark(root, batch, station_root=station, apply=True, echo=lambda m: None) == 0
+    assert mf.read_bytes() == pre_mark
+
+
+def test_unmark_never_reports_success_over_this_batchs_station_mark(tmp_path):
+    """M1: an `already marked` line with `mark_added: true` whose station copy carries
+    this batch's `marked_at`, and no before copy to put it back from: listed, exit 1,
+    nothing touched."""
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "d1", delivered=True, station=station)
+    batch = _batch(tmp_path)
+    at = "2026-10-27T12:00:00.000000Z"
+    campaign.add_mark(ws, reason="changed by the held-backlog fixes: titles",
+                      start_stage="gather", batch=batch.name, at=at)
+    station_mark.write_mark(station / "d1", reason="changed by the held-backlog fixes: titles",
+                            marked_at=at)
+    ba._append_jsonl(batch / "record.jsonl", {
+        "slug": "d1", "reason": "changed by the held-backlog fixes: titles",
+        "start_stage": "gather", "mark_added": True, "station": "already marked",
+        "before_sha256": None, "after_sha256": None, "at": at})
+    marked = (station / "d1" / "manifest.json").read_bytes()
+    rec = campaign.read_record(ws).model_dump_json()
+    msgs = []
+    assert ba.unmark(root, batch, station_root=station, apply=True, echo=msgs.append) == 1
+    assert any(m.startswith("d1: ") and "this batch's mark" in m for m in msgs), msgs
+    assert (station / "d1" / "manifest.json").read_bytes() == marked
+    assert campaign.read_record(ws).model_dump_json() == rec
+
+
+def test_unmark_lists_a_before_copy_with_no_record_line(tmp_path, monkeypatch):
+    """M1: a run stopped between the station write and the record line, never re-run:
+    `unmark` cannot see the show from the record alone; the before copy names it."""
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "d1", delivered=True, station=station)
+    ok = _show(root, "p1")
+    batch = _batch(tmp_path)
+    real_append = ba._append_jsonl
+
+    def append(path, row):
+        if row["slug"] == "d1":
+            raise RuntimeError("killed")
+        return real_append(path, row)
+    monkeypatch.setattr(ba, "_append_jsonl", append)
+    items = [_item("d1", digests=input_digests(ws)), _item("p1", digests=input_digests(ok))]
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 1
+    marked = (station / "d1" / "manifest.json").read_bytes()
+    msgs = []
+    assert ba.unmark(root, batch, station_root=station, apply=True, echo=msgs.append) == 1
+    assert any(m.startswith("d1: ") and "re-run the batch" in m for m in msgs), msgs
+    assert (station / "d1" / "manifest.json").read_bytes() == marked
+    assert campaign.awaiting_fix(campaign.read_record(ws))
+    assert campaign.read_record(ok).marks == []                    # the rest reversed
+
+
+def test_missing_show_dir_is_reported_not_dropped(tmp_path, monkeypatch, capsys):
+    """M2: a re-selection row whose show directory is gone is listed, not dropped."""
+    cfg, root, station, ws, args = _cli_fixture(tmp_path, monkeypatch)
+    (root / "campaign" / "reselections.json").write_text(json.dumps(
+        {"written_at": T_LATER, "rows": [{"slug": "gone", "stored": IDENT, "pick": OTHER}]}))
+    capsys.readouterr()
+    assert ba.main(args) == 1
+    out = capsys.readouterr().out
+    assert "unplannable shows: 1\n  gone: no show directory\n" in out
+    assert "marking plan: 1 show(s)" in out                        # d1 still planned
+    items, unplannable = ba.mark_plan(
+        root, json.loads(Path(args[-1]).read_text()), set(),
+        [{"slug": "gone", "stored": IDENT, "pick": OTHER}], set())
+    assert [i.slug for i in items] == ["d1"]
+    assert unplannable == [("gone", "no show directory")]
+
+
+def test_unreadable_show_json_is_reported_not_dropped(tmp_path, monkeypatch, capsys):
+    """M2: a visibly changed arm row whose show.json is not JSON is listed, not dropped."""
+    cfg, root, station, ws, args = _cli_fixture(tmp_path, monkeypatch)
+    ws.show.write_text("{not json")
+    capsys.readouterr()
+    assert ba.main(args) == 1
+    out = capsys.readouterr().out
+    assert "unplannable shows: 1\n  d1: show.json unreadable (" in out
+    assert "marking plan: 0 show(s)" in out
+
+
+def test_apply_refuses_while_shows_are_unplannable(tmp_path, monkeypatch, capsys):
+    cfg, root, station, ws, args = _apply_cli(tmp_path, monkeypatch)
+    ws.show.write_text("{not json")
+    before_lib, before_station = _files(root), _files(station)
+    capsys.readouterr()
+    assert ba.main(args + ["--apply"]) == 2
+    err = capsys.readouterr().err
+    assert "unplannable" in err and "d1" in err
+    assert not (root / "campaign" / "marking").exists()
+    assert not (root / "campaign" / "station-backup").exists()
+    assert _files(root) == before_lib and _files(station) == before_station
+
+
+def test_campaign_dir_refused_with_apply(tmp_path, monkeypatch, capsys):
+    """M3: llama reads the frozen list from <root>/campaign only."""
+    cfg, root, station, ws, args = _apply_cli(tmp_path, monkeypatch)
+    scratch = tmp_path / "scratch"
+    before_lib, before_station = _files(root), _files(station)
+    capsys.readouterr()
+    assert ba.main(args + ["--apply", "--campaign-dir", str(scratch)]) == 2
+    assert capsys.readouterr().err == (
+        f"refusing --campaign-dir with --apply: campaign state must live in {root}/campaign "
+        "(the dry run may use a scratch dir)\n")
+    assert not scratch.exists()
+    assert _files(root) == before_lib and _files(station) == before_station
+
+
+def test_rerun_marks_the_station_with_the_batchs_own_at(tmp_path, monkeypatch):
+    """M1: a re-run after a refusal writes the station mark with the batch's library mark
+    `at`, so a later crash after that write is still recognised as this batch's mark."""
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "d1", delivered=True, station=station)
+    batch = _batch(tmp_path)
+    items = [_item("d1", digests=input_digests(ws))]
+    monkeypatch.setattr(station_mark, "emcee_running", lambda: ["4242 1 emcee run"])
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 1
+    at = campaign.read_record(ws).marks[-1].at
+    monkeypatch.setattr(station_mark, "emcee_running", lambda: [])
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 0
+    mark = station_mark.mark_of(json.loads((station / "d1" / "manifest.json").read_text()))
+    assert mark["marked_at"] == at
+    assert _records(batch)[-1]["at"] == at

@@ -432,6 +432,12 @@ _PLAN_COLUMNS = ("delivered unvoiced", "delivered voiced", "packaged", "briefed"
 # rule, literally: "no station copy" is listed too). "not delivered" lines never count.
 _STATION_OK = ("marked", "already marked")
 _NOT_DELIVERED = "not delivered"
+# Task 15b (M1): the station copy carries this batch's mark, but its reversal evidence
+# is not (yet) on record. Neither is `refused` (the station IS marked); both are listed
+# and retried by a re-run, which records `marked` once the before copy is verified.
+_UNSAVED = "marked, before copy not saved"
+_UNVERIFIED = "marked by this batch, no verified before copy"
+_RETRIED = ("refused", _UNSAVED, _UNVERIFIED)
 
 
 class MarkItem(NamedTuple):
@@ -536,11 +542,15 @@ def _processed(ws: ShowWorkspace) -> bool:
     return rec is not None and rec.processed is not None and not campaign.awaiting_fix(rec)
 
 
-def _stored_show(ws: ShowWorkspace) -> Show | None:
+class _Unplannable(Exception):
+    """A row the plan cannot decide (Task 15b M2): listed, never dropped."""
+
+
+def _stored_show(ws: ShowWorkspace) -> Show:
     try:
         return read_model(ws.show, Show)
-    except (OSError, ValueError):
-        return None
+    except (OSError, ValueError) as exc:
+        raise _Unplannable(f"show.json unreadable ({_one_line(exc)})") from exc
 
 
 def _guard_holds(ws: ShowWorkspace, row: dict, stored: Show) -> bool:
@@ -565,7 +575,8 @@ def _llm_reason(row: dict | None) -> str:
 
 def _plan_one_mark(ws: ShowWorkspace, row: dict | None, frozen: set[str],
                    resel: dict | None) -> tuple[str, str, dict | None] | None:
-    """(reason, start stage, digests) or None, in the brief's priority order."""
+    """(reason, start stage, digests) or None, in the brief's priority order.
+    `_Unplannable` when show.json, needed to decide the row, cannot be read."""
     slug = ws.dir.name
     if resel is not None:                      # whatever the arm says
         return f"{REASON_RESELECTION}: {resel['stored']} -> {resel['pick']}", "select", None
@@ -578,17 +589,16 @@ def _plan_one_mark(ws: ShowWorkspace, row: dict | None, frozen: set[str],
             return _llm_reason(row), "gather", digests
         return None
     stored = _stored_show(ws)
-    if stored is not None:
-        if row_label_only(row, stored):
-            return None
-        visible = row_visible_changes(row, stored)
-        if visible:
-            return f"{REASON_CHANGED}: {', '.join(visible)}", "gather", digests
+    if row_label_only(row, stored):
+        return None
+    visible = row_visible_changes(row, stored)
+    if visible:
+        return f"{REASON_CHANGED}: {', '.join(visible)}", "gather", digests
     if processed:
         return None
     if slug in frozen:
         return _llm_reason(row), "gather", digests
-    if stored is not None and _guard_holds(ws, row, stored):
+    if _guard_holds(ws, row, stored):
         return REASON_GUARD, "gather", digests
     return None
 
@@ -605,21 +615,39 @@ def _plan_state(ws: ShowWorkspace, delivered: set[str]) -> str:
         return "unreadable"
 
 
+def _could_mark(row: dict | None, slug: str, frozen: set[str], resel: dict | None) -> bool:
+    """Whether `_plan_one_mark` might mark this row: a re-selection, a frozen slug, or an
+    arm row with a diff. A no-diff row off the frozen list is never marked, so its
+    missing directory is not a planning problem."""
+    return (resel is not None or slug in frozen
+            or (row is not None and row.get("outcome") not in _NO_DIFF))
+
+
 def mark_plan(root: Path, arm: dict, frozen: set[str], reselections: list[dict],
-              delivered: set[str]) -> list[MarkItem]:
-    """Every show the marking rule selects (spec "Who gets marked", "Marking skips"), in
-    slug order. `delivered` is the ledger's delivered performance ids. Reads only."""
+              delivered: set[str]) -> tuple[list[MarkItem], list[tuple[str, str]]]:
+    """(items, unplannable): every show the marking rule selects (spec "Who gets marked",
+    "Marking skips"), in slug order, and every row it cannot decide as (slug, problem):
+    `no show directory` for a row it might mark, `show.json unreadable (<detail>)` for a
+    row whose decision needs show.json (Task 15b M2; a re-selection or a no-diff frozen
+    row is planned without it). `delivered` is the ledger's delivered performance ids.
+    Reads only."""
     rows = _arm_rows(arm)
     resel = {r["slug"]: r for r in reselections}
-    items = []
+    items, unplannable = [], []
     for slug in sorted(set(rows) | set(resel)):
         ws = ShowWorkspace(root / "shows" / slug)
         if not ws.dir.is_dir():
+            if _could_mark(rows.get(slug), slug, frozen, resel.get(slug)):
+                unplannable.append((slug, "no show directory"))
             continue
-        planned = _plan_one_mark(ws, rows.get(slug), frozen, resel.get(slug))
+        try:
+            planned = _plan_one_mark(ws, rows.get(slug), frozen, resel.get(slug))
+        except _Unplannable as exc:
+            unplannable.append((slug, str(exc)))
+            continue
         if planned is not None:
             items.append(MarkItem(slug, *planned, state=_plan_state(ws, delivered)))
-    return items
+    return items, unplannable
 
 
 def take_station_backup(station_root: Path, dest: Path) -> dict:
@@ -668,30 +696,80 @@ def _last_lines(record: Path) -> dict[str, dict]:
     return out
 
 
-def _has_batch_mark(ws: ShowWorkspace, batch_id: str) -> bool:
+def _batch_mark(ws: ShowWorkspace, batch_id: str) -> campaign.CampaignMark | None:
+    """This batch's (last) library mark; None when there is none or the record is
+    unreadable."""
     try:
         rec = campaign.read_record(ws)
     except campaign.CampaignUnreadable:
-        return False
-    return rec is not None and any(m.batch == batch_id for m in rec.marks)
+        return None
+    return next((m for m in reversed(rec.marks) if m.batch == batch_id), None) if rec else None
 
 
-def _mark_station(item: MarkItem, out: Path, batch: Path,
-                  at: str) -> tuple[str, str | None, str | None]:
+def _sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _reversal(saved: Path, raw: bytes, data: dict, line: dict | None) -> bytes | None:
+    """The verified pre-mark bytes of a station copy that holds `raw` (`data` parsed,
+    carrying a mark), or None. Two kinds of evidence, each exact (never a judgement):
+    (1) the saved before copy, when adding the station's mark to it the way
+    `station_mark.write_mark` does gives exactly `raw`; (2) `raw` with the mark removed,
+    when `raw` is the record line's `after_sha256` and the result is its
+    `before_sha256` (an unsaved before copy, Task 15b M1)."""
+    key = station_mark.MARK_KEY
+    try:
+        before = saved.read_bytes()
+        bdata = json.loads(before)
+    except (OSError, ValueError):
+        bdata = None
+    if (isinstance(bdata, dict) and station_mark.mark_of(bdata) is None
+            and station_mark._encode({**bdata, key: data[key]},
+                                     newline=before.endswith(b"\n")) == raw):
+        return before
+    line = line or {}
+    if line.get("before_sha256") and line.get("after_sha256") == _sha(raw):
+        rebuilt = station_mark._encode({k: v for k, v in data.items() if k != key},
+                                       newline=raw.endswith(b"\n"))
+        if _sha(rebuilt) == line["before_sha256"]:
+            return rebuilt
+    return None
+
+
+def _mark_station(item: MarkItem, out: Path, batch: Path, at: str, batch_at: str | None,
+                  line: dict | None) -> tuple[str, str | None, str | None]:
     """(station outcome, before sha, after sha) for a delivered show's station copy.
-    The caller checked emcee just before. Never raises for a station problem (pointer c)."""
+    The caller checked emcee just before. Never raises for a station problem (pointer c).
+    A copy already carrying THIS batch's mark (`marked_at` is the batch's library mark
+    `at`: a run stopped between the station write and its record line, or an unsaved
+    before copy) is recorded `marked` once `_reversal` verifies its before bytes (saved
+    as the before copy), else `_UNVERIFIED`; it is never re-written (Task 15b M1)."""
+    saved = batch / "before" / f"{item.slug}.json"
     try:
         raw, data = station_mark.read_station_manifest(out)
-        if station_mark.mark_of(data) is not None:
-            return "already marked", None, None
-        saved = batch / "before" / f"{item.slug}.json"
+        mark = station_mark.mark_of(data)
+        if mark is not None:
+            if batch_at is None or mark.get("marked_at") != batch_at:
+                return "already marked", None, None
+            before = _reversal(saved, raw, data, line)
+            if before is None:
+                return _UNVERIFIED, None, _sha(raw)
+            try:
+                if not saved.exists() or saved.read_bytes() != before:
+                    _write_durable(saved, before)
+            except (LlamaError, OSError) as exc:
+                return f"{_UNSAVED} ({_one_line(exc)})", _sha(before), _sha(raw)
+            return "marked", _sha(before), _sha(raw)
         _write_durable(saved, raw)                        # before any station write
         before, after = station_mark.write_mark(out, reason=item.reason, marked_at=at)
-        if before != raw:
-            _write_durable(saved, before)
     except (LlamaError, OSError) as exc:
         return f"refused: {_one_line(exc)}", None, None
-    return "marked", hashlib.sha256(before).hexdigest(), hashlib.sha256(after).hexdigest()
+    if before != raw:                       # another writer between the two reads
+        try:
+            _write_durable(saved, before)
+        except (LlamaError, OSError) as exc:  # the station IS marked: never `refused`
+            return f"{_UNSAVED} ({_one_line(exc)})", _sha(before), _sha(after)
+    return "marked", _sha(before), _sha(after)
 
 
 class _DeliveredIds:
@@ -732,7 +810,8 @@ def _station_copy_problem(out: Path) -> str | None:
 
 
 def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
-              record: Path, delivered_ids: _DeliveredIds) -> tuple[str, bool, list[str]]:
+              record: Path, delivered_ids: _DeliveredIds,
+              line: dict | None = None) -> tuple[str, bool, list[str]]:
     """One item under the show lock: (what happened, whether it must be listed as not
     marked, the emcee lines that stop the batch). The library mark is written first and
     made durable; a station failure never rolls it back (the library side is the safe
@@ -749,7 +828,10 @@ def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
         if not campaign.is_awaiting(ws):          # an unreadable record counts as awaiting
             campaign.add_mark(ws, reason=item.reason, start_stage=item.start_stage,
                               batch=batch.name, at=at)
-        mark_added = _has_batch_mark(ws, batch.name)
+        own = _batch_mark(ws, batch.name)
+        mark_added = own is not None
+        if own is not None:       # a re-run marks the station with the batch's own `at`
+            at = own.at
         before_sha = after_sha = None
         running: list[str] = []
         out = station_root / item.slug
@@ -765,7 +847,8 @@ def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
             if running:
                 station = "refused: emcee is running"
             else:
-                station, before_sha, after_sha = _mark_station(item, out, batch, at)
+                station, before_sha, after_sha = _mark_station(
+                    item, out, batch, at, own.at if own else None, line)
         _append_jsonl(record, {"slug": item.slug, "reason": item.reason,
                                "start_stage": item.start_stage, "mark_added": mark_added,
                                "station": station, "before_sha256": before_sha,
@@ -779,15 +862,18 @@ def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: 
     """The marking batch (spec "The marking batch"). Per item, under the show lock: the
     digests re-checked, the campaign record marked (durable) unless already awaiting, then
     a delivered show's station copy marked, one `record.jsonl` line per item. Items already
-    recorded with a non-refused station outcome are skipped. A running emcee stops the
+    recorded with a station outcome other than `refused`, `_UNSAVED` or `_UNVERIFIED` are
+    skipped (those three are retried: a station copy already carrying this batch's mark
+    is recorded `marked` once its before bytes verify). A running emcee stops the
     batch. Exit 0 only when every delivered item is `marked` or `already marked`, judged
     over the batch's WHOLE record (each slug's last line, earlier runs included, so a
     re-run still reports a terminal `no station copy`) plus this run's items that wrote
     no line (inputs changed, errors, not reached); else 1, listing each."""
     (batch / "before").mkdir(parents=True, exist_ok=True)
     record = batch / "record.jsonl"
-    done = {s: r for s, r in _last_lines(record).items()
-            if not str(r.get("station", "refused")).startswith("refused")}
+    last = _last_lines(record)
+    done = {s: r for s, r in last.items()
+            if not str(r.get("station", "refused")).startswith(_RETRIED)}
     listed: dict[str, str] = {}
     counts: Counter = Counter()
     stop: list[str] = []
@@ -802,7 +888,7 @@ def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: 
             continue
         try:
             what, problem, stop = _mark_one(root, item, station_root, batch, record,
-                                            delivered_ids)
+                                            delivered_ids, last.get(item.slug))
         except Exception as exc:
             what, problem = f"error: {_one_line(exc)}", True
         echo(f"{item.slug}: {what}")
@@ -837,6 +923,36 @@ def _after(later: str, earlier: str) -> bool:
     return a is None or b is None or a >= b
 
 
+def _own_station_mark(out: Path, saved: Path, attributed: set[str],
+                      line: dict) -> tuple[bytes | None, str | None, str | None]:
+    """For a line whose station outcome is not `marked` (Task 15b M1): (bytes to put
+    back, the sha the copy must hold, problem). A copy carrying a mark this batch wrote
+    (`marked_at` in `attributed`) is put back when `_reversal` verifies its before bytes,
+    else it is a problem; never skipped. A copy that cannot be read is a problem only
+    when the batch saved a before copy for it (it attempted a station write); without
+    one this batch never wrote it (`refused` before any write, `no station copy`)."""
+    problem = _station_copy_problem(out)
+    raw = data = None
+    if problem is None:
+        try:
+            raw, data = station_mark.read_station_manifest(out)
+        except LlamaError as exc:
+            problem = _one_line(exc)
+    if problem is not None:
+        if not saved.exists():
+            return None, None, None
+        return None, None, (f"cannot check the station copy for this batch's mark "
+                            f"({problem}); check it by hand")
+    mark = station_mark.mark_of(data)
+    if mark is None or mark.get("marked_at") not in attributed:
+        return None, None, None
+    restore = _reversal(saved, raw, data, line)
+    if restore is None:
+        return None, None, ("the station copy carries this batch's mark and there is no "
+                            "verified before copy; check it by hand")
+    return restore, _sha(raw), None
+
+
 def _unmark_one(ws: ShowWorkspace, line: dict, batch: Path, station_root: Path,
                 apply: bool) -> tuple[str, bool]:
     """(what happened, whether it is a problem). Under the show lock."""
@@ -845,16 +961,22 @@ def _unmark_one(ws: ShowWorkspace, line: dict, batch: Path, station_root: Path,
     mark = next((m for m in reversed(rec.marks) if m.batch == bid), None) if rec else None
     if mark is not None and rec.processed is not None and _after(rec.processed.at, mark.at):
         return "processed since marked: re-deliver instead", True
-    restore = None
+    restore = expect = None
     out = station_root / slug
+    saved = batch / "before" / f"{slug}.json"
     if line.get("station") == "marked":
         current = hashlib.sha256(station_mark.read_station_manifest(out)[0]).hexdigest()
         if current == line.get("after_sha256"):
-            restore = (batch / "before" / f"{slug}.json").read_bytes()
+            restore, expect = saved.read_bytes(), current
             if hashlib.sha256(restore).hexdigest() != line.get("before_sha256"):
                 return f"refused: before/{slug}.json does not match the record", True
         elif current != line.get("before_sha256"):       # equal: already put back
             return "station copy changed since marking", True
+    elif line.get("station") != _NOT_DELIVERED:
+        attributed = {a for a in (mark.at if mark else None, line.get("at")) if a}
+        restore, expect, problem = _own_station_mark(out, saved, attributed, line)
+        if problem is not None:
+            return problem, True
     what = ("station copy put back; " if restore is not None else "") + "batch mark removed"
     if not apply:
         return f"would be: {what}", False
@@ -862,7 +984,7 @@ def _unmark_one(ws: ShowWorkspace, line: dict, batch: Path, station_root: Path,
         running = station_mark.emcee_running()
         if running:
             return "refused: emcee is running (" + "; ".join(running) + ")", True
-        station_mark.put_back(out, expect_sha256=line["after_sha256"], data=restore)
+        station_mark.put_back(out, expect_sha256=expect, data=restore)
     campaign.remove_marks(ws, bid)
     return what, False
 
@@ -872,13 +994,23 @@ def unmark(root: Path, batch: Path, *, station_root: Path, apply: bool, echo) ->
     slug's last record line with `mark_added`: a show processed since the batch's mark is
     listed and left alone; a `marked` station copy is put back only while it still holds
     the bytes marking wrote; then the batch's library mark is removed. A line with
-    `mark_added: false` keeps the earlier batch's mark (and its station copy). Exit 1 when
+    `mark_added: false` keeps the earlier batch's mark (and its station copy). Any other
+    line's station copy still carrying this batch's mark is put back from verified
+    evidence or listed, and a before copy with no record line at all (a run stopped
+    between its station write and the line) is listed (Task 15b M1). Exit 1 when
     anything is listed."""
     record = batch / "record.jsonl"
     if not record.exists():
         raise LlamaError(f"no record.jsonl in {batch}")
     problems = 0
-    for slug, line in sorted(_last_lines(record).items()):
+    lines = _last_lines(record)
+    before_dir = batch / "before"
+    for slug in sorted(p.stem for p in before_dir.glob("*.json")
+                       if p.stem not in lines) if before_dir.is_dir() else []:
+        problems += 1
+        echo(f"{slug}: no record line (a marking run stopped part-way); re-run the batch, "
+             "then unmark")
+    for slug, line in sorted(lines.items()):
         if not line.get("mark_added"):
             echo(f"{slug}: kept (this batch added no library mark)")
             continue
@@ -958,7 +1090,8 @@ def _station_state(item: MarkItem, station_root: Path) -> tuple[str, str | None]
     return ("delivered voiced" if voiced else "delivered unvoiced"), None
 
 
-def _print_mark_plan(items: list[MarkItem], arm: dict, station_root: Path) -> None:
+def _print_mark_plan(items: list[MarkItem], arm: dict, station_root: Path,
+                     unplannable: list[tuple[str, str]]) -> None:
     rows = _arm_rows(arm)
     table: dict[str, Counter] = {k: Counter() for k in _REASON_KINDS}
     voiced, unreadable = [], []
@@ -985,6 +1118,9 @@ def _print_mark_plan(items: list[MarkItem], arm: dict, station_root: Path) -> No
     unrep = sorted(s for s, r in rows.items()
                    if r.get("outcome") == "unreplayable" and s not in marked)
     print(f"unreplayable, not marked: {len(unrep)}" + (f": {', '.join(unrep)}" if unrep else ""))
+    print(f"unplannable shows: {len(unplannable)}")
+    for slug, problem in unplannable:
+        print(f"  {slug}: {problem}")
     running = station_mark.emcee_running()
     print("emcee running: " + ("yes" if running else "no"))
     for line in running:
@@ -994,6 +1130,9 @@ def _print_mark_plan(items: list[MarkItem], arm: dict, station_root: Path) -> No
 def cmd_mark(args) -> int:
     config = _config(args)
     root, station_root = config.root, config.delivery_path
+    if args.apply and args.campaign_dir is not None:      # Task 15b M3
+        raise GateRefused(f"refusing --campaign-dir with --apply: campaign state must live "
+                          f"in {root}/campaign (the dry run may use a scratch dir)")
     if station_root is None:
         raise GateRefused("no delivery_path in config")
     if not station_root.is_dir():
@@ -1029,11 +1168,14 @@ def cmd_mark(args) -> int:
         raise GateRefused(RESELECTIONS_STALE)
     delivered = {e.performance_id for e in Ledger(root / "ledger.jsonl").entries()
                  if e.status == "delivered"}
-    items = mark_plan(root, arm, set(frozen["slugs"]), resel["rows"], delivered)
-    _print_mark_plan(items, arm, station_root)
+    items, unplannable = mark_plan(root, arm, set(frozen["slugs"]), resel["rows"], delivered)
+    _print_mark_plan(items, arm, station_root, unplannable)
     if not args.apply:
         print("dry run: nothing written (pass --apply)")
-        return 0
+        return 1 if unplannable else 0
+    if unplannable:
+        raise GateRefused(f"refusing to mark: {len(unplannable)} unplannable show(s): "
+                          + ", ".join(slug for slug, _ in unplannable))
     batch_id = hashlib.sha256(arm_bytes + frozen_bytes + resel_bytes).hexdigest()[:16]
     retire_rekey_restore(root, by=f"bulk-apply marking {batch_id}",
                          at=datetime.now(timezone.utc).isoformat())
