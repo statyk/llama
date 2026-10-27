@@ -900,6 +900,28 @@ def test_deliver_batch_skips_awaiting_fix(tmp_path: Path):
     assert not (dest / "gratefuldead-1973-06-10").exists()
 
 
+def test_batch_deliver_does_not_report_a_show_processed_meanwhile_as_refused(
+        tmp_path: Path, monkeypatch):
+    from llama import campaign
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    _mark(ws)
+    dest = tmp_path / "station-inbox"
+    real = cli._confirm_plan
+
+    def confirm_then_process(*a, **k):        # processed between the scan and the lock
+        ok = real(*a, **k)
+        assert campaign.mark_processed(ws, held=False)
+        return ok
+    monkeypatch.setattr(cli, "_confirm_plan", confirm_then_process)
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--packaged",
+                                "--yes", "--dest", str(dest)])
+    assert r.exit_code == 0, r.output
+    assert (dest / "gratefuldead-1973-06-10" / "manifest.json").exists()
+    assert ("gratefuldead-1973-06-10: processed since the plan was listed; delivering"
+            in r.output)
+    assert "refusing" not in r.output
+
+
 def test_processed_show_delivers(tmp_path: Path):
     from llama import campaign
     ws = build_ready(tmp_path, "gratefuldead-1973-06-10")

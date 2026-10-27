@@ -879,6 +879,29 @@ def test_strict_refuses_a_missing_or_unreadable_station_copy(tmp_path, monkeypat
     assert ia.downloads == [] and tree_bytes(ws.dir) == before
 
 
+@pytest.mark.parametrize("from_stage", ["gather", "brief"])
+def test_redo_of_a_delivered_show_refuses_strict_reuse_before_any_llm_call(
+        tmp_path, monkeypatch, from_stage):
+    cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, OLD2)
+    shutil.rmtree(station)                        # the station is unmounted
+    stub_stages(monkeypatch, OLD2)
+    spent = []                                    # every stage that would pay for LLM work
+    for name in ("run_gather", "run_brief"):
+        def recording(*a, _real=getattr(pipeline, name), _name=name, **k):
+            spent.append(_name)
+            return _real(*a, **k)
+        monkeypatch.setattr(pipeline, name, recording)
+    before = tree_bytes(ws.dir)
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead",
+                                "--from", from_stage])
+    assert r.exit_code == 1, r.output
+    *_, refusal, hint = _lines(r)
+    assert refusal.startswith(f"{SLUG}: station copy unreadable: no directory {station}")
+    assert hint == HINT
+    assert spent == []                            # refused before gather or brief spent anything
+    assert ia.downloads == [] and tree_bytes(ws.dir) == before
+
+
 def test_strict_refuses_without_a_delivery_path(tmp_path, monkeypatch):
     from llama.station_mark import StationUnreadable
     cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, OLD2)

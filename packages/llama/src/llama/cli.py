@@ -22,6 +22,7 @@ from herder.usage import read_usage
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
+from llama import audio_reuse
 from llama.audio_reuse import StationUnpaired, plan_reuse, write_anchor_if_absent
 from llama.catalog import library_performance_ids
 from llama.cli_select import ShowState
@@ -2716,7 +2717,8 @@ def _fixed_for_delivery(entry, target_dir: Path) -> bool:
     """`deliver --fixed`: not awaiting fix, the campaign record processed, and the
     station manifest marked. A station manifest that cannot be read is kept, so
     the batch lists it as refused rather than dropping it silently. Unlocked, like
-    every selector read; `_deliver_one` re-checks under the show lock."""
+    every selector read; `_deliver_one` re-checks only the awaiting-fix refusal
+    under the show lock (not the processed or marked tests)."""
     if entry.awaiting_fix:
         return False
     try:
@@ -2789,6 +2791,10 @@ def _deliver_batch(config, ledger, sel, dest, yes, fixed: bool = False) -> None:
             except LlamaError as exc:
                 typer.echo(str(exc), err=True)
                 continue
+            # Processed since the scan: the plan line above said refused, the show
+            # is delivered after all.
+            marks.pop(e.slug, None)
+            typer.echo(f"{e.slug}: processed since the plan was listed; delivering")
         try:
             out = _deliver_one(config, ledger, e, dest)
         except _VoicedDestination as exc:
@@ -3078,6 +3084,8 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
     # before the re-gather rewrites or drops them.
     reuse = plan_reuse(show_ws, config.delivery_path / show_ws.dir.name
                        if config.delivery_path else None, strict=strict)
+    # The station refusals now, not at package time after gather and brief spent.
+    audio_reuse.check_pairs(reuse, show_ws)
     drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
     # Keep the winnow assessment (quality_score + recording_complaints) so
     # select-recording still avoids complained-about recordings; override only
