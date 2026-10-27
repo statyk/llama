@@ -2050,3 +2050,33 @@ def test_with_gather_llm_extract_setlist_failure_writes_nothing(tmp_path, monkey
     with pytest.raises(HerderError):
         _run(config, ledger, entry, providers, with_gather_llm=True)
     assert providers["extract_setlist"].calls and _snapshot(entry.ws) == before
+
+
+def test_align_ladder_of_providers_is_counted_and_reproduced_is_set(tmp_path, monkeypatch):
+    # production: make_providers gives each task a LIST (an escalation ladder)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root)
+    _stub_package(monkeypatch)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    providers = _gl_providers(align, [OK_BRIEF])
+    providers["align_structure"] = [align, align, align]
+    out = _run(config, ledger, entry, providers, with_gather_llm=True,
+               allow_structure_change=True)
+    assert len(align.calls) == 1 and out.kind == "needs-llm"
+    assert out.align_reproduced is not None
+
+
+def test_align_ladder_where_every_rung_raises_is_a_retryable_failure_not_a_crash(
+        tmp_path, monkeypatch):
+    from herder import HerderError
+    monkeypatch.setattr("herder.tasks._sleep", lambda s: None)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root)
+    _stale(entry.ws)
+    before = _snapshot(entry.ws)
+    align = FakeProvider(completes=[HerderError("boom")] * 12)
+    providers = _gl_providers(align)
+    providers["align_structure"] = [align, align, align]
+    with pytest.raises(HerderError):
+        _run(config, ledger, entry, providers, with_gather_llm=True)
+    assert align.calls and _snapshot(entry.ws) == before

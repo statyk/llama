@@ -43,6 +43,7 @@ from llama.models import Provenance, Show, ShowNotes
 from llama.overrules import split_overruled
 from llama.replay import (GATHER_LLM, CacheOnlyIA, _structure_changed, classify, compute_legs,
                           input_digests, setlistfm_client, shipped_diff, visible_changes)
+from llama.pipeline import count_llm_calls
 from llama.show_unit import show_unit
 from llama.stages.brief import generate_briefing, render_briefing_md
 from llama.stages.package import build_package
@@ -109,21 +110,6 @@ def _destination_voiced(config: Config, ws: ShowWorkspace, *, tolerate: bool) ->
         if tolerate:
             return False
         raise
-
-
-class _CallCounter:
-    """Delegates to a provider, counting the calls actually made."""
-
-    def __init__(self, inner):
-        self._inner = inner
-        self.calls = 0
-
-    def complete(self, *args, **kwargs):
-        self.calls += 1
-        return self._inner.complete(*args, **kwargs)
-
-    def __getattr__(self, name):
-        return getattr(self._inner, name)
 
 
 def _align_reproduced(stored: Show, new: Show) -> bool:
@@ -243,18 +229,19 @@ def _reapply(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
             reuse = plan_reuse(ws, station, strict=not allow_download)
             check_pairs(reuse, ws)
         stored_llm = "stored alignment llm" in legs.needs_llm
-        align_counter = _CallCounter(providers["align_structure"])
+        # providers["align_structure"] is one provider or a ladder (a list): wrap each rung
+        counted, align_calls = count_llm_calls({"align": providers["align_structure"]})
         scratch = Path(tempfile.mkdtemp(prefix="llama-reapply-"))
         try:
             legs = compute_legs(ws, config=config, ia=CacheOnlyIA(config.root / "cache"),
                                 slfm=setlistfm_client(config), scratch=scratch / "show",
-                                gather_providers=(providers["extract_setlist"], align_counter),
+                                gather_providers=(providers["extract_setlist"], counted["align"]),
                                 llm_failures_raise=True)
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
         gather_llm = True
         # set only when the stored alignment was llm or align_structure was really called
-        if stored_llm or align_counter.calls:
+        if stored_llm or align_calls():
             extra["align_reproduced"] = _align_reproduced(legs.stored, legs.replayed_show)
     replayed = legs.replayed_show
 
