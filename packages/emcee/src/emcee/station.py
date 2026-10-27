@@ -21,10 +21,35 @@ from emcee.moves import Moves
 from emcee.package_io import Package, UnsupportedPackage
 
 
+AWAITING = "awaiting-fix"
+MAX_REASON_CHARS = 200
+
+
+def awaiting_fix_reason(manifest: object) -> str | None:
+    """llama's `awaiting_fix` mark (a top-level raw manifest key): None when
+    the package carries none (absent or null), else the status line. ANY
+    non-null value means "not to be voiced" -- the inner shape is display
+    only, so a malformed value never raises and never lets the package
+    through. Mirrors transmitter's function (emcee imports neither)."""
+    if not isinstance(manifest, dict):
+        return None
+    mark = manifest.get("awaiting_fix")
+    if mark is None:
+        return None
+    reason = mark.get("reason") if isinstance(mark, dict) else None
+    if isinstance(reason, str):
+        reason = " ".join(reason.split())
+        if reason:
+            if len(reason) > MAX_REASON_CHARS:
+                reason = reason[:MAX_REASON_CHARS - 1] + "\u2026"
+            return f"awaiting fix from llama: {reason}"
+    return "awaiting fix from llama"
+
+
 @dataclass
 class PackageStatus:
     path: Path
-    state: str  # "ready" | "pending" | "unsupported" | "error"
+    state: str  # "ready" | "pending" | "unsupported" | "error" | "awaiting-fix"
     reasons: list[str] = field(default_factory=list)
     # The EFFECTIVE profile (move > artist rule > llama's). For an unsupported
     # or unreadable manifest, llama's profile best-effort (no resolution).
@@ -43,6 +68,7 @@ class PackageStatus:
     clips: int = 0                           # clips a voicing renders: one per non-encore set + outro
     move_problem: str | None = None          # use-time move validation failure
     tts: dict | None = None                  # dj_audio.tts as recorded
+    awaiting_fix: str | None = None          # llama's station mark, as its status line
 
 
 def manifest_profile(manifest: object) -> str | None:
@@ -298,6 +324,10 @@ def package_status(pkg: Package, config: EmceeConfig, moves: Moves,
     `manifest`, when given, is the already-read one (no second read)."""
     if manifest is None:
         manifest = pkg.manifest()
+    held = awaiting_fix_reason(manifest)
+    if held is not None:
+        return PackageStatus(path=pkg.dir, state=AWAITING, reasons=[held], awaiting_fix=held,
+                             **identity(manifest, config, moves))
     a = assess(pkg, config, moves, manifest)
     return PackageStatus(path=pkg.dir, state="ready" if a.ok else "pending", reasons=a.reasons,
                          profile_reason=a.profile_reason,

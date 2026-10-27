@@ -256,3 +256,14 @@ def notes_json() -> str:
         "outro": "I Know You Rider sends us off. Thanks for listening.",
         "mentioned_songs": ["Morning Dew", "China Cat Sunflower", "I Know You Rider"],
     })
+
+
+def mark_awaiting_fix(pkg_dir: Path, value: object = "default") -> None:
+    """Add llama's top-level `awaiting_fix` key to a fixture's raw manifest
+    (`value="default"` writes the well-formed shape)."""
+    path = pkg_dir / "manifest.json"
+    manifest = json.loads(path.read_text())
+    manifest["awaiting_fix"] = (
+        {"reason": "changed by the held-backlog fixes: titles",
+         "marked_at": "2026-10-26T12:00:00Z"} if value == "default" else value)
+    _write_json(path, manifest)

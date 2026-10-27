@@ -294,3 +294,36 @@ def test_scan_broad_reads_each_manifest_once(tmp_path, monkeypatch):
 
     assert len(statuses) == 23
     assert set(reads.values()) == {1}
+
+
+# --- awaiting_fix (llama's station mark) --------------------------------
+
+
+def test_marked_package_is_awaiting_fix(tmp_path):
+    from tests.helpers import mark_awaiting_fix
+    pkg = build_package(tmp_path, slug="show-a", voiced=True)
+    mark_awaiting_fix(pkg)
+    st = scan(tmp_path, EmceeConfig(), no_moves())[0]
+    assert st.state == station.AWAITING == "awaiting-fix"
+    assert st.reasons == ["awaiting fix from llama: changed by the held-backlog fixes: titles"]
+    assert st.awaiting_fix == st.reasons[0]
+
+
+def test_malformed_mark_is_awaiting_fix_without_raising(tmp_path):
+    from tests.helpers import mark_awaiting_fix
+    pkg = build_package(tmp_path, slug="show-a", voiced=True)
+    mark_awaiting_fix(pkg, "yes")
+    st = scan(tmp_path, EmceeConfig(), no_moves())[0]
+    assert st.state == "awaiting-fix"
+    assert st.reasons == ["awaiting fix from llama"]
+
+
+def test_awaiting_fix_reason_shapes():
+    f = station.awaiting_fix_reason
+    assert f({}) is None and f({"awaiting_fix": None}) is None and f("x") is None
+    for bad in ("yes", ["a"], 3, True, {}, {"reason": ""}, {"reason": 5}):
+        assert f({"awaiting_fix": bad}) == "awaiting fix from llama"
+    assert f({"awaiting_fix": {"reason": " a \n  b "}}) == "awaiting fix from llama: a b"
+    long = f({"awaiting_fix": {"reason": "x" * 500}})
+    assert long.startswith("awaiting fix from llama: xxx") and len(long) == len(
+        "awaiting fix from llama: ") + 200

@@ -783,3 +783,61 @@ def test_dry_run_hosted_house_marks_only_pinned_presenters(tmp_path, monkeypatch
     assert result.exit_code == 0, result.output
     assert "would voice: b  bluegrass  roy\n" in result.output  # unpinned: no suffix
     assert f"would voice: c  indie  vox  [voxtral {VOX_DEFAULT}]\n" in result.output
+
+
+# --- awaiting_fix ---------------------------------------------------------
+
+
+def _forbid_spend(monkeypatch) -> list:
+    calls: list = []
+
+    def boom(*a, **k):
+        calls.append(a)
+        raise AssertionError("spend on a marked package")
+
+    monkeypatch.setattr(process_mod, "provider_for", boom)
+    monkeypatch.setattr(process_mod, "speech_provider_for", boom)
+    return calls
+
+
+def test_run_skips_a_marked_package_and_spends_nothing(tmp_path, monkeypatch):
+    from tests.helpers import mark_awaiting_fix
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=station)
+    pkg = build_package(station, slug="marked-show", voiced=False)
+    mark_awaiting_fix(pkg)
+    before = (pkg / "manifest.json").read_bytes()
+    calls = _forbid_spend(monkeypatch)
+
+    result = runner.invoke(app, ["run", "--yes"])
+
+    assert result.exit_code == 0, result.output
+    assert "skip marked-show: awaiting fix from llama" in result.output
+    assert calls == []
+    assert "voiced:" not in result.output
+    assert (pkg / "manifest.json").read_bytes() == before
+
+
+def test_process_one_rereads_the_manifest(tmp_path, monkeypatch):
+    from emcee.cli import _process_one
+    from emcee.config import load_config
+    from emcee.package_io import Package
+    from tests.helpers import mark_awaiting_fix, no_moves
+    home = tmp_path / "home"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home)
+    pkg_dir = build_package(tmp_path / "station", slug="late", voiced=False)
+    pkg = Package(pkg_dir)
+    pkg.manifest()                      # the scan's read: unmarked
+    mark_awaiting_fix(pkg_dir)          # marked after the scan
+    calls = _forbid_spend(monkeypatch)
+    before = (pkg_dir / "manifest.json").read_bytes()
+
+    with pytest.raises(EmceeError, match=r"^awaiting fix from llama \(changed by the held-backlog "
+                       r"fixes: titles\); re-deliver from llama first$"):
+        _process_one(load_config(), no_moves(), pkg, False)
+
+    assert calls == []
+    assert (pkg_dir / "manifest.json").read_bytes() == before

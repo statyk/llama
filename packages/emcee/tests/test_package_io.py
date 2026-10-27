@@ -162,3 +162,13 @@ def test_atomic_write_is_workspace_atomic_write_text():
     # package_io.atomic_write must be a thin alias, not a second
     # implementation of the unique-temp + os.replace pattern.
     assert atomic_write is atomic_write_text
+
+
+def test_rewrite_manifest_preserves_awaiting_fix(tmp_path):
+    from tests.helpers import mark_awaiting_fix
+    pkg_dir = build_package(tmp_path, voiced=False)
+    mark_awaiting_fix(pkg_dir)
+    pkg = Package(pkg_dir)
+    mark = json.loads(pkg.manifest_path.read_text())["awaiting_fix"]
+    rewrite_manifest(pkg, dj_notes=None, dj_audio=None)
+    assert json.loads(pkg.manifest_path.read_text())["awaiting_fix"] == mark

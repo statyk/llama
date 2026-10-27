@@ -35,7 +35,7 @@ from emcee.tts.provider import SpeechError
 from emcee.tts.verify import SttClient
 from emcee.tts.resolve import TTSResolutionError, resolve_tts
 from emcee.workspace import atomic_write_bytes
-from emcee.station import (PackageStatus, assess, effective_profile, identity,
+from emcee.station import (AWAITING, PackageStatus, assess, awaiting_fix_reason, effective_profile, identity,
                            manifest_performance_id, manifest_profile, manifest_voiced_profile,
                            manifest_voiced_source, package_status, profile_label, raw_manifest,
                            scan, target_problem, unsupported_status)
@@ -260,6 +260,13 @@ def _process_one(config: EmceeConfig, moves: Moves, pkg: Package, force: bool,
     model -- can discard a clip or take a broadcast-ready package off air.
     """
     manifest = pkg.manifest()
+    held = awaiting_fix_reason(manifest)
+    if held is not None:
+        detail = held.removeprefix("awaiting fix from llama: ")
+        raise EmceeError(
+            "awaiting fix from llama"
+            + (f" ({detail})" if detail != held else "")
+            + "; re-deliver from llama first")
     voicing = resolve_voicing(config, moves, manifest)
     speech, _bed = speech_for_voicing(config, voicing)
     try:
@@ -499,6 +506,9 @@ def run(
         if status.move_problem is not None:   # before the ready check: a ready package reports it too
             typer.echo(f"error: {slug}: {status.move_problem}", err=True)
             failed = True
+            continue
+        if status.state == AWAITING:
+            typer.echo(f"skip {slug}: awaiting fix from llama")
             continue
         if status.state == "ready":
             continue
@@ -741,7 +751,7 @@ def say_cmd(
     typer.echo(f"wrote {dest}")
 
 
-_STATUS_STATES = ("ready", "pending", "unsupported", "error")
+_STATUS_STATES = ("ready", "pending", "unsupported", "error", "awaiting-fix")
 
 
 def _profile_cell(s: PackageStatus) -> str:
@@ -826,7 +836,8 @@ def _status_json_row(config: EmceeConfig, s: PackageStatus, tts_now: _TtsNow) ->
             "profile_source": s.profile_source, "voiced_by": s.voiced_by,
             "assigned_presenter": presenter, "assignment_source": source,
             "tts": s.tts, "move_problem": s.move_problem,
-            "tts_now": _tts_now_json(tts_view), "tts_drifted": tts_view.drifted}
+            "tts_now": _tts_now_json(tts_view), "tts_drifted": tts_view.drifted,
+            "awaiting_fix": s.awaiting_fix}
 
 
 def _tts_now_json(v: _TtsView) -> dict | None:
@@ -928,18 +939,20 @@ def _echo_status_summary(config: EmceeConfig, statuses: list[PackageStatus]) -> 
     keys = sorted(k for k in groups if k not in ("(none)", "(unknown)"))
     keys += [k for k in ("(none)", "(unknown)") if k in groups]
 
-    rows = [("profile", "presenter", "ready", "pending", "other", "voiced on")]
+    rows = [("profile", "presenter", "ready", "pending", "other", "awaiting fix", "voiced on")]
     for key in keys:
         members = groups[key]
         presenter = ("" if key == "(unknown)"
                      else presenter_label(assignment_for(config, members[0].profile)))
         count = lambda *states: sum(1 for m in members if m.state in states)  # noqa: E731
         rows.append((key, presenter, str(count("ready")), str(count("pending")),
-                     str(count("unsupported", "error")), _voiced_on_cell(members)))
+                     str(count("unsupported", "error")), str(count(AWAITING)),
+                     _voiced_on_cell(members)))
     total = lambda *states: sum(1 for s in statuses if s.state in states)  # noqa: E731
     rows.append(("total", "", str(total("ready")), str(total("pending")),
-                 str(total("unsupported", "error")), _voiced_on_cell(statuses)))
-    widths = [max(len(r[c]) for r in rows) for c in range(6)]
+                 str(total("unsupported", "error")), str(total(AWAITING)),
+                 _voiced_on_cell(statuses)))
+    widths = [max(len(r[c]) for r in rows) for c in range(7)]
     for r in rows:
         typer.echo("  ".join(f"{cell:<{w}}" for cell, w in zip(r, widths)).rstrip())
 
@@ -954,7 +967,7 @@ def status_cmd(
         None, "--profile", help="Only this profile (exact match; repeatable); implies --list"),
     state: list[str] = typer.Option(
         None, "--state",
-        help="Only this state: ready|pending|unsupported|error (repeatable); implies --list"),
+        help="Only this state: ready|pending|unsupported|error|awaiting-fix (repeatable); implies --list"),
     tts: list[str] = typer.Option(
         None, "--tts",
         help="Only shows voiced on this TTS backend (none = unrecorded; repeatable); implies --list"),

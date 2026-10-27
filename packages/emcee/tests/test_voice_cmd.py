@@ -619,3 +619,46 @@ def test_failed_preflight_still_closes_the_speech_provider(tmp_path, monkeypatch
     with pytest.raises(SpeechError, match="armed to fail preflight"):
         _process_one(load_config(), no_moves(), Package(pkg_dir), False)
     assert closed == [True]
+
+
+# --- awaiting_fix ---------------------------------------------------------
+
+
+def test_voice_refuses_a_marked_package_before_preflight(tmp_path, monkeypatch):
+    from tests.helpers import mark_awaiting_fix
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home)
+    pkg_dir = build_package(station, slug="showA", voiced=False)
+    mark_awaiting_fix(pkg_dir)
+    before = (pkg_dir / "manifest.json").read_bytes()
+    preflights: list = []
+
+    def stub(config, resolution, *, voice, clone_ref, clone_text):
+        preflights.append(1)
+        raise AssertionError("provider built for a marked package")
+
+    monkeypatch.setattr(process_mod, "speech_provider_for", stub)
+
+    result = runner.invoke(app, ["voice", str(pkg_dir)])
+
+    assert result.exit_code == 1
+    assert ("awaiting fix from llama (changed by the held-backlog fixes: titles); "
+            "re-deliver from llama first") in result.stderr
+    assert preflights == []
+    assert (pkg_dir / "manifest.json").read_bytes() == before
+
+
+def test_voice_refuses_a_malformed_mark(tmp_path, monkeypatch):
+    from tests.helpers import mark_awaiting_fix
+    home = tmp_path / "home"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home)
+    pkg_dir = build_package(tmp_path / "station", slug="showA", voiced=False)
+    mark_awaiting_fix(pkg_dir, "yes")
+
+    result = runner.invoke(app, ["voice", str(pkg_dir)])
+
+    assert result.exit_code == 1
+    assert "awaiting fix from llama; re-deliver from llama first" in result.stderr
