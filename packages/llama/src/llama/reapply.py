@@ -9,9 +9,10 @@ every file outside `package/audio/` byte-identical, removes added audio and
 puts the old audio back); a dry run takes only the show lock. It writes
 `vetting.json`, `notes.json`, the briefing, the package and, last, `show.json`:
 the commit marker. After the commit the campaign record is marked processed,
-a cleared delivered show with a voiced destination has its library audio
-purged as deliver purges it, and the caller's `after_commit` hook runs, all
-still inside the unit. `reviews.json`, `provenance.json`, `research.md` and the
+the caller's `after_commit` hook runs, and then a cleared delivered show with a
+voiced destination has its library audio purged as deliver purges it, all
+still inside the unit. The hook runs BEFORE the purge on purpose: a failing
+hook restores the unit, and purged audio could not be put back. `reviews.json`, `provenance.json`, `research.md` and the
 ledger are never written, and nothing is delivered.
 
 Held shows take `classify`'s held path, as before. A non-held show (briefed,

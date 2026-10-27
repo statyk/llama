@@ -602,5 +602,8 @@ All campaign tools run from the pinned worktree by path, never with its venv act
 
 - **Backfill:** `$B restore ~/.llama/campaign/backfill/<stamp>/snapshot` (dry run, then `--apply`), before step 6 only.
 - **A wave:** `$B restore ~/.llama/reapply/<hash>/snapshot`, before its re-delivery; a show re-delivered or re-voiced since refuses (roll forward). A restore never rewinds a station mark (a show left marked is safe).
+  - Restoring a wave empties a packaged, undelivered show's `package/audio/` when its package manifest differs, so its next package re-downloads from archive.org (bandwidth only; the station is never touched).
+  - A torn last line in the snapshot's `after.jsonl` (a process killed inside `record_after`) makes `restore` refuse the whole snapshot (`<path> line N is not an after-record; nothing restored`). Repair: delete the torn last line; that show then restores as `changed, and this batch recorded no write for it` (restore it by hand or roll forward).
 - **Marking:** `$B unmark --batch ~/.llama/campaign/marking/<id>` (dry run, then `--apply`); shows processed since their mark are listed, never unmarked. Reverse marking BEFORE restoring the backfill snapshot (the restore refuses once campaign records exist). Reverse only the latest marking batch, or re-derive with a fresh batch afterwards.
+  - `unmark` keeps the station mark for a `marked` line whose `mark_added` is false: the library is still awaiting from an earlier batch, so the two stay consistent (a mark only blocks voicing and airing).
 - **The migration's `rekey_overrides.py --restore`** refuses from step 3 on (retired).
