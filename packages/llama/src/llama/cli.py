@@ -29,7 +29,7 @@ from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
 from llama.download_slots import DownloadSlots
 from llama.errors import LlamaError
 from llama.ia_client import IAClient, IAError
-from llama.ledger import Ledger
+from llama.ledger import Ledger, is_delivered
 from llama.locks import Locked, RunMissing, file_lock, run_is_live, run_lock
 from llama.models import Criteria, LedgerEntry, Overrule, ShortlistEntry, Show
 from llama.overrules import merge_rules, records_for
@@ -3046,11 +3046,6 @@ def _strict_refusal_hint() -> Iterator[None]:
         raise typer.Exit(1)
 
 
-def _is_delivered(ledger, performance_id: str) -> bool:
-    return any(e.status == "delivered" and e.performance_id == performance_id
-               for e in ledger.entries())
-
-
 def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
                       with_research: bool = False, allow_download: bool = False) -> Path | None:
     """`_redo_show`'s body. The caller must already be inside a `show_unit`
@@ -3075,7 +3070,7 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
     prov = read_model(show_ws.provenance, Provenance)   # under the caller's lock
     rec = campaign.read_record(show_ws)   # an unreadable record refuses before any spend
     keep_research = not with_research and from_stage in ("select", "gather")
-    delivered = _is_delivered(ledger, prov.performance_id)
+    delivered = is_delivered(ledger, prov.performance_id)
     strict = delivered and from_stage != "select" and not allow_download
     if delivered or (show_ws.package_dir / "manifest.json").exists():
         write_anchor_if_absent(show_ws)   # the list the existing copies were packaged from
@@ -4065,7 +4060,7 @@ def redo(
 
 
 @app.command(rich_help_panel="Fix & ship",
-             short_help="Re-process held shows offline with the replay harness's computation.")
+             short_help="Re-process shows offline with the replay harness's computation.")
 def reapply(
     names: list[str] = typer.Argument(None, help="Show slug(s), unique substring, or path"),
     from_list: Path = typer.Option(None, "--from-list",
@@ -4076,16 +4071,27 @@ def reapply(
         False, "--allow-structure-change",
         help="apply a show whose replay changes its sets/segues/breaks; "
              "check `llama show <name>` first"),
+    allow_download: bool = typer.Option(
+        False, "--allow-download",
+        help="one named delivered show only: download audio from archive.org when the "
+             "station copy cannot be re-used"),
 ):
-    """Re-process held shows in place with exactly the replay harness's
+    """Re-process shows in place with exactly the replay harness's
     computation: gather and vet offline from the cache and the stored vetting
     extraction, the stored briefing reused when it still holds (else one fresh
-    brief), then the package, with show.json written last. A show that needs
-    any other LLM call is reported as needs-llm and left untouched."""
+    brief), then the package, with show.json written last. Held, briefed,
+    packaged and delivered shows; one whose change is invisible on air commits
+    show.json only (label-only / unchanged). A delivered show re-uses the station
+    copy's audio and refuses rather than download it (see --allow-download). A
+    show that needs any other LLM call is reported as needs-llm and left
+    untouched."""
     from llama import reapply as reapply_mod
 
     if names and from_list is not None:
         typer.echo("give show names or --from-list, not both", err=True)
+        raise typer.Exit(1)
+    if allow_download and (from_list is not None or len(names or []) != 1):
+        typer.echo(ALLOW_DOWNLOAD_ONE_SHOW, err=True)
         raise typer.Exit(1)
     if from_list is not None:
         _reapply_list(from_list, dry_run=dry_run,
@@ -4108,7 +4114,15 @@ def reapply(
             out = reapply_mod.reapply_show(config, ia, ledger, entry, providers=providers,
                                            row=None, dry_run=dry_run,
                                            echo=lambda s: typer.echo(s, err=True),
-                                           allow_structure_change=allow_structure_change)
+                                           allow_structure_change=allow_structure_change,
+                                           allow_download=allow_download)
+        except (StationUnpaired, station_mark.StationUnreadable) as exc:
+            # A strict-reuse refusal (the unit has restored the show): the reason,
+            # then the one-show escape hatch.
+            typer.echo(f"FAILED {slug}: {exc}", err=True)
+            typer.echo(ALLOW_DOWNLOAD_HINT, err=True)
+            failed = True
+            continue
         except (LlamaError, HerderError, IAError, TaskFailed) as exc:
             typer.echo(f"FAILED {slug}: {exc}", err=True)
             failed = True
@@ -4249,8 +4263,8 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
         if dry_run:
             predicted = out.outcome.removeprefix("dry-run: ")
             typer.echo(f"would: {slug} -> {predicted}")
-            if (out.outcome.startswith("dry-run: ") and predicted != "held"
-                    and not predicted.startswith("skipped")):
+            if (out.outcome.startswith("dry-run: ")
+                    and predicted in ("cleared", "needs-brief", "structure-changed")):
                 fresh += out.briefing == "fresh"
                 downloads += needs_audio_download(ws)
             continue

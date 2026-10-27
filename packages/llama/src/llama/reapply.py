@@ -1,14 +1,27 @@
-"""`llama reapply`: re-process a held show with exactly the replay harness's
-computation, in place (held-backlog spec slice 6).
+"""`llama reapply`: re-process a show with exactly the replay harness's
+computation, in place (held-backlog spec slice 6; extended to packaged,
+briefed and delivered shows by the bulk-apply spec, "Re-processing").
 
-`compute_legs` + `classify` (llama.replay) decide everything; this module only
-maps `classify`'s outcome and writes the result. Under the per-show lock, from
-the still-held check through the last write, it writes `vetting.json`,
-`notes.json`, the briefing, the package and, last, `show.json`: the commit
-marker. Until `show.json` is rewritten the show is still held, so a failure
-part-way leaves it on every held list and a re-run completes it.
-`reviews.json`, `provenance.json`, `research.md` and the ledger are never
-written.
+`compute_legs` (llama.replay) decides everything; this module maps the result
+and writes it. Every write happens inside one `show_unit` (the show lock is
+held from the first read through the last write, and any failure restores
+every file outside `package/audio/` byte-identical, removes added audio and
+puts the old audio back); a dry run takes only the show lock. It writes
+`vetting.json`, `notes.json`, the briefing, the package and, last, `show.json`:
+the commit marker. After the commit the campaign record is marked processed,
+a cleared delivered show with a voiced destination has its library audio
+purged as deliver purges it, and the caller's `after_commit` hook runs, all
+still inside the unit. `reviews.json`, `provenance.json`, `research.md` and the
+ledger are never written, and nothing is delivered.
+
+Held shows take `classify`'s held path, as before. A non-held show (briefed,
+packaged or delivered) with flags gets a held commit; with no flag, no
+manifest-visible change and a reusable briefing a `show.json`-only commit
+(`label-only` or `unchanged`), except a marked delivered show whose destination
+is unvoiced, which is re-packaged so `deliver --fixed` can re-deliver it; any
+other is briefed (reused or fresh) and packaged. A delivered show that will
+package plans its audio reuse strictly (`audio_reuse.plan_reuse(strict=...)`,
+`check_pairs`) before the fresh brief, unless `allow_download`.
 """
 import dataclasses
 import hashlib
@@ -19,20 +32,23 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
-from llama.audio_reuse import ASIDE_DIR, discard_aside, plan_reuse, put_back
+from llama import campaign, catalog
+from llama.audio_reuse import check_pairs, plan_reuse, write_anchor_if_absent
 from llama.catalog import CatalogEntry
 from llama.config import Config
 from llama.errors import LlamaError
-from llama.ledger import Ledger
+from llama.ledger import Ledger, is_delivered
 from llama.locks import file_lock
 from llama.models import Provenance, Show, ShowNotes
 from llama.overrules import split_overruled
-from llama.replay import (CacheOnlyIA, classify, compute_legs, input_digests, setlistfm_client,
-                          shipped_diff)
+from llama.replay import (CacheOnlyIA, _structure_changed, classify, compute_legs,
+                          input_digests, setlistfm_client, shipped_diff, visible_changes)
+from llama.show_unit import show_unit
 from llama.stages.brief import generate_briefing, render_briefing_md
 from llama.stages.package import build_package
-from llama.workspace import (drop_stage_artifacts, read_json, read_model, read_overrides,
-                             write_artifact)
+from llama.station_mark import StationUnreadable, destination_voiced
+from llama.workspace import (ShowWorkspace, drop_stage_artifacts, read_json, read_model,
+                             read_overrides, write_artifact)
 
 # Spec slice 6 "Batch state": the batch also stops after this many
 # consecutive LLM failures of any kind (an openrouter 429 or an unrecognised
@@ -48,12 +64,16 @@ _PREDICTED = {
     "still-held": "held",
     "still-held-package": "held",
 }
+# held outcomes that go on to the brief and the package
+_HELD_PACKAGE = frozenset({"clears", "needs-brief", "structure-changed"})
 
 
 @dataclasses.dataclass
 class ReapplyOutcome:
     slug: str
-    # "cleared" | "held" | "needs-llm" | "skipped: not held" |
+    # "cleared" | "held" | "label-only" | "unchanged" | "needs-llm" |
+    # "skipped: not held" | "skipped: processed" |
+    # "skipped: re-selection (llama redo <slug> --from select)" |
     # "skipped: inputs changed" | "skipped: structure changed" |
     # "dry-run: <predicted>"
     outcome: str
@@ -61,70 +81,180 @@ class ReapplyOutcome:
     flags: list[str]
     delivered: bool                # the ledger records the performance as delivered
     written: list[str]             # artifact names, in write order
+    # "fresh" | "reuse" | "needs-llm" | "label-only" | "none": the work this row did
+    kind: str = "none"
+    # {"reused": r, "downloaded": d} after a package; {} otherwise
+    audio: dict[str, int] = dataclasses.field(default_factory=dict)
+    align_reproduced: bool | None = None   # set by the gather-LLM path (Task 10)
 
 
-def _delivered(ledger: Ledger, performance_id: str) -> bool:
-    return any(e.status == "delivered" and e.performance_id == performance_id
-               for e in ledger.entries())
+def _station_dir(config: Config, ws: ShowWorkspace) -> Path | None:
+    return config.delivery_path / ws.dir.name if config.delivery_path else None
+
+
+def _destination_voiced(config: Config, ws: ShowWorkspace, *, tolerate: bool) -> bool:
+    """`station_mark.destination_voiced` for a delivered show. A missing or
+    unreadable station copy, or no delivery_path, is `StationUnreadable`, never
+    "unvoiced"; with `tolerate` (`--allow-download`: the operator has waived the
+    station copy) it reads as unvoiced."""
+    out = _station_dir(config, ws)
+    try:
+        if out is None:
+            exc = StationUnreadable(
+                f"{ws.dir.name}: station copy unreadable: no delivery_path in config")
+            exc.detail = "no delivery_path in config"
+            raise exc
+        return destination_voiced(out)
+    except StationUnreadable:
+        if tolerate:
+            return False
+        raise
+
+
+def _purge_line(r, slug: str) -> str:
+    """deliver's three purge messages (`cli._echo_purge`), slug-prefixed when purged."""
+    if r.warning:
+        return f"warning: library audio for {slug} partly purged: {r.warning}"
+    if r.skipped:
+        return f"warning: kept library audio for {slug}: {r.skipped}"
+    return f"{slug}: library audio purged ({catalog.human_bytes(r.freed)} freed)"
 
 
 def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
                  providers: dict, row: dict | None, dry_run: bool,
                  echo: Callable[[str], None],
-                 allow_structure_change: bool = False) -> ReapplyOutcome:
-    """Reapply one held show (spec slice 6). `ia` is the real archive.org
-    client and is used ONLY by `build_package`; the replay itself reads the
-    cache through `CacheOnlyIA`. `row` is the show's predicted-list row (its
-    `digests` must still match), or None for a show named on the command
-    line. The only LLM call is one fresh brief (`providers["brief"]`), made
-    before anything is written, so a refusal there writes nothing. A show whose
-    replay changes its sets/segues/breaks (`structure-changed`) is applied only
-    when `allow_structure_change` (spec slice 6: it joins the apply once
-    checked); otherwise nothing is written and the outcome is `skipped:
-    structure changed`."""
+                 allow_structure_change: bool = False,
+                 with_gather_llm: bool = False,
+                 allow_download: bool = False,
+                 after_commit: Callable[[ShowWorkspace], None] | None = None) -> ReapplyOutcome:
+    """Reapply one show (spec slice 6; bulk-apply spec "Re-processing"). `ia` is
+    the real archive.org client and is used ONLY by `build_package`; the replay
+    itself reads the cache through `CacheOnlyIA`. `row` is the show's
+    predicted-list row (its `digests` must still match), or None for a show
+    named on the command line. The only LLM call is one fresh brief
+    (`providers["brief"]`), made before anything is written. A show whose replay
+    changes its sets/segues/breaks is applied only when `allow_structure_change`;
+    otherwise nothing is written and the outcome is `skipped: structure changed`.
+
+    The writes run inside `show_unit(ws, None)`, so any failure (a refusal, a
+    station refusal, a failed package, a failing `after_commit`) restores the
+    show. `CampaignUnreadable` and the station refusals propagate.
+    `with_gather_llm` is wired by the gather-LLM path (Task 10)."""
+    ws = entry.ws
+    if dry_run:
+        with file_lock(ws.lock):
+            return _reapply(config, ia, ledger, entry, providers=providers, row=row,
+                            dry_run=True, echo=echo,
+                            allow_structure_change=allow_structure_change,
+                            allow_download=allow_download, after_commit=None)
+    with show_unit(ws, None):
+        return _reapply(config, ia, ledger, entry, providers=providers, row=row,
+                        dry_run=False, echo=echo,
+                        allow_structure_change=allow_structure_change,
+                        allow_download=allow_download, after_commit=after_commit)
+
+
+def _reapply(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
+             providers: dict, row: dict | None, dry_run: bool,
+             echo: Callable[[str], None], allow_structure_change: bool,
+             allow_download: bool,
+             after_commit: Callable[[ShowWorkspace], None] | None) -> ReapplyOutcome:
+    """`reapply_show`'s body; the caller holds the show lock (and, unless a dry
+    run, the unit)."""
     ws, slug = entry.ws, entry.slug
-    with file_lock(ws.lock):
-        if not ws.show.exists():
-            raise LlamaError(f"cannot reapply {slug}: missing show.json")
-        stored = read_model(ws.show, Show)
-        delivered = _delivered(ledger, stored.performance_id)
-        if not stored.needs_review:
-            return ReapplyOutcome(slug, "skipped: not held", "none", [], delivered, [])
-        if row is not None and input_digests(ws) != row["digests"]:
-            return ReapplyOutcome(slug, "skipped: inputs changed", "none", [], delivered, [])
+    if not ws.show.exists():
+        raise LlamaError(f"cannot reapply {slug}: missing show.json")
+    stored = read_model(ws.show, Show)
+    delivered = is_delivered(ledger, stored.performance_id)
+    held = stored.needs_review
+    manifest = ws.package_dir / "manifest.json"
+    packaged = manifest.exists()
 
-        scratch = Path(tempfile.mkdtemp(prefix="llama-reapply-"))
-        try:
-            legs = compute_legs(ws, config=config, ia=CacheOnlyIA(config.root / "cache"),
-                                slfm=setlistfm_client(config), scratch=scratch / "show")
-        finally:
-            shutil.rmtree(scratch, ignore_errors=True)
+    def result(outcome: str, briefing: str = "none", flags=(), written=(), **kw) -> ReapplyOutcome:
+        return ReapplyOutcome(slug, outcome, briefing, list(flags), delivered, list(written), **kw)
 
+    # The campaign record: an unreadable one raises CampaignUnreadable (never "no record").
+    rec = campaign.read_record(ws)
+    mark = campaign.last_mark(rec)
+    if mark is not None and mark.start_stage == "select":
+        return result(f"skipped: re-selection (llama redo {slug} --from select)")
+    awaiting = campaign.awaiting_fix(rec)
+    if not held:
+        if rec is not None and not awaiting and rec.processed is not None:
+            return result("skipped: processed")
+        if not (delivered or packaged or ws.briefing_json.exists()):
+            # spec "Re-processing": extended to packaged, briefed and delivered shows only
+            return result("skipped: not held")
+    if row is not None and input_digests(ws) != row["digests"]:
+        return result("skipped: inputs changed")
+
+    scratch = Path(tempfile.mkdtemp(prefix="llama-reapply-"))
+    try:
+        legs = compute_legs(ws, config=config, ia=CacheOnlyIA(config.root / "cache"),
+                            slfm=setlistfm_client(config), scratch=scratch / "show")
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+    replayed = legs.replayed_show
+
+    if held:
         outcome, _would_be = classify(legs, "held")
         if outcome == "needs-llm":
-            return ReapplyOutcome(slug, "needs-llm", legs.brief, list(legs.flags), delivered, [])
+            return result("needs-llm", legs.brief, legs.flags, kind="needs-llm")
         if outcome not in _PREDICTED:
             raise LlamaError(f"cannot reapply {slug}: unexpected replay outcome {outcome!r}")
-        if dry_run:
-            if outcome == "structure-changed" and not allow_structure_change:
-                # as the apply: skipped, so it spends no brief and no download
-                return ReapplyOutcome(slug, "dry-run: skipped: structure changed", "none",
-                                      list(legs.flags), delivered, [])
-            return ReapplyOutcome(slug, f"dry-run: {_PREDICTED[outcome]}", legs.brief,
-                                  list(legs.flags), delivered, [])
-        if outcome == "structure-changed" and not allow_structure_change:
-            return ReapplyOutcome(slug, "skipped: structure changed", legs.brief,
-                                  list(legs.flags), delivered, [])
+        structure = outcome == "structure-changed"
+        route = "package" if outcome in _HELD_PACKAGE else "held"
+        predicted = _PREDICTED[outcome]
+    else:
+        if legs.needs_llm:
+            return result("needs-llm", legs.brief, legs.flags, kind="needs-llm")
+        diff = shipped_diff(stored, replayed)
+        structure = _structure_changed(diff)
+        if legs.flags:
+            route, predicted = "held", "held"
+        elif (not visible_changes(stored, replayed) and legs.brief == "reuse"
+              and not (awaiting and delivered
+                       and _destination_voiced(config, ws, tolerate=allow_download) is False)):
+            # Nothing a listener sees moved: commit show.json only. A marked delivered
+            # show whose destination is unvoiced is re-packaged instead (Review Focus 4).
+            route = "show"
+            predicted = "label-only" if any(diff.values()) else "unchanged"
+        else:
+            route = "package"
+            predicted = "cleared" if legs.brief == "reuse" else "needs-brief"
 
-        # In memory first: the fresh brief (the one LLM call) runs before any write.
-        # legs.flags = gather + vet + carried package flags + brief_flags; the
-        # replayed show's own review_flags lack the carried ones.
-        flags = list(legs.flags)
-        profile = read_model(ws.provenance, Provenance).profile
-        final_show = legs.replayed_show.model_copy(
-            update={"review_flags": list(flags), "needs_review": bool(flags)})
-        briefing = None
-        brief_notes: list[str] = []
+    if dry_run:
+        if structure and not allow_structure_change:
+            # as the apply: skipped, so it spends no brief and no download
+            return result("dry-run: skipped: structure changed", "none", legs.flags)
+        return result(f"dry-run: {predicted}", legs.brief, legs.flags)
+    if structure and not allow_structure_change:
+        return result("skipped: structure changed", legs.brief, legs.flags)
+
+    flags = list(legs.flags)
+    profile = read_model(ws.provenance, Provenance).profile
+    final_show = replayed.model_copy(
+        update={"review_flags": list(flags), "needs_review": bool(flags)})
+
+    # Station reads before any spend or write: a delivered show that will package
+    # pairs its audio strictly (unless allow_download) and learns whether its
+    # destination is voiced (the purge rider). Both raise StationUnreadable /
+    # StationUnpaired for a station copy that cannot be used.
+    station = _station_dir(config, ws)
+    reuse = None
+    voiced = False
+    if route == "package":
+        reuse = plan_reuse(ws, station, strict=delivered and not allow_download)
+        check_pairs(reuse, ws)
+        if delivered:
+            voiced = _destination_voiced(config, ws, tolerate=allow_download)
+
+    # In memory first: the fresh brief (the one LLM call) runs before any write.
+    # legs.flags = gather + vet + carried package flags + brief_flags; the
+    # replayed show's own review_flags lack the carried ones.
+    briefing = None
+    brief_notes: list[str] = []
+    if route != "show":
         if legs.brief == "reuse":
             briefing = legs.briefing            # stored, 3a-normalised by compute_legs
             brief_notes = list(legs.brief_notes)    # its overruled guard problems
@@ -144,74 +274,73 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
             problems, brief_notes = split_overruled(problems, overrides.overrules, final_show)
             flags += problems
 
-        written: list[str] = []
+    written: list[str] = []
 
-        def put(path: Path, data) -> None:
-            write_artifact(path, data)
-            written.append(path.name)
+    def put(path: Path, data) -> None:
+        write_artifact(path, data)
+        written.append(path.name)
 
-        # Spec 5.4. From here on this call writes. A leftover audio aside is
-        # deleted at entry, as `show_unit` does; the plan pairs the stored
-        # show.json and manifest, both still in place.
-        discard_aside(ws)
-        if (ws.dir / ASIDE_DIR).exists():
-            raise LlamaError(f"{slug}: cannot remove leftover audio aside {ws.dir / ASIDE_DIR}")
-        reuse = plan_reuse(ws, config.delivery_path / ws.dir.name if config.delivery_path else None)
-        audio_dir = ws.package_dir / "audio"
-        kept_audio = {p.name for p in audio_dir.iterdir() if p.is_file()} if audio_dir.is_dir() else set()
-        manifest = ws.package_dir / "manifest.json"
-        old_manifest = manifest.read_bytes() if manifest.exists() else None
-        try:
-            if legs.vet is not None:
-                put(ws.vetting, legs.vet.result)
-            put(ws.notes, ShowNotes(gather=list(legs.gather.notes),
-                                    vet=list(legs.vet.notes) if legs.vet is not None else [],
-                                    brief=brief_notes))
-            if briefing is not None:
-                # Both files from the (normalised) model, on reuse too: a stored
-                # briefing.md is never copied (spec 3a: re-rendered on every reuse).
-                put(ws.briefing_json, briefing)
-                put(ws.briefing_md, render_briefing_md(briefing, final_show))
-            if (briefing is None and flags
-                    and (ws.briefing_json.exists() or ws.briefing_md.exists())
-                    and any(shipped_diff(stored, final_show).values())):
-                # Held with the briefing leg not run, and the replay moved shipped
-                # fields: the stored briefing was written against the OLD show, and
-                # a later `fix --overrule` -> `redo --from package` would ship it
-                # unchecked (package does not re-run briefing_guard). Drop the
-                # brief stage's artifacts (briefing.json, briefing.md and, as a
-                # redo from brief, package/manifest.json) so the eventual overrule
-                # regenerates the briefing. Last step before the commit marker: a
-                # crash between this drop and show.json leaves a held show with no
-                # briefing, which `redo --from brief` regenerates.
-                drop_stage_artifacts(ws, "brief")
-                written.append("drop:brief")
-            if not flags:
-                # As `redo --from package`: a stale manifest must never short-circuit
-                # the package and let the show be marked cleared over it.
-                drop_stage_artifacts(ws, "package")
-                echo(f"{slug}: packaging")
-                _pkg, pkg_flags = build_package(ws, ia, final_show, force=False, profile=profile,
-                                                reuse=reuse)
-                written.append("package")
-                flags += pkg_flags
-            # The commit marker, written once and last.
-            put(ws.show, final_show.model_copy(
-                update={"review_flags": list(flags), "needs_review": bool(flags)}))
-        except BaseException:
-            # Undo only the audio and manifest this call placed: a rerun starts from
-            # the old audio, as `show_unit` leaves it after a failed unit.
-            if audio_dir.is_dir():
-                for p in audio_dir.iterdir():
-                    if p.is_file() and p.name not in kept_audio:
-                        p.unlink(missing_ok=True)
-            if manifest.exists() and manifest.read_bytes() != old_manifest:
-                manifest.unlink()
-            put_back(ws)
-            raise
-        discard_aside(ws)
-        return ReapplyOutcome(slug, "held" if flags else "cleared", legs.brief, list(flags),
-                              delivered, written)
+    # From here on this call writes. The first write of a packaged or delivered show
+    # is the reuse anchor (bulk-apply spec "Held outcomes keep a reuse anchor").
+    if delivered or packaged:
+        write_anchor_if_absent(ws)
+    audio: dict[str, int] = {}
+    if route == "show":
+        put(ws.show, final_show)
+    else:
+        if legs.vet is not None:
+            put(ws.vetting, legs.vet.result)
+        put(ws.notes, ShowNotes(gather=list(legs.gather.notes),
+                                vet=list(legs.vet.notes) if legs.vet is not None else [],
+                                brief=brief_notes))
+        if briefing is not None:
+            # Both files from the (normalised) model, on reuse too: a stored
+            # briefing.md is never copied (spec 3a: re-rendered on every reuse).
+            put(ws.briefing_json, briefing)
+            put(ws.briefing_md, render_briefing_md(briefing, final_show))
+        if (briefing is None and flags
+                and (ws.briefing_json.exists() or ws.briefing_md.exists())
+                and any(shipped_diff(stored, final_show).values())):
+            # Held with the briefing leg not run, and the replay moved shipped
+            # fields: the stored briefing was written against the OLD show, and
+            # a later `fix --overrule` -> `redo --from package` would ship it
+            # unchecked (package does not re-run briefing_guard). Drop the
+            # brief stage's artifacts (briefing.json, briefing.md and, as a
+            # redo from brief, package/manifest.json) so the eventual overrule
+            # regenerates the briefing. The anchor stays (it pairs the station
+            # copy for that later re-package).
+            drop_stage_artifacts(ws, "brief")
+            written.append("drop:brief")
+        if not flags:
+            # As `redo --from package`: a stale manifest must never short-circuit
+            # the package and let the show be marked cleared over it.
+            drop_stage_artifacts(ws, "package")
+            echo(f"{slug}: packaging")
+            tally: dict[str, int] = {}
+            _pkg, pkg_flags = build_package(ws, ia, final_show, force=False, profile=profile,
+                                            reuse=reuse, tally=tally)
+            written.append("package")
+            audio = {"reused": tally.get("reused", 0), "downloaded": tally.get("downloaded", 0)}
+            echo(f"{slug}: audio reused {audio['reused']}, downloaded {audio['downloaded']}")
+            flags += pkg_flags
+        # The commit marker, written once and last.
+        put(ws.show, final_show.model_copy(
+            update={"review_flags": list(flags), "needs_review": bool(flags)}))
+
+    campaign.mark_processed(ws, held=bool(flags))
+    if route == "package" and not flags and delivered and voiced:
+        # A voiced rider: re-packaged, never re-delivered (spec "Purge after a
+        # re-package with no re-delivery"); purge_package_audio skips and warns.
+        echo(_purge_line(catalog.purge_package_audio(ws, station), slug))
+    if after_commit is not None:
+        after_commit(ws)
+
+    if route == "show":
+        outcome, kind = predicted, "label-only"
+    else:
+        outcome = "held" if flags else "cleared"
+        kind = legs.brief if legs.brief in ("fresh", "reuse") else "none"
+    return result(outcome, legs.brief, flags, written, kind=kind, audio=audio)
 
 
 # --- batch state (spec slice 6 "Batch state"; plan Contracts "Reapply batch state") ---
