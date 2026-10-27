@@ -335,3 +335,35 @@ def test_dry_run_writes_nothing(tmp_path, monkeypatch, capsys):
     assert "g1:" in out and "record: research asserts unknown song: Golden" in out
     assert "list: low-confidence setlist (ruled real-not-fixable)" in out
     assert "dry run: nothing written (pass --apply)" in out
+
+
+def test_a_failed_after_record_rolls_the_show_back(tmp_path, monkeypatch, capsys):
+    """Spec "Undo": a write the batch cannot record is undone, so every write of the batch
+    stays restorable (review fix: no overrides.json left rewritten without an after-record)."""
+    cfg, root, args = _apply_fixture(tmp_path)
+    _pin(root, monkeypatch)
+    monkeypatch.setattr(ba, "require_tools", lambda echo, *, pin: None)
+    ov = root / "shows" / "g1" / "overrides.json"
+    before = ov.read_bytes()
+    real = batch_snapshot.record_after
+    def boom(*a, **k):
+        raise OSError("station mount dropped")
+    monkeypatch.setattr(ba.batch_snapshot, "record_after", boom)
+    assert ba.main(args + ["--apply"]) == 1
+    assert ov.read_bytes() == before                                # rolled back
+    [first] = (root / "campaign" / "backfill").iterdir()
+    assert not (first / "snapshot" / "after.jsonl").exists()
+    assert not (first / "record.jsonl").exists()
+    assert not (root / "shows" / "g1" / ".txn").exists()
+    [(_, action)] = batch_snapshot.restore(first / "snapshot", root, station_root=None,
+                                           apply=False, echo=lambda _m: None)
+    assert action == "untouched"
+
+    monkeypatch.setattr(ba.batch_snapshot, "record_after", real)
+    monkeypatch.setattr(ba, "_stamp", lambda: "20991231T000000Z")
+    assert ba.main(args + ["--apply"]) == 0                         # the re-run writes it
+    assert len(read_model(ov, Overrides).overrules) == 2
+    second = root / "campaign" / "backfill" / "20991231T000000Z"
+    after = [json.loads(l) for l in (second / "snapshot" / "after.jsonl").read_text().splitlines()]
+    assert [a["slug"] for a in after] == ["g1"]
+    assert [json.loads(l)["slug"] for l in (second / "record.jsonl").read_text().splitlines()] == ["g1"]

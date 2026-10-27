@@ -27,11 +27,11 @@ from llama.catalog import _sync_fd, derive_state
 from llama.config import DEFAULT_ROOT, load_config
 from llama.errors import LlamaError
 from llama.ledger import Ledger
-from llama.locks import file_lock
 from llama.models import Overrule, Show
 from llama.override_keys import refusal as overrides_refusal
 from llama.overrules import flag_key, merge_rules, records_for
 from llama.replay import code_identity
+from llama.show_unit import show_unit
 from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 
 REPO = Path(__file__).resolve().parent.parent
@@ -306,11 +306,14 @@ def _new_rules(ws: ShowWorkspace, rules: list[Overrule]) -> list[Overrule]:
 
 def _backfill_one(snap: Path, record: Path, root: Path, row: dict, verdicts: Path,
                   delivered: set[str], station_root: Path | None, at: str) -> str:
-    """One show's unit, under its show lock: re-plan, re-read `overrides.json`, merge,
-    write, then `record_after` (the show's final state) and the batch record."""
+    """One show's unit, inside `show_unit` (which takes the show lock): re-plan, re-read
+    `overrides.json`, merge, write, then `record_after` (the show's final state; nothing
+    tracked is written after it) and the batch record. Any failure, Ctrl-C included,
+    restores every file outside `package/audio/`, so a write the batch could not record
+    is undone and every recorded write stays restorable (spec "Undo")."""
     slug = row["slug"]
     ws = ShowWorkspace(root / "shows" / slug)
-    with file_lock(ws.lock):
+    with show_unit(ws, None):
         planned = _plan_one(root, row, verdicts, delivered, at)
         if planned is None or not planned.record:
             return "skipped: changed since the plan (held now, or nothing to record)"
@@ -329,6 +332,10 @@ def _backfill_one(snap: Path, record: Path, root: Path, row: dict, verdicts: Pat
         _append_jsonl(record, {"slug": slug, "at": at,
                                "added": [r.model_dump() for r in added]})
     return f"recorded {len(added)}"
+
+
+def _stamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
 def cmd_backfill(args) -> int:
@@ -366,7 +373,7 @@ def cmd_backfill(args) -> int:
               + (f"; {len(failed)} failed" if failed else ""))
         return 1 if failed else 0
     station_root = _station_root(config)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = _stamp()
     bdir = root / "campaign" / "backfill" / stamp
     if bdir.exists():
         raise LlamaError(f"refusing to back-fill: {bdir} exists")
