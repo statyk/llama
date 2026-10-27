@@ -1,3 +1,8 @@
+> **Superseded 2026-10-26 (10:24 build finish; e6c0ba33 M4).** The build ran and finished
+> (see `README.md` here for the record); the operator's listening check passed on the
+> chunking; then merged to main for release v2.19.0. The text below is the pre-build handoff, kept as
+> written.
+
 # Handoff: paragraph-aware chunking (emcee), 2026-10-26 (updated 09:00)
 
 **Where:** branch `emcee-paragraph-chunking`, worktree
