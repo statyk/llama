@@ -21,7 +21,7 @@ from llama.models import Overrides, Show, Track
 from llama.stages.gather import compute_gather
 from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 
-from helpers import (audio_files, fake_source, packaged_gd73, reuse_gd73, stub_stages,
+from helpers import (audio_files, delivered_gd73, fake_source, packaged_gd73, reuse_gd73, stub_stages,
                      tree_bytes)
 from test_catalog import build
 from test_cli import _staged_ymsb_show
@@ -1576,3 +1576,26 @@ def test_overrule_survives_a_regather(tmp_path, monkeypatch):
     assert (ws.package_dir / "manifest.json").exists()
     from llama.models import ShowNotes
     assert "overruled: unresolved track titles" in read_model(ws.notes, ShowNotes).gather
+
+
+def test_fix_strict_refusal_names_allow_download_and_restores(tmp_path, monkeypatch):
+    import shutil
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, old)
+    shutil.rmtree(station)
+    stub_stages(monkeypatch, old)
+    before = tree_bytes(ws.dir)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "X")
+    assert r.exit_code == 1, r.output
+    assert r.output.splitlines()[-2:] == [
+        f"gratefuldead-1973-06-10: station copy unreadable: no directory {station}",
+        "  if the station copy cannot be fixed: re-run this one show with --allow-download"]
+    assert ia.downloads == [] and tree_bytes(ws.dir) == before    # overrides.json not left behind
+
+
+def test_fix_no_run_with_allow_download_names_it_in_the_staged_redo(tmp_path, monkeypatch):
+    old = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+    cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, old)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "X", "--no-run", "--allow-download")
+    assert r.exit_code == 0, r.output
+    assert "staged; next: llama redo gratefuldead-1973-06-10 --from gather --allow-download" in r.output

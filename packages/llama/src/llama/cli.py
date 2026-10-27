@@ -10,7 +10,7 @@ from contextlib import ExitStack, contextmanager
 from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Literal
+from typing import Iterator, Literal
 
 import typer
 from typer.core import TyperGroup
@@ -22,7 +22,7 @@ from herder.usage import read_usage
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
-from llama.audio_reuse import plan_reuse
+from llama.audio_reuse import StationUnpaired, plan_reuse, write_anchor_if_absent
 from llama.catalog import library_performance_ids
 from llama.cli_select import ShowState
 from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
@@ -1937,7 +1937,8 @@ def _untitled_counts(show: Show) -> tuple[int, int]:
     return sum(1 for t in show.tracks if t.title_source != "unresolved"), n
 
 
-def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
+def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView, *,
+                         allow_download: bool = False
                          ) -> tuple[Literal["declined", "held", "packaged"], Path | None]:
     """The operator route for a tape with no resolved titles (spec Slice 7).
 
@@ -1964,12 +1965,14 @@ def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
                         narration="vague", set_breaks=[], clear_encore=True)
         lines.append(f"{entry.slug}: untitled resolution written")
         pkg = _redo_show_locked(config, ia, ledger,
-                                _resolve_show(config, ledger, entry.slug), "gather")
+                                _resolve_show(config, ledger, entry.slug), "gather",
+                                allow_download=allow_download)
         if pkg is None:
             _clear_hold(entry.ws, record="untitled")
             lines.append(f"{entry.slug}: remaining flags overruled")
             pkg = _redo_show_locked(config, ia, ledger,
-                                    _resolve_show(config, ledger, entry.slug), "brief")
+                                    _resolve_show(config, ledger, entry.slug), "brief",
+                                    allow_download=allow_download)
     for line in lines:
         typer.echo(line)
     return ("packaged", pkg) if pkg else ("held", None)
@@ -3013,7 +3016,7 @@ def clear_mark_cmd(
 
 
 def _redo_show(config, ia, ledger, entry, from_stage: str, *,
-               with_research: bool = False) -> Path | None:
+               with_research: bool = False, allow_download: bool = False) -> Path | None:
     """Re-run one resolved show from `from_stage` onward as one restoring unit
     (see `show_unit`); returns the package path, or None if the show was
     held/skipped. A redo shows no content, so its view is read under the lock
@@ -3022,14 +3025,43 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
 
     with show_unit(entry.ws, None):
         return _redo_show_locked(config, ia, ledger, entry, from_stage,
-                                 with_research=with_research)
+                                 with_research=with_research, allow_download=allow_download)
+
+
+ALLOW_DOWNLOAD_HINT = ("  if the station copy cannot be fixed: "
+                       "re-run this one show with --allow-download")
+ALLOW_DOWNLOAD_ONE_SHOW = "--allow-download takes one named show"
+
+
+@contextmanager
+def _strict_refusal_hint() -> Iterator[None]:
+    """For a by-name command: a strict-reuse refusal prints its reason, then the
+    `--allow-download` hint, and exits 1. Enter it OUTSIDE the show unit, so the
+    unit has restored the show before anything prints."""
+    try:
+        yield
+    except (StationUnpaired, station_mark.StationUnreadable) as exc:
+        typer.echo(str(exc), err=True)
+        typer.echo(ALLOW_DOWNLOAD_HINT, err=True)
+        raise typer.Exit(1)
+
+
+def _is_delivered(ledger, performance_id: str) -> bool:
+    return any(e.status == "delivered" and e.performance_id == performance_id
+               for e in ledger.entries())
 
 
 def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
-                      with_research: bool = False) -> Path | None:
+                      with_research: bool = False, allow_download: bool = False) -> Path | None:
     """`_redo_show`'s body. The caller must already be inside a `show_unit`
     for `entry.ws` (this takes no lock). Raises LlamaError on a hand-built
-    show with no provenance, ShowChanged if the show was removed meanwhile."""
+    show with no provenance, ShowChanged if the show was removed meanwhile.
+
+    A delivered show's re-package is strict (bulk-apply spec "Audio reuse never
+    silently falls back") unless it re-selects or `allow_download`: it refuses
+    (`StationUnpaired`/`StationUnreadable`) rather than download audio the
+    station copy holds. A packaged or delivered show gets the reuse anchor
+    (written once) before its artifacts are dropped."""
     from llama.models import Provenance, QualityAssessment
     from llama.show_unit import ShowChanged
     from llama.workspace import drop_stage_artifacts, read_model
@@ -3043,10 +3075,14 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
     prov = read_model(show_ws.provenance, Provenance)   # under the caller's lock
     rec = campaign.read_record(show_ws)   # an unreadable record refuses before any spend
     keep_research = not with_research and from_stage in ("select", "gather")
+    delivered = _is_delivered(ledger, prov.performance_id)
+    strict = delivered and from_stage != "select" and not allow_download
+    if delivered or (show_ws.package_dir / "manifest.json").exists():
+        write_anchor_if_absent(show_ws)   # the list the existing copies were packaged from
     # Spec 5.4: pair the existing audio with the CURRENT show.json and manifests
     # before the re-gather rewrites or drops them.
     reuse = plan_reuse(show_ws, config.delivery_path / show_ws.dir.name
-                       if config.delivery_path else None)
+                       if config.delivery_path else None, strict=strict)
     drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
     # Keep the winnow assessment (quality_score + recording_complaints) so
     # select-recording still avoids complained-about recordings; override only
@@ -3507,6 +3543,11 @@ def fix(
         False, "--overrule", help="Overrule a held show: clear needs-review and its flags"),
     no_run: bool = typer.Option(
         False, "--no-run", help="Stage the resolving redo instead of running it now"),
+    allow_download: bool = typer.Option(
+        False, "--allow-download",
+        help="Re-package without the strict station reuse, downloading whatever no "
+             "copy pairs (for a delivered show whose station copy is gone or cannot "
+             "be paired)"),
 ):
     """Edit one show's overrides.json / resolve its hold, then auto-run the
     correct redo (earliest-affected stage wins on combos). --no-run stages
@@ -3565,7 +3606,9 @@ def fix(
             typer.echo(f"{entry.slug}: --untitled applies only when every track is "
                        f"unresolved ({resolved} of {total} resolved)", err=True)
             raise typer.Exit(1)
-        status, pkg = _untitled_resolution(config, ia, ledger, entry, show, view)
+        with _strict_refusal_hint():
+            status, pkg = _untitled_resolution(config, ia, ledger, entry, show, view,
+                                               allow_download=allow_download)
         if status == "declined":
             typer.echo("declined; nothing written")
             return
@@ -3744,7 +3787,7 @@ def fix(
     real_edit = False
     lines: list[str] = []   # printed after the unit: nothing writes to stdout inside it
     pkg = None
-    with show_unit(sws, view):
+    with _strict_refusal_hint(), show_unit(sws, view):   # the hint prints after the restore
         if did_files:
             try:
                 add = _resolve_exclude_tokens(sws, exclude or [])
@@ -3811,14 +3854,16 @@ def fix(
             real_edit = True
         if real_edit and not no_run:
             pkg = _redo_show_locked(config, ia, ledger,
-                                    _resolve_show(config, ledger, entry.slug), stage)
+                                    _resolve_show(config, ledger, entry.slug), stage,
+                                    allow_download=allow_download)
 
     for line in lines:
         typer.echo(line)
     if not real_edit:
         return   # e.g. a lone --overrule on a show that was never held
     if no_run:
-        typer.echo(f"staged; next: llama redo {entry.slug} --from {stage}")
+        typer.echo(f"staged; next: llama redo {entry.slug} --from {stage}"
+                   + (" --allow-download" if allow_download else ""))
         return
     typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
 
@@ -3949,12 +3994,20 @@ def redo(
         [], "--profile", autocompletion=_complete_profile,
         help="Selector: shows acquired by this standing profile (exact name; repeatable)"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
+    allow_download: bool = typer.Option(
+        False, "--allow-download",
+        help="One named show only: re-package without the strict station reuse, "
+             "downloading whatever no copy pairs (for a delivered show whose station "
+             "copy is gone or cannot be paired)"),
 ):
     """Re-run one show (--from STAGE), a selector batch, or a whole
     --run session -- the single re-execution verb (spec §7.1)."""
     from llama.cli_select import build_selector
 
     other_selector = any([held, packaged, state, artist, profile])
+    if allow_download and (name is None or run is not None or other_selector):
+        typer.echo(ALLOW_DOWNLOAD_ONE_SHOW, err=True)
+        raise typer.Exit(1)
     # Three-form grammar: positional show | --run SESSION | selectors -- exactly one.
     if name is not None and (run is not None or other_selector):
         typer.echo("give a show OR selectors, not both", err=True)
@@ -3987,8 +4040,9 @@ def redo(
             typer.echo(f"no provenance.json in {entry.ws.dir} - "
                        "reprocess it via its run first", err=True)
             raise typer.Exit(1)
-        pkg = _redo_show(config, ia, ledger, entry, from_stage,
-                         with_research=redo_research)
+        with _strict_refusal_hint():
+            pkg = _redo_show(config, ia, ledger, entry, from_stage,
+                             with_research=redo_research, allow_download=allow_download)
         if pkg:
             typer.echo(f"packaged: {pkg}")
         else:

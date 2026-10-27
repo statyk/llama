@@ -43,11 +43,16 @@ class StationRefused(LlamaError):
 
 class StationUnreadable(StationRefused):
     """The ONE "station copy unreadable" exception: `<slug>: station copy
-    unreadable: <detail>`. A station copy llama cannot read is never written."""
+    unreadable: <detail>`. A station copy llama cannot read is never written.
+    `detail` is the one-line `<detail>` part (None when not built here)."""
+    detail: str | None = None
 
 
 def _unreadable(out: Path, detail: str) -> StationUnreadable:
-    return StationUnreadable(f"{out.name}: station copy unreadable: {' '.join(detail.split())}")
+    one_line = " ".join(detail.split())
+    exc = StationUnreadable(f"{out.name}: station copy unreadable: {one_line}")
+    exc.detail = one_line
+    return exc
 
 
 def _read_bytes(out: Path) -> bytes:

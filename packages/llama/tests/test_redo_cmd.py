@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 from herder import TaskFailed
-from helpers import (audio_files, fake_source, packaged_gd73, reuse_gd73, stub_stages,
-                     tree_bytes)
+from helpers import (audio_files, delivered_gd73, fake_audio, fake_source, packaged_gd73,
+                     reuse_gd73, stub_stages, tree_bytes)
 from typer.testing import CliRunner
 
 import llama.cli as cli
@@ -802,3 +802,158 @@ def test_redo_that_picks_another_item_with_the_same_file_names_ships_no_old_audi
     new = audio_files(ws)
     assert sorted(new) == ["01 - A.mp3", "02 - B.mp3"] and not (set(new.values()) & old_bytes)
     assert not (ws.dir / ".audio-aside").exists()
+
+
+# ---------------------------------------------------------------------------
+# Strict station reuse for delivered shows, the held-outcome anchor (bulk-apply Task 8).
+# ---------------------------------------------------------------------------
+
+SLUG = "gratefuldead-1973-06-10"
+OLD2 = (("A", "a.mp3", 300.0), ("B", "b.mp3", 400.0))
+HINT = "  if the station copy cannot be fixed: re-run this one show with --allow-download"
+
+
+def _lines(r) -> list[str]:
+    return r.output.splitlines()
+
+
+def test_strict_redo_of_a_delivered_show_reuses_the_station_copy(tmp_path, monkeypatch):
+    cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, OLD2)
+    stub_stages(monkeypatch)
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "package"])
+    assert r.exit_code == 0, r.output
+    assert ia.downloads == []
+    assert {n: fake_source(ws.package_dir / "audio" / n) for n in audio_files(ws)} == {
+        "01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3"}
+    assert not ws.reuse_anchor.exists()           # written for the unit, removed by the build
+
+
+def test_strict_refuses_a_paired_copy_failing_its_length_check(tmp_path, monkeypatch):
+    cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, OLD2)
+    (station / "audio" / "02 - B.mp3").write_bytes(fake_audio("b.mp3", 999.0))
+    stub_stages(monkeypatch)
+    before = tree_bytes(ws.dir)
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "package"])
+    assert r.exit_code == 1, r.output
+    assert _lines(r)[-2:] == [f"{SLUG}: station copy does not pair: b.mp3 failed its length check",
+                              HINT]
+    assert ia.downloads == []
+    assert tree_bytes(ws.dir) == before           # the unit restored (no anchor left either)
+    assert audio_files(ws) == {}
+
+
+def test_strict_refuses_when_nothing_pairs(tmp_path, monkeypatch):
+    cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, OLD2)
+    m = json.loads((station / "manifest.json").read_text())
+    m["tracks"][0]["title"] = "Retitled"
+    (station / "manifest.json").write_text(json.dumps(m))
+    stub_stages(monkeypatch)
+    before = tree_bytes(ws.dir)
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "package"])
+    assert r.exit_code == 1, r.output
+    assert _lines(r)[-2:] == [f"{SLUG}: station copy does not pair: no copy pairs", HINT]
+    assert ia.downloads == [] and tree_bytes(ws.dir) == before
+
+
+@pytest.mark.parametrize("damage", ["missing", "not json"])
+def test_strict_refuses_a_missing_or_unreadable_station_copy(tmp_path, monkeypatch, damage):
+    from llama.station_mark import StationUnreadable
+    cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, OLD2)
+    if damage == "missing":
+        shutil.rmtree(station)
+        detail = f"no directory {station}"
+    else:
+        (station / "manifest.json").write_text("{")
+        detail = f"invalid JSON in {station / 'manifest.json'}"
+    stub_stages(monkeypatch)
+    before = tree_bytes(ws.dir)
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "package"])
+    assert r.exit_code == 1, r.output
+    *_, refusal, hint = _lines(r)
+    assert refusal.startswith(f"{SLUG}: station copy unreadable: {detail}") and hint == HINT
+    assert ia.downloads == [] and tree_bytes(ws.dir) == before
+    config = load_config(cfg); ledger = Ledger(config.root / "ledger.jsonl")
+    with pytest.raises(StationUnreadable):
+        cli._redo_show(config, ia, ledger, cli._resolve_show(config, ledger, "gratefuldead"),
+                       "package")
+    assert ia.downloads == [] and tree_bytes(ws.dir) == before
+
+
+def test_strict_refuses_without_a_delivery_path(tmp_path, monkeypatch):
+    from llama.station_mark import StationUnreadable
+    cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, OLD2)
+    cfg.write_text(f'root = "{tmp_path}"\n[jerrybase]\nenabled = false\n')
+    stub_stages(monkeypatch)
+    config = load_config(cfg); ledger = Ledger(config.root / "ledger.jsonl")
+    assert config.delivery_path is None
+    with pytest.raises(StationUnreadable) as exc:
+        cli._redo_show(config, ia, ledger, cli._resolve_show(config, ledger, "gratefuldead"),
+                       "package")
+    assert str(exc.value) == f"{SLUG}: station copy unreadable: no delivery_path in config"
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "package"])
+    assert r.exit_code == 1
+    assert _lines(r)[-2:] == [f"{SLUG}: station copy unreadable: no delivery_path in config", HINT]
+    assert ia.downloads == []
+
+
+@pytest.mark.parametrize("cmd", [["redo", "gratefuldead", "--from", "package"],
+                                 ["fix", "gratefuldead", "--set-venue", "X"]])
+def test_allow_download_lets_one_named_show_download(tmp_path, monkeypatch, cmd):
+    cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, OLD2)
+    shutil.rmtree(station)                         # the station copy is gone for good
+    stub_stages(monkeypatch, OLD2)
+    r = runner.invoke(cli.app, ["--config", str(cfg), *cmd])
+    assert r.exit_code == 1 and _lines(r)[-1] == HINT, r.output
+    assert ia.downloads == []
+    r = runner.invoke(cli.app, ["--config", str(cfg), *cmd, "--allow-download"])
+    assert r.exit_code == 0, r.output
+    assert ia.downloads == ["a.mp3", "b.mp3"]
+    assert (ws.package_dir / "manifest.json").exists()
+    assert {n: fake_source(ws.package_dir / "audio" / n) for n in audio_files(ws)} == {
+        "01 - A.mp3": "a.mp3", "02 - B.mp3": "b.mp3"}
+
+
+@pytest.mark.parametrize("sel", [["--held"], ["--packaged"], ["--state", "delivered"],
+                                 ["--run", "r"], []])
+def test_allow_download_refuses_a_selector(tmp_path, monkeypatch, sel):
+    cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, OLD2)
+    stub_stages(monkeypatch)
+    before, station_before = tree_bytes(ws.dir), tree_bytes(station)
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", *sel, "--from", "package",
+                                "--allow-download", "--yes"])
+    assert r.exit_code == 1
+    assert r.output.strip() == "--allow-download takes one named show"
+    assert tree_bytes(ws.dir) == before and tree_bytes(station) == station_before
+    assert ia.downloads == []
+
+
+def test_reselection_redo_is_not_strict(tmp_path, monkeypatch):   # (pin)
+    cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, OLD2)
+    monkeypatch.setattr(pipeline, "run_select_recording",
+                        lambda show_ws, *a, **k: "gd73-other-taper")
+    stub_stages(monkeypatch, OLD2, identifier="gd73-other-taper")
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "select"])
+    assert r.exit_code == 0, r.output
+    assert ia.downloads == ["a.mp3", "b.mp3"]       # a new recording: every file downloads
+
+
+def test_held_redo_of_a_delivered_show_keeps_an_anchor_the_clear_reuses(tmp_path, monkeypatch):
+    from llama.models import Briefing
+    cfg, ws, ia, station = delivered_gd73(tmp_path, monkeypatch, OLD2)
+    pre = [{"filename": t.filename, "title": t.title} for t in read_model(ws.show, Show).tracks]
+    retitled = (("A2", "a.mp3", 300.0), ("B2", "b.mp3", 400.0))
+    stub_stages(monkeypatch, retitled, hold=["research asserts wrong date: 1974-01-01"])
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "gather"])
+    assert r.exit_code == 0, r.output
+    assert read_model(ws.show, Show).needs_review is True
+    anchor = json.loads(ws.reuse_anchor.read_text())
+    assert anchor["identifier"] == "gd73" and anchor["tracks"] == pre
+    stub_stages(monkeypatch)
+    write_artifact(ws.briefing_json, Briefing(context="c", significance="s"))
+    write_artifact(ws.briefing_md, "# Briefing\n")
+    r = runner.invoke(cli.app, ["--config", str(cfg), "fix", "gratefuldead", "--overrule"])
+    assert r.exit_code == 0, r.output
+    assert ia.downloads == []                        # the station copy paired through the anchor
+    assert {n: fake_source(ws.package_dir / "audio" / n) for n in audio_files(ws)} == {
+        "01 - A2.mp3": "a.mp3", "02 - B2.mp3": "b.mp3"}
+    assert not ws.reuse_anchor.exists()

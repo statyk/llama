@@ -202,3 +202,24 @@ def stub_stages(monkeypatch, new_tracks=None, *, hold: list[str] | None = None,
     monkeypatch.setattr(pipeline, "run_research", lambda *a, **k: "research")
     monkeypatch.setattr(pipeline, "run_vet_research", lambda *a, **k: None)
     monkeypatch.setattr(pipeline, "run_brief", brief)
+
+
+def delivered_gd73(tmp_path: Path, monkeypatch, old_tracks):
+    """`reuse_gd73(delivery=True)`, then delivered as `deliver` leaves it: the
+    package copied to `<tmp>/station/<slug>`, the library audio purged and a
+    `delivered` ledger row. Returns (config path, ShowWorkspace, ia, station dir)."""
+    import shutil
+    from datetime import datetime, timezone
+    from llama.ledger import Ledger
+    from llama.models import LedgerEntry
+    cfg, ws, ia = reuse_gd73(tmp_path, monkeypatch, old_tracks, delivery=True)
+    station = tmp_path / "station" / ws.dir.name
+    shutil.copytree(ws.package_dir, station)
+    for p in (ws.package_dir / "audio").iterdir():
+        p.unlink()
+    show = read_model(ws.show, Show)
+    Ledger(tmp_path / "ledger.jsonl").record(LedgerEntry(
+        performance_id=show.performance_id, artist=show.artist, date=show.date,
+        venue=show.venue, status="delivered", run="r",
+        recorded_at=datetime.now(timezone.utc).isoformat()))
+    return cfg, ws, ia, station

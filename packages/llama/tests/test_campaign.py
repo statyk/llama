@@ -155,3 +155,19 @@ def test_record_is_not_an_input_digest(tmp_path, monkeypatch):
     for stage in SHOW_STAGE_ORDER:
         assert ws.campaign not in show_stage_artifacts(ws, stage)
         assert ws.reuse_anchor not in show_stage_artifacts(ws, stage)
+
+
+def test_package_build_refuses_an_unreadable_record_before_any_write(tmp_path, monkeypatch):
+    """Task 3 review minor: outside a show unit (`get`, `run resume`) a build
+    must not write a manifest and then fail on the record."""
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
+    ws.campaign.write_text("{not json")
+    show = read_model(ws.show, Show)
+    before = tree_bytes(ws.dir)
+    from test_pipeline import FakeIA
+    ia = FakeIA()
+    downloads = []
+    monkeypatch.setattr(ia, "download_file", lambda *a, **k: downloads.append(a))
+    with pytest.raises(CampaignUnreadable, match="cannot read campaign.json"):
+        build_package(ws, ia, show, force=True)
+    assert downloads == [] and tree_bytes(ws.dir) == before
