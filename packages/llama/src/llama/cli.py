@@ -4235,6 +4235,16 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
     batch = reapply_mod.batch_dir(config.root, path)
     snap = batch / "snapshot"
     if not dry_run:
+        if snap.exists():
+            # Before any write or spend: an unusable snapshot would make every
+            # record_after raise inside the unit, each show paying its brief only
+            # to be rolled back.
+            problems = batch_snapshot.verify(snap)
+            if problems:
+                typer.echo(f"refusing to run batch {batch.name}: its snapshot is unusable "
+                           f"({problems[0]}); remove {snap} by hand to run without one, "
+                           "or restore from it first", err=True)
+                raise typer.Exit(1)
         set_capture_dir(config.root / "llm-failures")
         fresh_batch = not (batch / "progress.jsonl").exists() and not snap.exists()
         batch.mkdir(parents=True, exist_ok=True)
@@ -4257,7 +4267,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
                 at=datetime.now(timezone.utc).isoformat())
     progress = reapply_mod.read_progress(batch) if batch.is_dir() else {}
     finished = {s for s, r in progress.items() if not r.get("retryable", True)}
-    providers = make_providers(config)
+    providers, llm_calls = count_llm_calls(make_providers(config))
     pace = pace_options(config, seven_day_ceiling=seven_day_ceiling)
     state = pacing_state.read_state(config.root)
     delivered = {e.performance_id for e in ledger.entries() if e.status == "delivered"}
@@ -4275,13 +4285,42 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
     block = None        # the trial block: [first before-reading, shows counted]
     crossed_warned = False
 
-    def fail(slug: str, exc: Exception, text: str | None = None) -> None:
+    def trial(reading, after, spent: bool) -> None:
+        """Count the show into the trial block and end the block at the target.
+        Only a show during which an LLM provider was invoked (pacing's own
+        boundary rule), committed or failed, is a show that spent."""
+        nonlocal block, crossed_warned
+        if stop_at_points is None or reading is None or after is None \
+                or reading.five_hour is None or after.five_hour is None:
+            return
+        if block is None:
+            block = [reading.five_hour, 0]
+        block[1] += spent
+        start = block[0]
+        if after.five_hour.resets_at != start.resets_at:
+            if not crossed_warned:
+                typer.echo("warning: this block crossed a 5-hour reset; "
+                           "discard it and re-run")
+                crossed_warned = True
+        elif after.five_hour.percent - start.percent >= stop_at_points:
+            typer.echo(f"trial block done: 5h meter moved "
+                       f"{after.five_hour.percent - start.percent} points over "
+                       f"{block[1]} shows")
+            typer.echo(f"  {resume}")
+            raise typer.Exit(1 if failed else 0)
+
+    def fail(slug: str, exc: Exception, text: str | None = None, *,
+             reading=None, spent: bool = False) -> None:
         nonlocal failed
         failed = True
         text = text if text is not None else str(exc)
         typer.echo(f"FAILED {slug}: {text}", err=True)
         if not dry_run:
-            reapply_mod.record_progress(batch, slug, f"failed: {text}"[:300], retryable=True)
+            after = _meter(config, pace)
+            reapply_mod.record_progress(
+                batch, slug, f"failed: {text}"[:300], retryable=True,
+                extra={"meter": {"before": _meter_row(reading), "after": _meter_row(after)}})
+            trial(reading, after, spent)
 
     def after_hook(slug: str):
         """The write's undo point, recorded inside the show lock (None: no snapshot)."""
@@ -4322,6 +4361,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             if not dry_run:
                 reapply_mod.record_progress(batch, slug, "skipped: missing", retryable=True)
             continue
+        calls_before = llm_calls()
         try:
             # Built per row, never via catalog.iter_shows: one unreadable show
             # anywhere in the library must not abort the whole batch.
@@ -4341,7 +4381,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             typer.echo(f"  {resume}")
             raise typer.Exit(1 if failed else 0)
         except (TaskFailed, HerderError) as exc:
-            fail(slug, exc)
+            fail(slug, exc, reading=reading, spent=llm_calls() > calls_before)
             consecutive += 1
             if consecutive >= reapply_mod.STOP_AFTER_LLM_FAILURES:
                 typer.echo(f"stopping after {consecutive} consecutive LLM failures; {resume}")
@@ -4350,7 +4390,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
         except station_mark.StationUnreadable as exc:
             # The unit has restored the show; the row stays retryable. Three in a
             # row means the mount is gone, not three bad copies.
-            fail(slug, exc)
+            fail(slug, exc, reading=reading, spent=llm_calls() > calls_before)
             unreadable += 1
             if unreadable >= reapply_mod.STOP_AFTER_STATION_UNREADABLE:
                 typer.echo(f"stopping after {unreadable} consecutive unreadable station "
@@ -4361,13 +4401,14 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             # ValueError covers pydantic's ValidationError and a JSON decode
             # error: a corrupt show.json/provenance.json/vetting.json/
             # overrides.json is this row's failure, never the batch's.
-            fail(slug, exc)
+            fail(slug, exc, reading=reading, spent=llm_calls() > calls_before)
             continue
         except Exception as exc:   # noqa: BLE001 - last resort, below every arm above
             # Anything else (a MutagenError tagging a download, a wrong-typed
             # reviews.json) is still this row's failure: one bad show must never
             # abort the batch, nor wedge every re-run on the same row.
-            fail(slug, exc, f"{type(exc).__name__}: {exc}")
+            fail(slug, exc, f"{type(exc).__name__}: {exc}", reading=reading,
+                 spent=llm_calls() > calls_before)
             continue
         if dry_run:
             predicted = out.outcome.removeprefix("dry-run: ")
@@ -4402,23 +4443,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             _echo_redeliver_hint(config, slug)
         if _meter_applies(config, pace):
             typer.echo(f"  meter: 5h {_meter_pct(reading)}% -> {_meter_pct(after)}%")
-        if stop_at_points is not None and reading is not None and after is not None \
-                and reading.five_hour is not None and after.five_hour is not None:
-            if block is None:
-                block = [reading.five_hour, 0]
-            block[1] += 1
-            start = block[0]
-            if after.five_hour.resets_at != start.resets_at:
-                if not crossed_warned:
-                    typer.echo("warning: this block crossed a 5-hour reset; "
-                               "discard it and re-run")
-                    crossed_warned = True
-            elif after.five_hour.percent - start.percent >= stop_at_points:
-                typer.echo(f"trial block done: 5h meter moved "
-                           f"{after.five_hour.percent - start.percent} points over "
-                           f"{block[1]} shows")
-                typer.echo(f"  {resume}")
-                raise typer.Exit(1 if failed else 0)
+        trial(reading, after, llm_calls() > calls_before)
     if dry_run:
         typer.echo(f"summary: {len(rows)} rows, {n_finished} already finished, {fresh} fresh "
                    f"briefs, {downloads} downloads (~175 MB each, "

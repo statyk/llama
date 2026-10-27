@@ -2241,11 +2241,39 @@ def test_pace_options_seven_day_ceiling_override():
     assert pacing.pace_options(Config(), seven_day_ceiling=40.0).seven_day_ceiling == 40.0
 
 
+def _spend(providers):
+    """One LLM call through the (counted) brief ladder, as a real brief would make."""
+    ladder = providers["brief"]
+    for p in (ladder if isinstance(ladder, list) else [ladder]):
+        try:
+            p.complete("x")
+        except AssertionError:
+            pass            # the fake has nothing queued; the call was still made
+
+
+def _spending_stub(monkeypatch, script):
+    """reapply_show replaced by a script slug -> (spends, outcome-or-exception)."""
+    def fake(config, ia, ledger, entry, *, providers, **kw):
+        spends, step = script(entry.slug)
+        if spends:
+            _spend(providers)
+        if isinstance(step, Exception):
+            raise step
+        return ReapplyOutcome(slug=entry.slug, outcome=step, briefing="fresh",
+                              flags=[], delivered=False, written=[])
+    monkeypatch.setattr(reapply_mod, "reapply_show", fake)
+
+
 def test_stop_at_points_ends_the_block(tmp_path, monkeypatch):
     from conftest import cli_invoke
     from datetime import datetime, timezone
     root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=2)
     calls = _stub_package(monkeypatch)
+    real_show = reapply_mod.reapply_show
+    def spending(config, ia, ledger, entry, *, providers, **kw):
+        _spend(providers)       # Task 13b: only a show that spent counts into n
+        return real_show(config, ia, ledger, entry, providers=providers, **kw)
+    monkeypatch.setattr(reapply_mod, "reapply_show", spending)
     reset = datetime(2030, 1, 1, tzinfo=timezone.utc)
     # (before, after) per show: block starts at 40; show 1 -> 42, show 2 -> 45
     _meters(monkeypatch, [(40, reset, 7), (42, reset, 7), (42, reset, 7), (45, reset, 7),
@@ -2471,3 +2499,53 @@ def test_the_resume_line_carries_the_allow_flags(tmp_path, monkeypatch):
                    "--allow-structure-change")
     assert (f"resume with: llama reapply --from-list {lst} --allow-structure-change "
             f"--with-gather-llm") in r.output
+
+
+def test_trial_count_excludes_shows_that_spent_nothing(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from datetime import datetime, timezone
+    import llama.cli as cli
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=5)
+    monkeypatch.setattr(cli, "make_providers", lambda config: {"brief": [FakeProvider([])]})
+    slugs = [e.slug for e in entries]
+    plan = {slugs[0]: (True, "cleared"),                       # spent, committed
+            slugs[1]: (False, "skipped: processed"),           # no spend
+            slugs[2]: (True, IAError("download failed")),      # spent, then failed
+            slugs[3]: (False, "skipped: inputs changed"),      # no spend
+            slugs[4]: (True, "held"),                          # spent, held
+            slugs[5]: (False, "cleared")}                      # never reached
+    _spending_stub(monkeypatch, lambda slug: plan[slug])
+    reset = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    # (before, after) per show; the block starts at 40 and passes 45 on show 5
+    _meters(monkeypatch, [(40, reset, 7), (41, reset, 7),
+                          (41, reset, 7), (41, reset, 7),
+                          (41, reset, 7), (42, reset, 7),
+                          (42, reset, 7), (42, reset, 7),
+                          (42, reset, 7), (46, reset, 7)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--stop-at-points", "5")
+    assert "trial block done: 5h meter moved 6 points over 3 shows" in r.output, r.output
+    rows = {x["slug"]: x for x in _progress_rows(batch_dir(root, lst))}
+    failed = rows[slugs[2]]
+    assert failed["outcome"].startswith("failed:") and failed["retryable"] is True
+    assert failed["meter"]["before"]["five_hour"] == 41 and failed["meter"]["after"]["five_hour"] == 42
+
+
+def test_broken_snapshot_refuses_before_the_first_show(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    prov = FakeProvider([])
+    monkeypatch.setattr(cli, "make_providers", lambda config: {"brief": [prov]})
+    calls = _stub_package(monkeypatch)
+    batch = batch_dir(root, lst)
+    (batch / "snapshot").mkdir(parents=True)
+    reapply_mod.record_progress(batch, "other", "cleared", retryable=False)
+    progress_before = (batch / "progress.jsonl").read_bytes()
+    tree_before = tree_bytes(root / "shows")
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 1, r.output
+    assert (f"refusing to run batch {batch.name}: its snapshot is unusable (no manifest.json); "
+            f"remove {batch / 'snapshot'} by hand to run without one, or restore from it first") in r.output
+    assert prov.calls == [] and calls == []
+    assert tree_bytes(root / "shows") == tree_before
+    assert (batch / "progress.jsonl").read_bytes() == progress_before
