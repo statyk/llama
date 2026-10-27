@@ -141,9 +141,12 @@ NO_SHOW_JSON = "no show.json"
 # (layout B). A value is honoured only in its own layout.
 _RECORDED = (("flags", "spurious"), ("claims", "flag-spurious"))
 # Checkpoint A rulings (plan Task 14b). Rules (a) and (b) record only a flag still listed
-# for one of these two reasons, and never one of these kinds or rulings.
+# for one of these two reasons, never one of these rulings, and never their rule's kinds:
+# a rehold overrule (b) covers unknown songs (T14c parent ruling: the adjudicator
+# reviewed each re-hold whole), a fix verdict (a) does not.
 _STILL_LISTED = (NEVER_RULED, OTHER_ONLY)
-_NEVER_KINDS = frozenset({"titles", "research-song"})
+_NEVER_KINDS_A = frozenset({"titles", "research-song"})
+_NEVER_KINDS_B = frozenset({"titles"})
 _NEVER_RULINGS = frozenset({"research-wrong", "research-right-show-wrong"})
 _STRUCTURE_KINDS = frozenset({"jerrybase-set-count", "jerrybase-closer", "research-sets",
                               "sets-not-found", "venue", "city"})
@@ -302,11 +305,12 @@ def _plan_one(root: Path, row: dict, verdicts: Path, delivered: set[str], at: st
             why = OTHER_ONLY
         else:
             why = NEVER_RULED
-        eligible = (why in _STILL_LISTED and key.kind not in _NEVER_KINDS
+        eligible = (why in _STILL_LISTED
                     and not any(vd in _NEVER_RULINGS for vd, _ in rulings))
-        if eligible and fix and key.kind in _STRUCTURE_KINDS:
+        if (eligible and fix and key.kind in _STRUCTURE_KINDS
+                and key.kind not in _NEVER_KINDS_A):
             take(f, key.kind, _BASES[1][0] + str(vpath))
-        elif eligible and reheld:
+        elif eligible and reheld and key.kind not in _NEVER_KINDS_B:
             take(f, key.kind, _BASES[2][0] + str(rehold / f"{slug}.json"))
         else:
             listed.append((f, why))

@@ -444,14 +444,40 @@ def test_rule_a_and_b_never_record_titles_unknown_song_or_research_rulings(tmp_p
              "research asserts unknown song: Jugband Song", F_RSETS]
     base = _base(_row("nv", gather=flags, title_sources=["unresolved", "tags", "tags"]))
     [s] = ba.plan_backfill(root, base, verdicts, set(), rehold)
-    assert s.record == []
+    # T14c parent ruling: a rehold overrule covers a never-ruled unknown song (rule b);
+    # rule (a) never does (test_rule_b_covers_research_song_but_not_titles).
+    assert [(r.flag, r.note) for r in s.record] == [
+        ("research asserts unknown song: S", _note("b", rehold / "nv.json"))]
     assert s.listed == [
         ("unresolved track titles", "verdict never ruled on this flag"),
-        ("research asserts unknown song: S", "verdict never ruled on this flag"),
         ("research asserts wrong date: 1997-04-05", "ruled research-wrong"),
         ("research asserts unknown song: Jugband Song", "ruled research-right-show-wrong"),
         (F_RSETS, "ruled research-wrong"),
     ]
+
+
+def test_rule_b_covers_research_song_but_not_titles(tmp_path):
+    """T14c parent ruling: the adjudicator reviewed each re-hold whole, so a rehold
+    `overrule` covers `research asserts unknown song`; never `unresolved track titles`.
+    Rule (a) still excludes songs."""
+    _, root, verdicts = _lib(tmp_path)
+    rehold = tmp_path / "rehold"
+    flags = ["research asserts unknown song: S", "unresolved track titles"]
+    for slug in ("rb", "fx"):
+        _show(root, slug, unresolved=("t01.mp3",))
+        _verdict_a(verdicts, slug, [], kind="fix")
+    _rehold(rehold, "rb", "overrule")                 # fx: no rehold file
+    base = _base(*(_row(slug, gather=flags, title_sources=["unresolved", "tags", "tags"])
+                   for slug in ("rb", "fx")))
+    plan = _by_slug(ba.plan_backfill(root, base, verdicts, set(), rehold))
+    [r] = plan["rb"].record
+    assert (r.flag, r.kind, r.subject, r.note) == (
+        "research asserts unknown song: S", "research-song", ["s"],
+        _note("b", rehold / "rb.json"))
+    assert plan["rb"].listed == [("unresolved track titles",
+                                  "verdict never ruled on this flag")]
+    assert plan["fx"].record == []
+    assert plan["fx"].listed == [(f, "verdict never ruled on this flag") for f in flags]
 
 
 def test_rule_b_rehold_overrule_records_still_listed_flags(tmp_path):
