@@ -4,15 +4,21 @@
 Subcommands: `pin` (pin the campaign to a release tag's commit), `arm` (the replay arm,
 behind the version and pin gates), `snapshot` / `seal` / `restore` (thin wrappers over
 `llama.batch_snapshot`) and `backfill` (plan Task 14: the overrule backfill from the
-overnight verdicts, dry run unless `--apply`). Later tasks add the writing subcommands
-here. A refused gate exits 2. Run with the pinned worktree's own interpreter:
+overnight verdicts, dry run unless `--apply`); plan Task 15: `freeze` (the frozen needs-LLM
+list), `reselect-check` (the verified re-selection list, re-checked read-only), `mark` (the
+marking batch, dry run unless `--apply`) and `unmark` (its reversal, by its record). A
+refused gate exits 2. Run with the pinned worktree's own interpreter:
 `./.venv/bin/python scripts/bulk_apply.py ...`.
 """
 import argparse
+import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import NamedTuple
@@ -20,17 +26,22 @@ from typing import NamedTuple
 import replay_holds
 
 import llama
-from llama import batch_snapshot
+import llama.replay
+from llama import batch_snapshot, campaign, station_mark
 from llama.campaign_gate import (_VERSION, GateRefused, read_pin, require_pinned_code,
                                  require_tools, retire_rekey_restore, write_pin)
-from llama.catalog import _sync_fd, derive_state
+from llama.catalog import _performance_id, _sync_fd, derive_state
 from llama.config import DEFAULT_ROOT, load_config
 from llama.errors import LlamaError
-from llama.ledger import Ledger
-from llama.models import Overrule, Show
+from llama.ledger import Ledger, is_delivered
+from llama.locks import file_lock
+from llama.models import Overrule, Provenance, QualityAssessment, Show
 from llama.override_keys import refusal as overrides_refusal
-from llama.overrules import flag_key, merge_rules, records_for
-from llama.replay import code_identity
+from llama.overrules import flag_key, merge_rules, records_for, split_overruled
+from llama.replay import (CacheMiss, CacheOnlyIA, code_identity, config_fingerprint,
+                          input_digests, row_label_only, row_visible_changes)
+from llama.stages.select_recording import run_select_recording
+from llama.station_mark import destination_voiced
 from llama.show_unit import show_unit
 from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 
@@ -398,6 +409,633 @@ def cmd_backfill(args) -> int:
     return 1 if failed else 0
 
 
+# --- marking (plan Task 15; spec "The `awaiting_fix` contract" (Who gets marked, Writing a
+# mark, The marking batch, No concurrent emcee), "The library side" (Marking skips),
+# "Re-processing" (GD re-selections)) ---
+
+FROZEN_NAME = "needs-llm-frozen.json"
+RESELECTIONS_NAME = "reselections.json"
+BACKUP_NAME = "station-backup"
+RESELECTIONS_STALE = ("reselections.json predates the arm; re-run: "
+                      "bulk_apply.py reselect-check --write")
+REASON_CHANGED = "changed by the held-backlog fixes"
+REASON_LLM = "replay needs an LLM call"
+REASON_GUARD = "stored briefing fails today's guard"
+REASON_RESELECTION = "recording re-selection"
+_REASON_KINDS = (REASON_CHANGED, REASON_LLM, REASON_GUARD, REASON_RESELECTION)
+# Rows whose diff comes from the provider-less fallback alignment (an artefact): they are
+# marked only by a re-selection or by the frozen list, never by a visible change.
+_NO_DIFF = ("needs-llm", "unreplayable")
+_PLAN_COLUMNS = ("delivered unvoiced", "delivered voiced", "packaged", "briefed", "held")
+_STATION_OK = ("marked", "already marked", "no station copy")
+
+
+class MarkItem(NamedTuple):
+    slug: str
+    reason: str
+    start_stage: str                 # "gather" | "select"
+    digests: dict | None             # the arm row's input digests; None: not checked
+    state: str = ""                  # for the plan's table only; the apply re-reads it
+
+
+def _one_line(exc: BaseException) -> str:
+    return " ".join(str(exc).split()) or type(exc).__name__
+
+
+def _campaign_dir(root: Path, campaign_dir: Path | None) -> Path:
+    return campaign_dir if campaign_dir is not None else root / "campaign"
+
+
+def _write_durable(path: Path, data: bytes) -> None:
+    batch_snapshot._durable_replace(path, data)
+    batch_snapshot._sync_dir(path.parent)
+
+
+def _write_json(path: Path, obj) -> None:
+    _write_durable(path, (json.dumps(obj, indent=2) + "\n").encode())
+
+
+def _arm_rows(arm: dict) -> dict[str, dict]:
+    rows = arm.get("shows") if isinstance(arm, dict) else None
+    if not isinstance(rows, dict) or not all(isinstance(r, dict) for r in rows.values()):
+        raise LlamaError("the arm has no `shows` rows")
+    return rows
+
+
+def freeze(root: Path, arm: dict, *, campaign_dir: Path | None = None) -> Path:
+    """`<campaign>/needs-llm-frozen.json`: the arm's needs-LLM slugs (spec "Who gets
+    marked": the frozen needs-LLM list). Written once; an existing file refuses."""
+    path = _campaign_dir(root, campaign_dir) / FROZEN_NAME
+    if path.exists():
+        raise LlamaError(f"refusing to freeze: {path} exists (the list is frozen once)")
+    slugs = sorted(s for s, r in _arm_rows(arm).items() if r.get("outcome") == "needs-llm")
+    _write_json(path, {"arm_sha": arm.get("sha"), "arm_generated_at": arm.get("generated_at"),
+                       "slugs": slugs})
+    return path
+
+
+def _source_slug(row) -> str:
+    slug = row.get("slug") or row.get("show") if isinstance(row, dict) else None
+    if not isinstance(slug, str) or not slug:
+        raise LlamaError(f"a re-selection source row names no show: {row!r}"[:300])
+    return slug
+
+
+def reselect_rows(root: Path, config, source: list[dict]) -> list[dict]:
+    """The verified re-selection list, re-checked: per source row, the stored recording
+    (show.json) against the one selection picks now, run into a scratch ShowWorkspace under
+    a temporary directory (never under the library) from the metadata cache only. Rows
+    whose pick equals the stored recording (already re-selected) and voiced delivered
+    shows (spec: voiced shows are not re-selected) are dropped. Writes nothing under
+    `root`; a show it cannot check refuses the whole check."""
+    ledger = Ledger(root / "ledger.jsonl")
+    ia = CacheOnlyIA(root / "cache")
+    out = []
+    with tempfile.TemporaryDirectory(prefix="llama-reselect-") as tmp:
+        for row in source:
+            slug = _source_slug(row)
+            ws = ShowWorkspace(root / "shows" / slug)
+            try:
+                prov = read_model(ws.provenance, Provenance)
+                stored = read_model(ws.show, Show).identifier
+            except (OSError, ValueError) as exc:
+                raise LlamaError(f"{slug}: cannot read provenance.json/show.json "
+                                 f"({_one_line(exc)})") from exc
+            # The assessment exactly as `_redo_show_locked` builds it for `redo --from select`.
+            assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
+                          if prov.assessment is not None
+                          else QualityAssessment(performance_id=prov.performance_id,
+                                                 quality_score=0.0, rationale=prov.dossier))
+            try:
+                pick = run_select_recording(ShowWorkspace(Path(tmp) / slug), ia, prov.candidate,
+                                            assessment, config.audio_format, force=True,
+                                            selection=config.selection)
+            except CacheMiss as exc:
+                raise LlamaError(f"{slug}: {exc}") from exc
+            if pick == stored:
+                continue
+            if is_delivered(ledger, prov.performance_id):
+                if config.delivery_path is None:
+                    raise LlamaError(f"{slug}: delivered, but no delivery_path in config")
+                if destination_voiced(config.delivery_path / slug):
+                    continue
+            out.append({"slug": slug, "stored": stored, "pick": pick})
+    return out
+
+
+def _processed(ws: ShowWorkspace) -> bool:
+    """The campaign record says processed (not awaiting). An unreadable record is not."""
+    try:
+        rec = campaign.read_record(ws)
+    except campaign.CampaignUnreadable:
+        return False
+    return rec is not None and rec.processed is not None and not campaign.awaiting_fix(rec)
+
+
+def _stored_show(ws: ShowWorkspace) -> Show | None:
+    try:
+        return read_model(ws.show, Show)
+    except (OSError, ValueError):
+        return None
+
+
+def _guard_holds(ws: ShowWorkspace, row: dict, stored: Show) -> bool:
+    """Pointer (a): the row's `stored_brief_guard` ignores overrules; only the problems
+    that the show's recorded overrules do not cover count (as brief reuse does). An
+    unreadable overrides.json honours no overrule."""
+    problems = list(row.get("stored_brief_guard") or [])
+    if not problems:
+        return False
+    try:
+        rules = read_overrides(ws).overrules
+    except Exception:
+        rules = []
+    held, _notes = split_overruled(problems, rules, stored)
+    return bool(held)
+
+
+def _llm_reason(row: dict | None) -> str:
+    needs = ", ".join((row or {}).get("needs_llm") or [])
+    return f"{REASON_LLM}: {needs or 'on the frozen needs-LLM list'}"
+
+
+def _plan_one_mark(ws: ShowWorkspace, row: dict | None, frozen: set[str],
+                   resel: dict | None) -> tuple[str, str, dict | None] | None:
+    """(reason, start stage, digests) or None, in the brief's priority order."""
+    slug = ws.dir.name
+    if resel is not None:                      # whatever the arm says
+        return f"{REASON_RESELECTION}: {resel['stored']} -> {resel['pick']}", "select", None
+    if row is None:
+        return None
+    digests = row.get("digests") or None
+    processed = _processed(ws)
+    if row.get("outcome") in _NO_DIFF:         # checked BEFORE row_visible_changes (pointer d)
+        if slug in frozen and not processed:
+            return _llm_reason(row), "gather", digests
+        return None
+    stored = _stored_show(ws)
+    if stored is not None:
+        if row_label_only(row, stored):
+            return None
+        visible = row_visible_changes(row, stored)
+        if visible:
+            return f"{REASON_CHANGED}: {', '.join(visible)}", "gather", digests
+    if processed:
+        return None
+    if slug in frozen:
+        return _llm_reason(row), "gather", digests
+    if stored is not None and _guard_holds(ws, row, stored):
+        return REASON_GUARD, "gather", digests
+    return None
+
+
+def _plan_state(ws: ShowWorkspace, delivered: set[str]) -> str:
+    """`delivered` (the ledger's) first, since it decides the station mark; else
+    `derive_state`'s name."""
+    try:
+        pid = _performance_id(ws)
+        if pid and pid in delivered:
+            return "delivered"
+        return derive_state(ws, delivered)[0]
+    except Exception:
+        return "unreadable"
+
+
+def mark_plan(root: Path, arm: dict, frozen: set[str], reselections: list[dict],
+              delivered: set[str]) -> list[MarkItem]:
+    """Every show the marking rule selects (spec "Who gets marked", "Marking skips"), in
+    slug order. `delivered` is the ledger's delivered performance ids. Reads only."""
+    rows = _arm_rows(arm)
+    resel = {r["slug"]: r for r in reselections}
+    items = []
+    for slug in sorted(set(rows) | set(resel)):
+        ws = ShowWorkspace(root / "shows" / slug)
+        if not ws.dir.is_dir():
+            continue
+        planned = _plan_one_mark(ws, rows.get(slug), frozen, resel.get(slug))
+        if planned is not None:
+            items.append(MarkItem(slug, *planned, state=_plan_state(ws, delivered)))
+    return items
+
+
+def take_station_backup(station_root: Path, dest: Path) -> dict:
+    """Copy every top-level non-dot station dir's `manifest.json` into `dest/<slug>/`,
+    each copy re-read and sha-verified, `index.json` written last (its presence means
+    the backup is complete). A partial earlier attempt is discarded first."""
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True)
+    index = {"taken_at": datetime.now(timezone.utc).isoformat(),
+             "station_root": str(station_root), "manifests": {}, "missing": [],
+             "unreadable": {}}
+    for d in sorted(station_root.iterdir()):
+        if d.name.startswith(".") or not d.is_dir():
+            continue
+        try:
+            data = (d / "manifest.json").read_bytes()
+        except FileNotFoundError:
+            index["missing"].append(d.name)
+            continue
+        except OSError as exc:
+            index["unreadable"][d.name] = _one_line(exc)
+            continue
+        copy = dest / d.name / "manifest.json"
+        batch_snapshot._write_copy(copy, data)
+        sha = hashlib.sha256(data).hexdigest()
+        if hashlib.sha256(copy.read_bytes()).hexdigest() != sha:
+            raise LlamaError(f"station backup: {copy} does not verify; nothing marked")
+        index["manifests"][d.name] = sha
+    _write_json(dest / "index.json", index)
+    return index
+
+
+def _last_lines(record: Path) -> dict[str, dict]:
+    """slug -> its last record line; an unparsable line (a crash mid-append) is skipped."""
+    out: dict[str, dict] = {}
+    if not record.exists():
+        return out
+    for line in record.read_text().splitlines():
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict) and isinstance(row.get("slug"), str):
+            out[row["slug"]] = row
+    return out
+
+
+def _has_batch_mark(ws: ShowWorkspace, batch_id: str) -> bool:
+    try:
+        rec = campaign.read_record(ws)
+    except campaign.CampaignUnreadable:
+        return False
+    return rec is not None and any(m.batch == batch_id for m in rec.marks)
+
+
+def _mark_station(item: MarkItem, out: Path, batch: Path,
+                  at: str) -> tuple[str, str | None, str | None]:
+    """(station outcome, before sha, after sha) for a delivered show's station copy.
+    The caller checked emcee just before. Never raises for a station problem (pointer c)."""
+    try:
+        raw, data = station_mark.read_station_manifest(out)
+        if station_mark.mark_of(data) is not None:
+            return "already marked", None, None
+        saved = batch / "before" / f"{item.slug}.json"
+        _write_durable(saved, raw)                        # before any station write
+        before, after = station_mark.write_mark(out, reason=item.reason, marked_at=at)
+        if before != raw:
+            _write_durable(saved, before)
+    except (LlamaError, OSError) as exc:
+        return f"refused: {_one_line(exc)}", None, None
+    return "marked", hashlib.sha256(before).hexdigest(), hashlib.sha256(after).hexdigest()
+
+
+class _DeliveredIds:
+    """The ledger's delivered performance ids, re-read whenever the ledger file changed
+    (size or mtime), so each item sees the ledger as it is under its show lock without
+    parsing the whole ledger once per item."""
+
+    def __init__(self, path: Path):
+        self.path, self.key, self.ids = path, None, frozenset()
+
+    def __contains__(self, pid: str) -> bool:
+        try:
+            st = self.path.stat()
+            key = (st.st_mtime_ns, st.st_size)
+        except FileNotFoundError:
+            key = None
+        if key != self.key:
+            self.ids = frozenset(e.performance_id for e in Ledger(self.path).entries()
+                                 if e.status == "delivered")
+            self.key = key
+        return pid in self.ids
+
+
+def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
+              record: Path, delivered_ids: _DeliveredIds) -> tuple[str, bool, list[str]]:
+    """One item under the show lock: (what happened, whether it must be listed as not
+    marked, the emcee lines that stop the batch). The library mark is written first and
+    made durable; a station failure never rolls it back (the library side is the safe
+    direction), so this takes the plain show lock, not `show_unit`."""
+    ws = ShowWorkspace(root / "shows" / item.slug)
+    if not ws.dir.is_dir():
+        return "skipped: no show directory", True, []
+    with file_lock(ws.lock):
+        pid = _performance_id(ws)
+        delivered = bool(pid) and pid in delivered_ids
+        if item.digests is not None and input_digests(ws) != item.digests:
+            return "skipped: inputs changed", delivered, []
+        at = campaign._now()
+        if not campaign.is_awaiting(ws):          # an unreadable record counts as awaiting
+            campaign.add_mark(ws, reason=item.reason, start_stage=item.start_stage,
+                              batch=batch.name, at=at)
+        mark_added = _has_batch_mark(ws, batch.name)
+        before_sha = after_sha = None
+        running: list[str] = []
+        out = station_root / item.slug
+        if not delivered:
+            station = "not delivered"
+        elif not station_root.is_dir():
+            station = f"refused: station root {station_root} is not readable"
+        elif not out.is_dir():
+            station = "no station copy"
+        else:
+            running = station_mark.emcee_running()     # before EACH write (pointer b)
+            if running:
+                station = "refused: emcee is running"
+            else:
+                station, before_sha, after_sha = _mark_station(item, out, batch, at)
+        _append_jsonl(record, {"slug": item.slug, "reason": item.reason,
+                               "start_stage": item.start_stage, "mark_added": mark_added,
+                               "station": station, "before_sha256": before_sha,
+                               "after_sha256": after_sha, "at": at})
+    library = "library mark added" if mark_added else "library mark kept"
+    return f"{station} ({library})", delivered and station not in _STATION_OK, running
+
+
+def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: Path,
+               echo) -> int:
+    """The marking batch (spec "The marking batch"). Per item, under the show lock: the
+    digests re-checked, the campaign record marked (durable) unless already awaiting, then
+    a delivered show's station copy marked, one `record.jsonl` line per item. Items already
+    recorded with a non-refused station outcome are skipped. A running emcee stops the
+    batch. Exit 0 only when every delivered item's station copy is marked (or already
+    marked, or there is none); else 1, listing each that is not."""
+    (batch / "before").mkdir(parents=True, exist_ok=True)
+    record = batch / "record.jsonl"
+    done = {s: r for s, r in _last_lines(record).items()
+            if not str(r.get("station", "refused")).startswith("refused")}
+    listed: list[str] = []
+    counts: Counter = Counter()
+    stop: list[str] = []
+    delivered_ids = _DeliveredIds(root / "ledger.jsonl")
+    for item in items:
+        if stop:
+            listed.append(f"{item.slug}: not reached (emcee is running)")
+            continue
+        if item.slug in done:
+            echo(f"{item.slug}: skipped: already recorded ({done[item.slug]['station']})")
+            counts["already recorded"] += 1
+            continue
+        try:
+            what, problem, stop = _mark_one(root, item, station_root, batch, record,
+                                            delivered_ids)
+        except Exception as exc:
+            what, problem = f"error: {_one_line(exc)}", True
+        echo(f"{item.slug}: {what}")
+        key = what.split(" (")[0]
+        counts["refused" if key.startswith("refused") else
+               "error" if key.startswith("error") else key] += 1
+        if problem:
+            listed.append(f"{item.slug}: {what}")
+        if stop:
+            echo("refusing to mark station copies: emcee is running; the batch stops")
+            for line in stop:
+                echo(f"  {line}")
+    echo(f"marking {batch.name}: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items()))
+         + f"; record: {record}")
+    if listed:
+        echo(f"not marked ({len(listed)}); do not run emcee on their profiles until a "
+             "re-run of this batch exits 0:")
+        for line in listed:
+            echo(f"  {line}")
+        return 1
+    return 0
+
+
+def _after(later: str, earlier: str) -> bool:
+    """`later` is at or after `earlier`; an unparseable time counts as after (the
+    reversal's safe direction: it then lists the show instead of unmarking it)."""
+    a, b = campaign._parse(later), campaign._parse(earlier)
+    return a is None or b is None or a >= b
+
+
+def _unmark_one(ws: ShowWorkspace, line: dict, batch: Path, station_root: Path,
+                apply: bool) -> tuple[str, bool]:
+    """(what happened, whether it is a problem). Under the show lock."""
+    slug, bid = ws.dir.name, batch.name
+    rec = campaign.read_record(ws)                        # CampaignUnreadable: an error
+    mark = next((m for m in reversed(rec.marks) if m.batch == bid), None) if rec else None
+    if mark is not None and rec.processed is not None and _after(rec.processed.at, mark.at):
+        return "processed since marked: re-deliver instead", True
+    restore = None
+    out = station_root / slug
+    if line.get("station") == "marked":
+        current = hashlib.sha256(station_mark.read_station_manifest(out)[0]).hexdigest()
+        if current == line.get("after_sha256"):
+            restore = (batch / "before" / f"{slug}.json").read_bytes()
+            if hashlib.sha256(restore).hexdigest() != line.get("before_sha256"):
+                return f"refused: before/{slug}.json does not match the record", True
+        elif current != line.get("before_sha256"):       # equal: already put back
+            return "station copy changed since marking", True
+    what = ("station copy put back; " if restore is not None else "") + "batch mark removed"
+    if not apply:
+        return f"would be: {what}", False
+    if restore is not None:
+        running = station_mark.emcee_running()
+        if running:
+            return "refused: emcee is running (" + "; ".join(running) + ")", True
+        station_mark.put_back(out, expect_sha256=line["after_sha256"], data=restore)
+    campaign.remove_marks(ws, bid)
+    return what, False
+
+
+def unmark(root: Path, batch: Path, *, station_root: Path, apply: bool, echo) -> int:
+    """The marking batch's reversal (spec "A batch is reversible by its record"), by each
+    slug's last record line with `mark_added`: a show processed since the batch's mark is
+    listed and left alone; a `marked` station copy is put back only while it still holds
+    the bytes marking wrote; then the batch's library mark is removed. A line with
+    `mark_added: false` keeps the earlier batch's mark (and its station copy). Exit 1 when
+    anything is listed."""
+    record = batch / "record.jsonl"
+    if not record.exists():
+        raise LlamaError(f"no record.jsonl in {batch}")
+    problems = 0
+    for slug, line in sorted(_last_lines(record).items()):
+        if not line.get("mark_added"):
+            echo(f"{slug}: kept (this batch added no library mark)")
+            continue
+        ws = ShowWorkspace(root / "shows" / slug)
+        if not ws.dir.is_dir():
+            what, problem = "no show directory; check it by hand", True
+        else:
+            try:
+                with file_lock(ws.lock):
+                    what, problem = _unmark_one(ws, line, batch, station_root, apply)
+            except Exception as exc:
+                what, problem = f"refused: {_one_line(exc)}", True
+        problems += problem
+        echo(f"{slug}: {what}")
+    return 1 if problems else 0
+
+
+def _read_json_file(path: Path, what: str) -> tuple[bytes, object]:
+    try:
+        data = path.read_bytes()
+    except FileNotFoundError as exc:
+        raise GateRefused(f"no {what}: {path}") from exc
+    except OSError as exc:
+        raise GateRefused(f"{path} unreadable ({_one_line(exc)})") from exc
+    try:
+        return data, json.loads(data)
+    except ValueError as exc:
+        raise GateRefused(f"{path} is not JSON ({_one_line(exc)})") from exc
+
+
+def cmd_freeze(args) -> int:
+    config = _config(args)
+    _, arm = _read_json_file(args.arm, "arm")
+    path = freeze(config.root, arm, campaign_dir=args.campaign_dir)
+    n = len(json.loads(path.read_text())["slugs"])
+    print(f"frozen {n} needs-LLM show(s): {path}")
+    return 0
+
+
+def cmd_reselect_check(args) -> int:
+    config = _config(args)
+    _, source = _read_json_file(args.source, "re-selection source")
+    rows = source.get("rows") if isinstance(source, dict) else source
+    if not isinstance(rows, list):
+        raise GateRefused(f"{args.source} is not a list of shows")
+    checked = reselect_rows(config.root, config, rows)
+    for r in checked:
+        print(f"{r['slug']}: {r['stored']} -> {r['pick']}")
+    print(f"re-selections: {len(checked)} of {len(rows)} source row(s)")
+    if not args.write:
+        print("dry run: nothing written (pass --write)")
+        return 0
+    path = _campaign_dir(config.root, args.campaign_dir) / RESELECTIONS_NAME
+    _write_json(path, {"written_at": datetime.now(timezone.utc).isoformat(), "rows": checked})
+    print(f"written: {path}")
+    return 0
+
+
+def _parse_time(text) -> datetime | None:
+    return campaign._parse(text) if isinstance(text, str) else None
+
+
+def _station_state(item: MarkItem, station_root: Path) -> tuple[str, str | None]:
+    """(table column, unreadable detail or None)."""
+    if item.state != "delivered":
+        return item.state, None
+    out = station_root / item.slug
+    if not out.is_dir():
+        return "delivered no station copy", None
+    try:
+        voiced = destination_voiced(out)
+    except LlamaError as exc:
+        return "delivered unreadable", _one_line(exc)
+    return ("delivered voiced" if voiced else "delivered unvoiced"), None
+
+
+def _print_mark_plan(items: list[MarkItem], arm: dict, station_root: Path) -> None:
+    rows = _arm_rows(arm)
+    table: dict[str, Counter] = {k: Counter() for k in _REASON_KINDS}
+    voiced, unreadable = [], []
+    for it in items:
+        column, detail = _station_state(it, station_root)
+        kind = next((k for k in _REASON_KINDS if it.reason.startswith(k)), it.reason)
+        table.setdefault(kind, Counter())[column] += 1
+        if column == "delivered voiced":
+            voiced.append(it.slug)
+        if detail is not None:
+            unreadable.append((it.slug, detail))
+    extra = sorted({c for t in table.values() for c in t} - set(_PLAN_COLUMNS))
+    columns = list(_PLAN_COLUMNS) + extra
+    print(f"marking plan: {len(items)} show(s)")
+    for kind, counts in table.items():
+        print(f"  {kind}: " + ", ".join(f"{c} {counts[c]}" for c in columns))
+    outcomes = Counter(rows[it.slug].get("outcome") for it in items if it.slug in rows)
+    print("by arm outcome: " + ", ".join(f"{k} {v}" for k, v in sorted(outcomes.items())))
+    print(f"voiced: {len(voiced)}" + (f": {', '.join(voiced)}" if voiced else ""))
+    print(f"unreadable station manifests: {len(unreadable)}")
+    for slug, detail in unreadable:
+        print(f"  {slug}: {detail}")
+    marked = {it.slug for it in items}
+    unrep = sorted(s for s, r in rows.items()
+                   if r.get("outcome") == "unreplayable" and s not in marked)
+    print(f"unreplayable, not marked: {len(unrep)}" + (f": {', '.join(unrep)}" if unrep else ""))
+    running = station_mark.emcee_running()
+    print("emcee running: " + ("yes" if running else "no"))
+    for line in running:
+        print(f"  {line}")
+
+
+def cmd_mark(args) -> int:
+    config = _config(args)
+    root, station_root = config.root, config.delivery_path
+    if station_root is None:
+        raise GateRefused("no delivery_path in config")
+    if not station_root.is_dir():
+        raise GateRefused(f"station root {station_root} is not mounted or not a directory")
+    if args.apply:
+        pin = require_pinned_code(root)
+        require_tools(_echo, pin=pin)
+    arm_bytes, arm = _read_json_file(args.arm, "arm")
+    if not isinstance(arm, dict):
+        raise GateRefused(f"{args.arm} is not an arm")
+    ident = llama.replay.code_identity()
+    if (arm.get("sha") != ident or ident.endswith("-dirty")
+            or str(arm.get("sha")).endswith("-dirty")):
+        raise GateRefused(f"the arm was written by code {arm.get('sha')}; the running code is "
+                          f"{ident} (an uncommitted tree has no code identity)")
+    if arm.get("config_fingerprint") != config_fingerprint(config):
+        raise GateRefused(f"the arm's config fingerprint {arm.get('config_fingerprint')} is not "
+                          f"the running config's {config_fingerprint(config)}")
+    camp = _campaign_dir(root, args.campaign_dir)
+    frozen_bytes, frozen = _read_json_file(camp / FROZEN_NAME,
+                                           "frozen needs-LLM list (run bulk_apply.py freeze)")
+    resel_bytes, resel = _read_json_file(camp / RESELECTIONS_NAME,
+                                         "re-selection list (run bulk_apply.py "
+                                         "reselect-check --write)")
+    if not (isinstance(frozen, dict) and isinstance(frozen.get("slugs"), list)):
+        raise GateRefused(f"{camp / FROZEN_NAME} has no slugs")
+    if not (isinstance(resel, dict) and isinstance(resel.get("rows"), list)
+            and all(isinstance(r, dict) and isinstance(r.get("slug"), str)
+                    for r in resel["rows"])):
+        raise GateRefused(f"{camp / RESELECTIONS_NAME} has no rows")
+    written, generated = _parse_time(resel.get("written_at")), _parse_time(arm.get("generated_at"))
+    if written is None or generated is None or written < generated:
+        raise GateRefused(RESELECTIONS_STALE)
+    delivered = {e.performance_id for e in Ledger(root / "ledger.jsonl").entries()
+                 if e.status == "delivered"}
+    items = mark_plan(root, arm, set(frozen["slugs"]), resel["rows"], delivered)
+    _print_mark_plan(items, arm, station_root)
+    if not args.apply:
+        print("dry run: nothing written (pass --apply)")
+        return 0
+    batch_id = hashlib.sha256(arm_bytes + frozen_bytes + resel_bytes).hexdigest()[:16]
+    retire_rekey_restore(root, by=f"bulk-apply marking {batch_id}",
+                         at=datetime.now(timezone.utc).isoformat())
+    backup = camp / BACKUP_NAME
+    if (backup / "index.json").exists():
+        print(f"station backup: already taken ({backup})")
+    else:
+        index = take_station_backup(station_root, backup)
+        print(f"station backup: {len(index['manifests'])} manifest(s) in {backup}")
+    batch = camp / "marking" / batch_id
+    if not (batch / "inputs.json").exists():
+        _write_json(batch / "inputs.json", {
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "arm": str(args.arm), "arm_sha256": hashlib.sha256(arm_bytes).hexdigest(),
+            "arm_sha": arm.get("sha"), "arm_generated_at": arm.get("generated_at"),
+            "frozen_sha256": hashlib.sha256(frozen_bytes).hexdigest(),
+            "reselections_sha256": hashlib.sha256(resel_bytes).hexdigest(),
+            "station_root": str(station_root)})
+    return mark_apply(root, items, station_root=station_root, batch=batch, echo=_echo)
+
+
+def cmd_unmark(args) -> int:
+    config = _config(args)
+    if config.delivery_path is None:
+        raise GateRefused("no delivery_path in config")
+    rc = unmark(config.root, args.batch, station_root=config.delivery_path, apply=args.apply,
+                echo=_echo)
+    if not args.apply:
+        print("dry run: nothing written (pass --apply)")
+    return rc
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -428,6 +1066,27 @@ def main(argv: list[str] | None = None) -> int:
             "overrules (dry run unless --apply)")
     p.add_argument("--base", type=Path, required=True, help="the base arm (migration-base.json)")
     p.add_argument("--verdicts", type=Path, required=True, help="the verdicts directory")
+    p.add_argument("--apply", action="store_true")
+    p = add("freeze", cmd_freeze, "write the frozen needs-LLM list from an arm (once)")
+    p.add_argument("--arm", type=Path, required=True)
+    p.add_argument("--campaign-dir", type=Path, default=None,
+                   help="default <root>/campaign")
+    p = add("reselect-check", cmd_reselect_check, "re-check the verified re-selection list "
+            "(read-only; --write records it)")
+    p.add_argument("--source", type=Path, required=True,
+                   help="the re-selection source list (m3_changed-r1.json)")
+    p.add_argument("--write", action="store_true")
+    p.add_argument("--campaign-dir", type=Path, default=None,
+                   help="default <root>/campaign")
+    p = add("mark", cmd_mark, "mark every show the fixes would change awaiting fix "
+            "(dry run unless --apply)")
+    p.add_argument("--arm", type=Path, required=True)
+    p.add_argument("--apply", action="store_true")
+    p.add_argument("--campaign-dir", type=Path, default=None,
+                   help="default <root>/campaign")
+    p = add("unmark", cmd_unmark, "reverse one marking batch by its record "
+            "(dry run unless --apply)")
+    p.add_argument("--batch", type=Path, required=True, help="campaign/marking/<id>")
     p.add_argument("--apply", action="store_true")
     args = ap.parse_args(argv)
     try:
