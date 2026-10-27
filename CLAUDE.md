@@ -939,7 +939,8 @@ has run).
   llama used to have) → assemble `broadcast.m3u` → atomically rewrite the
   manifest's `dj_notes`/`dj_audio` blocks last (`dj_audio` records `presenter`, `profile`, `profile_source` and `tts` (`backend`/`model`/`voice`); the last three are required in `DJAudioBlock`, so a legacy block must never be round-tripped through the model: update it as a raw dict), in place, in the package
   directory llama delivered (`package_io.py:rewrite_manifest`).
-  Chunked and bed-active clips are loudness-normalized per sentence/segment
+  Chunked clips are packed by paragraph at `[tts] chunk_chars` (default 250; a chunk never ends inside a sentence) and exact-silence gaps are filled with the clip's own room tone (`[tts] room_tone`, default on); the scriptwriter writes paragraphs.
+  Chunked and bed-active clips are loudness-normalized per chunk/segment
   before the gap and the bed mix (`tts/loudness.py`: −20 dBFS speech-active,
   −1 dBFS peak ceiling, ±10 dB clamp; module constants, no config), because
   Voxtral returns every call at its own level; the unchunked no-bed path ships
@@ -949,8 +950,10 @@ has run).
   A Voxtral content-filter refusal (403 `guardrail_violation`) is `SpeechBlocked`:
   emcee narrows it to the sentence, rewords just that segment with the small
   `rephrase` task (2 attempts, gated by `rephrase_problems` + `script_guard`),
-  and re-voices only that segment (the task has its own `[llm.rephrase]` config key and does not inherit scriptwrite's backend); a block that exists only across sentences
-  fails with "re-run with `[tts] chunk = true`". Blocks are deterministic
+  and re-voices only that segment (the task has its own `[llm.rephrase]` config key and does not inherit scriptwrite's backend); on the chunked path a blocked
+  multi-sentence chunk is narrowed to its sentence and, when every sentence
+  passes alone, falls back to its passing takes; with `[tts] chunk = false` a
+  block that exists only across sentences fails with "re-run with `[tts] chunk = true`". Blocks are deterministic
   (measured 7/7), so they are never retried identically; transport errors, 429
   and 5xx get one retry.
   **Per-presenter TTS pinning + the local `mlx_audio` backend**

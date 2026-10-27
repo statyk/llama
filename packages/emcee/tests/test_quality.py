@@ -137,7 +137,8 @@ def test_a_double_failure_in_a_dj_clip_carries_its_segment(tmp_path):
     pkg_dir = build_package(tmp_path / "station", voiced=False)
     notes = ScriptNotes(set_intros={"1": TEXT, "2": "Set two."}, outro="Thanks.")
     with pytest.raises(SpeechDefect) as exc:
-        _synthesize_dj_audio(pkg_dir, notes, layer(Scripted(defect(), defect())), False)
+        _synthesize_dj_audio(pkg_dir, notes, layer(Scripted(defect(), defect())), False,
+                             chunking=None)
     assert exc.value.segment == "set1-intro"
     assert "in set1-intro" in str(exc.value)
     _assert_nothing_written_for(pkg_dir, "set1-intro")

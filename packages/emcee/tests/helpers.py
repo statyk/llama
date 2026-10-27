@@ -9,7 +9,13 @@ imports llama. Every later emcee task's tests build their fixtures through
 import json
 from pathlib import Path
 
+from emcee.config import Chunking
 from emcee.moves import Moves
+
+# The two chunking settings tests use: the shipped defaults, and a ceiling of 1
+# (one piece per chunk, no room tone) that reproduces sentence-per-call exactly.
+CHUNKED = Chunking(ceiling=250, room_tone=True)
+SENTENCES = Chunking(ceiling=1, room_tone=False)
 
 SONGS = [
     "Morning Dew",

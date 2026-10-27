@@ -1,0 +1,2 @@
+Foundation: SOUND (R2 informed A, Opus). 7 Minor: double-escaped \\n\\n spoken on air (convert literal \n); pool rule (threshold/percentile order/empty pool); strict int; acceptance vs step 4 + define "sentence"; chunk default False vs no-defaults -> one required chunking argument; strict list should name section 5 narrowing + process-level tests; fill overlaps neighbour (harness).
+Unverified: mlx memory peak at 250-char chunks on 16 GB host; scriptwriter escape reliability; Phil tone figure script not in harness; mlx defect rate at 250.

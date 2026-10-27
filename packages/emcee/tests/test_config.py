@@ -10,6 +10,7 @@ import unicodedata
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from herder import HerderError, provider_for, resolve_model
 
@@ -20,6 +21,7 @@ from emcee.config import (
     HOSTED_BACKENDS,
     TASK_KEYS,
     Assignment,
+    Chunking,
     EmceeConfig,
     HostedTTSConfig,
     LLMTaskConfig,
@@ -269,7 +271,7 @@ def test_default_config_template_matches_defaults():
 
 def test_default_config_template_mentions_every_section():
     for marker in ("[station]", "[llm.scriptwrite]", "[llm.rephrase]", "[llm.tiers.", "[tts]", "[assign]", "[assign.profiles.", "[assign.artists]",
-                   "voice_clone_text", "[tts.voxtral]", "[tts.elevenlabs]", "[tts.mlx_audio]", "[tts.verify]"):
+                   "voice_clone_text", "[tts.voxtral]", "[tts.elevenlabs]", "[tts.mlx_audio]", "[tts.verify]", "chunk_chars", "room_tone"):
         assert marker in DEFAULT_CONFIG_TOML, marker
 
 
@@ -570,3 +572,31 @@ def test_unknown_key_in_an_artist_rule_is_a_load_error(tmp_path: Path):
     with pytest.raises(ConfigError):
         _load(tmp_path, _SOUTHERN + '[assign.artists]\n'
               '"Lettuce" = { profile = "southern", form = ["funk"] }\n')
+
+
+# --- chunking knobs ----------------------------------------------------
+
+
+def test_chunk_chars_defaults_and_bounds():
+    assert TTSConfig().chunk_chars == 250 and TTSConfig().room_tone is True
+    assert TTSConfig(chunk_chars=50).chunk_chars == 50
+    assert TTSConfig(chunk_chars=1000).chunk_chars == 1000
+
+
+@pytest.mark.parametrize("bad", [49, 1001, "250", 250.0, 250.5, True])
+def test_chunk_chars_rejects_non_strict_ints_and_out_of_range(bad):
+    with pytest.raises(ValidationError):
+        TTSConfig(chunk_chars=bad)
+
+
+def test_chunk_chars_bad_value_in_config_toml_is_a_load_error(tmp_path: Path):
+    p = tmp_path / "config.toml"
+    p.write_text('[tts]\nchunk_chars = "250"\n')
+    with pytest.raises(ConfigError):
+        load_config(p)
+
+
+def test_tts_chunking_helper():
+    t = TTSConfig(chunk_chars=300, room_tone=False)
+    assert t.chunking(enabled=True) == Chunking(ceiling=300, room_tone=False)
+    assert t.chunking(enabled=False) is None

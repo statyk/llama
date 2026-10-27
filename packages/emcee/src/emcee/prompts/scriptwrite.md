@@ -37,6 +37,10 @@ Briefing (your source material):
 Write one lead-in per set: {{lead_in_sets}}. Each set's music is separated by
 the lead-in that precedes it, so a lead-in is the only talk in that gap — no
 separate show intro or set-break segments.
+Write each lead-in and the outro as short paragraphs: one thought per
+paragraph, typically two to four sentences. Separate paragraphs with a blank
+line, written inside the JSON string as the escape \n\n —
+never a raw line break inside a JSON string.
 {{encore_note}}
 {{feedback}}
 

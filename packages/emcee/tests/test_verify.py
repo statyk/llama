@@ -354,9 +354,9 @@ def test_cache_hits_are_not_re_verified(tmp_path):
     pkg = build_package(tmp_path / "station", voiced=False)
     notes = ScriptNotes(set_intros={"1": "Set one opens.", "2": "Set two follows."}, outro="Thanks.")
     speech = QualitySpeech(FakeSpeechProvider(), backend="voxtral", verifier=CountingVerifier())
-    _synthesize_dj_audio(pkg, notes, speech, False)
+    _synthesize_dj_audio(pkg, notes, speech, False, chunking=None)
     first = len(checks)
-    _synthesize_dj_audio(pkg, notes, speech, False)
+    _synthesize_dj_audio(pkg, notes, speech, False, chunking=None)
     assert first == 3 and len(checks) == first  # every clip came from the cache
 
 

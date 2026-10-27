@@ -1,9 +1,10 @@
 import os
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, ValidationError, field_validator, model_validator
 
 from herder import LLMSettings, TaskConfig
 
@@ -78,7 +79,7 @@ class MlxAudioConfig(_StrictModel):
     resolution), so a table holding only stt_model is valid."""
     url: str = "http://127.0.0.1:8000"
     model: str | None = None
-    timeout_s: float = 600                 # per sentence request
+    timeout_s: float = 600                 # per chunk request
     stt_model: str | None = None           # speech-to-text model on the same server
 
 
@@ -88,6 +89,13 @@ VerifyBackend = Literal["mlx_audio", "voxtral", "elevenlabs"]
 class VerifyConfig(_StrictModel):
     """[tts.verify]: transcript verification of newly synthesized audio."""
     backends: list[VerifyBackend] = Field(default_factory=list)   # default off
+
+
+@dataclass(frozen=True)
+class Chunking:
+    """How a chunked render packs and finishes a segment (spec 2026-10-26)."""
+    ceiling: int
+    room_tone: bool
 
 
 class TTSConfig(_StrictModel):
@@ -102,10 +110,12 @@ class TTSConfig(_StrictModel):
     voice_clone_text: str | None = None  # transcript of voice_clone (required on mlx_audio)
     model: str | None = None            # legacy: the HOUSE hosted backend's model
     api_key: str | None = None          # legacy: the HOUSE hosted backend's key (env wins)
-    chunk: bool = True                  # synthesize each DJ-notes segment sentence-by-
-                                         # sentence and concatenate, instead of one call
+    chunk: bool = True                  # synthesize each DJ-notes segment in chunks
+                                         # and concatenate, instead of one call
                                          # per segment (better prosody, loudness-normalized;
                                          # needs lameenc). false = one call per segment
+    chunk_chars: StrictInt = Field(default=250, ge=50, le=1000)  # packing ceiling, characters
+    room_tone: bool = True              # fill exact-silence gaps in chunked clips
     bed: str | None = None              # path to a 24kHz mono 16-bit WAV played
                                          # under the DJ voice; None = no bed
     bed_gain_db: float = -20.0          # bed loudness under the voice (station-level)
@@ -113,6 +123,10 @@ class TTSConfig(_StrictModel):
     elevenlabs: HostedTTSConfig = Field(default_factory=HostedTTSConfig)
     mlx_audio: MlxAudioConfig = Field(default_factory=MlxAudioConfig)
     verify: VerifyConfig = Field(default_factory=VerifyConfig)
+
+    def chunking(self, *, enabled: bool) -> Chunking | None:
+        """The chunking settings when chunked rendering is on, else None."""
+        return Chunking(self.chunk_chars, self.room_tone) if enabled else None
 
     @model_validator(mode="after")
     def _check_keys_and_verify(self):
@@ -328,7 +342,7 @@ backend = "claude_cli"
 # [tts.mlx_audio]
 # url = "http://127.0.0.1:8000"
 # model = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
-# timeout_s = 600            # seconds per sentence request
+# timeout_s = 600            # seconds per chunk request
 # stt_model = "mlx-community/whisper-large-v3-turbo-asr-fp16"  # speech-to-text model on the same server
 
 # Transcript verification: transcribe each newly synthesized clip on the
@@ -340,13 +354,19 @@ backend = "claude_cli"
 # Assignment is keyed by the llama profile name stamped in the manifest as
 # source.profile (see [assign] below) -- not by anything in this section.
 
-# synthesize each segment sentence-by-sentence and concatenate (single MP3
+# synthesize each segment in chunks and concatenate (single MP3
 # encode at the end) instead of one TTS call per whole segment; noticeably
 # better prosody/pacing on longer DJ patter at the cost of more provider
-# round-trips per segment. Chunked clips are loudness-normalized per sentence;
+# round-trips per segment. Chunked clips are loudness-normalized per chunk;
 # unchunked clips without a bed ship the provider's own MP3 un-normalized.
 # Requires the `lameenc` dependency (installed by default). Default true.
 # chunk = false
+# the packing ceiling in characters, 50-1000, one value for every backend;
+# chunks follow the script's paragraphs and never end inside a sentence.
+# chunk_chars = 250
+# fill exact-silence gaps in chunked clips with the clip's own quietest sound;
+# set false to turn it off.
+# room_tone = true
 
 # bed music (instrumental) played UNDER the DJ voice on voiced shows; must be
 # a 24kHz mono 16-bit WAV. Per-presenter override via the presenter's `bed`.

@@ -18,11 +18,13 @@ from pathlib import Path
 
 import typer
 
+from emcee.config import Chunking
 from emcee.models import DJClips, ScriptNotes
 from emcee.speech_text import Lexicon, normalize_for_speech
 from emcee.tts.bed import Bed, load_bed_pcm, mix_bed
 from emcee.tts.loudness import LOUDNESS_VERSION, normalize_speech
 from emcee.tts.provider import SpeechBlocked, SpeechDefect, SpeechError
+from emcee.tts.room_tone import ROOM_TONE_VERSION, fill_room_tone
 from emcee.workspace import atomic_write_bytes, atomic_write_text
 
 
@@ -42,9 +44,10 @@ def detail(text: str) -> None:
     typer.echo(text)
 
 
-# --- Sentence-level chunked synthesis ([tts] chunk, default on) ----------
-# Synthesizes each DJ-notes segment sentence-by-sentence instead of one call
-# for the whole segment, then concatenates the raw PCM and encodes a single
+# --- Chunked synthesis ([tts] chunk, default on) -------------------------
+# Synthesizes each DJ-notes segment in chunks (the script's paragraphs, packed
+# up to [tts] chunk_chars and never ending inside a sentence) instead of one
+# call for the whole segment, then concatenates the raw PCM and encodes a single
 # MP3. This noticeably improves prosody/pacing on longer patter (a single
 # long TTS call tends to rush or flatten out); the cost is more provider
 # round-trips per segment. On by default; `[tts] chunk = false` selects the
@@ -53,8 +56,11 @@ def detail(text: str) -> None:
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 _ABBREVIATIONS = {"mr.", "mrs.", "ms.", "dr.", "st.", "vs.", "jr.", "sr.",
                    "mt.", "ft.", "etc.", "inc.", "co.", "ave."}
+_DOTTED_ABBREV_RE = re.compile(r"(?:[A-Za-z]\.){2,}")
 _MIN_FRAGMENT_LEN = 20
 _SILENCE_MS = 180
+# Joins the planned chunks when hashing them into the cache key (never in text).
+_CHUNK_SEP = "\x1f"
 
 
 def _split_sentences(text: str) -> list[str]:
@@ -70,6 +76,20 @@ def _split_sentences(text: str) -> list[str]:
     enough for DJ patter, not a general-purpose sentence segmenter.
     """
     raw_parts = [p.strip() for p in _SENTENCE_SPLIT_RE.split(text.strip()) if p.strip()]
+    # Pre-pass: a part ending in a dotted abbreviation ("U.S.", "D.C.") is not a
+    # sentence end; join it to the next part. Runs before the merge loop below so
+    # that loop still sees real sentence boundaries. Repeats, so "U.S. B.B." chains.
+    joined: list[str] = []
+    carry = ""
+    for part in raw_parts:
+        part = f"{carry} {part}" if carry else part
+        last_word = re.sub(r"^[^A-Za-z0-9]+", "", part.rsplit(None, 1)[-1])
+        carry = part if _DOTTED_ABBREV_RE.fullmatch(last_word) else ""
+        if not carry:
+            joined.append(part)
+    if carry:
+        joined.append(carry)
+    raw_parts = joined
     sentences: list[str] = []
     for part in raw_parts:
         if sentences:
@@ -85,6 +105,55 @@ def _split_sentences(text: str) -> list[str]:
                 continue
         sentences.append(part)
     return sentences or [text.strip()]
+
+
+def _greedy(items: list[str], ceiling: int) -> list[str]:
+    """Join consecutive items with one space while the result stays within `ceiling`."""
+    out: list[str] = []
+    for item in items:
+        if out and len(out[-1]) + 1 + len(item) <= ceiling:
+            out[-1] = f"{out[-1]} {item}"
+        else:
+            out.append(item)
+    return out
+
+
+def plan_chunks(text: str, ceiling: int) -> list[str]:
+    """Plan the provider calls for one segment: paragraph-aware chunks.
+
+    Blank-line paragraph breaks (CRLF included) are the only boundaries the
+    script's author marked, so they are preferred. A paragraph within `ceiling`
+    is one unit; a longer one is split into sentences and packed greedily
+    (a lone sentence over the ceiling stays whole). Units then combine greedily
+    up to `ceiling`, and any chunk shorter than `_MIN_FRAGMENT_LEN` joins its
+    neighbour even past the ceiling, since a tiny context-free clip makes the
+    backend hallucinate. Every chunk is newline-free (single newlines are
+    wraps, collapsed to spaces); whitespace-only text returns `[""]`.
+    """
+    paragraphs = [" ".join(p.split()) for p in re.split(r"\n\s*\n", text)]
+    units: list[str] = []
+    for para in paragraphs:
+        if not para:
+            continue
+        if len(para) <= ceiling:
+            units.append(para)
+        else:
+            units.extend(_greedy(_split_sentences(para), ceiling))
+    if not units:
+        return [""]
+    chunks = _greedy(units, ceiling)
+    i = 0
+    while i < len(chunks) and len(chunks) > 1:
+        if len(chunks[i]) < _MIN_FRAGMENT_LEN:
+            if i > 0:
+                chunks[i - 1] = f"{chunks[i - 1]} {chunks[i]}"
+                del chunks[i]
+                continue  # the grown chunk is already past the minimum
+            chunks[1] = f"{chunks[0]} {chunks[1]}"
+            del chunks[0]
+            continue
+        i += 1
+    return chunks
 
 
 def _bitrate_for_rate(framerate: int) -> int:
@@ -116,12 +185,38 @@ def _encode_mp3(pcm: bytes, framerate: int, channels: int) -> bytes:
     return encoder.encode(pcm) + encoder.flush()
 
 
-def _chunked_pcm(text: str, speech) -> tuple[bytes, int, int]:
-    """Sentence-by-sentence synthesis + PCM concat (no encode). Returns
+def _narrow_chunk(chunk: str, speech, blocked: SpeechBlocked) -> list[bytes]:
+    """A refused multi-sentence chunk, narrowed. Each piece of
+    `_split_sentences(chunk)` is synthesized alone as WAV (no neighbour context:
+    the verdict is about the sentence by itself) and the audio is kept. The first
+    piece refused is raised as an ordinary located block for that sentence
+    (whole_passage False), which the rephrase repair rewords. When every piece
+    passes, the trigger only exists across sentences and the takes are returned
+    in order: they ARE the chunk's audio, nothing is synthesized twice. A
+    one-piece chunk re-raises `blocked` without a call (a re-send would be the
+    identical refused request)."""
+    pieces = _split_sentences(chunk)
+    if len(pieces) <= 1:
+        raise blocked
+    takes: list[bytes] = []
+    for piece in pieces:
+        try:
+            takes.append(speech.synthesize(piece, fmt="wav"))
+        except SpeechBlocked as located:
+            raise located from blocked
+    return takes
+
+
+def _chunked_pcm(text: str, speech, *, chunking: Chunking) -> tuple[bytes, int, int]:
+    """Chunk-by-chunk synthesis + PCM concat (no encode). Returns
     (pcm, framerate, channels). See _synthesize_chunked for the rationale;
-    this is its PCM half, shared with the bed path. Each sentence's PCM is
-    loudness-normalized (normalize_speech) before the silence gap is appended."""
-    sentences = _split_sentences(text)
+    this is its PCM half, shared with the bed path. The chunks are
+    `plan_chunks(text, chunking.ceiling)`. Each chunk's PCM is
+    loudness-normalized (normalize_speech) before the silence gap is appended,
+    and room tone fills exact-silence runs last when `chunking.room_tone`.
+    A refused multi-sentence chunk is narrowed (`_narrow_chunk`): it either
+    raises the refused sentence or is rendered as its sentence takes."""
+    sentences = plan_chunks(text, chunking.ceiling)
     frames: list[bytes] = []
     framerate = channels = sampwidth = None
     for i, sentence in enumerate(sentences):
@@ -130,30 +225,42 @@ def _chunked_pcm(text: str, speech) -> tuple[bytes, int, int]:
         # without such a field (Voxtral) ignore these.
         previous_text = sentences[i - 1] if i > 0 else None
         next_text = sentences[i + 1] if i < len(sentences) - 1 else None
-        wav_bytes = speech.synthesize(sentence, fmt="wav",
-                                      previous_text=previous_text, next_text=next_text)
-        with wave.open(io.BytesIO(wav_bytes), "rb") as w:
-            if framerate is None:
-                framerate, channels, sampwidth = w.getframerate(), w.getnchannels(), w.getsampwidth()
-                if sampwidth != 2:
-                    raise SpeechError(
-                        f"chunked synthesis requires 16-bit PCM audio from the speech "
-                        f"backend, got {sampwidth * 8}-bit (lameenc only accepts int16 "
-                        "samples)")
-            # Each Voxtral call comes back at its own level; even them out
-            # here, per sentence and before the silence gap (see tts/loudness).
-            frames.append(normalize_speech(w.readframes(w.getnframes()), framerate))
-        if i < len(sentences) - 1:
-            silence_frames = int(framerate * (_SILENCE_MS / 1000))
-            frames.append(bytes(silence_frames * channels * sampwidth))
-    return b"".join(frames), framerate, channels
+        try:
+            takes = [speech.synthesize(sentence, fmt="wav",
+                                       previous_text=previous_text, next_text=next_text)]
+        except SpeechBlocked as blocked:
+            takes = _narrow_chunk(sentence, speech, blocked)
+            # Every sentence passed alone: say so, since the extra calls are
+            # metered on hosted backends and nothing else reports them.
+            detail(f"content filter blocked chunk {i + 1}; rendered from its "
+                   f"{len(takes)} sentences ({len(takes)} extra calls)")
+        for j, wav_bytes in enumerate(takes):
+            with wave.open(io.BytesIO(wav_bytes), "rb") as w:
+                if framerate is None:
+                    framerate, channels, sampwidth = w.getframerate(), w.getnchannels(), w.getsampwidth()
+                    if sampwidth != 2:
+                        raise SpeechError(
+                            f"chunked synthesis requires 16-bit PCM audio from the speech "
+                            f"backend, got {sampwidth * 8}-bit (lameenc only accepts int16 "
+                            "samples)")
+                # Each Voxtral call comes back at its own level; even them out
+                # here, per chunk and before the silence gap (see tts/loudness).
+                frames.append(normalize_speech(w.readframes(w.getnframes()), framerate))
+            if j < len(takes) - 1 or i < len(sentences) - 1:
+                silence_frames = int(framerate * (_SILENCE_MS / 1000))
+                frames.append(bytes(silence_frames * channels * sampwidth))
+    pcm = b"".join(frames)
+    if chunking.room_tone:
+        pcm = fill_room_tone(pcm, framerate, channels, seed_text=text)
+    return pcm, framerate, channels
 
 
-def _synthesize_chunked(text: str, speech) -> bytes:
-    """Sentence-by-sentence synthesis + PCM concat + single MP3 encode.
+def _synthesize_chunked(text: str, speech, *, chunking: Chunking) -> bytes:
+    """Chunk-by-chunk synthesis + PCM concat + single MP3 encode.
 
-    Splits `text`, synthesizes each sentence as WAV (fmt="wav"), concatenates
-    the raw PCM frames with ~180ms of inserted silence between sentences,
+    Packs `text` into chunks (`plan_chunks`: paragraphs up to the ceiling,
+    never ending inside a sentence), synthesizes each chunk as WAV (fmt="wav"),
+    concatenates the raw PCM frames with ~180ms of inserted silence between chunks,
     then encodes the whole thing to MP3 once via lameenc. Concatenating raw
     PCM (rather than stitching MP3 files) avoids frame-boundary/join
     artifacts between clips.
@@ -166,18 +273,18 @@ def _synthesize_chunked(text: str, speech) -> bytes:
     if warnings persist, the documented next step is resampling to 44.1kHz
     or 48kHz (an MPEG-1 rate) before encoding - out of scope here.
     """
-    pcm, framerate, channels = _chunked_pcm(text, speech)
+    pcm, framerate, channels = _chunked_pcm(text, speech, chunking=chunking)
     return _encode_mp3(pcm, framerate, channels)
 
 
-def _segment_pcm(text: str, speech, chunk: bool) -> tuple[bytes, int, int]:
+def _segment_pcm(text: str, speech, *, chunking: Chunking | None) -> tuple[bytes, int, int]:
     """One DJ segment's voice as raw int16 PCM (pcm, framerate, channels),
     from either the chunked concat or a single whole-segment fmt='wav' call.
     Used by the bed path, which needs PCM to mix before encoding.
     The voice is loudness-normalized (normalize_speech) before it is returned,
     so the bed is mixed under an evened voice."""
-    if chunk:
-        return _chunked_pcm(text, speech)
+    if chunking is not None:
+        return _chunked_pcm(text, speech, chunking=chunking)
     wav_bytes = speech.synthesize(text, fmt="wav")
     with wave.open(io.BytesIO(wav_bytes), "rb") as w:
         if w.getsampwidth() != 2:
@@ -207,10 +314,10 @@ def _locate_block(text: str, speech, fmt: str, blocked: SpeechBlocked) -> Speech
                          whole_passage=True)
 
 
-def _render(text: str, speech, chunk: bool, bed_pcm: bytes | None,
+def _render(text: str, speech, *, chunking: Chunking | None, bed_pcm: bytes | None,
             bed_rate: int | None, bed_gain_db: float) -> bytes:
     if bed_pcm is not None:
-        pcm, rate, channels = _segment_pcm(text, speech, chunk)
+        pcm, rate, channels = _segment_pcm(text, speech, chunking=chunking)
         if rate != bed_rate:
             raise SpeechError(
                 f"bed music sample rate {bed_rate}Hz does not match the "
@@ -219,12 +326,12 @@ def _render(text: str, speech, chunk: bool, bed_pcm: bytes | None,
             raise SpeechError("bed mixing requires mono voice audio")
         return _encode_mp3(mix_bed(pcm, bed_pcm, rate, gain_db=bed_gain_db),
                            rate, channels)
-    if chunk:
-        return _synthesize_chunked(text, speech)
+    if chunking is not None:
+        return _synthesize_chunked(text, speech, chunking=chunking)
     return speech.synthesize(text)
 
 
-def render_speech_mp3(text: str, speech, *, chunk: bool = False,
+def render_speech_mp3(text: str, speech, *, chunking: Chunking | None,
                       bed_pcm: bytes | None = None, bed_rate: int | None = None,
                       bed_gain_db: float = 0.0) -> bytes:
     """One passage of already-normalized text, rendered to MP3 bytes.
@@ -237,8 +344,8 @@ def render_speech_mp3(text: str, speech, *, chunk: bool = False,
       (`mix_bed`), and encode once via lameenc. Hard-fails when the bed's
       sample rate does not match the voice audio, or the voice is not mono.
       The voice is loudness-normalized first (tts/loudness.normalize_speech).
-    - `chunk`: sentence-by-sentence synthesis concatenated as PCM, one
-      encode at the end (`_synthesize_chunked`); each sentence loudness-normalized.
+    - `chunking`: (when not None) chunk-by-chunk synthesis (`plan_chunks`) concatenated as PCM,
+      one encode at the end (`_synthesize_chunked`); each chunk loudness-normalized.
     - neither: a single whole-passage call, shipping the provider's own MP3
       untouched (not loudness-normalized: this path never holds PCM).
 
@@ -247,14 +354,22 @@ def render_speech_mp3(text: str, speech, *, chunk: bool = False,
     provider call.
 
     A content-filter block on an unchunked call is narrowed to one sentence
-    (`_locate_block`) so the error names it; this is the one renderer
-    `emcee say` and DJ clips share, so both get it.
+    (`_locate_block`) so the error names it. On the chunked path the renderer
+    (`_chunked_pcm` via `_narrow_chunk`) has already narrowed a blocked chunk:
+    it raises the refused sentence, or, when every sentence passes alone, keeps
+    the passing takes. This is the one renderer `emcee say` and DJ clips share,
+    so both get it.
     """
+    if chunking is None:
+        # Single newlines are wraps and blank lines mean nothing to an unchunked
+        # call; a "\n" must reach neither the provider nor _locate_block.
+        text = " ".join(text.split())
     try:
-        return _render(text, speech, chunk, bed_pcm, bed_rate, bed_gain_db)
+        return _render(text, speech, chunking=chunking, bed_pcm=bed_pcm, bed_rate=bed_rate,
+                       bed_gain_db=bed_gain_db)
     except SpeechBlocked as blocked:
-        if chunk:
-            raise  # each chunk is already its own request
+        if chunking is not None:
+            raise  # _chunked_pcm already narrowed it (_narrow_chunk)
         located = _locate_block(text, speech, "wav" if bed_pcm is not None else "mp3", blocked)
         if located is blocked:
             raise
@@ -269,8 +384,24 @@ def _segment_texts(notes: ScriptNotes) -> list[tuple[str, str]]:
     return segs
 
 
+def _render_key(spoken: str, speech, *, chunking: Chunking | None, bed_key: str,
+                loud_key: str) -> str:
+    """The DJ-clip cache key. The unchunked string is the pre-chunking formula,
+    byte for byte. A chunked one adds the digest of the planned chunks (so a
+    new ceiling that plans differently re-renders, one that plans the same
+    does not) and, when room tone is on, its version."""
+    key = f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunking is not None}{bed_key}{loud_key}"
+    if chunking is not None:
+        # Outside any f-string expression: a backslash there is a SyntaxError on 3.11.
+        joined = _CHUNK_SEP.join(plan_chunks(spoken, chunking.ceiling))
+        key += "\nchunks=" + hashlib.sha256(joined.encode()).hexdigest()[:16]
+        if chunking.room_tone:
+            key += f"\ntone={ROOM_TONE_VERSION}"
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
 def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
-                         chunk: bool = False, lexicon: Lexicon | None = None,
+                         *, chunking: Chunking | None, lexicon: Lexicon | None = None,
                          bed: Bed | None = None,
                          rendered: set[str] | None = None) -> DJClips:
     """One MP3 per ScriptNotes segment under package/dj-audio/.
@@ -285,9 +416,14 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     is written only after this returns, so a failed run leaves no manifest
     referencing half-rendered audio.
 
-    chunk (from [tts] chunk, which defaults on): synthesize each segment sentence-by-
-    sentence and concatenate instead of one call per segment (see
-    _synthesize_chunked). chunk is part of the cache key - chunked and
+    chunking (built by `TTSConfig.chunking(...)` from [tts] chunk, which
+    defaults on, plus chunk_chars and room_tone; None = off): synthesize each
+    segment in packed chunks and concatenate instead of one call per segment
+    (see _synthesize_chunked). On the chunked path the key (`_render_key`)
+    also gains a separate `chunks=<digest>` part, appended after bed/loud, and
+    `tone=<ROOM_TONE_VERSION>` only when room_tone is on; so changing
+    chunk_chars or room_tone re-renders only the clips whose planned chunks
+    (or tone) change. Whether chunking is on is part of the cache key - chunked and
     single-call audio are different renders of the same text, so flipping
     [tts] chunk invalidates the affected clips and a redo re-synthesizes
     them (no --force needed).
@@ -324,20 +460,19 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
         bed_key = f"\nbed={hashlib.sha256(bed_pcm).hexdigest()[:16]}:{bed.gain_db}"
     # Paths that hold PCM are loudness-normalized; the plain path ships the
     # provider's MP3 untouched, so its key (and cache) is unchanged.
-    loud_key = f"\nloud={LOUDNESS_VERSION}" if (chunk or bed is not None) else ""
+    loud_key = f"\nloud={LOUDNESS_VERSION}" if (chunking is not None or bed is not None) else ""
     for stem, text in _segment_texts(notes):
         spoken = normalize_for_speech(text, lexicon)
         filename = f"{stem}.mp3"
         dest = audio_dir / filename
-        key = hashlib.sha256(
-            f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunk}{bed_key}{loud_key}".encode()
-        ).hexdigest()
+        key = _render_key(spoken, speech, chunking=chunking, bed_key=bed_key,
+                          loud_key=loud_key)
         keys[filename] = key
         if (force and filename not in rendered) or not dest.exists() or cached.get(filename) != key:
             detail(f"synthesizing {filename}")
             try:
                 data = render_speech_mp3(
-                    spoken, speech, chunk=chunk, bed_pcm=bed_pcm, bed_rate=bed_rate,
+                    spoken, speech, chunking=chunking, bed_pcm=bed_pcm, bed_rate=bed_rate,
                     bed_gain_db=bed.gain_db if bed is not None else 0.0)
             except (SpeechBlocked, SpeechDefect) as failed:
                 failed.segment = stem
