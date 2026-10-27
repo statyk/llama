@@ -205,6 +205,18 @@ class Show(BaseModel):
     structure: StructureInfo | None = None
 
 
+class Overrule(BaseModel):
+    """One overruled review flag (bulk-apply spec "Overrules persist"): the flag's
+    kind and subject (`llama.overrules.flag_key`), scoped to the recording
+    (`identifier`) it was ruled on. Permissive; absent == no overrules."""
+    identifier: str
+    kind: str
+    subject: list[str] | None = None
+    flag: str
+    source: str  # "fix" | "triage" | "untitled" | "backfill"
+    at: str      # UTC ISO-8601
+
+
 class Overrides(BaseModel):
     """Hand-authored per-show operator input, durable across re-derivation.
     Read by gather (exclude, include, venue, city, date, titles, set_breaks,
@@ -223,6 +235,7 @@ class Overrides(BaseModel):
     titles: dict[str, str] = Field(default_factory=dict)   # filename -> forced title
     set_breaks: list[int | str] | None = None          # filenames a break falls after
     encore_after: int | str | None = None              # filename the encore follows
+    overrules: list[Overrule] = Field(default_factory=list)  # flags an operator overruled
 
 
 class ShowNotes(BaseModel):
