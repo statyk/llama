@@ -227,13 +227,16 @@ def read_pin(root: Path) -> dict | None:
 
 
 def _write_json(path: Path, obj: dict) -> None:
-    from llama.batch_snapshot import _durable_replace
+    from llama import batch_snapshot
     path.parent.mkdir(parents=True, exist_ok=True)
-    _durable_replace(path, (json.dumps(obj, indent=2) + "\n").encode())
+    batch_snapshot._durable_replace(path, (json.dumps(obj, indent=2) + "\n").encode())
+    batch_snapshot._sync_dir(path.parent)
 
 
 def write_pin(root: Path, *, tag: str, sha: str, version: str, worktree: str,
               replace: bool) -> dict:
+    if not _VERSION.fullmatch(version):
+        raise GateRefused(f"pin version {version!r} is not a dotted release version")
     if read_pin(root) is not None and not replace:
         raise GateRefused(f"{root / PIN_FILE} already exists; pass --replace to overwrite it")
     pin = {"tag": tag, "sha": sha, "version": version, "worktree": worktree,

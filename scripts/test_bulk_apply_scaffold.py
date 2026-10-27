@@ -96,3 +96,41 @@ def test_restore_cli_dry_run_reports(tmp_path, monkeypatch, capsys):
     assert (d / "show.json").read_bytes() == b"{}"
     assert ba.main(["seal", str(snaps[0]), "--config", str(cfg)]) == 0
     assert ba.main(["restore", str(tmp_path / "missing"), "--config", str(cfg)]) == 2
+
+
+def test_pin_version_comes_from_the_tag(tmp_path, monkeypatch):
+    cfg, root = _config(tmp_path)
+    sha = _git_repo(tmp_path)
+    monkeypatch.setattr(ba, "REPO", tmp_path / "repo")
+    monkeypatch.setattr(ba, "code_identity", lambda: sha)
+    monkeypatch.setattr(ba.llama, "__version__", "0.1.0")
+    assert ba.main(["pin", "--tag", "v2.20.0", "--config", str(cfg)]) == 0
+    assert campaign_gate.read_pin(root)["version"] == "2.20.0"
+
+
+def test_pin_refuses_a_tag_that_is_not_a_version(tmp_path, monkeypatch):
+    cfg, root = _config(tmp_path)
+    sha = _git_repo(tmp_path)
+    subprocess.run(["git", "-C", str(tmp_path / "repo"), "tag", "release-x"], check=True)
+    monkeypatch.setattr(ba, "REPO", tmp_path / "repo")
+    monkeypatch.setattr(ba, "code_identity", lambda: subprocess.run(
+        ["git", "-C", str(tmp_path / "repo"), "rev-parse", "release-x^{commit}"],
+        capture_output=True, text=True).stdout.strip())
+    assert ba.main(["pin", "--tag", "release-x", "--config", str(cfg)]) == 2
+    assert campaign_gate.read_pin(root) is None
+
+
+def test_pin_and_tool_gate_agree_end_to_end(tmp_path, monkeypatch):
+    import types
+    cfg, root = _config(tmp_path)
+    sha = _git_repo(tmp_path)
+    monkeypatch.setattr(ba, "REPO", tmp_path / "repo")
+    monkeypatch.setattr(ba, "code_identity", lambda: sha)
+    monkeypatch.setattr(ba.llama, "__version__", "0.0.0+unknown")
+    assert ba.main(["pin", "--tag", "v2.20.0", "--config", str(cfg)]) == 0
+    def run(cmd, **kw):
+        if cmd[0] == "which":
+            return types.SimpleNamespace(returncode=0, stdout=f"/a/{cmd[2]}\n", stderr="")
+        return types.SimpleNamespace(returncode=0, stdout="2.20.0\n", stderr="")
+    monkeypatch.setattr(campaign_gate.subprocess, "run", run)
+    campaign_gate.require_tools(lambda _m: None, pin=campaign_gate.read_pin(root))

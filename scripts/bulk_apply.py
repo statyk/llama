@@ -17,7 +17,7 @@ import replay_holds
 
 import llama
 from llama import batch_snapshot
-from llama.campaign_gate import GateRefused, read_pin, require_pinned_code, require_tools, write_pin
+from llama.campaign_gate import _VERSION, GateRefused, read_pin, require_pinned_code, require_tools, write_pin
 from llama.config import DEFAULT_ROOT, load_config
 from llama.errors import LlamaError
 from llama.replay import code_identity
@@ -47,7 +47,10 @@ def cmd_pin(args) -> int:
     if ident != sha:
         raise GateRefused(f"the running code is {ident}, not {args.tag} ({sha}); pin from a "
                           f"clean checkout of the tag")
-    pin = write_pin(root, tag=args.tag, sha=sha, version=llama.__version__,
+    version = args.tag[1:] if args.tag.startswith("v") else args.tag
+    if not _VERSION.fullmatch(version):
+        raise GateRefused(f"tag {args.tag} is not a release version tag (vX.Y.Z)")
+    pin = write_pin(root, tag=args.tag, sha=sha, version=version,
                     worktree=str(REPO), replace=args.replace)
     print(f"pinned {pin['tag']} {sha} ({pin['version']}) at {root / 'campaign' / 'pin.json'}")
     return 0

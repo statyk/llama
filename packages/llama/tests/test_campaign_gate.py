@@ -198,3 +198,24 @@ def test_retire_is_idempotent(tmp_path):
     before = (tmp_path / "rekey-applied.json").read_bytes()
     assert campaign_gate.retire_rekey_restore(tmp_path, by="mark", at="T2") is False
     assert (tmp_path / "rekey-applied.json").read_bytes() == before
+
+
+def test_write_pin_refuses_a_malformed_version(tmp_path):
+    for bad in ("0.0.0+unknown", "2.20.0rc1", "", "release-x"):
+        with pytest.raises(campaign_gate.GateRefused):
+            campaign_gate.write_pin(tmp_path, tag="t", sha="a", version=bad, worktree="/w",
+                                    replace=False)
+    assert campaign_gate.read_pin(tmp_path) is None
+
+
+def test_write_json_syncs_the_directory(tmp_path, monkeypatch):
+    from llama import batch_snapshot
+    synced = []
+    monkeypatch.setattr(batch_snapshot, "_sync_dir", lambda d: synced.append(d))
+    campaign_gate.write_pin(tmp_path, tag="v2.20.0", sha="a", version="2.20.0", worktree="/w",
+                            replace=False)
+    assert synced == [tmp_path / "campaign"]
+    synced.clear()
+    (tmp_path / "rekey-applied.json").write_text("{}")
+    assert campaign_gate.retire_rekey_restore(tmp_path, by="x", at="t")
+    assert synced == [tmp_path]
