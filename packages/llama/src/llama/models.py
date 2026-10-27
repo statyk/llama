@@ -242,10 +242,12 @@ class ShowNotes(BaseModel):
     """`notes.json`: operator-facing notes, read only by `llama show` (and so
     triage). Never read by brief, vet's prompt path or package, so a note can
     never reach an LLM (held-backlog spec ruling 6). A gather artifact:
-    `run_gather` replaces the whole file (`vet` reset to []), and vet sets
-    `vet` on the file gather wrote."""
+    `run_gather` replaces the whole file (`vet` and `brief` reset to []), vet
+    sets `vet` and brief sets `brief` (its `overruled: <flag>` notes, bulk-apply
+    spec "Overrules persist") on the file gather wrote."""
     gather: list[str] = Field(default_factory=list)
     vet: list[str] = Field(default_factory=list)
+    brief: list[str] = Field(default_factory=list)
 
 
 class DJNotes(BaseModel):

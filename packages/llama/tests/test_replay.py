@@ -1364,3 +1364,27 @@ def test_the_scanned_fields_are_every_text_field_of_briefing():  # (pin)
     full = Briefing(context="c", significance="s", per_set={"1": ["x"]}, notable_moments=["m"],
                     review_sentiment="r", cautions=["k"], mentioned_songs=["Dew"])
     assert {f for f, _ in _briefing_texts(full)} == set(BRIEFING_TEXT_FIELDS)
+
+
+# --- Overrules persist (bulk-apply spec "Overrules persist", Task 2) ---
+
+def test_replay_sees_overrules(tmp_path):
+    from llama.overrules import records_for
+    ws, _ = _library_show(tmp_path, held=False)
+    # the replay raises a gather flag (every tag gone, the description no setlist)...
+    _untag(tmp_path, "no setlist here")
+    # ...and a vet flag (stored research asserts a song the tape does not have)
+    write_artifact(ws.vetting, VettingResult(vetting=ResearchVetting(
+        asserted_songs=["Morning Dew", "Golden"], asserted_dates=["1973-06-10"])))
+    legs = _legs(tmp_path, ws)
+    assert "unresolved track titles" in legs.gather.show.review_flags
+    assert "research asserts unknown song: Golden" in legs.vet.result.flags
+    rules = records_for(list(legs.flags), legs.replayed_show, source="fix",
+                        at="2026-10-26T00:00:00+00:00")
+    write_artifact(ws.overrides, Overrides(overrules=rules))
+
+    legs = _legs(tmp_path, ws)     # the scratch copy carries `overrules`
+    assert legs.flags == [] and legs.gather.show.needs_review is False
+    assert legs.vet.result.flags == [] and legs.vet.show.needs_review is False
+    assert "overruled: unresolved track titles" in legs.gather.notes
+    assert legs.vet.notes[-1] == "overruled: research asserts unknown song: Golden"

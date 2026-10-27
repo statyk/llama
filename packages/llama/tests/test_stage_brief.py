@@ -530,3 +530,54 @@ def test_guard_folds_curly_apostrophes_inside_segue_chains():
                               _tape("He’s Gone > Truckin’"))
     assert not any("unknown song" in p for p in problems)
     assert song_components("E: He’s Gone >") == ["hes gone"]
+
+
+# --- Overrules persist (bulk-apply spec "Overrules persist", Task 2) ---
+
+def _x_briefing() -> str:
+    return json.dumps({
+        "context": "Peak-era Dead on the summer '73 run.",
+        "significance": "A standout show from a strong year.",
+        "per_set": {"1": ["Opens hot"], "2": ["The big jam"]},
+        "notable_moments": [], "review_sentiment": "Praised.",
+        "non_attendee_sentiment": True, "cautions": [],
+        "narration": "full", "mentioned_songs": ["Song 1", "X"]})
+
+
+def _brief_rule(song="x", identifier="gd73"):
+    from llama.models import Overrule
+    return Overrule(identifier=identifier, kind="briefing-song", subject=[song],
+                    flag="briefing mentions unknown song: X", source="fix",
+                    at="2026-10-26T00:00:00+00:00")
+
+
+def test_brief_overrule_goes_to_notes_brief(tmp_path):
+    from llama.models import ShowNotes
+    show = _show()
+    ws = _ws(tmp_path, show)
+    write_artifact(ws.notes, ShowNotes(gather=["g"], vet=["v"]))
+    write_artifact(ws.overrides, Overrides(overrules=[_brief_rule()]))
+    run_brief(ws, FakeProvider(completes=[_x_briefing(), _x_briefing()]), show, "", [])
+    held = read_model(ws.show, Show)
+    assert held.review_flags == [] and held.needs_review is False
+    assert read_model(ws.notes, ShowNotes) == ShowNotes(
+        gather=["g"], vet=["v"], brief=["overruled: briefing mentions unknown song: X"])
+    assert ws.briefing_json.exists()
+
+
+def test_brief_overrule_on_another_recording_still_holds(tmp_path):
+    show = _show()
+    ws = _ws(tmp_path, show)
+    write_artifact(ws.overrides, Overrides(overrules=[_brief_rule(identifier="gd73-other")]))
+    run_brief(ws, FakeProvider(completes=[_x_briefing(), _x_briefing()]), show, "", [])
+    held = read_model(ws.show, Show)
+    assert held.review_flags == ["briefing mentions unknown song: X"] and held.needs_review
+
+
+def test_a_clean_brief_replaces_stale_brief_notes(tmp_path):
+    from llama.models import ShowNotes
+    show = _show()
+    ws = _ws(tmp_path, show)
+    write_artifact(ws.notes, ShowNotes(gather=["g"], brief=["overruled: stale"]))
+    run_brief(ws, FakeProvider(completes=[GOOD_BRIEFING]), show, "", [])
+    assert read_model(ws.notes, ShowNotes) == ShowNotes(gather=["g"])

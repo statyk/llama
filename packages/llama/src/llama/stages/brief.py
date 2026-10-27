@@ -2,7 +2,8 @@ import re
 import string
 
 from herder import run_json_task
-from llama.models import Briefing, Show, VettingResult
+from llama.models import Briefing, Show, ShowNotes, VettingResult
+from llama.overrules import split_overruled
 from llama.prompts import load_prompt
 from llama.songs import normalize_song
 from llama.structure import fold_curly_apostrophes
@@ -321,6 +322,15 @@ def generate_briefing(provider, show: Show, research_md: str, reviews: list[dict
     return briefing, problems
 
 
+def _write_brief_notes(show_ws: ShowWorkspace, notes: list[str]) -> None:
+    """Replace notes.json's `brief` with `notes` (read-modify-write; the gather and
+    vet notes are kept). No file is created just to record an empty list."""
+    current = (read_model(show_ws.notes, ShowNotes) if show_ws.notes.exists()
+               else ShowNotes())
+    if current.brief != notes:
+        write_artifact(show_ws.notes, current.model_copy(update={"brief": list(notes)}))
+
+
 def run_brief(
     show_ws: ShowWorkspace,
     provider,
@@ -339,11 +349,14 @@ def run_brief(
             write_artifact(show_ws.briefing_md, render_briefing_md(briefing, show))
         return briefing
 
-    narration = read_overrides(show_ws).narration
+    overrides = read_overrides(show_ws)
     vetting = (read_model(show_ws.vetting, VettingResult)
                if show_ws.vetting.exists() else None)
     briefing, problems = generate_briefing(provider, show, research_md, reviews,
-                                           narration=narration, vetting=vetting)
+                                           narration=overrides.narration, vetting=vetting)
+    # Overrules (bulk-apply spec "Overrules persist"): a guard problem matching a
+    # recorded overrule is an `overruled: <flag>` note in notes.json `brief`, not a flag.
+    problems, overruled = split_overruled(problems, overrides.overrules, show)
     # This stage's flags are replaced, as vet's are (a redo's stale verdict
     # included), in two writes so a crash anywhere leaves the show held: new
     # problems land before briefing.json, the stale verdict leaves after it.
@@ -352,6 +365,7 @@ def run_brief(
     if added:
         write_artifact(show_ws.show, current.model_copy(
             update={"review_flags": current.review_flags + added, "needs_review": True}))
+    _write_brief_notes(show_ws, overruled)
     write_artifact(show_ws.briefing_json, briefing)
     write_artifact(show_ws.briefing_md, render_briefing_md(briefing, show))
     current = read_model(show_ws.show, Show)

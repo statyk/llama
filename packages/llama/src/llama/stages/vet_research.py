@@ -1,13 +1,15 @@
 import re
 from datetime import date as _date
-from typing import NamedTuple
+from typing import NamedTuple, Sequence
 
 from herder import run_json_task
-from llama.models import ResearchVetting, Show, ShowNotes, VettingResult
+from llama.models import Overrule, ResearchVetting, Show, ShowNotes, VettingResult
+from llama.overrules import split_overruled
 from llama.prompts import load_prompt
 from llama.songs import normalize_song
 from llama.structure import TAUTOLOGICAL_TITLE_SOURCES, fold_curly_apostrophes, is_filler
-from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
+from llama.workspace import (ShowWorkspace, read_model, read_overrides, should_run,
+                             write_artifact)
 
 # Every deterministic grounding flag starts with this prefix, so a re-vet can strip
 # its own prior flags without disturbing flags from other stages (duration, guard).
@@ -305,11 +307,19 @@ class VetOutcome(NamedTuple):
     notes: list[str]
 
 
-def apply_vet(vetting: ResearchVetting, show: Show) -> VetOutcome:
+def apply_vet(vetting: ResearchVetting, show: Show, *,
+              overrules: Sequence[Overrule] = ()) -> VetOutcome:
     """Pure grounding step: ground `vetting` against `show` and return a copy of
     `show` with the date adoption applied and its own `research asserts ` flags
-    replaced (flags from other stages kept). Nothing is written."""
+    replaced (flags from other stages kept). Nothing is written.
+
+    `overrules` (bulk-apply spec "Overrules persist"): a vet flag matching a recorded
+    overrule is an `overruled: <flag>` note after vet's own notes, not a hold (not in
+    `result.flags` either). Only this stage's flags are split; kept flags from other
+    stages are left exactly as they are."""
     flags, adopted, notes = grounding_flags(vetting, show)
+    flags, overruled = split_overruled(flags, overrules, show)
+    notes = notes + overruled
     out = show.model_copy(deep=True)
     if adopted:
         out.item_date = out.date
@@ -333,7 +343,8 @@ def run_vet_research(
     # is exactly what run_gather just wrote to show.json, so the two are equal.
     # Rewrite show.json every run so a corrected re-vet clears needs_review and
     # repeats don't duplicate.
-    out = apply_vet(vetting, read_model(show_ws.show, Show))
+    out = apply_vet(vetting, read_model(show_ws.show, Show),
+                    overrules=read_overrides(show_ws).overrules)
     write_artifact(show_ws.show, out.show)
     notes = read_model(show_ws.notes, ShowNotes) if show_ws.notes.exists() else ShowNotes()
     notes.vet = out.notes

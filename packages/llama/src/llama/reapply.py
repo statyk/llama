@@ -26,6 +26,7 @@ from llama.errors import LlamaError
 from llama.ledger import Ledger
 from llama.locks import file_lock
 from llama.models import Provenance, Show, ShowNotes
+from llama.overrules import split_overruled
 from llama.replay import (CacheOnlyIA, classify, compute_legs, input_digests, setlistfm_client,
                           shipped_diff)
 from llama.stages.brief import generate_briefing, render_briefing_md
@@ -123,16 +124,21 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
         final_show = legs.replayed_show.model_copy(
             update={"review_flags": list(flags), "needs_review": bool(flags)})
         briefing = None
+        brief_notes: list[str] = []
         if legs.brief == "reuse":
             briefing = legs.briefing            # stored, 3a-normalised by compute_legs
         elif legs.brief == "fresh":
             research_md = ws.research.read_text() if ws.research.exists() else ""
             reviews = read_json(ws.reviews) if ws.reviews.exists() else []
             echo(f"{slug}: writing a fresh briefing")
+            overrides = read_overrides(ws)
             briefing, problems = generate_briefing(
                 providers["brief"], final_show, research_md, reviews,
-                narration=read_overrides(ws).narration,
+                narration=overrides.narration,
                 vetting=legs.vet.result if legs.vet is not None else None)
+            # Overrules (bulk-apply spec "Overrules persist"), as `run_brief`: a guard
+            # problem matching a recorded overrule is a notes.json `brief` note.
+            problems, brief_notes = split_overruled(problems, overrides.overrules, final_show)
             flags += problems
 
         written: list[str] = []
@@ -156,7 +162,8 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
             if legs.vet is not None:
                 put(ws.vetting, legs.vet.result)
             put(ws.notes, ShowNotes(gather=list(legs.gather.notes),
-                                    vet=list(legs.vet.notes) if legs.vet is not None else []))
+                                    vet=list(legs.vet.notes) if legs.vet is not None else [],
+                                    brief=brief_notes))
             if briefing is not None:
                 # Both files from the (normalised) model, on reuse too: a stored
                 # briefing.md is never copied (spec 3a: re-rendered on every reuse).

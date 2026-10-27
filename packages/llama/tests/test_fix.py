@@ -1441,3 +1441,138 @@ def test_held_reselection_then_overrule_never_ships_the_old_items_station_audio(
     assert r.exit_code == 0, r.output
     assert ia.downloads == ["a.mp3", "b.mp3"]            # every track from the new item
     assert not ({p.read_bytes() for p in (ws.package_dir / "audio").iterdir()} & old_bytes)
+
+
+# --- Overrules persist (bulk-apply spec "Overrules persist", Task 2) ---
+
+_ALIGN = "low-confidence structure alignment"
+_DUR = "duration mismatch on 01 - Morning Dew.mp3: 300s vs 200s"
+
+
+def _held_with(ws, flags):
+    s = read_model(ws.show, Show)
+    s.needs_review, s.review_flags = True, list(flags)
+    write_artifact(ws.show, s)
+
+
+def _assert_one_rule(ws, source, *, kind="alignment", flag=_ALIGN, subject=None,
+                     identifier="gd73"):
+    from datetime import datetime
+    rules = read_overrides(ws).overrules
+    assert len(rules) == 1, rules
+    r = rules[0]
+    assert (r.identifier, r.kind, r.subject, r.flag, r.source) == (
+        identifier, kind, subject, flag, source)
+    assert datetime.fromisoformat(r.at).utcoffset().total_seconds() == 0   # UTC ISO-8601
+
+
+def test_fix_overrule_records_the_cleared_flags(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _held_with(ws, [_ALIGN, _DUR])
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--overrule")
+    assert r.exit_code == 0, r.output
+    _assert_one_rule(ws, "fix")              # the package-family flag is not recorded
+    saved = read_model(ws.show, Show)
+    assert saved.needs_review is False and saved.review_flags == [] and calls == ["package"]
+
+
+def test_fix_overrule_twice_records_each_rule_once(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _stub_redo(monkeypatch)
+    _held_with(ws, [_ALIGN])
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--overrule").exit_code == 0
+    first = ws.overrides.read_bytes()
+    _held_with(ws, [_ALIGN])
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--overrule").exit_code == 0
+    assert ws.overrides.read_bytes() == first
+
+
+def test_fix_overrule_of_a_package_flag_alone_writes_no_overrides(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _held_with(ws, [_DUR])
+    _stub_redo(monkeypatch)
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--overrule").exit_code == 0
+    assert not ws.overrides.exists()
+    assert read_model(ws.show, Show).needs_review is False
+
+
+def test_narration_vague_records_nothing(tmp_path, monkeypatch):   # (pin)
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _held_with(ws, [_ALIGN])
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague")
+    assert r.exit_code == 0, r.output
+    assert read_model(ws.show, Show).needs_review is False
+    assert read_overrides(ws).narration == "vague" and read_overrides(ws).overrules == []
+
+
+def test_untitled_records_remaining_flags(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _all_unresolved_show(tmp_path, monkeypatch)
+    outcomes = iter([None, Path("/pkg")])
+    flag = "single-set structure for a long show (160 min)"
+
+    def fake_redo(config, ia, ledger, e, stage, **kw):
+        if stage == "gather":
+            _held_with(e.ws, [flag])
+        return next(outcomes)
+    monkeypatch.setattr(cli, "_redo_show_locked", fake_redo)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+    assert r.exit_code == 0, r.output
+    _assert_one_rule(ws, "untitled", kind="single-set", flag=flag,
+                     identifier=read_model(ws.show, Show).identifier)
+
+
+def test_edit_overrides_preserves_overrules(tmp_path, monkeypatch):   # (pin)
+    from llama.models import Overrule
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _stub_redo(monkeypatch)
+    rules = [Overrule(identifier="gd73", kind="alignment", subject=None, flag=_ALIGN,
+                      source="triage", at="2026-10-01T00:00:00+00:00"),
+             Overrule(identifier="gd73", kind="research-song", subject=["golden"],
+                      flag="research asserts unknown song: Golden", source="backfill",
+                      at="2026-10-02T00:00:00+00:00")]
+    write_artifact(ws.overrides, Overrides(overrules=rules))
+    before = json.loads(ws.overrides.read_text())["overrules"]
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "X").exit_code == 0
+    after = json.loads(ws.overrides.read_text())
+    assert after["venue"] == "X" and after["overrules"] == before
+
+
+class _PlaceholderIA:
+    """test_pipeline.FakeIA whose gd73 tags are all `Track N` placeholders, so the real
+    gather holds the show (unresolved titles and a low-confidence structure)."""
+
+    def __init__(self, *a, **k):
+        import test_pipeline
+        self._ia = test_pipeline.FakeIA()
+        md = self._ia.fixture
+        for i, f in enumerate(f for f in md["files"] if f.get("format") == "VBR MP3"):
+            f["title"] = f"Track {i + 1}"
+
+    def __getattr__(self, name):
+        return getattr(self._ia, name)
+
+
+def test_overrule_survives_a_regather(tmp_path, monkeypatch):
+    import test_pipeline
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
+    monkeypatch.setattr(cli, "IAClient", _PlaceholderIA)
+    garbage = json.dumps({"tracks": [{"index": 1, "set": "afterparty"}]})
+
+    def providers(config):         # align_structure returns garbage: gather falls back and flags
+        p = test_pipeline.fake_providers(config)
+        p["align_structure"] = FakeProvider(completes=[garbage] * 3)
+        return p
+    monkeypatch.setattr(cli, "make_providers", providers)
+    r = cli_invoke(cfg, "redo", "gratefuldead", "--from", "gather")
+    assert r.exit_code == 0, r.output
+    held = read_model(ws.show, Show)
+    assert held.needs_review and "unresolved track titles" in held.review_flags
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--overrule")
+    assert r.exit_code == 0, r.output
+    assert {o.flag for o in read_overrides(ws).overrules} == set(held.review_flags)
+    # the next re-gather raises the same flags: notes now, not a hold
+    r = cli_invoke(cfg, "redo", "gratefuldead", "--from", "gather")
+    assert r.exit_code == 0, r.output
+    saved = read_model(ws.show, Show)
+    assert saved.needs_review is False and saved.review_flags == []
+    assert (ws.package_dir / "manifest.json").exists()
+    from llama.models import ShowNotes
+    assert "overruled: unresolved track titles" in read_model(ws.notes, ShowNotes).gather

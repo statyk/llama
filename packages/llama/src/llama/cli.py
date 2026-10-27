@@ -5,7 +5,7 @@ import sys
 import tempfile
 import textwrap
 import traceback
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from datetime import date, datetime, timezone
 from enum import Enum
@@ -31,7 +31,8 @@ from llama.errors import LlamaError
 from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
 from llama.locks import Locked, RunMissing, file_lock, run_is_live, run_lock
-from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
+from llama.models import Criteria, LedgerEntry, Overrule, ShortlistEntry, Show
+from llama.overrules import merge_rules, records_for
 from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
 from llama import pacing_state
@@ -1480,12 +1481,15 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
                     narration=None,
                     venue=_UNSET, city=_UNSET, date=_UNSET, set_titles=None,
                     clear_titles=(), set_breaks=_UNSET, clear_set_breaks=False,
-                    encore_after=_UNSET, clear_encore=False):
+                    encore_after=_UNSET, clear_encore=False,
+                    add_overrules: Sequence[Overrule] = ()):
     """Apply one edit to `overrides.json`. The positional arguments take TRACK
     NUMBERS, the `show.json` numbering the operator saw (`show --tracks`), and are
     stored as that track's filename (piece 4 spec 4.2 "Writers take track
     numbers"): `set_titles` keys, `set_breaks` items, `encore_after`, and the
     all-digit `clear_titles` items (any other item is a filename, removed as given).
+    `add_overrules` are merged into `overrules` (`overrules.merge_rules`: a record
+    already present is not added twice); every recorded overrule is kept as it is.
     Refuses (LlamaError, nothing written) a legacy or mixed file, a number outside
     `show.json`'s track list, and a number to translate with no `show.json`."""
     from llama.workspace import read_overrides
@@ -1542,6 +1546,7 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
         "include": include,
         "narration": narration or ov.narration,
         "titles": titles,
+        "overrules": merge_rules(ov.overrules, add_overrules),
     })
     if venue is not _UNSET:
         data = data.model_copy(update={"venue": venue})
@@ -1657,8 +1662,18 @@ def _resolve_include_tokens(show_ws, tokens) -> list[str]:
     return out
 
 
-def _clear_hold(show_ws):
+def _clear_hold(show_ws, *, record: str | None = None):
+    """Clear the show's hold. With `record` (the `source`: "fix", "triage" or
+    "untitled"), the flags being cleared are first recorded as overrules in
+    `overrides.json` (bulk-apply spec "Overrules persist"), so a re-gather turns them
+    into notes instead of re-holding; package-family flags are not recorded. None
+    (accept-vague) records nothing."""
     s = read_model(show_ws.show, Show)
+    if record is not None:
+        rules = records_for(s.review_flags, s, source=record,
+                            at=datetime.now(timezone.utc).isoformat())
+        if rules:
+            _edit_overrides(show_ws, add_overrules=rules)
     s.needs_review = False
     s.review_flags = []
     write_artifact(show_ws.show, s)
@@ -1951,7 +1966,7 @@ def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
         pkg = _redo_show_locked(config, ia, ledger,
                                 _resolve_show(config, ledger, entry.slug), "gather")
         if pkg is None:
-            _clear_hold(entry.ws)
+            _clear_hold(entry.ws, record="untitled")
             lines.append(f"{entry.slug}: remaining flags overruled")
             pkg = _redo_show_locked(config, ia, ledger,
                                     _resolve_show(config, ledger, entry.slug), "brief")
@@ -2083,7 +2098,7 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
                 _clear_hold(entry.ws)
             stage = "brief"
         elif choice == "o":
-            edit = lambda: _clear_hold(entry.ws)  # noqa: E731
+            edit = lambda: _clear_hold(entry.ws, record="triage")  # noqa: E731
             stage = "package"
         elif choice == "t" and suggest_titles_offered:
             # Shares `_propose_and_confirm_titles`/`_propose_titles_for_show`
@@ -2248,9 +2263,9 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
             typer.echo(f"  - {f}")
         typer.echo(f"to overrule after inspecting: llama fix {entry.slug} --overrule")
     notes = _read_show_notes(sws)
-    if notes.gather or notes.vet:
+    if notes.gather or notes.vet or notes.brief:
         typer.echo("notes:")
-        for line in notes.gather + notes.vet:
+        for line in notes.gather + notes.vet + notes.brief:
             typer.echo(f"  - {line}")
     if show_tracks:
         for line in _format_tracks(s):
@@ -3516,7 +3531,7 @@ def fix(
             real_edit = True
         if overrule:
             if entry.state == "held":
-                _clear_hold(sws)
+                _clear_hold(sws, record="fix")
                 lines.append(f"{entry.slug}: hold cleared")
                 real_edit = True
             else:

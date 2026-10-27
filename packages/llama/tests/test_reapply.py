@@ -1317,3 +1317,24 @@ def test_reapply_after_a_held_reselection_never_reuses_the_old_items_audio(tmp_p
     _run(config, ledger, entry, ia=ia)
     assert len(ia.downloads) == len(old)             # every track fetched, none re-used
     assert not (set(audio_files(entry.ws).values()) & set(old.values()))
+
+
+# --- Overrules persist (bulk-apply spec "Overrules persist", Task 2) ---
+
+def test_reapply_fresh_brief_overrule_goes_to_notes_brief(tmp_path, monkeypatch):
+    from llama.models import Overrule
+    root, config, ledger, entry, _ = _env(tmp_path)
+    entry.ws.briefing_json.unlink()
+    calls = _stub_package(monkeypatch)
+    ident = read_model(entry.ws.show, Show).identifier
+    write_artifact(entry.ws.overrides, Overrides(overrules=[Overrule(
+        identifier=ident, kind="briefing-song", subject=["nope"],
+        flag="briefing mentions unknown song: Nope", source="triage",
+        at="2026-10-26T00:00:00+00:00")]))
+    bad = json.dumps(dict(context="c", significance="s", per_set={"1": ["a"]}, mentioned_songs=["Nope"]))
+    out = _run(config, ledger, entry, _providers(bad, bad))
+    assert out.outcome == "cleared" and out.flags == []
+    assert read_model(entry.ws.show, Show).needs_review is False
+    assert read_model(entry.ws.notes, ShowNotes).brief == [
+        "overruled: briefing mentions unknown song: Nope"]
+    assert calls != []        # packaged

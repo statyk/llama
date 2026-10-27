@@ -529,10 +529,20 @@ def test_json_carries_notes_and_empty_lists_without_notes_json(tmp_path):
     cfg = _cfg(tmp_path)
     ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
     r = cli_invoke(cfg, "show", "gratefuldead", "--json")
-    assert json.loads(r.output)["notes"] == {"gather": [], "vet": []}
+    assert json.loads(r.output)["notes"] == {"gather": [], "vet": [], "brief": []}
     write_artifact(ws.notes, {"gather": ["g"], "vet": ["v"]})
     r = cli_invoke(cfg, "show", "gratefuldead", "--json")
-    assert json.loads(r.output)["notes"] == {"gather": ["g"], "vet": ["v"]}
+    assert json.loads(r.output)["notes"] == {"gather": ["g"], "vet": ["v"], "brief": []}
+
+
+def test_show_prints_brief_notes(tmp_path):
+    # bulk-apply Task 2: notes.json `brief` holds brief's `overruled: <flag>` notes
+    cfg = _cfg(tmp_path)
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    write_artifact(ws.notes, {"brief": ["overruled: briefing mentions unknown song: X"]})
+    r = cli_invoke(cfg, "show", "gratefuldead")
+    assert r.exit_code == 0, r.output
+    assert "notes:\n  - overruled: briefing mentions unknown song: X" in r.output
 
 
 def test_show_tracks_prints_desc_position():

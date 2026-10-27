@@ -22,6 +22,7 @@ from llama.models import (AlignedStructure, AlignResult, JerrybaseEvent, Candida
                           ParsedSetlist,
                           SetlistItem, Show, ShowNotes, SourcedParse, StructureInfo, Track)
 from llama.override_keys import Positions, resolve_positions
+from llama.overrules import split_overruled
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
 from llama.siblings import DonorTape, SiblingRow, cplus_filter, propose_rows, rate_alignment
@@ -2219,12 +2220,27 @@ def compute_gather(
         review_flags=flags,
         structure=structure_info,
     )
+    # Overrules (bulk-apply spec "Overrules persist"): every flag above is computed as
+    # before; one matching a recorded overrule becomes an `overruled: <flag>` operator
+    # note instead of a hold. Split on the built `show` (the `titles` key reads its
+    # unresolved tracks), last, so later extensions of this function keep it last.
+    show = _apply_overrules(show, overrides.overrules, op_notes)
     needs_llm = tuple(name for name, hit in (("extract_setlist", cb.needs_llm),
                                              ("align_structure", needs_align)) if hit)
     return GatherResult(show=show, reviews=md.get("reviews", []), notes=op_notes,
                         needs_llm=needs_llm, taper_owned=taper_owned, taper=decision,
                         step1_alignment=step1_alignment, self_filled=cascade.self_filled,
                         title_paths=title_paths, title_record=cascade.record)
+
+
+def _apply_overrules(show: Show, rules, op_notes: list[str]) -> Show:
+    """`show` with its flags that match a recorded overrule moved to `op_notes`
+    (appended, in flag order) and `needs_review` recomputed from what still holds."""
+    held, noted = split_overruled(show.review_flags, rules, show)
+    if not noted:
+        return show
+    op_notes.extend(noted)
+    return show.model_copy(update={"review_flags": held, "needs_review": bool(held)})
 
 
 def run_gather(

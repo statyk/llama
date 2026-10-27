@@ -569,7 +569,10 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
 
     vet: VetOutcome | None = None
     if ws.vetting.exists():
-        vet = apply_vet(read_model(ws.vetting, VettingResult).vetting, gathered.show)
+        # Overrules (bulk-apply spec "Overrules persist"): gather read them from the
+        # scratch copy of overrides.json; vet gets the same records.
+        vet = apply_vet(read_model(ws.vetting, VettingResult).vetting, gathered.show,
+                        overrules=read_overrides(ws).overrules)
     else:
         needs_llm.append("no vetting.json")
     replayed = vet.show if vet is not None else gathered.show
