@@ -7,6 +7,7 @@ touches the real library, the real station, tools or processes (`emcee_running` 
 stubbed for every test: a real emcee on this machine would otherwise refuse writes)."""
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -501,6 +502,77 @@ def test_already_marked_station_copy_is_recorded(tmp_path):
     assert line["station"] == "already marked" and line["mark_added"] is True
 
 
+def _listed(msgs) -> str:
+    """The batch's not-marked listing (everything after its header)."""
+    text = "\n".join(msgs)
+    assert "not marked (" in text, text
+    return text.split("not marked (")[-1]
+
+
+def test_missing_station_copy_is_listed_exit_1_and_stays_listed(tmp_path):
+    """Review I1 (ruling 2, 3): a delivered show with no station copy is not marked; the
+    batch exits 1 listing it, and a re-run of the batch still does."""
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "gone", delivered=True)                  # ledger-delivered, no copy
+    ok = _show(root, "ok", delivered=True, station=station)
+    batch = _batch(tmp_path)
+    items = [_item("gone", digests=input_digests(ws)), _item("ok", digests=input_digests(ok))]
+    msgs = []
+    assert ba.mark_apply(root, items, station_root=station, batch=batch, echo=msgs.append) == 1
+    assert "gone" in _listed(msgs) and "ok:" not in _listed(msgs)
+    assert {l["slug"]: l["station"] for l in _records(batch)} == {
+        "gone": "no station copy", "ok": "marked"}
+    msgs.clear()
+    assert ba.mark_apply(root, items, station_root=station, batch=batch, echo=msgs.append) == 1
+    assert "gone" in _listed(msgs) and "no station copy" in _listed(msgs)
+    assert len(_records(batch)) == 2                          # nothing re-recorded
+
+
+def test_station_copy_stat_error_is_refused_then_retried(tmp_path, monkeypatch):
+    """Review I1 (ruling 1): a stat error other than ENOENT on the station copy (a flaky
+    SMB mount) refuses the item, listed and retried; it is never "no station copy"."""
+    import errno
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "flaky", delivered=True, station=station)
+    out = station / "flaky"
+    before = (out / "manifest.json").read_bytes()
+    real_stat = os.stat
+
+    def stat(path, *a, **k):
+        if Path(path) == out:
+            raise OSError(errno.EIO, "Input/output error", str(out))
+        return real_stat(path, *a, **k)
+    monkeypatch.setattr(os, "stat", stat)
+    batch = _batch(tmp_path)
+    items = [_item("flaky", digests=input_digests(ws))]
+    msgs = []
+    assert ba.mark_apply(root, items, station_root=station, batch=batch, echo=msgs.append) == 1
+    [line] = _records(batch)
+    assert line["station"].startswith("refused: station copy unreadable (")
+    assert "Input/output error" in line["station"]
+    assert "flaky" in _listed(msgs)
+    assert (out / "manifest.json").read_bytes() == before
+    monkeypatch.setattr(os, "stat", real_stat)
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 0
+    assert _records(batch)[-1]["station"] == "marked"
+    assert station_mark.mark_of(json.loads((out / "manifest.json").read_text()))
+
+
+def test_unreadable_station_root_is_refused_per_item(tmp_path):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "d1", delivered=True, station=station)
+    batch = _batch(tmp_path)
+    msgs = []
+    gone = tmp_path / "unmounted"
+    assert ba.mark_apply(root, [_item("d1", digests=input_digests(ws))], station_root=gone,
+                         batch=batch, echo=msgs.append) == 1
+    [line] = _records(batch)
+    assert line["station"] == f"refused: station root {gone} is not readable"
+    assert line["mark_added"] is True
+    assert "d1" in _listed(msgs)
+
+
 def test_inputs_changed_row_skipped(tmp_path):
     cfg, root, station = _lib(tmp_path)
     d = _show(root, "d1", delivered=True, station=station)
@@ -684,9 +756,10 @@ def test_unmark_removes_library_only_marks(tmp_path):
              (("pk", pk), ("bad", bad))]
     assert ba.mark_apply(root, items, station_root=station, batch=batch,
                          echo=lambda m: None) == 1
-    # `earlier` was already awaiting: this batch adds no library mark, but marks the station
+    # `earlier` was already awaiting: this batch adds no library mark, but marks the station.
+    # Exit 1: the batch's record still holds `bad` refused (the exit covers the whole record).
     assert ba.mark_apply(root, [_item("earlier", digests=input_digests(earlier))],
-                         station_root=station, batch=batch, echo=lambda m: None) == 0
+                         station_root=station, batch=batch, echo=lambda m: None) == 1
     lines = {l["slug"]: l for l in _records(batch)}
     assert lines["earlier"]["mark_added"] is False and lines["earlier"]["station"] == "marked"
     earlier_marked = (station / "earlier" / "manifest.json").read_bytes()

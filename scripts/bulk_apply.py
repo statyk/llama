@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -427,7 +428,10 @@ _REASON_KINDS = (REASON_CHANGED, REASON_LLM, REASON_GUARD, REASON_RESELECTION)
 # marked only by a re-selection or by the frozen list, never by a visible change.
 _NO_DIFF = ("needs-llm", "unreplayable")
 _PLAN_COLUMNS = ("delivered unvoiced", "delivered voiced", "packaged", "briefed", "held")
-_STATION_OK = ("marked", "already marked", "no station copy")
+# Exit 0 only when every delivered item's last record line is one of these (the brief's
+# rule, literally: "no station copy" is listed too). "not delivered" lines never count.
+_STATION_OK = ("marked", "already marked")
+_NOT_DELIVERED = "not delivered"
 
 
 class MarkItem(NamedTuple):
@@ -711,6 +715,22 @@ class _DeliveredIds:
         return pid in self.ids
 
 
+def _station_copy_problem(out: Path) -> str | None:
+    """None when the station copy's directory is there; `no station copy` only when it is
+    absent (ENOENT); any other stat error (EIO, ETIMEDOUT, ENOTCONN on a flaky mount) is a
+    refusal, listed and retried, never mistaken for "no copy" (`Path.is_dir` would swallow
+    it as False)."""
+    try:
+        st = os.stat(out)
+    except FileNotFoundError:
+        return "no station copy"
+    except OSError as exc:
+        return f"refused: station copy unreadable ({_one_line(exc)})"
+    if not stat.S_ISDIR(st.st_mode):
+        return f"refused: station copy unreadable ({out} is not a directory)"
+    return None
+
+
 def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
               record: Path, delivered_ids: _DeliveredIds) -> tuple[str, bool, list[str]]:
     """One item under the show lock: (what happened, whether it must be listed as not
@@ -733,12 +753,13 @@ def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
         before_sha = after_sha = None
         running: list[str] = []
         out = station_root / item.slug
+        copy_problem = None
         if not delivered:
-            station = "not delivered"
+            station = _NOT_DELIVERED
         elif not station_root.is_dir():
             station = f"refused: station root {station_root} is not readable"
-        elif not out.is_dir():
-            station = "no station copy"
+        elif (copy_problem := _station_copy_problem(out)) is not None:
+            station = copy_problem
         else:
             running = station_mark.emcee_running()     # before EACH write (pointer b)
             if running:
@@ -759,19 +780,21 @@ def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: 
     digests re-checked, the campaign record marked (durable) unless already awaiting, then
     a delivered show's station copy marked, one `record.jsonl` line per item. Items already
     recorded with a non-refused station outcome are skipped. A running emcee stops the
-    batch. Exit 0 only when every delivered item's station copy is marked (or already
-    marked, or there is none); else 1, listing each that is not."""
+    batch. Exit 0 only when every delivered item is `marked` or `already marked`, judged
+    over the batch's WHOLE record (each slug's last line, earlier runs included, so a
+    re-run still reports a terminal `no station copy`) plus this run's items that wrote
+    no line (inputs changed, errors, not reached); else 1, listing each."""
     (batch / "before").mkdir(parents=True, exist_ok=True)
     record = batch / "record.jsonl"
     done = {s: r for s, r in _last_lines(record).items()
             if not str(r.get("station", "refused")).startswith("refused")}
-    listed: list[str] = []
+    listed: dict[str, str] = {}
     counts: Counter = Counter()
     stop: list[str] = []
     delivered_ids = _DeliveredIds(root / "ledger.jsonl")
     for item in items:
         if stop:
-            listed.append(f"{item.slug}: not reached (emcee is running)")
+            listed[item.slug] = f"{item.slug}: not reached (emcee is running)"
             continue
         if item.slug in done:
             echo(f"{item.slug}: skipped: already recorded ({done[item.slug]['station']})")
@@ -787,17 +810,21 @@ def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: 
         counts["refused" if key.startswith("refused") else
                "error" if key.startswith("error") else key] += 1
         if problem:
-            listed.append(f"{item.slug}: {what}")
+            listed[item.slug] = f"{item.slug}: {what}"
         if stop:
             echo("refusing to mark station copies: emcee is running; the batch stops")
             for line in stop:
                 echo(f"  {line}")
+    for slug, line in sorted(_last_lines(record).items()):
+        station = str(line.get("station"))
+        if slug not in listed and station not in _STATION_OK and station != _NOT_DELIVERED:
+            listed[slug] = f"{slug}: {station} (recorded)"
     echo(f"marking {batch.name}: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items()))
          + f"; record: {record}")
     if listed:
         echo(f"not marked ({len(listed)}); do not run emcee on their profiles until a "
              "re-run of this batch exits 0:")
-        for line in listed:
+        for line in listed.values():
             echo(f"  {line}")
         return 1
     return 0
@@ -919,8 +946,11 @@ def _station_state(item: MarkItem, station_root: Path) -> tuple[str, str | None]
     if item.state != "delivered":
         return item.state, None
     out = station_root / item.slug
-    if not out.is_dir():
+    problem = _station_copy_problem(out)
+    if problem == "no station copy":
         return "delivered no station copy", None
+    if problem is not None:
+        return "delivered unreadable", problem
     try:
         voiced = destination_voiced(out)
     except LlamaError as exc:
