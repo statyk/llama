@@ -505,7 +505,9 @@ REASON_CHANGED = "changed by the held-backlog fixes"
 REASON_LLM = "replay needs an LLM call"
 REASON_GUARD = "stored briefing fails today's guard"
 REASON_RESELECTION = "recording re-selection"
-_REASON_KINDS = (REASON_CHANGED, REASON_LLM, REASON_GUARD, REASON_RESELECTION)
+REASON_NEWLY_HELD = "newly held by today's checks"
+_REASON_KINDS = (REASON_CHANGED, REASON_LLM, REASON_GUARD, REASON_RESELECTION,
+                 REASON_NEWLY_HELD)
 # Rows whose diff comes from the provider-less fallback alignment (an artefact): they are
 # marked only by a re-selection or by the frozen list, never by a visible change.
 _NO_DIFF = ("needs-llm", "unreplayable")
@@ -655,6 +657,19 @@ def _llm_reason(row: dict | None) -> str:
     return f"{REASON_LLM}: {needs or 'on the frozen needs-LLM list'}"
 
 
+def _newly_held_reason(row: dict, stored: Show) -> str:
+    """Task 15c (Checkpoint B ruling): the flag kinds of the row's new gather, vet and brief
+    flags, first-seen order, no repeats; a flag `flag_key` cannot key is `package`."""
+    kinds: list[str] = []
+    for flag in [*(row.get("gather_flags") or []), *(row.get("vet_flags") or []),
+                 *(row.get("brief_flags") or [])]:
+        key = flag_key(flag, stored)
+        kind = key.kind if key is not None else "package"
+        if kind not in kinds:
+            kinds.append(kind)
+    return f"{REASON_NEWLY_HELD}: {', '.join(kinds)}" if kinds else REASON_NEWLY_HELD
+
+
 def _plan_one_mark(ws: ShowWorkspace, row: dict | None, frozen: set[str],
                    resel: dict | None) -> tuple[str, str, dict | None] | None:
     """(reason, start stage, digests) or None, in the brief's priority order.
@@ -682,6 +697,8 @@ def _plan_one_mark(ws: ShowWorkspace, row: dict | None, frozen: set[str],
         return _llm_reason(row), "gather", digests
     if _guard_holds(ws, row, stored):
         return REASON_GUARD, "gather", digests
+    if row.get("outcome") == NEWLY_HELD:       # Task 15c: last, after every other trigger
+        return _newly_held_reason(row, stored), "gather", digests
     return None
 
 

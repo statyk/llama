@@ -265,6 +265,124 @@ def test_mark_plan_ignores_needs_llm_diff_off_frozen_list(tmp_path):
     assert {i.slug: i.start_stage for i in items} == {"n": "gather", "u": "select"}
 
 
+# --- Task 15c: newly held with no visible change (Checkpoint B ruling) -------------
+
+VENUE_FLAG = "venue mismatch: archive 'Hall' vs jerrybase 'Arena'"
+VET_FLAG = "research asserts unknown song: X"
+NEWLY_HELD_REASON = "newly held by today's checks: venue, research-song"
+
+
+def _newly_held(ws: ShowWorkspace, **kw) -> dict:
+    kw.setdefault("gather_flags", [VENUE_FLAG])
+    kw.setdefault("vet_flags", [VET_FLAG])
+    kw.setdefault("brief_flags", [])
+    return _row(ws, outcome="newly-held", **kw)
+
+
+def test_newly_held_without_visible_change_is_marked(tmp_path):
+    cfg, root, station = _lib(tmp_path)
+    pk = _show(root, "pk")
+    dl = _show(root, "dl", delivered=True, station=station)
+    arm = _arm(cfg, _newly_held(pk), _newly_held(dl))
+    items, unplannable = ba.mark_plan(root, arm, set(), [], {"band/dl"})
+    assert unplannable == []
+    by = _by_slug(items)
+    assert set(by) == {"pk", "dl"}
+    for slug in ("pk", "dl"):
+        assert by[slug].reason == NEWLY_HELD_REASON
+        assert by[slug].start_stage == "gather"
+        assert by[slug].digests == arm["shows"][slug]["digests"]
+    batch = _batch(tmp_path)
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 0
+    for ws in (pk, dl):
+        rec = campaign.read_record(ws)
+        assert campaign.awaiting_fix(rec) and rec.marks[-1].reason == NEWLY_HELD_REASON
+    assert not (station / "pk").exists()                           # no station write
+    data = json.loads((station / "dl" / "manifest.json").read_text())
+    assert data["awaiting_fix"]["reason"] == NEWLY_HELD_REASON
+    assert {l["slug"]: l["station"] for l in _records(batch)} == {
+        "dl": "marked", "pk": "not delivered"}
+
+
+def test_newly_held_reason_kinds_first_seen_and_package_fallback(tmp_path):
+    cfg, root, _ = _lib(tmp_path)
+    a = _show(root, "a")
+    bare = _show(root, "bare")
+    arm = _arm(cfg,
+               _newly_held(a, gather_flags=["duration mismatch on t1.mp3: 1 vs 2", VENUE_FLAG],
+                           vet_flags=[VET_FLAG, "research asserts unknown song: Y"],
+                           brief_flags=[SONG_FLAG, VENUE_FLAG]),
+               _newly_held(bare, gather_flags=[], vet_flags=[], brief_flags=[]))
+    items, _ = ba.mark_plan(root, arm, set(), [], set())
+    assert {i.slug: i.reason for i in items} == {
+        "a": "newly held by today's checks: package, venue, research-song, briefing-song",
+        "bare": "newly held by today's checks"}
+
+
+def test_newly_held_label_only_and_processed_stay_unmarked(tmp_path):
+    cfg, root, _ = _lib(tmp_path)
+    label = _show(root, "label")
+    proc = _show(root, "proc")
+    _processed(proc)
+    arm = _arm(cfg,
+               _newly_held(label, title_changes=[{"index": 1, "old": "Song 1",
+                                                  "new": "Song 1", "old_source": "tags",
+                                                  "new_source": "setlist"}]),
+               _newly_held(proc))
+    assert ba.mark_plan(root, arm, set(), [], set()) == ([], [])
+
+
+def test_earlier_triggers_win_over_newly_held(tmp_path):
+    cfg, root, _ = _lib(tmp_path)
+    vis = _show(root, "vis")
+    frozen = _show(root, "frozen")
+    guard = _show(root, "guard")
+    resel = _show(root, "resel")
+    arm = _arm(cfg, _newly_held(vis, venue={"old": "A", "new": "B"}),
+               _newly_held(frozen, needs_llm=["stored alignment llm"]),
+               _newly_held(guard, stored_brief_guard=[SONG_FLAG]),
+               _newly_held(resel))
+    items, unplannable = ba.mark_plan(root, arm, {"frozen"},
+                                      [{"slug": "resel", "stored": IDENT, "pick": OTHER}],
+                                      set())
+    assert unplannable == []
+    assert {i.slug: (i.reason, i.start_stage) for i in items} == {
+        "vis": ("changed by the held-backlog fixes: venue", "gather"),
+        "frozen": ("replay needs an LLM call: stored alignment llm", "gather"),
+        "guard": ("stored briefing fails today's guard", "gather"),
+        "resel": (f"recording re-selection: {IDENT} -> {OTHER}", "select"),
+    }
+
+
+def test_mark_dry_run_table_has_the_newly_held_row(tmp_path, monkeypatch, capsys):
+    cfg, root, station = _lib(tmp_path)
+    du = _show(root, "du", delivered=True, station=station)
+    pk = _show(root, "pk")
+    pk2 = _show(root, "pk2")
+    swap = _show(root, "swap")
+    arm = _arm(cfg, _newly_held(du), _newly_held(pk), _newly_held(pk2),
+               _row(swap, outcome="clean-changed", filenames=["t1.mp3", "t9.mp3"]))
+    arm_path = tmp_path / "arm.json"
+    arm_path.write_text(json.dumps(arm))
+    scratch = tmp_path / "scratch"
+    monkeypatch.setattr("llama.replay.code_identity", lambda: "abc")
+    base = ["--config", str(cfg)]
+    assert ba.main(base + ["freeze", "--arm", str(arm_path), "--campaign-dir", str(scratch)]) == 0
+    (scratch / "reselections.json").write_text(json.dumps({"written_at": T_LATER, "rows": []}))
+    before_lib, before_station = _files(root), _files(station)
+    capsys.readouterr()
+    assert ba.main(base + ["mark", "--arm", str(arm_path), "--campaign-dir", str(scratch)]) == 0
+    out = capsys.readouterr().out
+    assert _files(root) == before_lib and _files(station) == before_station
+    assert "marking plan: 4 show(s)" in out
+    assert ("\n  newly held by today's checks: delivered unvoiced 1, delivered voiced 0, "
+            "packaged 2, briefed 0, held 0\n") in out
+    assert ("\n  changed by the held-backlog fixes: delivered unvoiced 0, delivered voiced 0, "
+            "packaged 1, briefed 0, held 0\n") in out
+    assert "by arm outcome: clean-changed 1, newly-held 3" in out
+
+
 # --- the CLI gates -----------------------------------------------------------------
 
 def _cli_fixture(tmp_path, monkeypatch, *, resel_at=T_LATER, delivered=True, station_ok=True):

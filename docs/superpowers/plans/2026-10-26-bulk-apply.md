@@ -64,7 +64,7 @@ A rule matches a flag when `rule.identifier == show.identifier`, the kinds are e
 
 **Fixed strings:**
 - overrule note (notes.json): `overruled: <flag>`
-- marking reasons: `changed by the held-backlog fixes: <fields, comma-joined from files, titles, sets, segues, set_breaks, venue, city, date>`; `replay needs an LLM call: <needs_llm, comma-joined>`; `stored briefing fails today's guard`; `recording re-selection: <stored> -> <pick>`
+- marking reasons: `changed by the held-backlog fixes: <fields, comma-joined from files, titles, sets, segues, set_breaks, venue, city, date>`; `replay needs an LLM call: <needs_llm, comma-joined>`; `stored briefing fails today's guard`; `recording re-selection: <stored> -> <pick>`; `newly held by today's checks: <flag kinds, comma-joined in first-seen order from gather_flags, vet_flags, brief_flags; package for a non-overrulable flag>`
 - deliver: `refusing to deliver <slug>: awaiting fix (marked <marked_at>: <reason>)` then `  re-process it first: llama reapply <slug> --allow-structure-change` (start `gather`; ` --with-gather-llm` appended when the slug is on the frozen needs-LLM list) or `  re-process it first: llama redo <slug> --from select`; batch line suffix `  (refused: awaiting fix)`; `refusing to replace <slug>: the re-processed show equals the voiced station copy; keep the voicing with: llama clear-mark <slug>`
 - campaign record: `<slug>: cannot read campaign.json (<error>); check it by hand`
 - mark: `reselections.json predates the arm; re-run: bulk_apply.py reselect-check --write`
