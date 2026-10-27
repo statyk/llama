@@ -311,3 +311,35 @@ def test_align_reproduced_rate(tmp_path, capsys):
                       "--weekly-share", "50")
     assert rc == 0
     assert "align_reproduced: 2/3" in out
+
+
+def _append_line(d, slug, kind, at, calls):
+    row = {"slug": slug, "outcome": "cleared", "retryable": False, "kind": kind, "at": at,
+           "llm_calls": calls, "meter": {"before": _meter(90, 90), "after": _meter(95, 95)}}
+    with (d / "progress.jsonl").open("a") as f:
+        f.write(json.dumps(row) + "\n")
+
+
+def test_foreign_spend_hidden_by_a_later_retry_is_caught(tmp_path, capsys):
+    cfg, _, _ = _lib(tmp_path)
+    d = _block(tmp_path, "b", 20, (30, 40), (10, 12))
+    _add_row(d, "zz", "needs-llm", "2026-10-27T10:05:30+00:00", 2)      # inside, spent
+    _append_line(d, "zz", "needs-llm", "2026-10-27T12:00:00+00:00", 2)  # re-run outside
+    q = _queue(tmp_path, {"dead": {"fresh": {"unvoiced": 5, "voiced": 0}}})
+    rc, out = _report(cfg, capsys, "--block", f"dead-fresh={d}", "--queue", str(q),
+                      "--weekly-share", "50")
+    assert ("dead-fresh: not contiguous: 1 spending row(s) of another kind inside it; "
+            "re-run as one block per kind") in out
+    assert "per-show 5h" not in out and "7d/5h ratio" not in out
+    assert "no usable block" in out
+
+
+@pytest.mark.parametrize("at", ["2026-10-27T10:00:00+00:00", "2026-10-27T10:19:00+00:00"])
+def test_foreign_window_is_inclusive(tmp_path, capsys, at):
+    cfg, _, _ = _lib(tmp_path)
+    d = _block(tmp_path, "b", 20, (30, 40), (10, 12))
+    _add_row(d, "zz", "needs-llm", at, 2)       # exactly the block's first / last row's `at`
+    q = _queue(tmp_path, {"dead": {"fresh": {"unvoiced": 5, "voiced": 0}}})
+    rc, out = _report(cfg, capsys, "--block", f"dead-fresh={d}", "--queue", str(q),
+                      "--weekly-share", "50")
+    assert "not contiguous: 1 spending row(s) of another kind inside it" in out

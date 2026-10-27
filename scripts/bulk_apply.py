@@ -1721,14 +1721,37 @@ def _block_rows(batch: Path, kind: str) -> list[dict]:
     return [r for k, r in _spending_rows(batch) if k == kind]
 
 
+def _all_progress_rows(batch: Path) -> list[dict]:
+    """Every parseable object line of the batch's progress.jsonl, in file order (not just
+    each slug's last row; an unparseable line is skipped, as `reapply.read_progress` does)."""
+    path = batch / "progress.jsonl"
+    if not path.exists():
+        return []
+    out = []
+    for line in path.read_text().splitlines():
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict) and isinstance(row.get("slug"), str):
+            out.append(row)
+    return out
+
+
 def _foreign_inside(batch: Path, kind: str) -> int:
-    """Spending rows of another kind whose time falls inside the block's own window."""
-    spent = _spending_rows(batch)
-    mine = [str(r.get("at")) for k, r in spent if k == kind]
+    """Spending progress lines of another kind whose time falls inside the block's own
+    window. Every line counts: an other-kind show that spent inside the window and was
+    re-run outside it leaves only its later row as the slug's last row."""
+    mine = [str(r.get("at")) for k, r in _spending_rows(batch) if k == kind]
     if not mine:
         return 0
     lo, hi = mine[0], mine[-1]
-    return sum(1 for k, r in spent if k != kind and lo <= str(r.get("at")) <= hi)
+    _, lst = _read_json_file(batch / "list.json", "batch list")
+    kinds = {r.get("slug"): r.get("kind") for r in lst["rows"] if isinstance(r, dict)}
+    return sum(1 for r in _all_progress_rows(batch)
+               if kinds.get(r["slug"]) != kind
+               and isinstance(r.get("llm_calls"), (int, float)) and r["llm_calls"] > 0
+               and lo <= str(r.get("at")) <= hi)
 
 
 def _meter_of(row: dict, which: str) -> dict:
