@@ -55,6 +55,8 @@ from llama.workspace import (ShowWorkspace, drop_stage_artifacts, read_json, rea
 # consecutive LLM failures of any kind (an openrouter 429 or an unrecognised
 # refusal arrives as a plain HerderError, which the pause path never sees).
 STOP_AFTER_LLM_FAILURES = 3
+# Consecutive `StationUnreadable` rows after which a batch stops (a dropped mount).
+STOP_AFTER_STATION_UNREADABLE = 3
 
 # classify's held-show outcomes -> the dry-run prediction (`needs-llm` stops
 # before the dry-run check, like the apply).
@@ -448,11 +450,20 @@ def read_progress(batch: Path) -> dict[str, dict]:
     return out
 
 
-def record_progress(batch: Path, slug: str, outcome: str, retryable: bool) -> None:
-    """Append one progress row under the batch's own lock."""
+def outcome_retryable(outcome: str) -> bool:
+    """Whether a row that ended in `outcome` is run again by a re-run of the same list:
+    a row that needed an LLM call it was not allowed, and a structure change nobody
+    allowed yet. The committed outcomes and the `skipped: processed`/`re-selection`
+    rows are finished."""
+    return outcome in ("needs-llm", "skipped: structure changed")
+
+
+def record_progress(batch: Path, slug: str, outcome: str, retryable: bool,
+                    extra: dict | None = None) -> None:
+    """Append one progress row under the batch's own lock; `extra`'s keys are merged in."""
     path = batch / "progress.jsonl"
     line = json.dumps({"slug": slug, "outcome": outcome, "retryable": bool(retryable),
-                       "at": datetime.now(timezone.utc).isoformat()})
+                       "at": datetime.now(timezone.utc).isoformat(), **(extra or {})})
     with file_lock(batch / "progress.lock"):
         # A previous append cut short (no trailing newline) must not swallow this row.
         lead = ""

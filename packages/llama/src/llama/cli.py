@@ -4079,6 +4079,14 @@ def reapply(
         False, "--with-gather-llm",
         help="also re-process a show whose replay needs gather's own LLM calls "
              "(extract_setlist, align_structure); spends LLM calls, never research"),
+    seven_day_ceiling: float = typer.Option(
+        None, "--seven-day-ceiling", min=0, max=100,
+        help="--from-list only: pause when the weekly meter passes this percent "
+             "(overrides [pacing] seven_day_ceiling for this run)"),
+    stop_at_points: int = typer.Option(
+        None, "--stop-at-points", min=1,
+        help="--from-list only: stop once the 5-hour meter has moved this many points "
+             "within one window (a trial block)"),
 ):
     """Re-process shows in place with exactly the replay harness's
     computation: gather and vet offline from the cache and the stored vetting
@@ -4101,8 +4109,12 @@ def reapply(
     if from_list is not None:
         _reapply_list(from_list, dry_run=dry_run,
                       allow_structure_change=allow_structure_change,
-                      with_gather_llm=with_gather_llm)
+                      with_gather_llm=with_gather_llm,
+                      seven_day_ceiling=seven_day_ceiling, stop_at_points=stop_at_points)
         return
+    if seven_day_ceiling is not None or stop_at_points is not None:
+        typer.echo("--seven-day-ceiling and --stop-at-points take --from-list", err=True)
+        raise typer.Exit(1)
     if not names:
         typer.echo("give one or more shows (or --from-list)", err=True)
         raise typer.Exit(1)
@@ -4167,14 +4179,32 @@ def _meter_pct(reading) -> str:
     return str(reading.five_hour.percent)
 
 
+def _meter_row(reading) -> dict:
+    """A progress row's meter reading: whole percents and reset instants, null when absent."""
+    def one(m):
+        return (None, None) if m is None else (
+            m.percent, m.resets_at.isoformat() if m.resets_at is not None else None)
+    five, seven = (one(getattr(reading, "five_hour", None)),
+                   one(getattr(reading, "seven_day", None)))
+    return {"five_hour": five[0], "five_hour_resets": five[1],
+            "seven_day": seven[0], "seven_day_resets": seven[1]}
+
+
 def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = False,
-                  with_gather_llm: bool = False) -> None:
+                  with_gather_llm: bool = False, seven_day_ceiling: float | None = None,
+                  stop_at_points: int | None = None) -> None:
     """`llama reapply --from-list` (spec slice 6 "Batch state"): resumable
     through `<root>/reapply/<list hash>/progress.jsonl`, a pacing gate before
     every show, and two stops -- a usage-limit refusal (clean, at the show
     boundary, nothing recorded for the interrupted show) and
     STOP_AFTER_LLM_FAILURES consecutive LLM failures of any other kind. Every
-    other per-show failure is recorded retryable and the batch goes on."""
+    other per-show failure is recorded retryable and the batch goes on.
+
+    A non-dry run first snapshots the batch's shows (`<batch>/snapshot/`, reused by
+    a re-run), records each write's after-state inside the show lock, stops after
+    STOP_AFTER_STATION_UNREADABLE consecutive unreadable station copies, and can
+    end a trial block (`--stop-at-points`)."""
+    from llama import batch_snapshot, campaign_gate
     from llama import reapply as reapply_mod
     from llama.catalog import CatalogEntry, derive_state, needs_audio_download
     from llama.replay import code_identity, config_fingerprint
@@ -4188,21 +4218,55 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
     rows = data["rows"]
+    campaign_doc = data.get("campaign")
+    if campaign_doc is not None:
+        try:
+            campaign_gate.require_tools(lambda s: typer.echo(s, err=True), pin=campaign_doc)
+        except LlamaError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1)
+    station_root = config.delivery_path
+    if not dry_run and station_root is not None and not station_root.is_dir():
+        # Strict station reuse would otherwise fail every row only after its
+        # gather/brief LLM spend.
+        typer.echo(f"station root {station_root} is not a directory; "
+                   "is the station mounted?", err=True)
+        raise typer.Exit(1)
     batch = reapply_mod.batch_dir(config.root, path)
+    snap = batch / "snapshot"
     if not dry_run:
         set_capture_dir(config.root / "llm-failures")
+        fresh_batch = not (batch / "progress.jsonl").exists() and not snap.exists()
         batch.mkdir(parents=True, exist_ok=True)
         if not (batch / "list.json").exists():
             shutil.copyfile(path, batch / "list.json")
+        if fresh_batch:
+            try:
+                batch_snapshot.take(
+                    snap, config.root,
+                    [r["slug"] for r in rows if (config.root / "shows" / r["slug"]).is_dir()],
+                    station_root=station_root)
+            except LlamaError as exc:
+                typer.echo(str(exc), err=True)
+                raise typer.Exit(1)
+        elif not snap.exists():
+            typer.echo("warning: no snapshot for this batch (started before snapshots)")
+        if campaign_doc is not None:
+            campaign_gate.retire_rekey_restore(
+                config.root, by=f"bulk-apply wave {batch.name}",
+                at=datetime.now(timezone.utc).isoformat())
     progress = reapply_mod.read_progress(batch) if batch.is_dir() else {}
     finished = {s for s, r in progress.items() if not r.get("retryable", True)}
     providers = make_providers(config)
-    pace = pace_options(config)
+    pace = pace_options(config, seven_day_ceiling=seven_day_ceiling)
     state = pacing_state.read_state(config.root)
     delivered = {e.performance_id for e in ledger.entries() if e.status == "delivered"}
     resume = f"resume with: llama reapply --from-list {path}"
     consecutive, failed = 0, False
+    unreadable = 0
     n_finished = fresh = downloads = 0
+    block = None        # the trial block: [first before-reading, shows counted]
+    crossed_warned = False
 
     def fail(slug: str, exc: Exception, text: str | None = None) -> None:
         nonlocal failed
@@ -4211,6 +4275,24 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
         typer.echo(f"FAILED {slug}: {text}", err=True)
         if not dry_run:
             reapply_mod.record_progress(batch, slug, f"failed: {text}"[:300], retryable=True)
+
+    def after_hook(slug: str):
+        """The write's undo point, recorded inside the show lock (None: no snapshot)."""
+        if dry_run or not snap.exists():
+            return None
+
+        def hook(ws) -> None:
+            try:
+                batch_snapshot.record_after(snap, slug, config.root, station_root=station_root)
+            except LlamaError as exc:
+                if station_root is not None and not station_root.is_dir():
+                    # The mount dropped mid-wave: an unreadable station copy, so the
+                    # unit restores and the streak counts it.
+                    raise station_mark.StationUnreadable(
+                        f"{slug}: station copy unreadable: station root {station_root} "
+                        "is not a directory") from exc
+                raise
+        return hook
 
     for row in rows:
         slug = row["slug"]
@@ -4243,7 +4325,8 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
                                            row=row, dry_run=dry_run,
                                            echo=lambda s: typer.echo(s, err=True),
                                            allow_structure_change=allow_structure_change,
-                                           with_gather_llm=with_gather_llm)
+                                           with_gather_llm=with_gather_llm,
+                                           after_commit=after_hook(slug))
         except RateLimited as exc:
             # Must stay above HerderError, which it subclasses. Nothing is
             # recorded: the interrupted show was not committed and re-runs.
@@ -4255,6 +4338,16 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             consecutive += 1
             if consecutive >= reapply_mod.STOP_AFTER_LLM_FAILURES:
                 typer.echo(f"stopping after {consecutive} consecutive LLM failures; {resume}")
+                raise typer.Exit(1)
+            continue
+        except station_mark.StationUnreadable as exc:
+            # The unit has restored the show; the row stays retryable. Three in a
+            # row means the mount is gone, not three bad copies.
+            fail(slug, exc)
+            unreadable += 1
+            if unreadable >= reapply_mod.STOP_AFTER_STATION_UNREADABLE:
+                typer.echo(f"stopping after {unreadable} consecutive unreadable station "
+                           f"copies (is the station mounted?); {resume}")
                 raise typer.Exit(1)
             continue
         except (IAError, LlamaError, ValueError, OSError) as exc:
@@ -4287,15 +4380,38 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
         # --allow-structure-change (the structure list needs it too); a re-run
         # without it just skips the row again.
         skipped_structure = out.outcome == "skipped: structure changed"
-        reapply_mod.record_progress(batch, slug, out.outcome, retryable=skipped_structure)
+        if out.outcome in ("cleared", "held", "label-only", "unchanged"):
+            unreadable = 0
+        after = _meter(config, pace)
+        reapply_mod.record_progress(
+            batch, slug, out.outcome, retryable=reapply_mod.outcome_retryable(out.outcome),
+            extra={"kind": out.kind, "audio": out.audio,
+                   "align_reproduced": out.align_reproduced,
+                   "meter": {"before": _meter_row(reading), "after": _meter_row(after)}})
         typer.echo(f"reapplied: {slug} -> {out.outcome}"
                    + (" (re-run with --allow-structure-change after checking)"
                       if skipped_structure else ""))
         if out.delivered and out.outcome == "cleared":
             _echo_redeliver_hint(config, slug)
         if _meter_applies(config, pace):
-            typer.echo(f"  meter: 5h {_meter_pct(reading)}% -> "
-                       f"{_meter_pct(_meter(config, pace))}%")
+            typer.echo(f"  meter: 5h {_meter_pct(reading)}% -> {_meter_pct(after)}%")
+        if stop_at_points is not None and reading is not None and after is not None \
+                and reading.five_hour is not None and after.five_hour is not None:
+            if block is None:
+                block = [reading.five_hour, 0]
+            block[1] += 1
+            start = block[0]
+            if after.five_hour.resets_at != start.resets_at:
+                if not crossed_warned:
+                    typer.echo("warning: this block crossed a 5-hour reset; "
+                               "discard it and re-run")
+                    crossed_warned = True
+            elif after.five_hour.percent - start.percent >= stop_at_points:
+                typer.echo(f"trial block done: 5h meter moved "
+                           f"{after.five_hour.percent - start.percent} points over "
+                           f"{block[1]} shows")
+                typer.echo(f"  {resume}")
+                raise typer.Exit(1 if failed else 0)
     if dry_run:
         typer.echo(f"summary: {len(rows)} rows, {n_finished} already finished, {fresh} fresh "
                    f"briefs, {downloads} downloads (~175 MB each, "

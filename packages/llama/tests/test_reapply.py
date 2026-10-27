@@ -2123,3 +2123,328 @@ def test_after_commit_failure_keeps_library_audio(tmp_path, monkeypatch):
                      dry_run=False, echo=lambda s: None, after_commit=hook)
     assert audio_files(ws) == held                       # nothing purged
     assert tree_bytes(ws.dir) == before
+
+
+# --- Task 13: wave snapshot, weekly ceiling override, trial stop, richer progress ---
+
+def _batch_env(tmp_path, monkeypatch, n_clones=0, station=False):
+    """A library, its list over the held show (+ clones), the CLI wired to the
+    fake providers and a stubbed package; optionally a station root."""
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    if station:
+        (root / "config.toml").write_text(
+            (root / "config.toml").read_text().replace(
+                'root = ', f'delivery_path = "{tmp_path / "station"}"\nroot = ', 1))
+        (tmp_path / "station").mkdir()
+    config = load_config(root / "config.toml")
+    entries = [entry] + _clones(root, entry, n_clones)
+    lst = _list_file(tmp_path, root, config, entries)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    return root, config, entries, lst
+
+
+def _meters(monkeypatch, readings):
+    """read_usage replaced by a script of (five, five_reset, seven) tuples."""
+    import llama.cli as cli
+    from herder.usage import Meter, UsageReading
+    seq = list(readings)
+    def fake(*a, **k):
+        five, reset, seven = seq.pop(0) if len(seq) > 1 else seq[0]
+        return UsageReading(five_hour=Meter(five, reset), seven_day=Meter(seven, reset))
+    monkeypatch.setattr(cli, "read_usage", fake)
+
+
+def _progress_rows(batch):
+    return [json.loads(l) for l in (batch / "progress.jsonl").read_text().splitlines()]
+
+
+def test_list_batch_takes_a_snapshot_before_the_first_write(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=1)
+    batch = batch_dir(root, lst)
+    seen = []
+    real = reapply_mod.build_package
+    def fake(show_ws, ia, show, **kw):
+        seen.append(((batch / "snapshot" / "manifest.json").exists(),
+                     (batch / "progress.jsonl").exists()))
+        write_artifact(show_ws.package_dir / "manifest.json", {"schema_version": 3, "tracks": []})
+        return show_ws.package_dir, []
+    monkeypatch.setattr(reapply_mod, "build_package", fake)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0, r.output
+    assert seen and all(s == (True, False) or s == (True, True) for s in seen)
+    assert seen[0] == (True, False)       # snapshot exists, no progress row yet
+    m = json.loads((batch / "snapshot" / "manifest.json").read_text())
+    assert set(m["slugs"]) == {e.slug for e in entries}
+    # a re-run of the same list reuses the snapshot (take refuses an existing dir)
+    before = (batch / "snapshot" / "manifest.json").read_bytes()
+    r2 = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r2.exit_code == 0, r2.output
+    assert (batch / "snapshot" / "manifest.json").read_bytes() == before
+
+
+def test_a_batch_with_progress_but_no_snapshot_warns_and_goes_on(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    batch = batch_dir(root, lst)
+    batch.mkdir(parents=True)
+    reapply_mod.record_progress(batch, "other", "cleared", retryable=False)
+    _stub_package(monkeypatch)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0, r.output
+    assert "warning: no snapshot for this batch (started before snapshots)" in r.output
+    assert not (batch / "snapshot").exists()
+
+
+def test_after_records_follow_each_write(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from llama import batch_snapshot
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=1)
+    batch = batch_dir(root, lst)
+    _stub_package(monkeypatch)
+    real = batch_snapshot.record_after
+    order = []
+    def spy(snap, slug, root_, *, station_root):
+        with pytest.raises(Locked):               # inside the show lock
+            with file_lock(root_ / "shows" / slug / ".lock", blocking=False):
+                pass
+        assert slug not in read_progress(batch)   # never after the unit / the row
+        assert read_model(root_ / "shows" / slug / "show.json", Show).needs_review is False
+        order.append(slug)
+        return real(snap, slug, root_, station_root=station_root)
+    monkeypatch.setattr(batch_snapshot, "record_after", spy)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0, r.output
+    recorded = [json.loads(l)["slug"] for l in (batch / "snapshot" / "after.jsonl").read_text().splitlines()]
+    assert recorded == order and set(order) == {e.slug for e in entries}
+
+
+def test_seven_day_ceiling_override_pauses(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from datetime import datetime, timezone
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    calls = _stub_package(monkeypatch)
+    _meters(monkeypatch, [(10, datetime(2030, 1, 1, tzinfo=timezone.utc), 41)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--seven-day-ceiling", "40")
+    assert r.exit_code == 0 and "paused: weekly window at 41%" in r.output
+    assert f"resume with: llama reapply --from-list {lst}" in r.output
+    assert calls == []
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))     # default ceiling 90
+    assert r.exit_code == 0 and "reapplied:" in r.output and len(calls) == 1
+
+
+def test_pace_options_seven_day_ceiling_override():
+    from llama import pacing
+    from llama.config import Config
+    assert pacing.pace_options(Config()).seven_day_ceiling == 90
+    assert pacing.pace_options(Config(), seven_day_ceiling=40.0).seven_day_ceiling == 40.0
+
+
+def test_stop_at_points_ends_the_block(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from datetime import datetime, timezone
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=2)
+    calls = _stub_package(monkeypatch)
+    reset = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    # (before, after) per show: block starts at 40; show 1 -> 42, show 2 -> 45
+    _meters(monkeypatch, [(40, reset, 7), (42, reset, 7), (42, reset, 7), (45, reset, 7),
+                          (45, reset, 7), (46, reset, 7)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--stop-at-points", "5")
+    assert r.exit_code == 0, r.output
+    assert "trial block done: 5h meter moved 5 points over 2 shows" in r.output
+    assert f"resume with: llama reapply --from-list {lst}" in r.output
+    assert len(calls) == 2
+
+
+def test_stop_at_points_warns_when_the_block_crosses_a_reset(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from datetime import datetime, timezone
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=1)
+    calls = _stub_package(monkeypatch)
+    r1 = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    r2 = datetime(2030, 1, 1, 5, tzinfo=timezone.utc)
+    _meters(monkeypatch, [(90, r1, 7), (3, r2, 7), (3, r2, 7), (5, r2, 7)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--stop-at-points", "5")
+    assert r.exit_code == 0, r.output
+    assert "warning: this block crossed a 5-hour reset; discard it and re-run" in r.output
+    assert "trial block done" not in r.output and len(calls) == 2
+
+
+def test_progress_rows_carry_meter_kind_audio(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from datetime import datetime, timezone
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    _stub_package(monkeypatch)
+    reset = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    _meters(monkeypatch, [(40, reset, 7), (42, reset, 8)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0, r.output
+    row = _progress_rows(batch_dir(root, lst))[0]
+    assert row["outcome"] == "cleared" and row["retryable"] is False
+    assert row["kind"] == "reuse" and "audio" in row and "align_reproduced" in row
+    iso = reset.isoformat()
+    assert row["meter"] == {
+        "before": {"five_hour": 40, "five_hour_resets": iso, "seven_day": 7, "seven_day_resets": iso},
+        "after": {"five_hour": 42, "five_hour_resets": iso, "seven_day": 8, "seven_day_resets": iso}}
+
+
+def test_progress_row_meter_is_all_null_without_a_window(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    _stub_package(monkeypatch)
+    import llama.cli as cli
+    monkeypatch.setattr(cli, "_meter_applies", lambda *a: False)
+    assert cli_invoke(_cli(root), "reapply", "--from-list", str(lst)).exit_code == 0
+    null = {"five_hour": None, "five_hour_resets": None, "seven_day": None, "seven_day_resets": None}
+    assert _progress_rows(batch_dir(root, lst))[0]["meter"] == {"before": null, "after": null}
+
+
+def _unreadable_script(monkeypatch, slugs_to_exc, default=("cleared", "reuse")):
+    from llama.station_mark import StationUnreadable
+    def fake(config, ia, ledger, entry, **kw):
+        step = slugs_to_exc.get(entry.slug, default)
+        if step == "unreadable":
+            raise StationUnreadable(f"{entry.slug}: station copy unreadable: no directory x")
+        return ReapplyOutcome(slug=entry.slug, outcome=step[0], briefing=step[1],
+                              flags=[], delivered=False, written=[])
+    monkeypatch.setattr(reapply_mod, "reapply_show", fake)
+
+
+def test_batch_stops_after_three_unreadable_station_copies(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=4)
+    _unreadable_script(monkeypatch, {e.slug: "unreadable" for e in entries})
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 1, r.output
+    assert (f"stopping after 3 consecutive unreadable station copies (is the station mounted?); "
+            f"resume with: llama reapply --from-list {lst}") in r.output
+    prog = read_progress(batch_dir(root, lst))
+    assert len(prog) == 3 and all(p["retryable"] is True for p in prog.values())
+    assert reapply_mod.STOP_AFTER_STATION_UNREADABLE == 3
+
+
+def test_a_writing_outcome_resets_the_unreadable_streak(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=4)
+    slugs = [e.slug for e in entries]
+    script = {s: "unreadable" for s in slugs}
+    script[slugs[2]] = ("cleared", "reuse")
+    _unreadable_script(monkeypatch, script)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert "stopping after" not in r.output and r.exit_code == 1    # failures -> exit 1, no stop
+    assert len(read_progress(batch_dir(root, lst))) == 5
+
+
+def test_station_unpaired_is_an_ordinary_retryable_failure(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from llama.audio_reuse import StationUnpaired
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=3)
+    def fake(config, ia, ledger, entry, **kw):
+        raise StationUnpaired(f"{entry.slug}: station copy does not pair")
+    monkeypatch.setattr(reapply_mod, "reapply_show", fake)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert "stopping after" not in r.output and r.exit_code == 1
+    prog = read_progress(batch_dir(root, lst))
+    assert len(prog) == 4 and all(p["retryable"] for p in prog.values())
+
+
+def test_a_non_dry_list_run_refuses_an_unmounted_station_before_anything(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, station=True)
+    shutil.rmtree(tmp_path / "station")
+    calls = _stub_package(monkeypatch)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 1
+    assert str(tmp_path / "station") in r.output and "mounted" in r.output
+    assert calls == [] and not batch_dir(root, lst).exists()
+    # a dry run is not refused
+    assert cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run").exit_code == 0
+
+
+def test_a_mount_drop_seen_by_record_after_is_an_unreadable_station_copy(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=3, station=True)
+    def fake(show_ws, ia, show, **kw):
+        shutil.rmtree(tmp_path / "station", ignore_errors=True)    # the mount drops mid-wave
+        write_artifact(show_ws.package_dir / "manifest.json", {"schema_version": 3, "tracks": []})
+        return show_ws.package_dir, []
+    monkeypatch.setattr(reapply_mod, "build_package", fake)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 1, r.output
+    assert "station copy unreadable" in r.output and "stopping after 3 consecutive unreadable" in r.output
+    prog = read_progress(batch_dir(root, lst))
+    assert len(prog) == 3 and all(p["retryable"] for p in prog.values())
+    # the unit restored each show: still held, no package manifest left by the failed unit
+    for e in entries[:3]:
+        assert read_model(e.ws.show, Show).needs_review is True
+
+
+def test_campaign_list_checks_installed_versions(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from llama import campaign_gate
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    data = json.loads(lst.read_text())
+    data["campaign"] = {"version": "2.20.0", "pin_sha": "a" * 40}
+    lst.write_text(json.dumps(data))
+    calls = _stub_package(monkeypatch)
+    seen = []
+    def refuse(echo, *, pin):
+        seen.append(pin)
+        raise campaign_gate.GateRefused("refusing: llama below 2.20.0: /x/llama")
+    monkeypatch.setattr(campaign_gate, "require_tools", refuse)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 1 and "refusing: llama below 2.20.0" in r.output
+    assert seen == [{"version": "2.20.0", "pin_sha": "a" * 40}]
+    assert calls == [] and not batch_dir(root, lst).exists()
+
+
+def test_campaign_list_retires_the_rekey_restore(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from llama import campaign_gate
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    data = json.loads(lst.read_text())
+    data["campaign"] = {"version": "2.20.0", "pin_sha": "a" * 40}
+    lst.write_text(json.dumps(data))
+    monkeypatch.setattr(campaign_gate, "require_tools", lambda echo, *, pin: None)
+    (root / "rekey-applied.json").write_text(json.dumps({"snapshot": "s", "shows": []}))
+    _stub_package(monkeypatch)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
+    assert "retired" not in json.loads((root / "rekey-applied.json").read_text())
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0, r.output
+    rec = json.loads((root / "rekey-applied.json").read_text())
+    assert rec["retired"]["by"] == f"bulk-apply wave {batch_dir(root, lst).name}"
+
+
+@pytest.mark.parametrize("outcome,retryable", [
+    ("cleared", False), ("held", False), ("label-only", False), ("unchanged", False),
+    ("skipped: processed", False),
+    ("skipped: re-selection (llama redo x --from select)", False),
+    ("needs-llm", True), ("skipped: structure changed", True)])
+def test_retryability_per_outcome(tmp_path, monkeypatch, outcome, retryable):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    _unreadable_script(monkeypatch, {}, default=(outcome, "none"))
+    assert cli_invoke(_cli(root), "reapply", "--from-list", str(lst)).exit_code == 0
+    assert read_progress(batch_dir(root, lst))[HELD]["retryable"] is retryable
+    # a re-run retries exactly the retryable rows
+    seen = []
+    def fake(config, ia, ledger, entry, **kw):
+        seen.append(entry.slug)
+        return ReapplyOutcome(slug=entry.slug, outcome=outcome, briefing="none",
+                              flags=[], delivered=False, written=[])
+    monkeypatch.setattr(reapply_mod, "reapply_show", fake)
+    cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert seen == ([HELD] if retryable else [])
+
+
+def test_held_backlog_lists_still_run(tmp_path, monkeypatch):    # (pin)
+    from conftest import cli_invoke
+    root, config, ledger, entry, _ = _env(tmp_path)
+    lst = _list_file(tmp_path, root, config, [entry])    # no `campaign` key
+    import llama.cli as cli
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    _stub_package(monkeypatch)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0 and f"reapplied: {HELD} -> cleared" in r.output
