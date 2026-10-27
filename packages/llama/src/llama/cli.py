@@ -4261,7 +4261,14 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
     pace = pace_options(config, seven_day_ceiling=seven_day_ceiling)
     state = pacing_state.read_state(config.root)
     delivered = {e.performance_id for e in ledger.entries() if e.status == "delivered"}
-    resume = f"resume with: llama reapply --from-list {path}"
+    # The command that continues THIS run: every option given is repeated, so a
+    # resumed pause keeps its ceiling and its allowances.
+    resume = (f"resume with: llama reapply --from-list {path}"
+              + (" --allow-structure-change" if allow_structure_change else "")
+              + (" --with-gather-llm" if with_gather_llm else "")
+              + (f" --seven-day-ceiling {seven_day_ceiling:g}"
+                 if seven_day_ceiling is not None else "")
+              + (f" --stop-at-points {stop_at_points}" if stop_at_points is not None else ""))
     consecutive, failed = 0, False
     unreadable = 0
     n_finished = fresh = downloads = 0
@@ -4384,7 +4391,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             unreadable = 0
         after = _meter(config, pace)
         reapply_mod.record_progress(
-            batch, slug, out.outcome, retryable=reapply_mod.outcome_retryable(out.outcome),
+            batch, slug, out.outcome, retryable=reapply_mod.outcome_retryable(out.outcome, with_gather_llm),
             extra={"kind": out.kind, "audio": out.audio,
                    "align_reproduced": out.align_reproduced,
                    "meter": {"before": _meter_row(reading), "after": _meter_row(after)}})

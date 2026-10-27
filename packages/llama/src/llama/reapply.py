@@ -450,12 +450,13 @@ def read_progress(batch: Path) -> dict[str, dict]:
     return out
 
 
-def outcome_retryable(outcome: str) -> bool:
+def outcome_retryable(outcome: str, with_gather_llm: bool = False) -> bool:
     """Whether a row that ended in `outcome` is run again by a re-run of the same list:
-    a row that needed an LLM call it was not allowed, and a structure change nobody
+    a row that needed an LLM call it was not allowed (run without --with-gather-llm), and a structure change nobody
     allowed yet. The committed outcomes and the `skipped: processed`/`re-selection`
     rows are finished."""
-    return outcome in ("needs-llm", "skipped: structure changed")
+    return ((outcome == "needs-llm" and not with_gather_llm)
+            or outcome == "skipped: structure changed")
 
 
 def record_progress(batch: Path, slug: str, outcome: str, retryable: bool,

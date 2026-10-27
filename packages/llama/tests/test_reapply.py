@@ -2417,16 +2417,18 @@ def test_campaign_list_retires_the_rekey_restore(tmp_path, monkeypatch):
     assert rec["retired"]["by"] == f"bulk-apply wave {batch_dir(root, lst).name}"
 
 
-@pytest.mark.parametrize("outcome,retryable", [
-    ("cleared", False), ("held", False), ("label-only", False), ("unchanged", False),
-    ("skipped: processed", False),
-    ("skipped: re-selection (llama redo x --from select)", False),
-    ("needs-llm", True), ("skipped: structure changed", True)])
-def test_retryability_per_outcome(tmp_path, monkeypatch, outcome, retryable):
+@pytest.mark.parametrize("outcome,retryable,gather_llm", [
+    ("needs-llm", False, True),
+    ("held", False, False), ("label-only", False, False), ("unchanged", False, False),
+    ("skipped: processed", False, False),
+    ("skipped: re-selection (llama redo x --from select)", False, False),
+    ("needs-llm", True, False), ("skipped: structure changed", True, False)])
+def test_retryability_per_outcome(tmp_path, monkeypatch, outcome, retryable, gather_llm):
     from conftest import cli_invoke
     root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
     _unreadable_script(monkeypatch, {}, default=(outcome, "none"))
-    assert cli_invoke(_cli(root), "reapply", "--from-list", str(lst)).exit_code == 0
+    extra = ["--with-gather-llm"] if gather_llm else []
+    assert cli_invoke(_cli(root), "reapply", "--from-list", str(lst), *extra).exit_code == 0
     assert read_progress(batch_dir(root, lst))[HELD]["retryable"] is retryable
     # a re-run retries exactly the retryable rows
     seen = []
@@ -2435,7 +2437,7 @@ def test_retryability_per_outcome(tmp_path, monkeypatch, outcome, retryable):
         return ReapplyOutcome(slug=entry.slug, outcome=outcome, briefing="none",
                               flags=[], delivered=False, written=[])
     monkeypatch.setattr(reapply_mod, "reapply_show", fake)
-    cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    cli_invoke(_cli(root), "reapply", "--from-list", str(lst), *extra)
     assert seen == ([HELD] if retryable else [])
 
 
@@ -2448,3 +2450,24 @@ def test_held_backlog_lists_still_run(tmp_path, monkeypatch):    # (pin)
     _stub_package(monkeypatch)
     r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
     assert r.exit_code == 0 and f"reapplied: {HELD} -> cleared" in r.output
+
+
+def test_the_resume_line_carries_the_ceiling_that_paused_the_run(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    from datetime import datetime, timezone
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
+    _stub_package(monkeypatch)
+    _meters(monkeypatch, [(10, datetime(2030, 1, 1, tzinfo=timezone.utc), 41)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--seven-day-ceiling", "40",
+                   "--stop-at-points", "3")
+    assert f"resume with: llama reapply --from-list {lst} --seven-day-ceiling 40 --stop-at-points 3" in r.output
+
+
+def test_the_resume_line_carries_the_allow_flags(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=3)
+    _unreadable_script(monkeypatch, {e.slug: "unreadable" for e in entries})
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--with-gather-llm",
+                   "--allow-structure-change")
+    assert (f"resume with: llama reapply --from-list {lst} --allow-structure-change "
+            f"--with-gather-llm") in r.output
