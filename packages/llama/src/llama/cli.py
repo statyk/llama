@@ -4310,7 +4310,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             raise typer.Exit(1 if failed else 0)
 
     def fail(slug: str, exc: Exception, text: str | None = None, *,
-             reading=None, spent: bool = False) -> None:
+             reading=None, calls: int = 0) -> None:
         nonlocal failed
         failed = True
         text = text if text is not None else str(exc)
@@ -4319,8 +4319,9 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             after = _meter(config, pace)
             reapply_mod.record_progress(
                 batch, slug, f"failed: {text}"[:300], retryable=True,
-                extra={"meter": {"before": _meter_row(reading), "after": _meter_row(after)}})
-            trial(reading, after, spent)
+                extra={"llm_calls": calls,
+                       "meter": {"before": _meter_row(reading), "after": _meter_row(after)}})
+            trial(reading, after, calls > 0)
 
     def after_hook(slug: str):
         """The write's undo point, recorded inside the show lock (None: no snapshot)."""
@@ -4381,7 +4382,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             typer.echo(f"  {resume}")
             raise typer.Exit(1 if failed else 0)
         except (TaskFailed, HerderError) as exc:
-            fail(slug, exc, reading=reading, spent=llm_calls() > calls_before)
+            fail(slug, exc, reading=reading, calls=llm_calls() - calls_before)
             consecutive += 1
             if consecutive >= reapply_mod.STOP_AFTER_LLM_FAILURES:
                 typer.echo(f"stopping after {consecutive} consecutive LLM failures; {resume}")
@@ -4390,7 +4391,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
         except station_mark.StationUnreadable as exc:
             # The unit has restored the show; the row stays retryable. Three in a
             # row means the mount is gone, not three bad copies.
-            fail(slug, exc, reading=reading, spent=llm_calls() > calls_before)
+            fail(slug, exc, reading=reading, calls=llm_calls() - calls_before)
             unreadable += 1
             if unreadable >= reapply_mod.STOP_AFTER_STATION_UNREADABLE:
                 typer.echo(f"stopping after {unreadable} consecutive unreadable station "
@@ -4401,14 +4402,14 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             # ValueError covers pydantic's ValidationError and a JSON decode
             # error: a corrupt show.json/provenance.json/vetting.json/
             # overrides.json is this row's failure, never the batch's.
-            fail(slug, exc, reading=reading, spent=llm_calls() > calls_before)
+            fail(slug, exc, reading=reading, calls=llm_calls() - calls_before)
             continue
         except Exception as exc:   # noqa: BLE001 - last resort, below every arm above
             # Anything else (a MutagenError tagging a download, a wrong-typed
             # reviews.json) is still this row's failure: one bad show must never
             # abort the batch, nor wedge every re-run on the same row.
             fail(slug, exc, f"{type(exc).__name__}: {exc}", reading=reading,
-                 spent=llm_calls() > calls_before)
+                 calls=llm_calls() - calls_before)
             continue
         if dry_run:
             predicted = out.outcome.removeprefix("dry-run: ")
@@ -4434,6 +4435,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
         reapply_mod.record_progress(
             batch, slug, out.outcome, retryable=reapply_mod.outcome_retryable(out.outcome, with_gather_llm),
             extra={"kind": out.kind, "audio": out.audio,
+                   "llm_calls": llm_calls() - calls_before,
                    "align_reproduced": out.align_reproduced,
                    "meter": {"before": _meter_row(reading), "after": _meter_row(after)}})
         typer.echo(f"reapplied: {slug} -> {out.outcome}"

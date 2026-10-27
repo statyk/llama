@@ -2505,21 +2505,23 @@ def test_trial_count_excludes_shows_that_spent_nothing(tmp_path, monkeypatch):
     from conftest import cli_invoke
     from datetime import datetime, timezone
     import llama.cli as cli
-    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=5)
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=6)
     monkeypatch.setattr(cli, "make_providers", lambda config: {"brief": [FakeProvider([])]})
     slugs = [e.slug for e in entries]
     plan = {slugs[0]: (True, "cleared"),                       # spent, committed
             slugs[1]: (False, "skipped: processed"),           # no spend
             slugs[2]: (True, IAError("download failed")),      # spent, then failed
             slugs[3]: (False, "skipped: inputs changed"),      # no spend
-            slugs[4]: (True, "held"),                          # spent, held
-            slugs[5]: (False, "cleared")}                      # never reached
+            slugs[4]: (False, IAError("download failed")),     # failed without spending
+            slugs[5]: (True, "held"),                          # spent, held
+            slugs[6]: (False, "cleared")}                      # never reached
     _spending_stub(monkeypatch, lambda slug: plan[slug])
     reset = datetime(2030, 1, 1, tzinfo=timezone.utc)
-    # (before, after) per show; the block starts at 40 and passes 45 on show 5
+    # (before, after) per show; the block starts at 40 and passes 45 on show 6
     _meters(monkeypatch, [(40, reset, 7), (41, reset, 7),
                           (41, reset, 7), (41, reset, 7),
                           (41, reset, 7), (42, reset, 7),
+                          (42, reset, 7), (42, reset, 7),
                           (42, reset, 7), (42, reset, 7),
                           (42, reset, 7), (46, reset, 7)])
     r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--stop-at-points", "5")
@@ -2528,6 +2530,12 @@ def test_trial_count_excludes_shows_that_spent_nothing(tmp_path, monkeypatch):
     failed = rows[slugs[2]]
     assert failed["outcome"].startswith("failed:") and failed["retryable"] is True
     assert failed["meter"]["before"]["five_hour"] == 41 and failed["meter"]["after"]["five_hour"] == 42
+    # the progress file reproduces n: llm_calls says which rows spent
+    assert failed["llm_calls"] > 0
+    assert rows[slugs[4]]["outcome"].startswith("failed:") and rows[slugs[4]]["llm_calls"] == 0
+    assert rows[slugs[1]]["llm_calls"] == 0
+    assert rows[slugs[0]]["llm_calls"] > 0
+    assert sum(1 for x in rows.values() if x["llm_calls"] > 0) == 3
 
 
 def test_broken_snapshot_refuses_before_the_first_show(tmp_path, monkeypatch):
