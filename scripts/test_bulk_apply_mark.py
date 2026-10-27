@@ -1045,3 +1045,95 @@ def test_rerun_marks_the_station_with_the_batchs_own_at(tmp_path, monkeypatch):
     mark = station_mark.mark_of(json.loads((station / "d1" / "manifest.json").read_text()))
     assert mark["marked_at"] == at
     assert _records(batch)[-1]["at"] == at
+
+
+# --- Task 15b fix round 1: pin the review's surviving mutants M1, M2, M7 ------------
+
+def _crash_after_station_write(tmp_path, monkeypatch, *, newline=True):
+    """One delivered show marked by a run that stopped between its station write and
+    its record line (the library mark and the before copy are on disk)."""
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "d1", delivered=True, station=station)
+    mf = station / "d1" / "manifest.json"
+    if not newline:                                   # llama's own encoding
+        mf.write_bytes(json.dumps(json.loads(mf.read_text()), indent=2).encode())
+    original = mf.read_bytes()
+    batch = _batch(tmp_path)
+    items = [_item("d1", digests=input_digests(ws))]
+    real_append = ba._append_jsonl
+
+    def append(path, row):
+        raise RuntimeError("killed")
+    monkeypatch.setattr(ba, "_append_jsonl", append)
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 1
+    monkeypatch.setattr(ba, "_append_jsonl", real_append)
+    assert _records(batch) == []
+    assert station_mark.mark_of(json.loads(mf.read_text())) is not None
+    return root, station, ws, mf, original, batch, items
+
+
+def test_unverified_own_mark_is_recorded_and_listed(tmp_path, monkeypatch):
+    """Mutant M1: the station copy carries this batch's `marked_at`, but another writer
+    changed it since (so neither kind of evidence verifies): `_UNVERIFIED`, listed, exit 1,
+    the station copy untouched."""
+    root, station, ws, mf, original, batch, items = _crash_after_station_write(
+        tmp_path, monkeypatch)
+    data = json.loads(mf.read_text())
+    data["dj_notes"] = {"file": "dj-notes.md"}                   # emcee, since the mark
+    mf.write_text(json.dumps(data, indent=2) + "\n")
+    changed = mf.read_bytes()
+    msgs = []
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=msgs.append) == 1
+    [line] = _records(batch)
+    assert line["station"] == ba._UNVERIFIED
+    assert line["mark_added"] is True and line["before_sha256"] is None
+    assert line["after_sha256"] == _sha(changed)
+    assert "d1" in _listed(msgs)
+    assert mf.read_bytes() == changed
+
+
+@pytest.mark.parametrize("station_line", ["refused: Input/output error",
+                                          "marked, before copy not saved (x)"])
+def test_unmark_lists_an_unreadable_station_copy_with_a_before_copy(tmp_path, station_line):
+    """Mutant M2: the batch saved a before copy (it attempted a station write) and the
+    station copy cannot be read now: `unmark` cannot tell whether it carries this batch's
+    mark, so it lists it (exit 1) and keeps the library mark."""
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "d1", delivered=True, station=station)
+    mf = station / "d1" / "manifest.json"
+    batch = _batch(tmp_path)
+    at = "2026-10-27T12:00:00.000000Z"
+    campaign.add_mark(ws, reason="changed by the held-backlog fixes: titles",
+                      start_stage="gather", batch=batch.name, at=at)
+    (batch / "before").mkdir()
+    (batch / "before" / "d1.json").write_bytes(mf.read_bytes())
+    mf.write_text("{not json")
+    ba._append_jsonl(batch / "record.jsonl", {
+        "slug": "d1", "reason": "changed by the held-backlog fixes: titles",
+        "start_stage": "gather", "mark_added": True, "station": station_line,
+        "before_sha256": None, "after_sha256": None, "at": at})
+    rec = campaign.read_record(ws).model_dump_json()
+    msgs = []
+    assert ba.unmark(root, batch, station_root=station, apply=True, echo=msgs.append) == 1
+    assert any(m.startswith("d1: cannot check the station copy for this batch's mark")
+               for m in msgs), msgs
+    assert campaign.read_record(ws).model_dump_json() == rec
+    assert mf.read_text() == "{not json"
+
+
+def test_recognises_own_mark_on_a_copy_with_no_trailing_newline(tmp_path, monkeypatch):
+    """Mutant M7: evidence (1) re-encodes with the before copy's own trailing-newline
+    rule, as `write_mark` does; a llama-encoded copy (no trailing newline) is recognised
+    as `marked` and put back byte-identical."""
+    root, station, ws, mf, original, batch, items = _crash_after_station_write(
+        tmp_path, monkeypatch, newline=False)
+    assert not original.endswith(b"\n")
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 0
+    [line] = _records(batch)
+    assert line["station"] == "marked"
+    assert line["before_sha256"] == _sha(original)
+    assert ba.unmark(root, batch, station_root=station, apply=True, echo=lambda m: None) == 0
+    assert mf.read_bytes() == original
