@@ -13,7 +13,7 @@ import os
 import re
 import shutil
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import llama
@@ -22,7 +22,8 @@ from llama.config import Config
 from llama import title_hygiene
 from llama.errors import LlamaError
 from llama.junk import basename_without_extension
-from llama.models import Briefing, Overrides, Provenance, Show, VettingResult
+from llama.models import Briefing, Overrides, Overrule, Provenance, Show, VettingResult
+from llama.overrules import split_overruled
 from llama.setlistfm import _pick, cache_key
 from llama.stages import brief as brief_stage, package as package_stage
 from llama.stages.brief import briefing_guard, normalize_briefing
@@ -489,7 +490,7 @@ def _restored_file_mention(briefing: Briefing, restored: list[str]) -> str | Non
 
 
 def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
-                      narration: str) -> str | None:
+                      narration: str, *, overrules: Sequence[Overrule] = ()) -> str | None:
     """Spec slice 6 step 3, the reuse rule: None when the stored briefing can
     ship with `new_show`; else the first failing reason. Broadcast fields are
     per-track titles, sets and segues, set_breaks, date, venue, city
@@ -499,7 +500,13 @@ def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
     restored file (a `short_kept` track whose filename is not among the stored
     show's tracks), a briefing naming one or using exclusion/absence wording
     anywhere is refused (`_restored_file_mention`). With none, the rule is
-    unchanged."""
+    unchanged.
+
+    `overrules` (bulk-apply Task 4b, parent-authorised): a guard problem matching
+    one of the show's recorded overrules (`split_overruled`, against `new_show`'s
+    identifier) does not refuse; the guard refuses only on a problem still held,
+    and names only those. Every other refusal is unchanged, so overrules can only
+    make it accept more. The default `()` is today's rule."""
     o, n = stored_show, new_show
     short = {t.filename for t in n.tracks if t.short_kept}   # spec 5.3: dropped on both sides
     ot = [t for t in o.tracks if t.filename not in short]
@@ -529,6 +536,7 @@ def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
     if briefing.narration != narration:
         return f"narration differs: briefing {briefing.narration}, overrides {narration}"
     problems = briefing_guard(normalize_briefing(briefing), new_show)   # 3a: guard the shipped form
+    problems, _overruled = split_overruled(problems, overrules, new_show)
     if problems:
         return f"briefing guard: {'; '.join(problems)}"
     stored_names = {t.filename for t in o.tracks}
@@ -563,6 +571,9 @@ class Legs:
     briefing: Briefing | None      # the stored briefing, 3a-normalised, only when brief == "reuse"
     carried_flags: list[str]       # stored `package`-family flags, carried through
     flags: list[str]               # gather + vet + carried + brief_flags
+    # on reuse, the stored briefing's overruled guard problems as `overruled: <flag>`
+    # notes (notes.json `brief`); [] otherwise
+    brief_notes: list[str] = dataclasses.field(default_factory=list)
 
     @property
     def replayed_show(self) -> Show:
@@ -627,20 +638,23 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
     # no flag", and reapply never clears a carried package flag).
     flags = list(gathered.show.review_flags) + (list(vet.result.flags) if vet else []) + carried
 
-    brief, reason, brief_flags, briefing = "none", None, [], None
+    brief, reason, brief_flags, briefing, brief_notes = "none", None, [], None, []
     if not flags:
         brief = "fresh"
         if ws.briefing_json.exists():
             stored_briefing = _read_briefing(ws)
+            overrides = read_overrides(ws)
             reason = briefing_reusable(stored, replayed, stored_briefing,
-                                       read_overrides(ws).narration)
+                                       overrides.narration, overrules=overrides.overrules)
             if reason is None:
                 brief, briefing = "reuse", stored_briefing
-                brief_flags = briefing_guard(stored_briefing, replayed)  # [] by construction
+                # held: [] by construction; overruled: the notes (Task 4b)
+                brief_flags, brief_notes = split_overruled(
+                    briefing_guard(stored_briefing, replayed), overrides.overrules, replayed)
 
     return Legs(gather=gathered, stored=stored, vet=vet, needs_llm=needs_llm, brief=brief,
                 brief_reason=reason, brief_flags=brief_flags, briefing=briefing,
-                carried_flags=carried, flags=flags + brief_flags)
+                carried_flags=carried, flags=flags + brief_flags, brief_notes=brief_notes)
 
 
 # --- outcome classification (plan "Contracts": Outcome classes) ---
@@ -821,7 +835,8 @@ def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlis
         for key in ("title_changes", "venue", "city", "date", "set_changes",
                     "segue_changes", "set_breaks", "alignment"):
             setattr(r, key, diff[key])
-        r.notes = list(legs.gather.notes) + (list(legs.vet.notes) if legs.vet is not None else [])
+        r.notes = (list(legs.gather.notes) + (list(legs.vet.notes) if legs.vet is not None else [])
+                   + list(legs.brief_notes))
         g = legs.gather
         r.taper_owned = bool(g.taper_owned)
         r.sets = [t.set for t in g.show.tracks]

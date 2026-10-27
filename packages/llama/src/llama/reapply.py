@@ -127,6 +127,7 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
         brief_notes: list[str] = []
         if legs.brief == "reuse":
             briefing = legs.briefing            # stored, 3a-normalised by compute_legs
+            brief_notes = list(legs.brief_notes)    # its overruled guard problems
         elif legs.brief == "fresh":
             research_md = ws.research.read_text() if ws.research.exists() else ""
             reviews = read_json(ws.reviews) if ws.reviews.exists() else []
@@ -135,9 +136,11 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
             briefing, problems = generate_briefing(
                 providers["brief"], final_show, research_md, reviews,
                 narration=overrides.narration,
-                vetting=legs.vet.result if legs.vet is not None else None)
+                vetting=legs.vet.result if legs.vet is not None else None,
+                overrules=overrides.overrules)
             # Overrules (bulk-apply spec "Overrules persist"), as `run_brief`: a guard
-            # problem matching a recorded overrule is a notes.json `brief` note.
+            # problem matching a recorded overrule triggered no retry and is a
+            # notes.json `brief` note.
             problems, brief_notes = split_overruled(problems, overrides.overrules, final_show)
             flags += problems
 

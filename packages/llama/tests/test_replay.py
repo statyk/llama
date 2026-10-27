@@ -1424,3 +1424,79 @@ def test_visible_changes_and_label_only():
               _vshow(files=("a.mp3",), titles=("A",))]
     for new in combos:
         assert row_visible_changes(row(new), stored) == visible_changes(stored, new)
+
+
+# --- Task 4b: briefing reuse honours overruled guard problems ---
+
+def _guard_rule(song, identifier="x"):
+    from llama.models import Overrule
+    return Overrule(identifier=identifier, kind="briefing-song", subject=[song.casefold()],
+                    flag=f"briefing mentions unknown song: {song}", source="fix",
+                    at="2026-10-26T00:00:00+00:00")
+
+
+def test_briefing_reusable_accepts_all_overruled():
+    old = _show()
+    bad = _reuse_briefing().model_copy(update={"mentioned_songs": ["Nope"]})
+    assert briefing_reusable(old, old, bad, "full").startswith("briefing guard:")
+    assert briefing_reusable(old, old, bad, "full", overrules=[_guard_rule("Nope")]) is None
+
+
+def test_briefing_reusable_still_refuses_unoverruled_problem():
+    old = _show()
+    bad = _reuse_briefing().model_copy(update={"mentioned_songs": ["Nope", "Other"]})
+    assert briefing_reusable(old, old, bad, "full", overrules=[_guard_rule("Nope")]) == \
+        "briefing guard: briefing mentions unknown song: Other"
+    # a rule recorded on another recording is inert
+    assert briefing_reusable(old, old, bad.model_copy(update={"mentioned_songs": ["Nope"]}),
+                             "full", overrules=[_guard_rule("Nope", identifier="y")]) == \
+        "briefing guard: briefing mentions unknown song: Nope"
+
+
+def test_briefing_reusable_overrules_never_refuse_more():  # (pin)
+    from llama.overrules import records_for
+    from llama.stages.brief import briefing_guard, normalize_briefing
+    old = _show()
+    bad = _reuse_briefing().model_copy(update={"mentioned_songs": ["Nope"]})
+    r_old, r_new = _restored_pair()
+    renamed = old.model_copy(update={"tracks": [old.tracks[0], old.tracks[1].model_copy(
+        update={"filename": "b2.mp3"}), old.tracks[2]]})
+    cases = [
+        (old, old, _reuse_briefing(), "full"),                              # reusable
+        (old, old, bad, "full"),                                            # guard
+        (old, old, bad, "vague"),                                           # narration
+        (old, old.model_copy(update={"venue": "W"}), bad, "full"),          # broadcast field
+        (old, renamed, bad, "full"),                                        # tracks differ
+        (r_old, r_new, _with_caution("gd76-07-18d3t04.mp3 holds the reprise."), "full"),
+        (r_old, r_new, _with_caution("The encore is missing from every tape.")
+         .model_copy(update={"mentioned_songs": ["Nope"]}), "full"),        # restored wording
+    ]
+    for o, n, b, narration in cases:
+        plain = briefing_reusable(o, n, b, narration)
+        rules = records_for(briefing_guard(normalize_briefing(b), n), n, source="fix",
+                            at="2026-10-26T00:00:00+00:00") + [_guard_rule("Nope")]
+        ruled = briefing_reusable(o, n, b, narration, overrules=rules)
+        if plain is None:
+            assert ruled is None, (plain, ruled)
+        if plain is not None and not plain.startswith("briefing guard:"):
+            assert ruled == plain, (plain, ruled)          # every other refusal unchanged
+    # the restored-wording refusal still refuses with every guard problem overruled
+    worded = _with_caution("The encore is missing from every tape.").model_copy(
+        update={"mentioned_songs": ["Nope"]})
+    assert briefing_reusable(r_old, r_new, worded, "full", overrules=[_guard_rule("Nope")]) == \
+        "briefing mentions a restored file: says 'missing' in cautions"
+
+
+def test_compute_legs_reuses_with_overruled_guard_problems_and_notes_them(tmp_path):
+    ws, stored = _library_show(tmp_path, held=False, with_briefing=True)
+    b = read_model(ws.briefing_json, Briefing)
+    write_artifact(ws.briefing_json, b.model_copy(update={"mentioned_songs": ["Nope"]}))
+    legs = _legs(tmp_path, ws)
+    assert legs.brief == "fresh" and legs.brief_reason.startswith("briefing guard:")
+    write_artifact(ws.overrides, Overrides(overrules=[_guard_rule("Nope", identifier=stored.identifier)]))
+    legs = _legs(tmp_path, ws)
+    assert legs.brief == "reuse" and legs.brief_flags == [] and legs.flags == []
+    assert legs.brief_notes == ["overruled: briefing mentions unknown song: Nope"]
+    r = replay_show(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"), slfm=None,
+                    scratch=tmp_path / "s2", delivered=set())
+    assert r.briefing == "reuse" and "overruled: briefing mentions unknown song: Nope" in r.notes

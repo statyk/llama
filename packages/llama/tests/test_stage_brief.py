@@ -581,3 +581,59 @@ def test_a_clean_brief_replaces_stale_brief_notes(tmp_path):
     write_artifact(ws.notes, ShowNotes(gather=["g"], brief=["overruled: stale"]))
     run_brief(ws, FakeProvider(completes=[GOOD_BRIEFING]), show, "", [])
     assert read_model(ws.notes, ShowNotes) == ShowNotes(gather=["g"])
+
+
+# --- Task 4b: overruled briefing problems act inside the guard path ---
+
+def _songs_briefing(*songs) -> str:
+    return json.dumps({
+        "context": "Peak-era Dead on the summer '73 run.",
+        "significance": "A standout show from a strong year.",
+        "per_set": {"1": ["Opens hot"], "2": ["The big jam"]},
+        "notable_moments": [], "review_sentiment": "Praised.",
+        "non_attendee_sentiment": True, "cautions": [],
+        "narration": "full", "mentioned_songs": ["Song 1", *songs]})
+
+
+def test_overruled_guard_problem_triggers_no_retry(tmp_path):
+    from llama.models import ShowNotes
+    show = _show()
+    ws = _ws(tmp_path, show)
+    write_artifact(ws.overrides, Overrides(overrules=[_brief_rule()]))
+    provider = FakeProvider(completes=[_x_briefing(), _x_briefing()])
+    run_brief(ws, provider, show, "", [])
+    assert len(provider.calls) == 1                     # accepted at once: one LLM call
+    held = read_model(ws.show, Show)
+    assert held.review_flags == [] and held.needs_review is False
+    assert read_model(ws.notes, ShowNotes).brief == ["overruled: briefing mentions unknown song: X"]
+
+
+def test_held_guard_problem_still_retries_with_only_held_feedback(tmp_path):
+    from llama.models import ShowNotes
+    show = _show()
+    ws = _ws(tmp_path, show)
+    write_artifact(ws.overrides, Overrides(overrules=[_brief_rule()]))
+    both = _songs_briefing("X", "Yonder Reel")
+    provider = FakeProvider(completes=[both, both])
+    run_brief(ws, provider, show, "", [])
+    assert len(provider.calls) == 2
+    retry_prompt = provider.calls[1][1]
+    assert "briefing mentions unknown song: Yonder Reel" in retry_prompt
+    assert "briefing mentions unknown song: X" not in retry_prompt
+    held = read_model(ws.show, Show)
+    assert held.review_flags == ["briefing mentions unknown song: Yonder Reel"] and held.needs_review
+    assert read_model(ws.notes, ShowNotes).brief == ["overruled: briefing mentions unknown song: X"]
+
+
+def test_generate_briefing_without_rules_unchanged():  # (pin)
+    show = _show()
+    provider = FakeProvider([_x_briefing(), _x_briefing()])
+    _b, problems = generate_briefing(provider, show, "r", [], narration="full", vetting=None)
+    assert len(provider.calls) == 2
+    assert "briefing mentions unknown song: X" in provider.calls[1][1]
+    assert problems == ["briefing mentions unknown song: X"]
+    # and the default is (): a rule list passed explicitly empty is the same
+    provider = FakeProvider([_x_briefing(), _x_briefing()])
+    _b, problems = generate_briefing(provider, show, "r", [], narration="full", vetting=None,
+                                     overrules=())
+    assert len(provider.calls) == 2 and problems == ["briefing mentions unknown song: X"]

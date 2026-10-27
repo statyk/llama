@@ -1338,3 +1338,57 @@ def test_reapply_fresh_brief_overrule_goes_to_notes_brief(tmp_path, monkeypatch)
     assert read_model(entry.ws.notes, ShowNotes).brief == [
         "overruled: briefing mentions unknown song: Nope"]
     assert calls != []        # packaged
+
+
+# --- Task 4b: overruled briefing problems skip the guard retry and allow reuse ---
+
+def _nope_rule(ident):
+    from llama.models import Overrule
+    return Overrule(identifier=ident, kind="briefing-song", subject=["nope"],
+                    flag="briefing mentions unknown song: Nope", source="triage",
+                    at="2026-10-26T00:00:00+00:00")
+
+
+def test_reapply_fresh_brief_passes_rules(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    entry.ws.briefing_json.unlink()
+    _stub_package(monkeypatch)
+    ident = read_model(entry.ws.show, Show).identifier
+    write_artifact(entry.ws.overrides, Overrides(overrules=[_nope_rule(ident)]))
+    bad = json.dumps(dict(context="c", significance="s", per_set={"1": ["a"]}, mentioned_songs=["Nope"]))
+    providers = _providers(bad, bad)
+    out = _run(config, ledger, entry, providers)
+    assert out.outcome == "cleared" and out.briefing == "fresh"
+    assert len(providers["brief"].calls) == 1
+    assert read_model(entry.ws.notes, ShowNotes).brief == [
+        "overruled: briefing mentions unknown song: Nope"]
+
+
+def test_reuse_notes_overruled_problems(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    calls = _stub_package(monkeypatch)
+    stored_b = read_model(entry.ws.briefing_json, Briefing)
+    write_artifact(entry.ws.briefing_json,
+                   stored_b.model_copy(update={"mentioned_songs": ["Nope"]}))
+    ident = read_model(entry.ws.show, Show).identifier
+    write_artifact(entry.ws.overrides, Overrides(overrules=[_nope_rule(ident)]))
+    providers = _providers()
+    out = _run(config, ledger, entry, providers)
+    assert out.outcome == "cleared" and out.briefing == "reuse" and out.flags == []
+    assert providers["brief"].calls == []                 # reused: no LLM call
+    assert read_model(entry.ws.notes, ShowNotes).brief == [
+        "overruled: briefing mentions unknown song: Nope"]
+    assert read_model(entry.ws.show, Show).needs_review is False
+    assert calls != []
+
+
+def test_reuse_without_the_rule_still_writes_a_fresh_brief(tmp_path, monkeypatch):  # (pin)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _stub_package(monkeypatch)
+    stored_b = read_model(entry.ws.briefing_json, Briefing)
+    write_artifact(entry.ws.briefing_json,
+                   stored_b.model_copy(update={"mentioned_songs": ["Nope"]}))
+    ok = json.dumps(dict(context="c", significance="s", per_set={"1": ["a"], "2": ["b"], "encore": ["c"]}))
+    providers = _providers(ok)
+    out = _run(config, ledger, entry, providers)
+    assert out.briefing == "fresh" and len(providers["brief"].calls) == 1

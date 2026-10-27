@@ -1,8 +1,9 @@
 import re
 import string
+from collections.abc import Sequence
 
 from herder import run_json_task
-from llama.models import Briefing, Show, ShowNotes, VettingResult
+from llama.models import Briefing, Overrule, Show, ShowNotes, VettingResult
 from llama.overrules import split_overruled
 from llama.prompts import load_prompt
 from llama.songs import normalize_song
@@ -293,11 +294,21 @@ def vetting_summary(show_ws: ShowWorkspace) -> str:
 
 
 def generate_briefing(provider, show: Show, research_md: str, reviews: list[dict], *,
-                      narration: str, vetting: VettingResult | None) -> tuple[Briefing, list[str]]:
+                      narration: str, vetting: VettingResult | None,
+                      overrules: Sequence[Overrule] = ()) -> tuple[Briefing, list[str]]:
     """The brief LLM task (two attempts, the guard's problems fed back once):
     the normalised, narration-stamped briefing and the guard problems still
     standing (`[]` on success). Writes nothing; `run_brief` and `llama
-    reapply` (spec slice 6) do their own writes."""
+    reapply` (spec slice 6) do their own writes.
+
+    `overrules` (the show's recorded overrules; bulk-apply spec "Overrules
+    persist"): after each guard run the problems are split with
+    `split_overruled`, and only the HELD ones decide anything: they alone
+    trigger the retry and appear in its feedback, so an attempt whose only
+    problems are overruled is accepted at once (one LLM call). The returned
+    problems are still every guard problem of the accepted attempt, overruled
+    ones included: the caller splits them with the same rules into hold flags
+    and `overruled: <flag>` notes. The default `()` is the rule-free behaviour."""
     inputs = dict(
         show_json=show.model_dump_json(indent=2),
         research=research_md or "(no research available)",
@@ -312,11 +323,12 @@ def generate_briefing(provider, show: Show, research_md: str, reviews: list[dict
         briefing.narration = narration  # stamped; the LLM's value is never trusted
         briefing = normalize_briefing(briefing)   # 3a: before the guard and the writes
         problems = briefing_guard(briefing, show)
-        if not problems:
+        held, _overruled = split_overruled(problems, overrules, show)
+        if not held:
             break
         feedback = (
             "IMPORTANT: your previous briefing failed fact-checking: "
-            + "; ".join(problems)
+            + "; ".join(held)
             + ". Fix every problem; stay strictly grounded in the inputs."
         )
     return briefing, problems
@@ -353,9 +365,11 @@ def run_brief(
     vetting = (read_model(show_ws.vetting, VettingResult)
                if show_ws.vetting.exists() else None)
     briefing, problems = generate_briefing(provider, show, research_md, reviews,
-                                           narration=overrides.narration, vetting=vetting)
+                                           narration=overrides.narration, vetting=vetting,
+                                           overrules=overrides.overrules)
     # Overrules (bulk-apply spec "Overrules persist"): a guard problem matching a
-    # recorded overrule is an `overruled: <flag>` note in notes.json `brief`, not a flag.
+    # recorded overrule triggered no retry (generate_briefing) and is an
+    # `overruled: <flag>` note in notes.json `brief`, not a flag.
     problems, overruled = split_overruled(problems, overrides.overrules, show)
     # This stage's flags are replaced, as vet's are (a redo's stale verdict
     # included), in two writes so a crash anywhere leaves the show held: new
