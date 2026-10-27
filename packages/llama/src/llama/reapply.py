@@ -198,9 +198,9 @@ def _reapply(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
     # The campaign record: an unreadable one raises CampaignUnreadable (never "no record").
     rec = campaign.read_record(ws)
     mark = campaign.last_mark(rec)
-    if mark is not None and mark.start_stage == "select":
-        return result(f"skipped: re-selection (llama redo {slug} --from select)")
     awaiting = campaign.awaiting_fix(rec)
+    if awaiting and mark is not None and mark.start_stage == "select":
+        return result(f"skipped: re-selection (llama redo {slug} --from select)")
     if not held:
         if rec is not None and not awaiting and rec.processed is not None:
             return result("skipped: processed")
@@ -376,12 +376,12 @@ def _reapply(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
             update={"review_flags": list(flags), "needs_review": bool(flags)}))
 
     campaign.mark_processed(ws, held=bool(flags))
+    if after_commit is not None:
+        after_commit(ws)          # before the purge: a failure restores, and purged audio is gone
     if route == "package" and not flags and delivered and voiced:
         # A voiced rider: re-packaged, never re-delivered (spec "Purge after a
         # re-package with no re-delivery"); purge_package_audio skips and warns.
         echo(_purge_line(catalog.purge_package_audio(ws, station), slug))
-    if after_commit is not None:
-        after_commit(ws)
 
     if route == "show":
         outcome, kind = predicted, "label-only"

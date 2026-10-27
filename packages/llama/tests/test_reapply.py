@@ -2080,3 +2080,46 @@ def test_align_ladder_where_every_rung_raises_is_a_retryable_failure_not_a_crash
     with pytest.raises(HerderError):
         _run(config, ledger, entry, providers, with_gather_llm=True)
     assert align.calls and _snapshot(entry.ws) == before
+
+
+def test_processed_reselection_is_not_sent_back_to_select(tmp_path, monkeypatch):
+    root, config, ledger, _entry, _ = _env(tmp_path)
+    entry = resolve_show(root, ledger, CLEAN)
+    calls = _stub_package(monkeypatch)
+    campaign.add_mark(entry.ws, reason="recording re-selection: a -> b", start_stage="select",
+                      batch="b1", at=LONG_AGO)
+    assert campaign.mark_processed(entry.ws, held=False)
+    assert not campaign.awaiting_fix(campaign.read_record(entry.ws))
+    o = _run(config, ledger, entry)
+    assert o.outcome == "skipped: processed" and o.written == [] and calls == []
+
+
+def test_awaiting_reselection_still_skipped(tmp_path, monkeypatch):
+    root, config, ledger, _entry, _ = _env(tmp_path)
+    entry = resolve_show(root, ledger, CLEAN)
+    calls = _stub_package(monkeypatch)
+    campaign.add_mark(entry.ws, reason="recording re-selection: a -> b", start_stage="select",
+                      batch="b1", at=LONG_AGO)
+    o = _run(config, ledger, entry)
+    assert o.outcome == f"skipped: re-selection (llama redo {CLEAN} --from select)"
+    assert o.written == [] and calls == []
+
+
+def test_after_commit_failure_keeps_library_audio(tmp_path, monkeypatch):
+    from helpers import audio_files
+    config, _cfg, ledger, entry, ia, out = _delivered_env(
+        tmp_path, monkeypatch, voiced=True, fresh=True)
+    ws = entry.ws
+    for p in (out / "audio").iterdir():                  # the library still holds its audio
+        shutil.copy2(p, ws.package_dir / "audio" / p.name)
+    held = audio_files(ws)
+    assert held
+    before = tree_bytes(ws.dir)
+
+    def hook(_ws):
+        raise RuntimeError("record_after failed")
+    with pytest.raises(RuntimeError, match="record_after failed"):
+        reapply_show(config, ia, ledger, entry, providers=_providers(OK_BRIEF), row=None,
+                     dry_run=False, echo=lambda s: None, after_commit=hook)
+    assert audio_files(ws) == held                       # nothing purged
+    assert tree_bytes(ws.dir) == before
