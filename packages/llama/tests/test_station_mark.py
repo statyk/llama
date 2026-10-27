@@ -44,8 +44,9 @@ def _station(tmp_path: Path, manifest=None, *, raw: bytes | None = None,
     out = tmp_path / "station" / SLUG
     out.mkdir(parents=True)
     if raw is None:
-        raw = (json.dumps(manifest if manifest is not None else _manifest(), indent=2,
-                          ensure_ascii=False) + ("\n" if newline else "")).encode()
+        # emcee's encoding (`json.dumps(data, indent=2) + "\\n"`); llama's omits the newline
+        raw = (json.dumps(manifest if manifest is not None else _manifest(), indent=2)
+               + ("\n" if newline else "")).encode()
     (out / "manifest.json").write_bytes(raw)
     old = 1_600_000_000
     os.utime(out / "manifest.json", (old, old))
@@ -295,3 +296,31 @@ def test_manifest_differences():
     assert station_mark.COMPARED == (
         "source.identifier", "show.venue", "show.city", "show.date", "tracks.filename",
         "tracks.duration_sec", "tracks.title", "tracks.set", "tracks.segue", "set_breaks")
+
+
+@pytest.mark.parametrize("writer", ["emcee", "llama"])
+def test_mark_then_clear_reproduces_the_writers_bytes(tmp_path: Path, writer):
+    """(pin) The station writer uses emcee's manifest encoding
+    (`json.dumps(data, indent=2) + "\\n"`, ASCII escapes), which is llama's
+    `write_artifact` encoding plus the newline: marking then clearing a manifest
+    either tool wrote, with non-ASCII text, gives back its exact bytes."""
+    from llama.workspace import write_artifact
+
+    m = _manifest()
+    m["show"]["venue"] = "Ahoy Rotterdam \u2014 \u00c9vry"
+    out = tmp_path / "station" / SLUG
+    if writer == "emcee":
+        raw = (json.dumps(m, indent=2) + "\n").encode()
+    else:
+        write_artifact(tmp_path / "llama-manifest.json", m)       # deliver copies these bytes
+        raw = (tmp_path / "llama-manifest.json").read_bytes()
+    assert b"\\u00c9" in raw and b"\\u00dc" in raw     # both escape non-ASCII
+    out = _station(tmp_path, raw=raw)
+    mf = out / "manifest.json"
+
+    _, marked = write_mark(out, **MARK)
+    assert marked.isascii()
+    assert marked.startswith(raw[:raw.rindex(b"}")].rstrip())   # every byte before the last brace
+    clear_mark(out)
+
+    assert mf.read_bytes() == raw

@@ -2694,7 +2694,13 @@ def _purge_after_delivery(show_ws, out: Path, slug: str) -> None:
     skipped or partial purge only warns, and keeps what it kept."""
     from llama import catalog
 
-    r = catalog.purge_package_audio(show_ws, out)
+    _echo_purge(catalog.purge_package_audio(show_ws, out), slug)
+
+
+def _echo_purge(r, slug: str) -> None:
+    """deliver's three purge messages (purged / partly purged / kept)."""
+    from llama import catalog
+
     if r.warning:
         typer.echo(f"warning: library audio for {slug} partly purged: {r.warning}", err=True)
     elif r.skipped:
@@ -2861,6 +2867,149 @@ def deliver(
         raise typer.Exit(1)
     _note_unknown_profiles(config, profile)
     _deliver_batch(config, ledger, sel, dest, yes, fixed=fixed)
+
+
+# --- clear-mark (bulk-apply spec, "Clearing without re-delivery is only for voiced
+# destinations, one named show at a time") ------------------------------------------
+
+# `catalog.purge_package_audio`'s skip when the station's track list is not the
+# library's: after `--accept-change` that is the expected outcome, not a warning.
+_PURGE_SKIP_TRACKS_DIFFER = "station copy is a different package version"
+
+
+def _processed_since_mark(rec, mark: dict) -> bool:
+    """The record is processed after its last mark AND after the station's
+    `marked_at`. A missing record or processing, or an unparseable processing
+    time, is not processed; a station `marked_at` that is absent or unparseable
+    (a malformed mark) leaves the record's own mark as the test."""
+    if rec is None or rec.processed is None or campaign.awaiting_fix(rec):
+        return False
+    done = campaign._parse(rec.processed.at)
+    if done is None:
+        return False
+    at = mark.get("marked_at")
+    marked = campaign._parse(at) if isinstance(at, str) else None
+    return marked is None or not done < marked
+
+
+def _station_state(out: Path) -> str:
+    """After a failed clear: what the station copy holds now, for the error line."""
+    try:
+        _, data = station_mark.read_station_manifest(out)
+    except LlamaError:
+        return "check the station copy by hand"
+    if station_mark.mark_of(data) is not None:
+        return "the station copy still carries the mark (retry)"
+    return "the station copy no longer carries the mark; check it by hand"
+
+
+def _clear_mark_one(config, entry, accept_change: bool) -> None:
+    """Clear one voiced station copy's `awaiting_fix` mark, keeping its voicing,
+    when the re-processed library show equals it (or `accept_change`). Under the
+    show lock; every refusal raises LlamaError having written nothing, in the
+    plan's order: station copy unreadable, not marked, unvoiced, not processed
+    since the mark (an unreadable campaign.json refuses here too), held, library
+    manifest changed since processing, differences without `accept_change`,
+    emcee running. The station write is `station_mark.clear_mark`; the outcome
+    is recorded only after it succeeded, and a failed record write puts the
+    station mark back. Then the library audio is purged as deliver purges it."""
+    import hashlib
+
+    from llama import catalog
+
+    show_ws, slug = entry.ws, entry.slug
+    if config.delivery_path is None:
+        raise LlamaError("no delivery_path in config")
+    out = config.delivery_path / show_ws.dir.name
+    with file_lock(show_ws.lock):
+        _, station = station_mark.read_station_manifest(out)     # StationUnreadable
+        mark = station_mark.mark_of(station)
+        if mark is None:
+            raise LlamaError(f"{slug}: the station copy is not marked; nothing to clear")
+        if station.get("dj_audio") is None:
+            raise LlamaError(f"{slug}: unvoiced destination; re-deliver it instead: "
+                             f"llama deliver {slug}")
+        rec = campaign.read_record(show_ws)                       # CampaignUnreadable
+        if not _processed_since_mark(rec, mark):
+            raise LlamaError(f"{slug}: awaiting fix; re-process it first")
+        try:
+            held = show_ws.show.exists() and read_model(show_ws.show, Show).needs_review
+        except (OSError, ValueError) as exc:
+            raise LlamaError(f"{slug}: cannot read show.json "
+                             f"({' '.join(str(exc).split())}); check it by hand") from exc
+        if held:
+            raise LlamaError(f"{slug}: held for review")
+        sha = rec.processed.manifest_sha256
+        library = _library_manifest(show_ws.dir)
+        if sha is None or campaign.manifest_sha256(show_ws) != sha or library is None:
+            raise LlamaError(f"{slug}: the library package changed since it was "
+                             "processed; re-process it")
+        diffs = station_mark.manifest_differences(library, station)
+        if diffs and not accept_change:
+            raise LlamaError(f"{slug}: the station copy differs: {', '.join(diffs)}; "
+                             "pass --accept-change if the change is cosmetic")
+        running = station_mark.emcee_running()
+        if running:
+            raise LlamaError("\n".join(["refusing: emcee is running",
+                                        *(f"  {line}" for line in running)]))
+        try:
+            before, after = station_mark.clear_mark(out)
+        except OSError as exc:       # e.g. a dropped mount under `_swap_in`
+            raise LlamaError(f"{slug}: could not clear the station mark: "
+                             f"{' '.join(str(exc).split())}; {_station_state(out)}") from exc
+        outcome = "change accepted" if diffs else "equal"
+        try:
+            campaign.add_clear(show_ws, outcome)
+        except (OSError, LlamaError) as exc:
+            try:
+                station_mark.put_back(out, expect_sha256=hashlib.sha256(after).hexdigest(),
+                                      data=before)
+                what = "the station mark was put back"
+            except (OSError, LlamaError) as exc2:
+                what = (f"the station mark could not be put back "
+                        f"({' '.join(str(exc2).split())}); the station copy is cleared "
+                        "and the record says nothing: check both by hand")
+            raise LlamaError(f"{slug}: could not record the clear "
+                             f"({' '.join(str(exc).split())}); {what}") from exc
+        typer.echo("mark cleared; the voicing is kept")
+        if diffs:
+            typer.echo(f"change accepted: {', '.join(diffs)}")
+        r = catalog.purge_package_audio(show_ws, out)
+        if diffs and r.skipped == _PURGE_SKIP_TRACKS_DIFFER:
+            typer.echo("library audio kept (track lists differ)")
+        else:
+            _echo_purge(r, slug)
+
+
+@app.command("clear-mark", rich_help_panel="Fix & ship",
+             short_help="Keep a voicing: clear a station copy's awaiting-fix mark "
+                        "when the re-processed show is unchanged.")
+def clear_mark_cmd(
+    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
+    accept_change: bool = typer.Option(
+        False, "--accept-change",
+        help="Clear even though the station copy differs from the re-processed show "
+             "(you judge the change cosmetic); the station copy airs as it is"),
+):
+    """Clear the `awaiting_fix` mark on one VOICED station copy without
+    re-delivering it, so its voicing is kept.
+
+    Refuses (writing nothing) unless the station copy is marked and voiced, the
+    show was re-processed since it was marked and is not held, the library
+    package is the one that processing built, and the library and station
+    manifests agree on the recording, venue, city, date, track list, titles,
+    set labels, segues and set breaks (or --accept-change), and no emcee is
+    running. An unvoiced copy is re-delivered instead (`llama deliver`). After
+    clearing, the library audio is purged as deliver purges it; after
+    --accept-change with a different track list it is kept.
+    """
+    config, _, ledger = _setup()
+    entry = _resolve_show(config, ledger, name)
+    try:
+        _clear_mark_one(config, entry, accept_change)
+    except LlamaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
 
 
 def _redo_show(config, ia, ledger, entry, from_stage: str, *,

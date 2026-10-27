@@ -101,7 +101,12 @@ def _sha(data: bytes) -> str:
 
 
 def _encode(data: dict, *, newline: bool) -> bytes:
-    return (json.dumps(data, indent=2, ensure_ascii=False) + ("\n" if newline else "")).encode()
+    """emcee's manifest encoding (`package_io.rewrite_manifest`: `json.dumps(data,
+    indent=2) + "\\n"`, so ASCII escapes and the default separators), which is also
+    llama's own (`write_artifact`: the same, without the newline). The trailing
+    newline follows the bytes read, so a mark then a clear gives back the bytes
+    either tool wrote."""
+    return (json.dumps(data, indent=2) + ("\n" if newline else "")).encode()
 
 
 def _others(data: dict) -> dict:
