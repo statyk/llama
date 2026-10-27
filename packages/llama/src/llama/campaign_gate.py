@@ -4,13 +4,20 @@ Task 5: the one process parser, ported from `scripts/rekey_overrides.py`
 (`llama_processes`/`_runs_llama`) with the tool name a parameter. The station
 mark writer uses it to refuse while an `emcee` process runs (spec "No
 concurrent emcee"). The script keeps its own copy; it is not changed here.
+
+Task 12: the campaign's version gate, the code pin and the rekey-restore retirement.
 """
 from __future__ import annotations
 
+import json
 import re
 import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
 from pathlib import PurePosixPath
-from typing import Iterable
+from typing import Callable, Iterable
+
+from llama.errors import LlamaError
 
 _SHELLS = frozenset({"sh", "bash", "zsh"})
 _SEPARATORS = re.compile(r"&&|\|\||[;|\n]")
@@ -117,3 +124,150 @@ def ps_lines() -> list[str]:
     done = subprocess.run(["ps", "-axo", "pid=,ppid=,command="], capture_output=True,
                           text=True, check=True)
     return done.stdout.splitlines()
+
+
+# --- Task 12: version gate, pin, rekey retirement ---
+
+CAMPAIGN_MIN_VERSION = "2.20.0"       # the release this build ships in; confirm at release
+_VERSION = re.compile(r"[0-9]+(?:\.[0-9]+)+")
+_VERSION_TIMEOUT_S = 120
+PIN_FILE = Path("campaign") / "pin.json"
+REKEY_RECORD = "rekey-applied.json"
+
+
+class GateRefused(LlamaError):
+    """A campaign gate refused; nothing was written."""
+
+
+def _numeric(v: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in v.split("."))
+
+
+def _cmp(text: str, other: str) -> int | None:
+    """-1/0/1 comparing a dotted version `text` with `other`; None if `text` is not one."""
+    t = text.strip()
+    if not _VERSION.fullmatch(t):
+        return None
+    got, want = _numeric(t), _numeric(other)
+    n = max(len(got), len(want))
+    got, want = got + (0,) * (n - len(got)), want + (0,) * (n - len(want))
+    return (got > want) - (got < want)
+
+
+def version_ok(text: str, minimum: str) -> bool:
+    """`--version` output is a dotted version of at least `minimum`, numerically. Anything
+    else is not: a dev build's `0.1.0`, a pre-release or local suffix, extra words or lines."""
+    c = _cmp(text, minimum)
+    return c is not None and c >= 0
+
+
+def version_newer(text: str, than: str) -> bool:
+    """`text` is a dotted version strictly above `than` (anything else is not)."""
+    c = _cmp(text, than)
+    return c is not None and c > 0
+
+
+def tool_versions(tool: str) -> list[tuple[str, str]]:
+    """(path, its `--version` output) for every `tool` that `which -a` lists, in PATH
+    order. A binary that fails reports `exit <n>: <output>` or `error: ...` in place of
+    its version (version_ok refuses both). Raises OSError when `which` itself fails."""
+    done = subprocess.run(["which", "-a", tool], capture_output=True, text=True)
+    if done.returncode not in (0, 1):
+        raise OSError(f"which -a {tool} exited {done.returncode}: {done.stderr.strip()}")
+    paths = list(dict.fromkeys(l.strip() for l in done.stdout.splitlines() if l.strip()))
+    out = []
+    for p in paths:
+        try:
+            r = subprocess.run([p, "--version"], capture_output=True, text=True,
+                               timeout=_VERSION_TIMEOUT_S)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            out.append((p, f"error: {type(exc).__name__}: {exc}"))
+            continue
+        text = r.stdout.strip()
+        if r.returncode != 0:
+            text = f"exit {r.returncode}: {(r.stdout + r.stderr).strip()}"
+        out.append((p, text))
+    return out
+
+
+def require_tools(echo: Callable[[str], None], *, pin: dict | None) -> None:
+    """Every `llama` and `emcee` on PATH reports at least CAMPAIGN_MIN_VERSION, and, with
+    a pin, no `llama` is newer than the pinned version (an installed newer build would
+    write what the pinned code would not). Raises GateRefused, naming each path."""
+    problems = []
+    for tool in ("llama", "emcee"):
+        try:
+            found = tool_versions(tool)
+        except Exception as exc:
+            raise GateRefused(f"version check failed: {type(exc).__name__}: {exc}") from exc
+        if not found:
+            problems.append(f"no {tool} on PATH")
+        for p, out in found:
+            echo(f"{tool} on PATH: {p} {out}")
+            if not version_ok(out, CAMPAIGN_MIN_VERSION):
+                problems.append(f"{tool} below {CAMPAIGN_MIN_VERSION}: {p} "
+                                f"{' | '.join(out.splitlines())}")
+            elif tool == "llama" and pin and version_newer(out, pin["version"]):
+                problems.append(f"llama newer than the pinned {pin['version']}: {p} {out}")
+    if problems:
+        raise GateRefused("refusing: " + "; ".join(problems), problems)
+
+
+def read_pin(root: Path) -> dict | None:
+    path = root / PIN_FILE
+    if not path.exists():
+        return None
+    try:
+        pin = json.loads(path.read_bytes())
+    except (OSError, ValueError) as exc:
+        raise GateRefused(f"{path} unreadable ({exc}); repair it by hand") from exc
+    if not isinstance(pin, dict):
+        raise GateRefused(f"{path} is not a pin record; repair it by hand")
+    return pin
+
+
+def _write_json(path: Path, obj: dict) -> None:
+    from llama.batch_snapshot import _durable_replace
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _durable_replace(path, (json.dumps(obj, indent=2) + "\n").encode())
+
+
+def write_pin(root: Path, *, tag: str, sha: str, version: str, worktree: str,
+              replace: bool) -> dict:
+    if read_pin(root) is not None and not replace:
+        raise GateRefused(f"{root / PIN_FILE} already exists; pass --replace to overwrite it")
+    pin = {"tag": tag, "sha": sha, "version": version, "worktree": worktree,
+           "pinned_at": datetime.now(timezone.utc).isoformat()}
+    _write_json(root / PIN_FILE, pin)
+    return pin
+
+
+def require_pinned_code(root: Path) -> dict:
+    """The pin exists and the running code is exactly its commit, never a dirty tree."""
+    from llama import replay
+    pin = read_pin(root)
+    if pin is None:
+        raise GateRefused(f"no pin: {root / PIN_FILE} is missing; run scripts/bulk_apply.py pin "
+                          f"--tag <tag> from the pinned worktree")
+    ident = replay.code_identity()
+    if ident != pin.get("sha"):
+        raise GateRefused(f"the running code is {ident}, not the pinned {pin.get('sha')} "
+                          f"({pin.get('tag')}); run from the pinned worktree {pin.get('worktree')} "
+                          f"with a clean tree")
+    return pin
+
+
+def retire_rekey_restore(root: Path, *, by: str, at: str) -> bool:
+    """Mark `rekey-applied.json` retired (rekey's `--restore` then refuses, spec "Undo").
+    True only when this call wrote; False when the file is absent, unreadable or already
+    retired (the first `retired` stays)."""
+    path = root / REKEY_RECORD
+    try:
+        rec = json.loads(path.read_bytes())
+    except (OSError, ValueError):
+        return False
+    if not isinstance(rec, dict) or "retired" in rec:
+        return False
+    rec["retired"] = {"at": at, "by": by}
+    _write_json(path, rec)
+    return True

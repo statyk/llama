@@ -100,3 +100,101 @@ def test_ps_lines_runs_ps(monkeypatch):
     monkeypatch.setattr(campaign_gate.subprocess, "run", fake_run)
     assert campaign_gate.ps_lines() == ["1 0 /sbin/launchd", "2 1 x"]
     assert seen["cmd"] == ["ps", "-axo", "pid=,ppid=,command="]
+
+
+# --- Task 12: version gate, pin, rekey retirement ---
+
+import json as _json
+import subprocess as _subprocess
+import types as _types
+
+import pytest
+
+from llama.errors import LlamaError
+
+
+def _stub_tools(monkeypatch, tools: dict[str, list[tuple[str, str]]]):
+    """Stub `which -a <tool>` and `<path> --version` in campaign_gate's subprocess."""
+    versions = {p: v for found in tools.values() for p, v in found}
+
+    def run(cmd, **kw):
+        if cmd[:2] == ["which", "-a"]:
+            paths = [p for p, _ in tools.get(cmd[2], [])]
+            return _types.SimpleNamespace(returncode=0 if paths else 1,
+                                          stdout="".join(p + "\n" for p in paths), stderr="")
+        assert cmd[1] == "--version"
+        return _types.SimpleNamespace(returncode=0, stdout=versions[cmd[0]] + "\n", stderr="")
+
+    monkeypatch.setattr(campaign_gate.subprocess, "run", run)
+
+
+def test_version_gate(monkeypatch):
+    echoed = []
+    ok = {"llama": [("/a/llama", "2.20.0")], "emcee": [("/a/emcee", "2.20.0")]}
+    _stub_tools(monkeypatch, ok)
+    campaign_gate.require_tools(echoed.append, pin=None)
+    assert campaign_gate.version_ok("2.20.0", campaign_gate.CAMPAIGN_MIN_VERSION)
+    assert campaign_gate.version_ok("2.21.0\n", "2.20.0")
+    assert not campaign_gate.version_ok("2.9.0", "2.20.0")
+    assert campaign_gate.version_newer("2.21.0", "2.20.0")
+    assert not campaign_gate.version_newer("2.20.0", "2.20.0")
+    assert not campaign_gate.version_newer("2.20.0rc1", "2.19.0")
+    for bad in ("2.19.0", "0.1.0", "2.20.0rc1"):
+        for tool in ("llama", "emcee"):
+            tools = {"llama": [("/a/llama", "2.20.0")], "emcee": [("/a/emcee", "2.20.0")]}
+            tools[tool] = [(f"/b/{tool}", bad)]
+            _stub_tools(monkeypatch, tools)
+            with pytest.raises(campaign_gate.GateRefused, match=f"/b/{tool}"):
+                campaign_gate.require_tools(lambda _m: None, pin=None)
+    # a tool not on PATH at all
+    _stub_tools(monkeypatch, {"llama": [("/a/llama", "2.20.0")]})
+    with pytest.raises(campaign_gate.GateRefused, match="emcee"):
+        campaign_gate.require_tools(lambda _m: None, pin=None)
+    # a pin of 2.20.0 with an installed 2.21.0 llama is refused, naming the path
+    _stub_tools(monkeypatch, {"llama": [("/c/llama", "2.21.0")], "emcee": [("/a/emcee", "2.20.0")]})
+    with pytest.raises(campaign_gate.GateRefused, match="/c/llama"):
+        campaign_gate.require_tools(lambda _m: None, pin={"version": "2.20.0"})
+    campaign_gate.require_tools(lambda _m: None, pin=None)       # no pin: newer is fine
+    assert issubclass(campaign_gate.GateRefused, LlamaError)
+
+
+def test_pin_roundtrip_and_replace(tmp_path):
+    assert campaign_gate.read_pin(tmp_path) is None
+    p = campaign_gate.write_pin(tmp_path, tag="v2.20.0", sha="abc", version="2.20.0",
+                                worktree="/w", replace=False)
+    assert campaign_gate.read_pin(tmp_path) == p
+    assert set(p) == {"tag", "sha", "version", "worktree", "pinned_at"}
+    assert (tmp_path / "campaign" / "pin.json").exists()
+    with pytest.raises(campaign_gate.GateRefused):
+        campaign_gate.write_pin(tmp_path, tag="v2.20.1", sha="def", version="2.20.1",
+                                worktree="/w", replace=False)
+    assert campaign_gate.read_pin(tmp_path)["tag"] == "v2.20.0"
+    campaign_gate.write_pin(tmp_path, tag="v2.20.1", sha="def", version="2.20.1",
+                            worktree="/w", replace=True)
+    assert campaign_gate.read_pin(tmp_path)["tag"] == "v2.20.1"
+
+
+def test_require_pinned_code(tmp_path, monkeypatch):
+    with pytest.raises(campaign_gate.GateRefused, match="pin"):
+        campaign_gate.require_pinned_code(tmp_path)
+    campaign_gate.write_pin(tmp_path, tag="v2.20.0", sha="abc123", version="2.20.0",
+                            worktree="/w", replace=False)
+    monkeypatch.setattr("llama.replay.code_identity", lambda: "abc123")
+    assert campaign_gate.require_pinned_code(tmp_path)["sha"] == "abc123"
+    for ident in ("abc123-dirty", "def456", "version:2.20.0"):
+        monkeypatch.setattr("llama.replay.code_identity", lambda i=ident: i)
+        with pytest.raises(campaign_gate.GateRefused):
+            campaign_gate.require_pinned_code(tmp_path)
+
+
+def test_retire_is_idempotent(tmp_path):
+    assert campaign_gate.retire_rekey_restore(tmp_path, by="x", at="t") is False
+    assert not (tmp_path / "rekey-applied.json").exists()
+    (tmp_path / "rekey-applied.json").write_text(
+        _json.dumps({"snapshot": "s", "shows": []}, indent=2))
+    assert campaign_gate.retire_rekey_restore(tmp_path, by="backfill", at="T1") is True
+    rec = _json.loads((tmp_path / "rekey-applied.json").read_text())
+    assert rec["retired"] == {"at": "T1", "by": "backfill"} and rec["snapshot"] == "s"
+    before = (tmp_path / "rekey-applied.json").read_bytes()
+    assert campaign_gate.retire_rekey_restore(tmp_path, by="mark", at="T2") is False
+    assert (tmp_path / "rekey-applied.json").read_bytes() == before

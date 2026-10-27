@@ -1431,6 +1431,12 @@ def _record_gate(root: Path, snap: Path) -> None:
     except Exception as exc:
         raise _Refused(f"refusing to restore: {path} unreadable ({_first_line(exc)}); repair "
                        f"it by hand (nothing written)") from exc
+    retired = rec.get("retired")
+    if retired is not None:
+        at, by = (retired.get("at"), retired.get("by")) if isinstance(retired, dict) else (None, None)
+        raise _Refused(f"refusing to restore: the bulk apply retired this rollback at {at} "
+                       f"({by}); its writes postdate the snapshot: use scripts/bulk_apply.py "
+                       f"restore")
     if named != snap.name:
         raise _Refused(f"refusing to restore: {path} records the shows as rewritten from "
                        f"snapshot {named}, not {snap.name}; restore from {root / named} "
