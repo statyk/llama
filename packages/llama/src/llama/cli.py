@@ -2576,6 +2576,28 @@ class _VoicedDestination(LlamaError):
         return self._text("re-deliver it by name with")
 
 
+class _AwaitingFix(LlamaError):
+    """`_deliver_one`'s refusal of a show marked for re-processing and not yet
+    processed (bulk-apply spec, "The library side")."""
+
+
+def _awaiting_fix_check(config, show_ws, slug: str) -> None:
+    """Raise `_AwaitingFix` for a marked, unprocessed show. An unreadable
+    campaign.json raises `CampaignUnreadable` (a LlamaError): never "no record"."""
+    rec = campaign.read_record(show_ws)
+    if not campaign.awaiting_fix(rec):
+        return
+    mark = campaign.last_mark(rec)
+    if mark.start_stage == "select":
+        pointer = f"  re-process it first: llama redo {slug} --from select"
+    else:
+        extra = " --with-gather-llm" if slug in campaign.frozen_slugs(config.root) else ""
+        pointer = (f"  re-process it first: llama reapply {slug} "
+                   f"--allow-structure-change{extra}")
+    raise _AwaitingFix(f"refusing to deliver {slug}: awaiting fix "
+                       f"(marked {mark.at}: {mark.reason})\n{pointer}")
+
+
 def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     """Copy one resolved show's package to `dest` (or config.delivery_path)
     and record the delivery in the ledger; returns the destination path.
@@ -2598,6 +2620,7 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     if target_dir is None:
         raise LlamaError("no --dest given and no delivery_path in config")
     with file_lock(show_ws.lock):
+        _awaiting_fix_check(config, show_ws, entry.slug)   # first, before the voiced check
         out = target_dir / show_dir.name
         dest_manifest = _read_destination_manifest(out)   # LlamaError: unreadable, refuse
         voiced = dest_manifest is not None and dest_manifest.get("dj_audio") is not None
@@ -2662,10 +2685,15 @@ def _deliver_batch(config, ledger, sel, dest, yes) -> None:
     marks: dict[str, str] = {}
     note = None
     unreadable: set[str] = set()
+    awaiting = {e.slug for e in kept if e.awaiting_fix}
+    for slug in awaiting:
+        marks[slug] = "  (refused: awaiting fix)"
     target_dir = dest or config.delivery_path
     if target_dir is not None:
         voiced = []
         for e in kept:
+            if e.slug in awaiting:
+                continue
             try:
                 if _destination_is_voiced(target_dir / e.ws.dir.name):
                     voiced.append(e.slug)
@@ -2682,6 +2710,14 @@ def _deliver_batch(config, ledger, sel, dest, yes) -> None:
     for e in kept:
         if e.slug in unreadable:
             continue
+        if e.slug in awaiting:
+            # Same refusal text as by name (also names an unreadable record).
+            try:
+                with file_lock(e.ws.lock):
+                    _awaiting_fix_check(config, e.ws, e.slug)
+            except LlamaError as exc:
+                typer.echo(str(exc), err=True)
+                continue
         try:
             out = _deliver_one(config, ledger, e, dest)
         except _VoicedDestination as exc:
@@ -4222,6 +4258,8 @@ def status(
     profile: list[str] = typer.Option(
         [], "--profile", autocompletion=_complete_profile,
         help="Selector: shows acquired by this standing profile (exact name; repeatable)"),
+    awaiting_fix: bool = typer.Option(
+        False, "--awaiting-fix", help="Selector: shows marked for re-processing and not yet fixed"),
     all_shows: bool = typer.Option(False, "--all", help="Include all delivered shows"),
     show_flags: bool = typer.Option(
         True, "--flags/--no-flags",
@@ -4242,7 +4280,8 @@ def status(
 
     try:
         sel = build_selector(held=held, packaged=packaged, states=state,
-                             artist=artist, run=run, profiles=profile)
+                             artist=artist, run=run, profiles=profile,
+                             awaiting_fix=awaiting_fix)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
@@ -4288,6 +4327,7 @@ def status(
                 "slug": e.slug, "state": e.state, "artist": e.artist, "date": e.date,
                 "run": e.provenance.run if e.provenance else None,
                 "flags": e.flags, "path": str(e.ws.dir),
+                "awaiting_fix": e.awaiting_fix,
                 "overrides": {"exclude": e.overrides.exclude, "narration": e.overrides.narration},
             } for e in entries],
         }, indent=2))
@@ -4298,6 +4338,8 @@ def status(
     for e in entries:
         run_name = e.provenance.run if e.provenance else "?"
         marks = []
+        if e.awaiting_fix:
+            marks.append("awaiting-fix")
         if e.overrides.narration == "vague":
             marks.append("vague")
         if e.overrides.exclude:

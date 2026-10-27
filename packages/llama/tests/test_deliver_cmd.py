@@ -836,3 +836,92 @@ def test_destination_without_a_usable_track_list_is_replaced(tmp_path: Path):
 
     assert r.exit_code == 0, r.output
     assert sorted(p.name for p in (out / "audio").iterdir()) == ["01 - Morning Dew.mp3"]
+
+
+# --- Task 4: awaiting fix (bulk-apply spec, "The library side") ----------------
+
+def _mark(ws, *, start="gather", at="2026-10-26T10:00:00.000000Z",
+          reason="changed by the held-backlog fixes: titles"):
+    from llama import campaign
+    campaign.add_mark(ws, reason=reason, start_stage=start, batch="b1", at=at)
+
+
+def test_deliver_refuses_awaiting_fix_by_name(tmp_path: Path):
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    _mark(ws)
+    dest = tmp_path / "station-inbox"
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
+                                "gratefuldead-1973-06-10", "--dest", str(dest)])
+    assert r.exit_code == 1
+    assert ("refusing to deliver gratefuldead-1973-06-10: awaiting fix (marked "
+            "2026-10-26T10:00:00.000000Z: changed by the held-backlog fixes: titles)") in r.output
+    assert ("  re-process it first: llama reapply gratefuldead-1973-06-10 "
+            "--allow-structure-change") in r.output
+    assert not dest.exists()
+    assert not (tmp_path / "ledger.jsonl").exists() or not Ledger(tmp_path / "ledger.jsonl").entries()
+
+    ws2 = build_ready(tmp_path, "gratefuldead-1973-06-11")
+    _mark(ws2, start="select", reason="recording re-selection: a -> b")
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
+                                "gratefuldead-1973-06-11", "--dest", str(dest)])
+    assert r.exit_code == 1
+    assert "  re-process it first: llama redo gratefuldead-1973-06-11 --from select" in r.output
+    assert not dest.exists()
+
+
+def test_deliver_pointer_names_with_gather_llm_for_a_frozen_show(tmp_path: Path):
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    _mark(ws)
+    (tmp_path / "campaign").mkdir()
+    froz = tmp_path / "campaign" / "needs-llm-frozen.json"
+    froz.write_text(json.dumps({"slugs": ["gratefuldead-1973-06-10"]}))
+    args = ["--config", _cfg(tmp_path), "deliver", "gratefuldead-1973-06-10",
+            "--dest", str(tmp_path / "in")]
+    r = runner.invoke(cli.app, args)
+    assert r.exit_code == 1
+    assert any(ln.endswith("--allow-structure-change --with-gather-llm")
+               for ln in r.output.splitlines())
+    froz.write_text("{corrupt")
+    r = runner.invoke(cli.app, args)
+    assert r.exit_code == 1
+    assert "--with-gather-llm" not in r.output
+    assert any(ln.endswith("--allow-structure-change") for ln in r.output.splitlines())
+
+
+def test_deliver_batch_skips_awaiting_fix(tmp_path: Path):
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    build_ready(tmp_path, "gratefuldead-1973-06-11")
+    _mark(ws)
+    dest = tmp_path / "station-inbox"
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--packaged",
+                                "--yes", "--dest", str(dest)])
+    assert "  gratefuldead-1973-06-10  (refused: awaiting fix)" in r.output
+    assert (dest / "gratefuldead-1973-06-11" / "manifest.json").exists()
+    assert not (dest / "gratefuldead-1973-06-10").exists()
+
+
+def test_processed_show_delivers(tmp_path: Path):
+    from llama import campaign
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    _mark(ws)
+    assert campaign.mark_processed(ws, held=False)
+    dest = tmp_path / "station-inbox"
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
+                                "gratefuldead-1973-06-10", "--dest", str(dest)])
+    assert r.exit_code == 0, r.output
+    assert (dest / "gratefuldead-1973-06-10" / "manifest.json").exists()
+
+
+def test_unreadable_campaign_record_counts_as_awaiting(tmp_path: Path):
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    ws.campaign.write_text("{not json")
+    dest = tmp_path / "station-inbox"
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
+                                "gratefuldead-1973-06-10", "--dest", str(dest)])
+    assert r.exit_code == 1
+    assert "gratefuldead-1973-06-10: cannot read campaign.json (" in r.output
+    assert "); check it by hand" in r.output
+    assert not dest.exists()
+    s = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "status", "--awaiting-fix"])
+    assert s.exit_code == 0, s.output
+    assert "gratefuldead-1973-06-10" in s.output and "[awaiting-fix]" in s.output

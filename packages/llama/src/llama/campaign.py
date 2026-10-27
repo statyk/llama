@@ -12,7 +12,9 @@ before the last mark's `at`).
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ValidationError
@@ -21,6 +23,7 @@ from llama.errors import LlamaError
 from llama.workspace import ShowWorkspace, atomic_write_bytes
 
 CAMPAIGN_FILE = "campaign.json"
+FROZEN_FILE = "campaign/needs-llm-frozen.json"
 
 
 class CampaignUnreadable(LlamaError):
@@ -49,6 +52,26 @@ class CampaignRecord(BaseModel):
     marks: list[CampaignMark] = []
     processed: CampaignProcessed | None = None
     clears: list[CampaignClear] = []
+
+
+def frozen_slugs(root: Path) -> frozenset[str]:
+    """The `slugs` of `<root>/campaign/needs-llm-frozen.json`; empty when the
+    file is missing or unreadable (it only picks a hint's wording)."""
+    try:
+        data = json.loads((root / FROZEN_FILE).read_text())
+        slugs = data["slugs"]
+        return frozenset(s for s in slugs if isinstance(s, str))
+    except (OSError, ValueError, KeyError, TypeError):
+        return frozenset()
+
+
+def is_awaiting(ws: ShowWorkspace) -> bool:
+    """awaiting_fix(read_record(ws)), but an unreadable record counts as
+    awaiting: it is never treated as "no record"."""
+    try:
+        return awaiting_fix(read_record(ws))
+    except CampaignUnreadable:
+        return True
 
 
 def _now() -> str:

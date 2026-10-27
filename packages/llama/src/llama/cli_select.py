@@ -32,12 +32,13 @@ class Selector:
     artist: str | None
     run: str | None
     profiles: frozenset[str] = frozenset()   # empty = no profile filter
+    awaiting_fix: bool = False
 
 
 def build_selector(*, held: bool = False, packaged: bool = False,
                    states=(), artist: str | None = None,
                    run: str | None = None,
-                   profiles=()) -> Selector:
+                   profiles=(), awaiting_fix: bool = False) -> Selector:
     """Reconcile a command's raw selector options into a `Selector`.
 
     `--held`/`--packaged` are sugar: they add "held"/"packaged" to the
@@ -50,19 +51,20 @@ def build_selector(*, held: bool = False, packaged: bool = False,
     if packaged:
         state_set.add(ShowState.packaged.value)
     return Selector(states=frozenset(state_set), artist=artist, run=run,
-                    profiles=frozenset(profiles))
+                    profiles=frozenset(profiles), awaiting_fix=awaiting_fix)
 
 
 def selector_active(sel: Selector) -> bool:
     """True iff any filter is set at all."""
-    return bool(sel.states) or bool(sel.artist) or bool(sel.run) or bool(sel.profiles)
+    return bool(sel.states) or bool(sel.artist) or bool(sel.run) or bool(sel.profiles) or sel.awaiting_fix
 
 
 def apply_selector(entries: list[CatalogEntry], sel: Selector) -> list[CatalogEntry]:
     """Thin wrapper over `catalog.select_shows` — no filtering logic here."""
     return select_shows(entries, states=sel.states or None,
                         artist=sel.artist, run=sel.run,
-                        profiles=sel.profiles or None)
+                        profiles=sel.profiles or None,
+                        awaiting_fix=sel.awaiting_fix)
 
 
 HELD_NOTE = "note: {n} held show(s) excluded (add --held to include them)"

@@ -302,3 +302,25 @@ def test_status_no_flags_drops_the_flag_lines(tmp_path: Path):
     plain = runner.invoke(cli.app, ["--config", cfg, "status", "--held", "--no-flags"])
     assert plain.exit_code == 0, plain.output
     assert [ln.split()[0] for ln in plain.output.splitlines()] == ["held-1970-01-01"]
+
+
+def test_status_marks_and_selects_awaiting_fix(tmp_path: Path):
+    from llama import campaign
+    from llama.workspace import ShowWorkspace
+
+    cfg = _cfg(tmp_path)
+    _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1")
+    _seed_show(tmp_path, "bbb-1971-01-01", "bbb/1971-01-01", "r1")
+    campaign.add_mark(ShowWorkspace(tmp_path / "shows" / "aaa-1970-01-01"),
+                      reason="x", start_stage="gather", batch="b",
+                      at="2026-10-26T10:00:00.000000Z")
+    plain = runner.invoke(cli.app, ["--config", cfg, "status"])
+    row = next(ln for ln in plain.output.splitlines() if ln.startswith("aaa-1970"))
+    assert "[awaiting-fix]" in row
+    assert "awaiting-fix" not in next(
+        ln for ln in plain.output.splitlines() if ln.startswith("bbb-1971"))
+    only = runner.invoke(cli.app, ["--config", cfg, "status", "--awaiting-fix"])
+    assert "aaa-1970-01-01" in only.output and "bbb-1971-01-01" not in only.output
+    js = json.loads(runner.invoke(cli.app, ["--config", cfg, "status", "--json"]).output)
+    flags = {s["slug"]: s["awaiting_fix"] for s in js["shows"]}
+    assert flags == {"aaa-1970-01-01": True, "bbb-1971-01-01": False}
