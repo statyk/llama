@@ -111,6 +111,21 @@ def _destination_voiced(config: Config, ws: ShowWorkspace, *, tolerate: bool) ->
         raise
 
 
+class _CallCounter:
+    """Delegates to a provider, counting the calls actually made."""
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.calls = 0
+
+    def complete(self, *args, **kwargs):
+        self.calls += 1
+        return self._inner.complete(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+
 def _align_reproduced(stored: Show, new: Show) -> bool:
     """Did the fresh alignment reproduce the stored one: equal filenames, set labels,
     segues and `set_breaks`."""
@@ -227,18 +242,19 @@ def _reapply(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
             # unpaired or unreadable station copy raises here, before any call.
             reuse = plan_reuse(ws, station, strict=not allow_download)
             check_pairs(reuse, ws)
-        called = bool({"align_structure", "stored alignment llm"} & set(legs.needs_llm))
+        stored_llm = "stored alignment llm" in legs.needs_llm
+        align_counter = _CallCounter(providers["align_structure"])
         scratch = Path(tempfile.mkdtemp(prefix="llama-reapply-"))
         try:
             legs = compute_legs(ws, config=config, ia=CacheOnlyIA(config.root / "cache"),
                                 slfm=setlistfm_client(config), scratch=scratch / "show",
-                                gather_providers=(providers["extract_setlist"],
-                                                  providers["align_structure"]),
+                                gather_providers=(providers["extract_setlist"], align_counter),
                                 llm_failures_raise=True)
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
         gather_llm = True
-        if called:
+        # set only when the stored alignment was llm or align_structure was really called
+        if stored_llm or align_counter.calls:
             extra["align_reproduced"] = _align_reproduced(legs.stored, legs.replayed_show)
     replayed = legs.replayed_show
 

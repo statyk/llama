@@ -1943,7 +1943,8 @@ def test_dry_run_makes_no_llm_call(tmp_path, monkeypatch):
     assert _snapshot(entry.ws) == before
 
 
-def test_with_gather_llm_align_failure_is_a_retryable_row_failure(tmp_path, monkeypatch):
+@pytest.mark.parametrize("failure", ["herder", "task"])
+def test_with_gather_llm_align_failure_is_a_retryable_row_failure(tmp_path, monkeypatch, failure):
     from conftest import cli_invoke
     import llama.cli as cli
     import shutil
@@ -1959,7 +1960,9 @@ def test_with_gather_llm_align_failure_is_a_retryable_row_failure(tmp_path, monk
         e.ws.vetting.exists()
     before = {e.slug: _snapshot(e.ws) for e in held}
     lst = _list_file(tmp_path, root, config, held)
-    align = FakeProvider(completes=["not json"] * 30)        # TaskFailed past the retries
+    from herder import HerderError
+    # HerderError from the provider, or TaskFailed (validation) past the retries
+    align = FakeProvider(completes=[HerderError("boom") if failure == "herder" else "not json"] * 30)
     monkeypatch.setattr(cli, "make_providers", lambda config: _gl_providers(align))
     r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--with-gather-llm")
     assert r.output.count("FAILED") == STOP_AFTER_LLM_FAILURES
@@ -2002,3 +2005,48 @@ def test_cli_with_gather_llm_flag_reaches_reapply_show(tmp_path, monkeypatch):
     cli_invoke(_cli(root), "reapply", HELD)
     cli_invoke(_cli(root), "reapply", HELD, "--with-gather-llm")
     assert seen == [False, True]
+
+
+def _unparseable_description(root):
+    from fixture_library import IDENT
+    cache = root / "cache" / f"md_{IDENT}.json"
+    md = json.loads(cache.read_text())
+    md["metadata"]["description"] = "An amazing night of music, seeded with love."
+    cache.write_text(json.dumps(md))
+
+
+_EXTRACT_RESP = json.dumps({"items": [{"title": "Alpha Tune", "normalized": "alpha tune",
+                                       "set": "1"}], "confidence": "low"})
+
+
+def test_align_reproduced_is_set_when_an_extract_only_show_calls_align_in_the_recompute(
+        tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root)                    # resolved titles the extracted item cannot match
+    _unparseable_description(root)        # first pass: empty canonical, extract_setlist only
+    _stub_package(monkeypatch)
+    first = reapply_mod.compute_legs(
+        entry.ws, config=config, ia=reapply_mod.CacheOnlyIA(root / "cache"), slfm=None,
+        scratch=tmp_path / "scr" / "show")
+    assert first.needs_llm == ["extract_setlist"]
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    providers = _gl_providers(align, [OK_BRIEF])
+    providers["extract_setlist"] = FakeProvider(completes=[_EXTRACT_RESP])
+    out = _run(config, ledger, entry, providers, with_gather_llm=True,
+               allow_structure_change=True)
+    assert len(align.calls) == 1 and out.kind == "needs-llm"
+    assert out.align_reproduced is not None
+
+
+def test_with_gather_llm_extract_setlist_failure_writes_nothing(tmp_path, monkeypatch):
+    from herder import HerderError
+    monkeypatch.setattr("herder.tasks._sleep", lambda s: None)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _unparseable_description(root)
+    _stale(entry.ws)
+    before = _snapshot(entry.ws)
+    providers = _gl_providers(FakeProvider([]))
+    providers["extract_setlist"] = FakeProvider(completes=[HerderError("boom")] * 12)
+    with pytest.raises(HerderError):
+        _run(config, ledger, entry, providers, with_gather_llm=True)
+    assert providers["extract_setlist"].calls and _snapshot(entry.ws) == before
