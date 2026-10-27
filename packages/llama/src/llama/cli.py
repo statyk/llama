@@ -35,7 +35,7 @@ from llama.models import Criteria, LedgerEntry, Overrule, ShortlistEntry, Show
 from llama.overrules import merge_rules, records_for
 from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
-from llama import campaign, pacing_state
+from llama import campaign, pacing_state, station_mark
 from llama.pacing import (PaceOptions, PauseUntil, Proceed, Progress,
                           binding_forecast, decide, duration_arg, format_delta,
                           pace_options, resume_at, sleep_until)
@@ -2576,6 +2576,26 @@ class _VoicedDestination(LlamaError):
         return self._text("re-deliver it by name with")
 
 
+class _EqualMarkedCopy(LlamaError):
+    """`--replace-voiced` on a marked, voiced destination whose re-processed show
+    equals it (bulk-apply spec, the `--replace-voiced` paragraph): replacing would
+    discard a voicing for nothing; the clear command keeps it."""
+
+    def __init__(self, slug: str):
+        super().__init__(f"refusing to replace {slug}: the re-processed show equals the "
+                         f"voiced station copy; keep the voicing with: llama clear-mark {slug}")
+
+
+def _library_manifest(show_dir: Path) -> dict | None:
+    """The library package's manifest as raw JSON, or None when it is missing or
+    unreadable (the deliver gate and the copy then refuse as before)."""
+    try:
+        m = json.loads((show_dir / "package" / "manifest.json").read_text())
+    except (OSError, ValueError):
+        return None
+    return m if isinstance(m, dict) else None
+
+
 class _AwaitingFix(LlamaError):
     """`_deliver_one`'s refusal of a show marked for re-processing and not yet
     processed (bulk-apply spec, "The library side")."""
@@ -2609,7 +2629,11 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     fresh, unvoiced copy. An unvoiced destination whose track list differs
     from the package's is replaced wholesale too (spec 5.5), so no
     old-numbered file survives beside the new manifest; one with the same
-    list, or with no manifest at all, is overlaid as before."""
+    list, or with no manifest at all, is overlaid as before. A destination
+    carrying a station mark (`awaiting_fix`) is always replaced wholesale, so
+    the mark goes only with a complete copy; `replace_voiced` on a marked
+    destination whose re-processed show equals it refuses and names
+    `llama clear-mark` (bulk-apply spec, "It clears by re-delivery")."""
     import json as _json
 
     from llama.catalog import deliver_refusals
@@ -2624,11 +2648,20 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
         out = target_dir / show_dir.name
         dest_manifest = _read_destination_manifest(out)   # LlamaError: unreadable, refuse
         voiced = dest_manifest is not None and dest_manifest.get("dj_audio") is not None
+        marked = (dest_manifest is not None
+                  and station_mark.mark_of(dest_manifest) is not None)
         # Ahead of the gate: deliver purged this show's audio, so the gate's
         # missing-audio pointer would send the operator to re-download a show
         # that this refusal then turns away regardless.
         if voiced and not replace_voiced:
             raise _VoicedDestination(entry.slug, out)
+        if voiced and marked:
+            # Ahead of the gate too, for the same reason. A library manifest that
+            # cannot be read is left to the gate.
+            library = _library_manifest(show_dir)
+            if library is not None and not station_mark.manifest_differences(
+                    library, dest_manifest):
+                raise _EqualMarkedCopy(entry.slug)
         reasons = deliver_refusals(show_ws)
         if reasons:
             message = f"refusing to deliver {entry.slug}: {'; '.join(reasons)}"
@@ -2637,8 +2670,9 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
         manifest = _json.loads((pkg / "manifest.json").read_text())
         _sweep_swap_leftovers(target_dir, show_dir.name)
         dest_files = None if dest_manifest is None else _track_filenames(dest_manifest)
-        if voiced or (dest_manifest is not None
-                      and (dest_files is None or dest_files != _track_filenames(manifest))):
+        if voiced or marked or (dest_manifest is not None
+                                and (dest_files is None
+                                     or dest_files != _track_filenames(manifest))):
             _replace_destination(pkg, out, target_dir)
         else:
             shutil.copytree(pkg, out, dirs_exist_ok=True)
@@ -2669,13 +2703,41 @@ def _purge_after_delivery(show_ws, out: Path, slug: str) -> None:
         typer.echo(f"library audio purged ({catalog.human_bytes(r.freed)} freed)")
 
 
-def _deliver_batch(config, ledger, sel, dest, yes) -> None:
+def _fixed_for_delivery(entry, target_dir: Path) -> bool:
+    """`deliver --fixed`: not awaiting fix, the campaign record processed, and the
+    station manifest marked. A station manifest that cannot be read is kept, so
+    the batch lists it as refused rather than dropping it silently. Unlocked, like
+    every selector read; `_deliver_one` re-checks under the show lock."""
+    if entry.awaiting_fix:
+        return False
+    try:
+        rec = campaign.read_record(entry.ws)
+    except campaign.CampaignUnreadable:
+        return False
+    if rec is None or rec.processed is None:
+        return False
+    try:
+        m = _read_destination_manifest(target_dir / entry.ws.dir.name)
+    except LlamaError:
+        return True
+    return m is not None and station_mark.mark_of(m) is not None
+
+
+def _deliver_batch(config, ledger, sel, dest, yes, fixed: bool = False) -> None:
     """A selector batch. Never replaces a voiced destination: `deliver`
-    refuses `--replace-voiced` with any selector (spec 5.5)."""
+    refuses `--replace-voiced` with any selector (spec 5.5). `fixed` keeps only
+    the shows `_fixed_for_delivery` accepts (bulk-apply spec, "Delivery after
+    the fix")."""
     from llama.catalog import iter_shows
     from llama.cli_select import HELD_NOTE, apply_selector, split_held
 
     entries = apply_selector(iter_shows(config.root, ledger), sel)
+    if fixed:
+        station = dest or config.delivery_path
+        if station is None:
+            typer.echo("no --dest given and no delivery_path in config", err=True)
+            raise typer.Exit(1)
+        entries = [e for e in entries if _fixed_for_delivery(e, station)]
     kept, dropped = split_held(entries, sel)
     if dropped:
         typer.echo(HELD_NOTE.format(n=len(dropped)))
@@ -2744,6 +2806,10 @@ def deliver(
     profile: list[str] = typer.Option(
         [], "--profile", autocompletion=_complete_profile,
         help="Selector: shows acquired by this standing profile (exact name; repeatable)"),
+    fixed: bool = typer.Option(
+        False, "--fixed",
+        help="Selector: shows re-processed since their station copy was marked "
+             "awaiting fix (station marked, library fixed)"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
     replace_voiced: bool = typer.Option(
         False, "--replace-voiced",
@@ -2757,11 +2823,14 @@ def deliver(
     review. None of these three legs is overridable. A destination emcee has
     already voiced is refused (re-delivering would un-voice it) unless
     --replace-voiced, which swaps in a fresh, unvoiced copy and takes one
-    named show only, never a selector.
+    named show only, never a selector. A station copy marked awaiting fix is
+    always replaced wholesale, which clears the mark; on a voiced one,
+    --replace-voiced refuses when the re-processed show equals it (keep the
+    voicing with `llama clear-mark`).
     """
     from llama.cli_select import build_selector
 
-    other_selector = any([held, packaged, state, artist, run, profile])
+    other_selector = any([held, packaged, state, artist, run, profile, fixed])
     if replace_voiced and other_selector:
         typer.echo("--replace-voiced takes one named show, never a selector", err=True)
         raise typer.Exit(1)
@@ -2791,7 +2860,7 @@ def deliver(
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
     _note_unknown_profiles(config, profile)
-    _deliver_batch(config, ledger, sel, dest, yes)
+    _deliver_batch(config, ledger, sel, dest, yes, fixed=fixed)
 
 
 def _redo_show(config, ia, ledger, entry, from_stage: str, *,
