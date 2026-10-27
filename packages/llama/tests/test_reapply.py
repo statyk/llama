@@ -21,7 +21,7 @@ from llama.models import Overrides, Briefing, LedgerEntry, Show, ShowNotes, Vett
 from llama.reapply import ReapplyOutcome, reapply_show
 from llama.replay import input_digests
 from llama.stages.brief import normalize_briefing, render_briefing_md
-from llama.workspace import read_model, write_artifact
+from llama.workspace import ShowWorkspace, read_model, write_artifact
 from llama.reapply import STOP_AFTER_LLM_FAILURES, batch_dir, load_list, read_progress
 from llama.replay import config_fingerprint
 
@@ -1826,3 +1826,179 @@ def test_dry_run_counts_no_brief_or_download_for_a_show_json_only_row(tmp_path, 
     assert "would: held-2 -> label-only" in r.output and "would: held-3 -> unchanged" in r.output
     assert ("summary: 2 rows, 0 already finished, 0 fresh briefs, 0 downloads "
             "(~175 MB each, ~0.0 GB)") in r.output
+
+
+# --- Bulk-apply Task 10: --with-gather-llm ---
+
+def _needs_align(root, config=None):
+    """Force titles the description cannot match (operator `titles` overrides on a copy of
+    the tape), so the replay's gather cannot align deterministically and reaches
+    `align_structure`; the research extraction asserts nothing, so no vet flag remains."""
+    from llama.models import ResearchVetting
+    for shows in (root / "shows").iterdir():
+        ws = ShowWorkspace(shows)
+        show = read_model(ws.show, Show)
+        write_artifact(ws.overrides, Overrides(
+            titles={t.filename: f"Zzyzx Tune {t.index}" for t in show.tracks}))
+        if ws.vetting.exists():
+            write_artifact(ws.vetting, VettingResult(vetting=ResearchVetting(
+                asserted_songs=[], asserted_dates=["1973-06-10"])))
+
+
+def _align_resp(ws, *, same=True):
+    show = read_model(ws.show, Show)
+    tracks = [{"index": t.index, "set": t.set if same else "1", "segue": t.segue if same else False,
+               "matched_title": t.title} for t in show.tracks]
+    return json.dumps({"tracks": tracks})
+
+
+def _gl_providers(align, brief=()):
+    return {"brief": FakeProvider(list(brief)), "extract_setlist": FakeProvider([]),
+            "align_structure": align}
+
+
+def test_needs_llm_show_is_reapplied_with_gather_llm(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    calls = _stub_package(monkeypatch)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    out = _run(config, ledger, entry, _gl_providers(align, [OK_BRIEF]), with_gather_llm=True,
+               allow_structure_change=True)
+    assert len(align.calls) == 1
+    assert out.outcome == "cleared" and out.kind == "needs-llm" and len(calls) == 1
+    assert read_model(entry.ws.show, Show).structure.alignment == "llm"
+
+
+def test_without_the_flag_needs_llm_writes_nothing(tmp_path, monkeypatch):   # (pin)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    _stale(entry.ws)
+    before = _snapshot(entry.ws)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    out = _run(config, ledger, entry, _gl_providers(align))
+    assert out.outcome == "needs-llm" and out.written == [] and align.calls == []
+    assert _snapshot(entry.ws) == before
+
+
+def test_no_vetting_json_stays_needs_llm(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    entry.ws.vetting.unlink()
+    _stale_notes = ShowNotes(gather=["stale note"], vet=[])
+    write_artifact(entry.ws.notes, _stale_notes)
+    before = _snapshot(entry.ws)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    out = _run(config, ledger, entry, _gl_providers(align), with_gather_llm=True)
+    assert out.outcome == "needs-llm" and out.written == [] and align.calls == []
+    assert _snapshot(entry.ws) == before
+
+
+def test_align_reproduced_true_and_false(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    _stub_package(monkeypatch)
+    # the stored alignment is not llm; align_structure IS called, so the flag is set
+    for same in (True, False):
+        before = _snapshot(entry.ws)
+        align = FakeProvider(completes=[_align_resp(entry.ws, same=same)])
+        out = _run(config, ledger, entry, _gl_providers(align, [OK_BRIEF]), with_gather_llm=True,
+                   dry_run=False, allow_structure_change=True)
+        assert out.align_reproduced is same, same
+        # restore the stored show so the second pass compares against the same record
+        for p in entry.ws.dir.iterdir():
+            if p.is_file() and p.name not in before:
+                p.unlink()
+        for name, data in before.items():
+            if data is not None:
+                (entry.ws.dir / name).write_bytes(data)
+        shutil.rmtree(entry.ws.package_dir, ignore_errors=True)
+
+
+def test_align_reproduced_is_none_when_no_llm_ran(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _stub_package(monkeypatch)
+    out = _run(config, ledger, entry, with_gather_llm=True)
+    assert out.align_reproduced is None
+
+
+def test_refusal_on_the_align_call_writes_nothing(tmp_path, monkeypatch):
+    from herder.limits import RateLimited
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    _stale(entry.ws)
+    before = _snapshot(entry.ws)
+    align = FakeProvider(completes=[RateLimited("limit")])
+    with pytest.raises(RateLimited):
+        _run(config, ledger, entry, _gl_providers(align), with_gather_llm=True)
+    assert _snapshot(entry.ws) == before
+
+
+def test_dry_run_makes_no_llm_call(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    before = _snapshot(entry.ws)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    out = _run(config, ledger, entry, _gl_providers(align), with_gather_llm=True, dry_run=True)
+    assert out.outcome == "dry-run: needs-llm" and align.calls == []
+    assert _snapshot(entry.ws) == before
+
+
+def test_with_gather_llm_align_failure_is_a_retryable_row_failure(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    import shutil
+    monkeypatch.setattr("herder.tasks._sleep", lambda s: None)
+    root, config, ledger, entry, shows = _env(tmp_path)
+    for i in (2, 3, 4):
+        shutil.copytree(entry.ws.dir, root / "shows" / f"held-{i}")
+    from llama.catalog import iter_shows
+    held = [e for e in iter_shows(root, ledger) if e.state == "held"]
+    assert len(held) == 4
+    _needs_align(root, config)
+    for e in held:
+        e.ws.vetting.exists()
+    before = {e.slug: _snapshot(e.ws) for e in held}
+    lst = _list_file(tmp_path, root, config, held)
+    align = FakeProvider(completes=["not json"] * 30)        # TaskFailed past the retries
+    monkeypatch.setattr(cli, "make_providers", lambda config: _gl_providers(align))
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--with-gather-llm")
+    assert r.output.count("FAILED") == STOP_AFTER_LLM_FAILURES
+    assert "stopping after 3 consecutive LLM failures" in r.output
+    assert r.exit_code == 1
+    for e in held:
+        assert _snapshot(e.ws) == before[e.slug]             # no commit, no `processed`
+        assert not e.ws.campaign.exists()
+    batch = batch_dir(root, lst)
+    rows = [json.loads(line) for line in (batch / "progress.jsonl").read_text().splitlines()]
+    assert len(rows) == 3 and all(r["retryable"] and r["outcome"].startswith("failed:") for r in rows)
+
+
+def test_unpaired_delivered_show_spends_no_align_call(tmp_path, monkeypatch):
+    from llama.audio_reuse import StationUnpaired
+    config, _cfg, ledger, entry, ia, out = _delivered_env(tmp_path, monkeypatch)
+    _needs_align(config.root, config)
+    m = json.loads((out / "manifest.json").read_text())
+    m["source"]["identifier"] = "another-item"
+    (out / "manifest.json").write_text(json.dumps(m))
+    before = tree_bytes(entry.ws.dir)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    with pytest.raises(StationUnpaired, match=f"{HELD}: station copy does not pair"):
+        _apply(config, ledger, entry, ia, _gl_providers(align), with_gather_llm=True,
+               allow_structure_change=True)
+    assert align.calls == [] and ia.downloads == []
+    assert tree_bytes(entry.ws.dir) == before
+
+
+def test_cli_with_gather_llm_flag_reaches_reapply_show(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    seen = []
+    def fake(config, ia, ledger, entry, **kw):
+        seen.append(kw["with_gather_llm"])
+        return ReapplyOutcome(slug=entry.slug, outcome="unchanged", briefing="none", flags=[],
+                              delivered=False, written=[])
+    monkeypatch.setattr(reapply_mod, "reapply_show", fake)
+    cli_invoke(_cli(root), "reapply", HELD)
+    cli_invoke(_cli(root), "reapply", HELD, "--with-gather-llm")
+    assert seen == [False, True]

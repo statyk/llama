@@ -1738,6 +1738,7 @@ def compute_gather(
     structure_cfg: StructureConfig | None = None,
     jerrybase_enabled: bool = False,
     enabled_slices: frozenset[str] = title_hygiene.ENABLED_SLICES,
+    llm_failures_raise: bool = False,
 ) -> GatherResult:
     """Gather without the writes: `run_gather` minus `should_run` and the
     three artifacts. Reads `overrides.json` from `show_ws` and nothing else
@@ -1749,7 +1750,13 @@ def compute_gather(
 
     `enabled_slices` is the set of title-hygiene slices `title_cascade` runs
     (default `title_hygiene.ENABLED_SLICES`); `frozenset()` is the title block
-    as it stood before piece 3. `run_gather` never passes it; harnesses do."""
+    as it stood before piece 3. `run_gather` never passes it; harnesses do.
+
+    `llm_failures_raise` (bulk-apply Task 10, `reapply --with-gather-llm`): a
+    `TaskFailed`/`HerderError` from the `align_structure` call re-raises instead of
+    degrading to the `low-confidence structure alignment` flag (the
+    `extract_setlist` call already raises). Default False: every other caller
+    keeps today's degradation. `RateLimited` always re-raises."""
     structure_cfg = structure_cfg or StructureConfig()
     # Operator-facing notes for notes.json are `op_notes` below, deliberately a
     # SEPARATE list from the local `notes`, which keeps flowing into
@@ -1939,6 +1946,8 @@ def compute_gather(
                     # pick up - not recorded as a per-show failure.
                     raise
                 except (TaskFailed, HerderError) as err:
+                    if llm_failures_raise:
+                        raise
                     log.warning("align_structure failed: %s", err)
             else:
                 # Reached and not taken: the flag below is still appended

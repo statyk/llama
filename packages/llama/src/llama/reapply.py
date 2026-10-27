@@ -41,7 +41,7 @@ from llama.ledger import Ledger, is_delivered
 from llama.locks import file_lock
 from llama.models import Provenance, Show, ShowNotes
 from llama.overrules import split_overruled
-from llama.replay import (CacheOnlyIA, _structure_changed, classify, compute_legs,
+from llama.replay import (GATHER_LLM, CacheOnlyIA, _structure_changed, classify, compute_legs,
                           input_digests, setlistfm_client, shipped_diff, visible_changes)
 from llama.show_unit import show_unit
 from llama.stages.brief import generate_briefing, render_briefing_md
@@ -111,6 +111,14 @@ def _destination_voiced(config: Config, ws: ShowWorkspace, *, tolerate: bool) ->
         raise
 
 
+def _align_reproduced(stored: Show, new: Show) -> bool:
+    """Did the fresh alignment reproduce the stored one: equal filenames, set labels,
+    segues and `set_breaks`."""
+    def key(show: Show):
+        return ([(t.filename, t.set, t.segue) for t in show.tracks], list(show.set_breaks))
+    return key(stored) == key(new)
+
+
 def _purge_line(r, slug: str) -> str:
     """deliver's three purge messages (`cli._echo_purge`), slug-prefixed when purged."""
     if r.warning:
@@ -139,25 +147,35 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
     The writes run inside `show_unit(ws, None)`, so any failure (a refusal, a
     station refusal, a failed package, a failing `after_commit`) restores the
     show. `CampaignUnreadable` and the station refusals propagate.
-    `with_gather_llm` is wired by the gather-LLM path (Task 10)."""
+
+    `with_gather_llm` (bulk-apply spec "Re-processing", "Shows whose replay needs an
+    LLM call"): a show whose only needs-LLM verdicts are gather's own touchpoints
+    (`replay.GATHER_LLM`) is recomputed with `providers["extract_setlist"]` and
+    `providers["align_structure"]` and then goes on as any other show, with
+    `kind = "needs-llm"`. A delivered show first plans its audio reuse strictly (its
+    outcome is not known yet), so an unpaired or unreadable station copy spends no
+    call. An LLM failure there escapes before any write (the list runner records a
+    retryable row failure); a dry run makes no call (`dry-run: needs-llm`)."""
     ws = entry.ws
     if dry_run:
         with file_lock(ws.lock):
             return _reapply(config, ia, ledger, entry, providers=providers, row=row,
                             dry_run=True, echo=echo,
                             allow_structure_change=allow_structure_change,
+                            with_gather_llm=with_gather_llm,
                             allow_download=allow_download, after_commit=None)
     with show_unit(ws, None):
         return _reapply(config, ia, ledger, entry, providers=providers, row=row,
                         dry_run=False, echo=echo,
                         allow_structure_change=allow_structure_change,
+                        with_gather_llm=with_gather_llm,
                         allow_download=allow_download, after_commit=after_commit)
 
 
 def _reapply(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
              providers: dict, row: dict | None, dry_run: bool,
              echo: Callable[[str], None], allow_structure_change: bool,
-             allow_download: bool,
+             allow_download: bool, with_gather_llm: bool = False,
              after_commit: Callable[[ShowWorkspace], None] | None) -> ReapplyOutcome:
     """`reapply_show`'s body; the caller holds the show lock (and, unless a dry
     run, the unit)."""
@@ -170,8 +188,11 @@ def _reapply(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
     manifest = ws.package_dir / "manifest.json"
     packaged = manifest.exists()
 
+    extra: dict = {}     # align_reproduced, once the gather-LLM recompute has run
+
     def result(outcome: str, briefing: str = "none", flags=(), written=(), **kw) -> ReapplyOutcome:
-        return ReapplyOutcome(slug, outcome, briefing, list(flags), delivered, list(written), **kw)
+        return ReapplyOutcome(slug, outcome, briefing, list(flags), delivered, list(written),
+                              **{**extra, **kw})
 
     # The campaign record: an unreadable one raises CampaignUnreadable (never "no record").
     rec = campaign.read_record(ws)
@@ -194,6 +215,31 @@ def _reapply(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
                             slfm=setlistfm_client(config), scratch=scratch / "show")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
+
+    station = _station_dir(config, ws)
+    reuse = None
+    gather_llm = False
+    if with_gather_llm and legs.needs_llm and set(legs.needs_llm) <= GATHER_LLM:
+        if dry_run:
+            return result("dry-run: needs-llm", legs.brief, legs.flags, kind="needs-llm")
+        if delivered:
+            # The outcome is not known yet, so every delivered show is checked: an
+            # unpaired or unreadable station copy raises here, before any call.
+            reuse = plan_reuse(ws, station, strict=not allow_download)
+            check_pairs(reuse, ws)
+        called = bool({"align_structure", "stored alignment llm"} & set(legs.needs_llm))
+        scratch = Path(tempfile.mkdtemp(prefix="llama-reapply-"))
+        try:
+            legs = compute_legs(ws, config=config, ia=CacheOnlyIA(config.root / "cache"),
+                                slfm=setlistfm_client(config), scratch=scratch / "show",
+                                gather_providers=(providers["extract_setlist"],
+                                                  providers["align_structure"]),
+                                llm_failures_raise=True)
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
+        gather_llm = True
+        if called:
+            extra["align_reproduced"] = _align_reproduced(legs.stored, legs.replayed_show)
     replayed = legs.replayed_show
 
     if held:
@@ -240,12 +286,11 @@ def _reapply(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
     # pairs its audio strictly (unless allow_download) and learns whether its
     # destination is voiced (the purge rider). Both raise StationUnreadable /
     # StationUnpaired for a station copy that cannot be used.
-    station = _station_dir(config, ws)
-    reuse = None
     voiced = False
     if route == "package":
-        reuse = plan_reuse(ws, station, strict=delivered and not allow_download)
-        check_pairs(reuse, ws)
+        if reuse is None:
+            reuse = plan_reuse(ws, station, strict=delivered and not allow_download)
+            check_pairs(reuse, ws)
         if delivered:
             voiced = _destination_voiced(config, ws, tolerate=allow_download)
 
@@ -340,6 +385,8 @@ def _reapply(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
     else:
         outcome = "held" if flags else "cleared"
         kind = legs.brief if legs.brief in ("fresh", "reuse") else "none"
+    if gather_llm:
+        kind = "needs-llm"
     return result(outcome, legs.brief, flags, written, kind=kind, audio=audio)
 
 

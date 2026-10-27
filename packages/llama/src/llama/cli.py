@@ -4075,6 +4075,10 @@ def reapply(
         False, "--allow-download",
         help="one named delivered show only: download audio from archive.org when the "
              "station copy cannot be re-used"),
+    with_gather_llm: bool = typer.Option(
+        False, "--with-gather-llm",
+        help="also re-process a show whose replay needs gather's own LLM calls "
+             "(extract_setlist, align_structure); spends LLM calls, never research"),
 ):
     """Re-process shows in place with exactly the replay harness's
     computation: gather and vet offline from the cache and the stored vetting
@@ -4084,7 +4088,8 @@ def reapply(
     show.json only (label-only / unchanged). A delivered show re-uses the station
     copy's audio and refuses rather than download it (see --allow-download). A
     show that needs any other LLM call is reported as needs-llm and left
-    untouched."""
+    untouched, unless --with-gather-llm lets it call gather's own LLM touchpoints
+    (a dry run never does)."""
     from llama import reapply as reapply_mod
 
     if names and from_list is not None:
@@ -4095,7 +4100,8 @@ def reapply(
         raise typer.Exit(1)
     if from_list is not None:
         _reapply_list(from_list, dry_run=dry_run,
-                      allow_structure_change=allow_structure_change)
+                      allow_structure_change=allow_structure_change,
+                      with_gather_llm=with_gather_llm)
         return
     if not names:
         typer.echo("give one or more shows (or --from-list)", err=True)
@@ -4115,6 +4121,7 @@ def reapply(
                                            row=None, dry_run=dry_run,
                                            echo=lambda s: typer.echo(s, err=True),
                                            allow_structure_change=allow_structure_change,
+                                           with_gather_llm=with_gather_llm,
                                            allow_download=allow_download)
         except (StationUnpaired, station_mark.StationUnreadable) as exc:
             # A strict-reuse refusal (the unit has restored the show): the reason,
@@ -4160,7 +4167,8 @@ def _meter_pct(reading) -> str:
     return str(reading.five_hour.percent)
 
 
-def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = False) -> None:
+def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = False,
+                  with_gather_llm: bool = False) -> None:
     """`llama reapply --from-list` (spec slice 6 "Batch state"): resumable
     through `<root>/reapply/<list hash>/progress.jsonl`, a pacing gate before
     every show, and two stops -- a usage-limit refusal (clean, at the show
@@ -4234,7 +4242,8 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             out = reapply_mod.reapply_show(config, ia, ledger, entry, providers=providers,
                                            row=row, dry_run=dry_run,
                                            echo=lambda s: typer.echo(s, err=True),
-                                           allow_structure_change=allow_structure_change)
+                                           allow_structure_change=allow_structure_change,
+                                           with_gather_llm=with_gather_llm)
         except RateLimited as exc:
             # Must stay above HerderError, which it subclasses. Nothing is
             # recorded: the interrupted show was not committed and re-runs.

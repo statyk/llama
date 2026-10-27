@@ -1500,3 +1500,23 @@ def test_compute_legs_reuses_with_overruled_guard_problems_and_notes_them(tmp_pa
     r = replay_show(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"), slfm=None,
                     scratch=tmp_path / "s2", delivered=set())
     assert r.briefing == "reuse" and "overruled: briefing mentions unknown song: Nope" in r.notes
+
+
+# --- Bulk-apply Task 10: gather_providers ---
+
+def test_gather_llm_set_names_the_three_verdicts():
+    from llama.replay import GATHER_LLM
+    assert GATHER_LLM == frozenset({"extract_setlist", "align_structure", "stored alignment llm"})
+
+
+def test_compute_legs_with_gather_providers_does_not_append_the_stored_alignment_verdict(tmp_path):
+    from herder import FakeProvider
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm")
+    plain = _legs(tmp_path, ws)
+    assert "stored alignment llm" in plain.needs_llm
+    fake = FakeProvider()
+    legs = compute_legs(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"),
+                        slfm=None, scratch=tmp_path / "scratch2" / ws.dir.name,
+                        gather_providers=(fake, fake), llm_failures_raise=True)
+    assert "stored alignment llm" not in legs.needs_llm
+    assert legs.needs_llm == []

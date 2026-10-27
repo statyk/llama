@@ -556,6 +556,11 @@ def _read_briefing(ws: ShowWorkspace) -> Briefing:
 
 # --- the three legs ---
 
+# The needs-LLM verdicts `reapply --with-gather-llm` can take (bulk-apply Task 10):
+# gather's two touchpoints and the stored `llm` alignment they replace.
+# `no vetting.json` is not here: it needs the research extraction, never run by reapply.
+GATHER_LLM = frozenset({"extract_setlist", "align_structure", "stored alignment llm"})
+
 @dataclasses.dataclass
 class Legs:
     """One show's deterministic replay: gather (LLM-free), vet (over the stored
@@ -583,7 +588,9 @@ class Legs:
 
 def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlistFM | None",
                  scratch: Path,
-                 enabled_slices: frozenset[str] = title_hygiene.ENABLED_SLICES) -> Legs:
+                 enabled_slices: frozenset[str] = title_hygiene.ENABLED_SLICES,
+                 gather_providers: tuple[object, object] | None = None,
+                 llm_failures_raise: bool = False) -> Legs:
     """Replay one library show into `scratch` (recreated empty, then given a
     copy of `overrides.json` and nothing else); `ws.dir` is only read.
 
@@ -592,7 +599,13 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
     propagates; a missing `provenance.json`/`show.json` is a `LlamaError`.
     A `scratch` that is, contains or lies inside `ws.dir`, or lies inside the
     library's `shows/` (`ws.dir.parent`: another show's directory), is refused
-    before anything is deleted: the recreate is an rmtree."""
+    before anything is deleted: the recreate is an rmtree.
+
+    `gather_providers` (bulk-apply Task 10) is `(extract_setlist provider,
+    align_structure provider)`, handed to `compute_gather`: the LLM touchpoints
+    are then taken, not recorded, and the `stored alignment llm` verdict is not
+    appended (the alignment is computed fresh). `llm_failures_raise` is passed
+    through to `compute_gather`."""
     show_dir, scr = ws.dir.resolve(), scratch.resolve()
     if scr == show_dir or show_dir in scr.parents or scr in show_dir.parents:
         raise LlamaError(f"refusing scratch {scratch}: it overlaps the show directory {ws.dir}")
@@ -610,13 +623,15 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
     prov = read_model(ws.provenance, Provenance)
     stored = read_model(ws.show, Show)
 
+    extract_provider, align_provider = gather_providers or (None, None)
     gathered = compute_gather(
-        ShowWorkspace(scratch), ia, None, prov.candidate, stored.identifier,
-        audio_format=config.audio_format, align_provider=None, setlistfm=slfm,
+        ShowWorkspace(scratch), ia, extract_provider, prov.candidate, stored.identifier,
+        audio_format=config.audio_format, align_provider=align_provider, setlistfm=slfm,
         structure_cfg=config.structure, jerrybase_enabled=config.jerrybase.enabled,
-        enabled_slices=enabled_slices)
+        enabled_slices=enabled_slices, llm_failures_raise=llm_failures_raise)
     needs_llm = list(gathered.needs_llm)
-    if (stored.structure is not None and stored.structure.alignment == "llm"
+    if (gather_providers is None
+            and stored.structure is not None and stored.structure.alignment == "llm"
             and not gathered.taper_owned and not gathered.self_filled):
         # Piece 2 relaxation (taper_owned) extended by piece 3 (self_filled, spec Q2): neither
         # makes an align_structure call, so the stored `llm` alignment is replayable.

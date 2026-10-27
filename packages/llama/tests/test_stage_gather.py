@@ -5212,3 +5212,30 @@ def test_unresolved_titles_overrule_needs_a_subset(tmp_path: Path):
     # one more unresolved file than the rule recorded: still held
     _, show = _gather_with(tmp_path / "less", others + [_overrule("titles", files[:-1])], md)
     assert show.review_flags == ["unresolved track titles"] and show.needs_review is True
+
+
+# --- Bulk-apply Task 10: llm_failures_raise ---
+
+def _garbage_align():
+    return FakeProvider(completes=["not json"] * 6)      # validation fails past the retries
+
+
+def test_compute_gather_degrades_llm_failure_by_default(tmp_path):
+    # (pin) today's behaviour for every other caller: a failed align_structure call
+    # degrades to the low-confidence flag.
+    align = _garbage_align()
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_low_coverage_candidate()),
+                         FakeProvider(), make_candidate(), IDENT, align_provider=align,
+                         jerrybase_enabled=False)
+    assert align.calls
+    assert "low-confidence structure alignment" in res.show.review_flags
+
+
+def test_compute_gather_llm_failures_raise(tmp_path):
+    from herder import HerderError
+    align = _garbage_align()
+    with pytest.raises(HerderError):          # TaskFailed is a HerderError
+        compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_low_coverage_candidate()),
+                       FakeProvider(), make_candidate(), IDENT, align_provider=align,
+                       jerrybase_enabled=False, llm_failures_raise=True)
+    assert align.calls
