@@ -460,11 +460,14 @@ record) plus a total. `--list`, `--profile`, `--state`, `--tts` and
 `--drifted` switch to the per-show table: slug, profile, state, voiced-by,
 TTS, reasons. A moved show reads `southern (from funk)`, and a move whose
 target has no assign entry adds `[no assign entry]`. The TTS cell is the
-recorded `<backend> <model>` (`-` unvoiced, `?` no usable record), plus
-`(now: <backend model>)` when what would voice the show today (effective
-profile, presenter, TTS) has a different backend or model, or
-`(now: unresolved)` when that cannot be resolved; the voice hash is not
-compared. Drift is display-only: it never makes a show pending, and
+recorded backend (`-` unvoiced, `?` no usable record), plus
+`(now: <backend>)` when what would voice the show today (effective
+profile, presenter, TTS) has a different backend, `(now: new model)` when
+only the model differs, or `(now: unresolved)` when that cannot be resolved;
+the voice hash is not compared. The reasons cell is a short summary
+(`unvoiced`, `no script`, `no m3u`, `N clips missing`, `N of M audio
+missing`; blank for an awaiting-fix show). `--json` has the models and the
+full reasons. Drift is display-only: it never makes a show pending, and
 "pending" never means off air (a show pending only for a profile change keeps
 airing its old voicing). `--json` is always per-show, filters apply, and rows
 carry `slug`, `state`, `reasons`, `profile`, `delivered_profile`,

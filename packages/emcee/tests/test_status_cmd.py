@@ -112,7 +112,7 @@ def test_status_table_renders_all_three_states_with_reasons(tmp_path, monkeypatc
     assert "pending-show" in out and "pending" in out
     assert "unsupported-show" in out and "unsupported" in out
     # pending's reasons are surfaced (at least one leg named)
-    assert "no DJ audio" in out or "no DJ script" in out or "broadcast.m3u" in out
+    assert "unvoiced" in out    # the compact form of the three missing legs
     assert "re-deliver from llama" in out
 
 
@@ -514,17 +514,17 @@ def test_status_list_tts_cell_recorded_unrecorded_unvoiced_drifted_unresolved(tm
     out = runner.invoke(app, ["status", "--list"]).output
     rows = _rows(out)
 
-    assert VOX in rows["ok"] and "(now:" not in rows["ok"]
+    assert "voxtral" in rows["ok"].split() and "(now:" not in rows["ok"]
+    assert DEFAULT_MODELS["voxtral"] not in out          # the table names backends only
     assert "?" in rows["legacy"].split() and "(now:" not in rows["legacy"]
     assert "?" in rows["bad"].split()
     assert "(now:" not in rows["unv"] and VOX not in rows["unv"]
-    assert f"{VOX} (now: {ELEVEN})" in rows["drift"]
-    assert f"{VOX} (now: unresolved)" in rows["unres"]
-    assert "mlx_audio Qwen3-TTS-12Hz-1.7B-Base-bf16" in rows["mlx"]
-    assert "mlx-community" not in out
-    assert rows["nomodel"].endswith(f"  ?  fake (now: {VOX})")  # no model: bare backend, no "None"
+    assert "voxtral (now: elevenlabs)" in rows["drift"]
+    assert "voxtral (now: unresolved)" in rows["unres"]
+    assert "mlx_audio" in rows["mlx"].split() and "Qwen3" not in out
+    assert rows["nomodel"].endswith("  ?  fake (now: voxtral)")
     # the TTS column sits right after the voiced-by column
-    assert f"voxtral" in rows["ok"] and rows["ok"].index(" ? ") < rows["ok"].index(VOX)
+    assert rows["ok"].index(" ? ") < rows["ok"].index("voxtral")
 
 
 def test_status_drift_ignores_the_voice_hash(tmp_path, monkeypatch):
@@ -595,7 +595,7 @@ def test_status_error_row_has_no_now(tmp_path, monkeypatch):
     assert by["boom"]["state"] == "error"
     assert by["boom"]["tts_now"] is None and by["boom"]["tts_drifted"] is None
     rows = _rows(runner.invoke(app, ["status", "--list"]).output)
-    assert VOX in rows["boom"] and "(now:" not in rows["boom"]
+    assert "voxtral" in rows["boom"].split() and "(now:" not in rows["boom"]
     assert runner.invoke(app, ["status", "--drifted"]).output.strip() == "no packages match"
 
 
@@ -804,5 +804,24 @@ def test_status_state_filter_accepts_awaiting_fix(tmp_path, monkeypatch):
     result = runner.invoke(app, ["status", "--state", "awaiting-fix"])
 
     assert result.exit_code == 0, result.output
-    assert "m " in result.output and "awaiting fix from llama: " in result.output
+    assert "m " in result.output and "awaiting-fix" in result.output
+    assert "awaiting fix from llama" not in result.output   # detail: --json
     assert "ok " not in result.output
+
+
+def test_status_list_reasons_are_compact(tmp_path, monkeypatch):
+    """The table's reasons column is a short summary; --json keeps the full text."""
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="unv", voiced=False, profile="alpha")
+    out = runner.invoke(app, ["status", "--list"]).output
+    row = _rows(out)["unv"]
+    assert row.endswith("unvoiced") and "dj_notes block" not in row and "broadcast.m3u" not in row
+    rows = json.loads(runner.invoke(app, ["status", "--json"]).output)
+    full = next(r for r in rows if r["slug"] == "unv")["reasons"]
+    assert "no DJ audio (unvoiced)" in full
+
+
+def test_status_list_tts_same_backend_model_drift_reads_new_model():
+    from emcee.cli import _compact_tts_cell
+    assert _compact_tts_cell(("voxtral", "a"), ("voxtral", "b"), drifted=True,
+                             has_now=True) == "voxtral (now: new model)"

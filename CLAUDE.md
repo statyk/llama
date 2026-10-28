@@ -269,7 +269,7 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   invalidates every clip's cache too — in practice `--fresh` normally
   re-renders every clip, not just the named one; `--force` re-synthesizes
   all of them unconditionally), `emcee status` (default: a summary by profile, ending in `voiced on`, the voiced packages by recorded TTS backend; `--list`/`-l`
-  gives the per-package table of ready/pending/unsupported/`error` with a TTS column (the recorded `<backend> <model>`, `?` = no usable record, `(now: X)` when the presenter now resolves to a different backend/model, `(now: unresolved)` when it cannot resolve; the voice hash is not compared; display only, drift never changes readiness), `--profile`,
+  gives the per-package table of ready/pending/unsupported/`error` with a TTS column (the recorded backend, `?` = no usable record, `(now: <backend>)` when the presenter now resolves to a different backend, `(now: new model)` when only the model moved, `(now: unresolved)` when it cannot resolve; models are in `--json`; the voice hash is not compared; display only, drift never changes readiness) and a short reasons column (`unvoiced`, `no script`, `no m3u`, `N clips missing`, `N of M audio missing`; blank for `awaiting-fix`; `--json` keeps the full text), `--profile`,
   `--state`, `--tts BACKEND` (`none` = voiced, no record) and `--drifted` filter and switch to that table on their own, `--json` is
   always per-show and adds `tts_now`/`tts_drifted`; `station.scan` checks packages on `SCAN_WORKERS = 16` threads and reads each manifest once, output unchanged; a `--profile` no package carries prints a `note:` rather
   than looking like an empty queue; the voicing presenter is the
