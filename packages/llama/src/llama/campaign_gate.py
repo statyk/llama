@@ -122,7 +122,7 @@ def tool_processes(ps_lines: Iterable[str], tool: str, *, self_pid: int,
 
 def ps_lines() -> list[str]:
     done = subprocess.run(["ps", "-axo", "pid=,ppid=,command="], capture_output=True,
-                          text=True, check=True)
+                          stdin=subprocess.DEVNULL, text=True, check=True)
     return done.stdout.splitlines()
 
 
@@ -171,14 +171,16 @@ def tool_versions(tool: str) -> list[tuple[str, str]]:
     """(path, its `--version` output) for every `tool` that `which -a` lists, in PATH
     order. A binary that fails reports `exit <n>: <output>` or `error: ...` in place of
     its version (version_ok refuses both). Raises OSError when `which` itself fails."""
-    done = subprocess.run(["which", "-a", tool], capture_output=True, text=True)
+    done = subprocess.run(["which", "-a", tool], capture_output=True,
+                          stdin=subprocess.DEVNULL, text=True)
     if done.returncode not in (0, 1):
         raise OSError(f"which -a {tool} exited {done.returncode}: {done.stderr.strip()}")
     paths = list(dict.fromkeys(l.strip() for l in done.stdout.splitlines() if l.strip()))
     out = []
     for p in paths:
         try:
-            r = subprocess.run([p, "--version"], capture_output=True, text=True,
+            r = subprocess.run([p, "--version"], capture_output=True,
+                               stdin=subprocess.DEVNULL, text=True,
                                timeout=_VERSION_TIMEOUT_S)
         except (OSError, subprocess.TimeoutExpired) as exc:
             out.append((p, f"error: {type(exc).__name__}: {exc}"))

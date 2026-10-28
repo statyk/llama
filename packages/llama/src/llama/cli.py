@@ -18,7 +18,7 @@ from typer.core import TyperGroup
 from herder import HerderError, TaskFailed, provider_ladder
 from herder.failures import set_capture_dir
 from herder.limits import RateLimited
-from herder.usage import read_usage
+from herder.usage import read_usage, same_window
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
@@ -4305,7 +4305,7 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             block = [reading.five_hour, 0]
         block[1] += spent
         start = block[0]
-        if after.five_hour.resets_at != start.resets_at:
+        if not same_window(after.five_hour.resets_at, start.resets_at):
             if not crossed_warned:
                 typer.echo("warning: this block crossed a 5-hour reset; "
                            "discard it and re-run")

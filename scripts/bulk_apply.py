@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 import replay_holds
+from herder.usage import same_window
 
 import llama
 import llama.replay
@@ -1794,6 +1795,16 @@ def _meter_of(row: dict, which: str) -> dict:
     return m if isinstance(m, dict) else {}
 
 
+def _one_window(resets: set) -> bool:
+    """The readings' 5-hour resets all name one window, allowing /usage's
+    one-minute jitter (herder.usage.same_window)."""
+    try:
+        when = [None if r is None else datetime.fromisoformat(r) for r in resets]
+    except (TypeError, ValueError):
+        return len(resets) == 1
+    return all(same_window(a, b) for a in when for b in when)
+
+
 def _measure_block(rows: list[dict]) -> dict | None:
     """{n, d5, d7} for one block, or None when the readings are unusable or the block
     crossed a 5-hour reset."""
@@ -1802,7 +1813,7 @@ def _measure_block(rows: list[dict]) -> dict | None:
     first, last = _meter_of(rows[0], "before"), _meter_of(rows[-1], "after")
     resets = {m.get("five_hour_resets") for r in rows for m in (_meter_of(r, "before"),
                                                                  _meter_of(r, "after"))}
-    if len(resets) != 1:
+    if not _one_window(resets):
         return {"discarded": True}
     vals = (first.get("five_hour"), last.get("five_hour"),
             first.get("seven_day"), last.get("seven_day"))

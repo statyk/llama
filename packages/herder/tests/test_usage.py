@@ -280,3 +280,28 @@ def test_cli_runner_survives_a_timeout(monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", boom)
     assert usage._cli_runner() is None
+
+
+def test_cli_runner_does_not_inherit_stdin(monkeypatch):
+    # A headless `claude -p` reads a non-tty stdin as extra prompt input, so an
+    # inherited stdin swallowed the rest of an operator's `while read` loop.
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen.update(kwargs)
+        return _FakeProc(returncode=0, stdout="OUT")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    usage._cli_runner()
+    assert seen["stdin"] is subprocess.DEVNULL
+
+
+def test_same_window_tolerates_the_one_minute_reset_jitter():
+    from datetime import datetime, timedelta, timezone
+    a = datetime(2026, 10, 28, 1, 40, tzinfo=timezone.utc)
+    assert usage.same_window(a, a - timedelta(minutes=1))
+    assert usage.same_window(a - timedelta(minutes=1), a)
+    assert usage.same_window(None, None)
+    assert not usage.same_window(a, a + timedelta(hours=5))
+    assert not usage.same_window(a, a + timedelta(minutes=3))
+    assert not usage.same_window(a, None)
