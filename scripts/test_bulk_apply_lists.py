@@ -182,7 +182,7 @@ def test_famous_shows_go_to_a_packet(tmp_path):
     two = next(l for l in lines if l.lstrip("* ").startswith("2 "))
     assert not one.startswith("*")
     assert two.startswith("*")
-    assert "set 1->2" in two and "title Song 2->Renamed" in two and "segue -->>" in two
+    assert "set 1->2" in two and "title Song 2->Renamed" in two and "segue none->'>'" in two
 
 
 def test_lists_refuse_a_missing_station_root_or_delivery_path(tmp_path, capsys):

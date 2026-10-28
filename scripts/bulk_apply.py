@@ -1374,13 +1374,14 @@ def _arrow(b, a) -> str:
 def render_side_by_side(before: list[dict], after: list[dict]) -> list[str]:
     """One line per track index: set, title and segue mark (before->after); a line whose
     values differ starts with `*`. Tracks are paired by index; a side that is shorter
-    shows `?` for the missing track."""
+    shows `?` for the missing track. A segue reads `'>'` (quoted, so it cannot run into
+    the `->` between the two sides) and no segue `none`."""
     lines = []
     for i in range(max(len(before), len(after))):
         b = before[i] if i < len(before) else {}
         a = after[i] if i < len(after) else {}
         differs = any(b.get(k) != a.get(k) for k in ("set", "title", "segue"))
-        mark = {None: "?", True: ">", False: "-"}
+        mark = {None: "?", True: "'>'", False: "none"}
         lines.append(f"{'*' if differs else ' '} {i + 1:>3}  set {_arrow(b.get('set'), a.get('set'))}"
                      f"  title {_arrow(b.get('title'), a.get('title'))}"
                      f"  segue {mark[b.get('segue')]}->{mark[a.get('segue')]}")
