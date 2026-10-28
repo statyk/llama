@@ -1000,6 +1000,8 @@ def status_cmd(
     drifted: bool = typer.Option(
         False, "--drifted",
         help="Only shows whose voice now resolves to a different TTS backend or model; implies --list"),
+    no_header: bool = typer.Option(
+        False, "--no-header", help="Per-show table without its header row (for piping)"),
     station_root: Path = typer.Option(
         None, "--station-root",
         help="Override \\[station] root for this invocation"),
@@ -1044,17 +1046,14 @@ def status_cmd(
     elif not (list_view or filtered):
         _echo_status_summary(config, statuses)
     else:
-        width = max(len(s.path.name) for s in statuses)
-        profiles = [_profile_cell(s) for s in statuses]
-        pwidth = max(len(p) for p in profiles)
-        cells = [_voiced_by_cell(config, s) for s in statuses]
-        vwidth = max(len(c) for c in cells)
-        ttss = [_tts_cell(s, tts_now.view(s)) for s in statuses]
-        twidth = max(len(c) for c in ttss)
-        for s, pcell, cell, tcell in zip(statuses, profiles, cells, ttss):
-            reasons = _reasons_cell(s)
-            typer.echo(f"{s.path.name:<{width}}  {pcell:<{pwidth}}  "
-                       f"{s.state:<12}  {cell:<{vwidth}}  {tcell:<{twidth}}  {reasons}".rstrip())
+        rows = [(s.path.name, _profile_cell(s), s.state, _voiced_by_cell(config, s),
+                 _tts_cell(s, tts_now.view(s)), _reasons_cell(s)) for s in statuses]
+        if not no_header:
+            rows.insert(0, ("show", "profile", "state", "voiced-by", "tts", "reasons"))
+        widths = [max(len(r[c]) for r in rows) for c in range(5)] + [0]
+        widths[2] = max(widths[2], 12)
+        for r in rows:
+            typer.echo("  ".join(f"{cell:<{w}}" for cell, w in zip(r, widths)).rstrip())
     if stale:
         typer.echo(_stale_note(stale), err=True)
 

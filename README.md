@@ -458,7 +458,7 @@ presenter; ready / pending / other counts, other = unsupported + error; and
 `voiced on`, the voiced shows by recorded TTS backend, `?` = no usable
 record) plus a total. `--list`, `--profile`, `--state`, `--tts` and
 `--drifted` switch to the per-show table: slug, profile, state, voiced-by,
-TTS, reasons. A moved show reads `southern (from funk)`, and a move whose
+TTS, reasons, under a header row (`--no-header` drops it, for piping). A moved show reads `southern (from funk)`, and a move whose
 target has no assign entry adds `[no assign entry]`. The TTS cell is the
 recorded backend (`-` unvoiced, `?` no usable record), plus
 `(now: <backend>)` when what would voice the show today (effective
