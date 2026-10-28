@@ -168,7 +168,9 @@ def test_famous_shows_go_to_a_packet(tmp_path):
     famous = tmp_path / "famous.txt"
     famous.write_text("famous\n")
     doc = json.loads(arm.read_text())
-    doc["shows"]["famous"].update(titles=["Song 1", "Renamed"], sets=["1", "2"],
+    # same files as the stored show, so rows pair by filename and only the fields differ
+    doc["shows"]["famous"].update(filenames=["t1.mp3", "t2.mp3"],
+                                  titles=["Song 1", "Renamed"], sets=["1", "2"],
                                   segues=[False, True])
     arm.write_text(json.dumps(doc))
     out = tmp_path / "wave.json"
@@ -340,3 +342,27 @@ def test_wave_check_refuses_an_empty_station_root(tmp_path, capsys):
     assert _run(cfg, "wave-check", "--list", str(wl)) == 2
     assert (f"station root {station} is empty (is the station mounted?)"
             in capsys.readouterr().err)
+
+
+def test_render_side_by_side_pairs_by_filename_so_an_added_track_is_one_row():
+    # antibalasmusic-2004-11-03: short-keep restores d1t1 "Intro" at the front; by index
+    # every later row read as a title shift.
+    before = [{"filename": "t2", "set": "1", "title": "B", "segue": False},
+              {"filename": "t3", "set": "1", "title": "C", "segue": False}]
+    after = [{"filename": "t1", "set": "1", "title": "Intro", "segue": False}] + before
+    lines = ba.render_side_by_side(before, after)
+    assert len(lines) == 3
+    assert lines[0].startswith("*") and "title ?->Intro" in lines[0]
+    assert [l.startswith("*") for l in lines[1:]] == [False, False]
+    assert "title B->B" in lines[1] and "title C->C" in lines[2]
+
+
+def test_render_side_by_side_shows_a_dropped_track_as_one_row():
+    before = [{"filename": "t1", "set": "1", "title": "A", "segue": False},
+              {"filename": "t2", "set": "1", "title": "B", "segue": False},
+              {"filename": "t3", "set": "1", "title": "C", "segue": False}]
+    after = [before[0], before[2]]
+    lines = ba.render_side_by_side(before, after)
+    assert len(lines) == 3
+    assert [l.startswith("*") for l in lines] == [False, True, False]
+    assert "title B->?" in lines[1] and "title C->C" in lines[2]
