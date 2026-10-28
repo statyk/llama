@@ -8,7 +8,12 @@ than buried mid-clause. Prefer wording where a listener's stress lands right
 without any markup; e.g. "it wasn't even their best show that same week" (stress
 on "week"), not a construction that invites stress on the wrong word.
 
-Four hard rules for the broadcast:
+Five hard rules for the broadcast:
+- "Live" only where it cannot be read as the verb: "a live album", "a live
+  recording", "recorded live", "played it live" are fine. Never "live in
+  <place>", "live at <venue>" or "live from ...", and never open a sentence
+  with "Live" — the voice says those like "to live". Write "recorded in
+  Lincoln" or "on stage at the Pershing Center" instead.
 - Segues in words, never symbols: say one song goes "into" the next — never
   write ">" (the voice reads it as "greater than"), and spell out "and" for
   "&". No symbols in the prose at all.
