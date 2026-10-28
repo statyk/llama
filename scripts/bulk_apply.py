@@ -28,8 +28,8 @@ from pathlib import Path
 from typing import NamedTuple
 
 import replay_holds
-from herder.usage import same_window
 
+from herder.usage import same_window
 import llama
 import llama.replay
 from llama import batch_snapshot, campaign, reapply, station_mark
@@ -1800,9 +1800,9 @@ def _one_window(resets: set) -> bool:
     one-minute jitter (herder.usage.same_window)."""
     try:
         when = [None if r is None else datetime.fromisoformat(r) for r in resets]
-    except (TypeError, ValueError):
+        return all(same_window(a, b) for a in when for b in when)
+    except (TypeError, ValueError):     # unparseable, or naive mixed with aware
         return len(resets) == 1
-    return all(same_window(a, b) for a in when for b in when)
 
 
 def _measure_block(rows: list[dict]) -> dict | None:

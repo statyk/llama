@@ -355,3 +355,8 @@ def test_block_with_a_one_minute_reset_jitter_is_not_discarded(tmp_path, capsys)
     assert "discarded" not in out
     assert "per-show 5h" in out
     assert rc == 0
+
+
+def test_one_window_mixing_naive_and_aware_resets_discards_rather_than_crashes():
+    import bulk_apply
+    assert bulk_apply._one_window({"2026-10-28T01:40:00", "2026-10-28T01:39:00+00:00"}) is False

@@ -758,8 +758,10 @@ has run).
   anything, whether the window can finish the next unit of work. The meter is
   `claude -p "/usage"` via `herder.usage` — a live `GET /api/oauth/usage`, zero
   tokens, NOT an inference call, so it is affordable at every show boundary;
-  The meter subprocess gets `stdin=DEVNULL`: a headless `claude -p` reads a non-tty stdin as prompt input, and an inherited one swallowed an operator's `while read` loop. `~/.claude.json`'s cached utilization is deliberately not read (it was
-  measured serving an already-expired window). What a show costs is learned
+  `~/.claude.json`'s cached utilization is deliberately not read (it was
+  measured serving an already-expired window). The meter subprocess gets
+  `stdin=DEVNULL`: a headless `claude -p` reads a non-tty stdin as prompt
+  input, and an inherited one swallowed an operator's `while read` loop. What a show costs is learned
   from the meter across show boundaries and persisted as an EWMA in
   `pacing-state.json` (`llama.pacing_state`) — **a show records a boundary only if
   an LLM provider was invoked during its `process_show` call**, so a resume that
