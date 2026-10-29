@@ -1038,7 +1038,7 @@ has run).
   `Jam >` neither lowers nor raises coverage. The operator's 239 hand `include`s of
   short files are why none of this loosens the floor constants; an `include` of a file
   the rule now keeps re-admits nothing. `show --tracks` and triage `[i]` still read
-  `implausibly short` for the files that stay dropped.
+  `implausibly short` for the files that stay dropped. **Edge labels (fix-2201):** a TAGGED short file before the first or after the last ORIGINAL kept file (never the tagged keeps) is also dropped when every part of its cleaned tag is a junk part or a spoken-word `junk.EDGE_LABEL` (intro, outro, announcements, MC, banter, stage talk, thank you, goodnight...; `short_tag_is_edge_label`); `Intro Jam`, `Intro > Song` and a song name keep, and an interior `Intro` keeps. `JUNK_PART` also reads set-break wording (`setbreak`, `set-break`, `intermission`, `break`, `between sets`, `end of set (N)`) as junk everywhere.
 - **Downloads fall back across archive.org servers** (`IAClient.download_file`,
   spec §1; constants module-level in `ia_client.py`, none in config). archive.org
   throttles each connection, so a struggling server is answered by switching, not by

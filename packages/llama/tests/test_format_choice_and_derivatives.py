@@ -78,7 +78,9 @@ def test_tsp_shape_whole_24bit_show_beats_one_short_16bit_file():
     files = _load("tsp2007-07-28.csb.flac24.json")
     kept, excluded, ordering = filter_files(files, FLAC)
     assert ordering["format"] == "24bit Flac"
-    assert len(kept) == 33
+    # 33 before fix-2201; t01 (36 s, an edge intro label) is now dropped.
+    assert len(kept) == 32
+    assert "tsp2007-07-28.csb.t01.flac" not in _names(kept)
     assert "tsp2007-07-28.csb.t34.flac" not in _names(kept)
     assert all(f["format"] == "24bit Flac" for f in kept)
 
