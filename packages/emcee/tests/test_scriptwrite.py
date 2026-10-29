@@ -355,7 +355,7 @@ def test_scriptwrite_prompt_forbids_time_anchored_to_the_present():
 
 def test_scriptwrite_full_path_has_no_extra_blank_line():
     rendered = load_prompt("scriptwrite").replace("{{narration_note}}", narration_note("full"))
-    assert "hearing.\n\nShow data (JSON):" in rendered
+    assert "with it.\n\nShow data (JSON):" in rendered
     assert "\n\n\nShow data" not in rendered
 
 
