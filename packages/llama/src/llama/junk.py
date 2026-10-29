@@ -129,6 +129,7 @@ JUNK_PART = re.compile(
 SET_END_PAREN = re.compile(
     r"^(?:end\s+of\s+set\s*[(\[]\s*(?:\d|i+|one|two|three)\s*[)\]]"
     r"|set\s*[(\[]\s*(?:\d|i+|one|two|three)\s*[)\]]\s*end)$", re.I)
+TRAILING_ARROW = re.compile(r"-*>\s*$")
 # Spoken-word labels that are junk only at a tape's edge (an "Intro" in the
 # middle can be a real piece). Every part of the tag must be a label.
 EDGE_LABEL = re.compile(
@@ -180,6 +181,8 @@ def short_tag_is_edge_label(tag: str | None) -> bool:
         return False
     if short_tag_is_junk(tag):
         return True
+    if TRAILING_ARROW.search(t):   # "Intro >" may run into the first song
+        return False
     ps = parts(t)
     return bool(ps) and all(JUNK_PART.match(p) or EDGE_LABEL.match(p) for p in ps)
 

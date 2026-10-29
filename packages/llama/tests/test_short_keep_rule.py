@@ -618,3 +618,12 @@ def test_set_break_wording_dropped_interior(title):
 def test_break_inside_a_song_name_is_not_junk():
     assert not short_tag_is_junk("Breakdown")
     assert not short_tag_is_junk("Break On Through")
+
+
+@pytest.mark.parametrize("title", ["Intro >", "Intro->", "Intro>", "Intro -->", "Intro ->"])
+def test_edge_label_ending_in_a_segue_arrow_is_kept(title):
+    assert _kept_short(_tape_with_short(0, title), "band1t01.mp3") == (True, None)
+
+
+def test_edge_intro_without_arrow_still_dropped():
+    assert _kept_short(_tape_with_short(0, "Intro"), "band1t01.mp3") == (False, ["implausibly short"])
