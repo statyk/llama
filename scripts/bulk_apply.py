@@ -29,6 +29,7 @@ from typing import NamedTuple
 
 import replay_holds
 
+from herder.usage import same_window
 import llama
 import llama.replay
 from llama import batch_snapshot, campaign, reapply, station_mark
@@ -1370,17 +1371,50 @@ def _arrow(b, a) -> str:
     return f"{'?' if b is None else b}->{'?' if a is None else a}"
 
 
+def _pair_tracks(before: list[dict], after: list[dict]) -> list[tuple[int, dict, dict]]:
+    """(after position or 0, before, after) per row. Paired by filename when both sides
+    name every track uniquely, so a track added or dropped is one row rather than a
+    shift of every later row; otherwise by index, a missing side as {}."""
+    bnames = [t.get("filename") for t in before]
+    anames = [t.get("filename") for t in after]
+    if (None in bnames or None in anames or len(set(bnames)) != len(bnames)
+            or len(set(anames)) != len(anames)):
+        n = max(len(before), len(after))
+        return [(i + 1, before[i] if i < len(before) else {},
+                 after[i] if i < len(after) else {}) for i in range(n)]
+    where = {f: i for i, f in enumerate(bnames)}
+    rows, nxt = [], 0           # nxt: the next before index not yet emitted
+
+    def flush(upto: int) -> None:
+        nonlocal nxt
+        while nxt < upto:
+            if bnames[nxt] not in anames:
+                rows.append((0, before[nxt], {}))
+            nxt += 1
+    for i, a in enumerate(after):
+        j = where.get(anames[i])
+        if j is None:
+            rows.append((i + 1, {}, a))
+            continue
+        flush(j)
+        nxt = max(nxt, j + 1)
+        rows.append((i + 1, before[j], a))
+    flush(len(before))
+    return rows
+
+
 def render_side_by_side(before: list[dict], after: list[dict]) -> list[str]:
-    """One line per track index: set, title and segue mark (before->after); a line whose
-    values differ starts with `*`. Tracks are paired by index; a side that is shorter
-    shows `?` for the missing track."""
+    """One line per track: set, title and segue mark (before->after); a line whose
+    values differ starts with `*`. Tracks pair by filename (`_pair_tracks`), so an added
+    track reads `?->` on its before side and a dropped one `->?` on its after side,
+    numbered `-` (by index when filenames are missing or repeat). A segue reads `'>'`
+    (quoted, so it cannot run into the `->` between the two sides) and no segue `none`."""
+    mark = {None: "?", True: "'>'", False: "none"}
     lines = []
-    for i in range(max(len(before), len(after))):
-        b = before[i] if i < len(before) else {}
-        a = after[i] if i < len(after) else {}
+    for pos, b, a in _pair_tracks(before, after):
         differs = any(b.get(k) != a.get(k) for k in ("set", "title", "segue"))
-        mark = {None: "?", True: ">", False: "-"}
-        lines.append(f"{'*' if differs else ' '} {i + 1:>3}  set {_arrow(b.get('set'), a.get('set'))}"
+        num = str(pos) if pos else "-"
+        lines.append(f"{'*' if differs else ' '} {num:>3}  set {_arrow(b.get('set'), a.get('set'))}"
                      f"  title {_arrow(b.get('title'), a.get('title'))}"
                      f"  segue {mark[b.get('segue')]}->{mark[a.get('segue')]}")
     return lines
@@ -1794,6 +1828,16 @@ def _meter_of(row: dict, which: str) -> dict:
     return m if isinstance(m, dict) else {}
 
 
+def _one_window(resets: set) -> bool:
+    """The readings' 5-hour resets all name one window, allowing /usage's
+    one-minute jitter (herder.usage.same_window)."""
+    try:
+        when = [None if r is None else datetime.fromisoformat(r) for r in resets]
+        return all(same_window(a, b) for a in when for b in when)
+    except (TypeError, ValueError):     # unparseable, or naive mixed with aware
+        return len(resets) == 1
+
+
 def _measure_block(rows: list[dict]) -> dict | None:
     """{n, d5, d7} for one block, or None when the readings are unusable or the block
     crossed a 5-hour reset."""
@@ -1802,7 +1846,7 @@ def _measure_block(rows: list[dict]) -> dict | None:
     first, last = _meter_of(rows[0], "before"), _meter_of(rows[-1], "after")
     resets = {m.get("five_hour_resets") for r in rows for m in (_meter_of(r, "before"),
                                                                  _meter_of(r, "after"))}
-    if len(resets) != 1:
+    if not _one_window(resets):
         return {"discarded": True}
     vals = (first.get("five_hour"), last.get("five_hour"),
             first.get("seven_day"), last.get("seven_day"))

@@ -96,7 +96,10 @@ def _cli_runner(binary: str = "claude", timeout_s: int = 60):
     from herder.claude_cli import ISOLATION_ARGS, _neutral_cwd, _subprocess_env
     cmd = [binary, "-p", "/usage", "--output-format", "json", *ISOLATION_ARGS]
     try:
+        # stdin=DEVNULL: a headless `claude -p` reads a non-tty stdin as extra
+        # prompt input, so an inherited one swallowed an operator's `while read` loop.
         proc = subprocess.run(cmd, capture_output=True, text=True,
+                              stdin=subprocess.DEVNULL,
                               timeout=timeout_s, env=_subprocess_env(),
                               cwd=_neutral_cwd())
     except (subprocess.SubprocessError, OSError):
@@ -127,3 +130,16 @@ def read_usage(runner=None, now: datetime | None = None) -> UsageReading | None:
     if not isinstance(text, str):
         return None
     return parse_usage_text(text, now=now)
+
+
+# `/usage` prints the same reset a minute early now and then (9:39pm vs 9:40pm,
+# 6:59am vs 7am): the instant sits on a minute boundary and is sometimes served a
+# hair before it. A real reset moves the time by hours, so 2 minutes cannot hide one.
+RESET_JITTER_S = 120
+
+
+def same_window(a: datetime | None, b: datetime | None) -> bool:
+    """True when two readings' reset instants name the same window."""
+    if a is None or b is None:
+        return a is b
+    return abs((a - b).total_seconds()) <= RESET_JITTER_S

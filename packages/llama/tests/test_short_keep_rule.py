@@ -48,6 +48,9 @@ def _reasons(excluded):
 
 # --- the deny vocabulary, measured (spec 2.3) ---
 
+RULED_SET_BREAK_ROW = ("gratefuldead-1985-06-14", "gd85-06-14s1t07.mp3")
+
+
 def test_deny_vocabulary_corpus():
     """Strict surface (c). Every one of the library's 3,547 short-only drops,
     re-decided by `short_verdict`, must reproduce the census decision `r1_dec`
@@ -67,6 +70,12 @@ def test_deny_vocabulary_corpus():
         verdicts[v] += 1
         classes[dec] += 1
         where = (r["slug"], r["name"], r["tag"], dec, v)
+        if (r["slug"], r["name"]) == RULED_SET_BREAK_ROW:
+            # fix-2201: "break" alone is set-break wording, junk everywhere.
+            assert (dec, v) == ("keep", "junk"), where
+            verdicts[v] -= 1
+            verdicts["keep"] += 1
+            continue
         assert (v == "keep") == dec.startswith("keep"), where
         if dec in ("drop-junk", "drop-nonperf"):
             assert v == "junk", where
@@ -548,3 +557,117 @@ def test_short_keep_false_returns_no_names():
     assert "band1t09.mp3" not in _names(kept)
     assert _reasons(excluded) == {"band1t09.mp3": ["implausibly short"]}
     assert ordering["short_kept"] == []
+
+
+# --- edge labels and set-break wording (fix-2201) ---
+
+def _tape_with_short(pos, title, n=6):
+    """n normal files plus one 30 s tagged file at `pos` (0 = first, n = last,
+    else interior after that many normal files)."""
+    normal = [_mp3(f"band1t{i:02d}.mp3", title=f"Song {i}") for i in range(2, n + 2)]
+    short = _mp3("band1t01.mp3" if pos == 0 else f"band1t{n + 2:02d}.mp3"
+                 if pos == n else "band1t03x.mp3", title=title, length="30.0")
+    if pos == 0:
+        return [short] + normal
+    if pos == n:
+        return normal + [short]
+    return normal[:pos] + [short] + normal[pos:]
+
+
+def _kept_short(files, name):
+    kept, excluded, _ = filter_files(files)
+    return name in _names(kept), _reasons(excluded).get(name)
+
+
+@pytest.mark.parametrize("title", ["Intro", "Introduction", "Band Intro", "Announcements",
+                                   "MC", "Stage Talk", "Thank you", "Goodnight",
+                                   "Intro / Tuning"])
+def test_edge_label_first_dropped(title):
+    files = _tape_with_short(0, title)
+    assert _kept_short(files, "band1t01.mp3") == (False, ["implausibly short"])
+
+
+def test_edge_outro_last_dropped():
+    files = _tape_with_short(6, "Outro")
+    assert _kept_short(files, "band1t08.mp3") == (False, ["implausibly short"])
+
+
+def test_interior_intro_kept():
+    files = _tape_with_short(3, "Intro")
+    assert _kept_short(files, "band1t03x.mp3") == (True, None)
+
+
+def test_edge_intro_jam_kept():
+    assert _kept_short(_tape_with_short(0, "Intro Jam"), "band1t01.mp3") == (True, None)
+    assert _kept_short(_tape_with_short(0, "Intro > Dark Star"), "band1t01.mp3") == (True, None)
+
+
+def test_edge_real_song_kept():
+    assert _kept_short(_tape_with_short(0, "Dark Star"), "band1t01.mp3") == (True, None)
+    assert _kept_short(_tape_with_short(6, "Dark Star"), "band1t08.mp3") == (True, None)
+
+
+@pytest.mark.parametrize("title", ["Intermission", "setbreak", "Set-Break", "Break",
+                                   "Between Sets", "End of Set 1", "End of Set (2)",
+                                   "Set (1) End"])
+def test_set_break_wording_dropped_interior(title):
+    assert _kept_short(_tape_with_short(3, title), "band1t03x.mp3") == (False, ["implausibly short"])
+    assert short_tag_is_junk(title)
+
+
+def test_break_inside_a_song_name_is_not_junk():
+    assert not short_tag_is_junk("Breakdown")
+    assert not short_tag_is_junk("Break On Through")
+
+
+@pytest.mark.parametrize("title", ["Intro >", "Intro->", "Intro>", "Intro -->", "Intro ->"])
+def test_edge_label_ending_in_a_segue_arrow_is_kept(title):
+    assert _kept_short(_tape_with_short(0, title), "band1t01.mp3") == (True, None)
+
+
+def test_edge_intro_without_arrow_still_dropped():
+    assert _kept_short(_tape_with_short(0, "Intro"), "band1t01.mp3") == (False, ["implausibly short"])
+
+
+@pytest.mark.parametrize("title", ["-> Outro", "> Outro", "->Outro", "-->outro"])
+def test_last_edge_label_with_a_leading_arrow_is_kept(title):
+    assert _kept_short(_tape_with_short(6, title), "band1t08.mp3") == (True, None)
+
+
+def test_leading_arrow_exception_is_for_the_last_edge_only():
+    files = _tape_with_short(0, "-> Intro")
+    assert _kept_short(files, "band1t01.mp3") == (False, ["implausibly short"])
+
+
+@pytest.mark.parametrize("title", ["intro-", "intro~"])
+def test_trailing_dash_or_tilde_does_not_keep_an_edge_label(title):
+    assert _kept_short(_tape_with_short(0, title), "band1t01.mp3") == (False, ["implausibly short"])
+
+
+def test_edge_label_tag_read_from_the_original_when_the_derivative_has_none():
+    files = []
+    for i in range(1, 8):
+        files.append({"name": f"x1t0{i}.flac", "format": "Flac", "source": "original",
+                      "title": "Intro" if i == 1 else f"Song {i}"})
+    for i in range(1, 8):
+        files.append(_mp3(f"x1t0{i}.mp3", source="derivative", original=f"x1t0{i}.flac",
+                          length="30.0" if i == 1 else "300.0"))
+    assert _kept_short(files, "x1t01.mp3") == (False, ["implausibly short"])
+
+
+def test_a_dropped_edge_label_is_no_neighbour_for_an_untagged_short_file():
+    normal = [_mp3(f"band1t{i:02d}.mp3", title=f"Song {i}") for i in range(3, 9)]
+    files = [_mp3("band1t01.mp3", title="Intro", length="30.0"),
+             _mp3("band1t02.mp3", length="30.0")] + normal
+    kept, excluded, _ = filter_files(files)
+    assert _reasons(excluded) == {"band1t01.mp3": ["implausibly short"],
+                                  "band1t02.mp3": ["implausibly short"]}
+
+
+def test_edges_come_from_the_originally_kept_files_not_the_tagged_keeps():
+    normal = [_mp3(f"band1t{i:02d}.mp3", title=f"Song {i}") for i in range(3, 9)]
+    files = [_mp3("band1t01.mp3", title="Dark Star", length="30.0"),
+             _mp3("band1t02.mp3", title="Intro", length="30.0")] + normal
+    kept, excluded, _ = filter_files(files)
+    assert "band1t01.mp3" in _names(kept)
+    assert _reasons(excluded) == {"band1t02.mp3": ["implausibly short"]}

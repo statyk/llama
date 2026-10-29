@@ -5,6 +5,7 @@ mirroring llama's `cli.py:57-65` pattern.
 """
 
 import json
+import re
 import sys
 import traceback
 from collections.abc import Sequence
@@ -871,27 +872,52 @@ def _voiced_by_cell(config: EmceeConfig, s: PackageStatus) -> str:
     return s.voiced_by
 
 
-def _tts_label(backend: str, model: str | None) -> str:
-    """`<backend> <model>`, any organisation prefix dropped from the model
-    (text after the last `/`); just `<backend>` when there is no model."""
-    if isinstance(model, str) and model:
-        return f"{backend} {model.rsplit('/', 1)[-1]}"
-    return backend
+def _compact_tts_cell(recorded: tuple[str, str | None], now: tuple[str, str | None] | None,
+                      *, drifted: bool, has_now: bool) -> str:
+    """The recorded backend, plus `(now: <backend>)` on a backend drift, `(now: new
+    model)` when only the model moved, or `(now: unresolved)`. Models are in --json."""
+    cell = recorded[0]
+    if drifted and now is not None:
+        cell += " (now: new model)" if now[0] == recorded[0] else f" (now: {now[0]})"
+    elif has_now and now is None:
+        cell += " (now: unresolved)"
+    return cell
 
 
 def _tts_cell(s: PackageStatus, v: _TtsView) -> str:
-    """`-` unvoiced, `?` voiced with no usable record, else the recorded label,
-    plus `(now: X)` on drift or `(now: unresolved)` when "now" cannot be told."""
+    """`-` unvoiced, `?` voiced with no usable record, else `_compact_tts_cell`."""
     if not s.voiced:
         return "-"
     if v.recorded is None:
         return "?"
-    cell = _tts_label(*v.recorded)
-    if v.drifted:
-        cell += f" (now: {_tts_label(*v.now)})"
-    elif v.has_now and v.now is None:
-        cell += " (now: unresolved)"
-    return cell
+    return _compact_tts_cell(v.recorded, v.now, drifted=v.drifted, has_now=v.has_now)
+
+
+_REASON_SHORT = {"no DJ script (dj_notes block + dj-notes.md required)": "no script",
+                 "no DJ audio (unvoiced)": "unvoiced", "no broadcast.m3u": "no m3u"}
+_CLIPS_MISSING = re.compile(r"(\d+) DJ audio clip\(s\) missing")
+_AUDIO_MISSING = re.compile(r"(\d+ of \d+) audio file\(s\) missing")
+_DELIVERED_TAIL = " (delivered profile; no rule or move applies)"
+
+
+def _reasons_cell(s: PackageStatus) -> str:
+    """The table's short form of `s.reasons` (--json keeps the full text): blank for
+    awaiting-fix, whose state column says it; a never-voiced package is `unvoiced`."""
+    if s.state == AWAITING:
+        return ""
+    short = []
+    for r in s.reasons:
+        if r in _REASON_SHORT:
+            short.append(_REASON_SHORT[r])
+        elif m := _CLIPS_MISSING.match(r):
+            short.append(f"{m[1]} clips missing")
+        elif m := _AUDIO_MISSING.match(r):
+            short.append(f"{m[1]} audio missing")
+        else:
+            short.append(r.removesuffix(_DELIVERED_TAIL))
+    if {"no script", "unvoiced", "no m3u"} <= set(short):
+        short = [r for r in short if r not in ("no script", "no m3u")]
+    return "; ".join(short)
 
 
 def _voiced_on_cell(members: list[PackageStatus]) -> str:
@@ -974,6 +1000,8 @@ def status_cmd(
     drifted: bool = typer.Option(
         False, "--drifted",
         help="Only shows whose voice now resolves to a different TTS backend or model; implies --list"),
+    no_header: bool = typer.Option(
+        False, "--no-header", help="With --list (or a filter that implies it): per-show table without its header row, for piping; ignored by the summary and --json views"),
     station_root: Path = typer.Option(
         None, "--station-root",
         help="Override \\[station] root for this invocation"),
@@ -1018,17 +1046,14 @@ def status_cmd(
     elif not (list_view or filtered):
         _echo_status_summary(config, statuses)
     else:
-        width = max(len(s.path.name) for s in statuses)
-        profiles = [_profile_cell(s) for s in statuses]
-        pwidth = max(len(p) for p in profiles)
-        cells = [_voiced_by_cell(config, s) for s in statuses]
-        vwidth = max(len(c) for c in cells)
-        ttss = [_tts_cell(s, tts_now.view(s)) for s in statuses]
-        twidth = max(len(c) for c in ttss)
-        for s, pcell, cell, tcell in zip(statuses, profiles, cells, ttss):
-            reasons = "; ".join(s.reasons)
-            typer.echo(f"{s.path.name:<{width}}  {pcell:<{pwidth}}  "
-                       f"{s.state:<12}  {cell:<{vwidth}}  {tcell:<{twidth}}  {reasons}".rstrip())
+        rows = [(s.path.name, _profile_cell(s), s.state, _voiced_by_cell(config, s),
+                 _tts_cell(s, tts_now.view(s)), _reasons_cell(s)) for s in statuses]
+        if not no_header:
+            rows.insert(0, ("show", "profile", "state", "voiced-by", "tts", "reasons"))
+        widths = [max(len(r[c]) for r in rows) for c in range(5)] + [0]
+        widths[2] = max(widths[2], 12)
+        for r in rows:
+            typer.echo("  ".join(f"{cell:<{w}}" for cell, w in zip(r, widths)).rstrip())
     if stale:
         typer.echo(_stale_note(stale), err=True)
 

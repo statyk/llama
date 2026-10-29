@@ -2285,6 +2285,29 @@ def test_stop_at_points_ends_the_block(tmp_path, monkeypatch):
     assert len(calls) == 2
 
 
+def test_stop_at_points_ignores_a_one_minute_reset_jitter(tmp_path, monkeypatch):
+    # /usage prints the reset a minute early now and then (9:39pm vs 9:40pm); that is
+    # the same window, so the block must still stop at its points with no warning.
+    from conftest import cli_invoke
+    from datetime import datetime, timedelta, timezone
+    root, config, entries, lst = _batch_env(tmp_path, monkeypatch, n_clones=2)
+    calls = _stub_package(monkeypatch)
+    real_show = reapply_mod.reapply_show
+    def spending(config, ia, ledger, entry, *, providers, **kw):
+        _spend(providers)
+        return real_show(config, ia, ledger, entry, providers=providers, **kw)
+    monkeypatch.setattr(reapply_mod, "reapply_show", spending)
+    r1 = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    r0 = r1 - timedelta(minutes=1)
+    _meters(monkeypatch, [(40, r1, 7), (42, r0, 7), (42, r1, 7), (45, r0, 7),
+                          (45, r1, 7), (46, r1, 7)])
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--stop-at-points", "5")
+    assert r.exit_code == 0, r.output
+    assert "crossed a 5-hour reset" not in r.output
+    assert "trial block done: 5h meter moved 5 points over 2 shows" in r.output
+    assert len(calls) == 2
+
+
 def test_stop_at_points_warns_when_the_block_crosses_a_reset(tmp_path, monkeypatch):
     from conftest import cli_invoke
     from datetime import datetime, timezone

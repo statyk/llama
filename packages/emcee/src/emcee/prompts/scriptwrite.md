@@ -8,7 +8,12 @@ than buried mid-clause. Prefer wording where a listener's stress lands right
 without any markup; e.g. "it wasn't even their best show that same week" (stress
 on "week"), not a construction that invites stress on the wrong word.
 
-Four hard rules for the broadcast:
+Five hard rules for the broadcast:
+- "Live" only where it cannot be read as the verb: "a live album", "a live
+  recording", "recorded live", "played it live" are fine. Never "live in
+  <place>", "live at <venue>" or "live from ...", and never open a sentence
+  with "Live" — the voice says those like "to live". Write "recorded in
+  Lincoln" or "on stage at the Pershing Center" instead.
 - Segues in words, never symbols: say one song goes "into" the next — never
   write ">" (the voice reads it as "greater than"), and spell out "and" for
   "&". No symbols in the prose at all.
@@ -27,6 +32,14 @@ Four hard rules for the broadcast:
 - Show ID in every break: every lead-in AND the outro must re-state the show's
   identity — artist, date, venue and/or city — at least once, so a listener
   tuning in mid-broadcast learns what they are hearing.
+
+Names are the exception. The show's name, song and album titles, and the names
+of bands, people, venues and places are always written exactly as they appear
+in the show data or above, even where that breaks a rule here (e.g. "Me & Bobby
+McGee", a song called "Tonight"). The rules still govern your own words around
+a name: never use a title as licence to break a rule elsewhere in the sentence,
+and where you can, put a name that would break a rule after other words rather
+than opening a sentence with it.
 
 {{narration_note}}Show data (JSON):
 {{manifest_show_json}}

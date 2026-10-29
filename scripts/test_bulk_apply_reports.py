@@ -343,3 +343,20 @@ def test_foreign_window_is_inclusive(tmp_path, capsys, at):
     rc, out = _report(cfg, capsys, "--block", f"dead-fresh={d}", "--queue", str(q),
                       "--weekly-share", "50")
     assert "not contiguous: 1 spending row(s) of another kind inside it" in out
+
+
+def test_block_with_a_one_minute_reset_jitter_is_not_discarded(tmp_path, capsys):
+    # /usage prints the same reset a minute early now and then; that is one window.
+    cfg, _, _ = _lib(tmp_path)
+    d = _block(tmp_path, "b", 20, (30, 40), (10, 12), resets=(RESET, "2026-10-27T14:59:00+00:00"))
+    q = _queue(tmp_path, {})
+    rc, out = _report(cfg, capsys, "--block", f"dead-fresh={d}", "--queue", str(q),
+                      "--weekly-share", "50")
+    assert "discarded" not in out
+    assert "per-show 5h" in out
+    assert rc == 0
+
+
+def test_one_window_mixing_naive_and_aware_resets_discards_rather_than_crashes():
+    import bulk_apply
+    assert bulk_apply._one_window({"2026-10-28T01:40:00", "2026-10-28T01:39:00+00:00"}) is False

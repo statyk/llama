@@ -353,9 +353,19 @@ def test_scriptwrite_prompt_forbids_time_anchored_to_the_present():
     assert "without saying when" in prompt
 
 
+def test_scriptwrite_prompt_live_rule_and_names_exception():
+    prompt = load_prompt("scriptwrite")
+    assert "Five hard rules" in prompt
+    assert '"Live" only where it cannot be read as the verb' in prompt
+    assert '"live in\n  <place>"' in prompt
+    assert "Names are the exception." in prompt
+    assert "always written exactly as they appear" in prompt
+    assert "never use a title as licence to break a rule" in prompt
+
+
 def test_scriptwrite_full_path_has_no_extra_blank_line():
     rendered = load_prompt("scriptwrite").replace("{{narration_note}}", narration_note("full"))
-    assert "hearing.\n\nShow data (JSON):" in rendered
+    assert "with it.\n\nShow data (JSON):" in rendered
     assert "\n\n\nShow data" not in rendered
 
 

@@ -112,7 +112,7 @@ def test_status_table_renders_all_three_states_with_reasons(tmp_path, monkeypatc
     assert "pending-show" in out and "pending" in out
     assert "unsupported-show" in out and "unsupported" in out
     # pending's reasons are surfaced (at least one leg named)
-    assert "no DJ audio" in out or "no DJ script" in out or "broadcast.m3u" in out
+    assert "unvoiced" in out    # the compact form of the three missing legs
     assert "re-deliver from llama" in out
 
 
@@ -278,7 +278,7 @@ def test_status_list_flag_and_short_flag_show_per_show_table(tmp_path, monkeypat
 
     for flag in ("--list", "-l"):
         out = runner.invoke(app, ["status", flag]).output
-        rows = {ln.split()[0]: ln for ln in out.splitlines()}
+        rows = {ln.split()[0]: ln for ln in out.splitlines()[1:]}
         assert set(rows) == {"a1", "b1", "b2", "n1", "u1"}
         assert "alpha" in rows["a1"] and "ready" in rows["a1"]
         assert "(none)" in rows["n1"]
@@ -289,23 +289,23 @@ def test_status_profile_filter_implies_list_and_is_repeatable(tmp_path, monkeypa
     _mixed_station(tmp_path, monkeypatch)
 
     out = runner.invoke(app, ["status", "--profile", "beta"]).output
-    assert {ln.split()[0] for ln in out.splitlines()} == {"b1", "b2"}
+    assert {ln.split()[0] for ln in out.splitlines()[1:]} == {"b1", "b2"}
 
     out = runner.invoke(app, ["status", "--profile", "beta", "--profile", "alpha"]).output
-    assert {ln.split()[0] for ln in out.splitlines()} == {"a1", "b1", "b2"}
+    assert {ln.split()[0] for ln in out.splitlines()[1:]} == {"a1", "b1", "b2"}
 
 
 def test_status_state_filter_implies_list_and_combines_with_profile(tmp_path, monkeypatch):
     _mixed_station(tmp_path, monkeypatch)
 
     out = runner.invoke(app, ["status", "--state", "pending"]).output
-    assert {ln.split()[0] for ln in out.splitlines()} == {"b2", "n1"}
+    assert {ln.split()[0] for ln in out.splitlines()[1:]} == {"b2", "n1"}
 
     out = runner.invoke(app, ["status", "--state", "pending", "--profile", "beta"]).output
-    assert {ln.split()[0] for ln in out.splitlines()} == {"b2"}
+    assert {ln.split()[0] for ln in out.splitlines()[1:]} == {"b2"}
 
     out = runner.invoke(app, ["status", "--state", "ready", "--state", "unsupported"]).output
-    assert {ln.split()[0] for ln in out.splitlines()} == {"a1", "b1", "u1"}
+    assert {ln.split()[0] for ln in out.splitlines()[1:]} == {"a1", "b1", "u1"}
 
 
 def test_status_unknown_state_is_a_usage_error(tmp_path, monkeypatch):
@@ -387,7 +387,7 @@ def test_status_voiced_by_states_and_drift_annotation(tmp_path, monkeypatch):
     _set_voiced_by(station / "gone", presenter="dave")
 
     out = runner.invoke(app, ["status", "--list"]).output
-    rows = {ln.split()[0]: ln for ln in out.splitlines()}
+    rows = {ln.split()[0]: ln for ln in out.splitlines()[1:]}
 
     assert "(now: bob)" in rows["b1"] and "carol" in rows["b1"]
     assert "billyg" in rows["a1"] and "(now:" not in rows["a1"]
@@ -490,7 +490,7 @@ def _vox(voice="h1", model=None):
 
 
 def _rows(out: str) -> dict[str, str]:
-    return {ln.split()[0]: ln for ln in out.splitlines() if ln.strip()}
+    return {ln.split()[0]: ln for ln in out.splitlines()[1:] if ln.strip()}
 
 
 def test_status_list_tts_cell_recorded_unrecorded_unvoiced_drifted_unresolved(tmp_path, monkeypatch):
@@ -514,17 +514,17 @@ def test_status_list_tts_cell_recorded_unrecorded_unvoiced_drifted_unresolved(tm
     out = runner.invoke(app, ["status", "--list"]).output
     rows = _rows(out)
 
-    assert VOX in rows["ok"] and "(now:" not in rows["ok"]
+    assert "voxtral" in rows["ok"].split() and "(now:" not in rows["ok"]
+    assert DEFAULT_MODELS["voxtral"] not in out          # the table names backends only
     assert "?" in rows["legacy"].split() and "(now:" not in rows["legacy"]
     assert "?" in rows["bad"].split()
     assert "(now:" not in rows["unv"] and VOX not in rows["unv"]
-    assert f"{VOX} (now: {ELEVEN})" in rows["drift"]
-    assert f"{VOX} (now: unresolved)" in rows["unres"]
-    assert "mlx_audio Qwen3-TTS-12Hz-1.7B-Base-bf16" in rows["mlx"]
-    assert "mlx-community" not in out
-    assert rows["nomodel"].endswith(f"  ?  fake (now: {VOX})")  # no model: bare backend, no "None"
+    assert "voxtral (now: elevenlabs)" in rows["drift"]
+    assert "voxtral (now: unresolved)" in rows["unres"]
+    assert "mlx_audio" in rows["mlx"].split() and "Qwen3" not in out
+    assert rows["nomodel"].split()[-4:] == ["?", "fake", "(now:", "voxtral)"]
     # the TTS column sits right after the voiced-by column
-    assert f"voxtral" in rows["ok"] and rows["ok"].index(" ? ") < rows["ok"].index(VOX)
+    assert rows["ok"].index(" ? ") < rows["ok"].index("voxtral")
 
 
 def test_status_drift_ignores_the_voice_hash(tmp_path, monkeypatch):
@@ -595,7 +595,7 @@ def test_status_error_row_has_no_now(tmp_path, monkeypatch):
     assert by["boom"]["state"] == "error"
     assert by["boom"]["tts_now"] is None and by["boom"]["tts_drifted"] is None
     rows = _rows(runner.invoke(app, ["status", "--list"]).output)
-    assert VOX in rows["boom"] and "(now:" not in rows["boom"]
+    assert "voxtral" in rows["boom"].split() and "(now:" not in rows["boom"]
     assert runner.invoke(app, ["status", "--drifted"]).output.strip() == "no packages match"
 
 
@@ -612,7 +612,7 @@ def test_status_tts_filter_exact_none_repeatable_and_ands_with_profile(tmp_path,
 
     def slugs(*args):
         out = runner.invoke(app, ["status", *args]).output
-        return {ln.split()[0] for ln in out.splitlines() if ln.strip()}
+        return {ln.split()[0] for ln in out.splitlines()[1:] if ln.strip()}
 
     assert slugs("--tts", "voxtral") == {"vox-a", "vox-b"}
     assert "no packages match" in runner.invoke(app, ["status", "--tts", "vox"]).output  # exact
@@ -647,9 +647,9 @@ def test_status_drifted_filter_and_both_filters_imply_list(tmp_path, monkeypatch
     _set_tts(station / "unres", _vox())
 
     out = runner.invoke(app, ["status", "--drifted"]).output
-    assert [ln.split()[0] for ln in out.splitlines()] == ["drift"]  # list view, not summary
+    assert [ln.split()[0] for ln in out.splitlines()[1:]] == ["drift"]  # list view, not summary
     out = runner.invoke(app, ["status", "--tts", "voxtral"]).output
-    assert {ln.split()[0] for ln in out.splitlines()} == {"ok", "drift", "unres"}
+    assert {ln.split()[0] for ln in out.splitlines()[1:]} == {"ok", "drift", "unres"}
     out = runner.invoke(app, ["status", "--drifted", "--profile", "alpha"]).output
     assert "no packages match" in out
     js = json.loads(runner.invoke(app, ["status", "--json", "--drifted"]).output)
@@ -804,5 +804,35 @@ def test_status_state_filter_accepts_awaiting_fix(tmp_path, monkeypatch):
     result = runner.invoke(app, ["status", "--state", "awaiting-fix"])
 
     assert result.exit_code == 0, result.output
-    assert "m " in result.output and "awaiting fix from llama: " in result.output
+    assert "m " in result.output and "awaiting-fix" in result.output
+    assert "awaiting fix from llama" not in result.output   # detail: --json
     assert "ok " not in result.output
+
+
+def test_status_list_reasons_are_compact(tmp_path, monkeypatch):
+    """The table's reasons column is a short summary; --json keeps the full text."""
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="unv", voiced=False, profile="alpha")
+    out = runner.invoke(app, ["status", "--list"]).output
+    row = _rows(out)["unv"]
+    assert row.endswith("unvoiced") and "dj_notes block" not in row and "broadcast.m3u" not in row
+    rows = json.loads(runner.invoke(app, ["status", "--json"]).output)
+    full = next(r for r in rows if r["slug"] == "unv")["reasons"]
+    assert "no DJ audio (unvoiced)" in full
+
+
+def test_status_list_tts_same_backend_model_drift_reads_new_model():
+    from emcee.cli import _compact_tts_cell
+    assert _compact_tts_cell(("voxtral", "a"), ("voxtral", "b"), drifted=True,
+                             has_now=True) == "voxtral (now: new model)"
+
+
+def test_status_list_has_a_header_unless_no_header(tmp_path, monkeypatch):
+    station = _tts_station(tmp_path, monkeypatch)
+    build_package(station, slug="unv", voiced=False, profile="alpha")
+    lines = runner.invoke(app, ["status", "--list"]).output.splitlines()
+    assert lines[0].split() == ["show", "profile", "state", "voiced-by", "tts", "reasons"]
+    assert lines[1].startswith("unv ")
+    assert lines[0].index("profile") == lines[1].index("alpha")      # header aligned
+    plain = runner.invoke(app, ["status", "--list", "--no-header"]).output.splitlines()
+    assert [l.split() for l in plain] == [l.split() for l in lines[1:]]

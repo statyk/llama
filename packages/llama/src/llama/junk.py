@@ -120,8 +120,26 @@ JUNK_PART = re.compile(
     r"|sound\s*check"
     r"|(?:opening\s+|encore\s+)?(?:crowd|audience)(?:\s+(?:noise|cheering|chanting|applause|yelling|encore\s+call))?"
     r"|(?:opening\s+|encore\s+)?applause|cheering|clapping"
-    r"|(?:encore|set)\s*(?:break|call)(?:\s+i+)?|waiting(?:\s+for\s+(?:the\s+)?encore)?"
+    r"|(?:encore|set)[\s-]*(?:break|call)(?:\s+i+)?|waiting(?:\s+for\s+(?:the\s+)?encore)?"
+    r"|intermission|break|between\s+sets"
+    r"|end\s+of\s+set(?:\s*(?:\d|i+|one|two|three))?|set\s*(?:\d|i+|one|two|three)\s*end"
     r")$", re.I)
+# A parenthesised set number splits into two parts, so "End of Set (2)" and
+# "Set (1) End" are matched whole.
+SET_END_PAREN = re.compile(
+    r"^(?:end\s+of\s+set\s*[(\[]\s*(?:\d|i+|one|two|three)\s*[)\]]"
+    r"|set\s*[(\[]\s*(?:\d|i+|one|two|three)\s*[)\]]\s*end)$", re.I)
+TRAILING_ARROW = re.compile(r"-*>\s*$")
+# "-> Outro": at the LAST edge a tag that flows in from the previous song.
+LEADING_ARROW = re.compile(r"^\s*-*>")
+# Spoken-word labels that are junk only at a tape's edge (an "Intro" in the
+# middle can be a real piece). Every part of the tag must be a label.
+EDGE_LABEL = re.compile(
+    r"^(?:(?:band\s+|stage\s+)?intro(?:duction)?s?(?:\s+of\s+(?:the\s+)?band)?"
+    r"|outros?"
+    r"|(?:stage\s+)?announcements?|announcer"
+    r"|m\.?c\.?|emcee|banter|(?:stage\s+)?talk(?:ing)?|speech"
+    r"|thanks|thank\s+you|good\s*night)$", re.I)
 NONPERF = re.compile(
     r"\bcommercials?\b|\bpromos?\b|\badvert\w*|\bstation\s+(?:id|plug|identification)\b|\bnews\s+broadcast\b"
     r"|\b(?:house|p\.?\s?a\.?|intro|walk[\s-]*(?:on|in|out|off)|recorded|pre-?show|closing|exit|outro)\s+music\b"
@@ -151,10 +169,27 @@ def short_tag_is_junk(tag: str | None) -> bool:
     t = clean_tag_title(tag)
     if not t:
         return False
-    if NONPERF.search(t):
+    if NONPERF.search(t) or SET_END_PAREN.match(t):
         return True
     ps = parts(t)
     return bool(ps) and all(JUNK_PART.match(p) for p in ps)
+
+
+def short_tag_is_edge_label(tag: str | None, *, last_edge: bool = False) -> bool:
+    """Wholly junk or a spoken-word label (intro, outro, announcements...):
+    junk for a short file at the tape's edge only. A trailing segue arrow keeps
+    it; at the LAST edge (`last_edge`) so does a leading one ("-> Outro")."""
+    t = clean_tag_title(tag)
+    if not t:
+        return False
+    if short_tag_is_junk(tag):
+        return True
+    if TRAILING_ARROW.search(t):   # "Intro >" may run into the first song
+        return False
+    if last_edge and LEADING_ARROW.search(t):
+        return False
+    ps = parts(t)
+    return bool(ps) and all(JUNK_PART.match(p) or EDGE_LABEL.match(p) for p in ps)
 
 
 def short_is_spam(filename: str, own_title: str | None, original_title: str | None) -> bool:
@@ -196,6 +231,11 @@ def _listing_key(f: dict) -> tuple[str, int]:
     """`_dedupe_duplicate_listings`' key, (basename, rounded duration), computed
     the same way it computes it inline; that function is left unchanged."""
     return (f["name"].rsplit("/", 1)[-1], round(length_seconds(f.get("length")) or 0))
+
+
+def _original_title(f: dict, by_name: dict) -> str | None:
+    orig = by_name.get(f.get("original")) if f.get("source") == "derivative" else None
+    return _title_str(orig.get("title")) if orig else None
 
 
 def _apply_short_rule(
@@ -259,6 +299,20 @@ def _apply_short_rule(
     else:
         order = listings
     pos = {_listing_key(f): i for i, f in enumerate(order)}
+    # Edge labels: a tagged short file before the first or after the last
+    # ORIGINAL kept file whose tag is wholly a label stays dropped (and, being
+    # dropped, is no neighbour for the untagged interior test).
+    kept_pos = [pos[_listing_key(f)] for f in kept]
+    if kept_pos:
+        klo, khi = min(kept_pos), max(kept_pos)
+        tagged_keep = [
+            f for f in tagged_keep
+            if klo < pos[_listing_key(f)] < khi
+            or not short_tag_is_edge_label(
+                _title_str(f.get("title")) or _original_title(f, by_name),
+                last_edge=pos[_listing_key(f)] > khi)
+        ]
+        base = kept + tagged_keep
     base_pos = [pos[_listing_key(f)] for f in base]
     lo, hi = (min(base_pos), max(base_pos)) if base_pos else (None, None)
     untagged_keep = [
