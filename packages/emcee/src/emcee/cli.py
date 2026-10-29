@@ -1001,7 +1001,7 @@ def status_cmd(
         False, "--drifted",
         help="Only shows whose voice now resolves to a different TTS backend or model; implies --list"),
     no_header: bool = typer.Option(
-        False, "--no-header", help="Per-show table without its header row (for piping)"),
+        False, "--no-header", help="With --list (or a filter that implies it): per-show table without its header row, for piping; ignored by the summary and --json views"),
     station_root: Path = typer.Option(
         None, "--station-root",
         help="Override \\[station] root for this invocation"),

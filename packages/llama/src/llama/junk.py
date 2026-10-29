@@ -130,6 +130,8 @@ SET_END_PAREN = re.compile(
     r"^(?:end\s+of\s+set\s*[(\[]\s*(?:\d|i+|one|two|three)\s*[)\]]"
     r"|set\s*[(\[]\s*(?:\d|i+|one|two|three)\s*[)\]]\s*end)$", re.I)
 TRAILING_ARROW = re.compile(r"-*>\s*$")
+# "-> Outro": at the LAST edge a tag that flows in from the previous song.
+LEADING_ARROW = re.compile(r"^\s*-*>")
 # Spoken-word labels that are junk only at a tape's edge (an "Intro" in the
 # middle can be a real piece). Every part of the tag must be a label.
 EDGE_LABEL = re.compile(
@@ -173,15 +175,18 @@ def short_tag_is_junk(tag: str | None) -> bool:
     return bool(ps) and all(JUNK_PART.match(p) for p in ps)
 
 
-def short_tag_is_edge_label(tag: str | None) -> bool:
+def short_tag_is_edge_label(tag: str | None, *, last_edge: bool = False) -> bool:
     """Wholly junk or a spoken-word label (intro, outro, announcements...):
-    junk for a short file at the tape's edge only."""
+    junk for a short file at the tape's edge only. A trailing segue arrow keeps
+    it; at the LAST edge (`last_edge`) so does a leading one ("-> Outro")."""
     t = clean_tag_title(tag)
     if not t:
         return False
     if short_tag_is_junk(tag):
         return True
     if TRAILING_ARROW.search(t):   # "Intro >" may run into the first song
+        return False
+    if last_edge and LEADING_ARROW.search(t):
         return False
     ps = parts(t)
     return bool(ps) and all(JUNK_PART.match(p) or EDGE_LABEL.match(p) for p in ps)
@@ -304,7 +309,8 @@ def _apply_short_rule(
             f for f in tagged_keep
             if klo < pos[_listing_key(f)] < khi
             or not short_tag_is_edge_label(
-                _title_str(f.get("title")) or _original_title(f, by_name))
+                _title_str(f.get("title")) or _original_title(f, by_name),
+                last_edge=pos[_listing_key(f)] > khi)
         ]
         base = kept + tagged_keep
     base_pos = [pos[_listing_key(f)] for f in base]

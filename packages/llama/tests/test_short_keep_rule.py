@@ -627,3 +627,47 @@ def test_edge_label_ending_in_a_segue_arrow_is_kept(title):
 
 def test_edge_intro_without_arrow_still_dropped():
     assert _kept_short(_tape_with_short(0, "Intro"), "band1t01.mp3") == (False, ["implausibly short"])
+
+
+@pytest.mark.parametrize("title", ["-> Outro", "> Outro", "->Outro", "-->outro"])
+def test_last_edge_label_with_a_leading_arrow_is_kept(title):
+    assert _kept_short(_tape_with_short(6, title), "band1t08.mp3") == (True, None)
+
+
+def test_leading_arrow_exception_is_for_the_last_edge_only():
+    files = _tape_with_short(0, "-> Intro")
+    assert _kept_short(files, "band1t01.mp3") == (False, ["implausibly short"])
+
+
+@pytest.mark.parametrize("title", ["intro-", "intro~"])
+def test_trailing_dash_or_tilde_does_not_keep_an_edge_label(title):
+    assert _kept_short(_tape_with_short(0, title), "band1t01.mp3") == (False, ["implausibly short"])
+
+
+def test_edge_label_tag_read_from_the_original_when_the_derivative_has_none():
+    files = []
+    for i in range(1, 8):
+        files.append({"name": f"x1t0{i}.flac", "format": "Flac", "source": "original",
+                      "title": "Intro" if i == 1 else f"Song {i}"})
+    for i in range(1, 8):
+        files.append(_mp3(f"x1t0{i}.mp3", source="derivative", original=f"x1t0{i}.flac",
+                          length="30.0" if i == 1 else "300.0"))
+    assert _kept_short(files, "x1t01.mp3") == (False, ["implausibly short"])
+
+
+def test_a_dropped_edge_label_is_no_neighbour_for_an_untagged_short_file():
+    normal = [_mp3(f"band1t{i:02d}.mp3", title=f"Song {i}") for i in range(3, 9)]
+    files = [_mp3("band1t01.mp3", title="Intro", length="30.0"),
+             _mp3("band1t02.mp3", length="30.0")] + normal
+    kept, excluded, _ = filter_files(files)
+    assert _reasons(excluded) == {"band1t01.mp3": ["implausibly short"],
+                                  "band1t02.mp3": ["implausibly short"]}
+
+
+def test_edges_come_from_the_originally_kept_files_not_the_tagged_keeps():
+    normal = [_mp3(f"band1t{i:02d}.mp3", title=f"Song {i}") for i in range(3, 9)]
+    files = [_mp3("band1t01.mp3", title="Dark Star", length="30.0"),
+             _mp3("band1t02.mp3", title="Intro", length="30.0")] + normal
+    kept, excluded, _ = filter_files(files)
+    assert "band1t01.mp3" in _names(kept)
+    assert _reasons(excluded) == {"band1t02.mp3": ["implausibly short"]}
