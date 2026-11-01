@@ -202,6 +202,7 @@ def test_resolve_bed_none_when_neither_set(tmp_path):
 
 
 def test_process_package_writes_dj_notes_and_audio_and_manifest_last(tmp_path, monkeypatch):
+    monkeypatch.setattr("emcee.process._today", lambda: "2026-10-01")
     monkeypatch.setattr(
         "emcee.process.provider_for",
         lambda settings, task: FakeProvider(completes=[_good_notes_json()]),
@@ -225,6 +226,8 @@ def test_process_package_writes_dj_notes_and_audio_and_manifest_last(tmp_path, m
         "profile": None,
         "profile_source": "llama",
         "tts": {"backend": "voxtral", "model": "fake-model", "voice": "fake-voice"},
+        "voiced_on": "2026-10-01",
+        "voiced_before": None,
     }
 
 

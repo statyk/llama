@@ -14,6 +14,7 @@ blocks -- in that order, with the manifest last (spec section 2: the
 manifest rewrite is the package's success marker).
 """
 
+import datetime
 from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
@@ -360,8 +361,15 @@ def _repair(notes: ScriptNotes, blocked: SpeechBlocked, manifest: dict, provider
     )
 
 
+def _today() -> str:
+    """Local calendar date, `YYYY-MM-DD` (a seam for tests)."""
+    return datetime.date.today().isoformat()
+
+
 def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = False, *,
-                    voicing: Voicing, notes: ScriptNotes | None = None) -> None:
+                    voicing: Voicing, notes: ScriptNotes | None = None,
+                    voiced_on: str | None = None,
+                    voiced_before: str | None = None) -> None:
     """Script, voice, and broadcast-assemble one delivered package.
 
     Order: write_script -> render dj-notes.md -> synthesize DJ audio ->
@@ -377,6 +385,12 @@ def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = Fal
 
     A TTS content-filter block (`SpeechBlocked`) is repaired in place by
     `_repair`.
+
+    `voiced_on`/`voiced_before` are the previous `dj_audio` block's values,
+    read raw by the caller before its clear. A call that really rendered a
+    clip (`rendered` non-empty; adopted clips never enter it) records today
+    as `voiced_on` and clears `voiced_before`; a call that rendered nothing
+    carries both unchanged (null when the caller had no block to read).
 
     CALLER CONTRACT: `voicing` is THIS package's `resolve_voicing` result
     and `speech` is `speech_for_voicing(config, voicing)` -- never resolved
@@ -428,10 +442,13 @@ def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = Fal
     atomic_write_text(pkg.dir / "broadcast.m3u",
                       broadcast_m3u_text(manifest["tracks"], clips))
 
+    if rendered:
+        voiced_on, voiced_before = _today(), None
     dj_audio = DJAudioBlock(
         set_intros=clips.set_intros, outro=clips.outro,
         presenter=presenter.id if presenter is not None else None,
         profile=voicing.effective.profile, profile_source=voicing.effective.source,
         tts=TTSRecord(backend=voicing.resolution.backend, model=speech.model,
-                      voice=speech.voice))
+                      voice=speech.voice),
+        voiced_on=voiced_on, voiced_before=voiced_before)
     rewrite_manifest(pkg, dj_notes=notes, dj_audio=dj_audio)

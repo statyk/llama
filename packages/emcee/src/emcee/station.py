@@ -71,6 +71,8 @@ class PackageStatus:
     move_problem: str | None = None          # use-time move validation failure
     tts: dict | None = None                  # dj_audio.tts as recorded
     awaiting_fix: str | None = None          # llama's station mark, as its status line
+    voiced_on: str | None = None             # dj_audio.voiced_on as recorded
+    voiced_before: str | None = None         # dj_audio.voiced_before as recorded
     kept_script: bool = False                # a failed --keep-script attempt (see KEPT_SCRIPT)
 
 
@@ -160,6 +162,18 @@ def manifest_voiced_profile(manifest: object) -> str | None:
     if isinstance(dj_audio, dict) and "profile" in dj_audio:
         return _nonempty_str(dj_audio["profile"])
     return manifest_profile(manifest)
+
+
+def manifest_voiced_on(manifest: object) -> str | None:
+    """`dj_audio.voiced_on` as recorded (a string), else None. Never raises."""
+    value = _get(manifest, "dj_audio", "voiced_on")
+    return value if isinstance(value, str) else None
+
+
+def manifest_voiced_before(manifest: object) -> str | None:
+    """`dj_audio.voiced_before` as recorded (a string), else None. Never raises."""
+    value = _get(manifest, "dj_audio", "voiced_before")
+    return value if isinstance(value, str) else None
 
 
 def manifest_tts(manifest: object) -> dict | None:
@@ -322,6 +336,8 @@ def identity(manifest: object, config: EmceeConfig, moves: Moves) -> dict:
             "voiced_source": manifest_voiced_source(manifest),
             "voiced_profile": manifest_voiced_profile(manifest),
             "tts": manifest_tts(manifest),
+            "voiced_on": manifest_voiced_on(manifest),
+            "voiced_before": manifest_voiced_before(manifest),
             "move_problem": move_target_problem(config, moves, manifest)}
 
 

@@ -39,7 +39,7 @@ from emcee.tts.verify import SttClient
 from emcee.tts.resolve import TTSResolutionError, resolve_tts
 from emcee.workspace import atomic_write_bytes
 from emcee.station import (AWAITING, PackageStatus, assess, awaiting_fix_reason, effective_profile, identity,
-                           manifest_performance_id, manifest_profile, manifest_tts,
+                           manifest_performance_id, manifest_profile, manifest_tts, manifest_voiced_before, manifest_voiced_on,
                            manifest_voiced_profile,
                            manifest_voiced_source, package_status, profile_label, raw_manifest,
                            scan, target_problem, unsupported_status)
@@ -294,6 +294,7 @@ def _process_one(config: EmceeConfig, moves: Moves, pkg: Package, force: bool,
             + (f" ({detail})" if detail != held else "")
             + "; re-deliver from llama first")
     voicing = resolve_voicing(config, moves, manifest)
+    voiced = (manifest_voiced_on(manifest), manifest_voiced_before(manifest))
     notes = None
     if keep_script:
         notes = kept_notes(manifest)
@@ -308,7 +309,7 @@ def _process_one(config: EmceeConfig, moves: Moves, pkg: Package, force: bool,
             _warn_if_tts_changed(manifest, speech, voicing)
             adopt_kept_clips(config, pkg, notes, speech, voicing, skip=fresh)
         try:
-            _clear_and_process(config, pkg, speech, force, voicing, fresh, notes)
+            _clear_and_process(config, pkg, speech, force, voicing, fresh, notes, voiced)
         except Exception as exc:
             if keep_script:
                 retry = keep_script_retry(pkg.dir)
@@ -326,7 +327,8 @@ def _process_one(config: EmceeConfig, moves: Moves, pkg: Package, force: bool,
 
 
 def _clear_and_process(config: EmceeConfig, pkg: Package, speech, force: bool, voicing: Voicing,
-                       fresh: Sequence[str], notes: ScriptNotes | None) -> None:
+                       fresh: Sequence[str], notes: ScriptNotes | None,
+                       voiced: tuple[str | None, str | None] = (None, None)) -> None:
     """The destructive half of `_process_one`: the `--fresh` unlink, the
     manifest clear, `process_package`. `notes` is a kept script, or None."""
     if fresh:
@@ -348,7 +350,8 @@ def _clear_and_process(config: EmceeConfig, pkg: Package, speech, force: bool, v
     # relies on). A kept script (`notes`) is written back, never cleared:
     # the manifest is the only copy of it a retry can read.
     rewrite_manifest(pkg, dj_notes=notes, dj_audio=None)
-    process_package(config, pkg, speech, force, voicing=voicing, notes=notes)
+    process_package(config, pkg, speech, force, voicing=voicing, notes=notes,
+                    voiced_on=voiced[0], voiced_before=voiced[1])
 
 
 def _presenter_file(root: Path, presenter_id: str) -> Path | None:
@@ -929,7 +932,8 @@ def _status_json_row(config: EmceeConfig, s: PackageStatus, tts_now: _TtsNow) ->
             "assigned_presenter": presenter, "assignment_source": source,
             "tts": s.tts, "move_problem": s.move_problem,
             "tts_now": _tts_now_json(tts_view), "tts_drifted": tts_view.drifted,
-            "awaiting_fix": s.awaiting_fix}
+            "awaiting_fix": s.awaiting_fix,
+            "voiced_on": s.voiced_on, "voiced_before": s.voiced_before}
 
 
 def _tts_now_json(v: _TtsView) -> dict | None:

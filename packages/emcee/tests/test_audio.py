@@ -421,7 +421,8 @@ def _process(config: EmceeConfig, pkg: Package, speech, notes: ScriptNotes,
         process_package(config, pkg, speech, force=force, voicing=voicing_for(config, pkg))
 
 
-def test_process_package_synthesizes_dj_audio_and_manifest_block(tmp_path):
+def test_process_package_synthesizes_dj_audio_and_manifest_block(tmp_path, monkeypatch):
+    monkeypatch.setattr("emcee.process._today", lambda: "2026-10-01")
     pkg = _pkg(tmp_path)
     config = _config(tmp_path, chunk=False)  # asserts the provider's own MP3 ships
     speech = FakeSpeechProvider()
@@ -442,6 +443,8 @@ def test_process_package_synthesizes_dj_audio_and_manifest_block(tmp_path):
         "profile": None,
         "profile_source": "llama",
         "tts": {"backend": "voxtral", "model": "fake-model", "voice": "fake-voice"},
+        "voiced_on": "2026-10-01",
+        "voiced_before": None,
     }
 
 

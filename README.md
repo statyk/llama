@@ -506,7 +506,8 @@ carry `slug`, `state`, `reasons`, `profile`, `delivered_profile`,
 `tts` (as recorded, null if absent), `move_problem`, `tts_now`
 (`{backend, model}`, `{unresolved: <message>}`, or null for error and
 unsupported rows) and `tts_drifted` (null without a record or a resolved
-"now"). States: ready, pending, unsupported (pre-v3 manifest: re-deliver from
+"now"), plus `voiced_on` and `voiced_before` (local `YYYY-MM-DD` strings, null
+when absent, as in any legacy block; see below). States: ready, pending, unsupported (pre-v3 manifest: re-deliver from
 llama), error (a malformed manifest renders as a row with its exception
 message). Unmatched `--profile`/`--tts` values and recorded moves matching no
 package are noted on stderr.
@@ -582,7 +583,12 @@ old voicing until the re-voice lands), and the next `emcee run` lists it
 under `re-voice` in the plan, with the reason, before asking. Each voiced
 manifest records the profile it was voiced as, where that came from, and
 the TTS backend, model and voice (`dj_audio.profile`, `profile_source`,
-`tts`). Changing a presenter, a presenter's TTS pin or the house voice does
+`tts`) and, as `voiced_on`, the local date its newest clip was rendered. A run
+that renders a clip sets `voiced_on` to today and clears `voiced_before` (a date
+the voicing is known to predate); a run that renders nothing (every cache key
+matched, or `--keep-script --fresh` adopted the clips) carries both unchanged,
+and a retry after a failed attempt, which clears `dj_audio`, has nothing to
+carry, so both stay null. Changing a presenter, a presenter's TTS pin or the house voice does
 not trigger a re-voice.
 
 **Running `emcee run` from an agent** (no terminal): run `emcee run
