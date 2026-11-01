@@ -344,7 +344,7 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   `@cloudflare/vitest-plugin`; `npm test` first checks `src/pages.ts` is fresh,
   `npm run pages` regenerates it), `npx wrangler deploy` (run `--dry-run`
   first; `--var` overrides for the verification items; see the runbook),
-  `ANTENNA_BUCKET=<bucket> npm run deploy:assets`. Secrets go in with
+  `ANTENNA_BUCKET=<bucket> npm run deploy:assets`, `npm run smoke` (Playwright against a local fake station; needs system Chrome and ffmpeg). Secrets go in with
   `wrangler secret put`: `CF_ACCOUNT_ID`, `CF_ZONE_ID`, `CF_ANALYTICS_TOKEN`,
   `CF_WAF_TOKEN`, `ALERT_EMAIL_FROM`,
   `ALERT_EMAIL_TO` (the Worker sends no ntfy; an existing deploy deletes its old
@@ -357,6 +357,15 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   `docs/superpowers/2026-11-01-player-probe.md`, rollout `docs/playout-setup.md` section 4 step 3):
   `deploy-assets.mjs` takes only `--dry-run`, `--preview <n>` and `--remove-preview <n>` (any
   other argument exits 2; `--remove-preview` deletes only keys under `assets/preview/<n>/`).
+  Layout in `antenna/public/assets/`: `timeline`, `recovery`, `media` and `notes` are pure (unit-tested
+  under vitest); `app.js` is the entry and owns the one once-a-second loop; `player`, `page`, `panel`
+  and `show` touch the DOM. **`antenna/public/player.js`, `nowplaying.js` and `style.css` are frozen:
+  byte-identical to the old player and still published (rollback); `assets/player.js` is the live
+  one.** `npm run smoke` runs the browser scenarios (`antenna/e2e/`). Notes files carry `sections`
+  (transmitter `site.py`); the Cautions section is cut from public pages by matching the literal
+  heading `site.CAUTIONS_PREFIX`, which pins llama's briefing heading, so renaming it there breaks
+  the cut silently. Launch preview is round 3; rounds 1 and 2 are removed with `--remove-preview`
+  from the player worktree (their lists are gitignored and live only there).
   *Play* while a session is on waits for an HTTP answer before rejoining; with none it leaves the
   element alone. `site.py`'s `parse_briefing` drops a bare `(see cautions)` pointer from published
   text (217 longer or unparenthesised mentions remain, by decision). Known iOS limits: after Stop
@@ -501,7 +510,7 @@ Anything but `"on"` is the rollback: cron's loop exactly as before, and the obje
 transmitter must stay Python 3.11-compatible (hugo is Debian 12: Python 3.11,
 ffmpeg 5.1); the Debian-12 script above is the gate for that. Design:
 `docs/superpowers/specs/2026-10-09-playout-design.md` (phases 1–3 built; the
-full player is phase 4).
+phase-4 player is built, see the player bullet).
 **Scheduler (phase 3; spec `docs/superpowers/specs/2026-10-25-scheduler-design.md`, measurement
 `docs/superpowers/2026-10-25-scheduler-measurement/evidence.md`).** Append-only: it extends the
 persisted plan from its end, never rewriting a row, and pieces are shows plus one-clip
