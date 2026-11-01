@@ -698,9 +698,10 @@ test("a play() that never settles (home-screen app, hidden): no notice, no hubs,
     return (await page.locator("#now").textContent()) === "Reconnecting…";
   });
   await expect(page.locator("#retry")).toBeHidden();
-  // Measured: iOS itself fired `pause` on a stuck play(). Past the restart's first
-  // samples the position reads frozen, so this is a stall and no Stop.
-  await advance(page, 3000);
+  // Measured: iOS itself fired `pause` on a stuck play(). One second on, the
+  // teardown's hold is over and the first sample after the restart is a baseline,
+  // so no stall reads yet: only `joining` keeps this pause from being a Stop.
+  await advance(page, 1000);
   await page.locator("#audio").evaluate((a) => a.dispatchEvent(new Event("pause")));
   await advance(page, 1000);
   await expect(page.locator("#now")).toHaveText("Reconnecting…");

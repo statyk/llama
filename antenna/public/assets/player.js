@@ -225,7 +225,7 @@ audio.addEventListener("waiting", () => {
 });
 // `stalled` is deliberately not handled: a healthy iPhone fires it every 11 s.
 audio.addEventListener("pause", () => {
-  if (wanted && pauseMeansStop({ selfTeardown, stalled: recovery.stalled, ended: audio.ended })) stop();
+  if (wanted && pauseMeansStop({ selfTeardown, stalled: recovery.stalled || recovery.joining, ended: audio.ended })) stop();
 });
 
 if ("mediaSession" in navigator) {

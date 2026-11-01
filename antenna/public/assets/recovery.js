@@ -153,6 +153,12 @@ export class Recovery {
     return this.frozen || this.waiting;
   }
 
+  /** A restart was made and audio has not moved since, even if that join
+   * expired into a further failure. A restart happens only inside a dropout. */
+  get joining() {
+    return this.joinUntilMs !== null;
+  }
+
   /** The last sample was a real advance. */
   get advancing() {
     return this.advanced;

@@ -663,6 +663,24 @@ describe("Recovery: off-air", () => {
   });
 });
 
+describe("Recovery: joining", () => {
+  it("runs from a restart until audio moves, through an expired join; a press is no join", () => {
+    const r = hls();
+    r.begin(0);
+    expect(r.joining).toBe(false);
+    const restart = firstRestart(r);
+    expect(r.joining).toBe(true);
+    expect(r.tick(1, restart + 1000)).toBe("none");
+    expect(r.tick(1, restart + 2000)).toBe("none");
+    expect(r.tick(1, restart + 25000)).toBe("none"); // the join expires into a failure
+    expect(r.tick(1, restart + 26000)).toBe("none");
+    expect(r.joining).toBe(true);
+    r.tick(2, restart + 27000);
+    expect(r.advancing).toBe(true);
+    expect(r.joining).toBe(false);
+  });
+});
+
 describe("pauseMeansStop", () => {
   it("pauseMeansStop", () => {
     expect(pauseMeansStop({ selfTeardown: true, stalled: false, ended: false })).toBe(false);
