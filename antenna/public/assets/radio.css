@@ -269,6 +269,8 @@ a { color: inherit; }
   opacity: .72;
   filter: saturate(.55);
 }
+/* clip-path removes an outside outline, so the ring sits inside the tear. */
+.ticket.torn:focus-visible { outline-offset: -3px; }
 .torn .main { padding-right: 16%; }
 .torn .artist { font-size: 13.5px; }
 .torn .sr { right: 16%; }
@@ -418,6 +420,9 @@ a { color: inherit; }
   .sr::after { content: none; }
   .bstub { width: 130px; }
   .bmain h2 { font-size: 36px; }
-  .panel { padding: 16px 24px 26px; }
+  .panel {
+    padding: 16px calc(24px + env(safe-area-inset-right)) calc(26px + env(safe-area-inset-bottom))
+             calc(24px + env(safe-area-inset-left));
+  }
   .cols { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 26px; }
 }
