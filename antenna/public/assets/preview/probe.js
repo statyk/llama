@@ -196,7 +196,9 @@ let waitForm = "full"; // or "gentle": load() and play(), the src stays
 let waitStalled = false; // in a stall: stuck past WAIT_STUCK_S, and not advancing since
 let waitRestarts = 0; // in this stall
 let waitLastRestart = null; // "restart 1 form=full", for the RECOVERED line
+let waitRestartVis = null; // the page's state when that restart was made
 let waitRestartAt = 0; // the second restart counts its 30 s from the first
+let waitManualRestart = false; // the operator restarted, so an advance is not this code's
 let waitGaveUp = false;
 let waitCt = null; // currentTime at the last tick; null means take a fresh reading
 let waitTickAt = 0;
@@ -208,7 +210,9 @@ function waitClearStall() {
   waitStalled = false;
   waitRestarts = 0;
   waitLastRestart = null;
+  waitRestartVis = null;
   waitRestartAt = 0;
+  waitManualRestart = false;
   waitGaveUp = false;
   waitFetchAt = 0;
 }
@@ -222,11 +226,25 @@ function stopWait() {
   log("wait: off");
 }
 
+// Start or a lock screen play while the page already wants audio. It ends the stall,
+// and gets 30 s to load before Wait may touch the element again. Not for waitRestart,
+// which uses begin() too.
+function waitManual(label) {
+  if (!waitOn || !wanted) return;
+  log(`wait: manual restart ${label} ${state()}`);
+  if (waitFetching) waitFetching.abort();
+  waitClearStall();
+  waitManualRestart = true;
+  waitRestartAt = Date.now();
+  waitCt = null;
+}
+
 function waitRestart() {
   const now = Date.now();
   waitLastRestart = `restart ${++waitRestarts} form=${waitForm}`;
   const tag = `wait: ${waitLastRestart} stuck=${stuckSeconds(now)}s`;
-  const label = `${tag} vis=${document.visibilityState}`;
+  waitRestartVis = document.visibilityState;
+  const label = `${tag} vis=${waitRestartVis}`;
   log(`${tag} ${state()}`);
   waitRestartAt = now;
   waitCt = null; // both forms send the position back, and iOS then sets it to its start
@@ -246,7 +264,7 @@ function waitFetch(now) {
   const ms = () => `ms=${Date.now() - now}`;
   const done = () => {
     clearTimeout(timer);
-    waitFetching = null;
+    if (waitFetching === controller) waitFetching = null; // a hung one was replaced
   };
   waitFetching = controller;
   waitFetchAt = now;
@@ -255,9 +273,9 @@ function waitFetch(now) {
     (response) => {
       done();
       log(`${label} status=${response.status} ${ms()} ${state()}`);
-      if (!waitOn) return;
+      if (!waitOn || controller.signal.aborted) return;
       // Up to 8 s old by now: the position may have moved since the tick that asked.
-      if (!waitStalled || audio.currentTime !== waitCt) {
+      if (!waitStalled || Math.abs(audio.currentTime - waitCt) >= WAIT_MIN_PLAYED_S) {
         log(`${label} no restart: position moved ${state()}`);
         return;
       }
@@ -282,7 +300,10 @@ function waitTick() {
   waitTickAt = now;
   if (advanced) {
     if (waitLastRestart) {
-      log(`wait: RECOVERED after ${waitLastRestart} in=${Math.round((now - waitRestartAt) / 1000)}s ${state()}`);
+      const taken = Math.round((now - waitRestartAt) / 1000);
+      log(`wait: RECOVERED after ${waitLastRestart} restart_vis=${waitRestartVis} in=${taken}s ${state()}`);
+    } else if (waitManualRestart) {
+      log(`wait: recovered after manual restart ${state()}`);
     } else if (waitStalled) {
       log(`wait: recovered alone ${state()}`);
     }
@@ -298,6 +319,12 @@ function waitTick() {
     if (!waitGaveUp) log(`wait: no more restarts (${waitRestarts} made), watching only ${state()}`);
     waitGaveUp = true;
     return;
+  }
+  // The 8 s abort is the only way out of a fetch, so don't bet the stall on it.
+  if (waitFetching && now - waitFetchAt > 2 * WAIT_FETCH_TIMEOUT_MS) {
+    log(`wait: fetch hung ${state()}`);
+    waitFetching.abort();
+    waitFetching = null;
   }
   if (!waitFetching && now - waitFetchAt >= WAIT_FETCH_EVERY_MS) waitFetch(now);
 }
@@ -327,7 +354,10 @@ if ("mediaSession" in navigator) {
     try {
       navigator.mediaSession.setActionHandler(action, () => {
         log(`media session action ${action} ${state()}`);
-        if (action === "play") restart("media session play");
+        if (action === "play") {
+          waitManual("media session play");
+          restart("media session play");
+        }
       });
     } catch (err) {
       log(`media session action ${action} refused: ${err.name}: ${err.message}`);
@@ -341,6 +371,7 @@ if ("mediaSession" in navigator) {
 
 $("start").addEventListener("click", () => {
   log("button Start");
+  waitManual("Start");
   begin("Start");
 });
 
