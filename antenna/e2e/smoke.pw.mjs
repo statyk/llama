@@ -309,6 +309,11 @@ async function advanceUntil(page, ms, done) {
   throw new Error(`not done after ${ms} ms of mocked time`);
 }
 
+/** Stops the page's clock, so nothing runs but what a test steps or an answer triggers. */
+async function holdClock(page) {
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+}
+
 async function playToAudio(page) {
   await page.click("#play");
   await expect.poll(() => position(page), { timeout: 15_000 }).toBeGreaterThan(0);
@@ -459,6 +464,12 @@ test("/live.m3u8 unreachable during a stall: probes only, the src is untouched, 
   expect(await page.locator("#audio").evaluate((a) => a.paused)).toBe(false);
   expect(site.requests.filter((r) => r.startsWith("/seg/")).length).toBe(segments);
 
+  // An iPhone gave `playing` with the position frozen: it proves nothing.
+  await page.locator("#audio").evaluate((a) => a.dispatchEvent(new Event("playing")));
+  await advance(page, 2000);
+  await expect(page.locator("#now")).toHaveText("Reconnecting…");
+  await expect(page.locator("#hubs")).not.toHaveClass(/turning/);
+
   site.setLive("live");
   await advanceUntil(page, 16_000, async () => (await audioSrc(page)) !== src);
   await expect.poll(() => position(page), { timeout: 15_000 }).toBeGreaterThan(0);
@@ -466,30 +477,35 @@ test("/live.m3u8 unreachable during a stall: probes only, the src is untouched, 
   await expect(page.locator("#hubs")).toHaveClass(/turning/);
 });
 
-test("the stream reachable again, one probe failing does not end recovery: the next probe gets the restart", async ({ context, page }) => {
+test("the stream reachable again, one probe failing does not end recovery: the next probe's answer restarts at once", async ({ context, page }) => {
   const probes = countProbes(context);
   await page.clock.install({ time: Date.now() });
   site.setLive("drop");
   await page.goto(site.url);
   await page.click("#play");
+  await holdClock(page);
   await advanceUntil(page, 45_000, async () => probes.length === 2); // both unreachable
   const src = await audioSrc(page);
 
   site.setLive("live");
-  let failed = 0;
+  let seen = 0;
+  let release;
+  const held = new Promise((resolve) => { release = resolve; });
   await page.route("**/live.m3u8", async (route) => {
-    if (route.request().resourceType() === "fetch" && failed === 0) {
-      failed = 1;
-      await route.abort();
-    } else {
-      await route.fallback();
-    }
+    if (route.request().resourceType() !== "fetch") return route.fallback();
+    seen += 1;
+    if (seen === 1) return route.abort();
+    await held;
+    return route.fallback();
   });
-  await advanceUntil(page, 16_000, async () => failed === 1);
+  await advanceUntil(page, 16_000, async () => seen === 1);
   await advance(page, 5000);
   expect(await audioSrc(page)).toBe(src); // that failure restarted nothing
   await expect(page.locator("#now")).toHaveText("Reconnecting…");
-  await advanceUntil(page, 16_000, async () => (await audioSrc(page)) !== src);
+  await advanceUntil(page, 16_000, async () => seen === 2);
+  release();
+  // The clock is held, so no tick can do this: the verdict itself restarts.
+  await expect.poll(() => audioSrc(page)).not.toBe(src);
 });
 
 test('a 10-minute silence shows "Lost the stream." and Try again', async ({ page }) => {
@@ -535,7 +551,9 @@ test("Media Session: play, pause and stop only; play after a hidden Stop fetches
     const session = navigator.mediaSession;
     session.setActionHandler = (name, handler) => { window.actions[name] = handler; };
   });
+  await page.clock.install({ time: Date.now() });
   await page.goto(site.url);
+  await holdClock(page); // no tick: only the handler itself can fetch
   expect((await page.evaluate(() => Object.keys(window.actions))).sort()).toEqual(["pause", "play", "stop"]);
 
   await page.evaluate(async () => (await import("/assets/page.js")).refreshTimeline(true));
