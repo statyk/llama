@@ -3,7 +3,9 @@ import { expect, test } from "@playwright/test";
 import { makeTimeline } from "./fixtures/timeline.mjs";
 import { startServer } from "./serve.mjs";
 
-const HOSTILE = JSON.parse(readFileSync(new URL("./fixtures/hostile.json", import.meta.url), "utf8"));
+const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
+const HOSTILE = fixture("hostile");
+const NOTES = { full: fixture("notes-full"), old: fixture("notes-old"), empty: fixture("notes-empty") };
 const ALLOWED = /^\/(assets\/[^?#]*|timeline\.json|live\.m3u8|notes\/[^?#]*|seg\/[^?#]*|show\/[^?#]*)?$/;
 const SHOW_TEMPLATE = readFileSync(new URL("../templates/show.html", import.meta.url), "utf8");
 const EXPECTED_STATUS = /Failed to load resource: (the server responded with a status of (403|404)|net::ERR_(EMPTY_RESPONSE|CONNECTION_RESET|FAILED))/;
@@ -757,4 +759,274 @@ test("a play() that never settles (home-screen app, hidden): no notice, no hubs,
   await page.locator("#audio").evaluate((a) => window.realPlay.call(a));
   await advanceUntil(page, 40_000, async () => (await page.locator("#now").textContent()) === "Song 3");
   await expect(hubs).toHaveClass(/turning/);
+});
+
+test.describe("notes panel", () => {
+  const SLUG = "fixture-next-1";
+  const OTHER = "fixture-next-2";
+  const panel = (page) => page.locator(".panel");
+  const ticketFor = (page, slug) => page.locator(`.ticket[data-slug="${slug}"]`).first();
+
+  async function openSite(page, notes, timeline = makeTimeline(Date.now())) {
+    await site.close();
+    site = await startServer({ timeline, notes });
+    await page.goto(site.url);
+    await expect(page.locator(".ticket").first()).toBeVisible();
+  }
+
+  /** A same-origin page behind the player, so a back past the player is visible in the URL. */
+  async function openSiteBehindAnotherPage(page, notes) {
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now()), notes });
+    await page.goto(`${site.url}/timeline.json`);
+    await page.goto(site.url);
+    await expect(page.locator(".ticket").first()).toBeVisible();
+  }
+
+  test("a tap on a ticket opens the panel, leaves the URL unchanged, and adds no navigation", async ({ page }) => {
+    await openSite(page, { [SLUG]: NOTES.full });
+    const before = page.url();
+    const documents = site.requests.filter((r) => r === "/").length;
+    await expect(panel(page)).toBeHidden();
+
+    await ticketFor(page, SLUG).click();
+    await expect(panel(page)).toBeVisible();
+    await expect(panel(page).locator(".bmain h2")).toHaveText("Next Band");
+    expect(page.url()).toBe(before);
+    expect(site.requests.filter((r) => r === "/").length).toBe(documents);
+    expect(await page.evaluate(() => performance.getEntriesByType("navigation").length)).toBe(1);
+    expect(await page.evaluate(() => history.state)).toEqual({ panel: SLUG });
+  });
+
+  test("shows a loading state at once, before the notes arrive", async ({ page }) => {
+    let release;
+    const held = new Promise((resolve) => { release = resolve; });
+    await page.route(`**/notes/${SLUG}.json`, async (route) => { await held; await route.continue(); });
+    await openSite(page, { [SLUG]: NOTES.full });
+    await ticketFor(page, SLUG).click();
+    await expect(panel(page)).toBeVisible();
+    await expect(panel(page)).toContainText("Loading…");
+    await expect(panel(page).locator(".bmain")).toHaveCount(0);
+    release();
+    await expect(panel(page).locator(".bmain h2")).toHaveText("Next Band");
+    await expect(panel(page)).not.toContainText("Loading…");
+  });
+
+  test("the ready notes: ticket, setlist, liner notes, air times, lineage, disclaimer, archive and share", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.copied = [];
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText: async (text) => { window.copied.push(text); } },
+      });
+    });
+    await openSite(page, { [SLUG]: NOTES.full });
+    await ticketFor(page, SLUG).click();
+    const p = panel(page);
+    await expect(p.locator(".bstub")).toContainText("Nov 1");
+    await expect(p.locator(".bstub .year")).toHaveText("1985");
+    await expect(p.locator(".bstub")).toContainText("GEN ADM");
+    await expect(p.locator(".bmain .presents")).toHaveText("LMA RADIO PRESENTS");
+    await expect(p.locator(".bmain .w")).toHaveText("Coliseum, Richmond, VA");
+    await expect(p.locator(".jcard .kick")).toHaveText(["Set 1", "Encore"]);
+    await expect(p.locator(".jcard ol li")).toHaveText(["Opener >", "Second Song", "Closer >", "Last One"]);
+    await expect(p.locator(".liner h3")).toHaveText("Set one");
+    await expect(p.locator(".liner p")).toHaveText("A paragraph of liner notes.");
+    await expect(p.locator(".liner ul li")).toHaveText(["First bullet", "Second bullet"]);
+    await expect(p.locator(".meta").first()).toContainText("Times shown in");
+    await expect(p.locator(".meta").nth(1)).toContainText("SBD > Cassette > DAT");
+    await expect(p.locator(".fineprint")).toHaveText("Show notes are AI generated and may contain mistakes.");
+
+    const archive = p.getByRole("link", { name: /Hear the full tape on archive\.org/ });
+    await expect(archive).toHaveAttribute("href", NOTES.full.url);
+    await expect(archive).toHaveAttribute("target", "_blank");
+    await expect(archive).toHaveAttribute("rel", "noopener");
+    await expect(p.locator('a[href="/"], a[href="./"]')).toHaveCount(0);
+    await expect(p.locator("a")).toHaveCount(1);
+
+    await p.getByRole("button", { name: "Copy link to this show" }).click();
+    expect(await page.evaluate(() => window.copied)).toEqual([`${site.url}/show/${SLUG}.html`]);
+    await expect(p.locator(".share-note")).toHaveText("Link copied.");
+  });
+
+  test("a share that can't reach the clipboard prints the link instead", async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", { value: { writeText: () => Promise.reject(new Error("denied")) } });
+    });
+    await openSite(page, { [SLUG]: NOTES.full });
+    await ticketFor(page, SLUG).click();
+    await panel(page).getByRole("button", { name: "Copy link to this show" }).click();
+    await expect(panel(page).locator(".share-note")).toHaveText(`${site.url}/show/${SLUG}.html`);
+  });
+
+  test("sets are labelled only with more than one group, and a null set prints nothing", async ({ page }) => {
+    await openSite(page, {
+      [SLUG]: { ...NOTES.full, setlist: [{ set: null, title: "Alone" }, { title: "Absent" }] },
+      [OTHER]: { ...NOTES.full, setlist: [{ set: "1", title: "Only set" }] },
+    });
+    await ticketFor(page, SLUG).click();
+    await expect(panel(page).locator(".jcard ol li")).toHaveText(["Alone", "Absent"]);
+    await expect(panel(page).locator(".jcard")).not.toContainText("null");
+    await expect(panel(page).locator(".jcard")).not.toContainText("undefined");
+    await expect(panel(page).locator(".jcard .kick")).toHaveCount(0);
+    await ticketFor(page, OTHER).evaluate((a) => a.click());
+    await expect(panel(page).locator(".jcard ol li")).toHaveText("Only set");
+    await expect(panel(page).locator(".jcard .kick")).toHaveCount(0);
+  });
+
+  test("the back action closes the panel; the close control closes it; a second back leaves nothing stale", async ({ page }) => {
+    await openSiteBehindAnotherPage(page, { [SLUG]: NOTES.full, [OTHER]: NOTES.full });
+    const home = page.url();
+
+    await ticketFor(page, SLUG).click();
+    await expect(panel(page)).toBeVisible();
+    await page.goBack();
+    await expect(panel(page)).toBeHidden();
+    expect(page.url()).toBe(home);
+
+    await ticketFor(page, SLUG).click();
+    await expect(panel(page)).toBeVisible();
+    await panel(page).getByRole("button", { name: "Close" }).click();
+    await expect(panel(page)).toBeHidden();
+    expect(page.url()).toBe(home);
+
+    // A second ticket while open replaces the entry, so one back still closes.
+    await ticketFor(page, SLUG).click();
+    await expect(panel(page).locator(".bmain h2")).toBeVisible();
+    await ticketFor(page, OTHER).evaluate((a) => a.click());
+    await page.goBack();
+    await expect(panel(page)).toBeHidden();
+    expect(page.url()).toBe(home);
+
+    await page.goBack();
+    await expect(page).toHaveURL(`${site.url}/timeline.json`);
+  });
+
+  test("Escape closes, a second close while one is pending is ignored, and focus goes in and back", async ({ page }) => {
+    await openSiteBehindAnotherPage(page, { [SLUG]: NOTES.full });
+    const home = page.url();
+    const inPanel = () => page.evaluate(() => document.querySelector(".panel").contains(document.activeElement));
+    const ticket = ticketFor(page, SLUG);
+
+    await ticket.click();
+    await expect(panel(page)).toBeVisible();
+    expect(await inPanel()).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(panel(page)).toBeHidden();
+    await expect(ticket).toBeFocused();
+
+    await ticket.click();
+    await expect(panel(page)).toBeVisible();
+    await panel(page).getByRole("button", { name: "Close" }).evaluate((b) => { b.click(); b.click(); });
+    await expect(panel(page)).toBeHidden();
+    await expect(ticket).toBeFocused();
+    await page.waitForTimeout(200);
+    expect(page.url()).toBe(home);
+  });
+
+  test("a reload with the panel open does not reopen it, and the stale entry stays on the player", async ({ page }) => {
+    await openSiteBehindAnotherPage(page, { [SLUG]: NOTES.full });
+    const home = page.url();
+    await ticketFor(page, SLUG).click();
+    await expect(panel(page)).toBeVisible();
+    await page.reload();
+    await expect(page.locator(".ticket").first()).toBeVisible();
+    await expect(panel(page)).toBeHidden();
+    await page.goBack();
+    await expect(panel(page)).toBeHidden();
+    expect(page.url()).toBe(home);
+  });
+
+  test("two fast taps show only the second show's notes", async ({ page }) => {
+    let release;
+    const held = new Promise((resolve) => { release = resolve; });
+    const firstBody = page.waitForResponse(`**/notes/${SLUG}.json`);
+    await page.route(`**/notes/${SLUG}.json`, async (route) => { await held; await route.continue(); });
+    await openSite(page, {
+      [SLUG]: { ...NOTES.full, artist: "First Band" },
+      [OTHER]: { ...NOTES.full, artist: "Second Band" },
+    });
+    await ticketFor(page, SLUG).click();
+    await ticketFor(page, OTHER).evaluate((a) => a.click());
+    await expect(panel(page).locator(".bmain h2")).toHaveText("Second Band");
+    release();
+    await (await firstBody).finished();
+    await page.waitForTimeout(100);
+    await expect(panel(page).locator(".bmain h2")).toHaveText("Second Band");
+    await expect(panel(page)).not.toContainText("First Band");
+  });
+
+  test("notes arriving after the close leave the closed panel alone", async ({ page }) => {
+    let release;
+    const held = new Promise((resolve) => { release = resolve; });
+    const late = page.waitForResponse(`**/notes/${SLUG}.json`);
+    await page.route(`**/notes/${SLUG}.json`, async (route) => { await held; await route.continue(); });
+    await openSite(page, { [SLUG]: NOTES.full });
+    await ticketFor(page, SLUG).click();
+    await page.goBack();
+    await expect(panel(page)).toBeHidden();
+    release();
+    await (await late).finished();
+    await page.waitForTimeout(100);
+    await expect(panel(page)).toBeHidden();
+    await expect(panel(page).locator(".bmain")).toHaveCount(0);
+  });
+
+  for (const [name, notes] of [["without sections", { [SLUG]: NOTES.old }], ["that fail to load", {}]]) {
+    test(`notes ${name} show "Open the show page" with target=_blank`, async ({ page }) => {
+      await openSite(page, notes);
+      await ticketFor(page, SLUG).click();
+      const link = panel(page).getByRole("link", { name: "Open the show page" });
+      await expect(link).toHaveAttribute("href", `/show/${SLUG}.html`);
+      await expect(link).toHaveAttribute("target", "_blank");
+      await expect(panel(page).locator(".bmain")).toHaveCount(0);
+    });
+  }
+
+  test('a ticket on empty sections reads "No notes yet."', async ({ page }) => {
+    await openSite(page, { [SLUG]: NOTES.empty });
+    await ticketFor(page, SLUG).click();
+    const p = panel(page);
+    await expect(p.locator(".liner")).toHaveText("No notes yet.");
+    await expect(p.locator(".bmain h2")).toHaveText("Next Band");
+    await expect(p.getByRole("link")).toHaveCount(0);
+    await expect(p.locator(".bmain .w")).toHaveCount(0);
+    await expect(p).toContainText("Not currently scheduled.");
+    await expect(p).not.toContainText("null");
+    await expect(p.locator(".meta")).toHaveCount(1);
+  });
+
+  test("a bad air time reads as unavailable and leaves the rest of the notes", async ({ page }) => {
+    await openSite(page, { [SLUG]: { ...NOTES.full, airtimes: [{ start: "x", end: "x" }] } });
+    await ticketFor(page, SLUG).click();
+    await expect(panel(page)).toContainText("Airtimes unavailable.");
+    await expect(panel(page).locator(".bmain h2")).toHaveText("Next Band");
+  });
+
+  test("the hostile fixture through the panel: its markup appears as literal text and adds no element", async ({ page }) => {
+    const count = () => page.evaluate(() => document.querySelectorAll(".panel *").length);
+    const setlist = [...HOSTILE.setlist, { set: "<i>Encore</i>", title: HOSTILE.title, segue: false }];
+    await openSite(page, { [SLUG]: { ...NOTES.full, url: HOSTILE.url, airtimes: [] } });
+    await ticketFor(page, SLUG).click();
+    await expect(panel(page).locator(".bmain h2")).toBeVisible();
+    const benign = await count();
+
+    await openSite(page, { [HOSTILE.slug]: { ...HOSTILE, setlist } }, hostileTimeline());
+    await page.locator("#coming-up .ticket").first().click();
+    const p = panel(page);
+    await expect(p.locator(".bmain h2")).toHaveText(HOSTILE.artist);
+    await expect(p.locator(".bmain .w")).toHaveText(`${HOSTILE.venue}, ${HOSTILE.city}`);
+    await expect(p.locator(".bstub")).toContainText(HOSTILE.date);
+    await expect(p.locator(".jcard .kick")).toHaveText(["<b>Set 1</b>", "<i>Encore</i>"]);
+    const tidy = (title) => title.trim().replace(/\s*-*>\s*$/, " >");
+    await expect(p.locator(".jcard ol li")).toHaveText([
+      `${HOSTILE.setlist[0].title} >`, HOSTILE.setlist[1].title, tidy(HOSTILE.setlist[2].title), tidy(HOSTILE.title),
+    ]);
+    await expect(p.locator(".liner h3")).toHaveText(HOSTILE.sections[0].heading);
+    await expect(p.locator(".liner p")).toHaveText(HOSTILE.sections[0].blocks[0].p);
+    await expect(p.locator(".liner ul li")).toHaveText(HOSTILE.sections[0].blocks[1].ul);
+    await expect(p).toContainText(HOSTILE.lineage);
+    expect(await count()).toBe(benign);
+    await expect(p.locator("img, iframe, svg, script, [onclick], u, i, a")).toHaveCount(0);
+    expect(await page.evaluate(() => window.pwned)).toBeUndefined();
+  });
 });

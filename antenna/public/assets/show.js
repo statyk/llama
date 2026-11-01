@@ -1,14 +1,8 @@
 // The show page's air times, in the listener's zone. All else on the page is static.
-import { airTime, notesHref, zoneLabel } from "./timeline.js";
+import { airLine, notesHref, zoneLabel } from "./timeline.js";
 
 const box = document.getElementById("airtimes");
 const line = (text) => Object.assign(document.createElement("div"), { textContent: text });
-
-function airLine({ start, end }) {
-  const from = airTime(start);
-  const to = airTime(end);
-  return `${from.day} ${from.time} to ${to.day === from.day ? "" : `${to.day} `}${to.time}`;
-}
 
 async function show() {
   try {

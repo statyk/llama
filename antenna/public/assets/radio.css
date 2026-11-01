@@ -317,6 +317,8 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .panel, .panel.open { transition: none; }
 }
+.panel-bar { position: sticky; top: 0; z-index: 1; display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.panel-bar .more { margin-top: 0; }
 
 /* The show page's look, shared by show.html and the panel. */
 .bigt {

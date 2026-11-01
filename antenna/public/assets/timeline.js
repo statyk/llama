@@ -111,6 +111,13 @@ export function airTime(iso, timeZone) {
   return { day: p.weekday, time: `${p.hour}:${p.minute}${suffix}` };
 }
 
+/** "Sat 12:26a to 1:53a", naming the end's day only when it differs. */
+export function airLine({ start, end }) {
+  const from = airTime(start);
+  const to = airTime(end);
+  return `${from.day} ${from.time} to ${to.day === from.day ? "" : `${to.day} `}${to.time}`;
+}
+
 export function zoneLabel(timeZone) {
   const fmt = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longGeneric" });
   const part = fmt.formatToParts(new Date()).find((x) => x.type === "timeZoneName");
