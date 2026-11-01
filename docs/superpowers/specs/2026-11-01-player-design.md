@@ -157,8 +157,8 @@ Use the Media Session API, on both native HLS and hls.js:
 - album: venue and concert date;
 - artwork: the fixed cassette picture, one square PNG, 512 px.
 
-With no show on air, while reconnecting or off the air, the title is the station
-name and no stale song remains.
+In any state with no audio, or with no show on air, the title is the station name
+and no stale song remains.
 
 Metadata updates when the song or show changes, driven by something that keeps
 running on a locked phone: if timers are throttled there, the element's
@@ -168,7 +168,7 @@ matching the page. No seek or skip handlers: this is radio.
 
 If the early test shows that tearing down the source loses the car's Play control,
 then a `pause` from the car or lock screen only pauses the element, keeps the
-session, and tears down and rejoins on `play`.
+session, stops loading, and tears down and rejoins on `play`.
 
 If the phone pauses the audio on its own (a call, Bluetooth disconnecting), that
 counts as Stop and it stays stopped (operator): the listener presses Play. A phone
@@ -196,18 +196,22 @@ Today any fatal hls.js error or native `error` puts the player into a dead
   advancing playback, never on `playing`. These values may be tuned in the plan.
 - **Giving up** (operator): after 10 minutes without audio, counted from the last
   advancing playback, recovery stops, shows Try again and stays stopped. This is so
-  the phone doesn't start playing aloud after the car is off. A shorter window
-  remains, and that is accepted.
+  the phone doesn't start playing aloud after the car is off. Every retry checks
+  the wall clock against this limit immediately before any `play()`, so a page
+  whose timers were frozen while locked gives up rather than starting audio late.
+  A shorter window remains, and that is accepted.
 - **Definite off-air** means what it does now: a 403 or `#EXT-X-ENDLIST` on two
-  probes of `live.m3u8`, or `ended`. It stops, shows the notice and does not
-  reconnect. Each failure probes before restarting. Unlike today, the verdict count
-  survives retries and inconclusive probes, and resets only on real progress;
-  position tracking is cleared on retry. So an iPhone, which gets no status code, reaches the off-air
-  notice in a bounded time.
+  probes of `live.m3u8`, or `ended`, plus hls.js's immediate signals (a 403, an
+  empty level, a playlist no longer live). It stops, shows the notice and does not
+  reconnect. Each failure probes before restarting, and that probe always has a
+  time limit. Unlike today, the verdict count survives retries and inconclusive
+  probes, and resets only on real progress. Position tracking is cleared on retry,
+  and the first position after a retry is a baseline, not progress. So an iPhone,
+  which gets no status code, reaches the off-air notice in a bounded time.
 - **A dropout or a phone pause:** a `pause` counts as a phone-initiated Stop only
-  when no stall was under way. The early test confirms this rule: it logs the order
-  of `pause`, `waiting`, `stalled`, `error` and `ended` on a locked iPhone during a
-  dropout.
+  when no stall was under way, and a `pause` from the player's own teardown is
+  ignored. The early test confirms this rule: it logs the order of `pause`,
+  `waiting`, `stalled`, `error` and `ended` on a locked iPhone during a dropout.
 - **The restart** uses the same `<audio>` element, so that an iPhone in a pocket
   keeps permission to play. A browser refusal ends at Try again. The retry sequence
   never starts audio after the listener's Stop.
@@ -221,14 +225,20 @@ Tapping a ticket must not stop the music (operator). It opens the show's notes i
 panel that slides up over the player, on phone, computer and home-screen app alike.
 The audio keeps playing and the page's hubs and controls keep working. Closing it,
 by its own close control or the browser's back gesture, returns to the player.
+Opening it adds a history entry on the same URL, and the close control goes back
+through that entry, so a reload never lands on another page and a stale entry never
+leaves the player. A page load never opens the panel.
 
 Tickets stay real links to `show/<slug>.html`, so a new-tab open, a shared link and
-a crawler all work. The panel is shown by script. If the notes can't be loaded or
-are the older shape (no `sections`), the link opens in a new tab rather than
-navigating away.
+a crawler all work, and a modified click is left to the browser. A plain tap opens
+the panel at once with a loading state, then fetches the notes. If they can't be
+loaded or are the older shape (no `sections`), the panel shows a plain new-tab link,
+"Open the show page". An empty `sections` is the new shape and reads "No notes yet."
 
 The panel has the content of the show page below, including the AI disclaimer, with
-a way to share that show (its `show/<slug>.html` link).
+a way to share that show (its `show/<slug>.html` link). It has no link back to the
+station, since its close control does that job. The archive.org link always opens
+in a new tab or outside the app, never in the player's window.
 
 ## Show pages
 
@@ -257,17 +267,19 @@ the notes' flag doesn't appear there: the log shouldn't make a second fetch for 
 
 **One parser:** rendering stays in `site.py` from `antenna/templates/show.html`.
 `site.py` turns the briefing into structured sections and publishes them as a new
-`sections` field in `notes/<slug>.json` (headings, paragraphs, bullets, as data);
-`briefing` stays in the file. The static template and the panel both render from
+`sections` field in `notes/<slug>.json`, shaped like `[{"heading": str|null,
+"blocks": [{"p": str} | {"ul": [str]}]}]`; `briefing` stays in the file. The static template and the panel both render from
 it. The template's output is escaped and the panel uses `textContent` only, never
 `innerHTML`. Show-page JavaScript lives under `/assets/`, not inline in `show.html`,
 because `string.Template` substitutes `$`.
 
 The parser is line-based: a heading can be followed by text with no blank line. Inline
-`**` is stripped to plain text, and the Cautions cut runs from that heading to the
-end. Measured across 3,650 briefings on 2026-11-01: every one has the same headings,
-Cautions is always the last section, no `##` line follows it, and 61 carry inline
-`**`.
+`**` is stripped to plain text, and the cut runs from a case-insensitive `## Cautions`
+heading to the end. Headings vary by show (one per set, an optional encore), so the
+parser keeps whatever it finds. Measured across 3,650 briefings on 2026-11-01:
+all carry the Cautions heading, it is always the last section, and 61 carry inline
+`**`. The heading text is llama's, and transmitter can't import llama, so a test here
+pins the literal.
 
 **Existing pages:** the publisher re-renders only shows in the timeline window, so
 older `show/*.html` stay on the old template and keep using the old `style.css`,
@@ -315,21 +327,25 @@ could serve a stale page or player.
 - New logic gets new source files mapped to `/assets/`, and tests point there. Pure
   logic is unit-tested. Vitest for the helpers. pytest for `site.py`, on Python 3.11
   as usual. A Playwright smoke test of the page against canned files, as the parent
-  planned.
+  planned, on a browser that can play AAC (bundled Chromium may not).
 
 **Preview:** before go-live the operator judges the real page from an unlisted
 copy under `/assets/preview/` in the production bucket, playing the real stream
 (all cached objects, removed afterwards). It has its own manifest with `start_url`
-and `scope` under `/assets/preview/`, and is opened by full filename. The show page
-is judged through the panel there; the static page is judged after go-live. The
-early iPhone test runs from there too, so it's a planned pause near the start of the
-work.
+and `scope` under `/assets/preview/`, is opened by full filename, and is uploaded
+with a short cache time so each round of fixes shows up. The plan names its removal
+step. The early iPhone test runs from there, so it's a planned pause near the start
+of the work. The operator judges the whole page there later, panel included, once
+hugo is publishing `sections`.
 
-**Deploy:** `npm run deploy:assets` first, then `npx wrangler deploy` (the bundled
-pages), and a pull and restart on hugo for the show template and notes. The one new
-published field is `sections`. The first re-render of show pages can come up to
-about 4 hours after hugo restarts, because publishing only runs when new segments go
-up. Until then tickets open in a new tab, as in "Show notes panel".
+**Deploy,** in this order, with the old player live until the last step:
+1. `npm run deploy:assets`.
+2. A pull and restart on hugo for the show template and `sections`, the one new
+   published field. Nothing on the old player reads either. The new static show
+   pages go public here, as publishing reaches them: up to about 4 hours, because
+   publishing only runs when new segments go up.
+3. The operator judges the preview, panel included.
+4. `npx wrangler deploy` (the bundled pages). This is go-live.
 
 **Manual checks by the operator:** iPhone lock screen, the car display, a dropout
 on the road (airplane mode for a minute with the screen locked), all of these from
@@ -353,6 +369,10 @@ work.
   during a dropout, which the dropout-or-pause rule depends on.
 - Whether the car's Play still works after Stop tears down the source.
 - Whether a restart recovers a stall after a backwards playlist step.
+- Whether timers and retries fire at all on a locked iPhone during a stall, and
+  whether the 10-minute limit therefore works there.
+- Whether the back swipe closes the panel in the home-screen app, and whether audio
+  survives opening archive.org from it.
 - What the operator's car actually shows from Media Session.
 
 The early iPhone test is one run covering all of these, from the preview, in Safari
