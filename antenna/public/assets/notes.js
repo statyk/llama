@@ -40,5 +40,6 @@ export function panelModel(notes) {
     where: whereLine(notes),
     date: concertDate(notes.date),
     lineage: text(notes.lineage),
+    airtimes: Array.isArray(notes.airtimes) ? notes.airtimes : [],
   };
 }

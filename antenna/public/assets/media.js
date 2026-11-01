@@ -1,5 +1,5 @@
 // Media Session text for the car and lock screen (pure, unit-tested).
-import { concertDate, nowLine, whereLine } from "./timeline.js";
+import { concertDate, nowLine } from "./timeline.js";
 
 export const ARTWORK = [{ src: "/assets/cassette-512.png", sizes: "512x512", type: "image/png" }];
 
@@ -11,6 +11,6 @@ export function sessionText({ np, stationName, audible }) {
   return {
     title: nowLine(np, stationName),
     artist: show.artist || "",
-    album: [whereLine(show), concertDate(show.date)].filter(Boolean).join(", "),
+    album: [show.venue, concertDate(show.date)].filter(Boolean).join(", "),
   };
 }

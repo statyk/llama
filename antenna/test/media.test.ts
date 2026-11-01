@@ -25,6 +25,11 @@ describe("sessionText", () => {
     expect(JSON.stringify(r)).not.toContain("null");
     expect(sessionText({ np: { show: { venue: "Club", date: null } , file: null }, stationName: "S", audible: true }).album).toBe("Club");
   });
+  it("keeps the city out of the album", () => {
+    const show = { artist: "Band", venue: "Club", city: "Town", date: "2008-11-01" };
+    expect(sessionText({ np: { show, file: null }, stationName: "S", audible: true }).album).toBe("Club, Nov 1 2008");
+    expect(sessionText({ np: { show: { artist: "Band", city: "Town" }, file: null }, stationName: "S", audible: true }).album).toBe("");
+  });
   it("exports the artwork", () => {
     expect(ARTWORK).toEqual([{ src: "/assets/cassette-512.png", sizes: "512x512", type: "image/png" }]);
   });

@@ -21,6 +21,15 @@ describe("panelModel", () => {
   });
 });
 
+describe("panelModel air times", () => {
+  it("keeps a list and replaces anything else with an empty one", () => {
+    const a = [{ start: "2026-11-01T00:00:00Z" }];
+    expect(panelModel({ sections: [], airtimes: a }).airtimes).toEqual(a);
+    expect(panelModel({ sections: [], airtimes: "x" }).airtimes).toEqual([]);
+    expect(panelModel({ sections: [] }).airtimes).toEqual([]);
+  });
+});
+
 describe("archiveLink", () => {
   it("accepts only the literal https archive.org prefix", () => {
     expect(archiveLink("https://archive.org/details/x")).toBe("https://archive.org/details/x");
