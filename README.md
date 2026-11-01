@@ -477,7 +477,11 @@ has a script and whose presenter resolves to ID (compared case-insensitively),
 ready or pending, a failed `--keep-script` attempt included; an ID that no
 package resolves to prints `note: no package resolves to presenter X`.
 `--keep-script` needs `--presenter`, and `--presenter` and `--drifted` need
-`--keep-script`. `--drifted` keeps those whose recorded TTS backend or model
+`--keep-script`. A ready package with nothing to render (0 clips) is skipped
+untouched, with `skip <slug>: every clip is already current` (no clear, no
+manifest rewrite, so its mtime does not move) unless `--force`; pending
+packages and a failed attempt are never skipped on that count, since they have
+no usable `dj_audio`. `--drifted` keeps those whose recorded TTS backend or model
 differs from today's, as `emcee status --drifted` compares them; a voiced block
 with no TTS record counts as drifted, and so does a null `dj_audio`. Awaiting-fix
 packages and packages with missing track audio are skipped as `run` skips them,

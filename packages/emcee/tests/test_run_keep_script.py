@@ -224,8 +224,9 @@ def test_the_plan_is_one_kept_script_group_with_an_exact_clip_count(tmp_path, mo
     first = runner.invoke(app, ["run", "--keep-script", "--presenter", "gregg", "--yes"])
     assert first.exit_code == 0, first.output
 
-    plan = runner.invoke(app, ["run", "--keep-script", "--presenter", "gregg", "--dry-run"])
-    assert "0 of 6 clips will re-render" in plan.stderr
+    plan = runner.invoke(app, ["run", "--keep-script", "--presenter", "gregg", "--dry-run",
+                               "--force"])
+    assert "6 of 6 clips will re-render" in plan.stderr
     assert "  kept script" in plan.stderr and "  repair " not in plan.stderr
     assert "no scriptwriting LLM cost" in plan.stderr
 
@@ -238,6 +239,79 @@ def test_the_plan_is_one_kept_script_group_with_an_exact_clip_count(tmp_path, mo
     plan = runner.invoke(app, ["run", "--keep-script", "--presenter", "gregg", "--force",
                                "--dry-run"])
     assert "6 of 6 clips will re-render" in plan.stderr
+
+
+# --- ready packages with nothing to render ------------------------------------
+
+
+def _first_pass(monkeypatch, *extra):
+    _forbid_llm(monkeypatch)
+    _use_speech(monkeypatch, Speech())
+    result = runner.invoke(app, ["run", "--keep-script", "--presenter", "gregg", "--yes", *extra])
+    assert result.exit_code == 0, result.output
+
+
+def test_a_ready_all_current_package_is_skipped_untouched(tmp_path, monkeypatch):
+    _, station = _home(tmp_path, monkeypatch)
+    _voiced(station, "a")
+    _first_pass(monkeypatch)
+    mp = station / "a" / "manifest.json"
+    raw, mtime = mp.read_bytes(), mp.stat().st_mtime_ns
+
+    result = runner.invoke(app, ["run", "--keep-script", "--presenter", "gregg", "--yes"])
+
+    assert result.exit_code == 0, result.output
+    assert "skip a: every clip is already current" in result.stdout
+    assert "to voice:" not in result.stderr
+    assert mp.read_bytes() == raw and mp.stat().st_mtime_ns == mtime
+
+
+def test_dry_run_skips_a_ready_all_current_package_too(tmp_path, monkeypatch):
+    _, station = _home(tmp_path, monkeypatch)
+    _voiced(station, "a")
+    _voiced(station, "b")
+    _first_pass(monkeypatch)
+    (station / "b" / "dj-audio" / "99-outro.mp3").unlink()
+
+    result = runner.invoke(app, ["run", "--keep-script", "--presenter", "gregg", "--dry-run"])
+
+    assert _would(result.stdout) == ["b"]
+    assert "skip a: every clip is already current" in result.stdout
+    assert "1 of 3 clips will re-render" in result.stderr
+    assert "1 package(s) would be voiced" in result.stdout
+
+
+def test_force_still_processes_a_ready_all_current_package(tmp_path, monkeypatch):
+    _, station = _home(tmp_path, monkeypatch)
+    _voiced(station, "a")
+    _first_pass(monkeypatch)
+    speech = Speech()
+    _use_speech(monkeypatch, speech)
+
+    result = runner.invoke(app, ["run", "--keep-script", "--presenter", "gregg", "--yes",
+                                 "--force"])
+
+    assert result.exit_code == 0, result.output
+    assert "already current" not in result.stdout
+    assert "1 package(s) voiced" in result.stdout
+    assert speech.calls
+
+
+def test_a_failed_attempt_with_all_clips_current_is_still_processed(tmp_path, monkeypatch):
+    _, station = _home(tmp_path, monkeypatch)
+    pkg = _voiced(station, "a")
+    _first_pass(monkeypatch)
+    m = _manifest(pkg)
+    m["dj_audio"] = None      # a failed attempt cleared dj_audio; clips and keys match
+    _write(pkg, m)
+
+    result = runner.invoke(app, ["run", "--keep-script", "--presenter", "gregg", "--yes"])
+
+    assert result.exit_code == 0, result.output
+    assert "already current" not in result.stdout
+    assert "0 of 3 clips will re-render" in result.stderr
+    assert "1 package(s) voiced" in result.stdout
+    assert _manifest(pkg)["dj_audio"] is not None
 
 
 # --- running -----------------------------------------------------------------

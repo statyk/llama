@@ -503,6 +503,15 @@ def _keep_plan_counts(config: EmceeConfig, presenter: Presenter, to_voice: list[
             pass
 
 
+def _echo_would_voice(config: EmceeConfig, status: PackageStatus) -> None:
+    view = assignment_for(config, status.profile)
+    line = (f"would voice: {status.path.name}  {status.profile or '(none)'}  "
+            f"{presenter_label(view)}")
+    if view.presenter is not None:
+        line += _dry_run_marker(config, view.presenter)
+    typer.echo(line)
+
+
 def _echo_keep_plan(config: EmceeConfig, presenter: Presenter, to_voice: list[PackageStatus],
                     counts: dict[str, tuple[int, int]], stale: int) -> None:
     """The plan `run --keep-script` prints before any spend (stderr): one
@@ -593,7 +602,11 @@ def run(
     form of `emcee voice --keep-script`: every package with a script whose
     presenter resolves to ID, ready or pending (a failed keep-script attempt
     included), is re-voiced from that script. The plan shows one `kept script`
-    group and `N of M clips will re-render` (all of them under `--force`).
+    group and `N of M clips will re-render` (all of them under `--force`). A
+    READY package with 0 clips to render is skipped untouched (`skip <slug>:
+    every clip is already current`; no clear, no rewrite) unless `--force`;
+    pending packages and the failed-attempt state are never skipped on that
+    count: they have no usable `dj_audio`, so the run finishes them.
     `--drifted` keeps those whose recorded TTS differs from today's, as
     `emcee status --drifted` compares (a voiced block with no record counts, as
     does a null `dj_audio`). A recorded presenter other than ID is skipped
@@ -684,12 +697,8 @@ def run(
             typer.echo(f"skip {slug}: kept script awaiting retry "
                        f"(emcee voice {slug} --keep-script)")
             continue
-        if dry_run:
-            view = assignment_for(config, status.profile)
-            line = f"would voice: {slug}  {status.profile or '(none)'}  {presenter_label(view)}"
-            if view.presenter is not None:
-                line += _dry_run_marker(config, view.presenter)
-            typer.echo(line)
+        if dry_run and not keep_script:   # keep-script lists after its all-current skips
+            _echo_would_voice(config, status)
         to_voice.append(status)
 
     if unreadable:
@@ -698,8 +707,23 @@ def run(
     if keep_script:
         if resolved_to_presenter == 0:
             typer.echo(f"note: no package resolves to presenter {presenter}")
+        counts: dict[str, tuple[int, int]] = {}
         if to_voice:
             counts = _keep_plan_counts(config, loaded, to_voice, kept, force)
+            if not force:
+                # A ready package with nothing to render needs neither the clear nor
+                # the rewrite; pending ones (incl. a failed attempt, dj_audio null)
+                # have no usable dj_audio and need the run to finish them.
+                current = [s for s in to_voice
+                           if s.state == "ready" and counts[s.path.name][0] == 0]
+                for s in current:
+                    typer.echo(f"skip {s.path.name}: every clip is already current")
+                to_voice = [s for s in to_voice if s not in current]
+                counts = {s.path.name: counts[s.path.name] for s in to_voice}
+            if dry_run:
+                for s in to_voice:
+                    _echo_would_voice(config, s)
+        if to_voice:
             _echo_keep_plan(config, loaded, to_voice, counts, stale)
         elif stale:
             typer.echo(_stale_note(stale), err=True)
