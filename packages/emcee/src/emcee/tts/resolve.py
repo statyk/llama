@@ -37,7 +37,7 @@ class TTSResolution:
     api_key: str | None           # config-supplied key (hosted only); env still wins
     key_sources: tuple[str, ...]  # config locations a missing-key error should name
     presenter: str | None         # presenter id; None = the house voice
-    pinned: bool                  # True when the presenter's own `tts` chose the backend
+    pinned: bool                  # True when the presenter's own `tts` or a `say --tts` override chose the backend
 
 
 def resolve_tts(config: EmceeConfig, presenter: Presenter | None, *,

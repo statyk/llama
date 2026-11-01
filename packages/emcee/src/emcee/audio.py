@@ -431,9 +431,11 @@ def bed_key_of(bed: Bed | None) -> str:
 def count_clips_to_render(pkg: Path, notes: ScriptNotes, speech, force: bool, *,
                           chunking: Chunking | None, lexicon: Lexicon | None = None,
                           bed: Bed | None = None, bed_key: str) -> tuple[int, int]:
-    """(clips that would render, clips in the script) by the very comparison
-    `_synthesize_dj_audio` makes: `force`, a missing clip, or a sidecar key
-    that is not today's. Reads only; renders nothing."""
+    """(clips that would render, clips in the script) by the same keys
+    `_synthesize_dj_audio` compares (`_keyed_segments`): `force`, a missing
+    clip, or a sidecar key that is not today's. Reads only; renders nothing.
+    A corrupt or non-object sidecar counts as empty here (every clip stale),
+    where the render itself raises on it."""
     audio_dir = pkg / "dj-audio"
     sidecar = audio_dir / "segments.json"
     try:

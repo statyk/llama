@@ -276,8 +276,9 @@ def _process_one(config: EmceeConfig, moves: Moves, pkg: Package, force: bool,
     manifest clear, THEN `process_package` (the first LLM spend). So no
     configuration-only failure -- an invalid move target, an unpinned
     presenter under an mlx_audio house, a down mlx-audio server, a missing
-    model, a bad bed -- can discard a clip or take a broadcast-ready package
-    off air.
+    model -- can discard a clip or take a broadcast-ready package off air. A bad
+    bed is caught early only with `keep_script` and `fresh` (adoption loads the
+    bed); otherwise it fails after the clear, so it can take a package off air.
 
     With `keep_script` the clear nulls only `dj_audio`, so the script survives
     any failure from there on: the package is pending with its script (the
@@ -329,7 +330,7 @@ def _process_one(config: EmceeConfig, moves: Moves, pkg: Package, force: bool,
 
 def _clear_and_process(config: EmceeConfig, pkg: Package, speech, force: bool, voicing: Voicing,
                        fresh: Sequence[str], notes: ScriptNotes | None,
-                       voiced: tuple[str | None, str | None] = (None, None)) -> None:
+                       voiced: tuple[str | None, str | None]) -> None:
     """The destructive half of `_process_one`: the `--fresh` unlink, the
     manifest clear, `process_package`. `notes` is a kept script, or None."""
     if fresh:
@@ -857,8 +858,8 @@ def say_cmd(
              "preset voice"),
     clone_text: str = typer.Option(
         None, "--clone-text",
-        help="Transcript of the --clone clip; required when the house backend is "
-             "mlx_audio, ignored otherwise"),
+        help="Transcript of the --clone clip; required when the backend (the house "
+             "one, or --tts) is mlx_audio, ignored otherwise"),
     voice: str = typer.Option(
         None, "--voice", help="Preset voice name, instead of the house [tts] voice"),
     presenter: str = typer.Option(
@@ -901,8 +902,8 @@ def say_cmd(
     VOICE: at most one of `--clone`, `--voice` and `--presenter`; with none of
     them the house `[tts] voice`/`voice_clone` reads it, including its
     `[tts] voice_clone_text`. `--clone-text` is the `--clone` clip's
-    transcript, required when the house backend is mlx_audio (which is
-    clone-only, so `--voice` is refused there); `--presenter` resolves exactly
+    transcript, required when the backend (the house one, or `--tts`) is
+    mlx_audio (which is clone-only, so `--voice` is refused there); `--presenter` resolves exactly
     as in `emcee run`, pin included.
 
     BED: resolved exactly as a voiced package's is (the presenter's own bed,

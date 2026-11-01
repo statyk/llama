@@ -491,6 +491,7 @@ def test_a_backend_change_warns_too(tmp_path, monkeypatch):
 
     result = runner.invoke(app, ["voice", str(pkg_dir), "--keep-script", "--fresh", "99-outro"])
 
+    assert result.exit_code == 0, result.output
     assert result.stderr.count(WARNING) == 1
 
 
