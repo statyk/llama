@@ -116,6 +116,29 @@ test("the page loads, shows the header line and every asset request succeeds", a
   }
 });
 
+test("the footer's archive.org link opens in a new tab so the music keeps playing", async ({ page }) => {
+  await page.goto(site.url);
+  const link = page.locator("footer a[href='https://archive.org/details/etree']");
+  await expect(link).toHaveAttribute("target", "_blank");
+  await expect(link).toHaveAttribute("rel", /noopener/);
+});
+
+test("an engine that throws on longGeneric still renders the page and keeps the loop going", async ({ page }) => {
+  await page.addInitScript(() => {
+    const Real = Intl.DateTimeFormat;
+    Intl.DateTimeFormat = function (loc, opts) {
+      if (opts && opts.timeZoneName === "longGeneric") throw new RangeError("longGeneric");
+      return new Real(loc, opts);
+    };
+    Intl.DateTimeFormat.prototype = Real.prototype;
+  });
+  await page.goto(site.url);
+  await expect(page.locator("#zone")).toHaveText(/^Times shown in .+/);
+  await expect(page.locator("#label-artist")).toHaveText("On Air Band");
+  await page.locator("#play").click();
+  await expect(page.locator("#hubs")).toHaveClass(/turning/);
+});
+
 test("the page's elements are all there for the behaviour to bind to", async ({ page }) => {
   await page.goto(site.url);
   for (const id of ["label-artist", "label-where", "label-date", "hubs", "play", "stop", "now", "retry",

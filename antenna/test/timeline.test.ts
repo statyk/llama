@@ -83,6 +83,18 @@ describe("airTime and zoneLabel", () => {
     expect(zoneLabel("America/New_York")).toBe("Times shown in Eastern Time");
     expect(zoneLabel("Europe/Helsinki")).toMatch(/^Times shown in /);
   });
+  it("falls back to the zone id when the engine throws on longGeneric", () => {
+    const real = Intl.DateTimeFormat;
+    const spy = vi.spyOn(Intl, "DateTimeFormat").mockImplementation(function (this: unknown, loc?: any, opts?: any) {
+      if (opts && opts.timeZoneName === "longGeneric") throw new RangeError("Value longGeneric out of range");
+      return new real(loc, opts);
+    } as any);
+    try {
+      expect(zoneLabel("Europe/Helsinki")).toBe("Times shown in Europe/Helsinki");
+    } finally {
+      spy.mockRestore();
+    }
+  });
   it("does not depend on the runtime default locale", () => {
     const real = Intl.DateTimeFormat;
     const seen: unknown[] = [];

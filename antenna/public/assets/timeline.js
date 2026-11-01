@@ -119,9 +119,15 @@ export function airLine({ start, end }) {
 }
 
 export function zoneLabel(timeZone) {
-  const fmt = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longGeneric" });
-  const part = fmt.formatToParts(new Date()).find((x) => x.type === "timeZoneName");
-  const name = part ? part.value : fmt.resolvedOptions().timeZone;
+  let name;
+  try {
+    const fmt = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longGeneric" });
+    const part = fmt.formatToParts(new Date()).find((x) => x.type === "timeZoneName");
+    name = part ? part.value : fmt.resolvedOptions().timeZone;
+  } catch {
+    // Older Safari throws a RangeError for "longGeneric": name the zone by its id.
+    name = new Intl.DateTimeFormat("en-US", { timeZone }).resolvedOptions().timeZone;
+  }
   return `Times shown in ${name}`;
 }
 

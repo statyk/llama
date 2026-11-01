@@ -14,9 +14,14 @@ ticketLinks(document, openPanel);
 
 function tick() {
   const nowMs = Date.now();
-  renderAt(positionMs({ playing: player.audible, playbackMs: player.playbackMs(), nowMs }));
+  // A render error must never stop recovery: player.tick always runs.
+  try {
+    renderAt(positionMs({ playing: player.audible, playbackMs: player.playbackMs(), nowMs }));
+  } catch {
+    // The next tick tries again.
+  }
   player.tick(nowMs);
   refreshTimeline(false);
 }
-tick();
 setInterval(tick, 1000);
+tick();
