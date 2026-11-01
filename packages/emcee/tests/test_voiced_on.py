@@ -121,3 +121,18 @@ def test_status_json_tolerates_a_legacy_block_and_an_unvoiced_package(tmp_path, 
         assert rows[slug]["voiced_on"] is None
         assert rows[slug]["voiced_before"] is None
     assert "voiced_on" not in _manifest(legacy)["dj_audio"]   # status never rewrites it
+
+
+def test_keep_script_fresh_renders_the_named_clip_so_it_stamps_today(tmp_path, monkeypatch):
+    pkg_dir = _voiced(tmp_path, monkeypatch)
+    manifest = _manifest(pkg_dir)
+    manifest["dj_audio"]["voiced_on"] = "2026-03-03"
+    manifest["dj_audio"]["voiced_before"] = "2026-02-02"
+    _write(pkg_dir, manifest)
+    monkeypatch.setattr(process_mod, "_today", lambda: "2026-11-02")
+
+    _voice(pkg_dir, monkeypatch, "--keep-script", "--fresh", "99-outro")
+
+    block = _manifest(pkg_dir)["dj_audio"]
+    assert block["voiced_on"] == "2026-11-02"
+    assert block["voiced_before"] is None
