@@ -1,0 +1,14 @@
+{
+  "name": "LMA Radio",
+  "short_name": "LMA Radio",
+  "description": "Live concert tapes from the Live Music Archive, around the clock.",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/",
+  "background_color": "#e9dfc8",
+  "theme_color": "#e9dfc8",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "cassette-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

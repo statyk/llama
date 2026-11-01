@@ -761,6 +761,26 @@ test("a play() that never settles (home-screen app, hidden): no notice, no hubs,
   await expect(hubs).toHaveClass(/turning/);
 });
 
+test("at 320 px with a very long band name, main and panel do not scroll sideways", async ({ page }) => {
+  const SLUG = "fixture-next-1";
+  const LONG = "...And You Will Know Us By the Trail of Dead";
+  const timeline = makeTimeline(Date.now());
+  timeline.shows = timeline.shows.map((s) => (s.slug === SLUG ? { ...s, artist: LONG } : s));
+  await site.close();
+  site = await startServer({ timeline, notes: { [SLUG]: { ...NOTES.full, artist: LONG } } });
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto(site.url);
+  await expect(page.locator(".ticket").first()).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  await page.locator(`.ticket[data-slug="${SLUG}"]`).first().click();
+  await expect(page.locator(".panel .bmain h2")).toHaveText(LONG);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  expect(await page.evaluate(() => {
+    const p = document.querySelector(".panel");
+    return p.scrollWidth - p.clientWidth;
+  })).toBeLessThanOrEqual(0);
+});
+
 test.describe("notes panel", () => {
   const SLUG = "fixture-next-1";
   const OTHER = "fixture-next-2";
