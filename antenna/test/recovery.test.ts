@@ -566,7 +566,7 @@ describe("Recovery: off-air", () => {
     r.verdict("reachable");
     expect(r.tick(300, 36000)).toBe("restart");
     r.restarted(36000);
-    expect(r.tick(310, 37000)).toBe("none");
+    expect(r.tick(310, 46000)).toBe("none"); // 10 s on: not a jump, so only the baseline rule holds it
     expect(r.advancing).toBe(false);
     expect(r.tick(310, 61000)).toBe("none");
     expect(r.tick(310, 70999)).toBe("none");
