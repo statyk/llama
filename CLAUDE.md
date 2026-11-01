@@ -39,6 +39,20 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   emcee recorded it, for the operator-vouched presenters in its `BACKFILL`
   table only (`phil` voxtral, `jamesbrown` mlx_audio), with `voice:
   "unknown"` (the clone hash is never recomputed). Dry run unless `--apply`.
+  `python scripts/backfill_voiced_on.py [--station-root P] [--apply]` is a
+  one-off (imports emcee and llama): it dates voiced packages that carry
+  neither `dj_audio.voiced_on` nor `voiced_before` from the newest mtime of the
+  clips the block names (never the manifest's): inside the NAS-copy window
+  (2026-10-10 19:28:00-19:40:00 at -04:00, inclusive; measured 118 packages
+  inside, 210 outside) it writes `voiced_before: "2026-10-10"`, else `voiced_on:
+  <local date>`; a missing clip leaves the package alone. Raw-JSON, one key,
+  and the manifest's old mtime restored with `os.utime` (transmitter reads a
+  newer manifest as "changing"); it re-reads the bytes before the replace and
+  skips on any change, and under `--apply` refuses while an `emcee` or `llama`
+  process runs (a sleeping sweep loop is invisible to that check). Dry run
+  unless `--apply`. Run it BEFORE any re-voice. Before the first `--apply` the
+  operator checks that `os.utime` preserves mtime on one scratch file on the
+  SMB mount, read back from hugo.
   `python scripts/purge_delivered_audio.py [--config P] [--dest P] [--apply]`
   is a one-off (imports llama): it applies deliver's audio purge, same
   verification, to shows delivered before deliver did it. Dry run unless

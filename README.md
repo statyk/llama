@@ -588,7 +588,12 @@ that renders a clip sets `voiced_on` to today and clears `voiced_before` (a date
 the voicing is known to predate); a run that renders nothing (every cache key
 matched, or `--keep-script --fresh` adopted the clips) carries both unchanged,
 and a retry after a failed attempt, which clears `dj_audio`, has nothing to
-carry, so both stay null. Changing a presenter, a presenter's TTS pin or the house voice does
+carry, so both stay null. Packages voiced before emcee recorded either date
+are dated once by `python scripts/backfill_voiced_on.py [--station-root P]
+[--apply]` (dry run unless `--apply`; it keeps each manifest's mtime, refuses
+while an `emcee` or `llama` process runs, and must run BEFORE any re-voice).
+Before the first `--apply`, check on the mount that `os.utime` preserves mtime
+on one scratch file over SMB, read back from hugo. Changing a presenter, a presenter's TTS pin or the house voice does
 not trigger a re-voice.
 
 **Running `emcee run` from an agent** (no terminal): run `emcee run
