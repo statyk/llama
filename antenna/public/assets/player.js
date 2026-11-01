@@ -21,7 +21,8 @@ const recovery = new Recovery({ native });
 let hls = null;
 let wanted = false; // the listener wants audio: from start until a stop of any kind
 let state = "stopped";
-let session = 0; // bumped by every start and stop: a probe from before it is dropped
+let session = 0; // bumped by every rejoin and stop: a fetch from before it is dropped
+let asking = null; // the session whose Play is waiting on its fetch
 let selfTeardown = false;
 let settleTimer = null;
 let shownText = null; // the Media Session text last set, as JSON
@@ -31,9 +32,9 @@ function show(name) {
   setState(name);
 }
 
-/** Leaves the element empty. Never call this between a failure and a `restart`
- * result: a teardown while unreachable ends the audio session and iOS freezes
- * the page. */
+/** Leaves the element empty. With audio wanted, only after an HTTP answer (a
+ * `restart` result, or Play's question): a teardown while unreachable ends the
+ * audio session and iOS freezes the page. A stop may always call it. */
 function tearDown() {
   selfTeardown = true;
   clearTimeout(settleTimer);
@@ -95,25 +96,40 @@ function attach() {
   return true;
 }
 
-function start() {
+function rejoin() {
   wanted = true;
   session += 1;
   recovery.begin(Date.now());
   tearDown();
+  hubs.classList.remove("turning");
   show("playing");
   if (attach()) syncMedia(Date.now());
   else halt("unsupported");
+}
+
+/** Play. During a session it waits for an HTTP answer, off-air included: with
+ * none, the element is left alone and audio or recovery carry on. */
+async function start() {
+  if (!wanted) {
+    rejoin();
+    return;
+  }
+  if (asking === session) return;
+  const asked = session;
+  asking = asked;
+  const answer = await ask();
+  if (asked !== session) return;
+  asking = null;
+  if (answer !== "unreachable") rejoin();
 }
 
 function stop() {
   if (wanted) halt("stopped"); // otherwise a notice stays up
 }
 
-/** The stalled stream's question to live.m3u8. Every outcome gets an answer, so
- * a probe failing just after the network returns only waits for the next one.
- * A cache hit, or the kill switch's 403: never billed per request. */
-async function probe() {
-  const asked = session;
+/** A question to live.m3u8: "offair", "reachable" or "unreachable". A cache
+ * hit, or the kill switch's 403: never billed per request. */
+async function ask() {
   const controller = new AbortController();
   const limit = setTimeout(() => controller.abort(), PROBE_LIMIT_MS);
   let answer;
@@ -125,6 +141,14 @@ async function probe() {
     answer = "unreachable";
   }
   clearTimeout(limit);
+  return answer;
+}
+
+/** The stalled stream's question. Every outcome gets an answer, so a probe
+ * failing just after the network returns only waits for the next one. */
+async function probe() {
+  const asked = session;
+  const answer = await ask();
   if (asked !== session) return;
   if (recovery.verdict(answer)) halt("offair");
   else step(Date.now()); // a restart must follow a fresh answer

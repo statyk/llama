@@ -585,6 +585,9 @@ test("a playlist that ends goes straight to the off-air notice", async ({ page }
   await page.click("#play");
   await expect(page.locator("#now")).toHaveText("The station is off the air.");
   await expect(page.locator("#retry")).toBeVisible();
+  await page.click("#stop");
+  await expect(page.locator("#now")).toHaveText("The station is off the air.");
+  await expect(page.locator("#retry")).toBeVisible();
 });
 
 test("a refused play() shows the notice; any other rejection is left to the stall path", async ({ page }) => {
@@ -600,4 +603,113 @@ test("a refused play() shows the notice; any other rejection is left to the stal
   await page.click("#play");
   await expect(page.locator("#now")).toHaveText("Playback was blocked.");
   await expect(page.locator("#retry")).toBeVisible();
+});
+
+test("Play during a dropout, key or Media Session: a probe goes out, the src is untouched and the audio carries on", async ({ context, page }) => {
+  const probes = countProbes(context);
+  await page.addInitScript(() => {
+    window.actions = {};
+    navigator.mediaSession.setActionHandler = (name, handler) => { window.actions[name] = handler; };
+  });
+  await page.goto(site.url);
+  await playToAudio(page);
+  await expect(page.locator("#hubs")).toHaveClass(/turning/);
+  const src = await audioSrc(page);
+  site.setLive("drop");
+
+  const failed = page.waitForEvent("requestfailed", (r) => r.resourceType() === "fetch");
+  await page.click("#play");
+  await failed; // that question is over, so the next press asks again
+  expect(probes.length).toBe(1);
+  await page.evaluate(() => window.actions.play());
+  await expect.poll(() => probes.length).toBe(2);
+  await page.waitForTimeout(300);
+  expect(await audioSrc(page)).toBe(src);
+  const held = await position(page);
+  await expect.poll(() => position(page)).toBeGreaterThan(held);
+  await expect(page.locator("#hubs")).toHaveClass(/turning/);
+});
+
+test("Play during a stall, once /live.m3u8 answers: rejoins at once, not at the next probe", async ({ context, page }) => {
+  const probes = countProbes(context);
+  await page.clock.install({ time: Date.now() });
+  site.setLive("drop");
+  await page.goto(site.url);
+  await page.click("#play");
+  await holdClock(page);
+  await advanceUntil(page, 30_000, async () => probes.length === 1);
+  const src = await audioSrc(page);
+  site.setLive("live");
+  await page.click("#play");
+  // The clock is held: no tick and no probe interval can do this.
+  await expect.poll(() => audioSrc(page)).not.toBe(src);
+  await expect(page.locator("#now")).toHaveText("Song 3");
+});
+
+test("Play with an off-air answer still rejoins, and the hubs stop until the position advances", async ({ page }) => {
+  await page.clock.install({ time: Date.now() });
+  await page.goto(site.url);
+  await playToAudio(page);
+  await expect(page.locator("#hubs")).toHaveClass(/turning/);
+  const src = await audioSrc(page);
+  await page.route("**/live.m3u8", (route) => (route.request().resourceType() === "fetch"
+    ? route.fulfill({ status: 403, body: "403" }) : route.fallback()));
+  await holdClock(page);
+  await page.click("#play");
+  await expect.poll(() => audioSrc(page)).not.toBe(src);
+  await expect(page.locator("#hubs")).not.toHaveClass(/turning/);
+});
+
+test("Stop during Play's question stays stopped, and a second press adds nothing", async ({ context, page }) => {
+  const probes = countProbes(context);
+  await page.goto(site.url);
+  await playToAudio(page);
+  let release;
+  const held = new Promise((resolve) => { release = resolve; });
+  await page.route("**/live.m3u8", async (route) => {
+    if (route.request().resourceType() === "fetch") await held;
+    await route.fallback();
+  });
+  await page.click("#play");
+  await page.click("#play");
+  await expect.poll(() => probes.length).toBe(1);
+  await page.waitForTimeout(300);
+  expect(probes.length).toBe(1);
+  await page.click("#stop");
+  const before = liveRequests();
+  release();
+  await page.waitForTimeout(1500);
+  expect(liveRequests()).toBe(before + 1); // the answered question, and nothing after it
+  expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+});
+
+test("a play() that never settles (home-screen app, hidden): no notice, no hubs, Reconnecting, and only a moving position gives playing", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.realPlay = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = () => new Promise(() => {});
+  });
+  await page.clock.install({ time: Date.now() });
+  await page.goto(site.url);
+  await page.click("#play");
+  const hubs = page.locator("#hubs");
+  await advanceUntil(page, 30_000, async () => {
+    expect(await hubs.getAttribute("class")).not.toContain("turning");
+    return (await page.locator("#now").textContent()) === "Reconnecting…";
+  });
+  await expect(page.locator("#retry")).toBeHidden();
+  // Measured: iOS itself fired `pause` on a stuck play(). Past the restart's first
+  // samples the position reads frozen, so this is a stall and no Stop.
+  await advance(page, 3000);
+  await page.locator("#audio").evaluate((a) => a.dispatchEvent(new Event("pause")));
+  await advance(page, 1000);
+  await expect(page.locator("#now")).toHaveText("Reconnecting…");
+  expect(await audioSrc(page)).toMatch(/^blob:/);
+  await advance(page, 40_000);
+  await expect(page.locator("#now")).toHaveText("Reconnecting…");
+  await expect(hubs).not.toHaveClass(/turning/);
+
+  await page.locator("#audio").evaluate((a) => window.realPlay.call(a));
+  await advanceUntil(page, 40_000, async () => (await page.locator("#now").textContent()) === "Song 3");
+  await expect(hubs).toHaveClass(/turning/);
 });
