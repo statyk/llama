@@ -377,10 +377,13 @@ def test_scriptwrite_prompt_clean_on_air_rule():
     for phrase in ('fuck, shit, bitch, cock, motherfucker and the like',
                    '"damn", "hell" and "Moby Dick" are fine',
                    "Do not bleep it, spell it, hint at it or quote part of it.",
-                   '"a title I can\'t say on the air"',
-                   "leave it out of mentioned_songs",
+                   "Say briefly, in your character's own words and without any stock phrase, "
+                   "that the title can't be said on the air, and leave it out of mentioned_songs.",
+                   "Name every other title plainly.",
                    "Artist names are exempt: the show must be identified."):
         assert phrase in rules
+    # The first pass quoted an example here and every sample copied it verbatim.
+    assert "a title I can't say on the air" not in prompt
 
 
 def test_scriptwrite_prompt_clean_on_air_outranks_names_exception():
@@ -403,16 +406,27 @@ def test_scriptwrite_prompt_lets_the_show_make_its_own_case():
     assert prompt.index("Names are the exception.") \
         < prompt.index("Let the show make its own case.") \
         < prompt.index("Point at the music in passing.") \
-        < prompt.index("Tell, don't review.") \
+        < prompt.index("Tell, don't gush.") \
+        < prompt.index("Keep the full lengths given below:") \
         < prompt.index("Show data (JSON):")
     for phrase in ("Choosing them IS the reason for playing the show",
                    "what it earns or deserves",
                    'no "what to listen for", "listen for", "keep your ears on"',
-                   "at most one or two personal opinions",
-                   '"I love", "I like", "I find", "my favorite", "to my ear", "to my mind"',
-                   'a soft spot for',
-                   "do not call things great, remarkable or beautiful on the band's behalf"):
+                   "Reflexive approval is the tic to avoid: do not keep telling us you love, "
+                   "like or admire things",
+                   '"to my ear", "for my money", "if you ask me", "in my book", "I\'ve always", '
+                   '"a soft spot for" or their equivalents in your character\'s voice',
+                   "do not call things great, remarkable or beautiful when you could show why.",
+                   "This is not a ban on personality.",
+                   "the occasional real take that says something specific",
+                   "dropping stock phrases leaves more room for story and character, "
+                   "not a shorter script.",
+                   "A recap is not a list of song titles: pick the moments that mattered "
+                   "and tell them."):
         assert phrase in prompt
+    # The first pass's cap on opinions cost the scripts their character (operator ruling).
+    assert "Tell, don't review." not in prompt
+    assert "at most one or two personal opinions" not in prompt
 
 
 def test_scriptwrite_prompt_json_shape_drops_airtime_and_listen_for():
@@ -427,7 +441,7 @@ def test_scriptwrite_prompt_json_shape_drops_airtime_and_listen_for():
 
 def test_scriptwrite_full_path_has_no_extra_blank_line():
     rendered = load_prompt("scriptwrite").replace("{{narration_note}}", narration_note("full"))
-    assert "show why instead.\n\nShow data (JSON):" in rendered
+    assert "and tell them.\n\nShow data (JSON):" in rendered
     assert "\n\n\nShow data" not in rendered
 
 

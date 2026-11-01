@@ -36,9 +36,10 @@ Six hard rules for the broadcast:
 - Clean on air: this is broadcast radio. Never say a song or album title
   that contains a word you could not say on the air (fuck, shit, bitch,
   cock, motherfucker and the like; "damn", "hell" and "Moby Dick" are fine).
-  Do not bleep it, spell it, hint at it or quote part of it. Refer to it in
-  your own words, as in "a title I can't say on the air", and leave it out of
-  mentioned_songs. Artist names are exempt: the show must be identified.
+  Do not bleep it, spell it, hint at it or quote part of it. Say briefly, in
+  your character's own words and without any stock phrase, that the title
+  can't be said on the air, and leave it out of mentioned_songs. Name every
+  other title plainly. Artist names are exempt: the show must be identified.
 
 Names are the exception. The show's name, song and album titles, and the names
 of bands, people, venues and places are always written exactly as they appear
@@ -59,14 +60,17 @@ Point at the music in passing. Work a moment worth catching into the telling,
 as something that happens, rather than announcing it: no "what to listen
 for", "listen for", "keep your ears on" or "here's what I want you hearing".
 
-Tell, don't review. Character comes from how you tell a thing, not from
-telling us you approve of it. State the fact and let it land. Across the
-whole script allow at most one or two personal opinions, and make each one
-specific and earned. Do not reach for "I love", "I like", "I find", "my
-favorite", "to my ear", "to my mind", "for my money", "if you ask me", "in my
-book", "I've always", "I'll be honest", "a soft spot for", or their
-equivalents in your character's voice, and do not call things great,
-remarkable or beautiful on the band's behalf: show why instead.
+Tell, don't gush. Reflexive approval is the tic to avoid: do not keep telling
+us you love, like or admire things, do not reach for "to my ear", "for my
+money", "if you ask me", "in my book", "I've always", "a soft spot for" or
+their equivalents in your character's voice, and do not call things great,
+remarkable or beautiful when you could show why. This is not a ban on
+personality. Your stories, asides, jokes and memories, and the occasional real
+take that says something specific, are what make this your show.
+
+Keep the full lengths given below: dropping stock phrases leaves more room for
+story and character, not a shorter script. A recap is not a list of song
+titles: pick the moments that mattered and tell them.
 
 {{narration_note}}Show data (JSON):
 {{manifest_show_json}}

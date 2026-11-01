@@ -475,8 +475,10 @@ status` reads `kept script`, and plain `emcee run` skips it (`skip <slug>: kept
 script awaiting retry (emcee voice <slug> --keep-script)`). Retry with `emcee
 voice <slug> --keep-script`; no `--fresh` is needed, since the kept clips were
 recorded before the first render. Plain `emcee voice <slug>` on it writes a
-fresh script instead. Limit: `llama deliver` reads only `dj_audio`, so it treats
-this state as unvoiced.
+fresh script instead. Limits: `llama deliver` reads only `dj_audio`, so it treats
+this state as unvoiced; and with `dj_audio` null the presenter check passes, so
+a move or assign change between a failed attempt and its retry voices that
+script under the new presenter.
 
 `themotet-2007-04-22` and `warrenzevon-2000-05-29` have scripts that say profane
 titles, so re-voice those with a fresh script, not `--keep-script`.
