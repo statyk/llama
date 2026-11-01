@@ -58,9 +58,17 @@ Summarised by the parent from the operator's pasted log (11:06-12:07 EST). Times
 - Restart rule: never tear down until a probe gets an HTTP response. Use the fetch, not navigator.onLine, which lagged the network by a few seconds.
 - D5: open until the home-screen run.
 
+## Test 9c (preview round 2, Safari, form full, 13:31-13:58)
+- Offline 13:31:43, stall 13:33:34, fetch 81 status=200 at 13:58:06 (stuck 1470 s, 24 min 30 s), online event at 13:58:06, restart form=full while vis=hidden, play() resolved 13:58:07.
+- `wait: RECOVERED after restart 1 form=full restart_vis=hidden in=12s`, vis=hidden, at 13:58:18. The operator heard audio within seconds of airplane mode off. A clean yes.
+- Timers ran at 6.00 s for the whole locked stall (no LATE); 81 fetches, each failing in about 16 ms while offline.
+- An abandoned run before it (offline 13:26:00, online 13:30:32): one fetch failed in 102 ms at 13:30:43 with net=on, 11 s after `online`, and the operator reloaded. So a fetch can still fail just after the network returns: the probe must keep retrying, which it does.
+- D4 extended: timers run through a locked stall of at least 24 min 30 s with the element left alone. D6 extended to the same length.
+- The 10-minute give-up stays the operator's ruling; `giveUpMs` is the constant if it changes. Recovery past 10 minutes is possible, so the limit is a choice, not a technical bound.
+- Every page load in this log says standalone=false. D5's home-screen run has NOT been done.
+
 ## Still open
 - D5, the home-screen run: Task 11 waits for it.
-- 9c, 15 minutes offline: it may shift a constant.
 - A backwards playlist step can't be produced here: that case stays unverified and is left to the road.
 - Both preview rounds still need `--remove-preview` (the operator's, from the worktree's `antenna/`).
 
