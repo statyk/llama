@@ -10,6 +10,7 @@ llama, emcee and herder are untouched.
 antenna", "antenna", "Player"). This document replaces the parent's phase 4
 where they differ. The parent still governs the clock, the guard and publishing.
 **Review mode:** Opus (operator, 2026-11-01).
+**Status:** approved by the operator 2026-11-01 (after two review rounds).
 **Mockups:** `docs/superpowers/2026-11-01-player-mockups/` (open in a browser;
 each is an HTML fragment with its own styles, content from the live station).
 In `cassette-tickets.html` the approved ticket is the right-hand "Concert
