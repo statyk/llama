@@ -5,19 +5,19 @@ import { startServer } from "./serve.mjs";
 
 const HOSTILE = JSON.parse(readFileSync(new URL("./fixtures/hostile.json", import.meta.url), "utf8"));
 const ALLOWED = /^\/(assets\/[^?#]*|timeline\.json|live\.m3u8|notes\/[^?#]*|seg\/[^?#]*)?$/;
-const EXPECTED_STATUS = /Failed to load resource: the server responded with a status of (403|404)/;
+const EXPECTED_STATUS = /Failed to load resource: (the server responded with a status of (403|404)|net::ERR_(EMPTY_RESPONSE|CONNECTION_RESET|FAILED))/;
 
 let site;
 let seen;
 let consoleErrors;
 let pageErrors;
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ context, page }) => {
   site = await startServer({ timeline: makeTimeline(Date.now()) });
   seen = [];
   consoleErrors = [];
   pageErrors = [];
-  page.on("request", (r) => seen.push(r.url()));
+  context.on("request", (r) => seen.push(r.url()));
   page.on("console", (m) => { if (m.type() === "error" && !EXPECTED_STATUS.test(m.text())) consoleErrors.push(m.text()); });
   page.on("pageerror", (e) => pageErrors.push(String(e)));
 });
@@ -29,7 +29,7 @@ test.afterEach(async () => {
   const stray = seen.filter((u) => {
     if (u.startsWith("data:") || u.startsWith("blob:")) return false;
     const url = new URL(u);
-    return url.hostname !== local || !ALLOWED.test(url.pathname + url.search);
+    return url.hostname !== local || !ALLOWED.test(url.pathname + url.search) || (u.includes("?") && !url.search);
   });
   expect(stray).toEqual([]);
   expect(consoleErrors).toEqual([]);
@@ -283,4 +283,303 @@ test("Show all reveals the rest of coming up", async ({ page }) => {
   await page.getByRole("button", { name: "Show all" }).click();
   await expect(page.locator("#coming-up .ticket")).toHaveCount(8);
   await expect(page.getByRole("button", { name: "Show all" })).toBeHidden();
+});
+
+// ---- The player, on the real HLS fixture ----
+
+const liveRequests = () => site.requests.filter((r) => r === "/live.m3u8").length;
+const timelineRequests = () => site.requests.filter((r) => r === "/timeline.json").length;
+const position = (page) => page.locator("#audio").evaluate((a) => a.currentTime);
+const audioSrc = (page) => page.locator("#audio").evaluate((a) => a.src);
+
+/** Mocked time in one-second steps, so real fetches land between the page's ticks. */
+async function advance(page, ms) {
+  for (let t = 0; t < ms; t += 1000) {
+    await page.clock.runFor(1000);
+    await new Promise((resolve) => setTimeout(resolve, 3));
+  }
+}
+
+/** Steps mocked time until `done()`, for at most `ms`; returns the mocked ms it took. */
+async function advanceUntil(page, ms, done) {
+  for (let t = 0; t < ms; t += 1000) {
+    if (await done()) return t;
+    await advance(page, 1000);
+  }
+  throw new Error(`not done after ${ms} ms of mocked time`);
+}
+
+async function playToAudio(page) {
+  await page.click("#play");
+  await expect.poll(() => position(page), { timeout: 15_000 }).toBeGreaterThan(0);
+  const started = await position(page);
+  await expect.poll(() => position(page), { timeout: 15_000 }).toBeGreaterThan(started + 0.5);
+}
+
+/** Records the probes: the page's fetches of /live.m3u8. hls.js loads it by XHR. */
+function countProbes(context) {
+  const probes = [];
+  context.on("request", (r) => { if (r.resourceType() === "fetch" && r.url().endsWith("/live.m3u8")) probes.push(r); });
+  return probes;
+}
+
+test("Play gives audio (currentTime advances) and #hubs gets turning", async ({ page }) => {
+  await page.goto(site.url);
+  await expect(page.locator("#hubs")).not.toHaveClass(/turning/);
+  await playToAudio(page);
+  await expect(page.locator("#hubs")).toHaveClass(/turning/);
+  await expect(page.locator("#now")).toHaveText("Song 3");
+  expect(site.requests.some((r) => /^\/seg\/\d+\.aac$/.test(r))).toBe(true);
+});
+
+test("Now playing follows the playback position, not the wall clock", async ({ page }) => {
+  await site.close();
+  site = await startServer({ timeline: makeTimeline(Date.now()), pdtOffsetMs: -9 * 60_000 }); // Song 2's time
+  await page.goto(site.url);
+  await expect(page.locator("#tape-log li span").first()).toHaveText("Song 3");
+  await playToAudio(page);
+  await expect(page.locator("#now")).toHaveText("Song 2");
+});
+
+test("Stop silences the audio, stops the hubs and shows the stopped line", async ({ page }) => {
+  await page.goto(site.url);
+  await playToAudio(page);
+  await expect(page.locator("#hubs")).toHaveClass(/turning/);
+  await page.click("#stop");
+  await expect(page.locator("#hubs")).not.toHaveClass(/turning/);
+  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+  expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+  const segments = site.requests.length;
+  await page.waitForTimeout(2500);
+  expect(site.requests.length).toBe(segments);
+  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+});
+
+test("a stall, then recovery to playing with no key pressed", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto(site.url);
+  await playToAudio(page);
+  site.setLive("404");
+  await expect(page.locator("#now")).toHaveText("Reconnecting…", { timeout: 60_000 });
+  await expect(page.locator("#hubs")).not.toHaveClass(/turning/);
+  site.setLive("live");
+  await expect(page.locator("#now")).toHaveText("Song 3", { timeout: 60_000 });
+  await expect(page.locator("#hubs")).toHaveClass(/turning/);
+});
+
+test("navigator.mediaSession.metadata.title is the song", async ({ page }) => {
+  const metadata = () => page.evaluate(() => {
+    const { title, artist, album, artwork } = navigator.mediaSession.metadata;
+    return { title, artist, album, art: artwork.map((a) => new URL(a.src).pathname), state: navigator.mediaSession.playbackState };
+  });
+  await page.goto(site.url);
+  await playToAudio(page);
+  await expect.poll(metadata).toEqual({
+    title: "Song 3", artist: "On Air Band", album: "The Club, Nov 1 2008",
+    art: ["/assets/cassette-512.png"], state: "playing",
+  });
+  // Set only when the text changes.
+  await page.evaluate(() => { window.held = navigator.mediaSession.metadata; });
+  await page.waitForTimeout(2500);
+  expect(await page.evaluate(() => window.held === navigator.mediaSession.metadata)).toBe(true);
+
+  await page.click("#stop");
+  await expect.poll(metadata).toEqual({ title: "LMA Radio", artist: "", album: "", art: ["/assets/cassette-512.png"], state: "paused" });
+});
+
+test('/live.m3u8 answering 404 shows "Reconnecting…", then a switch to 403 reaches the off-air notice', async ({ page }) => {
+  await page.clock.install({ time: Date.now() });
+  site.setLive("404");
+  await page.goto(site.url);
+  await page.click("#play");
+  await advanceUntil(page, 30_000, async () => (await page.locator("#now").textContent()) === "Reconnecting…");
+  site.setLive("403");
+  await advanceUntil(page, 90_000, async () => (await page.locator("#now").textContent()) === "The station is off the air.");
+  await expect(page.locator("#retry")).toBeVisible();
+  await expect(page.locator("#label-artist")).toHaveText("LMA Radio");
+  expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+});
+
+test("Stop during a retry delay: no further /live.m3u8 request after a further 40 s of mocked time", async ({ page }) => {
+  await page.clock.install({ time: Date.now() });
+  site.setLive("404");
+  await page.goto(site.url);
+  await page.click("#play");
+  await advance(page, 16_000); // the failure has counted; the delay runs at least 4 s
+  await page.click("#stop");
+  const before = liveRequests();
+  await advance(page, 40_000);
+  expect(liveRequests()).toBe(before);
+  expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+});
+
+test("Stop during a probe: its answer never restarts the audio", async ({ context, page }) => {
+  const probes = countProbes(context);
+  await page.clock.install({ time: Date.now() });
+  site.setLive("404");
+  let release;
+  const held = new Promise((resolve) => { release = resolve; });
+  await page.route("**/live.m3u8", async (route) => {
+    if (route.request().resourceType() === "fetch") await held;
+    await route.fallback();
+  });
+  await page.goto(site.url);
+  await page.click("#play");
+  await advanceUntil(page, 30_000, async () => probes.length === 1);
+  await page.click("#stop");
+  release();
+  await advance(page, 40_000);
+  expect(probes.length).toBe(1);
+  expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+});
+
+test("/live.m3u8 unreachable during a stall: probes only, the src is untouched, then reachable gives a restart within one probe interval", async ({ context, page }) => {
+  test.setTimeout(60_000);
+  const probes = countProbes(context);
+  await page.clock.install({ time: Date.now() });
+  await page.goto(site.url);
+  await playToAudio(page);
+  site.setLive("drop");
+  // The real buffer runs out in real time; the stall is then mocked.
+  await expect.poll(() => page.locator("#audio").evaluate((a) => {
+    const held = a.buffered.length ? a.buffered.end(a.buffered.length - 1) - a.currentTime : 0;
+    return held < 0.5;
+  }), { timeout: 30_000 }).toBe(true);
+  const src = await audioSrc(page);
+  expect(src).toMatch(/^blob:/);
+  const segments = site.requests.filter((r) => r.startsWith("/seg/")).length;
+
+  await advance(page, 90_000);
+  expect(probes.length).toBeGreaterThanOrEqual(4);
+  expect(probes.length).toBeLessThanOrEqual(6);
+  await expect(page.locator("#now")).toHaveText("Reconnecting…");
+  expect(await audioSrc(page)).toBe(src);
+  expect(await page.locator("#audio").evaluate((a) => a.paused)).toBe(false);
+  expect(site.requests.filter((r) => r.startsWith("/seg/")).length).toBe(segments);
+
+  site.setLive("live");
+  await advanceUntil(page, 16_000, async () => (await audioSrc(page)) !== src);
+  await expect.poll(() => position(page), { timeout: 15_000 }).toBeGreaterThan(0);
+  await advanceUntil(page, 30_000, async () => (await page.locator("#now").textContent()) === "Song 3");
+  await expect(page.locator("#hubs")).toHaveClass(/turning/);
+});
+
+test("the stream reachable again, one probe failing does not end recovery: the next probe gets the restart", async ({ context, page }) => {
+  const probes = countProbes(context);
+  await page.clock.install({ time: Date.now() });
+  site.setLive("drop");
+  await page.goto(site.url);
+  await page.click("#play");
+  await advanceUntil(page, 45_000, async () => probes.length === 2); // both unreachable
+  const src = await audioSrc(page);
+
+  site.setLive("live");
+  let failed = 0;
+  await page.route("**/live.m3u8", async (route) => {
+    if (route.request().resourceType() === "fetch" && failed === 0) {
+      failed = 1;
+      await route.abort();
+    } else {
+      await route.fallback();
+    }
+  });
+  await advanceUntil(page, 16_000, async () => failed === 1);
+  await advance(page, 5000);
+  expect(await audioSrc(page)).toBe(src); // that failure restarted nothing
+  await expect(page.locator("#now")).toHaveText("Reconnecting…");
+  await advanceUntil(page, 16_000, async () => (await audioSrc(page)) !== src);
+});
+
+test('a 10-minute silence shows "Lost the stream." and Try again', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.clock.install({ time: Date.now() });
+  site.setLive("drop");
+  await page.goto(site.url);
+  await page.click("#play");
+  await advance(page, 9 * 60_000);
+  await expect(page.locator("#now")).toHaveText("Reconnecting…");
+  await advanceUntil(page, 62_000, async () => (await page.locator("#now").textContent()) === "Lost the stream.");
+  await expect(page.locator("#retry")).toBeVisible();
+  expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+  const before = liveRequests();
+  await advance(page, 60_000);
+  expect(liveRequests()).toBe(before);
+  await expect(page.locator("#now")).toHaveText("Lost the stream.");
+
+  site.setLive("live");
+  await page.click("#retry");
+  await expect(page.locator("#retry")).toBeHidden();
+  await expect.poll(() => position(page), { timeout: 15_000 }).toBeGreaterThan(0);
+  await advanceUntil(page, 30_000, async () => (await page.locator("#hubs").getAttribute("class")).includes("turning"));
+});
+
+test("over 10 mocked minutes of 404: at most 60 /live.m3u8 requests and at most 4 /timeline.json requests", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.clock.install({ time: Date.now() });
+  site.setLive("404");
+  await page.goto(site.url);
+  await page.click("#play");
+  await advance(page, 10 * 60_000);
+  await expect(page.locator("#now")).toHaveText("Lost the stream.");
+  expect(liveRequests()).toBeGreaterThan(10);
+  expect(liveRequests()).toBeLessThanOrEqual(60);
+  expect(timelineRequests()).toBeLessThanOrEqual(4);
+});
+
+test("Media Session: play, pause and stop only; play after a hidden Stop fetches the timeline, the force alone does not", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(document, "hidden", { get: () => true, configurable: true });
+    window.actions = {};
+    const session = navigator.mediaSession;
+    session.setActionHandler = (name, handler) => { window.actions[name] = handler; };
+  });
+  await page.goto(site.url);
+  expect((await page.evaluate(() => Object.keys(window.actions))).sort()).toEqual(["pause", "play", "stop"]);
+
+  await page.evaluate(async () => (await import("/assets/page.js")).refreshTimeline(true));
+  await page.waitForTimeout(300);
+  expect(timelineRequests()).toBe(0);
+
+  await page.evaluate(() => window.actions.play());
+  await expect.poll(timelineRequests).toBe(1);
+  await page.evaluate(() => window.actions.pause());
+  await expect(page.locator("#hubs")).not.toHaveClass(/turning/);
+  expect(await page.locator("#audio").evaluate((a) => !a.hasAttribute("src"))).toBe(true);
+});
+
+test("a pause from the phone is a Stop, and it stays stopped", async ({ page }) => {
+  await page.goto(site.url);
+  await playToAudio(page);
+  await expect(page.locator("#hubs")).toHaveClass(/turning/); // past the join: no stall under way
+  await page.locator("#audio").evaluate((a) => a.pause());
+  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+  const before = site.requests.length;
+  await page.waitForTimeout(2500);
+  expect(site.requests.length).toBe(before);
+  expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+});
+
+test("a playlist that ends goes straight to the off-air notice", async ({ page }) => {
+  site.setLive("endlist");
+  await page.goto(site.url);
+  await page.click("#play");
+  await expect(page.locator("#now")).toHaveText("The station is off the air.");
+  await expect(page.locator("#retry")).toBeVisible();
+});
+
+test("a refused play() shows the notice; any other rejection is left to the stall path", async ({ page }) => {
+  await page.goto(site.url);
+  await page.evaluate(() => {
+    window.rejection = "AbortError";
+    HTMLMediaElement.prototype.play = () => Promise.reject(new DOMException("no", window.rejection));
+  });
+  await page.click("#play");
+  await page.waitForTimeout(300);
+  await expect(page.locator("#retry")).toBeHidden();
+  await page.evaluate(() => { window.rejection = "NotAllowedError"; });
+  await page.click("#play");
+  await expect(page.locator("#now")).toHaveText("Playback was blocked.");
+  await expect(page.locator("#retry")).toBeVisible();
 });

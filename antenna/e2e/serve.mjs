@@ -28,14 +28,14 @@ const TYPES = {
   ".aac": "audio/aac",
 };
 
-const MODES = new Set(["live", "404", "403", "endlist"]);
+const MODES = new Set(["live", "404", "403", "endlist", "drop"]);
 
-function playlist(nowMs, ended) {
+function playlist(nowMs, ended, pdtOffsetMs) {
   const last = Math.floor(nowMs / SEG_MS);
   const first = last - WINDOW + 1;
   const lines = ["#EXTM3U", "#EXT-X-VERSION:3", `#EXT-X-TARGETDURATION:${Math.ceil(SEG_MS / 1000)}`,
                  `#EXT-X-MEDIA-SEQUENCE:${first}`];
-  lines.push(`#EXT-X-PROGRAM-DATE-TIME:${new Date(first * SEG_MS).toISOString()}`);
+  lines.push(`#EXT-X-PROGRAM-DATE-TIME:${new Date(first * SEG_MS + pdtOffsetMs).toISOString()}`);
   for (let n = first; n <= last; n++) lines.push(`#EXTINF:${(SEG_MS / 1000).toFixed(3)},`, `/seg/${n % SEG_COUNT}.aac`);
   if (ended) lines.push("#EXT-X-ENDLIST");
   return `${lines.join("\n")}\n`;
@@ -56,13 +56,15 @@ function staticFile(pathname) {
 }
 
 /**
- * startServer({ timeline, notes }) -> { url, setLive(mode), requests, close() }.
+ * startServer({ timeline, notes, pdtOffsetMs }) -> { url, setLive(mode), requests, close() }.
  * `timeline` is the /timeline.json body (absent: 404). `notes` maps a slug to its
- * /notes/<slug>.json body (absent: 404). `setLive` picks what /live.m3u8 answers:
- * "live", "404", "403" or "endlist". `requests` lists every request's path and
- * query, in arrival order, and is appended to in place.
+ * /notes/<slug>.json body (absent: 404). `pdtOffsetMs` shifts the playlist's
+ * program-date-time off the wall clock. `setLive` picks what /live.m3u8 answers:
+ * "live", "404", "403", "endlist", or "drop", which destroys the connection.
+ * `requests` lists every request's path and query, in arrival order, and is
+ * appended to in place.
  */
-export async function startServer({ timeline, notes = {} } = {}) {
+export async function startServer({ timeline, notes = {}, pdtOffsetMs = 0 } = {}) {
   const requests = [];
   let mode = "live";
 
@@ -86,8 +88,9 @@ export async function startServer({ timeline, notes = {} } = {}) {
       return json(Object.hasOwn(notes, slug) ? notes[slug] : undefined);
     }
     if (pathname === "/live.m3u8") {
+      if (mode === "drop") return req.socket.destroy();
       if (mode === "404" || mode === "403") return send(Number(mode), TYPES[".txt"], mode);
-      return send(200, "application/vnd.apple.mpegurl", playlist(Date.now(), mode === "endlist"));
+      return send(200, "application/vnd.apple.mpegurl", playlist(Date.now(), mode === "endlist", pdtOffsetMs));
     }
     const file = staticFile(pathname);
     if (!file) return send(404, TYPES[".txt"], "not found");
