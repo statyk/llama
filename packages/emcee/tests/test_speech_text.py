@@ -78,3 +78,14 @@ def test_malformed_overlay_is_ignored_not_raised(tmp_path: Path, caplog):
     (tmp_path / "pronunciations.csv").write_text("this is not,valid\ncsv at all")
     lex = load_lexicon(tmp_path)  # must not raise
     assert normalize_for_speech("Sugaree", lex) == "Shugaree"  # seed intact
+
+
+def test_seed_expands_gdtrfb_abbreviation():
+    # Phil read "GDTRFB" aloud letter by letter; speech-only respelling.
+    lex = load_lexicon()
+    spoken = "Going Down the Road Feeling Bad"
+    assert normalize_for_speech("GDTRFB", lex) == spoken
+    assert normalize_for_speech("gdtrfb", lex) == spoken                    # case-insensitive
+    assert normalize_for_speech("GDTRFB > Jam", lex) == f"{spoken} into Jam"  # beside a segue
+    assert normalize_for_speech("(GDTRFB)", lex) == f"({spoken})"
+    assert normalize_for_speech("XGDTRFBY", lex) == "XGDTRFBY"             # whole word only
