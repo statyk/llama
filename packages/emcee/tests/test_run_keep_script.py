@@ -165,6 +165,18 @@ def test_an_empty_selection_prints_the_note(tmp_path, monkeypatch):
     assert attempts == []
 
 
+def test_a_presenter_whose_packages_have_no_script_prints_the_note(tmp_path, monkeypatch):
+    _, station = _home(tmp_path, monkeypatch)
+    build_package(station, slug="nonotes", profile="southern")
+    attempts = forbid_spend(monkeypatch)
+
+    result = runner.invoke(app, ["run", "--keep-script", "--presenter", "gregg", "--yes"])
+
+    assert result.exit_code == 0, result.output
+    assert "note: no package resolves to presenter gregg" in result.stdout + result.stderr
+    assert attempts == []
+
+
 # --- --drifted ---------------------------------------------------------------
 
 

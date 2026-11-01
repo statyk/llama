@@ -543,7 +543,7 @@ def run(
     dry_run: bool = typer.Option(
         False, "--dry-run",
         help="List what would be voiced, and with which presenter, then the plan; no LLM, "
-             "TTS, or writes (--force is ignored); never asks"),
+             "TTS, or writes (--force is ignored, except for the --keep-script clip count); never asks"),
     yes: bool = typer.Option(
         False, "--yes", "-y",
         help="Voice without asking (the plan is still printed)"),
@@ -631,11 +631,11 @@ def run(
             if keep_script:
                 if (assignment_for(config, status.profile).presenter or "").lower() != want:
                     continue
-                resolved_to_presenter += 1
                 if status.state in ("pending", "ready", AWAITING) and status.move_problem is None:
                     raw = raw_manifest(status.path / "manifest.json")
                     if not isinstance(raw, dict) or raw.get("dj_notes") is None:
                         continue
+                resolved_to_presenter += 1
         if status.state == "unsupported":
             typer.echo(f"skip {slug}: {status.reasons[0]}")
             continue
