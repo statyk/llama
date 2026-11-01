@@ -394,3 +394,26 @@ def test_concert_stub_gives_back_what_is_no_date(date):
 ])
 def test_where_line(venue, city, want):
     assert site.where_line(venue, city) == want
+
+
+def test_parse_briefing_drops_the_bare_see_cautions_pointer():
+    text = ("## Set 1\n"
+            "The tape is missing a chunk of this pairing (see cautions).\n"
+            "- Dark Star (See Cautions) runs long\n"
+            "- Wharf Rat (SEE CAUTIONS)\n"
+            "- (see cautions) Opener\n")
+    assert site.parse_briefing(text) == [{"heading": "Set 1", "blocks": [
+        {"p": "The tape is missing a chunk of this pairing."},
+        {"ul": ["Dark Star runs long", "Wharf Rat", "Opener"]}]}]
+
+
+def test_parse_briefing_keeps_other_caution_text_byte_identical():
+    kept = [
+        "Caution (Do Not Stop on Tracks) runs about 9:21.",
+        "Mind the cautions here, and see cautions elsewhere.",
+        "Mr. Charlie (title disputed; see cautions) opens.",
+        "Tuning (see cautions on the title) follows.",
+        "A note (see the notes) stays.",
+    ]
+    text = "## Set 1\n" + "\n".join("- " + k for k in kept) + "\n"
+    assert site.parse_briefing(text) == [{"heading": "Set 1", "blocks": [{"ul": kept}]}]

@@ -99,6 +99,8 @@ def read_package_notes(pkg_dir: Path) -> tuple[dict | None, str | None]:
 
 
 CAUTIONS_PREFIX = "## cautions"        # llama's brief.py heading; transmitter cannot import it
+# A bare pointer to the Cautions section, which public pages cut; the space before it goes too.
+CAUTIONS_POINTER = re.compile(r"\s*\(see cautions\)", re.IGNORECASE)
 ARCHIVE_PREFIX = "https://archive.org/"
 OG_IMAGE_PATH = "/assets/cassette-og.png"
 SLUG_SAFE = "!'()*"                    # encodeURIComponent's, as timeline.js showHref
@@ -140,6 +142,7 @@ def parse_briefing(text: str) -> list[dict]:
         line = raw.strip().replace("**", "")
         if line.lower().startswith(CAUTIONS_PREFIX):
             break
+        line = CAUTIONS_POINTER.sub("", line).strip()
         if line.startswith("## "):
             flush()
             current = {"heading": line[3:].strip(), "blocks": []}
