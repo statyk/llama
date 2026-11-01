@@ -67,8 +67,20 @@ Summarised by the parent from the operator's pasted log (11:06-12:07 EST). Times
 - The 10-minute give-up stays the operator's ruling; `giveUpMs` is the constant if it changes. Recovery past 10 minutes is possible, so the limit is a choice, not a technical bound.
 - Every page load in this log says standalone=false. D5's home-screen run has NOT been done.
 
+## Test 8 (home screen, preview round 2, 14:07-14:46; every load standalone=true)
+- Test 1 (locked 14:09:06-14:16:37): timers 6.00 s, timeupdate 5.02 s, same as Safari.
+- Test 2 (Wait off; offline 14:17:18, stall 14:19:17, online 14:22:12): no resume, same as Safari. Not a defect: iOS does not resume alone.
+- 9a run 1 (Wait on; offline 14:27:42, stall 14:29:32, online 14:29:53): fetch 200 at 14:30:13, restart while hidden; operator unlocked at 14:30:13.838, so audio arrived just as they unlocked, 20 s after the network returned. No RECOVERED line, Stop at 14:30:18. This is very likely the operator's "did not resume": they stopped waiting about when it fired. It does not show the old icon blocked recovery.
+- 9a run 2 (Wait on; offline 14:39:09, stall 14:40:57, online 14:44:38): fetch 200 at 14:44:50 (stuck 228 s), `wait: RECOVERED after restart 1 form=full restart_vis=hidden in=12s`, vis=hidden, 14:45:02. A clean yes for the home-screen app.
+- Recovery delay after the network returns: up to about 18 s (probe interval), plus 30 s from stall start before the first probe.
+- Back swipe: popstate 14:34:16, 14:34:37, 14:34:55, music uninterrupted. archive.org: repeated opens 14:30:54-14:31:33, audio continued, returned to the app.
+- DIFFERENCE from Safari: Play after Stop while hidden. `media session action play` DOES reach the page (14:23:48, 14:36:59, 14:37:38, 14:38:07), play() is called, element sticks at rs=1 ct=40.96 buf=none with no `playing`, then `stalled`. Audio starts the moment the app becomes visible (14:27:13, 14:37:04, 14:37:59, 14:38:13). Safari reached `playing` hidden in 0.2-0.4 s for the same act. While stuck, timers slow and sleep (gaps 42 s, 153 s); `pause` and AbortError can follow; at 14:27:13 iOS itself started playback on unlock with paused=true beforehand.
+- By contrast, a hidden teardown + play with the audio session still alive works in the app: 14:08:45 (0.5 s) and both 9a restarts.
+- Unexplained, once: after the 14:36:59 Play, audio ran hidden briefly, then 14:37:17 `stalled ct=49.99 buf=none`; 14:37:28 page load with no pagehide. Unknown whether the operator closed the app.
+- Not run from the icon: test 6 (Pause only, then lock-screen Play). It decides whether keeping the session would fix the difference.
+
 ## Still open
-- D5, the home-screen run: Task 11 waits for it.
+- D5: test 6 from the home-screen icon is still to run. Task 11 waits for it.
 - A backwards playlist step can't be produced here: that case stays unverified and is left to the road.
 - Both preview rounds still need `--remove-preview` (the operator's, from the worktree's `antenna/`).
 
