@@ -102,3 +102,4 @@ Summarised by the parent from the operator's pasted log (11:06-12:07 EST). Times
 - After Stop or a Bluetooth disconnect iOS sleeps the page within about a minute, so a car or lock-screen Play made after that waits until unlock.
 - In the home-screen app, once stopped, lock-screen and car Play reach the page but audio will not load until the app is opened, where it then starts.
 - A second station's home-screen web app fails lock-screen Play after stopping too, which points to iOS. With two such apps installed, tapping the lock-screen player opens the oldest-installed one, whichever is playing (two observations, one phone).
+- Citation: WebKit bug 243258, "Cannot resume MediaSession from PWA after 5sec pause" (https://bugs.webkit.org/show_bug.cgi?id=243258), status NEW; its comment 2 (2023) also reports the widget connecting to the first installed PWA. No manifest `id` is needed: the default derives from `start_url`, and nothing shows iOS uses it for this.
