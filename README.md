@@ -429,6 +429,8 @@ emcee's own factual guard, not llama's.
     emcee run --yes                    # same, without the question (the plan still prints)
     emcee run --dry-run                # the would-voice rows and the plan; never asks or writes
     emcee run --force                  # re-synthesize every DJ clip even if cached
+    emcee run --keep-script --presenter ID [--drifted]
+                                       # re-voice ID's packages from their existing scripts
     emcee voice gratefuldead-1973-06-10
                                        # script + voice + assemble ONE package directly;
                                        # a name or unique substring under [station] root,
@@ -468,6 +470,25 @@ with no usable script, both before anything changes. With `--fresh`, a warning
 says when the recorded TTS backend or model is not today's: the re-rolled clips
 will sound different from the kept ones. `--force` with `--fresh` and
 `--keep-script` together is a usage error.
+
+**The batch form: `emcee run --keep-script --presenter ID`** (add `--drifted`,
+`--profile`, `--force`, `--dry-run`, `--yes`). It selects every package that
+has a script and whose presenter resolves to ID (compared case-insensitively),
+ready or pending, a failed `--keep-script` attempt included; an ID that no
+package resolves to prints `note: no package resolves to presenter X`.
+`--keep-script` needs `--presenter`, and `--presenter` and `--drifted` need
+`--keep-script`. `--drifted` keeps those whose recorded TTS backend or model
+differs from today's, as `emcee status --drifted` compares them; a voiced block
+with no TTS record counts as drifted, and so does a null `dj_audio`. Awaiting-fix
+packages and packages with missing track audio are skipped as `run` skips them,
+and a package whose recorded presenter is another prints `skip <slug>: script
+was written for <id>`. The plan shows one `kept script` group, says there is no
+scriptwriting LLM cost (a content-filter repair can still make a call), and
+gives `N of M clips will re-render` by comparing cache keys (every clip under
+`--force`, even with `--dry-run`), then asks `Proceed?`. Each re-voice clears
+`dj_audio` on a show that may be airing, so the batch stops after 3
+consecutive failures (`stopping after 3 consecutive failures`, then `not
+attempted: ...`); every other `run` selection carries on after a failure.
 
 A failed attempt never loses the script, but like any failed re-voice it takes
 the show off air: the manifest keeps `dj_notes` with `dj_audio` null, `emcee
