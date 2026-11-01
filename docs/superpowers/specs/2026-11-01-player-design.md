@@ -349,7 +349,7 @@ hugo is publishing `sections`.
 4. `npx wrangler deploy` (the bundled pages). This is go-live.
 
 **Manual checks by the operator:** iPhone lock screen, the car display, a dropout
-on the road (airplane mode for a minute with the screen locked), all of these from
+on the road (airplane mode for at least 4 minutes with the screen locked), all of these from
 the home-screen version as well as Safari, and Chrome on a computer.
 
 ## Left to the builder
