@@ -161,15 +161,13 @@ Use the Media Session API, on both native HLS and hls.js:
 In any state with no audio, or with no show on air, the title is the station name
 and no stale song remains.
 
-Metadata updates when the song or show changes, driven by something that keeps
-running on a locked phone: if timers are throttled there, the element's
-`timeupdate`. `mediaSession.playbackState` is set to match the player. Handlers:
-`play`, `pause`, `stop`. `pause` from the car means stop, and `play` rejoins live,
-matching the page. No seek or skip handlers: this is radio.
-
-If the early test shows that tearing down the source loses the car's Play control,
-then a `pause` from the car or lock screen only pauses the element, keeps the
-session, stops loading, and tears down and rejoins on `play`.
+Metadata updates when the song or show changes, driven by the page's timer: the
+early test measured it running at 6 s on a locked phone while audio is in use, so
+the display can lag a song by a few seconds, which is accepted.
+`mediaSession.playbackState` is set to match the player. Handlers: `play`, `pause`,
+`stop`. `pause` from the car means stop, a normal teardown, and `play` rejoins live,
+matching the page. Play still reaches the page after a teardown. No seek or skip
+handlers: this is radio.
 
 If the phone pauses the audio on its own (a call, Bluetooth disconnecting), that
 counts as Stop and it stays stopped (operator): the listener presses Play. A phone
@@ -180,6 +178,10 @@ bounds.
 What a given car shows is up to the car and the phone. The target is the
 operator's iPhone and car.
 
+**Limitation (measured, iOS):** after Stop or a Bluetooth disconnect iOS sleeps the
+page within about a minute, so a car or lock-screen Play made after that waits until
+the phone is unlocked. Play within seconds of stopping works.
+
 ## Recovery
 
 Today any fatal hls.js error or native `error` puts the player into a dead
@@ -188,13 +190,26 @@ Today any fatal hls.js error or native `error` puts the player into a dead
 - **A failure** means the playback position has stopped advancing. A fatal hls.js
   error while buffered audio is still playing restarts nothing until the position
   stalls. On native HLS, wait about 30 s of stall, or an `error` event, before
-  tearing down, which gives the iPhone's own player its chance first.
+  tearing down, which gives the iPhone's own player its chance first; iOS recovers
+  short stalls by itself, about 5 s measured, but not one of about 3 minutes.
+  `stalled` events are not a signal: a healthy iPhone fires one about every 11 s.
+  `waiting` is. Recovered means the position advanced again, never `playing` or a
+  resolved `play()`: on an iPhone both happened with the position frozen for 23
+  minutes.
 - **Retries:** while the listener wants to be playing, any failure that isn't
-  definitely off-air retries from the live edge. This includes a stall after a
-  playlist that stepped backwards, which is the backlog item: no special handling
-  of the sequence numbers, just the same recovery. Delays start at about 5 s and
-  rise to about 30 s with jitter. The delay resets only after about 60 s of
-  advancing playback, never on `playing`. These values may be tuned in the plan.
+  definitely off-air retries from the live edge, but only after a probe of
+  `live.m3u8` gets an HTTP response. While the network is unreachable the element is
+  left alone and probing continues about every 15 s; a failed fetch costs nothing.
+  Measured on the iPhone: a teardown while offline ended the audio session and iOS
+  froze the page within seconds, while an element left alone kept the page alive
+  through a locked stall of at least 5 min 36 s, and the locked page could then
+  restart audio. The test is the fetch's result, never `navigator.onLine`, which
+  lagged the network by seconds. This includes a stall after a playlist that stepped
+  backwards, which is the backlog item: no special handling of the sequence numbers,
+  just the same recovery. Delays between restarts start at about 5 s and rise to
+  about 30 s with jitter, for a stream that restarts and then fails again. The delay
+  resets only after about 60 s of advancing playback, never on `playing`. These
+  values may be tuned in the plan.
 - **Giving up** (operator): after 10 minutes without audio, counted from the last
   advancing playback, recovery stops, shows Try again and stays stopped. This is so
   the phone doesn't start playing aloud after the car is off. Every retry checks
@@ -214,7 +229,8 @@ Today any fatal hls.js error or native `error` puts the player into a dead
   ignored. The early test confirms this rule: it logs the order of `pause`,
   `waiting`, `stalled`, `error` and `ended` on a locked iPhone during a dropout.
 - **The restart** uses the same `<audio>` element, so that an iPhone in a pocket
-  keeps permission to play. A browser refusal ends at Try again. The retry sequence
+  keeps permission to play, in the full form: `src` removed and set, the same as Stop
+  then Play. A browser refusal ends at Try again. The retry sequence
   never starts audio after the listener's Stop.
 - **Limits:** at most one retry runs at a time, and a retry never issues requests
   the normal player wouldn't. Everything it fetches is a cached object. A retry does
@@ -359,22 +375,11 @@ work.
 
 ## Unverified
 
-- Whether an iPhone lets a page restart audio by itself after a long dropout with
-  the screen locked. If it doesn't, recovery there ends at Try again.
-- Whether audio, background play, the lock screen and the car display behave the
-  same when opened from the home screen as in Safari. If they don't, the home-screen
-  version is what has to be fixed or dropped.
-- Whether timers keep running on a locked iPhone well enough to update the car
-  display at each song change. If they don't, the metadata follows `timeupdate`.
-- The order of `pause`, `waiting`, `stalled`, `error` and `ended` on a locked iPhone
-  during a dropout, which the dropout-or-pause rule depends on.
-- Whether the car's Play still works after Stop tears down the source.
-- Whether a restart recovers a stall after a backwards playlist step.
-- Whether timers and retries fire at all on a locked iPhone during a stall, and
-  whether the 10-minute limit therefore works there.
-- Whether the back swipe closes the panel in the home-screen app, and whether audio
-  survives opening archive.org from it.
-- What the operator's car actually shows from Media Session.
+The early iPhone test answered most of what this section listed; the results and
+decisions are in `docs/superpowers/2026-11-01-player-probe.md`. Still open:
 
-The early iPhone test is one run covering all of these, from the preview, in Safari
-and from the home screen, with an on-page event log.
+- Whether a restart recovers a stall after a backwards playlist step: it can't be
+  produced on demand, so it is left to the road.
+- Whether audio, background play, the lock screen, the car display, the back swipe
+  and archive.org behave the same when opened from the home screen as in Safari. If
+  they don't, the home-screen version is what has to be fixed or dropped.
