@@ -96,6 +96,69 @@ def read_package_notes(pkg_dir: Path) -> tuple[dict | None, str | None]:
     return manifest, briefing
 
 
+CAUTIONS_PREFIX = "## cautions"        # llama's brief.py heading; transmitter cannot import it
+ARCHIVE_PREFIX = "https://archive.org/"
+
+
+def archive_link(url: str | None) -> str | None:
+    """The url when it is an https archive.org link (literal prefix check), else None."""
+    return url if isinstance(url, str) and url.startswith(ARCHIVE_PREFIX) else None
+
+
+def parse_briefing(text: str) -> list[dict]:
+    """Line-based briefing markdown -> [{"heading", "blocks": [{"p"} | {"ul"}]}].
+
+    Drops the `# ` title and everything from the cautions heading on."""
+    sections: list[dict] = []
+    current: dict | None = None
+    para: list[str] = []
+    items: list[str] = []
+
+    def flush() -> None:
+        nonlocal para, items
+        if current is not None:
+            if para:
+                current["blocks"].append({"p": " ".join(para)})
+            if items:
+                current["blocks"].append({"ul": items})
+        para, items = [], []
+
+    def ensure() -> dict:
+        nonlocal current
+        if current is None:
+            current = {"heading": None, "blocks": []}
+            sections.append(current)
+        return current
+
+    for raw in (text or "").splitlines():
+        line = raw.strip().replace("**", "")
+        if line.lower().startswith(CAUTIONS_PREFIX):
+            break
+        if line.startswith("## "):
+            flush()
+            current = {"heading": line[3:].strip(), "blocks": []}
+            sections.append(current)
+        elif line.startswith("# "):
+            continue
+        elif not line:
+            if para:
+                flush()
+        elif line.startswith("- "):
+            ensure()
+            if para:
+                current["blocks"].append({"p": " ".join(para)})
+                para = []
+            items.append(line[2:].strip())
+        else:
+            ensure()
+            if items:
+                current["blocks"].append({"ul": items})
+                items = []
+            para.append(line)
+    flush()
+    return [s for s in sections if s["blocks"]]
+
+
 def build_notes(slug: str, manifest: dict | None, briefing: str | None, airtimes: list[dict],
                 meta: Mapping) -> dict:
     manifest = manifest or {}
@@ -117,6 +180,7 @@ def build_notes(slug: str, manifest: dict | None, briefing: str | None, airtimes
         "url": pick(source, "url"),
         "lineage": pick(source, "lineage"),
         "briefing": briefing or "",
+        "sections": parse_briefing(briefing or ""),
         "setlist": [{"set": t.get("set"), "title": t.get("title"), "segue": bool(t.get("segue"))}
                     for t in tracks if isinstance(t, dict)],
         "airtimes": airtimes,
