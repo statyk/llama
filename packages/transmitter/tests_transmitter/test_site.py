@@ -417,3 +417,14 @@ def test_parse_briefing_keeps_other_caution_text_byte_identical():
     ]
     text = "## Set 1\n" + "\n".join("- " + k for k in kept) + "\n"
     assert site.parse_briefing(text) == [{"heading": "Set 1", "blocks": [{"ul": kept}]}]
+
+
+def test_parse_briefing_leaves_a_line_without_the_pointer_unstripped():
+    # "**" is removed after the strip, so this line keeps its leading space as before.
+    assert site.parse_briefing("## Set 1\n** bold** text\n") == [
+        {"heading": "Set 1", "blocks": [{"p": " bold text"}]}]
+
+
+def test_parse_briefing_strips_a_leading_pointer_from_a_paragraph_line():
+    assert site.parse_briefing("## Set 1\n(see cautions) Bar\n") == [
+        {"heading": "Set 1", "blocks": [{"p": "Bar"}]}]

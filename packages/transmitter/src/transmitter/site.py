@@ -142,7 +142,9 @@ def parse_briefing(text: str) -> list[dict]:
         line = raw.strip().replace("**", "")
         if line.lower().startswith(CAUTIONS_PREFIX):
             break
-        line = CAUTIONS_POINTER.sub("", line).strip()
+        line, hit = CAUTIONS_POINTER.subn("", line)
+        if hit:
+            line = line.strip()
         if line.startswith("## "):
             flush()
             current = {"heading": line[3:].strip(), "blocks": []}
