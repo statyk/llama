@@ -27,7 +27,7 @@ describe("reconcileIndex", () => {
   it("the off-air page has no player scripts (the kill switch would block them)", () => {
     expect(OFFAIR_PAGE).toContain("The station is off the air.");
     expect(OFFAIR_PAGE).not.toContain("player.js");
-    expect(PLAYER_PAGE).toContain("player.js");
+    expect(PLAYER_PAGE).toContain("assets/app.js");
   });
 
   it("writes through the R2 binding with its content type, max-age and metadata", async () => {
