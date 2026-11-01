@@ -355,7 +355,7 @@ def test_scriptwrite_prompt_forbids_time_anchored_to_the_present():
 
 def test_scriptwrite_prompt_live_rule_and_names_exception():
     prompt = load_prompt("scriptwrite")
-    assert "Five hard rules" in prompt
+    assert "Six hard rules" in prompt
     assert '"Live" only where it cannot be read as the verb' in prompt
     assert '"live in\n  <place>"' in prompt
     assert "Names are the exception." in prompt
@@ -363,9 +363,71 @@ def test_scriptwrite_prompt_live_rule_and_names_exception():
     assert "never use a title as licence to break a rule" in prompt
 
 
+def _unwrapped(text: str) -> str:
+    return " ".join(text.split())
+
+
+def test_scriptwrite_prompt_clean_on_air_rule():
+    # Broadcast radio: a profane title is never said, nor hinted at, and the
+    # artist is exempt so the show can still be identified (operator, 2026-10-31).
+    prompt = _unwrapped(load_prompt("scriptwrite"))
+    rules = prompt.split("Six hard rules for the broadcast:")[1].split("Names are the exception.")[0]
+    assert rules.count(" - ") == 6
+    assert rules.strip().split(" - ")[-1].startswith("Clean on air: this is broadcast radio.")
+    for phrase in ('fuck, shit, bitch, cock, motherfucker and the like',
+                   '"damn", "hell" and "Moby Dick" are fine',
+                   "Do not bleep it, spell it, hint at it or quote part of it.",
+                   '"a title I can\'t say on the air"',
+                   "leave it out of mentioned_songs",
+                   "Artist names are exempt: the show must be identified."):
+        assert phrase in rules
+
+
+def test_scriptwrite_prompt_clean_on_air_outranks_names_exception():
+    prompt = _unwrapped(load_prompt("scriptwrite"))
+    names = prompt.split("Names are the exception.")[1].split("Let the show make its own case.")[0]
+    assert "The clean-on-air rule outranks this for song and album titles." in names
+
+
+def test_scriptwrite_prompt_on_this_show_is_not_a_lead_in_opener():
+    # "On this show we've got" tracked the old `say "on this show"` wording
+    # (Monroe 29 scripts, Kurt 15).
+    prompt = _unwrapped(load_prompt("scriptwrite"))
+    assert 'say "that night" for the concert, and if you must refer to the broadcast, ' \
+           '"on this show", though never as a way to open a lead-in' in prompt
+    assert 'say "on this show" for the broadcast' not in prompt
+
+
+def test_scriptwrite_prompt_lets_the_show_make_its_own_case():
+    prompt = _unwrapped(load_prompt("scriptwrite"))
+    assert prompt.index("Names are the exception.") \
+        < prompt.index("Let the show make its own case.") \
+        < prompt.index("Point at the music in passing.") \
+        < prompt.index("Tell, don't review.") \
+        < prompt.index("Show data (JSON):")
+    for phrase in ("Choosing them IS the reason for playing the show",
+                   "what it earns or deserves",
+                   'no "what to listen for", "listen for", "keep your ears on"',
+                   "at most one or two personal opinions",
+                   '"I love", "I like", "I find", "my favorite", "to my ear", "to my mind"',
+                   'a soft spot for',
+                   "do not call things great, remarkable or beautiful on the band's behalf"):
+        assert phrase in prompt
+
+
+def test_scriptwrite_prompt_json_shape_drops_airtime_and_listen_for():
+    prompt = load_prompt("scriptwrite")
+    assert "why this show earns airtime" not in prompt
+    assert "— then what to listen for" not in prompt
+    assert ("artist, date, venue, then the specifics that make this show worth hearing "
+            "(~60-90 seconds), running on into the set ahead. Each LATER set's") in prompt
+    assert ("[<every song title referenced anywhere above, other than one you refuse "
+            "to name, spelled exactly as in the show data>]") in prompt
+
+
 def test_scriptwrite_full_path_has_no_extra_blank_line():
     rendered = load_prompt("scriptwrite").replace("{{narration_note}}", narration_note("full"))
-    assert "with it.\n\nShow data (JSON):" in rendered
+    assert "show why instead.\n\nShow data (JSON):" in rendered
     assert "\n\n\nShow data" not in rendered
 
 
