@@ -105,10 +105,14 @@ export class Recovery {
     return "probe";
   }
 
-  /** A native `error` event: the failure counts at once. */
+  /** A native `error` event: the failure counts at once. The position rose
+   * up to the error, so the next sample is a baseline, or that rise would read
+   * as an advance and cancel the failure. An element still playing gets
+   * cancelled by the sample after it. */
   failed(nowMs) {
     this.nowMs = nowMs;
     if (this.retryAtMs !== null || (this.joinUntilMs !== null && nowMs < this.joinUntilMs)) return;
+    this.lastPos = null;
     this.fail(nowMs);
   }
 

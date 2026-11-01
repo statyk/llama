@@ -115,6 +115,30 @@ describe("Recovery: what counts as a failure", () => {
     expect(r.tick(2, 8000)).toBe("probe");
   });
 
+  it("a native error survives the position rising between the last sample and the error", () => {
+    const r = native();
+    r.begin(0);
+    r.tick(1, 1000);
+    r.tick(2, 2000);
+    r.failed(2700);
+    expect(r.tick(2.7, 3000)).toBe("none");
+    expect(r.advancing).toBe(false);
+    expect(r.tick(2.7, 7699)).toBe("none");
+    expect(r.tick(2.7, 7700)).toBe("probe");
+  });
+
+  it("an element still playing after an error recovers on its second sample", () => {
+    const r = native();
+    r.begin(0);
+    r.tick(1, 1000);
+    r.tick(2, 2000);
+    r.failed(2700);
+    expect(r.tick(2.7, 3000)).toBe("none");
+    expect(r.tick(3.7, 4000)).toBe("none");
+    expect(r.advancing).toBe(true);
+    for (let s = 1; s <= 40; s++) expect(r.tick(3.7 + s, 4000 + s * 1000)).toBe("none");
+  });
+
   it("an advance cancels a failure: iOS recovers short stalls by itself", () => {
     const r = hls();
     r.begin(0);
