@@ -1,0 +1,107 @@
+<style>
+.opts{display:flex;flex-direction:column;gap:30px;align-items:center}
+.opt{width:900px;max-width:100%;cursor:pointer}
+.opt h3{margin:10px 0 2px}.opt p.note{margin:0;font-size:14px;opacity:.8}
+.opt.selected .pg{outline:3px solid #4a90e2;outline-offset:3px}
+.pg{background:#e9dfc8;color:#2c251d;font-family:"Courier New",Courier,monospace;padding:20px 24px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+.pg *{box-sizing:border-box}
+.top{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #2c251d;padding-bottom:6px;margin-bottom:14px}
+.brand{font-family:Georgia,serif;font-weight:700;font-size:22px}
+.tag{font-size:12px}
+.kick{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7c3324;font-weight:700;margin:14px 0 6px}
+.kick.first{margin-top:0}
+.log{font-size:12.5px;line-height:1.55}
+.log div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted #a8987a}
+.cass{background:linear-gradient(#4a4339,#2f2a23);border-radius:11px;padding:10px 12px 0;position:relative;box-shadow:0 3px 0 #1c1813}
+.clabel{background:#f4ecd8;border-radius:4px;padding:6px 9px 9px}
+.ln{display:flex;justify-content:space-between;font-size:9px;letter-spacing:.14em;color:#7c3324;font-weight:700}
+.hand{font-family:"Bradley Hand","Segoe Print","Comic Sans MS",cursive;font-weight:700;line-height:1.08;color:#1f2f4a;border-bottom:1px solid #c9b78f;padding-bottom:1px;margin-top:4px;font-size:15px}
+.hand.h1{font-size:27px;margin-top:2px}
+.window{height:58px;margin:9px auto 0;width:88%;background:#191511;border-radius:29px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;position:relative;overflow:hidden}
+.pack{position:absolute;top:50%;transform:translateY(-50%);border-radius:50%;background:#3a2a1e}
+.pack.l{left:-14px;width:96px;height:96px}.pack.r{right:6px;width:62px;height:62px}
+.hub{width:38px;height:38px;border-radius:50%;position:relative;z-index:2;background:conic-gradient(#e9dfc8 0 20deg,#4a4339 20deg 40deg,#e9dfc8 40deg 80deg,#4a4339 80deg 100deg,#e9dfc8 100deg 140deg,#4a4339 140deg 160deg,#e9dfc8 160deg 200deg,#4a4339 200deg 220deg,#e9dfc8 220deg 260deg,#4a4339 260deg 280deg,#e9dfc8 280deg 320deg,#4a4339 320deg 340deg,#e9dfc8 340deg)}
+.hub:after{content:"";position:absolute;inset:11px;border-radius:50%;background:#191511}
+.trap{width:66%;height:20px;margin:7px auto 0;background:#3a342b;clip-path:polygon(9% 0,91% 0,100% 100%,0 100%)}
+.keys{display:flex;gap:6px;margin-top:10px}
+.key{flex:1;height:38px;background:linear-gradient(#d7ccb5,#b4a88f);border-radius:4px;box-shadow:0 3px 0 #6f6553;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.key.on{background:linear-gradient(#a23a2a,#7c3324);color:#f4ecd8;flex:2}
+.gig{position:relative;display:flex;background:#f7efdc;margin-bottom:8px;height:84px;border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.35);font-size:11px;line-height:1.2;background-image:repeating-linear-gradient(135deg,rgba(60,106,106,.08) 0 3px,transparent 3px 7px)}
+.stub{width:74px;flex:none;padding:7px 6px;border-right:2px dashed #9a8c6e;font-size:10px;line-height:1.3;position:relative}
+.stub:before,.stub:after{content:"";position:absolute;right:-8px;width:14px;height:14px;border-radius:50%;background:#e9dfc8}
+.stub:before{top:-7px}.stub:after{bottom:-7px}
+.stub b{display:block;font-size:13px;color:#7c3324}
+.main{flex:1;min-width:0;padding:6px 10px;position:relative}
+.main .tt{font-size:9px;letter-spacing:.1em;color:#3f6a6a;font-weight:700}
+.main b{font-family:Georgia,serif;font-size:16px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:1px 0}
+.sr{position:absolute;bottom:5px;left:10px;right:10px;font-size:9px;color:#5e5240}
+.torn{clip-path:polygon(0 0,91% 0,93% 12%,90% 25%,94% 38%,91% 52%,95% 66%,91% 79%,94% 91%,91% 100%,0 100%);opacity:.72;filter:saturate(.55)}
+.torn .main b{font-size:13.5px}
+.a{display:grid;grid-template-columns:330px 1fr 1fr;gap:22px}
+.band{display:grid;grid-template-columns:340px 1fr;gap:22px;background:#d9cbaa;padding:14px;border-radius:6px;margin-bottom:16px}
+.b3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.np{font-size:16px;font-weight:700}
+</style>
+
+<h2>How should it sit on a computer screen?</h2>
+<p class="subtitle">The phone stays a single column either way. Click one, or tell me what you'd change. The line beside the station name is a draft "what is this?" for newcomers.</p>
+
+<div class="opts">
+
+<div class="opt" data-choice="side-by-side" onclick="toggleSelect(this)">
+ <div class="pg">
+  <div class="top"><span class="brand">LMA Radio</span><span class="tag">Live concert tapes from the Live Music Archive, around the clock.</span></div>
+  <div class="a">
+   <div>
+    <div class="cass"><div class="clabel"><div class="ln"><span>LMA RADIO</span><span>ON THE AIR</span></div><div class="hand h1">Railroad Earth</div><div class="hand">Rhythm and Brews, Chattanooga TN</div><div class="hand">Nov 1, 2008</div></div><div class="window"><div class="pack l"></div><div class="pack r"></div><div class="hub"></div><div class="hub"></div></div><div class="trap"></div></div>
+    <div class="keys"><div class="key on">▶ PLAY</div><div class="key">STOP</div></div>
+   </div>
+   <div>
+    <p class="kick first">Now playing</p><div class="np">Hard Livin'</div>
+    <p class="kick">Tape log</p>
+    <div class="log"><div><span>The Cuckoo</span><span>12:48a</span></div><div><span>Luxury Liner</span><span>12:38a</span></div><div><span>Magic Foot &gt;</span><span>12:35a</span></div><div><span>Old Man and the Land</span><span>12:28a</span></div></div>
+    <p class="kick">Just aired</p>
+    <div class="gig torn"><div class="stub">SAT<b>11:54p</b>GEN ADM</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Camper Van Beethoven</b>Graffiti's, San Francisco<div class="sr">MAR 7 1985</div></div></div>
+   </div>
+   <div>
+    <p class="kick first">Coming up</p>
+    <div class="gig"><div class="stub">SUN<b>1:53a</b>GEN ADM</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Grateful Dead</b>Richmond Coliseum<div class="sr">NOV 1 1985</div></div></div>
+    <div class="gig"><div class="stub">SUN<b>4:38a</b>GEN ADM</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Larry Keel</b>Keswick Theater<div class="sr">MAR 7 2009</div></div></div>
+    <div class="gig"><div class="stub">SUN<b>5:20a</b>GEN ADM</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Ryan Adams</b>Big Easy, Boise ID<div class="sr">JUL 30 2007</div></div></div>
+   </div>
+  </div>
+ </div>
+ <h3>A. Everything at a glance</h3><p class="note">Three columns on one screen: tape, what's playing, what's next.</p>
+</div>
+
+<div class="opt" data-choice="deck-on-top" onclick="toggleSelect(this)">
+ <div class="pg">
+  <div class="top"><span class="brand">LMA Radio</span><span class="tag">Live concert tapes from the Live Music Archive, around the clock.</span></div>
+  <div class="band">
+   <div>
+    <div class="cass"><div class="clabel"><div class="ln"><span>LMA RADIO</span><span>ON THE AIR</span></div><div class="hand h1">Railroad Earth</div><div class="hand">Rhythm and Brews, Chattanooga TN</div><div class="hand">Nov 1, 2008</div></div><div class="window"><div class="pack l"></div><div class="pack r"></div><div class="hub"></div><div class="hub"></div></div><div class="trap"></div></div>
+   </div>
+   <div>
+    <p class="kick first">Now playing</p><div class="np" style="font-size:24px">Hard Livin'</div>
+    <div class="keys" style="max-width:320px;margin-top:14px"><div class="key on">▶ PLAY</div><div class="key">STOP</div></div>
+    <p class="kick">Tape log</p>
+    <div class="log"><div><span>The Cuckoo</span><span>12:48a</span></div><div><span>Luxury Liner</span><span>12:38a</span></div></div>
+   </div>
+  </div>
+  <p class="kick">Coming up</p>
+  <div class="b3">
+   <div class="gig"><div class="stub">SUN<b>1:53a</b>GEN ADM</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Grateful Dead</b>Richmond Coliseum<div class="sr">NOV 1 1985</div></div></div>
+   <div class="gig"><div class="stub">SUN<b>4:38a</b>GEN ADM</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Larry Keel</b>Keswick Theater<div class="sr">MAR 7 2009</div></div></div>
+   <div class="gig"><div class="stub">SUN<b>5:20a</b>GEN ADM</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Ryan Adams</b>Big Easy, Boise ID<div class="sr">JUL 30 2007</div></div></div>
+  </div>
+  <p class="kick">Just aired</p>
+  <div class="b3">
+   <div class="gig torn"><div class="stub">SAT<b>11:54p</b>GEN ADM</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Camper Van Beethoven</b>Graffiti's, San Francisco<div class="sr">MAR 7 1985</div></div></div>
+   <div class="gig torn"><div class="stub">SAT<b>10:14p</b>GEN ADM</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Soulive</b>Beachland Ballroom<div class="sr">SEP 28 2004</div></div></div>
+   <div class="gig torn"><div class="stub">SAT<b>5:59p</b>GEN ADM</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Grateful Dead</b>Kezar Stadium<div class="sr">MAY 26 1973</div></div></div>
+  </div>
+ </div>
+ <h3>B. Tape on top, tickets below</h3><p class="note">The player sits in a band across the top, with rows of tickets under it.</p>
+</div>
+
+</div>
