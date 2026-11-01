@@ -764,13 +764,14 @@ test("a play() that never settles (home-screen app, hidden): no notice, no hubs,
 test("at 320 px with a very long band name, main and panel do not scroll sideways", async ({ page }) => {
   const SLUG = "fixture-next-1";
   const LONG = "...And You Will Know Us By the Trail of Dead";
-  const timeline = makeTimeline(Date.now());
-  timeline.shows = timeline.shows.map((s) => (s.slug === SLUG ? { ...s, artist: LONG } : s));
+  const timeline = makeTimeline(Date.now(), { onAir: { artist: LONG } });
+  timeline.shows = timeline.shows.map((s) => ({ ...s, artist: LONG }));
   await site.close();
   site = await startServer({ timeline, notes: { [SLUG]: { ...NOTES.full, artist: LONG } } });
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto(site.url);
   await expect(page.locator(".ticket").first()).toBeVisible();
+  await expect(page.locator("#label-artist")).toHaveText(LONG);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   await page.locator(`.ticket[data-slug="${SLUG}"]`).first().click();
   await expect(page.locator(".panel .bmain h2")).toHaveText(LONG);
