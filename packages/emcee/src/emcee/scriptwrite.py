@@ -129,9 +129,14 @@ def persona_style(presenter: Presenter, title: str | None) -> str:
 
 # Separators real merged track titles use (survey of 52,840 delivered titles):
 # `>` (9,382, incl. `->` 2,974, and a trailing segue mark), a spaced ` / `
-# (95) and a glued `/` between names (`Danko/Manuel`). A `/` touching a digit
-# is text (`Mississippi 1/2 Step`, `(23rd/1st)`), so it never splits.
-_TITLE_SPLIT = re.compile(r"->|>|(?<!\d)/(?!\d)")
+# (95) and a glued `/` between names (`Danko/Manuel`). A `/` followed by a
+# digit is text (`Mississippi 1/2 Step`, `(23rd/1st)`) and a `w/` ("with") is
+# not a separator, so neither splits. `->` needs no alternative of its own: the
+# `>` splits and the stray `-` normalizes away. A leading `E: ` (the encore
+# prefix) is dropped from each part. Not handled, a documented limit: a spaced
+# ` - ` merge.
+_TITLE_SPLIT = re.compile(r"(?<!\bw)(?<!\bW)/(?!\d)|>")
+_ENCORE_PREFIX = re.compile(r"^\s*E:\s*")
 
 
 def _known_songs(tracks: list[dict]) -> set[str]:
@@ -142,7 +147,7 @@ def _known_songs(tracks: list[dict]) -> set[str]:
     for t in tracks:
         title = t["title"]
         known.add(normalize_song(title))
-        parts = {normalize_song(p) for p in _TITLE_SPLIT.split(title)}
+        parts = {normalize_song(_ENCORE_PREFIX.sub("", p)) for p in _TITLE_SPLIT.split(title)}
         known |= parts - {""}
     return known
 

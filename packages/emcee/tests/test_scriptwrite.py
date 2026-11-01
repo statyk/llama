@@ -776,3 +776,27 @@ def test_guard_slash_inside_a_number_is_text_not_a_separator(tmp_path):
     assert _guard_songs(tmp_path, "Mississippi 1/2 Step", ["Mississippi 1"]) != []
     assert _guard_songs(tmp_path, "Mississippi 1/2 Step", ["Mississippi 1/2 Step"]) == []
     assert _guard_songs(tmp_path, "Sweet Lil' Gal (23rd/1st)", ["1st"]) != []
+
+
+def test_guard_leaves_w_slash_unsplit(tmp_path):
+    # "w/" is "with", not a separator: the second half is not a song of its own.
+    title = "Jam w/ Bob Weir"
+    assert _guard_songs(tmp_path, title, ["Jam w/ Bob Weir"]) == []
+    assert _guard_songs(tmp_path, title, ["Bob Weir"]) != []
+    assert _guard_songs(tmp_path, title, ["Jam w"]) != []
+
+
+def test_guard_splits_a_slash_after_a_digit(tmp_path):
+    assert _guard_songs(tmp_path, "Song 2/Other Song", ["Other Song"]) == []
+
+
+def test_guard_merged_title_parts_drop_a_leading_encore_prefix(tmp_path):
+    title = "E: Foo > Bar"
+    assert _guard_songs(tmp_path, title, ["Foo"]) == []
+    assert _guard_songs(tmp_path, title, ["Bar"]) == []
+    assert _guard_songs(tmp_path, title, [title]) == []
+
+
+def test_guard_dash_merged_titles_stay_refused(tmp_path):
+    # Documented limit: " - " is not a separator.
+    assert _guard_songs(tmp_path, "Foo - Bar", ["Bar"]) != []

@@ -969,7 +969,7 @@ has run).
   `process.py:process_package` orchestrates one package: resolve the
   package ONCE (`resolve_voicing`: effective profile, then `resolve_assignment(config, profile)`
   against `[assign]`, then `resolve_tts`) and pass that `Voicing` through → `scriptwrite.py` (script LLM task + `script_guard`,
-  emcee's own port of llama's old `factual_guard`; `known` also holds each component of a merged title split on `>`, `->` and a `/` not touching a digit, empty parts dropped; persona-styled when a
+  emcee's own port of llama's old `factual_guard`; `known` also holds each component of a merged title split on `>`, `->` and a `/` not followed by a digit and not a `w/` ("with"), a leading `E: ` dropped from each part, empty parts dropped (a spaced ` - ` merge is not split: a documented limit, such a component is refused); persona-styled when a
   presenter is assigned, byte-for-byte neutral otherwise) → render
   `dj-notes.md` → TTS via a `SpeechProvider` (`packages/emcee/src/emcee/tts/`:
   `voxtral` default, `elevenlabs` alternative, `fake` for tests; same
