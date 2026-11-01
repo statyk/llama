@@ -355,7 +355,7 @@ def test_scriptwrite_prompt_forbids_time_anchored_to_the_present():
 
 def test_scriptwrite_prompt_live_rule_and_names_exception():
     prompt = load_prompt("scriptwrite")
-    assert "Five hard rules" in prompt
+    assert "Six hard rules" in prompt
     assert '"Live" only where it cannot be read as the verb' in prompt
     assert '"live in\n  <place>"' in prompt
     assert "Names are the exception." in prompt
@@ -363,9 +363,85 @@ def test_scriptwrite_prompt_live_rule_and_names_exception():
     assert "never use a title as licence to break a rule" in prompt
 
 
+def _unwrapped(text: str) -> str:
+    return " ".join(text.split())
+
+
+def test_scriptwrite_prompt_clean_on_air_rule():
+    # Broadcast radio: a profane title is never said, nor hinted at, and the
+    # artist is exempt so the show can still be identified (operator, 2026-10-31).
+    prompt = _unwrapped(load_prompt("scriptwrite"))
+    rules = prompt.split("Six hard rules for the broadcast:")[1].split("Names are the exception.")[0]
+    assert rules.count(" - ") == 6
+    assert rules.strip().split(" - ")[-1].startswith("Clean on air: this is broadcast radio.")
+    for phrase in ('fuck, shit, bitch, cock, motherfucker and the like',
+                   '"damn", "hell" and "Moby Dick" are fine',
+                   "Do not bleep it, spell it, hint at it or quote part of it.",
+                   "Say briefly, in your character's own words and without any stock phrase, "
+                   "that the title can't be said on the air, and leave it out of mentioned_songs.",
+                   "Name every other title plainly.",
+                   "Artist names are exempt: the show must be identified."):
+        assert phrase in rules
+    # The first pass quoted an example here and every sample copied it verbatim.
+    assert "a title I can't say on the air" not in prompt
+
+
+def test_scriptwrite_prompt_clean_on_air_outranks_names_exception():
+    prompt = _unwrapped(load_prompt("scriptwrite"))
+    names = prompt.split("Names are the exception.")[1].split("Let the show make its own case.")[0]
+    assert "The clean-on-air rule outranks this for song and album titles." in names
+
+
+def test_scriptwrite_prompt_on_this_show_is_not_a_lead_in_opener():
+    # "On this show we've got" tracked the old `say "on this show"` wording
+    # (Monroe 29 scripts, Kurt 15).
+    prompt = _unwrapped(load_prompt("scriptwrite"))
+    assert 'say "that night" for the concert, and if you must refer to the broadcast, ' \
+           '"on this show", though never as a way to open a lead-in' in prompt
+    assert 'say "on this show" for the broadcast' not in prompt
+
+
+def test_scriptwrite_prompt_lets_the_show_make_its_own_case():
+    prompt = _unwrapped(load_prompt("scriptwrite"))
+    assert prompt.index("Names are the exception.") \
+        < prompt.index("Let the show make its own case.") \
+        < prompt.index("Point at the music in passing.") \
+        < prompt.index("Tell, don't gush.") \
+        < prompt.index("Keep the full lengths given below:") \
+        < prompt.index("Show data (JSON):")
+    for phrase in ("Choosing them IS the reason for playing the show",
+                   "what it earns or deserves",
+                   'no "what to listen for", "listen for", "keep your ears on"',
+                   "Reflexive approval is the tic to avoid: do not keep telling us you love, "
+                   "like or admire things",
+                   '"to my ear", "for my money", "if you ask me", "in my book", "I\'ve always", '
+                   '"a soft spot for" or their equivalents in your character\'s voice',
+                   "do not call things great, remarkable or beautiful when you could show why.",
+                   "This is not a ban on personality.",
+                   "the occasional real take that says something specific",
+                   "dropping stock phrases leaves more room for story and character, "
+                   "not a shorter script.",
+                   "A recap is not a list of song titles: pick the moments that mattered "
+                   "and tell them."):
+        assert phrase in prompt
+    # The first pass's cap on opinions cost the scripts their character (operator ruling).
+    assert "Tell, don't review." not in prompt
+    assert "at most one or two personal opinions" not in prompt
+
+
+def test_scriptwrite_prompt_json_shape_drops_airtime_and_listen_for():
+    prompt = load_prompt("scriptwrite")
+    assert "why this show earns airtime" not in prompt
+    assert "— then what to listen for" not in prompt
+    assert ("artist, date, venue, then the specifics that make this show worth hearing "
+            "(~60-90 seconds), running on into the set ahead. Each LATER set's") in prompt
+    assert ("[<every song title referenced anywhere above, other than one you refuse "
+            "to name, spelled exactly as in the show data>]") in prompt
+
+
 def test_scriptwrite_full_path_has_no_extra_blank_line():
     rendered = load_prompt("scriptwrite").replace("{{narration_note}}", narration_note("full"))
-    assert "with it.\n\nShow data (JSON):" in rendered
+    assert "and tell them.\n\nShow data (JSON):" in rendered
     assert "\n\n\nShow data" not in rendered
 
 
@@ -653,3 +729,74 @@ def test_rephrase_segment_unescapes_literal_breaks():
     provider = FakeProvider(completes=[json.dumps({"text": "One thought.\\n\\nTwo thought."})])
     out = rephrase_segment(provider, SEG, "x", [])
     assert out == "One thought.\n\nTwo thought."
+
+
+# ---------------------------------------------------------------------------
+# script_guard accepts a component of a merged track title (task 1b)
+# ---------------------------------------------------------------------------
+
+
+def _guard_songs(tmp_path, title, songs):
+    manifest = manifest_of(tmp_path)
+    manifest["tracks"][0]["title"] = title
+    notes = ScriptNotes(**notes_dict(mentioned_songs=songs))
+    return [p for p in script_guard(notes, manifest, "full") if "unknown song" in p]
+
+
+def test_guard_accepts_component_and_whole_of_merged_title(tmp_path):
+    title = "Werewolves of London > Roll With the Changes"
+    assert _guard_songs(tmp_path, title, ["Werewolves of London"]) == []
+    assert _guard_songs(tmp_path, title, ["Roll With the Changes"]) == []
+    assert _guard_songs(tmp_path, title, [title]) == []
+
+
+def test_guard_splits_on_every_real_separator(tmp_path):
+    for title in ("Juarez->Rosalie", "Juarez>Rosalie", "Juarez > Rosalie",
+                  "Danko/Manuel", "Juarez / Rosalie"):
+        a, b = title.replace("->", ">").replace("/", ">").split(">")
+        assert _guard_songs(tmp_path, title, [a.strip(), b.strip()]) == [], title
+
+
+def test_guard_still_refuses_unrelated_song_with_merged_title(tmp_path):
+    problems = _guard_songs(tmp_path, "Werewolves of London > Roll With the Changes",
+                            ["Truckin"])
+    assert problems == ["dj notes mention unknown song: Truckin"]
+
+
+def test_guard_trailing_segue_mark_and_symbols_add_no_junk_part(tmp_path):
+    # Real titles: "Terra Firma >", "Oh Death>*", "Cripple Creek>#". The empty
+    # or symbol-only part must not make an empty/blank song name "known".
+    for title in ("Terra Firma >", "Oh Death>*", "Cripple Creek>#"):
+        assert _guard_songs(tmp_path, title, ["", " ", "*"]) != [], title
+    assert _guard_songs(tmp_path, "Terra Firma >", ["Terra Firma"]) == []
+
+
+def test_guard_slash_inside_a_number_is_text_not_a_separator(tmp_path):
+    # Real titles: "Mississippi 1/2 Step", "Sweet Lil' Gal (23rd/1st)".
+    assert _guard_songs(tmp_path, "Mississippi 1/2 Step", ["Mississippi 1"]) != []
+    assert _guard_songs(tmp_path, "Mississippi 1/2 Step", ["Mississippi 1/2 Step"]) == []
+    assert _guard_songs(tmp_path, "Sweet Lil' Gal (23rd/1st)", ["1st"]) != []
+
+
+def test_guard_leaves_w_slash_unsplit(tmp_path):
+    # "w/" is "with", not a separator: the second half is not a song of its own.
+    title = "Jam w/ Bob Weir"
+    assert _guard_songs(tmp_path, title, ["Jam w/ Bob Weir"]) == []
+    assert _guard_songs(tmp_path, title, ["Bob Weir"]) != []
+    assert _guard_songs(tmp_path, title, ["Jam w"]) != []
+
+
+def test_guard_splits_a_slash_after_a_digit(tmp_path):
+    assert _guard_songs(tmp_path, "Song 2/Other Song", ["Other Song"]) == []
+
+
+def test_guard_merged_title_parts_drop_a_leading_encore_prefix(tmp_path):
+    title = "E: Foo > Bar"
+    assert _guard_songs(tmp_path, title, ["Foo"]) == []
+    assert _guard_songs(tmp_path, title, ["Bar"]) == []
+    assert _guard_songs(tmp_path, title, [title]) == []
+
+
+def test_guard_dash_merged_titles_stay_refused(tmp_path):
+    # Documented limit: " - " is not a separator.
+    assert _guard_songs(tmp_path, "Foo - Bar", ["Bar"]) != []

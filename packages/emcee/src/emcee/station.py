@@ -22,6 +22,8 @@ from emcee.package_io import Package, UnsupportedPackage
 
 
 AWAITING = "awaiting-fix"
+# The readiness reason for a failed `--keep-script` attempt: a script and no audio.
+KEPT_SCRIPT = "kept script"
 MAX_REASON_CHARS = 200
 
 
@@ -69,6 +71,9 @@ class PackageStatus:
     move_problem: str | None = None          # use-time move validation failure
     tts: dict | None = None                  # dj_audio.tts as recorded
     awaiting_fix: str | None = None          # llama's station mark, as its status line
+    voiced_on: str | None = None             # dj_audio.voiced_on as recorded
+    voiced_before: str | None = None         # dj_audio.voiced_before as recorded
+    kept_script: bool = False                # a failed --keep-script attempt (see KEPT_SCRIPT)
 
 
 def manifest_profile(manifest: object) -> str | None:
@@ -159,6 +164,18 @@ def manifest_voiced_profile(manifest: object) -> str | None:
     return manifest_profile(manifest)
 
 
+def manifest_voiced_on(manifest: object) -> str | None:
+    """`dj_audio.voiced_on` as recorded (a string), else None. Never raises."""
+    value = _get(manifest, "dj_audio", "voiced_on")
+    return value if isinstance(value, str) else None
+
+
+def manifest_voiced_before(manifest: object) -> str | None:
+    """`dj_audio.voiced_before` as recorded (a string), else None. Never raises."""
+    value = _get(manifest, "dj_audio", "voiced_before")
+    return value if isinstance(value, str) else None
+
+
 def manifest_tts(manifest: object) -> dict | None:
     """`dj_audio.tts` as recorded (a dict), else None. Never raises."""
     tts = _get(manifest, "dj_audio", "tts")
@@ -215,6 +232,7 @@ class Assessment:
     missing_tracks: int
     clips: int
     effective: Effective
+    kept_script: bool               # dj_notes present, dj_audio null
 
     @property
     def ok(self) -> bool:
@@ -259,7 +277,10 @@ def assess(pkg: Package, config: EmceeConfig, moves: Moves,
 
     dj_audio = manifest.get("dj_audio")
     profile_reason = None
-    if dj_audio is None:
+    kept_script = dj_audio is None and dj_notes is not None
+    if kept_script:
+        reasons.append(KEPT_SCRIPT)
+    elif dj_audio is None:
         reasons.append("no DJ audio (unvoiced)")
     else:
         clips = [*dj_audio.get("set_intros", {}).values(), dj_audio.get("outro")]
@@ -294,7 +315,7 @@ def assess(pkg: Package, config: EmceeConfig, moves: Moves,
     lead_in_sets = {t.get("set") for t in tracks
                     if isinstance(t, dict) and t.get("set") != "encore"}
     return Assessment(reasons, dj_audio is not None, profile_reason, len(missing_tracks),
-                      len(lead_in_sets) + 1, effective)
+                      len(lead_in_sets) + 1, effective, kept_script)
 
 
 def readiness(pkg: Package, config: EmceeConfig, moves: Moves) -> tuple[bool, list[str]]:
@@ -315,6 +336,8 @@ def identity(manifest: object, config: EmceeConfig, moves: Moves) -> dict:
             "voiced_source": manifest_voiced_source(manifest),
             "voiced_profile": manifest_voiced_profile(manifest),
             "tts": manifest_tts(manifest),
+            "voiced_on": manifest_voiced_on(manifest),
+            "voiced_before": manifest_voiced_before(manifest),
             "move_problem": move_target_problem(config, moves, manifest)}
 
 
@@ -332,7 +355,7 @@ def package_status(pkg: Package, config: EmceeConfig, moves: Moves,
     return PackageStatus(path=pkg.dir, state="ready" if a.ok else "pending", reasons=a.reasons,
                          profile_reason=a.profile_reason,
                          missing_tracks=a.missing_tracks, clips=a.clips,
-                         **identity(manifest, config, moves))
+                         kept_script=a.kept_script, **identity(manifest, config, moves))
 
 
 def unsupported_status(pkg: Package) -> PackageStatus:

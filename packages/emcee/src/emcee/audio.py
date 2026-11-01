@@ -14,6 +14,7 @@ import io
 import json
 import re
 import wave
+from collections.abc import Collection, Iterator
 from pathlib import Path
 
 import typer
@@ -400,6 +401,85 @@ def _render_key(spoken: str, speech, *, chunking: Chunking | None, bed_key: str,
     return hashlib.sha256(key.encode()).hexdigest()
 
 
+def _load_bed(bed: Bed | None) -> tuple[bytes | None, int | None, str]:
+    """(bed_pcm, bed_rate, bed_key). The bed's content hash + gain are its part
+    of the cache key; a no-bed run's part is empty."""
+    if bed is None:
+        return None, None, ""
+    bed_pcm, bed_rate, _, _ = load_bed_pcm(bed.path)
+    return bed_pcm, bed_rate, f"\nbed={hashlib.sha256(bed_pcm).hexdigest()[:16]}:{bed.gain_db}"
+
+
+def _keyed_segments(notes: ScriptNotes, speech, *, chunking: Chunking | None, lexicon: Lexicon,
+                    bed: Bed | None, bed_key: str) -> Iterator[tuple[str, str, str]]:
+    """(stem, spoken text, cache key) per segment, in broadcast order."""
+    # Paths that hold PCM are loudness-normalized; the plain path ships the
+    # provider's MP3 untouched, so its key (and cache) is unchanged.
+    loud_key = f"\nloud={LOUDNESS_VERSION}" if (chunking is not None or bed is not None) else ""
+    for stem, text in _segment_texts(notes):
+        spoken = normalize_for_speech(text, lexicon)
+        yield stem, spoken, _render_key(spoken, speech, chunking=chunking, bed_key=bed_key,
+                                        loud_key=loud_key)
+
+
+def bed_key_of(bed: Bed | None) -> str:
+    """The bed's part of every clip key (empty with no bed). Loads the bed's
+    PCM to hash it, so a batch computes it once per presenter."""
+    return _load_bed(bed)[2]
+
+
+def count_clips_to_render(pkg: Path, notes: ScriptNotes, speech, force: bool, *,
+                          chunking: Chunking | None, lexicon: Lexicon | None = None,
+                          bed: Bed | None = None, bed_key: str) -> tuple[int, int]:
+    """(clips that would render, clips in the script) by the same keys
+    `_synthesize_dj_audio` compares (`_keyed_segments`): `force`, a missing
+    clip, or a sidecar key that is not today's. Reads only; renders nothing.
+    A corrupt or non-object sidecar counts as empty here (every clip stale),
+    where the render itself raises on it."""
+    audio_dir = pkg / "dj-audio"
+    sidecar = audio_dir / "segments.json"
+    try:
+        cached = json.loads(sidecar.read_text()) if sidecar.exists() else {}
+    except ValueError:
+        cached = {}
+    if not isinstance(cached, dict):
+        cached = {}
+    total = stale = 0
+    for stem, _spoken, key in _keyed_segments(notes, speech, chunking=chunking,
+                                              lexicon=lexicon or Lexicon.empty(), bed=bed,
+                                              bed_key=bed_key):
+        total += 1
+        filename = f"{stem}.mp3"
+        if force or not (audio_dir / filename).exists() or cached.get(filename) != key:
+            stale += 1
+    return stale, total
+
+
+def adopt_clips(pkg: Path, notes: ScriptNotes, speech, *, chunking: Chunking | None,
+                lexicon: Lexicon | None = None, bed: Bed | None = None,
+                skip: Collection[str] = ()) -> None:
+    """Record every clip already on disk in segments.json under today's key,
+    rendering nothing, so a kept script's old takes survive a key formula that
+    has moved on. A stem in `skip`, and a segment with no clip, is left alone.
+
+    Adoption is not a render: it never touches a clip or `rendered`, so
+    whatever records a real render cannot see an adopted clip. Later runs need
+    nothing further: the keys are on disk, so they hold across a repair round
+    and for a retry of a failed attempt.
+    """
+    audio_dir = pkg / "dj-audio"
+    sidecar = audio_dir / "segments.json"
+    cached: dict[str, str] = json.loads(sidecar.read_text()) if sidecar.exists() else {}
+    _, _, bed_key = _load_bed(bed)
+    adopted = {f"{stem}.mp3": key
+               for stem, _, key in _keyed_segments(notes, speech, chunking=chunking,
+                                                   lexicon=lexicon or Lexicon.empty(), bed=bed,
+                                                   bed_key=bed_key)
+               if stem not in skip and (audio_dir / f"{stem}.mp3").exists()}
+    if adopted:
+        atomic_write_text(sidecar, json.dumps({**cached, **adopted}, indent=2))
+
+
 def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
                          *, chunking: Chunking | None, lexicon: Lexicon | None = None,
                          bed: Bed | None = None,
@@ -453,20 +533,13 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     sidecar = audio_dir / "segments.json"
     cached: dict[str, str] = json.loads(sidecar.read_text()) if sidecar.exists() else {}
     keys: dict[str, str] = {}
-    bed_pcm = bed_rate = None
-    bed_key = ""
-    if bed is not None:
-        bed_pcm, bed_rate, _, _ = load_bed_pcm(bed.path)
-        bed_key = f"\nbed={hashlib.sha256(bed_pcm).hexdigest()[:16]}:{bed.gain_db}"
-    # Paths that hold PCM are loudness-normalized; the plain path ships the
-    # provider's MP3 untouched, so its key (and cache) is unchanged.
-    loud_key = f"\nloud={LOUDNESS_VERSION}" if (chunking is not None or bed is not None) else ""
-    for stem, text in _segment_texts(notes):
-        spoken = normalize_for_speech(text, lexicon)
+    bed_pcm, bed_rate, bed_key = _load_bed(bed)
+    # `keys` grows one segment at a time: the sidecar persisted below must not
+    # claim a new key for a segment that has not been rendered yet.
+    for stem, spoken, key in _keyed_segments(notes, speech, chunking=chunking, lexicon=lexicon,
+                                             bed=bed, bed_key=bed_key):
         filename = f"{stem}.mp3"
         dest = audio_dir / filename
-        key = _render_key(spoken, speech, chunking=chunking, bed_key=bed_key,
-                          loud_key=loud_key)
         keys[filename] = key
         if (force and filename not in rendered) or not dest.exists() or cached.get(filename) != key:
             detail(f"synthesizing {filename}")

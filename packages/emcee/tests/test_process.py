@@ -26,6 +26,7 @@ from emcee.tts.fake import FakeSpeechProvider
 from emcee.tts.provider import SpeechError
 
 from tests.helpers import build_package, voicing_for
+from tests.mlx_helpers import TEST_MODEL, calibrate_test_model
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -201,6 +202,7 @@ def test_resolve_bed_none_when_neither_set(tmp_path):
 
 
 def test_process_package_writes_dj_notes_and_audio_and_manifest_last(tmp_path, monkeypatch):
+    monkeypatch.setattr("emcee.process._today", lambda: "2026-10-01")
     monkeypatch.setattr(
         "emcee.process.provider_for",
         lambda settings, task: FakeProvider(completes=[_good_notes_json()]),
@@ -224,6 +226,8 @@ def test_process_package_writes_dj_notes_and_audio_and_manifest_last(tmp_path, m
         "profile": None,
         "profile_source": "llama",
         "tts": {"backend": "voxtral", "model": "fake-model", "voice": "fake-voice"},
+        "voiced_on": "2026-10-01",
+        "voiced_before": None,
     }
 
 
@@ -740,3 +744,130 @@ def test_chunked_cross_sentence_block_needs_no_rephrase(tmp_path, monkeypatch):
     assert pkg.manifest()["dj_notes"]["set_intros"]["2"] == SEG2
     assert "rephrase" not in requested
     assert (pkg.dir / "dj-audio" / "set2-intro.mp3").exists()
+
+
+# ---------------------------------------------------------------------------
+# emcee say --tts / --tts-model
+# ---------------------------------------------------------------------------
+
+def _res_recorder(calls):
+    def fake_factory(config, resolution, *, voice, clone_ref, clone_text):
+        calls.append((resolution.backend, resolution.model, voice, clone_ref, clone_text))
+        return "sentinel"
+    return fake_factory
+
+
+def test_tts_override_reaches_the_provider_for_a_presenter_clone(monkeypatch):
+    calls = []
+    monkeypatch.setattr("emcee.process.speech_provider_for", _res_recorder(calls))
+    calibrate_test_model(monkeypatch)
+    config = EmceeConfig(tts=TTSConfig(backend="voxtral", voice="house"))
+    host = _presenter(voice=None, voice_clone="/r.wav", voice_clone_text="words", tts="voxtral")
+
+    ad_hoc_speech(config, presenter=host, tts="mlx_audio", tts_model=TEST_MODEL)
+
+    assert calls == [("mlx_audio", TEST_MODEL, None, "/r.wav", "words")]
+
+
+def test_tts_override_bypasses_the_unpinned_presenter_under_mlx_house_error(monkeypatch):
+    calls = []
+    monkeypatch.setattr("emcee.process.speech_provider_for", _res_recorder(calls))
+    config = EmceeConfig(tts=TTSConfig(backend="mlx_audio"))
+    host = _presenter(voice=None, voice_clone="/r.wav", voice_clone_text="words")
+    ad_hoc_speech(config, presenter=host, tts="voxtral")
+    assert calls[0][0] == "voxtral"
+
+
+def test_tts_override_uses_the_presenters_tts_model_by_default(monkeypatch):
+    calls = []
+    monkeypatch.setattr("emcee.process.speech_provider_for", _res_recorder(calls))
+    calibrate_test_model(monkeypatch)
+    host = _presenter(voice=None, voice_clone="/r.wav", voice_clone_text="words",
+                      tts="mlx_audio", tts_model=TEST_MODEL)
+    ad_hoc_speech(EmceeConfig(), presenter=host, tts="mlx_audio")
+    assert calls[0][:2] == ("mlx_audio", TEST_MODEL)
+
+
+def test_tts_override_reaches_the_provider_for_clone(monkeypatch):
+    calls = []
+    monkeypatch.setattr("emcee.process.speech_provider_for", _res_recorder(calls))
+    calibrate_test_model(monkeypatch)
+    ad_hoc_speech(EmceeConfig(), clone_ref="/x.wav", clone_text="spoken", tts="mlx_audio",
+                  tts_model=TEST_MODEL)
+    assert calls == [("mlx_audio", TEST_MODEL, None, "/x.wav", "spoken")]
+
+
+def test_tts_override_reaches_the_provider_for_voice(monkeypatch):
+    calls = []
+    monkeypatch.setattr("emcee.process.speech_provider_for", _res_recorder(calls))
+    ad_hoc_speech(EmceeConfig(), voice="el-voice", tts="elevenlabs")
+    assert calls[0][0] == "elevenlabs" and calls[0][2] == "el-voice"
+
+
+@pytest.mark.parametrize("kwargs, message", [
+    (dict(clone_ref="/x.wav", clone_text="t", tts="elevenlabs"), "cannot be voiced on elevenlabs"),
+    (dict(clone_ref="/x.wav", tts="mlx_audio"), "needs the clip's transcript"),
+    (dict(voice="p", tts="mlx_audio"), "clone-only"),
+    (dict(tts="mlx_audio"), "mlx_audio is clone-only"),
+    (dict(presenter=_presenter(), tts="mlx_audio"), "mlx_audio is clone-only"),
+    (dict(presenter=_presenter(), tts="elevenlabs"), "use --voice instead of --presenter"),
+    (dict(tts="elevenlabs"), "use --voice to name one for elevenlabs"),
+    (dict(clone_ref="/x.wav", clone_text="t", tts="mlx_audio", tts_model="nope"),
+     "not calibrated"),
+    (dict(tts_model="m"), "--tts-model needs --tts mlx_audio"),
+    (dict(tts="voxtral", tts_model="m"), "--tts-model needs --tts mlx_audio"),
+])
+def test_tts_override_refusals(monkeypatch, kwargs, message):
+    monkeypatch.setattr("emcee.process.speech_provider_for", _recorder([]))
+    calibrate_test_model(monkeypatch)
+    config = EmceeConfig(tts=TTSConfig(backend="voxtral", voice="house"))
+    with pytest.raises(EmceeError, match=message):
+        ad_hoc_speech(config, **kwargs)
+
+
+def test_no_tts_flag_resolution_is_unchanged(monkeypatch):
+    calls = []
+    monkeypatch.setattr("emcee.process.speech_provider_for", _res_recorder(calls))
+    ad_hoc_speech(EmceeConfig(), voice="preset-x")
+    assert [(c[0], c[2], c[3], c[4]) for c in calls] == [("voxtral", "preset-x", None, None)]
+
+
+def test_tts_override_mlx_with_no_house_clip_is_refused(monkeypatch):
+    monkeypatch.setattr("emcee.process.speech_provider_for", _recorder([]))
+    with pytest.raises(EmceeError, match="needs a reference clip"):
+        ad_hoc_speech(EmceeConfig(tts=TTSConfig(backend="voxtral")), tts="mlx_audio")
+
+
+def test_unpinned_preset_presenter_under_an_mlx_house_is_a_preset_of_unknown_backend(monkeypatch):
+    monkeypatch.setattr("emcee.process.speech_provider_for", _recorder([]))
+    config = EmceeConfig(tts=TTSConfig(backend="mlx_audio"))
+    with pytest.raises(EmceeError) as exc:
+        ad_hoc_speech(config, presenter=_presenter(), tts="voxtral")
+    assert "preset voice of unknown backend" in str(exc.value)
+    assert "preset voice for mlx_audio" not in str(exc.value)
+
+
+def test_a_presenter_clone_cannot_go_to_elevenlabs(monkeypatch):
+    monkeypatch.setattr("emcee.process.speech_provider_for", _recorder([]))
+    host = _presenter(voice=None, voice_clone="/r.wav", voice_clone_text="words", tts="voxtral")
+    with pytest.raises(EmceeError, match="presenter 'waldo'.*cannot be voiced on elevenlabs"):
+        ad_hoc_speech(EmceeConfig(), presenter=host, tts="elevenlabs")
+
+
+def test_a_presenter_clip_without_a_transcript_cannot_go_to_mlx_audio(monkeypatch):
+    monkeypatch.setattr("emcee.process.speech_provider_for", _recorder([]))
+    calibrate_test_model(monkeypatch)
+    host = _presenter(voice=None, voice_clone="/r.wav", tts="voxtral")
+    with pytest.raises(EmceeError, match="needs the clip's transcript"):
+        ad_hoc_speech(EmceeConfig(), presenter=host, tts="mlx_audio", tts_model=TEST_MODEL)
+
+
+def test_a_house_clone_goes_to_mlx_audio_and_not_to_elevenlabs(monkeypatch):
+    calls = []
+    monkeypatch.setattr("emcee.process.speech_provider_for", _res_recorder(calls))
+    calibrate_test_model(monkeypatch)
+    house = TTSConfig(backend="voxtral", voice_clone="/house.wav", voice_clone_text="house words")
+    ad_hoc_speech(EmceeConfig(tts=house), tts="mlx_audio", tts_model=TEST_MODEL)
+    assert calls == [("mlx_audio", TEST_MODEL, None, "/house.wav", "house words")]
+    with pytest.raises(EmceeError, match="the house.*cannot be voiced on elevenlabs"):
+        ad_hoc_speech(EmceeConfig(tts=house), tts="elevenlabs")

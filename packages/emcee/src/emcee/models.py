@@ -67,3 +67,8 @@ class DJAudioBlock(DJClips):
     profile: str | None                                  # the effective profile voiced as
     profile_source: Literal["move", "artist", "llama"]  # where that profile came from
     tts: TTSRecord                                       # how its clips were synthesized
+    # Local YYYY-MM-DD the newest clip was rendered. Optional, serialized null:
+    # absence is legal in a legacy block, which is never round-tripped anyway.
+    voiced_on: str | None = None
+    # Local YYYY-MM-DD the voicing is known to predate; cleared by a render.
+    voiced_before: str | None = None

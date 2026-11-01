@@ -21,15 +21,18 @@ from herder import HerderError
 
 from emcee.config import DEFAULT_CONFIG_TOML, EmceeConfig, default_root, load_config
 from emcee.errors import EmceeError
+from emcee.models import ScriptNotes
 from emcee.moves import Moves, clear_move, load_moves, record_move
 from emcee.package_io import Package, UnsupportedPackage, rewrite_manifest
 from emcee.presenters import (
     Presenter, PresenterError, delete_presenter, list_presenters, load_presenter, save_presenter,
 )
 from emcee.audio import render_speech_mp3
-from emcee.process import (ad_hoc_bed, ad_hoc_speech, assignment_for, presenter_label,
-                           resolve_assignment,
-                           process_package, resolve_voicing, speech_for_voicing)
+from emcee.process import (Voicing, ad_hoc_bed, ad_hoc_speech, adopt_kept_clips, assignment_for,
+                           clips_to_render, keep_script_retry, kept_notes, presenter_bed_key,
+                           presenter_label, resolve_assignment, process_package,
+                           resolve_voicing, script_writer_mismatch, speech_for,
+                           speech_for_voicing)
 from emcee.speech_text import load_lexicon, normalize_for_speech
 from emcee.tts.bed import load_bed_pcm
 from emcee.tts.provider import SpeechError
@@ -37,7 +40,8 @@ from emcee.tts.verify import SttClient
 from emcee.tts.resolve import TTSResolutionError, resolve_tts
 from emcee.workspace import atomic_write_bytes
 from emcee.station import (AWAITING, PackageStatus, assess, awaiting_fix_reason, effective_profile, identity,
-                           manifest_performance_id, manifest_profile, manifest_voiced_profile,
+                           manifest_performance_id, manifest_profile, manifest_tts, manifest_voiced_before, manifest_voiced_on,
+                           manifest_voiced_profile,
                            manifest_voiced_source, package_status, profile_label, raw_manifest,
                            scan, target_problem, unsupported_status)
 
@@ -243,8 +247,20 @@ def _load_station(config: EmceeConfig, root: Path) -> tuple[Moves, list[PackageS
     return moves, statuses
 
 
+def _warn_if_tts_changed(manifest: dict, speech, voicing: Voicing) -> None:
+    """One warning when the recorded TTS backend or model is not today's. No
+    record, no comparison. Compares `speech.model`, the value a new record
+    would hold."""
+    tts = manifest_tts(manifest)
+    if tts is None:
+        return
+    if (tts.get("backend"), tts.get("model")) != (voicing.resolution.backend, speech.model):
+        typer.echo("warning: the TTS backend or model changed since this show was voiced; "
+                   "re-rolled clips will sound different from the kept ones", err=True)
+
+
 def _process_one(config: EmceeConfig, moves: Moves, pkg: Package, force: bool,
-                 fresh: Sequence[str] = ()) -> None:
+                 fresh: Sequence[str] = (), keep_script: bool = False) -> None:
     """Script + voice + broadcast-assemble one package. Shared by `run`'s
     per-package loop and `voice`.
 
@@ -252,13 +268,24 @@ def _process_one(config: EmceeConfig, moves: Moves, pkg: Package, force: bool,
     profile, presenter, title, TTS) and that `Voicing` is passed through to
     `process_package`; it is never hoisted above a per-package loop.
 
-    Order (strict surface): resolution (including use-time move validation)
-    and provider construction, then `speech.preflight()`, THEN the `--fresh`
-    unlink (`fresh` holds already-validated, de-duplicated clip stems), THEN
-    the manifest clear, THEN `process_package` (the first LLM spend). So no
+    Order (strict surface): resolution (including use-time move validation),
+    the `keep_script` refusals (no script to keep, written for another
+    presenter), provider construction, then `speech.preflight()`, THEN with
+    `keep_script` and `fresh` the clip adoption, THEN the `--fresh` unlink
+    (`fresh` holds already-validated, de-duplicated clip stems), THEN the
+    manifest clear, THEN `process_package` (the first LLM spend). So no
     configuration-only failure -- an invalid move target, an unpinned
     presenter under an mlx_audio house, a down mlx-audio server, a missing
-    model -- can discard a clip or take a broadcast-ready package off air.
+    model -- can discard a clip or take a broadcast-ready package off air. A bad
+    bed is caught early only with `keep_script` and `fresh` (adoption loads the
+    bed); otherwise it fails after the clear, so it can take a package off air.
+
+    With `keep_script` the clear nulls only `dj_audio`, so the script survives
+    any failure from there on: the package is pending with its script (the
+    failed-attempt state) and `--keep-script` retries it. Such a failure
+    carries that retry as a detail line. A failure before the clear changed
+    nothing but adopted keys, so it carries none: the same command is the
+    retry, and `--keep-script` alone would drop `--fresh`.
     """
     manifest = pkg.manifest()
     held = awaiting_fix_reason(manifest)
@@ -269,28 +296,29 @@ def _process_one(config: EmceeConfig, moves: Moves, pkg: Package, force: bool,
             + (f" ({detail})" if detail != held else "")
             + "; re-deliver from llama first")
     voicing = resolve_voicing(config, moves, manifest)
+    voiced = (manifest_voiced_on(manifest), manifest_voiced_before(manifest))
+    notes = None
+    if keep_script:
+        notes = kept_notes(manifest)
+        written_for = script_writer_mismatch(manifest, voicing.presenter)
+        if written_for is not None:
+            raise EmceeError(f"script was written for {written_for}; "
+                             "re-voice without --keep-script")
     speech, _bed = speech_for_voicing(config, voicing)
     try:
         speech.preflight()
-        if fresh:
-            audio_dir = pkg.dir / "dj-audio"
-            for stem in fresh:
-                (audio_dir / f"{stem}.mp3").unlink()
-            typer.echo(f"re-rolling {', '.join(fresh)} "
-                       "(previous take(s) discarded — TTS is non-deterministic)")
-        # JUDGMENT CALL: clears the manifest's dj_notes/dj_audio blocks before
-        # reprocessing -- but only now, after resolution, provider
-        # construction and preflight have all succeeded. `process_package`
-        # overwrites `dj-notes.md` well before the manifest write that marks
-        # its success, so a mid-pipeline failure on an already-*ready* package
-        # would otherwise leave `dj-notes.md` holding the new (unrecorded)
-        # script while the manifest -- and therefore `station.readiness` --
-        # still reports the *old* blocks as present. Clearing first means a
-        # failure here instead degrades the package to "pending". It never
-        # touches `dj-audio/segments.json` (the per-clip cache `--fresh`
-        # relies on).
-        rewrite_manifest(pkg, dj_notes=None, dj_audio=None)
-        process_package(config, pkg, speech, force, voicing=voicing)
+        if keep_script and fresh:
+            _warn_if_tts_changed(manifest, speech, voicing)
+            adopt_kept_clips(config, pkg, notes, speech, voicing, skip=fresh)
+        try:
+            _clear_and_process(config, pkg, speech, force, voicing, fresh, notes, voiced)
+        except Exception as exc:
+            if keep_script:
+                retry = keep_script_retry(pkg.dir)
+                details = getattr(exc, "details", [])
+                if retry not in details:
+                    exc.details = [*details, retry]
+            raise
     finally:
         # A raising close() must never mask a successful process_package --
         # or turn a completed package into a reported failure. Best-effort.
@@ -298,6 +326,34 @@ def _process_one(config: EmceeConfig, moves: Moves, pkg: Package, force: bool,
             speech.close()
         except Exception:
             pass
+
+
+def _clear_and_process(config: EmceeConfig, pkg: Package, speech, force: bool, voicing: Voicing,
+                       fresh: Sequence[str], notes: ScriptNotes | None,
+                       voiced: tuple[str | None, str | None]) -> None:
+    """The destructive half of `_process_one`: the `--fresh` unlink, the
+    manifest clear, `process_package`. `notes` is a kept script, or None."""
+    if fresh:
+        audio_dir = pkg.dir / "dj-audio"
+        for stem in fresh:
+            (audio_dir / f"{stem}.mp3").unlink()
+        typer.echo(f"re-rolling {', '.join(fresh)} "
+                   "(previous take(s) discarded — TTS is non-deterministic)")
+    # JUDGMENT CALL: clears the manifest's dj_notes/dj_audio blocks before
+    # reprocessing -- but only now, after resolution, provider
+    # construction and preflight have all succeeded. `process_package`
+    # overwrites `dj-notes.md` well before the manifest write that marks
+    # its success, so a mid-pipeline failure on an already-*ready* package
+    # would otherwise leave `dj-notes.md` holding the new (unrecorded)
+    # script while the manifest -- and therefore `station.readiness` --
+    # still reports the *old* blocks as present. Clearing first means a
+    # failure here instead degrades the package to "pending". It never
+    # touches `dj-audio/segments.json` (the per-clip cache `--fresh`
+    # relies on). A kept script (`notes`) is written back, never cleared:
+    # the manifest is the only copy of it a retry can read.
+    rewrite_manifest(pkg, dj_notes=notes, dj_audio=None)
+    process_package(config, pkg, speech, force, voicing=voicing, notes=notes,
+                    voiced_on=voiced[0], voiced_before=voiced[1])
 
 
 def _presenter_file(root: Path, presenter_id: str) -> Path | None:
@@ -426,6 +482,59 @@ def _echo_plan(config: EmceeConfig, to_voice: list[PackageStatus], stale: int) -
         out(_stale_note(stale))
 
 
+MAX_CONSECUTIVE_FAILURES = 3
+
+
+def _keep_plan_counts(config: EmceeConfig, presenter: Presenter, to_voice: list[PackageStatus],
+                      kept: dict[str, ScriptNotes], force: bool) -> dict[str, tuple[int, int]]:
+    """(clips that render, clips) per package, by key comparison. One speech
+    provider and one bed hash serve the whole batch: every selected package
+    resolves to the same presenter."""
+    speech, _bed = speech_for(config, presenter)
+    try:
+        bed_key = presenter_bed_key(config, presenter)
+        return {s.path.name: clips_to_render(config, Package(s.path), kept[s.path.name], speech,
+                                             presenter, bed_key, force)
+                for s in to_voice}
+    finally:
+        try:
+            speech.close()
+        except Exception:
+            pass
+
+
+def _echo_would_voice(config: EmceeConfig, status: PackageStatus) -> None:
+    view = assignment_for(config, status.profile)
+    line = (f"would voice: {status.path.name}  {status.profile or '(none)'}  "
+            f"{presenter_label(view)}")
+    if view.presenter is not None:
+        line += _dry_run_marker(config, view.presenter)
+    typer.echo(line)
+
+
+def _echo_keep_plan(config: EmceeConfig, presenter: Presenter, to_voice: list[PackageStatus],
+                    counts: dict[str, tuple[int, int]], stale: int) -> None:
+    """The plan `run --keep-script` prints before any spend (stderr): one
+    `kept script` group, the TTS, and the exact count of clips that render."""
+    def out(line: str) -> None:
+        typer.echo(line, err=True)
+
+    stale_clips = sum(n for n, _ in counts.values())
+    total = sum(t for _, t in counts.values())
+    out(f"to voice: {_plural(len(to_voice), 'package')} from their kept scripts")
+    out(f"  {'kept script':<12}{len(to_voice):>3}")
+    for s in to_voice:
+        out(f"      {s.path.name}")
+    out("The scripts are kept: no scriptwriting LLM cost (a content-filter repair can still "
+        "make a rephrase call).")
+    out("TTS:")
+    who, how = _plan_tts_cell(config, presenter.id)
+    out(f"  {who}  {how}  {_plural(len(to_voice), 'package')}")
+    out(f"{stale_clips} of {_plural(total, 'clip')} will re-render")
+    if stale:
+        out(_stale_note(stale))
+
+
 @app.command()
 def run(
     force: bool = typer.Option(False, "--force",
@@ -444,10 +553,22 @@ def run(
     dry_run: bool = typer.Option(
         False, "--dry-run",
         help="List what would be voiced, and with which presenter, then the plan; no LLM, "
-             "TTS, or writes (--force is ignored); never asks"),
+             "TTS, or writes (--force is ignored, except for the --keep-script clip count); never asks"),
     yes: bool = typer.Option(
         False, "--yes", "-y",
         help="Voice without asking (the plan is still printed)"),
+    keep_script: bool = typer.Option(
+        False, "--keep-script",
+        help="Re-voice one presenter's packages from their existing scripts (needs "
+             "--presenter): no scriptwriting LLM call. Stops after 3 consecutive failures"),
+    presenter: str = typer.Option(
+        None, "--presenter",
+        help="With --keep-script: the presenter id whose packages to re-voice "
+             "(case-insensitive)"),
+    drifted: bool = typer.Option(
+        False, "--drifted",
+        help="With --keep-script: only packages whose recorded TTS differs from today's "
+             "(no record counts as drifted)"),
 ):
     """Voice every pending package in the station, after a plan and a yes.
 
@@ -461,7 +582,9 @@ def run(
 
     A pending package with missing track audio is skipped, whatever else is
     wrong with it (`skip <slug>: N audio file(s) missing; re-deliver from
-    llama`): voicing cannot fix it. "unsupported" (pre-v3) packages are
+    llama`): voicing cannot fix it. So is a failed `emcee voice --keep-script`
+    attempt (`skip <slug>: kept script awaiting retry (...)`): a sweep would
+    replace the script it kept. "unsupported" (pre-v3) packages are
     reported and never modified. A package whose recorded move targets a
     profile with no `\\[assign.profiles]` entry is an error row and is never
     voiced, even when it is otherwise ready. Per-package failures are
@@ -474,17 +597,41 @@ def run(
 
     Exits 1 whenever an error row was printed (proceeded, declined, or
     nothing to voice); otherwise a decline or nothing to voice exits 0.
+
+    `--keep-script --presenter ID [--drifted]` replaces the sweep with a batch
+    form of `emcee voice --keep-script`: every package with a script whose
+    presenter resolves to ID, ready or pending (a failed keep-script attempt
+    included), is re-voiced from that script. The plan shows one `kept script`
+    group and `N of M clips will re-render` (all of them under `--force`). A
+    READY package with 0 clips to render is skipped untouched (`skip <slug>:
+    every clip is already current`; no clear, no rewrite) unless `--force`;
+    pending packages and the failed-attempt state are never skipped on that
+    count: they have no usable `dj_audio`, so the run finishes them.
+    `--drifted` keeps those whose recorded TTS differs from today's, as
+    `emcee status --drifted` compares (a voiced block with no record counts, as
+    does a null `dj_audio`). A recorded presenter other than ID is skipped
+    (`script was written for <id>`). The clear nulls `dj_audio` on shows that
+    may be airing, so the batch stops after 3 consecutive failures.
     """
+    if keep_script and presenter is None:
+        _usage("--keep-script needs --presenter")
+    if not keep_script and (presenter is not None or drifted):
+        _usage("--presenter and --drifted need --keep-script")
     config = load_config()
     root = _resolve_station_root(config, station_root)
     moves, statuses = _load_station(config, root)
     stale = _stale_moves(moves, statuses)
 
     _note_unmatched_profiles(statuses, profile)
-    filtering = bool(profile) or assigned
+    filtering = bool(profile) or assigned or keep_script
     unreadable = 0
     failed = False
     to_voice: list[PackageStatus] = []
+    want = presenter.lower() if presenter is not None else ""
+    resolved_to_presenter = 0
+    kept: dict[str, ScriptNotes] = {}
+    loaded: Presenter | None = None
+    tts_now = _TtsNow(config)
     for status in statuses:
         slug = status.path.name
         if filtering:
@@ -495,6 +642,14 @@ def run(
                 continue
             if assigned and assignment_for(config, status.profile).source != "profile":
                 continue
+            if keep_script:
+                if (assignment_for(config, status.profile).presenter or "").lower() != want:
+                    continue
+                if status.state in ("pending", "ready", AWAITING) and status.move_problem is None:
+                    raw = raw_manifest(status.path / "manifest.json")
+                    if not isinstance(raw, dict) or raw.get("dj_notes") is None:
+                        continue
+                resolved_to_presenter += 1
         if status.state == "unsupported":
             typer.echo(f"skip {slug}: {status.reasons[0]}")
             continue
@@ -511,24 +666,68 @@ def run(
         if status.state == AWAITING:
             typer.echo(f"skip {slug}: awaiting fix from llama")
             continue
-        if status.state == "ready":
+        if status.state == "ready" and not keep_script:
             continue
         if status.missing_tracks:   # tracks first: voicing cannot fix them
             typer.echo(f"skip {slug}: {status.missing_tracks} audio file(s) missing; "
                        "re-deliver from llama")
             continue
-        if dry_run:
-            view = assignment_for(config, status.profile)
-            line = f"would voice: {slug}  {status.profile or '(none)'}  {presenter_label(view)}"
-            if view.presenter is not None:
-                line += _dry_run_marker(config, view.presenter)
-            typer.echo(line)
+        if keep_script:
+            if loaded is None:
+                found = _presenter_or_marker(config, presenter)
+                if isinstance(found, str):
+                    raise EmceeError(f"presenter {presenter}: {found}")
+                loaded = found
+            try:
+                notes = kept_notes(raw)
+            except EmceeError as exc:
+                typer.echo(f"error: {slug}: {exc}", err=True)
+                failed = True
+                continue
+            written_for = script_writer_mismatch(raw, loaded)
+            if written_for is not None:
+                typer.echo(f"skip {slug}: script was written for {written_for}")
+                continue
+            if drifted:
+                view = tts_now.view(status)
+                if not (view.drifted or view.recorded is None):
+                    continue
+            kept[slug] = notes
+        elif status.kept_script:
+            typer.echo(f"skip {slug}: kept script awaiting retry "
+                       f"(emcee voice {slug} --keep-script)")
+            continue
+        if dry_run and not keep_script:   # keep-script lists after its all-current skips
+            _echo_would_voice(config, status)
         to_voice.append(status)
 
     if unreadable:
         typer.echo(f"note: {unreadable} package(s) skipped: manifest unreadable "
                    "(see emcee status --list)")
-    if to_voice:
+    if keep_script:
+        if resolved_to_presenter == 0:
+            typer.echo(f"note: no package resolves to presenter {presenter}")
+        counts: dict[str, tuple[int, int]] = {}
+        if to_voice:
+            counts = _keep_plan_counts(config, loaded, to_voice, kept, force)
+            if not force:
+                # A ready package with nothing to render needs neither the clear nor
+                # the rewrite; pending ones (incl. a failed attempt, dj_audio null)
+                # have no usable dj_audio and need the run to finish them.
+                current = [s for s in to_voice
+                           if s.state == "ready" and counts[s.path.name][0] == 0]
+                for s in current:
+                    typer.echo(f"skip {s.path.name}: every clip is already current")
+                to_voice = [s for s in to_voice if s not in current]
+                counts = {s.path.name: counts[s.path.name] for s in to_voice}
+            if dry_run:
+                for s in to_voice:
+                    _echo_would_voice(config, s)
+        if to_voice:
+            _echo_keep_plan(config, loaded, to_voice, counts, stale)
+        elif stale:
+            typer.echo(_stale_note(stale), err=True)
+    elif to_voice:
         _echo_plan(config, to_voice, stale)
     elif stale:
         typer.echo(_stale_note(stale), err=True)
@@ -549,16 +748,26 @@ def run(
             raise typer.Exit(1 if failed else 0)
 
     processed = 0
-    for status in to_voice:
+    consecutive = 0
+    for i, status in enumerate(to_voice):
         slug = status.path.name
         try:
-            _process_one(config, moves, Package(status.path), force)
+            _process_one(config, moves, Package(status.path), force, keep_script=keep_script)
         except Exception as exc:
             typer.echo(f"error: {slug}: {_typed_error(exc)}", err=True)
             for line in getattr(exc, "details", []):
                 typer.echo(f"  {line}", err=True)
             failed = True
+            consecutive += 1
+            if keep_script and consecutive >= MAX_CONSECUTIVE_FAILURES:
+                rest = [s.path.name for s in to_voice[i + 1:]]
+                typer.echo(f"stopping after {MAX_CONSECUTIVE_FAILURES} consecutive failures "
+                           "(each clears dj_audio on a show that may be airing)", err=True)
+                if rest:
+                    typer.echo(f"not attempted: {', '.join(rest)}", err=True)
+                break
             continue
+        consecutive = 0
         processed += 1
         typer.echo(f"voiced: {slug}")
 
@@ -576,19 +785,21 @@ def voice_cmd(
         [], "--fresh",
         help="Re-roll (re-synthesize) just these DJ-clip stems, e.g. set1-intro "
              "or 99-outro; repeatable. Deletes the cached clip (after the TTS preflight passes) so "
-             "reprocessing re-renders only it -- other clips keep their "
-             "cached audio, PROVIDED the DJ script comes back unchanged. "
-             "CAVEATS (both unlike llama, which stamps and replays a "
-             "provenance voice/script): (1) emcee re-scripts on every call -- "
-             "with a real, non-deterministic LLM, a re-voice's regenerated "
-             "script text usually differs at least slightly, which changes "
-             "EVERY clip's cache key and defeats single-clip granularity "
-             "(every clip re-renders, not just the named one) -- there is no "
-             "way around this short of a script-reuse mode this CLI does not "
-             "have yet; (2) a re-voice always resolves the voice fresh from "
-             "config + presenter assignment (no stamp), so if the configured "
-             "voice changed since the last render, that alone also "
-             "invalidates every clip's cache key."),
+             "reprocessing re-renders it. To re-roll ONLY the named clips, add "
+             "--keep-script; without it emcee re-scripts first, and a new "
+             "script changes the other clips' cache keys too. "
+             "CAVEAT (unlike llama, which stamps and replays a provenance "
+             "voice): without --keep-script a re-voice always resolves the "
+             "voice fresh from config + presenter assignment (no stamp), so if "
+             "the configured voice changed since the last render, that alone "
+             "also invalidates every clip's cache key."),
+    keep_script: bool = typer.Option(
+        False, "--keep-script",
+        help="Re-voice from the package's existing script: no scriptwriting LLM call (a "
+             "content-filter repair can still make one). Refuses a script written for another "
+             "presenter. Alone, cache keys compare as usual, so every clip may re-render; with "
+             "--fresh only the named clips render and every other clip on disk is kept. A failed "
+             "attempt keeps the script; re-run with --keep-script to retry."),
     force: bool = typer.Option(False, "--force",
                                help="Re-synthesize every DJ clip even if cached"),
     station_root: Path = typer.Option(
@@ -612,12 +823,22 @@ def voice_cmd(
     later `voice`/`run` call on it succeeds -- there is no automatic
     rollback to the prior (working) script/audio.
 
+    `--keep-script` voices the manifest's existing `dj_notes` instead of
+    writing a new script. Its clear nulls only `dj_audio`, so a failed
+    attempt leaves the package pending WITH its script (`emcee status` says
+    `kept script`, `emcee run` skips it) and `--keep-script` retries it, with
+    no `--fresh` needed: the kept takes were recorded before the first render.
+    `--force` with `--fresh` and `--keep-script` together is a usage error.
+
     Per-package failures -- including a structurally invalid manifest (e.g.
     a track missing its filename, or a briefing block missing entirely),
     since emcee validates no manifest model -- are caught broadly and
     printed as `error: <slug>: <message>` plus any indented detail lines,
     matching `emcee run`, instead of a raw traceback. Exits 1 on failure.
     """
+    if force and fresh and keep_script:
+        _usage("--force with --fresh and --keep-script: --fresh here means only the named "
+               "clips, --force means every clip")
     config = load_config()
     moves = load_moves(config.root)   # a bad file fails here, before any work
     pkg = Package(_resolve_package(config, package, station_root))
@@ -640,7 +861,7 @@ def voice_cmd(
         stems = list(dict.fromkeys(fresh))  # dedupe: a repeated stem must not double-unlink
 
     try:
-        _process_one(config, moves, pkg, force, fresh=stems)
+        _process_one(config, moves, pkg, force, fresh=stems, keep_script=keep_script)
     except Exception as exc:
         typer.echo(f"error: {pkg.dir.name}: {_typed_error(exc)}", err=True)
         for line in getattr(exc, "details", []):
@@ -661,8 +882,8 @@ def say_cmd(
              "preset voice"),
     clone_text: str = typer.Option(
         None, "--clone-text",
-        help="Transcript of the --clone clip; required when the house backend is "
-             "mlx_audio, ignored otherwise"),
+        help="Transcript of the --clone clip; required when the backend (the house "
+             "one, or --tts) is mlx_audio, ignored otherwise"),
     voice: str = typer.Option(
         None, "--voice", help="Preset voice name, instead of the house [tts] voice"),
     presenter: str = typer.Option(
@@ -686,6 +907,14 @@ def say_cmd(
         False, "--raw",
         help="Speak the text verbatim: skip symbol expansion and the "
              "pronunciation lexicon"),
+    tts: str = typer.Option(
+        None, "--tts",
+        help="Voice this render on voxtral, elevenlabs or mlx_audio instead of the "
+             "presenter's/house backend (this render only)"),
+    tts_model: str = typer.Option(
+        None, "--tts-model",
+        help="mlx_audio model for this render (needs --tts mlx_audio); default the "
+             "presenter's tts_model, else [tts.mlx_audio] model"),
 ):
     """Voice an arbitrary text file to an MP3 -- no package, no script, no LLM.
 
@@ -697,8 +926,8 @@ def say_cmd(
     VOICE: at most one of `--clone`, `--voice` and `--presenter`; with none of
     them the house `[tts] voice`/`voice_clone` reads it, including its
     `[tts] voice_clone_text`. `--clone-text` is the `--clone` clip's
-    transcript, required when the house backend is mlx_audio (which is
-    clone-only, so `--voice` is refused there); `--presenter` resolves exactly
+    transcript, required when the backend (the house one, or `--tts`) is
+    mlx_audio (which is clone-only, so `--voice` is refused there); `--presenter` resolves exactly
     as in `emcee run`, pin included.
 
     BED: resolved exactly as a voiced package's is (the presenter's own bed,
@@ -715,16 +944,29 @@ def say_cmd(
     are filled with the clip's own room tone (`\\[tts] room_tone`). Chunked and
     bedded renders are loudness-normalized; `--no-chunk` without a bed ships
     the provider's own MP3 un-normalized.
+
+    BACKEND: `--tts voxtral|elevenlabs|mlx_audio` voices this render on that
+    backend, whatever the presenter pins or the house uses, with the voice
+    source (presenter clip and transcript, `--clone`, `--voice`) unchanged.
+    `--tts-model` picks the mlx_audio model (needs `--tts mlx_audio`). A
+    preset voice (a presenter's, or the house `[tts] voice`) is refused on a
+    different backend (use `--voice`), as is a clone on elevenlabs.
     """
     config = load_config()
     if clone_text is not None and clone is None:
         _usage("--clone-text needs --clone")
-    house_mlx = config.tts.backend == "mlx_audio"
+    if tts is not None and tts not in ("voxtral", "elevenlabs", "mlx_audio"):
+        _usage("--tts must be voxtral, elevenlabs or mlx_audio")
+    if tts_model is not None and tts != "mlx_audio":
+        _usage("--tts-model needs --tts mlx_audio")
+    effective = tts or config.tts.backend
+    house_mlx = effective == "mlx_audio"
+    which = "backend" if tts else "house backend"
     if house_mlx and voice:
-        _usage("--voice is a preset, but the house backend is mlx_audio, which is clone-only "
+        _usage(f"--voice is a preset, but the {which} is mlx_audio, which is clone-only "
                "(use --clone with --clone-text, or --presenter)")
     if house_mlx and clone is not None and not (clone_text or "").strip():
-        _usage("--clone needs --clone-text (the clip's transcript) when the house backend "
+        _usage(f"--clone needs --clone-text (the clip's transcript) when the {which} "
                "is mlx_audio")
 
     text = text_file.read_text().strip()
@@ -734,7 +976,8 @@ def say_cmd(
     host = load_presenter(config.root, presenter) if presenter else None
     speech = ad_hoc_speech(config, clone_ref=str(clone) if clone else None,
                            clone_text=clone_text if house_mlx else None,
-                           voice=voice, presenter=host)
+                           voice=voice, presenter=host,
+                           **({"tts": tts, "tts_model": tts_model} if tts else {}))
     resolved_bed = ad_hoc_bed(config, host, bed_path=bed, no_bed=no_bed,
                               gain_db=bed_gain)
 
@@ -838,7 +1081,8 @@ def _status_json_row(config: EmceeConfig, s: PackageStatus, tts_now: _TtsNow) ->
             "assigned_presenter": presenter, "assignment_source": source,
             "tts": s.tts, "move_problem": s.move_problem,
             "tts_now": _tts_now_json(tts_view), "tts_drifted": tts_view.drifted,
-            "awaiting_fix": s.awaiting_fix}
+            "awaiting_fix": s.awaiting_fix,
+            "voiced_on": s.voiced_on, "voiced_before": s.voiced_before}
 
 
 def _tts_now_json(v: _TtsView) -> dict | None:
@@ -1184,7 +1428,9 @@ def move_cmd(
     # "voiced on the next run" claim: `run` skips such a package.
     missing = (f"{a.missing_tracks} audio file(s) missing — re-deliver from llama"
                if a.missing_tracks else None)
-    if not a.voiced:
+    if a.kept_script:
+        state = "unvoiced; " + (missing or "kept script awaiting retry")
+    elif not a.voiced:
         state = "unvoiced; " + (missing or f"voiced as {after} on the next emcee run")
     elif a.profile_reason is None:
         state = f"ready; already voiced as {after}" + (f"; {missing}" if missing else "")

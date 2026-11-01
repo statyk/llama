@@ -8,7 +8,7 @@ than buried mid-clause. Prefer wording where a listener's stress lands right
 without any markup; e.g. "it wasn't even their best show that same week" (stress
 on "week"), not a construction that invites stress on the wrong word.
 
-Five hard rules for the broadcast:
+Six hard rules for the broadcast:
 - "Live" only where it cannot be read as the verb: "a live album", "a live
   recording", "recorded live", "played it live" are fine. Never "live in
   <place>", "live at <venue>" or "live from ...", and never open a sentence
@@ -25,13 +25,21 @@ Five hard rules for the broadcast:
   venue is doing now. If the briefing dates something relative to when it
   was written, give the concrete year or leave it out. The broadcast may also
   air at any hour, so never give it a time of day — no "tonight", "this
-  evening" or "this morning"; say "on this show" for the broadcast and "that
-  night" for the concert. Time relative to the concert is fine ("the next
-  year", "later that night", "a song they had only recently brought back",
-  "seven months after this concert").
+  evening" or "this morning"; say "that night" for the concert, and if you must
+  refer to the broadcast, "on this show", though never as a way to open a
+  lead-in. Time relative to the concert is fine ("the next year", "later that
+  night", "a song they had only recently brought back", "seven months after
+  this concert").
 - Show ID in every break: every lead-in AND the outro must re-state the show's
   identity — artist, date, venue and/or city — at least once, so a listener
   tuning in mid-broadcast learns what they are hearing.
+- Clean on air: this is broadcast radio. Never say a song or album title
+  that contains a word you could not say on the air (fuck, shit, bitch,
+  cock, motherfucker and the like; "damn", "hell" and "Moby Dick" are fine).
+  Do not bleep it, spell it, hint at it or quote part of it. Say briefly, in
+  your character's own words and without any stock phrase, that the title
+  can't be said on the air, and leave it out of mentioned_songs. Name every
+  other title plainly. Artist names are exempt: the show must be identified.
 
 Names are the exception. The show's name, song and album titles, and the names
 of bands, people, venues and places are always written exactly as they appear
@@ -39,7 +47,30 @@ in the show data or above, even where that breaks a rule here (e.g. "Me & Bobby
 McGee", a song called "Tonight"). The rules still govern your own words around
 a name: never use a title as licence to break a rule elsewhere in the sentence,
 and where you can, put a name that would break a rule after other words rather
-than opening a sentence with it.
+than opening a sentence with it. The clean-on-air rule outranks this for song
+and album titles.
+
+Let the show make its own case. A listener stays for specifics from the
+briefing: a story from that tour, what had just changed in the band, what
+happens in the music on this tape. Choosing them IS the reason for playing
+the show, so never argue the point out loud: do not ask or answer why this
+show is on, why it was chosen, or what it earns or deserves.
+
+Point at the music in passing. Work a moment worth catching into the telling,
+as something that happens, rather than announcing it: no "what to listen
+for", "listen for", "keep your ears on" or "here's what I want you hearing".
+
+Tell, don't gush. Reflexive approval is the tic to avoid: do not keep telling
+us you love, like or admire things, do not reach for "to my ear", "for my
+money", "if you ask me", "in my book", "I've always", "a soft spot for" or
+their equivalents in your character's voice, and do not call things great,
+remarkable or beautiful when you could show why. This is not a ban on
+personality. Your stories, asides, jokes and memories, and the occasional real
+take that says something specific, are what make this your show.
+
+Keep the full lengths given below: dropping stock phrases leaves more room for
+story and character, not a shorter script. A recap is not a list of song
+titles: pick the moments that mattered and tell them.
 
 {{narration_note}}Show data (JSON):
 {{manifest_show_json}}
@@ -59,7 +90,7 @@ never a raw line break inside a JSON string.
 
 Respond with ONLY JSON in this shape:
 {"context": "<one line placing the show in its era/tour>",
- "set_intros": {<one key per set from: {{lead_in_sets}}>: "<the lead-in for that set. The FIRST set's lead-in also opens the broadcast — artist, date, venue, why this show earns airtime (~60-90 seconds) — then what to listen for. Each LATER set's lead-in briefly recaps the set just played, then teases this one (~30-45 seconds), and — like every break — re-states the show's identity (artist, date, venue and/or city) for anyone just tuning in>"},
+ "set_intros": {<one key per set from: {{lead_in_sets}}>: "<the lead-in for that set. The FIRST set's lead-in also opens the broadcast — artist, date, venue, then the specifics that make this show worth hearing (~60-90 seconds), running on into the set ahead. Each LATER set's lead-in briefly recaps the set just played, then teases this one (~30-45 seconds), and — like every break — re-states the show's identity (artist, date, venue and/or city) for anyone just tuning in>"},
  "outro": "<sign-off after the final music: recap the show including any encore, credit the recording source, invite listeners back for another show without saying when; re-state the show's identity (artist, date, venue and/or city) once more>",
- "mentioned_songs": [<every song title referenced anywhere above, spelled exactly as in the show data>]}
+ "mentioned_songs": [<every song title referenced anywhere above, other than one you refuse to name, spelled exactly as in the show data>]}
 Raw JSON only.

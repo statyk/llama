@@ -320,6 +320,8 @@ class DJAudio(BaseModel):
     profile: str | None = None         # emcee-written: the profile it was voiced as
     profile_source: str | None = None  # "move" | "artist" | "llama"
     tts: DJAudioTTS | None = None      # emcee-written: backend, model, voice
+    voiced_on: str | None = None       # emcee-written: local YYYY-MM-DD the newest clip was rendered
+    voiced_before: str | None = None   # emcee-written: local YYYY-MM-DD the voicing predates
 
 
 class SetBreak(BaseModel):

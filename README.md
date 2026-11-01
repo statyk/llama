@@ -429,17 +429,26 @@ emcee's own factual guard, not llama's.
     emcee run --yes                    # same, without the question (the plan still prints)
     emcee run --dry-run                # the would-voice rows and the plan; never asks or writes
     emcee run --force                  # re-synthesize every DJ clip even if cached
+    emcee run --keep-script --presenter ID [--drifted]
+                                       # re-voice ID's packages from their existing scripts
     emcee voice gratefuldead-1973-06-10
                                        # script + voice + assemble ONE package directly;
                                        # a name or unique substring under [station] root,
                                        # or a path
     emcee voice gratefuldead-1973-06-10 --fresh set1-intro
-                                       # re-roll just this DJ clip (repeatable) --
-                                       # in practice, with a real LLM, emcee
-                                       # re-scripts on every call and the
-                                       # regenerated text usually changes EVERY
-                                       # clip's cache key, so normally every clip
-                                       # re-renders anyway, not just the named one
+                                       # re-roll this DJ clip (repeatable) --
+                                       # on its own emcee re-scripts first, and
+                                       # the new text usually changes EVERY clip's
+                                       # cache key, so normally every clip
+                                       # re-renders; add --keep-script for only
+                                       # the named one
+    emcee voice gratefuldead-1973-06-10 --keep-script
+                                       # re-voice from the existing script: no
+                                       # scriptwriting LLM call. Cache keys compare
+                                       # as usual, so every clip may re-render
+    emcee voice gratefuldead-1973-06-10 --keep-script --fresh set1-intro
+                                       # render ONLY this clip; every other clip
+                                       # on disk is kept as it is
     emcee status                       # summary by (effective) profile: ready / pending / other
     emcee status --list                # per show; a moved show reads "southern (from funk)"
     emcee status --json
@@ -451,6 +460,53 @@ emcee's own factual guard, not llama's.
                                        # back to llama's profile (exempts it from an artist rule)
     emcee move tedeschitrucksband-2012-11-29 --clear
     emcee move --list                  # every recorded move; `missing` = no package has it
+
+**Re-voicing with `--keep-script`.** It reuses the manifest's script, so the
+only LLM call it can make is a content-filter repair, which rewords the refused
+sentence and saves it straight back to the manifest. It refuses a script
+written for another presenter (`script was written for <id>; re-voice without
+--keep-script`, where `?` means the package never recorded one) and a package
+with no usable script, both before anything changes. With `--fresh`, a warning
+says when the recorded TTS backend or model is not today's: the re-rolled clips
+will sound different from the kept ones. `--force` with `--fresh` and
+`--keep-script` together is a usage error.
+
+**The batch form: `emcee run --keep-script --presenter ID`** (add `--drifted`,
+`--profile`, `--force`, `--dry-run`, `--yes`). It selects every package that
+has a script and whose presenter resolves to ID (compared case-insensitively),
+ready or pending, a failed `--keep-script` attempt included; an ID that no
+package resolves to prints `note: no package resolves to presenter X`.
+`--keep-script` needs `--presenter`, and `--presenter` and `--drifted` need
+`--keep-script`. A ready package with nothing to render (0 clips) is skipped
+untouched, with `skip <slug>: every clip is already current` (no clear, no
+manifest rewrite, so its mtime does not move) unless `--force`; pending
+packages and a failed attempt are never skipped on that count, since they have
+no usable `dj_audio`. `--drifted` keeps those whose recorded TTS backend or model
+differs from today's, as `emcee status --drifted` compares them; a voiced block
+with no TTS record counts as drifted, and so does a null `dj_audio`. Awaiting-fix
+packages and packages with missing track audio are skipped as `run` skips them,
+and a package whose recorded presenter is another prints `skip <slug>: script
+was written for <id>`. The plan shows one `kept script` group, says there is no
+scriptwriting LLM cost (a content-filter repair can still make a call), and
+gives `N of M clips will re-render` by comparing cache keys (every clip under
+`--force`, even with `--dry-run`), then asks `Proceed?`. Each re-voice clears
+`dj_audio` on a show that may be airing, so the batch stops after 3
+consecutive failures (`stopping after 3 consecutive failures`, then `not
+attempted: ...`); every other `run` selection carries on after a failure.
+
+A failed attempt never loses the script, but like any failed re-voice it takes
+the show off air: the manifest keeps `dj_notes` with `dj_audio` null, `emcee
+status` reads `kept script`, and plain `emcee run` skips it (`skip <slug>: kept
+script awaiting retry (emcee voice <slug> --keep-script)`). Retry with `emcee
+voice <slug> --keep-script`; no `--fresh` is needed, since the kept clips were
+recorded before the first render. Plain `emcee voice <slug>` on it writes a
+fresh script instead. Limits: `llama deliver` reads only `dj_audio`, so it treats
+this state as unvoiced; and with `dj_audio` null the presenter check passes, so
+a move or assign change between a failed attempt and its retry voices that
+script under the new presenter.
+
+`themotet-2007-04-22` and `warrenzevon-2000-05-29` have scripts that say profane
+titles, so re-voice those with a fresh script, not `--keep-script`.
 
 **Reading `emcee status`.** Profiles are effective: a recorded move, else an
 artist rule, else llama's. The summary has one row per profile (assigned
@@ -465,8 +521,8 @@ recorded backend (`-` unvoiced, `?` no usable record), plus
 profile, presenter, TTS) has a different backend, `(now: new model)` when
 only the model differs, or `(now: unresolved)` when that cannot be resolved;
 the voice hash is not compared. The reasons cell is a short summary
-(`unvoiced`, `no script`, `no m3u`, `N clips missing`, `N of M audio
-missing`; blank for an awaiting-fix show). `--json` has the models and the
+(`unvoiced`, `kept script`, `no script`, `no m3u`, `N clips missing`, `N of M
+audio missing`; blank for an awaiting-fix show). `--json` has the models and the
 full reasons. Drift is display-only: it never makes a show pending, and
 "pending" never means off air (a show pending only for a profile change keeps
 airing its old voicing). `--json` is always per-show, filters apply, and rows
@@ -475,7 +531,8 @@ carry `slug`, `state`, `reasons`, `profile`, `delivered_profile`,
 `tts` (as recorded, null if absent), `move_problem`, `tts_now`
 (`{backend, model}`, `{unresolved: <message>}`, or null for error and
 unsupported rows) and `tts_drifted` (null without a record or a resolved
-"now"). States: ready, pending, unsupported (pre-v3 manifest: re-deliver from
+"now"), plus `voiced_on` and `voiced_before` (local `YYYY-MM-DD` strings, null
+when absent, as in any legacy block; see below). States: ready, pending, unsupported (pre-v3 manifest: re-deliver from
 llama), error (a malformed manifest renders as a row with its exception
 message). Unmatched `--profile`/`--tts` values and recorded moves matching no
 package are noted on stderr.
@@ -491,9 +548,17 @@ configured at all:
                                        # --clone-text "<transcript>")
     emcee say notes.txt --presenter casey
                                        # read it in a presenter's voice (and bed)
+    emcee say notes.txt --presenter casey --tts mlx_audio --tts-model <model>
+                                       # this render only, on another backend
     emcee say notes.txt --no-bed       # dry read; --bed FILE / --bed-gain DB override
     emcee say notes.txt --no-chunk     # one call for the whole passage
     emcee say notes.txt --raw          # verbatim: no symbol expansion, no lexicon
+
+`--tts voxtral|elevenlabs|mlx_audio` voices one render on that backend instead
+of the presenter's pin or the house backend (the voice clip/transcript stays
+the same); `--tts-model` needs `--tts mlx_audio` and defaults to the presenter's
+`tts_model`. A preset voice does not carry to another backend (use `--voice`),
+nor a clone to elevenlabs; mlx_audio needs a clip and its transcript.
 
 Voice sources are mutually exclusive (`--clone` / `--voice` / `--presenter`);
 with none of them the house `[tts] voice`/`voice_clone` reads it. The bed
@@ -543,7 +608,20 @@ old voicing until the re-voice lands), and the next `emcee run` lists it
 under `re-voice` in the plan, with the reason, before asking. Each voiced
 manifest records the profile it was voiced as, where that came from, and
 the TTS backend, model and voice (`dj_audio.profile`, `profile_source`,
-`tts`). Changing a presenter, a presenter's TTS pin or the house voice does
+`tts`) and, as `voiced_on`, the local date its newest clip was rendered. A run
+that renders a clip sets `voiced_on` to today and clears `voiced_before` (a date
+the voicing is known to predate); a run that renders nothing (every cache key
+matched) carries both unchanged,
+and a retry after a failed attempt, which clears `dj_audio`, has nothing to
+carry, so both stay null. Packages voiced before emcee recorded either date
+are dated once by `python scripts/backfill_voiced_on.py [--station-root P]
+[--apply]` (dry run unless `--apply`; it keeps each manifest's mtime, refuses
+while an `emcee` or `llama` process runs, and must run BEFORE any re-voice).
+The backfill changes the sha of voiced station manifests that llama marked
+`awaiting_fix` (136 measured), so `scripts/bulk_apply.py unmark` refuses those
+rows (`station copy changed since marking`) and that batch's reversal is lost for
+them; `clear-mark` is unaffected. Before the first `--apply`, check on the mount that `os.utime` preserves mtime
+on one scratch file over SMB, read back from hugo. Changing a presenter, a presenter's TTS pin or the house voice does
 not trigger a re-voice.
 
 **Running `emcee run` from an agent** (no terminal): run `emcee run
