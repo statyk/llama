@@ -163,7 +163,7 @@ def ad_hoc_speech(config: EmceeConfig, *, clone_ref: str | None = None,
     (`--voice`), or an existing presenter (`--presenter`, resolved exactly
     as a voiced package's presenter is: its pin, its clip, its transcript).
     With none of them, the house voice via `speech_for`. `--clone`/`--voice`
-    voice on the HOUSE backend.
+    voice on the HOUSE backend unless `--tts` names another.
 
     Unlike `speech_for` this returns the provider alone -- `say` resolves
     its bed separately through `ad_hoc_bed`, which layers the command
@@ -216,19 +216,26 @@ def _ad_hoc_override(config: EmceeConfig, tts: str, tts_model: str | None, *,
         v, c, t = (None, h.voice_clone, h.voice_clone_text) if h.voice_clone \
             else (h.voice, None, None)
         native, who = h.backend, "the house [tts] voice"
+    if v and tts == "mlx_audio":
+        raise EmceeError(f"{who} is a preset voice, and mlx_audio is clone-only "
+                         "(use --clone with --clone-text)")
     if v and native != tts:
+        if presenter is not None and presenter.tts is None and native == "mlx_audio":
+            # an unpinned presenter never inherits an mlx_audio house, so its
+            # preset id belongs to no known backend
+            what = "a preset voice of unknown backend"
+        else:
+            what = f"a preset voice for {native}"
         raise EmceeError(
-            f"{who} is a preset voice for {native}, and preset ids are not portable to "
+            f"{who} is {what}, and preset ids are not portable to "
             f"{tts}: use --voice instead of --presenter"
             if presenter is not None else
-            f"{who} is a preset voice for {native}, and preset ids are not portable to "
+            f"{who} is {what}, and preset ids are not portable to "
             f"{tts}: use --voice to name one for {tts}")
     if tts == "elevenlabs" and c:
         raise EmceeError(f"{who}: a voice clone cannot be voiced on elevenlabs "
                          "(clone on voxtral or mlx_audio, or use --voice)")
     if tts == "mlx_audio":
-        if v:
-            raise EmceeError(f"{who}: mlx_audio is clone-only (use --clone with --clone-text)")
         if not c:
             raise EmceeError(f"{who}: mlx_audio needs a reference clip (--clone with --clone-text)")
         if not (t or "").strip():
