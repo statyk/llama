@@ -149,8 +149,12 @@ def speech_for_voicing(config: EmceeConfig, voicing: Voicing):
 
 def ad_hoc_speech(config: EmceeConfig, *, clone_ref: str | None = None,
                   clone_text: str | None = None, voice: str | None = None,
-                  presenter: Presenter | None = None):
+                  presenter: Presenter | None = None, tts: str | None = None,
+                  tts_model: str | None = None):
     """The speech provider for one ad-hoc `emcee say` run.
+
+    `tts`/`tts_model` (`--tts`/`--tts-model`) override the backend for this
+    render alone, leaving the voice source as it was; see `_ad_hoc_override`.
 
     At most one voice source may be named: a reference clip to clone
     (`--clone`, with its transcript `--clone-text`), a preset voice
@@ -166,6 +170,11 @@ def ad_hoc_speech(config: EmceeConfig, *, clone_ref: str | None = None,
     named = [s for s in (clone_ref, voice, presenter) if s]
     if len(named) > 1:
         raise EmceeError("--clone, --voice and --presenter are mutually exclusive")
+    if tts_model is not None and tts != "mlx_audio":
+        raise EmceeError("--tts-model needs --tts mlx_audio")
+    if tts is not None:
+        return _ad_hoc_override(config, tts, tts_model, clone_ref=clone_ref,
+                                clone_text=clone_text, voice=voice, presenter=presenter)
     if presenter is not None:
         speech, _ = speech_for(config, presenter)
         return speech
@@ -177,6 +186,53 @@ def ad_hoc_speech(config: EmceeConfig, *, clone_ref: str | None = None,
                                    clone_ref=None, clone_text=None)
     speech, _ = speech_for(config, None)
     return speech
+
+
+def _ad_hoc_override(config: EmceeConfig, tts: str, tts_model: str | None, *,
+                     clone_ref: str | None, clone_text: str | None, voice: str | None,
+                     presenter: Presenter | None):
+    """`say --tts`: the named backend voices the unchanged voice source.
+
+    A preset voice id belongs to the backend it was written for, so a
+    presenter's or the house `[tts] voice` is refused on another backend
+    (`--voice` names one for this render); an explicit `--voice` is taken as
+    meant for `tts`. A clone cannot go to elevenlabs, and mlx_audio needs both
+    a clip and its transcript."""
+    if tts not in ("voxtral", "elevenlabs", "mlx_audio"):
+        raise EmceeError(f"--tts must be voxtral, elevenlabs or mlx_audio, not {tts!r}")
+    if presenter is not None:
+        v, c, t = presenter.voice, presenter.voice_clone, presenter.voice_clone_text
+        native = presenter.tts or config.tts.backend
+        who = f"presenter {presenter.id!r}"
+    elif clone_ref:
+        v, c, t, native, who = None, clone_ref, clone_text, tts, "--clone"
+    elif voice:
+        v, c, t, native, who = voice, None, None, tts, "--voice"
+    else:
+        h = config.tts
+        # a house clip is portable; the preset is used only when there is none
+        v, c, t = (None, h.voice_clone, h.voice_clone_text) if h.voice_clone \
+            else (h.voice, None, None)
+        native, who = h.backend, "the house [tts] voice"
+    if v and native != tts:
+        raise EmceeError(
+            f"{who} is a preset voice for {native}, and preset ids are not portable to "
+            f"{tts}: use --voice instead of --presenter"
+            if presenter is not None else
+            f"{who} is a preset voice for {native}, and preset ids are not portable to "
+            f"{tts}: use --voice to name one for {tts}")
+    if tts == "elevenlabs" and c:
+        raise EmceeError(f"{who}: a voice clone cannot be voiced on elevenlabs "
+                         "(clone on voxtral or mlx_audio, or use --voice)")
+    if tts == "mlx_audio":
+        if v:
+            raise EmceeError(f"{who}: mlx_audio is clone-only (use --clone with --clone-text)")
+        if not c:
+            raise EmceeError(f"{who}: mlx_audio needs a reference clip (--clone with --clone-text)")
+        if not (t or "").strip():
+            raise EmceeError(f"{who}: mlx_audio needs the clip's transcript (--clone-text)")
+    resolution = resolve_tts(config, presenter, backend=tts, model=tts_model)
+    return speech_provider_for(config, resolution, voice=v, clone_ref=c, clone_text=t)
 
 
 def ad_hoc_bed(config: EmceeConfig, presenter: Presenter | None, *,

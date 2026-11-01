@@ -287,7 +287,14 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   `--clone`/`--voice`/`--presenter` else the house `[tts] voice`, bed via
   `--bed`/`--bed-gain`/`--no-bed` else the package rules, chunking ON by
   default like `[tts] chunk`; `--no-chunk` without a bed is the one render
-  that is not loudness-normalized), `emcee presenter add/edit/list/show/remove`
+  that is not loudness-normalized; `--tts voxtral|elevenlabs|mlx_audio` overrides
+  the backend for that render alone, bypassing the unpinned-presenter-under-mlx
+  error, with the voice source unchanged, and `--tts-model` (needs `--tts
+  mlx_audio`; default the presenter's `tts_model`) picks the mlx model; refused
+  plainly: a clone on elevenlabs, mlx_audio without clip or transcript, a preset
+  voice (a presenter's or the house `[tts] voice`) carried to another backend
+  (use `--voice`), an uncalibrated model; without the flag resolution is
+  unchanged), `emcee presenter add/edit/list/show/remove`
   (`presenters/<id>.toml`; `edit` changes any field with set/`--clear-*`
   flags, `--transcribe` drafts `voice_clone_text` on the mlx-audio server's
   STT model and writes it only on confirmation; `voice_clone` is stored as an

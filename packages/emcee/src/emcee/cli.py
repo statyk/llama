@@ -755,6 +755,14 @@ def say_cmd(
         False, "--raw",
         help="Speak the text verbatim: skip symbol expansion and the "
              "pronunciation lexicon"),
+    tts: str = typer.Option(
+        None, "--tts",
+        help="Voice this render on voxtral, elevenlabs or mlx_audio instead of the "
+             "presenter's/house backend (this render only)"),
+    tts_model: str = typer.Option(
+        None, "--tts-model",
+        help="mlx_audio model for this render (needs --tts mlx_audio); default the "
+             "presenter's tts_model, else [tts.mlx_audio] model"),
 ):
     """Voice an arbitrary text file to an MP3 -- no package, no script, no LLM.
 
@@ -784,16 +792,29 @@ def say_cmd(
     are filled with the clip's own room tone (`\\[tts] room_tone`). Chunked and
     bedded renders are loudness-normalized; `--no-chunk` without a bed ships
     the provider's own MP3 un-normalized.
+
+    BACKEND: `--tts voxtral|elevenlabs|mlx_audio` voices this render on that
+    backend, whatever the presenter pins or the house uses, with the voice
+    source (presenter clip and transcript, `--clone`, `--voice`) unchanged.
+    `--tts-model` picks the mlx_audio model (needs `--tts mlx_audio`). A
+    preset voice (a presenter's, or the house `[tts] voice`) is refused on a
+    different backend (use `--voice`), as is a clone on elevenlabs.
     """
     config = load_config()
     if clone_text is not None and clone is None:
         _usage("--clone-text needs --clone")
-    house_mlx = config.tts.backend == "mlx_audio"
+    if tts is not None and tts not in ("voxtral", "elevenlabs", "mlx_audio"):
+        _usage("--tts must be voxtral, elevenlabs or mlx_audio")
+    if tts_model is not None and tts != "mlx_audio":
+        _usage("--tts-model needs --tts mlx_audio")
+    effective = tts or config.tts.backend
+    house_mlx = effective == "mlx_audio"
+    which = "backend" if tts else "house backend"
     if house_mlx and voice:
-        _usage("--voice is a preset, but the house backend is mlx_audio, which is clone-only "
+        _usage(f"--voice is a preset, but the {which} is mlx_audio, which is clone-only "
                "(use --clone with --clone-text, or --presenter)")
     if house_mlx and clone is not None and not (clone_text or "").strip():
-        _usage("--clone needs --clone-text (the clip's transcript) when the house backend "
+        _usage(f"--clone needs --clone-text (the clip's transcript) when the {which} "
                "is mlx_audio")
 
     text = text_file.read_text().strip()
@@ -803,7 +824,8 @@ def say_cmd(
     host = load_presenter(config.root, presenter) if presenter else None
     speech = ad_hoc_speech(config, clone_ref=str(clone) if clone else None,
                            clone_text=clone_text if house_mlx else None,
-                           voice=voice, presenter=host)
+                           voice=voice, presenter=host,
+                           **({"tts": tts, "tts_model": tts_model} if tts else {}))
     resolved_bed = ad_hoc_bed(config, host, bed_path=bed, no_bed=no_bed,
                               gain_db=bed_gain)
 

@@ -520,9 +520,17 @@ configured at all:
                                        # --clone-text "<transcript>")
     emcee say notes.txt --presenter casey
                                        # read it in a presenter's voice (and bed)
+    emcee say notes.txt --presenter casey --tts mlx_audio --tts-model <model>
+                                       # this render only, on another backend
     emcee say notes.txt --no-bed       # dry read; --bed FILE / --bed-gain DB override
     emcee say notes.txt --no-chunk     # one call for the whole passage
     emcee say notes.txt --raw          # verbatim: no symbol expansion, no lexicon
+
+`--tts voxtral|elevenlabs|mlx_audio` voices one render on that backend instead
+of the presenter's pin or the house backend (the voice clip/transcript stays
+the same); `--tts-model` needs `--tts mlx_audio` and defaults to the presenter's
+`tts_model`. A preset voice does not carry to another backend (use `--voice`),
+nor a clone to elevenlabs; mlx_audio needs a clip and its transcript.
 
 Voice sources are mutually exclusive (`--clone` / `--voice` / `--presenter`);
 with none of them the house `[tts] voice`/`voice_clone` reads it. The bed

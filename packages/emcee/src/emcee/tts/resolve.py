@@ -40,11 +40,18 @@ class TTSResolution:
     pinned: bool                  # True when the presenter's own `tts` chose the backend
 
 
-def resolve_tts(config: EmceeConfig, presenter: Presenter | None) -> TTSResolution:
+def resolve_tts(config: EmceeConfig, presenter: Presenter | None, *,
+                backend: str | None = None, model: str | None = None) -> TTSResolution:
+    """`backend`/`model` are `emcee say --tts/--tts-model`'s per-render override:
+    the named backend replaces the presenter's pin and the house backend (so the
+    unpinned-presenter-under-mlx error does not apply), and `model` replaces the
+    mlx_audio model. With neither, resolution is exactly as before."""
     house = config.tts.backend
     pid = presenter.id if presenter is not None else None
     who = f"presenter {pid!r}" if presenter is not None else "the house voice"
-    if presenter is not None and presenter.tts is not None:
+    if backend is not None:
+        pinned = True
+    elif presenter is not None and presenter.tts is not None:
         backend, pinned = presenter.tts, True
     else:
         backend, pinned = house, False
@@ -53,7 +60,7 @@ def resolve_tts(config: EmceeConfig, presenter: Presenter | None) -> TTSResoluti
                 f"presenter {pid!r}: pin tts explicitly: the house backend is mlx_audio "
                 f"(e.g. `emcee presenter edit {pid} --tts voxtral`)")
     if backend == "mlx_audio":
-        model = (presenter.tts_model if presenter is not None else None) \
+        model = model or (presenter.tts_model if presenter is not None else None) \
             or config.tts.mlx_audio.model
         if not model:
             where = "the presenter's tts_model or " if presenter is not None else ""

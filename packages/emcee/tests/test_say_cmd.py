@@ -365,3 +365,53 @@ def test_say_forwards_chunk_chars_and_room_tone(tmp_path, monkeypatch):
 
     assert len(speech.calls) == 2  # ceiling 50 splits what 250 packs into one
     assert seen == []  # room_tone = false reached the renderer
+
+
+# ---------------------------------------------------------------------------
+# --tts / --tts-model
+# ---------------------------------------------------------------------------
+
+def test_say_forwards_tts_and_model_to_ad_hoc_speech(tmp_path, monkeypatch):
+    _, seen = _arm_speech(monkeypatch)
+    ref = tmp_path / "ref.wav"
+    ref.write_bytes(b"REF")
+    result = _run(["say", str(_text_file(tmp_path)), "--clone", str(ref), "--clone-text", "Their words.",
+                   "--tts", "mlx_audio", "--tts-model", TEST_MODEL], tmp_path, monkeypatch)
+    assert result.exit_code == 0, result.output
+    assert (seen["tts"], seen["tts_model"], seen["clone_text"]) == ("mlx_audio", TEST_MODEL, "Their words.")
+
+
+def test_say_without_tts_passes_no_override(tmp_path, monkeypatch):
+    _, seen = _arm_speech(monkeypatch)
+    result = _run(["say", str(_text_file(tmp_path))], tmp_path, monkeypatch)
+    assert result.exit_code == 0, result.output
+    assert "tts" not in seen and "tts_model" not in seen
+
+
+def test_say_tts_model_without_tts_mlx_is_a_usage_error(tmp_path, monkeypatch):
+    _arm_speech(monkeypatch)
+    for extra in ([], ["--tts", "voxtral"]):
+        result = _run(["say", str(_text_file(tmp_path)), "--tts-model", "m", *extra],
+                      tmp_path, monkeypatch)
+        assert result.exit_code == 2 and "--tts-model needs --tts mlx_audio" in result.output
+
+
+def test_say_tts_mlx_gates_use_the_effective_backend(tmp_path, monkeypatch):
+    _arm_speech(monkeypatch)
+    result = _run(["say", str(_text_file(tmp_path)), "--voice", "p", "--tts", "mlx_audio"],
+                  tmp_path, monkeypatch)
+    assert result.exit_code == 2 and "the backend is mlx_audio, which is clone-only" in result.output
+
+
+def test_say_tts_hosted_override_under_an_mlx_house_accepts_voice(tmp_path, monkeypatch):
+    _, seen = _arm_speech(monkeypatch)
+    _mlx_house(tmp_path, monkeypatch)
+    result = runner.invoke(app, ["say", str(_text_file(tmp_path)), "--voice", "p", "--tts", "voxtral"])
+    assert result.exit_code == 0, result.output
+    assert seen["voice"] == "p" and seen["clone_text"] is None
+
+
+def test_say_tts_refusal_is_plain_and_exits_nonzero(tmp_path, monkeypatch):
+    result = _run(["say", str(_text_file(tmp_path)), "--tts", "elevenlabs"], tmp_path, monkeypatch)
+    assert result.exit_code != 0
+    assert "use --voice to name one for elevenlabs" in str(result.exception)
