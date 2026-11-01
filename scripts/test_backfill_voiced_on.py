@@ -206,3 +206,61 @@ def test_main_dry_run(tmp_path, capsys):
     make(tmp_path, "s", ts(2026, 10, 20, 12))
     assert bf.main(["--station-root", str(tmp_path)]) == 0
     assert "dry run" in capsys.readouterr().out
+
+
+def _write_after_classify(monkeypatch, p, mutate):
+    real = bf.classify
+
+    def classify(d, block):
+        verdict = real(d, block)
+        data = load(p)
+        mutate(data)
+        p.write_text(json.dumps(data, indent=2) + "\n")
+        return verdict
+
+    monkeypatch.setattr(bf, "classify", classify)
+
+
+def test_block_cleared_between_classify_and_apply_is_skipped(tmp_path, capsys, monkeypatch):
+    p = make(tmp_path, "s", ts(2026, 10, 20, 12))
+    _write_after_classify(monkeypatch, p, lambda d: d.update(dj_audio=None))
+    assert bf.backfill(tmp_path, apply=True) == 0
+    assert "skip s:" in capsys.readouterr().out
+    assert load(p)["dj_audio"] is None
+
+
+def test_revoiced_between_classify_and_apply_is_skipped(tmp_path, capsys, monkeypatch):
+    p = make(tmp_path, "s", ts(2026, 10, 20, 12))
+    _write_after_classify(monkeypatch, p, lambda d: d["dj_audio"].update(voiced_on="2026-10-31"))
+    bf.backfill(tmp_path, apply=True)
+    assert "skip s:" in capsys.readouterr().out
+    assert load(p)["dj_audio"]["voiced_on"] == "2026-10-31"
+    assert "voiced_before" not in load(p)["dj_audio"]
+
+
+def test_preexisting_voiced_before_is_left_alone(tmp_path):
+    p = make(tmp_path, "s", ts(2026, 10, 20, 12))
+    d = load(p)
+    d["dj_audio"]["voiced_before"] = "2026-10-10"
+    p.write_text(json.dumps(d, indent=2) + "\n")
+    raw = p.read_bytes()
+    bf.backfill(tmp_path, apply=True)
+    assert p.read_bytes() == raw
+
+
+def test_non_canonical_formatting_is_skipped(tmp_path, capsys):
+    p = make(tmp_path, "s", ts(2026, 10, 20, 12))
+    p.write_text(json.dumps(load(p)))  # compact, not indent=2
+    raw = p.read_bytes()
+    bf.backfill(tmp_path, apply=True)
+    assert "formatting is not" in capsys.readouterr().out
+    assert p.read_bytes() == raw
+
+
+def test_no_trailing_newline_is_preserved(tmp_path):
+    p = make(tmp_path, "s", ts(2026, 10, 20, 12))
+    p.write_text(json.dumps(load(p), indent=2))
+    bf.backfill(tmp_path, apply=True)
+    out = p.read_bytes()
+    assert not out.endswith(b"\n")
+    assert "voiced_on" in json.loads(out)["dj_audio"]

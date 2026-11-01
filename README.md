@@ -607,13 +607,16 @@ the TTS backend, model and voice (`dj_audio.profile`, `profile_source`,
 `tts`) and, as `voiced_on`, the local date its newest clip was rendered. A run
 that renders a clip sets `voiced_on` to today and clears `voiced_before` (a date
 the voicing is known to predate); a run that renders nothing (every cache key
-matched, or `--keep-script --fresh` adopted the clips) carries both unchanged,
+matched) carries both unchanged,
 and a retry after a failed attempt, which clears `dj_audio`, has nothing to
 carry, so both stay null. Packages voiced before emcee recorded either date
 are dated once by `python scripts/backfill_voiced_on.py [--station-root P]
 [--apply]` (dry run unless `--apply`; it keeps each manifest's mtime, refuses
 while an `emcee` or `llama` process runs, and must run BEFORE any re-voice).
-Before the first `--apply`, check on the mount that `os.utime` preserves mtime
+The backfill changes the sha of voiced station manifests that llama marked
+`awaiting_fix` (136 measured), so `scripts/bulk_apply.py unmark` refuses those
+rows (`station copy changed since marking`) and that batch's reversal is lost for
+them; `clear-mark` is unaffected. Before the first `--apply`, check on the mount that `os.utime` preserves mtime
 on one scratch file over SMB, read back from hugo. Changing a presenter, a presenter's TTS pin or the house voice does
 not trigger a re-voice.
 

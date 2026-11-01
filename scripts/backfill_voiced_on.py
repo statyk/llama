@@ -29,6 +29,12 @@ before each write). Known limit: a sleeping sweep loop is invisible to that
 check. Idempotent. Dry run by default; it prints counts per outcome and per
 presenter.
 
+CROSS-EFFECT: this changes the sha of every voiced station manifest it dates,
+including voiced ones marked `awaiting_fix` (136 measured). `scripts/bulk_apply.py
+unmark` then refuses those rows with `station copy changed since marking`, so
+that batch's reversal is lost for them; `clear-mark` is unaffected. Tell the
+operator before the first `--apply`.
+
 Run this before any re-voice. Before the first `--apply`, the operator checks
 on the mount that `os.utime` preserves mtime on one scratch file over SMB,
 read back from hugo.
@@ -104,7 +110,12 @@ def apply_one(mp: Path, key: str, value: str) -> str | None:
     canon = json.dumps(data, indent=2)
     if old not in ((canon + "\n").encode(), canon.encode()):
         return "formatting is not json.dumps(indent=2); not rewriting"
-    data["dj_audio"][key] = value
+    block = data.get("dj_audio") if isinstance(data, dict) else None
+    if not isinstance(block, dict):
+        return "dj_audio is no longer a block; skipped"
+    if block.get("voiced_on") or block.get("voiced_before"):
+        return "already dated since classification; skipped"
+    block[key] = value
     new = json.dumps(data, indent=2) + ("\n" if old.endswith(b"\n") else "")
     _before_replace()
     if mp.read_bytes() != old:

@@ -49,7 +49,11 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   and the manifest's old mtime restored with `os.utime` (transmitter reads a
   newer manifest as "changing"); it re-reads the bytes before the replace and
   skips on any change, and under `--apply` refuses while an `emcee` or `llama`
-  process runs (a sleeping sweep loop is invisible to that check). Dry run
+  process runs (a sleeping sweep loop is invisible to that check), and skips a
+  package whose block changed since classification. It changes the sha of
+  voiced, marked station manifests (136 measured), so `bulk_apply.py unmark`
+  refuses those rows with `station copy changed since marking` and that batch's
+  reversal is lost for them; `clear-mark` is unaffected. Dry run
   unless `--apply`. Run it BEFORE any re-voice. Before the first `--apply` the
   operator checks that `os.utime` preserves mtime on one scratch file on the
   SMB mount, read back from hugo.
