@@ -373,6 +373,8 @@ fixed shuffled order, back to back with the inter-show gap.
 
 ### antenna (phase 1 minimal, phase 4 full)
 
+Phase 4 (the full player) is designed in `docs/superpowers/specs/2026-11-01-player-design.md`; the lock-screen and dropout measurements are in `docs/superpowers/2026-11-01-player-probe.md`.
+
 The hostname is on a Cloudflare zone the operator owns (the domain's NS records
 at the registrar point to Cloudflare; partial/CNAME setup is Business-plan only).
 Listener-facing objects, all static R2 objects behind the cache:

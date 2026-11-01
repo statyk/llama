@@ -1,0 +1,130 @@
+<style>
+.dirs{display:flex;gap:26px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+.dir{width:350px;cursor:pointer}
+.dir h3{margin:12px 0 2px}
+.dir p.note{margin:0;font-size:14px;opacity:.8}
+.dir.selected .ph{outline:3px solid #4a90e2;outline-offset:3px}
+.ph{width:350px;border-radius:30px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.3);background:#e9dfc8;color:#2c251d;font-family:"Courier New",Courier,monospace;padding:18px 16px 22px}
+.ph *{box-sizing:border-box}
+.kick{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7c3324;font-weight:700;margin:15px 0 6px}
+.log{font-size:12.5px;line-height:1.55}
+.log div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted #a8987a}
+
+/* cassette */
+.cass{background:linear-gradient(#4a4339,#2f2a23);border-radius:11px;padding:10px 12px 0;position:relative;box-shadow:0 3px 0 #1c1813}
+.cass .screw{position:absolute;width:7px;height:7px;border-radius:50%;background:#8d8473;box-shadow:inset 0 0 0 1px #2b261f}
+.cass .s1{left:5px;top:5px}.cass .s2{right:5px;top:5px}.cass .s3{left:5px;bottom:5px}.cass .s4{right:5px;bottom:5px}
+.clabel{background:#f4ecd8;border-radius:4px;padding:6px 9px 9px;position:relative}
+.clabel .ln{display:flex;justify-content:space-between;font-size:9px;letter-spacing:.14em;color:#7c3324;font-weight:700}
+.clabel .hand{font-family:"Bradley Hand","Segoe Print","Comic Sans MS",cursive;font-weight:700;line-height:1.08;color:#1f2f4a}
+.clabel .h1{font-size:27px;margin-top:2px;border-bottom:1px solid #c9b78f;padding-bottom:1px}
+.clabel .h2{font-size:15px;margin-top:4px;border-bottom:1px solid #c9b78f;padding-bottom:1px}
+.clabel .h3{font-size:15px;margin-top:4px;border-bottom:1px solid #c9b78f;padding-bottom:1px}
+.window{height:58px;margin:9px auto 0;width:88%;background:#191511;border-radius:29px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;position:relative;overflow:hidden}
+.pack{position:absolute;top:50%;transform:translateY(-50%);border-radius:50%;background:#3a2a1e}
+.pack.l{left:-14px;width:96px;height:96px}.pack.r{right:6px;width:62px;height:62px}
+.hub{width:38px;height:38px;border-radius:50%;background:#e9dfc8;position:relative;z-index:2;animation:spin 4s linear infinite;background:conic-gradient(#e9dfc8 0 20deg,#4a4339 20deg 40deg,#e9dfc8 40deg 80deg,#4a4339 80deg 100deg,#e9dfc8 100deg 140deg,#4a4339 140deg 160deg,#e9dfc8 160deg 200deg,#4a4339 200deg 220deg,#e9dfc8 220deg 260deg,#4a4339 260deg 280deg,#e9dfc8 280deg 320deg,#4a4339 320deg 340deg,#e9dfc8 340deg)}
+.hub:after{content:"";position:absolute;inset:11px;border-radius:50%;background:#191511}
+@keyframes spin{to{transform:rotate(360deg)}}
+.trap{width:66%;height:20px;margin:7px auto 0;background:#3a342b;clip-path:polygon(9% 0,91% 0,100% 100%,0 100%)}
+.keys{display:flex;gap:6px;justify-content:center;margin-top:10px}
+.key{flex:1;height:40px;background:linear-gradient(#d7ccb5,#b4a88f);border-radius:4px;box-shadow:0 3px 0 #6f6553;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#2c251d}
+.key.on{background:linear-gradient(#a23a2a,#7c3324);color:#f4ecd8;flex:2}
+
+/* roll ticket (variant 1) */
+.roll{position:relative;display:flex;background:#c9583f;color:#fbf1dc;margin-bottom:9px;height:74px;
+ -webkit-mask:radial-gradient(circle 8px at 0 50%,transparent 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 8px at 100% 50%,transparent 97%,#000) right/51% 100% no-repeat;
+ mask:radial-gradient(circle 8px at 0 50%,transparent 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 8px at 100% 50%,transparent 97%,#000) right/51% 100% no-repeat}
+.roll.up:nth-of-type(even){background:#3f6a6a}
+.roll .in{position:absolute;inset:5px 12px;border:1.5px solid rgba(251,241,220,.75);pointer-events:none}
+.roll .adm{writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;font-size:10px;letter-spacing:.14em;font-weight:700;padding:0 0 0 0;margin-left:17px;margin-right:8px}
+.roll .body{padding:11px 18px 8px 6px;flex:1;min-width:0;font-size:11.5px;line-height:1.25}
+.roll .body b{font-family:Georgia,serif;font-size:16px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.roll .tm{font-weight:700}
+.roll .no{position:absolute;right:18px;bottom:9px;font-size:9px;letter-spacing:.08em;opacity:.85}
+
+/* concert ticket (variant 2) */
+.gig{position:relative;display:flex;background:#f7efdc;margin-bottom:9px;height:92px;border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.35);font-size:11px;line-height:1.2;
+ background-image:repeating-linear-gradient(135deg,rgba(60,106,106,.08) 0 3px,transparent 3px 7px)}
+.gig .stub{width:78px;flex:none;padding:7px 6px;border-right:2px dashed #9a8c6e;position:relative;font-size:10px;line-height:1.3}
+.gig .stub:before,.gig .stub:after{content:"";position:absolute;right:-8px;width:14px;height:14px;border-radius:50%;background:#e9dfc8}
+.gig .stub:before{top:-7px}.gig .stub:after{bottom:-7px}
+.gig .stub b{display:block;font-size:13px;color:#7c3324}
+.gig .main{flex:1;min-width:0;padding:7px 10px;position:relative}
+.gig .main .tt{font-size:9px;letter-spacing:.1em;color:#3f6a6a;font-weight:700}
+.gig .main b{font-family:Georgia,serif;font-size:17px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:1px 0}
+.gig .sr{position:absolute;bottom:6px;left:10px;right:10px;display:flex;justify-content:space-between;font-size:9px;color:#5e5240}
+.gig .sr span b{display:inline;font-family:inherit;font-size:9.5px}
+
+/* torn */
+.torn{clip-path:polygon(0 0,86% 0,88% 12%,85% 25%,89% 38%,86% 52%,90% 66%,86% 79%,89% 91%,86% 100%,0 100%);opacity:.72;filter:saturate(.55)}
+.roll.torn,.gig.torn{-webkit-mask:none;mask:none}
+.gig.torn .main b{font-size:13.5px}
+</style>
+
+<h2>Cassette, and two tries at a real ticket</h2>
+<p class="subtitle">Same cassette on both. The difference is the tickets: past shows are torn in both. Click the ticket style you prefer. The hubs turn only while playing.</p>
+
+<div class="dirs">
+
+<div class="dir" data-choice="roll-ticket" onclick="toggleSelect(this)">
+ <div class="ph">
+  <div class="cass"><i class="screw s1"></i><i class="screw s2"></i><i class="screw s3"></i><i class="screw s4"></i>
+   <div class="clabel">
+    <div class="ln"><span>LMA RADIO</span><span>ON THE AIR</span></div>
+    <div class="hand h1">Railroad Earth</div>
+    <div class="hand h2">Rhythm and Brews, Chattanooga TN</div>
+    <div class="hand h3">Nov 1, 2008</div>
+   </div>
+   <div class="window"><div class="pack l"></div><div class="pack r"></div><div class="hub"></div><div class="hub"></div></div>
+   <div class="trap"></div>
+  </div>
+  <div class="keys"><div class="key on">▶ PLAY</div><div class="key">STOP</div></div>
+  <p class="kick">Now playing</p>
+  <div style="font-size:16px;font-weight:700">Hard Livin'</div>
+  <p class="kick">Tape log</p>
+  <div class="log">
+   <div><span>The Cuckoo</span><span>12:48a</span></div>
+   <div><span>Luxury Liner</span><span>12:38a</span></div>
+   <div><span>Magic Foot &gt;</span><span>12:35a</span></div>
+  </div>
+  <p class="kick">Coming up</p>
+  <div class="roll up"><i class="in"></i><div class="adm">ADMIT ONE</div><div class="body"><b>Grateful Dead</b>Richmond Coliseum, 1985<br><span class="tm">Sun 1:53 AM</span></div><span class="no">Nº 851101</span></div>
+  <div class="roll up"><i class="in"></i><div class="adm">ADMIT ONE</div><div class="body"><b>Larry Keel</b>Keswick Theater, 2009<br><span class="tm">Sun 4:38 AM</span></div><span class="no">Nº 090307</span></div>
+  <p class="kick">Just aired</p>
+  <div class="roll torn"><i class="in"></i><div class="adm">ADMIT ONE</div><div class="body"><b>Camper Van Beethoven</b>Graffiti's, 1985<br><span class="tm">Sat 11:54 PM</span></div></div>
+ </div>
+ <h3>Roll ticket</h3><p class="note">The classic carnival "ADMIT ONE": coloured, notched sides, inner border, serial number.</p>
+</div>
+
+<div class="dir" data-choice="concert-ticket" onclick="toggleSelect(this)">
+ <div class="ph">
+  <div class="cass"><i class="screw s1"></i><i class="screw s2"></i><i class="screw s3"></i><i class="screw s4"></i>
+   <div class="clabel">
+    <div class="ln"><span>LMA RADIO</span><span>ON THE AIR</span></div>
+    <div class="hand h1">Railroad Earth</div>
+    <div class="hand h2">Rhythm and Brews, Chattanooga TN</div>
+    <div class="hand h3">Nov 1, 2008</div>
+   </div>
+   <div class="window"><div class="pack l"></div><div class="pack r"></div><div class="hub"></div><div class="hub"></div></div>
+   <div class="trap"></div>
+  </div>
+  <div class="keys"><div class="key on">▶ PLAY</div><div class="key">STOP</div></div>
+  <p class="kick">Now playing</p>
+  <div style="font-size:16px;font-weight:700">Hard Livin'</div>
+  <p class="kick">Tape log</p>
+  <div class="log">
+   <div><span>The Cuckoo</span><span>12:48a</span></div>
+   <div><span>Luxury Liner</span><span>12:38a</span></div>
+   <div><span>Magic Foot &gt;</span><span>12:35a</span></div>
+  </div>
+  <p class="kick">Coming up</p>
+  <div class="gig"><div class="stub">SUN<b>1:53a</b>GEN ADM<br>LMA RADIO</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Grateful Dead</b>Richmond Coliseum, Richmond VA<div class="sr"><span>NOV 1 1985</span><span>NO REFUNDS</span></div></div></div>
+  <div class="gig"><div class="stub">SUN<b>4:38a</b>GEN ADM<br>LMA RADIO</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Larry Keel</b>Keswick Theater, Glenside PA<div class="sr"><span>MAR 7 2009</span><span>NO REFUNDS</span></div></div></div>
+  <p class="kick">Just aired</p>
+  <div class="gig torn"><div class="stub">SAT<b>11:54p</b>GEN ADM<br>LMA RADIO</div><div class="main"><div class="tt">LMA RADIO PRESENTS</div><b>Camper Van Beethoven</b>Graffiti's, San Francisco<div class="sr"><span>MAR 7 1985</span></div></div></div>
+ </div>
+ <h3>Concert ticket</h3><p class="note">An 80s box-office ticket: perforated stub, "presents" line, general admission, the show's real date.</p>
+</div>
+
+</div>

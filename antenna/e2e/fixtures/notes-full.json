@@ -1,0 +1,27 @@
+{
+  "slug": "fixture-next-1",
+  "artist": "Next Band",
+  "venue": "Coliseum",
+  "city": "Richmond, VA",
+  "date": "1985-11-01",
+  "url": "https://archive.org/details/fixture-next-1",
+  "lineage": "SBD > Cassette > DAT",
+  "setlist": [
+    { "set": "1", "title": "Opener", "segue": true },
+    { "set": "1", "title": "Second Song", "segue": false },
+    { "set": "encore", "title": "Closer ->", "segue": false },
+    { "set": "encore", "title": "Last One", "segue": false }
+  ],
+  "sections": [
+    {
+      "heading": "Set one",
+      "blocks": [
+        { "p": "A paragraph of liner notes." },
+        { "ul": ["First bullet", "Second bullet"] }
+      ]
+    }
+  ],
+  "airtimes": [
+    { "start": "2026-10-31T04:26:00Z", "end": "2026-10-31T05:53:00Z" }
+  ]
+}

@@ -4,12 +4,14 @@ actual frame positions), notes/<slug>.json (llama's briefing, archive.org link,
 lineage, setlist, airtimes) and show/<slug>.html rendered from antenna's
 template. Phase 4 redesigns the page; the data contract starts here."""
 
+import datetime
 import html
 import json
 import re
 import string
 from pathlib import Path
 from typing import Mapping, Sequence
+from urllib.parse import quote
 
 from transmitter import aacenc, grid
 from transmitter.analysis import ShowAnalysis
@@ -96,6 +98,78 @@ def read_package_notes(pkg_dir: Path) -> tuple[dict | None, str | None]:
     return manifest, briefing
 
 
+CAUTIONS_PREFIX = "## cautions"        # llama's brief.py heading; transmitter cannot import it
+# A bare pointer to the Cautions section, which public pages cut; the space before it goes too.
+CAUTIONS_POINTER = re.compile(r"\s*\(see cautions\)", re.IGNORECASE)
+ARCHIVE_PREFIX = "https://archive.org/"
+OG_IMAGE_PATH = "/assets/cassette-og.png"
+SLUG_SAFE = "!'()*"                    # encodeURIComponent's, as timeline.js showHref
+_WEEKDAYS = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+_MONTHS = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
+
+
+def archive_link(url: str | None) -> str | None:
+    """The url when it is an https archive.org link (literal prefix check), else None."""
+    return url if isinstance(url, str) and url.startswith(ARCHIVE_PREFIX) else None
+
+
+def parse_briefing(text: str) -> list[dict]:
+    """Line-based briefing markdown -> [{"heading", "blocks": [{"p"} | {"ul"}]}].
+
+    Drops the `# ` title and everything from the cautions heading on."""
+    sections: list[dict] = []
+    current: dict | None = None
+    para: list[str] = []
+    items: list[str] = []
+
+    def flush() -> None:
+        nonlocal para, items
+        if current is not None:
+            if para:
+                current["blocks"].append({"p": " ".join(para)})
+            if items:
+                current["blocks"].append({"ul": items})
+        para, items = [], []
+
+    def ensure() -> dict:
+        nonlocal current
+        if current is None:
+            current = {"heading": None, "blocks": []}
+            sections.append(current)
+        return current
+
+    for raw in (text or "").splitlines():
+        line = raw.strip().replace("**", "")
+        if line.lower().startswith(CAUTIONS_PREFIX):
+            break
+        line, hit = CAUTIONS_POINTER.subn("", line)
+        if hit:
+            line = line.strip()
+        if line.startswith("## "):
+            flush()
+            current = {"heading": line[3:].strip(), "blocks": []}
+            sections.append(current)
+        elif line.startswith("# "):
+            continue
+        elif not line:
+            if para:
+                flush()
+        elif line.startswith("- "):
+            ensure()
+            if para:
+                current["blocks"].append({"p": " ".join(para)})
+                para = []
+            items.append(line[2:].strip())
+        else:
+            ensure()
+            if items:
+                current["blocks"].append({"ul": items})
+                items = []
+            para.append(line)
+    flush()
+    return [s for s in sections if s["blocks"]]
+
+
 def build_notes(slug: str, manifest: dict | None, briefing: str | None, airtimes: list[dict],
                 meta: Mapping) -> dict:
     manifest = manifest or {}
@@ -117,37 +191,120 @@ def build_notes(slug: str, manifest: dict | None, briefing: str | None, airtimes
         "url": pick(source, "url"),
         "lineage": pick(source, "lineage"),
         "briefing": briefing or "",
+        "sections": parse_briefing(briefing or ""),
         "setlist": [{"set": t.get("set"), "title": t.get("title"), "segue": bool(t.get("segue"))}
                     for t in tracks if isinstance(t, dict)],
         "airtimes": airtimes,
     }
 
 
+def _text(value) -> str:
+    """Display text of a notes field: blank for null, and never raises on a non-string."""
+    return "" if value is None else str(value)
+
+
 def _title(notes: Mapping) -> str:
-    return " — ".join(p for p in (notes.get("artist") or notes["slug"], notes.get("date")) if p)
+    return " — ".join(p for p in (_text(notes.get("artist")) or notes["slug"], _text(notes.get("date"))) if p)
+
+
+def concert_stub(date) -> tuple[str, str]:
+    """The ticket stub: "2008-11-01" -> ("SAT NOV 1", "2008"); anything else comes back as stored.
+
+    Never raises: an exception while rendering a page would stop timeline.json."""
+    text = _text(date)
+    m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", text, re.ASCII)
+    if m is None:
+        return text, ""
+    try:
+        day = datetime.date(int(m[1]), int(m[2]), int(m[3]))
+    except ValueError:
+        return text, ""
+    return f"{_WEEKDAYS[day.weekday()]} {_MONTHS[day.month - 1]} {day.day}", m[1]
+
+
+def where_line(venue, city) -> str:
+    return ", ".join(p for p in (_text(venue), _text(city)) if p)
+
+
+def _setlist_line(entry: Mapping) -> str:
+    """One rule for segues, as notes.js setlistLine: a trailing > or -> reads " >", and
+    the flag adds one only to a title without one."""
+    title = _text(entry.get("title")).strip()
+    if not title:
+        return "?"
+    title = re.sub(r"\s*-*>\s*$", " >", title)
+    return f"{title} >" if entry.get("segue") and not title.endswith(">") else title
+
+
+def _set_label(value) -> str:
+    text = _text(value).strip()
+    return f"Set {text}" if text.isdigit() else text[:1].upper() + text[1:]
+
+
+def _setlist_html(setlist: Sequence[Mapping]) -> str:
+    groups: list[tuple[object, list[str]]] = []
+    for entry in setlist:
+        if not groups or groups[-1][0] != entry.get("set"):
+            groups.append((entry.get("set"), []))
+        groups[-1][1].append(f"<li>{html.escape(_setlist_line(entry))}</li>")
+    out = []
+    for value, lines in groups:
+        label = _set_label(value) if len(groups) > 1 else ""
+        if label:
+            out.append(f'<p class="kick">{html.escape(label)}</p>')
+        out.append(f"<ol>{''.join(lines)}</ol>")
+    return "\n".join(out) or "<p>No setlist.</p>"
+
+
+def _sections_html(sections: Sequence[Mapping]) -> str:
+    out = []
+    for section in sections:
+        if section.get("heading"):
+            out.append(f"<h3>{html.escape(_text(section['heading']))}</h3>")
+        for block in section.get("blocks") or []:
+            if "p" in block:
+                out.append(f"<p>{html.escape(_text(block['p']))}</p>")
+            elif "ul" in block:
+                items = "".join(f"<li>{html.escape(_text(item))}</li>" for item in block["ul"])
+                out.append(f"<ul>{items}</ul>")
+    return "\n".join(out) or "<p>No notes yet.</p>"
+
+
+def _first_text(sections: Sequence[Mapping]) -> str | None:
+    for section in sections:
+        for block in section.get("blocks") or []:
+            first = block.get("p") or (block.get("ul") or [None])[0]
+            if first:
+                return _text(first)
+    return None
 
 
 def render_show_page(template: str, notes: Mapping, *, site_url: str | None, station_name: str) -> str:
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", notes.get("briefing") or "") if p.strip()]
-    briefing_html = "\n".join(f"<p>{html.escape(p)}</p>" for p in paragraphs) or "<p>No notes yet.</p>"
-    items = []
-    for t in notes.get("setlist", []):
-        segue = " &gt;" if t.get("segue") else ""
-        items.append(f"<li>{html.escape(t.get('title') or '?')}{segue}"
-                     f" <span class=\"set\">{html.escape(str(t.get('set') or ''))}</span></li>")
-    setlist_html = f"<ol>{''.join(items)}</ol>" if items else "<p>No setlist.</p>"
     title = _title(notes)
-    description = re.sub(r"\s+", " ", paragraphs[0])[:200] if paragraphs else title
-    page_url = f"{site_url.rstrip('/')}/show/{notes['slug']}.html" if site_url else ""
-    city = notes.get("city")
+    sections = notes.get("sections") or []
+    first = _first_text(sections)
+    description = re.sub(r"\s+", " ", first)[:200] if first else title
+    origin = site_url.rstrip("/") if site_url else ""
+    page_url = f"{origin}/show/{quote(notes['slug'], safe=SLUG_SAFE)}.html" if origin else ""
+    og_image = f'<meta property="og:image" content="{html.escape(origin + OG_IMAGE_PATH)}">' if origin else ""
+    archive = archive_link(notes.get("url"))
+    archive_html = (f'<a class="btn" href="{html.escape(archive)}" target="_blank" rel="noopener">'
+                    "Hear the full tape on archive.org ↗</a>") if archive else ""
+    lineage = _text(notes.get("lineage"))
+    lineage_html = (f'<div class="meta"><b class="label">Taper\'s lineage</b><br>{html.escape(lineage)}</div>'
+                    if lineage else "")
+    date_stub, year_stub = concert_stub(notes.get("date"))
     values = {
         "title": html.escape(title), "station": html.escape(station_name),
         "description": html.escape(description), "page_url": html.escape(page_url),
-        "venue": html.escape(notes.get("venue") or ""),
-        "city_suffix": html.escape(f", {city}") if city else "",
-        "briefing_html": briefing_html, "setlist_html": setlist_html,
-        "archive_url": html.escape(notes.get("url") or ""),
-        "lineage": html.escape(notes.get("lineage") or ""),
+        "og_image_html": og_image,
+        "artist": html.escape(_text(notes.get("artist")) or notes["slug"]),
+        "date_stub": html.escape(date_stub), "year_stub": html.escape(year_stub),
+        "where": html.escape(where_line(notes.get("venue"), notes.get("city"))),
+        "archive_html": archive_html,
+        "sections_html": _sections_html(sections),
+        "setlist_html": _setlist_html(notes.get("setlist") or []),
+        "lineage": lineage_html,
         "slug": html.escape(notes["slug"]),
     }
     return string.Template(template).safe_substitute(values)

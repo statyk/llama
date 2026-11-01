@@ -9,41 +9,51 @@
 <meta property="og:title" content="$title">
 <meta property="og:description" content="$description">
 <meta property="og:url" content="$page_url">
+$og_image_html
 <meta name="twitter:card" content="summary">
-<link rel="stylesheet" href="../style.css">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/assets/radio.css">
+<script type="module" src="/assets/show.js"></script>
 </head>
 <body>
-<main class="show">
-<p><a href="../">← $station</a></p>
-<h1>$title</h1>
-<p class="where">$venue$city_suffix</p>
-<section><h2>About this show</h2>
-$briefing_html
-</section>
-<section><h2>Setlist</h2>
+<main class="page">
+  <header class="top">
+    <h1 class="brand">$station</h1>
+    <p class="tag"><a href="/">← back to the station</a></p>
+  </header>
+
+  <section class="bigt">
+    <div class="bstub">$date_stub<b class="year">$year_stub</b>GEN ADM<br>LMA RADIO</div>
+    <div class="bmain">
+      <span class="presents">LMA RADIO PRESENTS</span>
+      <h2>$artist</h2>
+      <div class="w">$where</div>
+      $archive_html
+    </div>
+  </section>
+
+  <div class="cols">
+    <div>
+      <h2 class="kick">Setlist</h2>
+      <div class="jcard">
 $setlist_html
-</section>
-<section><h2>Source</h2>
-<p><a href="$archive_url">$archive_url</a></p>
-<p class="lineage">$lineage</p>
-</section>
-<section><h2>Airtimes</h2>
-<ul id="airtimes" data-notes="../notes/$slug.json"><li>Loading…</li></ul>
-</section>
+      </div>
+      <div class="meta">
+        <b class="label">On the air</b>
+        <div id="airtimes" data-slug="$slug">Loading…</div>
+        <div id="zone"></div>
+      </div>
+      $lineage
+    </div>
+    <div>
+      <h2 class="kick">Liner notes</h2>
+      <div class="liner">
+$sections_html
+      </div>
+    </div>
+  </div>
+
+  <p class="fineprint">Show notes are AI generated and may contain mistakes.</p>
 </main>
-<script>
-(async () => {
-  const ul = document.getElementById("airtimes");
-  const item = (text) => Object.assign(document.createElement("li"), { textContent: text });
-  try {
-    const notes = await (await fetch(ul.dataset.notes)).json();
-    const fmt = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
-    const times = (notes.airtimes || []).map((a) => item(fmt.format(new Date(a.start))));
-    ul.replaceChildren(...(times.length ? times : [item("Not currently scheduled.")]));
-  } catch (e) {
-    ul.replaceChildren(item("Airtimes unavailable."));
-  }
-})();
-</script>
 </body>
 </html>

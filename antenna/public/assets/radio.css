@@ -1,0 +1,431 @@
+/* The cassette-and-ticket page, and the look the show page and notes panel share. */
+
+@font-face {
+  font-family: "Caveat";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(fonts/caveat-latin-700-normal.woff2) format("woff2");
+}
+@font-face {
+  font-family: "Special Elite";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/special-elite-latin-400-normal.woff2) format("woff2");
+}
+@font-face {
+  font-family: "Libre Baskerville";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(fonts/libre-baskerville-latin-700-normal.woff2) format("woff2");
+}
+
+:root {
+  --paper: #e9dfc8;
+  --band: #d9cbaa;
+  --card: #f7efdc;
+  --label: #f4ecd8;
+  --ink: #2c251d;
+  --pen: #1f2f4a;
+  --oxblood: #7c3324;
+  --teal: #3f6a6a;
+  --rule: #a8987a;
+  --perf: #9a8c6e;
+  --tape: #4a4339;
+  --typed: "Special Elite", "Courier New", Courier, monospace;
+  --serif: "Libre Baskerville", Georgia, serif;
+  --hand: "Caveat", "Bradley Hand", "Segoe Print", cursive;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html { background: var(--paper); -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--typed);
+  font-synthesis: none;
+  overflow-wrap: anywhere;
+}
+a { color: inherit; }
+
+.page {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+           calc(22px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+}
+
+.top {
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 6px;
+  margin-bottom: 14px;
+}
+.brand { margin: 0; font-family: var(--serif); font-weight: 700; font-size: 22px; line-height: 1.2; }
+.tag { margin: 3px 0 0; font-size: 12px; line-height: 1.35; }
+
+.kick {
+  margin: 15px 0 6px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--oxblood);
+}
+
+/* The cassette. */
+.cass {
+  position: relative;
+  padding: 10px 12px 0;
+  background: linear-gradient(#4a4339, #2f2a23);
+  border-radius: 11px;
+  box-shadow: 0 3px 0 #1c1813;
+}
+.screw {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8d8473;
+  box-shadow: inset 0 0 0 1px #2b261f;
+}
+.s1 { left: 5px; top: 5px; }
+.s2 { right: 5px; top: 5px; }
+.s3 { left: 5px; bottom: 5px; }
+.s4 { right: 5px; bottom: 5px; }
+
+.clabel { position: relative; padding: 6px 9px 9px; background: var(--label); border-radius: 4px; }
+.ln {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  letter-spacing: .14em;
+  color: var(--oxblood);
+}
+.hand {
+  min-height: 1.14em;
+  padding-bottom: 1px;
+  border-bottom: 1px solid #c9b78f;
+  font-family: var(--hand);
+  font-weight: 700;
+  line-height: 1.08;
+  color: var(--pen);
+}
+.hand.h1 { margin-top: 2px; font-size: 32px; }
+.hand.h2, .hand.h3 { margin-top: 4px; font-size: 19px; }
+
+.window {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 88%;
+  height: 58px;
+  margin: 9px auto 0;
+  padding: 0 10px;
+  overflow: hidden;
+  background: #191511;
+  border-radius: 29px;
+}
+.pack { position: absolute; top: 50%; transform: translateY(-50%); border-radius: 50%; background: #3a2a1e; }
+.pack.l { left: -14px; width: 96px; height: 96px; }
+.pack.r { right: 6px; width: 62px; height: 62px; }
+.hub {
+  position: relative;
+  z-index: 2;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: conic-gradient(#e9dfc8 0 20deg, #4a4339 20deg 40deg, #e9dfc8 40deg 80deg, #4a4339 80deg 100deg,
+    #e9dfc8 100deg 140deg, #4a4339 140deg 160deg, #e9dfc8 160deg 200deg, #4a4339 200deg 220deg,
+    #e9dfc8 220deg 260deg, #4a4339 260deg 280deg, #e9dfc8 280deg 320deg, #4a4339 320deg 340deg, #e9dfc8 340deg);
+}
+.hub::after { content: ""; position: absolute; inset: 11px; border-radius: 50%; background: #191511; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: no-preference) {
+  .turning .hub { animation: spin 4s linear infinite; }
+}
+.trap {
+  width: 66%;
+  height: 20px;
+  margin: 7px auto 0;
+  background: #3a342b;
+  clip-path: polygon(9% 0, 91% 0, 100% 100%, 0 100%);
+}
+
+/* The tape-deck keys. */
+.keys { display: flex; gap: 6px; margin-top: 12px; }
+.key {
+  flex: 1;
+  min-height: 46px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background: linear-gradient(#d7ccb5, #b4a88f);
+  box-shadow: 0 3px 0 #6f6553;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.key.on { flex: 2; background: linear-gradient(#a23a2a, #7c3324); box-shadow: 0 3px 0 #4e2017; color: var(--label); }
+.key.on::before {
+  content: "";
+  display: inline-block;
+  margin-right: 9px;
+  border-style: solid;
+  border-width: 6px 0 6px 10px;
+  border-color: transparent transparent transparent currentColor;
+}
+.key:active { transform: translateY(2px); box-shadow: 0 1px 0 #6f6553; }
+.key.on:active { box-shadow: 0 1px 0 #4e2017; }
+.key:focus-visible, .ticket:focus-visible, .more:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.key.retry { display: block; flex: none; min-height: 40px; margin-top: 10px; font-size: 13px; }
+
+.np { margin: 0; font-size: 18px; line-height: 1.25; }
+
+.log { margin: 0; padding: 0; list-style: none; font-size: 13px; line-height: 1.55; }
+.log li { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dotted var(--rule); }
+.log li > :last-child { flex: none; }
+
+.sched-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 12px; }
+.zone { margin: 0; font-size: 11px; color: #5e5240; }
+.schedule-note { margin: 0 0 8px; font-size: 13px; line-height: 1.35; }
+
+/* A ticket, as page.js builds it:
+   <a class="ticket" href="...">
+     <span class="stub"><span class="day"></span><b class="time"></b><span class="adm"></span></span>
+     <span class="main"><span class="presents"></span><b class="artist"></b><span class="where"></span>
+       <span class="sr"></span></span>
+   </a>
+   The notches are this paper's colour, so a ticket sits straight on the page. */
+.tickets { display: grid; grid-template-columns: minmax(0, 1fr); gap: 9px; }
+.ticket {
+  position: relative;
+  display: flex;
+  height: 92px;
+  background-color: var(--card);
+  background-image: repeating-linear-gradient(135deg, rgba(60, 106, 106, .08) 0 3px, transparent 3px 7px);
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.25;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.stub {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 78px;
+  padding: 7px 6px;
+  border-right: 2px dashed var(--perf);
+  font-size: 10.5px;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.stub::before, .stub::after {
+  content: "";
+  position: absolute;
+  right: -8px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--paper);
+}
+.stub::before { top: -7px; }
+.stub::after { bottom: -7px; }
+.stub > span { display: block; }
+.stub .time { display: block; font-size: 14px; font-weight: 400; color: var(--oxblood); text-transform: none; }
+.stub .adm::after { content: "LMA RADIO"; display: block; }
+.main { position: relative; display: block; flex: 1; min-width: 0; padding: 7px 10px; }
+.presents { display: block; font-size: 9.5px; letter-spacing: .1em; color: var(--teal); }
+.artist, .where { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.artist { margin: 2px 0 1px; font-family: var(--serif); font-size: 16px; font-weight: 700; line-height: 1.3; }
+.sr {
+  position: absolute;
+  right: 10px;
+  bottom: 6px;
+  left: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: #5e5240;
+  text-transform: uppercase;
+}
+.sr::after { content: "NO REFUNDS"; flex: none; }
+
+.ticket.torn {
+  clip-path: polygon(0 0, 86% 0, 88% 12%, 85% 25%, 89% 38%, 86% 52%, 90% 66%, 86% 79%, 89% 91%, 86% 100%, 0 100%);
+  opacity: .72;
+  filter: saturate(.55);
+}
+/* clip-path removes an outside outline, so the ring sits inside the tear. */
+.ticket.torn:focus-visible { outline-offset: -3px; }
+.torn .main { padding-right: 16%; }
+.torn .artist { font-size: 13.5px; }
+.torn .sr { right: 16%; }
+.torn .sr::after { content: none; }
+
+.more {
+  margin-top: 9px;
+  padding: 7px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.foot { margin-top: 22px; padding-top: 8px; border-top: 1px dotted var(--rule); font-size: 11px; line-height: 1.45; }
+.foot p { margin: 0 0 3px; }
+.foot code { font-family: inherit; }
+
+/* The slide-up notes panel: off screen and out of the tab order until .open. */
+.panel {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  max-width: 900px;
+  height: calc(100% - 24px - env(safe-area-inset-top));
+  margin: 0 auto;
+  padding: 14px calc(16px + env(safe-area-inset-right)) calc(22px + env(safe-area-inset-bottom))
+           calc(16px + env(safe-area-inset-left));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--paper);
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, .35);
+  transform: translateY(100%);
+  visibility: hidden;
+  transition: transform .25s ease, visibility 0s linear .25s;
+}
+.panel.open { transform: none; visibility: visible; transition: transform .25s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .panel, .panel.open { transition: none; }
+}
+.panel-bar { position: sticky; top: 0; z-index: 1; display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.panel-bar .more { margin-top: 0; }
+
+/* The show page's look, shared by show.html and the panel. */
+.bigt {
+  display: flex;
+  min-height: 150px;
+  background-color: var(--card);
+  background-image: repeating-linear-gradient(135deg, rgba(60, 106, 106, .08) 0 3px, transparent 3px 7px);
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+}
+.bstub {
+  position: relative;
+  flex: none;
+  width: 104px;
+  padding: 12px 10px;
+  border-right: 2px dashed var(--perf);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.bstub::before, .bstub::after {
+  content: "";
+  position: absolute;
+  right: -10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--paper);
+}
+.bstub::before { top: -9px; }
+.bstub::after { bottom: -9px; }
+.bstub b { display: block; font-size: 17px; font-weight: 400; color: var(--oxblood); }
+.bmain { flex: 1; min-width: 0; padding: 12px 16px; }
+.bmain h2 { margin: 3px 0 4px; font-family: var(--serif); font-size: 26px; line-height: 1.1; }
+.bmain .w { font-size: 14px; line-height: 1.35; }
+.btn {
+  display: inline-block;
+  margin-top: 11px;
+  padding: 7px 12px;
+  background: var(--oxblood);
+  border-radius: 3px;
+  color: var(--label);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+.jcard {
+  padding: 10px 12px;
+  background: #fbf6e9;
+  border: 1px solid #bfae8a;
+  box-shadow: 2px 3px 0 #d8caaa;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.jcard ol { margin: 0; padding-left: 24px; }
+.liner { font-family: Georgia, serif; font-size: 14.5px; line-height: 1.5; }
+.liner h3 {
+  margin: 12px 0 3px;
+  font-family: var(--typed);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--oxblood);
+}
+.liner p, .liner ul { margin: 0 0 6px; }
+.meta { margin-top: 10px; font-size: 12.5px; line-height: 1.5; }
+.meta b { font-weight: 400; color: var(--oxblood); }
+.fineprint { margin-top: 16px; font-size: 11px; line-height: 1.4; color: #5e5240; }
+
+/* Layout B: the tape in a band across the top, rows of tickets beneath. */
+@media (min-width: 800px) {
+  .page {
+    max-width: 1000px;
+    padding: calc(20px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right))
+             calc(26px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+  }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+  .tag { margin: 0; }
+  .band {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 22px;
+    margin-bottom: 16px;
+    padding: 14px;
+    background: var(--band);
+    border-radius: 6px;
+  }
+  .deck { display: flex; flex-direction: column; }
+  .playing { order: -1; }
+  .playing .kick { margin-top: 0; }
+  .np { font-size: 24px; }
+  .keys { max-width: 320px; margin-top: 14px; }
+  .key { min-height: 40px; }
+  .tickets { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px 18px; }
+  .ticket { height: 84px; font-size: 11.5px; }
+  .stub { width: 74px; }
+  .stub .adm::after { content: none; }
+  .ticket.torn {
+    clip-path: polygon(0 0, 91% 0, 93% 12%, 90% 25%, 94% 38%, 91% 52%, 95% 66%, 91% 79%, 94% 91%, 91% 100%, 0 100%);
+  }
+  .torn .main { padding-right: 11%; }
+  .torn .sr { right: 11%; }
+  .sr::after { content: none; }
+  .bstub { width: 130px; }
+  .bmain h2 { font-size: 36px; }
+  .panel {
+    padding: 16px calc(24px + env(safe-area-inset-right)) calc(26px + env(safe-area-inset-bottom))
+             calc(24px + env(safe-area-inset-left));
+  }
+  .cols { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 26px; }
+}

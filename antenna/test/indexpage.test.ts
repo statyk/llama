@@ -27,7 +27,22 @@ describe("reconcileIndex", () => {
   it("the off-air page has no player scripts (the kill switch would block them)", () => {
     expect(OFFAIR_PAGE).toContain("The station is off the air.");
     expect(OFFAIR_PAGE).not.toContain("player.js");
-    expect(PLAYER_PAGE).toContain("player.js");
+    expect(PLAYER_PAGE).toContain("assets/app.js");
+  });
+
+  it("the off-air page stands alone while /assets/ is blocked", () => {
+    expect(OFFAIR_PAGE).not.toMatch(/<script|assets\/|style\.css/);
+    expect(OFFAIR_PAGE).toContain('http-equiv="refresh" content="300"');
+    expect(OFFAIR_PAGE).toContain('href="/"');
+  });
+
+  it("the player page previews the station, not a show", () => {
+    expect(PLAYER_PAGE).toContain("https://listen.lma-radio.com/assets/cassette-og.png");
+    expect(PLAYER_PAGE).toContain("Live concert tapes from the Live Music Archive, around the clock.");
+    expect(PLAYER_PAGE).toContain('rel="manifest"');
+    expect(PLAYER_PAGE).toContain("apple-touch-icon");
+    expect(PLAYER_PAGE).toContain("viewport-fit=cover");
+    expect(PLAYER_PAGE).not.toContain("serviceWorker");
   });
 
   it("writes through the R2 binding with its content type, max-age and metadata", async () => {
