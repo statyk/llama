@@ -14,13 +14,15 @@ blocks -- in that order, with the manifest last (spec section 2: the
 manifest rewrite is the package's success marker).
 """
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from herder import HerderError, provider_for
+from pydantic import ValidationError
 
-from emcee.audio import _synthesize_dj_audio, broadcast_m3u_text, detail
+from emcee.audio import _synthesize_dj_audio, adopt_clips, broadcast_m3u_text, detail
 from emcee.config import EmceeConfig
 from emcee.errors import EmceeError
 from emcee.models import DJAudioBlock, ScriptNotes, TTSRecord
@@ -30,7 +32,8 @@ from emcee.presenters import Presenter, load_presenter
 from emcee.scriptwrite import (_fold, render_notes_md, rephrase_problems, rephrase_segment,
                                script_guard, write_script)
 from emcee.speech_text import load_lexicon
-from emcee.station import Effective, effective_profile, move_target_problem
+from emcee.station import (Effective, effective_profile, manifest_voiced_by,
+                           move_target_problem)
 from emcee.tts import speech_provider_for
 from emcee.tts.bed import Bed
 from emcee.tts.provider import SpeechBlocked
@@ -215,13 +218,51 @@ def _with_segment(notes: ScriptNotes, stem: str, text: str) -> ScriptNotes:
     return notes.model_copy(update={"set_intros": {**notes.set_intros, key: text}})
 
 
+def kept_notes(manifest: dict) -> ScriptNotes:
+    """The manifest's `dj_notes` as the script to keep. Raises when there is
+    none to keep; callers do this before anything changes."""
+    try:
+        return ScriptNotes.model_validate(manifest.get("dj_notes"))
+    except ValidationError as exc:
+        raise EmceeError("no script to keep; run emcee voice without --keep-script") from exc
+
+
+def script_writer_mismatch(manifest: dict, presenter: Presenter | None) -> str | None:
+    """Who the kept script was written for, as `PackageStatus.voiced_by` reads
+    (`house`, `?` for a block with no recorded presenter, else the id), when
+    that differs from `presenter`; None when it may be kept. A null `dj_audio`
+    (a failed previous attempt) records nobody and passes. Ids compare
+    case-insensitively: the config may spell one differently, as in `emcee status`."""
+    if manifest.get("dj_audio") is None:
+        return None
+    written_for = manifest_voiced_by(manifest) or "?"
+    wanted = presenter.id if presenter is not None else "house"
+    return None if written_for.lower() == wanted.lower() else written_for
+
+
+def keep_script_retry(pkg_dir: Path) -> str:
+    """The detail line a failed `--keep-script` attempt prints."""
+    return f"re-run `emcee voice {pkg_dir} --keep-script` to retry"
+
+
+def adopt_kept_clips(config: EmceeConfig, pkg: Package, notes: ScriptNotes, speech,
+                     voicing: Voicing, skip: Collection[str]) -> None:
+    """`adopt_clips` for one package's `Voicing`, with the same chunking, lexicon
+    and bed `process_package` renders under, so the keys it writes are the keys
+    it will compare."""
+    adopt_clips(pkg.dir, notes, speech, chunking=config.tts.chunking(enabled=config.tts.chunk),
+                lexicon=load_lexicon(config.root), bed=_resolve_bed(config, voicing.presenter),
+                skip=skip)
+
+
 def _repair(notes: ScriptNotes, blocked: SpeechBlocked, manifest: dict, provider,
             used: dict[str, int], last: dict[str, str], repaired: set[str],
-            pkg_dir: Path) -> ScriptNotes:
+            retry_hint: str) -> ScriptNotes:
     """Reword the segment `blocked` names until a revision passes
     `rephrase_problems` and `script_guard`, within MAX_REPHRASES; return the
     accepted notes. Each attempt rephrases the ADOPTED text, never a rejected
-    candidate, and a rejected candidate is never returned."""
+    candidate, and a rejected candidate is never returned. `retry_hint` is the
+    last detail line of a failure."""
     seg = blocked.segment
     narration = manifest["briefing"]["narration"]
     cats = f" ({', '.join(blocked.categories)})" if blocked.categories else ""
@@ -237,8 +278,7 @@ def _repair(notes: ScriptNotes, blocked: SpeechBlocked, manifest: dict, provider
             raise EmceeError(
                 f"content filter blocked a sentence in {seg}{cats}; "
                 f"the rephrase task failed: {e}",
-                details=[f'blocked: "{blocked.text}"',
-                         f"re-run `emcee voice {pkg_dir}` for a fresh script"],
+                details=[f'blocked: "{blocked.text}"', retry_hint],
             ) from e
         candidate = _with_segment(notes, seg, revised)
         # Whitespace/typography-only differences count as unchanged: voicing
@@ -260,18 +300,24 @@ def _repair(notes: ScriptNotes, blocked: SpeechBlocked, manifest: dict, provider
         f"{MAX_REPHRASES} rephrase attempts failed",
         details=[f'blocked: "{blocked.text}"',
                  f"last attempt: {last.get(seg, 'unknown')}",
-                 f"re-run `emcee voice {pkg_dir}` for a fresh script"],
+                 retry_hint],
     )
 
 
 def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = False, *,
-                    voicing: Voicing) -> None:
+                    voicing: Voicing, notes: ScriptNotes | None = None) -> None:
     """Script, voice, and broadcast-assemble one delivered package.
 
     Order: write_script -> render dj-notes.md -> synthesize DJ audio ->
     broadcast.m3u -> rewrite the manifest's dj_notes/dj_audio blocks last.
     The manifest rewrite is the package's success marker: on any failure
     this raises and the manifest is left byte-for-byte as it was.
+
+    `notes` given (`--keep-script`) is the script to voice: no scriptwrite
+    provider is built, no script is written, and `dj-notes.md` is written only
+    if it is missing. The one manifest write before the success marker is
+    then a repair's: the manifest is the only copy a retry has, so each
+    accepted rewording goes into it at once.
 
     A TTS content-filter block (`SpeechBlocked`) is repaired in place by
     `_repair`.
@@ -287,15 +333,21 @@ def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = Fal
     manifest = pkg.manifest()
     presenter, title = voicing.presenter, voicing.title
 
-    llm_provider = provider_for(config.llm_settings(), "scriptwrite")
-    notes = write_script(pkg, llm_provider, presenter, title)
-    atomic_write_text(pkg.dir / "dj-notes.md", render_notes_md(notes, manifest))
+    keep_script = notes is not None
+    if notes is None:
+        llm_provider = provider_for(config.llm_settings(), "scriptwrite")
+        notes = write_script(pkg, llm_provider, presenter, title)
+    if not keep_script or not (pkg.dir / "dj-notes.md").exists():
+        atomic_write_text(pkg.dir / "dj-notes.md", render_notes_md(notes, manifest))
+    retry_hint = (keep_script_retry(pkg.dir) if keep_script
+                  else f"re-run `emcee voice {pkg.dir}` for a fresh script")
 
     bed = _resolve_bed(config, presenter)
     lexicon = load_lexicon(config.root)
     # A TTS content-filter block is repaired in place: reword the segment,
     # re-guard, rewrite dj-notes.md, re-synthesize. Clips already rendered
     # this call come from the cache (even under --force, via `rendered`).
+    # `rendered` holds real renders only; an adopted clip is never in it.
     rendered: set[str] = set()
     used: dict[str, int] = {}
     last: dict[str, str] = {}
@@ -312,8 +364,10 @@ def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = Fal
                 raise
             if rephraser is None:  # built lazily: most packages never need it
                 rephraser = provider_for(config.llm_settings(), "rephrase")
-            notes = _repair(notes, blocked, manifest, rephraser, used, last, repaired, pkg.dir)
+            notes = _repair(notes, blocked, manifest, rephraser, used, last, repaired, retry_hint)
             atomic_write_text(pkg.dir / "dj-notes.md", render_notes_md(notes, manifest))
+            if keep_script:
+                rewrite_manifest(pkg, dj_notes=notes, dj_audio=None)
 
     atomic_write_text(pkg.dir / "broadcast.m3u",
                       broadcast_m3u_text(manifest["tracks"], clips))
