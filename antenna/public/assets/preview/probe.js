@@ -8,6 +8,11 @@ const TICK_MS = 5000;
 const RETRY_MS = 30000;
 const LATE_GAP_S = 7.5; // a tick this late means the timer did not run on time
 const STALL_LOSS_S = 2; // played this far less than the wall clock moved: a stall
+const WAIT_STUCK_S = 30; // Wait then restart: stuck this long before anything is tried
+const WAIT_FETCH_EVERY_MS = 15000; // the first tick at or after this since the last fetch
+const WAIT_FETCH_TIMEOUT_MS = 8000;
+const WAIT_MAX_RESTARTS = 2; // per stall
+const WAIT_MIN_PLAYED_S = 1; // less than this between ticks is not playback resuming
 const LOG_KEY = "probe-log";
 const MAX_LINES = 6000; // over 3 hours of two tick lines per 5 s, under 1 MB
 const SHOWN_LINES = 200;
@@ -114,7 +119,11 @@ function makeTick(source) {
   };
 }
 
-setInterval(makeTick("interval"), TICK_MS);
+const intervalTick = makeTick("interval");
+setInterval(() => {
+  intervalTick();
+  waitTick();
+}, TICK_MS);
 
 const timeupdateTick = makeTick("timeupdate");
 let lastTimeupdate = 0;
@@ -126,17 +135,21 @@ audio.addEventListener("timeupdate", () => {
 
 // --- Playback.
 
-function begin(label) {
-  if (!wanted) movedAt = Date.now();
-  wanted = true;
-  movedCt = 0;
-  audio.src = STREAM;
+function playLogged(label) {
   const result = audio.play();
   log(`${label}: play() called`);
   result.then(
     () => log(`${label}: play() resolved ${state()}`),
     (err) => log(`${label}: play() REJECTED ${err.name}: ${err.message} ${state()}`),
   );
+}
+
+function begin(label) {
+  if (!wanted) movedAt = Date.now();
+  wanted = true;
+  movedCt = 0;
+  audio.src = STREAM;
+  playLogged(label);
 }
 
 // As player.js does.
@@ -171,6 +184,122 @@ function stopRetry() {
   lastRetryAt = 0;
   $("retry").textContent = "Retry loop: off";
   log("retry loop off");
+}
+
+// --- Wait then restart. The element is left alone until the position has stood
+// still for a while AND a fetch shows the network is back: a teardown while offline
+// ends the audio session and iOS freezes the page. Everything runs from the interval
+// tick, the one thing seen running through a locked stall.
+
+let waitOn = false;
+let waitForm = "full"; // or "gentle": load() and play(), the src stays
+let waitStalled = false; // in a stall: stuck past WAIT_STUCK_S, and not advancing since
+let waitRestarts = 0; // in this stall
+let waitLastRestart = null; // "restart 1 form=full", for the RECOVERED line
+let waitRestartAt = 0; // the second restart counts its 30 s from the first
+let waitGaveUp = false;
+let waitCt = null; // currentTime at the last tick; null means take a fresh reading
+let waitTickAt = 0;
+let waitFetchAt = 0;
+let waitFetchCount = 0;
+let waitFetching = null; // the AbortController of the one fetch in flight
+
+function waitClearStall() {
+  waitStalled = false;
+  waitRestarts = 0;
+  waitLastRestart = null;
+  waitRestartAt = 0;
+  waitGaveUp = false;
+  waitFetchAt = 0;
+}
+
+function stopWait() {
+  waitOn = false;
+  if (waitFetching) waitFetching.abort();
+  waitClearStall();
+  waitCt = null;
+  $("wait").textContent = "Wait then restart: off";
+  log("wait: off");
+}
+
+function waitRestart() {
+  const now = Date.now();
+  waitLastRestart = `restart ${++waitRestarts} form=${waitForm}`;
+  const tag = `wait: ${waitLastRestart} stuck=${stuckSeconds(now)}s`;
+  const label = `${tag} vis=${document.visibilityState}`;
+  log(`${tag} ${state()}`);
+  waitRestartAt = now;
+  waitCt = null; // both forms send the position back, and iOS then sets it to its start
+  if (waitForm === "full") {
+    restart(label);
+  } else {
+    movedCt = 0;
+    audio.load();
+    playLogged(label);
+  }
+}
+
+function waitFetch(now) {
+  const label = `wait: fetch ${++waitFetchCount}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), WAIT_FETCH_TIMEOUT_MS);
+  const ms = () => `ms=${Date.now() - now}`;
+  const done = () => {
+    clearTimeout(timer);
+    waitFetching = null;
+  };
+  waitFetching = controller;
+  waitFetchAt = now;
+  log(`${label} start stuck=${stuckSeconds(now)}s ${state()}`);
+  fetch(STREAM, { cache: "no-store", signal: controller.signal }).then(
+    (response) => {
+      done();
+      log(`${label} status=${response.status} ${ms()} ${state()}`);
+      if (!waitOn) return;
+      // Up to 8 s old by now: the position may have moved since the tick that asked.
+      if (!waitStalled || audio.currentTime !== waitCt) {
+        log(`${label} no restart: position moved ${state()}`);
+        return;
+      }
+      waitRestart();
+    },
+    (err) => {
+      done();
+      log(`${label} FAILED ${err.name}: ${err.message} ${ms()} ${state()}`);
+    },
+  );
+}
+
+function waitTick() {
+  if (!waitOn || !wanted) return;
+  const now = Date.now();
+  const ct = audio.currentTime;
+  // Between two readings, and no further than the wall clock allows: on iPhone the
+  // position starts well past 0 on its own, which is a jump and not playback.
+  const played = waitCt === null ? 0 : ct - waitCt;
+  const advanced = played >= WAIT_MIN_PLAYED_S && played <= (now - waitTickAt) / 1000 + STALL_LOSS_S;
+  waitCt = ct;
+  waitTickAt = now;
+  if (advanced) {
+    if (waitLastRestart) {
+      log(`wait: RECOVERED after ${waitLastRestart} in=${Math.round((now - waitRestartAt) / 1000)}s ${state()}`);
+    } else if (waitStalled) {
+      log(`wait: recovered alone ${state()}`);
+    }
+    waitClearStall();
+    return;
+  }
+  if ((now - Math.max(movedAt, waitRestartAt)) / 1000 < WAIT_STUCK_S) return;
+  if (!waitStalled) {
+    waitStalled = true;
+    log(`wait: stall stuck=${stuckSeconds(now)}s ${state()}`);
+  }
+  if (waitRestarts >= WAIT_MAX_RESTARTS) {
+    if (!waitGaveUp) log(`wait: no more restarts (${waitRestarts} made), watching only ${state()}`);
+    waitGaveUp = true;
+    return;
+  }
+  if (!waitFetching && now - waitFetchAt >= WAIT_FETCH_EVERY_MS) waitFetch(now);
 }
 
 // --- Events.
@@ -218,12 +347,15 @@ $("start").addEventListener("click", () => {
 $("stop").addEventListener("click", () => {
   log("button Stop");
   if (retryTimer !== null) stopRetry();
+  if (waitOn) stopWait();
   wanted = false;
   teardown();
 });
 
 $("pause").addEventListener("click", () => {
   log("button Pause only");
+  if (retryTimer !== null) stopRetry();
+  if (waitOn) stopWait();
   wanted = false;
   audio.pause();
 });
@@ -233,10 +365,28 @@ $("retry").addEventListener("click", () => {
     stopRetry();
     return;
   }
+  if (waitOn) stopWait();
   log("button Retry loop on");
   $("retry").textContent = "Retry loop: ON (press to end)";
   retryTimer = setInterval(retryOnce, RETRY_MS);
   retryOnce();
+});
+
+$("wait").addEventListener("click", () => {
+  if (waitOn) {
+    stopWait();
+    return;
+  }
+  if (retryTimer !== null) stopRetry();
+  log(`button Wait then restart on form=${waitForm} wanted=${wanted}`);
+  waitOn = true;
+  $("wait").textContent = "Wait then restart: ON (press to end)";
+});
+
+$("waitform").addEventListener("click", () => {
+  waitForm = waitForm === "full" ? "gentle" : "full";
+  $("waitform").textContent = `Restart form: ${waitForm}`;
+  log(`button Restart form ${waitForm}`);
 });
 
 let pushCount = 0;
