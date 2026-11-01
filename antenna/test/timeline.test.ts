@@ -31,7 +31,8 @@ const TIMELINE = {
     { slug: "next-2", start: "2026-10-10T15:00:00.000Z", end: "2026-10-10T16:00:00.000Z", artist: null, date: null,
       venue: null, city: null, files: [] },
   ],
-  recent: [{ slug: "wrong", start: "2030-01-01T00:00:00Z", end: "2030-01-01T01:00:00Z" }],
+  recent: [{ slug: "wrong", start: "2030-01-01T00:00:00Z", end: "2030-01-01T01:00:00Z",
+             files: [{ kind: "track", title: "wrong", start: "2030-01-01T00:10:00Z" }] }],
 };
 
 describe("positionMs", () => {
@@ -138,7 +139,17 @@ describe("tapeLog", () => {
     expect(airTime(e.start, "UTC")).toEqual({ day: "Sat", time: "12:10p" });
   });
   it("ignores recent and tolerates a missing timeline", () => {
-    expect(tapeLog(TIMELINE, t("2030-06-01T00:00:00Z")).map((e) => e.title)).not.toContain("wrong");
+    const late = t("2030-06-01T00:00:00Z");
+    expect(tapeLog(TIMELINE, late)).toEqual([
+      { title: "Later", start: "2026-10-10T13:00:00.000Z" },
+      { title: "Magic Foot>", start: "2026-10-10T12:10:00.000Z" },
+      { title: "One Fine Day", start: "2026-10-10T12:03:00.000Z" },
+      { title: "P3", start: "2026-10-10T11:00:00.000Z" },
+      { title: "P2", start: "2026-10-10T10:30:00.000Z" },
+      { title: "P1", start: "2026-10-10T10:01:00.000Z" },
+    ]);
+    const slugsOnly = { ...TIMELINE, recent: ["prev-1"] };
+    expect(tapeLog(slugsOnly, late)).toEqual(tapeLog({ shows: TIMELINE.shows }, late));
     expect(tapeLog(null, 0)).toEqual([]);
   });
 });
@@ -156,6 +167,12 @@ describe("comingUp and justAired", () => {
     const at = t("2026-10-10T15:30:00Z");
     expect(justAired(TIMELINE, at).map((s: any) => s.slug)).toEqual(["next-1", "cur-1", "prev-1"]);
     expect(justAired(TIMELINE, at, 1)).toHaveLength(1);
+  });
+  it("justAired ignores recent, whatever its shape", () => {
+    const late = t("2030-06-01T00:00:00Z");
+    const want = ["next-2", "next-1", "cur-1", "prev-1"];
+    expect(justAired(TIMELINE, late, 10).map((s: any) => s.slug)).toEqual(want);
+    expect(justAired({ ...TIMELINE, recent: ["prev-1"] }, late, 10).map((s: any) => s.slug)).toEqual(want);
   });
 });
 
