@@ -4,7 +4,8 @@ import { makeTimeline } from "./fixtures/timeline.mjs";
 import { startServer } from "./serve.mjs";
 
 const HOSTILE = JSON.parse(readFileSync(new URL("./fixtures/hostile.json", import.meta.url), "utf8"));
-const ALLOWED = /^\/(assets\/[^?#]*|timeline\.json|live\.m3u8|notes\/[^?#]*|seg\/[^?#]*)?$/;
+const ALLOWED = /^\/(assets\/[^?#]*|timeline\.json|live\.m3u8|notes\/[^?#]*|seg\/[^?#]*|show\/[^?#]*)?$/;
+const SHOW_TEMPLATE = readFileSync(new URL("../templates/show.html", import.meta.url), "utf8");
 const EXPECTED_STATUS = /Failed to load resource: (the server responded with a status of (403|404)|net::ERR_(EMPTY_RESPONSE|CONNECTION_RESET|FAILED))/;
 
 let site;
@@ -48,6 +49,49 @@ function hostileTimeline() {
   }));
   return t;
 }
+
+/** The show template with its slug filled and every other placeholder blank. */
+function showPage(slug) {
+  const attr = slug.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");
+  return SHOW_TEMPLATE.replaceAll("$slug", attr).replace(/\$\w+/g, "");
+}
+
+async function openShowPage(page, notes, slug = "x") {
+  await site.close();
+  site = await startServer({ shows: { [slug]: showPage(slug) }, notes: notes ? { [slug]: notes } : {} });
+  await page.goto(`${site.url}/show/${encodeURIComponent(slug)}.html`);
+}
+
+test.describe("show page air times", () => {
+  test.use({ timezoneId: "America/New_York" });
+
+  test("are written in the listener's zone, naming the end's day when it differs", async ({ page }) => {
+    await openShowPage(page, { airtimes: [
+      { start: "2026-10-31T04:26:00Z", end: "2026-10-31T05:53:00Z" },
+      { start: "2026-11-01T03:30:00Z", end: "2026-11-01T04:30:00Z" },
+    ] });
+    await expect(page.locator("#airtimes > div")).toHaveText(["Sat 12:26a to 1:53a", "Sat 11:30p to Sun 12:30a"]);
+    await expect(page.locator("#zone")).toHaveText("Times shown in Eastern Time");
+  });
+
+  test("say so when the show has none", async ({ page }) => {
+    await openShowPage(page, { airtimes: [] });
+    await expect(page.locator("#airtimes")).toHaveText("Not currently scheduled.");
+    await expect(page.locator("#zone")).toBeEmpty();
+  });
+
+  test("say so when the notes can't be read", async ({ page }) => {
+    await openShowPage(page, null);
+    await expect(page.locator("#airtimes")).toHaveText("Airtimes unavailable.");
+  });
+
+  test("say so on a bad time, and the hostile slug fetches its own notes as text", async ({ page }) => {
+    await openShowPage(page, { airtimes: [{ start: "<img src=x onerror=\"window.pwned=1\">", end: "x" }] }, HOSTILE.slug);
+    await expect(page.locator("#airtimes")).toHaveText("Airtimes unavailable.");
+    expect(site.requests).toContain(`/notes/${encodeURIComponent(HOSTILE.slug)}.json`);
+    expect(await page.evaluate(() => window.pwned)).toBeUndefined();
+  });
+});
 
 test("the page loads, shows the header line and every asset request succeeds", async ({ page }) => {
   const bad = [];

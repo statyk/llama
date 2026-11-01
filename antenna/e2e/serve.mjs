@@ -1,5 +1,5 @@
 // The smoke tests' site: public/ as static files, plus per-test timeline.json,
-// notes/ and a live playlist that loops the fixture segments on the wall clock.
+// notes/, show pages and a live playlist that loops the fixture segments on the wall clock.
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname, extname, join, sep } from "node:path";
@@ -56,15 +56,16 @@ function staticFile(pathname) {
 }
 
 /**
- * startServer({ timeline, notes, pdtOffsetMs }) -> { url, setLive(mode), requests, close() }.
+ * startServer({ timeline, notes, shows, pdtOffsetMs }) -> { url, setLive(mode), requests, close() }.
  * `timeline` is the /timeline.json body (absent: 404). `notes` maps a slug to its
- * /notes/<slug>.json body (absent: 404). `pdtOffsetMs` shifts the playlist's
+ * /notes/<slug>.json body (absent: 404). `shows` maps a slug to its /show/<slug>.html
+ * body (absent: 404). `pdtOffsetMs` shifts the playlist's
  * program-date-time off the wall clock. `setLive` picks what /live.m3u8 answers:
  * "live", "404", "403", "endlist", or "drop", which destroys the connection.
  * `requests` lists every request's path and query, in arrival order, and is
  * appended to in place.
  */
-export async function startServer({ timeline, notes = {}, pdtOffsetMs = 0 } = {}) {
+export async function startServer({ timeline, notes = {}, shows = {}, pdtOffsetMs = 0 } = {}) {
   const requests = [];
   let mode = "live";
 
@@ -86,6 +87,10 @@ export async function startServer({ timeline, notes = {}, pdtOffsetMs = 0 } = {}
     if (pathname.startsWith("/notes/") && pathname.endsWith(".json")) {
       const slug = pathname.slice("/notes/".length, -".json".length);
       return json(Object.hasOwn(notes, slug) ? notes[slug] : undefined);
+    }
+    if (pathname.startsWith("/show/") && pathname.endsWith(".html")) {
+      const slug = pathname.slice("/show/".length, -".html".length);
+      if (Object.hasOwn(shows, slug)) return send(200, TYPES[".html"], shows[slug]);
     }
     if (pathname === "/live.m3u8") {
       if (mode === "drop") return req.socket.destroy();

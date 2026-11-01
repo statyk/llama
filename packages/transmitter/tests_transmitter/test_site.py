@@ -10,7 +10,8 @@ from transmitter.layout import PlanRow
 from transmitter.workspace import Epoch
 
 EPOCH = Epoch("e1", grid.iso_to_us("2026-10-10T00:00:00Z"))
-TEMPLATE = (Path(__file__).resolve().parents[3] / "antenna" / "templates" / "show.html").read_text()
+REPO = Path(__file__).resolve().parents[3]
+TEMPLATE = (REPO / "antenna" / "templates" / "show.html").read_text()
 META = {"artist": "Band", "date": "2005-11-01", "venue": "Club", "city": "Lincoln, NE",
         "profile": "indie", "url": "https://archive.org/details/band2005", "lineage": "AUD"}
 
@@ -90,7 +91,11 @@ def test_show_page_escapes_and_fills_every_placeholder():
     assert '<meta property="og:url" content="https://radio.example.org/show/s.html">' in html
     assert '<meta property="og:title" content="Band — 2005-11-01">' in html
     assert "<p>Para two.</p>" in html
-    assert "$" not in html.split("<script>")[0]            # no unfilled placeholder
+    assert 'data-slug="s"' in html
+    assert ">Band</h2>" in html and "Club, Lincoln, NE" in html
+    assert "TUE NOV 1" in html and ">2005</b>" in html
+    assert "https://archive.org/details/band2005" in html and "AUD" in html
+    assert "$" not in html                                 # no unfilled placeholder
 
 
 def test_a_non_utf8_briefing_is_an_unreadable_briefing(tmp_path):
@@ -219,3 +224,173 @@ def test_notes_with_no_briefing_have_empty_sections():
 ])
 def test_archive_link_is_a_literal_prefix_check(url, want):
     assert site.archive_link(url) == want
+
+
+def _page(*, briefing=None, setlist=(), url=None, site_url="https://radio.example.org", **source):
+    manifest = {"tracks": list(setlist), "source": {"url": url, **source}}
+    notes = site.build_notes("s", manifest, briefing, [], META)
+    return site.render_show_page(TEMPLATE, notes, site_url=site_url, station_name="LMA Radio")
+
+
+def test_show_page_renders_sections_and_never_the_raw_marks():
+    page = _page(briefing=BRIEFING)
+    assert "<h2>Context</h2>" in page or ">Context<" in page
+    assert "<li>Opened hot</li>" in page
+    for raw in ("# Briefing", "## ", "**", "Cautions", "Do not say great"):
+        assert raw not in page
+
+
+def test_show_page_says_so_when_there_are_no_notes():
+    assert "<p>No notes yet.</p>" in _page()
+
+
+def test_show_page_description_is_the_first_non_heading_text():
+    assert 'content="Band played Club in Lincoln.' in _page(briefing=BRIEFING)
+
+
+def test_show_page_description_can_be_a_bullet_and_falls_back_to_the_title():
+    assert '<meta property="og:description" content="Only a bullet">' in _page(briefing="## A\n- Only a bullet\n")
+    assert '<meta property="og:description" content="Band — 2005-11-01">' in _page()
+
+
+def test_show_page_description_stops_at_200_characters():
+    assert 'content="' + "x" * 200 + '"' in _page(briefing="## A\n" + "x" * 300 + "\n")
+
+
+def test_show_page_leaves_out_the_button_for_a_non_archive_url():
+    page = _page(url="javascript:alert(1)")
+    assert "Hear the full tape" not in page and "javascript:" not in page
+
+
+def test_the_archive_button_opens_in_a_new_tab():
+    assert ('<a class="btn" href="https://archive.org/details/x" target="_blank" rel="noopener">'
+            "Hear the full tape on archive.org") in _page(url="https://archive.org/details/x")
+
+
+def test_a_quote_in_an_archive_url_is_escaped_in_the_href():
+    page = _page(url='https://archive.org/x"><script>')
+    assert '"><script>' not in page and "&quot;&gt;&lt;script&gt;" in page
+
+
+def test_a_quote_in_the_description_is_escaped():
+    assert 'Band said &quot;hi&quot;' in _page(briefing='## A\nBand said "hi"\n')
+
+
+def test_doubled_segue_marks_are_gone():
+    page = _page(setlist=[{"title": "Drums / Space >", "segue": True, "set": "2"}])
+    assert "Drums / Space &gt; &gt;" not in page and "Drums / Space &gt;" in page
+
+
+@pytest.mark.parametrize("title,segue,want", [
+    ("Song", False, "Song"), ("Song", True, "Song &gt;"), ("Song ->", False, "Song &gt;"),
+    ("Song->", True, "Song &gt;"), ("Song -->", False, "Song &gt;"), ("Song>", False, "Song &gt;"),
+    (None, False, "?"), ("  ", True, "?"),
+])
+def test_setlist_titles_follow_one_rule(title, segue, want):
+    assert f"<li>{want}</li>" in _page(setlist=[{"title": title, "segue": segue, "set": "1"}])
+
+
+def test_one_set_has_no_label_and_several_are_grouped_in_order():
+    one = _page(setlist=[{"title": "A", "set": "1"}, {"title": "B", "set": "1"}])
+    assert one.count("<ol>") == 1 and "Set 1" not in one
+    many = _page(setlist=[{"title": "A", "set": "1"}, {"title": "B", "set": "1"},
+                          {"title": "C", "set": "2"}, {"title": "D", "set": "encore"}])
+    assert many.count("<ol>") == 3
+    assert many.index("Set 1") < many.index("<li>B</li>") < many.index("Set 2") < many.index("<li>C</li>")
+    assert many.index("<li>C</li>") < many.index("Encore") < many.index("<li>D</li>")
+
+
+def test_a_show_with_no_setlist_says_so():
+    assert "<p>No setlist.</p>" in _page()
+
+
+def test_the_ai_disclaimer_is_on_the_page():
+    assert "Show notes are AI generated and may contain mistakes." in _page()
+
+
+def test_a_blank_lineage_leaves_its_label_out():
+    assert "Taper's lineage" in _page(lineage="SBD")
+    notes = dict(site.build_notes("s", None, None, [], META), lineage=None)
+    assert "lineage" not in site.render_show_page(TEMPLATE, notes, site_url=None, station_name="LMA Radio")
+
+
+def test_null_fields_are_never_printed():
+    notes = site.build_notes("s", None, None, [], {})
+    page = site.render_show_page(TEMPLATE, notes, site_url=None, station_name="LMA Radio")
+    assert "None" not in page and "null" not in page
+
+
+def test_the_slug_is_encoded_in_the_page_url_and_escaped_in_the_data_attribute():
+    notes = dict(site.build_notes("s", None, None, [], META), slug='a b"c')
+    page = site.render_show_page(TEMPLATE, notes, site_url="https://x.example", station_name="LMA Radio")
+    assert 'content="https://x.example/show/a%20b%22c.html"' in page
+    assert 'data-slug="a b&quot;c"' in page
+
+
+def test_non_string_fields_never_stop_the_render():
+    notes = dict(site.build_notes("s", None, None, [], META), artist=5, date=1977, venue=6, city=7, lineage=8)
+    page = site.render_show_page(TEMPLATE, notes, site_url=None, station_name="LMA Radio")
+    assert "5 — 1977" in page and "6, 7" in page
+
+
+def test_og_image_needs_a_site_url():
+    assert "cassette-og.png" in _page(site_url="https://x.example")
+    assert "og:image" not in _page(site_url=None)
+
+
+def test_og_image_is_absolute():
+    assert '<meta property="og:image" content="https://x.example/assets/cassette-og.png">' \
+        in _page(site_url="https://x.example/")
+
+
+def test_show_page_escapes_sections():
+    assert "<script>" not in _page(briefing="## A\n<script>x</script>\n")
+
+
+def test_show_page_escapes_a_heading_and_a_bullet():
+    page = _page(briefing="## <b>A</b>\n- <i>x</i>\n")
+    assert "<b>" not in page and "<i>" not in page
+
+
+def test_the_hostile_fixture_stays_text():
+    hostile = json.loads((REPO / "antenna" / "e2e" / "fixtures" / "hostile.json").read_text())
+    page = site.render_show_page(TEMPLATE, hostile, site_url=None, station_name="LMA Radio")
+    assert "<img" not in page
+    for raw in ("<script>window", "<svg", "<iframe", '<a href="javascript', "<h1 onclick", "<b>", "<i>", "<u>"):
+        assert raw not in page
+
+
+def test_the_template_has_no_inline_script():
+    assert "<script>" not in TEMPLATE
+
+
+def test_the_template_uses_the_new_look_and_links_home():
+    assert 'href="/assets/radio.css"' in TEMPLATE and '<script type="module" src="/assets/show.js">' in TEMPLATE
+    assert 'href="/"' in TEMPLATE and "../style.css" not in TEMPLATE
+    for copy in ("LMA RADIO PRESENTS", "GEN ADM", "Liner notes"):
+        assert copy in TEMPLATE
+
+
+@pytest.mark.parametrize("date,want", [
+    ("2008-11-01", ("SAT NOV 1", "2008")),
+    ("1977-05-00", ("1977-05-00", "")),
+    ("1977", ("1977", "")),
+    ("2008-13-45", ("2008-13-45", "")),
+    ("garbage", ("garbage", "")),
+    (None, ("", "")),
+    (1977, ("1977", "")),
+])
+def test_concert_stub_never_raises(date, want):
+    assert site.concert_stub(date) == want
+
+
+@pytest.mark.parametrize("date", ["0000-01-01", "2023-02-29", "2008-11-01\n"])
+def test_concert_stub_gives_back_what_is_no_date(date):
+    assert site.concert_stub(date) == (date, "")
+
+
+@pytest.mark.parametrize("venue,city,want", [
+    ("Club", "Lincoln", "Club, Lincoln"), ("Club", None, "Club"), (None, "Lincoln", "Lincoln"), (None, None, ""),
+])
+def test_where_line(venue, city, want):
+    assert site.where_line(venue, city) == want
