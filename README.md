@@ -434,12 +434,19 @@ emcee's own factual guard, not llama's.
                                        # a name or unique substring under [station] root,
                                        # or a path
     emcee voice gratefuldead-1973-06-10 --fresh set1-intro
-                                       # re-roll just this DJ clip (repeatable) --
-                                       # in practice, with a real LLM, emcee
-                                       # re-scripts on every call and the
-                                       # regenerated text usually changes EVERY
-                                       # clip's cache key, so normally every clip
-                                       # re-renders anyway, not just the named one
+                                       # re-roll this DJ clip (repeatable) --
+                                       # on its own emcee re-scripts first, and
+                                       # the new text usually changes EVERY clip's
+                                       # cache key, so normally every clip
+                                       # re-renders; add --keep-script for only
+                                       # the named one
+    emcee voice gratefuldead-1973-06-10 --keep-script
+                                       # re-voice from the existing script: no
+                                       # scriptwriting LLM call. Cache keys compare
+                                       # as usual, so every clip may re-render
+    emcee voice gratefuldead-1973-06-10 --keep-script --fresh set1-intro
+                                       # render ONLY this clip; every other clip
+                                       # on disk is kept as it is
     emcee status                       # summary by (effective) profile: ready / pending / other
     emcee status --list                # per show; a moved show reads "southern (from funk)"
     emcee status --json
@@ -451,6 +458,28 @@ emcee's own factual guard, not llama's.
                                        # back to llama's profile (exempts it from an artist rule)
     emcee move tedeschitrucksband-2012-11-29 --clear
     emcee move --list                  # every recorded move; `missing` = no package has it
+
+**Re-voicing with `--keep-script`.** It reuses the manifest's script, so the
+only LLM call it can make is a content-filter repair, which rewords the refused
+sentence and saves it straight back to the manifest. It refuses a script
+written for another presenter (`script was written for <id>; re-voice without
+--keep-script`, where `?` means the package never recorded one) and a package
+with no usable script, both before anything changes. With `--fresh`, a warning
+says when the recorded TTS backend or model is not today's: the re-rolled clips
+will sound different from the kept ones. `--force` with `--fresh` and
+`--keep-script` together is a usage error.
+
+A failed attempt never loses the script, but like any failed re-voice it takes
+the show off air: the manifest keeps `dj_notes` with `dj_audio` null, `emcee
+status` reads `kept script`, and plain `emcee run` skips it (`skip <slug>: kept
+script awaiting retry (emcee voice <slug> --keep-script)`). Retry with `emcee
+voice <slug> --keep-script`; no `--fresh` is needed, since the kept clips were
+recorded before the first render. Plain `emcee voice <slug>` on it writes a
+fresh script instead. Limit: `llama deliver` reads only `dj_audio`, so it treats
+this state as unvoiced.
+
+`themotet-2007-04-22` and `warrenzevon-2000-05-29` have scripts that say profane
+titles, so re-voice those with a fresh script, not `--keep-script`.
 
 **Reading `emcee status`.** Profiles are effective: a recorded move, else an
 artist rule, else llama's. The summary has one row per profile (assigned
@@ -465,8 +494,8 @@ recorded backend (`-` unvoiced, `?` no usable record), plus
 profile, presenter, TTS) has a different backend, `(now: new model)` when
 only the model differs, or `(now: unresolved)` when that cannot be resolved;
 the voice hash is not compared. The reasons cell is a short summary
-(`unvoiced`, `no script`, `no m3u`, `N clips missing`, `N of M audio
-missing`; blank for an awaiting-fix show). `--json` has the models and the
+(`unvoiced`, `kept script`, `no script`, `no m3u`, `N clips missing`, `N of M
+audio missing`; blank for an awaiting-fix show). `--json` has the models and the
 full reasons. Drift is display-only: it never makes a show pending, and
 "pending" never means off air (a show pending only for a profile change keeps
 airing its old voicing). `--json` is always per-show, filters apply, and rows

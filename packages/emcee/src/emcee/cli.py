@@ -512,7 +512,9 @@ def run(
 
     A pending package with missing track audio is skipped, whatever else is
     wrong with it (`skip <slug>: N audio file(s) missing; re-deliver from
-    llama`): voicing cannot fix it. "unsupported" (pre-v3) packages are
+    llama`): voicing cannot fix it. So is a failed `emcee voice --keep-script`
+    attempt (`skip <slug>: kept script awaiting retry (...)`): a sweep would
+    replace the script it kept. "unsupported" (pre-v3) packages are
     reported and never modified. A package whose recorded move targets a
     profile with no `\\[assign.profiles]` entry is an error row and is never
     voiced, even when it is otherwise ready. Per-package failures are
@@ -567,6 +569,10 @@ def run(
         if status.missing_tracks:   # tracks first: voicing cannot fix them
             typer.echo(f"skip {slug}: {status.missing_tracks} audio file(s) missing; "
                        "re-deliver from llama")
+            continue
+        if status.kept_script:
+            typer.echo(f"skip {slug}: kept script awaiting retry "
+                       f"(emcee voice {slug} --keep-script)")
             continue
         if dry_run:
             view = assignment_for(config, status.profile)
@@ -1247,7 +1253,9 @@ def move_cmd(
     # "voiced on the next run" claim: `run` skips such a package.
     missing = (f"{a.missing_tracks} audio file(s) missing — re-deliver from llama"
                if a.missing_tracks else None)
-    if not a.voiced:
+    if a.kept_script:
+        state = "unvoiced; " + (missing or "kept script awaiting retry")
+    elif not a.voiced:
         state = "unvoiced; " + (missing or f"voiced as {after} on the next emcee run")
     elif a.profile_reason is None:
         state = f"ready; already voiced as {after}" + (f"; {missing}" if missing else "")

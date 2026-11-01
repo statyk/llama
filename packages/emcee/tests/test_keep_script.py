@@ -603,3 +603,100 @@ def test_voice_help_describes_keep_script(monkeypatch, tmp_path):
 
     assert "--keep-script" in result.output
     assert "there is no way around this" not in result.output
+
+
+# --- the failed-attempt state (dj_notes present, dj_audio null) ---------------
+
+
+def _failed_attempt(tmp_path, monkeypatch) -> Path:
+    pkg_dir = _voiced(tmp_path, monkeypatch)
+    manifest = _manifest(pkg_dir)
+    manifest["dj_audio"] = None
+    _write_manifest(pkg_dir, manifest)
+    return pkg_dir
+
+
+def test_status_reads_kept_script(tmp_path, monkeypatch):
+    _failed_attempt(tmp_path, monkeypatch)
+
+    table = runner.invoke(app, ["status", "--list"])
+    rows = json.loads(runner.invoke(app, ["status", "--json"]).output)
+
+    assert table.exit_code == 0, table.output
+    assert rows[0]["state"] == "pending"
+    assert rows[0]["reasons"] == ["kept script"]
+    assert "kept script" in table.output and "unvoiced" not in table.output
+
+
+def test_a_never_voiced_package_still_reads_unvoiced(tmp_path, monkeypatch):
+    _, station = station_home(tmp_path, monkeypatch)
+    build_package(station, slug="showA")
+
+    rows = json.loads(runner.invoke(app, ["status", "--json"]).output)
+
+    assert "no DJ audio (unvoiced)" in rows[0]["reasons"]
+    assert "kept script" not in rows[0]["reasons"]
+
+
+@pytest.mark.parametrize("args", [["--yes"], ["--dry-run"]])
+def test_plain_run_skips_the_failed_attempt_state(tmp_path, monkeypatch, args):
+    pkg_dir = _failed_attempt(tmp_path, monkeypatch)
+    before = _tree(pkg_dir)
+    attempts = forbid_spend(monkeypatch)
+
+    result = runner.invoke(app, ["run", *args])
+
+    assert result.exit_code == 0, result.output
+    assert ("skip showA: kept script awaiting retry (emcee voice showA --keep-script)"
+            in result.output)
+    assert "would voice" not in result.output
+    assert "to voice:" not in result.output
+    assert "0 package(s)" in result.output
+    assert attempts == []
+    assert _tree(pkg_dir) == before
+
+
+def test_missing_track_audio_wins_over_the_kept_script_skip(tmp_path, monkeypatch):
+    pkg_dir = _failed_attempt(tmp_path, monkeypatch)
+    next((pkg_dir / "audio").iterdir()).unlink()
+
+    result = runner.invoke(app, ["run", "--yes"])
+
+    assert "re-deliver from llama" in result.output
+    assert "kept script" not in result.output
+
+
+def test_plain_voice_on_the_failed_attempt_state_writes_a_fresh_script(tmp_path, monkeypatch):
+    pkg_dir = _failed_attempt(tmp_path, monkeypatch)
+    fresh = json.loads(notes_json())
+    fresh["outro"] = "A brand new outro for I Know You Rider. Thanks for listening."
+    monkeypatch.setattr(process_mod, "provider_for",
+                        lambda settings, task: FakeProvider(completes=[json.dumps(fresh)]))
+
+    result = runner.invoke(app, ["voice", str(pkg_dir)])
+
+    assert result.exit_code == 0, result.output
+    assert _manifest(pkg_dir)["dj_notes"]["outro"] == fresh["outro"]
+
+
+def test_keep_script_retries_the_failed_attempt_state(tmp_path, monkeypatch):
+    pkg_dir = _failed_attempt(tmp_path, monkeypatch)
+    _forbid_llm(monkeypatch)
+    _use_speech(monkeypatch, Speech())
+
+    result = runner.invoke(app, ["voice", str(pkg_dir), "--keep-script"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(runner.invoke(app, ["status", "--json"]).output)[0]["state"] == "ready"
+
+
+def test_move_does_not_promise_a_run_for_the_failed_attempt_state(tmp_path, monkeypatch):
+    _failed_attempt(tmp_path, monkeypatch)
+    config = tmp_path / "home" / "config.toml"
+    config.write_text(config.read_text() + '\n[assign.profiles.funk]\npresenter = "kurt"\n')
+
+    result = runner.invoke(app, ["move", "showA", "funk"])
+
+    assert result.exit_code == 0, result.output
+    assert "kept script awaiting retry" in result.output
+    assert "on the next emcee run" not in result.output

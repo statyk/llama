@@ -252,7 +252,7 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   them, and each gather replaces the file.
 - Run (emcee, station-side, post-`llama deliver`): `emcee run` (scan
   `[station] root` and voice every not-yet-broadcast-ready package;
-  it prints a plan on stderr (new / re-voice by reason / repair, the exact clip count, presenter and TTS per group) and asks `Proceed? [y/N]` before ANY LLM or TTS spend; `--yes`/`-y` skips the question; with no TTY and no `--yes` it prints the plan and exits 1. A pending package with missing track audio is skipped (`re-deliver from llama`), not voiced, whatever else is wrong with it. **An agent (no TTY) runs `emcee run --dry-run`, shows the plan, and passes `--yes` only after the operator approves**; the `--yes` run re-scans, so keep the gap short;
+  it prints a plan on stderr (new / re-voice by reason / repair, the exact clip count, presenter and TTS per group) and asks `Proceed? [y/N]` before ANY LLM or TTS spend; `--yes`/`-y` skips the question; with no TTY and no `--yes` it prints the plan and exits 1. A pending package with missing track audio is skipped (`re-deliver from llama`), not voiced, whatever else is wrong with it; a failed `--keep-script` attempt is skipped too (`skip <slug>: kept script awaiting retry (emcee voice <slug> --keep-script)`). **An agent (no TTY) runs `emcee run --dry-run`, shows the plan, and passes `--yes` only after the operator approves**; the `--yes` run re-scans, so keep the gap short;
   `--profile <name>` (repeatable) limits it to packages whose EFFECTIVE profile (move > artist rule > llama's) is one of those, `--assigned` to packages whose effective profile has its OWN
   `[assign.profiles.<name>]` entry (not those falling to `[assign] default`
   or the house voice), `--dry-run` lists what
@@ -264,12 +264,20 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   `emcee voice <package>` (script + voice + assemble one package —
   a path, or a name/unique substring under `[station] root`, overridable
   with `--station-root`, exact name beating substring hits;
-  `--fresh <clip-stem>` deletes just that cached clip, but since emcee
-  re-scripts on every call, a real LLM's regenerated text usually
-  invalidates every clip's cache too — in practice `--fresh` normally
-  re-renders every clip, not just the named one; `--force` re-synthesizes
-  all of them unconditionally), `emcee status` (default: a summary by profile, ending in `voiced on`, the voiced packages by recorded TTS backend; `--list`/`-l`
-  gives the per-package table (a header row unless `--no-header`) of ready/pending/unsupported/`error` with a TTS column (the recorded backend, `?` = no usable record, `(now: <backend>)` when the presenter now resolves to a different backend, `(now: new model)` when only the model moved, `(now: unresolved)` when it cannot resolve; models are in `--json`; the voice hash is not compared; display only, drift never changes readiness) and a short reasons column (`unvoiced`, `no script`, `no m3u`, `N clips missing`, `N of M audio missing`; blank for `awaiting-fix`; `--json` keeps the full text), `--profile`,
+  `--fresh <clip-stem>` deletes just that cached clip, but without
+  `--keep-script` emcee re-scripts first, and a real LLM's regenerated text
+  usually invalidates every clip's cache too; `--force` re-synthesizes
+  all of them unconditionally; `--keep-script` voices the manifest's existing
+  `dj_notes` with no scriptwriting LLM call, refuses a script written for
+  another presenter (`script was written for <id>; re-voice without
+  --keep-script`, `?` = no recorded presenter), and with `--fresh` renders only
+  the named clips, adopting every other clip on disk; alone it compares cache
+  keys as usual, so every clip may re-render; `--force` with `--fresh` and
+  `--keep-script` together is a usage error;
+  `themotet-2007-04-22` and `warrenzevon-2000-05-29` have scripts that say
+  profane titles, so re-voice those with a fresh script, not `--keep-script`),
+  `emcee status` (default: a summary by profile, ending in `voiced on`, the voiced packages by recorded TTS backend; `--list`/`-l`
+  gives the per-package table (a header row unless `--no-header`) of ready/pending/unsupported/`error` with a TTS column (the recorded backend, `?` = no usable record, `(now: <backend>)` when the presenter now resolves to a different backend, `(now: new model)` when only the model moved, `(now: unresolved)` when it cannot resolve; models are in `--json`; the voice hash is not compared; display only, drift never changes readiness) and a short reasons column (`unvoiced`, `kept script`, `no script`, `no m3u`, `N clips missing`, `N of M audio missing`; blank for `awaiting-fix`; `--json` keeps the full text), `--profile`,
   `--state`, `--tts BACKEND` (`none` = voiced, no record) and `--drifted` filter and switch to that table on their own, `--json` is
   always per-show and adds `tts_now`/`tts_drifted`; `station.scan` checks packages on `SCAN_WORKERS = 16` threads and reads each manifest once, output unchanged; a `--profile` no package carries prints a `note:` rather
   than looking like an empty queue; the voicing presenter is the
@@ -950,6 +958,7 @@ has run).
   −1 dBFS peak ceiling, ±10 dB clamp; module constants, no config), because
   Voxtral returns every call at its own level; the unchunked no-bed path ships
   the provider's MP3 untouched and is not normalized.
+  **`--keep-script` (strict: it must never lose a script).** `_process_one` parses `dj_notes` once (`process.kept_notes`) and checks the presenter (`process.script_writer_mismatch`) before provider construction, so a refusal touches nothing (`no script to keep; run emcee voice without --keep-script`). With `--fresh`, `audio.adopt_clips` writes today's key for every other clip on disk into `segments.json` after the preflight and before the unlink, with no render, and warns once if the recorded TTS backend or model is not today's: measured over 328 voiced packages, today's `_render_key` matched every clip of only 94, so shows voiced by mid-October would otherwise re-render whole. Adopted clips never enter `rendered`. The clear nulls only `dj_audio`, and each accepted `_repair` is written straight into the manifest (the only copy a retry reads). `dj-notes.md` is written only if missing or repaired. **Failed-attempt state** (`dj_notes` present, `dj_audio` null, reason `kept script`, `Assessment.kept_script`): the failure prints the retry command once the clear path has begun (a preflight failure changes nothing and prints none: the same command is the retry, and `--keep-script` alone would drop `--fresh`). The retry needs no `--fresh`, since the adopted keys are on disk. Plain `emcee run` skips the state; plain `emcee voice` on it writes a fresh script. **Limit:** `llama deliver` reads only `dj_audio`, so it treats the failed-attempt state as unvoiced.
   **`moves.json` is never read leniently**: unreadable or malformed is a hard error for `run`/`voice`/`status`/`move`, and so is a missing file while any package records `profile_source: "move"`.
   Everything else in a package is llama-owned and read-only from emcee's side.
   A Voxtral content-filter refusal (403 `guardrail_violation`) is `SpeechBlocked`:
