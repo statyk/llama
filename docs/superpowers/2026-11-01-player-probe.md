@@ -79,11 +79,20 @@ Summarised by the parent from the operator's pasted log (11:06-12:07 EST). Times
 - Unexplained, once: after the 14:36:59 Play, audio ran hidden briefly, then 14:37:17 `stalled ct=49.99 buf=none`; 14:37:28 page load with no pagehide. Unknown whether the operator closed the app.
 - Not run from the icon: test 6 (Pause only, then lock-screen Play). It decides whether keeping the session would fix the difference.
 
+## Test 6 from the home-screen icon (operator, no log)
+- Start, Pause only, lock, lock-screen Play within 5 s: audio did not start.
+- Caveat: the probe's Media Session play handler tears down before play(), so this tested pause + teardown + play, not a plain play() resuming the paused element. A plain resume is untested, and on a live stream it would rejoin stale audio anyway.
+- The 14:37:28 reload: the operator does not recall, and may have closed the app. Not pursued.
+
+## D5 (parent)
+- The home-screen app matches Safari on locked playback, dropout recovery, back swipe and archive.org. Keep it. No Stop change.
+- Documented limitation: in the home-screen app, once stopped, lock-screen and car Play reach the page but audio will not load until the app is opened, where it then starts. Safari allows Play for a short time after stopping.
+
 ## Still open
-- D5: test 6 from the home-screen icon is still to run. Task 11 waits for it.
 - A backwards playlist step can't be produced here: that case stays unverified and is left to the road.
 - Both preview rounds still need `--remove-preview` (the operator's, from the worktree's `antenna/`).
 
 ## Go-live notes
 - Restart form: full. Gentle worked too (9b); it is not used, so hls.js and native keep one code path.
 - After Stop or a Bluetooth disconnect iOS sleeps the page within about a minute, so a car or lock-screen Play made after that waits until unlock.
+- In the home-screen app, once stopped, lock-screen and car Play reach the page but audio will not load until the app is opened, where it then starts.
