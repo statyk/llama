@@ -181,7 +181,10 @@ operator's iPhone and car.
 
 **Limitation (measured, iOS):** after Stop or a Bluetooth disconnect iOS sleeps the
 page within about a minute, so a car or lock-screen Play made after that waits until
-the phone is unlocked. Play within seconds of stopping works.
+the phone is unlocked. Play within seconds of stopping works. In the home-screen app, once
+stopped, lock-screen and car Play reach the page but audio does not load until the app
+is opened, where it then starts. A second station's home-screen app does the same, which
+points to iOS.
 
 ## Recovery
 

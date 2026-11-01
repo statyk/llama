@@ -88,6 +88,11 @@ Summarised by the parent from the operator's pasted log (11:06-12:07 EST). Times
 - The home-screen app matches Safari on locked playback, dropout recovery, back swipe and archive.org. Keep it. No Stop change.
 - Documented limitation: in the home-screen app, once stopped, lock-screen and car Play reach the page but audio will not load until the app is opened, where it then starts. Safari allows Play for a short time after stopping.
 
+## Second home-screen audio app (operator)
+- Reinstalled the other app, a separate station built by someone else. Its lock-screen Play after stopping also fails, which points to an iOS limit rather than our code.
+- Tapping the lock-screen player now opens our app whichever app is playing. Before, with the other app installed first, it opened that app. So the oldest-installed home-screen app appears to win. Two observations on one phone.
+- Limitation to document: with several home-screen web apps, tapping the lock-screen player may open a different one. Audio controls are not the cause and Safari is not affected as far as tested.
+
 ## Still open
 - A backwards playlist step can't be produced here: that case stays unverified and is left to the road.
 - Both preview rounds still need `--remove-preview` (the operator's, from the worktree's `antenna/`).
@@ -96,3 +101,4 @@ Summarised by the parent from the operator's pasted log (11:06-12:07 EST). Times
 - Restart form: full. Gentle worked too (9b); it is not used, so hls.js and native keep one code path.
 - After Stop or a Bluetooth disconnect iOS sleeps the page within about a minute, so a car or lock-screen Play made after that waits until unlock.
 - In the home-screen app, once stopped, lock-screen and car Play reach the page but audio will not load until the app is opened, where it then starts.
+- A second station's home-screen web app fails lock-screen Play after stopping too, which points to iOS. With two such apps installed, tapping the lock-screen player opens the oldest-installed one, whichever is playing (two observations, one phone).
