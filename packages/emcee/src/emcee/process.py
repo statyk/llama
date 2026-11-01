@@ -23,7 +23,8 @@ from typing import Literal
 from herder import HerderError, provider_for
 from pydantic import ValidationError
 
-from emcee.audio import _synthesize_dj_audio, adopt_clips, broadcast_m3u_text, detail
+from emcee.audio import (_synthesize_dj_audio, adopt_clips, bed_key_of, broadcast_m3u_text,
+                         count_clips_to_render, detail)
 from emcee.config import EmceeConfig
 from emcee.errors import EmceeError
 from emcee.models import DJAudioBlock, ScriptNotes, TTSRecord
@@ -310,6 +311,20 @@ def adopt_kept_clips(config: EmceeConfig, pkg: Package, notes: ScriptNotes, spee
     adopt_clips(pkg.dir, notes, speech, chunking=config.tts.chunking(enabled=config.tts.chunk),
                 lexicon=load_lexicon(config.root), bed=_resolve_bed(config, voicing.presenter),
                 skip=skip)
+
+
+def presenter_bed_key(config: EmceeConfig, presenter: Presenter | None) -> str:
+    """The bed's part of this presenter's clip keys; hashes the bed once."""
+    return bed_key_of(_resolve_bed(config, presenter))
+
+
+def clips_to_render(config: EmceeConfig, pkg: Package, notes: ScriptNotes, speech,
+                    presenter: Presenter | None, bed_key: str, force: bool) -> tuple[int, int]:
+    """(clips that would render, clips in the script) for one package under
+    `process_package`'s own chunking, lexicon and bed."""
+    return count_clips_to_render(
+        pkg.dir, notes, speech, force, chunking=config.tts.chunking(enabled=config.tts.chunk),
+        lexicon=load_lexicon(config.root), bed=_resolve_bed(config, presenter), bed_key=bed_key)
 
 
 def _repair(notes: ScriptNotes, blocked: SpeechBlocked, manifest: dict, provider,

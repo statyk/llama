@@ -422,6 +422,37 @@ def _keyed_segments(notes: ScriptNotes, speech, *, chunking: Chunking | None, le
                                         loud_key=loud_key)
 
 
+def bed_key_of(bed: Bed | None) -> str:
+    """The bed's part of every clip key (empty with no bed). Loads the bed's
+    PCM to hash it, so a batch computes it once per presenter."""
+    return _load_bed(bed)[2]
+
+
+def count_clips_to_render(pkg: Path, notes: ScriptNotes, speech, force: bool, *,
+                          chunking: Chunking | None, lexicon: Lexicon | None = None,
+                          bed: Bed | None = None, bed_key: str) -> tuple[int, int]:
+    """(clips that would render, clips in the script) by the very comparison
+    `_synthesize_dj_audio` makes: `force`, a missing clip, or a sidecar key
+    that is not today's. Reads only; renders nothing."""
+    audio_dir = pkg / "dj-audio"
+    sidecar = audio_dir / "segments.json"
+    try:
+        cached = json.loads(sidecar.read_text()) if sidecar.exists() else {}
+    except ValueError:
+        cached = {}
+    if not isinstance(cached, dict):
+        cached = {}
+    total = stale = 0
+    for stem, _spoken, key in _keyed_segments(notes, speech, chunking=chunking,
+                                              lexicon=lexicon or Lexicon.empty(), bed=bed,
+                                              bed_key=bed_key):
+        total += 1
+        filename = f"{stem}.mp3"
+        if force or not (audio_dir / filename).exists() or cached.get(filename) != key:
+            stale += 1
+    return stale, total
+
+
 def adopt_clips(pkg: Path, notes: ScriptNotes, speech, *, chunking: Chunking | None,
                 lexicon: Lexicon | None = None, bed: Bed | None = None,
                 skip: Collection[str] = ()) -> None:
