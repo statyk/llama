@@ -145,7 +145,12 @@ export function setState(name) {
   state = name;
   const retry = $("retry");
   if (retry) retry.hidden = !["gaveup", "offair", "refused"].includes(name);
-  renderAt(lastAtMs == null ? Date.now() : lastAtMs);
+  // A render error must never block Play or recovery, which call this first.
+  try {
+    renderAt(lastAtMs == null ? Date.now() : lastAtMs);
+  } catch {
+    // The next tick tries again.
+  }
 }
 
 export function currentTimeline() {

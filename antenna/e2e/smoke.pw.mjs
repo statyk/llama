@@ -123,7 +123,7 @@ test("the footer's archive.org link opens in a new tab so the music keeps playin
   await expect(link).toHaveAttribute("rel", /noopener/);
 });
 
-test("an engine that throws on longGeneric still renders the page and keeps the loop going", async ({ page }) => {
+test("an engine that throws on longGeneric still renders the page and Play still turns the hubs", async ({ page }) => {
   await page.addInitScript(() => {
     const Real = Intl.DateTimeFormat;
     Intl.DateTimeFormat = function (loc, opts) {
@@ -396,6 +396,33 @@ function countProbes(context) {
   context.on("request", (r) => { if (r.resourceType() === "fetch" && r.url().endsWith("/live.m3u8")) probes.push(r); });
   return probes;
 }
+
+/** Every render throws from here on; ticket clicks, which also use closest, are spared. */
+async function breakRendering(page) {
+  await page.evaluate(() => {
+    const real = Element.prototype.closest;
+    Element.prototype.closest = function (selector) {
+      if (selector.startsWith("section")) throw new Error("planted render error");
+      return real.call(this, selector);
+    };
+  });
+}
+
+test("a lasting render error leaves the loop's player tick running", async ({ page }) => {
+  await page.goto(site.url);
+  await playToAudio(page);
+  await expect(page.locator("#hubs")).toHaveClass(/turning/);
+  await breakRendering(page);
+  await page.locator("#audio").evaluate((a) => { a.playbackRate = 0; });
+  await expect(page.locator("#hubs")).not.toHaveClass(/turning/);
+});
+
+test("a lasting render error does not block Play", async ({ page }) => {
+  await page.goto(site.url);
+  await breakRendering(page);
+  await playToAudio(page);
+  await expect(page.locator("#hubs")).toHaveClass(/turning/);
+});
 
 test("Play gives audio (currentTime advances) and #hubs gets turning", async ({ page }) => {
   await page.goto(site.url);
