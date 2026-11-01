@@ -8,21 +8,30 @@ const ALLOWED = /^\/(assets\/[^?#]*|timeline\.json|live\.m3u8|notes\/[^?#]*|seg\
 const EXPECTED_STATUS = /Failed to load resource: the server responded with a status of (403|404)/;
 
 let site;
+let seen;
 let consoleErrors;
 let pageErrors;
 
 test.beforeEach(async ({ page }) => {
   site = await startServer({ timeline: makeTimeline(Date.now()) });
+  seen = [];
   consoleErrors = [];
   pageErrors = [];
+  page.on("request", (r) => seen.push(r.url()));
   page.on("console", (m) => { if (m.type() === "error" && !EXPECTED_STATUS.test(m.text())) consoleErrors.push(m.text()); });
   page.on("pageerror", (e) => pageErrors.push(String(e)));
 });
 // After every test: only static paths with no query string, and a quiet console.
 test.afterEach(async () => {
-  const requests = [...site.requests];
+  const local = new URL(site.url).hostname;
   await site.close();
-  expect(requests.filter((r) => !ALLOWED.test(r))).toEqual([]);
+  // Every request the page made, to any host, across any server the test swapped in.
+  const stray = seen.filter((u) => {
+    if (u.startsWith("data:") || u.startsWith("blob:")) return false;
+    const url = new URL(u);
+    return url.hostname !== local || !ALLOWED.test(url.pathname + url.search);
+  });
+  expect(stray).toEqual([]);
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
@@ -203,6 +212,19 @@ test("stopped and hidden (document.hidden forced): no timeline.json fetch over 1
 });
 
 test("visible: one fetch on load, the next only once 3 minutes have passed", async ({ page }) => {
+  const fetches = () => site.requests.filter((r) => r.startsWith("/timeline.json")).length;
+  await page.clock.install({ time: Date.now() });
+  await page.goto(site.url);
+  await expect.poll(fetches).toBe(1);
+  await page.clock.runFor(2 * 60_000);
+  expect(fetches()).toBe(1);
+  await page.clock.runFor(61_000);
+  await expect.poll(fetches).toBe(2);
+});
+
+test("a failed fetch waits out the same 3 minutes", async ({ page }) => {
+  await site.close();
+  site = await startServer({}); // /timeline.json answers 404
   const fetches = () => site.requests.filter((r) => r.startsWith("/timeline.json")).length;
   await page.clock.install({ time: Date.now() });
   await page.goto(site.url);
