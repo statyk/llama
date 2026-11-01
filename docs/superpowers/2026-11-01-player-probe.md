@@ -1,6 +1,6 @@
 # Player: the early iPhone test
 
-Results of plan Task 1 Steps 6-7, from the operator's runs on 2026-11-01. The test page was `antenna/public/assets/preview/probe.html`, from preview rounds 1 and 2. The log excerpts below are the parent session's summary of the operator's pasted logs.
+Results of plan Task 1 Steps 6-7, from the operator's runs on 2026-11-01. The test page was `antenna/public/assets/preview/probe.html`, from preview rounds 1 and 2; the probe files were deleted when the real player replaced them (the operator still removes preview rounds 1 and 2 with `--remove-preview`). The log excerpts below are the parent session's summary of the operator's pasted logs.
 
 # Early iPhone test: Safari results so far (2026-11-01, iOS Safari, UA iPhone OS 18_7, Version/27.0.1)
 

@@ -19,6 +19,16 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const bucket = process.env.ANTENNA_BUCKET;
 const argv = process.argv.slice(2);
 const dryRun = argv.includes("--dry-run");
+// Only these flags, and the round name after the two preview flags. Anything
+// else stops here: an unknown argument must never fall through to a live upload.
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (a === "--preview" || a === "--remove-preview") i++;
+  else if (a !== "--dry-run") {
+    console.error(`unknown argument: ${a}`);
+    process.exit(2);
+  }
+}
 if (!bucket) {
   console.error("set ANTENNA_BUCKET to the station's R2 bucket name");
   process.exit(2);
@@ -113,15 +123,6 @@ function previewUploads(round) {
     uploads.push([`${base}/assets/${rel}`, file, typeOf(rel), MINUTE]);
   }
   uploads.push([`${base}/assets/hls.min.js`, "node_modules/hls.js/dist/hls.min.js", JS, MINUTE]);
-  if (walked.includes("preview/probe.html")) {
-    const probe = generate("probe.webmanifest", {
-      name: "LMA Radio probe",
-      display: "standalone",
-      start_url: `/${base}/assets/preview/probe.html`,
-      scope: `/${base}/`,
-    });
-    uploads.push([`${base}/probe.webmanifest`, probe, MANIFEST, MINUTE]);
-  }
   return uploads;
 }
 
@@ -170,7 +171,15 @@ function deletePreview(round) {
     console.error(`missing ${relative(join(root, ".."), list)}: no upload recorded for round ${round}`);
     process.exit(1);
   }
-  for (const key of JSON.parse(readFileSync(list, "utf8"))) {
+  const keys = JSON.parse(readFileSync(list, "utf8"));
+  // The list is a file on disk; only keys inside this round's folder may be deleted.
+  const prefix = `assets/preview/${round}/`;
+  const bad = keys.find((key) => typeof key !== "string" || !key.startsWith(prefix) || key.includes(".."));
+  if (bad !== undefined) {
+    console.error(`${relative(join(root, ".."), list)} holds a key outside ${prefix}: ${JSON.stringify(bad)}; nothing deleted`);
+    process.exit(1);
+  }
+  for (const key of keys) {
     wrangler("delete", `${bucket}/${key}`, "--remote");
   }
   if (!dryRun) rmSync(list);

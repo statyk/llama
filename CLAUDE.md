@@ -353,6 +353,17 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   only as the `ALERT_EMAIL_TO` secret: never put `account_id` or an address in
   `wrangler.jsonc` (a test enforces this). Cloud setup and the phase-1/2
   verification checklists: `docs/playout-setup.md`. The metronome's switch is the var `METRONOME` (`"on"` enables it; rollback `npx wrangler deploy --var METRONOME:off`, then commit `"off"`): `docs/playout-setup.md` section 9.
+- The player page (phase 4; spec `docs/superpowers/specs/2026-11-01-player-design.md`, measurements
+  `docs/superpowers/2026-11-01-player-probe.md`, rollout `docs/playout-setup.md` section 4 step 3):
+  `deploy-assets.mjs` takes only `--dry-run`, `--preview <n>` and `--remove-preview <n>` (any
+  other argument exits 2; `--remove-preview` deletes only keys under `assets/preview/<n>/`).
+  *Play* while a session is on waits for an HTTP answer before rejoining; with none it leaves the
+  element alone. `site.py`'s `parse_briefing` drops a bare `(see cautions)` pointer from published
+  text (217 longer or unparenthesised mentions remain, by decision). Known iOS limits: after Stop
+  or a Bluetooth disconnect the page sleeps within about a minute; in the home-screen app once
+  stopped, lock-screen and car Play reach the page but audio loads only when the app is opened
+  (WebKit bug 243258); with several home-screen web apps the lock-screen player may open a
+  different one.
 
 ## What this is
 
