@@ -127,6 +127,26 @@ def persona_style(presenter: Presenter, title: str | None) -> str:
     return "\n".join(lines)
 
 
+# Separators real merged track titles use (survey of 52,840 delivered titles):
+# `>` (9,382, incl. `->` 2,974, and a trailing segue mark), a spaced ` / `
+# (95) and a glued `/` between names (`Danko/Manuel`). A `/` touching a digit
+# is text (`Mississippi 1/2 Step`, `(23rd/1st)`), so it never splits.
+_TITLE_SPLIT = re.compile(r"->|>|(?<!\d)/(?!\d)")
+
+
+def _known_songs(tracks: list[dict]) -> set[str]:
+    """Normalized whole titles plus each component of a merged title. A part
+    that normalizes to nothing (`Terra Firma >`, `Oh Death>*`) is dropped, so
+    junk can never make an empty song name known."""
+    known: set[str] = set()
+    for t in tracks:
+        title = t["title"]
+        known.add(normalize_song(title))
+        parts = {normalize_song(p) for p in _TITLE_SPLIT.split(title)}
+        known |= parts - {""}
+    return known
+
+
 def script_guard(notes: ScriptNotes, manifest: dict, narration: str) -> list[str]:
     """DJ patter that misnames songs or sets must never ship -- cross-check
     against the package manifest's `tracks`/`set` fields. Ported from
@@ -136,7 +156,7 @@ def script_guard(notes: ScriptNotes, manifest: dict, narration: str) -> list[str
     assert either (the per-gap segment structure -- one lead-in per set --
     still stands; only what the prose may *claim* is constrained)."""
     problems: list[str] = []
-    known = {normalize_song(t["title"]) for t in manifest["tracks"]}
+    known = _known_songs(manifest["tracks"])
     for song in notes.mentioned_songs:
         if normalize_song(song) not in known:
             problems.append(f"dj notes mention unknown song: {song}")

@@ -729,3 +729,50 @@ def test_rephrase_segment_unescapes_literal_breaks():
     provider = FakeProvider(completes=[json.dumps({"text": "One thought.\\n\\nTwo thought."})])
     out = rephrase_segment(provider, SEG, "x", [])
     assert out == "One thought.\n\nTwo thought."
+
+
+# ---------------------------------------------------------------------------
+# script_guard accepts a component of a merged track title (task 1b)
+# ---------------------------------------------------------------------------
+
+
+def _guard_songs(tmp_path, title, songs):
+    manifest = manifest_of(tmp_path)
+    manifest["tracks"][0]["title"] = title
+    notes = ScriptNotes(**notes_dict(mentioned_songs=songs))
+    return [p for p in script_guard(notes, manifest, "full") if "unknown song" in p]
+
+
+def test_guard_accepts_component_and_whole_of_merged_title(tmp_path):
+    title = "Werewolves of London > Roll With the Changes"
+    assert _guard_songs(tmp_path, title, ["Werewolves of London"]) == []
+    assert _guard_songs(tmp_path, title, ["Roll With the Changes"]) == []
+    assert _guard_songs(tmp_path, title, [title]) == []
+
+
+def test_guard_splits_on_every_real_separator(tmp_path):
+    for title in ("Juarez->Rosalie", "Juarez>Rosalie", "Juarez > Rosalie",
+                  "Danko/Manuel", "Juarez / Rosalie"):
+        a, b = title.replace("->", ">").replace("/", ">").split(">")
+        assert _guard_songs(tmp_path, title, [a.strip(), b.strip()]) == [], title
+
+
+def test_guard_still_refuses_unrelated_song_with_merged_title(tmp_path):
+    problems = _guard_songs(tmp_path, "Werewolves of London > Roll With the Changes",
+                            ["Truckin"])
+    assert problems == ["dj notes mention unknown song: Truckin"]
+
+
+def test_guard_trailing_segue_mark_and_symbols_add_no_junk_part(tmp_path):
+    # Real titles: "Terra Firma >", "Oh Death>*", "Cripple Creek>#". The empty
+    # or symbol-only part must not make an empty/blank song name "known".
+    for title in ("Terra Firma >", "Oh Death>*", "Cripple Creek>#"):
+        assert _guard_songs(tmp_path, title, ["", " ", "*"]) != [], title
+    assert _guard_songs(tmp_path, "Terra Firma >", ["Terra Firma"]) == []
+
+
+def test_guard_slash_inside_a_number_is_text_not_a_separator(tmp_path):
+    # Real titles: "Mississippi 1/2 Step", "Sweet Lil' Gal (23rd/1st)".
+    assert _guard_songs(tmp_path, "Mississippi 1/2 Step", ["Mississippi 1"]) != []
+    assert _guard_songs(tmp_path, "Mississippi 1/2 Step", ["Mississippi 1/2 Step"]) == []
+    assert _guard_songs(tmp_path, "Sweet Lil' Gal (23rd/1st)", ["1st"]) != []
