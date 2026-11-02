@@ -141,7 +141,7 @@ test("an engine that throws on longGeneric still renders the page and Play still
 
 test("the page's elements are all there for the behaviour to bind to", async ({ page }) => {
   await page.goto(site.url);
-  for (const id of ["label-artist", "label-where", "label-date", "hubs", "play", "stop", "now", "now-notes", "retry",
+  for (const id of ["label-artist", "label-where", "label-date", "hubs", "play", "stop", "now", "now-show", "now-notes", "retry",
                     "tape-log", "coming-up", "just-aired", "zone", "schedule-note", "stream-url", "audio"]) {
     await expect(page.locator(`#${id}`)).toHaveCount(1);
   }
@@ -237,6 +237,51 @@ async function openTape(page, n, nowIdx, extra) {
 }
 
 const visibleLog = (page) => page.locator("#tape-log li:not(.off) span");
+
+test.describe("the show line under Now playing", () => {
+  test.use({ viewport: { width: 320, height: 800 } });
+  const ARTIST = "The Extraordinarily Long-Named Jam Band!!"; // 41; padded below to 44
+  const FULL = `${ARTIST}xyz`;
+  const VENUE = "The Grand Ballroom of the Historic Municipal Auditorium and Convention Centre";
+
+  test("gives the artist, venue and city, and date in full at 320 px, with no truncation", async ({ page }) => {
+    expect(FULL.length).toBe(44);
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now(), { onAir: { artist: FULL, venue: VENUE, city: "Winston-Salem, NC" } }) });
+    await page.goto(site.url);
+    const line = page.locator("#now-show");
+    await expect(line).toHaveText(`${FULL} \u00b7 ${VENUE}, Winston-Salem, NC \u00b7 Nov 1 2008`);
+    const fits = await line.evaluate((n) => {
+      const s = getComputedStyle(n);
+      return n.scrollWidth <= n.clientWidth + 1 && s.textOverflow !== "ellipsis" && s.whiteSpace !== "nowrap";
+    });
+    expect(fits).toBe(true);
+    const before = await page.locator("#now").evaluate((n) => n.getBoundingClientRect().top);
+    await page.click("#play");
+    await expect(line).toHaveText(`${FULL} \u00b7 ${VENUE}, Winston-Salem, NC \u00b7 Nov 1 2008`);
+    expect(await page.locator("#now").evaluate((n) => n.getBoundingClientRect().top)).toBe(before);
+  });
+
+  test("leaves out empty parts", async ({ page }) => {
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now(), { onAir: { venue: null, city: null, date: null } }) });
+    await page.goto(site.url);
+    await expect(page.locator("#now-show")).toHaveText("On Air Band");
+  });
+
+  test("is hidden and empty with nothing on air and off air", async ({ page }) => {
+    await page.goto(site.url);
+    await expect(page.locator("#now-show")).toBeVisible();
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+    await expect(page.locator("#now-show")).toBeHidden();
+    await expect(page.locator("#now-show")).toBeEmpty();
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now(), { shows: [], recent: [] }) });
+    await page.goto(site.url);
+    await expect(page.locator("#now-show")).toBeHidden();
+    await expect(page.locator("#now-show")).toBeEmpty();
+  });
+});
 
 test.describe("the tape log", () => {
   test("lists the show on air first to last with its air times, marking now and next", async ({ page }) => {
@@ -365,6 +410,7 @@ test("the hostile fixture through the label, log and tickets: its markup appears
   await expect(page.locator("#label-date")).toHaveText(HOSTILE.date);
   const tidy = HOSTILE.title.trim().replace(/\s*-*>\s*$/, " >");
   await expect(page.locator("#tape-log li span").first()).toHaveText(tidy);
+  await expect(page.locator("#now-show")).toHaveText(`${HOSTILE.artist} \u00b7 ${HOSTILE.venue}, ${HOSTILE.city} \u00b7 ${HOSTILE.date}`);
   await expect(page.locator("#coming-up .ticket .artist").first()).toHaveText(HOSTILE.artist);
   await expect(page.locator("#coming-up .ticket .where").first()).toHaveText(`${HOSTILE.venue}, ${HOSTILE.city}`);
   await expect(page.locator("#coming-up .ticket .sr").first()).toHaveText(HOSTILE.date);

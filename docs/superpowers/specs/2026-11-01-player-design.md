@@ -96,6 +96,9 @@ judges against the mockups; exact sizes are the builder's.
   reads the constant "Press Play to listen." (no artist, so it never wraps or shifts the
   page on Play; the cassette carries the artist). A quiet "Show notes" link under it
   opens the on-air show's notes in the panel, and is hidden with no show on air.
+  Above that link a small plain line gives the show in full (artist · venue, city · date,
+  empty parts left out; it may wrap), since the cassette label truncates long names; it
+  reads the same stopped and playing and is hidden with no show on air or off air.
 - **Tape log:** every song of the show on air, first to last, each with its air
   time and a state: played (normal), now (the last song started at the playback
   position; bold, `aria-current="true"`, a small oxblood marker at the left) or next

@@ -182,6 +182,20 @@ function renderNotesLink(show) {
   }
 }
 
+/** The show in full under Now playing: artist, venue and city, date. Hidden with no show on air. */
+function renderNowShow(show) {
+  const line = $("now-show");
+  if (!line) return;
+  const text = show
+    ? [show.artist, whereLine(show), concertDate(show.date)].filter(Boolean).join(" \u00b7 ")
+    : "";
+  if (built.get(line.id) !== text) {
+    built.set(line.id, text);
+    line.textContent = text;
+  }
+  line.hidden = text === "";
+}
+
 /** The artist line, stepping the size down by name length; one line, whatever the name. */
 function renderArtist(name) {
   const line = $("label-artist");
@@ -207,6 +221,7 @@ export function renderAt(atMs) {
   let now = FIXED_NOW[state];
   if (now == null) now = state === "playing" ? nowLine(np, STATION_NAME) : stoppedLine(np, STATION_NAME);
   setText("now", now);
+  renderNowShow(show);
   renderNotesLink(show);
   setText("zone", zoneLabel());
   renderLog(atMs);
