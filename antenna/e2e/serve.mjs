@@ -23,6 +23,7 @@ const TYPES = {
   ".json": "application/json",
   ".woff2": "font/woff2",
   ".png": "image/png",
+  ".svg": "image/svg+xml",
   ".webmanifest": "application/manifest+json",
   ".txt": "text/plain; charset=utf-8",
   ".aac": "audio/aac",

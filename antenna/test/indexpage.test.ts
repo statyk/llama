@@ -41,6 +41,8 @@ describe("reconcileIndex", () => {
     expect(PLAYER_PAGE).toContain("Live concert tapes from the Live Music Archive, around the clock.");
     expect(PLAYER_PAGE).toContain('rel="manifest"');
     expect(PLAYER_PAGE).toContain("apple-touch-icon");
+    expect(PLAYER_PAGE).toContain('<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">');
+    expect(PLAYER_PAGE).toContain('<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">');
     expect(PLAYER_PAGE).toContain("viewport-fit=cover");
     expect(PLAYER_PAGE).not.toContain("serviceWorker");
   });
