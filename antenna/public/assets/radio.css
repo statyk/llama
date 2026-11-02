@@ -130,9 +130,14 @@ a { color: inherit; }
   letter-spacing: .14em;
   color: var(--oxblood);
 }
+/* The pen's J tail hangs left of its box: .12em of room inside the clip, taken back by the margin so
+ * the text does not move. The rule is painted as a background so it keeps its old extent. */
 .hand {
   flex: none;
-  border-bottom: 1px solid #c9b78f;
+  padding-left: .12em;
+  margin-left: -.12em;
+  border-bottom: 1px solid transparent;
+  background: linear-gradient(#c9b78f, #c9b78f) right bottom / calc(100% - .12em) 1px no-repeat border-box;
   overflow: hidden;
   font-family: var(--hand);
   font-weight: 700;
@@ -156,8 +161,9 @@ a { color: inherit; }
   font-size: 5.2cqw;
   line-height: 7.4cqw;
 }
-#label-where { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-#label-date { flex: none; max-width: 60%; padding-right: .12em; overflow: hidden; text-overflow: ellipsis; }
+#label-where { flex: 1 1 0; min-width: 0; padding-left: .12em; margin-left: -.12em; overflow: hidden; text-overflow: ellipsis; }
+/* The right padding is .2em: the last digit of "2008" reaches past .12em. */
+#label-date { flex: none; max-width: 60%; padding-left: .12em; margin-left: -.12em; padding-right: .2em; overflow: hidden; text-overflow: ellipsis; }
 
 /* Hub centres 42.3cqw apart, the real 42.5 mm, each 7.85cqw in from the window's edge. */
 .window {
@@ -492,6 +498,6 @@ a { color: inherit; }
   .window { top: 33.7%; left: 21%; width: 58%; height: 27%; padding: 0 2.35%; border-radius: 6px; }
   .pack.l { left: -4.6%; width: 36%; aspect-ratio: 1; }
   .pack.r { right: 1.8%; width: 23.4%; aspect-ratio: 1; }
-  .hub { width: 19%; aspect-ratio: 1; }
+  .hub { width: 20.6%; aspect-ratio: 1; }
   .trap { left: 17%; width: 66%; height: 16%; }
 }

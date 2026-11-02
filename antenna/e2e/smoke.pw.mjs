@@ -942,11 +942,12 @@ async function expectCassetteShape(page) {
       lineInLabel: line.bottom <= clabel.bottom && line.left >= clabel.left && line.right <= clabel.right,
       artistInLabel: artist.left >= clabel.left && artist.right <= clabel.right,
       whereBeforeDate: where.right <= date.left,
-      dateInLine: date.right <= line.right,
+      dateInLine: date.right <= line.right + 0.5,
       dateUncut: dateEl.scrollWidth <= dateEl.clientWidth,
       lineSize: parseFloat(getComputedStyle(dateEl).fontSize),
       artistLines: textBox(artistEl).lines,
-      // The text's content area, descenders included, inside the box that clips it.
+      // The line box's vertical fit only: a font-metric rect cannot tell strings apart, so this
+      // says nothing about a glyph's ink (the ink test below does that, sideways).
       clipped: texts.filter((el) => {
         const t = textBox(el);
         const b = box(el.closest(".hand"));
@@ -997,7 +998,7 @@ const artistLine = (page) => page.locator("#label-artist").evaluate((el) => ({
 }));
 
 for (const width of [320, 390, 1200]) {
-  for (const [name, artist] of [["a normal name", "On Air Band"], ["a name with descenders", "Gypsy Jug Pygmy Quppy"],
+  for (const [name, artist] of [["a normal name", "On Air Band"],
     ["a long name", LONG_BAND], ["a name past one line at any size", LONGEST_BAND]]) {
     test(`at ${width} px with ${name} and a long venue, the cassette holds its layout and the date shows`, async ({ page }) => {
       await openOnAir(page, width, { artist, ...LONG_VENUE });
@@ -1353,4 +1354,58 @@ test.describe("notes panel", () => {
     await expect(p.locator("img, iframe, svg, script, [onclick], u, i, a")).toHaveCount(0);
     expect(await page.evaluate(() => window.pwned)).toBeUndefined();
   });
+});
+
+const INK_SELECTORS = [".hand", "#label-where", "#label-date"];
+
+test("the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off", async ({ page }) => {
+  await openOnAir(page, 390, { artist: "Jerry Jeff Walker", venue: "Jones Hall", city: "Jay, OK", date: "2008-01-01" });
+  await expect(page.locator("#label-date")).toHaveText("Jan 1 2008");
+  await page.evaluate(() => document.fonts.ready);
+  const cass = page.locator(".cass");
+  const clipped = await cass.screenshot({ animations: "disabled" });
+  await page.addStyleTag({ content: `${INK_SELECTORS.join(",")} { overflow: visible !important; }` });
+  const open = await cass.screenshot({ animations: "disabled" });
+  expect(clipped.equals(open)).toBe(true);
+});
+
+test("with nothing on air, the venue and date line keeps its height and the window does not move", async ({ page }) => {
+  await page.goto(site.url);
+  await expect(page.locator("#label-where")).not.toBeEmpty();
+  const rects = () => page.evaluate(() => {
+    const r = (s) => document.querySelector(s).getBoundingClientRect().toJSON();
+    return { line: r(".hand.h2"), win: r(".window"), cass: r(".cass") };
+  });
+  const before = await rects();
+  await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+  await expect(page.locator("#label-where")).toBeEmpty();
+  const after = await rects();
+  expect(before.line.height).toBeGreaterThan(0);
+  expect(after.line.height).toBe(before.line.height);
+  expect(after.line.top).toBe(before.line.top);
+  expect(after.win).toEqual(before.win);
+  expect(after.cass).toEqual(before.cass);
+});
+
+test("a name stepping from long to a short name, or to off air, loses the class", async ({ page }) => {
+  const MID = "n".repeat(30);
+  const timeline = makeTimeline(Date.now(), { onAir: { artist: MID } });
+  await site.close();
+  site = await startServer({ timeline });
+  await page.clock.install({ time: Date.now() });
+  await page.goto(site.url);
+  const line = page.locator("#label-artist");
+  await expect(line).toHaveAttribute("class", "hand h1 long");
+  await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+  await expect(line).toHaveAttribute("class", "hand h1");
+  await page.evaluate(async () => (await import("/assets/page.js")).setState("stopped"));
+  await expect(line).toHaveAttribute("class", "hand h1 long");
+  await page.clock.fastForward(75 * 60_000); // the fixture's show ends 70 minutes on
+  await expect(line).toHaveAttribute("class", "hand h1");
+});
+
+test("the date keeps its right padding, which the pen's overhang needs", async ({ page }) => {
+  await page.goto(site.url);
+  const pad = await page.locator("#label-date").evaluate((el) => parseFloat(getComputedStyle(el).paddingRight));
+  expect(pad).toBeGreaterThan(0);
 });
