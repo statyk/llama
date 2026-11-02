@@ -122,7 +122,7 @@ describe("lines", () => {
     expect(nowLine({ show: { artist: null }, file: null }, "LMA Radio")).toBe("LMA Radio");
   });
   it("stoppedLine", () => {
-    expect(stoppedLine({ show: { artist: "Band" }, file: null }, "LMA Radio")).toBe("Band is on the air. Press Play.");
+    expect(stoppedLine({ show: { artist: "Band" }, file: null }, "LMA Radio")).toBe("Press Play to listen.");
     expect(stoppedLine(null, "LMA Radio")).toBe("LMA Radio");
     expect(stoppedLine({ show: { artist: null }, file: null }, "LMA Radio")).toBe("LMA Radio");
   });

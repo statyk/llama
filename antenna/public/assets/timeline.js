@@ -52,7 +52,7 @@ export function nowLine(np, stationName) {
 }
 
 export function stoppedLine(np, stationName) {
-  if (np && np.show && np.show.artist) return `${np.show.artist} is on the air. Press Play.`;
+  if (np && np.show && np.show.artist) return "Press Play to listen.";
   return stationName;
 }
 

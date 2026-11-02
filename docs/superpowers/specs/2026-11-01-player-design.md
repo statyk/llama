@@ -92,7 +92,9 @@ judges against the mockups; exact sizes are the builder's.
   are real buttons. Radio semantics are unchanged: Play always joins live. During a session Play
   waits for an HTTP answer first, and with no answer leaves the element alone.
 - **Now playing:** the song title, or during a clip the clip's title with its
-  parenthetical removed ("DJ intro", "DJ outro"). A quiet "Show notes" link under it
+  parenthetical removed ("DJ intro", "DJ outro"). While stopped with a show on air it
+  reads the constant "Press Play to listen." (no artist, so it never wraps or shifts the
+  page on Play; the cassette carries the artist). A quiet "Show notes" link under it
   opens the on-air show's notes in the panel, and is hidden with no show on air.
 - **Tape log:** recent songs in the current show with their air times, newest
   first, continuing into the previous show when the current one has just started.
@@ -136,7 +138,7 @@ every state the hubs turn only while audio is playing.
 | State | Cassette | Text |
 |---|---|---|
 | Playing | show on the label | song |
-| Stopped | show on the label | the show on air, "press Play" |
+| Stopped | show on the label | "Press Play to listen." (the artist is on the cassette) |
 | Between shows (no timeline entry: station IDs, announcements, the fallback loop) | label: station name | station name |
 | Loading or no timeline | label: station name | station name, and the schedule area says so plainly |
 | Reconnecting | as Stopped | "Reconnecting…" |
