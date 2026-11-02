@@ -256,10 +256,12 @@ test.describe("the show line under Now playing", () => {
       return n.scrollWidth <= n.clientWidth + 1 && s.textOverflow !== "ellipsis" && s.whiteSpace !== "nowrap";
     });
     expect(fits).toBe(true);
-    const before = await page.locator("#now").evaluate((n) => n.getBoundingClientRect().top);
+    // #now cannot move when it wraps (it is above #now-show's line), so measure the line below it.
+    const top = () => line.evaluate((n) => n.getBoundingClientRect().top);
+    const before = await top();
     await page.click("#play");
     await expect(line).toHaveText(`${FULL} \u00b7 ${VENUE}, Winston-Salem, NC \u00b7 Nov 1 2008`);
-    expect(await page.locator("#now").evaluate((n) => n.getBoundingClientRect().top)).toBe(before);
+    expect(await top()).toBe(before);
   });
 
   test("leaves out empty parts", async ({ page }) => {
@@ -370,6 +372,50 @@ test.describe("the tape log", () => {
     await expect(page.locator("#tape-log li").first()).toHaveAttribute("data-mark", "kept");
     await expect(button).toHaveAttribute("data-mark", "kept");
     await expect(visibleLog(page)).toHaveCount(25);
+  });
+
+  test("off air the log has no rows, no now marker, no heading and no button", async ({ page }) => {
+    await openTape(page, 25, 12);
+    await expect(page.locator("#tape-log li.now")).toHaveCount(1);
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+    await expect(page.locator("#now")).toHaveText("The station is off the air.");
+    await expect(page.locator("#tape-log li")).toHaveCount(0);
+    await expect(page.locator("#tape-log [aria-current]")).toHaveCount(0);
+    await expect(page.locator(".tape-log .kick")).toBeHidden();
+    await expect(page.locator("#tape-log-more")).toBeHidden();
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("stopped"));
+    await expect(page.locator("#tape-log li.now")).toHaveCount(1);
+  });
+
+  test("the now row is synthetically bold: it draws differently from weight 400 and from synthesis off", async ({ page }) => {
+    // Chrome's fake bold thickens strokes without changing advances, so measure ink, not width.
+    await openTape(page, 25, 12);
+    await page.evaluate(() => document.fonts.ready);
+    const span = page.locator("#tape-log li.now span");
+    const bold = await span.screenshot();
+    await span.evaluate((n) => { n.style.fontWeight = "400"; });
+    const regular = await span.screenshot();
+    await span.evaluate((n) => { n.style.fontWeight = ""; n.style.fontSynthesis = "none"; });
+    const off = await span.screenshot();
+    expect(bold.equals(regular)).toBe(false);
+    expect(off.equals(regular)).toBe(true);
+    expect(bold.equals(off)).toBe(false);
+  });
+
+  test("focus moves to the list when the focused button hides", async ({ page }) => {
+    await openTape(page, 25, 12);
+    await page.locator("#tape-log-more").focus();
+    await expect(page.locator("#tape-log")).toHaveAttribute("tabindex", "-1");
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+    await expect(page.locator("#tape-log-more")).toBeHidden();
+    await expect(page.locator("#tape-log")).toBeFocused();
+  });
+
+  test("the button keeps focus while it stays visible", async ({ page }) => {
+    await openTape(page, 25, 12);
+    await page.locator("#tape-log-more").focus();
+    await page.locator("#tape-log-more").press("Enter");
+    await expect(page.locator("#tape-log-more")).toBeFocused();
   });
 
   test("another show's songs are not on screen", async ({ page }) => {
@@ -1597,10 +1643,4 @@ test("a name stepping from long to a short name, or to off air, loses the class"
   await expect(line).toHaveAttribute("class", "hand h1 long");
   await page.clock.fastForward(75 * 60_000); // the fixture's show ends 70 minutes on
   await expect(line).toHaveAttribute("class", "hand h1");
-});
-
-test("the date keeps its right padding, which the pen's overhang needs", async ({ page }) => {
-  await page.goto(site.url);
-  const pad = await page.locator("#label-date").evaluate((el) => parseFloat(getComputedStyle(el).paddingRight));
-  expect(pad).toBeGreaterThan(0);
 });

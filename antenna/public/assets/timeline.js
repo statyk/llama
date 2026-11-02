@@ -62,7 +62,7 @@ export function stoppedLine(np, stationName) {
 export function tapeLog(timeline, atMs) {
   const np = findShow(timeline, atMs);
   if (!np) return [];
-  const files = (np.show.files || []).filter((f) => f.kind === "track");
+  const files = (np.show.files || []).filter((f) => f.kind === "track" && Number.isFinite(Date.parse(f.start)));
   let now = -1;
   files.forEach((f, i) => {
     if (Date.parse(f.start) <= atMs) now = i;

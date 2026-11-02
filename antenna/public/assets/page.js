@@ -97,23 +97,29 @@ function logToggle(list) {
     more.type = "button";
     more.addEventListener("click", () => {
       logExpanded = !logExpanded;
-      if (lastAtMs != null) renderLog(lastAtMs);
+      if (lastAtMs != null) renderLog(lastAtMs, onAirShow(lastAtMs));
     });
     list.after(more);
   }
   return more;
 }
 
-function renderLog(atMs) {
+/** The show the page presents at atMs: none off air or with nothing on air. */
+function onAirShow(atMs) {
+  const np = findShow(timeline, atMs);
+  return state !== "offair" && np ? np.show : null;
+}
+
+function renderLog(atMs, show) {
   const list = $("tape-log");
   if (!list) return;
-  const np = findShow(timeline, atMs);
-  const slug = np && np.show ? np.show.slug : null;
+  list.tabIndex = -1; // focus lands here when the button hides under the keyboard
+  const slug = show ? show.slug : null;
   if (slug !== logSlug) {
     logSlug = slug;
     logExpanded = false;
   }
-  const entries = tapeLog(timeline, atMs);
+  const entries = show ? tapeLog(timeline, atMs) : [];
   const key = JSON.stringify(entries);
   rebuild(list, key, () => entries.map((e) => {
     const li = el("li", e.state);
@@ -130,10 +136,15 @@ function renderLog(atMs) {
     li.classList.toggle("off", collapsible && !logExpanded && (i < lo || i >= lo + LOG_WINDOW));
   });
   const more = logToggle(list);
+  const hadFocus = more.hidden === false && document.activeElement === more;
   more.hidden = !collapsible;
+  if (hadFocus && more.hidden) {
+    list.focus();
+  }
   const label = logExpanded ? "Show fewer" : `Show all ${entries.length} songs`;
   if (more.textContent !== label) more.textContent = label;
-  more.setAttribute("aria-expanded", String(logExpanded));
+  const expanded = String(logExpanded);
+  if (more.getAttribute("aria-expanded") !== expanded) more.setAttribute("aria-expanded", expanded);
   setHeadingHidden(list, entries.length === 0);
 }
 
@@ -212,7 +223,7 @@ export function renderAt(atMs) {
   lastAtMs = atMs;
   const np = findShow(timeline, atMs);
   const offair = state === "offair";
-  const show = !offair && np ? np.show : null;
+  const show = onAirShow(atMs);
   renderArtist(show && show.artist ? show.artist : STATION_NAME);
   setText("label-where", show ? whereLine(show) : "");
   setText("label-date", show ? concertDate(show.date) : "");
@@ -224,7 +235,7 @@ export function renderAt(atMs) {
   renderNowShow(show);
   renderNotesLink(show);
   setText("zone", zoneLabel());
-  renderLog(atMs);
+  renderLog(atMs, show);
   renderSchedule(atMs);
 }
 

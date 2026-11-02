@@ -93,8 +93,9 @@ judges against the mockups; exact sizes are the builder's.
   waits for an HTTP answer first, and with no answer leaves the element alone.
 - **Now playing:** the song title, or during a clip the clip's title with its
   parenthetical removed ("DJ intro", "DJ outro"). While stopped with a show on air it
-  reads the constant "Press Play to listen." (no artist, so it never wraps or shifts the
-  page on Play; the cassette carries the artist). A quiet "Show notes" link under it
+  reads the constant "Press Play to listen." (no artist, so the stopped line never wraps
+  and never shifts the page on Play; the cassette carries the artist). Once playing, a long
+  song title may wrap onto a second line. A quiet "Show notes" link under it
   opens the on-air show's notes in the panel, and is hidden with no show on air.
   Above that link a small plain line gives the show in full (artist · venue, city · date,
   empty parts left out; it may wrap), since the cassette label truncates long names; it

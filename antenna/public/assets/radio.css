@@ -277,7 +277,7 @@ a { color: inherit; }
 .log li > :last-child { flex: none; }
 .log li { position: relative; padding-left: 12px; }
 .log li.off { display: none; }
-.log li.now { font-weight: 700; }
+.log li.now { font-weight: 700; font-synthesis: weight; } /* Special Elite has only a 400 face */
 .log li.now::before {
   content: "";
   position: absolute;

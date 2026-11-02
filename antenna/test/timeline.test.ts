@@ -171,6 +171,17 @@ describe("tapeLog", () => {
     }
     expect(titles(tapeLog(TIMELINE, t("2026-10-10T12:00:00.010Z")))).not.toContain("P3");
   });
+  it("skips a track whose start does not parse, so airTime cannot throw", () => {
+    const tl = { shows: [{ ...TIMELINE.shows[1], files: [
+      { kind: "track", title: "A", start: "2026-10-10T12:03:00Z" },
+      { kind: "track", title: "Broken", start: null },
+      { kind: "track", title: "B", start: "2026-10-10T12:30:00Z" },
+    ] }] };
+    const log = tapeLog(tl, t("2026-10-10T12:11:00Z"));
+    expect(titles(log)).toEqual(["A", "B"]);
+    expect(states(log)).toEqual(["now", "next"]);
+    for (const e of log) expect(() => airTime(e.start, "UTC")).not.toThrow();
+  });
   it("is empty with no show on air, no timeline, or a tape without tracks", () => {
     expect(tapeLog(TIMELINE, t("2030-06-01T00:00:00Z"))).toEqual([]);
     expect(tapeLog(TIMELINE, t("2020-01-01T00:00:00Z"))).toEqual([]);
