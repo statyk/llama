@@ -141,7 +141,7 @@ test("an engine that throws on longGeneric still renders the page and Play still
 
 test("the page's elements are all there for the behaviour to bind to", async ({ page }) => {
   await page.goto(site.url);
-  for (const id of ["label-artist", "label-where", "label-date", "hubs", "play", "stop", "now", "retry",
+  for (const id of ["label-artist", "label-where", "label-date", "hubs", "play", "stop", "now", "now-notes", "retry",
                     "tape-log", "coming-up", "just-aired", "zone", "schedule-note", "stream-url", "audio"]) {
     await expect(page.locator(`#${id}`)).toHaveCount(1);
   }
@@ -809,6 +809,91 @@ test("a play() that never settles (home-screen app, hidden): no notice, no hubs,
   await page.locator("#audio").evaluate((a) => window.realPlay.call(a));
   await advanceUntil(page, 40_000, async () => (await page.locator("#now").textContent()) === "Song 3");
   await expect(hubs).toHaveClass(/turning/);
+});
+
+test.describe("the on-air notes link", () => {
+  const SLUG = "fixture-on-air";
+  const link = (page) => page.locator("#now-notes");
+
+  test("carries the on-air show, stays while stopped, and is left alone between changes", async ({ page }) => {
+    await page.goto(site.url);
+    await expect(link(page)).toBeVisible();
+    await expect(link(page)).toHaveText("Show notes");
+    await expect(link(page)).toHaveAttribute("data-slug", SLUG);
+    await expect(link(page)).toHaveAttribute("href", `/show/${SLUG}.html`);
+    await expect(link(page).locator("xpath=ancestor::*[contains(@class,'playing')]")).toHaveCount(1);
+    await page.evaluate(() => {
+      window.linkWrites = 0;
+      new MutationObserver((m) => { window.linkWrites += m.length; })
+        .observe(document.getElementById("now-notes"), { attributes: true });
+    });
+    await page.waitForTimeout(2500);
+    expect(await page.evaluate(() => window.linkWrites)).toBe(0);
+  });
+
+  test("its link is built from the encoded slug", async ({ page }) => {
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now(), { onAir: { slug: HOSTILE.slug } }) });
+    await page.goto(site.url);
+    await expect(link(page)).toHaveAttribute("data-slug", HOSTILE.slug);
+    await expect(link(page)).toHaveAttribute("href", `/show/${encodeURIComponent(HOSTILE.slug)}.html`);
+  });
+
+  test("a click opens the panel on that show and the audio keeps advancing", async ({ page }) => {
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now()), notes: { [SLUG]: { ...NOTES.full, artist: "On Air Band" } } });
+    await page.goto(site.url);
+    await playToAudio(page);
+    const before = page.url();
+    await link(page).click();
+    await expect(page.locator(".panel .bmain h2")).toHaveText("On Air Band");
+    expect(page.url()).toBe(before);
+    expect(await page.evaluate(() => history.state)).toEqual({ panel: SLUG });
+    const held = await position(page);
+    await expect.poll(() => position(page), { timeout: 15_000 }).toBeGreaterThan(held + 0.5);
+    expect(await page.locator("#audio").evaluate((a) => a.paused)).toBe(false);
+    await expect(page.locator("#hubs")).toHaveClass(/turning/);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".panel")).toBeHidden();
+    await expect(link(page)).toBeFocused();
+  });
+
+  test("a modified click is left to the browser", async ({ page }) => {
+    await page.goto(site.url);
+    await page.evaluate(() => document.body.addEventListener("click", (e) => e.preventDefault(), { once: true }));
+    await link(page).click({ modifiers: ["Shift"] });
+    await page.waitForTimeout(200);
+    await expect(page.locator(".panel")).toBeHidden();
+    expect(await page.evaluate(() => history.state)).toBeNull();
+  });
+
+  test("is hidden with nothing on air", async ({ page }) => {
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now(), { shows: [], recent: [] }) });
+    await page.goto(site.url);
+    await expect(page.locator("#schedule-note")).toHaveText("Nothing further is scheduled yet.");
+    await expect(link(page)).toBeHidden();
+    await expect(link(page)).not.toHaveAttribute("href", /./);
+  });
+
+  test("is hidden off the air, and back when the state clears", async ({ page }) => {
+    await page.goto(site.url);
+    await expect(link(page)).toBeVisible();
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+    await expect(link(page)).toBeHidden();
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("stopped"));
+    await expect(link(page)).toBeVisible();
+    await expect(link(page)).toHaveAttribute("data-slug", SLUG);
+  });
+
+  test("follows when the on-air show changes", async ({ page }) => {
+    await page.clock.install({ time: Date.now() });
+    await page.goto(site.url);
+    await expect(link(page)).toHaveAttribute("data-slug", SLUG);
+    await page.clock.fastForward(75 * 60_000); // the fixture's show ends 70 minutes on
+    await expect(link(page)).toHaveAttribute("data-slug", "fixture-next-1");
+    await expect(link(page)).toHaveAttribute("href", "/show/fixture-next-1.html");
+  });
 });
 
 test("at 320 px with a very long band name, main and panel do not scroll sideways", async ({ page }) => {

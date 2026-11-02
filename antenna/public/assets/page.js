@@ -121,6 +121,22 @@ function renderSchedule(atMs) {
   }
 }
 
+/** The on-air show's notes link, touched only when the slug changes and hidden with none. */
+function renderNotesLink(show) {
+  const link = $("now-notes");
+  const slug = (show && show.slug) || null;
+  if (!link || built.get(link.id) === slug) return;
+  built.set(link.id, slug);
+  link.hidden = !slug;
+  if (slug) {
+    link.dataset.slug = slug;
+    link.href = showHref(slug);
+  } else {
+    delete link.dataset.slug;
+    link.removeAttribute("href");
+  }
+}
+
 /** Alone writes #now and the label; also updates the tape log and both ticket lists. */
 export function renderAt(atMs) {
   lastAtMs = atMs;
@@ -135,6 +151,7 @@ export function renderAt(atMs) {
   let now = FIXED_NOW[state];
   if (now == null) now = state === "playing" ? nowLine(np, STATION_NAME) : stoppedLine(np, STATION_NAME);
   setText("now", now);
+  renderNotesLink(show);
   setText("zone", zoneLabel());
   renderLog(atMs);
   renderSchedule(atMs);
@@ -179,12 +196,12 @@ export async function refreshTimeline(force) {
   if (lastAtMs != null) renderAt(lastAtMs);
 }
 
-/** One delegated click listener: a plain click calls onOpen(slug); modified
- * clicks are left to the browser. */
+/** One delegated click listener for the tickets and the on-air notes link: a plain
+ * click calls onOpen(slug); modified clicks are left to the browser. */
 export function ticketLinks(root, onOpen) {
   root.addEventListener("click", (e) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    const a = e.target instanceof Element ? e.target.closest("a.ticket") : null;
+    const a = e.target instanceof Element ? e.target.closest("a.ticket, a#now-notes") : null;
     if (!a || !root.contains(a) || !a.dataset.slug) return;
     e.preventDefault();
     onOpen(a.dataset.slug);
