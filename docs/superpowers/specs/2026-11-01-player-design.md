@@ -79,11 +79,14 @@ judges against the mockups; exact sizes are the builder's.
 
 - **Header:** "LMA Radio" and the line "Live concert tapes from the Live Music
   Archive, around the clock."
-- **Cassette:** the show on air, hand-lettered on its label: artist, venue and
-  city, concert date. The hubs turn only while audio is playing, and not at all
+- **Cassette:** the show on air, hand-lettered on its label: the artist on one
+  line above the window (a long name steps down in size, then ends in an ellipsis),
+  the venue and city with the concert date on one line below it (the venue gives
+  way, the date stays). The hubs turn only while audio is playing, and not at all
   under `prefers-reduced-motion`. With nothing on air the label carries the
   station name. It keeps a real cassette's 100.4 x 63.8 proportions at every width,
-  with the paper covering most of the shell and the window set into the paper.
+  with the paper wrapping the window, and the hubs about the middle of the shell's
+  height, 42.5 mm apart.
   The cassette's scaling uses container units (iOS 16, Chrome 105, Firefox 110); older browsers get a plain-sized fallback.
 - **Play and Stop keys,** styled as tape-deck keys. Play is the large one. Both
   are real buttons. Radio semantics are unchanged: Play always joins live. During a session Play

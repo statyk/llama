@@ -104,18 +104,18 @@ a { color: inherit; }
 .s3 { left: 1.5cqw; bottom: 1.5cqw; }
 .s4 { right: 1.5cqw; bottom: 1.5cqw; }
 
-/* The paper covers most of the shell, its top corners cut for the screws. The bottom
-   padding keeps the hand-lettered lines clear of the window, which sits over the paper. */
+/* The paper wraps the window, top corners cut for the screws: the small line and the
+   artist above the window, the venue and date below it. The window sits over the paper.
+   The artist's line height stays put in cqw, so a smaller name keeps its baseline. */
 .clabel {
   position: absolute;
-  top: 2.6cqw;
-  left: 3cqw;
-  right: 3cqw;
-  height: 49.6cqw;
+  top: 4.4cqw;
+  left: 5cqw;
+  right: 5cqw;
+  height: 45.6cqw;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 1.2cqw 4cqw 14.8cqw;
+  padding: 1.5cqw 3cqw 1.6cqw;
   overflow: hidden;
   background: var(--label);
   border-radius: 1.2cqw;
@@ -132,46 +132,56 @@ a { color: inherit; }
 }
 .hand {
   flex: none;
-  min-height: 1.14em;
   border-bottom: 1px solid #c9b78f;
   overflow: hidden;
   font-family: var(--hand);
   font-weight: 700;
-  line-height: 1.08;
+  white-space: nowrap;
   color: var(--pen);
 }
 .hand.h1 {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  height: 10.2cqw;
   font-size: 7.6cqw;
-  line-height: 1.16;
+  line-height: 10.2cqw;
+  text-overflow: ellipsis;
 }
-.hand.h2, .hand.h3 { font-size: 5.4cqw; white-space: nowrap; text-overflow: ellipsis; }
+.hand.h1.long { font-size: 6.2cqw; }
+.hand.h1.longer { font-size: 5cqw; }
+/* The venue gives way to the date. The date's padding keeps the pen's overhang unclipped. */
+.hand.h2 {
+  display: flex;
+  gap: 2.4cqw;
+  height: 7.4cqw;
+  margin-top: auto;
+  font-size: 5.2cqw;
+  line-height: 7.4cqw;
+}
+#label-where { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#label-date { flex: none; max-width: 60%; padding-right: .12em; overflow: hidden; text-overflow: ellipsis; }
 
+/* Hub centres 42.3cqw apart, the real 42.5 mm, each 7.85cqw in from the window's edge. */
 .window {
   position: absolute;
-  top: 38.2cqw;
-  left: 22cqw;
-  width: 56cqw;
-  height: 12.6cqw;
+  top: 21.4cqw;
+  left: 21cqw;
+  width: 58cqw;
+  height: 17.2cqw;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1.5cqw;
+  padding: 0 2.35cqw;
   overflow: hidden;
   background: #191511;
-  border-radius: 6.3cqw;
+  border-radius: 2.2cqw;
 }
 .pack { position: absolute; top: 50%; transform: translateY(-50%); border-radius: 50%; background: #3a2a1e; }
-.pack.l { left: -3.1cqw; width: 21cqw; height: 21cqw; }
-.pack.r { right: 1.3cqw; width: 13.6cqw; height: 13.6cqw; }
+.pack.l { left: -2.65cqw; width: 21cqw; height: 21cqw; }
+.pack.r { right: 1.05cqw; width: 13.6cqw; height: 13.6cqw; }
 .hub {
   position: relative;
   z-index: 2;
-  width: 9.6cqw;
-  height: 9.6cqw;
+  width: 11cqw;
+  height: 11cqw;
   border-radius: 50%;
   background: conic-gradient(#e9dfc8 0 20deg, #4a4339 20deg 40deg, #e9dfc8 40deg 80deg, #4a4339 80deg 100deg,
     #e9dfc8 100deg 140deg, #4a4339 140deg 160deg, #e9dfc8 160deg 200deg, #4a4339 200deg 220deg,
@@ -470,11 +480,18 @@ a { color: inherit; }
 @supports not (width: 1cqw) {
   .screw { width: 7px; height: 7px; }
   .s1, .s3 { left: 5px; } .s2, .s4 { right: 5px; } .s1, .s2 { top: 5px; } .s3, .s4 { bottom: 5px; }
-  .clabel { top: 4%; left: 3%; right: 3%; height: 78%; padding: 4px 12px 23%; }
+  .clabel {
+    top: 7%; left: 5%; right: 5%; height: 71.7%; padding: 4px 9px 4px; border-radius: 3px;
+    clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%, 0 8px);
+  }
   .ln { font-size: 9px; }
-  .hand.h1 { font-size: 22px; }
-  .hand.h2, .hand.h3 { font-size: 15px; white-space: nowrap; text-overflow: ellipsis; }
-  .window { top: 60%; left: 22%; width: 56%; height: 20%; padding: 0 8px; border-radius: 99px; }
-  .hub { width: 30px; height: 30px; }
+  .hand.h1 { height: 29px; font-size: 22px; line-height: 29px; }
+  .hand.h1.long { font-size: 18px; }
+  .hand.h1.longer { font-size: 15px; }
+  .hand.h2 { gap: 7px; height: 22px; font-size: 15px; line-height: 22px; }
+  .window { top: 33.7%; left: 21%; width: 58%; height: 27%; padding: 0 2.35%; border-radius: 6px; }
+  .pack.l { left: -4.6%; width: 36%; aspect-ratio: 1; }
+  .pack.r { right: 1.8%; width: 23.4%; aspect-ratio: 1; }
+  .hub { width: 19%; aspect-ratio: 1; }
   .trap { left: 17%; width: 66%; height: 16%; }
 }

@@ -9,6 +9,8 @@ import {
 export const STATES = ["playing", "stopped", "reconnecting", "gaveup", "offair", "refused", "unsupported"];
 const REFETCH_MS = 3 * 60_000;
 const SHOWN = 6;
+const LONG_NAME = 26; // characters past which the artist drops a size, then another
+const LONGER_NAME = 34;
 const FIXED_NOW = {
   reconnecting: "Reconnecting…",
   gaveup: "Lost the stream.",
@@ -137,13 +139,24 @@ function renderNotesLink(show) {
   }
 }
 
+/** The artist line, stepping the size down by name length; one line, whatever the name. */
+function renderArtist(name) {
+  const line = $("label-artist");
+  if (!line || built.get(line.id) === name) return;
+  built.set(line.id, name);
+  line.textContent = name;
+  line.title = name;
+  line.classList.toggle("long", name.length > LONG_NAME && name.length <= LONGER_NAME);
+  line.classList.toggle("longer", name.length > LONGER_NAME);
+}
+
 /** Alone writes #now and the label; also updates the tape log and both ticket lists. */
 export function renderAt(atMs) {
   lastAtMs = atMs;
   const np = findShow(timeline, atMs);
   const offair = state === "offair";
   const show = !offair && np ? np.show : null;
-  setText("label-artist", show && show.artist ? show.artist : STATION_NAME);
+  renderArtist(show && show.artist ? show.artist : STATION_NAME);
   setText("label-where", show ? whereLine(show) : "");
   setText("label-date", show ? concertDate(show.date) : "");
   const status = $("label-status");

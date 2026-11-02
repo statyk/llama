@@ -899,49 +899,169 @@ test.describe("the on-air notes link", () => {
 const LONG_BAND = "...And You Will Know Us By the Trail of Dead";
 const LONGEST_BAND = `${LONG_BAND} and Every Other Band That Ever Played the Same Very Long Bill, Twice Over`;
 
-/** The cassette's shape, and any label line that leaves it or runs into the window. */
+/** A real cassette's layout: the hubs mid-height in the window, the artist above it, the
+ * venue and date below it, each line whole-height and on one line, the date uncut. */
 async function expectCassetteShape(page) {
   await page.evaluate(() => document.fonts.ready);
-  const { ratio, strays, artistLines, windowInLabel } = await page.evaluate(() => {
-    const cass = document.querySelector(".cass").getBoundingClientRect();
-    const window_ = document.querySelector(".window").getBoundingClientRect();
-    const clabel = document.querySelector(".clabel").getBoundingClientRect();
-    const windowInLabel = window_.left >= clabel.left && window_.right <= clabel.right && window_.top >= clabel.top && window_.bottom <= clabel.bottom;
-    const artist = document.getElementById("label-artist");
-    const lines = [...document.querySelectorAll(".clabel > *")];
-    const strays = lines.filter((el) => {
-      const r = el.getBoundingClientRect();
-      return r.left < cass.left || r.right > cass.right || r.top < cass.top || r.bottom > window_.top;
-    }).map((el) => el.id || el.className);
+  const m = await page.evaluate(() => {
+    const box = (el) => el.getBoundingClientRect();
+    const $ = (s) => document.querySelector(s);
+    const textBox = (el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      // An ellipsis splits a line into two rects at one height, so count the heights.
+      const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+      return { lines, ...range.getBoundingClientRect().toJSON() };
+    };
+    const cass = box($(".cass"));
+    const win = box($(".window"));
+    const clabel = box($(".clabel"));
+    const ln = box($(".ln"));
+    const artistEl = $("#label-artist");
+    const artist = box(artistEl);
+    const line = box($(".hand.h2"));
+    const where = box($("#label-where"));
+    const dateEl = $("#label-date");
+    const date = box(dateEl);
+    const hubs = [...document.querySelectorAll(".hub")].map(box);
+    const texts = [artistEl, $("#label-where"), dateEl].filter((el) => el.textContent);
     return {
-      windowInLabel,
       ratio: cass.width / cass.height,
-      strays,
-      artistLines: (artist.clientHeight / parseFloat(getComputedStyle(artist).lineHeight)),
+      hubY: hubs.map((h) => (h.top + h.height / 2 - cass.top) / cass.height),
+      hubSpacing: (hubs[1].left - hubs[0].left) / cass.width,
+      hubsCentred: Math.abs((hubs[0].left + hubs[1].right) / 2 - (cass.left + cass.right) / 2),
+      hubsInWindow: hubs.every((h) => h.top >= win.top && h.bottom <= win.bottom && h.left >= win.left && h.right <= win.right),
+      windowWidth: win.width / cass.width,
+      windowHeight: win.height / cass.height,
+      windowCentred: Math.abs((win.left + win.right) / 2 - (cass.left + cass.right) / 2),
+      windowInLabel: win.left >= clabel.left && win.right <= clabel.right && win.top >= clabel.top && win.bottom <= clabel.bottom,
+      labelInShell: clabel.left >= cass.left && clabel.right <= cass.right && clabel.top >= cass.top && clabel.bottom <= cass.bottom,
+      lnAboveArtist: ln.bottom <= artist.top + 0.5,
+      artistAboveWindow: artist.bottom <= win.top,
+      lineBelowWindow: line.top >= win.bottom,
+      lineInLabel: line.bottom <= clabel.bottom && line.left >= clabel.left && line.right <= clabel.right,
+      artistInLabel: artist.left >= clabel.left && artist.right <= clabel.right,
+      whereBeforeDate: where.right <= date.left,
+      dateInLine: date.right <= line.right,
+      dateUncut: dateEl.scrollWidth <= dateEl.clientWidth,
+      lineSize: parseFloat(getComputedStyle(dateEl).fontSize),
+      artistLines: textBox(artistEl).lines,
+      // The text's content area, descenders included, inside the box that clips it.
+      clipped: texts.filter((el) => {
+        const t = textBox(el);
+        const b = box(el.closest(".hand"));
+        return t.top < b.top || t.bottom > b.bottom;
+      }).map((el) => el.id),
     };
   });
-  expect(ratio).toBeGreaterThanOrEqual(1.5);
-  expect(ratio).toBeLessThanOrEqual(1.65);
-  expect(strays).toEqual([]);
-  expect(windowInLabel).toBe(true);
-  expect(artistLines).toBeLessThan(2.1);
+  expect(m.ratio).toBeGreaterThanOrEqual(1.5);
+  expect(m.ratio).toBeLessThanOrEqual(1.65);
+  for (const y of m.hubY) {
+    expect(y).toBeGreaterThanOrEqual(0.44);
+    expect(y).toBeLessThanOrEqual(0.5);
+  }
+  expect(m.hubSpacing).toBeGreaterThanOrEqual(0.4);
+  expect(m.hubSpacing).toBeLessThanOrEqual(0.45);
+  expect(m.hubsCentred).toBeLessThan(1);
+  expect(m.windowWidth).toBeGreaterThanOrEqual(0.56);
+  expect(m.windowWidth).toBeLessThanOrEqual(0.6);
+  expect(m.windowHeight).toBeGreaterThanOrEqual(0.26);
+  expect(m.windowHeight).toBeLessThanOrEqual(0.28);
+  expect(m.windowCentred).toBeLessThan(1);
+  expect(m.lineSize).toBeGreaterThanOrEqual(11);
+  expect(m.artistLines).toBe(1);
+  expect(m.clipped).toEqual([]);
+  for (const check of ["hubsInWindow", "windowInLabel", "labelInShell", "lnAboveArtist", "artistAboveWindow", "lineBelowWindow",
+    "lineInLabel", "artistInLabel", "whereBeforeDate", "dateInLine", "dateUncut"]) {
+    expect(m[check], check).toBe(true);
+  }
 }
 
+const LONG_VENUE = { venue: "The Very Long Named Memorial Coliseum and Convention Center", city: "Rancho Cucamonga, CA" };
+
+/** Serve a timeline whose on-air show has this text, at this page width. */
+async function openOnAir(page, width, onAir) {
+  await site.close();
+  site = await startServer({ timeline: makeTimeline(Date.now(), { onAir }) });
+  await page.setViewportSize({ width, height: 800 });
+  await page.goto(site.url);
+  await expect(page.locator("#label-artist")).toHaveText(onAir.artist);
+}
+
+/** The artist line's size class, its overflow and its ellipsis setting. */
+const artistLine = (page) => page.locator("#label-artist").evaluate((el) => ({
+  className: el.className,
+  overflows: el.scrollWidth > el.clientWidth,
+  ellipsis: getComputedStyle(el).textOverflow,
+  whiteSpace: getComputedStyle(el).whiteSpace,
+}));
+
 for (const width of [320, 390, 1200]) {
-  for (const [name, artist] of [["a normal name", "On Air Band"], ["a long name", LONG_BAND], ["a name past two lines", LONGEST_BAND]]) {
-    test(`at ${width} px with ${name}, the cassette holds its shape and its label stays inside`, async ({ page }) => {
-      await site.close();
-      site = await startServer({ timeline: makeTimeline(Date.now(), {
-        onAir: { artist, venue: "The Very Long Named Memorial Coliseum and Convention Center", city: "Rancho Cucamonga, CA" },
-      }) });
-      await page.setViewportSize({ width, height: 800 });
-      await page.goto(site.url);
-      await expect(page.locator("#label-artist")).toHaveText(artist);
+  for (const [name, artist] of [["a normal name", "On Air Band"], ["a name with descenders", "Gypsy Jug Pygmy Quppy"],
+    ["a long name", LONG_BAND], ["a name past one line at any size", LONGEST_BAND]]) {
+    test(`at ${width} px with ${name} and a long venue, the cassette holds its layout and the date shows`, async ({ page }) => {
+      await openOnAir(page, width, { artist, ...LONG_VENUE });
       await expectCassetteShape(page);
+      await expect(page.locator("#label-date")).toHaveText("Nov 1 2008");
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     });
   }
+
+  test(`at ${width} px a 44-character name fits one line uncut once stepped down`, async ({ page }) => {
+    await openOnAir(page, width, { artist: LONG_BAND });
+    expect(await artistLine(page)).toMatchObject({ className: "hand h1 longer", overflows: false });
+  });
+
+  test(`at ${width} px a name too long for the smallest size ends in an ellipsis on one line`, async ({ page }) => {
+    await openOnAir(page, width, { artist: LONGEST_BAND });
+    expect(await artistLine(page)).toEqual({ className: "hand h1 longer", overflows: true, ellipsis: "ellipsis", whiteSpace: "nowrap" });
+    await expect(page.locator("#label-artist")).toHaveAttribute("title", LONGEST_BAND);
+  });
+
+  test(`at ${width} px, with no container units, the fallback draws the same layout`, async ({ page }) => {
+    await page.route("**/assets/radio.css", async (route) => {
+      const css = readFileSync(new URL("../public/assets/radio.css", import.meta.url), "utf8");
+      await route.fulfill({
+        contentType: "text/css",
+        // A browser without cqw: every cqw value is invalid and the @supports block applies.
+        body: css.replace("@supports not (width: 1cqw)", "@supports (width: 1px)").replaceAll("cqw", "nounit"),
+      });
+    });
+    await openOnAir(page, width, { artist: LONG_BAND, ...LONG_VENUE });
+    expect(await page.locator(".hub").first().evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThan(20);
+    await expectCassetteShape(page);
+  });
 }
+
+test("the artist's size class steps at 26 and 34 characters", async ({ page }) => {
+  for (const [length, className] of [[26, "hand h1"], [27, "hand h1 long"], [34, "hand h1 long"], [35, "hand h1 longer"]]) {
+    await openOnAir(page, 390, { artist: "n".repeat(length) });
+    expect(await page.locator("#label-artist").getAttribute("class")).toBe(className);
+  }
+});
+
+test("the artist line is written only when the name changes, and a short name loses the step", async ({ page }) => {
+  const timeline = makeTimeline(Date.now(), { onAir: { artist: LONG_BAND } });
+  await site.close();
+  site = await startServer({ timeline });
+  await page.clock.install({ time: Date.now() });
+  await page.goto(site.url);
+  const line = page.locator("#label-artist");
+  await expect(line).toHaveAttribute("class", "hand h1 longer");
+  await line.evaluate((el) => {
+    window.artistWrites = 0;
+    new MutationObserver((records) => { window.artistWrites += records.length; })
+      .observe(el, { attributes: true, childList: true, characterData: true, subtree: true });
+  });
+  await page.clock.fastForward(5_000);
+  await page.evaluate(() => new Promise((done) => { setTimeout(done, 0); }));
+  expect(await page.evaluate(() => window.artistWrites)).toBe(0);
+  await page.clock.fastForward(75 * 60_000); // the fixture's show ends 70 minutes on
+  await expect(line).toHaveAttribute("class", "hand h1");
+  const next = timeline.shows.find((s) => s.slug === "fixture-next-1").artist;
+  await expect(line).toHaveText(next);
+  await expect(line).toHaveAttribute("title", next);
+});
 
 test("at 320 px with a very long band name, main and panel do not scroll sideways", async ({ page }) => {
   const SLUG = "fixture-next-1";
