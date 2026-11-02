@@ -23,10 +23,11 @@ const browser = await chromium.launch({ channel: "chrome" });
 try {
   for (const [file, width, height, cassette] of PICTURES) {
     const page = await browser.newPage({ viewport: { width, height } });
-    await page.goto(site.url, { waitUntil: "networkidle" });
+    await page.goto(site.url, { waitUntil: "load" });
     await page.evaluate(({ designWidth, zoom }) => {
       const cass = document.querySelector(".cass");
       cass.style.width = `${designWidth}px`;
+      cass.style.alignSelf = "center";
       cass.style.zoom = String(zoom);
       document.body.replaceChildren(cass);
       document.body.style.cssText = "height:100vh;display:flex;align-items:center;justify-content:center";
