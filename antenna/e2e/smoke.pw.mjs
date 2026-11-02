@@ -116,6 +116,17 @@ test("the page loads, shows the header line and every asset request succeeds", a
   }
 });
 
+test("the page's icon links resolve to 200 and no /favicon.ico request is made", async ({ page }) => {
+  await page.goto(site.url, { waitUntil: "networkidle" });
+  const hrefs = await page.locator("link[rel='icon']").evaluateAll((els) => els.map((e) => e.href));
+  expect(hrefs.map((h) => new URL(h).pathname)).toEqual(["/assets/favicon.svg", "/assets/favicon-32.png"]);
+  for (const href of hrefs) {
+    const res = await page.request.get(href);
+    expect(res.status()).toBe(200);
+  }
+  expect(site.requests).not.toContain("/favicon.ico");
+});
+
 test("the footer's archive.org link opens in a new tab so the music keeps playing", async ({ page }) => {
   await page.goto(site.url);
   const link = page.locator("footer a[href='https://archive.org/details/etree']");

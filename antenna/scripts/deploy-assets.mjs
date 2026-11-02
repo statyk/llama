@@ -67,6 +67,7 @@ const TYPES = {
   ".css": CSS,
   ".woff2": "font/woff2",
   ".png": "image/png",
+  ".svg": "image/svg+xml",
   ".webmanifest": MANIFEST,
   ".txt": "text/plain; charset=utf-8",
 };

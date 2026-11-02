@@ -348,6 +348,8 @@ bar, with the page's colours in the status area. That means a web app manifest a
 icons under `/assets/`, the Apple meta tags, and safe-area handling. Show notes open
 there in the panel, and the archive.org link opens outside the app.
 
+The tab icon is a cassette redrawn for 16 px (`assets/favicon.svg`, with 32 and 16 px PNGs for browsers that ignore SVG icons), linked from the player page and the show pages; the off-air page keeps `data:,` because it must not touch `/assets/`.
+
 No service worker and no offline mode: it would add nothing for a live stream and
 could serve a stale page or player.
 

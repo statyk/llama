@@ -367,6 +367,8 @@ def test_the_template_has_no_inline_script():
 def test_the_template_uses_the_new_look_and_links_home():
     assert 'href="/assets/radio.css"' in TEMPLATE and '<script type="module" src="/assets/show.js">' in TEMPLATE
     assert 'href="/"' in TEMPLATE and "../style.css" not in TEMPLATE
+    assert '<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">' in TEMPLATE
+    assert '<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">' in TEMPLATE
     for copy in ("LMA RADIO PRESENTS", "GEN ADM", "Liner notes"):
         assert copy in TEMPLATE
 
