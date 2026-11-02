@@ -141,7 +141,7 @@ test("an engine that throws on longGeneric still renders the page and Play still
 
 test("the page's elements are all there for the behaviour to bind to", async ({ page }) => {
   await page.goto(site.url);
-  for (const id of ["label-artist", "label-where", "label-date", "hubs", "play", "stop", "now", "retry",
+  for (const id of ["label-artist", "label-where", "label-date", "hubs", "play", "stop", "now", "now-show", "now-notes", "retry",
                     "tape-log", "coming-up", "just-aired", "zone", "schedule-note", "stream-url", "audio"]) {
     await expect(page.locator(`#${id}`)).toHaveCount(1);
   }
@@ -197,9 +197,9 @@ test("renders the label, tape log, coming up, just aired and zone line before Pl
   await expect(page.locator("#label-artist")).toHaveText("On Air Band");
   await expect(page.locator("#label-where")).toHaveText("The Club, Chattanooga, TN");
   await expect(page.locator("#label-date")).toHaveText("Nov 1 2008");
-  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
-  await expect(page.locator("#tape-log li").first().locator("span")).toHaveText("Song 3");
-  await expect(page.locator("#tape-log li").first().locator("time")).toHaveText(/^\d{1,2}:\d{2}[ap]$/);
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
+  await expect(page.locator("#tape-log li.now span")).toHaveText("Song 3");
+  await expect(page.locator("#tape-log li.now time")).toHaveText(/^\d{1,2}:\d{2}[ap]$/);
   await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
   await expect(page.locator("#just-aired .ticket.torn")).toHaveCount(2);
   await expect(page.locator("#coming-up .ticket").first().locator(".artist")).toHaveText("Next Band");
@@ -211,6 +211,223 @@ test("renders the label, tape log, coming up, just aired and zone line before Pl
   await expect(page.locator("#stream-url")).toHaveText(`${site.url}/live.m3u8`);
   await expect(page.getByRole("heading", { name: "Tape log" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Just aired" })).toBeVisible();
+});
+
+/** A timeline whose on-air show carries `n` songs, song `nowIdx` (0-based) having started a
+ * minute ago; nowIdx -1 puts every song in the future (a DJ intro is playing). The show's own
+ * window is untouched, so findShow still picks it. */
+function tapeTimeline(n, nowIdx, extra = {}) {
+  const base = makeTimeline(Date.now(), extra);
+  const onAir = base.shows[2];
+  const t0 = Date.parse(onAir.start);
+  const at = (min) => new Date(t0 + min * 60_000).toISOString();
+  const files = [{ kind: "clip", title: "DJ intro (set 1)", start: at(0) }];
+  for (let i = 0; i < n; i++) {
+    const min = nowIdx < 0 ? 30 + i : i <= nowIdx ? 19 - (nowIdx - i) * 0.5 : 19 + (i - nowIdx) * 2.5;
+    files.push({ kind: "track", title: `Tape ${i + 1}`, start: at(min) });
+  }
+  onAir.files = files;
+  return base;
+}
+
+async function openTape(page, n, nowIdx, extra) {
+  await site.close();
+  site = await startServer({ timeline: tapeTimeline(n, nowIdx, extra) });
+  await page.goto(site.url);
+}
+
+const visibleLog = (page) => page.locator("#tape-log li:not(.off) span");
+
+test.describe("the show line under Now playing", () => {
+  test.use({ viewport: { width: 320, height: 800 } });
+  const ARTIST = "The Extraordinarily Long-Named Jam Band!!"; // 41; padded below to 44
+  const FULL = `${ARTIST}xyz`;
+  const VENUE = "The Grand Ballroom of the Historic Municipal Auditorium and Convention Centre";
+
+  test("gives the artist, venue and city, and date in full at 320 px, with no truncation", async ({ page }) => {
+    expect(FULL.length).toBe(44);
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now(), { onAir: { artist: FULL, venue: VENUE, city: "Winston-Salem, NC" } }) });
+    await page.goto(site.url);
+    const line = page.locator("#now-show");
+    await expect(line).toHaveText(`${FULL} \u00b7 ${VENUE}, Winston-Salem, NC \u00b7 Nov 1 2008`);
+    const fits = await line.evaluate((n) => {
+      const s = getComputedStyle(n);
+      return n.scrollWidth <= n.clientWidth + 1 && s.textOverflow !== "ellipsis" && s.whiteSpace !== "nowrap";
+    });
+    expect(fits).toBe(true);
+    // #now cannot move when it wraps (it is above #now-show's line), so measure the line below it.
+    const top = () => line.evaluate((n) => n.getBoundingClientRect().top);
+    const before = await top();
+    await page.click("#play");
+    await expect(line).toHaveText(`${FULL} \u00b7 ${VENUE}, Winston-Salem, NC \u00b7 Nov 1 2008`);
+    expect(await top()).toBe(before);
+  });
+
+  test("leaves out empty parts", async ({ page }) => {
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now(), { onAir: { venue: null, city: null, date: null } }) });
+    await page.goto(site.url);
+    await expect(page.locator("#now-show")).toHaveText("On Air Band");
+  });
+
+  test("is hidden and empty with nothing on air and off air", async ({ page }) => {
+    await page.goto(site.url);
+    await expect(page.locator("#now-show")).toBeVisible();
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+    await expect(page.locator("#now-show")).toBeHidden();
+    await expect(page.locator("#now-show")).toBeEmpty();
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now(), { shows: [], recent: [] }) });
+    await page.goto(site.url);
+    await expect(page.locator("#now-show")).toBeHidden();
+    await expect(page.locator("#now-show")).toBeEmpty();
+  });
+});
+
+test.describe("the tape log", () => {
+  test("lists the show on air first to last with its air times, marking now and next", async ({ page }) => {
+    await openTape(page, 25, 10);
+    await page.getByRole("button", { name: /Show all/ }).click();
+    const rows = page.locator("#tape-log li");
+    await expect(rows).toHaveCount(25);
+    await expect(rows.locator("span")).toHaveText(Array.from({ length: 25 }, (_, i) => `Tape ${i + 1}`));
+    await expect(rows.first().locator("time")).toHaveText(/^\d{1,2}:\d{2}[ap]$/);
+    await expect(page.locator("#tape-log li.now")).toHaveCount(1);
+    await expect(page.locator("#tape-log li.now")).toHaveAttribute("aria-current", "true");
+    await expect(page.locator("#tape-log li[aria-current]")).toHaveCount(1);
+    await expect(page.locator("#tape-log li.played")).toHaveCount(10);
+    await expect(page.locator("#tape-log li.next")).toHaveCount(14);
+    await expect(page.locator("#tape-log li.now span")).toHaveText("Tape 11");
+  });
+
+  for (const [name, nowIdx, first] of [["start", 0, 1], ["middle", 12, 11], ["end", 24, 21]]) {
+    test(`collapsed, the window at the ${name} of a 25-song tape holds 5 rows around now`, async ({ page }) => {
+      await openTape(page, 25, nowIdx);
+      await expect(visibleLog(page)).toHaveText(Array.from({ length: 5 }, (_, i) => `Tape ${first + i}`));
+      await expect(page.locator("#tape-log li")).toHaveCount(25); // hidden, never removed
+      await expect(page.locator("#tape-log li.now")).toBeVisible();
+    });
+  }
+
+  test("before the first song nothing is now and the first 5 show", async ({ page }) => {
+    await openTape(page, 25, -1);
+    await expect(page.locator("#tape-log li.now")).toHaveCount(0);
+    await expect(page.locator("#tape-log li[aria-current]")).toHaveCount(0);
+    await expect(page.locator("#tape-log li.next")).toHaveCount(25);
+    await expect(visibleLog(page)).toHaveText(["Tape 1", "Tape 2", "Tape 3", "Tape 4", "Tape 5"]);
+  });
+
+  test("the button counts the songs, toggles, and reports aria-expanded", async ({ page }) => {
+    await openTape(page, 25, 12);
+    const button = page.locator("#tape-log-more");
+    await expect(button).toHaveText("Show all 25 songs");
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await button.click();
+    await expect(button).toHaveText("Show fewer");
+    await expect(button).toHaveAttribute("aria-expanded", "true");
+    await expect(visibleLog(page)).toHaveCount(25);
+    await button.click();
+    await expect(button).toHaveText("Show all 25 songs");
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await expect(visibleLog(page)).toHaveCount(5);
+  });
+
+  test("a tape of 5 songs or fewer shows every row and no button; 6 gets one", async ({ page }) => {
+    await openTape(page, 5, 2);
+    await expect(visibleLog(page)).toHaveCount(5);
+    await expect(page.locator("#tape-log-more")).toBeHidden();
+    await openTape(page, 3, 1);
+    await expect(visibleLog(page)).toHaveCount(3);
+    await expect(page.locator("#tape-log-more")).toBeHidden();
+    await openTape(page, 6, 5);
+    await expect(page.locator("#tape-log-more")).toHaveText("Show all 6 songs");
+    await expect(visibleLog(page)).toHaveText(["Tape 2", "Tape 3", "Tape 4", "Tape 5", "Tape 6"]);
+  });
+
+  test("the list collapses again when the show on air changes", async ({ page }) => {
+    await openTape(page, 25, 12);
+    await page.locator("#tape-log-more").click();
+    await expect(visibleLog(page)).toHaveCount(25);
+    const other = tapeTimeline(25, 12);
+    other.shows[2].slug = "fixture-other";
+    await page.route("**/timeline.json", (route) => route.fulfill({ json: other }));
+    await page.evaluate(async () => (await import("/assets/page.js")).refreshTimeline(true));
+    await expect(visibleLog(page)).toHaveCount(5);
+    await expect(page.locator("#tape-log-more")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("ticks neither rebuild the rows nor take the button's focus", async ({ page }) => {
+    await openTape(page, 25, 12);
+    const button = page.locator("#tape-log-more");
+    await button.focus();
+    await button.press("Enter");
+    await expect(button).toHaveAttribute("aria-expanded", "true");
+    await page.evaluate(() => {
+      document.querySelector("#tape-log li").dataset.mark = "kept";
+      document.querySelector("#tape-log-more").dataset.mark = "kept";
+    });
+    await page.waitForTimeout(2600); // two or three ticks
+    await expect(button).toBeFocused();
+    await expect(page.locator("#tape-log li").first()).toHaveAttribute("data-mark", "kept");
+    await expect(button).toHaveAttribute("data-mark", "kept");
+    await expect(visibleLog(page)).toHaveCount(25);
+  });
+
+  test("off air the log has no rows, no now marker, no heading and no button", async ({ page }) => {
+    await openTape(page, 25, 12);
+    await expect(page.locator("#tape-log li.now")).toHaveCount(1);
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+    await expect(page.locator("#now")).toHaveText("The station is off the air.");
+    await expect(page.locator("#tape-log li")).toHaveCount(0);
+    await expect(page.locator("#tape-log [aria-current]")).toHaveCount(0);
+    await expect(page.locator(".tape-log .kick")).toBeHidden();
+    await expect(page.locator("#tape-log-more")).toBeHidden();
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("stopped"));
+    await expect(page.locator("#tape-log li.now")).toHaveCount(1);
+  });
+
+  test("the now row is synthetically bold: it draws differently from weight 400 and from synthesis off", async ({ page }) => {
+    // Chrome's fake bold thickens strokes without changing advances, so measure ink, not width.
+    await openTape(page, 25, 12);
+    await page.evaluate(() => document.fonts.ready);
+    const span = page.locator("#tape-log li.now span");
+    const bold = await span.screenshot();
+    await span.evaluate((n) => { n.style.fontWeight = "400"; });
+    const regular = await span.screenshot();
+    await span.evaluate((n) => { n.style.fontWeight = ""; n.style.fontSynthesis = "none"; });
+    const off = await span.screenshot();
+    expect(bold.equals(regular)).toBe(false);
+    expect(off.equals(regular)).toBe(true);
+    expect(bold.equals(off)).toBe(false);
+  });
+
+  test("focus moves to the list when the focused button hides", async ({ page }) => {
+    await openTape(page, 25, 12);
+    await page.locator("#tape-log-more").focus();
+    await expect(page.locator("#tape-log")).toHaveAttribute("tabindex", "-1");
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+    await expect(page.locator("#tape-log-more")).toBeHidden();
+    await expect(page.locator("#tape-log")).toBeFocused();
+  });
+
+  test("the button keeps focus while it stays visible", async ({ page }) => {
+    await openTape(page, 25, 12);
+    await page.locator("#tape-log-more").focus();
+    await page.locator("#tape-log-more").press("Enter");
+    await expect(page.locator("#tape-log-more")).toBeFocused();
+  });
+
+  test("another show's songs are not on screen", async ({ page }) => {
+    const tl = tapeTimeline(25, 0);
+    for (const i of [1, 3]) tl.shows[i].files = tl.shows[i].files.map((f) => ({ ...f, title: `Other show ${f.title}` }));
+    await site.close();
+    site = await startServer({ timeline: tl });
+    await page.goto(site.url);
+    await page.getByRole("button", { name: /Show all/ }).click();
+    await expect(page.locator("#tape-log li")).toHaveCount(25);
+    expect(await page.locator("#tape-log").evaluate((n) => n.textContent)).not.toContain("Other show");
+  });
 });
 
 test("every ticket link is /show/<encoded slug>.html, even when the fixture's page field is hostile", async ({ page }) => {
@@ -239,6 +456,7 @@ test("the hostile fixture through the label, log and tickets: its markup appears
   await expect(page.locator("#label-date")).toHaveText(HOSTILE.date);
   const tidy = HOSTILE.title.trim().replace(/\s*-*>\s*$/, " >");
   await expect(page.locator("#tape-log li span").first()).toHaveText(tidy);
+  await expect(page.locator("#now-show")).toHaveText(`${HOSTILE.artist} \u00b7 ${HOSTILE.venue}, ${HOSTILE.city} \u00b7 ${HOSTILE.date}`);
   await expect(page.locator("#coming-up .ticket .artist").first()).toHaveText(HOSTILE.artist);
   await expect(page.locator("#coming-up .ticket .where").first()).toHaveText(`${HOSTILE.venue}, ${HOSTILE.city}`);
   await expect(page.locator("#coming-up .ticket .sr").first()).toHaveText(HOSTILE.date);
@@ -333,7 +551,7 @@ test("ticketLinks: a plain click opens in-page, a modified click is left to the 
   expect(await page.evaluate(() => window.opened)).toEqual(["fixture-aired-1"]);
   expect(new URL(page.url()).pathname).toBe("/");
   await ticket.click({ modifiers: ["Shift"], trial: true });
-  await page.evaluate(() => document.body.addEventListener("click", (e) => e.preventDefault(), { once: true }));
+  await page.evaluate(() => window.addEventListener("click", (e) => e.preventDefault(), { once: true }));
   await ticket.click({ modifiers: ["Shift"] });
   expect(await page.evaluate(() => window.opened)).toEqual(["fixture-aired-1"]);
 });
@@ -349,9 +567,9 @@ test("Show all reveals the rest of coming up", async ({ page }) => {
   site = await startServer({ timeline: t });
   await page.goto(site.url);
   await expect(page.locator("#coming-up .ticket")).toHaveCount(6);
-  await page.getByRole("button", { name: "Show all" }).click();
+  await page.getByRole("button", { name: "Show all", exact: true }).click();
   await expect(page.locator("#coming-up .ticket")).toHaveCount(8);
-  await expect(page.getByRole("button", { name: "Show all" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Show all", exact: true })).toBeHidden();
 });
 
 // ---- The player, on the real HLS fixture ----
@@ -437,9 +655,10 @@ test("Now playing follows the playback position, not the wall clock", async ({ p
   await site.close();
   site = await startServer({ timeline: makeTimeline(Date.now()), pdtOffsetMs: -9 * 60_000 }); // Song 2's time
   await page.goto(site.url);
-  await expect(page.locator("#tape-log li span").first()).toHaveText("Song 3");
+  await expect(page.locator("#tape-log li.now span")).toHaveText("Song 3");
   await playToAudio(page);
   await expect(page.locator("#now")).toHaveText("Song 2");
+  await expect(page.locator("#tape-log li.now span")).toHaveText("Song 2");
 });
 
 test("Stop silences the audio, stops the hubs and shows the stopped line", async ({ page }) => {
@@ -448,12 +667,12 @@ test("Stop silences the audio, stops the hubs and shows the stopped line", async
   await expect(page.locator("#hubs")).toHaveClass(/turning/);
   await page.click("#stop");
   await expect(page.locator("#hubs")).not.toHaveClass(/turning/);
-  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
   const segments = site.requests.length;
   await page.waitForTimeout(2500);
   expect(site.requests.length).toBe(segments);
-  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
 });
 
 test("a stall, then recovery to playing with no key pressed", async ({ page }) => {
@@ -512,7 +731,7 @@ test("Stop during a retry delay: no further /live.m3u8 request after a further 4
   await advance(page, 40_000);
   expect(liveRequests()).toBe(before);
   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
-  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
 });
 
 test("Stop during a probe: its answer never restarts the audio", async ({ context, page }) => {
@@ -533,7 +752,7 @@ test("Stop during a probe: its answer never restarts the audio", async ({ contex
   await advance(page, 40_000);
   expect(probes.length).toBe(1);
   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
-  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
 });
 
 test("/live.m3u8 unreachable during a stall: probes only, the src is untouched, then reachable gives a restart within one probe interval", async ({ context, page }) => {
@@ -668,7 +887,7 @@ test("a pause from the phone is a Stop, and it stays stopped", async ({ page }) 
   await playToAudio(page);
   await expect(page.locator("#hubs")).toHaveClass(/turning/); // past the join: no stall under way
   await page.locator("#audio").evaluate((a) => a.pause());
-  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
   const before = site.requests.length;
   await page.waitForTimeout(2500);
   expect(site.requests.length).toBe(before);
@@ -777,7 +996,7 @@ test("Stop during Play's question stays stopped, and a second press adds nothing
   await page.waitForTimeout(1500);
   expect(liveRequests()).toBe(before + 1); // the answered question, and nothing after it
   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
-  await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
 });
 
 test("a play() that never settles (home-screen app, hidden): no notice, no hubs, Reconnecting, and only a moving position gives playing", async ({ page }) => {
@@ -811,9 +1030,284 @@ test("a play() that never settles (home-screen app, hidden): no notice, no hubs,
   await expect(hubs).toHaveClass(/turning/);
 });
 
+test.describe("the on-air notes link", () => {
+  const SLUG = "fixture-on-air";
+  const link = (page) => page.locator("#now-notes");
+
+  test("carries the on-air show, stays while stopped, and is left alone between changes", async ({ page }) => {
+    await page.goto(site.url);
+    await expect(link(page)).toBeVisible();
+    await expect(link(page)).toHaveText("Show notes");
+    await expect(link(page)).toHaveAttribute("data-slug", SLUG);
+    await expect(link(page)).toHaveAttribute("href", `/show/${SLUG}.html`);
+    await expect(link(page).locator("xpath=ancestor::*[contains(@class,'playing')]")).toHaveCount(1);
+    await page.evaluate(() => {
+      window.linkWrites = 0;
+      new MutationObserver((m) => { window.linkWrites += m.length; })
+        .observe(document.getElementById("now-notes"), { attributes: true });
+    });
+    await page.waitForTimeout(2500);
+    expect(await page.evaluate(() => window.linkWrites)).toBe(0);
+  });
+
+  test("its link is built from the encoded slug", async ({ page }) => {
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now(), { onAir: { slug: HOSTILE.slug } }) });
+    await page.goto(site.url);
+    await expect(link(page)).toHaveAttribute("data-slug", HOSTILE.slug);
+    await expect(link(page)).toHaveAttribute("href", `/show/${encodeURIComponent(HOSTILE.slug)}.html`);
+  });
+
+  test("a click opens the panel on that show and the audio keeps advancing", async ({ page }) => {
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now()), notes: { [SLUG]: { ...NOTES.full, artist: "On Air Band" } } });
+    await page.goto(site.url);
+    await playToAudio(page);
+    const before = page.url();
+    await link(page).click();
+    await expect(page.locator(".panel .bmain h2")).toHaveText("On Air Band");
+    expect(page.url()).toBe(before);
+    expect(await page.evaluate(() => history.state)).toEqual({ panel: SLUG });
+    const held = await position(page);
+    await expect.poll(() => position(page), { timeout: 15_000 }).toBeGreaterThan(held + 0.5);
+    expect(await page.locator("#audio").evaluate((a) => a.paused)).toBe(false);
+    await expect(page.locator("#hubs")).toHaveClass(/turning/);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".panel")).toBeHidden();
+    await expect(link(page)).toBeFocused();
+  });
+
+  test("a modified click is left to the browser", async ({ page }) => {
+    await page.goto(site.url);
+    await page.evaluate(() => window.addEventListener("click", (e) => e.preventDefault(), { once: true }));
+    await link(page).click({ modifiers: ["Shift"] });
+    await page.waitForTimeout(200);
+    await expect(page.locator(".panel")).toBeHidden();
+    expect(await page.evaluate(() => history.state)).toBeNull();
+  });
+
+  test("is hidden with nothing on air", async ({ page }) => {
+    await site.close();
+    site = await startServer({ timeline: makeTimeline(Date.now(), { shows: [], recent: [] }) });
+    await page.goto(site.url);
+    await expect(page.locator("#schedule-note")).toHaveText("Nothing further is scheduled yet.");
+    await expect(link(page)).toBeHidden();
+    await expect(link(page)).not.toHaveAttribute("href", /./);
+  });
+
+  test("is hidden off the air, and back when the state clears", async ({ page }) => {
+    await page.goto(site.url);
+    await expect(link(page)).toBeVisible();
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+    await expect(link(page)).toBeHidden();
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("stopped"));
+    await expect(link(page)).toBeVisible();
+    await expect(link(page)).toHaveAttribute("data-slug", SLUG);
+  });
+
+  test("follows when the on-air show changes", async ({ page }) => {
+    await page.clock.install({ time: Date.now() });
+    await page.goto(site.url);
+    await expect(link(page)).toHaveAttribute("data-slug", SLUG);
+    await page.clock.fastForward(75 * 60_000); // the fixture's show ends 70 minutes on
+    await expect(link(page)).toHaveAttribute("data-slug", "fixture-next-1");
+    await expect(link(page)).toHaveAttribute("href", "/show/fixture-next-1.html");
+  });
+});
+
+const LONG_BAND = "...And You Will Know Us By the Trail of Dead";
+const LONGEST_BAND = `${LONG_BAND} and Every Other Band That Ever Played the Same Very Long Bill, Twice Over`;
+
+/** A real cassette's layout: the hubs mid-height in the window, the artist above it, the
+ * venue and date below it, each line whole-height and on one line, the date uncut. */
+async function expectCassetteShape(page) {
+  await page.evaluate(() => document.fonts.ready);
+  const m = await page.evaluate(() => {
+    const box = (el) => el.getBoundingClientRect();
+    const $ = (s) => document.querySelector(s);
+    const textBox = (el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      // An ellipsis splits a line into two rects at one height, so count the heights.
+      const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+      return { lines, ...range.getBoundingClientRect().toJSON() };
+    };
+    const cass = box($(".cass"));
+    const win = box($(".window"));
+    const clabel = box($(".clabel"));
+    const ln = box($(".ln"));
+    const artistEl = $("#label-artist");
+    const artist = box(artistEl);
+    const line = box($(".hand.h2"));
+    const where = box($("#label-where"));
+    const dateEl = $("#label-date");
+    const date = box(dateEl);
+    const hubs = [...document.querySelectorAll(".hub")].map(box);
+    const trap = box($(".trap"));
+    const holes = [...document.querySelectorAll(".trap .hole")].map(box);
+    const screws = [...document.querySelectorAll(".trap .screw.centre")].map(box);
+    const texts = [artistEl, $("#label-where"), dateEl].filter((el) => el.textContent);
+    return {
+      ratio: cass.width / cass.height,
+      hubY: hubs.map((h) => (h.top + h.height / 2 - cass.top) / cass.height),
+      hubSpacing: (hubs[1].left - hubs[0].left) / cass.width,
+      hubsCentred: Math.abs((hubs[0].left + hubs[1].right) / 2 - (cass.left + cass.right) / 2),
+      hubsInWindow: hubs.every((h) => h.top >= win.top && h.bottom <= win.bottom && h.left >= win.left && h.right <= win.right),
+      holeCount: holes.length,
+      screwCount: screws.length,
+      holesInTrap: [...holes, ...screws].every((h) => h.left >= trap.left - 0.5 && h.right <= trap.right + 0.5 && h.top >= trap.top - 0.5 && h.bottom <= trap.bottom + 0.5),
+      holesSymmetric: holes.length === 4 && Math.max(
+        Math.abs((holes[0].left + holes[0].right) / 2 + (holes[3].left + holes[3].right) / 2 - (cass.left + cass.right)),
+        Math.abs((holes[1].left + holes[1].right) / 2 + (holes[2].left + holes[2].right) / 2 - (cass.left + cass.right))) <= 1,
+      holeY: holes.map((h) => (h.top + h.height / 2 - cass.top) / cass.height),
+      screwCentred: screws.length === 1 ? Math.abs((screws[0].left + screws[0].right) / 2 - (cass.left + cass.right) / 2) : 99,
+      trapBelowLabel: trap.top > clabel.bottom,
+      smallHoleWidth: holes.length === 4 ? holes[1].width : 0,
+      windowWidth: win.width / cass.width,
+      windowHeight: win.height / cass.height,
+      windowCentred: Math.abs((win.left + win.right) / 2 - (cass.left + cass.right) / 2),
+      windowInLabel: win.left >= clabel.left && win.right <= clabel.right && win.top >= clabel.top && win.bottom <= clabel.bottom,
+      labelInShell: clabel.left >= cass.left && clabel.right <= cass.right && clabel.top >= cass.top && clabel.bottom <= cass.bottom,
+      lnAboveArtist: ln.bottom <= artist.top + 0.5,
+      artistAboveWindow: artist.bottom <= win.top,
+      lineBelowWindow: line.top >= win.bottom,
+      lineInLabel: line.bottom <= clabel.bottom && line.left >= clabel.left && line.right <= clabel.right,
+      artistInLabel: artist.left >= clabel.left && artist.right <= clabel.right,
+      whereBeforeDate: where.right <= date.left,
+      dateInLine: date.right <= line.right + 0.5,
+      dateUncut: dateEl.scrollWidth <= dateEl.clientWidth,
+      lineSize: parseFloat(getComputedStyle(dateEl).fontSize),
+      artistLines: textBox(artistEl).lines,
+      // The line box's vertical fit only: a font-metric rect cannot tell strings apart, so this
+      // says nothing about a glyph's ink (the ink test below does that, sideways).
+      clipped: texts.filter((el) => {
+        const t = textBox(el);
+        const b = box(el.closest(".hand"));
+        return t.top < b.top || t.bottom > b.bottom;
+      }).map((el) => el.id),
+    };
+  });
+  expect(m.ratio).toBeGreaterThanOrEqual(1.5);
+  expect(m.ratio).toBeLessThanOrEqual(1.65);
+  for (const y of m.hubY) {
+    expect(y).toBeGreaterThanOrEqual(0.44);
+    expect(y).toBeLessThanOrEqual(0.5);
+  }
+  expect(m.hubSpacing).toBeGreaterThanOrEqual(0.4);
+  expect(m.hubSpacing).toBeLessThanOrEqual(0.45);
+  expect(m.hubsCentred).toBeLessThan(1);
+  expect(m.windowWidth).toBeGreaterThanOrEqual(0.56);
+  expect(m.windowWidth).toBeLessThanOrEqual(0.6);
+  expect(m.windowHeight).toBeGreaterThanOrEqual(0.26);
+  expect(m.windowHeight).toBeLessThanOrEqual(0.28);
+  expect(m.windowCentred).toBeLessThan(1);
+  expect(m.holeCount).toBe(4);
+  expect(m.screwCount).toBe(1);
+  expect(m.holesSymmetric).toBe(true);
+  expect(m.screwCentred).toBeLessThanOrEqual(1);
+  for (const y of m.holeY) {
+    expect(y).toBeGreaterThanOrEqual(0.9);
+    expect(y).toBeLessThanOrEqual(0.97);
+  }
+  expect(m.smallHoleWidth).toBeGreaterThanOrEqual(8);
+  expect(m.lineSize).toBeGreaterThanOrEqual(11);
+  expect(m.artistLines).toBe(1);
+  expect(m.clipped).toEqual([]);
+  for (const check of ["hubsInWindow", "windowInLabel", "labelInShell", "lnAboveArtist", "artistAboveWindow", "lineBelowWindow",
+    "holesInTrap", "trapBelowLabel", "lineInLabel", "artistInLabel", "whereBeforeDate", "dateInLine", "dateUncut"]) {
+    expect(m[check], check).toBe(true);
+  }
+}
+
+const LONG_VENUE = { venue: "The Very Long Named Memorial Coliseum and Convention Center", city: "Rancho Cucamonga, CA" };
+
+/** Serve a timeline whose on-air show has this text, at this page width. */
+async function openOnAir(page, width, onAir) {
+  await site.close();
+  site = await startServer({ timeline: makeTimeline(Date.now(), { onAir }) });
+  await page.setViewportSize({ width, height: 800 });
+  await page.goto(site.url);
+  await expect(page.locator("#label-artist")).toHaveText(onAir.artist);
+}
+
+/** The artist line's size class, its overflow and its ellipsis setting. */
+const artistLine = (page) => page.locator("#label-artist").evaluate((el) => ({
+  className: el.className,
+  overflows: el.scrollWidth > el.clientWidth,
+  ellipsis: getComputedStyle(el).textOverflow,
+  whiteSpace: getComputedStyle(el).whiteSpace,
+}));
+
+for (const width of [320, 390, 1200]) {
+  for (const [name, artist] of [["a normal name", "On Air Band"],
+    ["a long name", LONG_BAND], ["a name past one line at any size", LONGEST_BAND]]) {
+    test(`at ${width} px with ${name} and a long venue, the cassette holds its layout and the date shows`, async ({ page }) => {
+      await openOnAir(page, width, { artist, ...LONG_VENUE });
+      await expectCassetteShape(page);
+      await expect(page.locator("#label-date")).toHaveText("Nov 1 2008");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    });
+  }
+
+  test(`at ${width} px a 44-character name fits one line uncut once stepped down`, async ({ page }) => {
+    await openOnAir(page, width, { artist: LONG_BAND });
+    expect(await artistLine(page)).toMatchObject({ className: "hand h1 longer", overflows: false });
+  });
+
+  test(`at ${width} px a name too long for the smallest size ends in an ellipsis on one line`, async ({ page }) => {
+    await openOnAir(page, width, { artist: LONGEST_BAND });
+    expect(await artistLine(page)).toEqual({ className: "hand h1 longer", overflows: true, ellipsis: "ellipsis", whiteSpace: "nowrap" });
+    await expect(page.locator("#label-artist")).toHaveAttribute("title", LONGEST_BAND);
+  });
+
+  test(`at ${width} px, with no container units, the fallback draws the same layout`, async ({ page }) => {
+    await page.route("**/assets/radio.css", async (route) => {
+      const css = readFileSync(new URL("../public/assets/radio.css", import.meta.url), "utf8");
+      await route.fulfill({
+        contentType: "text/css",
+        // A browser without cqw: every cqw value is invalid and the @supports block applies.
+        body: css.replace("@supports not (width: 1cqw)", "@supports (width: 1px)").replaceAll("cqw", "nounit"),
+      });
+    });
+    await openOnAir(page, width, { artist: LONG_BAND, ...LONG_VENUE });
+    expect(await page.locator(".hub").first().evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThan(20);
+    await expectCassetteShape(page);
+  });
+}
+
+test("the artist's size class steps at 26 and 34 characters", async ({ page }) => {
+  for (const [length, className] of [[26, "hand h1"], [27, "hand h1 long"], [34, "hand h1 long"], [35, "hand h1 longer"]]) {
+    await openOnAir(page, 390, { artist: "n".repeat(length) });
+    expect(await page.locator("#label-artist").getAttribute("class")).toBe(className);
+  }
+});
+
+test("the artist line is written only when the name changes, and a short name loses the step", async ({ page }) => {
+  const timeline = makeTimeline(Date.now(), { onAir: { artist: LONG_BAND } });
+  await site.close();
+  site = await startServer({ timeline });
+  await page.clock.install({ time: Date.now() });
+  await page.goto(site.url);
+  const line = page.locator("#label-artist");
+  await expect(line).toHaveAttribute("class", "hand h1 longer");
+  await line.evaluate((el) => {
+    window.artistWrites = 0;
+    new MutationObserver((records) => { window.artistWrites += records.length; })
+      .observe(el, { attributes: true, childList: true, characterData: true, subtree: true });
+  });
+  await page.clock.fastForward(5_000);
+  await page.evaluate(() => new Promise((done) => { setTimeout(done, 0); }));
+  expect(await page.evaluate(() => window.artistWrites)).toBe(0);
+  await page.clock.fastForward(75 * 60_000); // the fixture's show ends 70 minutes on
+  await expect(line).toHaveAttribute("class", "hand h1");
+  const next = timeline.shows.find((s) => s.slug === "fixture-next-1").artist;
+  await expect(line).toHaveText(next);
+  await expect(line).toHaveAttribute("title", next);
+});
+
 test("at 320 px with a very long band name, main and panel do not scroll sideways", async ({ page }) => {
   const SLUG = "fixture-next-1";
-  const LONG = "...And You Will Know Us By the Trail of Dead";
+  const LONG = LONG_BAND;
   const timeline = makeTimeline(Date.now(), { onAir: { artist: LONG } });
   timeline.shows = timeline.shows.map((s) => ({ ...s, artist: LONG }));
   await site.close();
@@ -822,6 +1316,7 @@ test("at 320 px with a very long band name, main and panel do not scroll sideway
   await page.goto(site.url);
   await expect(page.locator(".ticket").first()).toBeVisible();
   await expect(page.locator("#label-artist")).toHaveText(LONG);
+  await expectCassetteShape(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   await page.locator(`.ticket[data-slug="${SLUG}"]`).first().click();
   await expect(page.locator(".panel .bmain h2")).toHaveText(LONG);
@@ -1100,4 +1595,52 @@ test.describe("notes panel", () => {
     await expect(p.locator("img, iframe, svg, script, [onclick], u, i, a")).toHaveCount(0);
     expect(await page.evaluate(() => window.pwned)).toBeUndefined();
   });
+});
+
+const INK_SELECTORS = [".hand", "#label-where", "#label-date"];
+
+test("the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off", async ({ page }) => {
+  await openOnAir(page, 390, { artist: "Jerry Jeff Walker", venue: "Jones Hall", city: "Jay, OK", date: "2008-01-01" });
+  await expect(page.locator("#label-date")).toHaveText("Jan 1 2008");
+  await page.evaluate(() => document.fonts.ready);
+  const cass = page.locator(".cass");
+  const clipped = await cass.screenshot({ animations: "disabled" });
+  await page.addStyleTag({ content: `${INK_SELECTORS.join(",")} { overflow: visible !important; }` });
+  const open = await cass.screenshot({ animations: "disabled" });
+  expect(clipped.equals(open)).toBe(true);
+});
+
+test("with nothing on air, the venue and date line keeps its height and the window does not move", async ({ page }) => {
+  await page.goto(site.url);
+  await expect(page.locator("#label-where")).not.toBeEmpty();
+  const rects = () => page.evaluate(() => {
+    const r = (s) => document.querySelector(s).getBoundingClientRect().toJSON();
+    return { line: r(".hand.h2"), win: r(".window"), cass: r(".cass") };
+  });
+  const before = await rects();
+  await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+  await expect(page.locator("#label-where")).toBeEmpty();
+  const after = await rects();
+  expect(before.line.height).toBeGreaterThan(0);
+  expect(after.line.height).toBe(before.line.height);
+  expect(after.line.top).toBe(before.line.top);
+  expect(after.win).toEqual(before.win);
+  expect(after.cass).toEqual(before.cass);
+});
+
+test("a name stepping from long to a short name, or to off air, loses the class", async ({ page }) => {
+  const MID = "n".repeat(30);
+  const timeline = makeTimeline(Date.now(), { onAir: { artist: MID } });
+  await site.close();
+  site = await startServer({ timeline });
+  await page.clock.install({ time: Date.now() });
+  await page.goto(site.url);
+  const line = page.locator("#label-artist");
+  await expect(line).toHaveAttribute("class", "hand h1 long");
+  await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+  await expect(line).toHaveAttribute("class", "hand h1");
+  await page.evaluate(async () => (await import("/assets/page.js")).setState("stopped"));
+  await expect(line).toHaveAttribute("class", "hand h1 long");
+  await page.clock.fastForward(75 * 60_000); // the fixture's show ends 70 minutes on
+  await expect(line).toHaveAttribute("class", "hand h1");
 });

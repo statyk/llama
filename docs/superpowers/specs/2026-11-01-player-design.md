@@ -79,18 +79,40 @@ judges against the mockups; exact sizes are the builder's.
 
 - **Header:** "LMA Radio" and the line "Live concert tapes from the Live Music
   Archive, around the clock."
-- **Cassette:** the show on air, hand-lettered on its label: artist, venue and
-  city, concert date. The hubs turn only while audio is playing, and not at all
+- **Cassette:** the show on air, hand-lettered on its label: the artist on one
+  line above the window (a long name steps down in size, then ends in an ellipsis),
+  the venue and city with the concert date on one line below it (the venue gives
+  way, the date stays). The hubs turn only while audio is playing, and not at all
   under `prefers-reduced-motion`. With nothing on air the label carries the
-  station name.
+  station name. It keeps a real cassette's 100.4 x 63.8 proportions at every width,
+  with the paper wrapping the window, four holes and a centre screw along the bottom edge, and the hubs about the middle of the shell's
+  height, 42.5 mm apart.
+  The cassette's scaling uses container units (iOS 16, Chrome 105, Firefox 110); older browsers get a plain-sized fallback.
 - **Play and Stop keys,** styled as tape-deck keys. Play is the large one. Both
   are real buttons. Radio semantics are unchanged: Play always joins live. During a session Play
   waits for an HTTP answer first, and with no answer leaves the element alone.
 - **Now playing:** the song title, or during a clip the clip's title with its
-  parenthetical removed ("DJ intro", "DJ outro").
-- **Tape log:** recent songs in the current show with their air times, newest
-  first, continuing into the previous show when the current one has just started.
-  DJ clips are left out.
+  parenthetical removed ("DJ intro", "DJ outro"). While stopped with a show on air it
+  reads the constant "Press Play to listen." (no artist, so the stopped line never wraps
+  and never shifts the page on Play; the cassette carries the artist). Once playing, a long
+  song title may wrap onto a second line. A quiet "Show notes" link under it
+  opens the on-air show's notes in the panel, and is hidden with no show on air.
+  Above that link a small plain line gives the show in full (artist · venue, city · date,
+  empty parts left out; it may wrap), since the cassette label truncates long names; it
+  reads the same stopped and playing and is hidden with no show on air or off air.
+- **Tape log:** every song of the show on air, first to last, each with its air
+  time and a state: played (normal), now (the last song started at the playback
+  position; bold, `aria-current="true"`, a small oxblood marker at the left) or next
+  (dimmed to `#5e5240`, 4.7:1 on the band). Before the first song starts (a DJ intro)
+  none is now; during a clip the last song stays now. It never carries into another
+  show; with no show on air it is empty and its heading hidden. DJ clips are left out.
+  Collapsed by default to a window of 5 rows (now with two before and two after,
+  slid to always show 5; with no now, the first 5); the other rows are hidden with a
+  class, never removed. A button under the list reads "Show all N songs" / "Show
+  fewer" with `aria-expanded`, and is absent for 5 songs or fewer. The expanded state
+  is a page.js variable that resets when the on-air show's slug changes; the rows
+  rebuild only when entries change, and toggling or a tick never rebuilds them or
+  moves focus. Expanded, the list grows the band; the cassette stays at the top.
 - **Coming up:** the remaining shows in the timeline, as concert tickets (see
   the mockup): the stub carries the listener's day and air time and "GEN ADM";
   the main part carries "LMA RADIO PRESENTS", the artist, the venue and city, the
@@ -130,7 +152,7 @@ every state the hubs turn only while audio is playing.
 | State | Cassette | Text |
 |---|---|---|
 | Playing | show on the label | song |
-| Stopped | show on the label | the show on air, "press Play" |
+| Stopped | show on the label | "Press Play to listen." (the artist is on the cassette) |
 | Between shows (no timeline entry: station IDs, announcements, the fallback loop) | label: station name | station name |
 | Loading or no timeline | label: station name | station name, and the schedule area says so plainly |
 | Reconnecting | as Stopped | "Reconnecting…" |

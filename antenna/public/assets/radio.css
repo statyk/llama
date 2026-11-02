@@ -32,6 +32,7 @@
   --oxblood: #7c3324;
   --teal: #3f6a6a;
   --rule: #a8987a;
+  --dim: #5e5240;
   --perf: #9a8c6e;
   --tape: #4a4339;
   --typed: "Special Elite", "Courier New", Courier, monospace;
@@ -77,84 +78,162 @@ a { color: inherit; }
   color: var(--oxblood);
 }
 
-/* The cassette. */
+/* The cassette, at a real compact cassette's 100.4 x 63.8 mm. Everything inside is
+   absolutely placed, so no content can grow the shell, and sized in cqw, so the whole
+   drawing scales as one: the shell is 100cqw wide and 63.5cqw high. */
 .cass {
   position: relative;
-  padding: 10px 12px 0;
+  width: 100%;
+  aspect-ratio: 100.4 / 63.8;
+  align-self: start;
+  container-type: inline-size;
   background: linear-gradient(#4a4339, #2f2a23);
   border-radius: 11px;
   box-shadow: 0 3px 0 #1c1813;
 }
 .screw {
   position: absolute;
-  width: 7px;
-  height: 7px;
+  z-index: 2;
+  width: 2.4cqw;
+  height: 2.4cqw;
   border-radius: 50%;
   background: #8d8473;
   box-shadow: inset 0 0 0 1px #2b261f;
 }
-.s1 { left: 5px; top: 5px; }
-.s2 { right: 5px; top: 5px; }
-.s3 { left: 5px; bottom: 5px; }
-.s4 { right: 5px; bottom: 5px; }
+.s1 { left: 1.5cqw; top: 1.5cqw; }
+.s2 { right: 1.5cqw; top: 1.5cqw; }
+.s3 { left: 1.5cqw; bottom: 1.5cqw; }
+.s4 { right: 1.5cqw; bottom: 1.5cqw; }
 
-.clabel { position: relative; padding: 6px 9px 9px; background: var(--label); border-radius: 4px; }
+/* The paper wraps the window, top corners cut for the screws: the small line and the
+   artist above the window, the venue and date below it. The window sits over the paper.
+   The artist's line height stays put in cqw, so a smaller name keeps its baseline. */
+.clabel {
+  position: absolute;
+  top: 4.4cqw;
+  left: 5cqw;
+  right: 5cqw;
+  height: 45.6cqw;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5cqw 3cqw 1.6cqw;
+  overflow: hidden;
+  background: var(--label);
+  border-radius: 1.2cqw;
+  clip-path: polygon(2.6cqw 0, calc(100% - 2.6cqw) 0, 100% 2.6cqw, 100% 100%, 0 100%, 0 2.6cqw);
+}
 .ln {
   display: flex;
+  flex: none;
   justify-content: space-between;
-  font-size: 9px;
+  font-size: 3.2cqw;
+  line-height: 1.2;
   letter-spacing: .14em;
   color: var(--oxblood);
 }
+/* The pen's J tail hangs left of its box: .12em of room inside the clip, taken back by the margin so
+ * the text does not move. The rule is painted as a background so it keeps its old extent. */
 .hand {
-  min-height: 1.14em;
-  padding-bottom: 1px;
-  border-bottom: 1px solid #c9b78f;
+  flex: none;
+  padding-left: .12em;
+  margin-left: -.12em;
+  border-bottom: 1px solid transparent;
+  background: linear-gradient(#c9b78f, #c9b78f) right bottom / calc(100% - .12em) 1px no-repeat border-box;
+  overflow: hidden;
   font-family: var(--hand);
   font-weight: 700;
-  line-height: 1.08;
+  white-space: nowrap;
   color: var(--pen);
 }
-.hand.h1 { margin-top: 2px; font-size: 32px; }
-.hand.h2, .hand.h3 { margin-top: 4px; font-size: 19px; }
+.hand.h1 {
+  height: 10.2cqw;
+  font-size: 7.6cqw;
+  line-height: 10.2cqw;
+  text-overflow: ellipsis;
+}
+.hand.h1.long { font-size: 6.2cqw; }
+.hand.h1.longer { font-size: 5cqw; }
+/* The venue gives way to the date. The date's padding keeps the pen's overhang unclipped. */
+.hand.h2 {
+  display: flex;
+  gap: 2.4cqw;
+  height: 7.4cqw;
+  margin-top: auto;
+  font-size: 5.2cqw;
+  line-height: 7.4cqw;
+}
+#label-where { flex: 1 1 0; min-width: 0; padding-left: .12em; margin-left: -.12em; overflow: hidden; text-overflow: ellipsis; }
+/* The right padding is .2em: the last digit of "2008" reaches past .12em. */
+#label-date { flex: none; max-width: 60%; padding-left: .12em; margin-left: -.12em; padding-right: .2em; overflow: hidden; text-overflow: ellipsis; }
 
+/* Hub centres 42.3cqw apart, the real 42.5 mm, each 7.85cqw in from the window's edge. */
 .window {
-  position: relative;
+  position: absolute;
+  top: 21.4cqw;
+  left: 21cqw;
+  width: 58cqw;
+  height: 17.2cqw;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 88%;
-  height: 58px;
-  margin: 9px auto 0;
-  padding: 0 10px;
+  padding: 0 2.35cqw;
   overflow: hidden;
   background: #191511;
-  border-radius: 29px;
+  border-radius: 2.2cqw;
 }
 .pack { position: absolute; top: 50%; transform: translateY(-50%); border-radius: 50%; background: #3a2a1e; }
-.pack.l { left: -14px; width: 96px; height: 96px; }
-.pack.r { right: 6px; width: 62px; height: 62px; }
+.pack.l { left: -2.65cqw; width: 21cqw; height: 21cqw; }
+.pack.r { right: 1.05cqw; width: 13.6cqw; height: 13.6cqw; }
 .hub {
   position: relative;
   z-index: 2;
-  width: 38px;
-  height: 38px;
+  width: 11cqw;
+  height: 11cqw;
   border-radius: 50%;
   background: conic-gradient(#e9dfc8 0 20deg, #4a4339 20deg 40deg, #e9dfc8 40deg 80deg, #4a4339 80deg 100deg,
     #e9dfc8 100deg 140deg, #4a4339 140deg 160deg, #e9dfc8 160deg 200deg, #4a4339 200deg 220deg,
     #e9dfc8 220deg 260deg, #4a4339 260deg 280deg, #e9dfc8 280deg 320deg, #4a4339 320deg 340deg, #e9dfc8 340deg);
 }
-.hub::after { content: ""; position: absolute; inset: 11px; border-radius: 50%; background: #191511; }
+.hub::after { content: ""; position: absolute; inset: 29%; border-radius: 50%; background: #191511; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: no-preference) {
   .turning .hub { animation: spin 4s linear infinite; }
 }
 .trap {
-  width: 66%;
-  height: 20px;
-  margin: 7px auto 0;
+  position: absolute;
+  bottom: 0;
+  left: 15.5cqw;
+  width: 69cqw;
+  height: 12.5cqw;
   background: #3a342b;
   clip-path: polygon(9% 0, 91% 0, 100% 100%, 0 100%);
+}
+/* The holes in the shell's bottom edge, and its centre screw. Positions are the trapezoid's own:
+   the shell's centre is 34.5cqw in, the row's centre line 8.56cqw down. */
+.trap i { position: absolute; background: #191511; }
+.trap .hole {
+  top: 6.11cqw;
+  width: 4.9cqw;
+  height: 4.9cqw;
+  border-radius: 50%;
+  box-shadow: inset 0 0.25cqw 0.4cqw rgba(0, 0, 0, 0.75), 0 0.2cqw 0 rgba(255, 255, 255, 0.06);
+}
+.trap .hole.sq {
+  top: 6.66cqw;
+  width: 3.4cqw;
+  height: 3.8cqw;
+  border-radius: 30%;
+}
+.trap .h-l { left: 7.85cqw; }
+.trap .h-r { left: 56.25cqw; }
+.trap .sq.h-l { left: 18.8cqw; }
+.trap .sq.h-r { left: 46.8cqw; }
+.trap .screw.centre {
+  top: 0.54cqw;
+  left: 32.9cqw;
+  width: 3.2cqw;
+  height: 3.2cqw;
+  background: #8d8473;
 }
 
 /* The tape-deck keys. */
@@ -186,14 +265,30 @@ a { color: inherit; }
 }
 .key:active { transform: translateY(2px); box-shadow: 0 1px 0 #6f6553; }
 .key.on:active { box-shadow: 0 1px 0 #4e2017; }
-.key:focus-visible, .ticket:focus-visible, .more:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.key:focus-visible, .ticket:focus-visible, .more:focus-visible, .now-notes:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .key.retry { display: block; flex: none; min-height: 40px; margin-top: 10px; font-size: 13px; }
 
 .np { margin: 0; font-size: 18px; line-height: 1.25; }
+.now-show { margin: 6px 0 0; font-size: 12.5px; line-height: 1.35; overflow-wrap: anywhere; }
+.now-notes { display: inline-block; padding: 12px 0 8px; font-size: 12.5px; color: #5e5240; }
 
 .log { margin: 0; padding: 0; list-style: none; font-size: 13px; line-height: 1.55; }
 .log li { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dotted var(--rule); }
 .log li > :last-child { flex: none; }
+.log li { position: relative; padding-left: 12px; }
+.log li.off { display: none; }
+.log li.now { font-weight: 700; font-synthesis: weight; } /* Special Elite has only a 400 face */
+.log li.now::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.5em;
+  border-style: solid;
+  border-width: 5px 0 5px 7px;
+  border-color: transparent transparent transparent var(--oxblood);
+}
+.log li.next { color: var(--dim); }
+.tape-log .more { margin-top: 7px; }
 
 .sched-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 12px; }
 .zone { margin: 0; font-size: 11px; color: #5e5240; }
@@ -428,4 +523,31 @@ a { color: inherit; }
              calc(24px + env(safe-area-inset-left));
   }
   .cols { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 26px; }
+}
+
+/* Browsers without container units get plain sizes. */
+@supports not (width: 1cqw) {
+  .screw { width: 7px; height: 7px; }
+  .s1, .s3 { left: 5px; } .s2, .s4 { right: 5px; } .s1, .s2 { top: 5px; } .s3, .s4 { bottom: 5px; }
+  .clabel {
+    top: 7%; left: 5%; right: 5%; height: 71.7%; padding: 4px 9px 4px; border-radius: 3px;
+    clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%, 0 8px);
+  }
+  .ln { font-size: 9px; }
+  .hand.h1 { height: 29px; font-size: 22px; line-height: 29px; }
+  .hand.h1.long { font-size: 18px; }
+  .hand.h1.longer { font-size: 15px; }
+  .hand.h2 { gap: 7px; height: 22px; font-size: 15px; line-height: 22px; }
+  .window { top: 33.7%; left: 21%; width: 58%; height: 27%; padding: 0 2.35%; border-radius: 6px; }
+  .pack.l { left: -4.6%; width: 36%; aspect-ratio: 1; }
+  .pack.r { right: 1.8%; width: 23.4%; aspect-ratio: 1; }
+  .hub { width: 20.6%; aspect-ratio: 1; }
+  .trap { left: 15.5%; width: 69%; height: 19.7%; }
+  .trap .hole { width: 16px; height: 16px; top: calc(68.5% - 8px); }
+  .trap .hole.sq { width: 11px; height: 12.5px; top: calc(68.5% - 6.25px); }
+  .trap .h-l { left: calc(14.9% - 8px); }
+  .trap .h-r { left: calc(85.1% - 8px); }
+  .trap .sq.h-l { left: calc(29.7% - 5.5px); }
+  .trap .sq.h-r { left: calc(70.3% - 5.5px); }
+  .trap .screw.centre { width: 10px; height: 10px; top: calc(17.1% - 5px); left: calc(50% - 5px); }
 }
