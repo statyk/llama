@@ -85,7 +85,7 @@ judges against the mockups; exact sizes are the builder's.
   way, the date stays). The hubs turn only while audio is playing, and not at all
   under `prefers-reduced-motion`. With nothing on air the label carries the
   station name. It keeps a real cassette's 100.4 x 63.8 proportions at every width,
-  with the paper wrapping the window, and the hubs about the middle of the shell's
+  with the paper wrapping the window, four holes and a centre screw along the bottom edge, and the hubs about the middle of the shell's
   height, 42.5 mm apart.
   The cassette's scaling uses container units (iOS 16, Chrome 105, Firefox 110); older browsers get a plain-sized fallback.
 - **Play and Stop keys,** styled as tape-deck keys. Play is the large one. Both

@@ -201,11 +201,38 @@ a { color: inherit; }
 .trap {
   position: absolute;
   bottom: 0;
-  left: 17cqw;
-  width: 66cqw;
-  height: 10.4cqw;
+  left: 15.5cqw;
+  width: 69cqw;
+  height: 12.5cqw;
   background: #3a342b;
   clip-path: polygon(9% 0, 91% 0, 100% 100%, 0 100%);
+}
+/* The holes in the shell's bottom edge, and its centre screw. Positions are the trapezoid's own:
+   the shell's centre is 34.5cqw in, the row's centre line 8.56cqw down. */
+.trap i { position: absolute; background: #191511; }
+.trap .hole {
+  top: 6.11cqw;
+  width: 4.9cqw;
+  height: 4.9cqw;
+  border-radius: 50%;
+  box-shadow: inset 0 0.25cqw 0.4cqw rgba(0, 0, 0, 0.75), 0 0.2cqw 0 rgba(255, 255, 255, 0.06);
+}
+.trap .hole.sq {
+  top: 6.66cqw;
+  width: 3.4cqw;
+  height: 3.8cqw;
+  border-radius: 30%;
+}
+.trap .h-l { left: 7.85cqw; }
+.trap .h-r { left: 56.25cqw; }
+.trap .sq.h-l { left: 18.8cqw; }
+.trap .sq.h-r { left: 46.8cqw; }
+.trap .screw.centre {
+  top: 0.54cqw;
+  left: 32.9cqw;
+  width: 3.2cqw;
+  height: 3.2cqw;
+  background: #8d8473;
 }
 
 /* The tape-deck keys. */
@@ -499,5 +526,12 @@ a { color: inherit; }
   .pack.l { left: -4.6%; width: 36%; aspect-ratio: 1; }
   .pack.r { right: 1.8%; width: 23.4%; aspect-ratio: 1; }
   .hub { width: 20.6%; aspect-ratio: 1; }
-  .trap { left: 17%; width: 66%; height: 16%; }
+  .trap { left: 15.5%; width: 69%; height: 19.7%; }
+  .trap .hole { width: 16px; height: 16px; top: calc(68.5% - 8px); }
+  .trap .hole.sq { width: 11px; height: 12.5px; top: calc(68.5% - 6.25px); }
+  .trap .h-l { left: calc(14.9% - 8px); }
+  .trap .h-r { left: calc(85.1% - 8px); }
+  .trap .sq.h-l { left: calc(29.7% - 5.5px); }
+  .trap .sq.h-r { left: calc(70.3% - 5.5px); }
+  .trap .screw.centre { width: 10px; height: 10px; top: calc(17.1% - 5px); left: calc(50% - 5px); }
 }

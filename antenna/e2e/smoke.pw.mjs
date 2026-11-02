@@ -924,6 +924,9 @@ async function expectCassetteShape(page) {
     const dateEl = $("#label-date");
     const date = box(dateEl);
     const hubs = [...document.querySelectorAll(".hub")].map(box);
+    const trap = box($(".trap"));
+    const holes = [...document.querySelectorAll(".trap .hole")].map(box);
+    const screws = [...document.querySelectorAll(".trap .screw.centre")].map(box);
     const texts = [artistEl, $("#label-where"), dateEl].filter((el) => el.textContent);
     return {
       ratio: cass.width / cass.height,
@@ -931,6 +934,16 @@ async function expectCassetteShape(page) {
       hubSpacing: (hubs[1].left - hubs[0].left) / cass.width,
       hubsCentred: Math.abs((hubs[0].left + hubs[1].right) / 2 - (cass.left + cass.right) / 2),
       hubsInWindow: hubs.every((h) => h.top >= win.top && h.bottom <= win.bottom && h.left >= win.left && h.right <= win.right),
+      holeCount: holes.length,
+      screwCount: screws.length,
+      holesInTrap: [...holes, ...screws].every((h) => h.left >= trap.left - 0.5 && h.right <= trap.right + 0.5 && h.top >= trap.top - 0.5 && h.bottom <= trap.bottom + 0.5),
+      holesSymmetric: holes.length === 4 && Math.max(
+        Math.abs((holes[0].left + holes[0].right) / 2 + (holes[3].left + holes[3].right) / 2 - (cass.left + cass.right)),
+        Math.abs((holes[1].left + holes[1].right) / 2 + (holes[2].left + holes[2].right) / 2 - (cass.left + cass.right))) <= 1,
+      holeY: holes.map((h) => (h.top + h.height / 2 - cass.top) / cass.height),
+      screwCentred: screws.length === 1 ? Math.abs((screws[0].left + screws[0].right) / 2 - (cass.left + cass.right) / 2) : 99,
+      trapBelowLabel: trap.top > clabel.bottom,
+      smallHoleWidth: holes.length === 4 ? holes[1].width : 0,
       windowWidth: win.width / cass.width,
       windowHeight: win.height / cass.height,
       windowCentred: Math.abs((win.left + win.right) / 2 - (cass.left + cass.right) / 2),
@@ -969,11 +982,20 @@ async function expectCassetteShape(page) {
   expect(m.windowHeight).toBeGreaterThanOrEqual(0.26);
   expect(m.windowHeight).toBeLessThanOrEqual(0.28);
   expect(m.windowCentred).toBeLessThan(1);
+  expect(m.holeCount).toBe(4);
+  expect(m.screwCount).toBe(1);
+  expect(m.holesSymmetric).toBe(true);
+  expect(m.screwCentred).toBeLessThanOrEqual(1);
+  for (const y of m.holeY) {
+    expect(y).toBeGreaterThanOrEqual(0.9);
+    expect(y).toBeLessThanOrEqual(0.97);
+  }
+  expect(m.smallHoleWidth).toBeGreaterThanOrEqual(8);
   expect(m.lineSize).toBeGreaterThanOrEqual(11);
   expect(m.artistLines).toBe(1);
   expect(m.clipped).toEqual([]);
   for (const check of ["hubsInWindow", "windowInLabel", "labelInShell", "lnAboveArtist", "artistAboveWindow", "lineBelowWindow",
-    "lineInLabel", "artistInLabel", "whereBeforeDate", "dateInLine", "dateUncut"]) {
+    "holesInTrap", "trapBelowLabel", "lineInLabel", "artistInLabel", "whereBeforeDate", "dateInLine", "dateUncut"]) {
     expect(m[check], check).toBe(true);
   }
 }
