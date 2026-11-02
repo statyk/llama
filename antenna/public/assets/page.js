@@ -9,6 +9,7 @@ import {
 export const STATES = ["playing", "stopped", "reconnecting", "gaveup", "offair", "refused", "unsupported"];
 const REFETCH_MS = 3 * 60_000;
 const SHOWN = 6;
+const LOG_WINDOW = 5; // rows of the tape log shown while collapsed
 const LONG_NAME = 26; // characters past which the artist drops a size, then another
 const LONGER_NAME = 34;
 const FIXED_NOW = {
@@ -25,6 +26,8 @@ let lastAttempt = null; // ms of the last fetch attempt
 let lastAtMs = null;
 let inFlight = false;
 let showAll = false;
+let logExpanded = false;
+let logSlug = null; // the show the tape log is for; a change collapses it
 const built = new Map(); // element id -> key of what it currently shows
 
 const $ = (id) => document.getElementById(id);
@@ -79,18 +82,58 @@ function renderTickets(list, shows, torn) {
   setHeadingHidden(list, shows.length === 0);
 }
 
+/** First index of the collapsed window: the now row with two before and two
+ * after, slid to keep `size` rows when the tape has that many. No now: the first. */
+function windowStart(entries, size) {
+  const now = entries.findIndex((e) => e.state === "now");
+  return Math.max(0, Math.min(now < 0 ? 0 : now - 2, entries.length - size));
+}
+
+function logToggle(list) {
+  let more = $("tape-log-more");
+  if (!more) {
+    more = el("button", "more", "");
+    more.id = "tape-log-more";
+    more.type = "button";
+    more.addEventListener("click", () => {
+      logExpanded = !logExpanded;
+      if (lastAtMs != null) renderLog(lastAtMs);
+    });
+    list.after(more);
+  }
+  return more;
+}
+
 function renderLog(atMs) {
   const list = $("tape-log");
   if (!list) return;
+  const np = findShow(timeline, atMs);
+  const slug = np && np.show ? np.show.slug : null;
+  if (slug !== logSlug) {
+    logSlug = slug;
+    logExpanded = false;
+  }
   const entries = tapeLog(timeline, atMs);
   const key = JSON.stringify(entries);
   rebuild(list, key, () => entries.map((e) => {
-    const li = document.createElement("li");
+    const li = el("li", e.state);
+    if (e.state === "now") li.setAttribute("aria-current", "true");
     const time = el("time", null, airTime(e.start).time);
     time.dateTime = e.start;
     li.append(el("span", null, tidyTitle(e.title)), time);
     return li;
   }));
+  // Collapsing only toggles a class on the rows, so a toggle or a tick never rebuilds them.
+  const collapsible = entries.length > LOG_WINDOW;
+  const lo = windowStart(entries, LOG_WINDOW);
+  Array.from(list.children).forEach((li, i) => {
+    li.classList.toggle("off", collapsible && !logExpanded && (i < lo || i >= lo + LOG_WINDOW));
+  });
+  const more = logToggle(list);
+  more.hidden = !collapsible;
+  const label = logExpanded ? "Show fewer" : `Show all ${entries.length} songs`;
+  if (more.textContent !== label) more.textContent = label;
+  more.setAttribute("aria-expanded", String(logExpanded));
   setHeadingHidden(list, entries.length === 0);
 }
 

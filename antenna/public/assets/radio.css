@@ -32,6 +32,7 @@
   --oxblood: #7c3324;
   --teal: #3f6a6a;
   --rule: #a8987a;
+  --dim: #5e5240;
   --perf: #9a8c6e;
   --tape: #4a4339;
   --typed: "Special Elite", "Courier New", Courier, monospace;
@@ -273,6 +274,20 @@ a { color: inherit; }
 .log { margin: 0; padding: 0; list-style: none; font-size: 13px; line-height: 1.55; }
 .log li { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dotted var(--rule); }
 .log li > :last-child { flex: none; }
+.log li { position: relative; padding-left: 12px; }
+.log li.off { display: none; }
+.log li.now { font-weight: 700; }
+.log li.now::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.5em;
+  border-style: solid;
+  border-width: 5px 0 5px 7px;
+  border-color: transparent transparent transparent var(--oxblood);
+}
+.log li.next { color: var(--dim); }
+.tape-log .more { margin-top: 7px; }
 
 .sched-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 12px; }
 .zone { margin: 0; font-size: 11px; color: #5e5240; }

@@ -136,33 +136,53 @@ describe("lines", () => {
 });
 
 describe("tapeLog", () => {
-  it("leaves out clips, runs newest first, excludes future tracks", () => {
-    const log = tapeLog(TIMELINE, t("2026-10-10T12:11:00Z"), 3);
-    expect(log.map((e) => e.title)).toEqual(["Magic Foot>", "One Fine Day", "P3"]);
-  });
-  it("continues into the previous show and honours the limit", () => {
-    const all = tapeLog(TIMELINE, t("2026-10-10T12:11:00Z"));
-    expect(all.map((e) => e.title)).toEqual(["Magic Foot>", "One Fine Day", "P3", "P2", "P1"]);
-    expect(tapeLog(TIMELINE, t("2026-10-10T12:11:00Z"), 2)).toHaveLength(2);
+  const titles = (log: any[]) => log.map((e) => e.title);
+  const states = (log: any[]) => log.map((e) => e.state);
+  it("lists the show on air's tracks first to last, without clips", () => {
+    const log = tapeLog(TIMELINE, t("2026-10-10T12:11:00Z"));
+    expect(titles(log)).toEqual(["One Fine Day", "Magic Foot>", "Later"]);
+    expect(states(log)).toEqual(["played", "now", "next"]);
   });
   it("carries ISO starts that airTime formats", () => {
     const [e] = tapeLog(TIMELINE, t("2026-10-10T12:11:00Z"));
-    expect(e.start).toBe("2026-10-10T12:10:00.000Z");
-    expect(airTime(e.start, "UTC")).toEqual({ day: "Sat", time: "12:10p" });
+    expect(e.start).toBe("2026-10-10T12:03:00.000Z");
+    expect(airTime(e.start, "UTC")).toEqual({ day: "Sat", time: "12:03p" });
   });
-  it("ignores recent and tolerates a missing timeline", () => {
-    const late = t("2030-06-01T00:00:00Z");
-    expect(tapeLog(TIMELINE, late)).toEqual([
-      { title: "Later", start: "2026-10-10T13:00:00.000Z" },
-      { title: "Magic Foot>", start: "2026-10-10T12:10:00.000Z" },
-      { title: "One Fine Day", start: "2026-10-10T12:03:00.000Z" },
-      { title: "P3", start: "2026-10-10T11:00:00.000Z" },
-      { title: "P2", start: "2026-10-10T10:30:00.000Z" },
-      { title: "P1", start: "2026-10-10T10:01:00.000Z" },
-    ]);
-    const slugsOnly = { ...TIMELINE, recent: ["prev-1"] };
-    expect(tapeLog(slugsOnly, late)).toEqual(tapeLog({ shows: TIMELINE.shows }, late));
+  it("marks nothing now before the first track starts", () => {
+    const log = tapeLog(TIMELINE, t("2026-10-10T12:01:00Z"));
+    expect(states(log)).toEqual(["next", "next", "next"]);
+  });
+  it("keeps the last started track now during a clip between songs", () => {
+    const tl = { shows: [{ ...TIMELINE.shows[1], files: [
+      { kind: "track", title: "A", start: "2026-10-10T12:03:00Z" },
+      { kind: "clip", title: "DJ talk", start: "2026-10-10T12:20:00Z" },
+      { kind: "track", title: "B", start: "2026-10-10T12:30:00Z" },
+    ] }] };
+    expect(states(tapeLog(tl, t("2026-10-10T12:25:00Z")))).toEqual(["now", "next"]);
+  });
+  it("marks the last track now once all have started", () => {
+    expect(states(tapeLog(TIMELINE, t("2026-10-10T13:30:00Z")))).toEqual(["played", "played", "now"]);
+  });
+  it("never shows another show's songs", () => {
+    for (const at of ["2026-10-10T12:00:00.010Z", "2026-10-10T12:11:00Z", "2026-10-10T10:30:00Z"]) {
+      const log = tapeLog(TIMELINE, t(at));
+      const mine = findShow(TIMELINE, t(at))!.show.files.filter((f: any) => f.kind === "track").map((f: any) => f.title);
+      expect(titles(log)).toEqual(mine);
+    }
+    expect(titles(tapeLog(TIMELINE, t("2026-10-10T12:00:00.010Z")))).not.toContain("P3");
+  });
+  it("is empty with no show on air, no timeline, or a tape without tracks", () => {
+    expect(tapeLog(TIMELINE, t("2030-06-01T00:00:00Z"))).toEqual([]);
+    expect(tapeLog(TIMELINE, t("2020-01-01T00:00:00Z"))).toEqual([]);
     expect(tapeLog(null, 0)).toEqual([]);
+    expect(tapeLog(TIMELINE, t("2026-10-10T13:50:00Z"))).toEqual([]); // next-1 has no files
+    const clipsOnly = { shows: [{ ...TIMELINE.shows[1], files: [{ kind: "clip", title: "x", start: "2026-10-10T12:00:00Z" }] }] };
+    expect(tapeLog(clipsOnly, t("2026-10-10T12:30:00Z"))).toEqual([]);
+  });
+  it("ignores recent, whatever its shape", () => {
+    const at = t("2026-10-10T12:11:00Z");
+    const slugsOnly = { ...TIMELINE, recent: ["prev-1"] };
+    expect(tapeLog(slugsOnly, at)).toEqual(tapeLog({ shows: TIMELINE.shows }, at));
   });
 });
 

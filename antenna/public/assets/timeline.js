@@ -56,21 +56,20 @@ export function stoppedLine(np, stationName) {
   return stationName;
 }
 
-/** Tracks (no clips) that have started by atMs, newest first, spilling into
- * earlier shows. */
-export function tapeLog(timeline, atMs, limit = 8) {
-  const out = [];
-  const shows = showsOf(timeline).filter((s) => Date.parse(s.start) <= atMs);
-  shows.sort((a, b) => Date.parse(b.start) - Date.parse(a.start));
-  for (const show of shows) {
-    const files = (show.files || []).filter((f) => f.kind === "track" && Date.parse(f.start) <= atMs);
-    for (let i = files.length - 1; i >= 0; i--) {
-      if (out.length >= limit) return out;
-      out.push({ title: files[i].title, start: files[i].start });
-    }
-    if (out.length >= limit) break;
-  }
-  return out;
+/** Every track (no clips) of the show on air, first to last, each marked
+ * "played", "now" (the last track started by atMs) or "next". Before the first
+ * track starts none is "now". Never reaches into another show. */
+export function tapeLog(timeline, atMs) {
+  const np = findShow(timeline, atMs);
+  if (!np) return [];
+  const files = (np.show.files || []).filter((f) => f.kind === "track");
+  let now = -1;
+  files.forEach((f, i) => {
+    if (Date.parse(f.start) <= atMs) now = i;
+  });
+  return files.map((f, i) => ({
+    title: f.title, start: f.start, state: i < now ? "played" : i === now ? "now" : "next",
+  }));
 }
 
 /** Shows that have not started yet, soonest first. */

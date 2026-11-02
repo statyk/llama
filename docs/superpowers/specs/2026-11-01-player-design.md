@@ -96,9 +96,19 @@ judges against the mockups; exact sizes are the builder's.
   reads the constant "Press Play to listen." (no artist, so it never wraps or shifts the
   page on Play; the cassette carries the artist). A quiet "Show notes" link under it
   opens the on-air show's notes in the panel, and is hidden with no show on air.
-- **Tape log:** recent songs in the current show with their air times, newest
-  first, continuing into the previous show when the current one has just started.
-  DJ clips are left out.
+- **Tape log:** every song of the show on air, first to last, each with its air
+  time and a state: played (normal), now (the last song started at the playback
+  position; bold, `aria-current="true"`, a small oxblood marker at the left) or next
+  (dimmed to `#5e5240`, 4.7:1 on the band). Before the first song starts (a DJ intro)
+  none is now; during a clip the last song stays now. It never carries into another
+  show; with no show on air it is empty and its heading hidden. DJ clips are left out.
+  Collapsed by default to a window of 5 rows (now with two before and two after,
+  slid to always show 5; with no now, the first 5); the other rows are hidden with a
+  class, never removed. A button under the list reads "Show all N songs" / "Show
+  fewer" with `aria-expanded`, and is absent for 5 songs or fewer. The expanded state
+  is a page.js variable that resets when the on-air show's slug changes; the rows
+  rebuild only when entries change, and toggling or a tick never rebuilds them or
+  moves focus. Expanded, the list grows the band; the cassette stays at the top.
 - **Coming up:** the remaining shows in the timeline, as concert tickets (see
   the mockup): the stub carries the listener's day and air time and "GEN ADM";
   the main part carries "LMA RADIO PRESENTS", the artist, the venue and city, the

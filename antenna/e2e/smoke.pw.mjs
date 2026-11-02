@@ -198,8 +198,8 @@ test("renders the label, tape log, coming up, just aired and zone line before Pl
   await expect(page.locator("#label-where")).toHaveText("The Club, Chattanooga, TN");
   await expect(page.locator("#label-date")).toHaveText("Nov 1 2008");
   await expect(page.locator("#now")).toHaveText("Press Play to listen.");
-  await expect(page.locator("#tape-log li").first().locator("span")).toHaveText("Song 3");
-  await expect(page.locator("#tape-log li").first().locator("time")).toHaveText(/^\d{1,2}:\d{2}[ap]$/);
+  await expect(page.locator("#tape-log li.now span")).toHaveText("Song 3");
+  await expect(page.locator("#tape-log li.now time")).toHaveText(/^\d{1,2}:\d{2}[ap]$/);
   await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
   await expect(page.locator("#just-aired .ticket.torn")).toHaveCount(2);
   await expect(page.locator("#coming-up .ticket").first().locator(".artist")).toHaveText("Next Band");
@@ -211,6 +211,132 @@ test("renders the label, tape log, coming up, just aired and zone line before Pl
   await expect(page.locator("#stream-url")).toHaveText(`${site.url}/live.m3u8`);
   await expect(page.getByRole("heading", { name: "Tape log" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Just aired" })).toBeVisible();
+});
+
+/** A timeline whose on-air show carries `n` songs, song `nowIdx` (0-based) having started a
+ * minute ago; nowIdx -1 puts every song in the future (a DJ intro is playing). The show's own
+ * window is untouched, so findShow still picks it. */
+function tapeTimeline(n, nowIdx, extra = {}) {
+  const base = makeTimeline(Date.now(), extra);
+  const onAir = base.shows[2];
+  const t0 = Date.parse(onAir.start);
+  const at = (min) => new Date(t0 + min * 60_000).toISOString();
+  const files = [{ kind: "clip", title: "DJ intro (set 1)", start: at(0) }];
+  for (let i = 0; i < n; i++) {
+    const min = nowIdx < 0 ? 30 + i : i <= nowIdx ? 19 - (nowIdx - i) * 0.5 : 19 + (i - nowIdx) * 2.5;
+    files.push({ kind: "track", title: `Tape ${i + 1}`, start: at(min) });
+  }
+  onAir.files = files;
+  return base;
+}
+
+async function openTape(page, n, nowIdx, extra) {
+  await site.close();
+  site = await startServer({ timeline: tapeTimeline(n, nowIdx, extra) });
+  await page.goto(site.url);
+}
+
+const visibleLog = (page) => page.locator("#tape-log li:not(.off) span");
+
+test.describe("the tape log", () => {
+  test("lists the show on air first to last with its air times, marking now and next", async ({ page }) => {
+    await openTape(page, 25, 10);
+    await page.getByRole("button", { name: /Show all/ }).click();
+    const rows = page.locator("#tape-log li");
+    await expect(rows).toHaveCount(25);
+    await expect(rows.locator("span")).toHaveText(Array.from({ length: 25 }, (_, i) => `Tape ${i + 1}`));
+    await expect(rows.first().locator("time")).toHaveText(/^\d{1,2}:\d{2}[ap]$/);
+    await expect(page.locator("#tape-log li.now")).toHaveCount(1);
+    await expect(page.locator("#tape-log li.now")).toHaveAttribute("aria-current", "true");
+    await expect(page.locator("#tape-log li[aria-current]")).toHaveCount(1);
+    await expect(page.locator("#tape-log li.played")).toHaveCount(10);
+    await expect(page.locator("#tape-log li.next")).toHaveCount(14);
+    await expect(page.locator("#tape-log li.now span")).toHaveText("Tape 11");
+  });
+
+  for (const [name, nowIdx, first] of [["start", 0, 1], ["middle", 12, 11], ["end", 24, 21]]) {
+    test(`collapsed, the window at the ${name} of a 25-song tape holds 5 rows around now`, async ({ page }) => {
+      await openTape(page, 25, nowIdx);
+      await expect(visibleLog(page)).toHaveText(Array.from({ length: 5 }, (_, i) => `Tape ${first + i}`));
+      await expect(page.locator("#tape-log li")).toHaveCount(25); // hidden, never removed
+      await expect(page.locator("#tape-log li.now")).toBeVisible();
+    });
+  }
+
+  test("before the first song nothing is now and the first 5 show", async ({ page }) => {
+    await openTape(page, 25, -1);
+    await expect(page.locator("#tape-log li.now")).toHaveCount(0);
+    await expect(page.locator("#tape-log li[aria-current]")).toHaveCount(0);
+    await expect(page.locator("#tape-log li.next")).toHaveCount(25);
+    await expect(visibleLog(page)).toHaveText(["Tape 1", "Tape 2", "Tape 3", "Tape 4", "Tape 5"]);
+  });
+
+  test("the button counts the songs, toggles, and reports aria-expanded", async ({ page }) => {
+    await openTape(page, 25, 12);
+    const button = page.locator("#tape-log-more");
+    await expect(button).toHaveText("Show all 25 songs");
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await button.click();
+    await expect(button).toHaveText("Show fewer");
+    await expect(button).toHaveAttribute("aria-expanded", "true");
+    await expect(visibleLog(page)).toHaveCount(25);
+    await button.click();
+    await expect(button).toHaveText("Show all 25 songs");
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await expect(visibleLog(page)).toHaveCount(5);
+  });
+
+  test("a tape of 5 songs or fewer shows every row and no button; 6 gets one", async ({ page }) => {
+    await openTape(page, 5, 2);
+    await expect(visibleLog(page)).toHaveCount(5);
+    await expect(page.locator("#tape-log-more")).toBeHidden();
+    await openTape(page, 3, 1);
+    await expect(visibleLog(page)).toHaveCount(3);
+    await expect(page.locator("#tape-log-more")).toBeHidden();
+    await openTape(page, 6, 5);
+    await expect(page.locator("#tape-log-more")).toHaveText("Show all 6 songs");
+    await expect(visibleLog(page)).toHaveText(["Tape 2", "Tape 3", "Tape 4", "Tape 5", "Tape 6"]);
+  });
+
+  test("the list collapses again when the show on air changes", async ({ page }) => {
+    await openTape(page, 25, 12);
+    await page.locator("#tape-log-more").click();
+    await expect(visibleLog(page)).toHaveCount(25);
+    const other = tapeTimeline(25, 12);
+    other.shows[2].slug = "fixture-other";
+    await page.route("**/timeline.json", (route) => route.fulfill({ json: other }));
+    await page.evaluate(async () => (await import("/assets/page.js")).refreshTimeline(true));
+    await expect(visibleLog(page)).toHaveCount(5);
+    await expect(page.locator("#tape-log-more")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("ticks neither rebuild the rows nor take the button's focus", async ({ page }) => {
+    await openTape(page, 25, 12);
+    const button = page.locator("#tape-log-more");
+    await button.focus();
+    await button.press("Enter");
+    await expect(button).toHaveAttribute("aria-expanded", "true");
+    await page.evaluate(() => {
+      document.querySelector("#tape-log li").dataset.mark = "kept";
+      document.querySelector("#tape-log-more").dataset.mark = "kept";
+    });
+    await page.waitForTimeout(2600); // two or three ticks
+    await expect(button).toBeFocused();
+    await expect(page.locator("#tape-log li").first()).toHaveAttribute("data-mark", "kept");
+    await expect(button).toHaveAttribute("data-mark", "kept");
+    await expect(visibleLog(page)).toHaveCount(25);
+  });
+
+  test("another show's songs are not on screen", async ({ page }) => {
+    const tl = tapeTimeline(25, 0);
+    for (const i of [1, 3]) tl.shows[i].files = tl.shows[i].files.map((f) => ({ ...f, title: `Other show ${f.title}` }));
+    await site.close();
+    site = await startServer({ timeline: tl });
+    await page.goto(site.url);
+    await page.getByRole("button", { name: /Show all/ }).click();
+    await expect(page.locator("#tape-log li")).toHaveCount(25);
+    expect(await page.locator("#tape-log").evaluate((n) => n.textContent)).not.toContain("Other show");
+  });
 });
 
 test("every ticket link is /show/<encoded slug>.html, even when the fixture's page field is hostile", async ({ page }) => {
@@ -349,9 +475,9 @@ test("Show all reveals the rest of coming up", async ({ page }) => {
   site = await startServer({ timeline: t });
   await page.goto(site.url);
   await expect(page.locator("#coming-up .ticket")).toHaveCount(6);
-  await page.getByRole("button", { name: "Show all" }).click();
+  await page.getByRole("button", { name: "Show all", exact: true }).click();
   await expect(page.locator("#coming-up .ticket")).toHaveCount(8);
-  await expect(page.getByRole("button", { name: "Show all" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Show all", exact: true })).toBeHidden();
 });
 
 // ---- The player, on the real HLS fixture ----
@@ -437,9 +563,10 @@ test("Now playing follows the playback position, not the wall clock", async ({ p
   await site.close();
   site = await startServer({ timeline: makeTimeline(Date.now()), pdtOffsetMs: -9 * 60_000 }); // Song 2's time
   await page.goto(site.url);
-  await expect(page.locator("#tape-log li span").first()).toHaveText("Song 3");
+  await expect(page.locator("#tape-log li.now span")).toHaveText("Song 3");
   await playToAudio(page);
   await expect(page.locator("#now")).toHaveText("Song 2");
+  await expect(page.locator("#tape-log li.now span")).toHaveText("Song 2");
 });
 
 test("Stop silences the audio, stops the hubs and shows the stopped line", async ({ page }) => {
