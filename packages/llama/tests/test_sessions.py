@@ -744,7 +744,7 @@ class CountingProvider:
 
 
 def test_resuming_a_packaged_run_costs_no_llm_calls(tmp_path: Path, monkeypatch):
-    """`CLAUDE.md` promises operators that "resuming costs nothing for shows
+    """`packages/llama/CLAUDE.md` promises operators that "resuming costs nothing for shows
     already packaged": a resume genuinely RE-ENTERS the show (`run_winnow`
     runs again, the stages walk from the top) and every stage's own
     `should_run` gate finds nothing to do, so zero LLM calls are spent. A

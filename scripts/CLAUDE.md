@@ -1,0 +1,98 @@
+# scripts
+
+One-off and campaign tooling. The repo overview is the root `CLAUDE.md`; the llama behaviour these drive is `packages/llama/CLAUDE.md`.
+
+## One-offs
+
+- Stitch a playlist into one mp3: `python3 scripts/stitch_m3u.py <playlist.m3u>`
+  (standalone, stdlib-only, needs ffmpeg/ffprobe; stream-copies uniform mp3
+  input and re-encodes otherwise, writing ID3 chapters per entry and pulling
+  tags from a sibling `manifest.json` when there is one). `scripts` is in
+  pytest `testpaths`, so its tests run under plain `pytest -q`.
+  `python scripts/backfill_voiced_by.py [--station-root P] [--apply]` is a
+  one-off (imports emcee): it fills `dj_audio.presenter` on packages voiced
+  before emcee recorded it, by whole-word matching each presenter's `name`
+  in the script text — exactly one match writes, zero or several leave `?`.
+  Dry run unless `--apply`.
+  `python scripts/backfill_tts_record.py [--station-root P] [--apply]` is a
+  one-off (imports emcee): it fills `dj_audio.tts` on packages voiced before
+  emcee recorded it, for the operator-vouched presenters in its `BACKFILL`
+  table only (`phil` voxtral, `jamesbrown` mlx_audio), with `voice:
+  "unknown"` (the clone hash is never recomputed). Dry run unless `--apply`.
+  `python scripts/backfill_voiced_on.py [--station-root P] [--apply]` is a
+  one-off (imports emcee and llama): it dates voiced packages that carry
+  neither `dj_audio.voiced_on` nor `voiced_before` from the newest mtime of the
+  clips the block names (never the manifest's): inside the NAS-copy window
+  (2026-10-10 19:28:00-19:40:00 at -04:00, inclusive; measured 118 packages
+  inside, 210 outside) it writes `voiced_before: "2026-10-10"`, else `voiced_on:
+  <local date>`; a missing clip leaves the package alone. Raw-JSON, one key,
+  and the manifest's old mtime restored with `os.utime` (transmitter reads a
+  newer manifest as "changing"); it re-reads the bytes before the replace and
+  skips on any change, and under `--apply` refuses while an `emcee` or `llama`
+  process runs (a sleeping sweep loop is invisible to that check), and skips a
+  package whose block changed since classification. It changes the sha of
+  voiced, marked station manifests (136 measured), so `bulk_apply.py unmark`
+  refuses those rows with `station copy changed since marking` and that batch's
+  reversal is lost for them; `clear-mark` is unaffected. Dry run
+  unless `--apply`. Run it BEFORE any re-voice. Before the first `--apply` the
+  operator checks that `os.utime` preserves mtime on one scratch file on the
+  SMB mount, read back from hugo.
+  `python scripts/purge_delivered_audio.py [--config P] [--dest P] [--apply]`
+  is a one-off (imports llama): it applies deliver's audio purge, same
+  verification, to shows delivered before deliver did it. Dry run unless
+  `--apply`.
+
+## Bulk-apply campaign
+
+- `scripts/bulk_apply.py` (the bulk-apply campaign's operator script; run from the PINNED worktree by path, `<worktree>/.venv/bin/python <worktree>/scripts/bulk_apply.py <sub>`, never with its venv activated: its dev `llama` reports `0.1.0` and the version gate refuses; `CAMPAIGN_MIN_VERSION = "2.20.0"` in `llama/campaign_gate.py` is the release llama and emcee ship together at, correct it first if the release takes another number; any refused gate exits 2). Runbook: plan `docs/superpowers/plans/2026-10-26-bulk-apply.md` Appendix A, undo Appendix B. Subcommands: `pin --tag T [--replace]` (pin the campaign to a release tag's commit), `arm --out F` (the replay arm, behind the version and pin gates), `snapshot --slugs F` / `seal <snap>` / `restore <snap> [--slugs F] [--apply]` (whole-show snapshots for the re-selections and the wave undo; dry run unless `--apply`), `backfill --base B --verdicts D [--rehold-verdicts D] [--apply]` (the overrule backfill), `freeze --arm F` (the frozen needs-LLM list), `reselect-check --source F [--write]` (the verified re-selection list, re-checked read-only), `mark --arm F [--apply]` (the station marking batch; backs up every station manifest first), `unmark --batch DIR [--apply]` (its reversal), `lists --arm F [--profile P] [--state S] [--slugs F] [--kind fresh|reuse|needs-llm|label-only|held] [--include-voiced] [--famous F] [--limit N] [--out F | --counts]` (wave lists), `wave-check --list F`, `spot-check --batch DIR [--n N] [--seed S]`, `revoice-list --arm F --emcee-status F [--backend B]` (the ranked re-voice list for voiced marked shows), `trial-report --block <shape>-<kind>=DIR … --queue F --weekly-share PCT [--shape S=P,P]`. **Backfill bases:** today's rule (a not-held show that was newly held under the pre-piece-4 code and whose verdict ruled a flag `spurious`/`flag-spurious` or listed it in `overrule_if_reheld_on`) plus the Checkpoint A rules (a) a `fix` verdict records every still-listed structure/closer/venue/city flag, (b) a rehold-verdict `decision: overrule` (`--rehold-verdicts ~/.llama-harness/t3/rehold-verdicts`) records every still-listed base flag but `titles` and the research-wrong/right-show-wrong rulings (it covers `research-song`; `escalate` stays listed), (c) a delivered show with no verdict records every base flag, (d) `overrule_if_reheld_on` entries the base arm did not raise; each recorded overrule's `note` names its basis (measured at Checkpoint A2, 3497e77e: 195 considered, 494 recorded, 21 listed, 187 of 195 fully covered). **Marking reasons (five):** `changed by the held-backlog fixes: <fields>`; `replay needs an LLM call: <needs_llm>`; `stored briefing fails today's guard`; `recording re-selection: <stored> -> <pick>`; `newly held by today's checks: <flag kinds>` (an arm row newly held with no visible change, not label-only and not processed; Checkpoint B). `lists`, `mark` and `wave-check` refuse an unmounted or empty station root. `mark` refuses a `reselections.json` older than its arm: `reselections.json predates the arm; re-run: bulk_apply.py reselect-check --write`. `rekey_overrides.py --restore` is RETIRED from the backfill's first write on (the bulk apply's writes postdate its snapshot): `refusing to restore: the bulk apply retired this rollback at <at> (<by>); its writes postdate the snapshot: use scripts/bulk_apply.py restore`.
+- **Bulk-apply open gaps** (plan "Open gaps"): a delivered show whose station copy is gone or permanently unpaired refuses strict reuse every time (route: by-name `--allow-download`); a paired source whose cached metadata has no length refuses (`<file> has no metadata length`) on every strict re-package (same route; how many is unmeasured); newly held shows with no visible change are listed by `lists` (`kind == held`) so the apply writes their hold, and Checkpoint B's fifth marking reason now marks them (88 packaged, 1 delivered measured at Checkpoint B2; mark plan 2640 = 2551 + 89 at f1f447db); `clear-mark` and `--replace-voiced`'s refusal compare raw-JSON durations, so a re-read duration off in the last digit needs `--accept-change`; SMB/NFS rename atomicity of the station mark is unmeasured; the station-mark residual window (an emcee write landing between `write_mark`'s last byte check and its rename is overwritten undetected; the per-write `emcee_running()` check is the guard); the marking rule cannot reach processed needs-LLM shows after a later gather change.
+
+## Replay and probe harnesses
+
+- `scripts/replay_holds.py run --out <arm.json> [--held|--all|--slugs F]`
+  replays holds read-only under THIS tree's code (use that tree's own
+  interpreter; it exits 2 unless `llama.__file__` is inside the tree, and
+  refuses an `--out` or `--scratch` overlapping the library; put output outside
+  `~/.llama`, e.g. `~/.llama-harness`). `compare <base> <cand> --out <dir>
+  [--no-repro-gate]` writes the reports in `replay_holds.OUTPUT_FILES`,
+  including `predicted_list.json`, `structure_changed_list.json` (hand-check
+  each, then apply with `reapply --from-list <it> --allow-structure-change`) and
+  `pilot_list.json`; it exits 2 when the arms differ (digests, config
+  fingerprint, setlist.fm configuration, show set) and 3 below 99% baseline
+  reproduction (`--no-repro-gate` skips only that, for `-prev` arms). **Every
+  list carries the arm's `sha`, `config_fingerprint` and per-row digests; that
+  is what ties it to the code that predicted it** (editing a list changes its
+  batch dir; do it before any apply).
+- `scripts/replay_holds.py run --strip-title-overrides` replays each show with
+  `overrides.titles` removed (the fresh-get title view; add
+  `--strip-structure-overrides` too for the full fresh-get view, which is what
+  piece 3's acceptance used). Like the structure strip it works on a scratch
+  copy, stamps the arm and writes no apply lists. `--disable-slices slice5,slice4`
+  (comma list; names outside `title_hygiene.ENABLED_SLICES` are refused) turns
+  title-hygiene slices off for that run and stamps `disabled_slices` on the arm,
+  so a slice's effect is a candidate arm against the same arm with it off.
+  `scripts/title_hygiene_probe.py dump|gate|parity|packets` is the read-only
+  piece-3 probe (spec Acceptance): `dump` runs the UNWIRED `title_inputs` +
+  `title_cascade` on two views and so measures PRE-WIRING trees only (e.g.
+  89fd787; on a wired tree gate 0 measures nothing and fails by design); `gate`
+  tabulates `dump.jsonl` into the Checkpoint A table; `parity` compares a wired
+  fresh-get arm's titles with the dump; `packets` writes the hand-check packets
+  from a `compare` directory. Run it with the tree's own interpreter, output
+  outside `~/.llama` (it refuses an overlapping `--out`).
+- Piece 4 tooling (spec `docs/superpowers/specs/2026-10-23-junk-short-keep-design.md`).
+  `scripts/short_keep_probe.py arms|repro|packets|score|sibvocab|reuse-check|voiced-precheck`
+  (read-only, tree's own interpreter, output outside `~/.llama`): `arms --base --cand
+  --ref-dir --out` is the acceptance tallies and the `BLOCKS MERGE` lines; `repro --pre
+  --post --out` is the post-migration self-check (refuses, comparing nothing, an arm with no
+  replayable row or two arms of different roots); `packets`/`score` the hand-check packet and
+  its bar; `sibvocab` the sibling-vocabulary look; `reuse-check` how well audio re-use covers
+  the delivered shows; `voiced-precheck --list <voiced-severe-final.json> <slug>` the check
+  before one `deliver <slug> --replace-voiced` (exit 0 only when all pass).
+  `scripts/replay_holds.py run --rekey-overrides` replays a LEGACY library with each
+  `overrides.json` re-keyed onto `show.json`'s filenames (imports the migration's own
+  `rekey_raw`; measurement only, stamps the arm `overrides_rekeyed`).
+  `scripts/rekey_overrides.py [--snapshot | --apply | --restore <snapshot-dir>]` is the
+  one-off positional-overrides migration (no option = dry run; never gathers); run it from
+  the MAIN checkout as `/Users/shawn/projects/llama/.venv/bin/python scripts/rekey_overrides.py`
+  with that venv NOT activated (its dev `llama` reports `0.1.0` and `--apply`'s version gate
+  refuses it). Runbook in the piece-4 bullet of `packages/llama/CLAUDE.md`. `--restore` is retired once the bulk apply writes (see the `scripts/bulk_apply.py` bullet).

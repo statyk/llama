@@ -22,7 +22,7 @@ Two passes, both reproducible in a few minutes:
 the sum over all audio files. An item carries the same concert several times over
 (VBR MP3 + Flac + original WAVE), so summing everything multiply-counts it. The
 known bias: this slightly over-counts where one format carries bonus or junk
-files. See "Domain gotchas" in `CLAUDE.md` — that spam file in the canonical
+files. See "Domain gotchas" in `packages/llama/CLAUDE.md` — that spam file in the canonical
 fixture is exactly the shape of thing being counted here.
 
 ## Scale

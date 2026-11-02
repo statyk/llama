@@ -3678,7 +3678,7 @@ def test_comma_merged_boundary_item_never_moves_a_break():
 def test_comma_merged_boundary_item_on_separate_tracks_declines():
     # With Ripple on its own track the taper's break does fall after Ripple, but which comma
     # part closes the set is exactly the one-title question the comma rule cannot answer
-    # (CLAUDE.md's A2: no clean discriminator), so the taper owns nothing rather than guess.
+    # (packages/llama/CLAUDE.md's A2: no clean discriminator), so the taper owns nothing rather than guess.
     tracks = mk(["Bertha", "Sugaree", "Jack Straw", "Ripple", "Scarlet Begonias",
                  "Fire on the Mountain"])
     d = decide_taper(tracks, {"description": COMMA_MERGE_TEXT}, aliases={}, today_sets=["1"] * 6,
