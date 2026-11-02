@@ -197,7 +197,7 @@ test("renders the label, tape log, coming up, just aired and zone line before Pl
   await expect(page.locator("#label-artist")).toHaveText("On Air Band");
   await expect(page.locator("#label-where")).toHaveText("The Club, Chattanooga, TN");
   await expect(page.locator("#label-date")).toHaveText("Nov 1 2008");
-  await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
   await expect(page.locator("#tape-log li").first().locator("span")).toHaveText("Song 3");
   await expect(page.locator("#tape-log li").first().locator("time")).toHaveText(/^\d{1,2}:\d{2}[ap]$/);
   await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
@@ -448,12 +448,12 @@ test("Stop silences the audio, stops the hubs and shows the stopped line", async
   await expect(page.locator("#hubs")).toHaveClass(/turning/);
   await page.click("#stop");
   await expect(page.locator("#hubs")).not.toHaveClass(/turning/);
-  await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
   const segments = site.requests.length;
   await page.waitForTimeout(2500);
   expect(site.requests.length).toBe(segments);
-  await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
 });
 
 test("a stall, then recovery to playing with no key pressed", async ({ page }) => {
@@ -512,7 +512,7 @@ test("Stop during a retry delay: no further /live.m3u8 request after a further 4
   await advance(page, 40_000);
   expect(liveRequests()).toBe(before);
   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
-  await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
 });
 
 test("Stop during a probe: its answer never restarts the audio", async ({ context, page }) => {
@@ -533,7 +533,7 @@ test("Stop during a probe: its answer never restarts the audio", async ({ contex
   await advance(page, 40_000);
   expect(probes.length).toBe(1);
   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
-  await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
 });
 
 test("/live.m3u8 unreachable during a stall: probes only, the src is untouched, then reachable gives a restart within one probe interval", async ({ context, page }) => {
@@ -668,7 +668,7 @@ test("a pause from the phone is a Stop, and it stays stopped", async ({ page }) 
   await playToAudio(page);
   await expect(page.locator("#hubs")).toHaveClass(/turning/); // past the join: no stall under way
   await page.locator("#audio").evaluate((a) => a.pause());
-  await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
   const before = site.requests.length;
   await page.waitForTimeout(2500);
   expect(site.requests.length).toBe(before);
@@ -777,7 +777,7 @@ test("Stop during Play's question stays stopped, and a second press adds nothing
   await page.waitForTimeout(1500);
   expect(liveRequests()).toBe(before + 1); // the answered question, and nothing after it
   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
-  await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+  await expect(page.locator("#now")).toHaveText("Press Play to listen.");
 });
 
 test("a play() that never settles (home-screen app, hidden): no notice, no hubs, Reconnecting, and only a moving position gives playing", async ({ page }) => {
