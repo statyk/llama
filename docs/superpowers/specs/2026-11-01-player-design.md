@@ -82,12 +82,14 @@ judges against the mockups; exact sizes are the builder's.
 - **Cassette:** the show on air, hand-lettered on its label: artist, venue and
   city, concert date. The hubs turn only while audio is playing, and not at all
   under `prefers-reduced-motion`. With nothing on air the label carries the
-  station name.
+  station name. It keeps a real cassette's 100.4 x 63.8 proportions at every width,
+  with the paper covering most of the shell and the window set into the paper.
 - **Play and Stop keys,** styled as tape-deck keys. Play is the large one. Both
   are real buttons. Radio semantics are unchanged: Play always joins live. During a session Play
   waits for an HTTP answer first, and with no answer leaves the element alone.
 - **Now playing:** the song title, or during a clip the clip's title with its
-  parenthetical removed ("DJ intro", "DJ outro").
+  parenthetical removed ("DJ intro", "DJ outro"). A quiet "Show notes" link under it
+  opens the on-air show's notes in the panel, and is hidden with no show on air.
 - **Tape log:** recent songs in the current show with their air times, newest
   first, continuing into the previous show when the current one has just started.
   DJ clips are left out.

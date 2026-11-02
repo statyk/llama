@@ -77,82 +77,117 @@ a { color: inherit; }
   color: var(--oxblood);
 }
 
-/* The cassette. */
+/* The cassette, at a real compact cassette's 100.4 x 63.8 mm. Everything inside is
+   absolutely placed, so no content can grow the shell, and sized in cqw, so the whole
+   drawing scales as one: the shell is 100cqw wide and 63.5cqw high. */
 .cass {
   position: relative;
-  padding: 10px 12px 0;
+  width: 100%;
+  aspect-ratio: 100.4 / 63.8;
+  align-self: start;
+  container-type: inline-size;
   background: linear-gradient(#4a4339, #2f2a23);
   border-radius: 11px;
   box-shadow: 0 3px 0 #1c1813;
 }
 .screw {
   position: absolute;
-  width: 7px;
-  height: 7px;
+  z-index: 2;
+  width: 2.4cqw;
+  height: 2.4cqw;
   border-radius: 50%;
   background: #8d8473;
   box-shadow: inset 0 0 0 1px #2b261f;
 }
-.s1 { left: 5px; top: 5px; }
-.s2 { right: 5px; top: 5px; }
-.s3 { left: 5px; bottom: 5px; }
-.s4 { right: 5px; bottom: 5px; }
+.s1 { left: 1.5cqw; top: 1.5cqw; }
+.s2 { right: 1.5cqw; top: 1.5cqw; }
+.s3 { left: 1.5cqw; bottom: 1.5cqw; }
+.s4 { right: 1.5cqw; bottom: 1.5cqw; }
 
-.clabel { position: relative; padding: 6px 9px 9px; background: var(--label); border-radius: 4px; }
+/* The paper covers most of the shell, its top corners cut for the screws. The bottom
+   padding keeps the hand-lettered lines clear of the window, which sits over the paper. */
+.clabel {
+  position: absolute;
+  top: 2.6cqw;
+  left: 3cqw;
+  right: 3cqw;
+  height: 49.6cqw;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.2cqw 4cqw 14.8cqw;
+  overflow: hidden;
+  background: var(--label);
+  border-radius: 1.2cqw;
+  clip-path: polygon(2.6cqw 0, calc(100% - 2.6cqw) 0, 100% 2.6cqw, 100% 100%, 0 100%, 0 2.6cqw);
+}
 .ln {
   display: flex;
+  flex: none;
   justify-content: space-between;
-  font-size: 9px;
+  font-size: 3.2cqw;
+  line-height: 1.2;
   letter-spacing: .14em;
   color: var(--oxblood);
 }
 .hand {
+  flex: none;
   min-height: 1.14em;
-  padding-bottom: 1px;
   border-bottom: 1px solid #c9b78f;
+  overflow: hidden;
   font-family: var(--hand);
   font-weight: 700;
   line-height: 1.08;
   color: var(--pen);
 }
-.hand.h1 { margin-top: 2px; font-size: 32px; }
-.hand.h2, .hand.h3 { margin-top: 4px; font-size: 19px; }
+.hand.h1 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: 8.2cqw;
+  line-height: 1.02;
+}
+.hand.h2, .hand.h3 { font-size: 5.4cqw; white-space: nowrap; text-overflow: ellipsis; }
 
 .window {
-  position: relative;
+  position: absolute;
+  top: 38.2cqw;
+  left: 22cqw;
+  width: 56cqw;
+  height: 12.6cqw;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 88%;
-  height: 58px;
-  margin: 9px auto 0;
-  padding: 0 10px;
+  padding: 0 1.5cqw;
   overflow: hidden;
   background: #191511;
-  border-radius: 29px;
+  border-radius: 6.3cqw;
 }
 .pack { position: absolute; top: 50%; transform: translateY(-50%); border-radius: 50%; background: #3a2a1e; }
-.pack.l { left: -14px; width: 96px; height: 96px; }
-.pack.r { right: 6px; width: 62px; height: 62px; }
+.pack.l { left: -3.1cqw; width: 21cqw; height: 21cqw; }
+.pack.r { right: 1.3cqw; width: 13.6cqw; height: 13.6cqw; }
 .hub {
   position: relative;
   z-index: 2;
-  width: 38px;
-  height: 38px;
+  width: 9.6cqw;
+  height: 9.6cqw;
   border-radius: 50%;
   background: conic-gradient(#e9dfc8 0 20deg, #4a4339 20deg 40deg, #e9dfc8 40deg 80deg, #4a4339 80deg 100deg,
     #e9dfc8 100deg 140deg, #4a4339 140deg 160deg, #e9dfc8 160deg 200deg, #4a4339 200deg 220deg,
     #e9dfc8 220deg 260deg, #4a4339 260deg 280deg, #e9dfc8 280deg 320deg, #4a4339 320deg 340deg, #e9dfc8 340deg);
 }
-.hub::after { content: ""; position: absolute; inset: 11px; border-radius: 50%; background: #191511; }
+.hub::after { content: ""; position: absolute; inset: 29%; border-radius: 50%; background: #191511; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: no-preference) {
   .turning .hub { animation: spin 4s linear infinite; }
 }
 .trap {
-  width: 66%;
-  height: 20px;
-  margin: 7px auto 0;
+  position: absolute;
+  bottom: 0;
+  left: 17cqw;
+  width: 66cqw;
+  height: 10.4cqw;
   background: #3a342b;
   clip-path: polygon(9% 0, 91% 0, 100% 100%, 0 100%);
 }

@@ -896,9 +896,52 @@ test.describe("the on-air notes link", () => {
   });
 });
 
+const LONG_BAND = "...And You Will Know Us By the Trail of Dead";
+const LONGEST_BAND = `${LONG_BAND} and Every Other Band That Ever Played the Same Very Long Bill, Twice Over`;
+
+/** The cassette's shape, and any label line that leaves it or runs into the window. */
+async function expectCassetteShape(page) {
+  await page.evaluate(() => document.fonts.ready);
+  const { ratio, strays, artistLines } = await page.evaluate(() => {
+    const cass = document.querySelector(".cass").getBoundingClientRect();
+    const window_ = document.querySelector(".window").getBoundingClientRect();
+    const artist = document.getElementById("label-artist");
+    const lines = [...document.querySelectorAll(".clabel > *")];
+    const strays = lines.filter((el) => {
+      const r = el.getBoundingClientRect();
+      return r.left < cass.left || r.right > cass.right || r.top < cass.top || r.bottom > window_.top;
+    }).map((el) => el.id || el.className);
+    return {
+      ratio: cass.width / cass.height,
+      strays,
+      artistLines: (artist.clientHeight / parseFloat(getComputedStyle(artist).lineHeight)),
+    };
+  });
+  expect(ratio).toBeGreaterThanOrEqual(1.5);
+  expect(ratio).toBeLessThanOrEqual(1.65);
+  expect(strays).toEqual([]);
+  expect(artistLines).toBeLessThan(2.1);
+}
+
+for (const width of [320, 390, 1200]) {
+  for (const [name, artist] of [["a normal name", "On Air Band"], ["a long name", LONG_BAND], ["a name past two lines", LONGEST_BAND]]) {
+    test(`at ${width} px with ${name}, the cassette holds its shape and its label stays inside`, async ({ page }) => {
+      await site.close();
+      site = await startServer({ timeline: makeTimeline(Date.now(), {
+        onAir: { artist, venue: "The Very Long Named Memorial Coliseum and Convention Center", city: "Rancho Cucamonga, CA" },
+      }) });
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto(site.url);
+      await expect(page.locator("#label-artist")).toHaveText(artist);
+      await expectCassetteShape(page);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    });
+  }
+}
+
 test("at 320 px with a very long band name, main and panel do not scroll sideways", async ({ page }) => {
   const SLUG = "fixture-next-1";
-  const LONG = "...And You Will Know Us By the Trail of Dead";
+  const LONG = LONG_BAND;
   const timeline = makeTimeline(Date.now(), { onAir: { artist: LONG } });
   timeline.shows = timeline.shows.map((s) => ({ ...s, artist: LONG }));
   await site.close();
@@ -907,6 +950,7 @@ test("at 320 px with a very long band name, main and panel do not scroll sideway
   await page.goto(site.url);
   await expect(page.locator(".ticket").first()).toBeVisible();
   await expect(page.locator("#label-artist")).toHaveText(LONG);
+  await expectCassetteShape(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   await page.locator(`.ticket[data-slug="${SLUG}"]`).first().click();
   await expect(page.locator(".panel .bmain h2")).toHaveText(LONG);
