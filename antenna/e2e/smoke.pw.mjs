@@ -333,7 +333,7 @@ test("ticketLinks: a plain click opens in-page, a modified click is left to the 
   expect(await page.evaluate(() => window.opened)).toEqual(["fixture-aired-1"]);
   expect(new URL(page.url()).pathname).toBe("/");
   await ticket.click({ modifiers: ["Shift"], trial: true });
-  await page.evaluate(() => document.body.addEventListener("click", (e) => e.preventDefault(), { once: true }));
+  await page.evaluate(() => window.addEventListener("click", (e) => e.preventDefault(), { once: true }));
   await ticket.click({ modifiers: ["Shift"] });
   expect(await page.evaluate(() => window.opened)).toEqual(["fixture-aired-1"]);
 });
@@ -860,7 +860,7 @@ test.describe("the on-air notes link", () => {
 
   test("a modified click is left to the browser", async ({ page }) => {
     await page.goto(site.url);
-    await page.evaluate(() => document.body.addEventListener("click", (e) => e.preventDefault(), { once: true }));
+    await page.evaluate(() => window.addEventListener("click", (e) => e.preventDefault(), { once: true }));
     await link(page).click({ modifiers: ["Shift"] });
     await page.waitForTimeout(200);
     await expect(page.locator(".panel")).toBeHidden();
@@ -902,9 +902,11 @@ const LONGEST_BAND = `${LONG_BAND} and Every Other Band That Ever Played the Sam
 /** The cassette's shape, and any label line that leaves it or runs into the window. */
 async function expectCassetteShape(page) {
   await page.evaluate(() => document.fonts.ready);
-  const { ratio, strays, artistLines } = await page.evaluate(() => {
+  const { ratio, strays, artistLines, windowInLabel } = await page.evaluate(() => {
     const cass = document.querySelector(".cass").getBoundingClientRect();
     const window_ = document.querySelector(".window").getBoundingClientRect();
+    const clabel = document.querySelector(".clabel").getBoundingClientRect();
+    const windowInLabel = window_.left >= clabel.left && window_.right <= clabel.right && window_.top >= clabel.top && window_.bottom <= clabel.bottom;
     const artist = document.getElementById("label-artist");
     const lines = [...document.querySelectorAll(".clabel > *")];
     const strays = lines.filter((el) => {
@@ -912,6 +914,7 @@ async function expectCassetteShape(page) {
       return r.left < cass.left || r.right > cass.right || r.top < cass.top || r.bottom > window_.top;
     }).map((el) => el.id || el.className);
     return {
+      windowInLabel,
       ratio: cass.width / cass.height,
       strays,
       artistLines: (artist.clientHeight / parseFloat(getComputedStyle(artist).lineHeight)),
@@ -920,6 +923,7 @@ async function expectCassetteShape(page) {
   expect(ratio).toBeGreaterThanOrEqual(1.5);
   expect(ratio).toBeLessThanOrEqual(1.65);
   expect(strays).toEqual([]);
+  expect(windowInLabel).toBe(true);
   expect(artistLines).toBeLessThan(2.1);
 }
 

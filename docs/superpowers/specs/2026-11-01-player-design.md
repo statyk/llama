@@ -84,6 +84,7 @@ judges against the mockups; exact sizes are the builder's.
   under `prefers-reduced-motion`. With nothing on air the label carries the
   station name. It keeps a real cassette's 100.4 x 63.8 proportions at every width,
   with the paper covering most of the shell and the window set into the paper.
+  The cassette's scaling uses container units (iOS 16, Chrome 105, Firefox 110); older browsers get a plain-sized fallback.
 - **Play and Stop keys,** styled as tape-deck keys. Play is the large one. Both
   are real buttons. Radio semantics are unchanged: Play always joins live. During a session Play
   waits for an HTTP answer first, and with no answer leaves the element alone.
