@@ -107,8 +107,16 @@ def test_drops_encore_prefix():
     assert normalize_for_speech("They came back for E: Samson and Delilah.", lex) \
         == "They came back for Samson and Delilah."
     assert normalize_for_speech("E: U.S. Blues closed it.", lex) == "U.S. Blues closed it."
-    # Only the bare capital token: a word ending in e, or a lowercase e:, is left alone.
-    assert normalize_for_speech("the theme: freedom", lex) == "the theme: freedom"
+    # Only a bare token before a capitalized word on the same line.
+    assert normalize_for_speech("ABE: Lincoln spoke", lex) == "ABE: Lincoln spoke"
+    assert normalize_for_speech("a solo in the key of E: bright and hard", lex) \
+        == "a solo in the key of E: bright and hard"
+    assert normalize_for_speech("they vamp in E:\n\nNext paragraph.", lex) \
+        == "they vamp in E:\n\nNext paragraph."
+
+
+def test_mark_glued_to_a_word_front_keeps_words_apart():
+    assert normalize_for_speech("It was *really* good", Lexicon.empty()) == "It was really good"
 
 
 def test_footnote_strip_keeps_paragraph_breaks():

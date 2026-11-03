@@ -452,7 +452,7 @@ def test_scriptwrite_prompt_json_shape_drops_airtime_and_listen_for():
     assert ("artist, date, venue, then the specifics that make this show worth hearing "
             "(~60-90 seconds), running on into the set ahead. Each LATER set's") in prompt
     assert ("[<every song title referenced anywhere above, other than one you refuse "
-            "to name, spelled exactly as in the show data>]") in prompt
+            "to name, spelled as in the show data without setlist markup>]") in prompt
 
 
 def test_scriptwrite_full_path_has_no_extra_blank_line():
