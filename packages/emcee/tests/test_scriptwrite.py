@@ -470,6 +470,21 @@ def test_normalize_song_applies_alias():
     assert normalize_song("Rider") == normalize_song("I Know You Rider")
 
 
+def test_normalize_song_reads_ampersand_as_and():
+    # A script that spells out "and" names the same song (review note, 2026-11-02).
+    assert normalize_song("Me & Bobby McGee") == normalize_song("Me and Bobby McGee")
+    assert normalize_song("Jerry&Bob") == normalize_song("Jerry and Bob")
+
+
+def test_guard_accepts_and_for_ampersand_title(tmp_path):
+    manifest = manifest_of(tmp_path)
+    manifest["tracks"][0]["title"] = "Me & Bobby McGee#"
+    notes = ScriptNotes(context="c", set_intros={s: "x" for s in
+                        {t["set"] for t in manifest["tracks"] if t["set"] != "encore"}},
+                        outro="o", mentioned_songs=["Me and Bobby McGee"])
+    assert script_guard(notes, manifest, "full") == []
+
+
 def test_normalize_song_strips_punctuation():
     assert normalize_song("Truckin'") == normalize_song("Truckin")
 

@@ -21,7 +21,7 @@ from emcee.package_io import Package
 from emcee.presenters import Presenter
 from emcee.prompts import load_prompt
 
-# --- normalize_song, ported verbatim from packages/llama/src/llama/songs.py
+# --- normalize_song, ported from packages/llama/src/llama/songs.py (plus "&" as "and")
 # (just the normalizer emcee needs). GD-heavy curated
 # alias table, per spec; extend as other artists come up.
 
@@ -50,6 +50,9 @@ _WS = re.compile(r"\s+")
 
 def normalize_song(name: str, aliases: dict[str, str] | None = None) -> str:
     s = name.lower().replace("'", "")
+    # "&" reads "and" (emcee only; llama's copy still drops it), so a script
+    # that spells it out still names "Me & Bobby McGee".
+    s = s.replace("&", " and ")
     s = _PUNCT.sub(" ", s)
     s = _WS.sub(" ", s).strip()
     table = DEFAULT_ALIASES if aliases is None else {**DEFAULT_ALIASES, **aliases}
