@@ -23,6 +23,13 @@ _SYMBOL_REPLACEMENTS = [
     ("&", " and "),
     ("%", " percent "),
 ]
+# Setlist markup a scriptwriter can copy out of a track title: taper footnote
+# marks ("Loose Lucy *", "Earth Day Rap ^,") and the encore prefix
+# ("E: Samson and Delilah"). Voiced, they come out as "times", "asterisk" or
+# noise. Dropped with the space before them, so "Rap ^," becomes "Rap,". "#"
+# and "+" are left alone: in prose they are "number" and "plus".
+_FOOTNOTE_MARKS = re.compile(r"[ \t]*[*^\u2020\u2021]+")
+_ENCORE_PREFIX = re.compile(r"(?<!\w)E:\s+")
 _MULTISPACE = re.compile(r"[ \t]{2,}")
 
 
@@ -61,6 +68,8 @@ class Lexicon:
 def normalize_for_speech(text: str, lexicon: Lexicon) -> str:
     """Expand mis-voiced symbols, apply the pronunciation lexicon, tidy spaces.
     Identity on clean prose with an empty lexicon."""
+    text = _FOOTNOTE_MARKS.sub("", text)
+    text = _ENCORE_PREFIX.sub("", text)
     for symbol, replacement in _SYMBOL_REPLACEMENTS:
         text = text.replace(symbol, replacement)
     text = lexicon.apply(text)

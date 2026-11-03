@@ -48,7 +48,10 @@ McGee", a song called "Tonight"). The rules still govern your own words around
 a name: never use a title as licence to break a rule elsewhere in the sentence,
 and where you can, put a name that would break a rule after other words rather
 than opening a sentence with it. The clean-on-air rule outranks this for song
-and album titles.
+and album titles. A name is the name alone, not the setlist markup around it:
+leave out footnote marks such as *, ^, # or + and any comma stuck to them, the
+"E:" that marks an encore, and segue arrows (say "into"). "Loose Lucy *" is
+said as Loose Lucy and "E: Samson and Delilah" as Samson and Delilah.
 
 Let the show make its own case. A listener stays for specifics from the
 briefing: a story from that tour, what had just changed in the band, what

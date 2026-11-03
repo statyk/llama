@@ -300,8 +300,9 @@ EXPECTED_PERSONA_STYLE = "\n".join([
     "- Never claim you attended this concert or took part in real events; "
     "no invented first-hand history presented as fact.",
     "- Every song you name — including in opinions — must be one of this "
-    "show's tracks, spelled exactly as in the show data (map any loose "
-    "review titles to those spellings), and listed in mentioned_songs.",
+    "show's tracks, spelled as in the show data but without any setlist "
+    "markup (map any loose review titles to those spellings), and listed in "
+    "mentioned_songs.",
 ])
 
 
@@ -319,7 +320,7 @@ def test_persona_style_contains_identity_rules_and_title():
     assert "must come from the inputs below" in style          # facts stay grounded
     assert "adopt opinions found in the research or listener reviews" in style
     assert "Never claim you attended this concert" in style
-    assert "spelled exactly as in the show data" in style      # guard-coexistence rule
+    assert "spelled as in the show data but without any setlist" in style  # guard-coexistence rule
 
 
 def test_persona_style_omits_title_when_none():
@@ -361,6 +362,21 @@ def test_scriptwrite_prompt_live_rule_and_names_exception():
     assert "Names are the exception." in prompt
     assert "always written exactly as they appear" in prompt
     assert "never use a title as licence to break a rule" in prompt
+
+
+def test_scriptwrite_prompt_names_exclude_setlist_markup():
+    # The names exception carried taper footnote marks and the "E:" encore
+    # prefix into the prose, where the voice read them aloud
+    # (ratdog-2007-04-22, operator 2026-11-02).
+    prompt = _unwrapped(load_prompt("scriptwrite"))
+    names = prompt.split("Names are the exception.")[1].split("Let the show make its own case.")[0]
+    for phrase in ("A name is the name alone, not the setlist markup around it:",
+                   'footnote marks such as *, ^, # or +',
+                   'the "E:" that marks an encore',
+                   'segue arrows (say "into")',
+                   '"Loose Lucy *" is said as Loose Lucy and "E: Samson and Delilah" '
+                   'as Samson and Delilah.'):
+        assert phrase in names
 
 
 def _unwrapped(text: str) -> str:

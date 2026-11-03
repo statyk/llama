@@ -121,8 +121,9 @@ def persona_style(presenter: Presenter, title: str | None) -> str:
         "- Never claim you attended this concert or took part in real events; "
         "no invented first-hand history presented as fact.",
         "- Every song you name — including in opinions — must be one of this "
-        "show's tracks, spelled exactly as in the show data (map any loose "
-        "review titles to those spellings), and listed in mentioned_songs.",
+        "show's tracks, spelled as in the show data but without any setlist "
+        "markup (map any loose review titles to those spellings), and listed in "
+        "mentioned_songs.",
     ]
     return "\n".join(lines)
 
