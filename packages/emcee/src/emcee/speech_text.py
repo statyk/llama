@@ -23,6 +23,18 @@ _SYMBOL_REPLACEMENTS = [
     ("&", " and "),
     ("%", " percent "),
 ]
+# Setlist markup a scriptwriter can copy out of a track title: taper footnote
+# marks ("Loose Lucy *", "Earth Day Rap ^,") and the encore prefix
+# ("E: Samson and Delilah"). Voiced, they come out as "times", "asterisk" or
+# noise. A trailing mark goes with the space before it, so "Rap ^," becomes
+# "Rap,"; a mark glued to the front of a word ("*really*") goes alone, so the
+# words stay apart. "E:" is dropped only before a capitalized word on the same
+# line, so "the key of E: bright" and a paragraph break after "E:" survive.
+# The prompt also asks the model to drop "#" and "+" marks; this backstop
+# leaves them, since in prose they are "number" and "plus".
+_TRAILING_MARKS = re.compile(r"[ \t]*[*^\u2020\u2021]+(?!\w)")
+_LEADING_MARKS = re.compile(r"[*^\u2020\u2021]+")
+_ENCORE_PREFIX = re.compile(r"(?<!\w)E:[ \t]+(?=[A-Z])")
 _MULTISPACE = re.compile(r"[ \t]{2,}")
 
 
@@ -61,6 +73,9 @@ class Lexicon:
 def normalize_for_speech(text: str, lexicon: Lexicon) -> str:
     """Expand mis-voiced symbols, apply the pronunciation lexicon, tidy spaces.
     Identity on clean prose with an empty lexicon."""
+    text = _TRAILING_MARKS.sub("", text)
+    text = _LEADING_MARKS.sub("", text)
+    text = _ENCORE_PREFIX.sub("", text)
     for symbol, replacement in _SYMBOL_REPLACEMENTS:
         text = text.replace(symbol, replacement)
     text = lexicon.apply(text)

@@ -89,3 +89,37 @@ def test_seed_expands_gdtrfb_abbreviation():
     assert normalize_for_speech("GDTRFB > Jam", lex) == f"{spoken} into Jam"  # beside a segue
     assert normalize_for_speech("(GDTRFB)", lex) == f"({spoken})"
     assert normalize_for_speech("XGDTRFBY", lex) == "XGDTRFBY"             # whole word only
+
+
+def test_drops_taper_footnote_marks_from_titles():
+    # Setlist footnote marks copied into prose were voiced "times", "asterisk"
+    # and worse (ratdog-2007-04-22, operator 2026-11-02).
+    lex = Lexicon.empty()
+    assert normalize_for_speech("Sammy sings Loose Lucy * like a man", lex) \
+        == "Sammy sings Loose Lucy like a man"
+    assert normalize_for_speech("for Loose Lucy *.", lex) == "for Loose Lucy."
+    assert normalize_for_speech("on the Earth Day Rap ^, and", lex) == "on the Earth Day Rap, and"
+    assert normalize_for_speech("Dark Star*† into Drums‡", lex) == "Dark Star into Drums"
+
+
+def test_drops_encore_prefix():
+    lex = Lexicon.empty()
+    assert normalize_for_speech("They came back for E: Samson and Delilah.", lex) \
+        == "They came back for Samson and Delilah."
+    assert normalize_for_speech("E: U.S. Blues closed it.", lex) == "U.S. Blues closed it."
+    # Only a bare token before a capitalized word on the same line.
+    assert normalize_for_speech("ABE: Lincoln spoke", lex) == "ABE: Lincoln spoke"
+    assert normalize_for_speech("a solo in the key of E: bright and hard", lex) \
+        == "a solo in the key of E: bright and hard"
+    assert normalize_for_speech("they vamp in E:\n\nNext paragraph.", lex) \
+        == "they vamp in E:\n\nNext paragraph."
+
+
+def test_mark_glued_to_a_word_front_keeps_words_apart():
+    assert normalize_for_speech("It was *really* good", Lexicon.empty()) == "It was really good"
+
+
+def test_footnote_strip_keeps_paragraph_breaks():
+    # Chunking splits on blank lines; a mark opening a paragraph must not merge it.
+    assert normalize_for_speech("One thought.\n\n* Another.", Lexicon.empty()) \
+        == "One thought.\n\n Another."

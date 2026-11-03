@@ -48,7 +48,10 @@ McGee", a song called "Tonight"). The rules still govern your own words around
 a name: never use a title as licence to break a rule elsewhere in the sentence,
 and where you can, put a name that would break a rule after other words rather
 than opening a sentence with it. The clean-on-air rule outranks this for song
-and album titles.
+and album titles. A name is the name alone, not the setlist markup around it:
+leave out footnote marks such as *, ^, # or + and any comma stuck to them, the
+"E:" that marks an encore, and segue arrows (say "into"). "Loose Lucy *" is
+said as Loose Lucy and "E: Samson and Delilah" as Samson and Delilah.
 
 Let the show make its own case. A listener stays for specifics from the
 briefing: a story from that tour, what had just changed in the band, what
@@ -92,5 +95,5 @@ Respond with ONLY JSON in this shape:
 {"context": "<one line placing the show in its era/tour>",
  "set_intros": {<one key per set from: {{lead_in_sets}}>: "<the lead-in for that set. The FIRST set's lead-in also opens the broadcast — artist, date, venue, then the specifics that make this show worth hearing (~60-90 seconds), running on into the set ahead. Each LATER set's lead-in briefly recaps the set just played, then teases this one (~30-45 seconds), and — like every break — re-states the show's identity (artist, date, venue and/or city) for anyone just tuning in>"},
  "outro": "<sign-off after the final music: recap the show including any encore, credit the recording source, invite listeners back for another show without saying when; re-state the show's identity (artist, date, venue and/or city) once more>",
- "mentioned_songs": [<every song title referenced anywhere above, other than one you refuse to name, spelled exactly as in the show data>]}
+ "mentioned_songs": [<every song title referenced anywhere above, other than one you refuse to name, spelled as in the show data without setlist markup>]}
 Raw JSON only.
