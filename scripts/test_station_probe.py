@@ -152,6 +152,21 @@ def test_cross_both_sides_acquire_and_contend(tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
+def test_paced_cross_still_detects_a_broken_exclusive_create(tmp_path):
+    # Pacing must not blind cross: with O_EXCL dropped, at least one side sees a double.
+    import time
+    start = str(time.time() + 2.5)
+    cmd = [sys.executable, str(SCRIPT), "cross", "--dir", str(tmp_path), "--n", "50",
+           "--tag", "t4", "--start-at", start]
+    env = dict(os.environ, STATION_PROBE_TEST_DROP_EXCL="1")
+    procs = [subprocess.Popen(cmd + ["--role", r], stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, text=True, env=env) for r in "ab"]
+    outs = [p.communicate(timeout=120) for p in procs]
+    assert 1 in [p.returncode for p in procs], outs
+    doubles = [int(o.split("double ")[1].split()[0]) for o, _ in outs if "double " in o]
+    assert doubles and max(doubles) > 0, outs
+
+
 def test_race_line_keeps_field_order_and_adds_unreadable(tmp_path):
     r = run("race", "--dir", str(tmp_path), "--n", "5")
     import re
