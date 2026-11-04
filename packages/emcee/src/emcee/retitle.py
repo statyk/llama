@@ -22,6 +22,7 @@ Library code: nothing here takes the station lock; the command does.
 """
 from __future__ import annotations
 
+import errno
 import json
 import os
 import secrets
@@ -37,6 +38,10 @@ from emcee.station import awaiting_fix_reason, manifest_voiced_profile
 
 MANIFEST = "manifest.json"
 NOT_ENCODED = "not in emcee's encoding"
+
+# What an SMB share answers when it will not take a client's chmod: the temp
+# then keeps the mode the server gives it, and the write carries on.
+_FCHMOD_REFUSED = frozenset({errno.EPERM, errno.ENOTSUP, errno.EOPNOTSUPP, errno.EINVAL})
 
 
 def encode(data: dict) -> bytes:
@@ -166,9 +171,11 @@ def _swap(path: Path, payload: bytes, st: os.stat_result, *, current: bytes) -> 
     (nothing written, no temp left) when it does not, or when it is gone.
 
     Order: unique temp in the same directory ("xb"), fchmod to the original's
-    mode, write, flush, fsync, close; `os.utime` on the closed temp; re-read and
-    compare; `os.replace`; re-apply the times once if the rename moved the
-    mtime. An OSError is raised as `_BeforeRename` or `_AfterRename`."""
+    mode (a refusal in `_FCHMOD_REFUSED` leaves the server's mode), write,
+    flush, fsync, close; `os.utime` on the closed temp; re-read and compare;
+    `os.replace`; re-apply the times once if the rename moved the mtime. An
+    OSError is raised as `_BeforeRename` or `_AfterRename`; a failing unlink of
+    the temp never replaces the error in flight (the temp is then left)."""
     tmp = path.parent / f".{path.name}.emcee-{secrets.token_hex(8)}.tmp"
     times = (st.st_atime_ns, st.st_mtime_ns)
     try:
@@ -177,7 +184,11 @@ def _swap(path: Path, payload: bytes, st: os.stat_result, *, current: bytes) -> 
         raise _BeforeRename(exc) from exc      # not ours: never unlink it
     try:
         with f:
-            os.fchmod(f.fileno(), stat.S_IMODE(st.st_mode))
+            try:
+                os.fchmod(f.fileno(), stat.S_IMODE(st.st_mode))
+            except OSError as exc:
+                if exc.errno not in _FCHMOD_REFUSED:
+                    raise
             f.write(payload)
             f.flush()
             os.fsync(f.fileno())
@@ -191,7 +202,10 @@ def _swap(path: Path, payload: bytes, st: os.stat_result, *, current: bytes) -> 
             return False
         os.replace(tmp, path)
     except BaseException as exc:
-        tmp.unlink(missing_ok=True)
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError as cleanup:
+            exc.add_note(f"the temp {tmp.name} was left: {cleanup}")
         if isinstance(exc, OSError):
             raise _BeforeRename(exc) from exc
         raise
@@ -238,9 +252,10 @@ def write_title(pkg_dir: Path, *, expect: bytes, title: str | None) -> bytes | N
         raise TitleWriteFailed(f"{slug}: the title write failed before its rename "
                                f"({exc.__cause__}); the file is unchanged") from exc
     except _AfterRename as exc:
-        raise TitleWriteFailed(f"{slug}: restoring the mtime after the title write "
-                               f"failed ({exc.__cause__}); manifest.json holds this "
-                               "write's bytes, its mtime unknown") from exc
+        raise TitleWriteFailed(f"{slug}: checking the mtime after the title write's "
+                               f"rename failed ({exc.__cause__}); manifest.json was "
+                               "replaced with this write's bytes (not verified); its "
+                               "mtime unknown") from exc
 
     try:
         after_raw = path.read_bytes()

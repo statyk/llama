@@ -4,6 +4,7 @@ Strict surface: the writer rewrites `manifest.json` on the live station share.
 It must set only `dj_audio.title`, refuse any manifest not in emcee's exact
 encoding, keep the original mtime (set on the temp before the rename), and
 leave the file either fully old or fully new wherever it stops."""
+import errno
 import json
 import os
 from pathlib import Path
@@ -442,6 +443,10 @@ def test_write_oserrors_before_the_rename_leave_the_file_unchanged(tmp_path, mon
     assert _manifest(pkg).read_bytes() == raw and _dot_files(pkg) == []
 
 
+AFTER_RENAME = (r"^show: .*manifest\.json was replaced with this write's bytes "
+                r"\(not verified\); its mtime unknown$")
+
+
 def test_write_oserrors_after_the_rename_say_what_the_file_holds(tmp_path, monkeypatch):
     pkg, raw = _one(tmp_path)
     data = json.loads(raw)
@@ -462,7 +467,7 @@ def test_write_oserrors_after_the_rename_say_what_the_file_holds(tmp_path, monke
     with monkeypatch.context() as m:
         m.setattr(os, "replace", replace)
         m.setattr(os, "utime", _failing(real_utime, when=after_rename))
-        with pytest.raises(TitleWriteFailed, match=r"^show: .*holds this write's bytes"):
+        with pytest.raises(TitleWriteFailed, match=AFTER_RENAME):
             write_title(pkg, expect=raw, title="X")
     assert _manifest(pkg).read_bytes() == new and _dot_files(pkg) == []
 
@@ -473,7 +478,7 @@ def test_write_oserrors_after_the_rename_say_what_the_file_holds(tmp_path, monke
     with monkeypatch.context() as m:
         m.setattr(os, "replace", replace)
         m.setattr(os, "stat", _failing(real_stat, when=after_rename))
-        with pytest.raises(TitleWriteFailed, match=r"holds this write's bytes"):
+        with pytest.raises(TitleWriteFailed, match=AFTER_RENAME):
             write_title(pkg, expect=raw, title="X")
     assert _manifest(pkg).read_bytes() == new
 
@@ -510,3 +515,123 @@ def test_write_keeps_the_original_mode_under_another_umask(tmp_path, monkeypatch
         assert _manifest(pkg).stat().st_mtime_ns == OLD_NS
     finally:
         os.umask(old_umask)
+
+
+# ---- R9: SMB fchmod refusals, temp-unlink failures, the after-rename message ----
+
+
+@pytest.mark.parametrize("errno_", [errno.EPERM, errno.ENOTSUP, errno.EOPNOTSUPP,
+                                    errno.EINVAL])
+def test_write_carries_on_when_the_share_refuses_fchmod(tmp_path, monkeypatch, errno_):
+    pkg, raw = _one(tmp_path)
+
+    def refuse(fd, mode):
+        raise OSError(errno_, os.strerror(errno_))
+
+    monkeypatch.setattr(os, "fchmod", refuse)
+    out = write_title(pkg, expect=raw, title="X")
+    assert out is not None and _manifest(pkg).read_bytes() == out
+    assert json.loads(out)["dj_audio"]["title"] == "X"
+    assert _manifest(pkg).stat().st_mtime_ns == OLD_NS
+    assert _dot_files(pkg) == []
+
+
+@pytest.mark.parametrize("errno_", [errno.EACCES, errno.EIO])
+def test_write_other_fchmod_errors_stay_fatal(tmp_path, monkeypatch, errno_):
+    pkg, raw = _one(tmp_path)
+
+    def refuse(fd, mode):
+        raise OSError(errno_, os.strerror(errno_))
+
+    monkeypatch.setattr(os, "fchmod", refuse)
+    with pytest.raises(TitleWriteFailed, match=r"^show: .*the file is unchanged$"):
+        write_title(pkg, expect=raw, title="X")
+    assert _manifest(pkg).read_bytes() == raw
+    assert _manifest(pkg).stat().st_mtime_ns == OLD_NS
+
+
+def _temp_unlink_fails(monkeypatch) -> list[str]:
+    """Every unlink of a `.tmp` raises EIO; returns the names it refused."""
+    real = Path.unlink
+    refused: list[str] = []
+
+    def unlink(self, *a, **k):
+        if self.name.endswith(".tmp"):
+            refused.append(self.name)
+            raise OSError(errno.EIO, "Input/output error")
+        return real(self, *a, **k)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+    return refused
+
+
+def test_write_failed_temp_unlink_on_a_changed_file_is_a_before_rename_failure(
+        tmp_path, monkeypatch):
+    pkg, raw = _one(tmp_path)
+    other = raw.replace(b"Some Venue", b"Other Venue")
+    real_utime = os.utime
+
+    def interloper(path, *a, **k):
+        _manifest(pkg).write_bytes(other)
+        return real_utime(path, *a, **k)
+
+    monkeypatch.setattr(os, "utime", interloper)
+    refused = _temp_unlink_fails(monkeypatch)
+    with pytest.raises(TitleWriteFailed, match=r"^show: .*the file is unchanged$") as info:
+        write_title(pkg, expect=raw, title="X")
+    assert refused                                  # both unlinks were tried and failed
+    cause = info.value.__cause__.__cause__
+    assert isinstance(cause, OSError) and cause.errno == errno.EIO
+    assert _manifest(pkg).read_bytes() == other     # the other writer's bytes, untouched
+
+
+def test_write_failed_cleanup_unlink_keeps_the_original_cause(tmp_path, monkeypatch):
+    pkg, raw = _one(tmp_path)
+
+    def fsync(fd):
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    monkeypatch.setattr(os, "fsync", fsync)
+    refused = _temp_unlink_fails(monkeypatch)
+    with pytest.raises(TitleWriteFailed, match=r"^show: .*the file is unchanged$") as info:
+        write_title(pkg, expect=raw, title="X")
+    assert len(refused) == 1
+    cause = info.value.__cause__.__cause__
+    assert isinstance(cause, OSError) and cause.errno == errno.ENOSPC
+    assert "No space left" in str(info.value)
+    assert _manifest(pkg).read_bytes() == raw
+    assert _manifest(pkg).stat().st_mtime_ns == OLD_NS
+
+
+def test_write_failed_cleanup_unlink_does_not_replace_a_keyboard_interrupt(
+        tmp_path, monkeypatch):
+    pkg, raw = _one(tmp_path)
+
+    def fsync(fd):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(os, "fsync", fsync)
+    _temp_unlink_fails(monkeypatch)
+    with pytest.raises(KeyboardInterrupt):
+        write_title(pkg, expect=raw, title="X")
+    assert _manifest(pkg).read_bytes() == raw
+
+
+def test_write_after_rename_message_does_not_claim_a_restore_failed(tmp_path, monkeypatch):
+    pkg, raw = _one(tmp_path)
+    real_replace, real_stat = os.replace, os.stat
+    renamed = []
+
+    def replace(src, dst):
+        real_replace(src, dst)
+        renamed.append(dst)
+
+    monkeypatch.setattr(os, "replace", replace)
+    monkeypatch.setattr(os, "stat", _failing(
+        real_stat, when=lambda a: bool(renamed) and Path(a[0]).name == "manifest.json"))
+    with pytest.raises(TitleWriteFailed) as info:
+        write_title(pkg, expect=raw, title="X")
+    msg = str(info.value)
+    assert msg.endswith("manifest.json was replaced with this write's bytes "
+                        "(not verified); its mtime unknown"), msg
+    assert "restor" not in msg
