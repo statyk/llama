@@ -106,7 +106,7 @@ CAUTIONS_PREFIX = "## cautions"        # llama's brief.py heading; transmitter c
 CAUTIONS_POINTER = re.compile(
     r"\s*\(see cautions\)"
     r"|\s*(?:[;\u2014\u2013]|,(?=\s*see cautions\)))\s*see cautions(?=[.)])"
-    r"|(?:(?<=[.!?\"'\u201d\u2019])|^)\s*see cautions\.(?=\s|$)",
+    r"|(?:(?<=[.!?])|(?<=[.!?][\"'\u201d\u2019])|^)\s*see cautions\.(?=\s|$)",
     re.IGNORECASE)
 ARCHIVE_PREFIX = "https://archive.org/"
 OG_IMAGE_PATH = "/assets/cassette-og.png"

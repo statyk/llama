@@ -432,6 +432,7 @@ def test_parse_briefing_keeps_other_caution_text_byte_identical():
     ('It may be "Remington Ride". See cautions. Remington played steel.',
      'It may be "Remington Ride". Remington played steel.'),
     ("See cautions. The set opens hot.", "The set opens hot."),
+    ('He called it "the highlight." See cautions.', 'He called it "the highlight."'),
 ])
 def test_parse_briefing_drops_trailing_and_bare_sentence_pointers(line, want):
     assert site.parse_briefing("## Set 1\n" + line + "\n") == [
@@ -445,6 +446,7 @@ def test_parse_briefing_drops_trailing_and_bare_sentence_pointers(line, want):
     "It is disputed \u2014 see notable moments and cautions.",
     "The set is one long piece, but see cautions.",
     "Then Caution; see Cautions Ahead.",
+    "He called it 'Jam' see cautions. Next.",
 ])
 def test_parse_briefing_keeps_pointers_that_carry_more_than_a_pointer(line):
     assert site.parse_briefing("## Set 1\n" + line + "\n") == [
