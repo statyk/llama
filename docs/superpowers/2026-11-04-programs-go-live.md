@@ -26,6 +26,12 @@ Plan `docs/superpowers/plans/2026-11-04-programs-and-lineup.md`, Tasks 15-20. Ti
 - Verified: dry run then `nothing to write`; all 574 manifests kept their recorded mtime; no station lock left; hugo lead 23.9 h, no alerts, ineligible packages 2212 = 2076 unvoiced + 136 awaiting fix (none dropped as changing).
 - Program names reach the page at hugo's next site publish (the next fill).
 
+## Page deploy (Task 16)
+- Preview 7 (12:4x): Shawn asked for variety = open blocks only, lineup tabs Mon-Sun labelled by weekday with today highlighted, and larger section headings. Done in `f074862a` (transmitter 994 passed; antenna 545; smoke 131); hugo pulled and restarted at 15:17.
+- Preview 8 approved by Shawn; removed (7 removed too).
+- 15:53 `deploy:assets` (approved): 30 objects. The live old `index.html` with the new assets still played and showed 12 flat tickets, no lineup (mixed-version tolerance).
+- 18:37 `wrangler deploy` (approved), version `d3ceced5`; the new `index.html` was live at 18:38.
+- Verified live: 12 tickets carrying program names (One More from the Archive, All Ages, Gravel & Steel, Here Comes the Funk!, The Music Never Stopped, Bluegrass Valley); Coming up under block headings with spans (Evening Dead 6:00p - 10:16p, All Ages 10:16p - 11:59p, ...); lineup tabs Mon..Sun with Wed today and selected; variety only Overnight, Early and Afternoon Variety; Evening Dead highlighted on air; `timeline.json` 30 of 30 shows with a program; no sideways scroll at 320 px.
+
 ## Open
-- Page deploy (Task 16): the preview round for Shawn, then `deploy:assets` and `wrangler deploy`.
 - Deferred: lineup tab ARIA (R16); making `llama deliver`'s overlay copy atomic is Shawn's call.
