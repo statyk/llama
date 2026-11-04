@@ -1,0 +1,13 @@
+ls: .superpowers/sdd/player/TAKEN_OVER: No such file or directory
+ls: .superpowers/sdd/player/taken-over/t5-review: No such file or directory
+{ title: 'B', artist: 'B', album: 'Club, Town, Nov 1 2008' }
+{ title: 'B', artist: 'B', album: 'Town' }
+{ title: '', artist: 'B', album: '' }
+[{"lines":["?"]},{"lines":["?"]}] [{"lines":["A","B"]}] [{"set":null,"lines":["A"]}]
+[
+  'kind',    'sections',
+  'archive', 'sets',
+  'artist',  'where',
+  'date',    'lineage'
+]
+" >"

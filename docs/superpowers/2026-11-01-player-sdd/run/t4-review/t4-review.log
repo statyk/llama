@@ -1,0 +1,230 @@
+committed == worktree
+
+=== (a) native 6 s ticks, after restart ct 0 then 41 then real
+  216.0 probe -> unreachable  (offairCount 0)
+  234.0 probe -> unreachable  (offairCount 0)
+  252.0 probe -> unreachable  (offairCount 0)
+  270.0 probe -> unreachable  (offairCount 0)
+  288.0 probe -> unreachable  (offairCount 0)
+  306.0 probe -> unreachable  (offairCount 0)
+  324.0 probe -> unreachable  (offairCount 0)
+  342.0 probe -> unreachable  (offairCount 0)
+   ... 1 more ...
+  378.0 probe -> unreachable  (offairCount 0)
+  396.0 probe -> unreachable  (offairCount 0)
+  414.0 probe -> unreachable  (offairCount 0)
+  432.0 probe -> unreachable  (offairCount 0)
+  450.0 probe -> unreachable  (offairCount 0)
+  468.0 probe -> unreachable  (offairCount 0)
+  486.0 probe -> reachable  (offairCount 0)
+  486.0 RESTART (mayPlay true, net live, restarts so far 0)
+end: ran out at 564.0s; restarts 1; probes 16; restart gaps []; min probe gap 18
+final: advancing true, stalled false, restarts 1, lastAudio 558s
+
+=== (a) native 6 s ticks, after restart ct 41 at once
+  216.0 probe -> unreachable  (offairCount 0)
+  234.0 probe -> unreachable  (offairCount 0)
+  252.0 probe -> unreachable  (offairCount 0)
+  270.0 probe -> unreachable  (offairCount 0)
+  288.0 probe -> unreachable  (offairCount 0)
+  306.0 probe -> unreachable  (offairCount 0)
+  324.0 probe -> unreachable  (offairCount 0)
+  342.0 probe -> unreachable  (offairCount 0)
+   ... 1 more ...
+  378.0 probe -> unreachable  (offairCount 0)
+  396.0 probe -> unreachable  (offairCount 0)
+  414.0 probe -> unreachable  (offairCount 0)
+  432.0 probe -> unreachable  (offairCount 0)
+  450.0 probe -> unreachable  (offairCount 0)
+  468.0 probe -> unreachable  (offairCount 0)
+  486.0 probe -> reachable  (offairCount 0)
+  486.0 RESTART (mayPlay true, net live, restarts so far 0)
+end: ran out at 564.0s; restarts 1; probes 16; restart gaps []; min probe gap 18
+final: advancing true, stalled false, restarts 0, lastAudio 558s
+
+=== (a) hls.js 1 s ticks, after restart ct 0 then 41 then real
+  200.0 probe -> unreachable  (offairCount 0)
+  215.0 probe -> unreachable  (offairCount 0)
+  230.0 probe -> unreachable  (offairCount 0)
+  245.0 probe -> unreachable  (offairCount 0)
+  260.0 probe -> unreachable  (offairCount 0)
+  275.0 probe -> unreachable  (offairCount 0)
+  290.0 probe -> unreachable  (offairCount 0)
+  305.0 probe -> unreachable  (offairCount 0)
+   ... 5 more ...
+  395.0 probe -> unreachable  (offairCount 0)
+  410.0 probe -> unreachable  (offairCount 0)
+  425.0 probe -> unreachable  (offairCount 0)
+  440.0 probe -> unreachable  (offairCount 0)
+  455.0 probe -> unreachable  (offairCount 0)
+  470.0 probe -> unreachable  (offairCount 0)
+  485.0 probe -> reachable  (offairCount 0)
+  485.0 RESTART (mayPlay true, net live, restarts so far 0)
+end: ran out at 561.0s; restarts 1; probes 20; restart gaps []; min probe gap 15
+final: advancing true, stalled false, restarts 0, lastAudio 560s
+
+=== (a) hls.js 1 s ticks, after restart ct 41 at once
+  200.0 probe -> unreachable  (offairCount 0)
+  215.0 probe -> unreachable  (offairCount 0)
+  230.0 probe -> unreachable  (offairCount 0)
+  245.0 probe -> unreachable  (offairCount 0)
+  260.0 probe -> unreachable  (offairCount 0)
+  275.0 probe -> unreachable  (offairCount 0)
+  290.0 probe -> unreachable  (offairCount 0)
+  305.0 probe -> unreachable  (offairCount 0)
+   ... 5 more ...
+  395.0 probe -> unreachable  (offairCount 0)
+  410.0 probe -> unreachable  (offairCount 0)
+  425.0 probe -> unreachable  (offairCount 0)
+  440.0 probe -> unreachable  (offairCount 0)
+  455.0 probe -> unreachable  (offairCount 0)
+  470.0 probe -> unreachable  (offairCount 0)
+  485.0 probe -> reachable  (offairCount 0)
+  485.0 RESTART (mayPlay true, net live, restarts so far 0)
+end: ran out at 561.0s; restarts 1; probes 20; restart gaps []; min probe gap 15
+final: advancing true, stalled false, restarts 0, lastAudio 560s
+
+=== (a2) native, network never returns
+  216.0 probe -> unreachable  (offairCount 0)
+  234.0 probe -> unreachable  (offairCount 0)
+  252.0 probe -> unreachable  (offairCount 0)
+  270.0 probe -> unreachable  (offairCount 0)
+   ... 25 more ...
+  738.0 probe -> unreachable  (offairCount 0)
+  756.0 probe -> unreachable  (offairCount 0)
+  774.0 probe -> unreachable  (offairCount 0)
+  780.0 giveup
+end: giveup at 780.0s; restarts 0; probes 32; restart gaps []; min probe gap 18
+
+=== (b1) hls frozen: never any audio, probes always HTTP 404
+   20.0 probe -> reachable  (offairCount 0)
+   20.0 RESTART (mayPlay true, net 404, restarts so far 0)
+   55.0 probe -> reachable  (offairCount 0)
+   55.0 RESTART (mayPlay true, net 404, restarts so far 1)
+  100.0 probe -> reachable  (offairCount 0)
+   ... 15 more ...
+  540.0 probe -> reachable  (offairCount 0)
+  540.0 RESTART (mayPlay true, net 404, restarts so far 10)
+  595.0 probe -> reachable  (offairCount 0)
+  595.0 RESTART (mayPlay true, net 404, restarts so far 11)
+  600.0 giveup
+end: giveup at 600.0s; restarts 12; probes 12; restart gaps [35,45,55,55,55,55,55,55,55,55,55]; min probe gap 35
+
+=== (b1) native frozen: never any audio, probes always HTTP 404
+   35.0 probe -> reachable  (offairCount 0)
+   35.0 RESTART (mayPlay true, net 404, restarts so far 0)
+   70.0 probe -> reachable  (offairCount 0)
+   70.0 RESTART (mayPlay true, net 404, restarts so far 1)
+  115.0 probe -> reachable  (offairCount 0)
+   ... 13 more ...
+  500.0 probe -> reachable  (offairCount 0)
+  500.0 RESTART (mayPlay true, net 404, restarts so far 9)
+  555.0 probe -> reachable  (offairCount 0)
+  555.0 RESTART (mayPlay true, net 404, restarts so far 10)
+  600.0 giveup
+end: giveup at 600.0s; restarts 11; probes 11; restart gaps [35,45,55,55,55,55,55,55,55,55]; min probe gap 35
+
+=== (b1) hls frozen random=0: never any audio, probes always HTTP 404
+   19.0 probe -> reachable  (offairCount 0)
+   19.0 RESTART (mayPlay true, net 404, restarts so far 0)
+   52.0 probe -> reachable  (offairCount 0)
+   52.0 RESTART (mayPlay true, net 404, restarts so far 1)
+   93.0 probe -> reachable  (offairCount 0)
+   ... 17 more ...
+  534.0 probe -> reachable  (offairCount 0)
+  534.0 RESTART (mayPlay true, net 404, restarts so far 11)
+  583.0 probe -> reachable  (offairCount 0)
+  583.0 RESTART (mayPlay true, net 404, restarts so far 12)
+  600.0 giveup
+end: giveup at 600.0s; restarts 13; probes 13; restart gaps [33,41,49,49,49,49,49,49,49,49,49,49]; min probe gap 33
+
+=== (b1) native frozen, 6 s: never any audio, probes always HTTP 404
+   37.0 probe -> reachable  (offairCount 0)
+   37.0 RESTART (mayPlay true, net 404, restarts so far 0)
+   79.0 probe -> reachable  (offairCount 0)
+   79.0 RESTART (mayPlay true, net 404, restarts so far 1)
+  133.0 probe -> reachable  (offairCount 0)
+   ... 11 more ...
+  493.0 probe -> reachable  (offairCount 0)
+  493.0 RESTART (mayPlay true, net 404, restarts so far 8)
+  553.0 probe -> reachable  (offairCount 0)
+  553.0 RESTART (mayPlay true, net 404, restarts so far 9)
+  601.0 giveup
+end: giveup at 601.0s; restarts 10; probes 10; restart gaps [42,54,60,60,60,60,60,60,60]; min probe gap 42
+
+=== (b2) hls: 5 s of audio after every restart, then frozen, 30 min
+   26.0 probe -> reachable  (offairCount 0)
+   26.0 RESTART (mayPlay true, net live, restarts so far 0)
+   57.0 probe -> reachable  (offairCount 0)
+   57.0 RESTART (mayPlay true, net live, restarts so far 1)
+   ... 64 more ...
+ 1730.0 probe -> reachable  (offairCount 0)
+ 1730.0 RESTART (mayPlay true, net live, restarts so far 34)
+ 1781.0 probe -> reachable  (offairCount 0)
+ 1781.0 RESTART (mayPlay true, net live, restarts so far 35)
+end: ran out at 1801.0s; restarts 36; probes 36; restart gaps [31,41,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51]; min probe gap 31
+
+=== (b3) native error right after each short advance, random 0, 15 min
+restarts 35, probes 35, gaps [15,18.5,26.5,26.5,26.5,26.5,26.5,26.5,26.5,26.5,26.5,26.5] min 15
+
+=== (c1) native 6 s: offair, 4x unreachable, offair
+  156.0 probe -> offair  (offairCount 1)
+  174.0 probe -> unreachable  (offairCount 1)
+  192.0 probe -> unreachable  (offairCount 1)
+  210.0 probe -> unreachable  (offairCount 1)
+  228.0 probe -> unreachable  (offairCount 1)
+  246.0 probe -> offair => OFFAIR  (offairCount 2)
+end: offair at 246.0s; restarts 0; probes 6; restart gaps []; min probe gap 18
+
+=== (c2) hls: offair, reachable(restart), unreachable, offair
+   20.0 probe -> offair  (offairCount 1)
+   35.0 probe -> reachable  (offairCount 1)
+   35.0 RESTART (mayPlay true, net offline, restarts so far 0)
+   70.0 probe -> offair => OFFAIR  (offairCount 2)
+end: offair at 70.0s; restarts 1; probes 3; restart gaps []; min probe gap 15
+
+=== (c3) native: offair once, then no network for good
+  156.0 probe -> offair  (offairCount 1)
+  174.0 probe -> unreachable  (offairCount 1)
+  192.0 probe -> unreachable  (offairCount 1)
+   ... 27 more ...
+  696.0 probe -> unreachable  (offairCount 1)
+  714.0 probe -> unreachable  (offairCount 1)
+  720.0 giveup
+end: giveup at 720.0s; restarts 0; probes 32; restart gaps []; min probe gap 18
+
+=== (c4) native 1 s: plain off-air on every probe
+  155.0 probe -> offair  (offairCount 1)
+  170.0 probe -> offair => OFFAIR  (offairCount 2)
+end: offair at 170.0s; restarts 0; probes 2; restart gaps []; min probe gap 15
+
+=== R1 native error with a real, moving element
+position rose before the error (real element): retry pending after next tick false, first probe at 38s
+position flat (the task's test): retry pending after next tick true, first probe at 8s
+
+=== R2 frozen page after a pre-load baseline: ct 0, freeze 1414 s, wake at ct 40.96 (no real audio)
+before probe restart
+wake tick none advancing true mayPlay true
+
+=== R2 continued
+ 1483.0 probe -> reachable  (offairCount 0)
+ 1483.0 RESTART (mayPlay true, net live, restarts so far 1)
+ 1537.0 probe -> reachable  (offairCount 0)
+ 1537.0 RESTART (mayPlay true, net live, restarts so far 2)
+end: ran out at 1567.0s; restarts 2; probes 2; restart gaps [54]; min probe gap 54
+control, wake with ct unchanged:
+wake tick giveup
+same on a Play (begin) that never got audio:
+wake tick none advancing true mayPlay true
+
+=== R3 Stop: no stop in the module; tick keeps deciding if called after Stop
+(listener presses Stop here)
+tick after Stop: probe
+tick: restart
+committed: dying element first probe 38s; element still playing after the error acted=false
+patched: dying element first probe 8s; element still playing after the error acted=false
+20s probe -> offair
+35s probe -> reachable
+35s RESTART
+70s probe -> unreachable
+85s probe -> offair => OFFAIR

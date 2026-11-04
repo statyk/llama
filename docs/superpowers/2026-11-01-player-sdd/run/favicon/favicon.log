@@ -1,0 +1,22 @@
+wrote public/assets/favicon-32.png
+wrote public/assets/favicon-16.png
+   Duration  2.65s (transform 47%, tests 29%, worker 12%, import 12%)
+
+  Transform  transforming modules took 2.69s · 47% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+> typecheck
+> tsc --noEmit
+
+........................................................................ [ 98%]
+.......s........                                                         [100%]
+951 passed, 1 skipped in 35.03s
+  ✓  103 e2e/smoke.pw.mjs:1562:3 › notes panel › a ticket on empty sections reads "No notes yet." (287ms)
+  ✓  104 e2e/smoke.pw.mjs:1575:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes (285ms)
+  ✓  105 e2e/smoke.pw.mjs:1582:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (392ms)
+  ✓  106 e2e/smoke.pw.mjs:1613:1 › the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off (309ms)
+  ✓  107 e2e/smoke.pw.mjs:1624:1 › with nothing on air, the venue and date line keeps its height and the window does not move (177ms)
+  ✓  108 e2e/smoke.pw.mjs:1642:1 › a name stepping from long to a short name, or to off air, loses the class (205ms)
+
+  108 passed (3.5m)

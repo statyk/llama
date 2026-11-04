@@ -1,0 +1,14 @@
+named-risk checks: llama briefing format; spec; notes consumers
+/Users/shawn/projects/llama/.claude/worktrees/player/packages/transmitter/src/transmitter/__init__.py
+'A\n\nB\n' [{"heading": null, "blocks": [{"p": "A"}, {"p": "B"}]}]
+'A\n- x\nB\n- y\n' [{"heading": null, "blocks": [{"p": "A"}, {"ul": ["x"]}, {"p": "B"}, {"ul": ["y"]}]}]
+'- x\n\n- y\n' [{"heading": null, "blocks": [{"ul": ["x", "y"]}]}]
+'A\n## H\nB\n' [{"heading": null, "blocks": [{"p": "A"}]}, {"heading": "H", "blocks": [{"p": "B"}]}]
+'## **Cautions** x\n- z\n' []
+'## Set 1\n- a\n  wrapped\n' [{"heading": "Set 1", "blocks": [{"ul": ["a"]}, {"p": "wrapped"}]}]
+'A\n# mid\nB\n' [{"heading": null, "blocks": [{"p": "A B"}]}]
+'A\r\n- x\r\n' [{"heading": null, "blocks": [{"p": "A"}, {"ul": ["x"]}]}]
+'## Cautionary tales\nX\n' [{"heading": "Cautionary tales", "blocks": [{"p": "X"}]}]
+'### Sub\ntext\n' [{"heading": null, "blocks": [{"p": "### Sub text"}]}]
+'- **\n' [{"heading": null, "blocks": [{"ul": [""]}]}]
+report written

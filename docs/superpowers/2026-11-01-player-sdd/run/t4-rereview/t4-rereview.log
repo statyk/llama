@@ -1,0 +1,10 @@
+A before error stalled true
+A after failed stalled true
+A after baseline stalled false pause=stop true
+A next sample stalled true
+B baseline with waiting stalled true
+C at 62s restarts 1
+C at 93s restarts 0
+D tick probe
+D verdict false
+D tick none adv true

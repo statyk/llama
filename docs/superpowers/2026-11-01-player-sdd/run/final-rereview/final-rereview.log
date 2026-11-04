@@ -1,0 +1,71 @@
+reading page, smoke, docs
+
+Running 5 tests using 1 worker
+
+E1 before play {"ticks":4,"results":[],"turning":false,"t":0,"src":false,"now":"LMA Radio","errs":[]} []
+E1 after play {"ticks":10,"results":[],"turning":false,"t":0,"src":false,"now":"LMA Radio","errs":[]} ["Error: planted"]
+  ✓  1 e2e/rr.pw.mjs:10:1 › E1 render throws from load: ticks run, Play? (9.8s)
+E2 thrown 3s {"ticks":6,"results":[],"turning":true,"t":8.36075,"src":true,"now":"Song 3","errs":[]} []
+E2 frozen 32s {"ticks":38,"results":["probe"],"turning":false,"t":8.363684,"src":true,"now":"Song 3","errs":[]} ["Error: planted"]
+  ✓  2 e2e/rr.pw.mjs:21:1 › E2 render throws mid-session, then a dropout (37.5s)
+E2c frozen 32s {"ticks":35,"results":["probe","restart"],"turning":true,"t":13.5312,"src":true,"now":"Song 3","errs":[]} []
+  ✓  3 e2e/rr.pw.mjs:35:1 › E2c control: no throw, same dropout (34.5s)
+  ✓  4 e2e/rr.pw.mjs:45:1 › E5 candidate pin: no test hook, closest throws, position freezes, hubs stop (4.3s)
+E7 end of blip {"ticks":29,"results":[],"turning":false,"t":20.428538,"src":true,"now":"Song 3","errs":[[10328,"levelLoadError",false],[17418,"bufferStalledError",false]]}
+E7 25s after {"ticks":54,"results":[],"turning":true,"t":54.931321,"src":true,"now":"Song 3","errs":[[10328,"levelLoadError",false],[17418,"bufferStalledError",false]]}
+  ✓  5 e2e/rr.pw.mjs:57:1 › E7 20 s offline blip: does hls.js go fatal? (53.5s)
+
+  5 passed (2.3m)
+== MUTANT A: try/catch removed
+
+Running 3 tests using 1 worker
+
+E1 before play {"ticks":0,"results":[],"turning":false,"t":0,"src":false,"now":"LMA Radio","errs":[]} ["Error: planted","Error: planted","Error: planted","Error: planted"]
+E1 after play {"ticks":0,"results":[],"turning":false,"t":0,"src":false,"now":"LMA Radio","errs":[]} ["Error: planted","Error: planted","Error: planted","Error: planted","Error: planted","Error: planted","Error: planted","Error: planted","Error: planted","Error: planted","Error: planted"]
+  ✓  1 e2e/rr.pw.mjs:10:1 › E1 render throws from load: ticks run, Play? (9.8s)
+  ✘  2 e2e/rr.pw.mjs:45:1 › E5 candidate pin: no test hook, closest throws, position freezes, hubs stop (10.5s)
+  ✓  3 e2e/smoke.pw.mjs:126:1 › an engine that throws on longGeneric still renders the page and keeps the loop going (2.5s)
+
+
+  1) e2e/rr.pw.mjs:45:1 › E5 candidate pin: no test hook, closest throws, position freezes, hubs stop 
+
+    Error: expect(locator).not.toHaveClass(expected) failed
+
+    Locator: locator('#hubs')
+    Expected pattern: not /turning/
+    Received string: "window turning"
+    Timeout: 8000ms
+
+    Call log:
+      - Expect "not toHaveClass" locator('#hubs') with timeout 8000ms
+      - waiting for locator('#hubs')
+        20 × locator resolved to <div id="hubs" class="window turning">…</div>
+           - unexpected value "window turning"
+
+
+      52 |     document.getElementById("audio").playbackRate = 0;
+      53 |   });
+    > 54 |   await expect(page.locator("#hubs")).not.toHaveClass(/turning/, { timeout: 8000 });
+         |                                           ^
+      55 | });
+      56 |
+      57 | test("E7 20 s offline blip: does hls.js go fatal?", async ({ page, context }) => {
+        at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/189f1567-d332-428c-81ac-df162d1a7df0/scratchpad/rr/antenna/e2e/rr.pw.mjs:54:43
+
+    Error Context: ../.superpowers/player-smoke/e2e-rr.pw.mjs-E5-candidate-44b36--position-freezes-hubs-stop/error-context.md
+
+  1 failed
+    e2e/rr.pw.mjs:45:1 › E5 candidate pin: no test hook, closest throws, position freezes, hubs stop 
+  2 passed (24.5s)
+== CANDIDATE B: setState guarded
+
+Running 2 tests using 1 worker
+
+E1 before play {"ticks":4,"results":[],"turning":false,"t":0,"src":false,"now":"LMA Radio","errs":[]} []
+E1 after play {"ticks":10,"results":[],"turning":true,"t":9.05645,"src":true,"now":"LMA Radio","errs":[]} []
+  ✓  1 e2e/rr.pw.mjs:10:1 › E1 render throws from load: ticks run, Play? (9.8s)
+E2 thrown 3s {"ticks":6,"results":[],"turning":true,"t":8.501844,"src":true,"now":"Song 3","errs":[]} []
+E2 frozen 32s {"ticks":38,"results":["probe","restart"],"turning":true,"t":13.533507,"src":true,"now":"Song 3","errs":[]} []
+  ✓  2 e2e/rr.pw.mjs:21:1 › E2 render throws mid-session, then a dropout (37.5s)
+
+  2 passed (48.2s)

@@ -1,0 +1,17 @@
+== Sun Nov  1 16:44:25 EST 2026 HEAD ac454f74
+/Users/shawn/projects/llama/.claude/worktrees/player/packages/transmitter/src/transmitter/__init__.py
+.......s........                                                         [100%]
+951 passed, 1 skipped in 30.90s
+   Duration  3.18s (transform 46%, tests 33%, import 14%, worker 8%)
+
+    Isolate  26 workers spawned · ~838ms startup each (spawn + environment, per file)
+             at least ~1.58s faster with isolate: false — reuses workers across files instead of one per file
+
+> tsc --noEmit
+
+  ✓  58 e2e/smoke.pw.mjs:1049:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (288ms)
+
+  58 passed (3.1m)
+frozen:
+       0
+       0

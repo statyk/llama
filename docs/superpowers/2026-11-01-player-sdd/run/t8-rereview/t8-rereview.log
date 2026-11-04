@@ -1,0 +1,71 @@
+progress: read diff, handback, player.js, recovery.js; focused checks
+aed6e294
+--- app.js bindings
+3:import { player } from "./player.js";
+9:document.getElementById("play").addEventListener("click", player.start);
+10:document.getElementById("retry").addEventListener("click", player.start);
+11:document.getElementById("stop").addEventListener("click", player.stop);
+15:  renderAt(positionMs({ playing: player.audible, playbackMs: player.playbackMs(), nowMs }));
+16:  player.tick(nowMs);
+--- setState
+143:export function setState(name) {
+144-  if (!STATES.includes(name)) throw new Error(`unknown state: ${name}`);
+145-  state = name;
+146-  const retry = $("retry");
+147-  if (retry) retry.hidden = !["gaveup", "offair", "refused"].includes(name);
+148-  renderAt(lastAtMs == null ? Date.now() : lastAtMs);
+149-}
+150-
+151-export function currentTimeline() {
+152-  return timeline;
+153-}
+154-
+155-/** Fetch /timeline.json once the last attempt is 3 minutes old (or at once with
+156- * `force`), but never while stopped and hidden. A failure keeps the old timeline. */
+157-export async function refreshTimeline(force) {
+158-  const live = state === "playing" || state === "reconnecting" || !document.hidden;
+159-  if (!live || inFlight) return;
+160-  const now = Date.now();
+161-  if (!force && lastAttempt != null && now - lastAttempt < REFETCH_MS) return;
+162-  lastAttempt = now;
+163-  inFlight = true;
+164-  try {
+165-    const res = await fetch("/timeline.json");
+--- smoke timeouts
+92:test("the fixture stream really plays, and setLive changes what /live.m3u8 answers", async ({ page }) => {
+106:  await expect.poll(position, { timeout: 15_000 }).toBeGreaterThan(0);
+108:  await expect.poll(position, { timeout: 15_000 }).toBeGreaterThan(started + 1);
+319:  await expect.poll(() => position(page), { timeout: 15_000 }).toBeGreaterThan(0);
+321:  await expect.poll(() => position(page), { timeout: 15_000 }).toBeGreaterThan(started + 0.5);
+325:function countProbes(context) {
+368:  await expect(page.locator("#now")).toHaveText("Reconnecting…", { timeout: 60_000 });
+371:  await expect(page.locator("#now")).toHaveText("Song 3", { timeout: 60_000 });
+386:  // Set only when the text changes.
+454:  }), { timeout: 30_000 }).toBe(true);
+475:  await expect.poll(() => position(page), { timeout: 15_000 }).toBeGreaterThan(0);
+530:  await expect.poll(() => position(page), { timeout: 15_000 }).toBeGreaterThan(0);
+--- spec pause
+168:`mediaSession.playbackState` is set to match the player. Handlers: `play`, `pause`,
+169:`stop`. `pause` from the car means stop, a normal teardown, and `play` rejoins live,
+173:If the phone pauses the audio on its own (a call, Bluetooth disconnecting), that
+231:- **A dropout or a phone pause:** a `pause` counts as a phone-initiated Stop only
+232:  when no stall was under way, and a `pause` from the player's own teardown is
+233:  ignored. The early test confirms this rule: it logs the order of `pause`,
+358:step. The early iPhone test runs from there, so it's a planned pause near the start
+--- false advance arithmetic
+{ gap: 6000, advancing: false, stalled: false, joining: false } { gap: 42000, advancing: true, stalled: false, joining: false } { gap: 153000, advancing: true, stalled: false, joining: false }
+106000 { joining: true, stalled: false, advancing: false }
+112000 { joining: true, stalled: false, advancing: false }
+118000 { joining: false, stalled: false, advancing: true }
+aed6e294 docs(playout): cite WebKit bug 243258 for the home-screen limit
+d93119f0 docs(playout): the home-screen Play limit, in the spec and the probe record
+826f3e42 antenna: a pause before audio moves again after a restart is no Stop
+f8e021cc antenna: Play during a session asks before it tears down
+a90978c7 docs(playout): D5 settled, keep the home-screen app
+81326a7d docs(playout): home-screen run results, test 8
+---
+ docs/superpowers/2026-11-01-player-probe.md        | 7 +++++++
+ docs/superpowers/specs/2026-11-01-player-design.md | 5 ++++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+ls: .superpowers/sdd/player/TAKEN_OVER: No such file or directory
+ls: .superpowers/sdd/player/taken-over/t8-rereview: No such file or directory

@@ -1,0 +1,105 @@
+      - waiting for locator('.panel').locator('.bmain h2')
+
+
+      1008 |     await openSite(page, { [SLUG]: { ...NOTES.full, url: HOSTILE.url, airtimes: [] } });
+      1009 |     await ticketFor(page, SLUG).click();
+    > 1010 |     await expect(panel(page).locator(".bmain h2")).toBeVisible();
+           |                                                    ^
+      1011 |     const benign = await count();
+      1012 |
+      1013 |     await openSite(page, { [HOSTILE.slug]: { ...HOSTILE, setlist } }, hostileTimeline());
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:1010:52
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-notes-pan-ca7e6-al-text-and-adds-no-element/error-context.md
+
+  15 failed
+    e2e/smoke.pw.mjs:786:3 › notes panel › a tap on a ticket opens the panel, leaves the URL unchanged, and adds no navigation 
+    e2e/smoke.pw.mjs:801:3 › notes panel › shows a loading state at once, before the notes arrive ──
+    e2e/smoke.pw.mjs:815:3 › notes panel › the ready notes: ticket, setlist, liner notes, air times, lineage, disclaimer, archive and share 
+    e2e/smoke.pw.mjs:851:3 › notes panel › a share that can't reach the clipboard prints the link instead 
+    e2e/smoke.pw.mjs:861:3 › notes panel › sets are labelled only with more than one group, and a null set prints nothing 
+    e2e/smoke.pw.mjs:876:3 › notes panel › the back action closes the panel; the close control closes it; a second back leaves nothing stale 
+    e2e/smoke.pw.mjs:904:3 › notes panel › Escape closes, a second close while one is pending is ignored, and focus goes in and back 
+    e2e/smoke.pw.mjs:926:3 › notes panel › a reload with the panel open does not reopen it, and the stale entry stays on the player 
+    e2e/smoke.pw.mjs:939:3 › notes panel › two fast taps show only the second show's notes ─────────
+    e2e/smoke.pw.mjs:958:3 › notes panel › notes arriving after the close leave the closed panel alone 
+    e2e/smoke.pw.mjs:975:5 › notes panel › notes without sections show "Open the show page" with target=_blank 
+    e2e/smoke.pw.mjs:975:5 › notes panel › notes that fail to load show "Open the show page" with target=_blank 
+    e2e/smoke.pw.mjs:985:3 › notes panel › a ticket on empty sections reads "No notes yet." ────────
+    e2e/smoke.pw.mjs:998:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes 
+    e2e/smoke.pw.mjs:1005:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element 
+  ✘  15 e2e/smoke.pw.mjs:1005:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (5.3s)
+
+
+  1) e2e/smoke.pw.mjs:1005:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('.panel').locator('.jcard ol li')
+    Timeout: 5000ms
+    - Expected  - 1
+    + Received  + 1
+
+      Array [
+        "<img src=x onerror=\"window.pwned=1\">Opener >",
+        "<u>Second</u> &lt;",
+    -   "\"><script>window.pwned=1</script>",
+    +   "\"><script>window.pwned=1</script >",
+        "<iframe src=\"javascript:window.pwned=1\"></iframe> Song &amp; <u>Two</u> >",
+      ]
+
+    Call log:
+      - Expect "toHaveText" locator('.panel').locator('.jcard ol li') with timeout 5000ms
+      - waiting for locator('.panel').locator('.jcard ol li')
+        14 × locator resolved to 4 elements
+
+
+      1018 |     await expect(p.locator(".bstub")).toContainText(HOSTILE.date);
+      1019 |     await expect(p.locator(".jcard .kick")).toHaveText(["<b>Set 1</b>", "<i>Encore</i>"]);
+    > 1020 |     await expect(p.locator(".jcard ol li")).toHaveText([
+           |                                             ^
+      1021 |       `${HOSTILE.setlist[0].title} >`, HOSTILE.setlist[1].title, HOSTILE.setlist[2].title,
+      1022 |       HOSTILE.title.trim().replace(/\s*-*>\s*$/, " >"),
+      1023 |     ]);
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:1020:45
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-notes-pan-ca7e6-al-text-and-adds-no-element/error-context.md
+
+  1 failed
+    e2e/smoke.pw.mjs:1005:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element 
+  14 passed (13.5s)
+   Duration  2.07s (transform 50%, tests 32%, import 11%, worker 7%)
+
+  Transform  transforming modules took 2.18s · 50% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+> tsc --noEmit
+
+  ✓  52 e2e/smoke.pw.mjs:975:5 › notes panel › notes that fail to load show "Open the show page" with target=_blank (210ms)
+  ✓  53 e2e/smoke.pw.mjs:985:3 › notes panel › a ticket on empty sections reads "No notes yet." (229ms)
+  ✓  54 e2e/smoke.pw.mjs:998:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes (258ms)
+  ✓  55 e2e/smoke.pw.mjs:1005:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (331ms)
+
+  55 passed (3.1m)
+ Test Files  26 passed (26)
+      Tests  516 passed (516)
+== M0-none
+  15 passed (8.2s)
+== M1-no-generation-check
+  2 failed
+    e2e/smoke.pw.mjs:939:3 › notes panel › two fast taps show only the second show's notes ─────────
+    e2e/smoke.pw.mjs:958:3 › notes panel › notes arriving after the close leave the closed panel alone 
+  13 passed (19.6s)
+== M2-push-while-open
+  1 failed
+    e2e/smoke.pw.mjs:876:3 › notes panel › the back action closes the panel; the close control closes it; a second back leaves nothing stale 
+  14 passed (14.1s)
+== M3-no-closing-guard
+  1 failed
+    e2e/smoke.pw.mjs:904:3 › notes panel › Escape closes, a second close while one is pending is ignored, and focus goes in and back 
+  14 passed (14.0s)
+== M4-null-set-label
+  1 failed
+    e2e/smoke.pw.mjs:861:3 › notes panel › sets are labelled only with more than one group, and a null set prints nothing 
+  14 passed (14.8s)

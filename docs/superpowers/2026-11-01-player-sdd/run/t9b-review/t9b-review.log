@@ -1,0 +1,116 @@
+== library files 3650 exact_files 362 exact_occ(all incl cut) 413 any-see-cautions files 544 changed 362 removed 413 wrapped 0 struct_diff [] 0 bad 0
+   ('li', 'alnum', "'.'") 366
+   ('p', 'alnum', "'.'") 19
+   ('li', '\'"\'', "'.'") 18
+   ('li', '"\'"', "'.'") 6
+   ('li', 'alnum', "','") 4
+== libpkg files 3629 exact_files 359 exact_occ(all incl cut) 409 any-see-cautions files 538 changed 359 removed 409 wrapped 0 struct_diff [] 0 bad 0
+   ('li', 'alnum', "'.'") 363
+   ('p', 'alnum', "'.'") 19
+   ('li', '\'"\'', "'.'") 17
+   ('li', '"\'"', "'.'") 6
+   ('li', 'alnum', "','") 4
+== station files 2786 exact_files 289 exact_occ(all incl cut) 331 any-see-cautions files 435 changed 289 removed 331 wrapped 0 struct_diff [] 0 bad 0
+   ('li', 'alnum', "'.'") 295
+   ('li', '\'"\'', "'.'") 15
+   ('p', 'alnum', "'.'") 12
+   ('li', '"\'"', "'.'") 5
+   ('li', 'alnum', "','") 4
+DIFF no-pointer: '** bold** text' 
+   old [{'heading': 'S', 'blocks': [{'p': ' bold text'}]}] 
+   new [{'heading': 'S', 'blocks': [{'p': 'bold text'}]}]
+DIFF no-pointer: '** ## Heading' 
+   old [{'heading': 'S', 'blocks': [{'p': 'x  ## Heading y'}]}] 
+   new [{'heading': 'S', 'blocks': [{'p': 'x'}]}, {'heading': 'Heading', 'blocks': [{'p': 'y'}]}]
+DIFF no-pointer: '** - item' 
+   old [{'heading': 'S', 'blocks': [{'p': ' - item'}]}] 
+   new [{'heading': 'S', 'blocks': [{'ul': ['item']}]}]
+DIFF no-pointer: '** **' between paras 
+   old [{'heading': 'S', 'blocks': [{'p': 'a   b'}]}] 
+   new [{'heading': 'S', 'blocks': [{'p': 'a'}, {'p': 'b'}]}]
+DIFF no-pointer: 'word **' 
+   old [{'heading': 'S', 'blocks': [{'p': 'word  more'}]}] 
+   new [{'heading': 'S', 'blocks': [{'p': 'word more'}]}]
+DIFF pointer whole line in para 
+   old [{'heading': 'S', 'blocks': [{'p': 'a (see cautions) b'}]}] 
+   new [{'heading': 'S', 'blocks': [{'p': 'a'}, {'p': 'b'}]}]
+DIFF pointer whole bullet 
+   old [{'heading': 'S', 'blocks': [{'ul': ['(see cautions)']}]}] 
+   new [{'heading': 'S', 'blocks': [{'p': '-'}]}]
+DIFF pointer whole heading 
+   old [{'heading': '(see cautions)', 'blocks': [{'p': 'b'}]}] 
+   new [{'heading': None, 'blocks': [{'p': '## b'}]}]
+DIFF after period 
+   old [{'heading': 'S', 'blocks': [{'p': 'Foo. (see cautions) Bar.'}]}] 
+   new [{'heading': 'S', 'blocks': [{'p': 'Foo. Bar.'}]}]
+DIFF after period final 
+   old [{'heading': 'S', 'blocks': [{'p': 'Foo. (see cautions).'}]}] 
+   new [{'heading': 'S', 'blocks': [{'p': 'Foo..'}]}]
+DIFF leading para 
+   old [{'heading': 'S', 'blocks': [{'p': '(see cautions) Bar'}]}] 
+   new [{'heading': 'S', 'blocks': [{'p': 'Bar'}]}]
+DIFF starred 
+   old [{'heading': 'S', 'blocks': [{'p': '*(see cautions)*'}]}] 
+   new [{'heading': 'S', 'blocks': [{'p': '**'}]}]
+unparenthesised 'see cautions' in public part: 178 occ in 160 files; samples:
+    he sequence as "maybe the highlight of the show." See cautions for the song order.
+    phen reprise between Drums and Terrapin Station — see cautions. Grateful Dead of t
+    n "energetic" performance. Its title is disputed; see cautions.
+     2, 4:44) has no resolved title in the show data. See cautions before referring to
+     data, so their tagged titles should not be used. See cautions.
+    , which is long for a Grateful Dead opening set — see cautions on how the set brea
+    Nugs.net list this track under a different title. See cautions.
+    ost of the crowd but was not a West Coast debut — see cautions.
+     on this recording are disputed by other sources; see cautions before naming every
+    3:51). The title is misspelled in the track tags; see cautions.
+    e matrix recording, but its identity is disputed. See cautions.
+    ful Dead of the Day praises for Garcia's soloing. See cautions before describing t
+{'occ see cautions (all)': 630, 'occ see cautions public': 630, 'files see cautions public': 544, 'files (see cautions all': 383, 'occ (see cautions all': 437, 'occ see cautions) all': 428, 'files cautions) all': 373, 'occ cautions) all': 431, 'occ cautions) public': 431, 'files cautions) public': 373, 'lines (see cautions)': 413}
+pkg 3629 files cautions) 370
+station 2786 files cautions) 299
+distinct parens with caution 50
+    413 (see cautions)
+    2 (title disputed; see cautions)
+    2 (see notable moments and cautions)
+    2 (see cautions on the title)
+    1 (see cautions on this title)
+    1 (see cautions for the full structure)
+    1 (title as tagged; see cautions)
+    1 (see cautions on how to phrase this)
+    1 (see cautions before naming it on air)
+    1 (see cautions on attribution)
+    1 (see cautions on naming it)
+    1 (see cautions on the name)
+    1 (unverified; see cautions)
+    1 (see cautions about what follows it)
+    1 (see cautions on who)
+    1 (single source, see cautions)
+    1 (5:18; see cautions)
+    1 (9:05; see cautions)
+    1 (see cautions on set structure)
+    1 (see cautions on structure)
+    1 (see cautions on verifying this)
+    1 (see cautions on that title)
+    1 (see cautions about that track's title)
+    1 (an override title; see cautions)
+    1 (see cautions on how to read this)
+    1 (see the encore entry and cautions)
+    1 (6:45, title uncertain; see cautions)
+    1 (see cautions on that song's title)
+    1 (the city is unconfirmed; see cautions)
+    1 (see cautions about this sequence)
+    1 (single-source; see cautions)
+    1 (see cautions on the date)
+    1 (see cautions on the count)
+    1 [a short separate piece, see cautions]
+    1 (see cautions about this slot)
+    1 (see cautions on this song's origin)
+[(1, '(e.g., golden road, caution > jam)'), (1, "(for example dark star, doin' that rag, other one, cryptical and caution)"), (1, '("playin\' reprise," "caution," "donor rap")'), (1, '(e.g., here comes sunshine, mississippi half-step, caution)'), (1, '(sittin on top of the world, good morning little school girl, lovelight, and caution jam, which it calls simply a jam)'), (1, '(cryptical envelopment, the other one, lovelight, caution jam, viola lee blues, alligator)'), (1, '(a-, "very cool, esp caution")')]
+=========================== short test summary info ============================
+ERROR mut/packages/transmitter/tests_transmitter/test_site.py - FileNotFoundE...
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.18s
+........................................................................ [ 88%]
+.........                                                                [100%]
+81 passed in 0.17s
+left after strip: 217 occ in 198 briefings

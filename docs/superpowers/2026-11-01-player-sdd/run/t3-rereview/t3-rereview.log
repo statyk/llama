@@ -1,0 +1,42 @@
+PREDICTIONS (only these tests go red, on the named expect):
+control: none, 19 pass
+M1-tape-obj: tapeLog ignores recent (first toEqual)
+M2-aired-obj: justAired ignores recent (first expect)
+M3-tape-slug: tapeLog ignores recent (slugsOnly expect only)
+M4-aired-slug: justAired ignores recent (second expect only)
+M5-both-raw: tapeLog ignores recent + justAired ignores recent
+=== control: 0 line(s) changed
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+=== M1-tape-obj: 1 line(s) changed
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/timeline.test.ts > tapeLog > ignores recent and tolerates a missing timeline
+ ❯ test/timeline.test.ts:143:37
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 passed (19)
+=== M2-aired-obj: 1 line(s) changed
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/timeline.test.ts > comingUp and justAired > justAired ignores recent, whatever its shape
+ ❯ test/timeline.test.ts:174:67
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 passed (19)
+=== M3-tape-slug: 1 line(s) changed
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/timeline.test.ts > tapeLog > ignores recent and tolerates a missing timeline
+ ❯ test/timeline.test.ts:152:38
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 passed (19)
+=== M4-aired-slug: 1 line(s) changed
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/timeline.test.ts > comingUp and justAired > justAired ignores recent, whatever its shape
+ ❯ test/timeline.test.ts:175:94
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 passed (19)
+=== M5-both-raw: 2 line(s) changed
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/timeline.test.ts > tapeLog > ignores recent and tolerates a missing timeline
+ ❯ test/timeline.test.ts:143:37
+ FAIL  test/timeline.test.ts > comingUp and justAired > justAired ignores recent, whatever its shape
+ ❯ test/timeline.test.ts:174:67
+ Test Files  1 failed (1)
+      Tests  2 failed | 17 passed (19)

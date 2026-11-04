@@ -1,0 +1,10 @@
+   Duration  2.24s (transform 48%, tests 33%, import 12%, worker 8%)
+
+  Transform  transforming modules took 2.07s · 48% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+  ✓  55 e2e/smoke.pw.mjs:1019:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes (211ms)
+  ✓  56 e2e/smoke.pw.mjs:1026:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (317ms)
+
+  56 passed (3.2m)

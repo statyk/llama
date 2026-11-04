@@ -1,0 +1,12 @@
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_notes_with_no_briefing_have_empty_sections
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_archive_link_is_a_literal_prefix_check[https://archive.org/details/x-https://archive.org/details/x]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_archive_link_is_a_literal_prefix_check[http://archive.org/details/x-None]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_archive_link_is_a_literal_prefix_check[https://archive.org.evil.test/x-None]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_archive_link_is_a_literal_prefix_check[javascript:alert(1)-None]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_archive_link_is_a_literal_prefix_check[-None]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_archive_link_is_a_literal_prefix_check[None-None]
+15 failed, 18 passed in 3.61s
+........................................................................ [ 87%]
+........................................................................ [ 95%]
+.............................s........                                   [100%]
+901 passed, 1 skipped in 34.45s

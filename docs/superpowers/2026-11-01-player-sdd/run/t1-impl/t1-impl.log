@@ -1,0 +1,122 @@
+wrote walker and probe
+=== Step 3 dry-run live
+npx wrangler r2 object put x/offair.html --content-type 'text/html; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+npx wrangler r2 object put x/player.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+npx wrangler r2 object put x/nowplaying.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+npx wrangler r2 object put x/style.css --content-type 'text/css; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+npx wrangler r2 object put x/assets/hls.min.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+=== Step 3 dry-run preview
+npx wrangler r2 object put x/assets/preview/1/index.html --content-type 'text/html; charset=utf-8' --cache-control 'public, max-age=60' --remote
+npx wrangler r2 object put x/assets/preview/1/assets/preview/probe.html --content-type 'text/html; charset=utf-8' --cache-control 'public, max-age=60' --remote
+npx wrangler r2 object put x/assets/preview/1/assets/preview/probe.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=60' --remote
+npx wrangler r2 object put x/assets/preview/1/assets/hls.min.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=60' --remote
+npx wrangler r2 object put x/assets/preview/1/probe.webmanifest --content-type application/manifest+json --cache-control 'public, max-age=60' --remote
+no list written: 0
+=== missing list
+missing antenna/.preview-nosuch.json: no upload recorded for round nosuch
+exit 1
+=== stubbed: which npx: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/bb0670bb-11d6-4946-8914-23ea4ad6e0f1/scratchpad/t1/bin/npx
+=== stub upload live
+exit 0
+5
+0
+=== stub preview 2
+exit 0
+wrangler r2 object put b/assets/preview/2/index.html --content-type text/html; charset=utf-8 --cache-control public, max-age=60 --remote
+wrangler r2 object put b/assets/preview/2/assets/preview/probe.html --content-type text/html; charset=utf-8 --cache-control public, max-age=60 --remote
+wrangler r2 object put b/assets/preview/2/assets/preview/probe.js --content-type text/javascript; charset=utf-8 --cache-control public, max-age=60 --remote
+wrangler r2 object put b/assets/preview/2/assets/hls.min.js --content-type text/javascript; charset=utf-8 --cache-control public, max-age=60 --remote
+wrangler r2 object put b/assets/preview/2/probe.webmanifest --content-type application/manifest+json --cache-control public, max-age=60 --remote
+[
+  "assets/preview/2/index.html",
+  "assets/preview/2/assets/preview/probe.html",
+  "assets/preview/2/assets/preview/probe.js",
+  "assets/preview/2/assets/hls.min.js",
+  "assets/preview/2/probe.webmanifest"
+]
+{
+  "name": "LMA Radio probe",
+  "display": "standalone",
+  "start_url": "/assets/preview/2/assets/preview/probe.html",
+  "scope": "/assets/preview/2/"
+}
+0
+=== stub remove dry-run keeps list
+npx wrangler r2 object delete b/assets/preview/2/index.html --remote
+npx wrangler r2 object delete b/assets/preview/2/assets/preview/probe.html --remote
+npx wrangler r2 object delete b/assets/preview/2/assets/preview/probe.js --remote
+npx wrangler r2 object delete b/assets/preview/2/assets/hls.min.js --remote
+npx wrangler r2 object delete b/assets/preview/2/probe.webmanifest --remote
+exit 0
+.preview-2.json
+=== stub remove with failing delete keeps list
+exit 7
+.preview-2.json
+=== stub remove
+exit 0
+wrangler r2 object delete b/assets/preview/2/index.html --remote
+wrangler r2 object delete b/assets/preview/2/assets/preview/probe.html --remote
+wrangler r2 object delete b/assets/preview/2/assets/preview/probe.js --remote
+wrangler r2 object delete b/assets/preview/2/assets/hls.min.js --remote
+wrangler r2 object delete b/assets/preview/2/probe.webmanifest --remote
+lists left: 0
+=== failed upload leaves a list
+exit 7
+       7
+=== walker: nested, types, excludes preview from live
+b/offair.html --content-type 'text/html; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+b/player.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+b/nowplaying.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+b/style.css --content-type 'text/css; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+b/assets/hls.min.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+b/assets/a.css --content-type 'text/css; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+b/assets/about.html --content-type 'text/html; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+b/assets/app.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+b/assets/fonts/a.woff2 --content-type font/woff2 --cache-control 'public, max-age=3600' --remote
+b/assets/n.txt --content-type 'text/plain; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+b/assets/radio.webmanifest --content-type application/manifest+json --cache-control 'public, max-age=3600' --remote
+b/assets/x.png --content-type image/png --cache-control 'public, max-age=3600' --remote
+=== same, preview
+b/assets/preview/4/index.html --content-type 'text/html; charset=utf-8' --cache-control 'public, max-age=60' --remote
+b/assets/preview/4/assets/a.css --content-type 'text/css; charset=utf-8' --cache-control 'public, max-age=60' --remote
+b/assets/preview/4/assets/about.html --content-type 'text/html; charset=utf-8' --cache-control 'public, max-age=60' --remote
+b/assets/preview/4/assets/app.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=60' --remote
+b/assets/preview/4/assets/fonts/a.woff2 --content-type font/woff2 --cache-control 'public, max-age=60' --remote
+b/assets/preview/4/assets/n.txt --content-type 'text/plain; charset=utf-8' --cache-control 'public, max-age=60' --remote
+b/assets/preview/4/assets/preview/probe.html --content-type 'text/html; charset=utf-8' --cache-control 'public, max-age=60' --remote
+b/assets/preview/4/assets/preview/probe.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=60' --remote
+b/assets/preview/4/assets/radio.webmanifest --content-type application/manifest+json --cache-control 'public, max-age=60' --remote
+b/assets/preview/4/assets/x.png --content-type image/png --cache-control 'public, max-age=60' --remote
+b/assets/preview/4/assets/hls.min.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=60' --remote
+b/assets/preview/4/probe.webmanifest --content-type application/manifest+json --cache-control 'public, max-age=60' --remote
+{
+  "name": "LMA Radio",
+  "start_url": "/assets/preview/4/index.html",
+  "scope": "/assets/preview/4/",
+  "display": "standalone"
+}
+=== unknown extension, no upload first
+unknown file type: public/assets/fonts/bad.bin
+exit 1
+unknown file type: public/assets/fonts/bad.bin
+exit 1
+calls:        0
+0
+=== unknown under preview/ is ignored live, refused in preview
+live exit 0
+unknown file type: public/assets/preview/bad.bin
+preview exit 1
+=== no public/assets
+       5
+b/assets/preview/7/index.html --content-type 'text/html; charset=utf-8' --cache-control 'public, max-age=60' --remote
+b/assets/preview/7/assets/hls.min.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=60' --remote
+exit 0
+probe browser test: playwright evaluate hung 30 min on clipboard.readText (harness, not the page); continuing
+ Test Files  21 passed (21)
+      Tests  426 passed (426)
+   Start at  02:30:18
+   Duration  1.96s (transform 50%, tests 33%, import 10%, worker 7%)
+
+    Isolate  21 workers spawned · ~504ms startup each (spawn + environment, per file)
+             at least ~672ms faster with isolate: false — reuses workers across files instead of one per file
+

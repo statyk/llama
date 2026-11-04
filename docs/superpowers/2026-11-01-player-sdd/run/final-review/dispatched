@@ -1,0 +1,4 @@
+budget-min: 45
+role: review
+model: opus
+what: Final whole-branch review

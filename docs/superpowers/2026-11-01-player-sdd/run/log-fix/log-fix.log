@@ -1,0 +1,51 @@
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+npm notice
+npm notice New major version of npm available! 11.12.1 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+> typecheck
+> tsc --noEmit
+
+  ✓  101 e2e/smoke.pw.mjs:1537:5 › notes panel › notes that fail to load show "Open the show page" with target=_blank (244ms)
+  ✓  102 e2e/smoke.pw.mjs:1547:3 › notes panel › a ticket on empty sections reads "No notes yet." (292ms)
+  ✓  103 e2e/smoke.pw.mjs:1560:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes (298ms)
+  ✓  104 e2e/smoke.pw.mjs:1567:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (401ms)
+  ✓  105 e2e/smoke.pw.mjs:1598:1 › the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off (318ms)
+  ✓  106 e2e/smoke.pw.mjs:1609:1 › with nothing on air, the venue and date line keeps its height and the window does not move (179ms)
+  ✓  107 e2e/smoke.pw.mjs:1627:1 › a name stepping from long to a short name, or to off air, loses the class (175ms)
+
+
+  1) e2e/smoke.pw.mjs:390:3 › the tape log › the now row is synthetically bold: wider than the same text at weight 400 
+
+    Error: expect(received).toBeGreaterThan(expected)
+
+    Expected: > 48.25
+    Received:   48.25
+
+      396 |       return { bold, regular };
+      397 |     });
+    > 398 |     expect(w.bold).toBeGreaterThan(w.regular);
+          |                    ^
+      399 |   });
+      400 |
+      401 |   test("focus moves to the list when the focused button hides", async ({ page }) => {
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:398:20
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-tape--d813a-the-same-text-at-weight-400/error-context.md
+
+  1 failed
+    e2e/smoke.pw.mjs:390:3 › the tape log › the now row is synthetically bold: wider than the same text at weight 400 
+  106 passed (3.6m)
+ Test Files  26 passed (26)
+      Tests  524 passed (524)
+> tsc --noEmit
+
+  ✓  105 e2e/smoke.pw.mjs:1602:1 › the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off (335ms)
+  ✓  106 e2e/smoke.pw.mjs:1613:1 › with nothing on air, the venue and date line keeps its height and the window does not move (192ms)
+  ✓  107 e2e/smoke.pw.mjs:1631:1 › a name stepping from long to a short name, or to off air, loses the class (176ms)
+
+  107 passed (3.5m)

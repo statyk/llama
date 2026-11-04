@@ -1,0 +1,476 @@
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+
+ Test Files  26 passed (26)
+      Tests  519 passed (519)
+   Start at  22:41:19
+   Duration  2.57s (transform 49%, tests 30%, import 11%, worker 10%)
+
+  Transform  transforming modules took 2.80s · 49% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+
+> smoke
+> playwright test
+
+
+Running 91 tests using 1 worker
+
+  ✓   1 e2e/smoke.pw.mjs:70:3 › show page air times › are written in the listener's zone, naming the end's day when it differs (247ms)
+  ✓   2 e2e/smoke.pw.mjs:79:3 › show page air times › say so when the show has none (164ms)
+  ✓   3 e2e/smoke.pw.mjs:85:3 › show page air times › say so when the notes can't be read (141ms)
+  ✓   4 e2e/smoke.pw.mjs:90:3 › show page air times › say so on a bad time, and the hostile slug fetches its own notes as text (159ms)
+  ✓   5 e2e/smoke.pw.mjs:98:1 › the page loads, shows the header line and every asset request succeeds (673ms)
+  ✓   6 e2e/smoke.pw.mjs:119:1 › the footer's archive.org link opens in a new tab so the music keeps playing (173ms)
+  ✓   7 e2e/smoke.pw.mjs:126:1 › an engine that throws on longGeneric still renders the page and Play still turns the hubs (2.5s)
+  ✓   8 e2e/smoke.pw.mjs:142:1 › the page's elements are all there for the behaviour to bind to (204ms)
+  ✓   9 e2e/smoke.pw.mjs:151:1 › the hubs spin only under .turning, and never with reduced motion (189ms)
+  ✓  10 e2e/smoke.pw.mjs:161:1 › the fixture stream really plays, and setLive changes what /live.m3u8 answers (3.0s)
+  ✓  11 e2e/smoke.pw.mjs:195:1 › renders the label, tape log, coming up, just aired and zone line before Play (187ms)
+  ✓  12 e2e/smoke.pw.mjs:216:1 › every ticket link is /show/<encoded slug>.html, even when the fixture's page field is hostile (176ms)
+  ✓  13 e2e/smoke.pw.mjs:228:1 › the hostile fixture through the label, log and tickets: its markup appears as literal text and adds no element (233ms)
+  ✓  14 e2e/smoke.pw.mjs:250:1 › with an empty timeline, the schedule note is shown and the page does not throw (211ms)
+  ✓  15 e2e/smoke.pw.mjs:268:1 › no request leaves the local host (669ms)
+  ✓  16 e2e/smoke.pw.mjs:275:1 › stopped and hidden (document.hidden forced): no timeline.json fetch over 10 mocked minutes (3.1s)
+  ✓  17 e2e/smoke.pw.mjs:283:1 › visible: one fetch on load, the next only once 3 minutes have passed (998ms)
+  ✓  18 e2e/smoke.pw.mjs:294:1 › a failed fetch waits out the same 3 minutes (1.0s)
+  ✓  19 e2e/smoke.pw.mjs:307:1 › ON THE AIR is hidden in the offair state only (184ms)
+  ✓  20 e2e/smoke.pw.mjs:324:1 › ticketLinks: a plain click opens in-page, a modified click is left to the browser (267ms)
+  ✓  21 e2e/smoke.pw.mjs:341:1 › Show all reveals the rest of coming up (208ms)
+  ✓  22 e2e/smoke.pw.mjs:411:1 › a lasting render error leaves the loop's player tick running (4.5s)
+  ✓  23 e2e/smoke.pw.mjs:420:1 › a lasting render error does not block Play (2.2s)
+  ✓  24 e2e/smoke.pw.mjs:427:1 › Play gives audio (currentTime advances) and #hubs gets turning (2.2s)
+  ✓  25 e2e/smoke.pw.mjs:436:1 › Now playing follows the playback position, not the wall clock (3.3s)
+  ✓  26 e2e/smoke.pw.mjs:445:1 › Stop silences the audio, stops the hubs and shows the stopped line (4.8s)
+  ✓  27 e2e/smoke.pw.mjs:459:1 › a stall, then recovery to playing with no key pressed (1.2m)
+  ✓  28 e2e/smoke.pw.mjs:471:1 › navigator.mediaSession.metadata.title is the song (4.9s)
+  ✓  29 e2e/smoke.pw.mjs:491:1 › /live.m3u8 answering 404 shows "Reconnecting…", then a switch to 403 reaches the off-air notice (2.5s)
+  ✓  30 e2e/smoke.pw.mjs:504:1 › Stop during a retry delay: no further /live.m3u8 request after a further 40 s of mocked time (953ms)
+  ✓  31 e2e/smoke.pw.mjs:518:1 › Stop during a probe: its answer never restarts the audio (1.1s)
+  ✓  32 e2e/smoke.pw.mjs:539:1 › /live.m3u8 unreachable during a stall: probes only, the src is untouched, then reachable gives a restart within one probe interval (12.5s)
+  ✓  33 e2e/smoke.pw.mjs:576:1 › the stream reachable again, one probe failing does not end recovery: the next probe's answer restarts at once (2.2s)
+  ✓  34 e2e/smoke.pw.mjs:607:1 › a 10-minute silence shows "Lost the stream." and Try again (18.5s)
+  ✓  35 e2e/smoke.pw.mjs:630:1 › over 10 mocked minutes of 404: at most 60 /live.m3u8 requests and at most 4 /timeline.json requests (18.9s)
+  ✓  36 e2e/smoke.pw.mjs:643:1 › Media Session: play, pause and stop only; play after a hidden Stop fetches the timeline, the force alone does not (522ms)
+  ✓  37 e2e/smoke.pw.mjs:666:1 › a pause from the phone is a Stop, and it stays stopped (4.8s)
+  ✓  38 e2e/smoke.pw.mjs:678:1 › a playlist that ends goes straight to the off-air notice (272ms)
+  ✓  39 e2e/smoke.pw.mjs:689:1 › a refused play() shows the notice; any other rejection is left to the stall path (552ms)
+  ✓  40 e2e/smoke.pw.mjs:704:1 › Play during a dropout, key or Media Session: a probe goes out, the src is untouched and the audio carries on (2.6s)
+  ✓  41 e2e/smoke.pw.mjs:729:1 › Play during a stall, once /live.m3u8 answers: rejoins at once, not at the next probe (1.0s)
+  ✓  42 e2e/smoke.pw.mjs:745:1 › Play with an off-air answer still rejoins, and the hubs stop until the position advances (2.4s)
+  ✓  43 e2e/smoke.pw.mjs:759:1 › Stop during Play's question stays stopped, and a second press adds nothing (3.3s)
+  ✓  44 e2e/smoke.pw.mjs:783:1 › a play() that never settles (home-screen app, hidden): no notice, no hubs, Reconnecting, and only a moving position gives playing (5.9s)
+  ✓  45 e2e/smoke.pw.mjs:818:3 › the on-air notes link › carries the on-air show, stays while stopped, and is left alone between changes (2.7s)
+  ✓  46 e2e/smoke.pw.mjs:834:3 › the on-air notes link › its link is built from the encoded slug (190ms)
+  ✓  47 e2e/smoke.pw.mjs:842:3 › the on-air notes link › a click opens the panel on that show and the audio keeps advancing (2.7s)
+  ✓  48 e2e/smoke.pw.mjs:861:3 › the on-air notes link › a modified click is left to the browser (435ms)
+  ✓  49 e2e/smoke.pw.mjs:870:3 › the on-air notes link › is hidden with nothing on air (176ms)
+  ✓  50 e2e/smoke.pw.mjs:879:3 › the on-air notes link › is hidden off the air, and back when the state clears (180ms)
+  ✓  51 e2e/smoke.pw.mjs:889:3 › the on-air notes link › follows when the on-air show changes (190ms)
+  ✓  52 e2e/smoke.pw.mjs:1025:5 › at 320 px with a normal name and a long venue, the cassette holds its layout and the date shows (224ms)
+  ✓  53 e2e/smoke.pw.mjs:1025:5 › at 320 px with a long name and a long venue, the cassette holds its layout and the date shows (256ms)
+  ✓  54 e2e/smoke.pw.mjs:1025:5 › at 320 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows (199ms)
+  ✓  55 e2e/smoke.pw.mjs:1033:3 › at 320 px a 44-character name fits one line uncut once stepped down (190ms)
+  ✓  56 e2e/smoke.pw.mjs:1038:3 › at 320 px a name too long for the smallest size ends in an ellipsis on one line (204ms)
+  ✓  57 e2e/smoke.pw.mjs:1044:3 › at 320 px, with no container units, the fallback draws the same layout (194ms)
+  ✓  58 e2e/smoke.pw.mjs:1025:5 › at 390 px with a normal name and a long venue, the cassette holds its layout and the date shows (192ms)
+  ✓  59 e2e/smoke.pw.mjs:1025:5 › at 390 px with a long name and a long venue, the cassette holds its layout and the date shows (187ms)
+  ✓  60 e2e/smoke.pw.mjs:1025:5 › at 390 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows (173ms)
+  ✓  61 e2e/smoke.pw.mjs:1033:3 › at 390 px a 44-character name fits one line uncut once stepped down (188ms)
+  ✓  62 e2e/smoke.pw.mjs:1038:3 › at 390 px a name too long for the smallest size ends in an ellipsis on one line (195ms)
+  ✓  63 e2e/smoke.pw.mjs:1044:3 › at 390 px, with no container units, the fallback draws the same layout (203ms)
+  ✓  64 e2e/smoke.pw.mjs:1025:5 › at 1200 px with a normal name and a long venue, the cassette holds its layout and the date shows (185ms)
+  ✓  65 e2e/smoke.pw.mjs:1025:5 › at 1200 px with a long name and a long venue, the cassette holds its layout and the date shows (178ms)
+  ✓  66 e2e/smoke.pw.mjs:1025:5 › at 1200 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows (191ms)
+  ✓  67 e2e/smoke.pw.mjs:1033:3 › at 1200 px a 44-character name fits one line uncut once stepped down (203ms)
+  ✓  68 e2e/smoke.pw.mjs:1038:3 › at 1200 px a name too long for the smallest size ends in an ellipsis on one line (178ms)
+  ✓  69 e2e/smoke.pw.mjs:1044:3 › at 1200 px, with no container units, the fallback draws the same layout (197ms)
+  ✓  70 e2e/smoke.pw.mjs:1059:1 › the artist's size class steps at 26 and 34 characters (283ms)
+  ✓  71 e2e/smoke.pw.mjs:1066:1 › the artist line is written only when the name changes, and a short name loses the step (202ms)
+  ✓  72 e2e/smoke.pw.mjs:1089:1 › at 320 px with a very long band name, main and panel do not scroll sideways (270ms)
+  ✓  73 e2e/smoke.pw.mjs:1133:3 › notes panel › a tap on a ticket opens the panel, leaves the URL unchanged, and adds no navigation (237ms)
+  ✓  74 e2e/smoke.pw.mjs:1148:3 › notes panel › shows a loading state at once, before the notes arrive (273ms)
+  ✓  75 e2e/smoke.pw.mjs:1162:3 › notes panel › the ready notes: ticket, setlist, liner notes, air times, lineage, disclaimer, archive and share (628ms)
+  ✓  76 e2e/smoke.pw.mjs:1198:3 › notes panel › a share that can't reach the clipboard prints the link instead (566ms)
+  ✓  77 e2e/smoke.pw.mjs:1208:3 › notes panel › sets are labelled only with more than one group, and a null set prints nothing (315ms)
+  ✓  78 e2e/smoke.pw.mjs:1223:3 › notes panel › the back action closes the panel; the close control closes it; a second back leaves nothing stale (2.1s)
+  ✓  79 e2e/smoke.pw.mjs:1251:3 › notes panel › Escape closes, a second close while one is pending is ignored, and focus goes in and back (1.0s)
+  ✓  80 e2e/smoke.pw.mjs:1273:3 › notes panel › a reload with the panel open does not reopen it, and the stale entry stays on the player (269ms)
+  ✓  81 e2e/smoke.pw.mjs:1286:3 › notes panel › two fast taps show only the second show's notes (357ms)
+  ✓  82 e2e/smoke.pw.mjs:1305:3 › notes panel › notes arriving after the close leave the closed panel alone (1.1s)
+  ✓  83 e2e/smoke.pw.mjs:1322:5 › notes panel › notes without sections show "Open the show page" with target=_blank (300ms)
+  ✓  84 e2e/smoke.pw.mjs:1322:5 › notes panel › notes that fail to load show "Open the show page" with target=_blank (246ms)
+  ✓  85 e2e/smoke.pw.mjs:1332:3 › notes panel › a ticket on empty sections reads "No notes yet." (236ms)
+  ✓  86 e2e/smoke.pw.mjs:1345:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes (278ms)
+  ✓  87 e2e/smoke.pw.mjs:1352:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (397ms)
+  ✓  88 e2e/smoke.pw.mjs:1383:1 › the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off (342ms)
+  ✓  89 e2e/smoke.pw.mjs:1394:1 › with nothing on air, the venue and date line keeps its height and the window does not move (183ms)
+  ✓  90 e2e/smoke.pw.mjs:1412:1 › a name stepping from long to a short name, or to off air, loses the class (186ms)
+  ✓  91 e2e/smoke.pw.mjs:1429:1 › the date keeps its right padding, which the pen's overhang needs (191ms)
+
+  91 passed (3.5m)
+wrote public/assets/cassette-512.png
+wrote public/assets/cassette-og.png
+wrote public/assets/icon-180.png
+wrote public/assets/icon-192.png
+
+> pages
+> node scripts/build-pages.mjs
+
+wrote src/pages.ts
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+
+ Test Files  26 passed (26)
+      Tests  519 passed (519)
+   Start at  22:46:04
+   Duration  2.47s (transform 49%, tests 30%, import 11%, worker 9%)
+
+  Transform  transforming modules took 2.64s · 49% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+
+> smoke
+> playwright test
+
+
+Running 91 tests using 1 worker
+
+  ✓   1 e2e/smoke.pw.mjs:70:3 › show page air times › are written in the listener's zone, naming the end's day when it differs (249ms)
+  ✓   2 e2e/smoke.pw.mjs:79:3 › show page air times › say so when the show has none (175ms)
+  ✓   3 e2e/smoke.pw.mjs:85:3 › show page air times › say so when the notes can't be read (155ms)
+  ✓   4 e2e/smoke.pw.mjs:90:3 › show page air times › say so on a bad time, and the hostile slug fetches its own notes as text (200ms)
+  ✓   5 e2e/smoke.pw.mjs:98:1 › the page loads, shows the header line and every asset request succeeds (700ms)
+  ✓   6 e2e/smoke.pw.mjs:119:1 › the footer's archive.org link opens in a new tab so the music keeps playing (183ms)
+  ✓   7 e2e/smoke.pw.mjs:126:1 › an engine that throws on longGeneric still renders the page and Play still turns the hubs (2.5s)
+  ✓   8 e2e/smoke.pw.mjs:142:1 › the page's elements are all there for the behaviour to bind to (186ms)
+  ✓   9 e2e/smoke.pw.mjs:151:1 › the hubs spin only under .turning, and never with reduced motion (186ms)
+  ✓  10 e2e/smoke.pw.mjs:161:1 › the fixture stream really plays, and setLive changes what /live.m3u8 answers (3.0s)
+  ✘  11 e2e/smoke.pw.mjs:195:1 › renders the label, tape log, coming up, just aired and zone line before Play (5.2s)
+  ✓  12 e2e/smoke.pw.mjs:216:1 › every ticket link is /show/<encoded slug>.html, even when the fixture's page field is hostile (332ms)
+  ✓  13 e2e/smoke.pw.mjs:228:1 › the hostile fixture through the label, log and tickets: its markup appears as literal text and adds no element (234ms)
+  ✓  14 e2e/smoke.pw.mjs:250:1 › with an empty timeline, the schedule note is shown and the page does not throw (237ms)
+  ✓  15 e2e/smoke.pw.mjs:268:1 › no request leaves the local host (665ms)
+  ✓  16 e2e/smoke.pw.mjs:275:1 › stopped and hidden (document.hidden forced): no timeline.json fetch over 10 mocked minutes (3.1s)
+  ✓  17 e2e/smoke.pw.mjs:283:1 › visible: one fetch on load, the next only once 3 minutes have passed (1.0s)
+  ✓  18 e2e/smoke.pw.mjs:294:1 › a failed fetch waits out the same 3 minutes (1.0s)
+  ✓  19 e2e/smoke.pw.mjs:307:1 › ON THE AIR is hidden in the offair state only (199ms)
+  ✓  20 e2e/smoke.pw.mjs:324:1 › ticketLinks: a plain click opens in-page, a modified click is left to the browser (272ms)
+  ✓  21 e2e/smoke.pw.mjs:341:1 › Show all reveals the rest of coming up (210ms)
+  ✓  22 e2e/smoke.pw.mjs:411:1 › a lasting render error leaves the loop's player tick running (4.5s)
+  ✓  23 e2e/smoke.pw.mjs:420:1 › a lasting render error does not block Play (2.3s)
+  ✓  24 e2e/smoke.pw.mjs:427:1 › Play gives audio (currentTime advances) and #hubs gets turning (2.2s)
+  ✓  25 e2e/smoke.pw.mjs:436:1 › Now playing follows the playback position, not the wall clock (3.3s)
+  ✘  26 e2e/smoke.pw.mjs:445:1 › Stop silences the audio, stops the hubs and shows the stopped line (7.3s)
+  ✓  27 e2e/smoke.pw.mjs:459:1 › a stall, then recovery to playing with no key pressed (1.2m)
+  ✓  28 e2e/smoke.pw.mjs:471:1 › navigator.mediaSession.metadata.title is the song (4.9s)
+  ✓  29 e2e/smoke.pw.mjs:491:1 › /live.m3u8 answering 404 shows "Reconnecting…", then a switch to 403 reaches the off-air notice (2.4s)
+  ✘  30 e2e/smoke.pw.mjs:504:1 › Stop during a retry delay: no further /live.m3u8 request after a further 40 s of mocked time (6.0s)
+  ✘  31 e2e/smoke.pw.mjs:518:1 › Stop during a probe: its answer never restarts the audio (6.2s)
+  ✓  32 e2e/smoke.pw.mjs:539:1 › /live.m3u8 unreachable during a stall: probes only, the src is untouched, then reachable gives a restart within one probe interval (12.7s)
+  ✓  33 e2e/smoke.pw.mjs:576:1 › the stream reachable again, one probe failing does not end recovery: the next probe's answer restarts at once (2.2s)
+  ✓  34 e2e/smoke.pw.mjs:607:1 › a 10-minute silence shows "Lost the stream." and Try again (18.6s)
+  ✓  35 e2e/smoke.pw.mjs:630:1 › over 10 mocked minutes of 404: at most 60 /live.m3u8 requests and at most 4 /timeline.json requests (18.8s)
+  ✓  36 e2e/smoke.pw.mjs:643:1 › Media Session: play, pause and stop only; play after a hidden Stop fetches the timeline, the force alone does not (528ms)
+  ✘  37 e2e/smoke.pw.mjs:666:1 › a pause from the phone is a Stop, and it stays stopped (7.3s)
+  ✓  38 e2e/smoke.pw.mjs:678:1 › a playlist that ends goes straight to the off-air notice (377ms)
+  ✓  39 e2e/smoke.pw.mjs:689:1 › a refused play() shows the notice; any other rejection is left to the stall path (527ms)
+  ✓  40 e2e/smoke.pw.mjs:704:1 › Play during a dropout, key or Media Session: a probe goes out, the src is untouched and the audio carries on (2.6s)
+  ✓  41 e2e/smoke.pw.mjs:729:1 › Play during a stall, once /live.m3u8 answers: rejoins at once, not at the next probe (929ms)
+  ✓  42 e2e/smoke.pw.mjs:745:1 › Play with an off-air answer still rejoins, and the hubs stop until the position advances (2.4s)
+  ✘  43 e2e/smoke.pw.mjs:759:1 › Stop during Play's question stays stopped, and a second press adds nothing (8.4s)
+  ✓  44 e2e/smoke.pw.mjs:783:1 › a play() that never settles (home-screen app, hidden): no notice, no hubs, Reconnecting, and only a moving position gives playing (6.0s)
+  ✓  45 e2e/smoke.pw.mjs:818:3 › the on-air notes link › carries the on-air show, stays while stopped, and is left alone between changes (2.7s)
+  ✓  46 e2e/smoke.pw.mjs:834:3 › the on-air notes link › its link is built from the encoded slug (187ms)
+  ✓  47 e2e/smoke.pw.mjs:842:3 › the on-air notes link › a click opens the panel on that show and the audio keeps advancing (2.7s)
+  ✓  48 e2e/smoke.pw.mjs:861:3 › the on-air notes link › a modified click is left to the browser (438ms)
+  ✓  49 e2e/smoke.pw.mjs:870:3 › the on-air notes link › is hidden with nothing on air (178ms)
+  ✓  50 e2e/smoke.pw.mjs:879:3 › the on-air notes link › is hidden off the air, and back when the state clears (175ms)
+  ✓  51 e2e/smoke.pw.mjs:889:3 › the on-air notes link › follows when the on-air show changes (191ms)
+  ✓  52 e2e/smoke.pw.mjs:1025:5 › at 320 px with a normal name and a long venue, the cassette holds its layout and the date shows (190ms)
+  ✓  53 e2e/smoke.pw.mjs:1025:5 › at 320 px with a long name and a long venue, the cassette holds its layout and the date shows (194ms)
+  ✓  54 e2e/smoke.pw.mjs:1025:5 › at 320 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows (197ms)
+  ✓  55 e2e/smoke.pw.mjs:1033:3 › at 320 px a 44-character name fits one line uncut once stepped down (183ms)
+  ✓  56 e2e/smoke.pw.mjs:1038:3 › at 320 px a name too long for the smallest size ends in an ellipsis on one line (196ms)
+  ✓  57 e2e/smoke.pw.mjs:1044:3 › at 320 px, with no container units, the fallback draws the same layout (214ms)
+  ✓  58 e2e/smoke.pw.mjs:1025:5 › at 390 px with a normal name and a long venue, the cassette holds its layout and the date shows (189ms)
+  ✓  59 e2e/smoke.pw.mjs:1025:5 › at 390 px with a long name and a long venue, the cassette holds its layout and the date shows (196ms)
+  ✓  60 e2e/smoke.pw.mjs:1025:5 › at 390 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows (205ms)
+  ✓  61 e2e/smoke.pw.mjs:1033:3 › at 390 px a 44-character name fits one line uncut once stepped down (180ms)
+  ✓  62 e2e/smoke.pw.mjs:1038:3 › at 390 px a name too long for the smallest size ends in an ellipsis on one line (197ms)
+  ✓  63 e2e/smoke.pw.mjs:1044:3 › at 390 px, with no container units, the fallback draws the same layout (209ms)
+  ✓  64 e2e/smoke.pw.mjs:1025:5 › at 1200 px with a normal name and a long venue, the cassette holds its layout and the date shows (195ms)
+  ✓  65 e2e/smoke.pw.mjs:1025:5 › at 1200 px with a long name and a long venue, the cassette holds its layout and the date shows (182ms)
+  ✓  66 e2e/smoke.pw.mjs:1025:5 › at 1200 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows (207ms)
+  ✓  67 e2e/smoke.pw.mjs:1033:3 › at 1200 px a 44-character name fits one line uncut once stepped down (192ms)
+  ✓  68 e2e/smoke.pw.mjs:1038:3 › at 1200 px a name too long for the smallest size ends in an ellipsis on one line (189ms)
+  ✓  69 e2e/smoke.pw.mjs:1044:3 › at 1200 px, with no container units, the fallback draws the same layout (200ms)
+  ✓  70 e2e/smoke.pw.mjs:1059:1 › the artist's size class steps at 26 and 34 characters (287ms)
+  ✓  71 e2e/smoke.pw.mjs:1066:1 › the artist line is written only when the name changes, and a short name loses the step (184ms)
+  ✓  72 e2e/smoke.pw.mjs:1089:1 › at 320 px with a very long band name, main and panel do not scroll sideways (271ms)
+  ✓  73 e2e/smoke.pw.mjs:1133:3 › notes panel › a tap on a ticket opens the panel, leaves the URL unchanged, and adds no navigation (276ms)
+  ✓  74 e2e/smoke.pw.mjs:1148:3 › notes panel › shows a loading state at once, before the notes arrive (274ms)
+  ✓  75 e2e/smoke.pw.mjs:1162:3 › notes panel › the ready notes: ticket, setlist, liner notes, air times, lineage, disclaimer, archive and share (651ms)
+  ✓  76 e2e/smoke.pw.mjs:1198:3 › notes panel › a share that can't reach the clipboard prints the link instead (533ms)
+  ✓  77 e2e/smoke.pw.mjs:1208:3 › notes panel › sets are labelled only with more than one group, and a null set prints nothing (325ms)
+  ✓  78 e2e/smoke.pw.mjs:1223:3 › notes panel › the back action closes the panel; the close control closes it; a second back leaves nothing stale (2.1s)
+  ✓  79 e2e/smoke.pw.mjs:1251:3 › notes panel › Escape closes, a second close while one is pending is ignored, and focus goes in and back (1.1s)
+  ✓  80 e2e/smoke.pw.mjs:1273:3 › notes panel › a reload with the panel open does not reopen it, and the stale entry stays on the player (294ms)
+  ✓  81 e2e/smoke.pw.mjs:1286:3 › notes panel › two fast taps show only the second show's notes (349ms)
+  ✓  82 e2e/smoke.pw.mjs:1305:3 › notes panel › notes arriving after the close leave the closed panel alone (630ms)
+  ✓  83 e2e/smoke.pw.mjs:1322:5 › notes panel › notes without sections show "Open the show page" with target=_blank (263ms)
+  ✓  84 e2e/smoke.pw.mjs:1322:5 › notes panel › notes that fail to load show "Open the show page" with target=_blank (238ms)
+  ✓  85 e2e/smoke.pw.mjs:1332:3 › notes panel › a ticket on empty sections reads "No notes yet." (243ms)
+  ✓  86 e2e/smoke.pw.mjs:1345:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes (275ms)
+  ✓  87 e2e/smoke.pw.mjs:1352:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (399ms)
+  ✓  88 e2e/smoke.pw.mjs:1383:1 › the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off (322ms)
+  ✓  89 e2e/smoke.pw.mjs:1394:1 › with nothing on air, the venue and date line keeps its height and the window does not move (188ms)
+  ✓  90 e2e/smoke.pw.mjs:1412:1 › a name stepping from long to a short name, or to off air, loses the class (206ms)
+  ✓  91 e2e/smoke.pw.mjs:1429:1 › the date keeps its right padding, which the pen's overhang needs (182ms)
+
+
+  1) e2e/smoke.pw.mjs:195:1 › renders the label, tape log, coming up, just aired and zone line before Play 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#now')
+    Expected: "On Air Press Play to listen."
+    Received: "Press Play to listen."
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#now') with timeout 5000ms
+      - waiting for locator('#now')
+        14 × locator resolved to <p id="now" class="np">Press Play to listen.</p>
+           - unexpected value "Press Play to listen."
+
+
+      198 |   await expect(page.locator("#label-where")).toHaveText("The Club, Chattanooga, TN");
+      199 |   await expect(page.locator("#label-date")).toHaveText("Nov 1 2008");
+    > 200 |   await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+          |                                      ^
+      201 |   await expect(page.locator("#tape-log li").first().locator("span")).toHaveText("Song 3");
+      202 |   await expect(page.locator("#tape-log li").first().locator("time")).toHaveText(/^\d{1,2}:\d{2}[ap]$/);
+      203 |   await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:200:38
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-renders-t-9cb66-d-and-zone-line-before-Play/error-context.md
+
+  2) e2e/smoke.pw.mjs:445:1 › Stop silences the audio, stops the hubs and shows the stopped line ───
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#now')
+    Expected: "On Air Press Play to listen."
+    Received: "Press Play to listen."
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#now') with timeout 5000ms
+      - waiting for locator('#now')
+        14 × locator resolved to <p id="now" class="np">Press Play to listen.</p>
+           - unexpected value "Press Play to listen."
+
+
+      449 |   await page.click("#stop");
+      450 |   await expect(page.locator("#hubs")).not.toHaveClass(/turning/);
+    > 451 |   await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+          |                                      ^
+      452 |   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+      453 |   const segments = site.requests.length;
+      454 |   await page.waitForTimeout(2500);
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:451:38
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-Stop-sile-5b9a8--and-shows-the-stopped-line/error-context.md
+
+  3) e2e/smoke.pw.mjs:504:1 › Stop during a retry delay: no further /live.m3u8 request after a further 40 s of mocked time 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#now')
+    Expected: "On Air Press Play to listen."
+    Received: "Press Play to listen."
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#now') with timeout 5000ms
+      - waiting for locator('#now')
+        14 × locator resolved to <p id="now" class="np">Press Play to listen.</p>
+           - unexpected value "Press Play to listen."
+
+
+      513 |   expect(liveRequests()).toBe(before);
+      514 |   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+    > 515 |   await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+          |                                      ^
+      516 | });
+      517 |
+      518 | test("Stop during a probe: its answer never restarts the audio", async ({ context, page }) => {
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:515:38
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-Stop-duri-22325-further-40-s-of-mocked-time/error-context.md
+
+  4) e2e/smoke.pw.mjs:518:1 › Stop during a probe: its answer never restarts the audio ─────────────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#now')
+    Expected: "On Air Press Play to listen."
+    Received: "Press Play to listen."
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#now') with timeout 5000ms
+      - waiting for locator('#now')
+        14 × locator resolved to <p id="now" class="np">Press Play to listen.</p>
+           - unexpected value "Press Play to listen."
+
+
+      534 |   expect(probes.length).toBe(1);
+      535 |   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+    > 536 |   await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+          |                                      ^
+      537 | });
+      538 |
+      539 | test("/live.m3u8 unreachable during a stall: probes only, the src is untouched, then reachable gives a restart within one probe interval", async ({ context, page }) => {
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:536:38
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-Stop-duri-430c2-er-never-restarts-the-audio/error-context.md
+
+  5) e2e/smoke.pw.mjs:666:1 › a pause from the phone is a Stop, and it stays stopped ───────────────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#now')
+    Expected: "On Air Press Play to listen."
+    Received: "Press Play to listen."
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#now') with timeout 5000ms
+      - waiting for locator('#now')
+        14 × locator resolved to <p id="now" class="np">Press Play to listen.</p>
+           - unexpected value "Press Play to listen."
+
+
+      669 |   await expect(page.locator("#hubs")).toHaveClass(/turning/); // past the join: no stall under way
+      670 |   await page.locator("#audio").evaluate((a) => a.pause());
+    > 671 |   await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+          |                                      ^
+      672 |   const before = site.requests.length;
+      673 |   await page.waitForTimeout(2500);
+      674 |   expect(site.requests.length).toBe(before);
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:671:38
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-a-pause-f-f66aa-a-Stop-and-it-stays-stopped/error-context.md
+
+  6) e2e/smoke.pw.mjs:759:1 › Stop during Play's question stays stopped, and a second press adds nothing 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#now')
+    Expected: "On Air Press Play to listen."
+    Received: "Press Play to listen."
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#now') with timeout 5000ms
+      - waiting for locator('#now')
+        14 × locator resolved to <p id="now" class="np">Press Play to listen.</p>
+           - unexpected value "Press Play to listen."
+
+
+      778 |   expect(liveRequests()).toBe(before + 1); // the answered question, and nothing after it
+      779 |   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+    > 780 |   await expect(page.locator("#now")).toHaveText("On Air Press Play to listen.");
+          |                                      ^
+      781 | });
+      782 |
+      783 | test("a play() that never settles (home-screen app, hidden): no notice, no hubs, Reconnecting, and only a moving position gives playing", async ({ page }) => {
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:780:38
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-Stop-duri-c75a9-a-second-press-adds-nothing/error-context.md
+
+  6 failed
+    e2e/smoke.pw.mjs:195:1 › renders the label, tape log, coming up, just aired and zone line before Play 
+    e2e/smoke.pw.mjs:445:1 › Stop silences the audio, stops the hubs and shows the stopped line ────
+    e2e/smoke.pw.mjs:504:1 › Stop during a retry delay: no further /live.m3u8 request after a further 40 s of mocked time 
+    e2e/smoke.pw.mjs:518:1 › Stop during a probe: its answer never restarts the audio ──────────────
+    e2e/smoke.pw.mjs:666:1 › a pause from the phone is a Stop, and it stays stopped ────────────────
+    e2e/smoke.pw.mjs:759:1 › Stop during Play's question stays stopped, and a second press adds nothing 
+  85 passed (3.9m)
+  ✓  91 e2e/smoke.pw.mjs:1429:1 › the date keeps its right padding, which the pen's overhang needs (190ms)
+
+  91 passed (3.4m)

@@ -1,0 +1,86 @@
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+ ❯ test/media.test.ts (0 test)
+ ❯ test/notes.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/media.test.ts [ test/media.test.ts ]
+Error: Cannot find module '../public/assets/media.js' imported from /Users/shawn/projects/llama/.claude/worktrees/player/antenna/test/media.test.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/player/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/notes.test.ts [ test/notes.test.ts ]
+Error: Cannot find module '../public/assets/notes.js' imported from /Users/shawn/projects/llama/.claude/worktrees/player/antenna/test/notes.test.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/player/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  no tests
+   Start at  02:48:40
+   Duration  516ms (worker 100%)
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  02:48:41
+   Duration  527ms (transform 58%, worker 20%, import 15%, tests 7%)
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+
+ Test Files  24 passed (24)
+      Tests  458 passed (458)
+   Start at  02:48:44
+   Duration  1.82s (transform 48%, tests 33%, import 12%, worker 7%)
+
+    Isolate  24 workers spawned · ~434ms startup each (spawn + environment, per file)
+             at least ~723ms faster with isolate: false — reuses workers across files instead of one per file
+
+
+> typecheck
+> tsc --noEmit
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  02:51:26
+   Duration  483ms (transform 58%, worker 19%, import 13%, tests 9%)
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+
+ Test Files  24 passed (24)
+      Tests  460 passed (460)
+   Start at  02:51:27
+   Duration  1.77s (transform 47%, tests 34%, import 12%, worker 7%)
+
+    Isolate  24 workers spawned · ~423ms startup each (spawn + environment, per file)
+             at least ~706ms faster with isolate: false — reuses workers across files instead of one per file
+
+
+> typecheck
+> tsc --noEmit
+

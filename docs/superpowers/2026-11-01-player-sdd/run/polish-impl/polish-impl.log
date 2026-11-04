@@ -1,0 +1,303 @@
+
+> pages
+> node scripts/build-pages.mjs
+
+wrote src/pages.ts
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+
+ Test Files  26 passed (26)
+      Tests  519 passed (519)
+   Start at  20:36:01
+   Duration  2.84s (transform 45%, tests 33%, import 12%, worker 10%)
+
+  Transform  transforming modules took 2.49s · 45% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+
+> smoke
+> playwright test
+
+
+Running 67 tests using 1 worker
+
+  ✓   1 e2e/smoke.pw.mjs:70:3 › show page air times › are written in the listener's zone, naming the end's day when it differs (247ms)
+  ✓   2 e2e/smoke.pw.mjs:79:3 › show page air times › say so when the show has none (163ms)
+  ✓   3 e2e/smoke.pw.mjs:85:3 › show page air times › say so when the notes can't be read (146ms)
+  ✓   4 e2e/smoke.pw.mjs:90:3 › show page air times › say so on a bad time, and the hostile slug fetches its own notes as text (161ms)
+  ✓   5 e2e/smoke.pw.mjs:98:1 › the page loads, shows the header line and every asset request succeeds (676ms)
+  ✓   6 e2e/smoke.pw.mjs:119:1 › the footer's archive.org link opens in a new tab so the music keeps playing (176ms)
+  ✓   7 e2e/smoke.pw.mjs:126:1 › an engine that throws on longGeneric still renders the page and Play still turns the hubs (2.5s)
+  ✓   8 e2e/smoke.pw.mjs:142:1 › the page's elements are all there for the behaviour to bind to (201ms)
+  ✓   9 e2e/smoke.pw.mjs:151:1 › the hubs spin only under .turning, and never with reduced motion (205ms)
+  ✓  10 e2e/smoke.pw.mjs:161:1 › the fixture stream really plays, and setLive changes what /live.m3u8 answers (3.1s)
+  ✓  11 e2e/smoke.pw.mjs:195:1 › renders the label, tape log, coming up, just aired and zone line before Play (217ms)
+  ✓  12 e2e/smoke.pw.mjs:216:1 › every ticket link is /show/<encoded slug>.html, even when the fixture's page field is hostile (200ms)
+  ✓  13 e2e/smoke.pw.mjs:228:1 › the hostile fixture through the label, log and tickets: its markup appears as literal text and adds no element (221ms)
+  ✓  14 e2e/smoke.pw.mjs:250:1 › with an empty timeline, the schedule note is shown and the page does not throw (219ms)
+  ✓  15 e2e/smoke.pw.mjs:268:1 › no request leaves the local host (680ms)
+  ✓  16 e2e/smoke.pw.mjs:275:1 › stopped and hidden (document.hidden forced): no timeline.json fetch over 10 mocked minutes (3.3s)
+  ✓  17 e2e/smoke.pw.mjs:283:1 › visible: one fetch on load, the next only once 3 minutes have passed (1.1s)
+  ✓  18 e2e/smoke.pw.mjs:294:1 › a failed fetch waits out the same 3 minutes (1.1s)
+  ✓  19 e2e/smoke.pw.mjs:307:1 › ON THE AIR is hidden in the offair state only (170ms)
+  ✓  20 e2e/smoke.pw.mjs:324:1 › ticketLinks: a plain click opens in-page, a modified click is left to the browser (268ms)
+  ✓  21 e2e/smoke.pw.mjs:341:1 › Show all reveals the rest of coming up (224ms)
+  ✓  22 e2e/smoke.pw.mjs:411:1 › a lasting render error leaves the loop's player tick running (4.6s)
+  ✓  23 e2e/smoke.pw.mjs:420:1 › a lasting render error does not block Play (2.3s)
+  ✓  24 e2e/smoke.pw.mjs:427:1 › Play gives audio (currentTime advances) and #hubs gets turning (2.3s)
+  ✓  25 e2e/smoke.pw.mjs:436:1 › Now playing follows the playback position, not the wall clock (3.3s)
+  ✓  26 e2e/smoke.pw.mjs:445:1 › Stop silences the audio, stops the hubs and shows the stopped line (4.8s)
+  ✓  27 e2e/smoke.pw.mjs:459:1 › a stall, then recovery to playing with no key pressed (1.1m)
+  ✓  28 e2e/smoke.pw.mjs:471:1 › navigator.mediaSession.metadata.title is the song (4.9s)
+  ✓  29 e2e/smoke.pw.mjs:491:1 › /live.m3u8 answering 404 shows "Reconnecting…", then a switch to 403 reaches the off-air notice (2.6s)
+  ✓  30 e2e/smoke.pw.mjs:504:1 › Stop during a retry delay: no further /live.m3u8 request after a further 40 s of mocked time (937ms)
+  ✓  31 e2e/smoke.pw.mjs:518:1 › Stop during a probe: its answer never restarts the audio (1.2s)
+  ✓  32 e2e/smoke.pw.mjs:539:1 › /live.m3u8 unreachable during a stall: probes only, the src is untouched, then reachable gives a restart within one probe interval (12.8s)
+  ✓  33 e2e/smoke.pw.mjs:576:1 › the stream reachable again, one probe failing does not end recovery: the next probe's answer restarts at once (2.3s)
+  ✓  34 e2e/smoke.pw.mjs:607:1 › a 10-minute silence shows "Lost the stream." and Try again (20.2s)
+  ✓  35 e2e/smoke.pw.mjs:630:1 › over 10 mocked minutes of 404: at most 60 /live.m3u8 requests and at most 4 /timeline.json requests (20.4s)
+  ✓  36 e2e/smoke.pw.mjs:643:1 › Media Session: play, pause and stop only; play after a hidden Stop fetches the timeline, the force alone does not (534ms)
+  ✓  37 e2e/smoke.pw.mjs:666:1 › a pause from the phone is a Stop, and it stays stopped (4.8s)
+  ✓  38 e2e/smoke.pw.mjs:678:1 › a playlist that ends goes straight to the off-air notice (271ms)
+  ✓  39 e2e/smoke.pw.mjs:689:1 › a refused play() shows the notice; any other rejection is left to the stall path (601ms)
+  ✓  40 e2e/smoke.pw.mjs:704:1 › Play during a dropout, key or Media Session: a probe goes out, the src is untouched and the audio carries on (2.6s)
+  ✓  41 e2e/smoke.pw.mjs:729:1 › Play during a stall, once /live.m3u8 answers: rejoins at once, not at the next probe (1.1s)
+  ✓  42 e2e/smoke.pw.mjs:745:1 › Play with an off-air answer still rejoins, and the hubs stop until the position advances (2.4s)
+  ✓  43 e2e/smoke.pw.mjs:759:1 › Stop during Play's question stays stopped, and a second press adds nothing (3.3s)
+  ✓  44 e2e/smoke.pw.mjs:783:1 › a play() that never settles (home-screen app, hidden): no notice, no hubs, Reconnecting, and only a moving position gives playing (6.4s)
+  ✓  45 e2e/smoke.pw.mjs:818:3 › the on-air notes link › carries the on-air show, stays while stopped, and is left alone between changes (2.7s)
+  ✓  46 e2e/smoke.pw.mjs:834:3 › the on-air notes link › its link is built from the encoded slug (197ms)
+  ✓  47 e2e/smoke.pw.mjs:842:3 › the on-air notes link › a click opens the panel on that show and the audio keeps advancing (2.7s)
+  ✓  48 e2e/smoke.pw.mjs:861:3 › the on-air notes link › a modified click is left to the browser (437ms)
+  ✓  49 e2e/smoke.pw.mjs:870:3 › the on-air notes link › is hidden with nothing on air (204ms)
+  ✓  50 e2e/smoke.pw.mjs:879:3 › the on-air notes link › is hidden off the air, and back when the state clears (215ms)
+  ✓  51 e2e/smoke.pw.mjs:889:3 › the on-air notes link › follows when the on-air show changes (210ms)
+  ✓  52 e2e/smoke.pw.mjs:899:1 › at 320 px with a very long band name, main and panel do not scroll sideways (299ms)
+  ✓  53 e2e/smoke.pw.mjs:942:3 › notes panel › a tap on a ticket opens the panel, leaves the URL unchanged, and adds no navigation (267ms)
+  ✓  54 e2e/smoke.pw.mjs:957:3 › notes panel › shows a loading state at once, before the notes arrive (287ms)
+  ✓  55 e2e/smoke.pw.mjs:971:3 › notes panel › the ready notes: ticket, setlist, liner notes, air times, lineage, disclaimer, archive and share (519ms)
+  ✓  56 e2e/smoke.pw.mjs:1007:3 › notes panel › a share that can't reach the clipboard prints the link instead (570ms)
+  ✓  57 e2e/smoke.pw.mjs:1017:3 › notes panel › sets are labelled only with more than one group, and a null set prints nothing (324ms)
+  ✓  58 e2e/smoke.pw.mjs:1032:3 › notes panel › the back action closes the panel; the close control closes it; a second back leaves nothing stale (1.6s)
+  ✓  59 e2e/smoke.pw.mjs:1060:3 › notes panel › Escape closes, a second close while one is pending is ignored, and focus goes in and back (1.1s)
+  ✓  60 e2e/smoke.pw.mjs:1082:3 › notes panel › a reload with the panel open does not reopen it, and the stale entry stays on the player (323ms)
+  ✓  61 e2e/smoke.pw.mjs:1095:3 › notes panel › two fast taps show only the second show's notes (405ms)
+  ✓  62 e2e/smoke.pw.mjs:1114:3 › notes panel › notes arriving after the close leave the closed panel alone (639ms)
+  ✓  63 e2e/smoke.pw.mjs:1131:5 › notes panel › notes without sections show "Open the show page" with target=_blank (270ms)
+  ✓  64 e2e/smoke.pw.mjs:1131:5 › notes panel › notes that fail to load show "Open the show page" with target=_blank (245ms)
+  ✓  65 e2e/smoke.pw.mjs:1141:3 › notes panel › a ticket on empty sections reads "No notes yet." (329ms)
+  ✓  66 e2e/smoke.pw.mjs:1154:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes (313ms)
+  ✓  67 e2e/smoke.pw.mjs:1161:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (405ms)
+
+  67 passed (3.4m)
+== M1-square (predict: all 10 shape tests)
+  10 failed
+at 1200 px with a long name, the cassette holds its shape and its label stays inside 
+at 1200 px with a name past two lines, the cassette holds its shape and its label stays inside 
+at 1200 px with a normal name, the cassette holds its shape and its label stays inside 
+at 320 px with a long name, the cassette holds its shape and its label stays inside 
+at 320 px with a name past two lines, the cassette holds its shape and its label stays inside 
+at 320 px with a normal name, the cassette holds its shape and its label stays inside 
+at 320 px with a very long band name, main and panel do not scroll sideways 
+at 390 px with a long name, the cassette holds its shape and its label stays inside 
+at 390 px with a name past two lines, the cassette holds its shape and its label stays inside 
+at 390 px with a normal name, the cassette holds its shape and its label stays inside 
+== M2-noclamp (predict: 3 past-two-lines)
+  3 failed
+  7 passed (5.6s)
+at 1200 px with a name past two lines, the cassette holds its shape and its label stays inside 
+at 320 px with a name past two lines, the cassette holds its shape and its label stays inside 
+at 390 px with a name past two lines, the cassette holds its shape and its label stays inside 
+1
+== M3-wrap (predict: 9 + the 320 test? only those with long venue: 9)
+  3 passed (6.7s)
+  6 failed
+at 1200 px with a long name, the cassette holds its shape and its label stays inside 
+at 1200 px with a name past two lines, the cassette holds its shape and its label stays inside 
+at 320 px with a long name, the cassette holds its shape and its label stays inside 
+at 320 px with a name past two lines, the cassette holds its shape and its label stays inside 
+at 390 px with a long name, the cassette holds its shape and its label stays inside 
+at 390 px with a name past two lines, the cassette holds its shape and its label stays inside 
+== M4-selector (predict: a click opens the panel)
+  1 failed
+  6 passed (12.4s)
+the on-air notes link › a click opens the panel on that show and the audio keeps advancing 
+== M5-nohide (predict: hidden off the air only)
+  3 passed (1.3m)
+  4 failed
+the on-air notes link › a click opens the panel on that show and the audio keeps advancing 
+the on-air notes link › a modified click is left to the browser ──────
+the on-air notes link › carries the on-air show, stays while stopped, and is left alone between changes 
+the on-air notes link › is hidden off the air, and back when the state clears 
+== M6-everytick (predict: left alone between changes)
+  1 failed
+  6 passed (8.5s)
+the on-air notes link › carries the on-air show, stays while stopped, and is left alone between changes 
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+
+ Test Files  26 passed (26)
+      Tests  519 passed (519)
+   Start at  20:42:57
+   Duration  2.51s (transform 49%, tests 31%, import 12%, worker 9%)
+
+  Transform  transforming modules took 2.47s · 49% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+
+> smoke
+> playwright test
+
+
+Running 76 tests using 1 worker
+
+  ✓   1 e2e/smoke.pw.mjs:70:3 › show page air times › are written in the listener's zone, naming the end's day when it differs (246ms)
+  ✓   2 e2e/smoke.pw.mjs:79:3 › show page air times › say so when the show has none (144ms)
+  ✓   3 e2e/smoke.pw.mjs:85:3 › show page air times › say so when the notes can't be read (152ms)
+  ✓   4 e2e/smoke.pw.mjs:90:3 › show page air times › say so on a bad time, and the hostile slug fetches its own notes as text (153ms)
+  ✓   5 e2e/smoke.pw.mjs:98:1 › the page loads, shows the header line and every asset request succeeds (692ms)
+  ✓   6 e2e/smoke.pw.mjs:119:1 › the footer's archive.org link opens in a new tab so the music keeps playing (181ms)
+  ✓   7 e2e/smoke.pw.mjs:126:1 › an engine that throws on longGeneric still renders the page and Play still turns the hubs (2.5s)
+  ✓   8 e2e/smoke.pw.mjs:142:1 › the page's elements are all there for the behaviour to bind to (215ms)
+  ✓   9 e2e/smoke.pw.mjs:151:1 › the hubs spin only under .turning, and never with reduced motion (222ms)
+  ✓  10 e2e/smoke.pw.mjs:161:1 › the fixture stream really plays, and setLive changes what /live.m3u8 answers (3.0s)
+  ✓  11 e2e/smoke.pw.mjs:195:1 › renders the label, tape log, coming up, just aired and zone line before Play (200ms)
+  ✓  12 e2e/smoke.pw.mjs:216:1 › every ticket link is /show/<encoded slug>.html, even when the fixture's page field is hostile (185ms)
+  ✓  13 e2e/smoke.pw.mjs:228:1 › the hostile fixture through the label, log and tickets: its markup appears as literal text and adds no element (224ms)
+  ✓  14 e2e/smoke.pw.mjs:250:1 › with an empty timeline, the schedule note is shown and the page does not throw (199ms)
+  ✓  15 e2e/smoke.pw.mjs:268:1 › no request leaves the local host (680ms)
+  ✓  16 e2e/smoke.pw.mjs:275:1 › stopped and hidden (document.hidden forced): no timeline.json fetch over 10 mocked minutes (3.4s)
+  ✓  17 e2e/smoke.pw.mjs:283:1 › visible: one fetch on load, the next only once 3 minutes have passed (1.1s)
+  ✓  18 e2e/smoke.pw.mjs:294:1 › a failed fetch waits out the same 3 minutes (1.0s)
+  ✓  19 e2e/smoke.pw.mjs:307:1 › ON THE AIR is hidden in the offair state only (177ms)
+  ✓  20 e2e/smoke.pw.mjs:324:1 › ticketLinks: a plain click opens in-page, a modified click is left to the browser (285ms)
+  ✓  21 e2e/smoke.pw.mjs:341:1 › Show all reveals the rest of coming up (216ms)
+  ✓  22 e2e/smoke.pw.mjs:411:1 › a lasting render error leaves the loop's player tick running (4.6s)
+  ✓  23 e2e/smoke.pw.mjs:420:1 › a lasting render error does not block Play (2.3s)
+  ✓  24 e2e/smoke.pw.mjs:427:1 › Play gives audio (currentTime advances) and #hubs gets turning (2.3s)
+  ✓  25 e2e/smoke.pw.mjs:436:1 › Now playing follows the playback position, not the wall clock (3.3s)
+  ✓  26 e2e/smoke.pw.mjs:445:1 › Stop silences the audio, stops the hubs and shows the stopped line (4.8s)
+  ✓  27 e2e/smoke.pw.mjs:459:1 › a stall, then recovery to playing with no key pressed (1.1m)
+  ✓  28 e2e/smoke.pw.mjs:471:1 › navigator.mediaSession.metadata.title is the song (4.9s)
+  ✓  29 e2e/smoke.pw.mjs:491:1 › /live.m3u8 answering 404 shows "Reconnecting…", then a switch to 403 reaches the off-air notice (2.7s)
+  ✓  30 e2e/smoke.pw.mjs:504:1 › Stop during a retry delay: no further /live.m3u8 request after a further 40 s of mocked time (942ms)
+  ✓  31 e2e/smoke.pw.mjs:518:1 › Stop during a probe: its answer never restarts the audio (1.2s)
+  ✓  32 e2e/smoke.pw.mjs:539:1 › /live.m3u8 unreachable during a stall: probes only, the src is untouched, then reachable gives a restart within one probe interval (12.9s)
+  ✓  33 e2e/smoke.pw.mjs:576:1 › the stream reachable again, one probe failing does not end recovery: the next probe's answer restarts at once (2.4s)
+  ✓  34 e2e/smoke.pw.mjs:607:1 › a 10-minute silence shows "Lost the stream." and Try again (20.4s)
+  ✓  35 e2e/smoke.pw.mjs:630:1 › over 10 mocked minutes of 404: at most 60 /live.m3u8 requests and at most 4 /timeline.json requests (20.5s)
+  ✓  36 e2e/smoke.pw.mjs:643:1 › Media Session: play, pause and stop only; play after a hidden Stop fetches the timeline, the force alone does not (516ms)
+  ✓  37 e2e/smoke.pw.mjs:666:1 › a pause from the phone is a Stop, and it stays stopped (4.8s)
+  ✓  38 e2e/smoke.pw.mjs:678:1 › a playlist that ends goes straight to the off-air notice (268ms)
+  ✓  39 e2e/smoke.pw.mjs:689:1 › a refused play() shows the notice; any other rejection is left to the stall path (532ms)
+  ✓  40 e2e/smoke.pw.mjs:704:1 › Play during a dropout, key or Media Session: a probe goes out, the src is untouched and the audio carries on (2.6s)
+  ✓  41 e2e/smoke.pw.mjs:729:1 › Play during a stall, once /live.m3u8 answers: rejoins at once, not at the next probe (1.0s)
+  ✓  42 e2e/smoke.pw.mjs:745:1 › Play with an off-air answer still rejoins, and the hubs stop until the position advances (2.4s)
+  ✓  43 e2e/smoke.pw.mjs:759:1 › Stop during Play's question stays stopped, and a second press adds nothing (3.3s)
+  ✓  44 e2e/smoke.pw.mjs:783:1 › a play() that never settles (home-screen app, hidden): no notice, no hubs, Reconnecting, and only a moving position gives playing (6.5s)
+  ✓  45 e2e/smoke.pw.mjs:818:3 › the on-air notes link › carries the on-air show, stays while stopped, and is left alone between changes (2.7s)
+  ✓  46 e2e/smoke.pw.mjs:834:3 › the on-air notes link › its link is built from the encoded slug (181ms)
+  ✓  47 e2e/smoke.pw.mjs:842:3 › the on-air notes link › a click opens the panel on that show and the audio keeps advancing (2.7s)
+  ✓  48 e2e/smoke.pw.mjs:861:3 › the on-air notes link › a modified click is left to the browser (429ms)
+  ✓  49 e2e/smoke.pw.mjs:870:3 › the on-air notes link › is hidden with nothing on air (175ms)
+  ✓  50 e2e/smoke.pw.mjs:879:3 › the on-air notes link › is hidden off the air, and back when the state clears (183ms)
+  ✓  51 e2e/smoke.pw.mjs:889:3 › the on-air notes link › follows when the on-air show changes (176ms)
+  ✓  52 e2e/smoke.pw.mjs:928:5 › at 320 px with a normal name, the cassette holds its shape and its label stays inside (177ms)
+  ✓  53 e2e/smoke.pw.mjs:928:5 › at 320 px with a long name, the cassette holds its shape and its label stays inside (177ms)
+  ✓  54 e2e/smoke.pw.mjs:928:5 › at 320 px with a name past two lines, the cassette holds its shape and its label stays inside (172ms)
+  ✓  55 e2e/smoke.pw.mjs:928:5 › at 390 px with a normal name, the cassette holds its shape and its label stays inside (189ms)
+  ✓  56 e2e/smoke.pw.mjs:928:5 › at 390 px with a long name, the cassette holds its shape and its label stays inside (186ms)
+  ✓  57 e2e/smoke.pw.mjs:928:5 › at 390 px with a name past two lines, the cassette holds its shape and its label stays inside (172ms)
+  ✓  58 e2e/smoke.pw.mjs:928:5 › at 1200 px with a normal name, the cassette holds its shape and its label stays inside (193ms)
+  ✓  59 e2e/smoke.pw.mjs:928:5 › at 1200 px with a long name, the cassette holds its shape and its label stays inside (163ms)
+  ✓  60 e2e/smoke.pw.mjs:928:5 › at 1200 px with a name past two lines, the cassette holds its shape and its label stays inside (181ms)
+  ✓  61 e2e/smoke.pw.mjs:942:1 › at 320 px with a very long band name, main and panel do not scroll sideways (281ms)
+  ✓  62 e2e/smoke.pw.mjs:986:3 › notes panel › a tap on a ticket opens the panel, leaves the URL unchanged, and adds no navigation (301ms)
+  ✓  63 e2e/smoke.pw.mjs:1001:3 › notes panel › shows a loading state at once, before the notes arrive (254ms)
+  ✓  64 e2e/smoke.pw.mjs:1015:3 › notes panel › the ready notes: ticket, setlist, liner notes, air times, lineage, disclaimer, archive and share (530ms)
+  ✓  65 e2e/smoke.pw.mjs:1051:3 › notes panel › a share that can't reach the clipboard prints the link instead (536ms)
+  ✓  66 e2e/smoke.pw.mjs:1061:3 › notes panel › sets are labelled only with more than one group, and a null set prints nothing (317ms)
+  ✓  67 e2e/smoke.pw.mjs:1076:3 › notes panel › the back action closes the panel; the close control closes it; a second back leaves nothing stale (1.6s)
+  ✓  68 e2e/smoke.pw.mjs:1104:3 › notes panel › Escape closes, a second close while one is pending is ignored, and focus goes in and back (1.1s)
+  ✓  69 e2e/smoke.pw.mjs:1126:3 › notes panel › a reload with the panel open does not reopen it, and the stale entry stays on the player (271ms)
+  ✓  70 e2e/smoke.pw.mjs:1139:3 › notes panel › two fast taps show only the second show's notes (399ms)
+  ✓  71 e2e/smoke.pw.mjs:1158:3 › notes panel › notes arriving after the close leave the closed panel alone (621ms)
+  ✓  72 e2e/smoke.pw.mjs:1175:5 › notes panel › notes without sections show "Open the show page" with target=_blank (261ms)
+  ✓  73 e2e/smoke.pw.mjs:1175:5 › notes panel › notes that fail to load show "Open the show page" with target=_blank (240ms)
+  ✓  74 e2e/smoke.pw.mjs:1185:3 › notes panel › a ticket on empty sections reads "No notes yet." (323ms)
+  ✓  75 e2e/smoke.pw.mjs:1198:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes (263ms)
+  ✓  76 e2e/smoke.pw.mjs:1205:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (373ms)
+
+  76 passed (3.4m)

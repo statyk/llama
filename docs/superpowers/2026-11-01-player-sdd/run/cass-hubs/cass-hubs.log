@@ -1,0 +1,88 @@
+progress: writing layout
+normal 320 {"shell":288,"hubY":0.472,"hubGap":0.423,"winW":0.58,"winH":0.271,"winTop":0.337,"winBot":0.607,"paperTop":0.069,"paperBot":0.787,"hubsCentre":0.5,"artistBot":0.32,"h2Top":0.645,"h2Bot":0.762,"fsLn":9.216,"fsA":21.888,"fsW":14.976,"aOver":0,"wOver":0,"dateW":60.656,"scrollW":320}
+normal 390 {"shell":358,"hubY":0.472,"hubGap":0.423,"winW":0.58,"winH":0.271,"winTop":0.337,"winBot":0.607,"paperTop":0.069,"paperBot":0.787,"hubsCentre":0.5,"artistBot":0.32,"h2Top":0.645,"h2Bot":0.762,"fsLn":11.456,"fsA":27.208,"fsW":18.616,"aOver":0,"wOver":0,"dateW":75.391,"scrollW":390}
+normal 1200 {"shell":340,"hubY":0.472,"hubGap":0.423,"winW":0.58,"winH":0.271,"winTop":0.337,"winBot":0.607,"paperTop":0.069,"paperBot":0.787,"hubsCentre":0.5,"artistBot":0.32,"h2Top":0.645,"h2Bot":0.762,"fsLn":10.88,"fsA":25.84,"fsW":17.68,"aOver":0,"wOver":0,"dateW":71.625,"scrollW":1200}
+long 320 {"shell":288,"hubY":0.472,"hubGap":0.423,"winW":0.58,"winH":0.271,"winTop":0.337,"winBot":0.607,"paperTop":0.069,"paperBot":0.787,"hubsCentre":0.5,"artistBot":0.32,"h2Top":0.645,"h2Bot":0.762,"fsLn":9.216,"fsA":14.4,"fsW":14.976,"aOver":0,"wOver":285,"dateW":60.656,"scrollW":320}
+long 390 {"shell":358,"hubY":0.472,"hubGap":0.423,"winW":0.58,"winH":0.271,"winTop":0.337,"winBot":0.607,"paperTop":0.069,"paperBot":0.787,"hubsCentre":0.5,"artistBot":0.32,"h2Top":0.645,"h2Bot":0.762,"fsLn":11.456,"fsA":17.9,"fsW":18.616,"aOver":0,"wOver":353,"dateW":75.391,"scrollW":390}
+long 1200 {"shell":340,"hubY":0.472,"hubGap":0.423,"winW":0.58,"winH":0.271,"winTop":0.337,"winBot":0.607,"paperTop":0.069,"paperBot":0.787,"hubsCentre":0.5,"artistBot":0.32,"h2Top":0.645,"h2Bot":0.762,"fsLn":10.88,"fsA":17,"fsW":17.68,"aOver":0,"wOver":336,"dateW":71.625,"scrollW":1200}
+descender 320 {"shell":288,"hubY":0.472,"hubGap":0.423,"winW":0.58,"winH":0.271,"winTop":0.337,"winBot":0.607,"paperTop":0.069,"paperBot":0.787,"hubsCentre":0.5,"artistBot":0.32,"h2Top":0.645,"h2Bot":0.762,"fsLn":9.216,"fsA":21.888,"fsW":14.976,"aOver":0,"wOver":15,"dateW":60.656,"scrollW":320}
+descender 390 {"shell":358,"hubY":0.472,"hubGap":0.423,"winW":0.58,"winH":0.271,"winTop":0.337,"winBot":0.607,"paperTop":0.069,"paperBot":0.787,"hubsCentre":0.5,"artistBot":0.32,"h2Top":0.645,"h2Bot":0.762,"fsLn":11.456,"fsA":27.208,"fsW":18.616,"aOver":0,"wOver":18,"dateW":75.391,"scrollW":390}
+descender 1200 {"shell":340,"hubY":0.472,"hubGap":0.423,"winW":0.58,"winH":0.271,"winTop":0.337,"winBot":0.607,"paperTop":0.069,"paperBot":0.787,"hubsCentre":0.5,"artistBot":0.32,"h2Top":0.645,"h2Bot":0.762,"fsLn":10.88,"fsA":25.84,"fsW":17.68,"aOver":0,"wOver":17,"dateW":71.625,"scrollW":1200}
+longest 320 {"shell":288,"hubY":0.472,"hubGap":0.423,"winW":0.58,"winH":0.271,"winTop":0.337,"winBot":0.607,"paperTop":0.069,"paperBot":0.787,"hubsCentre":0.5,"artistBot":0.32,"h2Top":0.645,"h2Bot":0.762,"fsLn":9.216,"fsA":14.4,"fsW":14.976,"aOver":357,"wOver":0,"dateW":60.656,"scrollW":320}
+longest 390 {"shell":358,"hubY":0.472,"hubGap":0.423,"winW":0.58,"winH":0.271,"winTop":0.337,"winBot":0.607,"paperTop":0.069,"paperBot":0.787,"hubsCentre":0.5,"artistBot":0.32,"h2Top":0.645,"h2Bot":0.762,"fsLn":11.456,"fsA":17.9,"fsW":18.616,"aOver":444,"wOver":0,"dateW":75.391,"scrollW":390}
+longest 1200 {"shell":340,"hubY":0.472,"hubGap":0.423,"winW":0.58,"winH":0.271,"winTop":0.337,"winBot":0.607,"paperTop":0.069,"paperBot":0.787,"hubsCentre":0.5,"artistBot":0.32,"h2Top":0.645,"h2Bot":0.762,"fsLn":10.88,"fsA":17,"fsW":17.68,"aOver":421,"wOver":0,"dateW":71.625,"scrollW":1200}
+
+    Expected: 1
+    Received: 2
+
+      968 |   expect(m.windowCentred).toBeLessThan(1);
+      969 |   expect(m.lineSize).toBeGreaterThanOrEqual(11);
+    > 970 |   expect(m.artistLines).toBe(1);
+          |                         ^
+      971 |   expect(m.clipped).toEqual([]);
+      972 |   for (const check of ["hubsInWindow", "windowInLabel", "labelInShell", "lnAboveArtist", "artistAboveWindow", "lineBelowWindow",
+      973 |     "lineInLabel", "artistInLabel", "whereBeforeDate", "dateInLine", "dateUncut"]) {
+        at expectCassetteShape (/Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:970:25)
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:1002:7
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-at-390-px-39d1e-s-layout-and-the-date-shows/error-context.md
+
+  3) e2e/smoke.pw.mjs:1000:5 › at 1200 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 2
+
+      968 |   expect(m.windowCentred).toBeLessThan(1);
+      969 |   expect(m.lineSize).toBeGreaterThanOrEqual(11);
+    > 970 |   expect(m.artistLines).toBe(1);
+          |                         ^
+      971 |   expect(m.clipped).toEqual([]);
+      972 |   for (const check of ["hubsInWindow", "windowInLabel", "labelInShell", "lnAboveArtist", "artistAboveWindow", "lineBelowWindow",
+      973 |     "lineInLabel", "artistInLabel", "whereBeforeDate", "dateInLine", "dateUncut"]) {
+        at expectCassetteShape (/Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:970:25)
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:1002:7
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-at-1200-p-b56dd-s-layout-and-the-date-shows/error-context.md
+
+  3 failed
+    e2e/smoke.pw.mjs:1000:5 › at 320 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows 
+    e2e/smoke.pw.mjs:1000:5 › at 390 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows 
+    e2e/smoke.pw.mjs:1000:5 › at 1200 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows 
+  21 passed (8.6s)
+   Duration  2.53s (transform 50%, tests 29%, import 13%, worker 8%)
+
+  Transform  transforming modules took 2.88s · 50% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+> typecheck
+> tsc --noEmit
+
+  ✓  81 e2e/smoke.pw.mjs:1200:3 › notes panel › the back action closes the panel; the close control closes it; a second back leaves nothing stale (1.6s)
+  ✓  82 e2e/smoke.pw.mjs:1228:3 › notes panel › Escape closes, a second close while one is pending is ignored, and focus goes in and back (1.6s)
+  ✓  83 e2e/smoke.pw.mjs:1250:3 › notes panel › a reload with the panel open does not reopen it, and the stale entry stays on the player (269ms)
+  ✓  84 e2e/smoke.pw.mjs:1263:3 › notes panel › two fast taps show only the second show's notes (409ms)
+  ✓  85 e2e/smoke.pw.mjs:1282:3 › notes panel › notes arriving after the close leave the closed panel alone (658ms)
+  ✓  86 e2e/smoke.pw.mjs:1299:5 › notes panel › notes without sections show "Open the show page" with target=_blank (258ms)
+  ✓  87 e2e/smoke.pw.mjs:1299:5 › notes panel › notes that fail to load show "Open the show page" with target=_blank (242ms)
+  ✓  88 e2e/smoke.pw.mjs:1309:3 › notes panel › a ticket on empty sections reads "No notes yet." (267ms)
+  ✓  89 e2e/smoke.pw.mjs:1322:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes (248ms)
+  ✓  90 e2e/smoke.pw.mjs:1329:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (407ms)
+
+  90 passed (3.5m)
+wrote public/assets/cassette-512.png
+wrote public/assets/cassette-og.png
+wrote public/assets/icon-180.png
+wrote public/assets/icon-192.png
+ M public/assets/cassette-512.png
+ M public/assets/cassette-og.png
+ M public/assets/icon-180.png
+ M public/assets/icon-192.png
+ M public/assets/page.js
+ M public/assets/radio.css
+ Test Files  26 passed (26)
+      Tests  519 passed (519)
+
+  90 passed (3.5m)

@@ -1,0 +1,137 @@
+
+> pages
+> node scripts/build-pages.mjs
+
+wrote src/pages.ts
+
+> smoke
+> playwright test
+
+
+Running 4 tests using 1 worker
+
+  ✓  1 e2e/smoke.pw.mjs:14:1 › the page loads, shows the header line and every asset request succeeds (759ms)
+  ✓  2 e2e/smoke.pw.mjs:35:1 › the page's elements are all there for the behaviour to bind to (145ms)
+  ✓  3 e2e/smoke.pw.mjs:45:1 › the hubs spin only under .turning, and never with reduced motion (132ms)
+  ✓  4 e2e/smoke.pw.mjs:55:1 › the fixture stream really plays, and setLive changes what /live.m3u8 answers (1.1s)
+
+  4 passed (3.2s)
+wrote public/assets/cassette-512.png
+wrote public/assets/cassette-og.png
+wrote public/assets/icon-180.png
+wrote public/assets/icon-192.png
+
+> pages
+> node scripts/build-pages.mjs
+
+wrote src/pages.ts
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+
+ Test Files  24 passed (24)
+      Tests  460 passed (460)
+   Start at  02:59:33
+   Duration  2.09s (transform 49%, tests 32%, import 11%, worker 7%)
+
+  Transform  transforming modules took 2.04s · 49% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+
+> smoke
+> playwright test
+
+
+Running 4 tests using 1 worker
+
+  ✓  1 e2e/smoke.pw.mjs:14:1 › the page loads, shows the header line and every asset request succeeds (720ms)
+  ✓  2 e2e/smoke.pw.mjs:35:1 › the page's elements are all there for the behaviour to bind to (142ms)
+  ✓  3 e2e/smoke.pw.mjs:45:1 › the hubs spin only under .turning, and never with reduced motion (137ms)
+  ✓  4 e2e/smoke.pw.mjs:55:1 › the fixture stream really plays, and setLive changes what /live.m3u8 answers (3.0s)
+
+  4 passed (5.0s)
+
+> pages
+> node scripts/build-pages.mjs
+
+wrote src/pages.ts
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+
+ Test Files  24 passed (24)
+      Tests  460 passed (460)
+   Start at  03:00:11
+   Duration  1.87s (transform 49%, tests 32%, import 11%, worker 8%)
+
+    Isolate  24 workers spawned · ~412ms startup each (spawn + environment, per file)
+             at least ~687ms faster with isolate: false — reuses workers across files instead of one per file
+
+
+> typecheck
+> tsc --noEmit
+
+
+> smoke
+> playwright test
+
+
+Running 4 tests using 1 worker
+
+  ✓  1 e2e/smoke.pw.mjs:14:1 › the page loads, shows the header line and every asset request succeeds (718ms)
+  ✓  2 e2e/smoke.pw.mjs:35:1 › the page's elements are all there for the behaviour to bind to (137ms)
+  ✓  3 e2e/smoke.pw.mjs:45:1 › the hubs spin only under .turning, and never with reduced motion (133ms)
+  ✓  4 e2e/smoke.pw.mjs:55:1 › the fixture stream really plays, and setLive changes what /live.m3u8 answers (3.0s)
+
+  4 passed (5.0s)
+
+> pages
+> node scripts/build-pages.mjs
+
+wrote src/pages.ts
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+
+ Test Files  24 passed (24)
+      Tests  460 passed (460)
+   Start at  03:06:56
+   Duration  2.12s (transform 46%, tests 34%, import 12%, worker 8%)
+
+    Isolate  24 workers spawned · ~520ms startup each (spawn + environment, per file)
+             at least ~866ms faster with isolate: false — reuses workers across files instead of one per file
+
+
+> typecheck
+> tsc --noEmit
+
+
+> smoke
+> playwright test
+
+
+Running 4 tests using 1 worker
+
+  ✓  1 e2e/smoke.pw.mjs:14:1 › the page loads, shows the header line and every asset request succeeds (749ms)
+  ✓  2 e2e/smoke.pw.mjs:35:1 › the page's elements are all there for the behaviour to bind to (163ms)
+  ✓  3 e2e/smoke.pw.mjs:45:1 › the hubs spin only under .turning, and never with reduced motion (157ms)
+  ✓  4 e2e/smoke.pw.mjs:55:1 › the fixture stream really plays, and setLive changes what /live.m3u8 answers (3.0s)
+
+  4 passed (5.1s)

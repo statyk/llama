@@ -1,0 +1,29 @@
+t10-review: reading spec and plan
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+browserType.launch: Executable doesn't exist at /Users/shawn/Library/Caches/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-mac-arm64/chrome-headless-shell
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     npx playwright install                                 ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+    at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/189f1567-d332-428c-81ac-df162d1a7df0/scratchpad/t10/probe.mjs:11:32 {
+  log: [],
+  name: 'Error'
+}
+
+Node.js v26.0.0
+390 {"panelTop":24,"barTop":38,"barBottom":67,"barBg":"rgba(0, 0, 0, 0)","closeTop":38,"closeLeft":313.40625,"closeRight":374,"barLeft":16,"barRight":374,"scrollTop":500}
+390 share {"sw":390,"cw":390,"note":"http://127.0.0.1:62176/show/fixture-next-1.html","nw":216.265625}
+1200 {"panelTop":24,"barTop":40,"barBottom":69,"barBg":"rgba(0, 0, 0, 0)","closeTop":40,"closeLeft":965.40625,"closeRight":1026,"barLeft":174,"barRight":1026,"scrollTop":500}
+1200 share {"sw":900,"cw":900,"note":"http://127.0.0.1:62176/show/fixture-next-1.html","nw":408.4375}
+320 {"panelTop":24,"barTop":38,"barBottom":67,"barBg":"rgba(0, 0, 0, 0)","closeTop":38,"closeLeft":243.40625,"closeRight":304,"barLeft":16,"barRight":304,"scrollTop":500}
+320 share {"sw":320,"cw":320,"note":"http://127.0.0.1:62176/show/fixture-next-1.html","nw":146.53125}
+t10-review: report drafted
+t10-review: report final
+t10-review: done

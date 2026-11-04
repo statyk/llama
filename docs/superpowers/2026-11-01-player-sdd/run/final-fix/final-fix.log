@@ -1,0 +1,13 @@
+
+> pages
+> node scripts/build-pages.mjs
+
+wrote src/pages.ts
+      Tests  519 passed (519)
+   Start at  16:31:54
+   Duration  2.23s (transform 47%, tests 33%, import 10%, worker 9%)
+
+  Transform  transforming modules took 2.00s · 47% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+

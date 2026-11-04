@@ -1,0 +1,22 @@
+reading base code around movedAt
+69:// How long currentTime has stood still while the page wants audio. Survives the
+72:  if (audio.currentTime > movedCt) {
+147:function begin(label) {
+198:let waitLastRestart = null; // "restart 1 form=full", for the RECOVERED line
+207:function waitClearStall() {
+210:  waitLastRestart = null;
+225:function waitRestart() {
+227:  waitLastRestart = `restart ${++waitRestarts} form=${waitForm}`;
+228:  const tag = `wait: ${waitLastRestart} stuck=${stuckSeconds(now)}s`;
+231:  waitRestartAt = now;
+242:function waitFetch(now) {
+245:  const timer = setTimeout(() => controller.abort(), WAIT_FETCH_TIMEOUT_MS);
+260:      if (!waitStalled || audio.currentTime !== waitCt) {
+273:function waitTick() {
+284:    if (waitLastRestart) {
+285:      log(`wait: RECOVERED after ${waitLastRestart} in=${Math.round((now - waitRestartAt) / 1000)}s ${state()}`);
+292:  if ((now - Math.max(movedAt, waitRestartAt)) / 1000 < WAIT_STUCK_S) return;
+297:  if (waitRestarts >= WAIT_MAX_RESTARTS) {
+302:  if (!waitFetching && now - waitFetchAt >= WAIT_FETCH_EVERY_MS) waitFetch(now);
+330:        if (action === "play") restart("media session play");
+344:  begin("Start");

@@ -1,0 +1,37 @@
+/Users/shawn/projects/llama/.claude/worktrees/player/packages/transmitter/src/transmitter/__init__.py
+........................................................................ [ 83%]
+........................................................................ [ 90%]
+........................................................................ [ 98%]
+.......s........                                                         [100%]
+951 passed, 1 skipped in 31.36s
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+
+ Test Files  26 passed (26)
+      Tests  518 passed (518)
+   Start at  16:23:33
+   Duration  2.32s (transform 46%, tests 33%, import 12%, worker 8%)
+
+    Isolate  26 workers spawned · ~531ms startup each (spawn + environment, per file)
+             at least ~1.00s faster with isolate: false — reuses workers across files instead of one per file
+
+  ✓  44 e2e/smoke.pw.mjs:836:3 › notes panel › the ready notes: ticket, setlist, liner notes, air times, lineage, disclaimer, archive and share (475ms)
+  ✓  45 e2e/smoke.pw.mjs:872:3 › notes panel › a share that can't reach the clipboard prints the link instead (581ms)
+  ✓  46 e2e/smoke.pw.mjs:882:3 › notes panel › sets are labelled only with more than one group, and a null set prints nothing (274ms)
+  ✓  47 e2e/smoke.pw.mjs:897:3 › notes panel › the back action closes the panel; the close control closes it; a second back leaves nothing stale (1.6s)
+  ✓  48 e2e/smoke.pw.mjs:925:3 › notes panel › Escape closes, a second close while one is pending is ignored, and focus goes in and back (1.0s)
+  ✓  49 e2e/smoke.pw.mjs:947:3 › notes panel › a reload with the panel open does not reopen it, and the stale entry stays on the player (220ms)
+  ✓  50 e2e/smoke.pw.mjs:960:3 › notes panel › two fast taps show only the second show's notes (338ms)
+  ✓  51 e2e/smoke.pw.mjs:979:3 › notes panel › notes arriving after the close leave the closed panel alone (590ms)
+  ✓  52 e2e/smoke.pw.mjs:996:5 › notes panel › notes without sections show "Open the show page" with target=_blank (241ms)
+  ✓  53 e2e/smoke.pw.mjs:996:5 › notes panel › notes that fail to load show "Open the show page" with target=_blank (227ms)
+  ✓  54 e2e/smoke.pw.mjs:1006:3 › notes panel › a ticket on empty sections reads "No notes yet." (209ms)
+  ✓  55 e2e/smoke.pw.mjs:1019:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes (263ms)
+  ✓  56 e2e/smoke.pw.mjs:1026:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (364ms)
+
+  56 passed (3.2m)
+
+> typecheck
+> tsc --noEmit
+

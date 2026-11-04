@@ -103,3 +103,15 @@ Summarised by the parent from the operator's pasted log (11:06-12:07 EST). Times
 - In the home-screen app, once stopped, lock-screen and car Play reach the page but audio will not load until the app is opened, where it then starts.
 - A second station's home-screen web app fails lock-screen Play after stopping too, which points to iOS. With two such apps installed, tapping the lock-screen player opens the oldest-installed one, whichever is playing (two observations, one phone).
 - Citation: WebKit bug 243258, "Cannot resume MediaSession from PWA after 5sec pause" (https://bugs.webkit.org/show_bug.cgi?id=243258), status NEW; its comment 2 (2023) also reports the widget connecting to the first installed PWA. No manifest `id` is needed: the default derives from `start_url`, and nothing shows iOS uses it for this.
+
+## Road checks after go-live (plan Task 12 Steps 5-6, recorded 2026-11-03)
+- Car (operator, 2026-11-02 to 11-03): daily driving with the live player behaved as expected: lock-screen display, car display, normal playback.
+- Chrome on a computer (operator): fine.
+- All preview rounds were removed at go-live (2026-11-02), which closes the `--remove-preview` item under "Still open".
+- Deferred by the operator as low priority, not run:
+  - A long dropout in the car: Cellular Data off in Control Center (not airplane mode, which usually turns Bluetooth off too) for at least 5 minutes with the phone locked, hands off. Pass: audio comes back on the car speakers within about 20 s of data returning, the car display shows the station again, and a pause the car sends during the gap does not end the session. Note Bluetooth or CarPlay, gap length, time to resume, and what the display showed.
+  - The same in whichever of Safari or the home-screen app was not used in the car.
+  - The off-air notice on an already-playing page and the Wi-Fi blip in Chrome (`docs/playout-setup.md` section 8).
+  - Optional Android checks in Chrome. Android background timers remain unmeasured.
+- Not a test: a Bluetooth disconnect during a rejoin can restart audio within the 10-minute limit (ruling R16). That is accepted behaviour.
+- A backwards playlist step is still unverified.

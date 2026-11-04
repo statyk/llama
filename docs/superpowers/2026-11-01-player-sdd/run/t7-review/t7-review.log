@@ -1,0 +1,22 @@
+t7-review: read inputs, preparing scratch mutants
+predictions: baseline all green; M1 red 'stopped and hidden'; M2 red 'ON THE AIR'; M3 survives (hostile title already ends ' >'); M4 survives; M5 survives; M6 survives
+=== baseline
+  14 passed (10.9s)
+=== M1
+    Error: expect(received).toEqual(expected) // deep equality
+  1 failed
+  1) e2e/smoke.pw.mjs:197:1 › stopped and hidden (document.hidden forced): no timeline.json fetch over 10 mocked minutes 
+  13 passed (11.5s)
+=== M2
+    Error: expect(locator).toBeHidden() failed
+  1 failed
+  1) e2e/smoke.pw.mjs:216:1 › ON THE AIR is hidden in the offair state only ────────────────────────
+  13 passed (16.5s)
+=== M3
+  14 passed (10.7s)
+=== M4
+  14 passed (11.0s)
+=== M5
+  14 passed (10.8s)
+=== M6
+  14 passed (10.8s)

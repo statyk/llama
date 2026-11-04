@@ -1,0 +1,57 @@
+      Tests  523 passed (523)
+   Start at  23:01:07
+   Duration  2.73s (transform 47%, tests 30%, import 12%, worker 11%)
+
+  Transform  transforming modules took 2.69s · 47% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+> typecheck
+> tsc --noEmit
+
+      336 |     await expect(page.locator("#tape-log li").filter({ hasText: "Song" })).toHaveCount(0);
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:333:22
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-tape--bc947-w-s-songs-are-not-on-screen/error-context.md
+
+  2) e2e/smoke.pw.mjs:465:1 › Show all reveals the rest of coming up ───────────────────────────────
+
+    Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Show all' }) resolved to 2 elements:
+        1) <button class="more" type="button" id="tape-log-more" aria-expanded="false">Show all 11 songs</button> aka getByRole('button', { name: 'Show all 11 songs' })
+        2) <button class="more" id="show-all" type="button">Show all</button> aka getByRole('button', { name: 'Show all', exact: true })
+
+    Call log:
+      - waiting for getByRole('button', { name: 'Show all' })
+
+
+      474 |   await page.goto(site.url);
+      475 |   await expect(page.locator("#coming-up .ticket")).toHaveCount(6);
+    > 476 |   await page.getByRole("button", { name: "Show all" }).click();
+          |                                                        ^
+      477 |   await expect(page.locator("#coming-up .ticket")).toHaveCount(8);
+      478 |   await expect(page.getByRole("button", { name: "Show all" })).toBeHidden();
+      479 | });
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:476:56
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-Show-all-reveals-the-rest-of-coming-up/error-context.md
+
+  2 failed
+    e2e/smoke.pw.mjs:330:3 › the tape log › another show's songs are not on screen ─────────────────
+    e2e/smoke.pw.mjs:465:1 › Show all reveals the rest of coming up ────────────────────────────────
+  99 passed (3.5m)
+> node scripts/build-pages.mjs --check && vitest run
+      Tests  523 passed (523)
+> tsc --noEmit
+
+  ✓   98 e2e/smoke.pw.mjs:1510:1 › the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off (311ms)
+  ✓   99 e2e/smoke.pw.mjs:1521:1 › with nothing on air, the venue and date line keeps its height and the window does not move (166ms)
+  ✓  100 e2e/smoke.pw.mjs:1539:1 › a name stepping from long to a short name, or to off air, loses the class (186ms)
+  ✓  101 e2e/smoke.pw.mjs:1556:1 › the date keeps its right padding, which the pen's overhang needs (187ms)
+
+  101 passed (3.6m)
+      Tests  523 passed (523)
+> tsc --noEmit
+
+  ✓   30 e2e/smoke.pw.mjs:455:1 › visible: one fetch on load, the next only once 3 minutes have passed (1.0s)
+  ✓   31 e2e/smoke.pw.mjs:466:1 › a failed fetch waits out the same 3 minutes (1.0s)
+  104 passed (3.5m)

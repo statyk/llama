@@ -1,0 +1,72 @@
+ Test Files  26 passed (26)
+      Tests  515 passed (515)
+   Start at  14:06:06
+   Duration  2.03s (transform 46%, tests 33%, import 13%, worker 8%)
+
+    Isolate  26 workers spawned · ~421ms startup each (spawn + environment, per file)
+             at least ~795ms faster with isolate: false — reuses workers across files instead of one per file
+
+  ✘   6 e2e/smoke.pw.mjs:139:1 › every ticket link is /show/<encoded slug>.html, even when the fixture's page field is hostile (149ms)
+  ✓   7 e2e/smoke.pw.mjs:151:1 › the hostile fixture through the label, log and tickets: its markup appears as literal text and adds no element (245ms)
+  ✓   8 e2e/smoke.pw.mjs:173:1 › with an empty timeline, the schedule note is shown and the page does not throw (175ms)
+  ✓   9 e2e/smoke.pw.mjs:191:1 › no request leaves the local host (641ms)
+  ✓  10 e2e/smoke.pw.mjs:198:1 › stopped and hidden (document.hidden forced): no timeline.json fetch over 10 mocked minutes (3.0s)
+  ✓  11 e2e/smoke.pw.mjs:206:1 › visible: one fetch on load, the next only once 3 minutes have passed (969ms)
+  ✓  12 e2e/smoke.pw.mjs:217:1 › ON THE AIR is hidden in the offair state only (163ms)
+  ✓  13 e2e/smoke.pw.mjs:234:1 › ticketLinks: a plain click opens in-page, a modified click is left to the browser (238ms)
+  ✓  14 e2e/smoke.pw.mjs:251:1 › Show all reveals the rest of coming up (163ms)
+
+
+  1) e2e/smoke.pw.mjs:64:1 › the page's elements are all there for the behaviour to bind to ────────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#label-artist')
+    Expected: "LMA Radio"
+    Received: "On Air Band"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#label-artist') with timeout 5000ms
+      - waiting for locator('#label-artist')
+        14 × locator resolved to <div class="hand h1" id="label-artist">On Air Band</div>
+           - unexpected value "On Air Band"
+
+
+      68 |     await expect(page.locator(`#${id}`)).toHaveCount(1);
+      69 |   }
+    > 70 |   await expect(page.locator("#label-artist")).toHaveText("LMA Radio");
+         |                                               ^
+      71 |   await expect(page.locator("#retry")).toBeHidden();
+      72 | });
+      73 |
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:70:47
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-page--38360-or-the-behaviour-to-bind-to/error-context.md
+
+  2) e2e/smoke.pw.mjs:139:1 › every ticket link is /show/<encoded slug>.html, even when the fixture's page field is hostile 
+
+    Error: expect(received).toContain(expected) // indexOf
+
+    Expected value: "<img src=x onerror=\"window.pwned=1\">&\"'/../slug"
+    Received array: ["fixture-next-1", "fixture-next-2", "fixture-next-3", "fixture-aired-1", "fixture-aired-2"]
+
+      146 |   expect(found.length).toBe(5);
+      147 |   for (const [slug, href] of found) expect(href).toBe(`/show/${encodeURIComponent(slug)}.html`);
+    > 148 |   expect(found.map(([slug]) => slug)).toContain(HOSTILE.slug);
+          |                                       ^
+      149 | });
+      150 |
+      151 | test("the hostile fixture through the label, log and tickets: its markup appears as literal text and adds no element", async ({ page }) => {
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:148:39
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-every-tic-88880-ure-s-page-field-is-hostile/error-context.md
+
+  2 failed
+    e2e/smoke.pw.mjs:64:1 › the page's elements are all there for the behaviour to bind to ─────────
+    e2e/smoke.pw.mjs:139:1 › every ticket link is /show/<encoded slug>.html, even when the fixture's page field is hostile 
+  12 passed (17.6s)
+  ✓  11 e2e/smoke.pw.mjs:205:1 › visible: one fetch on load, the next only once 3 minutes have passed (943ms)
+  14 passed (10.8s)
+  ✓  11 e2e/smoke.pw.mjs:205:1 › visible: one fetch on load, the next only once 3 minutes have passed (954ms)
+  14 passed (10.9s)

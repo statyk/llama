@@ -1,0 +1,227 @@
+=== STEP 2 RED ===
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+Using secrets defined in .env
+ ❯ test/recovery.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/recovery.test.ts [ test/recovery.test.ts ]
+Error: Cannot find module '../public/assets/recovery.js' imported from /Users/shawn/projects/llama/.claude/worktrees/player/antenna/test/recovery.test.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/player/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  13:28:05
+   Duration  616ms (worker 100%)
+
+=== STEP 4 GREEN (first run) ===
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+Using secrets defined in .env
+ ❯ test/recovery.test.ts (51 tests | 1 failed) 13ms
+   ❯ Recovery: delays (10)
+     × a real advance ends the join: from then on it's the ordinary stall rule 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/recovery.test.ts > Recovery: delays > a real advance ends the join: from then on it's the ordinary stall rule
+AssertionError: expected 'none' to be 'probe' // Object.is equality
+
+Expected: "probe"
+Received: "none"
+
+ ❯ test/recovery.test.ts:364:42
+    362|     r.failed(restartAt + 3000);
+    363|     expect(r.tick(1, restartAt + 12999)).toBe("none");
+    364|     expect(r.tick(1, restartAt + 13000)).toBe("probe");
+       |                                          ^
+    365|   });
+    366|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 50 passed (51)
+   Start at  13:29:08
+   Duration  682ms (transform 55%, tests 23%, import 13%, worker 9%)
+
+=== STEP 4 GREEN ===
+
+Using secrets defined in .env
+
+ Test Files  1 passed (1)
+      Tests  51 passed (51)
+   Start at  13:29:25
+   Duration  684ms (transform 58%, tests 15%, import 13%, worker 13%)
+
+=== FULL ===
+      Tests  511 passed (511)
+   Start at  13:29:26
+   Duration  1.93s (transform 49%, tests 32%, import 12%, worker 7%)
+
+  Transform  transforming modules took 2.04s · 49% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+=== PRE-COMMIT FULL ===
+ Test Files  25 passed (25)
+      Tests  511 passed (511)
+> typecheck
+> tsc --noEmit
+
+=== MUTANTS ===
+## CONTROL (unmutated)
+predicted red: all pass
+prediction held: True
+summary: ['51 passed (51)']
+failed: 0
+## M1 restart allowed on unreachable
+predicted red: offline for 8 minutes: only probes about every 15 s, never a restart
+prediction held: True
+summary: ['8 failed | 43 passed (51)', '8 ⎯⎯⎯⎯⎯⎯⎯']
+failed: 8
+  - test/recovery.test.ts > Recovery: giving up > a retry doesn't move the give-up time
+  - test/recovery.test.ts > Recovery: giving up > gives up at 10 minutes without audio, counted from the last advancing playback
+  - test/recovery.test.ts > Recovery: giving up > the give-up check wins over a pending restart
+  - test/recovery.test.ts > Recovery: the network > a hung probe does not block recovery
+  - test/recovery.test.ts > Recovery: the network > at most one probe at a time, spaced probeEveryMs
+  - test/recovery.test.ts > Recovery: the network > offline for 8 minutes: only probes about every 15 s, never a restart
+  - test/recovery.test.ts > Recovery: the network > the network returning gives a restart within one probe interval
+  - test/recovery.test.ts > Recovery: the network > unreachable leaves the delay alone: the restart after an outage backs off once
+## M2 stale reachable accepted
+predicted red: a reachable verdict goes stale: an old one gets a new probe, not a restart
+prediction held: True
+summary: ['2 failed | 49 passed (51)', '2 ⎯⎯⎯⎯⎯⎯⎯']
+failed: 2
+  - test/recovery.test.ts > Recovery: the network > a reachable verdict exactly verdictFreshMs old is stale
+  - test/recovery.test.ts > Recovery: the network > a reachable verdict goes stale: an old one gets a new probe, not a restart
+## M3 unreachable counted towards off-air
+predicted red: two off-air verdicts reach off-air across a retry and other verdicts between them
+prediction held: True
+summary: ['7 failed | 44 passed (51)', '7 ⎯⎯⎯⎯⎯⎯⎯']
+failed: 7
+  - test/recovery.test.ts > Recovery: giving up > a retry doesn't move the give-up time
+  - test/recovery.test.ts > Recovery: giving up > gives up at 10 minutes without audio, counted from the last advancing playback
+  - test/recovery.test.ts > Recovery: giving up > the give-up check wins over a pending restart
+  - test/recovery.test.ts > Recovery: off-air > two off-air verdicts reach off-air across a retry and other verdicts between them
+  - test/recovery.test.ts > Recovery: the network > offline for 8 minutes: only probes about every 15 s, never a restart
+  - test/recovery.test.ts > Recovery: the network > the network returning gives a restart within one probe interval
+  - test/recovery.test.ts > Recovery: the network > unreachable leaves the delay alone: the restart after an outage backs off once
+## M4 advance slack bound removed
+predicted red: a jump after a restart is not progress
+prediction held: True
+summary: ['3 failed | 48 passed (51)', '3 ⎯⎯⎯⎯⎯⎯⎯']
+failed: 3
+  - test/recovery.test.ts > Recovery: giving up > a retry doesn't move the give-up time
+  - test/recovery.test.ts > Recovery: off-air > a jump after a restart is not progress
+  - test/recovery.test.ts > Recovery: off-air > a rise of exactly wall clock plus advanceSlackS advances; anything above it is a jump
+## M5 delay reset on a brief advance
+predicted red: the delay does not reset on brief progress
+prediction held: True
+summary: ['2 failed | 49 passed (51)', '2 ⎯⎯⎯⎯⎯⎯⎯']
+failed: 2
+  - test/recovery.test.ts > Recovery: delays > 60 s of playback with a stall in the middle is not 60 s of advancing
+  - test/recovery.test.ts > Recovery: delays > the delay does not reset on brief progress
+## X1 restart checked before give-up
+predicted red: the give-up check wins over a pending restart
+prediction held: True
+summary: ['2 failed | 49 passed (51)', '2 ⎯⎯⎯⎯⎯⎯⎯']
+failed: 2
+  - test/recovery.test.ts > Recovery: giving up > the give-up check beats a restart that was asked for and not yet performed
+  - test/recovery.test.ts > Recovery: giving up > the give-up check wins over a pending restart
+## X2 failed() not ignored during a delay
+predicted red: repeated failed() during a delay or join neither shortens the delay nor queues a second restart
+prediction held: True
+summary: ['2 failed | 49 passed (51)', '2 ⎯⎯⎯⎯⎯⎯⎯']
+failed: 2
+  - test/recovery.test.ts > Recovery: delays > fast stream failure cannot loop faster than minDelayMs
+  - test/recovery.test.ts > Recovery: delays > repeated failed() during a delay or join neither shortens the delay nor queues a second restart
+## X3 baseline not cleared on restart
+predicted red: the first sample after a retry is a baseline, not progress
+prediction held: True
+summary: ['1 failed | 50 passed (51)', '1 ⎯⎯⎯⎯⎯⎯⎯']
+failed: 1
+  - test/recovery.test.ts > Recovery: off-air > the first sample after a retry is a baseline, not progress
+## X4 reachable resets the off-air count
+predicted red: verdictsNeeded off-air verdicts survive a reachable one and a restart between them
+prediction held: True
+summary: ['4 failed | 47 passed (51)', '4 ⎯⎯⎯⎯⎯⎯⎯']
+failed: 4
+  - test/recovery.test.ts > Recovery: off-air > a higher first sample after a retry is a baseline too
+  - test/recovery.test.ts > Recovery: off-air > a jump after a restart is not progress
+  - test/recovery.test.ts > Recovery: off-air > the first sample after a retry is a baseline, not progress
+  - test/recovery.test.ts > Recovery: off-air > verdictsNeeded off-air verdicts survive a reachable one and a restart between them
+## X5 no join after a restart
+predicted red: a retry gets joinMs to start before it counts as a failure
+prediction held: True
+summary: ['9 failed | 42 passed (51)', '9 ⎯⎯⎯⎯⎯⎯⎯']
+failed: 9
+  - test/recovery.test.ts > Recovery: delays > a retry gets joinMs to start before it counts as a failure
+  - test/recovery.test.ts > Recovery: delays > delays between restarts run 5, 10, 20, 30, 30 s
+  - test/recovery.test.ts > Recovery: delays > repeated failed() during a delay or join neither shortens the delay nor queues a second restart
+  - test/recovery.test.ts > Recovery: off-air > a higher first sample after a retry is a baseline too
+  - test/recovery.test.ts > Recovery: off-air > a jump after a restart is not progress
+  - test/recovery.test.ts > Recovery: off-air > the first sample after a retry is a baseline, not progress
+  - test/recovery.test.ts > Recovery: off-air > two off-air verdicts reach off-air across a retry and other verdicts between them
+  - test/recovery.test.ts > Recovery: off-air > verdictsNeeded off-air verdicts survive a reachable one and a restart between them
+  - test/recovery.test.ts > Recovery: the network > unreachable leaves the delay alone: the restart after an outage backs off once
+## X6 unreachable bumps the delay clock
+predicted red: at most one probe at a time, spaced probeEveryMs
+prediction held: True
+summary: ['1 failed | 50 passed (51)', '1 ⎯⎯⎯⎯⎯⎯⎯']
+failed: 1
+  - test/recovery.test.ts > Recovery: the network > at most one probe at a time, spaced probeEveryMs
+=== X3 re-run after tightening ===
+## CONTROL (unmutated)
+predicted red: all pass
+prediction held: True
+summary: ['51 passed (51)']
+failed: 0
+## X3 baseline not cleared on restart
+predicted red: a higher first sample after a retry is a baseline too
+prediction held: True
+summary: ['2 failed | 49 passed (51)', '2 ⎯⎯⎯⎯⎯⎯⎯']
+failed: 2
+  - test/recovery.test.ts > Recovery: off-air > a higher first sample after a retry is a baseline too
+  - test/recovery.test.ts > Recovery: off-air > the first sample after a retry is a baseline, not progress
+=== FULL ===
+ Test Files  25 passed (25)
+      Tests  511 passed (511)
+> tsc --noEmit
+
+=== FIX1 predicted red: 'a native error survives the position rising between the last sample and the error' (at the 7700 probe); 'still playing' stays green ===
+--- without the fix (HEAD 676b9a42 source, new tests) ---
+ × test/recovery.test.ts > Recovery: what counts as a failure > a native error survives the position rising between the last sample and the error 3ms
+AssertionError: expected true to be false // Object.is equality
+ Test Files  1 failed (1)
+      Tests  1 failed | 52 passed (53)
+--- without the fix, advancing assertion removed: does the probe line go red too? ---
+ × test/recovery.test.ts > Recovery: what counts as a failure > a native error survives the position rising between the last sample and the error 3ms
+AssertionError: expected 'none' to be 'probe' // Object.is equality
+Expected: "probe"
+Received: "none"
+ Test Files  1 failed (1)
+      Tests  1 failed | 52 passed (53)
+--- with the fix, same harness ---
+ Test Files  1 passed (1)
+      Tests  53 passed (53)
+=== FIX1 focused, live ===
+ Test Files  1 passed (1)
+      Tests  53 passed (53)
+=== FIX1 full ===
+ Test Files  25 passed (25)
+      Tests  513 passed (513)
+> tsc --noEmit
+

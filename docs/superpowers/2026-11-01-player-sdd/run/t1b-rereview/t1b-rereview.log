@@ -1,0 +1,157 @@
+== probe.html wait buttons
+20:<button id="start" type="button">Start</button>
+21:<button id="stop" type="button">Stop (teardown)</button>
+22:<button id="pause" type="button">Pause only</button>
+23:<button id="retry" type="button">Retry loop: off</button>
+24:<button id="wait" type="button">Wait then restart: off</button>
+25:<button id="waitform" type="button">Restart form: full</button>
+== emitted wait lines
+234: log(`wait: manual restart ${label} ${state()}`);
+245: const tag = `wait: ${waitLastRestart} stuck=${stuckSeconds(now)}s`;
+261: const label = `wait: fetch ${++waitFetchCount}`;
+304: log(`wait: RECOVERED after ${waitLastRestart} restart_vis=${waitRestartVis} in=${taken}s ${state()}`);
+306: log(`wait: recovered after manual restart ${state()}`);
+308: log(`wait: recovered alone ${state()}`);
+316: log(`wait: stall stuck=${stuckSeconds(now)}s ${state()}`);
+319: if (!waitGaveUp) log(`wait: no more restarts (${waitRestarts} made), watching only ${state()}`);
+325: log(`wait: fetch hung ${state()}`);
+== harness dir
+total 424
+drwxr-xr-x  38 shawn  wheel   1216 Nov  1 12:49 .
+drwx------  20 shawn  wheel    640 Nov  1 12:13 ..
+-rw-r--r--   1 shawn  wheel    443 Nov  1 12:24 advancing.json
+-rw-r--r--   1 shawn  wheel   4482 Nov  1 12:24 advancing.log
+-rw-r--r--   1 shawn  wheel    474 Nov  1 12:25 alone.json
+-rw-r--r--   1 shawn  wheel   5102 Nov  1 12:25 alone.log
+drwxr-xr-x   6 shawn  wheel    192 Nov  1 12:30 base
+-rw-r--r--   1 shawn  wheel   1030 Nov  1 12:24 exclusive.json
+-rw-r--r--   1 shawn  wheel   2900 Nov  1 12:24 exclusive.log
+-rw-r--r--   1 shawn  wheel   1628 Nov  1 12:26 full.json
+-rw-r--r--   1 shawn  wheel   9194 Nov  1 12:26 full.log
+-rw-r--r--   1 shawn  wheel    681 Nov  1 12:24 gentle.json
+-rw-r--r--   1 shawn  wheel   4912 Nov  1 12:24 gentle.log
+-rw-r--r--   1 shawn  wheel  23970 Nov  1 12:46 harness.mjs
+drwxr-xr-x   4 shawn  wheel    128 Nov  1 12:29 m1out
+drwxr-xr-x   4 shawn  wheel    128 Nov  1 12:31 m2out
+drwxr-xr-x   4 shawn  wheel    128 Nov  1 12:43 m3out
+drwxr-xr-x   4 shawn  wheel    128 Nov  1 12:45 m4out
+drwxr-xr-x   4 shawn  wheel    128 Nov  1 12:43 m5out
+drwxr-xr-x   4 shawn  wheel    128 Nov  1 12:45 m6out
+drwxr-xr-x   4 shawn  wheel    128 Nov  1 12:45 m7out
+drwxr-xr-x   4 shawn  wheel    128 Nov  1 12:44 m9out
+-rw-r--r--   1 shawn  wheel    560 Nov  1 12:24 moved_in_flight.json
+-rw-r--r--   1 shawn  wheel   3779 Nov  1 12:24 moved_in_flight.log
+-rw-r--r--   1 shawn  wheel    179 Nov  1 12:24 not_wanted.json
+-rw-r--r--   1 shawn  wheel   1660 Nov  1 12:24 not_wanted.log
+-rw-r--r--   1 shawn  wheel    550 Nov  1 12:25 offline_real.json
+-rw-r--r--   1 shawn  wheel   7070 Nov  1 12:25 offline_real.log
+-rw-r--r--   1 shawn  wheel  46357 Nov  1 12:24 phone-390.png
+drwxr-xr-x  43 shawn  wheel   1376 Nov  1 12:42 r1
+drwxr-xr-x  43 shawn  wheel   1376 Nov  1 12:46 r2
+drwxr-xr-x   4 shawn  wheel    128 Nov  1 12:49 r3
+-rw-r--r--   1 shawn  wheel    683 Nov  1 12:25 stop_in_flight.json
+-rw-r--r--   1 shawn  wheel   7475 Nov  1 12:25 stop_in_flight.log
+-rw-r--r--   1 shawn  wheel   1540 Nov  1 12:28 two_full.json
+-rw-r--r--   1 shawn  wheel  14287 Nov  1 12:28 two_full.log
+-rw-r--r--   1 shawn  wheel   1399 Nov  1 12:28 two_gentle.json
+-rw-r--r--   1 shawn  wheel  14694 Nov  1 12:28 two_gentle.log
+== iPhone vis values
+-rw-r--r--  1 shawn  wheel  2840 Nov  1 12:08 /private/tmp/claude-501/-Users-shawn-projects-llama/de0d82af-59e5-4e19-8b40-c0b892640b3f/scratchpad/probe-results-safari-1.md
+8:- Stopped and hidden, timers sleep: gaps of 349 s and 51 s, and 1016 s below.
+== r2/manual_after_fail
+12:42:49.440 button Wait then restart on form=full wanted=false
+12:42:49.760 button Start
+12:43:29.261 wait: stall stuck=30s ct=7.71 buf=-0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:29.261 wait: fetch 1 start stuck=30s ct=7.71 buf=-0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:29.264 wait: fetch 1 status=200 ms=3 ct=7.71 buf=-0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:29.264 wait: restart 1 form=full stuck=30s ct=7.71 buf=-0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:29.264 wait: restart 1 form=full stuck=30s vis=visible: play() called
+12:43:37.438 button Start
+12:43:37.438 wait: manual restart Start ct=0.00 buf=none paused=false rs=0 ns=2 net=on vis=visible
+12:43:37.439 wait: restart 1 form=full stuck=30s vis=visible: play() REJECTED AbortError: The play() request was interrupted 
+12:43:44.261 wait: recovered after manual restart ct=6.17 buf=26.8 paused=false rs=4 ns=2 net=on vis=visible
+== r2/manual_session
+12:42:49.440 button Wait then restart on form=full wanted=false
+12:42:49.759 button Start
+12:43:29.342 wait: stall stuck=30s ct=7.71 buf=-0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:29.342 wait: fetch 1 start stuck=30s ct=7.71 buf=-0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:29.345 wait: fetch 1 status=200 ms=3 ct=7.71 buf=-0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:29.345 wait: restart 1 form=full stuck=30s ct=7.71 buf=-0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:29.345 wait: restart 1 form=full stuck=30s vis=visible: play() called
+12:43:37.408 wait: manual restart media session play ct=0.00 buf=none paused=false rs=0 ns=2 net=on vis=visible
+12:43:37.408 wait: restart 1 form=full stuck=30s vis=visible: play() REJECTED AbortError: The play() request was interrupted 
+12:43:44.344 wait: recovered after manual restart ct=6.30 buf=27.7 paused=false rs=4 ns=2 net=on vis=visible
+== r2/manual_loading
+12:42:49.445 button Wait then restart on form=full wanted=false
+12:42:49.762 button Start
+12:43:29.328 wait: stall stuck=30s ct=7.71 buf=-0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:29.328 wait: fetch 1 start stuck=30s ct=7.71 buf=-0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:29.428 button Start
+12:43:29.428 wait: manual restart Start ct=7.71 buf=-0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:29.428 wait: fetch 1 FAILED AbortError: signal is aborted without reason ms=100 ct=0.00 buf=none paused=false rs=0 ns=3
+12:44:04.328 wait: stall stuck=65s ct=0.00 buf=none paused=false rs=0 ns=2 net=on vis=visible
+12:44:04.328 wait: fetch 2 start stuck=65s ct=0.00 buf=none paused=false rs=0 ns=2 net=on vis=visible
+12:44:04.333 wait: fetch 2 status=200 ms=5 ct=0.00 buf=none paused=false rs=0 ns=2 net=on vis=visible
+12:44:04.334 wait: restart 1 form=full stuck=65s ct=0.00 buf=none paused=false rs=0 ns=2 net=on vis=visible
+12:44:04.334 wait: restart 1 form=full stuck=65s vis=visible: play() called
+12:44:04.958 wait: restart 1 form=full stuck=65s vis=visible: play() resolved ct=0.00 buf=1.3 paused=false rs=4 ns=1 net=on v
+12:44:14.328 wait: RECOVERED after restart 1 form=full restart_vis=visible in=10s ct=9.34 buf=39.7 paused=false rs=4 ns=1 net
+== r2/vis_hidden
+12:42:49.448 button Wait then restart on form=full wanted=false
+12:42:49.758 button Start
+12:43:34.335 wait: stall stuck=35s ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=hidden
+12:43:34.335 wait: fetch 1 start stuck=35s ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=hidden
+12:43:34.338 wait: fetch 1 status=200 ms=3 ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=hidden
+12:43:34.338 wait: restart 1 form=full stuck=35s ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=hidden
+12:43:34.338 wait: restart 1 form=full stuck=35s vis=hidden: play() called
+12:43:34.954 wait: restart 1 form=full stuck=35s vis=hidden: play() resolved ct=0.00 buf=1.0 paused=false rs=4 ns=1 net=on vi
+12:43:44.335 wait: RECOVERED after restart 1 form=full restart_vis=hidden in=10s ct=9.36 buf=39.6 paused=false rs=4 ns=1 net=
+== r2/never_settles
+12:42:49.449 button Wait then restart on form=full wanted=false
+12:42:49.759 button Start
+12:43:29.330 wait: stall stuck=30s ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:29.330 wait: fetch 1 start stuck=30s ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:49.330 wait: fetch hung ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:49.330 wait: fetch 2 start stuck=50s ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:49.407 wait: fetch 1 status=200 ms=20077 ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:43:57.332 wait: fetch 2 FAILED AbortError: signal is aborted without reason ms=8002 ct=7.71 buf=0.0 paused=false rs=2 ns=2
+12:44:04.331 wait: fetch 3 start stuck=65s ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:44:04.336 wait: fetch 3 status=200 ms=5 ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:44:04.336 wait: restart 1 form=full stuck=65s ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=visible
+12:44:04.336 wait: restart 1 form=full stuck=65s vis=visible: play() called
+12:44:04.962 wait: restart 1 form=full stuck=65s vis=visible: play() resolved ct=0.00 buf=1.1 paused=false rs=4 ns=1 net=on v
+12:44:14.329 wait: RECOVERED after restart 1 form=full restart_vis=visible in=10s ct=9.34 buf=39.7 paused=false rs=4 ns=1 net
+== r2 json fails
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/bb0670bb-11d6-4946-8914-23ea4ad6e0f1/scratchpad/t1b/r2/full.json
+== REJECTED across r2/r3 wait logs
+r2/manual_after_fail.log:12:43:37.439 wait: restart 1 form=full stuck=30s vis=visible: play() REJECTED AbortError: The play() requ
+r2/manual_session.log:12:43:37.408 wait: restart 1 form=full stuck=30s vis=visible: play() REJECTED AbortError: The play() request
+r2/manual_after_giveup.log:12:44:09.322 wait: restart 1 form=full stuck=35s vis=visible: play() REJECTED AbortError: The play() re
+r2/manual_after_giveup.log:12:44:44.406 wait: restart 2 form=full stuck=70s vis=visible: play() REJECTED AbortError: The play() re
+r2/two_gentle.log:12:44:19.189 wait: restart 1 form=gentle stuck=30s vis=visible: play() REJECTED AbortError: The play() request w
+r2/two_full.log:12:44:19.328 wait: restart 1 form=full stuck=30s vis=visible: play() REJECTED AbortError: The play() request was i
+r2/vis_visible.log:12:44:04.336 wait: restart 1 form=full stuck=30s vis=hidden: play() REJECTED AbortError: The play() request was
+== two_full r2 around restart 2
+30:12:43:29.323 wait: restart 1 form=full stuck=30s ct=7.71 buf=0.0 paused=false rs=2 ns=2 net=on vis=visible
+31:12:43:29.323 teardown
+32:12:43:29.324 wait: restart 1 form=full stuck=30s vis=visible: play() called
+52:12:44:19.327 wait: restart 2 form=full stuck=80s ct=0.00 buf=none paused=false rs=0 ns=2 net=on vis=visible
+53:12:44:19.327 teardown
+54:12:44:19.328 wait: restart 2 form=full stuck=80s vis=visible: play() called
+55:12:44:19.328 wait: restart 1 form=full stuck=30s vis=visible: play() REJECTED AbortError: The play() request was inte
+80:12:45:35.180 wait: restart 2 form=full stuck=80s vis=visible: play() resolved ct=0.00 buf=1.7 paused=false rs=4 ns=1 
+107:12:46:39.328 wait: restart 1 form=full stuck=30s ct=33.35 buf=0.1 paused=false rs=2 ns=2 net=on vis=visible
+108:12:46:39.329 teardown
+109:12:46:39.329 wait: restart 1 form=full stuck=30s vis=visible: play() called
+== pending play in harness?
+280:    await t.page.evaluate(() => window.__session.play());
+full.json
+full.log
+   "ok": true,
+   "ok": true,
+   "ok": true,
+   "ok": true,
+   "what": "failures left ct and src alone 7.707134 7.707134 /stream.wav"
+== locked vis evidence
+3:**What this is.** A throwaway page that plays the real stream with a plain audio element and logs everything the browser does. The real player's design has eight open questions that only a locked iP
+15:- **Lock-screen or car Pause may do nothing audible,** and Bluetooth off may leave audio on the phone's speaker. That is deliberate: the page only logs those buttons, so that any pause we see is iO

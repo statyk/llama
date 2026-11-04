@@ -1,0 +1,47 @@
+
+Running 4 tests using 1 worker
+
+  ✘  1 e2e/smoke.pw.mjs:1361:1 › the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off (411ms)
+  ✓  2 e2e/smoke.pw.mjs:1372:1 › with nothing on air, the venue and date line keeps its height and the window does not move (262ms)
+  ✓  3 e2e/smoke.pw.mjs:1390:1 › a name stepping from long to a short name, or to off air, loses the class (189ms)
+  ✓  4 e2e/smoke.pw.mjs:1407:1 › the date keeps its right padding, which the pen's overhang needs (178ms)
+
+
+  1) e2e/smoke.pw.mjs:1361:1 › the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      1367 |   await page.addStyleTag({ content: `${INK_SELECTORS.join(",")} { overflow: visible !important; }` });
+      1368 |   const open = await cass.screenshot({ animations: "disabled" });
+    > 1369 |   expect(clipped.equals(open)).toBe(true);
+           |                                ^
+      1370 | });
+      1371 |
+      1372 | test("with nothing on air, the venue and date line keeps its height and the window does not move", async ({ page }) => {
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:1369:32
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-pen-s-78568-th-the-label-s-clipping-off/error-context.md
+
+  1 failed
+    e2e/smoke.pw.mjs:1361:1 › the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off 
+  3 passed (2.9s)
+   Duration  2.43s (transform 48%, tests 29%, import 14%, worker 8%)
+
+  Transform  transforming modules took 2.70s · 48% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+> typecheck
+> tsc --noEmit
+
+  ✓  86 e2e/smoke.pw.mjs:1323:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes (300ms)
+  ✓  87 e2e/smoke.pw.mjs:1330:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (359ms)
+  ✓  88 e2e/smoke.pw.mjs:1361:1 › the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off (307ms)
+  ✓  89 e2e/smoke.pw.mjs:1372:1 › with nothing on air, the venue and date line keeps its height and the window does not move (163ms)
+  ✓  90 e2e/smoke.pw.mjs:1390:1 › a name stepping from long to a short name, or to off air, loses the class (185ms)
+  ✓  91 e2e/smoke.pw.mjs:1407:1 › the date keeps its right padding, which the pen's overhang needs (173ms)
+
+  91 passed (3.5m)

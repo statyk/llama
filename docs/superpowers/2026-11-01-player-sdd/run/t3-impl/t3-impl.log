@@ -1,0 +1,99 @@
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  02:40:58
+   Duration  607ms (tests 48%, transform 34%, worker 10%, import 8%)
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+
+ Test Files  22 passed (22)
+      Tests  444 passed (444)
+   Start at  02:41:02
+   Duration  1.85s (transform 47%, tests 33%, import 12%, worker 7%)
+
+    Isolate  22 workers spawned · ~418ms startup each (spawn + environment, per file)
+             at least ~604ms faster with isolate: false — reuses workers across files instead of one per file
+
+
+> typecheck
+> tsc --noEmit
+
+test/timeline.test.ts(148,63): error TS7006: Parameter 's' implicitly has an 'any' type.
+test/timeline.test.ts(157,41): error TS7006: Parameter 's' implicitly has an 'any' type.
+test/timeline.test.ts(171,79): error TS7006: Parameter 's' implicitly has an 'any' type.
+test/timeline.test.ts(177,35): error TS7006: Parameter 's' implicitly has an 'any' type.
+test/timeline.test.ts(177,79): error TS7006: Parameter 's' implicitly has an 'any' type.
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+
+ Test Files  22 passed (22)
+      Tests  444 passed (444)
+   Start at  02:41:09
+   Duration  1.81s (transform 47%, tests 34%, import 12%, worker 7%)
+
+    Isolate  22 workers spawned · ~410ms startup each (spawn + environment, per file)
+             at least ~592ms faster with isolate: false — reuses workers across files instead of one per file
+
+
+> typecheck
+> tsc --noEmit
+
+test/timeline.test.ts(148,63): error TS7006: Parameter 's' implicitly has an 'any' type.
+test/timeline.test.ts(157,41): error TS7006: Parameter 's' implicitly has an 'any' type.
+test/timeline.test.ts(171,79): error TS7006: Parameter 's' implicitly has an 'any' type.
+test/timeline.test.ts(177,35): error TS7006: Parameter 's' implicitly has an 'any' type.
+test/timeline.test.ts(177,79): error TS7006: Parameter 's' implicitly has an 'any' type.
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+
+ Test Files  22 passed (22)
+      Tests  444 passed (444)
+   Start at  02:41:17
+   Duration  1.76s (transform 49%, tests 33%, import 12%, worker 6%)
+
+    Isolate  22 workers spawned · ~432ms startup each (spawn + environment, per file)
+             at least ~623ms faster with isolate: false — reuses workers across files instead of one per file
+
+
+> typecheck
+> tsc --noEmit
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+
+ Test Files  22 passed (22)
+      Tests  445 passed (445)
+   Start at  02:46:01
+   Duration  1.79s (transform 48%, tests 33%, import 12%, worker 7%)
+
+    Isolate  22 workers spawned · ~429ms startup each (spawn + environment, per file)
+             at least ~619ms faster with isolate: false — reuses workers across files instead of one per file
+
+
+> typecheck
+> tsc --noEmit
+

@@ -1,0 +1,38 @@
+start t3 review checks
+America/New_York => Eastern Time
+America/Phoenix => Mountain Standard Time
+Europe/Helsinki => Eastern European Time
+Europe/London => United Kingdom Time
+Asia/Dubai => Gulf Standard Time
+Asia/Kolkata => India Standard Time
+Europe/Istanbul => Türkiye Standard Time
+Asia/Tokyo => Japan Standard Time
+UTC => GMT+00:00
+Etc/GMT+5 => GMT-05:00
+America/Sao_Paulo => Brasilia Standard Time
+Africa/Johannesburg => South Africa Standard Time
+Asia/Tashkent => Uzbekistan Standard Time
+Antarctica/Troll => Troll Station Time
+=== M1+M2 tapeLog+justAired read recent (predict: survive)
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/bb0670bb-11d6-4946-8914-23ea4ad6e0f1/scratchpad/mut/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  02:43:29
+   Duration  600ms (tests 46%, transform 35%, worker 11%, import 9%)
+
+=== M0 control comingUp reads recent (predict: caught)
+ ❯ test/timeline.test.ts (18 tests | 2 failed) 15ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/timeline.test.ts > comingUp and justAired > lists upcoming soonest first and ignores recent
+ FAIL  test/timeline.test.ts > comingUp and justAired > returns [] past the last show or without a timeline
+ Test Files  1 failed (1)
+      Tests  2 failed | 16 passed (18)
+airTime(null) THROWS RangeError Invalid time value
+showHref(null) "/show/null.html"
+positionMs NaN "NaN"
+nowLine clip paren only ""
+tidy [" >","A >","A> >",""]
+concert ["2008-13-01","2008-11-32","2008-11-01\n",""]
+midnight/noon UTC [{"day":"Sun","time":"12:05a"},{"day":"Sun","time":"12:05p"}]

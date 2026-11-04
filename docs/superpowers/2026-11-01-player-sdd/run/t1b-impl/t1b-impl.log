@@ -1,0 +1,196 @@
+impl written, building Chromium harness
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+done exclusive: 10/10
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+
+ Test Files  24 passed (24)
+      Tests  460 passed (460)
+   Start at  12:24:02
+   Duration  2.18s (transform 47%, tests 34%, import 12%, worker 7%)
+
+    Isolate  24 workers spawned · ~553ms startup each (spawn + environment, per file)
+             at least ~921ms faster with isolate: false — reuses workers across files instead of one per file
+
+done not_wanted: 2/2
+done moved_in_flight: 3/3
+done gentle: 6/6
+done advancing: 5/5
+done alone: 4/4
+FAIL full: no-store sent as no-cache ,,
+done offline_real: 3/3
+done stop_in_flight: 5/5
+done full: 11/12
+done two_full: 10/10
+done two_gentle: 10/10
+[{"name":"exclusive","pass":10,"fail":0},{"name":"not_wanted","pass":2,"fail":0},{"name":"moved_in_flight","pass":3,"fail":0},{"name":"gentle","pass":6,"fail":0},{"name":"advancing","pass":5,"fail":0},{"name":"alone","pass":4,"fail":0},{"name":"offline_real","pass":3,"fail":0},{"name":"stop_in_flight","pass":5,"fail":0},{"name":"full","pass":11,"fail":1},{"name":"two_full","pass":10,"fail":0},{"name":"two_gentle","pass":10,"fail":0}]
+TOTAL 69 passed, 1 failed
+predictions: m1 (no wall-clock bound) fails jump 'not RECOVERED'; m2 (no moved check) fails moved_in_flight
+m1: FAIL jump: a jump to 41 is not RECOVERED
+m1: done jump: 1/2
+m1: [{"name":"jump","pass":1,"fail":1}]
+m1: TOTAL 1 passed, 1 failed
+base: done jump: 2/2
+base: done full: 12/12
+base: [{"name":"jump","pass":2,"fail":0},{"name":"full","pass":12,"fail":0}]
+base: TOTAL 14 passed, 0 failed
+m2: FAIL moved_in_flight: timeout waiting for /wait: fetch 1 no restart: position moved/
+m2: done moved_in_flight: 1/2
+m2: [{"name":"moved_in_flight","pass":1,"fail":1}]
+m2: TOTAL 1 passed, 1 failed
+fix round 1 started
+round-1 mutant predictions, before running:
+m3 no waitRestartAt in waitManual: manual_loading fails "a loading manual Start gets its 30 s"
+m4 no waitClearStall in waitManual: manual_after_fail fails "manual advance: no RECOVERED, not alone" (timeout on the manual-recovered line, RECOVERED logged instead)
+m5 restart_vis read live: vis_hidden fails on its RECOVERED regex (restart_vis=visible)
+m6 no hung check: never_settles times out waiting for wait: fetch hung
+m7 no aborted check on a response: never_settles fails "late answer restarted nothing"
+m9 exact float compare: jitter fails, "no restart: position moved", timeout waiting for restart 1
+done exclusive: 10/10
+done not_wanted: 2/2
+done moved_in_flight: 3/3
+done vis_hidden: 2/2
+done gentle: 6/6
+done advancing: 5/5
+done manual_session: 2/2
+done jump: 2/2
+done manual_after_fail: 3/3
+done alone: 4/4
+done offline_real: 3/3
+done manual_loading: 4/4
+done never_settles: 3/3
+done vis_visible: 2/2
+done stop_in_flight: 5/5
+done manual_after_giveup: 2/2
+done full: 12/12
+FAIL jitter: timeout waiting for /wait: restart 1 form=full stuck=\d+s ct=/
+done jitter: 1/2
+done two_gentle: 10/10
+done two_full: 10/10
+[{"name":"exclusive","pass":10,"fail":0},{"name":"not_wanted","pass":2,"fail":0},{"name":"moved_in_flight","pass":3,"fail":0},{"name":"vis_hidden","pass":2,"fail":0},{"name":"gentle","pass":6,"fail":0},{"name":"advancing","pass":5,"fail":0},{"name":"manual_session","pass":2,"fail":0},{"name":"jump","pass":2,"fail":0},{"name":"manual_after_fail","pass":3,"fail":0},{"name":"alone","pass":4,"fail":0},{"name":"offline_real","pass":3,"fail":0},{"name":"manual_loading","pass":4,"fail":0},{"name":"never_settles","pass":3,"fail":0},{"name":"vis_visible","pass":2,"fail":0},{"name":"stop_in_flight","pass":5,"fail":0},{"name":"manual_after_giveup","pass":2,"fail":0},{"name":"full","pass":12,"fail":0},{"name":"jitter","pass":1,"fail":1},{"name":"two_gentle","pass":10,"fail":0},{"name":"two_full","pass":10,"fail":0}]
+TOTAL 91 passed, 1 failed
+r1 finished
+jitter scenario changed: bounded wobble between tick and response; m9 prediction stands (fails 'jitter did not read as movement')
+m5: FAIL vis_hidden: 12:43:44.136 wait: RECOVERED after restart 1 form=full restart_vis=visible in=10s ct=9.31 buf=39.7 paused=false rs=4 ns=1 net=on vis=visible
+m5: done vis_hidden: 1/2
+m5: [{"name":"vis_hidden","pass":1,"fail":1}]
+m5: TOTAL 1 passed, 1 failed
+m3: FAIL manual_loading: a loading manual Start gets its 30 s: no fetch, no element call
+m3: FAIL manual_loading: no restart in the window
+m3: FAIL manual_loading: Wait resumes only after 30 s: 25006 12:43:39.146 wait: restart 1 form=full stuck=40s ct=0.00 buf=none paused=false rs=0 ns=2 net=on vis=visible
+m3: done manual_loading: 1/4
+m3: [{"name":"manual_loading","pass":1,"fail":3}]
+m3: TOTAL 1 passed, 3 failed
+m9: FAIL jitter: jitter did not read as movement
+m9: done jitter: 1/2
+m9: [{"name":"jitter","pass":1,"fail":1}]
+m9: TOTAL 1 passed, 1 failed
+m6: FAIL never_settles: timeout waiting for /wait: fetch hung ct=/
+m6: done never_settles: 1/2
+m6: [{"name":"never_settles","pass":1,"fail":1}]
+m6: TOTAL 1 passed, 1 failed
+m4: FAIL manual_after_fail: timeout waiting for /wait: recovered after manual restart ct=/
+m4: done manual_after_fail: 1/2
+m4: [{"name":"manual_after_fail","pass":1,"fail":1}]
+m4: TOTAL 1 passed, 1 failed
+m7: FAIL never_settles: late answer restarted nothing
+m7: FAIL never_settles: timeout waiting for /wait: fetch 3 status=200/
+m7: done never_settles: 2/4
+m7: [{"name":"never_settles","pass":2,"fail":2}]
+m7: TOTAL 2 passed, 2 failed
+base: done exclusive: 10/10
+base: done not_wanted: 2/2
+base: done moved_in_flight: 3/3
+base: done jitter: 2/2
+base: done gentle: 6/6
+base: done advancing: 5/5
+base: done vis_hidden: 2/2
+base: done manual_session: 2/2
+base: done manual_after_fail: 3/3
+base: done jump: 2/2
+base: done alone: 4/4
+base: FAIL full: 15 s cadence 0,14999,30000
+base: done offline_real: 3/3
+base: done vis_visible: 2/2
+base: done manual_loading: 4/4
+base: done never_settles: 3/3
+base: done stop_in_flight: 5/5
+base: done full: 11/12
+base: done manual_after_giveup: 2/2
+base: done two_full: 10/10
+base: done two_gentle: 10/10
+base: [{"name":"exclusive","pass":10,"fail":0},{"name":"not_wanted","pass":2,"fail":0},{"name":"moved_in_flight","pass":3,"fail":0},{"name":"jitter","pass":2,"fail":0},{"name":"gentle","pass":6,"fail":0},{"name":"advancing","pass":5,"fail":0},{"name":"vis_hidden","pass":2,"fail":0},{"name":"manual_session","pass":2,"fail":0},{"name":"manual_after_fail","pass":3,"fail":0},{"name":"jump","pass":2,"fail":0},{"name":"alone","pass":4,"fail":0},{"name":"offline_real","pass":3,"fail":0},{"name":"vis_visible","pass":2,"fail":0},{"name":"manual_loading","pass":4,"fail":0},{"name":"never_settles","pass":3,"fail":0},{"name":"stop_in_flight","pass":5,"fail":0},{"name":"full","pass":11,"fail":1},{"name":"manual_after_giveup","pass":2,"fail":0},{"name":"two_full","pass":10,"fail":0},{"name":"two_gentle","pass":10,"fail":0}]
+base: TOTAL 91 passed, 1 failed
+r2 finished
+done full: 12/12
+[{"name":"full","pass":12,"fail":0}]
+TOTAL 12 passed, 0 failed
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/player/antenna
+
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+Using secrets defined in .env
+
+ Test Files  24 passed (24)
+      Tests  460 passed (460)
+   Start at  12:49:02
+   Duration  1.98s (transform 51%, tests 32%, import 11%, worker 7%)
+
+  Transform  transforming modules took 2.13s · 51% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+

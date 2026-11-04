@@ -1,0 +1,83 @@
+t11-review: read diff, spec, probe; preparing scratch copy
+PREDICTIONS (written before any mutant ran; scratch copy of 8b53cfc8):
+ M1 delete min-width:0 from .main (radio.css:249): existing test RED at smoke:774 (first scrollWidth, main page), value well over 320.
+ M2 add white-space:nowrap to .bmain h2 (radio.css:354): existing test passes smoke:774 and smoke:777 (panel is fixed, adds no document overflow), RED at smoke:781 (panel scrollWidth-clientWidth > 0).
+ M3 add white-space:nowrap to .hand.h1 (radio.css:118): existing test stays GREEN (long band is on fixture-next-1, never on the cassette label). Variant test with the long band on air goes RED, which also proves the mutant was served.
+ V0 variant on the unmutated tree (long band on every show incl. on air): GREEN expected.
+=== baseline ===
+Running 2 tests using 1 worker
+  ✓  1 e2e/smoke.pw.mjs:764:1 › at 320 px with a very long band name, main and panel do not scroll sideways (333ms)
+VARIANT {"sw":320,"cw":320,"iw":320} []
+  ✓  2 e2e/smoke.pw.mjs:1054:1 › at 320 px VARIANT long band on every show (159ms)
+  2 passed (1.6s)
+=== end baseline rc=0
+249c249
+< .main { position: relative; display: block; flex: 1; min-width: 0; padding: 7px 10px; }
+---
+> .main { position: relative; display: block; flex: 1; padding: 7px 10px; }
+=== M1 ===
+  ✘  1 e2e/smoke.pw.mjs:764:1 › at 320 px with a very long band name, main and panel do not scroll sideways (260ms)
+VARIANT {"sw":490,"cw":320,"iw":320} []
+  ✘  2 e2e/smoke.pw.mjs:1054:1 › at 320 px VARIANT long band on every show (257ms)
+    Expected: <= 320
+    Received:    490
+    > 774 |   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+        at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/189f1567-d332-428c-81ac-df162d1a7df0/scratchpad/t11/antenna/e2e/smoke.pw.mjs:774:75
+  2) e2e/smoke.pw.mjs:1054:1 › at 320 px VARIANT long band on every show ───────────────────────────
+    Expected: <= 320
+    Received:    490
+      1067 |   console.log("VARIANT", JSON.stringify(m), JSON.stringify(logs));
+    > 1068 |   expect(m.sw).toBeLessThanOrEqual(320);
+        at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/189f1567-d332-428c-81ac-df162d1a7df0/scratchpad/t11/antenna/e2e/smoke.pw.mjs:1068:16
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-at-320-px-VARIANT-long-band-on-every-show/error-context.md
+  2 failed
+    e2e/smoke.pw.mjs:1054:1 › at 320 px VARIANT long band on every show ────────────────────────────
+=== end M1 rc=1
+354c354
+< .bmain h2 { margin: 3px 0 4px; font-family: var(--serif); font-size: 26px; line-height: 1.1; }
+---
+> .bmain h2 { white-space: nowrap; margin: 3px 0 4px; font-family: var(--serif); font-size: 26px; line-height: 1.1; }
+=== M2 ===
+  ✘  1 e2e/smoke.pw.mjs:764:1 › at 320 px with a very long band name, main and panel do not scroll sideways (366ms)
+VARIANT {"sw":320,"cw":320,"iw":320} []
+  ✓  2 e2e/smoke.pw.mjs:1054:1 › at 320 px VARIANT long band on every show (236ms)
+    Expected: <= 0
+    Received:    427
+    > 781 |   })).toBeLessThanOrEqual(0);
+        at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/189f1567-d332-428c-81ac-df162d1a7df0/scratchpad/t11/antenna/e2e/smoke.pw.mjs:781:7
+  1 failed
+  1 passed (2.1s)
+=== end M2 rc=1
+118c118
+< .hand.h1 { margin-top: 2px; font-size: 32px; }
+---
+> .hand.h1 { white-space: nowrap; margin-top: 2px; font-size: 32px; }
+=== M3 ===
+  ✓  1 e2e/smoke.pw.mjs:764:1 › at 320 px with a very long band name, main and panel do not scroll sideways (322ms)
+VARIANT {"sw":523,"cw":320,"iw":320} []
+  ✘  2 e2e/smoke.pw.mjs:1054:1 › at 320 px VARIANT long band on every show (154ms)
+  1) e2e/smoke.pw.mjs:1054:1 › at 320 px VARIANT long band on every show ───────────────────────────
+    Expected: <= 320
+    Received:    523
+      1067 |   console.log("VARIANT", JSON.stringify(m), JSON.stringify(logs));
+    > 1068 |   expect(m.sw).toBeLessThanOrEqual(320);
+        at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/189f1567-d332-428c-81ac-df162d1a7df0/scratchpad/t11/antenna/e2e/smoke.pw.mjs:1068:16
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-at-320-px-VARIANT-long-band-on-every-show/error-context.md
+  1 failed
+    e2e/smoke.pw.mjs:1054:1 › at 320 px VARIANT long band on every show ────────────────────────────
+  1 passed (1.4s)
+=== end M3 rc=1
+M4 probe: drop mobile-web-app-capable from index.html; does system Chrome log a console message?
+13d12
+< <meta name="mobile-web-app-capable" content="yes">
+=== M4 ===
+  ✓  1 e2e/smoke.pw.mjs:764:1 › at 320 px with a very long band name, main and panel do not scroll sideways (306ms)
+VARIANT {"sw":320,"cw":320,"iw":320} []
+  ✓  2 e2e/smoke.pw.mjs:1054:1 › at 320 px VARIANT long band on every show (152ms)
+=== end M4 rc=0
+npx wrangler r2 object put x/assets/preview/99/index.html --file /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/189f1567-d332-428c-81ac-df162d1a7df0/scratchpad/t11/antenn
+npx wrangler r2 object put x/assets/preview/99/assets/cassette-512.png --file /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/189f1567-d332-428c-81ac-df162d1a7df0/scratchp
+npx wrangler r2 object put x/assets/preview/99/assets/icon-180.png --file /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/189f1567-d332-428c-81ac-df162d1a7df0/scratchpad/t
+npx wrangler r2 object put x/assets/preview/99/assets/icon-192.png --file /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/189f1567-d332-428c-81ac-df162d1a7df0/scratchpad/t
+npx wrangler r2 object put x/assets/preview/99/assets/radio.webmanifest --file /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/antenna-preview-mPmNba/radio.webmanifest --content-type application/mani
+npx wrangler r2 object put x/assets/preview/99/probe.webmanifest --file /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/antenna-preview-mPmNba/probe.webmanifest --content-type application/manifest+js

@@ -1,0 +1,136 @@
+3625
+[("'1'", 43030), ("'2'", 19842), ("'encore'", 4978), ("'3'", 1308), ("'4'", 45), ("'5'", 14)]
+[(' ->', 3086), ('e >', 852), ('s >', 577), ('n >', 569), ('r >', 450), ('d >', 429), ('t >', 363), ('y >', 345), ('m >', 291), (') >', 222), ('g >', 157), ('l >', 149), ('o >', 137), ('a >', 125), ('* >', 122), ('er>', 97), ('w >', 92), ('e->', 80), ('k >', 76), ("' >", 76), ('h >', 75), ('-->', 73), ('am>', 72), ('>>>', 67), ('ne>', 65), ('on>', 56), ('s->', 56), ('p >', 55), ('es>', 53), ('n->', 50)]
+[('9999-99-99', 3625)] {}
+[(('artist', 'str'), 3625), (('city', 'NoneType'), 25), (('city', 'str'), 3600), (('date', 'str'), 3625), (('src.lineage', 'NoneType'), 54), (('src.lineage', 'str'), 3571), (('src.url', 'str'), 3625), (('title', 'str'), 69217), (('venue', 'NoneType'), 2), (('venue', 'str'), 3623)]
+lineage longest word p50,p99,max 10 44 78
+baseline ([], '79 passed in 0.38s')
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-player/189f1567-d332-428c-81ac-df162d1a7df0/scratchpad/m/packages/transmitter/src/transmitter/__init__.py
+
+M1 _title date raw | expected: test_non_string_fields_never_stop_the_render | CAUGHT ['test_non_string_fields_never_stop_the_render'] 1 failed, 78 passed in 1.20s
+M2 _setlist_line title no _text | expected: NONE (predict survive) | SURVIVED [] 79 passed in 0.33s
+M3 _set_label no _text | expected: NONE (predict survive) | SURVIVED [] 79 passed in 0.34s
+M4 concert_stub no _text | expected: test_concert_stub_never_raises[1977] | CAUGHT ['test_non_string_fields_never_stop_the_render', 'test_concert_stub_never_raises[1977-want6]'] 2 failed, 77 passed in 0.35s
+M5 where escape off | expected: test_the_hostile_fixture_stays_text | CAUGHT ['test_the_hostile_fixture_stays_text'] 1 failed, 78 passed in 0.34s
+M6 set label escape off | expected: test_the_hostile_fixture_stays_text | CAUGHT ['test_the_hostile_fixture_stays_text'] 1 failed, 78 passed in 0.34s
+M7 description cut after escape | expected: NONE (predict survive) | SURVIVED [] 79 passed in 0.34s
+M8 flag adds always | expected: test_doubled_segue_marks_are_gone + setlist rule params | CAUGHT ['test_doubled_segue_marks_are_gone', 'test_setlist_titles_follow_one_rule[Song->-True-Song'] 2 failed, 77 passed in 0.35s
+M9 labels always | expected: test_one_set_has_no_label | CAUGHT ['test_one_set_has_no_label_and_several_are_grouped_in_order'] 1 failed, 78 passed in 0.35s
+M10 page_url unquoted | expected: test_the_slug_is_encoded | CAUGHT ['test_the_slug_is_encoded_in_the_page_url_and_escaped_in_the_data_attribute'] 1 failed, 78 passed in 0.34s
+M11 SLUG_SAFE empty | expected: NONE (predict survive) | SURVIVED [] 79 passed in 0.36s
+M12 first_text p only | expected: test_show_page_description_can_be_a_bullet | CAUGHT ['test_show_page_description_can_be_a_bullet_and_falls_back_to_the_title'] 1 failed, 78 passed in 0.37s
+M13 year not escaped | expected: NONE (equivalent: digits only) | SURVIVED [] 79 passed in 0.34s
+M14 date_stub not escaped | expected: test_the_hostile_fixture_stays_text (<i>) | CAUGHT ['test_the_hostile_fixture_stays_text'] 1 failed, 78 passed in 0.34s
+M15 ArtistNoSlugFallback | expected: NONE (predict survive) | SURVIVED [] 79 passed in 0.36s
+M16 tpl drops data-slug | expected: test_show_page_escapes_and_fills | CAUGHT ['test_show_page_escapes_and_fills_every_placeholder', 'test_the_slug_is_encoded_in_the_page_url_and_escaped_in_the_data_attribute'] 2 failed, 77 passed in 0.35s
+M17 tpl drops fineprint | expected: test_the_ai_disclaimer | CAUGHT ['test_the_ai_disclaimer_is_on_the_page'] 1 failed, 78 passed in 0.34s
+M18 tpl drops zone div | expected: NONE in pytest (smoke would) | SURVIVED [] 79 passed in 0.33s
+M19 lineage escape off | expected: test_the_hostile_fixture_stays_text | CAUGHT ['test_the_hostile_fixture_stays_text'] 1 failed, 78 passed in 0.34s
+== HEAD
+('show', 'AttributeError', "'int' object has no attribute 'get'") ['int']
+('show', 'AttributeError', "'float' object has no attribute 'get'") ['float', 'nan']
+('show', 'AttributeError', "'bool' object has no attribute 'get'") ['true']
+('show', 'AttributeError', "'list' object has no attribute 'get'") ['list']
+('show', 'AttributeError', "'str' object has no attribute 'get'") ['surrogate', 'nul', 'dollar', 'huge']
+('show.artist', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 13") ['surrogate']
+('show.date', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 14") ['surrogate']
+('show.venue', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 10") ['surrogate']
+('show.city', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 10") ['surrogate']
+('source', 'AttributeError', "'int' object has no attribute 'get'") ['int']
+('source', 'AttributeError', "'float' object has no attribute 'get'") ['float', 'nan']
+('source', 'AttributeError', "'bool' object has no attribute 'get'") ['true']
+('source', 'AttributeError', "'list' object has no attribute 'get'") ['list']
+('source', 'AttributeError', "'str' object has no attribute 'get'") ['surrogate', 'nul', 'dollar', 'huge']
+('source.lineage', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 16") ['surrogate']
+('tracks', 'TypeError', "'int' object is not iterable") ['int']
+('tracks', 'TypeError', "'float' object is not iterable") ['float', 'nan']
+('tracks', 'TypeError', "'bool' object is not iterable") ['true']
+('tracks.0.title', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 13") ['surrogate']
+('tracks.0.set', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 13") ['surrogate']
+surrogate-in-brief UnicodeEncodeError('utf-8', '<!doctype html>\n<html lang="en">\n<head>\n<meta ch
+surrogate slug UnicodeEncodeError('utf-8', 'a\udcffb', 1, 2, 'surrogates not allowed')
+== BASE aed6e294
+('show', 'AttributeError', "'int' object has no attribute 'get'") ['int']
+('show', 'AttributeError', "'float' object has no attribute 'get'") ['float', 'nan']
+('show', 'AttributeError', "'bool' object has no attribute 'get'") ['true']
+('show', 'AttributeError', "'list' object has no attribute 'get'") ['list']
+('show', 'AttributeError', "'str' object has no attribute 'get'") ['surrogate', 'nul', 'dollar', 'huge']
+('show.artist', 'TypeError', 'sequence item 0: expected str instance, int found') ['int']
+('show.artist', 'TypeError', 'sequence item 0: expected str instance, float found') ['float', 'nan']
+('show.artist', 'TypeError', 'sequence item 0: expected str instance, bool found') ['true']
+('show.artist', 'TypeError', 'sequence item 0: expected str instance, list found') ['list']
+('show.artist', 'TypeError', 'sequence item 0: expected str instance, dict found') ['dict']
+('show.artist', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 13") ['surrogate']
+('show.date', 'TypeError', 'sequence item 1: expected str instance, int found') ['int']
+('show.date', 'TypeError', 'sequence item 1: expected str instance, float found') ['float', 'nan']
+('show.date', 'TypeError', 'sequence item 1: expected str instance, bool found') ['true']
+('show.date', 'TypeError', 'sequence item 1: expected str instance, list found') ['list']
+('show.date', 'TypeError', 'sequence item 1: expected str instance, dict found') ['dict']
+('show.date', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 14") ['surrogate']
+('show.venue', 'AttributeError', "'int' object has no attribute 'replace'") ['int']
+('show.venue', 'AttributeError', "'float' object has no attribute 'replace'") ['float', 'nan']
+('show.venue', 'AttributeError', "'bool' object has no attribute 'replace'") ['true']
+('show.venue', 'AttributeError', "'list' object has no attribute 'replace'") ['list']
+('show.venue', 'AttributeError', "'dict' object has no attribute 'replace'") ['dict']
+('show.venue', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 62") ['surrogate']
+('show.city', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 62") ['surrogate']
+('source', 'AttributeError', "'int' object has no attribute 'get'") ['int']
+('source', 'AttributeError', "'float' object has no attribute 'get'") ['float', 'nan']
+('source', 'AttributeError', "'bool' object has no attribute 'get'") ['true']
+('source', 'AttributeError', "'list' object has no attribute 'get'") ['list']
+('source', 'AttributeError', "'str' object has no attribute 'get'") ['surrogate', 'nul', 'dollar', 'huge']
+('source.url', 'AttributeError', "'int' object has no attribute 'replace'") ['int']
+('source.url', 'AttributeError', "'float' object has no attribute 'replace'") ['float', 'nan']
+('source.url', 'AttributeError', "'bool' object has no attribute 'replace'") ['true']
+('source.url', 'AttributeError', "'list' object has no attribute 'replace'") ['list']
+('source.url', 'AttributeError', "'dict' object has no attribute 'replace'") ['dict']
+('source.url', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 85") ['surrogate']
+('source.lineage', 'AttributeError', "'int' object has no attribute 'replace'") ['int']
+('source.lineage', 'AttributeError', "'float' object has no attribute 'replace'") ['float', 'nan']
+('source.lineage', 'AttributeError', "'bool' object has no attribute 'replace'") ['true']
+('source.lineage', 'AttributeError', "'list' object has no attribute 'replace'") ['list']
+('source.lineage', 'AttributeError', "'dict' object has no attribute 'replace'") ['dict']
+('source.lineage', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 92") ['surrogate']
+('tracks', 'TypeError', "'int' object is not iterable") ['int']
+('tracks', 'TypeError', "'float' object is not iterable") ['float', 'nan']
+('tracks', 'TypeError', "'bool' object is not iterable") ['true']
+('tracks.0.title', 'AttributeError', "'int' object has no attribute 'replace'") ['int']
+('tracks.0.title', 'AttributeError', "'float' object has no attribute 'replace'") ['float', 'nan']
+('tracks.0.title', 'AttributeError', "'bool' object has no attribute 'replace'") ['true']
+('tracks.0.title', 'AttributeError', "'list' object has no attribute 'replace'") ['list']
+('tracks.0.title', 'AttributeError', "'dict' object has no attribute 'replace'") ['dict']
+('tracks.0.title', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 72") ['surrogate']
+('tracks.0.set', 'UnicodeEncodeError', "'utf-8' codec can't encode character '\\ud800' in position 74") ['surrogate']
+surrogate-in-brief UnicodeEncodeError('utf-8', '<!doctype html>\n<html lang="en">\n<head>\n<meta ch
+surrogate slug UnicodeEncodeError('utf-8', '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf
+tedeschitrucksband-2018-08-23 1200 {"sw":1200,"cw":1200,"air":"Sat 12:26a to 1:53a\nSat 11:30p to Sun 12:30a","zone":"Times shown in Eastern Time","fine":"11px","over":["DIV.bstub"],"pwned":null} errs [] []
+tedeschitrucksband-2018-08-23 390 {"sw":390,"cw":390,"air":"Sat 12:26a to 1:53a\nSat 11:30p to Sun 12:30a","zone":"Times shown in Eastern Time","fine":"11px","over":["DIV.bstub"],"pwned":null} errs [] []
+tedeschitrucksband-2018-08-23 320 {"sw":320,"cw":320,"air":"Sat 12:26a to 1:53a\nSat 11:30p to Sun 12:30a","zone":"Times shown in Eastern Time","fine":"11px","over":["DIV.bstub"],"pwned":null} errs [] []
+gratefuldead-1977-05-08 1200 {"sw":1200,"cw":1200,"air":"Sat 12:26a to 1:53a\nSat 11:30p to Sun 12:30a","zone":"Times shown in Eastern Time","fine":"11px","over":["DIV.bstub"],"pwned":null} errs [] []
+gratefuldead-1977-05-08 390 {"sw":390,"cw":390,"air":"Sat 12:26a to 1:53a\nSat 11:30p to Sun 12:30a","zone":"Times shown in Eastern Time","fine":"11px","over":["DIV.bstub"],"pwned":null} errs [] []
+gratefuldead-1977-05-08 320 {"sw":320,"cw":320,"air":"Sat 12:26a to 1:53a\nSat 11:30p to Sun 12:30a","zone":"Times shown in Eastern Time","fine":"11px","over":["DIV.bstub"],"pwned":null} errs [] []
+hostile 1200 {"sw":1200,"cw":1200,"air":"Not currently scheduled.","zone":"","fine":"11px","over":["DIV.bstub"],"pwned":null} errs [] []
+hostile 390 {"sw":390,"cw":390,"air":"Not currently scheduled.","zone":"","fine":"11px","over":["DIV.bstub"],"pwned":null} errs [] []
+hostile 320 {"sw":320,"cw":320,"air":"Not currently scheduled.","zone":"","fine":"11px","over":["DIV.bstub"],"pwned":null} errs [] []
+manifests 3625 surrogate 0 see-cautions shows 471 any caution word 611
+Running 4 tests using 1 worker
+
+  ✓  1 e2e/smoke.pw.mjs:68:3 › show page air times › are written in the listener's zone, naming the end's day when it differs (205ms)
+  ✓  2 e2e/smoke.pw.mjs:77:3 › show page air times › say so when the show has none (123ms)
+  ✓  3 e2e/smoke.pw.mjs:83:3 › show page air times › say so when the notes can't be read (120ms)
+  ✓  4 e2e/smoke.pw.mjs:88:3 › show page air times › say so on a bad time, and the hostile slug fetches its own notes as text (128ms)
+
+  4 passed (1.7s)
+MJ1 expected red: are written in the listener's zone
+  ✓  3 e2e/smoke.pw.mjs:83:3 › show page air times › say so when the notes can't be read (120ms)
+  ✓  4 e2e/smoke.pw.mjs:88:3 › show page air times › say so on a bad time, and the hostile slug fetches its own notes as text (125ms)
+  1) e2e/smoke.pw.mjs:68:3 › show page air times › are written in the listener's zone, naming the end's day when it differs 
+  1 failed
+    e2e/smoke.pw.mjs:68:3 › show page air times › are written in the listener's zone, naming the end's day when it differs 
+  3 passed (7.1s)
+  ✓  3 e2e/smoke.pw.mjs:83:3 › show page air times › say so when the notes can't be read (214ms)
+  ✓  4 e2e/smoke.pw.mjs:88:3 › show page air times › say so on a bad time, and the hostile slug fetches its own notes as text (133ms)
+  1) e2e/smoke.pw.mjs:77:3 › show page air times › say so when the show has none ───────────────────
+  1 failed
+    e2e/smoke.pw.mjs:77:3 › show page air times › say so when the show has none ────────────────────
+  3 passed (7.1s)

@@ -1,0 +1,209 @@
+
+  ✓   1 e2e/smoke.pw.mjs:52:1 › the page loads, shows the header line and every asset request succeeds (725ms)
+  ✓   2 e2e/smoke.pw.mjs:73:1 › the page's elements are all there for the behaviour to bind to (165ms)
+  ✓   3 e2e/smoke.pw.mjs:82:1 › the hubs spin only under .turning, and never with reduced motion (151ms)
+  ✓   4 e2e/smoke.pw.mjs:92:1 › the fixture stream really plays, and setLive changes what /live.m3u8 answers (3.0s)
+  ✓   5 e2e/smoke.pw.mjs:126:1 › renders the label, tape log, coming up, just aired and zone line before Play (163ms)
+  ✓   6 e2e/smoke.pw.mjs:147:1 › every ticket link is /show/<encoded slug>.html, even when the fixture's page field is hostile (147ms)
+  ✓   7 e2e/smoke.pw.mjs:159:1 › the hostile fixture through the label, log and tickets: its markup appears as literal text and adds no element (201ms)
+  ✓   8 e2e/smoke.pw.mjs:181:1 › with an empty timeline, the schedule note is shown and the page does not throw (181ms)
+  ✓   9 e2e/smoke.pw.mjs:199:1 › no request leaves the local host (647ms)
+  ✓  10 e2e/smoke.pw.mjs:206:1 › stopped and hidden (document.hidden forced): no timeline.json fetch over 10 mocked minutes (3.1s)
+  ✓  11 e2e/smoke.pw.mjs:214:1 › visible: one fetch on load, the next only once 3 minutes have passed (967ms)
+  ✓  12 e2e/smoke.pw.mjs:225:1 › a failed fetch waits out the same 3 minutes (978ms)
+  ✓  13 e2e/smoke.pw.mjs:238:1 › ON THE AIR is hidden in the offair state only (157ms)
+  ✓  14 e2e/smoke.pw.mjs:255:1 › ticketLinks: a plain click opens in-page, a modified click is left to the browser (239ms)
+  ✓  15 e2e/smoke.pw.mjs:272:1 › Show all reveals the rest of coming up (183ms)
+  ✓  16 e2e/smoke.pw.mjs:326:1 › Play gives audio (currentTime advances) and #hubs gets turning (2.2s)
+  ✓  17 e2e/smoke.pw.mjs:335:1 › Now playing follows the playback position, not the wall clock (3.2s)
+  ✓  18 e2e/smoke.pw.mjs:344:1 › Stop silences the audio, stops the hubs and shows the stopped line (4.8s)
+  ✓  19 e2e/smoke.pw.mjs:370:1 › navigator.mediaSession.metadata.title is the song (4.9s)
+  ✓  20 e2e/smoke.pw.mjs:390:1 › /live.m3u8 answering 404 shows "Reconnecting…", then a switch to 403 reaches the off-air notice (2.5s)
+  ✓  21 e2e/smoke.pw.mjs:403:1 › Stop during a retry delay: no further /live.m3u8 request after a further 40 s of mocked time (852ms)
+  ✓  22 e2e/smoke.pw.mjs:417:1 › Stop during a probe: its answer never restarts the audio (1.0s)
+  ✓  23 e2e/smoke.pw.mjs:438:1 › /live.m3u8 unreachable during a stall: probes only, the src is untouched, then reachable gives a restart within one probe interval (12.7s)
+  ✘  24 e2e/smoke.pw.mjs:469:1 › the stream reachable again, one probe failing does not end recovery: the next probe gets the restart (1.1s)
+  ✓  25 e2e/smoke.pw.mjs:495:1 › a 10-minute silence shows "Lost the stream." and Try again (19.1s)
+  ✓  26 e2e/smoke.pw.mjs:518:1 › over 10 mocked minutes of 404: at most 60 /live.m3u8 requests and at most 4 /timeline.json requests (19.2s)
+  ✓  27 e2e/smoke.pw.mjs:531:1 › Media Session: play, pause and stop only; play after a hidden Stop fetches the timeline, the force alone does not (504ms)
+  ✘  28 e2e/smoke.pw.mjs:552:1 › a pause from the phone is a Stop, and it stays stopped (6.5s)
+  ✓  29 e2e/smoke.pw.mjs:563:1 › a playlist that ends goes straight to the off-air notice (321ms)
+  ✓  30 e2e/smoke.pw.mjs:571:1 › a refused play() shows the notice; any other rejection is left to the stall path (524ms)
+
+
+  1) e2e/smoke.pw.mjs:469:1 › the stream reachable again, one probe failing does not end recovery: the next probe gets the restart 
+
+    Error: not done after 30000 ms of mocked time
+
+      307 |     await advance(page, 1000);
+      308 |   }
+    > 309 |   throw new Error(`not done after ${ms} ms of mocked time`);
+          |         ^
+      310 | }
+      311 |
+      312 | async function playToAudio(page) {
+        at advanceUntil (/Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:309:9)
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:475:3
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-strea-5be5f-next-probe-gets-the-restart/error-context.md
+
+  2) e2e/smoke.pw.mjs:552:1 › a pause from the phone is a Stop, and it stays stopped ───────────────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#now')
+    Expected: "On Air Band is on the air. Press Play."
+    Received: "Song 3"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#now') with timeout 5000ms
+      - waiting for locator('#now')
+        14 × locator resolved to <p id="now" class="np">Song 3</p>
+           - unexpected value "Song 3"
+
+
+      555 |   const before = site.requests.length;
+      556 |   await page.locator("#audio").evaluate((a) => a.pause());
+    > 557 |   await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+          |                                      ^
+      558 |   await page.waitForTimeout(2500);
+      559 |   expect(site.requests.length).toBe(before);
+      560 |   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:557:38
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-a-pause-f-f66aa-a-Stop-and-it-stays-stopped/error-context.md
+
+  2 failed
+    e2e/smoke.pw.mjs:469:1 › the stream reachable again, one probe failing does not end recovery: the next probe gets the restart 
+    e2e/smoke.pw.mjs:552:1 › a pause from the phone is a Stop, and it stays stopped ────────────────
+  28 passed (1.6m)
+
+Running 3 tests using 1 worker
+
+  ✓  1 e2e/smoke.pw.mjs:358:1 › a stall, then recovery to playing with no key pressed (1.1m)
+  ✓  2 e2e/smoke.pw.mjs:469:1 › the stream reachable again, one probe failing does not end recovery: the next probe gets the restart (2.3s)
+  ✓  3 e2e/smoke.pw.mjs:552:1 › a pause from the phone is a Stop, and it stays stopped (4.7s)
+
+  3 passed (1.3m)
+   Duration  2.09s (transform 49%, tests 31%, import 12%, worker 7%)
+
+  Transform  transforming modules took 2.04s · 49% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+  1) e2e/smoke.pw.mjs:552:1 › a pause from the phone is a Stop, and it stays stopped ───────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 21
+    Received: 23
+
+      558 |   await expect(page.locator("#now")).toHaveText("On Air Band is on the air. Press Play.");
+      559 |   await page.waitForTimeout(2500);
+    > 560 |   expect(site.requests.length).toBe(before);
+          |                                ^
+      561 |   expect(await page.locator("#audio").evaluate((a) => a.paused && !a.hasAttribute("src"))).toBe(true);
+      562 | });
+      563 |
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:560:32
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-a-pause-f-f66aa-a-Stop-and-it-stays-stopped/error-context.md
+
+  1 failed
+    e2e/smoke.pw.mjs:552:1 › a pause from the phone is a Stop, and it stays stopped ────────────────
+  30 passed (2.7m)
+  ✓  28 e2e/smoke.pw.mjs:531:1 › Media Session: play, pause and stop only; play after a hidden Stop fetches the timeline, the force alone does not (465ms)
+  ✓  29 e2e/smoke.pw.mjs:552:1 › a pause from the phone is a Stop, and it stays stopped (4.7s)
+  ✓  30 e2e/smoke.pw.mjs:564:1 › a playlist that ends goes straight to the off-air notice (198ms)
+  ✓  31 e2e/smoke.pw.mjs:572:1 › a refused play() shows the notice; any other rejection is left to the stall path (479ms)
+
+  31 passed (2.7m)
+ Test Files  26 passed (26)
+      Tests  515 passed (515)
+no-session-check want Stop during a probe -> RED
+   ✘  1 e2e/smoke.pw.mjs:417:1 › Stop during a probe: its answer never restarts the audio (2. | 1 failed
+tick-after-stop want Stop during a retry delay -> RED
+   ✘  1 e2e/smoke.pw.mjs:403:1 › Stop during a retry delay: no further /live.m3u8 request aft | 1 failed
+teardown-on-probe want unreachable during a stall -> RED
+   ✘  1 e2e/smoke.pw.mjs:438:1 › /live.m3u8 unreachable during a stall: probes only, the src  | 1 failed
+restart-on-unreachable want unreachable during a stall -> RED
+   ✘  1 e2e/smoke.pw.mjs:438:1 › /live.m3u8 unreachable during a stall: probes only, the src  | 1 failed
+probe-failure-ends want one probe failing -> RED
+   ✘  1 e2e/smoke.pw.mjs:469:1 › the stream reachable again, one probe failing does not end r | 1 failed
+no-rerun-on-verdict want unreachable during a stall -> green
+   ✓  1 e2e/smoke.pw.mjs:438:1 › /live.m3u8 unreachable during a stall: probes only, the src  | 1 passed (13.6s)
+force-before-start want Media Session: play -> green
+   ✓  1 e2e/smoke.pw.mjs:531:1 › Media Session: play, pause and stop only; play after a hidde | 1 passed (2.4s)
+wall-clock-title want follows the playback position -> RED
+   ✘  1 e2e/smoke.pw.mjs:335:1 › Now playing follows the playback position, not the wall cloc | Error: expect(locator).toHaveText(expected) failed | 1 failed
+playing-event-counts want XX-unknown -> green
+   ✓  1 e2e/smoke.pw.mjs:358:1 › a stall, then recovery to playing with no key pressed (1.2m) | ✓  2 e2e/smoke.pw.mjs:390:1 › /live.m3u8 answering 404 shows "Reconnecting…", then a switc | 2 passed (1.2m)
+guard-bare-query want the page loads -> RED
+   ✘  1 e2e/smoke.pw.mjs:52:1 › the page loads, shows the header line and every asset request | 1 failed
+guard-popup want the page loads -> RED
+   ✘  1 e2e/smoke.pw.mjs:52:1 › the page loads, shows the header line and every asset request | 1 failed
+no-rerun-on-verdict want one probe failing -> RED
+   ✘  1 e2e/smoke.pw.mjs:480:1 › the stream reachable again, one probe failing does not end r | 1 failed
+force-before-start want Media Session: play -> RED
+   ✘  1 e2e/smoke.pw.mjs:547:1 › Media Session: play, pause and stop only; play after a hidde | 1 failed
+playing-event-counts want unreachable during -> RED
+   ✘  1 e2e/smoke.pw.mjs:443:1 › /live.m3u8 unreachable during a stall: probes only, the src  | 1 failed
+ Test Files  26 passed (26)
+      Tests  515 passed (515)
+  ✓  30 e2e/smoke.pw.mjs:582:1 › a playlist that ends goes straight to the off-air notice (201ms)
+  ✓  31 e2e/smoke.pw.mjs:590:1 › a refused play() shows the notice; any other rejection is left to the stall path (484ms)
+
+  31 passed (2.7m)
+  ✓  4 e2e/smoke.pw.mjs:631:1 › Play during a stall, once /live.m3u8 answers: rejoins at once, not at the next probe (1.0s)
+  ✓  5 e2e/smoke.pw.mjs:647:1 › Play with an off-air answer still rejoins, and the hubs stop until the position advances (2.3s)
+  ✓  6 e2e/smoke.pw.mjs:661:1 › Stop during Play's question stays stopped, and a second press adds nothing (3.3s)
+  ✓  7 e2e/smoke.pw.mjs:685:1 › a play() that never settles (home-screen app, hidden): no notice, no hubs, Reconnecting, and only a moving position gives playing (5.7s)
+
+
+  1) e2e/smoke.pw.mjs:608:1 › Play during a dropout, key or Media Session: a probe goes out, the src is untouched and the audio carries on 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      621 |   await expect.poll(() => probes.length).toBe(1);
+      622 |   await page.evaluate(() => window.actions.play());
+    > 623 |   await expect.poll(() => probes.length).toBe(2);
+          |                                          ^
+      624 |   await page.waitForTimeout(300);
+      625 |   expect(await audioSrc(page)).toBe(src);
+      626 |   const held = await position(page);
+        at /Users/shawn/projects/llama/.claude/worktrees/player/antenna/e2e/smoke.pw.mjs:623:42
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-Play-duri-0d289-ed-and-the-audio-carries-on/error-context.md
+
+  1 failed
+    e2e/smoke.pw.mjs:608:1 › Play during a dropout, key or Media Session: a probe goes out, the src is untouched and the audio carries on 
+  6 passed (22.1s)
+immediate-teardown want Play during a dropout -> RED
+rejoin-on-unreachable want Play during a dropout -> RED
+ask-ignores-stop want Stop during Play's -> RED
+no-inflight-guard want Stop during Play's -> RED
+handler-skips-ask want Play during a dropout -> RED
+offair-answer-no-rejoin want Play with an off-air -> RED
+hubs-not-cleared want Play with an off-air -> RED
+stuck-play-reads-playing want never settles -> RED
+stop-off-session want playlist that ends -> RED
+pause-ignores-stall want never settles -> RED
+MUTANTS-DONE
+ Test Files  26 passed (26)
+      Tests  515 passed (515)
+  ✓  11 e2e/smoke.pw.mjs:214:1 › visible: one fetch on load, the next only once 3 minutes have passed (974ms)
+  ✓  12 e2e/smoke.pw.mjs:225:1 › a failed fetch waits out the same 3 minutes (971ms)
+  36 passed (2.9m)
+FULL-DONE
+ Test Files  26 passed (26)
+      Tests  516 passed (516)
+  36 passed (2.9m)
+FULL2-DONE

@@ -1,0 +1,61 @@
+3650 briefings
+413 362 '(see cautions)' {'Set 1': 239, 'Encore': 35, 'Set 2': 97, 'Notable moments': 23, 'Context': 5, 'Why this show': 10, 'Reception': 4}
+2 2 '(title disputed; see cautions)' {'Set 1': 2}
+2 2 '(see notable moments and cautions)' {'Set 1': 2}
+2 2 '(see cautions on the title)' {'Set 1': 1, 'Encore': 1}
+1 1 '(see cautions on this title)' {'Set 1': 1}
+1 1 '(e.g., Golden Road, Caution > Jam)' {'Cautions for the scriptwriter': 1}
+1 1 '(see cautions for the full structure)' {'Set 2': 1}
+1 1 '(1:27; the archive gives a longer title for it, see cautions)' {'Set 1': 1}
+1 1 '(title as tagged; see cautions)' {'Set 1': 1}
+1 1 '(setlist.fm lists this song under a different name; see cautions)' {'Set 2': 1}
+1 1 "(for example Dark Star, Doin' That Rag, Other One, Cryptical and Caution)" {'Cautions for the scriptwriter': 1}
+1 1 '(see cautions on how to phrase this)' {'Notable moments': 1}
+1 1 '(see cautions before naming it on air)' {'Set 1': 1}
+1 1 '(see cautions on attribution)' {'Set 2': 1}
+1 1 '(see cautions on naming it)' {'Set 1': 1}
+1 1 '(the show data lists "helicon 2" as a tenth song in set 1; see cautions)' {'Set 1': 1}
+1 1 '(see cautions on the name)' {'Notable moments': 1}
+1 1 '(unverified; see cautions)' {'Set 2': 1}
+1 1 '("Playin\' reprise," "Caution," "Donor Rap")' {'Cautions for the scriptwriter': 1}
+1 1 '(see cautions about what follows it)' {'Set 1': 1}
+1 1 '(see cautions on sourcing for album attributions)' {'Set 1': 1}
+1 1 '(see cautions on who)' {'Set 1': 1}
+1 1 '(single source, see cautions)' {'Notable moments': 1}
+1 1 '(5:18; see cautions)' {'Set 1': 1}
+1 1 '(9:05; see cautions)' {'Set 1': 1}
+1 1 '(see cautions on set structure)' {'Set 1': 1}
+1 1 '(see cautions on structure)' {'Set 1': 1}
+1 1 '(see cautions on verifying this)' {'Set 1': 1}
+1 1 '(see cautions on that title)' {'Set 2': 1}
+1 1 '(e.g., Here Comes Sunshine, Mississippi Half-Step, Caution)' {'Cautions for the scriptwriter': 1}
+1 1 "(see cautions about that track's title)" {'Set 1': 1}
+1 1 '(Sittin On Top Of The World, Good Morning Little School Girl, Lovelight, and Caution Jam, which it calls simply a jam)' {'Cautions for the scriptwriter': 1}
+1 1 '(Cryptical Envelopment, The Other One, Lovelight, Caution Jam, Viola Lee Blues, Alligator)' {'Cautions for the scriptwriter': 1}
+1 1 '(an override title; see cautions)' {'Set 1': 1}
+1 1 '(see cautions on how to read this)' {'Notable moments': 1}
+1 1 '(see the encore entry and cautions)' {'Set 2': 1}
+1 1 "(the research mentions Mr. Charlie, Next Time You See Me, Good Lovin', It Hurts Me Too and Caution)" {'Cautions for the scriptwriter': 1}
+1 1 '(6:45, title uncertain; see cautions)' {'Set 1': 1}
+1 1 "(see cautions on that song's title)" {'Set 1': 1}
+1 1 '(the city is unconfirmed; see cautions)' {'Context': 1}
+1 1 '(see the WSLR and "best ever" cautions below)' {'Cautions for the scriptwriter': 1}
+1 1 '(the track list gives it twice; see cautions)' {'Set 1': 1}
+1 1 '(see cautions about this sequence)' {'Set 2': 1}
+1 1 '(single-source; see cautions)' {'Set 2': 1}
+1 1 '(see cautions on the date)' {'Context': 1}
+1 1 '(see cautions on the count)' {'Set 1': 1}
+1 1 '(see cautions about this slot)' {'Set 1': 1}
+1 1 '(A-, "Very Cool, esp Caution")' {'Cautions for the scriptwriter': 1}
+1 1 "(see cautions on this song's origin)" {'Set 1': 1}
+outside parens lines 4183 docs 3650
+/Users/shawn/projects/llama/.claude/worktrees/player/packages/transmitter/src/transmitter/site.py
+changed 362 removed 413 bad 0
+........................................................................ [ 98%]
+.....s........                                                           [100%]
+949 passed, 1 skipped in 31.86s
+........................................................................ [ 83%]
+........................................................................ [ 90%]
+........................................................................ [ 98%]
+..............                                                           [100%]
+950 passed in 42.25s

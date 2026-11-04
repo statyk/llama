@@ -1,0 +1,666 @@
+.......F.........................F.FFFFF..FFFFFFFFFF.FF.FFFFF.FFFFFFFFFF [ 91%]
+FFFFFFF                                                                  [100%]
+=================================== FAILURES ===================================
+______________ test_show_page_escapes_and_fills_every_placeholder ______________
+
+    def test_show_page_escapes_and_fills_every_placeholder():
+        notes = site.build_notes("s", None, "Para <script>alert(1)</script> one.\n\nPara two.", [], META)
+        html = site.render_show_page(TEMPLATE, notes, site_url="https://radio.example.org/", station_name="llama radio")
+        assert "<script>alert(1)</script>" not in html and "&lt;script&gt;" in html
+        assert '<meta property="og:url" content="https://radio.example.org/show/s.html">' in html
+        assert '<meta property="og:title" content="Band — 2005-11-01">' in html
+        assert "<p>Para two.</p>" in html
+>       assert 'data-slug="s"' in html
+E       assert 'data-slug="s"' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+
+packages/transmitter/tests_transmitter/test_site.py:94: AssertionError
+___________ test_show_page_renders_sections_and_never_the_raw_marks ____________
+
+    def test_show_page_renders_sections_and_never_the_raw_marks():
+        page = _page(briefing=BRIEFING)
+>       assert "<h2>Context</h2>" in page or ">Context<" in page
+E       assert ('<h2>Context</h2>' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' or '>Context<' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n')
+
+packages/transmitter/tests_transmitter/test_site.py:237: AssertionError
+___________ test_show_page_description_is_the_first_non_heading_text ___________
+
+    def test_show_page_description_is_the_first_non_heading_text():
+>       assert 'content="Band played Club in Lincoln.' in _page(briefing=BRIEFING)
+E       assert 'content="Band played Club in Lincoln.' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(briefing='# Briefing: Band — 2005-11-01, Club\n\n## Context\nBand played **Club** in Lincoln.\nSecond line of the paragraph.\n\n## Set 1\n- Opened hot\n- Closed cold\n\n## Cautions for the scriptwriter\n- Do not say great.\n')
+
+packages/transmitter/tests_transmitter/test_site.py:248: AssertionError
+____ test_show_page_description_can_be_a_bullet_and_falls_back_to_the_title ____
+
+    def test_show_page_description_can_be_a_bullet_and_falls_back_to_the_title():
+>       assert '<meta property="og:description" content="Only a bullet">' in _page(briefing="## A\n- Only a bullet\n")
+E       assert '<meta property="og:description" content="Only a bullet">' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(briefing='## A\n- Only a bullet\n')
+
+packages/transmitter/tests_transmitter/test_site.py:252: AssertionError
+______________ test_show_page_description_stops_at_200_characters ______________
+
+    def test_show_page_description_stops_at_200_characters():
+>       assert 'content="' + "x" * 200 + '"' in _page(briefing="## A\n" + "x" * 300 + "\n")
+E       assert (('content="' + ('x' * 200)) + '"') in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(briefing=(('## A\n' + ('x' * 300)) + '\n'))
+
+packages/transmitter/tests_transmitter/test_site.py:257: AssertionError
+__________ test_show_page_leaves_out_the_button_for_a_non_archive_url __________
+
+    def test_show_page_leaves_out_the_button_for_a_non_archive_url():
+        page = _page(url="javascript:alert(1)")
+>       assert "Hear the full tape" not in page and "javascript:" not in page
+E       assert ('Hear the full tape' not in '<!doctype h...>\n</html>\n'
+E         
+E         'Hear the full tape' is contained here:
+E           y>
+E           </html> and 'javascript:' not in '<!doctype h...>\n</html>\n'
+E         
+E         'javascript:' is contained here:
+E           ><a href="javascript:alert(1)">javascript:alert(1)</a></p>
+E         ?           +++++++++++
+E           <p class="lineage">AUD</p>
+E           </section>
+E           <section><h2>Airtimes</h2>...
+E         
+E         ...Full output truncated, use '-vv' to show)
+
+packages/transmitter/tests_transmitter/test_site.py:262: AssertionError
+__________________ test_the_archive_button_opens_in_a_new_tab __________________
+
+    def test_the_archive_button_opens_in_a_new_tab():
+>       assert ('<a class="btn" href="https://archive.org/details/x" target="_blank" rel="noopener">'
+                "Hear the full tape on archive.org") in _page(url="https://archive.org/details/x")
+E       assert '<a class="btn" href="https://archive.org/details/x" target="_blank" rel="noopener">Hear the full tape on archive.org' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(url='https://archive.org/details/x')
+
+packages/transmitter/tests_transmitter/test_site.py:266: AssertionError
+______________________ test_doubled_segue_marks_are_gone _______________________
+
+    def test_doubled_segue_marks_are_gone():
+        page = _page(setlist=[{"title": "Drums / Space >", "segue": True, "set": "2"}])
+>       assert "Drums / Space &gt; &gt;" not in page and "Drums / Space &gt;" in page
+E       assert ('Drums / Space &gt; &gt;' not in '<!doctype h...>\n</html>\n'
+E         
+E         'Drums / Space &gt; &gt;' is contained here:
+E           >
+E           <ol><li>Drums / Space &gt; &gt; <span class="set">2</span></li></ol>
+E         ?         +++++++++++++++++++++++
+E           </section>
+E           <section><h2>Source</h2>...
+E         
+E         ...Full output truncated, use '-vv' to show)
+
+packages/transmitter/tests_transmitter/test_site.py:281: AssertionError
+_____________ test_setlist_titles_follow_one_rule[Song-False-Song] _____________
+
+title = 'Song', segue = False, want = 'Song'
+
+    @pytest.mark.parametrize("title,segue,want", [
+        ("Song", False, "Song"), ("Song", True, "Song &gt;"), ("Song ->", False, "Song &gt;"),
+        ("Song->", True, "Song &gt;"), ("Song -->", False, "Song &gt;"), ("Song>", False, "Song &gt;"),
+        (None, False, "?"), ("  ", True, "?"),
+    ])
+    def test_setlist_titles_follow_one_rule(title, segue, want):
+>       assert f"<li>{want}</li>" in _page(setlist=[{"title": title, "segue": segue, "set": "1"}])
+E       assert '<li>Song</li>' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(setlist=[{'title': 'Song', 'segue': False, 'set': '1'}])
+
+packages/transmitter/tests_transmitter/test_site.py:290: AssertionError
+___________ test_setlist_titles_follow_one_rule[Song-True-Song &gt;] ___________
+
+title = 'Song', segue = True, want = 'Song &gt;'
+
+    @pytest.mark.parametrize("title,segue,want", [
+        ("Song", False, "Song"), ("Song", True, "Song &gt;"), ("Song ->", False, "Song &gt;"),
+        ("Song->", True, "Song &gt;"), ("Song -->", False, "Song &gt;"), ("Song>", False, "Song &gt;"),
+        (None, False, "?"), ("  ", True, "?"),
+    ])
+    def test_setlist_titles_follow_one_rule(title, segue, want):
+>       assert f"<li>{want}</li>" in _page(setlist=[{"title": title, "segue": segue, "set": "1"}])
+E       assert '<li>Song &gt;</li>' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(setlist=[{'title': 'Song', 'segue': True, 'set': '1'}])
+
+packages/transmitter/tests_transmitter/test_site.py:290: AssertionError
+_________ test_setlist_titles_follow_one_rule[Song ->-False-Song &gt;] _________
+
+title = 'Song ->', segue = False, want = 'Song &gt;'
+
+    @pytest.mark.parametrize("title,segue,want", [
+        ("Song", False, "Song"), ("Song", True, "Song &gt;"), ("Song ->", False, "Song &gt;"),
+        ("Song->", True, "Song &gt;"), ("Song -->", False, "Song &gt;"), ("Song>", False, "Song &gt;"),
+        (None, False, "?"), ("  ", True, "?"),
+    ])
+    def test_setlist_titles_follow_one_rule(title, segue, want):
+>       assert f"<li>{want}</li>" in _page(setlist=[{"title": title, "segue": segue, "set": "1"}])
+E       assert '<li>Song &gt;</li>' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(setlist=[{'title': 'Song ->', 'segue': False, 'set': '1'}])
+
+packages/transmitter/tests_transmitter/test_site.py:290: AssertionError
+__________ test_setlist_titles_follow_one_rule[Song->-True-Song &gt;] __________
+
+title = 'Song->', segue = True, want = 'Song &gt;'
+
+    @pytest.mark.parametrize("title,segue,want", [
+        ("Song", False, "Song"), ("Song", True, "Song &gt;"), ("Song ->", False, "Song &gt;"),
+        ("Song->", True, "Song &gt;"), ("Song -->", False, "Song &gt;"), ("Song>", False, "Song &gt;"),
+        (None, False, "?"), ("  ", True, "?"),
+    ])
+    def test_setlist_titles_follow_one_rule(title, segue, want):
+>       assert f"<li>{want}</li>" in _page(setlist=[{"title": title, "segue": segue, "set": "1"}])
+E       assert '<li>Song &gt;</li>' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(setlist=[{'title': 'Song->', 'segue': True, 'set': '1'}])
+
+packages/transmitter/tests_transmitter/test_site.py:290: AssertionError
+________ test_setlist_titles_follow_one_rule[Song -->-False-Song &gt;] _________
+
+title = 'Song -->', segue = False, want = 'Song &gt;'
+
+    @pytest.mark.parametrize("title,segue,want", [
+        ("Song", False, "Song"), ("Song", True, "Song &gt;"), ("Song ->", False, "Song &gt;"),
+        ("Song->", True, "Song &gt;"), ("Song -->", False, "Song &gt;"), ("Song>", False, "Song &gt;"),
+        (None, False, "?"), ("  ", True, "?"),
+    ])
+    def test_setlist_titles_follow_one_rule(title, segue, want):
+>       assert f"<li>{want}</li>" in _page(setlist=[{"title": title, "segue": segue, "set": "1"}])
+E       assert '<li>Song &gt;</li>' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(setlist=[{'title': 'Song -->', 'segue': False, 'set': '1'}])
+
+packages/transmitter/tests_transmitter/test_site.py:290: AssertionError
+__________ test_setlist_titles_follow_one_rule[Song>-False-Song &gt;] __________
+
+title = 'Song>', segue = False, want = 'Song &gt;'
+
+    @pytest.mark.parametrize("title,segue,want", [
+        ("Song", False, "Song"), ("Song", True, "Song &gt;"), ("Song ->", False, "Song &gt;"),
+        ("Song->", True, "Song &gt;"), ("Song -->", False, "Song &gt;"), ("Song>", False, "Song &gt;"),
+        (None, False, "?"), ("  ", True, "?"),
+    ])
+    def test_setlist_titles_follow_one_rule(title, segue, want):
+>       assert f"<li>{want}</li>" in _page(setlist=[{"title": title, "segue": segue, "set": "1"}])
+E       assert '<li>Song &gt;</li>' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(setlist=[{'title': 'Song>', 'segue': False, 'set': '1'}])
+
+packages/transmitter/tests_transmitter/test_site.py:290: AssertionError
+______________ test_setlist_titles_follow_one_rule[None-False-?] _______________
+
+title = None, segue = False, want = '?'
+
+    @pytest.mark.parametrize("title,segue,want", [
+        ("Song", False, "Song"), ("Song", True, "Song &gt;"), ("Song ->", False, "Song &gt;"),
+        ("Song->", True, "Song &gt;"), ("Song -->", False, "Song &gt;"), ("Song>", False, "Song &gt;"),
+        (None, False, "?"), ("  ", True, "?"),
+    ])
+    def test_setlist_titles_follow_one_rule(title, segue, want):
+>       assert f"<li>{want}</li>" in _page(setlist=[{"title": title, "segue": segue, "set": "1"}])
+E       assert '<li>?</li>' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(setlist=[{'title': None, 'segue': False, 'set': '1'}])
+
+packages/transmitter/tests_transmitter/test_site.py:290: AssertionError
+________________ test_setlist_titles_follow_one_rule[  -True-?] ________________
+
+title = '  ', segue = True, want = '?'
+
+    @pytest.mark.parametrize("title,segue,want", [
+        ("Song", False, "Song"), ("Song", True, "Song &gt;"), ("Song ->", False, "Song &gt;"),
+        ("Song->", True, "Song &gt;"), ("Song -->", False, "Song &gt;"), ("Song>", False, "Song &gt;"),
+        (None, False, "?"), ("  ", True, "?"),
+    ])
+    def test_setlist_titles_follow_one_rule(title, segue, want):
+>       assert f"<li>{want}</li>" in _page(setlist=[{"title": title, "segue": segue, "set": "1"}])
+E       assert '<li>?</li>' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(setlist=[{'title': '  ', 'segue': True, 'set': '1'}])
+
+packages/transmitter/tests_transmitter/test_site.py:290: AssertionError
+__________ test_one_set_has_no_label_and_several_are_grouped_in_order __________
+
+    def test_one_set_has_no_label_and_several_are_grouped_in_order():
+        one = _page(setlist=[{"title": "A", "set": "1"}, {"title": "B", "set": "1"}])
+        assert one.count("<ol>") == 1 and "Set 1" not in one
+        many = _page(setlist=[{"title": "A", "set": "1"}, {"title": "B", "set": "1"},
+                              {"title": "C", "set": "2"}, {"title": "D", "set": "encore"}])
+>       assert many.count("<ol>") == 3
+E       assert 1 == 3
+E        +  where 1 = <built-in method count of str object at 0x7545ad1000>('<ol>')
+E        +    where <built-in method count of str object at 0x7545ad1000> = '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'.count
+
+packages/transmitter/tests_transmitter/test_site.py:298: AssertionError
+____________________ test_the_ai_disclaimer_is_on_the_page _____________________
+
+    def test_the_ai_disclaimer_is_on_the_page():
+>       assert "Show notes are AI generated and may contain mistakes." in _page()
+E       assert 'Show notes are AI generated and may contain mistakes.' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page()
+
+packages/transmitter/tests_transmitter/test_site.py:308: AssertionError
+__________________ test_a_blank_lineage_leaves_its_label_out ___________________
+
+    def test_a_blank_lineage_leaves_its_label_out():
+>       assert "Taper's lineage" in _page(lineage="SBD")
+E       assert "Taper's lineage" in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(lineage='SBD')
+
+packages/transmitter/tests_transmitter/test_site.py:312: AssertionError
+__ test_the_slug_is_encoded_in_the_page_url_and_escaped_in_the_data_attribute __
+
+    def test_the_slug_is_encoded_in_the_page_url_and_escaped_in_the_data_attribute():
+        notes = dict(site.build_notes("s", None, None, [], META), slug='a b"c')
+        page = site.render_show_page(TEMPLATE, notes, site_url="https://x.example", station_name="LMA Radio")
+>       assert 'content="https://x.example/show/a%20b%22c.html"' in page
+E       assert 'content="https://x.example/show/a%20b%22c.html"' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+
+packages/transmitter/tests_transmitter/test_site.py:326: AssertionError
+_________________ test_non_string_fields_never_stop_the_render _________________
+
+    def test_non_string_fields_never_stop_the_render():
+        notes = dict(site.build_notes("s", None, None, [], META), artist=5, date=1977, venue=6, city=7, lineage=8)
+>       page = site.render_show_page(TEMPLATE, notes, site_url=None, station_name="LMA Radio")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+packages/transmitter/tests_transmitter/test_site.py:332: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+packages/transmitter/src/transmitter/site.py:203: in render_show_page
+    title = _title(notes)
+            ^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+notes = {'slug': 's', 'artist': 5, 'date': 1977, 'venue': 6, ...}
+
+    def _title(notes: Mapping) -> str:
+>       return " — ".join(p for p in (notes.get("artist") or notes["slug"], notes.get("date")) if p)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: sequence item 0: expected str instance, int found
+
+packages/transmitter/src/transmitter/site.py:191: TypeError
+________________________ test_og_image_needs_a_site_url ________________________
+
+    def test_og_image_needs_a_site_url():
+>       assert "cassette-og.png" in _page(site_url="https://x.example")
+E       assert 'cassette-og.png' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(site_url='https://x.example')
+
+packages/transmitter/tests_transmitter/test_site.py:337: AssertionError
+__________________________ test_og_image_is_absolute ___________________________
+
+    def test_og_image_is_absolute():
+>       assert '<meta property="og:image" content="https://x.example/assets/cassette-og.png">' \
+            in _page(site_url="https://x.example/")
+E       assert '<meta property="og:image" content="https://x.example/assets/cassette-og.png">' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n'
+E        +  where '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n' = _page(site_url='https://x.example/')
+
+packages/transmitter/tests_transmitter/test_site.py:342: AssertionError
+_______________________ test_show_page_escapes_sections ________________________
+
+    def test_show_page_escapes_sections():
+>       assert "<script>" not in _page(briefing="## A\n<script>x</script>\n")
+E       assert '<script>' not in '<!doctype h...>\n</html>\n'
+E         
+E         '<script>' is contained here:
+E           >
+E           </main>
+E           <script>
+E           (async () => {
+E             const ul = document.getElementById("airtimes");...
+E         
+E         ...Full output truncated, use '-vv' to show
+
+packages/transmitter/tests_transmitter/test_site.py:347: AssertionError
+_____________________ test_the_hostile_fixture_stays_text ______________________
+
+    def test_the_hostile_fixture_stays_text():
+        hostile = json.loads((REPO / "antenna" / "e2e" / "fixtures" / "hostile.json").read_text())
+        page = site.render_show_page(TEMPLATE, hostile, site_url=None, station_name="LMA Radio")
+        assert "<img" not in page
+        for raw in ("<script>window", "<svg", "<iframe", '<a href="javascript', "<h1 onclick", "<b>", "<i>", "<u>"):
+>           assert raw not in page
+E           assert '<a href="javascript' not in '<!doctype h...>\n</html>\n'
+E             
+E             '<a href="javascript' is contained here:
+E               e</h2>
+E               <p><a href="javascript:window.pwned=1">javascript:window.pwned=1</a></p>
+E             ?    +++++++++++++++++++
+E               <p class="lineage">&lt;a href=&quot;javascript:window.pwned=1&quot;&gt;SBD&lt;/a&gt; &gt; &lt;script&gt;window.pwned=1&lt;/script&gt;</p>
+E               </section>...
+E             
+E             ...Full output truncated, use '-vv' to show
+
+packages/transmitter/tests_transmitter/test_site.py:360: AssertionError
+____________________ test_the_template_has_no_inline_script ____________________
+
+    def test_the_template_has_no_inline_script():
+>       assert "<script>" not in TEMPLATE
+E       assert '<script>' not in '<!doctype h...>\n</html>\n'
+E         
+E         '<script>' is contained here:
+E           >
+E           </main>
+E           <script>
+E           (async () => {
+E             const ul = document.getElementById("airtimes");...
+E         
+E         ...Full output truncated, use '-vv' to show
+
+packages/transmitter/tests_transmitter/test_site.py:364: AssertionError
+______________ test_the_template_uses_the_new_look_and_links_home ______________
+
+    def test_the_template_uses_the_new_look_and_links_home():
+>       assert 'href="/assets/radio.css"' in TEMPLATE and '<script type="module" src="/assets/show.js">' in TEMPLATE
+E       assert ('href="/assets/radio.css"' in '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...);\n  } catch (e) {\n    ul.replaceChildren(item("Airtimes unavailable."));\n  }\n})();\n</script>\n</body>\n</html>\n')
+
+packages/transmitter/tests_transmitter/test_site.py:368: AssertionError
+_______________ test_concert_stub_never_raises[2008-11-01-want0] _______________
+
+date = '2008-11-01', want = ('SAT NOV 1', '2008')
+
+    @pytest.mark.parametrize("date,want", [
+        ("2008-11-01", ("SAT NOV 1", "2008")),
+        ("1977-05-00", ("1977-05-00", "")),
+        ("1977", ("1977", "")),
+        ("2008-13-45", ("2008-13-45", "")),
+        ("garbage", ("garbage", "")),
+        (None, ("", "")),
+        (1977, ("1977", "")),
+    ])
+    def test_concert_stub_never_raises(date, want):
+>       assert site.concert_stub(date) == want
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'concert_stub'
+
+packages/transmitter/tests_transmitter/test_site.py:384: AttributeError
+_______________ test_concert_stub_never_raises[1977-05-00-want1] _______________
+
+date = '1977-05-00', want = ('1977-05-00', '')
+
+    @pytest.mark.parametrize("date,want", [
+        ("2008-11-01", ("SAT NOV 1", "2008")),
+        ("1977-05-00", ("1977-05-00", "")),
+        ("1977", ("1977", "")),
+        ("2008-13-45", ("2008-13-45", "")),
+        ("garbage", ("garbage", "")),
+        (None, ("", "")),
+        (1977, ("1977", "")),
+    ])
+    def test_concert_stub_never_raises(date, want):
+>       assert site.concert_stub(date) == want
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'concert_stub'
+
+packages/transmitter/tests_transmitter/test_site.py:384: AttributeError
+__________________ test_concert_stub_never_raises[1977-want2] __________________
+
+date = '1977', want = ('1977', '')
+
+    @pytest.mark.parametrize("date,want", [
+        ("2008-11-01", ("SAT NOV 1", "2008")),
+        ("1977-05-00", ("1977-05-00", "")),
+        ("1977", ("1977", "")),
+        ("2008-13-45", ("2008-13-45", "")),
+        ("garbage", ("garbage", "")),
+        (None, ("", "")),
+        (1977, ("1977", "")),
+    ])
+    def test_concert_stub_never_raises(date, want):
+>       assert site.concert_stub(date) == want
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'concert_stub'
+
+packages/transmitter/tests_transmitter/test_site.py:384: AttributeError
+_______________ test_concert_stub_never_raises[2008-13-45-want3] _______________
+
+date = '2008-13-45', want = ('2008-13-45', '')
+
+    @pytest.mark.parametrize("date,want", [
+        ("2008-11-01", ("SAT NOV 1", "2008")),
+        ("1977-05-00", ("1977-05-00", "")),
+        ("1977", ("1977", "")),
+        ("2008-13-45", ("2008-13-45", "")),
+        ("garbage", ("garbage", "")),
+        (None, ("", "")),
+        (1977, ("1977", "")),
+    ])
+    def test_concert_stub_never_raises(date, want):
+>       assert site.concert_stub(date) == want
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'concert_stub'
+
+packages/transmitter/tests_transmitter/test_site.py:384: AttributeError
+________________ test_concert_stub_never_raises[garbage-want4] _________________
+
+date = 'garbage', want = ('garbage', '')
+
+    @pytest.mark.parametrize("date,want", [
+        ("2008-11-01", ("SAT NOV 1", "2008")),
+        ("1977-05-00", ("1977-05-00", "")),
+        ("1977", ("1977", "")),
+        ("2008-13-45", ("2008-13-45", "")),
+        ("garbage", ("garbage", "")),
+        (None, ("", "")),
+        (1977, ("1977", "")),
+    ])
+    def test_concert_stub_never_raises(date, want):
+>       assert site.concert_stub(date) == want
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'concert_stub'
+
+packages/transmitter/tests_transmitter/test_site.py:384: AttributeError
+__________________ test_concert_stub_never_raises[None-want5] __________________
+
+date = None, want = ('', '')
+
+    @pytest.mark.parametrize("date,want", [
+        ("2008-11-01", ("SAT NOV 1", "2008")),
+        ("1977-05-00", ("1977-05-00", "")),
+        ("1977", ("1977", "")),
+        ("2008-13-45", ("2008-13-45", "")),
+        ("garbage", ("garbage", "")),
+        (None, ("", "")),
+        (1977, ("1977", "")),
+    ])
+    def test_concert_stub_never_raises(date, want):
+>       assert site.concert_stub(date) == want
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'concert_stub'
+
+packages/transmitter/tests_transmitter/test_site.py:384: AttributeError
+__________________ test_concert_stub_never_raises[1977-want6] __________________
+
+date = 1977, want = ('1977', '')
+
+    @pytest.mark.parametrize("date,want", [
+        ("2008-11-01", ("SAT NOV 1", "2008")),
+        ("1977-05-00", ("1977-05-00", "")),
+        ("1977", ("1977", "")),
+        ("2008-13-45", ("2008-13-45", "")),
+        ("garbage", ("garbage", "")),
+        (None, ("", "")),
+        (1977, ("1977", "")),
+    ])
+    def test_concert_stub_never_raises(date, want):
+>       assert site.concert_stub(date) == want
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'concert_stub'
+
+packages/transmitter/tests_transmitter/test_site.py:384: AttributeError
+___________ test_concert_stub_gives_back_what_is_no_date[0000-01-01] ___________
+
+date = '0000-01-01'
+
+    @pytest.mark.parametrize("date", ["0000-01-01", "2023-02-29", "2008-11-01\n"])
+    def test_concert_stub_gives_back_what_is_no_date(date):
+>       assert site.concert_stub(date) == (date, "")
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'concert_stub'
+
+packages/transmitter/tests_transmitter/test_site.py:389: AttributeError
+___________ test_concert_stub_gives_back_what_is_no_date[2023-02-29] ___________
+
+date = '2023-02-29'
+
+    @pytest.mark.parametrize("date", ["0000-01-01", "2023-02-29", "2008-11-01\n"])
+    def test_concert_stub_gives_back_what_is_no_date(date):
+>       assert site.concert_stub(date) == (date, "")
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'concert_stub'
+
+packages/transmitter/tests_transmitter/test_site.py:389: AttributeError
+__________ test_concert_stub_gives_back_what_is_no_date[2008-11-01\n] __________
+
+date = '2008-11-01\n'
+
+    @pytest.mark.parametrize("date", ["0000-01-01", "2023-02-29", "2008-11-01\n"])
+    def test_concert_stub_gives_back_what_is_no_date(date):
+>       assert site.concert_stub(date) == (date, "")
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'concert_stub'
+
+packages/transmitter/tests_transmitter/test_site.py:389: AttributeError
+_________________ test_where_line[Club-Lincoln-Club, Lincoln] __________________
+
+venue = 'Club', city = 'Lincoln', want = 'Club, Lincoln'
+
+    @pytest.mark.parametrize("venue,city,want", [
+        ("Club", "Lincoln", "Club, Lincoln"), ("Club", None, "Club"), (None, "Lincoln", "Lincoln"), (None, None, ""),
+    ])
+    def test_where_line(venue, city, want):
+>       assert site.where_line(venue, city) == want
+               ^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'where_line'
+
+packages/transmitter/tests_transmitter/test_site.py:396: AttributeError
+_______________________ test_where_line[Club-None-Club] ________________________
+
+venue = 'Club', city = None, want = 'Club'
+
+    @pytest.mark.parametrize("venue,city,want", [
+        ("Club", "Lincoln", "Club, Lincoln"), ("Club", None, "Club"), (None, "Lincoln", "Lincoln"), (None, None, ""),
+    ])
+    def test_where_line(venue, city, want):
+>       assert site.where_line(venue, city) == want
+               ^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'where_line'
+
+packages/transmitter/tests_transmitter/test_site.py:396: AttributeError
+____________________ test_where_line[None-Lincoln-Lincoln] _____________________
+
+venue = None, city = 'Lincoln', want = 'Lincoln'
+
+    @pytest.mark.parametrize("venue,city,want", [
+        ("Club", "Lincoln", "Club, Lincoln"), ("Club", None, "Club"), (None, "Lincoln", "Lincoln"), (None, None, ""),
+    ])
+    def test_where_line(venue, city, want):
+>       assert site.where_line(venue, city) == want
+               ^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'where_line'
+
+packages/transmitter/tests_transmitter/test_site.py:396: AttributeError
+_________________________ test_where_line[None-None-] __________________________
+
+venue = None, city = None, want = ''
+
+    @pytest.mark.parametrize("venue,city,want", [
+        ("Club", "Lincoln", "Club, Lincoln"), ("Club", None, "Club"), (None, "Lincoln", "Lincoln"), (None, None, ""),
+    ])
+    def test_where_line(venue, city, want):
+>       assert site.where_line(venue, city) == want
+               ^^^^^^^^^^^^^^^
+E       AttributeError: module 'transmitter.site' has no attribute 'where_line'
+
+packages/transmitter/tests_transmitter/test_site.py:396: AttributeError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_show_page_escapes_and_fills_every_placeholder
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_show_page_renders_sections_and_never_the_raw_marks
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_show_page_description_is_the_first_non_heading_text
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_show_page_description_can_be_a_bullet_and_falls_back_to_the_title
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_show_page_description_stops_at_200_characters
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_show_page_leaves_out_the_button_for_a_non_archive_url
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_the_archive_button_opens_in_a_new_tab
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_doubled_segue_marks_are_gone
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_setlist_titles_follow_one_rule[Song-False-Song]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_setlist_titles_follow_one_rule[Song-True-Song &gt;]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_setlist_titles_follow_one_rule[Song ->-False-Song &gt;]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_setlist_titles_follow_one_rule[Song->-True-Song &gt;]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_setlist_titles_follow_one_rule[Song -->-False-Song &gt;]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_setlist_titles_follow_one_rule[Song>-False-Song &gt;]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_setlist_titles_follow_one_rule[None-False-?]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_setlist_titles_follow_one_rule[  -True-?]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_one_set_has_no_label_and_several_are_grouped_in_order
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_the_ai_disclaimer_is_on_the_page
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_a_blank_lineage_leaves_its_label_out
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_the_slug_is_encoded_in_the_page_url_and_escaped_in_the_data_attribute
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_non_string_fields_never_stop_the_render
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_og_image_needs_a_site_url
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_og_image_is_absolute
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_show_page_escapes_sections
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_the_hostile_fixture_stays_text
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_the_template_has_no_inline_script
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_the_template_uses_the_new_look_and_links_home
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_concert_stub_never_raises[2008-11-01-want0]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_concert_stub_never_raises[1977-05-00-want1]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_concert_stub_never_raises[1977-want2]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_concert_stub_never_raises[2008-13-45-want3]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_concert_stub_never_raises[garbage-want4]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_concert_stub_never_raises[None-want5]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_concert_stub_never_raises[1977-want6]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_concert_stub_gives_back_what_is_no_date[0000-01-01]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_concert_stub_gives_back_what_is_no_date[2023-02-29]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_concert_stub_gives_back_what_is_no_date[2008-11-01\n]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_where_line[Club-Lincoln-Club, Lincoln]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_where_line[Club-None-Club]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_where_line[None-Lincoln-Lincoln]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_where_line[None-None-]
+41 failed, 38 passed in 0.36s
+........................................................................ [ 91%]
+.......                                                                  [100%]
+79 passed in 0.98s
+
+> pages
+> node scripts/build-pages.mjs
+
+wrote src/pages.ts
+   Start at  15:15:31
+   Duration  2.15s (transform 47%, tests 33%, import 12%, worker 7%)
+
+    Isolate  26 workers spawned · ~484ms startup each (spawn + environment, per file)
+             at least ~915ms faster with isolate: false — reuses workers across files instead of one per file
+
+> typecheck
+> tsc --noEmit
+
+
+Running 4 tests using 1 worker
+
+  ✓  1 e2e/smoke.pw.mjs:68:3 › show page air times › are written in the listener's zone, naming the end's day when it differs (207ms)
+  ✓  2 e2e/smoke.pw.mjs:77:3 › show page air times › say so when the show has none (344ms)
+  ✓  3 e2e/smoke.pw.mjs:83:3 › show page air times › say so when the notes can't be read (115ms)
+  ✓  4 e2e/smoke.pw.mjs:88:3 › show page air times › say so on a bad time, and the hostile slug fetches its own notes as text (123ms)
+
+  4 passed (2.0s)
+t9: full suites
+........................................................................ [ 98%]
+...s........                                                             [100%]
+947 passed, 1 skipped in 30.77s
+ Test Files  26 passed (26)
+      Tests  516 passed (516)
+  ✓  39 e2e/smoke.pw.mjs:707:1 › Stop during Play's question stays stopped, and a second press adds nothing (3.3s)
+  ✓  40 e2e/smoke.pw.mjs:731:1 › a play() that never settles (home-screen app, hidden): no notice, no hubs, Reconnecting, and only a moving position gives playing (6.5s)
+
+  40 passed (3.0m)
+debconf: delaying package configuration, since apt-utils is not installed
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+........................................................................ [  7%]
+........................................................................ [ 15%]
+........................................................................ [ 22%]
+........................................................................ [ 30%]
+........................................................................ [ 37%]
+........................................................................ [ 45%]
+........................................................................ [ 53%]
+........................................................................ [ 60%]
+........................................................................ [ 68%]
+........................................................................ [ 75%]
+........................................................................ [ 83%]
+........................................................................ [ 91%]
+........................................................................ [ 98%]
+............                                                             [100%]
+948 passed in 38.75s

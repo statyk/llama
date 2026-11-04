@@ -1,0 +1,11 @@
+
+[notice] A new release of pip is available: 26.2.1 -> 26.2.2
+[notice] To update, run: /Users/shawn/projects/llama/.claude/worktrees/player/.venv/bin/python3.14 -m pip install --upgrade pip
+/Users/shawn/projects/llama/.claude/worktrees/player/packages/transmitter/src/transmitter/__init__.py
+   Duration  2.34s (transform 50%, tests 31%, import 12%, worker 7%)
+
+  Transform  transforming modules took 2.11s · 50% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+SETUP-RC=0
