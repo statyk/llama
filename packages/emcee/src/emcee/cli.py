@@ -1513,28 +1513,46 @@ def _append_record(run_dir: Path, entry: dict) -> None:
     _durable_write(run_dir / "record.jsonl", (json.dumps(entry) + "\n").encode(), "ab")
 
 
+def _fsync_dir(path: Path) -> None:
+    """fsync a directory, so the entries just made in it survive power loss
+    (plain fsync: the backups live on the local emcee root)."""
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def _save_backup(run_dir: Path, slug: str, raw: bytes, mtime_ns: int) -> None:
     """`<slug>.json` (the original bytes) and its record line, both durable before
-    the caller writes the show: under the lock a SIGTERM ends the process at once."""
+    the caller writes the show: under the lock a SIGTERM ends the process at once.
+    The run dir is fsynced after them, so their entries survive power loss too."""
     _durable_write(run_dir / f"{slug}.json", raw, "xb")
     _append_record(run_dir, {"slug": slug, "before_sha256": hashlib.sha256(raw).hexdigest(),
                              "mtime_ns": mtime_ns})
+    _fsync_dir(run_dir)
 
 
 def _backup_run_dir(emcee_root: Path) -> Path:
     """A new `<emcee root>/title-backups/<UTC stamp>/`; a second run in the same
-    second gets `<stamp>-2`, and so on, never a shared directory."""
+    second gets `<stamp>-2`, and so on, never a shared directory. Each new
+    directory's entry is fsynced in its parent, and the new run dir itself once."""
     parent = Path(emcee_root) / "title-backups"
-    parent.mkdir(parents=True, exist_ok=True)
+    if not parent.is_dir():
+        parent.mkdir(parents=True, exist_ok=True)
+        _fsync_dir(parent.parent)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     n = 1
     while True:
         run_dir = parent / (stamp if n == 1 else f"{stamp}-{n}")
         try:
             run_dir.mkdir()
-            return run_dir
+            break
         except FileExistsError:
             n += 1
+    _fsync_dir(parent)
+    _fsync_dir(run_dir)
+    return run_dir
 
 
 def _not_attempted(slugs: list[str]) -> None:

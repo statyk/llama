@@ -300,9 +300,25 @@ def test_plan_drift_under_the_lock_refuses_the_whole_run(tmp_path, monkeypatch):
     home, station = _station(tmp_path, monkeypatch)
     a, b, c = _three(station)
 
+    planned = False
+    reread: list[tuple[str, bool]] = []     # (slug, lock held) for each read after the plan
+    real_read = Path.read_bytes
+
+    def read_bytes(self):
+        if planned and self.name == "manifest.json":
+            lock = station / LOCK_NAME
+            held = (sl._held is not None and lock.exists()
+                    and b"\ncommand: emcee retitle\n" in real_read(lock))
+            reread.append((self.parent.name, held))
+        return real_read(self)
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+
     def llama_writes_b_after_the_plan():
+        nonlocal planned
         path = b / "manifest.json"
-        path.write_bytes(path.read_bytes().replace(b"Some Venue", b"Other Venue"))
+        path.write_bytes(real_read(path).replace(b"Some Venue", b"Other Venue"))
+        planned = True
         return []
 
     monkeypatch.setattr(cli_mod, "other_tool_processes", llama_writes_b_after_the_plan)
@@ -310,8 +326,10 @@ def test_plan_drift_under_the_lock_refuses_the_whole_run(tmp_path, monkeypatch):
     real_lock = cli_mod.station_lock
 
     def lock(*args, **kwargs):
-        nonlocal before
+        nonlocal before, planned
+        planned = False                        # the test's own reads are not recorded
         before = _snapshot(station)            # after the change, as the lock is taken
+        planned = True
         return real_lock(*args, **kwargs)
 
     monkeypatch.setattr(cli_mod, "station_lock", lock)
@@ -323,12 +341,71 @@ def test_plan_drift_under_the_lock_refuses_the_whole_run(tmp_path, monkeypatch):
             in result.stderr)
     assert "  b" in result.stderr.splitlines()
     assert calls == []
+    # R2: every planned manifest was re-read, each one under the lock.
+    assert reread == [("a", True), ("b", True), ("c", True)]
     assert _snapshot(station) == before
     assert _backup_dirs(home) == []
     assert not (station / LOCK_NAME).exists()
 
 
 # ---- backups and writes ----------------------------------------------------
+
+
+def test_backup_dirs_and_entries_are_fsynced_before_the_first_write(tmp_path, monkeypatch):
+    home, station = _station(tmp_path, monkeypatch)
+    _voiced(station, "a")
+    _voiced(station, "b")
+    synced: list[tuple[int, int]] = []          # (st_dev, st_ino) of each fsynced fd
+    events: list[str] = []
+    real_fsync = os.fsync
+
+    def fsync(fd):
+        st = os.fstat(fd)
+        synced.append((st.st_dev, st.st_ino))
+        return real_fsync(fd)
+
+    def ident(path: Path) -> tuple[int, int]:
+        st = path.stat()
+        return st.st_dev, st.st_ino
+
+    def check(pkg_dir, real):
+        run_dir, = _backup_dirs(home)
+        for d in (home, home / "title-backups", run_dir):
+            assert ident(d) in synced, d
+        # The run dir was fsynced again after this show's backup entries.
+        last_entry = max(i for i, s in enumerate(synced)
+                         if s in (ident(run_dir / f"{pkg_dir.name}.json"),
+                                  ident(run_dir / "record.jsonl")))
+        assert ident(run_dir) in synced[last_entry + 1:], pkg_dir.name
+        events.append(pkg_dir.name)
+        return real()
+
+    monkeypatch.setattr(os, "fsync", fsync)
+    _wrap_write_title(monkeypatch, check)
+    result = runner.invoke(app, ["retitle", "--yes"])
+
+    assert result.exit_code == 0, result.output
+    assert events == ["a", "b"]
+
+
+def test_a_dir_fsync_failure_is_a_backup_failure(tmp_path, monkeypatch):
+    home, station = _station(tmp_path, monkeypatch)
+    a, b = _voiced(station, "a"), _voiced(station, "b")
+    before = _snapshot(station)
+    real_fsync_dir = cli_mod._fsync_dir
+
+    def fsync_dir(path):
+        if (Path(path) / "a.json").exists():
+            raise OSError(5, "Input/output error")
+        return real_fsync_dir(path)
+
+    monkeypatch.setattr(cli_mod, "_fsync_dir", fsync_dir)
+    result = runner.invoke(app, ["retitle", "--yes"])
+
+    assert result.exit_code == 1
+    assert "error: a: backup failed ([Errno 5] Input/output error)" in result.stderr
+    assert "not attempted: a, b" in result.stderr
+    assert _snapshot(station) == before
 
 
 def test_backup_saved_before_each_write_with_sha(tmp_path, monkeypatch):
@@ -387,7 +464,7 @@ def test_backup_failure_aborts_before_writing_that_show(tmp_path, monkeypatch):
     assert not (station / LOCK_NAME).exists()
 
 
-def test_backup_failure_of_the_real_writer_on_a_read_only_dir(tmp_path, monkeypatch):
+def test_backup_failure_of_the_real_writer_on_an_existing_backup_file(tmp_path, monkeypatch):
     home, station = _station(tmp_path, monkeypatch)
     a, b, c = _three(station)
     before = _snapshot(station)

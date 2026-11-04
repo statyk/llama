@@ -130,7 +130,7 @@ concurrent `llama get`s.
   plan; nothing written; run again`, exit 1). Per show it first saves
   `<emcee root>/title-backups/<UTC %Y%m%dT%H%M%SZ>[-n]/<slug>.json` (the
   original bytes) and appends `{slug, before_sha256, mtime_ns}` to
-  `record.jsonl`, both fsynced before the write (a SIGTERM under the lock ends
+  `record.jsonl`, both fsynced, with their directory entries, before the write (a SIGTERM under the lock ends
   the process with no cleanup); a backup failure stops before that show
   (`not attempted: …`, exit 1). After a write it prints `<slug>: <old> -> <new>`
   and appends `{slug, after_sha256}`. A show changed just before its rename is
@@ -139,7 +139,16 @@ concurrent `llama get`s.
   write or a stop; awaiting-fix, unchanged and unvoiced never affect it.
   **Hand restore:** put `<slug>.json` back only where the manifest's current
   sha256 equals the record's `after_sha256` for that slug (otherwise someone
-  wrote it since; leave it). **An agent runs `emcee retitle --dry-run`, shows
+  wrote it since; leave it), and then set its mtime back to the record's
+  `mtime_ns` (`os.utime(path, ns=(atime, mtime_ns))`): a plain `cp` gives a
+  fresh mtime, and hugo then drops those planned shows for `quiet_minutes`.
+  A slug with a `before_sha256` line and no `after_sha256` line was skipped as
+  changed, put back after a failed verify, or hit an after-rename failure, a
+  failed after-append, or a kill between the rename and the append; in the
+  last three the file may hold this run's bytes. The rule leaves every such
+  file alone, so check it by hand: its sha256 equal to `before_sha256` means
+  it is the original; otherwise compare it with the backup plus only the new
+  `dj_audio.title`, in emcee's encoding. **An agent runs `emcee retitle --dry-run`, shows
   the plan, and runs `emcee retitle --yes` only after Shawn approves, in a
   separate tool call.**),
   `emcee lock show [--station-root]` (prints the station lock's
