@@ -22,11 +22,19 @@ left by a dead writer.
 SIGTERM and SIGHUP (on the main thread, while `station_lock` is active)
 release the lock and END THE PROCESS at once with `os._exit(128 + signum)`:
 nothing is raised into the caller, so the caller's `except`/`finally`
-cleanup does not run. That is safe only because every station write is an
-atomic rename, so an exit mid-sequence leaves at most a stray temp file,
-as SIGKILL would, but without the stuck lock. Station writes must stay
-atomic renames. SIGINT is untouched: KeyboardInterrupt unwinds normally and
-the `finally` releases.
+cleanup does not run. For the writes that are a temp file plus an atomic
+rename (emcee's manifest and clip writes, `emcee retitle`, llama's
+clear-mark and bulk_apply's mark and unmark) an exit mid-sequence leaves at
+most a stray temp file, as SIGKILL would, but without the stuck lock. Two
+station writes are NOT atomic renames, and there an exit behaves like
+SIGKILL minus the stuck lock: llama deliver's overlay copy
+(`shutil.copytree(..., dirs_exist_ok=True)` straight into the live package,
+which can leave a truncated manifest or audio file) and its replace path's
+two renames (destination moved aside, then the staged copy renamed in; an
+exit between them leaves no package at the destination, only the
+`.<slug>.old-*` and `.<slug>.deliver-*` siblings). Keep every other station
+write a temp plus rename. SIGINT is untouched: KeyboardInterrupt unwinds
+normally and the `finally` releases.
 """
 
 import os

@@ -1179,7 +1179,8 @@ def unmark(root: Path, batch: Path, *, station_root: Path, apply: bool, echo) ->
     between its station write and the line) is listed (Task 15b M1). Exit 1 when
     anything is listed. With `apply`, each show is handled under its show lock and then
     the station lock; a lock held by another writer, or one that cannot be created,
-    stops the reversal there, listing every later slug `not attempted` (exit 1). The dry run takes no station lock."""
+    stops the reversal there, listing every later slug `not attempted` (exit 1). The dry
+    run takes no station lock."""
     record = batch / "record.jsonl"
     if not record.exists():
         raise LlamaError(f"no record.jsonl in {batch}")

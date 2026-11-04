@@ -175,7 +175,7 @@ Commands, pipeline internals and domain rules for `llama` (`packages/llama/`). T
   (first builds, others wait and reuse); independent shows run fully in
   parallel. Readers (`show`/`status`/winnow dedup) never lock. All atomic
   writes use unique temp names. POSIX-only; non-POSIX degrades to no-op
-  locking. **`emcee` does not share this locking scheme** — see
+  locking. **`emcee` does not share this flock scheme** — see
   `packages/emcee/CLAUDE.md`.
   **Station lock (shared with emcee):** emcee and llama share the station lock
   (`<delivered>/.lma-station.lock`, `llama/station_lock.py`), taken per show by

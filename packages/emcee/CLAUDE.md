@@ -41,8 +41,13 @@ another writer stops `run` at that package (`error: <slug>: the station is
 locked by another writer (...)`, the holder, `not attempted: <it and the
 rest>`, exit 1) and refuses `voice` (exit 1, nothing touched). On SIGTERM or
 SIGHUP inside the hold emcee releases the lock and exits at once
-(`os._exit(128 + signum)`, no caller cleanup), which is safe only because
-every station write is a temp-plus-rename: keep it that way. SIGKILL or power
+(`os._exit(128 + signum)`, no caller cleanup). That leaves at most a stray
+temp for every station write that is a temp plus rename (emcee's own, llama's
+clear-mark and bulk-apply marks): keep them that way. Two are not, and there
+SIGTERM acts like SIGKILL minus the stuck lock: llama deliver's overlay copy
+(`shutil.copytree` into the live package; a truncated manifest or audio file)
+and its replace path's two renames (an exit between them leaves no package,
+only the `.<slug>.old-*`/`.<slug>.deliver-*` siblings). SIGKILL or power
 loss leaves the lock; nothing breaks or expires it, so clear it with `emcee
 lock clear`. `move`, `say`, `--dry-run` and the read-only commands don't take
 it. Two concurrent `emcee run`s are still not supported: the lock serializes
@@ -129,7 +134,8 @@ concurrent `llama get`s.
   planned manifest (any change: `refusing: <n> manifest(s) changed since the
   plan; nothing written; run again`, exit 1). Per show it first saves
   `<emcee root>/title-backups/<UTC %Y%m%dT%H%M%SZ>[-n]/<slug>.json` (the
-  original bytes) and appends `{slug, before_sha256, mtime_ns}` to
+  original bytes) and appends `{slug, before_sha256, mtime_ns, title}` (the
+  target title, null for none) to
   `record.jsonl`, both fsynced, with their directory entries, before the write (a SIGTERM under the lock ends
   the process with no cleanup); a backup failure stops before that show
   (`not attempted: …`, exit 1). After a write it prints `<slug>: <old> -> <new>`
@@ -137,18 +143,7 @@ concurrent `llama get`s.
   skipped and listed (exit 1); any write or verify failure stops the run
   (`not attempted: …`, exit 1). Exit 1 only for a refused package, a skipped
   write or a stop; awaiting-fix, unchanged and unvoiced never affect it.
-  **Hand restore:** put `<slug>.json` back only where the manifest's current
-  sha256 equals the record's `after_sha256` for that slug (otherwise someone
-  wrote it since; leave it), and then set its mtime back to the record's
-  `mtime_ns` (`os.utime(path, ns=(atime, mtime_ns))`): a plain `cp` gives a
-  fresh mtime, and hugo then drops those planned shows for `quiet_minutes`.
-  A slug with a `before_sha256` line and no `after_sha256` line was skipped as
-  changed, put back after a failed verify, or hit an after-rename failure, a
-  failed after-append, or a kill between the rename and the append; in the
-  last three the file may hold this run's bytes. The rule leaves every such
-  file alone, so check it by hand: its sha256 equal to `before_sha256` means
-  it is the original; otherwise compare it with the backup plus only the new
-  `dj_audio.title`, in emcee's encoding. **An agent runs `emcee retitle --dry-run`, shows
+  **Hand restore:** see "Retitle hand restore" below. **An agent runs `emcee retitle --dry-run`, shows
   the plan, and runs `emcee retitle --yes` only after Shawn approves, in a
   separate tool call.**),
   `emcee lock show [--station-root]` (prints the station lock's
@@ -157,6 +152,85 @@ concurrent `llama get`s.
   writer is gone). **An agent runs `emcee lock show`, reports it, and runs `emcee
   lock clear --yes` only after Shawn approves, in a separate tool call.**
   `emcee config init`.
+
+## Retitle hand restore
+
+To undo one show of an `emcee retitle` run, put its backup back with the same
+care as the writer: a temp file in the package directory, flushed and fsynced,
+its mtime set from the record BEFORE `os.replace` over `manifest.json`, then
+the mtime re-checked and re-applied (a `cp` rewrites the live manifest in
+place and leaves a fresh mtime, and hugo then drops its planned shows for
+`quiet_minutes`). Run it only with no emcee or llama process running (`ps`;
+that also covers `scripts/backfill_*.py` and the campaign worktree's older
+llama, which ignore the lock) and no `.lma-station.lock` in the station root,
+or from emcee's venv inside `with station_lock(<station root>,
+command="hand restore"):`.
+
+Per slug, `record.jsonl` in the run's `title-backups/<stamp>/` holds a before
+line `{slug, before_sha256, mtime_ns, title}` and, once the write landed and
+was recorded, an after line `{slug, after_sha256}`. What the manifest now
+holds decides it:
+
+- **An after line, and the file's sha256 equals `after_sha256`**: this run's
+  write; restore it. Any other sha256: someone wrote it since; leave it.
+- **A before line and no after line** (skipped as changed, put back after a
+  failed verify, an after-rename failure, a failed after-append, or a kill
+  between the rename and the append):
+  (a) **sha256 equals `before_sha256`**: the original; nothing to do (but if
+  its mtime is not `mtime_ns`, re-apply it: a put-back whose mtime restore
+  failed);
+  (b) **the bytes equal the backup with only `dj_audio.title` set to the
+  line's `title`, in emcee's encoding**: this run's unrecorded write; restore
+  it;
+  (c) **anything else**: a foreign write; leave it.
+- **A failed put-back** (`did not verify after the title write, and putting
+  the original back failed`: the file holds this write's bytes) is case (b);
+  `the original was put back, but restoring its mtime failed` is case (a).
+
+A before line with no `title` key predates the field: the snippet stops with
+a KeyError there, writing nothing; compare such a file by hand. Paste this into
+`python3 -` with the three names filled in; it applies the rules above and
+writes only in the restore cases (a killed run leaves at most a
+`.manifest.json.emcee-*.tmp`, which `emcee retitle --dry-run` lists):
+
+```python
+import hashlib, json, os, secrets, stat
+RUN, ROOT, SLUG = "<emcee root>/title-backups/<stamp>", "<station root>", "<slug>"  # fill in
+sha = lambda b: hashlib.sha256(b).hexdigest()
+recs = [r for r in map(json.loads, open(f"{RUN}/record.jsonl")) if r["slug"] == SLUG]
+before = next(r for r in recs if "before_sha256" in r)
+after = next((r["after_sha256"] for r in recs if "after_sha256" in r), None)
+orig = open(f"{RUN}/{SLUG}.json", "rb").read()
+if sha(orig) != before["before_sha256"]:
+    raise SystemExit("the backup does not match its record; stop")
+data = json.loads(orig)
+data["dj_audio"]["title"] = before["title"]          # what this run wrote
+ours = sha((json.dumps(data, indent=2) + "\n").encode())
+man = f"{ROOT}/{SLUG}/manifest.json"
+cur, st = open(man, "rb").read(), os.stat(man)
+times = (st.st_atime_ns, before["mtime_ns"])
+if sha(cur) == before["before_sha256"]:              # (a) the original
+    if st.st_mtime_ns != before["mtime_ns"]:
+        os.utime(man, ns=times)                      # a put-back whose mtime failed
+    print("original; nothing to restore")
+elif sha(cur) not in {after, ours}:                  # (c) a foreign write
+    print("changed by someone else; left alone")
+else:                                                # this run's write: put it back
+    tmp = f"{ROOT}/{SLUG}/.manifest.json.emcee-{secrets.token_hex(8)}.tmp"
+    with open(tmp, "xb") as f:
+        try:
+            os.fchmod(f.fileno(), stat.S_IMODE(st.st_mode))
+        except OSError:
+            pass                                     # an SMB share may refuse it
+        f.write(orig); f.flush(); os.fsync(f.fileno())
+    os.utime(tmp, ns=times)
+    if open(man, "rb").read() != cur:
+        os.unlink(tmp); raise SystemExit("changed during the restore; left alone")
+    os.replace(tmp, man)
+    if os.stat(man).st_mtime_ns != before["mtime_ns"]:
+        os.utime(man, ns=times)
+    print("restored, mtime", os.stat(man).st_mtime_ns == before["mtime_ns"])
+```
 
 ## Architecture
 
