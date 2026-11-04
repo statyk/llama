@@ -72,3 +72,7 @@ class DJAudioBlock(DJClips):
     voiced_on: str | None = None
     # Local YYYY-MM-DD the voicing is known to predate; cleared by a render.
     voiced_before: str | None = None
+    # The program's `[assign.profiles.<p>] title` at voicing time; None = none.
+    # Always serialized and declared LAST, so a backfilled block (the title
+    # backfill, emcee retitle) carries it in the same position as a freshly voiced one.
+    title: str | None = None

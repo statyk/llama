@@ -1,8 +1,9 @@
 """The station mark: `awaiting_fix` in a delivered package's `manifest.json`
 (bulk-apply spec, "The `awaiting_fix` contract").
 
-A strict surface: it writes station manifests that emcee, which takes no lock,
-may be rewriting at the same moment. Every write is a read-modify-write on the
+A strict surface: it writes station manifests that emcee may be rewriting at
+the same moment unless the caller holds the station lock (`llama.station_lock`),
+which every station-writing command takes. Every write is a read-modify-write on the
 raw JSON dict (never llama's `Manifest` model, which gains no field), touching
 only `MARK_KEY`, so `tracks`, `dj_notes`, `dj_audio` are untouched by
 construction. The caller holds the llama show lock.

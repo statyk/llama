@@ -79,8 +79,18 @@ def test_dj_audio_doc_model_accepts_emcees_recorded_profile_and_tts():
              "presenter": "gregg", "profile": "southern", "profile_source": "artist",
              "tts": {"backend": "voxtral", "model": "voxtral-mini-tts-2603",
                      "voice": "clone:0123abcd"},
-             "voiced_on": "2026-10-01", "voiced_before": None}
+             "voiced_on": "2026-10-01", "voiced_before": None, "title": None}
     assert DJAudio.model_validate(block).model_dump() == block
     legacy = DJAudio(set_intros={}, outro="o")
     assert (legacy.profile, legacy.profile_source, legacy.tts) == (None, None, None)
     assert (legacy.voiced_on, legacy.voiced_before) == (None, None)
+
+
+def test_llama_dj_audio_parses_a_block_with_title_and_without():
+    from llama.models import DJAudio
+
+    base = {"set_intros": {"1": "dj-audio/set1-intro.mp3"}, "outro": "dj-audio/99-outro.mp3"}
+    titled = {**base, "title": "Gravel & Steel"}
+    assert DJAudio.model_validate(titled).title == "Gravel & Steel"
+    assert DJAudio.model_validate(titled).model_dump()["title"] == "Gravel & Steel"
+    assert DJAudio.model_validate(base).title is None

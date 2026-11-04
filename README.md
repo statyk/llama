@@ -630,17 +630,28 @@ approve. The `--yes` run scans again, so anything delivered, moved or
 edited in between is voiced without having been shown: keep that gap
 short, and run nothing else against the station meanwhile.
 
-**Single-writer station, no lock.** Unlike llama (safe to run as multiple
-concurrent processes against one `~/.llama/`, see "Running several jobs at
-once" above), `emcee run`
-assumes **exactly one instance at a time** against a given station root —
-it takes no lock. No single file is left half-written if you run two at
-once (every write in both tools is unique-temp-file-plus-atomic-rename),
-but an overlapping run will find and voice the same pending package twice:
-run A's `dj-notes.md` can end up beside run B's manifest `dj_notes` block
-and B's clips, leaving the package internally inconsistent — and it still
-**doubles LLM/TTS spend** for no benefit. Run it from one place — a single
-cron entry, one operator — not fanned out.
+**The station lock, and one `emcee run` at a time.** `emcee run` and
+`emcee voice` take the station lock (`.lma-station.lock` in the delivered
+folder) per package: from re-reading the package's manifest through its last
+write, released before the next package and never held across the
+`Proceed?` question. While emcee holds it, llama's station writes (deliver,
+clear-mark, bulk-apply) refuse. A lock held by another writer stops `run` at
+that package (`error: <slug>: the station is locked by another writer`, the
+holder, then `not attempted:` for it and the rest, exit 1) and refuses
+`voice` (exit 1, nothing touched). On SIGTERM or SIGHUP mid-package emcee
+releases the lock and exits at once (exit 128 + the signal number); SIGKILL
+or power loss leaves the lock behind, and nothing breaks or expires it.
+`emcee lock show` prints who holds it; `emcee lock clear` shows the holder,
+asks, and removes it (only if that writer is gone; from an agent, show it to
+the operator and pass `--yes` only after they approve). `move`, `say`,
+`--dry-run` and the read-only commands don't take it.
+
+The lock serializes packages, not runs: two concurrent `emcee run`s against
+one station root are still not supported (unlike llama, which is safe to run
+as several processes against one `~/.llama/`, see "Running several jobs at
+once" above). Both would find and voice the same pending packages, one after
+the other, and **double LLM/TTS spend** for no benefit. Run it from one
+place — a single cron entry, one operator — not fanned out.
 
 **Local TTS on this Mac (`mlx_audio`).** A presenter (or the house voice) can
 be voiced by a free local model served by [mlx-audio](https://github.com/Blaizzy/mlx-audio)'s

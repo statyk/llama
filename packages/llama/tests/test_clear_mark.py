@@ -400,3 +400,100 @@ def test_clear_mark_takes_the_show_lock(tmp_path: Path, monkeypatch):
     r = _clear(tmp_path)
     assert r.exit_code == 0, r.output
     assert seen == [out]
+
+
+# --- the station lock (programs-and-lineup spec, "The station lock") ---------------
+
+from contextlib import contextmanager  # noqa: E402
+
+from llama import catalog, station_lock  # noqa: E402
+
+FOREIGN_LOCK = ("lma-station-lock 1 " + "ab" * 16 + "\n"
+                "tool: emcee\ncommand: emcee run --yes\nhost: elsewhere\npid: 4242\n"
+                "started: 2026-11-04T09:00:00-08:00\n")
+
+
+def _spy_held(monkeypatch, owner, name: str, lock: Path, seen: list):
+    real = getattr(owner, name)
+
+    def spy(*a, **k):
+        seen.append((name, lock.exists() and "tool: llama" in lock.read_text()))
+        return real(*a, **k)
+
+    monkeypatch.setattr(owner, name, spy)
+
+
+def test_clear_mark_lock_spans_read_through_clear_and_put_back(tmp_path: Path, monkeypatch):
+    # success: the read and the clear under the lock, the purge after release
+    root = tmp_path / "ok"
+    root.mkdir()
+    ws, out = _setup(root)
+    lock = out.parent / station_lock.LOCK_NAME
+    seen: list = []
+    for name in ("read_station_manifest", "clear_mark"):
+        _spy_held(monkeypatch, station_mark, name, lock, seen)
+    _spy_held(monkeypatch, catalog, "purge_package_audio", lock, seen)
+    commands = []
+    real_acquire = station_lock.acquire
+    monkeypatch.setattr(station_lock, "acquire", lambda p, *, command: (
+        commands.append(command), real_acquire(p, command=command))[1])
+    r = _clear(root)
+    assert r.exit_code == 0, r.output
+    assert seen == [("read_station_manifest", True), ("clear_mark", True),
+                    ("purge_package_audio", False)]
+    assert commands == [f"llama clear-mark {SLUG}"]
+    assert not lock.exists()
+
+    # the record write fails: put_back runs under the lock too
+    root = tmp_path / "putback"
+    root.mkdir()
+    ws, out = _setup(root)
+    lock = out.parent / station_lock.LOCK_NAME
+    seen = []                         # the first scenario's spies still feed the old list
+    for name in ("read_station_manifest", "clear_mark", "put_back"):
+        _spy_held(monkeypatch, station_mark, name, lock, seen)
+
+    def boom(ws_, outcome):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(campaign, "add_clear", boom)
+    r = _clear(root)
+    assert r.exit_code == 1
+    assert "the station mark was put back" in " ".join(r.output.split())
+    assert seen == [("read_station_manifest", True), ("clear_mark", True),
+                    ("put_back", True)]
+    assert not lock.exists()
+
+
+def test_clear_mark_refuses_a_held_lock(tmp_path: Path):
+    ws, out = _setup(tmp_path)
+    lock = out.parent / station_lock.LOCK_NAME
+    lock.write_text(FOREIGN_LOCK)
+    r = _refused(tmp_path, ws, out, "the station is locked by another writer")
+    assert "  tool: emcee" in r.output
+    assert "emcee lock show" in r.output and "emcee lock clear" in r.output
+    assert station_mark.mark_of(json.loads((out / "manifest.json").read_text())) is not None
+    assert lock.read_text() == FOREIGN_LOCK
+    assert (ws.package_dir / "audio" / AUDIO).exists()
+
+
+def test_library_show_lock_is_taken_before_the_station_lock(tmp_path: Path, monkeypatch):
+    _setup(tmp_path)
+    events: list = []
+    real_lock, real_acquire = cli.file_lock, station_lock.acquire
+
+    @contextmanager
+    def file_lock(*a, **k):
+        events.append("show")
+        with real_lock(*a, **k) as v:
+            yield v
+
+    def acquire(path, *, command):
+        events.append("station")
+        return real_acquire(path, command=command)
+
+    monkeypatch.setattr(cli, "file_lock", file_lock)
+    monkeypatch.setattr(station_lock, "acquire", acquire)
+    r = _clear(tmp_path)
+    assert r.exit_code == 0, r.output
+    assert events == ["show", "station"]

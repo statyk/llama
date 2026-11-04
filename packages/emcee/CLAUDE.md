@@ -29,12 +29,30 @@ manifest's `dj_notes`/`dj_audio` blocks in place (llama writes both as
 `null` — they are emcee-written passthrough blocks in the shared manifest
 model). emcee never imports llama.
 
-**Single-writer station, no lock.** Unlike llama (parallel-safe via flock,
-below), emcee assumes exactly one `emcee run` at a time against a given
-station root — it takes no lock. Overlapping runs can't corrupt a package
-(unique-temp + atomic rename everywhere, in both tools), but they *will*
-double LLM/TTS spend by voicing the same pending package twice
-concurrently. Don't fan out `emcee run` the way llama's workspace tolerates
+**The station lock, per package.** `emcee run` and `emcee voice` take the
+station lock (`<delivered folder>/.lma-station.lock`, the package directory's
+absolute parent; `station_lock.py`, whose format is a contract shared with
+llama) per package, held from `_process_one`'s manifest re-read through the
+package's last write (clips and manifest) and released before the next
+package, never across the `Proceed?` question (`emcee retitle` holds it for
+its whole write phase, also after the question). While it is held, llama's
+station writes (deliver, clear-mark, bulk-apply) refuse. A lock held by
+another writer stops `run` at that package (`error: <slug>: the station is
+locked by another writer (...)`, the holder, `not attempted: <it and the
+rest>`, exit 1) and refuses `voice` (exit 1, nothing touched). On SIGTERM or
+SIGHUP inside the hold emcee releases the lock and exits at once
+(`os._exit(128 + signum)`, no caller cleanup). That leaves at most a stray
+temp for every station write that is a temp plus rename (emcee's own, llama's
+clear-mark and bulk-apply marks): keep them that way. Two are not, and there
+SIGTERM acts like SIGKILL minus the stuck lock: llama deliver's overlay copy
+(`shutil.copytree` into the live package; a truncated manifest or audio file)
+and its replace path's two renames (an exit between them leaves no package,
+only the `.<slug>.old-*`/`.<slug>.deliver-*` siblings). SIGKILL or power
+loss leaves the lock; nothing breaks or expires it, so clear it with `emcee
+lock clear`. `move`, `say`, `--dry-run` and the read-only commands don't take
+it. Two concurrent `emcee run`s are still not supported: the lock serializes
+packages, not runs, so both would voice the same pending packages and double
+LLM/TTS spend. Don't fan out `emcee run` the way llama's workspace tolerates
 concurrent `llama get`s.
 
 ## Commands
@@ -87,7 +105,132 @@ concurrent `llama get`s.
   (`presenters/<id>.toml`; `edit` changes any field with set/`--clear-*`
   flags, `--transcribe` drafts `voice_clone_text` on the mlx-audio server's
   STT model and writes it only on confirmation; `voice_clone` is stored as an
-  absolute path), `emcee config init`.
+  absolute path), **`emcee retitle [--station-root P] [--dry-run] [--yes]`** (the
+  program-title backfill; STRICT, it rewrites live station manifests: stamps
+  `dj_audio.title` on already-voiced packages, no re-voicing, and resyncs it
+  after a config rename (a removed title is written as null). The target is
+  `assignment_for(config, manifest_voiced_profile(m)).title`; `emcee.retitle`
+  holds the plan and the raw single-field writer. It prints the plan (`would
+  write <slug>: <old> -> <new>`, `(none)` = null; `skip <slug>: awaiting fix
+  from llama`; `refused <slug>: <reason>`; `stray temp: <slug>/<name>` for a
+  `.manifest.json.emcee-*.tmp` a killed write left, a listing only; then
+  `<n> to write, <n> unchanged, <n> awaiting fix, <n> refused, <n> unvoiced`),
+  and `--dry-run` stops there. It never writes an awaiting-fix show (136 at
+  design time): any write changes its sha256, which breaks `bulk_apply unmark`
+  for it, and a wave snapshot restore covering a stamped show refuses with
+  station-changed (accepted 2026-11-04); such shows get the title when
+  re-delivered and re-voiced. It refuses (lists, leaves byte- and
+  mtime-identical) any manifest not in emcee's exact encoding
+  (`json.dumps(m, indent=2) + "\n"`), pre-v3, unreadable, or with a non-object
+  `dj_audio`. It keeps each manifest's original mtime (set on the temp before
+  the rename, re-checked after) because hugo's transmitter treats a manifest
+  younger than `quiet_minutes` (10) as ineligible and would drop planned
+  shows. Order: plan, `Proceed?` (no TTY and no `--yes`: `error: refusing to
+  write without confirmation; pass --yes`, exit 1), then a `ps` check
+  (`refusing: other emcee or llama processes are running` plus the lines, exit
+  1: the only guard against `scripts/backfill_*.py` and the campaign worktree's
+  older llama, which ignore the lock), then the station lock for the whole
+  write phase (a held lock: exit 1, nothing written), then a re-read of every
+  planned manifest (any change: `refusing: <n> manifest(s) changed since the
+  plan; nothing written; run again`, exit 1). Per show it first saves
+  `<emcee root>/title-backups/<UTC %Y%m%dT%H%M%SZ>[-n]/<slug>.json` (the
+  original bytes) and appends `{slug, before_sha256, mtime_ns, title}` (the
+  target title, null for none) to
+  `record.jsonl`, both fsynced, with their directory entries, before the write (a SIGTERM under the lock ends
+  the process with no cleanup); a backup failure stops before that show
+  (`not attempted: …`, exit 1). After a write it prints `<slug>: <old> -> <new>`
+  and appends `{slug, after_sha256}`. A show changed just before its rename is
+  skipped and listed (exit 1); any write or verify failure stops the run
+  (`not attempted: …`, exit 1). Exit 1 only for a refused package, a skipped
+  write or a stop; awaiting-fix, unchanged and unvoiced never affect it.
+  **Hand restore:** see "Retitle hand restore" below. **An agent runs `emcee retitle --dry-run`, shows
+  the plan, and runs `emcee retitle --yes` only after Shawn approves, in a
+  separate tool call.**),
+  `emcee lock show [--station-root]` (prints the station lock's
+  holder, read-only) and `emcee lock clear [--station-root] [--yes]` (shows the
+  holder, asks, and removes the lock only if it is unchanged; for a lock whose
+  writer is gone). **An agent runs `emcee lock show`, reports it, and runs `emcee
+  lock clear --yes` only after Shawn approves, in a separate tool call.**
+  `emcee config init`.
+
+## Retitle hand restore
+
+To undo one show of an `emcee retitle` run, put its backup back with the same
+care as the writer: a temp file in the package directory, flushed and fsynced,
+its mtime set from the record BEFORE `os.replace` over `manifest.json`, then
+the mtime re-checked and re-applied (a `cp` rewrites the live manifest in
+place and leaves a fresh mtime, and hugo then drops its planned shows for
+`quiet_minutes`). Run it only with no emcee or llama process running (`ps`;
+that also covers `scripts/backfill_*.py` and the campaign worktree's older
+llama, which ignore the lock) and no `.lma-station.lock` in the station root,
+or from emcee's venv inside `with station_lock(<station root>,
+command="hand restore"):`.
+
+Per slug, `record.jsonl` in the run's `title-backups/<stamp>/` holds a before
+line `{slug, before_sha256, mtime_ns, title}` and, once the write landed and
+was recorded, an after line `{slug, after_sha256}`. What the manifest now
+holds decides it:
+
+- **An after line, and the file's sha256 equals `after_sha256`**: this run's
+  write; restore it. Any other sha256: someone wrote it since; leave it.
+- **A before line and no after line** (skipped as changed, put back after a
+  failed verify, an after-rename failure, a failed after-append, or a kill
+  between the rename and the append):
+  (a) **sha256 equals `before_sha256`**: the original; nothing to do (but if
+  its mtime is not `mtime_ns`, re-apply it: a put-back whose mtime restore
+  failed);
+  (b) **the bytes equal the backup with only `dj_audio.title` set to the
+  line's `title`, in emcee's encoding**: this run's unrecorded write; restore
+  it;
+  (c) **anything else**: a foreign write; leave it.
+- **A failed put-back** (`did not verify after the title write, and putting
+  the original back failed`: the file holds this write's bytes) is case (b);
+  `the original was put back, but restoring its mtime failed` is case (a).
+
+A before line with no `title` key predates the field: the snippet stops with
+a KeyError there, writing nothing; compare such a file by hand. Paste this into
+`python3 -` with the three names filled in; it applies the rules above and
+writes only in the restore cases (a killed run leaves at most a
+`.manifest.json.emcee-*.tmp`, which `emcee retitle --dry-run` lists):
+
+```python
+import hashlib, json, os, secrets, stat
+RUN, ROOT, SLUG = "<emcee root>/title-backups/<stamp>", "<station root>", "<slug>"  # fill in
+sha = lambda b: hashlib.sha256(b).hexdigest()
+recs = [r for r in map(json.loads, open(f"{RUN}/record.jsonl")) if r["slug"] == SLUG]
+before = next(r for r in recs if "before_sha256" in r)
+after = next((r["after_sha256"] for r in recs if "after_sha256" in r), None)
+orig = open(f"{RUN}/{SLUG}.json", "rb").read()
+if sha(orig) != before["before_sha256"]:
+    raise SystemExit("the backup does not match its record; stop")
+data = json.loads(orig)
+data["dj_audio"]["title"] = before["title"]          # what this run wrote
+ours = sha((json.dumps(data, indent=2) + "\n").encode())
+man = f"{ROOT}/{SLUG}/manifest.json"
+cur, st = open(man, "rb").read(), os.stat(man)
+times = (st.st_atime_ns, before["mtime_ns"])
+if sha(cur) == before["before_sha256"]:              # (a) the original
+    if st.st_mtime_ns != before["mtime_ns"]:
+        os.utime(man, ns=times)                      # a put-back whose mtime failed
+    print("original; nothing to restore")
+elif sha(cur) not in {after, ours}:                  # (c) a foreign write
+    print("changed by someone else; left alone")
+else:                                                # this run's write: put it back
+    tmp = f"{ROOT}/{SLUG}/.manifest.json.emcee-{secrets.token_hex(8)}.tmp"
+    with open(tmp, "xb") as f:
+        try:
+            os.fchmod(f.fileno(), stat.S_IMODE(st.st_mode))
+        except OSError:
+            pass                                     # an SMB share may refuse it
+        f.write(orig); f.flush(); os.fsync(f.fileno())
+    os.utime(tmp, ns=times)
+    if open(man, "rb").read() != cur:
+        os.unlink(tmp); raise SystemExit("changed during the restore; left alone")
+    os.replace(tmp, man)
+    if os.stat(man).st_mtime_ns != before["mtime_ns"]:
+        os.utime(man, ns=times)
+    print("restored, mtime", os.stat(man).st_mtime_ns == before["mtime_ns"])
+```
 
 ## Architecture
 
@@ -109,7 +252,7 @@ concurrent `llama get`s.
   `voxtral` default, `elevenlabs` alternative, `fake` for tests; same
   per-segment cache, `[tts] chunk`, and `[tts] bed` instrumental-bed mixing
   llama used to have) → assemble `broadcast.m3u` → atomically rewrite the
-  manifest's `dj_notes`/`dj_audio` blocks last (`dj_audio` records `presenter`, `profile`, `profile_source`, `tts` (`backend`/`model`/`voice`), `voiced_on` and `voiced_before`; `profile`/`profile_source`/`tts` are required in `DJAudioBlock`, the two dates optional, always serialized (`voiced_on` is the local `YYYY-MM-DD` the newest clip was rendered: `process_package` sets it to today and clears `voiced_before` when `rendered` is non-empty, else carries both from the raw block `_process_one` read before the clear; adopted clips never enter `rendered`, and a failed attempt clears `dj_audio`, so its retry carries nothing: both null, no invented date; llama's `DJAudio` has both as optional fields), so a legacy block must never be round-tripped through the model: update it as a raw dict), in place, in the package
+  manifest's `dj_notes`/`dj_audio` blocks last (`dj_audio` records `presenter`, `profile`, `profile_source`, `tts` (`backend`/`model`/`voice`), `voiced_on`, `voiced_before` and `title` (the program's current `[assign.profiles.<p>] title`, null when none; always the LAST key, so the title backfill (emcee retitle) appends it in the same position); `profile`/`profile_source`/`tts` are required in `DJAudioBlock`, the two dates optional, always serialized (`voiced_on` is the local `YYYY-MM-DD` the newest clip was rendered: `process_package` sets it to today and clears `voiced_before` when `rendered` is non-empty, else carries both from the raw block `_process_one` read before the clear; adopted clips never enter `rendered`, and a failed attempt clears `dj_audio`, so its retry carries nothing: both null, no invented date; llama's `DJAudio` has both as optional fields), so a legacy block must never be round-tripped through the model: update it as a raw dict), in place, in the package
   directory llama delivered (`package_io.py:rewrite_manifest`).
   Chunked clips are packed by paragraph at `[tts] chunk_chars` (default 250; a chunk never ends inside a sentence) and exact-silence gaps are filled with the clip's own room tone (`[tts] room_tone`, default on); the scriptwriter writes paragraphs.
   Chunked and bed-active clips are loudness-normalized per chunk/segment

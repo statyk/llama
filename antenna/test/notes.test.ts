@@ -21,6 +21,18 @@ describe("panelModel", () => {
   });
 });
 
+describe("panelModel presents", () => {
+  it("is the program or the house line", () => {
+    expect(panelModel({ sections: [], program: "Gravel & Steel" }).presents).toBe("Gravel & Steel");
+    expect(panelModel({ sections: [] }).presents).toBe("LMA RADIO PRESENTS");
+    expect(panelModel({ sections: [], program: "  " }).presents).toBe("LMA RADIO PRESENTS");
+  });
+  it("returns hostile text unchanged; escaping happens at render", () => {
+    const hostile = "<img src=x onerror=alert(1)>";
+    expect(panelModel({ sections: [], program: hostile }).presents).toBe(hostile);
+  });
+});
+
 describe("panelModel air times", () => {
   it("keeps a list and replaces anything else with an empty one", () => {
     const a = [{ start: "2026-11-01T00:00:00Z" }];

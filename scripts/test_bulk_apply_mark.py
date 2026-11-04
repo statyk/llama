@@ -17,7 +17,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import bulk_apply as ba
-from llama import campaign, campaign_gate, station_mark
+from llama import campaign, campaign_gate, station_lock, station_mark
 from llama.config import load_config
 from llama.models import (Candidate, Overrides, Overrule, Provenance, QualityAssessment,
                           RecordingSummary, Show, Track)
@@ -1286,3 +1286,226 @@ def test_mark_item_refused_when_the_station_empties_mid_batch(tmp_path, monkeypa
     [line] = _records(batch)
     assert line["station"] == f"refused: station root {station} is empty (is the station mounted?)"
     assert "d1" in _listed(msgs)
+
+
+# --- the station lock (programs-and-lineup Task 12) ---------------------------------
+
+FOREIGN_LOCK = (b"lma-station-lock 1 " + b"b" * 32 + b"\ntool: emcee\ncommand: emcee run\n"
+                b"host: mac\npid: 999\nstarted: 2026-11-04T09:00:00-08:00\n")
+
+
+@pytest.fixture
+def _lock_state():
+    station_lock._held = None
+    yield
+    assert station_lock._held is None, "a station lock was left held"
+
+
+def _lock_text(station: Path) -> str | None:
+    path = station / station_lock.LOCK_NAME
+    return path.read_text() if path.exists() else None
+
+
+def test_mark_holds_the_station_lock_around_write_mark(tmp_path, monkeypatch, _lock_state):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "d1", delivered=True, station=station)
+    real = station_mark.write_mark
+    seen = []
+
+    def write_mark(o, **kw):
+        seen.append(_lock_text(station))
+        return real(o, **kw)
+    monkeypatch.setattr(station_mark, "write_mark", write_mark)
+    assert ba.mark_apply(root, [_item("d1", digests=input_digests(ws))], station_root=station,
+                         batch=_batch(tmp_path), echo=lambda m: None) == 0
+    [text] = seen
+    assert text is not None and "tool: llama" in text and "command: bulk_apply mark" in text
+    assert _lock_text(station) is None                 # released after the item
+
+
+def test_mark_takes_the_lock_before_the_first_station_read(tmp_path, monkeypatch, _lock_state):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "d1", delivered=True, station=station)
+    real = ba._station_copy_problem
+    seen = []
+
+    def copy_problem(out):
+        seen.append(_lock_text(station))
+        return real(out)
+    monkeypatch.setattr(ba, "_station_copy_problem", copy_problem)
+    running = []
+    monkeypatch.setattr(station_mark, "emcee_running",
+                        lambda: running.append(_lock_text(station)) or [])
+    assert ba.mark_apply(root, [_item("d1", digests=input_digests(ws))], station_root=station,
+                         batch=_batch(tmp_path), echo=lambda m: None) == 0
+    assert seen and all(t and "command: bulk_apply mark" in t for t in seen)
+    assert running and all(t and "command: bulk_apply mark" in t for t in running)
+
+
+def test_mark_stops_at_a_held_lock_and_lists_the_rest(tmp_path, _lock_state):
+    cfg, root, station = _lib(tmp_path)
+    wss = [_show(root, s, delivered=True, station=station) for s in ("a", "b", "c")]
+    pk = _show(root, "p")
+    (station / station_lock.LOCK_NAME).write_bytes(FOREIGN_LOCK)
+    before = _files(station)
+    batch = _batch(tmp_path)
+    msgs = []
+    items = [_item(ws.dir.name, digests=input_digests(ws)) for ws in wss]
+    items.append(_item("p", digests=input_digests(pk)))
+    assert ba.mark_apply(root, items, station_root=station, batch=batch, echo=msgs.append) == 1
+    assert _files(station) == before                   # lock and station copies untouched
+    [line] = _records(batch)
+    assert line["slug"] == "a" and line["station"] == "refused: the station is locked"
+    assert line["mark_added"] is True
+    assert campaign.awaiting_fix(campaign.read_record(wss[0]))
+    for s in ("b", "c", "p"):
+        assert campaign.read_record(ShowWorkspace(root / "shows" / s)) is None
+    text = "\n".join(msgs)
+    assert "a: refused: the station is locked (library mark added)" in text
+    assert "refusing to mark station copies: the station is locked; the batch stops" in text
+    assert "tool: emcee" in text and "pid: 999" in text and "emcee lock clear" in text
+    listing = _listed(msgs)
+    for s in ("b", "c", "p"):
+        assert f"{s}: not reached (the station is locked)" in listing
+    # the refusal is retryable: once the lock is gone a re-run marks every item
+    (station / station_lock.LOCK_NAME).unlink()
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 0
+    assert {l["slug"]: l["station"] for l in _records(batch) if l["slug"] != "p"} == {
+        "a": "marked", "b": "marked", "c": "marked"}
+
+
+def test_mark_emcee_running_stop_unchanged(tmp_path, monkeypatch, _lock_state):
+    cfg, root, station = _lib(tmp_path)
+    wss = [_show(root, s, delivered=True, station=station) for s in ("a", "b")]
+    monkeypatch.setattr(station_mark, "emcee_running", lambda: ["4242 1 /usr/local/bin/emcee run"])
+    msgs = []
+    items = [_item(ws.dir.name, digests=input_digests(ws)) for ws in wss]
+    assert ba.mark_apply(root, items, station_root=station, batch=_batch(tmp_path),
+                         echo=msgs.append) == 1
+    text = "\n".join(msgs)
+    assert "refusing to mark station copies: emcee is running; the batch stops" in text
+    assert "  4242 1 /usr/local/bin/emcee run" in text
+    assert "b: not reached (emcee is running)" in _listed(msgs)
+    assert _lock_text(station) is None
+
+
+def test_unmark_apply_holds_the_lock_around_put_back(tmp_path, monkeypatch, _lock_state):
+    root, station, batch, wss, originals = _marked(tmp_path, "d1", packaged=("p1",))
+    real = station_mark.put_back
+    seen = []
+
+    def put_back(out, **kw):
+        seen.append(_lock_text(station))
+        return real(out, **kw)
+    monkeypatch.setattr(station_mark, "put_back", put_back)
+    assert ba.unmark(root, batch, station_root=station, apply=True, echo=lambda m: None) == 0
+    [text] = seen
+    assert "tool: llama" in text and "command: bulk_apply unmark" in text
+    assert (station / "d1" / "manifest.json").read_bytes() == originals["d1"]
+    assert _lock_text(station) is None
+
+
+def test_unmark_apply_stops_at_a_held_lock_and_lists_the_rest(tmp_path, _lock_state):
+    root, station, batch, wss, originals = _marked(tmp_path, "d1", "d2", packaged=("p1",))
+    (station / station_lock.LOCK_NAME).write_bytes(FOREIGN_LOCK)
+    before = _files(station)
+    recs = {s: campaign.read_record(ws).model_dump_json() for s, ws in wss.items()}
+    msgs = []
+    assert ba.unmark(root, batch, station_root=station, apply=True, echo=msgs.append) == 1
+    assert _files(station) == before                   # nothing put back
+    assert {s: campaign.read_record(ws).model_dump_json() for s, ws in wss.items()} == recs
+    text = "\n".join(msgs)
+    assert "d1: refused: the station is locked" in text
+    assert "pid: 999" in text and "emcee lock clear" in text
+    assert "d2: not attempted" in text and "p1: not attempted" in text
+
+
+def test_unmark_dry_run_takes_no_lock(tmp_path, monkeypatch, _lock_state):
+    root, station, batch, wss, originals = _marked(tmp_path, "d1")
+    (station / station_lock.LOCK_NAME).write_bytes(FOREIGN_LOCK)
+    before = _files(station)
+    msgs = []
+    assert ba.unmark(root, batch, station_root=station, apply=False, echo=msgs.append) == 0
+    assert any("d1: would be: station copy put back" in m for m in msgs)
+    assert _files(station) == before
+
+
+def _break_lock_create(how: str, station: Path, monkeypatch):
+    """Make creating the station lock fail without touching anything else: a read-only
+    station root (EACCES from os.open), os.open itself refusing the lock path, or an
+    fsync of the new lock failing (acquire unlinks it and re-raises the OSError)."""
+    if how == "read-only root":
+        if os.geteuid() == 0:
+            pytest.skip("root ignores directory permissions")
+        station.chmod(0o555)
+        return lambda: station.chmod(0o755)
+    if how == "open refuses":
+        real = os.open
+
+        def refusing(path, *a, **k):
+            if str(path).endswith(station_lock.LOCK_NAME):
+                raise PermissionError(13, "Permission denied", str(path))
+            return real(path, *a, **k)
+        monkeypatch.setattr(os, "open", refusing)
+        return lambda: monkeypatch.setattr(os, "open", real)
+    real_fsync = os.fsync
+    monkeypatch.setattr(station_lock.os, "fsync",
+                        lambda fd: (_ for _ in ()).throw(OSError(5, "Input/output error")))
+    return lambda: monkeypatch.setattr(os, "fsync", real_fsync)
+
+
+@pytest.mark.parametrize("how", ["read-only root", "open refuses", "fsync fails"])
+def test_mark_stops_when_the_lock_cannot_be_created(tmp_path, monkeypatch, _lock_state, how):
+    cfg, root, station = _lib(tmp_path)
+    wss = [_show(root, s, delivered=True, station=station) for s in ("a", "b", "c")]
+    pk = _show(root, "p")
+    before = _files(station)
+    batch = _batch(tmp_path)
+    items = [_item(ws.dir.name, digests=input_digests(ws)) for ws in wss]
+    items.append(_item("p", digests=input_digests(pk)))
+    undo = _break_lock_create(how, station, monkeypatch)
+    msgs = []
+    try:
+        assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                             echo=msgs.append) == 1
+    finally:
+        undo()
+    assert _files(station) == before                   # no lock left, copies untouched
+    [line] = _records(batch)
+    assert line["slug"] == "a" and line["mark_added"] is True
+    station_text = line["station"]
+    assert station_text.startswith("refused: cannot create the station lock")
+    assert "\n" not in station_text
+    assert campaign.awaiting_fix(campaign.read_record(wss[0]))
+    for s in ("b", "c", "p"):
+        assert campaign.read_record(ShowWorkspace(root / "shows" / s)) is None
+    reason = station_text.removeprefix("refused: ")
+    text = "\n".join(msgs)
+    assert f"refusing to mark station copies: {reason}; the batch stops" in text
+    listing = _listed(msgs)
+    for s in ("b", "c", "p"):
+        assert f"{s}: not reached ({reason})" in listing
+    # retryable: once the lock can be created a re-run marks every item
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 0
+    assert {l["slug"]: l["station"] for l in _records(batch) if l["slug"] != "p"} == {
+        "a": "marked", "b": "marked", "c": "marked"}
+
+
+@pytest.mark.parametrize("how", ["read-only root", "open refuses", "fsync fails"])
+def test_unmark_stops_when_the_lock_cannot_be_created(tmp_path, monkeypatch, _lock_state,
+                                                      how):
+    root, station, batch, wss, originals = _marked(tmp_path, "d1", "d2", packaged=("p1",))
+    before = _files(station)
+    recs = {s: campaign.read_record(ws).model_dump_json() for s, ws in wss.items()}
+    undo = _break_lock_create(how, station, monkeypatch)
+    msgs = []
+    try:
+        assert ba.unmark(root, batch, station_root=station, apply=True, echo=msgs.append) == 1
+    finally:
+        undo()
+    assert _files(station) == before                   # nothing put back
+    assert {s: campaign.read_record(ws).model_dump_json() for s, ws in wss.items()} == recs
+    assert msgs[0].startswith("d1: refused: cannot create the station lock")
+    assert "d2: not attempted" in msgs and "p1: not attempted" in msgs

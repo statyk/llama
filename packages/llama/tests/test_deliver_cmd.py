@@ -1140,3 +1140,179 @@ def test_deliver_fixed_needs_a_station(tmp_path: Path):
     r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--fixed", "--yes"])
     assert r.exit_code == 1
     assert "no --dest given and no delivery_path in config" in r.output
+
+
+# --- the station lock (programs-and-lineup spec, "The station lock") ---------------
+
+from contextlib import contextmanager  # noqa: E402
+
+from llama import station_lock  # noqa: E402
+
+FOREIGN_LOCK = ("lma-station-lock 1 " + "ab" * 16 + "\n"
+                "tool: emcee\ncommand: emcee run --yes\nhost: elsewhere\npid: 4242\n"
+                "started: 2026-11-04T09:00:00-08:00\n")
+
+
+def _lock_at(dest: Path) -> Path:
+    return dest / station_lock.LOCK_NAME
+
+
+def _spy_held(monkeypatch, owner, name: str, dest: Path, seen: list):
+    """Wrap `owner.name` so each call records whether llama's lock is in `dest`."""
+    real = getattr(owner, name)
+
+    def spy(*a, **k):
+        lock = _lock_at(dest)
+        seen.append((name, lock.exists() and "tool: llama" in lock.read_text()))
+        return real(*a, **k)
+
+    monkeypatch.setattr(owner, name, spy)
+
+
+@pytest.mark.parametrize("case", ["overlay", "replace"])
+def test_deliver_lock_spans_the_destination_read_through_the_copy(
+        tmp_path: Path, monkeypatch, case):
+    dest = tmp_path / "inbox"
+    if case == "overlay":
+        build_ready(tmp_path, SLUG)
+        extra = ()
+    else:
+        _delivered_voiced(tmp_path)
+        extra = ("--replace-voiced",)
+    seen: list = []
+    _spy_held(monkeypatch, cli, "_read_destination_manifest", dest, seen)
+    _spy_held(monkeypatch, cli, "_replace_destination", dest, seen)
+    _spy_held(monkeypatch, shutil, "copytree", dest, seen)
+    commands = []
+    real_acquire = station_lock.acquire
+    monkeypatch.setattr(station_lock, "acquire", lambda p, *, command: (
+        commands.append(command), real_acquire(p, command=command))[1])
+
+    r = _deliver(tmp_path, dest, *extra)
+
+    assert r.exit_code == 0, r.output
+    names = [n for n, _ in seen]
+    assert names[0] == "_read_destination_manifest"
+    assert ("_replace_destination" in names) == (case == "replace")
+    assert "copytree" in names
+    assert all(held for _, held in seen), seen
+    assert commands == [f"llama deliver {SLUG}"]
+    assert not _lock_at(dest).exists()
+
+
+def test_deliver_refuses_a_held_lock_naming_the_holder(tmp_path: Path):
+    ws = build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    _repackaged(tmp_path)
+    _lock_at(dest).write_text(FOREIGN_LOCK)
+    before = _tree(dest)
+    (tmp_path / "ledger.jsonl").unlink()
+
+    r = _deliver(tmp_path, dest)
+
+    assert r.exit_code == 1
+    assert "the station is locked by another writer" in r.output
+    assert "  tool: emcee" in r.output and "  pid: 4242" in r.output
+    assert "emcee lock show" in r.output and "emcee lock clear" in r.output
+    assert "delivered:" not in r.output
+    assert _tree(dest) == before
+    assert Ledger(tmp_path / "ledger.jsonl").entries() == []
+    assert (ws.package_dir / "audio" / "01 - Morning Dew.mp3").exists()
+
+
+def test_deliver_takes_the_lock_after_the_awaiting_fix_refusal(tmp_path: Path, monkeypatch):
+    ws = build_ready(tmp_path, SLUG)
+    _mark(ws)
+    calls = []
+    monkeypatch.setattr(station_lock, "acquire", lambda *a, **k: calls.append(a))
+    dest = tmp_path / "inbox"
+    r = _deliver(tmp_path, dest)
+    assert r.exit_code == 1
+    assert "awaiting fix" in r.output
+    assert calls == []
+    assert not dest.exists()
+
+
+def test_deliver_batch_stops_at_a_held_lock_and_lists_the_rest(tmp_path: Path, monkeypatch):
+    for slug in ("s1-1973-06-10", "s2-1973-06-11", "s3-1973-06-12"):
+        build_ready(tmp_path, slug)
+    dest = tmp_path / "inbox"
+    real_acquire = station_lock.acquire
+    n = []
+
+    def acquire(path, *, command):
+        n.append(command)
+        if len(n) == 2:
+            raise station_lock.StationLocked(path, FOREIGN_LOCK)
+        return real_acquire(path, command=command)
+
+    monkeypatch.setattr(station_lock, "acquire", acquire)
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--packaged",
+                                "--dest", str(dest), "--yes"])
+    assert r.exit_code == 1, r.output
+    assert f"delivered: {dest / 's1-1973-06-10'}" in r.output
+    assert "s2-1973-06-11: the station is locked by another writer" in r.output
+    assert "emcee lock show" in r.output
+    assert "not attempted: s2-1973-06-11, s3-1973-06-12" in r.output
+    assert n == ["llama deliver s1-1973-06-10", "llama deliver s2-1973-06-11"]
+    assert not (dest / "s2-1973-06-11").exists()
+    assert not (dest / "s3-1973-06-12").exists()
+    assert not _lock_at(dest).exists()
+
+
+def test_deliver_batch_takes_no_lock_while_confirming(tmp_path: Path, monkeypatch):
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    dest.mkdir()
+    real = cli._confirm_plan
+    checked = []
+
+    def confirm(*a, **k):
+        assert station_lock._held is None
+        assert not _lock_at(dest).exists()
+        checked.append(True)
+        return real(*a, **k)
+
+    monkeypatch.setattr(cli, "_confirm_plan", confirm)
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--packaged",
+                                "--dest", str(dest), "--yes"])
+    assert r.exit_code == 0, r.output
+    assert checked == [True]
+    assert (dest / SLUG / "manifest.json").exists()
+
+
+def _record_lock_order(monkeypatch, events: list) -> None:
+    real_lock, real_acquire = cli.file_lock, station_lock.acquire
+
+    @contextmanager
+    def file_lock(*a, **k):
+        events.append("show")
+        with real_lock(*a, **k) as v:
+            yield v
+
+    def acquire(path, *, command):
+        events.append("station")
+        return real_acquire(path, command=command)
+
+    monkeypatch.setattr(cli, "file_lock", file_lock)
+    monkeypatch.setattr(station_lock, "acquire", acquire)
+
+
+def test_library_show_lock_is_taken_before_the_station_lock(tmp_path: Path, monkeypatch):
+    build_ready(tmp_path, SLUG)
+    events: list = []
+    _record_lock_order(monkeypatch, events)
+    r = _deliver(tmp_path, tmp_path / "inbox")
+    assert r.exit_code == 0, r.output
+    assert events == ["show", "station"]
+
+
+def test_deliver_creates_a_missing_nested_inbox_before_locking(tmp_path: Path):
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "a" / "b" / "inbox"
+    r = _deliver(tmp_path, dest)
+    assert r.exit_code == 0, r.output
+    assert (dest / SLUG / "manifest.json").exists()
+    assert not _lock_at(dest).exists()
+    assert [p.name for p in dest.iterdir()] == [SLUG]

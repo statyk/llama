@@ -445,6 +445,7 @@ def test_process_package_synthesizes_dj_audio_and_manifest_block(tmp_path, monke
         "tts": {"backend": "voxtral", "model": "fake-model", "voice": "fake-voice"},
         "voiced_on": "2026-10-01",
         "voiced_before": None,
+        "title": None,
     }
 
 

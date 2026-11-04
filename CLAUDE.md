@@ -37,9 +37,10 @@ Each is stated in full in the component's file.
 - `show.json` is derived and never hand-edited. Change a show with `llama fix` or
   `llama triage`, which write `overrides.json`.
 - `llama deliver --replace-voiced` discards the destination's DJ script and audio.
-- Run one `emcee run` at a time against a station root; it takes no lock. An agent (no
-  TTY) runs `emcee run --dry-run`, shows the plan, and passes `--yes` only after the
-  operator approves.
+- Run one `emcee run` at a time against a station root. emcee takes the station lock
+  (`<delivered>/.lma-station.lock`) per package, so llama's station writes refuse while a
+  package is being voiced. An agent (no TTY) runs `emcee run --dry-run`, shows the plan,
+  and passes `--yes` only after the operator approves.
 - `scripts/bulk_apply.py` runs from the pinned worktree by path, never with a venv
   activated.
 

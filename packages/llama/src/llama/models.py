@@ -322,6 +322,7 @@ class DJAudio(BaseModel):
     tts: DJAudioTTS | None = None      # emcee-written: backend, model, voice
     voiced_on: str | None = None       # emcee-written: local YYYY-MM-DD the newest clip was rendered
     voiced_before: str | None = None   # emcee-written: local YYYY-MM-DD the voicing predates
+    title: str | None = None           # emcee-written: the program's title when voiced
 
 
 class SetBreak(BaseModel):
