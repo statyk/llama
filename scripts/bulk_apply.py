@@ -23,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 from collections import Counter
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import NamedTuple
@@ -32,7 +33,7 @@ import replay_holds
 from herder.usage import same_window
 import llama
 import llama.replay
-from llama import batch_snapshot, campaign, reapply, station_mark
+from llama import batch_snapshot, campaign, reapply, station_lock, station_mark
 from llama.campaign_gate import (_VERSION, GateRefused, read_pin, require_pinned_code,
                                  require_tools, retire_rekey_restore, write_pin)
 from llama.catalog import _performance_id, _sync_fd, derive_state
@@ -937,16 +938,29 @@ def _station_copy_problem(out: Path) -> str | None:
     return None
 
 
+@dataclass(frozen=True)
+class _Stop:
+    """Why a marking batch stops at this item, and the lines that explain it."""
+    reason: str
+    lines: list[str]
+
+
+_LOCKED = "the station is locked"
+
+
 def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
               record: Path, delivered_ids: _DeliveredIds,
-              line: dict | None = None) -> tuple[str, bool, list[str]]:
+              line: dict | None = None) -> tuple[str, bool, _Stop | None]:
     """One item under the show lock: (what happened, whether it must be listed as not
-    marked, the emcee lines that stop the batch). The library mark is written first and
+    marked, why the batch stops here, if it does). The library mark is written first and
     made durable; a station failure never rolls it back (the library side is the safe
-    direction), so this takes the plain show lock, not `show_unit`."""
+    direction), so this takes the plain show lock, not `show_unit`. A delivered show's
+    station step (the copy's first stat through `_mark_station`, the emcee check between)
+    runs under the station lock; a held lock refuses the item (retryable) and stops the
+    batch. The holder lines go to the stop only, never into the one-line record."""
     ws = ShowWorkspace(root / "shows" / item.slug)
     if not ws.dir.is_dir():
-        return "skipped: no show directory", True, []
+        return "skipped: no show directory", True, None
     with file_lock(ws.lock):
         pid = _performance_id(ws)
         delivered = bool(pid) and pid in delivered_ids
@@ -961,30 +975,40 @@ def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
         if own is not None:       # a re-run marks the station with the batch's own `at`
             at = own.at
         before_sha = after_sha = None
-        running: list[str] = []
+        stop: _Stop | None = None
         out = station_root / item.slug
-        copy_problem = None
         if not delivered:
             station = _NOT_DELIVERED
         elif (root_problem := _station_root_problem(station_root)) is not None:
             station = (f"refused: station root {station_root} is not readable"
                        if root_problem == "unreadable"
                        else f"refused: {_empty_station_message(station_root)}")
-        elif (copy_problem := _station_copy_problem(out)) is not None:
-            station = copy_problem
         else:
-            running = station_mark.emcee_running()     # before EACH write (pointer b)
-            if running:
-                station = "refused: emcee is running"
-            else:
-                station, before_sha, after_sha = _mark_station(
-                    item, out, batch, at, own.at if own else None, line)
+            entered = False
+            try:
+                with station_lock.for_package(out, command="bulk_apply mark"):
+                    entered = True
+                    if (copy_problem := _station_copy_problem(out)) is not None:
+                        station = copy_problem
+                    elif running := station_mark.emcee_running():  # before EACH write (b)
+                        station = "refused: emcee is running"
+                        stop = _Stop("emcee is running", running)
+                    else:
+                        station, before_sha, after_sha = _mark_station(
+                            item, out, batch, at, own.at if own else None, line)
+            except station_lock.StationLocked as exc:
+                station = f"refused: {_LOCKED}"
+                stop = _Stop(_LOCKED, str(exc).splitlines())
+            except LlamaError as exc:
+                if entered:
+                    raise
+                station = f"refused: {_one_line(exc)}"     # the lock could not be created
         _append_jsonl(record, {"slug": item.slug, "reason": item.reason,
                                "start_stage": item.start_stage, "mark_added": mark_added,
                                "station": station, "before_sha256": before_sha,
                                "after_sha256": after_sha, "at": at})
     library = "library mark added" if mark_added else "library mark kept"
-    return f"{station} ({library})", delivered and station not in _STATION_OK, running
+    return f"{station} ({library})", delivered and station not in _STATION_OK, stop
 
 
 def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: Path,
@@ -994,9 +1018,9 @@ def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: 
     a delivered show's station copy marked, one `record.jsonl` line per item. Items already
     recorded with a station outcome other than `refused`, `_UNSAVED` or `_UNVERIFIED` are
     skipped (those three are retried: a station copy already carrying this batch's mark
-    is recorded `marked` once its before bytes verify). A running emcee stops the
-    batch. Exit 0 only when every delivered item is `marked` or `already marked`, judged
-    over the batch's WHOLE record (each slug's last line, earlier runs included, so a
+    is recorded `marked` once its before bytes verify). A running emcee, or a station
+    lock held by another writer, stops the batch. Exit 0 only when every delivered item
+    is `marked` or `already marked`, judged over the batch's WHOLE record (each slug's last line, earlier runs included, so a
     re-run still reports a terminal `no station copy`) plus this run's items that wrote
     no line (inputs changed, errors, not reached); else 1, listing each."""
     (batch / "before").mkdir(parents=True, exist_ok=True)
@@ -1006,11 +1030,11 @@ def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: 
             if not str(r.get("station", "refused")).startswith(_RETRIED)}
     listed: dict[str, str] = {}
     counts: Counter = Counter()
-    stop: list[str] = []
+    stop: _Stop | None = None
     delivered_ids = _DeliveredIds(root / "ledger.jsonl")
     for item in items:
         if stop:
-            listed[item.slug] = f"{item.slug}: not reached (emcee is running)"
+            listed[item.slug] = f"{item.slug}: not reached ({stop.reason})"
             continue
         if item.slug in done:
             echo(f"{item.slug}: skipped: already recorded ({done[item.slug]['station']})")
@@ -1028,9 +1052,9 @@ def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: 
         if problem:
             listed[item.slug] = f"{item.slug}: {what}"
         if stop:
-            echo("refusing to mark station copies: emcee is running; the batch stops")
-            for line in stop:
-                echo(f"  {line}")
+            echo(f"refusing to mark station copies: {stop.reason}; the batch stops")
+            for line in stop.lines:
+                echo(f"  {line.strip()}")
     for slug, line in sorted(_last_lines(record).items()):
         station = str(line.get("station"))
         if slug not in listed and station not in _STATION_OK and station != _NOT_DELIVERED:
@@ -1128,7 +1152,9 @@ def unmark(root: Path, batch: Path, *, station_root: Path, apply: bool, echo) ->
     line's station copy still carrying this batch's mark is put back from verified
     evidence or listed, and a before copy with no record line at all (a run stopped
     between its station write and the line) is listed (Task 15b M1). Exit 1 when
-    anything is listed."""
+    anything is listed. With `apply`, each show is handled under its show lock and then
+    the station lock; a lock held by another writer stops the reversal there, listing
+    every later slug `not attempted` (exit 1). The dry run takes no station lock."""
     record = batch / "record.jsonl"
     if not record.exists():
         raise LlamaError(f"no record.jsonl in {batch}")
@@ -1140,6 +1166,7 @@ def unmark(root: Path, batch: Path, *, station_root: Path, apply: bool, echo) ->
         problems += 1
         echo(f"{slug}: no record line (a marking run stopped part-way); re-run the batch, "
              "then unmark")
+    remaining = sorted(lines)
     for slug, line in sorted(lines.items()):
         if not line.get("mark_added"):
             echo(f"{slug}: kept (this batch added no library mark)")
@@ -1150,7 +1177,19 @@ def unmark(root: Path, batch: Path, *, station_root: Path, apply: bool, echo) ->
         else:
             try:
                 with file_lock(ws.lock):
-                    what, problem = _unmark_one(ws, line, batch, station_root, apply)
+                    if apply:
+                        with station_lock.for_package(station_root / slug,
+                                                      command="bulk_apply unmark"):
+                            what, problem = _unmark_one(ws, line, batch, station_root, apply)
+                    else:
+                        what, problem = _unmark_one(ws, line, batch, station_root, apply)
+            except station_lock.StationLocked as exc:
+                echo(f"{slug}: refused: {_LOCKED}")
+                for text in str(exc).splitlines():
+                    echo(f"  {text.strip()}")
+                for rest in remaining[remaining.index(slug) + 1:]:
+                    echo(f"{rest}: not attempted")
+                return 1
             except Exception as exc:
                 what, problem = f"refused: {_one_line(exc)}", True
         problems += problem
