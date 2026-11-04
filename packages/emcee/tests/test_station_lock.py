@@ -304,7 +304,8 @@ _WINDOW_SCRIPT = textwrap.dedent("""
     import emcee.station_lock as sl
 
     mode, delivered = sys.argv[1], Path(sys.argv[2])
-    kill = lambda: os.kill(os.getpid(), signal.SIGTERM)
+    signum = signal.SIGHUP if mode.endswith("-hup") else signal.SIGTERM
+    kill = lambda: os.kill(os.getpid(), signum)
     if mode == "after-open":                 # between os.open returning and fd being stored
         real_open = os.open
         def opened(*a, **k):
@@ -327,11 +328,11 @@ _WINDOW_SCRIPT = textwrap.dedent("""
         sl.acquire = acquired
     elif mode in ("before-acquire-block", "before-release-block"):
         real_block, calls = sl._block, []    # the signal lands just before the mask
-        def block(on_main):
+        def block(unblock):
             calls.append(1)
             if len(calls) == (1 if mode == "before-acquire-block" else 2):
                 kill()
-            return real_block(on_main)
+            return real_block(unblock)
         sl._block = block
     elif mode == "second-in-release":        # a second signal while the first one releases
         real_release = sl.release
@@ -341,43 +342,63 @@ _WINDOW_SCRIPT = textwrap.dedent("""
         sl.release = release
     try:
         with sl.station_lock(delivered, command="window"):
-            if mode == "in-release":         # between release's read and its unlink
-                real_read = sl._read
-                def read(path):
-                    raw = real_read(path)
+            try:
+                if mode == "in-release":     # between release's read and its unlink
+                    real_read = sl._read
+                    def read(path):
+                        raw = real_read(path)
+                        kill()
+                        return raw
+                    sl._read = read
+                if mode in ("in-body", "in-body-hup", "second-in-release"):
+                    print("unflushed")       # the handler flushes before it exits
                     kill()
-                    return raw
-                sl._read = read
-            if mode in ("second-in-release", "second-in-unwind"):
-                try:
-                    kill()                   # the first signal, inside the body
-                finally:
-                    if mode == "second-in-unwind":
-                        kill()               # a second one while the first unwinds
-            print("body", flush=True)
+                print("body", flush=True)
+            finally:
+                print("body-finally", flush=True)
         print("after", flush=True)
     finally:
-        blocked = set(signal.pthread_sigmask(signal.SIG_BLOCK, [])) & {signal.SIGTERM, signal.SIGHUP}
-        print("blocked" if blocked else "unblocked", flush=True)
+        print("caller-finally", flush=True)
 """)
 
 _WINDOWS = ["after-open", "after-close", "after-acquire", "in-release", "before-acquire-block",
-            "before-release-block", "second-in-release", "second-in-unwind"]
+            "before-release-block", "second-in-release", "in-body", "in-body-hup"]
 
 
 @pytest.mark.parametrize("mode", _WINDOWS)
-def test_sigterm_in_any_window_leaves_no_lock_and_no_blocked_signals(tmp_path, mode):
+def test_signal_in_any_window_releases_and_exits_without_running_caller_code(tmp_path, mode):
+    signum = signal.SIGHUP if mode.endswith("-hup") else signal.SIGTERM
     proc = subprocess.run([sys.executable, "-c", _WINDOW_SCRIPT, mode, str(tmp_path)],
                           capture_output=True, text=True, timeout=30)
     out = proc.stdout.split()
-    assert proc.returncode == 128 + signal.SIGTERM, proc.stdout + proc.stderr
+    assert proc.returncode == 128 + signum, proc.stdout + proc.stderr
     assert not (tmp_path / LOCK_NAME).exists()
-    assert "after" not in out
-    assert out[-1] == "unblocked"
-    # a signal during acquire fires once the lock is held, before the body runs;
-    # one during or just before release fires only once the body has run
-    assert ("body" in out) == (mode in ("in-release", "before-release-block"))
     assert "warning" not in proc.stderr       # released once, by its owner
+    assert "after" not in out and "caller-finally" not in out
+    # a signal during acquire fires once the lock is held, before the body runs; one
+    # in the body ends it there; one during or just before release comes after the body
+    body_done = mode in ("in-release", "before-release-block")
+    assert ("body" in out) == body_done
+    assert ("body-finally" in out) == body_done
+    if mode in ("in-body", "in-body-hup", "second-in-release"):
+        assert "unflushed" in out
+
+
+def test_signal_exit_flushes_the_release_warning(tmp_path):
+    script = textwrap.dedent("""
+        import os, signal, sys
+        from pathlib import Path
+        from emcee.station_lock import station_lock, LOCK_NAME
+        d = Path(sys.argv[1])
+        with station_lock(d, command="x"):
+            (d / LOCK_NAME).write_bytes(b"someone else")
+            os.kill(os.getpid(), signal.SIGTERM)
+    """)
+    proc = subprocess.run([sys.executable, "-c", script, str(tmp_path)],
+                          capture_output=True, text=True, timeout=30)
+    assert proc.returncode == 128 + signal.SIGTERM
+    assert "was not ours at release (someone else)" in proc.stderr
+    assert (tmp_path / LOCK_NAME).read_bytes() == b"someone else"
 
 
 def test_signal_mask_is_restored(tmp_path):
@@ -390,6 +411,20 @@ def test_signal_mask_is_restored(tmp_path):
         with station_lock(tmp_path, command="run"):
             pass
     assert signal.pthread_sigmask(signal.SIG_BLOCK, []) == before
+
+
+def test_only_the_lock_signals_are_unblocked(tmp_path):
+    before = signal.pthread_sigmask(signal.SIG_BLOCK, [])
+    try:
+        signal.pthread_sigmask(signal.SIG_BLOCK, [signal.SIGHUP])     # blocked by the caller
+        with station_lock(tmp_path, command="run"):
+            signal.pthread_sigmask(signal.SIG_BLOCK, [signal.SIGUSR1])  # the body's own change
+        now = signal.pthread_sigmask(signal.SIG_BLOCK, [])
+        assert signal.SIGUSR1 in now          # not undone at release
+        assert signal.SIGHUP in now           # blocked at entry, so left blocked
+        assert signal.SIGTERM not in now
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, before)
 
 
 def test_release_warns_missing_when_the_lock_vanishes_before_unlink(tmp_path, monkeypatch, capsys):
