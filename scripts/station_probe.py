@@ -6,7 +6,9 @@ It imports neither emcee nor llama.
 
   race  --dir D [--n 1000] [--workers 2]   exclusive-create / token-unlink race
   mtime --dir D --create | --replace NAME | --remove NAME
-  cross --dir D --role a|b --n N --tag T    one side of a two-host race
+  cross --dir D --role a|b --n N --tag T [--start-at EPOCH]
+                                            one side of a two-host race; exits 3 if it
+                                            saw no contention
 """
 import argparse
 import glob
@@ -15,6 +17,7 @@ import os
 import secrets
 import sys
 import time
+from queue import Empty
 
 TARGET_MTIME = 1767225600  # 2026-01-01T00:00:00Z
 HOLD_SECONDS = 0.005
@@ -22,10 +25,11 @@ _DROP_ENV = "STATION_PROBE_TEST_DROP_EXCL"
 
 
 def _counts():
-    return {"acquired": 0, "contended": 0, "vanished": 0, "double": 0, "overlap": 0}
+    return {"acquired": 0, "contended": 0, "vanished": 0, "double": 0, "overlap": 0,
+            "unreadable": 0}
 
 
-def _race_loop(directory, name, n, worker, barrier=None):
+def _race_loop(directory, name, n, worker, barrier=None, state=None, start_at=None):
     """Run n rounds of exclusive create against `name`; return the counts."""
     c = _counts()
     path = os.path.join(directory, name)
@@ -33,8 +37,15 @@ def _race_loop(directory, name, n, worker, barrier=None):
     flags = os.O_CREAT | os.O_WRONLY
     if os.environ.get(_DROP_ENV) != "1":
         flags |= os.O_EXCL
+    if os.environ.get("STATION_PROBE_TEST_CRASH") == "1" and barrier is not None:
+        os._exit(9)
     if barrier is not None:
         barrier.wait(timeout=60)
+    if start_at is not None:
+        while time.time() < start_at:
+            time.sleep(0.01)
+    if state is None:
+        state = {}
     for _ in range(n):
         token = secrets.token_hex(16)
         try:
@@ -47,7 +58,7 @@ def _race_loop(directory, name, n, worker, barrier=None):
             except FileNotFoundError:
                 c["vanished"] += 1
             except OSError:
-                pass
+                c["unreadable"] += 1
             continue
         try:
             os.write(fd, token.encode())
@@ -55,6 +66,7 @@ def _race_loop(directory, name, n, worker, barrier=None):
         finally:
             os.close(fd)
         c["acquired"] += 1
+        state["token"] = token
         open(marker, "w").close()
         others = [m for m in glob.glob(path + ".held-*") if m != marker]
         if others:
@@ -78,6 +90,7 @@ def _race_loop(directory, name, n, worker, barrier=None):
                 os.unlink(path)
         except FileNotFoundError:
             pass
+        state["token"] = None
     return c
 
 
@@ -98,7 +111,9 @@ def _merge(results):
 
 def _print_counts(c):
     print("acquired %d contended %d vanished %d double %d marker-overlap %d (advisory)"
-          % (c["acquired"], c["contended"], c["vanished"], c["double"], c["overlap"]))
+          " unreadable %d"
+          % (c["acquired"], c["contended"], c["vanished"], c["double"], c["overlap"],
+             c["unreadable"]))
 
 
 def _cleanup(directory, name):
@@ -120,7 +135,26 @@ def cmd_race(args):
     try:
         for p in procs:
             p.start()
-        results = [queue.get(timeout=300) for _ in procs]
+        results = []
+        deadline = time.time() + 300
+        while len(results) < len(procs):
+            try:
+                results.append(queue.get(timeout=1))
+                continue
+            except Empty:
+                pass
+            if time.time() > deadline:
+                print("timed out waiting for workers", file=sys.stderr)
+                return 2
+            if any(p.exitcode not in (None, 0) for p in procs):
+                try:  # a worker may have reported just before exiting
+                    results.append(queue.get(timeout=1))
+                    continue
+                except Empty:
+                    pass
+                print("a worker died before reporting (exit codes %s)"
+                      % [p.exitcode for p in procs], file=sys.stderr)
+                return 2
         for p in procs:
             p.join()
     finally:
@@ -134,21 +168,42 @@ def cmd_race(args):
         return 2
     c = _merge(results)
     _print_counts(c)
+    if c["contended"] == 0:
+        print("warning: no contention was observed; this run proves little "
+              "(raise --n)", file=sys.stderr)
     return 0 if c["double"] == 0 else 1
 
 
 def cmd_cross(args):
     name = ".lock-race-" + args.tag
+    path = os.path.join(args.dir, name)
+    state = {"token": None}
     try:
-        c = _race_loop(args.dir, name, args.n, args.role)
+        c = _race_loop(args.dir, name, args.n, args.role, state=state,
+                       start_at=args.start_at)
     finally:
-        # The lock file is shared with the other host; only remove our own marker.
+        # The lock file is shared with the other host: remove our own marker, and
+        # the lock only if it still holds this side's own token.
         try:
-            os.unlink(os.path.join(args.dir, name) + ".held-" + args.role)
+            os.unlink(path + ".held-" + args.role)
         except FileNotFoundError:
             pass
+        if state.get("token"):
+            try:
+                with open(path, "r") as f:
+                    mine = f.read() == state["token"]
+                if mine:
+                    os.unlink(path)
+            except OSError:
+                pass
     _print_counts(c)
-    return 0 if c["double"] == 0 else 1
+    if c["double"] != 0:
+        return 1
+    if c["contended"] == 0:
+        print("no contention was observed: the other side did not overlap this "
+              "run, so it proves nothing (use --start-at)", file=sys.stderr)
+        return 3
+    return 0
 
 
 def cmd_mtime(args):
@@ -183,14 +238,23 @@ def cmd_mtime(args):
     return 0
 
 
+def _at_least(minimum):
+    def conv(text):
+        value = int(text)
+        if value < minimum:
+            raise argparse.ArgumentTypeError("must be >= %d" % minimum)
+        return value
+    return conv
+
+
 def build_parser():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("race")
     r.add_argument("--dir", required=True)
-    r.add_argument("--n", type=int, default=1000)
-    r.add_argument("--workers", type=int, default=2)
+    r.add_argument("--n", type=_at_least(1), default=1000)
+    r.add_argument("--workers", type=_at_least(2), default=2)
     r.set_defaults(func=cmd_race)
     m = sub.add_parser("mtime")
     m.add_argument("--dir", required=True)
@@ -202,8 +266,10 @@ def build_parser():
     x = sub.add_parser("cross")
     x.add_argument("--dir", required=True)
     x.add_argument("--role", choices=["a", "b"], required=True)
-    x.add_argument("--n", type=int, required=True)
+    x.add_argument("--n", type=_at_least(1), required=True)
     x.add_argument("--tag", required=True)
+    x.add_argument("--start-at", type=float, metavar="EPOCH",
+                   help="wait until this epoch second before racing (same value on both hosts)")
     x.set_defaults(func=cmd_cross)
     return p
 
