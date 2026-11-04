@@ -129,7 +129,7 @@ def build_lineup(clock: ClockConfig, now_us: int) -> dict:
     for occ in occurrences(clock, now_us - DAY_US, now_us + 8 * DAY_US):
         out.append({"block": occ.block.name, "nominal_start": occ.nominal_iso,
                     "end": grid.us_to_iso(occ.end_us), "title": block_title(clock, occ.block.name),
-                    "variety": len(occ.block.profiles) != 1})
+                    "variety": not occ.block.profiles})
     return {"occurrences": out}
 
 

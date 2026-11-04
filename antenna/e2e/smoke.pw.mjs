@@ -1797,11 +1797,14 @@ test.describe("programs and block headings", () => {
 test.describe("the weekly lineup", () => {
   test.use({ timezoneId: "America/New_York" });
 
-  test("the lineup shows 7 tabs, Today selected on load, today's blocks listed with start time and title in the listener's zone", async ({ page }) => {
+  test("the lineup shows 7 tabs in Mon-Sun order, today's tab (class today) selected on load, today's blocks listed with start time and title in the listener's zone", async ({ page }) => {
     await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
     await expect(page.getByRole("heading", { name: "The weekly lineup" })).toBeVisible();
-    await expect(tabs(page)).toHaveText(["Today", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"]);
-    await expect(tabs(page).nth(0)).toHaveAttribute("aria-selected", "true");
+    await expect(tabs(page)).toHaveText(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    await expect(page.locator("[role=tab].today")).toHaveCount(1);
+    await expect(tabs(page).nth(2)).toHaveClass(/today/);
+    await expect(tabs(page).nth(2)).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator('[role=tab][aria-selected="true"]')).toHaveCount(1);
     await expect(lineupTimes(page)).toHaveText(["5:00a", "7:00a", "11:00p"]);
     await expect(lineupTitles(page)).toHaveText(["Early Variety", "Bluegrass in the Morning", "Late Night"]);
     expect(lineupRequests()).toBe(1);
@@ -1811,9 +1814,9 @@ test.describe("the weekly lineup", () => {
     await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY, { bg: "Thursday Bluegrass" }) } });
     await expect(page.locator("#lineup-days")).toHaveAttribute("role", "tablist");
     expect(await tabs(page).evaluateAll((ts) => ts.map((t) => t.tagName))).toEqual(Array(7).fill("BUTTON"));
-    await tabs(page).nth(1).click();
-    await expect(tabs(page).nth(1)).toHaveAttribute("aria-selected", "true");
-    for (const i of [0, 2, 3, 4, 5, 6]) await expect(tabs(page).nth(i)).toHaveAttribute("aria-selected", "false");
+    await tabs(page).nth(3).click(); // Thu
+    await expect(tabs(page).nth(3)).toHaveAttribute("aria-selected", "true");
+    for (const i of [0, 1, 2, 4, 5, 6]) await expect(tabs(page).nth(i)).toHaveAttribute("aria-selected", "false");
     await expect(lineupTitles(page)).toHaveText(["Early Variety", "Thursday Bluegrass", "Late Night"]);
     const rows = page.locator("#lineup-list li");
     expect(await rows.evaluateAll((ls) => ls.map((l) => l.classList.contains("variety")))).toEqual([true, false, true]);
@@ -1821,18 +1824,18 @@ test.describe("the weekly lineup", () => {
       .toEqual(["italic", "normal", "italic"]);
     // The choice holds across ticks.
     await page.clock.fastForward(5_000);
-    await expect(tabs(page).nth(1)).toHaveAttribute("aria-selected", "true");
-    await tabs(page).nth(0).click();
+    await expect(tabs(page).nth(3)).toHaveAttribute("aria-selected", "true");
+    await tabs(page).nth(2).click(); // back to today (Wed)
     await expect(lineupTimes(page)).toHaveText(["5:00a", "7:00a", "11:00p"]);
   });
 
-  test("the arrow keys, Home and End move the selection between tabs; only the selected tab is in the tab order", async ({ page }) => {
+  test("the arrow keys, Home and End move the selection between tabs in DOM (Mon-Sun) order; only the selected tab is in the tab order", async ({ page }) => {
     await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
-    expect(await tabs(page).evaluateAll((ts) => ts.map((t) => t.tabIndex))).toEqual([0, -1, -1, -1, -1, -1, -1]);
-    await tabs(page).nth(0).focus();
+    expect(await tabs(page).evaluateAll((ts) => ts.map((t) => t.tabIndex))).toEqual([-1, -1, 0, -1, -1, -1, -1]);
+    await tabs(page).nth(2).focus();
     await page.keyboard.press("ArrowRight");
-    await expect(tabs(page).nth(1)).toBeFocused();
-    await expect(tabs(page).nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(tabs(page).nth(3)).toBeFocused();
+    await expect(tabs(page).nth(3)).toHaveAttribute("aria-selected", "true");
     await page.keyboard.press("End");
     await expect(tabs(page).nth(6)).toHaveAttribute("aria-selected", "true");
     await page.keyboard.press("ArrowRight");
@@ -1845,7 +1848,7 @@ test.describe("the weekly lineup", () => {
     expect(await tabs(page).evaluateAll((ts) => ts.map((t) => t.tabIndex))).toEqual([0, -1, -1, -1, -1, -1, -1]);
   });
 
-  test("the block on air is highlighted in Today's tab only (aria-current), matched on block name and nominal start", async ({ page }) => {
+  test("the block on air is highlighted in today's tab only (aria-current), matched on block name and nominal start", async ({ page }) => {
     const timeline = makeTimeline(WED_10AM_NY, { onAir: { block: "bg", nominal_start: nominalStart(WED_10AM_NY, NY, "bg") } });
     await openAt(page, { timeline, notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
     const current = page.locator("#lineup-list li[aria-current]");
@@ -1853,16 +1856,18 @@ test.describe("the weekly lineup", () => {
     await expect(current).toHaveClass(/on-air/);
     await expect(current.locator(".t")).toHaveText("Bluegrass in the Morning");
     await expect(current).toHaveAttribute("aria-current", "true");
-    await tabs(page).nth(1).click();
+    await tabs(page).nth(3).click(); // Thu
     await expect(lineupTitles(page)).toHaveText(["Early Variety", "Bluegrass in the Morning", "Late Night"]);
     await expect(current).toHaveCount(0);
+    await tabs(page).nth(2).click(); // back to today: the highlight returns
+    await expect(current).toHaveCount(1);
 
     // Same block name, another day's nominal start: nothing is highlighted.
     const other = makeTimeline(WED_10AM_NY, { onAir: { block: "bg", nominal_start: nominalStart(WED_10AM_NY, NY, "bg", 1) } });
     await openAt(page, { timeline: other, notes: { _lineup: makeLineup(WED_10AM_NY, NY) }, clock: false });
     await expect(lineupTitles(page)).toHaveCount(3);
     await expect(current).toHaveCount(0);
-    await tabs(page).nth(1).click();
+    await tabs(page).nth(3).click();
     await expect(lineupTitles(page)).toHaveCount(3);
     await expect(current).toHaveCount(0);
   });
@@ -1875,23 +1880,32 @@ test.describe("the weekly lineup", () => {
     await expect(page.locator("#lineup-list li[aria-current], #lineup-list li.on-air")).toHaveCount(0);
   });
 
-  test("the chosen tab goes back to Today when the day changes", async ({ page }) => {
+  test("the today class and the selection move to the new day when the day changes", async ({ page }) => {
     const now = Date.parse("2026-11-05T04:58:00.000Z"); // Wed 11:58p in New York
     await openAt(page, { now, notes: { _lineup: makeLineup(now, NY) } });
-    await expect(tabs(page)).toHaveText(["Today", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"]);
-    await tabs(page).nth(2).click();
+    await expect(tabs(page)).toHaveText(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    await expect(page.locator("[role=tab].today")).toHaveCount(1);
+    await expect(tabs(page).nth(2)).toHaveClass(/today/); // Wed
     await expect(tabs(page).nth(2)).toHaveAttribute("aria-selected", "true");
+    await tabs(page).nth(4).click(); // Fri
+    await expect(tabs(page).nth(4)).toHaveAttribute("aria-selected", "true");
     await page.clock.fastForward(3 * 60_000);
-    await expect(tabs(page)).toHaveText(["Today", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"]);
-    await expect(tabs(page).nth(0)).toHaveAttribute("aria-selected", "true");
+    await expect(tabs(page)).toHaveText(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    await expect(page.locator("[role=tab].today")).toHaveCount(1);
+    await expect(tabs(page).nth(3)).toHaveClass(/today/); // Thu
+    await expect(tabs(page).nth(2)).not.toHaveClass(/today/);
+    await expect(tabs(page).nth(3)).toHaveAttribute("aria-selected", "true");
     await expect(page.locator('[role=tab][aria-selected="true"]')).toHaveCount(1);
   });
 
-  test("after midnight, the block on air since before midnight is listed first in Today and highlighted", async ({ page }) => {
+  test("after midnight, the block on air since before midnight is listed first in today's tab and highlighted", async ({ page }) => {
     const now = Date.parse("2026-11-05T05:30:00.000Z"); // Thu 12:30a in New York
     const timeline = makeTimeline(now, { onAir: { block: "late", nominal_start: nominalStart(now, NY, "late", -1) } });
     await openAt(page, { now, timeline, notes: { _lineup: makeLineup(now, NY) } });
-    await expect(tabs(page)).toHaveText(["Today", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"]);
+    await expect(tabs(page)).toHaveText(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    await expect(page.locator("[role=tab].today")).toHaveCount(1);
+    await expect(tabs(page).nth(3)).toHaveClass(/today/); // Thu
+    await expect(tabs(page).nth(3)).toHaveAttribute("aria-selected", "true");
     await expect(lineupTimes(page)).toHaveText(["11:00p", "5:00a", "7:00a", "11:00p"]);
     await expect(lineupTitles(page)).toHaveText(["Late Night", "Early Variety", "Bluegrass in the Morning", "Late Night"]);
     await expect(page.locator("#lineup-list li").first()).toHaveAttribute("aria-current", "true");
@@ -1940,7 +1954,9 @@ test.describe("the weekly lineup east of the clock's zone", () => {
 
   test("days and times are the listener's: the clock's 11:00p block moves to the next morning", async ({ page }) => {
     await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
-    await expect(tabs(page)).toHaveText(["Today", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"]);
+    await expect(tabs(page)).toHaveText(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    await expect(tabs(page).nth(2)).toHaveClass(/today/);
+    await expect(tabs(page).nth(2)).toHaveAttribute("aria-selected", "true");
     await expect(lineupTimes(page)).toHaveText(["4:00a", "10:00a", "12:00p"]);
     await expect(lineupTitles(page)).toHaveText(["Late Night", "Early Variety", "Bluegrass in the Morning"]);
   });

@@ -6,6 +6,7 @@ import { airTime } from "./timeline.js";
 
 const HOUSE_LINE = "LMA RADIO PRESENTS";
 const DAYS = 7;
+const WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const HALF_DAY_MS = 12 * 3_600_000;
 
 /** The program name when it is a non-blank string, else the house line. */
@@ -58,17 +59,17 @@ export function comingUpGroups(timeline, shows) {
   return groups;
 }
 
-/** Seven listener-local days from today, each with its lineup entries; null for
- * a missing or malformed lineup. No zone arithmetic: day keys come from
+/** Seven listener-local days from today, each with its lineup entries, in
+ * Mon-Sun order with today flagged (`today`); null for a missing or malformed lineup. No zone arithmetic: day keys come from
  * formatting nowMs + k * 12 h, which cannot skip a day (a day lasts >= 23 h).
  * @param {any} lineup
  * @param {number} nowMs
  * @param {string} [timeZone]
  * @param {string | null} [onAir] an occurrence key from onAirKey
- * @returns {Array<{key: string, label: string, entries: Array<{key: string, title: string, time: string, variety: boolean}>}> | null} */
+ * @returns {Array<{key: string, label: string, today: boolean, entries: Array<{key: string, title: string, time: string, variety: boolean}>}> | null} */
 export function lineupDays(lineup, nowMs, timeZone, onAir = null) {
   if (!lineup || !Array.isArray(lineup.occurrences)) return null;
-  /** @type {Array<{key: string, label: string, entries: Array<{key: string, title: string, time: string, variety: boolean}>}>} */
+  /** @type {Array<{key: string, label: string, today: boolean, entries: Array<{key: string, title: string, time: string, variety: boolean}>}>} */
   const days = [];
   const seen = new Set();
   for (let k = 0; days.length < DAYS && k < DAYS * 4; k++) {
@@ -78,10 +79,12 @@ export function lineupDays(lineup, nowMs, timeZone, onAir = null) {
     seen.add(key);
     days.push({
       key,
-      label: days.length === 0 ? "Today" : airTime(new Date(at).toISOString(), timeZone).day,
+      label: airTime(new Date(at).toISOString(), timeZone).day,
+      today: days.length === 0,
       entries: [],
     });
   }
+  const today = days[0];
   const byDay = new Map(days.map((d) => [d.key, d]));
   /** @type {Array<{ms: number, dayKey: string, entry: {key: string, title: string, time: string, variety: boolean}}>} */
   const items = [];
@@ -103,8 +106,11 @@ export function lineupDays(lineup, nowMs, timeZone, onAir = null) {
   }
   if (onAir) {
     const it = items.find((x) => x.entry.key === onAir);
-    if (it && it.dayKey < days[0].key) days[0].entries.unshift(it.entry);
+    if (it && it.dayKey < today.key) today.entries.unshift(it.entry);
   }
+  // Shown Mon to Sun: the seven days are today and the next six, so the days
+  // before today in the week are next week's (the lineup repeats weekly).
+  days.sort((a, b) => WEEK.indexOf(a.label) - WEEK.indexOf(b.label));
   return days;
 }
 

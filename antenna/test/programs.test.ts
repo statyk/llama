@@ -105,9 +105,14 @@ describe("localDateKey", () => {
 });
 
 describe("lineupDays", () => {
-  it("seven tabs from today, Today first, grouped by listener-local date", () => {
-    const days = lineupDays(LINEUP, t("2026-11-04T15:00:00Z"), NY)!;
-    expect(days.map((d) => d.label)).toEqual(["Today", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"]);
+  // The tabs come Mon to Sun; tests about dates read them in date order.
+  const byDate = <T extends { key: string }>(ds: T[]) => [...ds].sort((a, b) => (a.key < b.key ? -1 : 1));
+  it("seven tabs from today, shown Mon to Sun, today flagged, grouped by listener-local date", () => {
+    const shown = lineupDays(LINEUP, t("2026-11-04T15:00:00Z"), NY)!;
+    expect(shown.map((d) => d.label)).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    expect(shown.filter((d) => d.today).map((d) => [d.label, d.key])).toEqual([["Wed", "2026-11-04"]]);
+    expect(shown[0].key).toBe("2026-11-09"); // Mon and Tue are next week's
+    const days = byDate(shown);
     expect(days[0].entries[0]).toMatchObject({ title: "Bluegrass in the Morning", time: "7:00a", variety: false }); // earlier today kept
     expect(days[0].entries.map((e) => e.title)).toEqual(["Bluegrass in the Morning", "Mid-morning Dead", "Late Night"]);
     expect(days[0].entries[1].variety).toBe(true);
@@ -120,13 +125,13 @@ describe("lineupDays", () => {
   it("a block just after midnight Eastern lands on the previous day in Los Angeles", () => {
     const lu = { occurrences: [occ("n", "2026-11-05T05:30:00.000Z", "Night")] }; // 00:30 EST Nov 5, 21:30 PST Nov 4
     const now = t("2026-11-04T15:00:00Z");
-    const ny = lineupDays(lu, now, NY)!;
+    const ny = byDate(lineupDays(lu, now, NY)!);
     expect(ny[0].entries.length).toBe(0);
     expect(ny[1].entries.map((e) => e.title)).toEqual(["Night"]);
-    const la = lineupDays(lu, now, "America/Los_Angeles")!;
+    const la = byDate(lineupDays(lu, now, "America/Los_Angeles")!);
     expect(la[0].entries.map((e) => [e.title, e.time])).toEqual([["Night", "9:30p"]]);
     expect(la[1].entries.length).toBe(0);
-    const nz = lineupDays(lu, t("2026-11-04T05:00:00Z"), "Pacific/Auckland")!; // block is 18:30 Nov 5 NZDT
+    const nz = byDate(lineupDays(lu, t("2026-11-04T05:00:00Z"), "Pacific/Auckland")!); // block is 18:30 Nov 5 NZDT
     expect(nz[0].entries.length).toBe(0);
     expect(nz[1].entries.length).toBe(1);
   });
@@ -142,7 +147,7 @@ describe("lineupDays", () => {
     ];
     for (const [now, starts, want] of cases) {
       const lu = { occurrences: starts.map((s, i) => occ(`b${i}`, s, `T${i}`)) };
-      const days = lineupDays(lu, t(now), NY)!;
+      const days = byDate(lineupDays(lu, t(now), NY)!);
       const keys = days.map((d) => d.key);
       expect(keys.length).toBe(7);
       keys.slice(1).forEach((k, i) => expect(Date.parse(k) - Date.parse(keys[i])).toBe(86_400_000));
@@ -155,15 +160,15 @@ describe("lineupDays", () => {
       expect(new Set(all).size).toBe(all.length);
     }
   });
-  it("the block on air since before midnight leads Today's tab", () => {
+  it("the block on air since before midnight leads today's tab", () => {
     const now = t("2026-11-05T05:30:00Z"); // 00:30 EST
-    const days = lineupDays(LINEUP, now, NY, LATE_KEY)!;
-    expect(days[0].entries[0].key).toBe(LATE_KEY);
-    expect(lineupDays(LINEUP, now, NY, null)![0].entries.map((e) => e.key)).not.toContain(LATE_KEY);
+    const today = (ds: ReturnType<typeof lineupDays>) => ds!.find((d) => d.today)!;
+    expect(today(lineupDays(LINEUP, now, NY, LATE_KEY)).entries[0].key).toBe(LATE_KEY);
+    expect(today(lineupDays(LINEUP, now, NY, null)).entries.map((e) => e.key)).not.toContain(LATE_KEY);
   });
   it("an onAir key already on today's date is not duplicated", () => {
     const key = occurrenceKey("bg", "2026-11-04T12:00:00.000Z");
-    const e = lineupDays(LINEUP, t("2026-11-04T15:00:00Z"), NY, key)![0].entries.map((x) => x.key);
+    const e = lineupDays(LINEUP, t("2026-11-04T15:00:00Z"), NY, key)!.find((d) => d.today)!.entries.map((x) => x.key);
     expect(e.filter((k) => k === key).length).toBe(1);
   });
   it("missing or malformed lineups give null", () => {

@@ -230,7 +230,7 @@ function tabKeys(e) {
 
 /** The weekly lineup: seven day tabs and the chosen day's blocks. Hidden with no
  * good lineup; absent from the previous index.html. The block on air is marked in
- * Today only. */
+ * today's tab only. */
 function renderLineup(atMs) {
   const section = $("lineup");
   const daysEl = $("lineup-days");
@@ -240,14 +240,14 @@ function renderLineup(atMs) {
   const days = lineupDays(lineup, atMs, undefined, onAir);
   section.hidden = !days;
   if (!days) return;
-  const today = days[0].key;
+  const today = days.find((d) => d.today).key;
   if (today !== lineupToday) {
     lineupToday = today;
     lineupDay = today;
   }
   if (!days.some((d) => d.key === lineupDay)) lineupDay = today;
-  rebuild(daysEl, JSON.stringify(days.map((d) => [d.key, d.label])), () => days.map((d) => {
-    const tab = el("button", null, d.label);
+  rebuild(daysEl, JSON.stringify(days.map((d) => [d.key, d.label, d.today])), () => days.map((d) => {
+    const tab = el("button", d.today ? "today" : null, d.label);
     tab.type = "button";
     tab.dataset.day = d.key;
     tab.setAttribute("role", "tab");

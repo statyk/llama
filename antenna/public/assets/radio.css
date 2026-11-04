@@ -373,6 +373,9 @@ a { color: inherit; }
 .torn .sr { right: 16%; }
 .torn .sr::after { content: none; }
 
+/* The three schedule sections' headings sit a size above the block headings. */
+.sched-head .kick, .schedule > .kick { font-size: 14px; }
+
 /* Coming up: one group per block occurrence, its heading in the .kick style, then
    its own ticket grid, so each block starts a new row. */
 .block-group + .block-group { margin-top: 14px; }
@@ -405,6 +408,7 @@ a { color: inherit; }
   font-size: 12px;
   cursor: pointer;
 }
+.days button.today { border-color: var(--oxblood); color: var(--oxblood); font-weight: 700; font-synthesis: weight; }
 .days button[aria-selected="true"] { border-color: var(--oxblood); background: var(--oxblood); color: var(--label); }
 .lineup-list { margin: 0; padding: 0; list-style: none; font-size: 13px; line-height: 1.35; }
 .lineup-list li { display: flex; gap: 10px; padding: 4px 0 4px 12px; border-bottom: 1px dotted var(--rule); }

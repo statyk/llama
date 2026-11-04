@@ -573,7 +573,7 @@ def test_lineup_lists_nominal_occurrences_from_a_day_before_to_eight_days_after(
     assert set(o) == {"block", "nominal_start", "end", "title", "variety"} and o["title"] == "Bluegrass in the Morning"
 
 
-@pytest.mark.parametrize("profiles,variety", [([], True), (["bluegrass"], False), (["a", "b"], True)])
+@pytest.mark.parametrize("profiles,variety", [([], True), (["bluegrass"], False), (["a", "b"], False)])
 def test_lineup_variety_flag(profiles, variety):
     clock = ClockConfig(timezone="UTC", block=[BlockConfig(name="x", start="06:00", profiles=profiles)])
     assert {o["variety"] for o in site.build_lineup(clock, NOW)["occurrences"]} == {variety}
