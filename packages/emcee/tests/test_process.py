@@ -228,6 +228,7 @@ def test_process_package_writes_dj_notes_and_audio_and_manifest_last(tmp_path, m
         "tts": {"backend": "voxtral", "model": "fake-model", "voice": "fake-voice"},
         "voiced_on": "2026-10-01",
         "voiced_before": None,
+        "title": None,
     }
 
 
@@ -311,6 +312,37 @@ def test_process_package_records_default_presenter(tmp_path, monkeypatch):
     dj_audio = _voice_and_read_presenter(
         tmp_path, monkeypatch, {"assign": {"default": "casey"}}, "unmatched")
     assert dj_audio["presenter"] == "casey"
+
+
+def test_voicing_records_the_program_title(tmp_path, monkeypatch):
+    dj_audio = _voice_and_read_presenter(
+        tmp_path, monkeypatch,
+        {"assign": {"profiles": {"bluegrass": Assignment(presenter="casey", title="Gravel & Steel")}}},
+        "bluegrass")
+    assert dj_audio["title"] == "Gravel & Steel"
+    assert list(dj_audio)[-1] == "title"
+
+
+def test_voicing_by_default_or_house_records_null_title(tmp_path, monkeypatch):
+    house = _voice_and_read_presenter(tmp_path / "a", monkeypatch, {}, None)
+    default = _voice_and_read_presenter(
+        tmp_path / "b", monkeypatch, {"assign": {"default": "casey"}}, "unmatched")
+    for block in (house, default):
+        assert "title" in block and block["title"] is None
+        assert list(block)[-1] == "title"
+
+
+def test_title_follows_the_effective_profile(tmp_path, monkeypatch):
+    from emcee.config import ArtistRule
+
+    dj_audio = _voice_and_read_presenter(
+        tmp_path, monkeypatch,
+        {"assign": {
+            "profiles": {"bluegrass": Assignment(presenter="casey", title="Gravel & Steel")},
+            "artists": {"Grateful Dead": ArtistRule(profile="bluegrass")}}},
+        "prime-dead")
+    assert dj_audio["profile"] == "bluegrass"
+    assert dj_audio["title"] == "Gravel & Steel"
 
 
 def test_process_package_records_null_presenter_for_house(tmp_path, monkeypatch):

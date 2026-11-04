@@ -472,5 +472,6 @@ def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = Fal
         profile=voicing.effective.profile, profile_source=voicing.effective.source,
         tts=TTSRecord(backend=voicing.resolution.backend, model=speech.model,
                       voice=speech.voice),
-        voiced_on=voiced_on, voiced_before=voiced_before)
+        voiced_on=voiced_on, voiced_before=voiced_before,
+        title=voicing.title)
     rewrite_manifest(pkg, dj_notes=notes, dj_audio=dj_audio)
