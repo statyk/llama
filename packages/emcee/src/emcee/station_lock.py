@@ -192,23 +192,58 @@ def release(held: Held) -> None:
 
 _SIGNALS = (signal.SIGTERM, signal.SIGHUP)
 
+# The mask alone does not keep the handler out of acquire and release:
+# `pthread_sigmask` blocks the main thread only, so with any other thread
+# alive (emcee run's TTS/HTTP workers) the kernel hands a process-directed
+# SIGTERM to that thread, and CPython then runs the Python handler on the
+# main thread at its next bytecode boundary, mask or no mask. So while
+# acquire or release runs, `_critical` is set and the handler only records
+# the signal in `_deferred`; `_unblock` acts on it once the lock is fully
+# held or fully released. `_exiting` makes a second signal during the
+# handler's own release a no-op: the first handler is already ending the
+# process.
+_critical = False
+_deferred: int | None = None
+_exiting = False
+
 
 def _block(unblock: tuple | None) -> None:
-    """Block SIGTERM and SIGHUP (main thread only: `unblock` is None off it)."""
+    """Enter acquire/release: defer the handler, and block SIGTERM and
+    SIGHUP (main thread only: `unblock` is None off it)."""
+    global _critical
     if unblock is not None:
+        _critical = True
         signal.pthread_sigmask(signal.SIG_BLOCK, _SIGNALS)
 
 
 def _unblock(unblock: tuple | None) -> None:
-    """Unblock just the signals that were not blocked when `station_lock`
-    began, leaving every other mask change alone."""
+    """Leave acquire/release: unblock just the signals that were not blocked
+    when `station_lock` began, leaving every other mask change alone, then
+    act on a signal the handler deferred."""
+    global _critical, _deferred
+    if unblock is None:
+        return
     if unblock:
-        signal.pthread_sigmask(signal.SIG_UNBLOCK, unblock)
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, unblock)   # a pending one defers too
+    _critical = False
+    signum, _deferred = _deferred, None
+    if signum is not None:
+        _exit_on_signal(signum, None)
 
 
 def _exit_on_signal(signum, frame):
     """SIGTERM/SIGHUP handler: release the lock, then end the process. It
-    never returns or raises, so no caller code runs after the signal."""
+    never raises, and returns only to defer (inside acquire or release) or
+    when a first signal is already ending the process, so no caller code
+    runs after the signal."""
+    global _deferred, _exiting
+    if _exiting:
+        return
+    if _critical:
+        if _deferred is None:
+            _deferred = signum
+        return
+    _exiting = True
     try:
         held = _held
         if held is not None:
@@ -229,10 +264,11 @@ def station_lock(delivered: Path, *, command: str) -> Iterator[Held]:
 
     On the main thread SIGTERM and SIGHUP release the lock and exit the
     process (`_exit_on_signal`; see the module docstring); the previous
-    handlers are restored when the `with` ends. Both signals are blocked
-    while `acquire` and `release` run, so the handler never sees `_held` in
-    flux: a signal during acquire fires once the lock is fully held, one
-    during release once release has finished. Off the main thread no
+    handlers are restored when the `with` ends. While `acquire` and
+    `release` run, both signals are blocked and the handler defers, so it
+    never sees `_held` in flux, even when another thread takes the signal:
+    a signal during acquire acts once the lock is fully held, one during
+    release once release has finished. Off the main thread no
     handlers are installed and nothing is blocked: a SIGTERM there kills the
     process with default disposition and leaves the lock for `emcee lock clear`.
     """

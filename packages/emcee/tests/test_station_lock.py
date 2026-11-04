@@ -305,7 +305,15 @@ _WINDOW_SCRIPT = textwrap.dedent("""
 
     mode, delivered = sys.argv[1], Path(sys.argv[2])
     signum = signal.SIGHUP if mode.endswith("-hup") else signal.SIGTERM
-    kill = lambda: os.kill(os.getpid(), signum)
+    if sys.argv[3:] == ["thread"]:           # a live second thread, as `emcee run`'s TTS workers:
+        import threading                     # with the main thread masked, it takes the signal and
+        threading.Thread(target=threading.Event().wait, daemon=True).start()
+                                             # CPython runs the handler on the main thread anyway
+
+    def kill():
+        os.kill(os.getpid(), signum)
+        for _ in range(200000):              # bytecode boundaries, where a handler can run
+            pass
     if mode == "after-open":                 # between os.open returning and fd being stored
         real_open = os.open
         def opened(*a, **k):
@@ -365,10 +373,12 @@ _WINDOWS = ["after-open", "after-close", "after-acquire", "in-release", "before-
             "before-release-block", "second-in-release", "in-body", "in-body-hup"]
 
 
+@pytest.mark.parametrize("threads", ["main-only", "thread"])
 @pytest.mark.parametrize("mode", _WINDOWS)
-def test_signal_in_any_window_releases_and_exits_without_running_caller_code(tmp_path, mode):
+def test_signal_in_any_window_releases_and_exits_without_running_caller_code(
+        tmp_path, mode, threads):
     signum = signal.SIGHUP if mode.endswith("-hup") else signal.SIGTERM
-    proc = subprocess.run([sys.executable, "-c", _WINDOW_SCRIPT, mode, str(tmp_path)],
+    proc = subprocess.run([sys.executable, "-c", _WINDOW_SCRIPT, mode, str(tmp_path), threads],
                           capture_output=True, text=True, timeout=30)
     out = proc.stdout.split()
     assert proc.returncode == 128 + signum, proc.stdout + proc.stderr
