@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -150,18 +151,33 @@ def _unchanged_except_title(before: dict, after: dict, title: str | None) -> boo
     return list(rest_b) == list(rest_a) and _canon(rest_b) == _canon(rest_a)
 
 
-def _swap(path: Path, payload: bytes, st: os.stat_result, *, current: bytes) -> bool:
-    """Replace `path` with `payload`, keeping `st`'s times, only if it still holds
-    `current` immediately before the rename. False (nothing written, no temp
-    left) when it does not.
+class _BeforeRename(Exception):
+    """An OSError in `_swap` before its rename: the target was not touched."""
 
-    Order: unique temp in the same directory ("xb"), write, flush, fsync, close;
-    `os.utime` on the closed temp; re-read and compare; `os.replace`; re-apply the
-    times once if the rename moved the mtime."""
+
+class _AfterRename(Exception):
+    """An OSError in `_swap` after its rename: the target holds the payload,
+    its mtime possibly not restored."""
+
+
+def _swap(path: Path, payload: bytes, st: os.stat_result, *, current: bytes) -> bool:
+    """Replace `path` with `payload`, keeping `st`'s times and permission bits,
+    only if it still holds `current` immediately before the rename. False
+    (nothing written, no temp left) when it does not, or when it is gone.
+
+    Order: unique temp in the same directory ("xb"), fchmod to the original's
+    mode, write, flush, fsync, close; `os.utime` on the closed temp; re-read and
+    compare; `os.replace`; re-apply the times once if the rename moved the
+    mtime. An OSError is raised as `_BeforeRename` or `_AfterRename`."""
     tmp = path.parent / f".{path.name}.emcee-{secrets.token_hex(8)}.tmp"
     times = (st.st_atime_ns, st.st_mtime_ns)
     try:
-        with open(tmp, "xb") as f:
+        f = open(tmp, "xb")
+    except OSError as exc:
+        raise _BeforeRename(exc) from exc      # not ours: never unlink it
+    try:
+        with f:
+            os.fchmod(f.fileno(), stat.S_IMODE(st.st_mode))
             f.write(payload)
             f.flush()
             os.fsync(f.fileno())
@@ -174,48 +190,82 @@ def _swap(path: Path, payload: bytes, st: os.stat_result, *, current: bytes) -> 
             tmp.unlink()
             return False
         os.replace(tmp, path)
-    except BaseException:
+    except BaseException as exc:
         tmp.unlink(missing_ok=True)
+        if isinstance(exc, OSError):
+            raise _BeforeRename(exc) from exc
         raise
-    if os.stat(path).st_mtime_ns != st.st_mtime_ns:
-        os.utime(path, ns=times)
+    try:
+        if os.stat(path).st_mtime_ns != st.st_mtime_ns:
+            os.utime(path, ns=times)
+    except OSError as exc:
+        raise _AfterRename(exc) from exc
     return True
 
 
 def write_title(pkg_dir: Path, *, expect: bytes, title: str | None) -> bytes | None:
     """Set `dj_audio["title"]` in `pkg_dir/manifest.json`, whose bytes the caller
     planned from as `expect`. Returns the bytes written, or None when the file no
-    longer held `expect` just before the rename (nothing written). Raises
-    `TitleWriteFailed` when the post-rename check fails, after putting the
-    original back if the file still holds exactly this write's bytes.
+    longer held `expect`, or was gone, before the rename (nothing written).
+    Raises `TitleWriteFailed` on any OSError (the message says what the file
+    holds: unchanged, this write's bytes, or unknown) and when the post-rename
+    check fails, after putting the original back if the file still holds
+    exactly this write's bytes.
 
     `expect` must be in emcee's encoding with `dj_audio` an object (the plan's
     rules); anything else is a caller bug (ValueError, nothing written)."""
     pkg_dir = Path(pkg_dir)
     slug = pkg_dir.name
     path = pkg_dir / MANIFEST
-    st = os.stat(path)
     before = _parse(expect)
     if (isinstance(before, str) or not isinstance(before.get("dj_audio"), dict)
             or encode(before) != expect):
         raise ValueError(f"{slug}: expect is not a voiced manifest in emcee's encoding")
+    try:
+        st = os.stat(path)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise TitleWriteFailed(f"{slug}: cannot stat manifest.json ({exc}); "
+                               "the file is unchanged") from exc
     data = json.loads(expect)
     data["dj_audio"]["title"] = title
     new = encode(data)
-    if not _swap(path, new, st, current=expect):
-        return None
+    try:
+        if not _swap(path, new, st, current=expect):
+            return None
+    except _BeforeRename as exc:
+        raise TitleWriteFailed(f"{slug}: the title write failed before its rename "
+                               f"({exc.__cause__}); the file is unchanged") from exc
+    except _AfterRename as exc:
+        raise TitleWriteFailed(f"{slug}: restoring the mtime after the title write "
+                               f"failed ({exc.__cause__}); manifest.json holds this "
+                               "write's bytes, its mtime unknown") from exc
 
     try:
         after_raw = path.read_bytes()
     except FileNotFoundError:
         raise TitleWriteFailed(f"{slug}: manifest.json is gone after the write; "
                                "left as the other writer wrote it") from None
+    except OSError as exc:
+        raise TitleWriteFailed(f"{slug}: cannot re-read manifest.json after the title "
+                               f"write ({exc}); what it holds is unknown") from exc
     after = _parse(after_raw)
     if (after_raw == new and not isinstance(after, str)
             and _unchanged_except_title(before, after, title)):
         return new
     if after_raw == new:
-        if _swap(path, expect, st, current=new):
+        try:
+            put_back = _swap(path, expect, st, current=new)
+        except _BeforeRename as exc:
+            raise TitleWriteFailed(f"{slug}: manifest.json did not verify after the title "
+                                   f"write, and putting the original back failed "
+                                   f"({exc.__cause__}); it holds this write's bytes") from exc
+        except _AfterRename as exc:
+            raise TitleWriteFailed(f"{slug}: manifest.json did not verify after the title "
+                                   "write; the original was put back, but restoring its "
+                                   f"mtime failed ({exc.__cause__})") from exc
+        if put_back:
             raise TitleWriteFailed(f"{slug}: manifest.json did not verify after the "
                                    "title write; the original was put back")
     raise TitleWriteFailed(f"{slug}: manifest.json changed after the title write; "

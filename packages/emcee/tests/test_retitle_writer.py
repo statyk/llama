@@ -378,3 +378,135 @@ def test_unchanged_except_title_is_strict():
     assert not f(before, {"a": 1, "b": 2, "dj_audio": {"x": True, "title": "T"}}, "T")
     assert not f(before, {"a": 1, "dj_audio": None}, "T")
     assert not f(before, [], "T")
+
+
+# ---- fix round 1: errors, temp collisions, permissions ------------------
+
+
+def _dot_files(pkg: Path) -> list[str]:
+    return sorted(p.name for p in pkg.iterdir() if p.name.startswith("."))
+
+
+def test_write_temp_collision_never_deletes_the_other_file(tmp_path, monkeypatch):
+    pkg, raw = _one(tmp_path)
+    monkeypatch.setattr(retitle.secrets, "token_hex", lambda n: "f" * (2 * n))
+    theirs = pkg / ".manifest.json.emcee-ffffffffffffffff.tmp"
+    theirs.write_bytes(b"not mine")
+    with pytest.raises(TitleWriteFailed, match=r"^show: .*the file is unchanged$"):
+        write_title(pkg, expect=raw, title="X")
+    assert theirs.read_bytes() == b"not mine"
+    assert _manifest(pkg).read_bytes() == raw
+    assert _manifest(pkg).stat().st_mtime_ns == OLD_NS
+
+
+def test_write_on_a_manifest_gone_before_the_first_stat_is_skipped(tmp_path):
+    pkg, raw = _one(tmp_path)
+    _manifest(pkg).unlink()
+    assert write_title(pkg, expect=raw, title="X") is None
+    assert not _manifest(pkg).exists() and _dot_files(pkg) == []
+
+
+def _failing(real, *, when):
+    """`real`, except it raises PermissionError when `when(args)` is true."""
+    def wrapper(*a, **k):
+        if when(a):
+            raise PermissionError(13, "Permission denied")
+        return real(*a, **k)
+    return wrapper
+
+
+def test_write_oserrors_before_the_rename_leave_the_file_unchanged(tmp_path, monkeypatch):
+    pkg, raw = _one(tmp_path)
+    is_manifest = lambda a: Path(a[0]).name == "manifest.json"
+    is_temp = lambda a: Path(a[0]).name.endswith(".tmp")
+    cases = [
+        ("entry stat", os, "stat", _failing(os.stat, when=is_manifest)),
+        ("temp utime", os, "utime", _failing(os.utime, when=is_temp)),
+        ("fsync", os, "fsync", _failing(os.fsync, when=lambda a: True)),
+        ("replace", os, "replace", _failing(os.replace, when=lambda a: True)),
+    ]
+    for label, owner, name, fake in cases:
+        with monkeypatch.context() as m:
+            m.setattr(owner, name, fake)
+            with pytest.raises(TitleWriteFailed, match=r"^show: .*the file is unchanged$"):
+                write_title(pkg, expect=raw, title="X")
+        assert _manifest(pkg).read_bytes() == raw, label
+        assert _manifest(pkg).stat().st_mtime_ns == OLD_NS, label
+        assert _dot_files(pkg) == [], label
+    # A pre-rename read that fails with anything but FileNotFoundError.
+    real_read = Path.read_bytes
+    with monkeypatch.context() as m:
+        m.setattr(Path, "read_bytes", _failing(real_read, when=lambda a: True))
+        with pytest.raises(TitleWriteFailed, match=r"the file is unchanged$"):
+            write_title(pkg, expect=raw, title="X")
+    assert _manifest(pkg).read_bytes() == raw and _dot_files(pkg) == []
+
+
+def test_write_oserrors_after_the_rename_say_what_the_file_holds(tmp_path, monkeypatch):
+    pkg, raw = _one(tmp_path)
+    data = json.loads(raw)
+    data["dj_audio"]["title"] = "X"
+    new = encode(data)
+    real_replace, real_stat, real_utime = os.replace, os.stat, os.utime
+    renamed = []
+
+    def replace(src, dst):
+        real_replace(src, dst)
+        real_utime(dst, ns=(OLD_NS, OLD_NS + 10**12))      # the rename bumps it
+        renamed.append(dst)
+
+    def after_rename(a):
+        return bool(renamed) and Path(a[0]).name == "manifest.json"
+
+    # The mtime re-apply fails: the file holds this write's bytes.
+    with monkeypatch.context() as m:
+        m.setattr(os, "replace", replace)
+        m.setattr(os, "utime", _failing(real_utime, when=after_rename))
+        with pytest.raises(TitleWriteFailed, match=r"^show: .*holds this write's bytes"):
+            write_title(pkg, expect=raw, title="X")
+    assert _manifest(pkg).read_bytes() == new and _dot_files(pkg) == []
+
+    # The stat after the rename fails: same.
+    _manifest(pkg).write_bytes(raw)
+    _age(_manifest(pkg))
+    renamed.clear()
+    with monkeypatch.context() as m:
+        m.setattr(os, "replace", replace)
+        m.setattr(os, "stat", _failing(real_stat, when=after_rename))
+        with pytest.raises(TitleWriteFailed, match=r"holds this write's bytes"):
+            write_title(pkg, expect=raw, title="X")
+    assert _manifest(pkg).read_bytes() == new
+
+    # The verify read fails: what it holds is unknown.
+    _manifest(pkg).write_bytes(raw)
+    _age(_manifest(pkg))
+    renamed.clear()
+    real_read = Path.read_bytes
+    with monkeypatch.context() as m:
+        m.setattr(os, "replace", replace)
+        m.setattr(Path, "read_bytes",
+                  _failing(real_read, when=lambda a: bool(renamed)))
+        with pytest.raises(TitleWriteFailed, match=r"^show: .*what it holds is unknown$"):
+            write_title(pkg, expect=raw, title="X")
+    assert _manifest(pkg).read_bytes() == new
+
+
+def test_write_keeps_the_original_mode_under_another_umask(tmp_path, monkeypatch):
+    pkg, raw = _one(tmp_path, title="Old")
+    os.chmod(_manifest(pkg), 0o640)
+    old_umask = os.umask(0o002)                 # a fresh file would be 0o664
+    try:
+        out = write_title(pkg, expect=raw, title="X")
+        assert out is not None
+        assert _manifest(pkg).stat().st_mode & 0o7777 == 0o640
+        # The put-back path keeps it too.
+        os.chmod(_manifest(pkg), 0o600)
+        _age(_manifest(pkg))
+        monkeypatch.setattr(retitle, "_unchanged_except_title", lambda *a: False)
+        with pytest.raises(TitleWriteFailed, match="the original was put back$"):
+            write_title(pkg, expect=out, title="Y")
+        assert _manifest(pkg).read_bytes() == out
+        assert _manifest(pkg).stat().st_mode & 0o7777 == 0o600
+        assert _manifest(pkg).stat().st_mtime_ns == OLD_NS
+    finally:
+        os.umask(old_umask)
