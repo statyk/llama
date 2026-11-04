@@ -33,6 +33,7 @@ from emcee.process import (Voicing, ad_hoc_bed, ad_hoc_speech, adopt_kept_clips,
                            presenter_label, resolve_assignment, process_package,
                            resolve_voicing, script_writer_mismatch, speech_for,
                            speech_for_voicing)
+from emcee.station_lock import LOCK_NAME, holder_text, read_lock
 from emcee.speech_text import load_lexicon, normalize_for_speech
 from emcee.tts.bed import load_bed_pcm
 from emcee.tts.provider import SpeechError
@@ -45,7 +46,7 @@ from emcee.station import (AWAITING, PackageStatus, assess, awaiting_fix_reason,
                            manifest_voiced_source, package_status, profile_label, raw_manifest,
                            scan, target_problem, unsupported_status)
 
-_COMMAND_ORDER = ["run", "voice", "status", "move", "say", "presenter", "config"]
+_COMMAND_ORDER = ["run", "voice", "status", "move", "say", "lock", "presenter", "config"]
 
 
 class OrderedPanelGroup(TyperGroup):
@@ -64,6 +65,10 @@ app.add_typer(presenter_app, name="presenter")
 
 config_app = typer.Typer(help="Config file utilities", pretty_exceptions_enable=False)
 app.add_typer(config_app, name="config")
+
+lock_app = typer.Typer(help="Show or clear the station lock (.lma-station.lock)",
+                       pretty_exceptions_enable=False)
+app.add_typer(lock_app, name="lock")
 
 
 def _version_callback(value: bool) -> None:
@@ -1437,6 +1442,63 @@ def move_cmd(
     else:
         state = "pending; " + (missing or "voiced on the next emcee run")
     typer.echo(f"moved: {pkg.dir.name}  {profile_label(before)} -> {after} ({state})")
+
+
+@lock_app.command("show")
+def lock_show_cmd(
+    station_root: Path = typer.Option(
+        None, "--station-root", help="Override \\[station] root for this invocation"),
+):
+    """Print the station lock's holder, if any. Read-only."""
+    config = load_config()
+    root = _resolve_station_root(config, station_root)
+    path = root / LOCK_NAME
+    raw = read_lock(root)
+    if raw is None:
+        typer.echo(f"no station lock at {path}")
+        return
+    typer.echo(f"station lock at {path}:")
+    typer.echo(holder_text(raw))
+
+
+@lock_app.command("clear")
+def lock_clear_cmd(
+    station_root: Path = typer.Option(
+        None, "--station-root", help="Override \\[station] root for this invocation"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Remove it without asking"),
+):
+    """Remove the station lock, after showing its holder and asking.
+
+    Only for a lock whose writer is gone (killed, crashed, power loss):
+    nothing else ever breaks a lock. It is removed only if its contents are
+    still the ones shown; this command never takes the lock itself.
+    """
+    config = load_config()
+    root = _resolve_station_root(config, station_root)
+    path = root / LOCK_NAME
+    shown = read_lock(root)
+    if shown is None:
+        typer.echo(f"no station lock at {path}")
+        return
+    typer.echo(f"station lock at {path}:")
+    typer.echo(holder_text(shown))
+    if not yes:
+        if not _stdin_is_tty():
+            typer.echo("error: refusing to remove the station lock without confirmation; "
+                       "pass --yes", err=True)
+            raise typer.Exit(1)
+        if not typer.confirm("Remove this lock?", default=False, err=True):
+            typer.echo("station lock kept")
+            return
+    if read_lock(root) != shown:
+        typer.echo("error: the lock changed since it was shown; run again", err=True)
+        raise typer.Exit(1)
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        typer.echo("error: the lock changed since it was shown; run again", err=True)
+        raise typer.Exit(1)
+    typer.echo("station lock removed")
 
 
 def _usage(message: str) -> NoReturn:
