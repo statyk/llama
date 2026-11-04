@@ -1,12 +1,14 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { makeTimeline } from "./fixtures/timeline.mjs";
+import { makeLineup, nominalStart } from "./fixtures/lineup.mjs";
+import { assignBlocks, makeTimeline } from "./fixtures/timeline.mjs";
 import { startServer } from "./serve.mjs";
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
 const HOSTILE = fixture("hostile");
 const NOTES = { full: fixture("notes-full"), old: fixture("notes-old"), empty: fixture("notes-empty") };
 const ALLOWED = /^\/(assets\/[^?#]*|timeline\.json|live\.m3u8|notes\/[^?#]*|seg\/[^?#]*|show\/[^?#]*)?$/;
+const OLD_INDEX = new URL("./fixtures/old-index.html", import.meta.url).pathname;
 const SHOW_TEMPLATE = readFileSync(new URL("../templates/show.html", import.meta.url), "utf8");
 const EXPECTED_STATUS = /Failed to load resource: (the server responded with a status of (403|404)|net::ERR_(EMPTY_RESPONSE|CONNECTION_RESET|FAILED))/;
 
@@ -96,6 +98,8 @@ test.describe("show page air times", () => {
 });
 
 test("the page loads, shows the header line and every asset request succeeds", async ({ page }) => {
+  await site.close(); // a station publishing its lineup, so every request has something to answer
+  site = await startServer({ timeline: makeTimeline(Date.now()), notes: { _lineup: makeLineup(Date.now(), NY) } });
   const bad = [];
   page.on("response", (r) => { if (!r.ok()) bad.push(`${r.status()} ${r.url()}`); });
   page.on("requestfailed", (r) => bad.push(`failed ${r.url()}`));
@@ -153,7 +157,8 @@ test("an engine that throws on longGeneric still renders the page and Play still
 test("the page's elements are all there for the behaviour to bind to", async ({ page }) => {
   await page.goto(site.url);
   for (const id of ["label-artist", "label-where", "label-date", "hubs", "play", "stop", "now", "now-show", "now-notes", "retry",
-                    "tape-log", "coming-up", "just-aired", "zone", "schedule-note", "stream-url", "audio"]) {
+                    "tape-log", "coming-up", "just-aired", "zone", "schedule-note", "stream-url", "audio",
+                    "lineup", "lineup-days", "lineup-list"]) {
     await expect(page.locator(`#${id}`)).toHaveCount(1);
   }
   await expect(page.locator("#retry")).toBeHidden();
@@ -1654,4 +1659,353 @@ test("a name stepping from long to a short name, or to off air, loses the class"
   await expect(line).toHaveAttribute("class", "hand h1 long");
   await page.clock.fastForward(75 * 60_000); // the fixture's show ends 70 minutes on
   await expect(line).toHaveAttribute("class", "hand h1");
+});
+
+// ---- Programs, block headings and the weekly lineup ----
+
+const WED_10AM_NY = Date.parse("2026-11-04T15:00:00.000Z"); // Wed Nov 4, 10:00a in New York (EST, UTC-5)
+const NY = -5;
+const lineupRequests = () => site.requests.filter((r) => r === "/notes/_lineup.json").length;
+
+/** The fixture timeline at nowMs with Coming up in two blocks: Bluegrass (next-1, next-2,
+ * published span 7:00a – 9:56a in New York, program "Gravel & Steel") and Mid-morning Dead
+ * (next-3, no end, no program); the first aired show carries a program too. */
+function blockTimeline(nowMs, { program = "Gravel & Steel", title = "Bluegrass in the Morning" } = {}) {
+  const t = assignBlocks(makeTimeline(nowMs), [
+    { block: "bg", title, from: 3, to: 5, program,
+      start: "2026-11-04T12:00:00.000Z", end: "2026-11-04T14:56:00.000Z" },
+    { block: "dead", title: "Mid-morning Dead", from: 5, to: 6, end: null },
+  ]);
+  t.shows[1].program = "Morning Ramble";
+  return t;
+}
+
+/** Serve these and open the player, installing the mocked clock at `now` unless
+ * `clock` is false (a second open in one test: the clock stays installed). */
+async function openAt(page, { now = WED_10AM_NY, timeline = makeTimeline(now), notes = {}, index, clock = true } = {}) {
+  await site.close();
+  site = await startServer({ timeline, notes, index });
+  if (clock) await page.clock.install({ time: now });
+  await page.goto(site.url);
+  await expect(page.locator(".ticket").first()).toBeVisible();
+  return { timeline, notes };
+}
+
+const tabs = (page) => page.getByRole("tab");
+const lineupTimes = (page) => page.locator("#lineup-list li .at");
+const lineupTitles = (page) => page.locator("#lineup-list li .t");
+
+test.describe("programs and block headings", () => {
+  test.use({ timezoneId: "America/New_York" });
+
+  test("a ticket whose show has a program shows it in place of LMA RADIO PRESENTS; one without keeps LMA RADIO PRESENTS (coming up and just aired)", async ({ page }) => {
+    await openAt(page, { timeline: blockTimeline(WED_10AM_NY) });
+    await expect(page.locator("#coming-up .ticket .presents"))
+      .toHaveText(["Gravel & Steel", "Gravel & Steel", "LMA RADIO PRESENTS"]);
+    await expect(page.locator("#just-aired .ticket .presents")).toHaveText(["Morning Ramble", "LMA RADIO PRESENTS"]);
+  });
+
+  test("coming up groups tickets under block headings: title left, span right; a block with no end shows its start alone; each group starts a new row", async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 900 });
+    await openAt(page, { timeline: blockTimeline(WED_10AM_NY) });
+    const groups = page.locator("#coming-up > .block-group");
+    await expect(groups).toHaveCount(2);
+    await expect(groups.nth(0).locator(".block-head .block-title")).toHaveText("Bluegrass in the Morning");
+    await expect(groups.nth(0).locator(".block-head .block-span")).toHaveText("7:00a – 9:56a");
+    await expect(groups.nth(1).locator(".block-head .block-title")).toHaveText("Mid-morning Dead");
+    await expect(groups.nth(1).locator(".block-head .block-span")).toHaveText("2:10p");
+    await expect(groups.nth(0).locator(".tickets > .ticket")).toHaveCount(2);
+    await expect(groups.nth(1).locator(".tickets > .ticket")).toHaveCount(1);
+    const box = (slug) => page.locator(`#coming-up .ticket[data-slug="${slug}"]`).boundingBox();
+    const [a, b, c] = [await box("fixture-next-1"), await box("fixture-next-2"), await box("fixture-next-3")];
+    expect(b.y).toBe(a.y); // three would fit on one row at this width
+    expect(c.y).toBeGreaterThan(b.y + b.height);
+    const head = await groups.nth(0).locator(".block-head").evaluate((h) => {
+      const [t, s] = [h.querySelector(".block-title"), h.querySelector(".block-span")];
+      const r = h.getBoundingClientRect();
+      return { titleLeft: t.getBoundingClientRect().left - r.left, spanRight: r.right - s.getBoundingClientRect().right,
+               transform: getComputedStyle(t).textTransform, color: getComputedStyle(t).color };
+    });
+    expect(head.titleLeft).toBeLessThan(1);
+    expect(head.spanRight).toBeLessThan(1);
+    const kick = await page.locator(".kick").first().evaluate((k) => ({ transform: getComputedStyle(k).textTransform, color: getComputedStyle(k).color }));
+    expect({ transform: head.transform, color: head.color }).toEqual(kick);
+  });
+
+  test("an old timeline with no blocks renders coming up flat with no heading, and no console error", async ({ page }) => {
+    await openAt(page);
+    await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
+    await expect(page.locator("#coming-up .block-head")).toHaveCount(0);
+    await expect(page.locator("#coming-up .block-group")).toHaveCount(1);
+    await expect(page.locator("#coming-up .ticket .presents")).toHaveText(Array(3).fill("LMA RADIO PRESENTS"));
+  });
+
+  test("Show all reveals the remaining tickets under their headings (a group cut by the first 6 continues under the same heading)", async ({ page }) => {
+    const t = makeTimeline(WED_10AM_NY);
+    const last = t.shows[5];
+    for (let i = 0; i < 5; i++) {
+      t.shows.push({ ...last, slug: `more-${i}`, start: new Date(Date.parse(last.end) + i * 90 * 60_000).toISOString(),
+                     end: new Date(Date.parse(last.end) + (i + 1) * 90 * 60_000).toISOString() });
+    }
+    assignBlocks(t, [{ block: "bg", title: "Bluegrass in the Morning", from: 3, to: 5 },
+                     { block: "dead", title: "Mid-morning Dead", from: 5, to: 11 }]);
+    await openAt(page, { timeline: t });
+    const groups = page.locator("#coming-up > .block-group");
+    await expect(groups.locator(".block-title")).toHaveText(["Bluegrass in the Morning", "Mid-morning Dead"]);
+    await expect(groups.nth(1).locator(".ticket")).toHaveCount(4);
+    await page.getByRole("button", { name: "Show all", exact: true }).click();
+    await expect(groups.locator(".block-title")).toHaveText(["Bluegrass in the Morning", "Mid-morning Dead"]);
+    await expect(groups.nth(0).locator(".ticket")).toHaveCount(2);
+    await expect(groups.nth(1).locator(".ticket")).toHaveCount(6);
+    await expect(page.getByRole("button", { name: "Show all", exact: true })).toBeHidden();
+  });
+
+  test("just aired stays a flat list with no headings", async ({ page }) => {
+    const t = blockTimeline(WED_10AM_NY);
+    assignBlocks(t, [{ block: "early", title: "Early Variety", from: 0, to: 2 },
+                     { block: "bg", title: "Bluegrass in the Morning", from: 3, to: 6 }]);
+    await openAt(page, { timeline: t });
+    await expect(page.locator("#just-aired > .ticket.torn")).toHaveCount(2);
+    await expect(page.locator("#just-aired .block-head, #just-aired .block-group")).toHaveCount(0);
+    await expect(page.locator("#coming-up .block-head")).toHaveCount(1);
+  });
+
+  test("a program title change rebuilds the ticket (rebuild key includes the program)", async ({ page }) => {
+    const { timeline } = await openAt(page);
+    const presents = page.locator('#coming-up .ticket[data-slug="fixture-next-1"] .presents');
+    await expect(presents).toHaveText("LMA RADIO PRESENTS");
+    timeline.shows[3].program = "Gravel & Steel";
+    await page.clock.fastForward(3 * 60_000 + 1000);
+    await expect(presents).toHaveText("Gravel & Steel");
+    timeline.shows[3].program = "Second Thoughts";
+    await page.clock.fastForward(3 * 60_000 + 1000);
+    await expect(presents).toHaveText("Second Thoughts");
+  });
+
+  test("the panel's big ticket shows the program; notes without program show LMA RADIO PRESENTS", async ({ page }) => {
+    await openAt(page, { notes: { "fixture-next-1": { ...NOTES.full, program: "Gravel & Steel" }, "fixture-next-2": NOTES.full } });
+    await page.locator('.ticket[data-slug="fixture-next-1"]').click();
+    await expect(page.locator(".panel .bmain .presents")).toHaveText("Gravel & Steel");
+    await page.locator(".panel-bar .more").click();
+    await expect(page.locator(".panel")).toBeHidden();
+    await page.locator('.ticket[data-slug="fixture-next-2"]').click();
+    await expect(page.locator(".panel .bmain h2")).toHaveText("Next Band");
+    await expect(page.locator(".panel .bmain .presents")).toHaveText("LMA RADIO PRESENTS");
+  });
+});
+
+test.describe("the weekly lineup", () => {
+  test.use({ timezoneId: "America/New_York" });
+
+  test("the lineup shows 7 tabs, Today selected on load, today's blocks listed with start time and title in the listener's zone", async ({ page }) => {
+    await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
+    await expect(page.getByRole("heading", { name: "The weekly lineup" })).toBeVisible();
+    await expect(tabs(page)).toHaveText(["Today", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"]);
+    await expect(tabs(page).nth(0)).toHaveAttribute("aria-selected", "true");
+    await expect(lineupTimes(page)).toHaveText(["5:00a", "7:00a", "11:00p"]);
+    await expect(lineupTitles(page)).toHaveText(["Early Variety", "Bluegrass in the Morning", "Late Night"]);
+    expect(lineupRequests()).toBe(1);
+  });
+
+  test("choosing a tab lists that day; variety blocks carry the variety style; tabs are buttons with role=tab and aria-selected", async ({ page }) => {
+    await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY, { bg: "Thursday Bluegrass" }) } });
+    await expect(page.locator("#lineup-days")).toHaveAttribute("role", "tablist");
+    expect(await tabs(page).evaluateAll((ts) => ts.map((t) => t.tagName))).toEqual(Array(7).fill("BUTTON"));
+    await tabs(page).nth(1).click();
+    await expect(tabs(page).nth(1)).toHaveAttribute("aria-selected", "true");
+    for (const i of [0, 2, 3, 4, 5, 6]) await expect(tabs(page).nth(i)).toHaveAttribute("aria-selected", "false");
+    await expect(lineupTitles(page)).toHaveText(["Early Variety", "Thursday Bluegrass", "Late Night"]);
+    const rows = page.locator("#lineup-list li");
+    expect(await rows.evaluateAll((ls) => ls.map((l) => l.classList.contains("variety")))).toEqual([true, false, true]);
+    expect(await lineupTitles(page).evaluateAll((ts) => ts.map((t) => getComputedStyle(t).fontStyle)))
+      .toEqual(["italic", "normal", "italic"]);
+    // The choice holds across ticks.
+    await page.clock.fastForward(5_000);
+    await expect(tabs(page).nth(1)).toHaveAttribute("aria-selected", "true");
+    await tabs(page).nth(0).click();
+    await expect(lineupTimes(page)).toHaveText(["5:00a", "7:00a", "11:00p"]);
+  });
+
+  test("the arrow keys, Home and End move the selection between tabs; only the selected tab is in the tab order", async ({ page }) => {
+    await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
+    expect(await tabs(page).evaluateAll((ts) => ts.map((t) => t.tabIndex))).toEqual([0, -1, -1, -1, -1, -1, -1]);
+    await tabs(page).nth(0).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(tabs(page).nth(1)).toBeFocused();
+    await expect(tabs(page).nth(1)).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("End");
+    await expect(tabs(page).nth(6)).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("ArrowRight");
+    await expect(tabs(page).nth(0)).toBeFocused();
+    await expect(tabs(page).nth(0)).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("ArrowLeft");
+    await expect(tabs(page).nth(6)).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("Home");
+    await expect(tabs(page).nth(0)).toHaveAttribute("aria-selected", "true");
+    expect(await tabs(page).evaluateAll((ts) => ts.map((t) => t.tabIndex))).toEqual([0, -1, -1, -1, -1, -1, -1]);
+  });
+
+  test("the block on air is highlighted in Today's tab only (aria-current), matched on block name and nominal start", async ({ page }) => {
+    const timeline = makeTimeline(WED_10AM_NY, { onAir: { block: "bg", nominal_start: nominalStart(WED_10AM_NY, NY, "bg") } });
+    await openAt(page, { timeline, notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
+    const current = page.locator("#lineup-list li[aria-current]");
+    await expect(current).toHaveCount(1);
+    await expect(current).toHaveClass(/on-air/);
+    await expect(current.locator(".t")).toHaveText("Bluegrass in the Morning");
+    await expect(current).toHaveAttribute("aria-current", "true");
+    await tabs(page).nth(1).click();
+    await expect(lineupTitles(page)).toHaveText(["Early Variety", "Bluegrass in the Morning", "Late Night"]);
+    await expect(current).toHaveCount(0);
+
+    // Same block name, another day's nominal start: nothing is highlighted.
+    const other = makeTimeline(WED_10AM_NY, { onAir: { block: "bg", nominal_start: nominalStart(WED_10AM_NY, NY, "bg", 1) } });
+    await openAt(page, { timeline: other, notes: { _lineup: makeLineup(WED_10AM_NY, NY) }, clock: false });
+    await expect(lineupTitles(page)).toHaveCount(3);
+    await expect(current).toHaveCount(0);
+    await tabs(page).nth(1).click();
+    await expect(lineupTitles(page)).toHaveCount(3);
+    await expect(current).toHaveCount(0);
+  });
+
+  test("off the air nothing in the lineup is marked on air", async ({ page }) => {
+    const timeline = makeTimeline(WED_10AM_NY, { onAir: { block: "bg", nominal_start: nominalStart(WED_10AM_NY, NY, "bg") } });
+    await openAt(page, { timeline, notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
+    await expect(page.locator("#lineup-list li[aria-current]")).toHaveCount(1);
+    await page.evaluate(async () => (await import("/assets/page.js")).setState("offair"));
+    await expect(page.locator("#lineup-list li[aria-current], #lineup-list li.on-air")).toHaveCount(0);
+  });
+
+  test("the chosen tab goes back to Today when the day changes", async ({ page }) => {
+    const now = Date.parse("2026-11-05T04:58:00.000Z"); // Wed 11:58p in New York
+    await openAt(page, { now, notes: { _lineup: makeLineup(now, NY) } });
+    await expect(tabs(page)).toHaveText(["Today", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"]);
+    await tabs(page).nth(2).click();
+    await expect(tabs(page).nth(2)).toHaveAttribute("aria-selected", "true");
+    await page.clock.fastForward(3 * 60_000);
+    await expect(tabs(page)).toHaveText(["Today", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"]);
+    await expect(tabs(page).nth(0)).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator('[role=tab][aria-selected="true"]')).toHaveCount(1);
+  });
+
+  test("after midnight, the block on air since before midnight is listed first in Today and highlighted", async ({ page }) => {
+    const now = Date.parse("2026-11-05T05:30:00.000Z"); // Thu 12:30a in New York
+    const timeline = makeTimeline(now, { onAir: { block: "late", nominal_start: nominalStart(now, NY, "late", -1) } });
+    await openAt(page, { now, timeline, notes: { _lineup: makeLineup(now, NY) } });
+    await expect(tabs(page)).toHaveText(["Today", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"]);
+    await expect(lineupTimes(page)).toHaveText(["11:00p", "5:00a", "7:00a", "11:00p"]);
+    await expect(lineupTitles(page)).toHaveText(["Late Night", "Early Variety", "Bluegrass in the Morning", "Late Night"]);
+    await expect(page.locator("#lineup-list li").first()).toHaveAttribute("aria-current", "true");
+    await expect(page.locator("#lineup-list li[aria-current]")).toHaveCount(1);
+  });
+
+  test("a 404 or malformed lineup hides the section with no console error; a later good fetch shows it", async ({ page }) => {
+    const { notes } = await openAt(page);
+    await expect.poll(lineupRequests).toBe(1);
+    await expect(page.locator("#lineup")).toBeHidden();
+    notes._lineup = makeLineup(WED_10AM_NY, NY);
+    await page.clock.fastForward(29 * 60_000);
+    await expect(page.locator("#lineup")).toBeHidden();
+    await advanceUntil(page, 5 * 60_000, async () => lineupRequests() === 2);
+    await expect(page.locator("#lineup")).toBeVisible();
+    await expect(lineupTitles(page)).toHaveCount(3);
+  });
+
+  for (const [name, body] of [["unparsable", "{not json"], ["without occurrences", '{"occurrences": 5}'], ["null", "null"]]) {
+    test(`a lineup that is ${name} hides the section`, async ({ page }) => {
+      await page.route("**/notes/_lineup.json", (route) => route.fulfill({ contentType: "application/json", body }));
+      await openAt(page);
+      // A routed answer never reaches the server, so count the page's requests.
+      await expect.poll(() => seen.filter((u) => new URL(u).pathname === "/notes/_lineup.json").length).toBe(1);
+      await page.clock.fastForward(2_000);
+      await expect(page.locator("#lineup")).toBeHidden();
+      await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
+    });
+  }
+
+  test("a failed refetch 30 minutes on keeps the lineup it had", async ({ page }) => {
+    const { notes } = await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
+    await expect(lineupTitles(page)).toHaveCount(3);
+    delete notes._lineup;
+    await page.clock.fastForward(29 * 60_000);
+    expect(lineupRequests()).toBe(1);
+    await advanceUntil(page, 5 * 60_000, async () => lineupRequests() === 2);
+    await page.clock.fastForward(2_000);
+    await expect(page.locator("#lineup")).toBeVisible();
+    await expect(lineupTitles(page)).toHaveCount(3);
+  });
+});
+
+test.describe("the weekly lineup east of the clock's zone", () => {
+  test.use({ timezoneId: "Europe/London" });
+
+  test("days and times are the listener's: the clock's 11:00p block moves to the next morning", async ({ page }) => {
+    await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
+    await expect(tabs(page)).toHaveText(["Today", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"]);
+    await expect(lineupTimes(page)).toHaveText(["4:00a", "10:00a", "12:00p"]);
+    await expect(lineupTitles(page)).toHaveText(["Late Night", "Early Variety", "Bluegrass in the Morning"]);
+  });
+});
+
+test("new assets with the old index.html (fixtures/old-index.html served at /): the page plays, Coming up shows flat tickets, no lineup, no console error", async ({ page }) => {
+  await site.close();
+  site = await startServer({ timeline: blockTimeline(Date.now()), notes: { _lineup: makeLineup(Date.now(), NY) }, index: OLD_INDEX });
+  await page.goto(site.url);
+  await expect(page.locator("#coming-up.tickets > .ticket")).toHaveCount(3);
+  await expect(page.locator("#coming-up .ticket .presents")).toHaveText(["Gravel & Steel", "Gravel & Steel", "LMA RADIO PRESENTS"]);
+  await expect(page.locator(".block-head, .block-group, #lineup, [role=tab]")).toHaveCount(0);
+  await expect(page.locator("#just-aired > .ticket.torn")).toHaveCount(2);
+  await playToAudio(page);
+  await expect(page.locator("#hubs")).toHaveClass(/turning/);
+  expect(lineupRequests()).toBe(0);
+});
+
+test("the hostile fixture: a program and a block title with markup appear as literal text and add no element", async ({ page }) => {
+  const PROGRAM = '<img src=x onerror="window.pwned=1">Gravel & <b>Steel</b>';
+  const BLOCK = '<b>Late</b> "Night" & <script>window.pwned=1</script>';
+  let opened = false;
+  const open = async (program, title) => {
+    const timeline = blockTimeline(WED_10AM_NY, { program, title });
+    await openAt(page, {
+      clock: !opened,
+      timeline,
+      notes: { _lineup: makeLineup(WED_10AM_NY, NY, { late: title }), "fixture-next-1": { ...NOTES.full, program } },
+    });
+    await expect(lineupTitles(page)).toHaveCount(3);
+    opened = true;
+  };
+  const count = () => page.evaluate(() => document.querySelectorAll("*").length);
+  await open("Gravel and Steel", "Late Night");
+  const benign = await count();
+
+  await open(PROGRAM, BLOCK);
+  await expect(page.locator("#coming-up .ticket .presents").first()).toHaveText(PROGRAM);
+  await expect(page.locator("#coming-up .block-title").first()).toHaveText(BLOCK);
+  await expect(lineupTitles(page).nth(2)).toHaveText(BLOCK);
+  expect(await count()).toBe(benign);
+  await page.locator('.ticket[data-slug="fixture-next-1"]').click();
+  await expect(page.locator(".panel .bmain .presents")).toHaveText(PROGRAM);
+  expect(await page.locator("img, iframe, svg, main script, .panel script, [onerror]").count()).toBe(0);
+  expect(await page.evaluate(() => window.pwned)).toBeUndefined();
+});
+
+test("at 320 px with a 60-character program and block title, document.scrollWidth <= 320 on the main page and the panel", async ({ page }) => {
+  const PROGRAM = "Gravel & Steel: The Very Long Sunday Morning Program Hour xy";
+  const BLOCK = "Supercalifragilisticexpialidocious".padEnd(60, "x");
+  expect([PROGRAM.length, BLOCK.length]).toEqual([60, 60]);
+  await page.setViewportSize({ width: 320, height: 640 });
+  await openAt(page, {
+    timeline: blockTimeline(WED_10AM_NY, { program: PROGRAM, title: BLOCK }),
+    notes: { _lineup: makeLineup(WED_10AM_NY, NY, { bg: BLOCK }), "fixture-next-1": { ...NOTES.full, program: PROGRAM } },
+  });
+  await expect(page.locator("#coming-up .block-title").first()).toHaveText(BLOCK);
+  await expect(lineupTitles(page).nth(1)).toHaveText(BLOCK);
+  await expect(page.locator("#coming-up .ticket .presents").first()).toHaveText(PROGRAM);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  await page.locator('.ticket[data-slug="fixture-next-1"]').click();
+  await expect(page.locator(".panel .bmain .presents")).toHaveText(PROGRAM);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  expect(await page.evaluate(() => {
+    const p = document.querySelector(".panel");
+    return p.scrollWidth - p.clientWidth;
+  })).toBeLessThanOrEqual(0);
 });

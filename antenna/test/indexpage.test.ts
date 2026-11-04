@@ -47,6 +47,12 @@ describe("reconcileIndex", () => {
     expect(PLAYER_PAGE).not.toContain("serviceWorker");
   });
 
+  it("the player page has a hidden weekly lineup section after Just aired", () => {
+    expect(PLAYER_PAGE).toMatch(/Just aired[\s\S]*id="lineup"[^>]*hidden[\s\S]*The weekly lineup/);
+    expect(PLAYER_PAGE).toContain('id="lineup-days"');
+    expect(PLAYER_PAGE).toContain('id="lineup-list"');
+  });
+
   it("writes through the R2 binding with its content type, max-age and metadata", async () => {
     await reconcileIndex(r2Bucket(env.BUCKET), true);
     const obj = await env.BUCKET.get(INDEX_KEY);

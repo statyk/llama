@@ -74,9 +74,17 @@ Anything but `"on"` is the rollback: cron's loop exactly as before, and the obje
   `docs/superpowers/2026-11-01-player-probe.md`, rollout `docs/playout-setup.md` section 4 step 3):
   `deploy-assets.mjs` takes only `--dry-run`, `--preview <n>` and `--remove-preview <n>` (any
   other argument exits 2; `--remove-preview` deletes only keys under `assets/preview/<n>/`).
-  Layout in `antenna/public/assets/`: `timeline`, `recovery`, `media` and `notes` are pure (unit-tested
-  under vitest); `app.js` is the entry and owns the one once-a-second loop; `player`, `page`, `panel`
-  and `show` touch the DOM. **`antenna/public/player.js`, `nowplaying.js` and `style.css` are frozen:
+  Layout in `antenna/public/assets/`: `timeline`, `recovery`, `media`, `notes` and `programs` are pure
+  (unit-tested under vitest); `app.js` is the entry and owns the one once-a-second loop; `player`, `page`, `panel`
+  and `show` touch the DOM. New helpers go in a new module, never as new exports of a deployed one: a
+  stale cached module would lack them and fail the import. Assets and `index.html` deploy separately,
+  so `page.js` and `panel.js` must also work against the previous `index.html` (no `#lineup`; a
+  `#coming-up` that is itself the `.tickets` grid gets flat tickets). Tickets show the show's
+  `program` (fallback `LMA RADIO PRESENTS`, as in `show.html`'s `$presents` and the panel). Coming up
+  groups its tickets by block occurrence (`block` + `nominal_start`) under the timeline's `blocks`
+  headings; Just aired stays flat. The weekly lineup comes from `notes/_lineup.json`, refetched
+  every 30 minutes with the timeline; a failed fetch keeps the last one, and the section is hidden
+  until one is good. **`antenna/public/player.js`, `nowplaying.js` and `style.css` are frozen:
   byte-identical to the old player and still published (rollback); `assets/player.js` is the live
   one.** `npm run smoke` runs the browser scenarios (`antenna/e2e/`). Notes files carry `sections`
   (transmitter `site.py`); the Cautions section is cut from public pages by matching the literal

@@ -49,24 +49,25 @@ function fileUnder(root, urlPath) {
   return existsSync(path) && statSync(path).isFile() ? path : null;
 }
 
-function staticFile(pathname) {
-  if (pathname === "/") return fileUnder(PUBLIC, "index.html");
+function staticFile(pathname, index) {
+  if (pathname === "/") return index ?? fileUnder(PUBLIC, "index.html");
   if (pathname === "/assets/hls.min.js") return HLS_JS;
   if (pathname.startsWith("/seg/")) return fileUnder(SEG_DIR, pathname.slice("/seg/".length));
   return fileUnder(PUBLIC, pathname);
 }
 
 /**
- * startServer({ timeline, notes, shows, pdtOffsetMs }) -> { url, setLive(mode), requests, close() }.
+ * startServer({ timeline, notes, shows, pdtOffsetMs, index }) -> { url, setLive(mode), requests, close() }.
  * `timeline` is the /timeline.json body (absent: 404). `notes` maps a slug to its
  * /notes/<slug>.json body (absent: 404). `shows` maps a slug to its /show/<slug>.html
  * body (absent: 404). `pdtOffsetMs` shifts the playlist's
- * program-date-time off the wall clock. `setLive` picks what /live.m3u8 answers:
+ * program-date-time off the wall clock. `index` is a file path served at `/` in place of
+ * public/index.html. `setLive` picks what /live.m3u8 answers:
  * "live", "404", "403", "endlist", or "drop", which destroys the connection.
  * `requests` lists every request's path and query, in arrival order, and is
  * appended to in place.
  */
-export async function startServer({ timeline, notes = {}, shows = {}, pdtOffsetMs = 0 } = {}) {
+export async function startServer({ timeline, notes = {}, shows = {}, pdtOffsetMs = 0, index } = {}) {
   const requests = [];
   let mode = "live";
 
@@ -98,7 +99,7 @@ export async function startServer({ timeline, notes = {}, shows = {}, pdtOffsetM
       if (mode === "404" || mode === "403") return send(Number(mode), TYPES[".txt"], mode);
       return send(200, "application/vnd.apple.mpegurl", playlist(Date.now(), mode === "endlist", pdtOffsetMs));
     }
-    const file = staticFile(pathname);
+    const file = staticFile(pathname, index);
     if (!file) return send(404, TYPES[".txt"], "not found");
     res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream", "cache-control": "no-store" });
     createReadStream(file).pipe(res);

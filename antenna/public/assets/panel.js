@@ -68,7 +68,7 @@ function ticketView(slug, model) {
   stub.append(dated ? dated[1] : model.date, el("b", "year", dated ? dated[2] : ""), "GEN ADM",
               el("br"), "LMA RADIO");
   const main = el("div", "bmain");
-  main.append(el("span", "presents", "LMA RADIO PRESENTS"), el("h2", null, model.artist || slug));
+  main.append(el("span", "presents", model.presents ?? "LMA RADIO PRESENTS"), el("h2", null, model.artist || slug));
   if (model.where) main.append(el("div", "w", model.where));
   if (model.archive) main.append(newTabLink("btn", "Hear the full tape on archive.org ↗", model.archive));
   main.append(shareControl(slug));

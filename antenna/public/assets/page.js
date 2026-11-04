@@ -5,9 +5,11 @@ import {
   STATION_NAME, airTime, comingUp, concertDate, findShow, justAired, nowLine, showHref,
   stoppedLine, tapeLog, tidyTitle, whereLine, zoneLabel,
 } from "./timeline.js";
+import { comingUpGroups, lineupDays, onAirKey, presentsLine } from "./programs.js";
 
 export const STATES = ["playing", "stopped", "reconnecting", "gaveup", "offair", "refused", "unsupported"];
 const REFETCH_MS = 3 * 60_000;
+const LINEUP_REFETCH_MS = 30 * 60_000;
 const SHOWN = 6;
 const LOG_WINDOW = 5; // rows of the tape log shown while collapsed
 const LONG_NAME = 26; // characters past which the artist drops a size, then another
@@ -28,6 +30,11 @@ let inFlight = false;
 let showAll = false;
 let logExpanded = false;
 let logSlug = null; // the show the tape log is for; a change collapses it
+let lineup = null; // the last good notes/_lineup.json
+let lineupAttempt = null; // ms of the last lineup fetch attempt
+let lineupInFlight = false;
+let lineupToday = null; // today's day key at the last render; a change resets the tab
+let lineupDay = null; // the selected tab's day key
 const built = new Map(); // element id -> key of what it currently shows
 
 const $ = (id) => document.getElementById(id);
@@ -67,7 +74,7 @@ function ticket(show, torn) {
   stub.append(el("span", "day", when.day), el("b", "time", when.time), el("span", "adm", "GEN ADM"));
   const main = el("span", "main");
   main.append(
-    el("span", "presents", "LMA RADIO PRESENTS"),
+    el("span", "presents", presentsLine(show)),
     el("b", "artist", show.artist || ""),
     el("span", "where", whereLine(show)),
     el("span", "sr", concertDate(show.date)),
@@ -76,9 +83,36 @@ function ticket(show, torn) {
   return a;
 }
 
+const ticketKey = (s) => [s.slug, s.start, s.artist, s.venue, s.city, s.date, s.program];
+
 function renderTickets(list, shows, torn) {
-  const key = JSON.stringify([torn, shows.map((s) => [s.slug, s.start, s.artist, s.venue, s.city, s.date])]);
+  const key = JSON.stringify([torn, shows.map(ticketKey)]);
   rebuild(list, key, () => shows.map((s) => ticket(s, torn)));
+  setHeadingHidden(list, shows.length === 0);
+}
+
+/** Coming up, one div.block-group per occurrence: an optional heading (title left,
+ * span right) over its own ticket grid. The previous index.html's #coming-up is
+ * itself the grid (.tickets): it gets the tickets flat. */
+function renderComingUp(list, shows) {
+  if (list.classList.contains("tickets")) {
+    renderTickets(list, shows, false);
+    return;
+  }
+  const groups = comingUpGroups(timeline, shows);
+  const key = JSON.stringify(groups.map((g) => [g.key, g.title, g.span, g.shows.map(ticketKey)]));
+  rebuild(list, key, () => groups.map((g) => {
+    const group = el("div", "block-group");
+    if (g.key != null) {
+      const head = el("div", "block-head");
+      head.append(el("span", "block-title", g.title == null ? "" : String(g.title)), el("span", "block-span", g.span));
+      group.append(head);
+    }
+    const grid = el("div", "tickets");
+    grid.append(...g.shows.map((s) => ticket(s, false)));
+    group.append(grid);
+    return group;
+  }));
   setHeadingHidden(list, shows.length === 0);
 }
 
@@ -152,7 +186,7 @@ function renderSchedule(atMs) {
   const coming = comingUp(timeline, atMs);
   const list = $("coming-up");
   if (list) {
-    renderTickets(list, showAll ? coming : coming.slice(0, SHOWN), false);
+    renderComingUp(list, showAll ? coming : coming.slice(0, SHOWN));
     let more = $("show-all");
     if (!more) {
       more = el("button", "more", "Show all");
@@ -175,6 +209,72 @@ function renderSchedule(atMs) {
     note.textContent = text;
     note.hidden = text === "";
   }
+}
+
+function selectDay(key) {
+  lineupDay = key;
+  if (lastAtMs != null) renderLineup(lastAtMs);
+}
+
+/** Arrow keys, Home and End move between the day tabs (and select, as a click does). */
+function tabKeys(e) {
+  const tabs = Array.from(e.currentTarget.parentElement.children);
+  const at = tabs.indexOf(e.currentTarget);
+  const to = { ArrowLeft: at - 1, ArrowRight: at + 1, Home: 0, End: tabs.length - 1 }[e.key];
+  if (to == null) return;
+  e.preventDefault();
+  const tab = tabs[(to + tabs.length) % tabs.length];
+  tab.focus();
+  tab.click();
+}
+
+/** The weekly lineup: seven day tabs and the chosen day's blocks. Hidden with no
+ * good lineup; absent from the previous index.html. The block on air is marked in
+ * Today only. */
+function renderLineup(atMs) {
+  const section = $("lineup");
+  const daysEl = $("lineup-days");
+  const listEl = $("lineup-list");
+  if (!section || !daysEl || !listEl) return;
+  const onAir = state === "offair" ? null : onAirKey(timeline, atMs);
+  const days = lineupDays(lineup, atMs, undefined, onAir);
+  section.hidden = !days;
+  if (!days) return;
+  const today = days[0].key;
+  if (today !== lineupToday) {
+    lineupToday = today;
+    lineupDay = today;
+  }
+  if (!days.some((d) => d.key === lineupDay)) lineupDay = today;
+  rebuild(daysEl, JSON.stringify(days.map((d) => [d.key, d.label])), () => days.map((d) => {
+    const tab = el("button", null, d.label);
+    tab.type = "button";
+    tab.dataset.day = d.key;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-controls", "lineup-list");
+    tab.addEventListener("click", () => selectDay(d.key));
+    tab.addEventListener("keydown", tabKeys);
+    return tab;
+  }));
+  // Selection only flips attributes, so a tick or a choice never rebuilds the tabs.
+  for (const tab of daysEl.children) {
+    const selected = String(tab.dataset.day === lineupDay);
+    if (tab.getAttribute("aria-selected") !== selected) tab.setAttribute("aria-selected", selected);
+    const tabIndex = selected === "true" ? 0 : -1;
+    if (tab.tabIndex !== tabIndex) tab.tabIndex = tabIndex;
+  }
+  const day = days.find((d) => d.key === lineupDay);
+  const current = lineupDay === today ? onAir : null;
+  const key = JSON.stringify([day.key, current, day.entries.map((e) => [e.key, e.title, e.time, e.variety])]);
+  rebuild(listEl, key, () => day.entries.map((e) => {
+    const li = el("li", e.variety ? "variety" : null);
+    if (current != null && e.key === current) {
+      li.classList.add("on-air");
+      li.setAttribute("aria-current", "true");
+    }
+    li.append(el("span", "at", e.time), el("span", "t", e.title == null ? "" : String(e.title)));
+    return li;
+  }));
 }
 
 /** The on-air show's notes link, touched only when the slug changes and hidden with none. */
@@ -237,6 +337,7 @@ export function renderAt(atMs) {
   setText("zone", zoneLabel());
   renderLog(atMs, show);
   renderSchedule(atMs);
+  renderLineup(atMs);
 }
 
 export function setState(name) {
@@ -264,6 +365,7 @@ export async function refreshTimeline(force) {
   const now = Date.now();
   if (!force && lastAttempt != null && now - lastAttempt < REFETCH_MS) return;
   lastAttempt = now;
+  refreshLineup(now);
   inFlight = true;
   try {
     const res = await fetch("/timeline.json");
@@ -276,6 +378,32 @@ export async function refreshTimeline(force) {
     inFlight = false;
   }
   if (lastAtMs != null) renderAt(lastAtMs);
+}
+
+/** Fetch /notes/_lineup.json with the first timeline refresh and again once the
+ * last attempt is 30 minutes old. A failure keeps the old lineup. The previous
+ * index.html has no lineup section, so nothing is fetched for it. */
+async function refreshLineup(now) {
+  if (!$("lineup") || lineupInFlight) return;
+  if (lineupAttempt != null && now - lineupAttempt < LINEUP_REFETCH_MS) return;
+  lineupAttempt = now;
+  lineupInFlight = true;
+  try {
+    const res = await fetch("/notes/_lineup.json");
+    const body = await res.text(); // read even on an error status, which else stays open
+    if (!res.ok) throw new Error(`lineup ${res.status}`);
+    const doc = JSON.parse(body);
+    if (doc && Array.isArray(doc.occurrences)) lineup = doc;
+  } catch {
+    // keep the last lineup; the next attempt waits out the same 30 minutes
+  } finally {
+    lineupInFlight = false;
+  }
+  try {
+    if (lastAtMs != null) renderLineup(lastAtMs);
+  } catch {
+    // The next tick tries again.
+  }
 }
 
 /** One delegated click listener for the tickets and the on-air notes link: a plain

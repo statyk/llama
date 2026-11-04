@@ -47,3 +47,22 @@ export function makeTimeline(nowMs, overrides = {}) {
   const recent = shows.slice(0, ON_AIR).reverse().map((s) => s.slug);
   return { generated_at: iso(nowMs), epoch_id: "fixture", shows, recent, anchors: [], ...doc };
 }
+
+/** Puts runs of shows under block occurrences, in place, and lists them in `blocks`.
+ * Each spec is { block, title, from, to } (show indices, `to` exclusive), plus
+ * optional `program` (given to each of its shows), `start`/`end` (the published
+ * span; `end: null` leaves it out) and `nominal` (default: the first show's start). */
+export function assignBlocks(timeline, specs) {
+  timeline.blocks = specs.map((spec) => {
+    const nominal = spec.nominal ?? timeline.shows[spec.from].start;
+    for (let i = spec.from; i < spec.to; i++) {
+      Object.assign(timeline.shows[i], { block: spec.block, nominal_start: nominal },
+                    spec.program === undefined ? {} : { program: spec.program });
+    }
+    const entry = { block: spec.block, nominal_start: nominal, title: spec.title,
+                    start: spec.start ?? timeline.shows[spec.from].start };
+    const end = spec.end === undefined ? timeline.shows[spec.to - 1].end : spec.end;
+    return end === null ? entry : { ...entry, end };
+  });
+  return timeline;
+}
