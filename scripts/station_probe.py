@@ -7,13 +7,15 @@ It imports neither emcee nor llama.
   race  --dir D [--n 1000] [--workers 2]   exclusive-create / token-unlink race
   mtime --dir D --create | --replace NAME | --remove NAME
   cross --dir D --role a|b --n N --tag T [--start-at EPOCH]
-                                            one side of a two-host race; exits 3 if it
-                                            saw no contention
+                                            one side of a two-host race; exits 2 if the
+                                            lock file already exists, 3 if this side
+                                            never acquired or saw no contention
 """
 import argparse
 import glob
 import multiprocessing
 import os
+import random
 import secrets
 import sys
 import time
@@ -29,8 +31,13 @@ def _counts():
             "unreadable": 0}
 
 
-def _race_loop(directory, name, n, worker, barrier=None, state=None, start_at=None):
-    """Run n rounds of exclusive create against `name`; return the counts."""
+def _race_loop(directory, name, n, worker, barrier=None, state=None, start_at=None,
+               paced=False):
+    """Run n rounds of exclusive create against `name`; return the counts.
+
+    `paced` (cross) sleeps a random spell of up to HOLD_SECONDS after a refused
+    create and up to twice that after a release, so neither side spins through
+    all its rounds while the other holds the lock and both sides acquire."""
     c = _counts()
     path = os.path.join(directory, name)
     marker = "%s.held-%s" % (path, worker)
@@ -59,6 +66,8 @@ def _race_loop(directory, name, n, worker, barrier=None, state=None, start_at=No
                 c["vanished"] += 1
             except OSError:
                 c["unreadable"] += 1
+            if paced:
+                time.sleep(random.uniform(0, HOLD_SECONDS))
             continue
         try:
             os.write(fd, token.encode())
@@ -91,6 +100,8 @@ def _race_loop(directory, name, n, worker, barrier=None, state=None, start_at=No
         except FileNotFoundError:
             pass
         state["token"] = None
+        if paced:
+            time.sleep(random.uniform(0, 2 * HOLD_SECONDS))
     return c
 
 
@@ -177,10 +188,15 @@ def cmd_race(args):
 def cmd_cross(args):
     name = ".lock-race-" + args.tag
     path = os.path.join(args.dir, name)
+    if os.path.lexists(path):
+        print("refusing: the lock file %s already exists before the start (a stale "
+              "file from an earlier run, or the other side started early); remove it "
+              "once no probe is running, or use a new --tag" % path, file=sys.stderr)
+        return 2
     state = {"token": None}
     try:
         c = _race_loop(args.dir, name, args.n, args.role, state=state,
-                       start_at=args.start_at)
+                       start_at=args.start_at, paced=True)
     finally:
         # The lock file is shared with the other host: remove our own marker, and
         # the lock only if it still holds this side's own token.
@@ -199,6 +215,11 @@ def cmd_cross(args):
     _print_counts(c)
     if c["double"] != 0:
         return 1
+    if c["acquired"] == 0:
+        print("this side never acquired the lock file %s, so it proves nothing: a "
+              "stale lock file may be present (remove it once no probe is running)"
+              % path, file=sys.stderr)
+        return 3
     if c["contended"] == 0:
         print("no contention was observed: the other side did not overlap this "
               "run, so it proves nothing (use --start-at)", file=sys.stderr)

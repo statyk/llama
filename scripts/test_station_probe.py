@@ -105,6 +105,53 @@ def test_cross_two_sides_with_start_at_contend_and_pass(tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
+def test_cross_refuses_to_start_over_an_existing_lock_file(tmp_path):
+    stale = tmp_path / ".lock-race-zz"
+    stale.write_text("left by an earlier run")
+    r = run("cross", "--dir", str(tmp_path), "--role", "a", "--n", "5", "--tag", "zz")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert str(stale) in r.stderr and "already exists" in r.stderr
+    assert r.stdout == ""                                   # it never raced
+    assert stale.read_text() == "left by an earlier run"    # and left it alone
+    assert sorted(p.name for p in tmp_path.iterdir()) == [".lock-race-zz"]
+
+
+def test_cross_that_never_acquired_exits_3_naming_the_lock_file(tmp_path, monkeypatch, capsys):
+    # The lock file appears after the start check (e.g. during the --start-at
+    # wait) and nobody releases it: every round is contended, none acquired.
+    sp = _load()
+    path = tmp_path / ".lock-race-zz"
+    real_loop = sp._race_loop
+
+    def loop(directory, name, *a, **k):
+        path.write_text("stale")
+        return real_loop(directory, name, *a, **k)
+
+    monkeypatch.setattr(sp, "_race_loop", loop)
+    rc = sp.main(["cross", "--dir", str(tmp_path), "--role", "a", "--n", "5", "--tag", "zz"])
+    out, err = capsys.readouterr()
+    assert rc == 3
+    assert "acquired 0 contended 5" in out
+    assert "never acquired" in err and str(path) in err and "stale" in err
+    assert path.read_text() == "stale"                      # not ours: left alone
+
+
+def test_cross_both_sides_acquire_and_contend(tmp_path):
+    # Paced rounds: neither side spins through its rounds while the other holds,
+    # so each side both acquires and is refused, and both pass.
+    import time
+    start = str(time.time() + 2.5)
+    cmd = [sys.executable, str(SCRIPT), "cross", "--dir", str(tmp_path), "--n", "50",
+           "--tag", "t3", "--start-at", start]
+    procs = [subprocess.Popen(cmd + ["--role", r], stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, text=True) for r in "ab"]
+    outs = [p.communicate(timeout=120) for p in procs]
+    assert [p.returncode for p in procs] == [0, 0], outs
+    for out, _ in outs:
+        assert "acquired 0 " not in out and "contended 0 " not in out, out
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_race_line_keeps_field_order_and_adds_unreadable(tmp_path):
     r = run("race", "--dir", str(tmp_path), "--n", "5")
     import re
