@@ -70,12 +70,20 @@ def _read(path: Path) -> bytes:
     return Path(path).read_bytes()
 
 
+def _reason(exc: OSError) -> str:
+    return f"[Errno {exc.errno}] {exc.strerror}"
+
+
 def read_lock(delivered: Path) -> bytes | None:
-    """The lock file's raw bytes, or None when there is no lock."""
+    """The lock file's raw bytes, or None when there is no lock. Any other
+    read error (EACCES, EIO, a directory at the path) is an `EmceeError`."""
+    path = Path(delivered) / LOCK_NAME
     try:
-        return _read(Path(delivered) / LOCK_NAME)
+        return _read(path)
     except FileNotFoundError:
         return None
+    except OSError as exc:
+        raise EmceeError(f"cannot read the station lock at {path}: {_reason(exc)}") from None
 
 
 def holder_text(raw: bytes) -> str:
@@ -127,21 +135,26 @@ def acquire(path: Path, *, command: str) -> Held:
             holder = f"(cannot read the lock: {exc})"
         raise StationLocked(path, holder) from None
     except OSError as exc:
-        raise EmceeError(f"cannot create the station lock at {path}: "
-                         f"[Errno {exc.errno}] {exc.strerror}") from None
+        raise EmceeError(f"cannot create the station lock at {path}: {_reason(exc)}") from None
+    fd_open = True
     try:
         view = memoryview(body)
         while view:
             view = view[os.write(fd, view):]
         os.fsync(fd)
+        fd_open = False            # close releases the fd even when it reports an error
+        os.close(fd)               # (SMB can report a deferred write error here)
     except BaseException:
-        os.close(fd)
+        if fd_open:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
         try:
             os.unlink(path)
         except OSError:
             pass
         raise
-    os.close(fd)
     _held = Held(path, token, started)
     return _held
 
@@ -153,13 +166,12 @@ def release(held: Held) -> None:
         _held = None
     path = held.path
     try:
-        try:
-            raw = _read(path)
-        except FileNotFoundError:
-            raw = None
-        if raw is not None and token_of(raw) == held.token:
+        raw = _read(path)
+        if token_of(raw) == held.token:
             os.unlink(path)
             return
+    except FileNotFoundError:          # gone before the read, or before the unlink
+        raw = None
     except OSError as exc:
         print(f"warning: could not remove the station lock at {path} ({exc}); "
               "clear it with: emcee lock clear", file=sys.stderr)
@@ -167,6 +179,19 @@ def release(held: Held) -> None:
     holder = "missing" if raw is None else "; ".join(holder_text(raw).splitlines())
     print(f"warning: the station lock at {path} was not ours at release ({holder}); "
           f"writes since {held.started} ran unguarded", file=sys.stderr)
+
+
+_SIGNALS = (signal.SIGTERM, signal.SIGHUP)
+
+
+def _block(on_main: bool):
+    """Block SIGTERM and SIGHUP on the main thread; returns the mask to restore."""
+    return signal.pthread_sigmask(signal.SIG_BLOCK, _SIGNALS) if on_main else None
+
+
+def _unblock(mask) -> None:
+    if mask is not None:
+        signal.pthread_sigmask(signal.SIG_SETMASK, mask)
 
 
 def _raise_exit(signum, frame):
@@ -179,19 +204,33 @@ def station_lock(delivered: Path, *, command: str) -> Iterator[Held]:
 
     On the main thread SIGTERM and SIGHUP raise `SystemExit(128 + signum)`
     so the `finally` releases; the previous handlers are restored on exit.
+    Both signals are also blocked while `acquire` and `release` run, so a
+    signal arriving there fires only once `held` is set (and the `finally`
+    releases) or once release has finished. Off the main thread no handlers
+    are installed and nothing is blocked: a SIGTERM there kills the process
+    with default disposition and leaves the lock for `emcee lock clear`.
     """
     previous: dict[int, object] = {}
     held: Held | None = None
+    on_main = threading.current_thread() is threading.main_thread()
     try:
-        if threading.current_thread() is threading.main_thread():
-            for signum in (signal.SIGTERM, signal.SIGHUP):
+        if on_main:
+            for signum in _SIGNALS:
                 previous[signum] = signal.signal(signum, _raise_exit)
-        held = acquire(Path(delivered).absolute() / LOCK_NAME, command=command)
+        mask = _block(on_main)
+        try:
+            held = acquire(Path(delivered).absolute() / LOCK_NAME, command=command)
+        finally:
+            _unblock(mask)         # a pending signal fires here, with `held` already set
         yield held
     finally:
         try:
             if held is not None:
-                release(held)
+                mask = _block(on_main)
+                try:
+                    release(held)
+                finally:
+                    _unblock(mask)
         finally:
             for signum, handler in previous.items():
                 signal.signal(signum, signal.SIG_DFL if handler is None else handler)

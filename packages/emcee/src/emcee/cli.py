@@ -1498,6 +1498,9 @@ def lock_clear_cmd(
     except FileNotFoundError:
         typer.echo("error: the lock changed since it was shown; run again", err=True)
         raise typer.Exit(1)
+    except OSError as exc:
+        raise EmceeError(f"cannot remove the station lock at {path}: "
+                         f"[Errno {exc.errno}] {exc.strerror}") from None
     typer.echo("station lock removed")
 
 

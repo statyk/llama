@@ -275,3 +275,98 @@ def test_read_lock(tmp_path):
     assert token_of(FOREIGN) == "a" * 32
     assert token_of(b"lma-station-lock 2 " + b"a" * 32 + b"\n") is None
     assert token_of(b"lma-station-lock 1 " + b"A" * 32 + b"\n") is None
+
+
+# --- fix round 1: acquire's tail and release are covered too --------------------
+
+
+def test_close_error_after_write_removes_the_file(tmp_path, monkeypatch):
+    real_close = os.close
+    calls = []
+
+    def close_then_fail(fd):
+        calls.append(fd)
+        real_close(fd)                       # the fd is gone, but close reports a deferred error
+        raise OSError(errno.EIO, "Input/output error")
+
+    monkeypatch.setattr(sl.os, "close", close_then_fail)
+    with pytest.raises(OSError, match="Input/output error"):
+        acquire(tmp_path / LOCK_NAME, command="run")
+    monkeypatch.undo()
+    assert len(calls) == 1                   # never closed twice
+    assert not (tmp_path / LOCK_NAME).exists()
+    assert sl._held is None
+
+
+_WINDOW_SCRIPT = textwrap.dedent("""
+    import os, signal, sys
+    from pathlib import Path
+    import emcee.station_lock as sl
+
+    mode, delivered = sys.argv[1], Path(sys.argv[2])
+    kill = lambda: os.kill(os.getpid(), signal.SIGTERM)
+    if mode == "after-open":                 # between os.open returning and fd being stored
+        real_open = os.open
+        def opened(*a, **k):
+            fd = real_open(*a, **k)
+            kill()
+            return fd
+        sl.os.open = opened
+    elif mode == "after-close":              # after the real close at the end of acquire
+        real_close = os.close
+        def closed(fd):
+            real_close(fd)
+            kill()
+        sl.os.close = closed
+    elif mode == "after-acquire":            # after acquire returns, before `held` is stored
+        real_acquire = sl.acquire
+        def acquired(*a, **k):
+            h = real_acquire(*a, **k)
+            kill()
+            return h
+        sl.acquire = acquired
+    with sl.station_lock(delivered, command="window"):
+        if mode == "in-release":             # between release's read and its unlink
+            real_read = sl._read
+            def read(path):
+                raw = real_read(path)
+                kill()
+                return raw
+            sl._read = read
+        print("body", flush=True)
+    print("after", flush=True)
+""")
+
+
+@pytest.mark.parametrize("mode", ["after-open", "after-close", "after-acquire", "in-release"])
+def test_sigterm_in_acquire_or_release_leaves_no_lock(tmp_path, mode):
+    proc = subprocess.run([sys.executable, "-c", _WINDOW_SCRIPT, mode, str(tmp_path)],
+                          capture_output=True, text=True, timeout=30)
+    assert proc.returncode == 128 + signal.SIGTERM, proc.stderr
+    assert not (tmp_path / LOCK_NAME).exists()
+    assert "after" not in proc.stdout.split()
+    # a signal during acquire fires once the lock is held, before the body runs;
+    # one during release fires only once release has finished
+    assert ("body" in proc.stdout) == (mode == "in-release")
+
+
+def test_release_warns_missing_when_the_lock_vanishes_before_unlink(tmp_path, monkeypatch, capsys):
+    real_read = sl._read
+
+    def read_then_vanish(path):
+        raw = real_read(path)
+        Path(path).unlink()
+        return raw
+
+    with station_lock(tmp_path, command="run"):
+        monkeypatch.setattr(sl, "_read", read_then_vanish)
+    err = capsys.readouterr().err
+    assert "was not ours at release (missing)" in err
+    assert "could not remove" not in err
+
+
+def test_read_lock_error_other_than_missing_is_a_refusal(tmp_path):
+    (tmp_path / LOCK_NAME).mkdir()
+    with pytest.raises(EmceeError) as e:
+        read_lock(tmp_path)
+    assert str(e.value).startswith(f"cannot read the station lock at {tmp_path / LOCK_NAME}: [Errno ")

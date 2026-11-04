@@ -1,6 +1,7 @@
 """`emcee lock show|clear`: the operator's view of the station lock, and the
 only way a held lock is ever removed."""
 
+import errno
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ from typer.testing import CliRunner
 import emcee.cli as cli_mod
 import emcee.station_lock as sl
 from emcee.cli import app
+from emcee.errors import EmceeError
 from emcee.station_lock import LOCK_NAME
 
 from tests.helpers import forbid_spend, station_home
@@ -171,3 +173,50 @@ def test_lock_clear_never_holds_a_lock_itself(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     assert "station lock removed" in result.stdout
     assert sorted(p.name for p in station.iterdir()) == []
+
+
+def test_lock_show_unreadable_lock_is_an_error_not_a_traceback(tmp_path, monkeypatch):
+    _, station = station_home(tmp_path, monkeypatch)
+    lock = station / LOCK_NAME
+    lock.write_bytes(FOREIGN)
+    lock.chmod(0)
+    try:
+        result = runner.invoke(app, ["lock", "show"])
+    finally:
+        lock.chmod(0o644)
+
+    assert result.exit_code == 1
+    assert type(result.exception) is EmceeError
+    assert str(result.exception) == (f"cannot read the station lock at {lock}: "
+                                     "[Errno 13] Permission denied")
+
+
+def test_lock_clear_directory_at_the_lock_path_is_an_error(tmp_path, monkeypatch):
+    _, station = station_home(tmp_path, monkeypatch)
+    (station / LOCK_NAME).mkdir()
+
+    result = runner.invoke(app, ["lock", "clear", "--yes"])
+
+    assert result.exit_code == 1
+    assert type(result.exception) is EmceeError
+    assert "cannot read the station lock at" in str(result.exception)
+    assert (station / LOCK_NAME).is_dir()
+
+
+def test_lock_clear_unlink_error_is_an_error_not_a_traceback(tmp_path, monkeypatch):
+    _, station = station_home(tmp_path, monkeypatch)
+    lock = station / LOCK_NAME
+    lock.write_bytes(FOREIGN)
+
+    def denied(self, *a, **k):
+        raise PermissionError(errno.EACCES, "Permission denied")
+
+    monkeypatch.setattr(Path, "unlink", denied)
+    result = runner.invoke(app, ["lock", "clear", "--yes"])
+    monkeypatch.undo()
+
+    assert result.exit_code == 1
+    assert type(result.exception) is EmceeError
+    assert str(result.exception) == (f"cannot remove the station lock at {lock}: "
+                                     "[Errno 13] Permission denied")
+    assert lock.read_bytes() == FOREIGN
