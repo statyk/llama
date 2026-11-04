@@ -41,6 +41,7 @@ One-off and campaign tooling. The repo overview is the root `CLAUDE.md`; the lla
   is a one-off (imports llama): it applies deliver's audio purge, same
   verification, to shows delivered before deliver did it. Dry run unless
   `--apply`.
+- `scripts/station_probe.py race|mtime|cross` is the go-live probe (stdlib-only, Python 3.11-compatible, imports neither emcee nor llama, so it runs on hugo with `python3`; its go-live use is in the programs-and-lineup plan's Task 19). `race --dir D [--n 1000] [--workers 2]` races exclusive create and token-checked unlink on a scratch `.lock-race-<hex>` and prints `acquired/contended/vanished/double/marker-overlap` (exit 0 only on `double 0`; overlap is advisory). `mtime --dir D --create` makes `.mtime-probe-<hex>` (stat it from hugo first), `--replace NAME` rewrites it in the manifest writer's order (temp, flush, fsync, close, `os.utime` to 1767225600, rename, re-check) and prints the epoch, `--remove NAME` deletes it. `cross --dir D --role a|b --n N --tag T` runs one side of the race, started on two hosts with the same tag. Scratch files are removed in every outcome. Never point it at the station share outside the go-live runbook. Tests: `scripts/test_station_probe.py` (stdlib and pytest only).
 
 ## Bulk-apply campaign
 
