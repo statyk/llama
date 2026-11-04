@@ -413,12 +413,47 @@ def test_parse_briefing_keeps_other_caution_text_byte_identical():
     kept = [
         "Caution (Do Not Stop on Tracks) runs about 9:21.",
         "Mind the cautions here, and see cautions elsewhere.",
-        "Mr. Charlie (title disputed; see cautions) opens.",
         "Tuning (see cautions on the title) follows.",
         "A note (see the notes) stays.",
     ]
     text = "## Set 1\n" + "\n".join("- " + k for k in kept) + "\n"
     assert site.parse_briefing(text) == [{"heading": "Set 1", "blocks": [{"ul": kept}]}]
+
+
+@pytest.mark.parametrize("line, want", [
+    ("Its title is disputed; see cautions.", "Its title is disputed."),
+    ("Set boundaries are uncertain; SEE CAUTIONS.", "Set boundaries are uncertain."),
+    ("Between Drums and Terrapin \u2014 see cautions. Then Wharf Rat.",
+     "Between Drums and Terrapin. Then Wharf Rat."),
+    ("Mr. Charlie (title disputed; see cautions) opens.", "Mr. Charlie (title disputed) opens."),
+    ("Black Throated Win (the archive gives a longer title, see cautions) follows.",
+     "Black Throated Win (the archive gives a longer title) follows."),
+    ("It closes the encore. See cautions.", "It closes the encore."),
+    ('It may be "Remington Ride". See cautions. Remington played steel.',
+     'It may be "Remington Ride". Remington played steel.'),
+    ("See cautions. The set opens hot.", "The set opens hot."),
+])
+def test_parse_briefing_drops_trailing_and_bare_sentence_pointers(line, want):
+    assert site.parse_briefing("## Set 1\n" + line + "\n") == [
+        {"heading": "Set 1", "blocks": [{"p": want}]}]
+
+
+@pytest.mark.parametrize("line", [
+    "See cautions on the birthday claim before using it.",
+    "Its identity is disputed; see cautions before naming it.",
+    "The order is noted in the cautions.",
+    "It is disputed \u2014 see notable moments and cautions.",
+    "The set is one long piece, but see cautions.",
+    "Then Caution; see Cautions Ahead.",
+])
+def test_parse_briefing_keeps_pointers_that_carry_more_than_a_pointer(line):
+    assert site.parse_briefing("## Set 1\n" + line + "\n") == [
+        {"heading": "Set 1", "blocks": [{"p": line}]}]
+
+
+def test_parse_briefing_a_pointer_only_line_does_not_split_the_paragraph():
+    assert site.parse_briefing("## Set 1\nThe title is disputed.\nSee cautions.\nIt runs long.\n") == [
+        {"heading": "Set 1", "blocks": [{"p": "The title is disputed. It runs long."}]}]
 
 
 def test_parse_briefing_leaves_a_line_without_the_pointer_unstripped():

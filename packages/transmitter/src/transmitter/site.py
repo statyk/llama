@@ -99,8 +99,15 @@ def read_package_notes(pkg_dir: Path) -> tuple[dict | None, str | None]:
 
 
 CAUTIONS_PREFIX = "## cautions"        # llama's brief.py heading; transmitter cannot import it
-# A bare pointer to the Cautions section, which public pages cut; the space before it goes too.
-CAUTIONS_POINTER = re.compile(r"\s*\(see cautions\)", re.IGNORECASE)
+# Pointers to the Cautions section, which public pages cut. Only shapes that leave a whole
+# sentence behind: "(see cautions)"; a trailing "; see cautions" (or " — see cautions", or
+# ", see cautions" just before ")") ending a sentence or a parenthesis; and a bare
+# "See cautions." sentence. "see cautions on/before/for ..." and "in the cautions" stay.
+CAUTIONS_POINTER = re.compile(
+    r"\s*\(see cautions\)"
+    r"|\s*(?:[;\u2014\u2013]|,(?=\s*see cautions\)))\s*see cautions(?=[.)])"
+    r"|(?:(?<=[.!?\"'\u201d\u2019])|^)\s*see cautions\.(?=\s|$)",
+    re.IGNORECASE)
 ARCHIVE_PREFIX = "https://archive.org/"
 OG_IMAGE_PATH = "/assets/cassette-og.png"
 SLUG_SAFE = "!'()*"                    # encodeURIComponent's, as timeline.js showHref
@@ -145,6 +152,8 @@ def parse_briefing(text: str) -> list[dict]:
         line, hit = CAUTIONS_POINTER.subn("", line)
         if hit:
             line = line.strip()
+            if not line:                # the line was only a pointer: not a paragraph break
+                continue
         if line.startswith("## "):
             flush()
             current = {"heading": line[3:].strip(), "blocks": []}
