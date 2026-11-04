@@ -223,6 +223,14 @@ def _unblock(unblock: tuple | None) -> None:
     global _critical, _deferred
     if unblock is None:
         return
+    # Limit (async KeyboardInterrupt): SIGINT is neither masked nor deferred, so
+    # a Ctrl-C between the unmask and `_critical = False` raises out of here and
+    # leaves `_critical` set (and maybe `_deferred`). That can never leave a stuck
+    # lock: acquire/release have finished and the caller's `finally` still
+    # releases. What it can leave is stale state: the `with` then restores the
+    # previous handlers, and a stale `_deferred` would make a LATER
+    # `station_lock` in the same process exit at its first `_unblock`
+    # (emcee's commands exit on Ctrl-C, so none takes a second lock after one).
     if unblock:
         signal.pthread_sigmask(signal.SIG_UNBLOCK, unblock)   # a pending one defers too
     _critical = False

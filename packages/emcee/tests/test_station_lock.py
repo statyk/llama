@@ -299,10 +299,11 @@ def test_close_error_after_write_removes_the_file(tmp_path, monkeypatch):
 
 
 _WINDOW_SCRIPT = textwrap.dedent("""
-    import os, signal, sys
+    import errno, os, signal, sys
     from pathlib import Path
     import emcee.station_lock as sl
 
+    FOREIGN = %r
     mode, delivered = sys.argv[1], Path(sys.argv[2])
     signum = signal.SIGHUP if mode.endswith("-hup") else signal.SIGTERM
     if sys.argv[3:] == ["thread"]:           # a live second thread, as `emcee run`'s TTS workers:
@@ -342,16 +343,36 @@ _WINDOW_SCRIPT = textwrap.dedent("""
                 kill()
             return real_block(unblock)
         sl._block = block
-    elif mode == "second-in-release":        # a second signal while the first one releases
+    elif mode == "second-in-release":        # a second signal as the first one starts its release
         real_release = sl.release
         def release(held):
             kill()
             return real_release(held)
         sl.release = release
+    elif mode == "refused":                  # inside the refused acquire's read of a foreign lock
+        (delivered / sl.LOCK_NAME).write_bytes(FOREIGN)
+        real_read = sl._read
+        def read(path):
+            raw = real_read(path)
+            kill()
+            return raw
+        sl._read = read
+    elif mode == "create-error":             # the create fails (EACCES) after the signal
+        def denied(*a, **k):
+            kill()
+            raise PermissionError(errno.EACCES, "Permission denied")
+        sl.os.open = denied
+    elif mode == "write-error":              # the write fails (EIO) after the signal
+        def failed(*a, **k):
+            kill()
+            raise OSError(errno.EIO, "Input/output error")
+        sl.os.write = failed
     try:
         with sl.station_lock(delivered, command="window"):
             try:
-                if mode == "in-release":     # between release's read and its unlink
+                if mode == "warn-release":   # a foreign lock replaced ours mid-hold
+                    (delivered / sl.LOCK_NAME).write_bytes(FOREIGN)
+                if mode in ("in-release", "warn-release"):   # between release's read and its unlink
                     real_read = sl._read
                     def read(path):
                         raw = real_read(path)
@@ -367,7 +388,7 @@ _WINDOW_SCRIPT = textwrap.dedent("""
         print("after", flush=True)
     finally:
         print("caller-finally", flush=True)
-""")
+""") % FOREIGN
 
 _WINDOWS = ["after-open", "after-close", "after-acquire", "in-release", "before-acquire-block",
             "before-release-block", "second-in-release", "in-body", "in-body-hup"]
@@ -392,6 +413,28 @@ def test_signal_in_any_window_releases_and_exits_without_running_caller_code(
     assert ("body-finally" in out) == body_done
     if mode in ("in-body", "in-body-hup", "second-in-release"):
         assert "unflushed" in out
+
+
+@pytest.mark.parametrize("threads", ["main-only", "thread"])
+@pytest.mark.parametrize("mode", ["refused", "warn-release", "create-error", "write-error"])
+def test_signal_in_a_failing_acquire_or_a_warning_release_exits_leaving_no_lock_of_ours(
+        tmp_path, mode, threads):
+    proc = subprocess.run([sys.executable, "-c", _WINDOW_SCRIPT, mode, str(tmp_path), threads],
+                          capture_output=True, text=True, timeout=30)
+    out = proc.stdout.split()
+    assert proc.returncode == 128 + signal.SIGTERM, proc.stdout + proc.stderr
+    lock = tmp_path / LOCK_NAME
+    if mode in ("refused", "warn-release"):
+        assert lock.read_bytes() == FOREIGN   # another writer's lock is never touched
+    else:
+        assert not lock.exists()
+    if mode == "warn-release":
+        assert proc.stderr.count("warning:") == 1, proc.stderr
+        assert "was not ours at release" in proc.stderr and "pid: 4242" in proc.stderr
+    else:
+        assert "warning" not in proc.stderr
+    assert "after" not in out and "caller-finally" not in out
+    assert ("body" in out) == (mode == "warn-release")
 
 
 def test_signal_exit_flushes_the_release_warning(tmp_path):
