@@ -34,7 +34,8 @@ station lock (`<delivered folder>/.lma-station.lock`, the package directory's
 absolute parent; `station_lock.py`, whose format is a contract shared with
 llama) per package, held from `_process_one`'s manifest re-read through the
 package's last write (clips and manifest) and released before the next
-package, never across the `Proceed?` question. While it is held, llama's
+package, never across the `Proceed?` question (`emcee retitle` holds it for
+its whole write phase, also after the question). While it is held, llama's
 station writes (deliver, clear-mark, bulk-apply) refuse. A lock held by
 another writer stops `run` at that package (`error: <slug>: the station is
 locked by another writer (...)`, the holder, `not attempted: <it and the
@@ -99,7 +100,49 @@ concurrent `llama get`s.
   (`presenters/<id>.toml`; `edit` changes any field with set/`--clear-*`
   flags, `--transcribe` drafts `voice_clone_text` on the mlx-audio server's
   STT model and writes it only on confirmation; `voice_clone` is stored as an
-  absolute path), `emcee lock show [--station-root]` (prints the station lock's
+  absolute path), **`emcee retitle [--station-root P] [--dry-run] [--yes]`** (the
+  program-title backfill; STRICT, it rewrites live station manifests: stamps
+  `dj_audio.title` on already-voiced packages, no re-voicing, and resyncs it
+  after a config rename (a removed title is written as null). The target is
+  `assignment_for(config, manifest_voiced_profile(m)).title`; `emcee.retitle`
+  holds the plan and the raw single-field writer. It prints the plan (`would
+  write <slug>: <old> -> <new>`, `(none)` = null; `skip <slug>: awaiting fix
+  from llama`; `refused <slug>: <reason>`; `stray temp: <slug>/<name>` for a
+  `.manifest.json.emcee-*.tmp` a killed write left, a listing only; then
+  `<n> to write, <n> unchanged, <n> awaiting fix, <n> refused, <n> unvoiced`),
+  and `--dry-run` stops there. It never writes an awaiting-fix show (136 at
+  design time): any write changes its sha256, which breaks `bulk_apply unmark`
+  for it, and a wave snapshot restore covering a stamped show refuses with
+  station-changed (accepted 2026-11-04); such shows get the title when
+  re-delivered and re-voiced. It refuses (lists, leaves byte- and
+  mtime-identical) any manifest not in emcee's exact encoding
+  (`json.dumps(m, indent=2) + "\n"`), pre-v3, unreadable, or with a non-object
+  `dj_audio`. It keeps each manifest's original mtime (set on the temp before
+  the rename, re-checked after) because hugo's transmitter treats a manifest
+  younger than `quiet_minutes` (10) as ineligible and would drop planned
+  shows. Order: plan, `Proceed?` (no TTY and no `--yes`: `error: refusing to
+  write without confirmation; pass --yes`, exit 1), then a `ps` check
+  (`refusing: other emcee or llama processes are running` plus the lines, exit
+  1: the only guard against `scripts/backfill_*.py` and the campaign worktree's
+  older llama, which ignore the lock), then the station lock for the whole
+  write phase (a held lock: exit 1, nothing written), then a re-read of every
+  planned manifest (any change: `refusing: <n> manifest(s) changed since the
+  plan; nothing written; run again`, exit 1). Per show it first saves
+  `<emcee root>/title-backups/<UTC %Y%m%dT%H%M%SZ>[-n]/<slug>.json` (the
+  original bytes) and appends `{slug, before_sha256, mtime_ns}` to
+  `record.jsonl`, both fsynced before the write (a SIGTERM under the lock ends
+  the process with no cleanup); a backup failure stops before that show
+  (`not attempted: …`, exit 1). After a write it prints `<slug>: <old> -> <new>`
+  and appends `{slug, after_sha256}`. A show changed just before its rename is
+  skipped and listed (exit 1); any write or verify failure stops the run
+  (`not attempted: …`, exit 1). Exit 1 only for a refused package, a skipped
+  write or a stop; awaiting-fix, unchanged and unvoiced never affect it.
+  **Hand restore:** put `<slug>.json` back only where the manifest's current
+  sha256 equals the record's `after_sha256` for that slug (otherwise someone
+  wrote it since; leave it). **An agent runs `emcee retitle --dry-run`, shows
+  the plan, and runs `emcee retitle --yes` only after Shawn approves, in a
+  separate tool call.**),
+  `emcee lock show [--station-root]` (prints the station lock's
   holder, read-only) and `emcee lock clear [--station-root] [--yes]` (shows the
   holder, asks, and removes the lock only if it is unchanged; for a lock whose
   writer is gone). **An agent runs `emcee lock show`, reports it, and runs `emcee

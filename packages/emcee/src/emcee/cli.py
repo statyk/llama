@@ -4,8 +4,11 @@
 mirroring llama's `cli.py:57-65` pattern.
 """
 
+import hashlib
 import json
+import os
 import re
+import subprocess
 import sys
 import traceback
 from collections.abc import Sequence
@@ -33,6 +36,8 @@ from emcee.process import (Voicing, ad_hoc_bed, ad_hoc_speech, adopt_kept_clips,
                            presenter_label, resolve_assignment, process_package,
                            resolve_voicing, script_writer_mismatch, speech_for,
                            speech_for_voicing)
+from emcee.procs import other_tool_processes
+from emcee.retitle import MANIFEST as _MANIFEST, RetitlePlan, TitleWriteFailed, plan_retitle, write_title
 from emcee.station_lock import LOCK_NAME, StationLocked, holder_text, read_lock, station_lock
 from emcee.speech_text import load_lexicon, normalize_for_speech
 from emcee.tts.bed import load_bed_pcm
@@ -46,7 +51,8 @@ from emcee.station import (AWAITING, PackageStatus, assess, awaiting_fix_reason,
                            manifest_voiced_source, package_status, profile_label, raw_manifest,
                            scan, target_problem, unsupported_status)
 
-_COMMAND_ORDER = ["run", "voice", "status", "move", "say", "lock", "presenter", "config"]
+_COMMAND_ORDER = ["run", "voice", "status", "move", "say", "retitle", "lock", "presenter",
+                  "config"]
 
 
 class OrderedPanelGroup(TyperGroup):
@@ -1468,6 +1474,210 @@ def move_cmd(
     else:
         state = "pending; " + (missing or "voiced on the next emcee run")
     typer.echo(f"moved: {pkg.dir.name}  {profile_label(before)} -> {after} ({state})")
+
+
+def _title_text(title: str | None) -> str:
+    return "(none)" if title is None else title
+
+
+def _stray_temps(root: Path) -> list[str]:
+    """`<slug>/<name>` of every `.manifest.json.emcee-*.tmp` a title write left."""
+    return [f"{p.parent.name}/{p.name}"
+            for p in sorted(Path(root).glob(f"*/.{_MANIFEST}.emcee-*.tmp"))
+            if not p.parent.name.startswith(".")]
+
+
+def _echo_retitle_plan(root: Path, plan: RetitlePlan) -> None:
+    for w in plan.writes:
+        typer.echo(f"would write {w.slug}: {_title_text(w.old)} -> {_title_text(w.new)}")
+    for slug in plan.awaiting:
+        typer.echo(f"skip {slug}: awaiting fix from llama")
+    for slug, reason in plan.refused:
+        typer.echo(f"refused {slug}: {reason}")
+    for stray in _stray_temps(root):
+        typer.echo(f"stray temp: {stray}")
+    typer.echo(f"{len(plan.writes)} to write, {plan.unchanged} unchanged, "
+               f"{len(plan.awaiting)} awaiting fix, {len(plan.refused)} refused, "
+               f"{plan.unvoiced} unvoiced")
+
+
+def _durable_write(path: Path, data: bytes, mode: str) -> None:
+    """Write (mode "xb" or "ab"), flush and fsync, then close."""
+    with open(path, mode) as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+
+
+def _append_record(run_dir: Path, entry: dict) -> None:
+    _durable_write(run_dir / "record.jsonl", (json.dumps(entry) + "\n").encode(), "ab")
+
+
+def _save_backup(run_dir: Path, slug: str, raw: bytes, mtime_ns: int) -> None:
+    """`<slug>.json` (the original bytes) and its record line, both durable before
+    the caller writes the show: under the lock a SIGTERM ends the process at once."""
+    _durable_write(run_dir / f"{slug}.json", raw, "xb")
+    _append_record(run_dir, {"slug": slug, "before_sha256": hashlib.sha256(raw).hexdigest(),
+                             "mtime_ns": mtime_ns})
+
+
+def _backup_run_dir(emcee_root: Path) -> Path:
+    """A new `<emcee root>/title-backups/<UTC stamp>/`; a second run in the same
+    second gets `<stamp>-2`, and so on, never a shared directory."""
+    parent = Path(emcee_root) / "title-backups"
+    parent.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    n = 1
+    while True:
+        run_dir = parent / (stamp if n == 1 else f"{stamp}-{n}")
+        try:
+            run_dir.mkdir()
+            return run_dir
+        except FileExistsError:
+            n += 1
+
+
+def _not_attempted(slugs: list[str]) -> None:
+    typer.echo(f"not attempted: {', '.join(slugs) if slugs else '(none)'}", err=True)
+
+
+def _retitle_under_lock(config: EmceeConfig, plan: RetitlePlan) -> bool:
+    """The write phase, run under the station lock. True when it ran to the end
+    with no show skipped; it raises `typer.Exit(1)` when it stops early."""
+    changed = []
+    for w in plan.writes:          # R2: every planned package, before anything is written
+        try:
+            if (w.dir / _MANIFEST).read_bytes() != w.raw:
+                changed.append(w.slug)
+        except OSError as exc:
+            changed.append(f"{w.slug} (cannot read: {exc})")
+    if changed:
+        typer.echo(f"refusing: {len(changed)} manifest(s) changed since the plan; "
+                   "nothing written; run again", err=True)
+        for slug in changed:
+            typer.echo(f"  {slug}", err=True)
+        raise typer.Exit(1)
+
+    slugs = [w.slug for w in plan.writes]
+    try:
+        run_dir = _backup_run_dir(config.root)
+    except OSError as exc:
+        typer.echo(f"error: cannot create the backup directory under "
+                   f"{Path(config.root) / 'title-backups'} ({exc}); nothing written", err=True)
+        _not_attempted(slugs)
+        raise typer.Exit(1)
+    typer.echo(f"backups: {run_dir}")
+
+    written = 0
+    skipped: list[str] = []
+    for i, w in enumerate(plan.writes):
+        try:
+            mtime_ns = os.stat(w.dir / _MANIFEST).st_mtime_ns
+            _save_backup(run_dir, w.slug, w.raw, mtime_ns)
+        except OSError as exc:
+            typer.echo(f"error: {w.slug}: backup failed ({exc}); stopping before writing it",
+                       err=True)
+            _not_attempted(slugs[i:])
+            raise typer.Exit(1)
+        try:
+            out = write_title(w.dir, expect=w.raw, title=w.new)
+        except Exception as exc:       # any escape stops the run
+            if isinstance(exc, TitleWriteFailed):
+                typer.echo(f"error: {exc}", err=True)
+            else:
+                typer.echo(f"error: {w.slug}: {_typed_error(exc)}", err=True)
+            _not_attempted(slugs[i + 1:])
+            raise typer.Exit(1)
+        if out is None:
+            typer.echo(f"skip {w.slug}: changed since the plan")
+            skipped.append(w.slug)
+            continue
+        typer.echo(f"{w.slug}: {_title_text(w.old)} -> {_title_text(w.new)}")
+        written += 1
+        try:
+            _append_record(run_dir, {"slug": w.slug,
+                                     "after_sha256": hashlib.sha256(out).hexdigest()})
+        except OSError as exc:
+            typer.echo(f"error: {w.slug}: written, but recording its after_sha256 failed "
+                       f"({exc}); stopping", err=True)
+            _not_attempted(slugs[i + 1:])
+            raise typer.Exit(1)
+
+    typer.echo(f"{written} written")
+    if skipped:
+        typer.echo(f"changed since the plan: {', '.join(skipped)}", err=True)
+    return not skipped
+
+
+@app.command("retitle")
+def retitle_cmd(
+    station_root: Path = typer.Option(
+        None, "--station-root", help="Override \\[station] root for this invocation"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Print the plan and stop: no ps check, no lock, no writes"),
+    yes: bool = typer.Option(False, "--yes", "-y",
+                             help="Write without asking (the plan is still printed)"),
+):
+    """Stamp each voiced package's program title (`dj_audio.title`), no re-voicing.
+
+    The title is the voicing profile's current `\\[assign.profiles.<p>] title`
+    (null when none), so this also resyncs titles after a config rename. It sets
+    only that key, keeps the manifest's mtime, refuses a manifest not in emcee's
+    exact encoding, and never writes a show awaiting a fix from llama.
+
+    Order: plan; `Proceed?` (no TTY and no `--yes`: refuse); refuse while any
+    other emcee or llama process runs; take the station lock for the whole
+    write phase; refuse the whole run if any planned manifest changed since
+    the plan; then, per show, a durable backup under
+    `<emcee root>/title-backups/<UTC stamp>/` and the write. Exits 1 when a
+    package was refused, a write was skipped as changed, or the run stopped;
+    awaiting-fix, unchanged and unvoiced packages never affect it.
+    """
+    config = load_config()
+    root = _resolve_station_root(config, station_root)
+    plan = plan_retitle(root, config)
+    _echo_retitle_plan(root, plan)
+    failed = bool(plan.refused)
+    if not plan.writes:
+        typer.echo("nothing to write")
+    if dry_run or not plan.writes:
+        raise typer.Exit(1 if failed else 0)
+
+    if not yes:
+        if not _stdin_is_tty():
+            typer.echo("error: refusing to write without confirmation; pass --yes", err=True)
+            raise typer.Exit(1)
+        if not typer.confirm("Proceed?", default=False, err=True):
+            typer.echo("nothing written")
+            raise typer.Exit(1 if failed else 0)
+
+    # Before the lock: a refusal here leaves nothing to release. The ps check is
+    # the only guard against tools that ignore the lock (scripts/backfill_*.py,
+    # the campaign worktree's older llama).
+    try:
+        others = other_tool_processes()
+    except (OSError, subprocess.SubprocessError) as exc:
+        typer.echo(f"refusing: cannot check for other emcee or llama processes ({exc})",
+                   err=True)
+        raise typer.Exit(1)
+    if others:
+        typer.echo("refusing: other emcee or llama processes are running", err=True)
+        for line in others:
+            typer.echo(f"  {line}", err=True)
+        raise typer.Exit(1)
+
+    try:
+        with station_lock(root, command="emcee retitle"):
+            if not _retitle_under_lock(config, plan):
+                failed = True
+    except StationLocked as exc:
+        typer.echo(f"error: {exc}", err=True)
+        for line in exc.details:
+            typer.echo(f"  {line}", err=True)
+        typer.echo("nothing written", err=True)
+        raise typer.Exit(1)
+    if failed:
+        raise typer.Exit(1)
 
 
 @lock_app.command("show")
