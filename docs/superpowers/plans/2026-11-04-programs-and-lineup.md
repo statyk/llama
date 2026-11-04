@@ -22,8 +22,8 @@
 - A block's displayed title is its clock `title`, else its `name`, everywhere, including a block no longer in the clock. A block is a **variety** block when it lists no profiles or more than one.
 - Occurrence identity is the pair (`block`, `nominal_start`), with `nominal_start` formatted by `grid.us_to_iso` (as in plan rows) on every side.
 - Station manifest writes are raw-dict read-modify-writes. They preserve every key they don't own (including `awaiting_fix`) and refuse rather than reformat. The encoding is `json.dumps(m, indent=2) + "\n"`, with `ensure_ascii` left at its default.
-- hugo's `quiet_minutes` is 10. A rewritten manifest must keep its original mtime: set it on the temp file before the rename, then check it again after.
-- **Lock contract** (both tools): the file is `<delivered folder>/.lma-station.lock`, where the delivered folder is the package directory's parent. Contents are UTF-8: line 1 is `lma-station-lock 1 <32 lowercase hex token>`, then `tool: <emcee|llama>`, `command: <text>`, `host: <hostname>`, `pid: <n>` and `started: <ISO-8601 local time with offset>`, each on its own line, with a trailing newline. It is created with `O_CREAT|O_EXCL|O_WRONLY`, mode 0644, written, then fsynced. Empty or unparseable contents count as held. A tool releases only on its own token. A lock is never broken automatically and never expires. No tool parses the holder text.
+- hugo's `quiet_minutes` is 10. A rewritten manifest must keep its original mtime. The writer and the go-live probe use one order: write the temp file, flush, fsync, close, then `os.utime`, then rename, then re-check the mtime and re-apply it if it differs.
+- **Lock contract** (both tools): the file is `<delivered folder>/.lma-station.lock`, where the delivered folder is the package directory's absolute parent (`Path(".").parent` is `.`). Contents are UTF-8: line 1 is `lma-station-lock 1 <32 lowercase hex token>`, then `tool: <emcee|llama>`, `command: <text>`, `host: <hostname>`, `pid: <n>` and `started: <ISO-8601 local time with offset>`, each on its own line, with a trailing newline. It is created with `O_CREAT|O_EXCL|O_WRONLY`, mode 0644, written, then fsynced. Empty or unparseable contents count as held. A tool releases only on its own token. A lock is never broken automatically and never expires. No tool parses the holder text.
 - No tool holds the station lock while waiting on an operator prompt. Only command entry points (and `bulk_apply`'s per-show step) acquire it. It is not re-entrant: a second acquire in one process raises `StationLockReentry`, a bug.
 - Every station write keeps the operator gate. An agent runs the dry run, shows it, and passes `--yes` only after Shawn approves, in a separate tool call.
 - Worktree: `<repo>/.claude/worktrees/programs`, branch `programs-lineup`, with its own `.venv`. Python tests run as `./.venv/bin/pytest` there, never a bare `pytest`. Antenna: `cd antenna && npm test` (plus `npm run smoke` for page tasks). Every task leaves every suite green. Every commit ends with the session's attribution lines.
@@ -33,8 +33,8 @@
 1. **A program or block title with markup, an ampersand or great length** (`Gravel & Steel`, `<b>Late</b> "Night"`, a 60-character title): it shows as literal text on the ticket, the panel and `show/<slug>.html`, and wraps at 320 px with no sideways scroll. Pinned in Task 1 (`test_show_page_escapes_program_title`) and Task 4 (the hostile and 320 px smoke scenarios).
 2. **A listener in another zone, and the lineup on a daylight-saving day:** a block near midnight moves to the neighbouring tab for a listener west of the clock's zone, no tab is skipped or repeated on the spring-forward or fall-back day, and no block appears twice. Pinned in Task 3 (`lineupDays` DST and zone tests).
 3. **A lock left by a killed process (SIGKILL, power loss):** every writer refuses and names the holder plus `emcee lock show` and `emcee lock clear`. Nothing breaks the lock until the operator runs `emcee lock clear` and confirms. Pinned in Task 5 (`test_lock_clear_*`) and Task 10 (`test_refusal_names_holder_and_emcee_commands`).
-4. **A voiced manifest not in emcee's exact encoding** (non-ASCII written with `ensure_ascii=False`, no trailing newline, keys reordered, `dj_audio` not an object): the backfill refuses it, lists it, and leaves the file byte-identical, mtime included. Pinned in Task 8 (`test_plan_refuses_foreign_encodings`).
-5. **The page against an old or partial transmitter** (no `program`, no `blocks`, a 404 or malformed lineup object): tickets read `LMA RADIO PRESENTS`, Coming up is flat with no headings, the lineup section is hidden, and the console is clean. Pinned in Task 3 (helpers on missing data) and Task 4 (smoke).
+4. **A voiced manifest not in emcee's exact encoding** (non-ASCII written with `ensure_ascii=False`, no trailing newline, duplicate keys, a float written as `1.50`, `dj_audio` not an object): the backfill refuses it, lists it, and leaves the file byte-identical, mtime included. Pinned in Task 8 (`test_plan_refuses_foreign_encodings`).
+5. **The page against an old or partial transmitter** (no `program`, no `blocks`, a 404 or malformed lineup object): tickets read `LMA RADIO PRESENTS`, Coming up is flat with no headings, the lineup section is hidden, and the console is clean. The reverse mix matters too during rollout: new assets with the old `index.html` still play and show tickets. Pinned in Task 3 (helpers on missing data) and Task 4 (smoke, including `new assets with the old index.html`).
 
 ## Setup (before Task 1)
 
@@ -48,22 +48,23 @@ packages/transmitter/src/transmitter/site.py        program_title, block_title, 
 packages/transmitter/src/transmitter/publish.py     clock load, program per show, lineup object (LINEUP_KEY), digest in state
 packages/transmitter/src/transmitter/state.py       PublishState.lineup
 antenna/templates/show.html                         $presents
-antenna/public/assets/timeline.js                   presentsLine, occurrenceKey, comingUpGroups, blockSpan, localDateKey, lineupDays, onAirKey
-antenna/public/assets/notes.js                      panelModel.presents
+antenna/public/assets/programs.js                   NEW: presentsLine, occurrenceKey, comingUpGroups, blockSpan, localDateKey, lineupDays, onAirKey
+antenna/public/assets/notes.js                      panelModel.presents (imports presentsLine from programs.js)
 antenna/public/assets/page.js, panel.js, radio.css  tickets, block headings, lineup section
 antenna/public/index.html                           lineup section (then npm run pages)
 packages/emcee/src/emcee/station_lock.py            NEW: the lock (emcee side)
-packages/emcee/src/emcee/procs.py                   NEW: other emcee/llama processes (ps)
+packages/emcee/src/emcee/procs.py                   NEW: other emcee/llama processes (ps; campaign_gate's matching rules, ported)
 packages/emcee/src/emcee/retitle.py                 NEW: plan + raw single-field writer for the title backfill
 packages/emcee/src/emcee/models.py, process.py      DJAudioBlock.title, recorded on voicing
 packages/emcee/src/emcee/cli.py                     run/voice take the lock; `emcee lock show|clear`; `emcee retitle`
 packages/llama/src/llama/station_lock.py            NEW: the lock (llama side)
 packages/llama/src/llama/models.py                  DJAudio.title
-packages/llama/src/llama/cli.py                     deliver and clear-mark take the lock; batch stop
+packages/llama/src/llama/cli.py                     deliver (creates the target dir first) and clear-mark take the lock; batch stop
 packages/llama/src/llama/station_mark.py            docstring (emcee now locks)
 scripts/bulk_apply.py                               mark / unmark take the lock; stop on held
-scripts/station_probe.py                            NEW: stdlib-only go-live probes (race, mtime, cross)
+scripts/station_probe.py                            NEW: stdlib-only, 3.11-compatible go-live probes (race, mtime, cross)
 scripts/test_station_lock_contract.py               NEW: emcee <-> llama lock interop
+scripts/test_dj_audio_handshake.py                  NEW: emcee DJAudioBlock -> llama DJAudio (scripts may import both)
 CLAUDE.md, packages/*/CLAUDE.md, antenna/CLAUDE.md, scripts/CLAUDE.md   doc updates, each in its task
 ```
 
@@ -153,7 +154,7 @@ def test_lineup_bytes_are_stable_for_equal_content():
     assert json.dumps(site.build_lineup(CLOCK, NOW), sort_keys=True) == json.dumps(site.build_lineup(CLOCK, NOW + 1), sort_keys=True)
 ```
 
-  Update `test_show_page_escapes_and_fills_every_placeholder` for `$presents`. `ROWS` are `PlanRow`s with `block`/`nominal_start` set and `kind="interstitial"` where noted. `CLOCK` is built with `ClockConfig(...)`.
+  Test helpers and existing tests: `_page` gains a `program=` argument written to `manifest["dj_audio"]["title"]` (the existing `**source` still goes to `manifest["source"]`). Every existing `build_timeline` call in `test_site.py` gains `clock=CLOCK`. Update `test_show_page_escapes_and_fills_every_placeholder` for `$presents`, and `test_the_template_uses_the_new_look_and_links_home`, which asserts the literal `LMA RADIO PRESENTS` in the template: it now asserts `$presents` there (the rendered fallback is pinned by `test_show_page_escapes_program_title`). `ROWS` are `PlanRow`s with `block`/`nominal_start` set and `kind="interstitial"` where noted. `CLOCK` is built with `ClockConfig(...)`.
 
 - [ ] **Step 2: Run** `./.venv/bin/pytest packages/transmitter/tests_transmitter/test_site.py -q`. Expected: the new tests fail.
 
@@ -221,20 +222,23 @@ test_old_publish_state_without_lineup_loads      (publish.json from before -> li
 **Model hint:** sonnet.
 
 **Files:**
-- Modify: `antenna/public/assets/timeline.js`, `antenna/public/assets/notes.js`
-- Test: `antenna/test/timeline.test.ts`, `antenna/test/notes.test.ts`
+- Create: `antenna/public/assets/programs.js`
+- Modify: `antenna/public/assets/notes.js`
+- Test: `antenna/test/programs.test.ts`, `antenna/test/notes.test.ts`
+
+**Why a new module:** during rollout a browser can hold a cached old `timeline.js` beside a new `page.js`. A module that asks a stale `timeline.js` for an export it lacks fails to load, so every new helper lives in the new `programs.js`, and `timeline.js` gains no export. `programs.js` may import `timeline.js`'s existing exports (`airTime`).
 
 **Interfaces:**
 - Consumes: Task 2's data shapes. Timeline show `{program?, block?, nominal_start?}`, `timeline.blocks[] {block, nominal_start, title, start, end?}`, and lineup `{occurrences: [{block, nominal_start, end, title, variety}]}`.
-- Produces (all exported from `timeline.js`):
+- Produces (all exported from `programs.js`):
   - `presentsLine(x) -> string`: `x.program` trimmed when it is a non-blank string, else `"LMA RADIO PRESENTS"`.
   - `occurrenceKey(block, nominalStart) -> string | null`: `` `${block}\u0000${nominalStart}` ``, or null when either is not a non-empty string.
   - `comingUpGroups(timeline, shows) -> Array<{key: string|null, title: string|null, span: string|null, shows: object[]}>`: consecutive shows that share a key form one group. A show with no key, or whose key has no `timeline.blocks` entry, sits in a group with null `title` and `span`.
   - `blockSpan(entry, timeZone?) -> string`: `"7:00a – 9:56a"`, or `"7:00a"` with no `end`.
   - `localDateKey(ms, timeZone?) -> string`: `"YYYY-MM-DD"` in that zone, from `Intl.DateTimeFormat` parts.
-  - `lineupDays(lineup, nowMs, timeZone?) -> Array<{key, label, entries: Array<{key, title, time, variety}>}> | null`: null for a missing or malformed lineup.
+  - `lineupDays(lineup, nowMs, timeZone?, onAir?) -> Array<{key, label, entries: Array<{key, title, time, variety}>}> | null`: null for a missing or malformed lineup. `onAir` is an occurrence key (from `onAirKey`) or null. When it names an occurrence whose nominal start falls on yesterday's local date, that occurrence leads Today's entries, so a late-night block stays listed (and highlighted) after midnight.
   - `onAirKey(timeline, atMs) -> string | null`: the on-air show's occurrence key.
-- `notes.js`: `panelModel(notes)` gains `presents: presentsLine(notes)`.
+- `notes.js`: `panelModel(notes)` gains `presents: presentsLine(notes)`, importing `presentsLine` from `programs.js`.
 
 - [ ] **Step 1: Write the failing tests:**
 
@@ -272,6 +276,11 @@ it("lineupDays: no tab skipped or repeated across spring-forward and fall-back",
     keys.slice(1).forEach((k, i) => expect(Date.parse(k) - Date.parse(keys[i])).toBe(86_400_000));
   }
 });
+it("lineupDays: the block on air since before midnight leads Today's tab", () => {
+  const days = lineupDays(LINEUP, t("2026-11-05T05:30:00Z") /* 00:30 EST */, "America/New_York", LATE_KEY); // LATE: nominal 23:00 Nov 4
+  expect(days[0].entries[0].key).toBe(LATE_KEY);
+  expect(lineupDays(LINEUP, t("2026-11-05T05:30:00Z"), "America/New_York", null)[0].entries.map((e) => e.key)).not.toContain(LATE_KEY);
+});
 it("lineupDays: missing or malformed lineups give null", () => {
   for (const v of [null, {}, { occurrences: "x" }]) expect(lineupDays(v, 0)).toBeNull();
 });
@@ -280,9 +289,11 @@ it("onAirKey: the on-air show's occurrence, null for a legacy show or nothing on
 
   In `notes.test.ts`: `panelModel` with and without `program` gives `presents`. A hostile `program` (`<img onerror>`) comes back as the same string; escaping happens at render.
 
-- [ ] **Step 2: Run** `cd antenna && npx vitest run test/timeline.test.ts test/notes.test.ts`. Expected: FAIL.
+  Also assert `timeline.js`'s export list is unchanged (`Object.keys(await import("../public/assets/timeline.js"))` equals today's list).
 
-- [ ] **Step 3: Implement.** `lineupDays` must not do time-zone arithmetic. Build the seven date keys by formatting `nowMs + k * 12 h` for k = 0, 1, 2, … and keeping the first seven distinct keys. A local day lasts at least 23 h, so 12-hour steps never skip one. Then put each occurrence under `localDateKey(Date.parse(o.nominal_start))`, keep only the seven keys, sort each day by start, and drop entries whose `nominal_start` doesn't parse. `time` is `airTime(nominal_start, timeZone).time`. Labels are `"Today"`, then `airTime(...).day`.
+- [ ] **Step 2: Run** `cd antenna && npx vitest run test/programs.test.ts test/notes.test.ts`. Expected: FAIL.
+
+- [ ] **Step 3: Implement.** `lineupDays` must not do time-zone arithmetic. Build the seven date keys by formatting `nowMs + k * 12 h` for k = 0, 1, 2, … and keeping the first seven distinct keys. A local day lasts at least 23 h, so 12-hour steps never skip one. Then put each occurrence under `localDateKey(Date.parse(o.nominal_start))`, keep only the seven keys, sort each day by start, and drop entries whose `nominal_start` doesn't parse. Then, if `onAir` matches an occurrence whose date key sorts before Today's (yesterday's: the lineup starts 24 h back), put it first in Today. `time` is `airTime(nominal_start, timeZone).time`. Labels are `"Today"`, then `airTime(...).day`.
 
 - [ ] **Step 4: Run** `cd antenna && npm test`. Expected: PASS.
 
@@ -295,12 +306,14 @@ it("onAirKey: the on-air show's occurrence, null for a legacy show or nothing on
 **Model hint:** opus (layout and styling judgement within the existing look).
 
 **Files:**
-- Modify: `antenna/public/assets/page.js`, `panel.js`, `radio.css`, `antenna/public/index.html` (then `npm run pages`), `antenna/e2e/fixtures/timeline.mjs`, `antenna/e2e/serve.mjs` if needed, `antenna/CLAUDE.md`
-- Create: `antenna/e2e/fixtures/lineup.mjs`
+- Modify: `antenna/public/assets/page.js`, `panel.js`, `radio.css`, `antenna/public/index.html` (then `npm run pages`), `antenna/e2e/fixtures/timeline.mjs`, `antenna/e2e/serve.mjs` (an option to serve another file at `/`), `antenna/CLAUDE.md`
+- Create: `antenna/e2e/fixtures/lineup.mjs`, `antenna/e2e/fixtures/old-index.html` (a copy of `main`'s `antenna/public/index.html`, taken before Step 3)
 - Test: `antenna/e2e/smoke.pw.mjs`, `antenna/test/indexpage.test.ts`
 
 **Interfaces:**
-- Consumes: Task 3's helpers. The lineup is fetched from `/notes/_lineup.json`, which the smoke server answers from its `notes` map under the key `_lineup`.
+- Consumes: Task 3's helpers, imported from `programs.js`. The lineup is fetched from `/notes/_lineup.json`, which the smoke server answers from its `notes` map under the key `_lineup`.
+
+**Mixed versions during rollout:** assets and `index.html` deploy separately (Task 16), so the new `page.js` and `panel.js` must work against the old `index.html`. `renderLineup` no-ops when `#lineup` is missing. When `#coming-up` is the old `.tickets` grid (no group container), Coming up renders flat tickets into it with no headings. `panel.js` shows `LMA RADIO PRESENTS` when `model.presents` is undefined (a stale cached `notes.js`).
 
 - [ ] **Step 1: Write failing tests.** In `indexpage.test.ts`:
 
@@ -324,6 +337,8 @@ just aired stays a flat list with no headings
 the lineup shows 7 tabs, Today selected on load, today's blocks listed with start time and title in the listener's zone
 choosing a tab lists that day; variety blocks carry the variety style; tabs are buttons with role=tab and aria-selected
 the block on air is highlighted in Today's tab only (aria-current), matched on block name and nominal start
+after midnight, the block on air since before midnight is listed first in Today and highlighted
+new assets with the old index.html (fixtures/old-index.html served at /): the page plays, Coming up shows flat tickets, no lineup, no console error
 a 404 or malformed lineup hides the section with no console error; a later good fetch shows it
 the hostile fixture: a program and a block title with markup appear as literal text and add no element
 at 320 px with a 60-character program and block title, document.scrollWidth <= 320 on the main page and the panel
@@ -335,14 +350,14 @@ a program title change rebuilds the ticket (rebuild key includes the program)
 - [ ] **Step 2: Run** `cd antenna && npm run pages && npm test && npm run smoke`. Expected: the new tests fail.
 
 - [ ] **Step 3: Implement.**
-  - `index.html`: below the Just aired section, add `<section id="lineup" class="schedule lineup" hidden><h2 class="kick">The weekly lineup</h2><div id="lineup-days" class="days" role="tablist"></div><ol id="lineup-list" class="lineup-list"></ol></section>`. `#coming-up` stops being the ticket grid: it holds one `div.block-group` per group, each with an optional `div.block-head` (`span.block-title`, `span.block-span`) followed by its own `div.tickets` grid.
-  - `page.js`: `ticket()` uses `presentsLine(show)`. `renderTickets`' key adds `s.program`. Coming up applies `SHOWN` to the tickets first, then groups them with `comingUpGroups`. The group rebuild key covers each group's key, title, span and ticket keys. `refreshLineup()` fetches `/notes/_lineup.json` on the first timeline refresh and again once the last attempt is 30 minutes old. A failure keeps the old lineup. `renderLineup(atMs)` hides the section when `lineupDays` gives null. It keeps the selected tab in memory and resets to Today when today's key changes. It highlights `onAirKey` only in Today. `textContent` only.
-  - `panel.js`: `ticketView` uses `model.presents`.
+  - `index.html`: below the Just aired section, add `<section id="lineup" class="schedule lineup" hidden><h2 class="kick">The weekly lineup</h2><div id="lineup-days" class="days" role="tablist"></div><ol id="lineup-list" class="lineup-list"></ol></section>`. `#coming-up` stops being the ticket grid (it loses the `tickets` class, which is how `page.js` tells the old page from the new): it holds one `div.block-group` per group, each with an optional `div.block-head` (`span.block-title`, `span.block-span`) followed by its own `div.tickets` grid.
+  - `page.js`: `ticket()` uses `presentsLine(show)`. `renderTickets`' key adds `s.program`. Coming up applies `SHOWN` to the tickets first, then groups them with `comingUpGroups`. The group rebuild key covers each group's key, title, span and ticket keys. `refreshLineup()` fetches `/notes/_lineup.json` on the first timeline refresh and again once the last attempt is 30 minutes old. A failure keeps the old lineup. `renderLineup(atMs)` returns at once when `#lineup` is missing. It passes `onAirKey(timeline, atMs)` to `lineupDays` and hides the section when that gives null. It keeps the selected tab in memory and resets to Today when today's key changes. It highlights `onAirKey` only in Today. With the old `.tickets` `#coming-up`, Coming up renders its tickets flat. `textContent` only.
+  - `panel.js`: `ticketView` uses `model.presents ?? "LMA RADIO PRESENTS"`.
   - `radio.css`: block heading in the existing `.kick` small-caps style with the span right-aligned; the day picker; `.variety` entries in italics; `.on-air` in the existing oxblood accent. No new colours outside the palette.
 
 - [ ] **Step 4: Run** `cd antenna && npm run pages && npm test && npm run typecheck && npm run smoke`. Expected: all green. Check that `git diff --stat antenna/public/player.js antenna/public/nowplaying.js antenna/public/style.css` is empty.
 
-- [ ] **Step 5: Docs.** In `antenna/CLAUDE.md`'s player bullet, add: tickets show `program` (fallback `LMA RADIO PRESENTS`, also in `show.html`'s `$presents` and the panel); Coming up groups by occurrence; the lineup comes from `notes/_lineup.json` (refetched every 30 min, section hidden when missing).
+- [ ] **Step 5: Docs.** In `antenna/CLAUDE.md`'s player bullet, add: tickets show `program` (fallback `LMA RADIO PRESENTS`, also in `show.html`'s `$presents` and the panel); Coming up groups by occurrence; the lineup comes from `notes/_lineup.json` (refetched every 30 min, section hidden when missing). Add `programs` to the pure modules, with the rule that new helpers go in a new module rather than new exports of a deployed one (a stale cached module would lack them), and that `page.js`/`panel.js` tolerate the previous `index.html`.
 
 - [ ] **Step 6: Commit.** `antenna: program on tickets, block headings and the weekly lineup`.
 
@@ -354,8 +369,8 @@ a program title change rebuilds the ticket (rebuild key includes the program)
 
 **Files:**
 - Create: `packages/emcee/src/emcee/station_lock.py`
-- Modify: `packages/emcee/src/emcee/cli.py` (a `lock` sub-app)
-- Test: `packages/emcee/tests/test_station_lock.py`, `packages/emcee/tests/test_lock_cmd.py`
+- Modify: `packages/emcee/src/emcee/cli.py` (a `lock` sub-app; `_COMMAND_ORDER`)
+- Test: `packages/emcee/tests/test_station_lock.py`, `packages/emcee/tests/test_lock_cmd.py`, `packages/emcee/tests/test_cli_boundary.py`
 
 **Interfaces:**
 - Produces (`emcee.station_lock`):
@@ -363,9 +378,10 @@ a program title change rebuilds the ticket (rebuild key includes the program)
   - `class StationLocked(EmceeError)`: `.path: Path`, `.holder: str`. The message is `the station is locked by another writer ({path})`. `.details` holds the holder lines, then `check it with: emcee lock show; remove it with: emcee lock clear (only if that writer is gone)`.
   - `class StationLockReentry(RuntimeError)`.
   - `@dataclass(frozen=True) class Held: path: Path; token: str`.
-  - `acquire(path: Path, *, command: str) -> Held` and `release(held: Held) -> None`. `release` unlinks only on its own token. Otherwise it writes `warning: the station lock at {path} was not ours at release ({holder or 'missing'}); writes since {started} ran unguarded` to stderr.
-  - `@contextmanager station_lock(delivered: Path, *, command: str) -> Iterator[Held]`: acquires at `delivered / LOCK_NAME`. On the main thread it installs SIGTERM and SIGHUP handlers that raise `SystemExit(128 + signum)`. It restores the previous handlers and releases in `finally`.
+  - `acquire(path: Path, *, command: str) -> Held` and `release(held: Held) -> None`. `acquire` turns any create error other than `EEXIST` (ENOENT for a missing delivered folder, EACCES, an SMB delete-pending error, …) into `EmceeError("cannot create the station lock at {path}: [Errno {n}] {strerror}")`: a refusal, never a traceback. `release` unlinks only on its own token. Otherwise it writes `warning: the station lock at {path} was not ours at release ({holder or 'missing'}); writes since {started} ran unguarded` to stderr. `release` never raises: an unlink (or read) error writes `warning: could not remove the station lock at {path} ({err}); clear it with: emcee lock clear` and leaves the file.
+  - `@contextmanager station_lock(delivered: Path, *, command: str) -> Iterator[Held]`: on the main thread it installs SIGTERM and SIGHUP handlers that raise `SystemExit(128 + signum)`, then acquires at `delivered / LOCK_NAME`, both inside one `try`. The `finally` releases (when acquired) and restores the previous handlers.
   - `read_lock(delivered: Path) -> bytes | None`, `holder_text(raw: bytes) -> str` (`"(empty lock file)"` for empty contents), and `token_of(raw: bytes) -> str | None`.
+- `_COMMAND_ORDER` becomes `["run", "voice", "status", "move", "say", "lock", "presenter", "config"]`; Task 9 inserts `"retitle"` before `"lock"`. (`test_ordered_panel_group_lists_commands_in_declared_order` asserts `list_commands == _COMMAND_ORDER`, so the list holds only registered commands.)
 - `emcee lock show [--station-root P]` prints the path and holder text, or `no station lock at {path}`, and exits 0. `emcee lock clear [--station-root P] [--yes]` prints the holder and asks `Remove this lock? [y/N]`. With no TTY and no `--yes` it exits 1. It removes the file only if its bytes still equal the bytes shown (else `the lock changed since it was shown; run again`, exit 1), then prints `station lock removed`. With no lock it says so and exits 0.
 
 - [ ] **Step 1: Write the failing tests** in `test_station_lock.py`:
@@ -382,9 +398,13 @@ test_release_warns_when_the_lock_is_missing         (the file deleted mid-hold -
 test_exception_inside_releases                      (raise inside the with -> file gone, exception propagates)
 test_sigterm_releases_the_lock                      (subprocess: `python -c` acquires, prints "held", sleeps; parent sends SIGTERM -> returncode 128+15, lock file gone)
 test_sighup_releases_the_lock                       (same with SIGHUP)
-test_previous_signal_handlers_are_restored
+test_previous_signal_handlers_are_restored          (also when acquire refuses: handlers installed before acquire are restored)
 test_write_failure_after_create_removes_the_file    (os.write patched to raise -> OSError propagates, no lock file left)
+test_create_error_other_than_eexist_is_a_refusal    (missing delivered folder -> EmceeError naming the path and "Errno 2"; os.open patched to raise EACCES -> EmceeError with "Errno 13"; no traceback type leaks)
+test_release_unlink_error_warns_and_never_raises    (os.unlink patched to raise -> no exception out of the with; stderr names "emcee lock clear"; the file is left)
 ```
+
+  In `test_cli_boundary.py`, the expected order gains `"lock"` after `"say"`.
 
   In `test_lock_cmd.py` (`CliRunner`, `[station] root` = tmp):
 
@@ -396,7 +416,7 @@ test_lock_clear_refuses_when_the_lock_changed_after_display   (confirm patched t
 test_lock_clear_never_holds_a_lock_itself           (no second lock file appears; a garbage lock is still clearable)
 ```
 
-- [ ] **Step 2: Run** `./.venv/bin/pytest packages/emcee/tests/test_station_lock.py packages/emcee/tests/test_lock_cmd.py -q`. Expected: FAIL.
+- [ ] **Step 2: Run** `./.venv/bin/pytest packages/emcee/tests/test_station_lock.py packages/emcee/tests/test_lock_cmd.py packages/emcee/tests/test_cli_boundary.py -q`. Expected: FAIL.
 
 - [ ] **Step 3: Implement** the Interfaces list. The re-entry guard is a module-level `_held: Held | None` checked before any filesystem call: a process holds at most one station lock. `acquire` handles `FileExistsError` by reading the file for the holder text. If it is already gone, the acquire is still refused (`(lock vanished while reading)`), never retried, so a refusal is always a refusal. The token is `secrets.token_hex(16)`. The started time is `datetime.now().astimezone().isoformat(timespec="seconds")`.
 
@@ -415,8 +435,8 @@ test_lock_clear_never_holds_a_lock_itself           (no second lock file appears
 - Test: `packages/emcee/tests/test_run_lock.py`
 
 **Interfaces:**
-- Consumes: Task 5's `station_lock(pkg.dir.parent, command=...)`, `StationLocked`.
-- Produces: in `run`, each `_process_one(...)` call is wrapped in `station_lock(status.path.parent, command="emcee run")`. In `voice_cmd`, the `_process_one` call is wrapped in `station_lock(pkg.dir.parent, command="emcee voice")`. `_process_one` stays lock-free (it already starts with the manifest re-read).
+- Consumes: Task 5's `station_lock(delivered, command=...)`, `StationLocked`.
+- Produces: in `run`, each `_process_one(...)` call is wrapped in `station_lock(status.path.absolute().parent, command="emcee run")`. In `voice_cmd`, the `_process_one` call is wrapped in `station_lock(pkg.dir.absolute().parent, command="emcee voice")`. `.absolute()` matters: `Path(".").parent` is `.`, so `emcee voice .` run from inside a package would otherwise lock the package itself. `_process_one` stays lock-free (it already starts with the manifest re-read).
 
 - [ ] **Step 1: Write the failing tests** (fake LLM and TTS, as `test_run_cmd.py` does):
 
@@ -432,6 +452,7 @@ test_run_stops_at_a_held_lock_and_lists_what_it_did_not_attempt
     the holder lines, "not attempted: pkg2, pkg3"; exit 1; pkg2/pkg3 manifests byte-identical
 test_run_keep_script_also_takes_the_lock
 test_voice_takes_the_lock_at_the_package_parent   (emcee voice <path outside [station] root> -> lock in that path's parent)
+test_voice_dot_from_inside_the_package_locks_the_delivered_folder   (monkeypatch.chdir(pkg); emcee voice . -> lock at pkg.parent/.lma-station.lock, none in pkg)
 test_voice_refuses_a_held_lock                    (exit 1, holder printed, manifest untouched, no LLM call)
 test_status_move_and_say_take_no_lock             (each succeeds while a foreign lock is held; the lock is unchanged)
 test_lock_released_when_process_one_raises        (failure in pkg1 -> lock gone, run continues to pkg2 as before)
@@ -443,7 +464,7 @@ test_lock_released_when_process_one_raises        (failure in pkg1 -> lock gone,
 
 - [ ] **Step 4: Run** `./.venv/bin/pytest packages/emcee -q`. Expected: PASS.
 
-- [ ] **Step 5: Docs.** Root `CLAUDE.md` line 40 becomes: "Run one `emcee run` at a time against a station root. emcee takes the station lock (`<delivered>/.lma-station.lock`) per package, so llama's station writes refuse while a package is being voiced. An agent (no TTY) …" (the rest unchanged). In `packages/emcee/CLAUDE.md`, replace the "**Single-writer station, no lock.**" paragraph: the station lock is per package in `run`/`voice`, held from the manifest re-read through the last write. A held lock stops `run` (`not attempted: …`, exit 1). `move`, `say` and read-only commands don't take it. `emcee lock show|clear` handles it. Two concurrent `emcee run`s are still not supported (double spend). Add `emcee lock` to Commands.
+- [ ] **Step 5: Docs.** Root `CLAUDE.md` line 40 becomes: "Run one `emcee run` at a time against a station root. emcee takes the station lock (`<delivered>/.lma-station.lock`) per package, so llama's station writes refuse while a package is being voiced. An agent (no TTY) …" (the rest unchanged). In `packages/emcee/CLAUDE.md`, replace the "**Single-writer station, no lock.**" paragraph: the station lock is per package in `run`/`voice`, held from the manifest re-read through the last write. A held lock stops `run` (`not attempted: …`, exit 1). `move`, `say` and read-only commands don't take it. `emcee lock show|clear` handles it. Two concurrent `emcee run`s are still not supported (double spend). Add `emcee lock` to Commands, with the agent rule: an agent runs `emcee lock show`, reports it, and runs `emcee lock clear --yes` only after Shawn approves, in a separate tool call.
 
 - [ ] **Step 6: Commit.** `emcee: run and voice take the station lock per package`.
 
@@ -455,7 +476,10 @@ test_lock_released_when_process_one_raises        (failure in pkg1 -> lock gone,
 
 **Files:**
 - Modify: `packages/emcee/src/emcee/models.py` (`DJAudioBlock`), `packages/emcee/src/emcee/process.py` (`process_package`), `packages/llama/src/llama/models.py` (`DJAudio`)
-- Test: `packages/emcee/tests/test_process.py`, `packages/emcee/tests/test_handshake.py`, `packages/llama/tests/` (wherever `DJAudio` is tested)
+- Create: `scripts/test_dj_audio_handshake.py`
+- Test: `packages/emcee/tests/test_process.py`, `packages/llama/tests/test_the_cut.py` (where `DJAudio` is tested)
+
+**Why the cross-model check is in `scripts/`:** emcee's tests must not import llama (`packages/emcee/tests/test_no_llama_imports.py`), and `scripts/` is the only place that may import both.
 
 **Interfaces:**
 - Produces: `DJAudioBlock.title: str | None = None`, declared **last** (after `voiced_before`), so a voiced block and a backfilled one carry it in the same position. It is always serialized. `process_package` passes `title=voicing.title`. llama's `DJAudio.title: str | None = None  # emcee-written: the program's title when voiced`.
@@ -466,10 +490,13 @@ test_lock_released_when_process_one_raises        (failure in pkg1 -> lock gone,
 test_voicing_records_the_program_title         ([assign.profiles.bluegrass] title = "Gravel & Steel" -> manifest dj_audio.title == "Gravel & Steel", last key of dj_audio)
 test_voicing_by_default_or_house_records_null_title   ("title": null present in dj_audio)
 test_title_follows_the_effective_profile       (an [assign.artists] rule moves the show to a titled profile -> that title)
-test_llama_dj_audio_parses_a_block_with_title_and_without   (handshake: emcee's model_dump parses as llama DJAudio, title preserved)
+# packages/llama/tests/test_the_cut.py
+test_llama_dj_audio_parses_a_block_with_title_and_without   (literal dicts: with "title": "Gravel & Steel" -> .title kept and model_dump round-trips; without -> .title None)
+# scripts/test_dj_audio_handshake.py
+test_emcee_dj_audio_block_parses_as_llama_dj_audio          (emcee DJAudioBlock(..., title="X").model_dump() and title=None both parse as llama DJAudio, title preserved)
 ```
 
-- [ ] **Step 2: Run** `./.venv/bin/pytest packages/emcee/tests/test_process.py packages/emcee/tests/test_handshake.py -q`. Expected: FAIL.
+- [ ] **Step 2: Run** `./.venv/bin/pytest packages/emcee/tests/test_process.py packages/llama/tests/test_the_cut.py scripts/test_dj_audio_handshake.py -q`. Expected: FAIL.
 
 - [ ] **Step 3: Implement** the three fields and the one argument. Update existing tests that assert an exact `dj_audio` dict.
 
@@ -494,23 +521,23 @@ test_llama_dj_audio_parses_a_block_with_title_and_without   (handshake: emcee's 
 - Produces (`emcee.retitle`):
   - `@dataclass(frozen=True) class TitleWrite: slug: str; dir: Path; raw: bytes; old: str | None; new: str | None`.
   - `@dataclass class RetitlePlan: writes: list[TitleWrite]; awaiting: list[str]; refused: list[tuple[str, str]]; unchanged: int; unvoiced: int`.
-  - `plan_retitle(station_root: Path, config: EmceeConfig) -> RetitlePlan`: reads only. It covers every non-dot directory under the root, sorted.
+  - `plan_retitle(station_root: Path, config: EmceeConfig) -> RetitlePlan`: reads only. It covers every non-dot directory under the root that contains `manifest.json` (`station.scan`'s rule, `station.py:388-391`), sorted, so `interstitials/` and other folders without a manifest are ignored.
   - `class TitleWriteFailed(EmceeError)`.
   - `write_title(pkg_dir: Path, *, expect: bytes, title: str | None) -> bytes | None`: returns the bytes written, or None when the file changed before the rename (skipped, nothing written). It raises `TitleWriteFailed` when the post-rename check fails.
   - `encode(data: dict) -> bytes` is `(json.dumps(data, indent=2) + "\n").encode()`.
-- Produces (`emcee.procs`): `tool_lines(ps_lines: Iterable[str], tools: Sequence[str], *, self_pid: int) -> list[str]` (pure; `self_pid` and its ancestors never match; a line matches when its command's first or second word has basename `emcee` or `llama`) and `other_tool_processes(tools=("emcee", "llama")) -> list[str]` (runs `ps -axo pid=,ppid=,command=`). This mirrors llama's `campaign_gate.tool_processes`, since emcee cannot import it.
+- Produces (`emcee.procs`): `tool_lines(ps_lines: Iterable[str], tools: Sequence[str], *, self_pid: int) -> list[str]` (pure; `self_pid` and its ancestors never match) and `other_tool_processes(tools=("emcee", "llama")) -> list[str]` (runs `ps -axo pid=,ppid=,command=`). The matching is a port, in full, of llama's `campaign_gate._runs_tool` and its helpers (`packages/llama/src/llama/campaign_gate.py:65-90`; emcee cannot import it): the first word's basename is the tool; a python with `-m <tool>`, or whose first non-option argument is the tool (by basename) or a `.py` under a `scripts/` directory; a shell's `-c` string, judged per simple command. One difference: a `scripts/*.py` counts as matching for **both** tools (campaign_gate counts it for llama only), since `scripts/backfill_*` import emcee.
 
-**Plan rules, in order, for each package:** unreadable bytes or JSON, or not an object → refused. `dj_audio` key absent or null → unvoiced (not listed). `schema_version` below 3 → refused (`unsupported`). `dj_audio` not a dict → refused. Bytes not equal to `encode(json.loads(bytes))` → refused (`not in emcee's encoding`). A non-null `awaiting_fix` → awaiting (listed). Then target = `assignment_for(config, manifest_voiced_profile(m)).title`; current = `dj_audio.get("title")`; equal (absent and null are the same title) → unchanged. Otherwise it is a write. A clear writes `"title": null`.
+**Plan rules, in order, for each package:** unreadable bytes or JSON, or not an object → refused. `schema_version` below 3 → refused (`unsupported`), voiced or not. `dj_audio` key absent or null → unvoiced (not listed). `dj_audio` not a dict → refused. Bytes not equal to `encode(json.loads(bytes))` → refused (`not in emcee's encoding`). A non-null `awaiting_fix` → awaiting (listed). Then target = `assignment_for(config, manifest_voiced_profile(m)).title`; current = `dj_audio.get("title")`; equal (absent and null are the same title) → unchanged. Otherwise it is a write. A clear writes `"title": null`.
 
 **Writer order (spec, verbatim in effect):**
 1. `st = os.stat(manifest)`.
 2. Build `new = encode(data with dj_audio["title"] = title)`, touching no other key.
-3. Write a unique temp `.manifest.json.emcee-<hex>.tmp` in the package dir with `"xb"`, flush and fsync it.
-4. `os.utime(tmp, ns=(st.st_atime_ns, st.st_mtime_ns))`.
+3. Write a unique temp `.manifest.json.emcee-<hex>.tmp` in the package dir with `"xb"`, flush, fsync and close it.
+4. `os.utime(tmp, ns=(st.st_atime_ns, st.st_mtime_ns))`, on the closed file.
 5. Re-read the manifest. If it doesn't equal `expect`, unlink the temp and return None.
 6. `os.replace`.
 7. If `os.stat(manifest).st_mtime_ns != st.st_mtime_ns`, re-apply `os.utime` once.
-8. Re-read and verify: every top-level key but `dj_audio` equal, `dj_audio` minus `title` equal, and `title` equal to the target. On failure, if the file still holds exactly `new`, put `expect` back the same way (temp, fsync, utime, replace) and raise `TitleWriteFailed("<slug>: … ; the original was put back")`. Otherwise raise `TitleWriteFailed("<slug>: … ; left as the other writer wrote it")`.
+8. Re-read and verify: every top-level key but `dj_audio` equal, `dj_audio` minus `title` equal, and `title` equal to the target. On failure, if the file still holds exactly `new`, put `expect` back the same way (temp, flush, fsync, close, utime, replace, mtime re-check) and raise `TitleWriteFailed("<slug>: … ; the original was put back")`. Otherwise raise `TitleWriteFailed("<slug>: … ; left as the other writer wrote it")`.
 
 - [ ] **Step 1: Write the failing tests:**
 
@@ -519,16 +546,18 @@ test_plan_absent_and_null_title_are_the_same          (target None: absent -> un
 test_plan_writes_additions_changes_and_clears         (absent -> "X": write; "Old" -> "X": write; "Old" -> None: write new=None)
 test_plan_skips_awaiting_fix_and_lists_it             (awaiting_fix {"reason": ...} -> in .awaiting, not in .writes; awaiting_fix null -> normal)
 test_plan_uses_the_voiced_profile_with_legacy_fallback   (dj_audio without "profile" -> source.profile's title)
-test_plan_refuses_foreign_encodings                   (ensure_ascii=False non-ASCII; no trailing newline; indent=4; dj_audio a list; pre-v3; invalid JSON -> each refused with a reason, file bytes and mtime unchanged)
-test_plan_ignores_unvoiced_and_dot_directories
+test_plan_refuses_foreign_encodings                   (ensure_ascii=False non-ASCII; no trailing newline; indent=4; duplicate keys; a float written as 1.50; dj_audio a list; invalid JSON -> each refused with a reason, file bytes and mtime unchanged)
+test_plan_refuses_pre_v3_voiced_or_not                (schema_version 2 with and without dj_audio -> refused "unsupported", never counted unvoiced)
+test_plan_ignores_unvoiced_and_dot_directories        (unvoiced -> counted, not listed; .hidden/ and interstitials/ (no manifest.json) -> not in any list or count)
 test_write_sets_only_the_title_key                    (result == encode(original with title set); every other byte region identical)
-test_write_sets_mtime_before_the_rename               (os.replace wrapped: os.stat(src).st_mtime_ns == original at the moment of rename)
+test_write_sets_mtime_before_the_rename               (os.replace wrapped: os.stat(src).st_mtime_ns == original at the moment of rename; os.utime wrapped: the temp is already closed and fsynced when it runs)
 test_write_mtime_is_the_original_afterwards           (and re-applied when a patched replace bumps it)
 test_write_skips_when_the_file_changed_before_rename  (file rewritten between plan and step 5 -> returns None, the other writer's bytes kept, no temp left)
 test_write_post_rename_verify_failure_puts_back_own_bytes   (verify patched to fail -> original bytes back, original mtime, TitleWriteFailed "put back")
 test_write_post_rename_verify_failure_leaves_a_foreign_write  (replace wrapped to land another writer's bytes after the rename -> file keeps them, TitleWriteFailed "left as the other writer wrote it")
 test_write_preserves_awaiting_fix_and_unknown_keys    (a manifest with extra top-level keys keeps them all)
 test_tool_lines_matches_emcee_and_llama_but_not_self_or_ancestors   (procs)
+test_tool_lines_matches_campaign_gate_cases           (procs: `python3 scripts/backfill_voiced_on.py`, `python scripts/bulk_apply.py mark ...`, `python -m llama`, `llama deliver`, `emcee run`, `bash -c 'cd x && llama status'` match; `code ~/projects/llama` and `git -C ~/projects/llama status` do not)
 ```
 
 - [ ] **Step 2: Run** `./.venv/bin/pytest packages/emcee/tests/test_retitle_writer.py packages/emcee/tests/test_procs.py -q`. Expected: FAIL.
@@ -546,12 +575,12 @@ test_tool_lines_matches_emcee_and_llama_but_not_self_or_ancestors   (procs)
 **Model hint:** opus.
 
 **Files:**
-- Modify: `packages/emcee/src/emcee/cli.py`, `packages/emcee/CLAUDE.md`
-- Test: `packages/emcee/tests/test_retitle_cmd.py`
+- Modify: `packages/emcee/src/emcee/cli.py` (the command; `_COMMAND_ORDER`), `packages/emcee/CLAUDE.md`
+- Test: `packages/emcee/tests/test_retitle_cmd.py`, `packages/emcee/tests/test_cli_boundary.py`
 
 **Interfaces:**
 - Consumes: Task 8's `plan_retitle`, `write_title`, `TitleWriteFailed`, `procs.other_tool_processes`. Task 5's `station_lock`, `StationLocked`. `_resolve_station_root(config, override)`, `_stdin_is_tty()`.
-- Produces: `emcee retitle [--station-root P] [--dry-run] [--yes/-y]`.
+- Produces: `emcee retitle [--station-root P] [--dry-run] [--yes/-y]`, and `"retitle"` inserted before `"lock"` in `_COMMAND_ORDER`.
   - Plan output, one line each: `would write <slug>: <old> -> <new>` (`(none)` for null), `skip <slug>: awaiting fix from llama`, `refused <slug>: <reason>`, then a summary: `<n> to write, <n> unchanged, <n> awaiting fix, <n> refused, <n> unvoiced`.
   - With `--dry-run`, it stops after the plan.
   - Nothing to write: `nothing to write`.
@@ -561,7 +590,7 @@ test_tool_lines_matches_emcee_and_llama_but_not_self_or_ancestors   (procs)
     1. Re-read every planned manifest. If any differs from its planned bytes: `refusing: <n> manifest(s) changed since the plan; nothing written; run again` plus the slugs, exit 1.
     2. Create the backup dir `<config.root>/title-backups/<UTC %Y%m%dT%H%M%SZ>/`.
     3. Per write: save `<slug>.json` (the original bytes, flushed and fsynced) and append `{"slug", "before_sha256", "mtime_ns"}` (the original mtime) to `record.jsonl` (fsynced). If that fails: `error: <slug>: backup failed (<err>); stopping before writing it`, `not attempted: …`, exit 1. Then `write_title`. On success, print `<slug>: <old> -> <new>` and append `{"slug", "after_sha256"}`. On None, print `skip <slug>: changed since the plan` and list it at the end. On `TitleWriteFailed`, print the error and `not attempted: …`, exit 1.
-  - Exit 1 when anything was refused or skipped, else 0.
+  - Exit code, the same rule with and without `--dry-run`: 1 only when a package was refused, a write was skipped as changed before the rename, or the run stopped on plan drift, the `ps` refusal, a held lock, or a backup, write or verify failure (and for the no-TTY confirmation refusal above). Awaiting-fix, unchanged and unvoiced packages never affect it. Otherwise 0.
 
 - [ ] **Step 1: Write the failing tests:**
 
@@ -579,11 +608,15 @@ test_backup_failure_aborts_before_writing_that_show   (backup write patched to f
 test_write_failure_stops_the_run_non_zero       (write_title raises TitleWriteFailed on show 2 -> show 3 untouched, exit 1)
 test_changed_before_rename_is_skipped_and_listed   (write_title returns None -> others written, exit 1, slug listed)
 test_awaiting_fix_shows_are_never_written       (byte-identical after --yes)
-test_rerun_after_success_has_nothing_to_write   (idempotent)
+test_rerun_after_success_has_nothing_to_write   (idempotent; exit 0)
+test_exit_code_ignores_awaiting_unchanged_and_unvoiced   (a station of only awaiting-fix, unchanged and unvoiced shows plus writes: --dry-run exit 0, --yes exit 0)
+test_exit_code_is_1_when_a_package_is_refused   (one refused manifest: --dry-run exit 1; --yes writes the others and exits 1)
 test_retitle_after_rename_in_config_changes_and_clears   (config title edited -> new title; title removed -> null written)
 ```
 
-- [ ] **Step 2: Run** `./.venv/bin/pytest packages/emcee/tests/test_retitle_cmd.py -q`. Expected: FAIL.
+  In `test_cli_boundary.py`, the expected order gains `"retitle"` before `"lock"`.
+
+- [ ] **Step 2: Run** `./.venv/bin/pytest packages/emcee/tests/test_retitle_cmd.py packages/emcee/tests/test_cli_boundary.py -q`. Expected: FAIL.
 
 - [ ] **Step 3: Implement** as specified. The `ps` check runs before the lock is taken, so the refusal leaves nothing to release.
 
@@ -607,14 +640,14 @@ test_retitle_after_rename_in_config_changes_and_clears   (config title edited ->
 - Produces (`llama.station_lock`), the same contract as Task 5, implemented separately:
   - `LOCK_NAME` and `MAGIC` with the same values.
   - `class StationLocked(LlamaError)`, with `.path` and `.holder`. Its message is three lines: `the station is locked by another writer ({path}):`, then the holder lines indented two spaces, then `  check it with: emcee lock show; remove it with: emcee lock clear (only if that writer is gone)`.
-  - `StationLockReentry(RuntimeError)`, `acquire`, `release`, and `station_lock(delivered, *, command)` with the same signal handling.
-  - `for_package(out: Path, *, command: str) -> ContextManager[Held]`, which is `station_lock(out.parent, command=command)`. This is the **one shared helper** every llama caller uses.
+  - `StationLockReentry(RuntimeError)`, `acquire`, `release`, and `station_lock(delivered, *, command)` with the same signal handling (handlers installed before `acquire`, inside the same `try`, restored in `finally`). `acquire` turns any create error other than `EEXIST` into `LlamaError("cannot create the station lock at {path}: [Errno {n}] {strerror}")`. `release` never raises: an unlink error warns `… clear it with: emcee lock clear` and leaves the file.
+  - `for_package(out: Path, *, command: str) -> ContextManager[Held]`, which is `station_lock(out.absolute().parent, command=command)`. This is the **one shared helper** every llama caller uses.
   - The holder's `tool:` line is `llama`.
 
-- [ ] **Step 1: Write the failing tests**, mirroring Task 5's `test_station_lock.py` list name for name (magic and holder; per-folder path; held refused naming holder; empty and garbage held; re-entry raises; own-token release and warnings; exception releases; SIGTERM; SIGHUP; handlers restored; write failure cleans up), plus:
+- [ ] **Step 1: Write the failing tests**, mirroring Task 5's `test_station_lock.py` list name for name (magic and holder; per-folder path; held refused naming holder; empty and garbage held; re-entry raises; own-token release and warnings; exception releases; SIGTERM; SIGHUP; handlers restored, also on a refused acquire; write failure cleans up; a non-EEXIST create error is a `LlamaError` naming path and errno; a release unlink error warns and never raises), plus:
 
 ```
-test_for_package_locks_the_parent_folder
+test_for_package_locks_the_parent_folder           (also for a relative `out`: chdir into the folder, for_package(Path("slug")) -> lock in the folder, by absolute path)
 test_refusal_names_holder_and_emcee_commands    (str(exc) contains the holder's "tool: emcee" line, "emcee lock show" and "emcee lock clear")
 ```
 
@@ -639,7 +672,7 @@ test_refusal_names_holder_and_emcee_commands    (str(exc) contains the holder's 
 **Interfaces:**
 - Consumes: Task 10's `for_package(out, command=...)`, `StationLocked`.
 - Produces:
-  - In `_deliver_one`, inside the existing `file_lock(show_ws.lock)` and after `_awaiting_fix_check`: `with station_lock.for_package(out, command=f"llama deliver {entry.slug}")` spans `_read_destination_manifest(out)` through `_replace_destination` or `shutil.copytree`. The ledger record and `_purge_after_delivery` run after release, still under the show lock.
+  - In `_deliver_one`, inside the existing `file_lock(show_ws.lock)` and after `_awaiting_fix_check`: first `target_dir.mkdir(parents=True, exist_ok=True)` (the same reach as today's `copytree`, which creates missing parents), so a delivery to a not-yet-existing inbox still works rather than failing the lock's create with ENOENT. Then `with station_lock.for_package(out, command=f"llama deliver {entry.slug}")` spans `_read_destination_manifest(out)` through `_replace_destination` or `shutil.copytree`. The ledger record and `_purge_after_delivery` run after release, still under the show lock.
   - In `_clear_mark_one`, inside `file_lock`: `with station_lock.for_package(out, command=f"llama clear-mark {slug}")` spans `read_station_manifest(out)` through `clear_mark`, `campaign.add_clear` and any `put_back`. The purge runs after release.
   - The library show lock is always taken before the station lock.
   - `_deliver_batch`: on `StationLocked`, print `{slug}: {exc}`, then `not attempted: {this and the remaining slugs}`, and `raise typer.Exit(1)`. Other per-show errors keep today's continue-on behaviour.
@@ -662,7 +695,10 @@ test_clear_mark_lock_spans_read_through_clear_and_put_back
     read_station_manifest, clear_mark and put_back (record-failure path) wrapped: the lock is held at each call; released before the purge
 test_clear_mark_refuses_a_held_lock                 (exit 1, station mark kept, campaign.json unchanged)
 test_library_show_lock_is_taken_before_the_station_lock   (order recorded by wrapping file_lock and acquire)
+test_deliver_creates_a_missing_nested_inbox_before_locking   (--dest tmp/a/b/inbox, none existing -> delivered, exit 0, no lock left)
 ```
+
+  Existing tests that already deliver into a `--dest` that does not exist yet, and must stay green unchanged: `test_ready_show_delivers_and_records_ledger_row`, `test_deliver_purges_library_audio_and_keeps_the_rest`, `test_deliver_by_name_records_provenance_run`, `test_deliver_batch_excludes_held` and `test_deliver_batch_excludes_held_via_nonstate_selector` (all in `test_deliver_cmd.py`).
 
 - [ ] **Step 2: Run** `./.venv/bin/pytest packages/llama/tests/test_deliver_cmd.py packages/llama/tests/test_clear_mark.py -q`. Expected: FAIL.
 
@@ -676,29 +712,26 @@ test_library_show_lock_is_taken_before_the_station_lock   (order recorded by wra
 
 ---
 
-### Task 12: `bulk_apply` takes the lock; contract test; go-live probe script
+### Task 12: `bulk_apply` takes the lock; lock contract test
 
-**Model hint:** opus.
+**Model hint:** opus (strict surface: station marks).
 
 **Files:**
 - Modify: `scripts/bulk_apply.py` (`_mark_one`, `mark_apply`, `unmark`), `scripts/CLAUDE.md`
-- Create: `scripts/station_probe.py`, `scripts/test_station_lock_contract.py`, `scripts/test_station_probe.py`
+- Create: `scripts/test_station_lock_contract.py`
 - Test: `scripts/test_bulk_apply_mark.py`
 
 **Interfaces:**
 - Consumes: Task 10's `for_package`, `StationLocked`. Task 5's `emcee.station_lock` (in the contract test only).
 - Produces:
-  - `_mark_one(...) -> tuple[str, bool, _Stop | None]` with `@dataclass(frozen=True) class _Stop: reason: str; lines: list[str]`. The emcee-running stop becomes `_Stop("emcee is running", running)`. `with station_lock.for_package(out, command="bulk_apply mark")` spans the `emcee_running()` check and `_mark_station`. On `StationLocked`, the station outcome is `refused: the station is locked` (retryable: it starts with `refused`) and the result is `_Stop("the station is locked", holder lines)`. `mark_apply` prints `refusing to mark station copies: {reason}; the batch stops` and lists later items as `not reached ({reason})`.
+  - `_mark_one(...) -> tuple[str, bool, _Stop | None]` with `@dataclass(frozen=True) class _Stop: reason: str; lines: list[str]`. The emcee-running stop becomes `_Stop("emcee is running", running)`. Once the show is delivered and `_station_root_problem` passes, `with station_lock.for_package(out, command="bulk_apply mark")` is taken **before** `_station_copy_problem(out)` (`scripts/bulk_apply.py:972-975`), so it covers the first read of the station copy, and spans the `emcee_running()` check and `_mark_station`. On `StationLocked`, the station outcome is `refused: the station is locked` (retryable: it starts with `refused`) and the result is `_Stop("the station is locked", holder lines)`. `mark_apply` prints `refusing to mark station copies: {reason}; the batch stops` and lists later items as `not reached ({reason})`.
   - `unmark(..., apply=True)` wraps each `_unmark_one` call in `for_package(station_root / slug, command="bulk_apply unmark")` inside the show lock. On `StationLocked`, it echoes `{slug}: refused: the station is locked`, lists every remaining slug as `not attempted`, and returns 1. With `apply=False` it takes no lock.
-  - `scripts/station_probe.py` (stdlib only, so it also runs on hugo with `python3`):
-    - `race --dir D [--n 1000] [--workers 2]`: workers race exclusive create and token-checked unlink on a scratch name `.lock-race-<hex>`. While holding, a worker creates a `.lock-race-<hex>.held-<worker>` marker, checks that no other worker's marker exists, re-reads that the file holds its own token after ~5 ms, then removes its marker and unlinks. It prints `acquired <n> contended <n> double <n>`, exits 0 only when `double 0`, and removes every scratch file.
-    - `mtime --dir D`: writes `.mtime-probe-<hex>` through temp, fsync, `os.utime` to `2026-01-01T00:00:00Z`, then rename. It prints the name and the expected epoch seconds, and leaves the file for the remote `stat`. `--remove NAME` deletes it.
-    - `cross --dir D --role a|b --n N --tag T`: the race loop for one side, run at the same time on two hosts with the same `--tag`. It prints the same counts.
 
 - [ ] **Step 1: Write the failing tests:**
 
 ```
 test_mark_holds_the_station_lock_around_write_mark        (write_mark wrapped: lock present with "command: bulk_apply mark")
+test_mark_takes_the_lock_before_the_first_station_read    (_station_copy_problem wrapped: the lock exists when it runs)
 test_mark_stops_at_a_held_lock_and_lists_the_rest         (foreign lock: item 1 station "refused: the station is locked", library mark added; items 2.. "not reached (the station is locked)"; exit 1; station copies byte-identical)
 test_mark_emcee_running_stop_unchanged                    (existing message "not reached (emcee is running)")
 test_unmark_apply_holds_the_lock_around_put_back
@@ -710,25 +743,58 @@ test_emcee_lock_refuses_llama_naming_emcee_holder
 test_llama_lock_refuses_emcee_naming_llama_holder
 test_emcee_lock_show_and_clear_handle_a_llama_lock        (CliRunner: show prints "tool: llama"; clear --yes removes it)
 test_release_of_one_tool_never_unlinks_the_others_lock
-# test_station_probe.py
-test_race_on_local_disk_reports_no_double_acquisition     (--n 50 in tmp_path -> exit 0, "double 0", no scratch files left)
-test_race_detects_a_broken_exclusive_create               (os.open patched to drop O_EXCL in the workers -> double > 0, exit 1)
-test_mtime_probe_sets_mtime_before_rename                 (file mtime == 1767225600 in tmp_path)
 ```
 
-- [ ] **Step 2: Run** `./.venv/bin/pytest scripts/test_bulk_apply_mark.py scripts/test_station_lock_contract.py scripts/test_station_probe.py -q`. Expected: FAIL.
+- [ ] **Step 2: Run** `./.venv/bin/pytest scripts/test_bulk_apply_mark.py scripts/test_station_lock_contract.py -q`. Expected: FAIL.
 
 - [ ] **Step 3: Implement** as specified. Existing tests that unpack `_mark_one`'s third element get updated for `_Stop`.
 
-- [ ] **Step 4: Run** `./.venv/bin/pytest -q` (whole suite) and `cd antenna && npm test`. Expected: all green.
+- [ ] **Step 4: Run** `./.venv/bin/pytest -q` (whole suite). Expected: PASS.
 
-- [ ] **Step 5: Docs.** In `scripts/CLAUDE.md`: `bulk_apply mark`/`unmark --apply` take the station lock per show and stop on a held one. The campaign worktree pinned at v2.20.1 predates this and ignores the lock (`emcee retitle`'s `ps` check is the guard). The `backfill_*.py` one-offs are not lock-aware. Describe `station_probe.py race|mtime|cross` (its go-live use is in this plan's Task 18).
+- [ ] **Step 5: Docs.** In `scripts/CLAUDE.md`: `bulk_apply mark`/`unmark --apply` take the station lock per show and stop on a held one. The campaign worktree pinned at v2.20.1 predates this and ignores the lock (`emcee retitle`'s `ps` check is the guard). The `backfill_*.py` one-offs are not lock-aware.
 
-- [ ] **Step 6: Commit.** `scripts: bulk_apply takes the station lock; lock contract test; station_probe`.
+- [ ] **Step 6: Commit.** `scripts: bulk_apply takes the station lock; lock contract test`.
 
 ---
 
-### Task 13: final review and merge
+### Task 13: the go-live probe script
+
+**Model hint:** sonnet.
+
+**Files:**
+- Create: `scripts/station_probe.py`, `scripts/test_station_probe.py`
+- Modify: `scripts/CLAUDE.md`
+
+**Interfaces:**
+- Produces `scripts/station_probe.py`: stdlib only and Python 3.11-compatible, so it also runs on hugo (Debian 12) with `python3`. It imports neither emcee nor llama.
+  - `race --dir D [--n 1000] [--workers 2]`: workers race exclusive create and token-checked unlink on a scratch name `.lock-race-<hex>`. A worker that loses the create reads the file the way `acquire` reports a holder (a vanished file counts as `vanished`), so the race also exercises read-during-unlink. While holding, a worker creates a `.lock-race-<hex>.held-<worker>` marker, notes whether another worker's marker exists, re-reads that the file holds its own token after ~5 ms, then removes its marker and unlinks. A **double** acquisition is counted only when that token re-read finds another token; the marker overlap count is advisory. It prints `acquired <n> contended <n> vanished <n> double <n> marker-overlap <n> (advisory)`, exits 0 only when `double 0`, and removes every scratch file.
+  - `mtime --dir D --create`: creates `.mtime-probe-<hex>` and prints its name, for hugo to `stat` first (so hugo's attribute cache holds the old entry). `mtime --dir D --replace NAME`: replaces it in the writer's order (Global Constraints: temp, flush, fsync, close, `os.utime` to `2026-01-01T00:00:00Z`, rename, re-check and re-apply the mtime) and prints the expected epoch seconds. `mtime --dir D --remove NAME` deletes it.
+  - `cross --dir D --role a|b --n N --tag T`: the race loop for one side, run at the same time on two hosts with the same `--tag`. It prints the same counts.
+  - Test-only switch: when the environment variable `STATION_PROBE_TEST_DROP_EXCL=1` is set, workers open without `O_EXCL`. It is left out of `--help`. (macOS multiprocessing spawns its workers, so a monkeypatch in the test process never reaches them; the environment does.)
+
+- [ ] **Step 1: Write the failing tests** in `scripts/test_station_probe.py` (run the script as a subprocess with `sys.executable`):
+
+```
+test_race_on_local_disk_reports_no_double_acquisition     (--n 50 in tmp_path -> exit 0, "double 0", no scratch files left)
+test_race_detects_a_broken_exclusive_create               (STATION_PROBE_TEST_DROP_EXCL=1 -> double > 0, exit 1, no scratch files left)
+test_mtime_replace_sets_mtime_before_rename               (--create, then --replace -> file mtime == 1767225600; printed seconds match)
+test_mtime_remove_deletes_the_probe_file
+test_probe_imports_only_the_stdlib                        (every import in the file is in sys.stdlib_module_names; no emcee/llama)
+```
+
+- [ ] **Step 2: Run** `./.venv/bin/pytest scripts/test_station_probe.py -q`. Expected: FAIL.
+
+- [ ] **Step 3: Implement** as specified. No syntax or stdlib newer than 3.11.
+
+- [ ] **Step 4: Run** `./.venv/bin/pytest -q` (whole suite) and `cd antenna && npm test`. Expected: all green.
+
+- [ ] **Step 5: Docs.** In `scripts/CLAUDE.md`, describe `station_probe.py race|mtime|cross` (stdlib-only, runs on hugo; its go-live use is in this plan's Task 19).
+
+- [ ] **Step 6: Commit.** `scripts: station_probe, the go-live lock and mtime probes`.
+
+---
+
+### Task 14: final review and merge
 
 **Model hint:** opus (the review mode is Opus).
 
@@ -738,7 +804,7 @@ test_mtime_probe_sets_mtime_before_rename                 (file mtime == 1767225
 
 ---
 
-### Task 14: hugo deploy (transmitter)
+### Task 15: hugo deploy (transmitter)
 
 **Model hint:** sonnet for the checks. The restart is the operator's.
 
@@ -748,29 +814,31 @@ test_mtime_probe_sets_mtime_before_rename                 (file mtime == 1767225
 
 ---
 
-### Task 15: page deploy
+### Task 16: page deploy
 
 **Model hint:** sonnet.
 
 - [ ] **Step 1:** From `antenna/` in the main checkout: `npm ci`, then `npm run pages`. `git status` must stay clean (`src/pages.ts` was committed fresh).
-- [ ] **Step 2:** `ANTENNA_BUCKET=lma-radio npm run deploy:assets -- --dry-run` (shows the changed `assets/*.js` and `radio.css`). Then, as a separate tool call, `ANTENNA_BUCKET=lma-radio npm run deploy:assets`.
-- [ ] **Step 3:** Wait out the one-hour `max-age=3600` on the changed assets, then run `npx wrangler deploy --dry-run`, then, as a separate tool call, `npx wrangler deploy`.
-- [ ] **Step 4: Verify** on `https://listen.lma-radio.com/`: Coming up has block headings with spans, tickets read `LMA RADIO PRESENTS` (no titles yet), and the weekly lineup shows seven tabs with Today selected and the on-air block highlighted. Check a phone at 320 px as well. Rollback: revert, then `npx wrangler deploy`, `npm run deploy:assets`, `npm run pages` (the spec's reverse order).
+- [ ] **Step 2: Preview.** `ANTENNA_BUCKET=lma-radio npm run deploy:assets -- --preview <n>`, with `<n>` the next unused round number (round 3 was the player launch; `docs/playout-setup.md` section 4 step 3). It uploads the new assets and the new `index.html` under `assets/preview/<n>/`. Open `https://listen.lma-radio.com/assets/preview/<n>/index.html`.
+- [ ] **Step 3: HUMAN CHECKPOINT.** Shawn judges the preview on a phone and on a computer: tickets, block headings and spans, the lineup's seven tabs and the on-air highlight, 320 px with no sideways scroll. Wait for his word. Then, as a separate tool call, `ANTENNA_BUCKET=lma-radio npm run deploy:assets -- --remove-preview <n>`.
+- [ ] **Step 4:** `ANTENNA_BUCKET=lma-radio npm run deploy:assets -- --dry-run` (shows the changed `assets/*.js`, the new `assets/programs.js` and `radio.css`). **HUMAN CHECKPOINT:** show the list and wait for approval. Then, as a separate tool call, `ANTENNA_BUCKET=lma-radio npm run deploy:assets`. The live page is now the old `index.html` with the new assets (Task 4's mixed-version tolerance): check it still plays and shows tickets.
+- [ ] **Step 5:** Wait out the one-hour `max-age=3600` on the changed assets, then run `npx wrangler deploy --dry-run`. **HUMAN CHECKPOINT:** show the output and wait for approval. Then, as a separate tool call, `npx wrangler deploy`.
+- [ ] **Step 6: Verify** on `https://listen.lma-radio.com/`: Coming up has block headings with spans, tickets read `LMA RADIO PRESENTS` (no titles yet), and the weekly lineup shows seven tabs with Today selected and the on-air block highlighted. Check a phone at 320 px as well. Rollback is the same order in reverse: revert, then `npx wrangler deploy` (the old `index.html`), `npm run deploy:assets`, `npm run pages` (the spec's reverse order). The same tolerance applies while cached new assets meet the old `index.html`.
 
 ---
 
-### Task 16: emcee and llama releases
+### Task 17: emcee and llama releases
 
 **Model hint:** sonnet. The tag push and the install are operator-gated.
 
-- [ ] **Step 1:** Choose the version: `v2.22.0` (the latest tag is `v2.21.1`; lockstep, one tag builds both binaries). `CAMPAIGN_MIN_VERSION` stays `"2.20.0"`: it is a floor, and the campaign's pin gate is handled in Task 17.
+- [ ] **Step 1:** Choose the version: `v2.22.0` (the latest tag is `v2.21.1`; lockstep, one tag builds both binaries). `CAMPAIGN_MIN_VERSION` stays `"2.20.0"`: it is a floor, and the campaign's pin gate is handled in Task 18.
 - [ ] **Step 2: HUMAN CHECKPOINT.** Report the version and the release notes (dj_audio title, `emcee retitle`, `emcee lock`, the station lock in emcee and llama). On approval: `git tag -a v2.22.0 -m "<notes>" && git push origin v2.22.0`.
 - [ ] **Step 3:** Watch with `gh run watch <id>`. If the macOS leg fails on notarytool `HTTP 403: A required agreement is missing or has expired`, the owner accepts the agreement at developer.apple.com, and after a short wait `gh run rerun <id> --failed`. Expected: every job green, with the Release carrying both macOS binaries and `SHA256SUMS`.
-- [ ] **Step 4: HUMAN CHECKPOINT: install on the Mac.** Installing llama 2.22.0 makes the stopped campaign's gate refuse until it is re-pinned (Task 17). Confirm with the operator first. Then copy the current `~/.local/bin/{llama,emcee}` to `~/.llama-harness/v2.21-bin/`, `gh release download v2.22.0 -D ~/.llama-harness/release-v2.22.0` (the macOS assets and `SHA256SUMS`), verify with `shasum -a 256 -c` on those lines, and install both into `~/.local/bin/`. Check: `llama --version` and `emcee --version` both print 2.22.0, and `emcee lock show` prints `no station lock at /Volumes/media/lma-radio/delivered/.lma-station.lock`.
+- [ ] **Step 4: HUMAN CHECKPOINT: install on the Mac.** Installing llama 2.22.0 makes the stopped campaign's gate refuse until it is re-pinned (Task 18). Confirm with the operator first. Then copy the current `~/.local/bin/{llama,emcee}` to `~/.llama-harness/pre-v2.22-bin/`, record each binary's `--version` output beside them (`~/.llama-harness/pre-v2.22-bin/versions.txt`), and write the restore step next to them (`~/.llama-harness/pre-v2.22-bin/RESTORE.txt`: copy both back into `~/.local/bin/` and check `--version` against `versions.txt`). Then `gh release download v2.22.0 -D ~/.llama-harness/release-v2.22.0` (the macOS assets and `SHA256SUMS`), verify with `shasum -a 256 -c` on those lines, and install both into `~/.local/bin/`. Check: `llama --version` and `emcee --version` both print 2.22.0, and `emcee lock show` prints `no station lock at /Volumes/media/lma-radio/delivered/.lma-station.lock`.
 
 ---
 
-### Task 17: handoff note: re-pin the bulk-apply campaign
+### Task 18: handoff note: re-pin the bulk-apply campaign
 
 **Model hint:** sonnet.
 
@@ -782,22 +850,23 @@ test_mtime_probe_sets_mtime_before_rename                 (file mtime == 1767225
 
 ---
 
-### Task 18: go-live checks
+### Task 19: go-live checks
 
-**Model hint:** sonnet. The hugo steps run over ssh; record everything in `docs/superpowers/2026-11-04-programs-go-live.md` and commit it on `main` at the end of Task 19.
+**Model hint:** sonnet. The hugo steps run over ssh; record everything in `docs/superpowers/2026-11-04-programs-go-live.md` and commit it on `main` at the end of Task 20.
 
-- [ ] **Step 1: Lock race on the Mac (required).** `python3 scripts/station_probe.py race --dir /Volumes/media/lma-radio/delivered --n 1000`. Expected: `double 0`, exit 0, no scratch file left (`ls -a` the folder for `.lock-race-*`). If `double` is above 0, stop: **HUMAN CHECKPOINT**, the lock is not safe over SMB, and the backfill does not run.
-- [ ] **Step 2: mtime over SMB read back on hugo.** On the Mac: `python3 scripts/station_probe.py mtime --dir /Volumes/media/lma-radio/delivered` gives the name and expected seconds. On hugo, immediately: `stat -c %Y /nfs/media/lma-radio/delivered/<name>`, which must equal the expected seconds. After 60 s, `stat` again with the same expectation. Then `--remove <name>` on the Mac. If they differ, stop: **HUMAN CHECKPOINT** (the backfill's mtime guard does not hold; the fallback is the second guard, running soon after hugo fills to `lead_hours`).
-- [ ] **Step 3: Cross-host lock (best effort).** Use the same `--tag` on both sides, started within a few seconds of each other: `python3 scripts/station_probe.py cross --dir /Volumes/media/lma-radio/delivered --role a --n 300 --tag <t>` on the Mac and `python3 <repo>/scripts/station_probe.py cross --dir /nfs/media/lma-radio/delivered --role b --n 300 --tag <t>` on hugo. Record both outputs. If the run cannot be shown clean, record it as an unverified limitation for the future hugo integration (spec, "Across hosts"); this does not block the backfill.
+- [ ] **Step 1: hugo's delivered path.** On hugo, read `[station] root` from the transmitter config (`~/.transmitter/config.toml`, or `$TRANSMITTER_ROOT/config.toml`). Call it `<hugo-delivered>` below and record it; never hardcode it.
+- [ ] **Step 2: Lock race on the Mac (required).** `python3 scripts/station_probe.py race --dir /Volumes/media/lma-radio/delivered --n 1000`. Expected: `double 0`, exit 0, no scratch file left (`ls -a` the folder for `.lock-race-*`). If `double` is above 0, stop: **HUMAN CHECKPOINT**, the lock is not safe over SMB, and the backfill does not run.
+- [ ] **Step 3: mtime over SMB read back on hugo.** On the Mac: `python3 scripts/station_probe.py mtime --dir /Volumes/media/lma-radio/delivered --create` gives the name. On hugo: `stat -c %Y <hugo-delivered>/<name>`, so hugo's attribute cache holds the old entry. On the Mac: `... mtime --dir /Volumes/media/lma-radio/delivered --replace <name>` gives the expected seconds. On hugo, immediately: `stat -c %Y <hugo-delivered>/<name>`, which must equal the expected seconds; after 60 s, `stat` again with the same expectation. Then `--remove <name>` on the Mac. If they differ, stop: **HUMAN CHECKPOINT** (the backfill's mtime guard does not hold; the fallback is the second guard, running soon after hugo fills to `lead_hours`).
+- [ ] **Step 4: Cross-host lock (best effort).** Use the same `--tag` on both sides, started within a few seconds of each other: `python3 scripts/station_probe.py cross --dir /Volumes/media/lma-radio/delivered --role a --n 300 --tag <t>` on the Mac and `python3 <repo>/scripts/station_probe.py cross --dir <hugo-delivered> --role b --n 300 --tag <t>` on hugo (system Python 3.11; the script is stdlib-only). Record both outputs. If hugo's mount is read-only (the create fails with a read-only or permission error), or the run cannot be shown clean, record it as an unverified limitation for the future hugo integration (spec, "Across hosts"); either way this does not block the backfill.
 
 ---
 
-### Task 19: the title backfill
+### Task 20: the title backfill
 
 **Model hint:** sonnet. The `--yes` is operator-gated.
 
-- [ ] **Step 1:** `emcee retitle --dry-run` (installed 2.22.0, `[station] root` on the SMB mount). Expected: 0 refused (all 710 voiced manifests reproduce as `json.dumps(m, indent=2)+"\n"`) and 136 awaiting fix (or today's count). Writes are the voiced shows whose profile has a title. Save the full output to the go-live doc.
+- [ ] **Step 1:** `emcee retitle --dry-run` (installed 2.22.0, `[station] root` on the SMB mount). Expected: 0 refused (all 710 voiced manifests reproduce as `json.dumps(m, indent=2)+"\n"`) and 136 awaiting fix (or today's count). Writes are the voiced shows whose profile has a title. Exit 0. Save the full output to the go-live doc.
 - [ ] **Step 2: HUMAN CHECKPOINT.** Show the summary and a sample of the write lines and the refused or awaiting lists. Stop for Shawn's approval.
-- [ ] **Step 3:** After approval, check hugo: `~/.venvs/transmitter/bin/transmitter status` shows the lead at `lead_hours` (filled). If it is mid-fill, wait for it to reach `lead_hours`. Then, in a separate tool call soon after, run `emcee retitle --yes`. Expected: every write printed (`<slug>: <old> -> <new>`), exit 0. A changed-before-rename skip exits 1 and lists the slugs; re-run the dry run for them.
+- [ ] **Step 3:** After approval, check hugo: `~/.venvs/transmitter/bin/transmitter status` shows the lead at `lead_hours` (filled). If it is mid-fill, wait for it to reach `lead_hours`. Then, in a separate tool call soon after, run `emcee retitle --yes`. Expected: every write printed (`<slug>: <old> -> <new>`), exit 0 (awaiting-fix, unchanged and unvoiced shows never affect it). A changed-before-rename skip exits 1 and lists the slugs; re-run the dry run for them.
 - [ ] **Step 4: Verify.** `emcee retitle --dry-run` shows 0 to write. For three stamped manifests, `stat -f %m` equals `mtime_ns // 10**9` from the backup `record.jsonl`. On hugo, `transmitter library` shows no rise in ineligible packages, and `transmitter status` shows no dropped planned shows. Within a few minutes, `timeline.json` shows non-null `program` on stamped shows and the page's tickets name their programs.
 - [ ] **Step 5:** Commit `docs/superpowers/2026-11-04-programs-go-live.md` (the checks, the dry run, the `--yes` output summary and the backup directory path) on `main`. The push is the operator's call.
