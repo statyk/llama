@@ -177,6 +177,12 @@ Commands, pipeline internals and domain rules for `llama` (`packages/llama/`). T
   writes use unique temp names. POSIX-only; non-POSIX degrades to no-op
   locking. **`emcee` does not share this locking scheme** — see
   `packages/emcee/CLAUDE.md`.
+  **Station lock (shared with emcee):** emcee and llama share the station lock
+  (`<delivered>/.lma-station.lock`, `llama/station_lock.py`), taken per show by
+  `deliver` and `clear-mark` (and `bulk_apply` mark/unmark) inside the show lock,
+  never across `_confirm_plan`'s prompt. A held lock refuses, naming the holder
+  (a batch stops and lists the rest). Clear it with `emcee lock clear`. A delivery
+  during an emcee run may need a retry after the current package.
   **Run lock (third scope, spec §4):** the commands that work a run — `get`,
   `run resume`, `run approve`, the run-level `redo --run <id> --from search|winnow`
   and `run rm` — take an exclusive flock on `runs/<id>/.lock` exactly once, at

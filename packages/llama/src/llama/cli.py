@@ -36,7 +36,7 @@ from llama.models import Criteria, LedgerEntry, Overrule, ShortlistEntry, Show
 from llama.overrules import merge_rules, records_for
 from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
-from llama import campaign, pacing_state, station_mark
+from llama import campaign, pacing_state, station_lock, station_mark
 from llama.pacing import (PaceOptions, PauseUntil, Proceed, Progress,
                           binding_forecast, decide, duration_arg, format_delta,
                           pace_options, resume_at, sleep_until)
@@ -2622,6 +2622,52 @@ def _awaiting_fix_check(config, show_ws, slug: str) -> None:
                        f"(marked {mark.at}: {mark.reason})\n{pointer}")
 
 
+def _gate_check(show_ws, slug: str) -> None:
+    """The deliver gate's refusal (`catalog.deliver_refusals`), with its pointer."""
+    from llama.catalog import deliver_refusals
+
+    reasons = deliver_refusals(show_ws)
+    if reasons:
+        message = f"refusing to deliver {slug}: {'; '.join(reasons)}"
+        raise LlamaError(f"{message}\n{_deliver_pointer(slug, reasons)}")
+
+
+def _deliver_locked(show_ws, slug: str, out: Path, target_dir: Path,
+                    replace_voiced: bool) -> dict:
+    """`_deliver_one`'s station part, under the show lock and the station lock:
+    from reading the destination manifest through the swap or overlay copy.
+    Returns the library package's manifest."""
+    show_dir = show_ws.dir
+    dest_manifest = _read_destination_manifest(out)   # LlamaError: unreadable, refuse
+    voiced = dest_manifest is not None and dest_manifest.get("dj_audio") is not None
+    marked = (dest_manifest is not None
+              and station_mark.mark_of(dest_manifest) is not None)
+    # Ahead of the gate: deliver purged this show's audio, so the gate's
+    # missing-audio pointer would send the operator to re-download a show
+    # that this refusal then turns away regardless.
+    if voiced and not replace_voiced:
+        raise _VoicedDestination(slug, out)
+    if voiced and marked:
+        # Ahead of the gate too, for the same reason. A library manifest that
+        # cannot be read is left to the gate.
+        library = _library_manifest(show_dir)
+        if library is not None and not station_mark.manifest_differences(
+                library, dest_manifest):
+            raise _EqualMarkedCopy(slug)
+    _gate_check(show_ws, slug)
+    pkg = show_dir / "package"
+    manifest = json.loads((pkg / "manifest.json").read_text())
+    _sweep_swap_leftovers(target_dir, show_dir.name)
+    dest_files = None if dest_manifest is None else _track_filenames(dest_manifest)
+    if voiced or marked or (dest_manifest is not None
+                            and (dest_files is None
+                                 or dest_files != _track_filenames(manifest))):
+        _replace_destination(pkg, out, target_dir)
+    else:
+        shutil.copytree(pkg, out, dirs_exist_ok=True)
+    return manifest
+
+
 def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     """Copy one resolved show's package to `dest` (or config.delivery_path)
     and record the delivery in the ledger; returns the destination path.
@@ -2637,49 +2683,28 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     carrying a station mark (`awaiting_fix`) is always replaced wholesale, so
     the mark goes only with a complete copy; `replace_voiced` on a marked
     destination whose re-processed show equals it refuses and names
-    `llama clear-mark` (bulk-apply spec, "It clears by re-delivery")."""
-    import json as _json
-
-    from llama.catalog import deliver_refusals
-
+    `llama clear-mark` (bulk-apply spec, "It clears by re-delivery").
+    The show lock is taken first; inside it the station lock
+    (`station_lock.for_package`) spans the destination read through the copy,
+    and the ledger record and the purge run after its release. A held station
+    lock raises `StationLocked` (a LlamaError) having written nothing."""
     show_ws = entry.ws
     show_dir = show_ws.dir
     target_dir = dest or config.delivery_path
     if target_dir is None:
         raise LlamaError("no --dest given and no delivery_path in config")
-    with file_lock(show_ws.lock):
+    with file_lock(show_ws.lock):                       # show lock first, station lock inside
         _awaiting_fix_check(config, show_ws, entry.slug)   # first, before the voiced check
         out = target_dir / show_dir.name
-        dest_manifest = _read_destination_manifest(out)   # LlamaError: unreadable, refuse
-        voiced = dest_manifest is not None and dest_manifest.get("dj_audio") is not None
-        marked = (dest_manifest is not None
-                  and station_mark.mark_of(dest_manifest) is not None)
-        # Ahead of the gate: deliver purged this show's audio, so the gate's
-        # missing-audio pointer would send the operator to re-download a show
-        # that this refusal then turns away regardless.
-        if voiced and not replace_voiced:
-            raise _VoicedDestination(entry.slug, out)
-        if voiced and marked:
-            # Ahead of the gate too, for the same reason. A library manifest that
-            # cannot be read is left to the gate.
-            library = _library_manifest(show_dir)
-            if library is not None and not station_mark.manifest_differences(
-                    library, dest_manifest):
-                raise _EqualMarkedCopy(entry.slug)
-        reasons = deliver_refusals(show_ws)
-        if reasons:
-            message = f"refusing to deliver {entry.slug}: {'; '.join(reasons)}"
-            raise LlamaError(f"{message}\n{_deliver_pointer(entry.slug, reasons)}")
-        pkg = show_dir / "package"
-        manifest = _json.loads((pkg / "manifest.json").read_text())
-        _sweep_swap_leftovers(target_dir, show_dir.name)
-        dest_files = None if dest_manifest is None else _track_filenames(dest_manifest)
-        if voiced or marked or (dest_manifest is not None
-                                and (dest_files is None
-                                     or dest_files != _track_filenames(manifest))):
-            _replace_destination(pkg, out, target_dir)
-        else:
-            shutil.copytree(pkg, out, dirs_exist_ok=True)
+        if not target_dir.is_dir():
+            # No station folder, so no destination manifest: the gate is the only
+            # refusal left, and checking it first keeps a refused delivery from
+            # creating the folder.
+            _gate_check(show_ws, entry.slug)
+        # The lock lives in the folder (copytree used to create missing parents).
+        target_dir.mkdir(parents=True, exist_ok=True)
+        with station_lock.for_package(out, command=f"llama deliver {entry.slug}"):
+            manifest = _deliver_locked(show_ws, entry.slug, out, target_dir, replace_voiced)
         show = manifest["show"]
         run_name = entry.provenance.run if entry.provenance else "unknown"
         ledger.record(LedgerEntry(
@@ -2738,7 +2763,9 @@ def _deliver_batch(config, ledger, sel, dest, yes, fixed: bool = False) -> None:
     """A selector batch. Never replaces a voiced destination: `deliver`
     refuses `--replace-voiced` with any selector (spec 5.5). `fixed` keeps only
     the shows `_fixed_for_delivery` accepts (bulk-apply spec, "Delivery after
-    the fix")."""
+    the fix"). A held station lock stops the batch: it names the holder, lists
+    the shows not attempted (that one and the rest) and exits 1; any other
+    per-show refusal or error is reported and the batch goes on."""
     from llama.catalog import iter_shows
     from llama.cli_select import HELD_NOTE, apply_selector, split_held
 
@@ -2780,7 +2807,7 @@ def _deliver_batch(config, ledger, sel, dest, yes, fixed: bool = False) -> None:
                     "refused (re-deliver each by name with --replace-voiced)")
     if not _confirm_plan(kept, "deliver", yes, marks=marks, note=note):
         return
-    for e in kept:
+    for i, e in enumerate(kept):
         if e.slug in unreadable:
             continue
         if e.slug in awaiting:
@@ -2797,6 +2824,12 @@ def _deliver_batch(config, ledger, sel, dest, yes, fixed: bool = False) -> None:
             typer.echo(f"{e.slug}: processed since the plan was listed; delivering")
         try:
             out = _deliver_one(config, ledger, e, dest)
+        except station_lock.StationLocked as exc:
+            # Another writer holds the station: stop here, as emcee's run does.
+            typer.echo(f"{e.slug}: {exc}", err=True)
+            rest = [x.slug for x in kept[i:]]
+            typer.echo(f"not attempted: {', '.join(rest)}", err=True)
+            raise typer.Exit(1)
         except _VoicedDestination as exc:
             typer.echo(exc.batch_text(), err=True)
         except LlamaError as exc:
@@ -2921,7 +2954,10 @@ def _clear_mark_one(config, entry, accept_change: bool) -> None:
     manifest changed since processing, differences without `accept_change`,
     emcee running. The station write is `station_mark.clear_mark`; the outcome
     is recorded only after it succeeded, and a failed record write puts the
-    station mark back. Then the library audio is purged as deliver purges it."""
+    station mark back. Then the library audio is purged as deliver purges it.
+    Inside the show lock the station lock (`station_lock.for_package`) spans the
+    station read through the clear, the record and any put-back; the purge runs
+    after its release. A held station lock refuses first (`StationLocked`)."""
     import hashlib
 
     from llama import catalog
@@ -2930,59 +2966,60 @@ def _clear_mark_one(config, entry, accept_change: bool) -> None:
     if config.delivery_path is None:
         raise LlamaError("no delivery_path in config")
     out = config.delivery_path / show_ws.dir.name
-    with file_lock(show_ws.lock):
-        _, station = station_mark.read_station_manifest(out)     # StationUnreadable
-        mark = station_mark.mark_of(station)
-        if mark is None:
-            raise LlamaError(f"{slug}: the station copy is not marked; nothing to clear")
-        if station.get("dj_audio") is None:
-            raise LlamaError(f"{slug}: unvoiced destination; re-deliver it instead: "
-                             f"llama deliver {slug}")
-        rec = campaign.read_record(show_ws)                       # CampaignUnreadable
-        if not _processed_since_mark(rec, mark):
-            raise LlamaError(f"{slug}: awaiting fix; re-process it first")
-        try:
-            held = show_ws.show.exists() and read_model(show_ws.show, Show).needs_review
-        except (OSError, ValueError) as exc:
-            raise LlamaError(f"{slug}: cannot read show.json "
-                             f"({' '.join(str(exc).split())}); check it by hand") from exc
-        if held:
-            raise LlamaError(f"{slug}: held for review")
-        sha = rec.processed.manifest_sha256
-        library = _library_manifest(show_ws.dir)
-        if sha is None or campaign.manifest_sha256(show_ws) != sha or library is None:
-            raise LlamaError(f"{slug}: the library package changed since it was "
-                             "processed; re-process it")
-        diffs = station_mark.manifest_differences(library, station)
-        if diffs and not accept_change:
-            raise LlamaError(f"{slug}: the station copy differs: {', '.join(diffs)}; "
-                             "pass --accept-change if the change is cosmetic")
-        running = station_mark.emcee_running()
-        if running:
-            raise LlamaError("\n".join(["refusing: emcee is running",
-                                        *(f"  {line}" for line in running)]))
-        try:
-            before, after = station_mark.clear_mark(out)
-        except OSError as exc:       # e.g. a dropped mount under `_swap_in`
-            raise LlamaError(f"{slug}: could not clear the station mark: "
-                             f"{' '.join(str(exc).split())}; {_station_state(out)}") from exc
-        outcome = "change accepted" if diffs else "equal"
-        try:
-            campaign.add_clear(show_ws, outcome)
-        except (OSError, LlamaError) as exc:
+    with file_lock(show_ws.lock):                       # show lock first, station lock inside
+        with station_lock.for_package(out, command=f"llama clear-mark {slug}"):
+            _, station = station_mark.read_station_manifest(out)     # StationUnreadable
+            mark = station_mark.mark_of(station)
+            if mark is None:
+                raise LlamaError(f"{slug}: the station copy is not marked; nothing to clear")
+            if station.get("dj_audio") is None:
+                raise LlamaError(f"{slug}: unvoiced destination; re-deliver it instead: "
+                                 f"llama deliver {slug}")
+            rec = campaign.read_record(show_ws)                       # CampaignUnreadable
+            if not _processed_since_mark(rec, mark):
+                raise LlamaError(f"{slug}: awaiting fix; re-process it first")
             try:
-                station_mark.put_back(out, expect_sha256=hashlib.sha256(after).hexdigest(),
-                                      data=before)
-                what = "the station mark was put back"
-            except (OSError, LlamaError) as exc2:
-                what = (f"the station mark could not be put back "
-                        f"({' '.join(str(exc2).split())}); the station copy is cleared "
-                        "and the record says nothing: check both by hand")
-            raise LlamaError(f"{slug}: could not record the clear "
-                             f"({' '.join(str(exc).split())}); {what}") from exc
-        typer.echo("mark cleared; the voicing is kept")
-        if diffs:
-            typer.echo(f"change accepted: {', '.join(diffs)}")
+                held = show_ws.show.exists() and read_model(show_ws.show, Show).needs_review
+            except (OSError, ValueError) as exc:
+                raise LlamaError(f"{slug}: cannot read show.json "
+                                 f"({' '.join(str(exc).split())}); check it by hand") from exc
+            if held:
+                raise LlamaError(f"{slug}: held for review")
+            sha = rec.processed.manifest_sha256
+            library = _library_manifest(show_ws.dir)
+            if sha is None or campaign.manifest_sha256(show_ws) != sha or library is None:
+                raise LlamaError(f"{slug}: the library package changed since it was "
+                                 "processed; re-process it")
+            diffs = station_mark.manifest_differences(library, station)
+            if diffs and not accept_change:
+                raise LlamaError(f"{slug}: the station copy differs: {', '.join(diffs)}; "
+                                 "pass --accept-change if the change is cosmetic")
+            running = station_mark.emcee_running()
+            if running:
+                raise LlamaError("\n".join(["refusing: emcee is running",
+                                            *(f"  {line}" for line in running)]))
+            try:
+                before, after = station_mark.clear_mark(out)
+            except OSError as exc:       # e.g. a dropped mount under `_swap_in`
+                raise LlamaError(f"{slug}: could not clear the station mark: "
+                                 f"{' '.join(str(exc).split())}; {_station_state(out)}") from exc
+            outcome = "change accepted" if diffs else "equal"
+            try:
+                campaign.add_clear(show_ws, outcome)
+            except (OSError, LlamaError) as exc:
+                try:
+                    station_mark.put_back(out, expect_sha256=hashlib.sha256(after).hexdigest(),
+                                          data=before)
+                    what = "the station mark was put back"
+                except (OSError, LlamaError) as exc2:
+                    what = (f"the station mark could not be put back "
+                            f"({' '.join(str(exc2).split())}); the station copy is cleared "
+                            "and the record says nothing: check both by hand")
+                raise LlamaError(f"{slug}: could not record the clear "
+                                 f"({' '.join(str(exc).split())}); {what}") from exc
+            typer.echo("mark cleared; the voicing is kept")
+            if diffs:
+                typer.echo(f"change accepted: {', '.join(diffs)}")
         r = catalog.purge_package_audio(show_ws, out)
         if diffs and r.skipped == _PURGE_SKIP_TRACKS_DIFFER:
             typer.echo("library audio kept (track lists differ)")
