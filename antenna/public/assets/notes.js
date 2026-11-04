@@ -1,6 +1,7 @@
 // The notes panel's model (pure, unit-tested). Same link rule as
 // transmitter.site.archive_link: a literal https://archive.org/ prefix.
 import { concertDate, tidyTitle, whereLine } from "./timeline.js";
+import { presentsLine } from "./programs.js";
 
 const ARCHIVE_PREFIX = "https://archive.org/";
 
@@ -33,6 +34,7 @@ export function panelModel(notes) {
   const text = (v) => (v == null ? "" : String(v));
   return {
     kind: "ready",
+    presents: presentsLine(notes),
     sections: notes.sections,
     archive: archiveLink(notes.url),
     sets: groupSets(notes.setlist || []),
