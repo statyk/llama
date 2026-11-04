@@ -73,6 +73,16 @@ describe("comingUpGroups", () => {
   it("an old timeline with no blocks is one headless group", () => {
     expect(comingUpGroups(TIMELINE, TIMELINE.shows)).toEqual([{ key: null, title: null, span: null, shows: TIMELINE.shows }]);
   });
+  it("a blocks entry whose start does not parse is absent: the show goes headless", () => {
+    for (const start of [undefined, "", "nope"]) {
+      const tl = { shows: TL_BLOCKS.shows, blocks: [{ ...TL_BLOCKS.blocks[0], start }, TL_BLOCKS.blocks[1]] };
+      expect(comingUpGroups(tl, tl.shows).map((x) => x.title)).toEqual([null, "Mid-morning Dead", null]);
+    }
+  });
+  it("an unparseable end shows the start alone", () => {
+    const tl = { shows: TL_BLOCKS.shows, blocks: [{ ...TL_BLOCKS.blocks[0], end: "nope" }, TL_BLOCKS.blocks[1]] };
+    expect(comingUpGroups(tl, tl.shows)[0].span).toBe(blockSpan({ start: BG[1] }));
+  });
   it("tolerates missing input", () => {
     expect(comingUpGroups(null, undefined as any)).toEqual([]);
   });
@@ -82,6 +92,7 @@ describe("blockSpan", () => {
   it("start – end, or the start alone", () => {
     expect(blockSpan({ start: "2026-11-04T12:00:00.000Z", end: "2026-11-04T14:56:00.000Z" }, NY)).toBe("7:00a – 9:56a");
     expect(blockSpan({ start: "2026-11-04T12:00:00.000Z" }, NY)).toBe("7:00a");
+    expect(blockSpan({ start: "2026-11-04T12:00:00.000Z", end: "nope" }, NY)).toBe("7:00a");
   });
 });
 
@@ -106,24 +117,42 @@ describe("lineupDays", () => {
     expect(all).not.toContain(occurrenceKey("old", "2026-11-03T12:00:00.000Z"));
     expect(all).not.toContain(occurrenceKey("bg", "2026-11-11T12:00:00.000Z"));
   });
-  it("a block just before midnight Eastern lands on the previous day in Los Angeles", () => {
-    const lu = { occurrences: [occ("n", "2026-11-05T04:30:00.000Z", "Night")] }; // 23:30 EST, 20:30 PST Nov 4
+  it("a block just after midnight Eastern lands on the previous day in Los Angeles", () => {
+    const lu = { occurrences: [occ("n", "2026-11-05T05:30:00.000Z", "Night")] }; // 00:30 EST Nov 5, 21:30 PST Nov 4
     const now = t("2026-11-04T15:00:00Z");
     const ny = lineupDays(lu, now, NY)!;
+    expect(ny[0].entries.length).toBe(0);
+    expect(ny[1].entries.map((e) => e.title)).toEqual(["Night"]);
     const la = lineupDays(lu, now, "America/Los_Angeles")!;
-    expect(ny[0].entries.length).toBe(1);
-    expect(la[0].entries[0].time).toBe("8:30p");
-    const tokyo = lineupDays(lu, now, "Asia/Tokyo")!; // now is 00:00 Nov 5 JST; the block is 13:30 Nov 5
-    expect(tokyo[0].entries.length).toBe(1);
-    const nz = lineupDays(lu, t("2026-11-04T05:00:00Z"), "Pacific/Auckland")!; // today = Nov 4; block is 17:30 Nov 5 NZDT
+    expect(la[0].entries.map((e) => [e.title, e.time])).toEqual([["Night", "9:30p"]]);
+    expect(la[1].entries.length).toBe(0);
+    const nz = lineupDays(lu, t("2026-11-04T05:00:00Z"), "Pacific/Auckland")!; // block is 18:30 Nov 5 NZDT
     expect(nz[0].entries.length).toBe(0);
     expect(nz[1].entries.length).toBe(1);
   });
   it("no tab skipped or repeated across spring-forward and fall-back", () => {
-    for (const now of ["2027-03-13T04:30:00Z", "2027-03-14T04:30:00Z", "2026-10-31T03:30:00Z", "2026-11-01T03:30:00Z"]) {
-      const keys = lineupDays({ occurrences: [] }, t(now), NY)!.map((d) => d.key);
+    // [now, occurrences (UTC instants around the transition), expected local day of each]
+    const cases: Array<[string, string[], string[]]> = [
+      ["2027-03-13T04:30:00Z", ["2027-03-14T06:30:00.000Z", "2027-03-14T07:30:00.000Z", "2027-03-14T08:30:00.000Z"],
+        ["2027-03-14", "2027-03-14", "2027-03-14"]], // 01:30 EST, 03:30 EDT, 04:30 EDT
+      ["2026-10-31T03:30:00Z", ["2026-11-01T04:30:00.000Z", "2026-11-01T05:30:00.000Z", "2026-11-01T06:30:00.000Z"],
+        ["2026-11-01", "2026-11-01", "2026-11-01"]], // 00:30 EDT, 01:30 EDT, 01:30 EST
+      ["2026-11-01T03:30:00Z", ["2026-11-02T04:30:00.000Z", "2026-11-02T05:30:00.000Z"], ["2026-11-01", "2026-11-02"]],
+      ["2027-03-14T04:30:00Z", ["2027-03-15T03:30:00.000Z", "2027-03-15T04:30:00.000Z"], ["2027-03-14", "2027-03-15"]],
+    ];
+    for (const [now, starts, want] of cases) {
+      const lu = { occurrences: starts.map((s, i) => occ(`b${i}`, s, `T${i}`)) };
+      const days = lineupDays(lu, t(now), NY)!;
+      const keys = days.map((d) => d.key);
       expect(keys.length).toBe(7);
       keys.slice(1).forEach((k, i) => expect(Date.parse(k) - Date.parse(keys[i])).toBe(86_400_000));
+      starts.forEach((_, i) => {
+        const day = days.find((d) => d.entries.some((e) => e.title === `T${i}`));
+        expect(day && day.key).toBe(want[i]);
+      });
+      const all = days.flatMap((d) => d.entries.map((e) => e.key));
+      expect(all.length).toBe(starts.length);
+      expect(new Set(all).size).toBe(all.length);
     }
   });
   it("the block on air since before midnight leads Today's tab", () => {

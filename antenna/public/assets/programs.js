@@ -24,7 +24,7 @@ export function occurrenceKey(block, nominalStart) {
 /** "7:00a – 9:56a", or "7:00a" when the end is unknown. */
 export function blockSpan(entry, timeZone) {
   const from = airTime(entry.start, timeZone).time;
-  return nonEmpty(entry.end) ? `${from} – ${airTime(entry.end, timeZone).time}` : from;
+  return nonEmpty(entry.end) && Number.isFinite(Date.parse(entry.end)) ? `${from} – ${airTime(entry.end, timeZone).time}` : from;
 }
 
 /** "YYYY-MM-DD" of the instant in the zone (default: the runtime's). */
@@ -42,7 +42,7 @@ export function comingUpGroups(timeline, shows) {
   const byKey = new Map();
   for (const b of blocks) {
     const k = b && occurrenceKey(b.block, b.nominal_start);
-    if (k && !byKey.has(k)) byKey.set(k, b);
+    if (k && Number.isFinite(Date.parse(b.start)) && !byKey.has(k)) byKey.set(k, b);
   }
   const groups = [];
   for (const show of Array.isArray(shows) ? shows : []) {
