@@ -325,29 +325,71 @@ _WINDOW_SCRIPT = textwrap.dedent("""
             kill()
             return h
         sl.acquire = acquired
-    with sl.station_lock(delivered, command="window"):
-        if mode == "in-release":             # between release's read and its unlink
-            real_read = sl._read
-            def read(path):
-                raw = real_read(path)
+    elif mode in ("before-acquire-block", "before-release-block"):
+        real_block, calls = sl._block, []    # the signal lands just before the mask
+        def block(on_main):
+            calls.append(1)
+            if len(calls) == (1 if mode == "before-acquire-block" else 2):
                 kill()
-                return raw
-            sl._read = read
-        print("body", flush=True)
-    print("after", flush=True)
+            return real_block(on_main)
+        sl._block = block
+    elif mode == "second-in-release":        # a second signal while the first one releases
+        real_release = sl.release
+        def release(held):
+            kill()
+            return real_release(held)
+        sl.release = release
+    try:
+        with sl.station_lock(delivered, command="window"):
+            if mode == "in-release":         # between release's read and its unlink
+                real_read = sl._read
+                def read(path):
+                    raw = real_read(path)
+                    kill()
+                    return raw
+                sl._read = read
+            if mode in ("second-in-release", "second-in-unwind"):
+                try:
+                    kill()                   # the first signal, inside the body
+                finally:
+                    if mode == "second-in-unwind":
+                        kill()               # a second one while the first unwinds
+            print("body", flush=True)
+        print("after", flush=True)
+    finally:
+        blocked = set(signal.pthread_sigmask(signal.SIG_BLOCK, [])) & {signal.SIGTERM, signal.SIGHUP}
+        print("blocked" if blocked else "unblocked", flush=True)
 """)
 
+_WINDOWS = ["after-open", "after-close", "after-acquire", "in-release", "before-acquire-block",
+            "before-release-block", "second-in-release", "second-in-unwind"]
 
-@pytest.mark.parametrize("mode", ["after-open", "after-close", "after-acquire", "in-release"])
-def test_sigterm_in_acquire_or_release_leaves_no_lock(tmp_path, mode):
+
+@pytest.mark.parametrize("mode", _WINDOWS)
+def test_sigterm_in_any_window_leaves_no_lock_and_no_blocked_signals(tmp_path, mode):
     proc = subprocess.run([sys.executable, "-c", _WINDOW_SCRIPT, mode, str(tmp_path)],
                           capture_output=True, text=True, timeout=30)
-    assert proc.returncode == 128 + signal.SIGTERM, proc.stderr
+    out = proc.stdout.split()
+    assert proc.returncode == 128 + signal.SIGTERM, proc.stdout + proc.stderr
     assert not (tmp_path / LOCK_NAME).exists()
-    assert "after" not in proc.stdout.split()
+    assert "after" not in out
+    assert out[-1] == "unblocked"
     # a signal during acquire fires once the lock is held, before the body runs;
-    # one during release fires only once release has finished
-    assert ("body" in proc.stdout) == (mode == "in-release")
+    # one during or just before release fires only once the body has run
+    assert ("body" in out) == (mode in ("in-release", "before-release-block"))
+    assert "warning" not in proc.stderr       # released once, by its owner
+
+
+def test_signal_mask_is_restored(tmp_path):
+    before = signal.pthread_sigmask(signal.SIG_BLOCK, [])
+    with station_lock(tmp_path, command="run"):
+        assert signal.pthread_sigmask(signal.SIG_BLOCK, []) == before   # the body runs unblocked
+    assert signal.pthread_sigmask(signal.SIG_BLOCK, []) == before
+    (tmp_path / LOCK_NAME).write_bytes(FOREIGN)
+    with pytest.raises(StationLocked):
+        with station_lock(tmp_path, command="run"):
+            pass
+    assert signal.pthread_sigmask(signal.SIG_BLOCK, []) == before
 
 
 def test_release_warns_missing_when_the_lock_vanishes_before_unlink(tmp_path, monkeypatch, capsys):

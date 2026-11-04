@@ -182,19 +182,36 @@ def release(held: Held) -> None:
 
 
 _SIGNALS = (signal.SIGTERM, signal.SIGHUP)
+_base_mask: set | None = None      # the main thread's mask before station_lock blocked anything
 
 
-def _block(on_main: bool):
-    """Block SIGTERM and SIGHUP on the main thread; returns the mask to restore."""
-    return signal.pthread_sigmask(signal.SIG_BLOCK, _SIGNALS) if on_main else None
+def _block(on_main: bool) -> None:
+    """Block SIGTERM and SIGHUP on the main thread."""
+    if on_main:
+        signal.pthread_sigmask(signal.SIG_BLOCK, _SIGNALS)
 
 
-def _unblock(mask) -> None:
-    if mask is not None:
-        signal.pthread_sigmask(signal.SIG_SETMASK, mask)
+def _unblock(on_main: bool) -> None:
+    """Restore the main thread's mask from before station_lock. It never
+    depends on a value returned by `_block`: `pthread_sigmask` handles pending
+    signals on return, so a `_block` call can raise after it has blocked."""
+    if on_main and _base_mask is not None:
+        signal.pthread_sigmask(signal.SIG_SETMASK, _base_mask)
 
 
 def _raise_exit(signum, frame):
+    """SIGTERM/SIGHUP handler (main thread only). It releases a held lock
+    itself before raising: a signal can land after the `with` body and
+    before `station_lock`'s `finally` reaches `release`, and an exception
+    there would skip the release. So a signal ends the hold at once, before
+    the body's own cleanup unwinds."""
+    held = _held
+    if held is not None:
+        _block(True)
+        try:
+            release(held)
+        finally:
+            _unblock(True)
     raise SystemExit(128 + signum)
 
 
@@ -202,35 +219,39 @@ def _raise_exit(signum, frame):
 def station_lock(delivered: Path, *, command: str) -> Iterator[Held]:
     """Hold the station lock over `delivered` for the `with` body.
 
-    On the main thread SIGTERM and SIGHUP raise `SystemExit(128 + signum)`
-    so the `finally` releases; the previous handlers are restored on exit.
-    Both signals are also blocked while `acquire` and `release` run, so a
-    signal arriving there fires only once `held` is set (and the `finally`
-    releases) or once release has finished. Off the main thread no handlers
+    On the main thread SIGTERM and SIGHUP release the lock and raise
+    `SystemExit(128 + signum)` (`_raise_exit`); the previous handlers and
+    signal mask are restored on exit. Both signals are blocked while
+    `acquire` and `release` run, so neither is ever interrupted half-way: a
+    signal arriving during acquire fires once the lock is fully held, one
+    during release once release has finished. Off the main thread no handlers
     are installed and nothing is blocked: a SIGTERM there kills the process
     with default disposition and leaves the lock for `emcee lock clear`.
     """
+    global _base_mask
     previous: dict[int, object] = {}
     held: Held | None = None
     on_main = threading.current_thread() is threading.main_thread()
     try:
         if on_main:
+            _base_mask = signal.pthread_sigmask(signal.SIG_BLOCK, [])
             for signum in _SIGNALS:
                 previous[signum] = signal.signal(signum, _raise_exit)
-        mask = _block(on_main)
+        _block(on_main)
         try:
             held = acquire(Path(delivered).absolute() / LOCK_NAME, command=command)
         finally:
-            _unblock(mask)         # a pending signal fires here, with `held` already set
+            _unblock(on_main)      # a pending signal fires here, with the lock fully held
         yield held
     finally:
         try:
-            if held is not None:
-                mask = _block(on_main)
+            if held is not None and _held is held:     # else a signal handler released it
+                _block(on_main)
                 try:
                     release(held)
                 finally:
-                    _unblock(mask)
+                    _unblock(on_main)
         finally:
             for signum, handler in previous.items():
                 signal.signal(signum, signal.SIG_DFL if handler is None else handler)
+            _unblock(on_main)      # never leave the signals blocked, wherever an exit landed
