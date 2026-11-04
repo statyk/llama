@@ -534,3 +534,22 @@ def test_refusal_names_holder_and_emcee_commands(tmp_path):
     assert "emcee lock show" in text
     assert "emcee lock clear" in text
     assert (tmp_path / LOCK_NAME).read_bytes() == FOREIGN
+
+
+def test_station_lock_works_without_sighup_or_sigmask(tmp_path):
+    # Windows has neither: the module must import, and the lock must take and
+    # release with no handlers installed (the release build smoke-tests --help there).
+    code = textwrap.dedent('''
+        import signal, sys
+        del signal.SIGHUP, signal.pthread_sigmask
+        from pathlib import Path
+        import llama.station_lock as sl
+        before = signal.getsignal(signal.SIGTERM)
+        with sl.station_lock(Path(sys.argv[1]), command="t") as held:
+            assert signal.getsignal(signal.SIGTERM) is before
+            assert (Path(sys.argv[1]) / sl.LOCK_NAME).exists()
+        assert not (Path(sys.argv[1]) / sl.LOCK_NAME).exists()
+        print("ok")
+    ''')
+    r = subprocess.run([sys.executable, "-c", code, str(tmp_path)], capture_output=True, text=True)
+    assert r.returncode == 0 and r.stdout.strip() == "ok", r.stdout + r.stderr

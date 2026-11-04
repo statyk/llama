@@ -204,7 +204,12 @@ def release(held: Held) -> None:
           f"writes since {held.started} ran unguarded", file=sys.stderr)
 
 
-_SIGNALS = (signal.SIGTERM, signal.SIGHUP)
+# Windows has no SIGHUP and no pthread_sigmask: there the lock takes no
+# handlers and masks nothing, as off the main thread (a SIGTERM kills the
+# process and leaves the lock for `emcee lock clear`).
+_SIGNALS = tuple(getattr(signal, name) for name in ("SIGTERM", "SIGHUP")
+                 if hasattr(signal, name))
+_HAS_SIGMASK = hasattr(signal, "pthread_sigmask")
 
 # The mask alone does not keep the handler out of acquire and release:
 # `pthread_sigmask` blocks the main thread only, so with any other thread
@@ -296,7 +301,7 @@ def station_lock(delivered: Path, *, command: str) -> Iterator[Held]:
     process with default disposition and leaves the lock for `emcee lock clear`.
     """
     unblock: tuple | None = None       # the signals to unblock again; None off the main thread
-    if threading.current_thread() is threading.main_thread():
+    if _HAS_SIGMASK and threading.current_thread() is threading.main_thread():
         at_entry = signal.pthread_sigmask(signal.SIG_BLOCK, [])
         unblock = tuple(s for s in _SIGNALS if s not in at_entry)
     previous: dict[int, object] = {}
