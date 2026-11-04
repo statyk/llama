@@ -429,14 +429,21 @@ def test_backup_saved_before_each_write_with_sha(tmp_path, monkeypatch):
     assert order == ["a", "b", "c"]
     run_dir, = _backup_dirs(home)
     assert re.fullmatch(r"\d{8}T\d{6}Z", run_dir.name)
+    titles = {"a": "Dead Hour", "b": "Dead Hour", "c": None}
     expected = []
     for pkg in (a, b, c):
         raw, mtime = original[pkg.name]
         assert (run_dir / f"{pkg.name}.json").read_bytes() == raw
-        expected += [{"slug": pkg.name, "before_sha256": _sha(raw), "mtime_ns": mtime},
+        # The before line carries the target title (null for a profile with
+        # none), after the existing fields, so a hand restore can recognise
+        # this run's unrecorded write.
+        expected += [{"slug": pkg.name, "before_sha256": _sha(raw), "mtime_ns": mtime,
+                      "title": titles[pkg.name]},
                      {"slug": pkg.name,
                       "after_sha256": _sha((pkg / "manifest.json").read_bytes())}]
     assert _records(run_dir) == expected
+    assert [list(r) for r in _records(run_dir)[::2]] == [
+        ["slug", "before_sha256", "mtime_ns", "title"]] * 3      # field order kept
     assert all(m == OLD_NS for _, m in original.values())
 
 
@@ -446,10 +453,10 @@ def test_backup_failure_aborts_before_writing_that_show(tmp_path, monkeypatch):
     before = _snapshot(station)
     real_save = cli_mod._save_backup
 
-    def save(run_dir, slug, raw, mtime_ns):
+    def save(run_dir, slug, *rest):
         if slug == "b":
             raise OSError(28, "No space left on device")
-        return real_save(run_dir, slug, raw, mtime_ns)
+        return real_save(run_dir, slug, *rest)
 
     monkeypatch.setattr(cli_mod, "_save_backup", save)
     result = runner.invoke(app, ["retitle", "--yes"])
@@ -470,10 +477,10 @@ def test_backup_failure_of_the_real_writer_on_an_existing_backup_file(tmp_path, 
     before = _snapshot(station)
     real_save = cli_mod._save_backup
 
-    def save(run_dir, slug, raw, mtime_ns):
+    def save(run_dir, slug, *rest):
         if slug == "b":
             (run_dir / "b.json").write_bytes(b"in the way")    # "xb" refuses it
-        return real_save(run_dir, slug, raw, mtime_ns)
+        return real_save(run_dir, slug, *rest)
 
     monkeypatch.setattr(cli_mod, "_save_backup", save)
     result = runner.invoke(app, ["retitle", "--yes"])

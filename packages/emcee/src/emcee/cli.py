@@ -1523,13 +1523,16 @@ def _fsync_dir(path: Path) -> None:
         os.close(fd)
 
 
-def _save_backup(run_dir: Path, slug: str, raw: bytes, mtime_ns: int) -> None:
+def _save_backup(run_dir: Path, slug: str, raw: bytes, mtime_ns: int,
+                 title: str | None) -> None:
     """`<slug>.json` (the original bytes) and its record line, both durable before
     the caller writes the show: under the lock a SIGTERM ends the process at once.
+    The line carries the target `title`, so a hand restore can tell this run's
+    unrecorded write (backup plus only that title) from a foreign one.
     The run dir is fsynced after them, so their entries survive power loss too."""
     _durable_write(run_dir / f"{slug}.json", raw, "xb")
     _append_record(run_dir, {"slug": slug, "before_sha256": hashlib.sha256(raw).hexdigest(),
-                             "mtime_ns": mtime_ns})
+                             "mtime_ns": mtime_ns, "title": title})
     _fsync_dir(run_dir)
 
 
@@ -1591,7 +1594,7 @@ def _retitle_under_lock(config: EmceeConfig, plan: RetitlePlan) -> bool:
     for i, w in enumerate(plan.writes):
         try:
             mtime_ns = os.stat(w.dir / _MANIFEST).st_mtime_ns
-            _save_backup(run_dir, w.slug, w.raw, mtime_ns)
+            _save_backup(run_dir, w.slug, w.raw, mtime_ns, w.new)
         except OSError as exc:
             typer.echo(f"error: {w.slug}: backup failed ({exc}); stopping before writing it",
                        err=True)
