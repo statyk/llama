@@ -94,5 +94,24 @@ def test_release_of_one_tool_never_unlinks_the_others_lock(tmp_path, capsys):
     llama_bytes = lock.read_bytes()
     esl.release(theirs)
     assert lock.read_bytes() == llama_bytes
+    err = capsys.readouterr().err
+    assert "was not ours" in err and "tool: llama" in err
     lsl.release(llama_held)
     assert not lock.exists()
+
+
+def test_both_tools_write_the_same_body_lines_in_the_same_order(tmp_path):
+    keys = []
+    for tool, take in (("llama", lsl.acquire), ("emcee", esl.acquire)):
+        lock = tmp_path / tool / lsl.LOCK_NAME
+        lock.parent.mkdir()
+        take(lock, command=f"{tool} test")
+        raw = lock.read_bytes()
+        assert raw.endswith(b"\n") and raw.count(b"\n") == 6
+        first, *body = raw.decode("utf-8").splitlines()
+        assert lsl.token_of(raw) is not None and esl.token_of(raw) is not None
+        assert first.startswith(lsl.MAGIC + " ")
+        keys.append([line.split(": ", 1)[0] for line in body])
+        assert body[0] == f"tool: {tool}" and body[1] == f"command: {tool} test"
+    esl._held = lsl._held = None
+    assert keys[0] == keys[1] == ["tool", "command", "host", "pid", "started"]

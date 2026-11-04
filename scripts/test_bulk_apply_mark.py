@@ -1429,3 +1429,83 @@ def test_unmark_dry_run_takes_no_lock(tmp_path, monkeypatch, _lock_state):
     assert ba.unmark(root, batch, station_root=station, apply=False, echo=msgs.append) == 0
     assert any("d1: would be: station copy put back" in m for m in msgs)
     assert _files(station) == before
+
+
+def _break_lock_create(how: str, station: Path, monkeypatch):
+    """Make creating the station lock fail without touching anything else: a read-only
+    station root (EACCES from os.open), os.open itself refusing the lock path, or an
+    fsync of the new lock failing (acquire unlinks it and re-raises the OSError)."""
+    if how == "read-only root":
+        if os.geteuid() == 0:
+            pytest.skip("root ignores directory permissions")
+        station.chmod(0o555)
+        return lambda: station.chmod(0o755)
+    if how == "open refuses":
+        real = os.open
+
+        def refusing(path, *a, **k):
+            if str(path).endswith(station_lock.LOCK_NAME):
+                raise PermissionError(13, "Permission denied", str(path))
+            return real(path, *a, **k)
+        monkeypatch.setattr(os, "open", refusing)
+        return lambda: monkeypatch.setattr(os, "open", real)
+    real_fsync = os.fsync
+    monkeypatch.setattr(station_lock.os, "fsync",
+                        lambda fd: (_ for _ in ()).throw(OSError(5, "Input/output error")))
+    return lambda: monkeypatch.setattr(os, "fsync", real_fsync)
+
+
+@pytest.mark.parametrize("how", ["read-only root", "open refuses", "fsync fails"])
+def test_mark_stops_when_the_lock_cannot_be_created(tmp_path, monkeypatch, _lock_state, how):
+    cfg, root, station = _lib(tmp_path)
+    wss = [_show(root, s, delivered=True, station=station) for s in ("a", "b", "c")]
+    pk = _show(root, "p")
+    before = _files(station)
+    batch = _batch(tmp_path)
+    items = [_item(ws.dir.name, digests=input_digests(ws)) for ws in wss]
+    items.append(_item("p", digests=input_digests(pk)))
+    undo = _break_lock_create(how, station, monkeypatch)
+    msgs = []
+    try:
+        assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                             echo=msgs.append) == 1
+    finally:
+        undo()
+    assert _files(station) == before                   # no lock left, copies untouched
+    [line] = _records(batch)
+    assert line["slug"] == "a" and line["mark_added"] is True
+    station_text = line["station"]
+    assert station_text.startswith("refused: cannot create the station lock")
+    assert "\n" not in station_text
+    assert campaign.awaiting_fix(campaign.read_record(wss[0]))
+    for s in ("b", "c", "p"):
+        assert campaign.read_record(ShowWorkspace(root / "shows" / s)) is None
+    reason = station_text.removeprefix("refused: ")
+    text = "\n".join(msgs)
+    assert f"refusing to mark station copies: {reason}; the batch stops" in text
+    listing = _listed(msgs)
+    for s in ("b", "c", "p"):
+        assert f"{s}: not reached ({reason})" in listing
+    # retryable: once the lock can be created a re-run marks every item
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 0
+    assert {l["slug"]: l["station"] for l in _records(batch) if l["slug"] != "p"} == {
+        "a": "marked", "b": "marked", "c": "marked"}
+
+
+@pytest.mark.parametrize("how", ["read-only root", "open refuses", "fsync fails"])
+def test_unmark_stops_when_the_lock_cannot_be_created(tmp_path, monkeypatch, _lock_state,
+                                                      how):
+    root, station, batch, wss, originals = _marked(tmp_path, "d1", "d2", packaged=("p1",))
+    before = _files(station)
+    recs = {s: campaign.read_record(ws).model_dump_json() for s, ws in wss.items()}
+    undo = _break_lock_create(how, station, monkeypatch)
+    msgs = []
+    try:
+        assert ba.unmark(root, batch, station_root=station, apply=True, echo=msgs.append) == 1
+    finally:
+        undo()
+    assert _files(station) == before                   # nothing put back
+    assert {s: campaign.read_record(ws).model_dump_json() for s, ws in wss.items()} == recs
+    assert msgs[0].startswith("d1: refused: cannot create the station lock")
+    assert "d2: not attempted" in msgs and "p1: not attempted" in msgs

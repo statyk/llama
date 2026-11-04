@@ -23,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 from collections import Counter
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -948,6 +949,35 @@ class _Stop:
 _LOCKED = "the station is locked"
 
 
+class _LockRefused(Exception):
+    """The station lock was not taken: held by another writer, or it could not be
+    created. `station` is the one-line, retryable station outcome; `stop` stops the
+    batch."""
+
+    def __init__(self, station: str, stop: _Stop):
+        super().__init__(station)
+        self.station, self.stop = station, stop
+
+
+@contextmanager
+def _station_locked(out: Path, *, command: str):
+    """`station_lock.for_package` for `bulk_apply`'s per-show step. Every failure to
+    take the lock (held, or any create error) raises `_LockRefused`; errors from the
+    body pass through untouched."""
+    stack = ExitStack()
+    try:
+        stack.enter_context(station_lock.for_package(out, command=command))
+    except station_lock.StationLocked as exc:
+        raise _LockRefused(f"refused: {_LOCKED}",
+                           _Stop(_LOCKED, str(exc).splitlines())) from None
+    except (LlamaError, OSError) as exc:
+        reason = (_one_line(exc) if isinstance(exc, LlamaError)
+                  else f"cannot create the station lock ({_one_line(exc)})")
+        raise _LockRefused(f"refused: {reason}", _Stop(reason, [])) from None
+    with stack:
+        yield
+
+
 def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
               record: Path, delivered_ids: _DeliveredIds,
               line: dict | None = None) -> tuple[str, bool, _Stop | None]:
@@ -956,8 +986,9 @@ def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
     made durable; a station failure never rolls it back (the library side is the safe
     direction), so this takes the plain show lock, not `show_unit`. A delivered show's
     station step (the copy's first stat through `_mark_station`, the emcee check between)
-    runs under the station lock; a held lock refuses the item (retryable) and stops the
-    batch. The holder lines go to the stop only, never into the one-line record."""
+    runs under the station lock; a held lock, or one that cannot be created, refuses the
+    item (retryable) and stops the batch. The holder lines go to the stop only, never
+    into the one-line record."""
     ws = ShowWorkspace(root / "shows" / item.slug)
     if not ws.dir.is_dir():
         return "skipped: no show directory", True, None
@@ -965,7 +996,7 @@ def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
         pid = _performance_id(ws)
         delivered = bool(pid) and pid in delivered_ids
         if item.digests is not None and input_digests(ws) != item.digests:
-            return "skipped: inputs changed", delivered, []
+            return "skipped: inputs changed", delivered, None
         at = campaign._now()
         if not campaign.is_awaiting(ws):          # an unreadable record counts as awaiting
             campaign.add_mark(ws, reason=item.reason, start_stage=item.start_stage,
@@ -984,10 +1015,8 @@ def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
                        if root_problem == "unreadable"
                        else f"refused: {_empty_station_message(station_root)}")
         else:
-            entered = False
             try:
-                with station_lock.for_package(out, command="bulk_apply mark"):
-                    entered = True
+                with _station_locked(out, command="bulk_apply mark"):
                     if (copy_problem := _station_copy_problem(out)) is not None:
                         station = copy_problem
                     elif running := station_mark.emcee_running():  # before EACH write (b)
@@ -996,13 +1025,8 @@ def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
                     else:
                         station, before_sha, after_sha = _mark_station(
                             item, out, batch, at, own.at if own else None, line)
-            except station_lock.StationLocked as exc:
-                station = f"refused: {_LOCKED}"
-                stop = _Stop(_LOCKED, str(exc).splitlines())
-            except LlamaError as exc:
-                if entered:
-                    raise
-                station = f"refused: {_one_line(exc)}"     # the lock could not be created
+            except _LockRefused as exc:            # held, or it could not be created
+                station, stop = exc.station, exc.stop
         _append_jsonl(record, {"slug": item.slug, "reason": item.reason,
                                "start_stage": item.start_stage, "mark_added": mark_added,
                                "station": station, "before_sha256": before_sha,
@@ -1019,10 +1043,11 @@ def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: 
     recorded with a station outcome other than `refused`, `_UNSAVED` or `_UNVERIFIED` are
     skipped (those three are retried: a station copy already carrying this batch's mark
     is recorded `marked` once its before bytes verify). A running emcee, or a station
-    lock held by another writer, stops the batch. Exit 0 only when every delivered item
-    is `marked` or `already marked`, judged over the batch's WHOLE record (each slug's last line, earlier runs included, so a
-    re-run still reports a terminal `no station copy`) plus this run's items that wrote
-    no line (inputs changed, errors, not reached); else 1, listing each."""
+    lock held by another writer or that cannot be created, stops the batch. Exit 0 only
+    when every delivered item is `marked` or `already marked`, judged over the batch's
+    WHOLE record (each slug's last line, earlier runs included, so a re-run still reports
+    a terminal `no station copy`) plus this run's items that wrote no line (inputs
+    changed, errors, not reached); else 1, listing each."""
     (batch / "before").mkdir(parents=True, exist_ok=True)
     record = batch / "record.jsonl"
     last = _last_lines(record)
@@ -1153,8 +1178,8 @@ def unmark(root: Path, batch: Path, *, station_root: Path, apply: bool, echo) ->
     evidence or listed, and a before copy with no record line at all (a run stopped
     between its station write and the line) is listed (Task 15b M1). Exit 1 when
     anything is listed. With `apply`, each show is handled under its show lock and then
-    the station lock; a lock held by another writer stops the reversal there, listing
-    every later slug `not attempted` (exit 1). The dry run takes no station lock."""
+    the station lock; a lock held by another writer, or one that cannot be created,
+    stops the reversal there, listing every later slug `not attempted` (exit 1). The dry run takes no station lock."""
     record = batch / "record.jsonl"
     if not record.exists():
         raise LlamaError(f"no record.jsonl in {batch}")
@@ -1178,14 +1203,14 @@ def unmark(root: Path, batch: Path, *, station_root: Path, apply: bool, echo) ->
             try:
                 with file_lock(ws.lock):
                     if apply:
-                        with station_lock.for_package(station_root / slug,
-                                                      command="bulk_apply unmark"):
+                        with _station_locked(station_root / slug,
+                                             command="bulk_apply unmark"):
                             what, problem = _unmark_one(ws, line, batch, station_root, apply)
                     else:
                         what, problem = _unmark_one(ws, line, batch, station_root, apply)
-            except station_lock.StationLocked as exc:
-                echo(f"{slug}: refused: {_LOCKED}")
-                for text in str(exc).splitlines():
+            except _LockRefused as exc:            # held, or it could not be created
+                echo(f"{slug}: {exc.station}")
+                for text in exc.stop.lines:
                     echo(f"  {text.strip()}")
                 for rest in remaining[remaining.index(slug) + 1:]:
                     echo(f"{rest}: not attempted")
