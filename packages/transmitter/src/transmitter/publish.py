@@ -260,8 +260,9 @@ def _publish_site(p: Publisher, rows: list[PlanRow], last: int, now_us: int, not
         doc = site.build_notes(slug, manifest, briefing, site.airtimes(rows, slug, p.epoch, lo, hi),
                                analyses[row.key].meta)
         notes_body = (json.dumps(doc, sort_keys=True) + "\n").encode()
+        # "replace": a lone surrogate from a manifest's \ud800 escape becomes "?", not an abort
         page = site.render_show_page(p.template, doc, site_url=p.cfg.antenna.site_url,
-                                     station_name=p.cfg.antenna.station_name).encode()
+                                     station_name=p.cfg.antenna.station_name).encode("utf-8", "replace")
         digest = hashlib.sha256(notes_body + b"\0" + page).hexdigest()
         if notes.get(slug) == digest:
             continue

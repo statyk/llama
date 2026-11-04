@@ -492,3 +492,28 @@ def test_publish_site_never_asks_for_an_interstitial_analysis(tmp_path):
     publish.publish_batch(p, _now(p))
     assert asked and all(r.kind == "show" for r in asked)
     assert [s["slug"] for s in bucket.json("timeline.json")["shows"]] == ["band-1"]
+
+
+@pytest.mark.parametrize("damage", [
+    {"show": "not an object"},
+    {"source": ["not", "an", "object"]},
+    {"tracks": 7},
+    {"show": {"artist": "Ba\ud800nd", "date": "2005-11-01", "venue": "Cl\ud800ub", "city": "Lincoln"}},
+], ids=["show-string", "source-list", "tracks-int", "lone-surrogate"])
+def test_a_damaged_manifest_still_publishes_the_page_and_the_timeline(tmp_path, damage):
+    from tests_transmitter.helpers import build_package, make_root
+
+    root = make_root(tmp_path)
+    pkg = build_package(root, "band-1")
+    manifest = json.loads((pkg / "manifest.json").read_text(encoding="utf-8"))
+    manifest.update(damage)
+    (pkg / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")   # ensure_ascii keeps \ud800 as an escape
+    bucket = FakeBucket()
+    p = make_publisher(tmp_path, bucket, station_root=root)
+    _segs(p, range(100, 101))
+    report = publish.publish_batch(p, _now(p))
+    assert report.error is None
+    assert [s["slug"] for s in bucket.json("timeline.json")["shows"]] == ["band-1"]
+    puts = bucket.puts()
+    assert puts.index("show/band-1.html") < puts.index("timeline.json")
+    assert bucket.json("notes/band-1.json")["briefing"].startswith("A fine show.")

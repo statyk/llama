@@ -182,9 +182,14 @@ def parse_briefing(text: str) -> list[dict]:
 def build_notes(slug: str, manifest: dict | None, briefing: str | None, airtimes: list[dict],
                 meta: Mapping) -> dict:
     manifest = manifest or {}
-    show = manifest.get("show") or {}
-    source = manifest.get("source") or {}
-    tracks = manifest.get("tracks") or []
+
+    def part(key: str, kind: type):
+        # A damaged part reads as missing, so one bad manifest can't stop timeline.json.
+        value = manifest.get(key)
+        return value if isinstance(value, kind) else kind()
+    show = part("show", dict)
+    source = part("source", dict)
+    tracks = part("tracks", list)
 
     def pick(section: Mapping, key: str):
         # Cached metadata fills a missing OR null field (llama writes null for unknown).
