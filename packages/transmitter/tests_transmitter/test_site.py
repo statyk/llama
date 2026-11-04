@@ -6,12 +6,19 @@ import pytest
 from tests_transmitter.helpers import build_package, make_root
 from transmitter import aacenc, grid, site
 from transmitter.analysis import FileAnalysis, ShowAnalysis
+from transmitter.clock import BlockConfig, ClockConfig
 from transmitter.layout import PlanRow
 from transmitter.workspace import Epoch
 
 EPOCH = Epoch("e1", grid.iso_to_us("2026-10-10T00:00:00Z"))
 REPO = Path(__file__).resolve().parents[3]
 TEMPLATE = (REPO / "antenna" / "templates" / "show.html").read_text()
+CLOCK = ClockConfig(timezone="America/New_York", block=[
+    BlockConfig(name="bluegrass", title="Bluegrass in the Morning", start="07:00", profiles=["bluegrass"]),
+    BlockConfig(name="dead", start="20:00"),
+    BlockConfig(name="A", title="A title", start="12:00", profiles=["x"]),
+])
+A_NOM, B_NOM = "2026-10-10T16:00:00.000Z", "2026-10-10T18:00:00.000Z"
 META = {"artist": "Band", "date": "2005-11-01", "venue": "Club", "city": "Lincoln, NE",
         "profile": "indie", "url": "https://archive.org/details/band2005", "lineage": "AUD"}
 
@@ -47,7 +54,7 @@ def test_timeline_window_and_recent():
     analyses = {k: _analysis(k) for k in "abc"}
     now = EPOCH.epoch_us + grid.frame_to_us(1500)          # inside b
     last_n = 3                                             # published through frame 1764
-    tl = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=last_n, pause_samples=33_075)
+    tl = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=last_n, pause_samples=33_075, clock=CLOCK)
     assert [s["slug"] for s in tl["shows"]] == ["show-a", "show-b"]     # c starts after the horizon
     assert tl["recent"] == ["show-a"]
     assert tl["anchors"] == [] and tl["epoch_id"] == "e1"
@@ -57,7 +64,7 @@ def test_timeline_window_and_recent():
 
 
 def test_timeline_skips_rows_without_analysis():
-    tl = site.build_timeline([_row(0, "a", 0)], {}, EPOCH, now_us=EPOCH.epoch_us, last_n=5, pause_samples=0)
+    tl = site.build_timeline([_row(0, "a", 0)], {}, EPOCH, now_us=EPOCH.epoch_us, last_n=5, pause_samples=0, clock=CLOCK)
     assert tl["shows"] == []
 
 
@@ -96,6 +103,7 @@ def test_show_page_escapes_and_fills_every_placeholder():
     assert "TUE NOV 1" in html and ">2005</b>" in html
     assert "https://archive.org/details/band2005" in html and "AUD" in html
     assert "$" not in html                                 # no unfilled placeholder
+    assert '<span class="presents">LMA RADIO PRESENTS</span>' in html
 
 
 def test_a_non_utf8_briefing_is_an_unreadable_briefing(tmp_path):
@@ -138,9 +146,9 @@ def test_timeline_lower_bound_is_24_hours_before_now():
     rows = [old, _row(1, "b", 1000 + day_frames + 1000, frames=1000)]
     analyses = {k: _analysis(k) for k in "ab"}
     # "a" ends exactly 24 h before now: excluded; "b" is inside the window.
-    tl = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=10_000, pause_samples=0)
+    tl = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=10_000, pause_samples=0, clock=CLOCK)
     assert [s["slug"] for s in tl["shows"]] == ["show-b"]
-    just_in = site.build_timeline(rows, analyses, EPOCH, now_us=now - 1, last_n=10_000, pause_samples=0)
+    just_in = site.build_timeline(rows, analyses, EPOCH, now_us=now - 1, last_n=10_000, pause_samples=0, clock=CLOCK)
     assert [s["slug"] for s in just_in["shows"]] == ["show-a", "show-b"]
 
 
@@ -148,7 +156,7 @@ def test_recent_is_capped_at_ten_newest_first():
     rows = [_row(i, f"k{i}", i * 1000, frames=1000) for i in range(12)]
     analyses = {f"k{i}": _analysis(f"k{i}") for i in range(12)}
     now = EPOCH.epoch_us + grid.frame_to_us(12 * 1000)    # all twelve have ended
-    tl = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=10_000, pause_samples=0)
+    tl = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=10_000, pause_samples=0, clock=CLOCK)
     assert tl["recent"] == [f"show-k{i}" for i in range(11, 1, -1)]
 
 
@@ -166,7 +174,7 @@ def test_timeline_lists_no_interstitial_rows():
     rows = [_row(0, "a", 0), _row(1, "b", 1087, kind="interstitial")]
     analyses = {k: _analysis(k) for k in "ab"}
     now = EPOCH.epoch_us + grid.frame_to_us(2000)
-    tl = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=5, pause_samples=0)
+    tl = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=5, pause_samples=0, clock=CLOCK)
     assert [s["slug"] for s in tl["shows"]] == ["show-a"]
     assert tl["recent"] == ["show-a"]
 
@@ -226,8 +234,8 @@ def test_archive_link_is_a_literal_prefix_check(url, want):
     assert site.archive_link(url) == want
 
 
-def _page(*, briefing=None, setlist=(), url=None, site_url="https://radio.example.org", **source):
-    manifest = {"tracks": list(setlist), "source": {"url": url, **source}}
+def _page(*, briefing=None, setlist=(), url=None, site_url="https://radio.example.org", program=None, **source):
+    manifest = {"tracks": list(setlist), "source": {"url": url, **source}, "dj_audio": {"title": program}}
     notes = site.build_notes("s", manifest, briefing, [], META)
     return site.render_show_page(TEMPLATE, notes, site_url=site_url, station_name="LMA Radio")
 
@@ -369,7 +377,7 @@ def test_the_template_uses_the_new_look_and_links_home():
     assert 'href="/"' in TEMPLATE and "../style.css" not in TEMPLATE
     assert '<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">' in TEMPLATE
     assert '<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">' in TEMPLATE
-    for copy in ("LMA RADIO PRESENTS", "GEN ADM", "Liner notes"):
+    for copy in ("$presents", "GEN ADM", "Liner notes"):
         assert copy in TEMPLATE
 
 
@@ -467,3 +475,110 @@ def test_parse_briefing_leaves_a_line_without_the_pointer_unstripped():
 def test_parse_briefing_strips_a_leading_pointer_from_a_paragraph_line():
     assert site.parse_briefing("## Set 1\n(see cautions) Bar\n") == [
         {"heading": "Set 1", "blocks": [{"p": "Bar"}]}]
+
+
+def test_program_title_reads_dj_audio_title_only():
+    assert site.program_title({"dj_audio": {"title": " Gravel & Steel "}}) == "Gravel & Steel"
+    for m in (None, {}, {"dj_audio": None}, {"dj_audio": []}, {"dj_audio": {}},
+              {"dj_audio": {"title": None}}, {"dj_audio": {"title": "  "}}, {"dj_audio": {"title": 7}}):
+        assert site.program_title(m) is None
+
+
+def test_block_title_falls_back_to_name_and_to_unknown_blocks():
+    assert site.block_title(CLOCK, "bluegrass") == "Bluegrass in the Morning"
+    assert site.block_title(CLOCK, "dead") == "dead"
+    assert site.block_title(CLOCK, "renamed-away") == "renamed-away"
+
+
+def _blk(seq, key, start_frame, block, nominal, **kw):
+    return _row(seq, key, start_frame, block=block, nominal_start=nominal, **kw)
+
+
+def _start_us(row):
+    return site.row_span_us(row, EPOCH)[0]
+
+
+def _iso_start(row):
+    return grid.us_to_iso(_start_us(row))
+
+
+def _rows():
+    return [_blk(0, "a", 0, "A", A_NOM), _blk(1, "b", 1087, "A", A_NOM),
+            _blk(2, "i", 2174, "A", A_NOM, kind="interstitial"),
+            _blk(3, "c", 2300, "B", B_NOM, kind="interstitial"), _blk(4, "d", 2400, "B", B_NOM)]
+
+
+def test_occurrence_span_runs_to_the_first_row_of_the_next_occurrence():
+    rows = _rows()
+    spans = site.occurrence_spans(rows, EPOCH)
+    assert spans[("A", A_NOM)] == (_start_us(rows[0]), _start_us(rows[3]))
+    assert spans[("B", B_NOM)] == (_start_us(rows[3]), None)
+
+
+def test_occurrence_spans_ignore_pre_scheduler_rows():
+    old = _row(9, "o", 0)
+    assert set(site.occurrence_spans([old, *_rows()], EPOCH)) == {("A", A_NOM), ("B", B_NOM)}
+
+
+def test_timeline_adds_block_fields_and_blocks_without_changing_old_fields():
+    rows = _rows()
+    analyses = {k: _analysis(k) for k in "abcd"}
+    now = EPOCH.epoch_us + grid.frame_to_us(3000)
+    doc = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=10, pause_samples=0, clock=CLOCK)
+    plain = [_row(r.seq, r.key, r.start_frame, kind=r.kind) for r in rows]
+    old = site.build_timeline(plain, analyses, EPOCH, now_us=now, last_n=10, pause_samples=0, clock=CLOCK)
+    assert len(doc["shows"]) == len(old["shows"]) == 3
+    for s, o in zip(doc["shows"], old["shows"]):
+        got = {k: v for k, v in s.items() if k not in ("block", "nominal_start", "program")}
+        assert got == {k: v for k, v in o.items() if k not in ("block", "nominal_start", "program")}
+    assert doc["shows"][0]["block"] == "A" and doc["shows"][0]["nominal_start"] == A_NOM
+    assert doc["shows"][0]["program"] is None
+    assert doc["blocks"] == [
+        {"block": "A", "nominal_start": A_NOM, "title": "A title", "start": _iso_start(rows[0]),
+         "end": _iso_start(rows[3])},
+        {"block": "B", "nominal_start": B_NOM, "title": "B", "start": _iso_start(rows[3])},
+    ]
+
+
+def test_timeline_pre_scheduler_show_has_null_block_and_no_blocks_entry():
+    doc = site.build_timeline([_row(0, "a", 0)], {"a": _analysis("a")}, EPOCH, now_us=EPOCH.epoch_us,
+                              last_n=5, pause_samples=0, clock=CLOCK)
+    s = doc["shows"][0]
+    assert s["block"] is None and s["nominal_start"] is None and s["program"] is None
+    assert doc["blocks"] == []
+
+
+def test_notes_carry_program():
+    doc = site.build_notes("s", {"dj_audio": {"title": "One More from the Archive"}}, "", [], {})
+    assert doc["program"] == "One More from the Archive"
+    assert site.build_notes("s", None, None, [], {})["program"] is None
+
+
+def test_show_page_escapes_program_title():
+    page = _page(program='<b>Late</b> "Night" & Co')
+    assert "&lt;b&gt;Late&lt;/b&gt; &quot;Night&quot; &amp; Co" in page and "<b>Late" not in page
+    assert '<span class="presents">LMA RADIO PRESENTS</span>' in _page(program=None)
+
+
+NOW = grid.iso_to_us("2026-10-14T15:00:00Z")
+
+
+def test_lineup_lists_nominal_occurrences_from_a_day_before_to_eight_days_after():
+    doc = site.build_lineup(CLOCK, NOW)
+    starts = [grid.iso_to_us(o["nominal_start"]) for o in doc["occurrences"]]
+    assert all(grid.iso_to_us(o["end"]) > NOW - site.DAY_US for o in doc["occurrences"])
+    assert max(starts) < NOW + 8 * site.DAY_US and starts == sorted(starts) and len(set(starts)) == len(starts)
+    assert sum(1 for o in doc["occurrences"] if o["block"] == "bluegrass") >= 8
+    o = next(o for o in doc["occurrences"] if o["block"] == "bluegrass")
+    assert set(o) == {"block", "nominal_start", "end", "title", "variety"} and o["title"] == "Bluegrass in the Morning"
+
+
+@pytest.mark.parametrize("profiles,variety", [([], True), (["bluegrass"], False), (["a", "b"], True)])
+def test_lineup_variety_flag(profiles, variety):
+    clock = ClockConfig(timezone="UTC", block=[BlockConfig(name="x", start="06:00", profiles=profiles)])
+    assert {o["variety"] for o in site.build_lineup(clock, NOW)["occurrences"]} == {variety}
+
+
+def test_lineup_bytes_are_stable_for_equal_content():
+    assert (json.dumps(site.build_lineup(CLOCK, NOW), sort_keys=True)
+            == json.dumps(site.build_lineup(CLOCK, NOW + 1), sort_keys=True))

@@ -34,7 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator, Protocol
 
-from transmitter import grid, site
+from transmitter import clock as clock_mod, grid, site
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
 from transmitter.errors import PublishError, PublishLocked, PutBudgetExceeded
@@ -236,7 +236,8 @@ def _extend_runs(runs: list[list[int]], start: int, last: int) -> list[list[int]
     return runs
 
 
-def _publish_site(p: Publisher, rows: list[PlanRow], last: int, now_us: int, notes: dict[str, str]) -> dict[str, str]:
+def _publish_site(p: Publisher, rows: list[PlanRow], last: int, now_us: int, notes: dict[str, str],
+                  clock=clock_mod.IMPLICIT_CLOCK) -> dict[str, str]:
     pause = grid.samples_for_seconds(p.cfg.render.clip_pause_seconds)
     lo, hi = now_us - site.DAY_US, p.epoch.start_us(last + 1)
     analyses = {}
@@ -248,7 +249,7 @@ def _publish_site(p: Publisher, rows: list[PlanRow], last: int, now_us: int, not
             a = p.analysis_for(r)
             if a is not None:
                 analyses[r.key] = a
-    timeline = site.build_timeline(rows, analyses, p.epoch, now_us=now_us, last_n=last, pause_samples=pause)
+    timeline = site.build_timeline(rows, analyses, p.epoch, now_us=now_us, last_n=last, pause_samples=pause, clock=clock)
     notes = dict(notes)
     root = p.cfg.station.root
     for show in timeline["shows"]:

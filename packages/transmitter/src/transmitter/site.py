@@ -14,6 +14,7 @@ from typing import Mapping, Sequence
 from urllib.parse import quote
 
 from transmitter import aacenc, grid
+from transmitter.clock import ClockConfig, occurrences
 from transmitter.analysis import ShowAnalysis
 from transmitter.layout import PlanRow
 from transmitter.render import show_layout
@@ -40,9 +41,54 @@ def file_starts(row: PlanRow, analysis: ShowAnalysis, pause_samples: int, epoch:
     return out
 
 
+def program_title(manifest: dict | None) -> str | None:
+    """The voiced program's title (`dj_audio.title`), stripped; None when absent or blank."""
+    if not isinstance(manifest, dict):
+        return None
+    audio = manifest.get("dj_audio")
+    if not isinstance(audio, dict):
+        return None
+    title = audio.get("title")
+    if not isinstance(title, str) or not title.strip():
+        return None
+    return title.strip()
+
+
+def block_title(clock: ClockConfig, name: str) -> str:
+    """A block's displayed title: its clock title, else its name (also for a block no longer in the clock)."""
+    for b in clock.block:
+        if b.name == name:
+            return b.title or name
+    return name
+
+
+def occurrence_spans(rows: Sequence[PlanRow], epoch: Epoch) -> dict[tuple[str, str], tuple[int, int | None]]:
+    """(block, nominal_start) -> (start_us, end_us or None), in plan order over every row kind.
+
+    An occurrence runs from its first row to the first later row of a different occurrence;
+    rows without a block (phase-1 plans) belong to no occurrence and end none."""
+    out: dict[tuple[str, str], tuple[int, int | None]] = {}
+    current: tuple[str, str] | None = None
+    for row in rows:
+        if row.block is None or row.nominal_start is None:
+            continue
+        key = (row.block, row.nominal_start)
+        start_us, _ = row_span_us(row, epoch)
+        if key not in out:
+            out[key] = (start_us, None)
+            if current is not None and out[current][1] is None:
+                out[current] = (out[current][0], start_us)
+            current = key
+        elif key != current and current is not None and out[current][1] is None:
+            out[current] = (out[current][0], start_us)
+    return out
+
+
 def build_timeline(rows: Sequence[PlanRow], analyses: Mapping[str, ShowAnalysis], epoch: Epoch, *,
-                   now_us: int, last_n: int, pause_samples: int) -> dict:
+                   now_us: int, last_n: int, pause_samples: int, clock: ClockConfig) -> dict:
     lo, hi = now_us - DAY_US, epoch.start_us(last_n + 1)
+    spans = occurrence_spans(rows, epoch)
+    listed: set[tuple[str, str]] = set()
     shows = []
     for row in rows:
         if row.kind != "show":
@@ -60,10 +106,31 @@ def build_timeline(rows: Sequence[PlanRow], analyses: Mapping[str, ShowAnalysis]
             "city": m.get("city"), "profile": m.get("profile"),
             "notes": f"notes/{row.slug}.json", "page": f"show/{row.slug}.html",
             "files": file_starts(row, a, pause_samples, epoch),
+            "block": row.block, "nominal_start": row.nominal_start, "program": None,
         })
+        if row.block is not None and row.nominal_start is not None:
+            listed.add((row.block, row.nominal_start))
     recent = [s["slug"] for s in reversed(shows) if grid.iso_to_us(s["end"]) <= now_us][:10]
+    blocks = []
+    for key in sorted(listed, key=lambda k: spans[k][0]):
+        start_us, end_us = spans[key]
+        entry = {"block": key[0], "nominal_start": key[1], "title": block_title(clock, key[0]),
+                 "start": grid.us_to_iso(start_us)}
+        if end_us is not None:
+            entry["end"] = grid.us_to_iso(end_us)
+        blocks.append(entry)
     return {"generated_at": grid.us_to_iso(now_us), "epoch_id": epoch.epoch_id,
-            "shows": shows, "recent": recent, "anchors": []}
+            "shows": shows, "recent": recent, "anchors": [], "blocks": blocks}
+
+
+def build_lineup(clock: ClockConfig, now_us: int) -> dict:
+    """The nominal weekly lineup: a day back to eight days ahead. No timestamp, so equal content is equal bytes."""
+    out = []
+    for occ in occurrences(clock, now_us - DAY_US, now_us + 8 * DAY_US):
+        out.append({"block": occ.block.name, "nominal_start": occ.nominal_iso,
+                    "end": grid.us_to_iso(occ.end_us), "title": block_title(clock, occ.block.name),
+                    "variety": len(occ.block.profiles) != 1})
+    return {"occurrences": out}
 
 
 def airtimes(rows: Sequence[PlanRow], slug: str, epoch: Epoch, lo_us: int, hi_us: int) -> list[dict]:
@@ -209,6 +276,7 @@ def build_notes(slug: str, manifest: dict | None, briefing: str | None, airtimes
         "setlist": [{"set": t.get("set"), "title": t.get("title"), "segue": bool(t.get("segue"))}
                     for t in tracks if isinstance(t, dict)],
         "airtimes": airtimes,
+        "program": program_title(manifest),
     }
 
 
@@ -320,5 +388,6 @@ def render_show_page(template: str, notes: Mapping, *, site_url: str | None, sta
         "setlist_html": _setlist_html(notes.get("setlist") or []),
         "lineage": lineage_html,
         "slug": html.escape(notes["slug"]),
+        "presents": html.escape(_text(notes.get("program")) or "LMA RADIO PRESENTS"),
     }
     return string.Template(template).safe_substitute(values)
