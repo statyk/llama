@@ -19,7 +19,11 @@ below that mark (a batch under it is a "horizon held" — and `fallback render`
 likewise defers its horizon rewrite, the next publish batch carrying the
 version). `service.HeldTracker` alerts `horizon-held` after
 `HELD_ALERT_AFTER = 3` consecutive `publish_all` passes ending held, since
-each pass re-sends the same batch and spends PUT budget. Publish, prune and
+each pass re-sends the same batch and spends PUT budget. `timeline.json` shows carry `program`, `block` and `nominal_start`; the
+document carries `blocks` (spans from the full persisted plan); the publisher
+writes `notes/_lineup.json` (nominal occurrences, now -24 h to +8 d, rewritten
+only on change, `max-age=300`); and the clock is loaded with
+`live_clock(save=False)`. Publish, prune and
 `fallback render` share a non-waiting flock (`publish.publish_lock`): when it
 is held they raise `PublishLocked`: `run` holds it only during its
 once-a-minute publish/prune step, so a manual `transmitter publish` while the

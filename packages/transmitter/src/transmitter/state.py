@@ -23,6 +23,7 @@ class PublishState:
     runs: list[list[int]] = field(default_factory=list)
     notes: dict[str, str] = field(default_factory=dict)
     high_water: int | None = None
+    lineup: str | None = None        # sha256 of the last notes/_lineup.json body PUT
 
     def listed_bound(self) -> int | None:
         """The highest segment index R2 may list: max(last, high_water)."""
@@ -36,7 +37,8 @@ def load_publish_state(ws: Workspace) -> PublishState:
         return PublishState()
     return PublishState(epoch_id=data.get("epoch_id"), first=data.get("first"),
                         last=data.get("last"), runs=[list(r) for r in data.get("runs", [])],
-                        notes=dict(data.get("notes", {})), high_water=data.get("high_water"))
+                        notes=dict(data.get("notes", {})), high_water=data.get("high_water"),
+                        lineup=data.get("lineup"))
 
 
 def save_publish_state(ws: Workspace, state: PublishState) -> None:

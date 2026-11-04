@@ -51,11 +51,13 @@ HTML_TYPE = "text/html; charset=utf-8"
 IMMUTABLE = "public, max-age=31536000, immutable"
 TIMELINE_CACHE = "public, max-age=30"
 NOTES_CACHE = "public, max-age=3600"
+LINEUP_CACHE = "public, max-age=300"
 STATE_CACHE = "no-store"
 HORIZON_KEY = "state/horizon.json"
 GUARD_KEY = "state/guard.json"
 OFFAIR_KEY = "state/offair.json"
 TIMELINE_KEY = "timeline.json"
+LINEUP_KEY = "notes/_lineup.json"      # notes/ is WAF-allowlisted and no slug starts with "_"
 CONTAINER = "adts"
 NO_FALLBACK = ("no fallback rendered: run `transmitter fallback render` first; nothing is "
                "published until a fallback exists (a horizon without one has no off-air notice)")
@@ -213,9 +215,12 @@ def horizon_doc(epoch: Epoch, first: int, last: int, now_us: int, fallback_versi
             "container": CONTAINER, "fallback_version": fallback_version}
 
 
+def _json_body(doc: dict) -> bytes:
+    return (json.dumps(doc, separators=(",", ":"), sort_keys=True) + "\n").encode()
+
+
 def put_json(uploader: Uploader, key: str, doc: dict, cache_control: str) -> None:
-    body = (json.dumps(doc, separators=(",", ":"), sort_keys=True) + "\n").encode()
-    uploader.put(key, body, JSON_TYPE, cache_control)
+    uploader.put(key, _json_body(doc), JSON_TYPE, cache_control)
 
 
 def check_epoch(state: PublishState, epoch: Epoch) -> None:
@@ -237,7 +242,9 @@ def _extend_runs(runs: list[list[int]], start: int, last: int) -> list[list[int]
 
 
 def _publish_site(p: Publisher, rows: list[PlanRow], last: int, now_us: int, notes: dict[str, str],
-                  clock=clock_mod.IMPLICIT_CLOCK) -> dict[str, str]:
+                  lineup: str | None = None) -> tuple[dict[str, str], str | None]:
+    """Returns (notes digests, lineup digest). The lineup is best-effort: its failure never stops the timeline."""
+    clock = clock_mod.live_clock(p.ws, save=False).clock
     pause = grid.samples_for_seconds(p.cfg.render.clip_pause_seconds)
     lo, hi = now_us - site.DAY_US, p.epoch.start_us(last + 1)
     analyses = {}
@@ -256,6 +263,7 @@ def _publish_site(p: Publisher, rows: list[PlanRow], last: int, now_us: int, not
         slug = show["slug"]
         row = next(r for r in rows if r.slug == slug and r.key in analyses)
         manifest, briefing = site.read_package_notes(Path(root) / row.dir) if root else (None, None)
+        show["program"] = site.program_title(manifest)      # read now, never from cached analysis meta
         if manifest is None and slug in notes:
             continue                                 # never replace a published page with a degraded one
         doc = site.build_notes(slug, manifest, briefing, site.airtimes(rows, slug, p.epoch, lo, hi),
@@ -273,7 +281,17 @@ def _publish_site(p: Publisher, rows: list[PlanRow], last: int, now_us: int, not
         p.uploader.put(f"show/{slug}.html", page, HTML_TYPE, NOTES_CACHE)
         notes[slug] = digest
     put_json(p.uploader, TIMELINE_KEY, timeline, TIMELINE_CACHE)
-    return notes
+    try:
+        body = _json_body(site.build_lineup(clock, now_us))
+        digest = hashlib.sha256(body).hexdigest()
+        if digest != lineup:
+            p.uploader.put(LINEUP_KEY, body, JSON_TYPE, LINEUP_CACHE)
+            lineup = digest
+    except PutBudgetExceeded:
+        raise
+    except Exception as exc:
+        p.log(f"lineup step failed: {exc!r}")
+    return notes, lineup
 
 
 def publish_batch(p: Publisher, now_us: int) -> PublishReport:
@@ -342,9 +360,9 @@ def publish_batch(p: Publisher, now_us: int) -> PublishReport:
                 f"horizon held: segment {last} is below the high-water mark {state.high_water}"
             report.held = True
             return report
-        notes = state.notes
+        notes, lineup = state.notes, state.lineup
         try:
-            notes = _publish_site(p, rows, last, now_us, state.notes)
+            notes, lineup = _publish_site(p, rows, last, now_us, state.notes, state.lineup)
         except PutBudgetExceeded as exc:
             report.stopped, report.error = "put-budget", str(exc)
             return report
@@ -366,7 +384,8 @@ def publish_batch(p: Publisher, now_us: int) -> PublishReport:
             report.error = f"horizon: {exc}"
             return report
         save_publish_state(p.ws, PublishState(epoch_id=p.epoch.epoch_id, first=first, last=last,
-                                              runs=state.runs, notes=notes, high_water=last))
+                                              runs=state.runs, notes=notes, high_water=last,
+                                              lineup=lineup))
         for n in uploaded:                           # only now: the horizon and local state agree
             (seg_dir / f"{n}.aac").unlink(missing_ok=True)
         report.uploaded, report.horizon = uploaded, (first, last)

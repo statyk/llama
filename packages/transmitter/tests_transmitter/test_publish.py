@@ -27,14 +27,16 @@ def test_uploads_segments_then_site_then_horizon(tmp_path):
     assert report.uploaded == list(range(100, 110)) and report.horizon == (100, 109)
     puts = bucket.puts()
     assert puts[:10] == [segment_key("etest", n) for n in range(100, 110)]
-    assert puts[10:] == ["notes/band-1.json", "show/band-1.html", "timeline.json", "state/horizon.json"]
+    assert puts[10:] == ["notes/band-1.json", "show/band-1.html", "timeline.json", "notes/_lineup.json",
+                      "state/horizon.json"]
     h = bucket.json("state/horizon.json")
     assert h == {"epoch_id": "etest", "epoch": p.epoch.iso, "d": 10.24, "first": 100, "last": 109,
                  "published_at": h["published_at"], "container": "adts",
                  "fallback_version": FALLBACK_VERSION}
     assert not any(p.ws.seg_dir("etest").iterdir())
     assert load_publish_state(p.ws) == PublishState(epoch_id="etest", first=100, last=109, runs=[[100, 109]],
-                                                    notes=load_publish_state(p.ws).notes, high_water=109)
+                                                    notes=load_publish_state(p.ws).notes, high_water=109,
+                                                    lineup=load_publish_state(p.ws).lineup)
 
 
 def test_cache_headers_and_types(tmp_path):
@@ -517,3 +519,176 @@ def test_a_damaged_manifest_still_publishes_the_page_and_the_timeline(tmp_path, 
     puts = bucket.puts()
     assert puts.index("show/band-1.html") < puts.index("timeline.json")
     assert bucket.json("notes/band-1.json")["briefing"].startswith("A fine show.")
+
+
+# --- programs and lineup -----------------------------------------------------
+
+CLOCK_TOML = ('timezone = "America/New_York"\n\n[[block]]\nname = "morning"\ntitle = "{title}"\n'
+              'start = "00:00"\n')
+
+
+def _set_title(pkg, title):
+    path = pkg / "manifest.json"
+    m = json.loads(path.read_text(encoding="utf-8"))
+    m["dj_audio"]["title"] = title
+    path.write_text(json.dumps(m, indent=2), encoding="utf-8")
+
+
+def _station(tmp_path):
+    from tests_transmitter.helpers import build_package, make_root
+
+    root = make_root(tmp_path)
+    return root, build_package(root, "band-1")
+
+
+def test_timeline_show_program_comes_from_the_manifest_at_publish_time(tmp_path):
+    root, pkg = _station(tmp_path)
+    _set_title(pkg, "Gravel & Steel")
+    bucket = FakeBucket()
+    p = make_publisher(tmp_path, bucket, station_root=root)
+    assert "title" not in p.analyses["k1"].meta
+    _segs(p, range(100, 101))
+    publish.publish_batch(p, _now(p))
+    assert bucket.json("timeline.json")["shows"][0]["program"] == "Gravel & Steel"
+    _set_title(pkg, "Other Hour")
+    _segs(p, range(101, 102))
+    publish.publish_batch(p, _now(p))
+    assert bucket.json("timeline.json")["shows"][0]["program"] == "Other Hour"
+
+
+def test_unreadable_manifest_publishes_program_null_and_keeps_the_published_page(tmp_path):
+    root, pkg = _station(tmp_path)
+    _set_title(pkg, "Gravel & Steel")
+    bucket = FakeBucket()
+    p = make_publisher(tmp_path, bucket, station_root=root)
+    _segs(p, range(100, 101))
+    publish.publish_batch(p, _now(p))
+    (pkg / "manifest.json").unlink()
+    _segs(p, range(101, 102))
+    publish.publish_batch(p, _now(p))
+    assert bucket.json("timeline.json")["shows"][0]["program"] is None
+    assert bucket.puts().count("notes/band-1.json") == 1
+    assert bucket.json("notes/band-1.json")["program"] == "Gravel & Steel"
+
+
+def test_title_change_republishes_notes_and_page(tmp_path):
+    root, pkg = _station(tmp_path)
+    bucket = FakeBucket()
+    p = make_publisher(tmp_path, bucket, station_root=root)
+    _segs(p, range(100, 101))
+    publish.publish_batch(p, _now(p))
+    assert bucket.json("notes/band-1.json")["program"] is None
+    _set_title(pkg, "Gravel & Steel")
+    _segs(p, range(101, 102))
+    publish.publish_batch(p, _now(p))
+    assert bucket.puts().count("notes/band-1.json") == 2 and bucket.puts().count("show/band-1.html") == 2
+    assert bucket.json("notes/band-1.json")["program"] == "Gravel & Steel"
+
+
+def test_block_titles_come_from_the_live_clock(tmp_path):
+    def titles(p, bucket, rng):
+        _segs(p, rng)
+        publish.publish_batch(p, _now(p))
+        return [b["title"] for b in bucket.json("timeline.json")["blocks"]]
+
+    bucket = FakeBucket()
+    # No clock.toml: the implicit clock's "open" block.
+    from transmitter.layout import PlanRow
+    rows = [PlanRow(seq=0, slug="band-1", dir="band-1", key="k1", start_frame=100 * 441, frames=441 * 50,
+                    run_start=True, block="open", nominal_start="2096-10-02T00:00:00+00:00")]
+    p = make_publisher(tmp_path, bucket, rows=rows)
+    assert titles(p, bucket, range(100, 101)) == ["open"]
+    rows2 = [dataclasses_replace(rows[0], block="morning")]
+    from transmitter import planner
+    planner.write_plan(p.ws.plan_path, rows2)
+    p.ws.clock_path.write_text(CLOCK_TOML.format(title="Bluegrass in the Morning"))
+    assert titles(p, bucket, range(101, 102)) == ["Bluegrass in the Morning"]
+    from transmitter.clock import live_clock
+    live_clock(p.ws)                                       # records clock.last-good.toml
+    p.ws.clock_path.write_text("block = 3")                # now invalid
+    assert titles(p, bucket, range(102, 103)) == ["Bluegrass in the Morning"]
+
+
+def dataclasses_replace(row, **kw):
+    import dataclasses
+    return dataclasses.replace(row, **kw)
+
+
+def test_lineup_is_put_once_and_again_only_when_its_content_changes(tmp_path):
+    bucket = FakeBucket()
+    p = make_publisher(tmp_path, bucket)
+    p.ws.clock_path.write_text(CLOCK_TOML.format(title="Morning"))
+    _segs(p, range(100, 101))
+    publish.publish_batch(p, _now(p))
+    assert bucket.puts().count("notes/_lineup.json") == 1
+    assert bucket.objects["notes/_lineup.json"]["CacheControl"] == "public, max-age=300"
+    assert bucket.json("notes/_lineup.json")["occurrences"][0]["title"] == "Morning"
+    digest = load_publish_state(p.ws).lineup
+    assert digest
+    _segs(p, range(101, 102))
+    publish.publish_batch(p, _now(p))
+    assert bucket.puts().count("notes/_lineup.json") == 1
+    assert load_publish_state(p.ws).lineup == digest
+    p.ws.clock_path.write_text(CLOCK_TOML.format(title="Evening"))
+    _segs(p, range(102, 103))
+    publish.publish_batch(p, _now(p))
+    assert bucket.puts().count("notes/_lineup.json") == 2
+    assert bucket.json("notes/_lineup.json")["occurrences"][0]["title"] == "Evening"
+    assert load_publish_state(p.ws).lineup != digest
+
+
+def test_lineup_failure_never_stops_the_timeline(tmp_path):
+    bucket = FakeBucket()
+    p = make_publisher(tmp_path, bucket)
+    logs = []
+    p.log = logs.append
+    _segs(p, range(100, 101))
+    publish.publish_batch(p, _now(p))                      # a good first lineup
+    before = load_publish_state(p.ws)
+    p.ws.clock_path.write_text(CLOCK_TOML.format(title="Changed"))
+    bucket.fail_puts["notes/_lineup.json"] = 99
+    mark = len(bucket.log)
+    _segs(p, range(101, 102))
+    report = publish.publish_batch(p, _now(p))
+    puts = [k for op, k in bucket.log[mark:] if op == "put"]
+    assert "timeline.json" in puts and report.horizon == (100, 101)
+    after = load_publish_state(p.ws)
+    assert after.lineup == before.lineup and after.notes == before.notes
+    assert any("lineup step failed" in m for m in logs)
+
+
+def test_lineup_put_budget_still_propagates(tmp_path):
+    from transmitter.errors import PutBudgetExceeded
+
+    bucket = FakeBucket()
+    p = make_publisher(tmp_path, bucket)
+    inner = p.uploader.put
+
+    def put(key, *a, **kw):
+        if key == "notes/_lineup.json":
+            raise PutBudgetExceeded("budget")
+        return inner(key, *a, **kw)
+
+    p.uploader.put = put
+    _segs(p, range(100, 101))
+    report = publish.publish_batch(p, _now(p))
+    assert report.stopped == "put-budget"
+
+
+def test_notes_and_page_still_precede_the_timeline(tmp_path):
+    bucket = FakeBucket()
+    p = make_publisher(tmp_path, bucket)
+    _segs(p, range(100, 101))
+    publish.publish_batch(p, _now(p))
+    puts = bucket.puts()
+    assert puts.index("notes/band-1.json") < puts.index("show/band-1.html") < puts.index("timeline.json")
+    assert puts.index("timeline.json") < puts.index("notes/_lineup.json") < puts.index("state/horizon.json")
+
+
+def test_old_publish_state_without_lineup_loads(tmp_path):
+    p = make_publisher(tmp_path, FakeBucket())
+    p.ws.publish_state_path.write_text(json.dumps({"epoch_id": "etest", "first": 1, "last": 2, "runs": [[1, 2]],
+                                                   "notes": {}, "high_water": 2}))
+    assert load_publish_state(p.ws).lineup is None
+    save_publish_state(p.ws, PublishState(lineup="abc"))
+    assert load_publish_state(p.ws).lineup == "abc"
