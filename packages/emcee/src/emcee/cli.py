@@ -33,7 +33,7 @@ from emcee.process import (Voicing, ad_hoc_bed, ad_hoc_speech, adopt_kept_clips,
                            presenter_label, resolve_assignment, process_package,
                            resolve_voicing, script_writer_mismatch, speech_for,
                            speech_for_voicing)
-from emcee.station_lock import LOCK_NAME, holder_text, read_lock
+from emcee.station_lock import LOCK_NAME, StationLocked, holder_text, read_lock, station_lock
 from emcee.speech_text import load_lexicon, normalize_for_speech
 from emcee.tts.bed import load_bed_pcm
 from emcee.tts.provider import SpeechError
@@ -595,6 +595,13 @@ def run(
     voiced, even when it is otherwise ready. Per-package failures are
     printed as `error: <slug>: <message>` and do not stop the batch.
 
+    Each package is voiced under the station lock (`emcee.station_lock`,
+    `<delivered>/.lma-station.lock`), taken just before its manifest re-read
+    and released after its last write, never across the `Proceed?` question.
+    A lock held by another writer stops the run at that package: `error:
+    <slug>: the station is locked ...` with the holder, then `not attempted:
+    <that and the remaining slugs>`, exit 1. `--dry-run` takes no lock.
+
     `--profile NAME` (repeatable) and `--assigned` select by the EFFECTIVE
     profile (a recorded move, else an `\\[assign.artists]` rule, else the
     llama profile). `--dry-run` prints `would voice: <slug>  <profile>
@@ -757,7 +764,18 @@ def run(
     for i, status in enumerate(to_voice):
         slug = status.path.name
         try:
-            _process_one(config, moves, Package(status.path), force, keep_script=keep_script)
+            # Per package, never across the loop or the Proceed? question: llama
+            # is shut out for one package's voicing at most.
+            with station_lock(status.path.absolute().parent, command="emcee run"):
+                _process_one(config, moves, Package(status.path), force, keep_script=keep_script)
+        except StationLocked as exc:
+            typer.echo(f"error: {slug}: {exc}", err=True)
+            for line in exc.details:
+                typer.echo(f"  {line}", err=True)
+            typer.echo(f"not attempted: {', '.join(s.path.name for s in to_voice[i:])}",
+                       err=True)
+            failed = True
+            break
         except Exception as exc:
             typer.echo(f"error: {slug}: {_typed_error(exc)}", err=True)
             for line in getattr(exc, "details", []):
@@ -840,6 +858,11 @@ def voice_cmd(
     since emcee validates no manifest model -- are caught broadly and
     printed as `error: <slug>: <message>` plus any indented detail lines,
     matching `emcee run`, instead of a raw traceback. Exits 1 on failure.
+
+    The processing runs under the station lock in the package directory's
+    absolute parent (the delivered folder); a lock held by another writer is
+    such a failure (`error: <slug>: the station is locked ...`, the holder),
+    and nothing is touched.
     """
     if force and fresh and keep_script:
         _usage("--force with --fresh and --keep-script: --fresh here means only the named "
@@ -866,7 +889,10 @@ def voice_cmd(
         stems = list(dict.fromkeys(fresh))  # dedupe: a repeated stem must not double-unlink
 
     try:
-        _process_one(config, moves, pkg, force, fresh=stems, keep_script=keep_script)
+        # `.absolute()`: `Path(".").parent` is `.`, so `emcee voice .` from inside
+        # a package would otherwise lock the package itself.
+        with station_lock(pkg.dir.absolute().parent, command="emcee voice"):
+            _process_one(config, moves, pkg, force, fresh=stems, keep_script=keep_script)
     except Exception as exc:
         typer.echo(f"error: {pkg.dir.name}: {_typed_error(exc)}", err=True)
         for line in getattr(exc, "details", []):

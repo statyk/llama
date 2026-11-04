@@ -29,12 +29,24 @@ manifest's `dj_notes`/`dj_audio` blocks in place (llama writes both as
 `null` — they are emcee-written passthrough blocks in the shared manifest
 model). emcee never imports llama.
 
-**Single-writer station, no lock.** Unlike llama (parallel-safe via flock,
-below), emcee assumes exactly one `emcee run` at a time against a given
-station root — it takes no lock. Overlapping runs can't corrupt a package
-(unique-temp + atomic rename everywhere, in both tools), but they *will*
-double LLM/TTS spend by voicing the same pending package twice
-concurrently. Don't fan out `emcee run` the way llama's workspace tolerates
+**The station lock, per package.** `emcee run` and `emcee voice` take the
+station lock (`<delivered folder>/.lma-station.lock`, the package directory's
+absolute parent; `station_lock.py`, whose format is a contract shared with
+llama) per package, held from `_process_one`'s manifest re-read through the
+package's last write (clips and manifest) and released before the next
+package, never across the `Proceed?` question. While it is held, llama's
+station writes (deliver, clear-mark, bulk-apply) refuse. A lock held by
+another writer stops `run` at that package (`error: <slug>: the station is
+locked by another writer (...)`, the holder, `not attempted: <it and the
+rest>`, exit 1) and refuses `voice` (exit 1, nothing touched). On SIGTERM or
+SIGHUP inside the hold emcee releases the lock and exits at once
+(`os._exit(128 + signum)`, no caller cleanup), which is safe only because
+every station write is a temp-plus-rename: keep it that way. SIGKILL or power
+loss leaves the lock; nothing breaks or expires it, so clear it with `emcee
+lock clear`. `move`, `say`, `--dry-run` and the read-only commands don't take
+it. Two concurrent `emcee run`s are still not supported: the lock serializes
+packages, not runs, so both would voice the same pending packages and double
+LLM/TTS spend. Don't fan out `emcee run` the way llama's workspace tolerates
 concurrent `llama get`s.
 
 ## Commands
@@ -87,7 +99,12 @@ concurrent `llama get`s.
   (`presenters/<id>.toml`; `edit` changes any field with set/`--clear-*`
   flags, `--transcribe` drafts `voice_clone_text` on the mlx-audio server's
   STT model and writes it only on confirmation; `voice_clone` is stored as an
-  absolute path), `emcee config init`.
+  absolute path), `emcee lock show [--station-root]` (prints the station lock's
+  holder, read-only) and `emcee lock clear [--station-root] [--yes]` (shows the
+  holder, asks, and removes the lock only if it is unchanged; for a lock whose
+  writer is gone). **An agent runs `emcee lock show`, reports it, and runs `emcee
+  lock clear --yes` only after Shawn approves, in a separate tool call.**
+  `emcee config init`.
 
 ## Architecture
 
