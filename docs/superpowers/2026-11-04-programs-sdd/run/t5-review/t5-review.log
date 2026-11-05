@@ -1,0 +1,13 @@
+  module: /Users/shawn/projects/llama/.claude/worktrees/programs/packages/emcee/src/emcee/station_lock.py
+  raised: OSError [Errno 5] Input/output error
+  close_error lock left: True b'lma-station-lock 1 322a01b0a7dd9f930b6f5'
+  module: /Users/shawn/projects/llama/.claude/worktrees/programs/packages/emcee/src/emcee/station_lock.py
+  raised: SystemExit 143
+  sig_after_fsync lock left: True b'lma-station-lock 1 6947943f78e05f71cda37'
+  module: /Users/shawn/projects/llama/.claude/worktrees/programs/packages/emcee/src/emcee/station_lock.py
+  raised: SystemExit 143
+  sig_after_create lock left: True b''
+  module: /Users/shawn/projects/llama/.claude/worktrees/programs/packages/emcee/src/emcee/station_lock.py
+  body ran
+  raised: SystemExit 143
+  sig_in_release lock left: True b'lma-station-lock 1 a1f42829ff5af4d72266b'

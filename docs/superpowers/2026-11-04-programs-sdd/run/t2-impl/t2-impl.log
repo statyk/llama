@@ -1,0 +1,292 @@
+start: read sources, writing tests next
+...............................................F..FFFFFF                 [100%]
+=================================== FAILURES ===================================
+______ test_timeline_show_program_comes_from_the_manifest_at_publish_time ______
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-14/test_timeline_show_program_com0')
+
+    def test_timeline_show_program_comes_from_the_manifest_at_publish_time(tmp_path):
+        root, pkg = _station(tmp_path)
+        _set_title(pkg, "Gravel & Steel")
+        bucket = FakeBucket()
+        p = make_publisher(tmp_path, bucket, station_root=root)
+        assert "title" not in p.analyses["k1"].meta
+        _segs(p, range(100, 101))
+        publish.publish_batch(p, _now(p))
+>       assert bucket.json("timeline.json")["shows"][0]["program"] == "Gravel & Steel"
+E       AssertionError: assert None == 'Gravel & Steel'
+
+packages/transmitter/tests_transmitter/test_publish.py:550: AssertionError
+__________________ test_block_titles_come_from_the_live_clock __________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-14/test_block_titles_come_from_th0')
+
+    def test_block_titles_come_from_the_live_clock(tmp_path):
+        def titles(p, bucket, rng):
+            _segs(p, rng)
+            publish.publish_batch(p, _now(p))
+            return [b["title"] for b in bucket.json("timeline.json")["blocks"]]
+    
+        bucket = FakeBucket()
+        p = make_publisher(tmp_path, bucket)
+        # No clock.toml: the implicit clock's "open" block.
+        from transmitter.layout import PlanRow
+        rows = [PlanRow(seq=0, slug="band-1", dir="band-1", key="k1", start_frame=100 * 441, frames=441 * 50,
+                        run_start=True, block="open", nominal_start="2096-10-02T00:00:00+00:00")]
+        p = make_publisher(tmp_path, bucket, rows=rows)
+        assert titles(p, bucket, range(100, 101)) == ["open"]
+        p.ws.clock_path.write_text(CLOCK_TOML.format(title="x"))
+        rows2 = [dataclasses_replace(rows[0], block="morning")]
+        from transmitter import planner
+        planner.write_plan(p.ws.plan_path, rows2)
+        p.ws.clock_path.write_text(CLOCK_TOML.format(title="Bluegrass in the Morning"))
+>       assert titles(p, bucket, range(101, 102)) == ["Bluegrass in the Morning"]
+E       AssertionError: assert ['morning'] == ['Bluegrass in the Morning']
+E         
+E         At index 0 diff: 'morning' != 'Bluegrass in the Morning'
+E         Use -v to get more diff
+
+packages/transmitter/tests_transmitter/test_publish.py:605: AssertionError
+_______ test_lineup_is_put_once_and_again_only_when_its_content_changes ________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-14/test_lineup_is_put_once_and_ag0')
+
+    def test_lineup_is_put_once_and_again_only_when_its_content_changes(tmp_path):
+        bucket = FakeBucket()
+        p = make_publisher(tmp_path, bucket)
+        p.ws.clock_path.write_text(CLOCK_TOML.format(title="Morning"))
+        _segs(p, range(100, 101))
+        publish.publish_batch(p, _now(p))
+>       assert bucket.puts().count("notes/_lineup.json") == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x10c68fbc0>('notes/_lineup.json')
+E        +    where <built-in method count of list object at 0x10c68fbc0> = ['seg/etest/100.aac', 'notes/band-1.json', 'show/band-1.html', 'timeline.json', 'state/horizon.json'].count
+E        +      where ['seg/etest/100.aac', 'notes/band-1.json', 'show/band-1.html', 'timeline.json', 'state/horizon.json'] = puts()
+E        +        where puts = <tests_transmitter.helpers.FakeBucket object at 0x10bfe7150>.puts
+
+packages/transmitter/tests_transmitter/test_publish.py:623: AssertionError
+_________________ test_lineup_failure_never_stops_the_timeline _________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-14/test_lineup_failure_never_stop0')
+
+    def test_lineup_failure_never_stops_the_timeline(tmp_path):
+        bucket = FakeBucket()
+        p = make_publisher(tmp_path, bucket)
+        logs = []
+        p.log = logs.append
+        _segs(p, range(100, 101))
+        publish.publish_batch(p, _now(p))                      # a good first lineup
+        before = load_publish_state(p.ws)
+        p.ws.clock_path.write_text(CLOCK_TOML.format(title="Changed"))
+        bucket.fail_puts["notes/_lineup.json"] = 99
+        mark = len(bucket.log)
+        _segs(p, range(101, 102))
+        report = publish.publish_batch(p, _now(p))
+        puts = [k for op, k in bucket.log[mark:] if op == "put"]
+        assert "timeline.json" in puts and report.horizon == (100, 101)
+        after = load_publish_state(p.ws)
+>       assert after.lineup == before.lineup and after.notes == before.notes
+               ^^^^^^^^^^^^
+E       AttributeError: 'PublishState' object has no attribute 'lineup'
+
+packages/transmitter/tests_transmitter/test_publish.py:656: AttributeError
+___________________ test_lineup_put_budget_still_propagates ____________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-14/test_lineup_put_budget_still_p0')
+
+    def test_lineup_put_budget_still_propagates(tmp_path):
+        from transmitter.errors import PutBudgetExceeded
+    
+        bucket = FakeBucket()
+        p = make_publisher(tmp_path, bucket)
+        inner = p.uploader.put
+    
+        def put(key, *a, **kw):
+            if key == "notes/_lineup.json":
+                raise PutBudgetExceeded("budget")
+            return inner(key, *a, **kw)
+    
+        p.uploader.put = put
+        _segs(p, range(100, 101))
+        report = publish.publish_batch(p, _now(p))
+>       assert report.stopped == "put-budget"
+E       AssertionError: assert None == 'put-budget'
+E        +  where None = PublishReport(uploaded=[100], horizon=(100, 100), stopped=None, error=None, held=False).stopped
+
+packages/transmitter/tests_transmitter/test_publish.py:675: AssertionError
+________________ test_notes_and_page_still_precede_the_timeline ________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-14/test_notes_and_page_still_prec0')
+
+    def test_notes_and_page_still_precede_the_timeline(tmp_path):
+        bucket = FakeBucket()
+        p = make_publisher(tmp_path, bucket)
+        _segs(p, range(100, 101))
+        publish.publish_batch(p, _now(p))
+        puts = bucket.puts()
+        assert puts.index("notes/band-1.json") < puts.index("show/band-1.html") < puts.index("timeline.json")
+>       assert puts.index("timeline.json") < puts.index("notes/_lineup.json") < puts.index("state/horizon.json")
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: list.index(x): x not in list
+
+packages/transmitter/tests_transmitter/test_publish.py:685: ValueError
+_________________ test_old_publish_state_without_lineup_loads __________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-14/test_old_publish_state_without0')
+
+    def test_old_publish_state_without_lineup_loads(tmp_path):
+        p = make_publisher(tmp_path, FakeBucket())
+        p.ws.publish_state_path.write_text(json.dumps({"epoch_id": "etest", "first": 1, "last": 2, "runs": [[1, 2]],
+                                                       "notes": {}, "high_water": 2}))
+>       assert load_publish_state(p.ws).lineup is None
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'PublishState' object has no attribute 'lineup'
+
+packages/transmitter/tests_transmitter/test_publish.py:692: AttributeError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_timeline_show_program_comes_from_the_manifest_at_publish_time
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_block_titles_come_from_the_live_clock
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_lineup_is_put_once_and_again_only_when_its_content_changes
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_lineup_failure_never_stops_the_timeline
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_lineup_put_budget_still_propagates
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_notes_and_page_still_precede_the_timeline
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_old_publish_state_without_lineup_loads
+7 failed, 49 passed in 0.48s
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+........................................................................ [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 41%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+........................................................................ [ 44%]
+........................................................................ [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 54%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+........................................................................ [ 57%]
+........................................................................ [ 58%]
+........................................................................ [ 59%]
+........................................................................ [ 60%]
+........................................................................ [ 61%]
+........................................................................ [ 62%]
+........................................................................ [ 63%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 67%]
+........................................................................ [ 68%]
+........................................................................ [ 69%]
+........................................................................ [ 70%]
+........................................................................ [ 71%]
+........................................................................ [ 72%]
+........................................................................ [ 73%]
+........................................................................ [ 74%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+........................................................................ [ 83%]
+........................................................................ [ 84%]
+........................................F............................... [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 88%]
+........................................................................ [ 89%]
+........................................................................ [ 90%]
+........................................................................ [ 92%]
+..................s..................................................... [ 93%]
+........................................................................ [ 94%]
+........................................................................ [ 95%]
+........................................................................ [ 96%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+........................................................................ [ 99%]
+.......................                                                  [100%]
+=================================== FAILURES ===================================
+_________________ test_uploads_segments_then_site_then_horizon _________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-16/test_uploads_segments_then_sit0')
+
+    def test_uploads_segments_then_site_then_horizon(tmp_path):
+        bucket = FakeBucket()
+        p = make_publisher(tmp_path, bucket)
+        _segs(p, range(100, 110))
+        report = publish.publish_batch(p, _now(p))
+        assert report.uploaded == list(range(100, 110)) and report.horizon == (100, 109)
+        puts = bucket.puts()
+        assert puts[:10] == [segment_key("etest", n) for n in range(100, 110)]
+        assert puts[10:] == ["notes/band-1.json", "show/band-1.html", "timeline.json", "notes/_lineup.json",
+                          "state/horizon.json"]
+        h = bucket.json("state/horizon.json")
+        assert h == {"epoch_id": "etest", "epoch": p.epoch.iso, "d": 10.24, "first": 100, "last": 109,
+                     "published_at": h["published_at"], "container": "adts",
+                     "fallback_version": FALLBACK_VERSION}
+        assert not any(p.ws.seg_dir("etest").iterdir())
+>       assert load_publish_state(p.ws) == PublishState(epoch_id="etest", first=100, last=109, runs=[[100, 109]],
+                                                        notes=load_publish_state(p.ws).notes, high_water=109)
+E       AssertionError: assert PublishState(...0f941e7d3be5') == PublishState(..., lineup=None)
+E         
+E         Omitting 6 identical items, use -vv to show
+E         Differing attributes:
+E         ['lineup']
+E         
+E         Drill down into differing attribute lineup:
+E           lineup: '51299f6fa12feb3c8d8d1a598acd5e20bb035801facdb2caea030f941e7d3be5' != None
+
+packages/transmitter/tests_transmitter/test_publish.py:37: AssertionError
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=44011) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_uploads_segments_then_site_then_horizon
+1 failed, 6645 passed, 1 skipped, 8 deselected, 26 warnings in 80.50s (0:01:20)

@@ -1,0 +1,23 @@
+Wed Nov  4 05:16:51 EST 2026
+434c2637
+/Users/shawn/projects/llama/.claude/worktrees/programs/packages/llama/src/llama/__init__.py /Users/shawn/projects/llama/.claude/worktrees/programs/packages/emcee/src/emcee/__init__.py /Users/shawn/projects/llama/.claude/worktrees/programs/packages/transmitter/src/transmitter/__init__.py
+== pytest
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6889 passed, 1 skipped, 8 deselected, 26 warnings in 90.61s (0:01:30)
+pytest rc=0
+== antenna
+   Start at  05:18:23
+   Duration  2.23s (transform 45%, tests 34%, import 12%, worker 9%)
+
+    Isolate  27 workers spawned · ~480ms startup each (spawn + environment, per file)
+             at least ~959ms faster with isolate: false — reuses workers across files instead of one per file
+
+== py311 transmitter
+..................................................s........              [100%]
+994 passed, 1 skipped in 31.14s
+== py311 probe
+.................                                                        [100%]
+17 passed in 12.84s
+Wed Nov  4 05:19:10 EST 2026
+done

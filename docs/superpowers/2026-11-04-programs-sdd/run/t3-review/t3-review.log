@@ -1,0 +1,7 @@
+America/New_York Today:0 Thu:1 Fri:0 Sat:0 Sun:0 Mon:0 Tue:0
+America/Los_Angeles Today:1 Thu:0 Fri:0 Sat:0 Sun:0 Mon:0 Tue:0
+fixture America/New_York 1000000
+fixture America/Los_Angeles 1000000
+2026-11-01T04:30:00Z 2026-11-01/Today 2026-11-02/Mon 2026-11-03/Tue 2026-11-04/Wed 2026-11-05/Thu 2026-11-06/Fri 2026-11-07/Sat
+2027-03-14T05:30:00Z 2027-03-14/Today 2027-03-15/Mon 2027-03-16/Tue 2027-03-17/Wed 2027-03-18/Thu 2027-03-19/Fri 2027-03-20/Sat
+comingUpGroups throws: Invalid time value

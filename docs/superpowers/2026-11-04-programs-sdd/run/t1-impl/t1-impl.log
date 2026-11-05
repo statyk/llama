@@ -1,0 +1,22 @@
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_the_template_uses_the_new_look_and_links_home
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_program_title_reads_dj_audio_title_only
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_block_title_falls_back_to_name_and_to_unknown_blocks
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_occurrence_span_runs_to_the_first_row_of_the_next_occurrence
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_occurrence_spans_ignore_pre_scheduler_rows
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_timeline_adds_block_fields_and_blocks_without_changing_old_fields
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_timeline_pre_scheduler_show_has_null_block_and_no_blocks_entry
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_notes_carry_program
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_show_page_escapes_program_title
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_lineup_lists_nominal_occurrences_from_a_day_before_to_eight_days_after
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_lineup_variety_flag[profiles0-True]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_lineup_variety_flag[profiles1-False]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_lineup_variety_flag[profiles2-True]
+FAILED packages/transmitter/tests_transmitter/test_site.py::test_lineup_bytes_are_stable_for_equal_content
+19 failed, 94 passed in 0.35s
+........................................................................ [ 63%]
+.........................................                                [100%]
+113 passed in 0.12s
+........................................................................ [ 87%]
+........................................................................ [ 94%]
+.........................................s........                       [100%]
+985 passed, 1 skipped in 35.50s

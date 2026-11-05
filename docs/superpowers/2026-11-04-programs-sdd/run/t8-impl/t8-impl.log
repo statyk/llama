@@ -1,0 +1,93 @@
+E   ImportError: cannot import name 'procs' from 'emcee' (/Users/shawn/projects/llama/.claude/worktrees/programs/packages/emcee/src/emcee/__init__.py)
+=========================== short test summary info ============================
+ERROR packages/emcee/tests/test_retitle_writer.py
+ERROR packages/emcee/tests/test_procs.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.07s
+.....................                                                    [100%]
+21 passed in 0.18s
+M1 predict: sets_mtime_before_the_rename
+M1: FAILED m/emcee/tests/test_retitle_writer.py::test_write_sets_mtime_before_the_rename
+M1: FAILED m/emcee/tests/test_retitle_writer.py::test_write_mtime_is_the_original_afterwards
+M1: FAILED m/emcee/tests/test_retitle_writer.py::test_write_skips_when_the_file_changed_before_rename
+M1: FAILED m/emcee/tests/test_retitle_writer.py::test_write_skips_when_the_file_is_gone_before_rename
+M1: 4 failed, 14 passed in 0.19s
+M2 predict: refuses_foreign_encodings
+M2: FAILED m/emcee/tests/test_retitle_writer.py::test_plan_refuses_foreign_encodings
+M2: 1 failed, 17 passed in 0.20s
+M3 predict: skips_when_the_file_changed
+M3: FAILED m/emcee/tests/test_retitle_writer.py::test_write_skips_when_the_file_changed_before_rename
+M3: FAILED m/emcee/tests/test_retitle_writer.py::test_write_skips_when_the_file_is_gone_before_rename
+M3: 2 failed, 16 passed in 0.20s
+M4 predict: mtime_is_the_original_afterwards
+M4: FAILED m/emcee/tests/test_retitle_writer.py::test_write_mtime_is_the_original_afterwards
+M4: 1 failed, 17 passed in 0.20s
+M5 predict: skips_awaiting_fix
+M5: FAILED m/emcee/tests/test_retitle_writer.py::test_plan_skips_awaiting_fix_and_lists_it
+M5: 1 failed, 17 passed in 0.29s
+M6 predict: puts_back_own_bytes
+M6: FAILED m/emcee/tests/test_retitle_writer.py::test_write_post_rename_verify_failure_puts_back_own_bytes
+M6: 1 failed, 17 passed in 0.20s
+M7 predict: sets_mtime_before_the_rename
+M7: FAILED m/emcee/tests/test_retitle_writer.py::test_write_sets_mtime_before_the_rename
+M7: 1 failed, 17 passed in 0.20s
+M8 predict: pre_v3
+M8: FAILED m/emcee/tests/test_retitle_writer.py::test_plan_refuses_pre_v3_voiced_or_not
+M8: 1 failed, 17 passed in 0.20s
+M9 predict: absent_and_null
+M9: FAILED m/emcee/tests/test_retitle_writer.py::test_plan_absent_and_null_title_are_the_same
+M9: FAILED m/emcee/tests/test_retitle_writer.py::test_plan_writes_additions_changes_and_clears
+M9: 2 failed, 16 passed in 0.21s
+........................................................................ [ 97%]
+..............................                                           [100%]
+1254 passed, 1 deselected in 5.66s
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=92998) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6747 passed, 1 skipped, 8 deselected, 26 warnings in 78.97s (0:01:18)
+fix1 start Wed Nov  4 03:55:02 EST 2026
+.......................                                                  [100%]
+23 passed in 0.89s
+sentinel predict: nearly all
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_plan_absent_and_null_title_are_the_same
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_plan_writes_additions_changes_and_clears
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_plan_skips_awaiting_fix_and_lists_it
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_plan_uses_the_voiced_profile_with_legacy_fallback
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_plan_refuses_foreign_encodings
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_plan_ignores_unvoiced_and_dot_directories
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_sets_only_the_title_key
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_sets_mtime_before_the_rename
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_mtime_is_the_original_afterwards
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_skips_when_the_file_changed_before_rename
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_skips_when_the_file_is_gone_before_rename
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_post_rename_verify_failure_puts_back_own_bytes
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_post_rename_verify_failure_leaves_a_foreign_write
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_preserves_awaiting_fix_and_unknown_keys
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_refuses_bytes_not_in_emcees_encoding
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_temp_collision_never_deletes_the_other_file
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_on_a_manifest_gone_before_the_first_stat_is_skipped
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_oserrors_before_the_rename_leave_the_file_unchanged
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_oserrors_after_the_rename_say_what_the_file_holds
+sentinel: FAILED m/emcee/tests/test_retitle_writer.py::test_write_keeps_the_original_mode_under_another_umask
+sentinel: 20 failed, 3 passed in 3.80s
+F1 predict: keeps_the_original_mode
+F1: FAILED m/emcee/tests/test_retitle_writer.py::test_write_keeps_the_original_mode_under_another_umask
+F1: 1 failed, 22 passed in 3.68s
+F2 predict: temp_collision
+F2: FAILED m/emcee/tests/test_retitle_writer.py::test_write_temp_collision_never_deletes_the_other_file
+F2: 1 failed, 22 passed in 0.24s
+F3 predict: gone_before_the_first_stat
+F3: FAILED m/emcee/tests/test_retitle_writer.py::test_write_on_a_manifest_gone_before_the_first_stat_is_skipped
+F3: 1 failed, 22 passed in 0.23s
+F4 predict: after_the_rename
+F4: FAILED m/emcee/tests/test_retitle_writer.py::test_write_oserrors_after_the_rename_say_what_the_file_holds
+F4: 1 failed, 22 passed in 0.22s
+F5 predict: before_the_rename
+F5: FAILED m/emcee/tests/test_retitle_writer.py::test_write_oserrors_before_the_rename_leave_the_file_unchanged
+F5: 1 failed, 22 passed in 0.23s
+F6 predict: after_the_rename (verify read)
+F6: FAILED m/emcee/tests/test_retitle_writer.py::test_write_oserrors_after_the_rename_say_what_the_file_holds
+F6: 1 failed, 22 passed in 0.22s
+...................................                                      [100%]
+1259 passed, 1 deselected in 5.66s

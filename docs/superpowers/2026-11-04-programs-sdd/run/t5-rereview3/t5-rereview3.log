@@ -1,0 +1,3 @@
+fired while main blocked: True
+release rc=143 lock_left=yes
+acquire rc=143 lock_left=yes

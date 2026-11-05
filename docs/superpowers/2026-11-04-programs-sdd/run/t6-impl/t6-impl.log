@@ -1,0 +1,38 @@
+________________________ test_voice_refuses_a_held_lock ________________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-59/test_voice_refuses_a_held_lock0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108e1ef30>
+
+    def test_voice_refuses_a_held_lock(tmp_path, monkeypatch):
+        _, station = station_home(tmp_path, monkeypatch)
+        spend = forbid_spend(monkeypatch)
+        pkg = build_package(station, slug="pkg1", voiced=True)
+        (station / LOCK_NAME).write_bytes(FOREIGN)
+        before = _bytes(pkg)
+    
+        result = runner.invoke(app, ["voice", "pkg1"])
+    
+        assert result.exit_code == 1
+>       assert "error: pkg1: the station is locked by another writer" in result.stderr
+E       AssertionError: assert 'error: pkg1: the station is locked by another writer' in 'error: pkg1: AssertionError: LLM or TTS spend\n'
+E        +  where 'error: pkg1: AssertionError: LLM or TTS spend\n' = <Result SystemExit(1)>.stderr
+
+packages/emcee/tests/test_run_lock.py:262: AssertionError
+=========================== short test summary info ============================
+FAILED packages/emcee/tests/test_run_lock.py::test_run_holds_the_lock_for_each_package_and_releases_between
+FAILED packages/emcee/tests/test_run_lock.py::test_run_takes_no_lock_while_asking_proceed
+FAILED packages/emcee/tests/test_run_lock.py::test_run_stops_at_a_held_lock_and_lists_what_it_did_not_attempt
+FAILED packages/emcee/tests/test_run_lock.py::test_run_keep_script_also_takes_the_lock
+FAILED packages/emcee/tests/test_run_lock.py::test_lock_released_when_process_one_raises
+FAILED packages/emcee/tests/test_run_lock.py::test_voice_takes_the_lock_at_the_package_parent
+FAILED packages/emcee/tests/test_run_lock.py::test_voice_dot_from_inside_the_package_locks_the_delivered_folder
+FAILED packages/emcee/tests/test_run_lock.py::test_voice_refuses_a_held_lock
+8 failed, 2 passed in 0.27s
+........................................................................ [ 94%]
+.............................................................            [100%]
+1213 passed, 1 deselected in 4.85s
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=20720) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6703 passed, 1 skipped, 8 deselected, 26 warnings in 81.04s (0:01:21)

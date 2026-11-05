@@ -1,0 +1,13 @@
+progress: diff read, checking writer order
+== m1
+......                                                                   [100%]
+6 passed in 1.27s
+== m2
+......                                                                   [100%]
+6 passed in 4.39s
+== m3
+test_station_probe.py:28: AssertionError
+=========================== short test summary info ============================
+FAILED test_station_probe.py::test_race_detects_a_broken_exclusive_create - A...
+1 failed, 5 passed in 1.43s
+report written

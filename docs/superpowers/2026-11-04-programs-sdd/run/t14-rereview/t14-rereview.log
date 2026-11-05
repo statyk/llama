@@ -1,0 +1,9 @@
+== DROP_EXCL cross, 3 two-sided runs
+run 1 a: acquired 50 contended 0 vanished 0 double 22 marker-overlap 25 (advisory) unreadable 0 
+run 1 b: acquired 50 contended 0 vanished 0 double 26 marker-overlap 24 (advisory) unreadable 0 
+run 2 a: acquired 50 contended 0 vanished 0 double 35 marker-overlap 20 (advisory) unreadable 0 
+run 2 b: acquired 50 contended 0 vanished 0 double 18 marker-overlap 35 (advisory) unreadable 0 
+run 3 a: acquired 50 contended 0 vanished 0 double 25 marker-overlap 26 (advisory) unreadable 0 
+run 3 b: acquired 50 contended 0 vanished 0 double 31 marker-overlap 23 (advisory) unreadable 0 
+== exit codes check: rerun one with rc
+DROP rc a=1 b=1; leftovers: 

@@ -1,0 +1,909 @@
+02:20:35 read brief and code; writing fixtures and failing tests
+     49|
+     50|   it("the player page has a hidden weekly lineup section after Just ai…
+     51|     expect(PLAYER_PAGE).toMatch(/Just aired[\s\S]*id="lineup"[^>]*hidd…
+       |                         ^
+     52|     expect(PLAYER_PAGE).toContain('id="lineup-days"');
+     53|     expect(PLAYER_PAGE).toContain('id="lineup-list"');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  02:23:06
+   Duration  744ms (transform 60%, tests 19%, import 15%, worker 6%)
+
+
+Running 20 tests using 1 worker
+
+  ✘   1 e2e/smoke.pw.mjs:1698:3 › programs and block headings › a ticket whose show has a program shows it in place of LMA RADIO PRESENTS; one without keeps LMA RADIO PRESENTS (coming up and just aired) (5.3s)
+  ✘   2 e2e/smoke.pw.mjs:1705:3 › programs and block headings › coming up groups tickets under block headings: title left, span right; a block with no end shows its start alone; each group starts a new row (5.3s)
+  ✘   3 e2e/smoke.pw.mjs:1732:3 › programs and block headings › an old timeline with no blocks renders coming up flat with no heading, and no console error (5.3s)
+  ✘   4 e2e/smoke.pw.mjs:1740:3 › programs and block headings › Show all reveals the remaining tickets under their headings (a group cut by the first 6 continues under the same heading) (5.3s)
+  ✘   5 e2e/smoke.pw.mjs:1760:3 › programs and block headings › just aired stays a flat list with no headings (5.2s)
+  ✘   6 e2e/smoke.pw.mjs:1770:3 › programs and block headings › a program title change rebuilds the ticket (rebuild key includes the program) (5.2s)
+  ✘   7 e2e/smoke.pw.mjs:1782:3 › programs and block headings › the panel's big ticket shows the program; notes without program show LMA RADIO PRESENTS (5.3s)
+  ✘   8 e2e/smoke.pw.mjs:1797:3 › the weekly lineup › the lineup shows 7 tabs, Today selected on load, today's blocks listed with start time and title in the listener's zone (5.3s)
+  ✘   9 e2e/smoke.pw.mjs:1807:3 › the weekly lineup › choosing a tab lists that day; variety blocks carry the variety style; tabs are buttons with role=tab and aria-selected (5.2s)
+  ✘  10 e2e/smoke.pw.mjs:1826:3 › the weekly lineup › the block on air is highlighted in Today's tab only (aria-current), matched on block name and nominal start (5.3s)
+  ✘  11 e2e/smoke.pw.mjs:1848:3 › the weekly lineup › after midnight, the block on air since before midnight is listed first in Today and highlighted (5.3s)
+  ✘  12 e2e/smoke.pw.mjs:1859:3 › the weekly lineup › a 404 or malformed lineup hides the section with no console error; a later good fetch shows it (5.1s)
+  ✘  13 e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is unparsable hides the section (5.1s)
+  ✘  14 e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is without occurrences hides the section (5.2s)
+  ✘  15 e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is null hides the section (5.1s)
+  ✘  16 e2e/smoke.pw.mjs:1882:3 › the weekly lineup › a failed refetch 30 minutes on keeps the lineup it had (5.3s)
+  ✘  17 e2e/smoke.pw.mjs:1898:3 › the weekly lineup east of the clock's zone › days and times are the listener's: the clock's 11:00p block moves to the next morning (5.3s)
+  ✘  18 e2e/smoke.pw.mjs:1906:1 › new assets with the old index.html (fixtures/old-index.html served at /): the page plays, Coming up shows flat tickets, no lineup, no console error (5.3s)
+  ✘  19 e2e/smoke.pw.mjs:1919:1 › the hostile fixture: a program and a block title with markup appear as literal text and add no element (5.3s)
+  ✘  20 e2e/smoke.pw.mjs:1948:1 › at 320 px with a 60-character program and block title, document.scrollWidth <= 320 on the main page and the panel (5.2s)
+
+
+  1) e2e/smoke.pw.mjs:1698:3 › programs and block headings › a ticket whose show has a program shows it in place of LMA RADIO PRESENTS; one without keeps LMA RADIO PRESENTS (coming up and just aired) 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('#coming-up .ticket .presents')
+    Timeout: 5000ms
+    - Expected  - 2
+    + Received  + 2
+
+      Array [
+    -   "Gravel & Steel",
+    -   "Gravel & Steel",
+    +   "LMA RADIO PRESENTS",
+    +   "LMA RADIO PRESENTS",
+        "LMA RADIO PRESENTS",
+      ]
+
+    Call log:
+      - Expect "toHaveText" locator('#coming-up .ticket .presents') with timeout 5000ms
+      - waiting for locator('#coming-up .ticket .presents')
+        14 × locator resolved to 3 elements
+
+
+      1699 |     await openAt(page, { timeline: blockTimeline(WED_10AM_NY) });
+      1700 |     await expect(page.locator("#coming-up .ticket .presents"))
+    > 1701 |       .toHaveText(["Gravel & Steel", "Gravel & Steel", "LMA RADIO PRESENTS"]);
+           |        ^
+      1702 |     await expect(page.locator("#just-aired .ticket .presents")).toHaveText(["Morning Ramble", "LMA RADIO PRESENTS"]);
+      1703 |   });
+      1704 |
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1701:8
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-programs--0ed5a-S-coming-up-and-just-aired-/error-context.md
+
+  2) e2e/smoke.pw.mjs:1705:3 › programs and block headings › coming up groups tickets under block headings: title left, span right; a block with no end shows its start alone; each group starts a new row 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('#coming-up > .block-group')
+    Expected: 2
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" locator('#coming-up > .block-group') with timeout 5000ms
+      - waiting for locator('#coming-up > .block-group')
+        14 × locator resolved to 0 elements
+           - unexpected value "0"
+
+
+      1707 |     await openAt(page, { timeline: blockTimeline(WED_10AM_NY) });
+      1708 |     const groups = page.locator("#coming-up > .block-group");
+    > 1709 |     await expect(groups).toHaveCount(2);
+           |                          ^
+      1710 |     await expect(groups.nth(0).locator(".block-head .block-title")).toHaveText("Bluegrass in the Morning");
+      1711 |     await expect(groups.nth(0).locator(".block-head .block-span")).toHaveText("7:00a – 9:56a");
+      1712 |     await expect(groups.nth(1).locator(".block-head .block-title")).toHaveText("Mid-morning Dead");
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1709:26
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-programs--87f6b-each-group-starts-a-new-row/error-context.md
+
+  3) e2e/smoke.pw.mjs:1732:3 › programs and block headings › an old timeline with no blocks renders coming up flat with no heading, and no console error 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('#coming-up .block-group')
+    Expected: 1
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" locator('#coming-up .block-group') with timeout 5000ms
+      - waiting for locator('#coming-up .block-group')
+        14 × locator resolved to 0 elements
+           - unexpected value "0"
+
+
+      1734 |     await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
+      1735 |     await expect(page.locator("#coming-up .block-head")).toHaveCount(0);
+    > 1736 |     await expect(page.locator("#coming-up .block-group")).toHaveCount(1);
+           |                                                           ^
+      1737 |     await expect(page.locator("#coming-up .ticket .presents")).toHaveText(Array(3).fill("LMA RADIO PRESENTS"));
+      1738 |   });
+      1739 |
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1736:59
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-programs--92f71-eading-and-no-console-error/error-context.md
+
+  4) e2e/smoke.pw.mjs:1740:3 › programs and block headings › Show all reveals the remaining tickets under their headings (a group cut by the first 6 continues under the same heading) 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('#coming-up > .block-group').locator('.block-title')
+    Timeout: 5000ms
+    - Expected  - 4
+    + Received  + 1
+
+    - Array [
+    -   "Bluegrass in the Morning",
+    -   "Mid-morning Dead",
+    - ]
+    + Array []
+
+    Call log:
+      - Expect "toHaveText" locator('#coming-up > .block-group').locator('.block-title') with timeout 5000ms
+      - waiting for locator('#coming-up > .block-group').locator('.block-title')
+        14 × locator resolved to 0 elements
+
+
+      1749 |     await openAt(page, { timeline: t });
+      1750 |     const groups = page.locator("#coming-up > .block-group");
+    > 1751 |     await expect(groups.locator(".block-title")).toHaveText(["Bluegrass in the Morning", "Mid-morning Dead"]);
+           |                                                  ^
+      1752 |     await expect(groups.nth(1).locator(".ticket")).toHaveCount(4);
+      1753 |     await page.getByRole("button", { name: "Show all", exact: true }).click();
+      1754 |     await expect(groups.locator(".block-title")).toHaveText(["Bluegrass in the Morning", "Mid-morning Dead"]);
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1751:50
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-programs--a3e69-ues-under-the-same-heading-/error-context.md
+
+  5) e2e/smoke.pw.mjs:1760:3 › programs and block headings › just aired stays a flat list with no headings 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('#coming-up .block-head')
+    Expected: 1
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" locator('#coming-up .block-head') with timeout 5000ms
+      - waiting for locator('#coming-up .block-head')
+        14 × locator resolved to 0 elements
+           - unexpected value "0"
+
+
+      1765 |     await expect(page.locator("#just-aired > .ticket.torn")).toHaveCount(2);
+      1766 |     await expect(page.locator("#just-aired .block-head, #just-aired .block-group")).toHaveCount(0);
+    > 1767 |     await expect(page.locator("#coming-up .block-head")).toHaveCount(1);
+           |                                                          ^
+      1768 |   });
+      1769 |
+      1770 |   test("a program title change rebuilds the ticket (rebuild key includes the program)", async ({ page }) => {
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1767:58
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-programs--3d7a3--flat-list-with-no-headings/error-context.md
+
+  6) e2e/smoke.pw.mjs:1770:3 › programs and block headings › a program title change rebuilds the ticket (rebuild key includes the program) 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#coming-up .ticket[data-slug="fixture-next-1"] .presents')
+    Expected: "Gravel & Steel"
+    Received: "LMA RADIO PRESENTS"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#coming-up .ticket[data-slug="fixture-next-1"] .presents') with timeout 5000ms
+      - waiting for locator('#coming-up .ticket[data-slug="fixture-next-1"] .presents')
+        14 × locator resolved to <span class="presents">LMA RADIO PRESENTS</span>
+           - unexpected value "LMA RADIO PRESENTS"
+
+
+      1774 |     timeline.shows[3].program = "Gravel & Steel";
+      1775 |     await page.clock.fastForward(3 * 60_000 + 1000);
+    > 1776 |     await expect(presents).toHaveText("Gravel & Steel");
+           |                            ^
+      1777 |     timeline.shows[3].program = "Second Thoughts";
+      1778 |     await page.clock.fastForward(3 * 60_000 + 1000);
+      1779 |     await expect(presents).toHaveText("Second Thoughts");
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1776:28
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-programs--2f74d-d-key-includes-the-program-/error-context.md
+
+  7) e2e/smoke.pw.mjs:1782:3 › programs and block headings › the panel's big ticket shows the program; notes without program show LMA RADIO PRESENTS 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('.panel .bmain .presents')
+    Expected: "Gravel & Steel"
+    Received: "LMA RADIO PRESENTS"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveText" locator('.panel .bmain .presents') with timeout 5000ms
+      - waiting for locator('.panel .bmain .presents')
+        12 × locator resolved to <span class="presents">LMA RADIO PRESENTS</span>
+           - unexpected value "LMA RADIO PRESENTS"
+
+
+      1783 |     await openAt(page, { notes: { "fixture-next-1": { ...NOTES.full, program: "Gravel & Steel" }, "fixture-next-2": NOTES.full } });
+      1784 |     await page.locator('.ticket[data-slug="fixture-next-1"]').click();
+    > 1785 |     await expect(page.locator(".panel .bmain .presents")).toHaveText("Gravel & Steel");
+           |                                                           ^
+      1786 |     await page.locator(".panel-bar .more").click();
+      1787 |     await expect(page.locator(".panel")).toBeHidden();
+      1788 |     await page.locator('.ticket[data-slug="fixture-next-2"]').click();
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1785:59
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-programs--c9d87-ram-show-LMA-RADIO-PRESENTS/error-context.md
+
+  8) e2e/smoke.pw.mjs:1797:3 › the weekly lineup › the lineup shows 7 tabs, Today selected on load, today's blocks listed with start time and title in the listener's zone 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: 'The weekly lineup' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('heading', { name: 'The weekly lineup' }) with timeout 5000ms
+      - waiting for getByRole('heading', { name: 'The weekly lineup' })
+
+
+      1797 |   test("the lineup shows 7 tabs, Today selected on load, today's blocks listed with start time and title in the listener's zone", async ({ page }) => {
+      1798 |     await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
+    > 1799 |     await expect(page.getByRole("heading", { name: "The weekly lineup" })).toBeVisible();
+           |                                                                            ^
+      1800 |     await expect(tabs(page)).toHaveText(["Today", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"]);
+      1801 |     await expect(tabs(page).nth(0)).toHaveAttribute("aria-selected", "true");
+      1802 |     await expect(lineupTimes(page)).toHaveText(["5:00a", "7:00a", "11:00p"]);
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1799:76
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-fba3b-itle-in-the-listener-s-zone/error-context.md
+
+  9) e2e/smoke.pw.mjs:1807:3 › the weekly lineup › choosing a tab lists that day; variety blocks carry the variety style; tabs are buttons with role=tab and aria-selected 
+
+    Error: expect(locator).toHaveAttribute(expected) failed
+
+    Locator: locator('#lineup-days')
+    Expected: "tablist"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveAttribute" locator('#lineup-days') with timeout 5000ms
+      - waiting for locator('#lineup-days')
+
+
+      1807 |   test("choosing a tab lists that day; variety blocks carry the variety style; tabs are buttons with role=tab and aria-selected", async ({ page }) => {
+      1808 |     await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY, { bg: "Thursday Bluegrass" }) } });
+    > 1809 |     await expect(page.locator("#lineup-days")).toHaveAttribute("role", "tablist");
+           |                                                ^
+      1810 |     expect(await tabs(page).evaluateAll((ts) => ts.map((t) => t.tagName))).toEqual(Array(7).fill("BUTTON"));
+      1811 |     await tabs(page).nth(1).click();
+      1812 |     await expect(tabs(page).nth(1)).toHaveAttribute("aria-selected", "true");
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1809:48
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-9dc46--role-tab-and-aria-selected/error-context.md
+
+  10) e2e/smoke.pw.mjs:1826:3 › the weekly lineup › the block on air is highlighted in Today's tab only (aria-current), matched on block name and nominal start 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('#lineup-list li[aria-current]')
+    Expected: 1
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" locator('#lineup-list li[aria-current]') with timeout 5000ms
+      - waiting for locator('#lineup-list li[aria-current]')
+        14 × locator resolved to 0 elements
+           - unexpected value "0"
+
+
+      1828 |     await openAt(page, { timeline, notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
+      1829 |     const current = page.locator("#lineup-list li[aria-current]");
+    > 1830 |     await expect(current).toHaveCount(1);
+           |                           ^
+      1831 |     await expect(current).toHaveClass(/on-air/);
+      1832 |     await expect(current.locator(".t")).toHaveText("Bluegrass in the Morning");
+      1833 |     await expect(current).toHaveAttribute("aria-current", "true");
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1830:27
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-d64b7-lock-name-and-nominal-start/error-context.md
+
+  11) e2e/smoke.pw.mjs:1848:3 › the weekly lineup › after midnight, the block on air since before midnight is listed first in Today and highlighted 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: getByRole('tab')
+    Timeout: 5000ms
+    - Expected  - 9
+    + Received  + 1
+
+    - Array [
+    -   "Today",
+    -   "Fri",
+    -   "Sat",
+    -   "Sun",
+    -   "Mon",
+    -   "Tue",
+    -   "Wed",
+    - ]
+    + Array []
+
+    Call log:
+      - Expect "toHaveText" getByRole('tab') with timeout 5000ms
+      - waiting for getByRole('tab')
+        14 × locator resolved to 0 elements
+
+
+      1850 |     const timeline = makeTimeline(now, { onAir: { block: "late", nominal_start: nominalStart(now, NY, "late", -1) } });
+      1851 |     await openAt(page, { now, timeline, notes: { _lineup: makeLineup(now, NY) } });
+    > 1852 |     await expect(tabs(page)).toHaveText(["Today", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"]);
+           |                              ^
+      1853 |     await expect(lineupTimes(page)).toHaveText(["11:00p", "5:00a", "7:00a", "11:00p"]);
+      1854 |     await expect(lineupTitles(page)).toHaveText(["Late Night", "Early Variety", "Bluegrass in the Morning", "Late Night"]);
+      1855 |     await expect(page.locator("#lineup-list li").first()).toHaveAttribute("aria-current", "true");
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1852:30
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-6140a-st-in-Today-and-highlighted/error-context.md
+
+  12) e2e/smoke.pw.mjs:1859:3 › the weekly lineup › a 404 or malformed lineup hides the section with no console error; a later good fetch shows it 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      1859 |   test("a 404 or malformed lineup hides the section with no console error; a later good fetch shows it", async ({ page }) => {
+      1860 |     const { notes } = await openAt(page);
+    > 1861 |     await expect.poll(lineupRequests).toBe(1);
+           |                                       ^
+      1862 |     await expect(page.locator("#lineup")).toBeHidden();
+      1863 |     notes._lineup = makeLineup(WED_10AM_NY, NY);
+      1864 |     await page.clock.fastForward(29 * 60_000);
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1861:39
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-fe6af-a-later-good-fetch-shows-it/error-context.md
+
+  13) e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is unparsable hides the section ──
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      1873 |       await page.route("**/notes/_lineup.json", (route) => route.fulfill({ contentType: "application/json", body }));
+      1874 |       await openAt(page);
+    > 1875 |       await expect.poll(lineupRequests).toBe(1);
+           |                                         ^
+      1876 |       await page.clock.fastForward(2_000);
+      1877 |       await expect(page.locator("#lineup")).toBeHidden();
+      1878 |       await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1875:41
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-26d0d-nparsable-hides-the-section/error-context.md
+
+  14) e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is without occurrences hides the section 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      1873 |       await page.route("**/notes/_lineup.json", (route) => route.fulfill({ contentType: "application/json", body }));
+      1874 |       await openAt(page);
+    > 1875 |       await expect.poll(lineupRequests).toBe(1);
+           |                                         ^
+      1876 |       await page.clock.fastForward(2_000);
+      1877 |       await expect(page.locator("#lineup")).toBeHidden();
+      1878 |       await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1875:41
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-7a67a-currences-hides-the-section/error-context.md
+
+  15) e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is null hides the section ────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      1873 |       await page.route("**/notes/_lineup.json", (route) => route.fulfill({ contentType: "application/json", body }));
+      1874 |       await openAt(page);
+    > 1875 |       await expect.poll(lineupRequests).toBe(1);
+           |                                         ^
+      1876 |       await page.clock.fastForward(2_000);
+      1877 |       await expect(page.locator("#lineup")).toBeHidden();
+      1878 |       await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1875:41
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-9fccc-t-is-null-hides-the-section/error-context.md
+
+  16) e2e/smoke.pw.mjs:1882:3 › the weekly lineup › a failed refetch 30 minutes on keeps the lineup it had 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('#lineup-list li .t')
+    Expected: 3
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" locator('#lineup-list li .t') with timeout 5000ms
+      - waiting for locator('#lineup-list li .t')
+        14 × locator resolved to 0 elements
+           - unexpected value "0"
+
+
+      1882 |   test("a failed refetch 30 minutes on keeps the lineup it had", async ({ page }) => {
+      1883 |     const { notes } = await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
+    > 1884 |     await expect(lineupTitles(page)).toHaveCount(3);
+           |                                      ^
+      1885 |     delete notes._lineup;
+      1886 |     await page.clock.fastForward(29 * 60_000);
+      1887 |     expect(lineupRequests()).toBe(1);
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1884:38
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-f7a27--on-keeps-the-lineup-it-had/error-context.md
+
+  17) e2e/smoke.pw.mjs:1898:3 › the weekly lineup east of the clock's zone › days and times are the listener's: the clock's 11:00p block moves to the next morning 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: getByRole('tab')
+    Timeout: 5000ms
+    - Expected  - 9
+    + Received  + 1
+
+    - Array [
+    -   "Today",
+    -   "Thu",
+    -   "Fri",
+    -   "Sat",
+    -   "Sun",
+    -   "Mon",
+    -   "Tue",
+    - ]
+    + Array []
+
+    Call log:
+      - Expect "toHaveText" getByRole('tab') with timeout 5000ms
+      - waiting for getByRole('tab')
+        14 × locator resolved to 0 elements
+
+
+      1898 |   test("days and times are the listener's: the clock's 11:00p block moves to the next morning", async ({ page }) => {
+      1899 |     await openAt(page, { notes: { _lineup: makeLineup(WED_10AM_NY, NY) } });
+    > 1900 |     await expect(tabs(page)).toHaveText(["Today", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"]);
+           |                              ^
+      1901 |     await expect(lineupTimes(page)).toHaveText(["4:00a", "10:00a", "12:00p"]);
+      1902 |     await expect(lineupTitles(page)).toHaveText(["Late Night", "Early Variety", "Bluegrass in the Morning"]);
+      1903 |   });
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1900:30
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-267c9-k-moves-to-the-next-morning/error-context.md
+
+  18) e2e/smoke.pw.mjs:1906:1 › new assets with the old index.html (fixtures/old-index.html served at /): the page plays, Coming up shows flat tickets, no lineup, no console error 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('#coming-up .ticket .presents')
+    Timeout: 5000ms
+    - Expected  - 2
+    + Received  + 2
+
+      Array [
+    -   "Gravel & Steel",
+    -   "Gravel & Steel",
+    +   "LMA RADIO PRESENTS",
+    +   "LMA RADIO PRESENTS",
+        "LMA RADIO PRESENTS",
+      ]
+
+    Call log:
+      - Expect "toHaveText" locator('#coming-up .ticket .presents') with timeout 5000ms
+      - waiting for locator('#coming-up .ticket .presents')
+        14 × locator resolved to 3 elements
+
+
+      1909 |   await page.goto(site.url);
+      1910 |   await expect(page.locator("#coming-up.tickets > .ticket")).toHaveCount(3);
+    > 1911 |   await expect(page.locator("#coming-up .ticket .presents")).toHaveText(["Gravel & Steel", "Gravel & Steel", "LMA RADIO PRESENTS"]);
+           |                                                              ^
+      1912 |   await expect(page.locator(".block-head, .block-group, #lineup, [role=tab]")).toHaveCount(0);
+      1913 |   await expect(page.locator("#just-aired > .ticket.torn")).toHaveCount(2);
+      1914 |   await playToAudio(page);
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1911:62
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-new-asset-f89b0--no-lineup-no-console-error/error-context.md
+
+  19) e2e/smoke.pw.mjs:1919:1 › the hostile fixture: a program and a block title with markup appear as literal text and add no element 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('#lineup-list li .t')
+    Expected: 3
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" locator('#lineup-list li .t') with timeout 5000ms
+      - waiting for locator('#lineup-list li .t')
+        14 × locator resolved to 0 elements
+           - unexpected value "0"
+
+
+      1928 |       notes: { _lineup: makeLineup(WED_10AM_NY, NY, { late: title }), "fixture-next-1": { ...NOTES.full, program } },
+      1929 |     });
+    > 1930 |     await expect(lineupTitles(page)).toHaveCount(3);
+           |                                      ^
+      1931 |     opened = true;
+      1932 |   };
+      1933 |   const count = () => page.evaluate(() => document.querySelectorAll("*").length);
+        at open (/Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1930:38)
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1934:3
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-hosti-aaeab-ral-text-and-add-no-element/error-context.md
+
+  20) e2e/smoke.pw.mjs:1948:1 › at 320 px with a 60-character program and block title, document.scrollWidth <= 320 on the main page and the panel 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('#coming-up .block-title').first()
+    Expected: "Supercalifragilisticexpialidociousxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveText" locator('#coming-up .block-title').first() with timeout 5000ms
+      - waiting for locator('#coming-up .block-title').first()
+
+
+      1955 |     notes: { _lineup: makeLineup(WED_10AM_NY, NY, { bg: BLOCK }), "fixture-next-1": { ...NOTES.full, program: PROGRAM } },
+      1956 |   });
+    > 1957 |   await expect(page.locator("#coming-up .block-title").first()).toHaveText(BLOCK);
+           |                                                                 ^
+      1958 |   await expect(lineupTitles(page).nth(1)).toHaveText(BLOCK);
+      1959 |   await expect(page.locator("#coming-up .ticket .presents").first()).toHaveText(PROGRAM);
+      1960 |   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1957:65
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-at-320-px-05eca-the-main-page-and-the-panel/error-context.md
+
+  20 failed
+    e2e/smoke.pw.mjs:1698:3 › programs and block headings › a ticket whose show has a program shows it in place of LMA RADIO PRESENTS; one without keeps LMA RADIO PRESENTS (coming up and just aired) 
+    e2e/smoke.pw.mjs:1705:3 › programs and block headings › coming up groups tickets under block headings: title left, span right; a block with no end shows its start alone; each group starts a new row 
+    e2e/smoke.pw.mjs:1732:3 › programs and block headings › an old timeline with no blocks renders coming up flat with no heading, and no console error 
+    e2e/smoke.pw.mjs:1740:3 › programs and block headings › Show all reveals the remaining tickets under their headings (a group cut by the first 6 continues under the same heading) 
+    e2e/smoke.pw.mjs:1760:3 › programs and block headings › just aired stays a flat list with no headings 
+    e2e/smoke.pw.mjs:1770:3 › programs and block headings › a program title change rebuilds the ticket (rebuild key includes the program) 
+    e2e/smoke.pw.mjs:1782:3 › programs and block headings › the panel's big ticket shows the program; notes without program show LMA RADIO PRESENTS 
+    e2e/smoke.pw.mjs:1797:3 › the weekly lineup › the lineup shows 7 tabs, Today selected on load, today's blocks listed with start time and title in the listener's zone 
+    e2e/smoke.pw.mjs:1807:3 › the weekly lineup › choosing a tab lists that day; variety blocks carry the variety style; tabs are buttons with role=tab and aria-selected 
+    e2e/smoke.pw.mjs:1826:3 › the weekly lineup › the block on air is highlighted in Today's tab only (aria-current), matched on block name and nominal start 
+    e2e/smoke.pw.mjs:1848:3 › the weekly lineup › after midnight, the block on air since before midnight is listed first in Today and highlighted 
+    e2e/smoke.pw.mjs:1859:3 › the weekly lineup › a 404 or malformed lineup hides the section with no console error; a later good fetch shows it 
+    e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is unparsable hides the section ────
+    e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is without occurrences hides the section 
+    e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is null hides the section ──────────
+    e2e/smoke.pw.mjs:1882:3 › the weekly lineup › a failed refetch 30 minutes on keeps the lineup it had 
+    e2e/smoke.pw.mjs:1898:3 › the weekly lineup east of the clock's zone › days and times are the listener's: the clock's 11:00p block moves to the next morning 
+    e2e/smoke.pw.mjs:1906:1 › new assets with the old index.html (fixtures/old-index.html served at /): the page plays, Coming up shows flat tickets, no lineup, no console error 
+    e2e/smoke.pw.mjs:1919:1 › the hostile fixture: a program and a block title with markup appear as literal text and add no element 
+    e2e/smoke.pw.mjs:1948:1 › at 320 px with a 60-character program and block title, document.scrollWidth <= 320 on the main page and the panel 
+02:25:26 RED recorded (20 smoke + 1 vitest failing); implementing
+  Transform  transforming modules took 2.02s · 46% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+Running 20 tests using 1 worker
+
+  ✓   1 e2e/smoke.pw.mjs:1698:3 › programs and block headings › a ticket whose show has a program shows it in place of LMA RADIO PRESENTS; one without keeps LMA RADIO PRESENTS (coming up and just aired) (218ms)
+  ✓   2 e2e/smoke.pw.mjs:1705:3 › programs and block headings › coming up groups tickets under block headings: title left, span right; a block with no end shows its start alone; each group starts a new row (174ms)
+  ✓   3 e2e/smoke.pw.mjs:1732:3 › programs and block headings › an old timeline with no blocks renders coming up flat with no heading, and no console error (141ms)
+  ✓   4 e2e/smoke.pw.mjs:1740:3 › programs and block headings › Show all reveals the remaining tickets under their headings (a group cut by the first 6 continues under the same heading) (176ms)
+  ✓   5 e2e/smoke.pw.mjs:1760:3 › programs and block headings › just aired stays a flat list with no headings (140ms)
+  ✓   6 e2e/smoke.pw.mjs:1770:3 › programs and block headings › a program title change rebuilds the ticket (rebuild key includes the program) (144ms)
+  ✓   7 e2e/smoke.pw.mjs:1782:3 › programs and block headings › the panel's big ticket shows the program; notes without program show LMA RADIO PRESENTS (866ms)
+  ✓   8 e2e/smoke.pw.mjs:1797:3 › the weekly lineup › the lineup shows 7 tabs, Today selected on load, today's blocks listed with start time and title in the listener's zone (155ms)
+  ✓   9 e2e/smoke.pw.mjs:1807:3 › the weekly lineup › choosing a tab lists that day; variety blocks carry the variety style; tabs are buttons with role=tab and aria-selected (248ms)
+  ✓  10 e2e/smoke.pw.mjs:1826:3 › the weekly lineup › the block on air is highlighted in Today's tab only (aria-current), matched on block name and nominal start (235ms)
+  ✓  11 e2e/smoke.pw.mjs:1848:3 › the weekly lineup › after midnight, the block on air since before midnight is listed first in Today and highlighted (151ms)
+  ✓  12 e2e/smoke.pw.mjs:1859:3 › the weekly lineup › a 404 or malformed lineup hides the section with no console error; a later good fetch shows it (1.1s)
+  ✘  13 e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is unparsable hides the section (5.1s)
+  ✘  14 e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is without occurrences hides the section (5.1s)
+  ✘  15 e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is null hides the section (5.2s)
+  ✓  16 e2e/smoke.pw.mjs:1882:3 › the weekly lineup › a failed refetch 30 minutes on keeps the lineup it had (1.4s)
+  ✓  17 e2e/smoke.pw.mjs:1898:3 › the weekly lineup east of the clock's zone › days and times are the listener's: the clock's 11:00p block moves to the next morning (144ms)
+  ✓  18 e2e/smoke.pw.mjs:1906:1 › new assets with the old index.html (fixtures/old-index.html served at /): the page plays, Coming up shows flat tickets, no lineup, no console error (2.2s)
+  ✓  19 e2e/smoke.pw.mjs:1919:1 › the hostile fixture: a program and a block title with markup appear as literal text and add no element (321ms)
+  ✓  20 e2e/smoke.pw.mjs:1948:1 › at 320 px with a 60-character program and block title, document.scrollWidth <= 320 on the main page and the panel (228ms)
+
+
+  1) e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is unparsable hides the section ───
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      1873 |       await page.route("**/notes/_lineup.json", (route) => route.fulfill({ contentType: "application/json", body }));
+      1874 |       await openAt(page);
+    > 1875 |       await expect.poll(lineupRequests).toBe(1);
+           |                                         ^
+      1876 |       await page.clock.fastForward(2_000);
+      1877 |       await expect(page.locator("#lineup")).toBeHidden();
+      1878 |       await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1875:41
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-26d0d-nparsable-hides-the-section/error-context.md
+
+  2) e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is without occurrences hides the section 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      1873 |       await page.route("**/notes/_lineup.json", (route) => route.fulfill({ contentType: "application/json", body }));
+      1874 |       await openAt(page);
+    > 1875 |       await expect.poll(lineupRequests).toBe(1);
+           |                                         ^
+      1876 |       await page.clock.fastForward(2_000);
+      1877 |       await expect(page.locator("#lineup")).toBeHidden();
+      1878 |       await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1875:41
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-7a67a-currences-hides-the-section/error-context.md
+
+  3) e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is null hides the section ─────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      1873 |       await page.route("**/notes/_lineup.json", (route) => route.fulfill({ contentType: "application/json", body }));
+      1874 |       await openAt(page);
+    > 1875 |       await expect.poll(lineupRequests).toBe(1);
+           |                                         ^
+      1876 |       await page.clock.fastForward(2_000);
+      1877 |       await expect(page.locator("#lineup")).toBeHidden();
+      1878 |       await expect(page.locator("#coming-up .ticket")).toHaveCount(3);
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:1875:41
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-weekl-9fccc-t-is-null-hides-the-section/error-context.md
+
+  3 failed
+    e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is unparsable hides the section ────
+    e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is without occurrences hides the section 
+    e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is null hides the section ──────────
+  17 passed (26.2s)
+  ✓  1 e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is unparsable hides the section (259ms)
+  ✓  2 e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is without occurrences hides the section (162ms)
+  ✓  3 e2e/smoke.pw.mjs:1872:5 › the weekly lineup › a lineup that is null hides the section (158ms)
+
+  3 passed (1.6s)
+ Test Files  27 passed (27)
+      Tests  545 passed (545)
+02:27:13 full smoke start
+      - navigating to "http://127.0.0.1:55840/", waiting until "networkidle"
+
+
+      173 |
+      174 | test("the fixture stream really plays, and setLive changes what /live.m3u8 answers", async ({ page }) => {
+    > 175 |   await page.goto(site.url, { waitUntil: "networkidle" });
+          |              ^
+      176 |   await page.evaluate(() => {
+      177 |     document.getElementById("play").addEventListener("click", () => {
+      178 |       const audio = document.getElementById("audio");
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:175:14
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-the-fixtu-49d32-nges-what-live-m3u8-answers/error-context.md
+
+  4) e2e/smoke.pw.mjs:499:1 › no request leaves the local host ─────────────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: page.goto: Test timeout of 30000ms exceeded.
+    Call log:
+      - navigating to "http://127.0.0.1:56018/", waiting until "networkidle"
+
+
+      500 |   const outside = [];
+      501 |   page.on("request", (r) => { if (!r.url().startsWith(site.url + "/") && !r.url().startsWith("data:")) outside.push(r.url()); });
+    > 502 |   await page.goto(site.url, { waitUntil: "networkidle" });
+          |              ^
+      503 |   expect(outside).toEqual([]);
+      504 | });
+      505 |
+        at /Users/shawn/projects/llama/.claude/worktrees/programs/antenna/e2e/smoke.pw.mjs:502:14
+
+    Error Context: ../.superpowers/player-smoke/e2e-smoke.pw.mjs-no-request-leaves-the-local-host/error-context.md
+
+  4 failed
+    e2e/smoke.pw.mjs:100:1 › the page loads, shows the header line and every asset request succeeds 
+    e2e/smoke.pw.mjs:121:1 › the page's icon links resolve to 200 and no /favicon.ico request is made 
+    e2e/smoke.pw.mjs:174:1 › the fixture stream really plays, and setLive changes what /live.m3u8 answers 
+    e2e/smoke.pw.mjs:499:1 › no request leaves the local host ──────────────────────────────────────
+  124 passed (5.7m)
+ Test Files  27 passed (27)
+      Tests  545 passed (545)
+02:34:52 full smoke run 2
+
+> smoke
+> playwright test
+
+
+Running 129 tests using 1 worker
+
+  ✓    1 e2e/smoke.pw.mjs:72:3 › show page air times › are written in the listener's zone, naming the end's day when it differs (215ms)
+  ✓    2 e2e/smoke.pw.mjs:81:3 › show page air times › say so when the show has none (127ms)
+  ✓    3 e2e/smoke.pw.mjs:87:3 › show page air times › say so when the notes can't be read (120ms)
+  ✓    4 e2e/smoke.pw.mjs:92:3 › show page air times › say so on a bad time, and the hostile slug fetches its own notes as text (125ms)
+  ✓    5 e2e/smoke.pw.mjs:100:1 › the page loads, shows the header line and every asset request succeeds (668ms)
+  ✓    6 e2e/smoke.pw.mjs:123:1 › the page's icon links resolve to 200 and no /favicon.ico request is made (678ms)
+  ✓    7 e2e/smoke.pw.mjs:134:1 › the footer's archive.org link opens in a new tab so the music keeps playing (143ms)
+  ✓    8 e2e/smoke.pw.mjs:141:1 › an engine that throws on longGeneric still renders the page and Play still turns the hubs (2.5s)
+  ✓    9 e2e/smoke.pw.mjs:157:1 › the page's elements are all there for the behaviour to bind to (161ms)
+  ✓   10 e2e/smoke.pw.mjs:167:1 › the hubs spin only under .turning, and never with reduced motion (172ms)
+  ✓   11 e2e/smoke.pw.mjs:177:1 › the fixture stream really plays, and setLive changes what /live.m3u8 answers (3.1s)
+  ✓   12 e2e/smoke.pw.mjs:211:1 › renders the label, tape log, coming up, just aired and zone line before Play (152ms)
+  ✓   13 e2e/smoke.pw.mjs:263:3 › the show line under Now playing › gives the artist, venue and city, and date in full at 320 px, with no truncation (178ms)
+  ✓   14 e2e/smoke.pw.mjs:283:3 › the show line under Now playing › leaves out empty parts (131ms)
+  ✓   15 e2e/smoke.pw.mjs:290:3 › the show line under Now playing › is hidden and empty with nothing on air and off air (170ms)
+  ✓   16 e2e/smoke.pw.mjs:305:3 › the tape log › lists the show on air first to last with its air times, marking now and next (184ms)
+  ✓   17 e2e/smoke.pw.mjs:321:5 › the tape log › collapsed, the window at the start of a 25-song tape holds 5 rows around now (163ms)
+  ✓   18 e2e/smoke.pw.mjs:321:5 › the tape log › collapsed, the window at the middle of a 25-song tape holds 5 rows around now (156ms)
+  ✓   19 e2e/smoke.pw.mjs:321:5 › the tape log › collapsed, the window at the end of a 25-song tape holds 5 rows around now (162ms)
+  ✓   20 e2e/smoke.pw.mjs:329:3 › the tape log › before the first song nothing is now and the first 5 show (150ms)
+  ✓   21 e2e/smoke.pw.mjs:337:3 › the tape log › the button counts the songs, toggles, and reports aria-expanded (224ms)
+  ✓   22 e2e/smoke.pw.mjs:352:3 › the tape log › a tape of 5 songs or fewer shows every row and no button; 6 gets one (235ms)
+  ✓   23 e2e/smoke.pw.mjs:364:3 › the tape log › the list collapses again when the show on air changes (215ms)
+  ✓   24 e2e/smoke.pw.mjs:376:3 › the tape log › ticks neither rebuild the rows nor take the button's focus (2.8s)
+  ✓   25 e2e/smoke.pw.mjs:393:3 › the tape log › off air the log has no rows, no now marker, no heading and no button (164ms)
+  ✓   26 e2e/smoke.pw.mjs:406:3 › the tape log › the now row is synthetically bold: it draws differently from weight 400 and from synthesis off (356ms)
+  ✓   27 e2e/smoke.pw.mjs:421:3 › the tape log › focus moves to the list when the focused button hides (149ms)
+  ✓   28 e2e/smoke.pw.mjs:430:3 › the tape log › the button keeps focus while it stays visible (145ms)
+  ✓   29 e2e/smoke.pw.mjs:437:3 › the tape log › another show's songs are not on screen (183ms)
+  ✓   30 e2e/smoke.pw.mjs:449:1 › every ticket link is /show/<encoded slug>.html, even when the fixture's page field is hostile (156ms)
+  ✓   31 e2e/smoke.pw.mjs:461:1 › the hostile fixture through the label, log and tickets: its markup appears as literal text and adds no element (203ms)
+  ✓   32 e2e/smoke.pw.mjs:484:1 › with an empty timeline, the schedule note is shown and the page does not throw (179ms)
+  ✓   33 e2e/smoke.pw.mjs:502:1 › no request leaves the local host (643ms)
+  ✓   34 e2e/smoke.pw.mjs:509:1 › stopped and hidden (document.hidden forced): no timeline.json fetch over 10 mocked minutes (3.4s)
+  ✓   35 e2e/smoke.pw.mjs:517:1 › visible: one fetch on load, the next only once 3 minutes have passed (1.1s)
+  ✓   36 e2e/smoke.pw.mjs:528:1 › a failed fetch waits out the same 3 minutes (1.1s)
+  ✓   37 e2e/smoke.pw.mjs:541:1 › ON THE AIR is hidden in the offair state only (188ms)
+  ✓   38 e2e/smoke.pw.mjs:558:1 › ticketLinks: a plain click opens in-page, a modified click is left to the browser (240ms)
+  ✓   39 e2e/smoke.pw.mjs:575:1 › Show all reveals the rest of coming up (181ms)
+  ✓   40 e2e/smoke.pw.mjs:645:1 › a lasting render error leaves the loop's player tick running (4.6s)
+  ✓   41 e2e/smoke.pw.mjs:654:1 › a lasting render error does not block Play (2.2s)
+02:35:27 waiting on smoke run 2; added offair + day-change tests
+  ✓   42 e2e/smoke.pw.mjs:661:1 › Play gives audio (currentTime advances) and #hubs gets turning (2.2s)
+  ✓   43 e2e/smoke.pw.mjs:670:1 › Now playing follows the playback position, not the wall clock (3.2s)
+  ✓   44 e2e/smoke.pw.mjs:680:1 › Stop silences the audio, stops the hubs and shows the stopped line (4.8s)
+  ✓   45 e2e/smoke.pw.mjs:694:1 › a stall, then recovery to playing with no key pressed (1.2m)
+  ✓   46 e2e/smoke.pw.mjs:706:1 › navigator.mediaSession.metadata.title is the song (4.9s)
+  ✓   47 e2e/smoke.pw.mjs:726:1 › /live.m3u8 answering 404 shows "Reconnecting…", then a switch to 403 reaches the off-air notice (2.6s)
+  ✓   48 e2e/smoke.pw.mjs:739:1 › Stop during a retry delay: no further /live.m3u8 request after a further 40 s of mocked time (975ms)
+  ✓   49 e2e/smoke.pw.mjs:753:1 › Stop during a probe: its answer never restarts the audio (1.2s)
+  ✓   50 e2e/smoke.pw.mjs:774:1 › /live.m3u8 unreachable during a stall: probes only, the src is untouched, then reachable gives a restart within one probe interval (12.9s)
+  ✓   51 e2e/smoke.pw.mjs:811:1 › the stream reachable again, one probe failing does not end recovery: the next probe's answer restarts at once (2.3s)
+  ✓   52 e2e/smoke.pw.mjs:842:1 › a 10-minute silence shows "Lost the stream." and Try again (20.7s)
+  ✓   53 e2e/smoke.pw.mjs:865:1 › over 10 mocked minutes of 404: at most 60 /live.m3u8 requests and at most 4 /timeline.json requests (20.9s)
+  ✓   54 e2e/smoke.pw.mjs:878:1 › Media Session: play, pause and stop only; play after a hidden Stop fetches the timeline, the force alone does not (533ms)
+  ✓   55 e2e/smoke.pw.mjs:901:1 › a pause from the phone is a Stop, and it stays stopped (4.8s)
+  ✓   56 e2e/smoke.pw.mjs:913:1 › a playlist that ends goes straight to the off-air notice (222ms)
+  ✓   57 e2e/smoke.pw.mjs:924:1 › a refused play() shows the notice; any other rejection is left to the stall path (497ms)
+  ✓   58 e2e/smoke.pw.mjs:939:1 › Play during a dropout, key or Media Session: a probe goes out, the src is untouched and the audio carries on (2.6s)
+  ✓   59 e2e/smoke.pw.mjs:964:1 › Play during a stall, once /live.m3u8 answers: rejoins at once, not at the next probe (980ms)
+  ✓   60 e2e/smoke.pw.mjs:980:1 › Play with an off-air answer still rejoins, and the hubs stop until the position advances (2.4s)
+  ✓   61 e2e/smoke.pw.mjs:994:1 › Stop during Play's question stays stopped, and a second press adds nothing (3.4s)
+  ✓   62 e2e/smoke.pw.mjs:1018:1 › a play() that never settles (home-screen app, hidden): no notice, no hubs, Reconnecting, and only a moving position gives playing (6.5s)
+  ✓   63 e2e/smoke.pw.mjs:1053:3 › the on-air notes link › carries the on-air show, stays while stopped, and is left alone between changes (2.7s)
+  ✓   64 e2e/smoke.pw.mjs:1069:3 › the on-air notes link › its link is built from the encoded slug (161ms)
+  ✓   65 e2e/smoke.pw.mjs:1077:3 › the on-air notes link › a click opens the panel on that show and the audio keeps advancing (2.7s)
+  ✓   66 e2e/smoke.pw.mjs:1096:3 › the on-air notes link › a modified click is left to the browser (402ms)
+  ✓   67 e2e/smoke.pw.mjs:1105:3 › the on-air notes link › is hidden with nothing on air (158ms)
+  ✓   68 e2e/smoke.pw.mjs:1114:3 › the on-air notes link › is hidden off the air, and back when the state clears (151ms)
+  ✓   69 e2e/smoke.pw.mjs:1124:3 › the on-air notes link › follows when the on-air show changes (152ms)
+  ✓   70 e2e/smoke.pw.mjs:1260:5 › at 320 px with a normal name and a long venue, the cassette holds its layout and the date shows (165ms)
+  ✓   71 e2e/smoke.pw.mjs:1260:5 › at 320 px with a long name and a long venue, the cassette holds its layout and the date shows (157ms)
+  ✓   72 e2e/smoke.pw.mjs:1260:5 › at 320 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows (146ms)
+  ✓   73 e2e/smoke.pw.mjs:1268:3 › at 320 px a 44-character name fits one line uncut once stepped down (148ms)
+  ✓   74 e2e/smoke.pw.mjs:1273:3 › at 320 px a name too long for the smallest size ends in an ellipsis on one line (163ms)
+  ✓   75 e2e/smoke.pw.mjs:1279:3 › at 320 px, with no container units, the fallback draws the same layout (154ms)
+  ✓   76 e2e/smoke.pw.mjs:1260:5 › at 390 px with a normal name and a long venue, the cassette holds its layout and the date shows (151ms)
+  ✓   77 e2e/smoke.pw.mjs:1260:5 › at 390 px with a long name and a long venue, the cassette holds its layout and the date shows (147ms)
+  ✓   78 e2e/smoke.pw.mjs:1260:5 › at 390 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows (164ms)
+  ✓   79 e2e/smoke.pw.mjs:1268:3 › at 390 px a 44-character name fits one line uncut once stepped down (156ms)
+  ✓   80 e2e/smoke.pw.mjs:1273:3 › at 390 px a name too long for the smallest size ends in an ellipsis on one line (166ms)
+  ✓   81 e2e/smoke.pw.mjs:1279:3 › at 390 px, with no container units, the fallback draws the same layout (164ms)
+  ✓   82 e2e/smoke.pw.mjs:1260:5 › at 1200 px with a normal name and a long venue, the cassette holds its layout and the date shows (157ms)
+  ✓   83 e2e/smoke.pw.mjs:1260:5 › at 1200 px with a long name and a long venue, the cassette holds its layout and the date shows (166ms)
+  ✓   84 e2e/smoke.pw.mjs:1260:5 › at 1200 px with a name past one line at any size and a long venue, the cassette holds its layout and the date shows (144ms)
+  ✓   85 e2e/smoke.pw.mjs:1268:3 › at 1200 px a 44-character name fits one line uncut once stepped down (141ms)
+  ✓   86 e2e/smoke.pw.mjs:1273:3 › at 1200 px a name too long for the smallest size ends in an ellipsis on one line (141ms)
+  ✓   87 e2e/smoke.pw.mjs:1279:3 › at 1200 px, with no container units, the fallback draws the same layout (153ms)
+  ✓   88 e2e/smoke.pw.mjs:1294:1 › the artist's size class steps at 26 and 34 characters (216ms)
+  ✓   89 e2e/smoke.pw.mjs:1301:1 › the artist line is written only when the name changes, and a short name loses the step (147ms)
+  ✓   90 e2e/smoke.pw.mjs:1324:1 › at 320 px with a very long band name, main and panel do not scroll sideways (222ms)
+  ✓   91 e2e/smoke.pw.mjs:1368:3 › notes panel › a tap on a ticket opens the panel, leaves the URL unchanged, and adds no navigation (222ms)
+  ✓   92 e2e/smoke.pw.mjs:1383:3 › notes panel › shows a loading state at once, before the notes arrive (221ms)
+  ✓   93 e2e/smoke.pw.mjs:1397:3 › notes panel › the ready notes: ticket, setlist, liner notes, air times, lineage, disclaimer, archive and share (505ms)
+  ✓   94 e2e/smoke.pw.mjs:1433:3 › notes panel › a share that can't reach the clipboard prints the link instead (520ms)
+  ✓   95 e2e/smoke.pw.mjs:1443:3 › notes panel › sets are labelled only with more than one group, and a null set prints nothing (278ms)
+  ✓   96 e2e/smoke.pw.mjs:1458:3 › notes panel › the back action closes the panel; the close control closes it; a second back leaves nothing stale (1.5s)
+  ✓   97 e2e/smoke.pw.mjs:1486:3 › notes panel › Escape closes, a second close while one is pending is ignored, and focus goes in and back (1.5s)
+  ✓   98 e2e/smoke.pw.mjs:1508:3 › notes panel › a reload with the panel open does not reopen it, and the stale entry stays on the player (237ms)
+  ✓   99 e2e/smoke.pw.mjs:1521:3 › notes panel › two fast taps show only the second show's notes (320ms)
+  ✓  100 e2e/smoke.pw.mjs:1540:3 › notes panel › notes arriving after the close leave the closed panel alone (1.1s)
+  ✓  101 e2e/smoke.pw.mjs:1557:5 › notes panel › notes without sections show "Open the show page" with target=_blank (236ms)
+  ✓  102 e2e/smoke.pw.mjs:1557:5 › notes panel › notes that fail to load show "Open the show page" with target=_blank (195ms)
+  ✓  103 e2e/smoke.pw.mjs:1567:3 › notes panel › a ticket on empty sections reads "No notes yet." (201ms)
+  ✓  104 e2e/smoke.pw.mjs:1580:3 › notes panel › a bad air time reads as unavailable and leaves the rest of the notes (255ms)
+  ✓  105 e2e/smoke.pw.mjs:1587:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (308ms)
+  ✓  106 e2e/smoke.pw.mjs:1618:1 › the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off (299ms)
+  ✓  107 e2e/smoke.pw.mjs:1629:1 › with nothing on air, the venue and date line keeps its height and the window does not move (162ms)
+  ✓  108 e2e/smoke.pw.mjs:1647:1 › a name stepping from long to a short name, or to off air, loses the class (165ms)
+  ✓  109 e2e/smoke.pw.mjs:1701:3 › programs and block headings › a ticket whose show has a program shows it in place of LMA RADIO PRESENTS; one without keeps LMA RADIO PRESENTS (coming up and just aired) (156ms)
+  ✓  110 e2e/smoke.pw.mjs:1708:3 › programs and block headings › coming up groups tickets under block headings: title left, span right; a block with no end shows its start alone; each group starts a new row (183ms)
+  ✓  111 e2e/smoke.pw.mjs:1735:3 › programs and block headings › an old timeline with no blocks renders coming up flat with no heading, and no console error (164ms)
+  ✓  112 e2e/smoke.pw.mjs:1743:3 › programs and block headings › Show all reveals the remaining tickets under their headings (a group cut by the first 6 continues under the same heading) (165ms)
+  ✓  113 e2e/smoke.pw.mjs:1763:3 › programs and block headings › just aired stays a flat list with no headings (138ms)
+  ✓  114 e2e/smoke.pw.mjs:1773:3 › programs and block headings › a program title change rebuilds the ticket (rebuild key includes the program) (141ms)
+  ✓  115 e2e/smoke.pw.mjs:1785:3 › programs and block headings › the panel's big ticket shows the program; notes without program show LMA RADIO PRESENTS (852ms)
+  ✓  116 e2e/smoke.pw.mjs:1800:3 › the weekly lineup › the lineup shows 7 tabs, Today selected on load, today's blocks listed with start time and title in the listener's zone (185ms)
+  ✓  117 e2e/smoke.pw.mjs:1810:3 › the weekly lineup › choosing a tab lists that day; variety blocks carry the variety style; tabs are buttons with role=tab and aria-selected (253ms)
+  ✓  118 e2e/smoke.pw.mjs:1829:3 › the weekly lineup › the arrow keys, Home and End move the selection between tabs; only the selected tab is in the tab order (190ms)
+  ✓  119 e2e/smoke.pw.mjs:1848:3 › the weekly lineup › the block on air is highlighted in Today's tab only (aria-current), matched on block name and nominal start (239ms)
+  ✓  120 e2e/smoke.pw.mjs:1870:3 › the weekly lineup › after midnight, the block on air since before midnight is listed first in Today and highlighted (145ms)
+  ✓  121 e2e/smoke.pw.mjs:1881:3 › the weekly lineup › a 404 or malformed lineup hides the section with no console error; a later good fetch shows it (1.1s)
+  ✓  122 e2e/smoke.pw.mjs:1894:5 › the weekly lineup › a lineup that is unparsable hides the section (167ms)
+  ✓  123 e2e/smoke.pw.mjs:1894:5 › the weekly lineup › a lineup that is without occurrences hides the section (164ms)
+  ✓  124 e2e/smoke.pw.mjs:1894:5 › the weekly lineup › a lineup that is null hides the section (160ms)
+  ✓  125 e2e/smoke.pw.mjs:1905:3 › the weekly lineup › a failed refetch 30 minutes on keeps the lineup it had (1.3s)
+  ✓  126 e2e/smoke.pw.mjs:1921:3 › the weekly lineup east of the clock's zone › days and times are the listener's: the clock's 11:00p block moves to the next morning (163ms)
+  ✓  127 e2e/smoke.pw.mjs:1929:1 › new assets with the old index.html (fixtures/old-index.html served at /): the page plays, Coming up shows flat tickets, no lineup, no console error (2.3s)
+  ✓  128 e2e/smoke.pw.mjs:1942:1 › the hostile fixture: a program and a block title with markup appear as literal text and add no element (267ms)
+  ✓  129 e2e/smoke.pw.mjs:1971:1 › at 320 px with a 60-character program and block title, document.scrollWidth <= 320 on the main page and the panel (206ms)
+
+  129 passed (3.7m)
+  ✓  1 e2e/smoke.pw.mjs:1829:3 › the weekly lineup › the arrow keys, Home and End move the selection between tabs; only the selected tab is in the tab order (251ms)
+  ✓  2 e2e/smoke.pw.mjs:1870:3 › the weekly lineup › off the air nothing in the lineup is marked on air (173ms)
+  ✓  3 e2e/smoke.pw.mjs:1878:3 › the weekly lineup › the chosen tab goes back to Today when the day changes (229ms)
+
+  3 passed (1.8s)
+
+  8 passed (3.1s)
+02:39:36 mutation worktree at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-programs/e1c9d972-5748-4fa8-aa4d-b37f2e80851d/scratchpad/mut
+02:40:57 mutants M1-M6 all caught as predicted; scratch worktree removed

@@ -1,0 +1,4 @@
+budget-min: 40
+role: implementer
+model: opus
+what: Task 12: bulk_apply takes station lock + contract test

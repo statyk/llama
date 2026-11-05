@@ -1,0 +1,47 @@
+                              capture_output=True, text=True, timeout=30)
+        out = proc.stdout.split()
+        assert proc.returncode == 128 + signum, proc.stdout + proc.stderr
+>       assert not (tmp_path / LOCK_NAME).exists()
+E       AssertionError: assert not True
+E        +  where True = exists()
+E        +    where exists = (PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-71/test_signal_in_any_window_rele13') / '.lma-station.lock').exists
+
+packages/emcee/tests/test_station_lock.py:385: AssertionError
+=========================== short test summary info ============================
+FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_any_window_releases_and_exits_without_running_caller_code[after-open-thread]
+FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_any_window_releases_and_exits_without_running_caller_code[after-close-thread]
+FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_any_window_releases_and_exits_without_running_caller_code[in-release-thread]
+FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_any_window_releases_and_exits_without_running_caller_code[second-in-release-thread]
+4 failed, 14 passed, 24 deselected in 0.81s
+..........................................                               [100%]
+42 passed in 4.28s
+   3 18 passed, 24 deselected in 0.74s
+   3 18 passed, 24 deselected in 0.75s
+   3 18 passed, 24 deselected in 0.76s
+   4 18 passed, 24 deselected in 0.77s
+   1 18 passed, 24 deselected in 0.78s
+   1 18 passed, 24 deselected in 0.80s
+=========================== short test summary info ============================
+FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_any_window_releases_and_exits_without_running_caller_code[after-open-thread]
+FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_any_window_releases_and_exits_without_running_caller_code[after-close-thread]
+FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_any_window_releases_and_exits_without_running_caller_code[in-release-thread]
+FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_any_window_releases_and_exits_without_running_caller_code[second-in-release-thread]
+4 failed, 14 passed, 24 deselected in 0.79s
+1
+critical: FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_any_window_releases_and_exits_without_running_caller_code[after-open-thread]
+critical: FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_any_window_releases_and_exits_without_running_caller_code[after-close-thread]
+critical: FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_any_window_releases_and_exits_without_running_caller_code[in-release-thread]
+critical: 3 failed, 15 passed, 24 deselected in 0.78s
+1
+exiting: FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_any_window_releases_and_exits_without_running_caller_code[second-in-release-thread]
+exiting: 1 failed, 17 passed, 24 deselected in 0.80s
+......................................................................   [100%]
+1222 passed, 1 deselected in 5.40s
+fix1 start
+..................................................                       [100%]
+50 passed in 1.22s
+50 passed in 1.82s
+1230 passed, 1 deselected in 6.26s
+FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_a_failing_acquire_or_a_warning_release_exits_leaving_no_lock_of_ours[warn-release-thread]
+FAILED packages/emcee/tests/test_station_lock.py::test_signal_in_a_failing_acquire_or_a_warning_release_exits_leaving_no_lock_of_ours[write-error-thread]
+2 failed, 6 passed, 42 deselected in 0.40s

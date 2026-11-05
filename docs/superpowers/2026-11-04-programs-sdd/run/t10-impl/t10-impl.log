@@ -1,0 +1,28 @@
+Wed Nov  4 04:18:18 EST 2026 writing tests (RED)
+E   ModuleNotFoundError: No module named 'llama.station_lock'
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_station_lock.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.07s
+E   ModuleNotFoundError: No module named 'llama.station_lock'
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_station_lock.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.05s
+....................................................                     [100%]
+52 passed in 1.43s
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 97%]
+........................................................................ [ 99%]
+...........................                                              [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=65461) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3915 passed, 7 deselected, 24 warnings in 21.73s

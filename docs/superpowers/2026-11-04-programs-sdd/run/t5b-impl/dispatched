@@ -1,0 +1,4 @@
+budget-min: 45
+role: implementer
+model: opus
+what: T5 follow-up threaded-signal ordering + README

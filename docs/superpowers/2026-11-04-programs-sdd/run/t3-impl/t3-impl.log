@@ -1,0 +1,56 @@
++ Received
+
+- 0
++ 1
+
+ ❯ test/programs.test.ts:117:35
+    115|     expect(la[0].entries[0].time).toBe("8:30p");
+    116|     const utc = lineupDays(lu, now, "Asia/Tokyo")!; // 13:30 Nov 5 JST
+    117|     expect(utc[0].entries.length).toBe(0);
+       |                                   ^
+    118|     expect(utc[1].entries.length).toBe(1);
+    119|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 26 passed (27)
+      Tests  1 failed | 541 passed (542)
+   Start at  02:12:45
+   Duration  3.47s (transform 48%, tests 32%, import 12%, worker 8%)
+
+  Transform  transforming modules took 2.11s · 48% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+test/programs.test.ts(101,41): error TS2339: Property 'title' does not exist on type 'never'.
+test/programs.test.ts(102,31): error TS2339: Property 'variety' does not exist on type 'never'.
+test/programs.test.ts(104,60): error TS2339: Property 'key' does not exist on type 'never'.
+test/programs.test.ts(115,29): error TS2339: Property 'time' does not exist on type 'never'.
+test/programs.test.ts(129,46): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'null | undefined'.
+  Type 'string' is not assignable to type 'null | undefined'.
+test/programs.test.ts(130,31): error TS2339: Property 'key' does not exist on type 'never'.
+test/programs.test.ts(131,71): error TS2339: Property 'key' does not exist on type 'never'.
+test/programs.test.ts(135,65): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'null | undefined'.
+  Type 'string' is not assignable to type 'null | undefined'.
+test/programs.test.ts(135,95): error TS2339: Property 'key' does not exist on type 'never'.
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/programs/antenna
+
+
+ Test Files  27 passed (27)
+      Tests  542 passed (542)
+   Start at  02:12:59
+   Duration  2.03s (transform 48%, tests 31%, import 12%, worker 9%)
+
+  Transform  transforming modules took 2.19s · 48% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+

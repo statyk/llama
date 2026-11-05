@@ -1,0 +1,28 @@
+progress: mutants built
+== m0
+...                                                                      [100%]
+3 passed, 11 deselected in 0.12s
+== m1
+scripts/test_station_probe.py:58: AssertionError
+=========================== short test summary info ============================
+FAILED scripts/test_station_probe.py::test_mtime_replace_sets_mtime_before_rename
+1 failed, 2 passed, 11 deselected in 0.11s
+== m2
+1767225600
+=========================== short test summary info ============================
+FAILED scripts/test_station_probe.py::test_mtime_replace_reapplies_when_rename_bumps_mtime
+1 failed, 2 passed, 11 deselected in 3.20s
+1 passed, 13 deselected in 0.13s
+1 passed, 13 deselected in 0.17s
+1 passed, 13 deselected in 0.12s
+1 passed, 13 deselected in 0.12s
+1 passed, 13 deselected in 0.12s
+acquired 1 contended 1 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+acquired 1 contended 1 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+acquired 1 contended 1 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+acquired 1 contended 1 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+acquired 1 contended 1 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+acquired 0 contended 20 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+rc=0
+acquired 0 contended 20 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+rc=0

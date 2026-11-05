@@ -1,0 +1,484 @@
+......................................................................FF [ 63%]
+F.F.F...............................FFF..                                [100%]
+=================================== FAILURES ===================================
+____ test_deliver_lock_spans_the_destination_read_through_the_copy[overlay] ____
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_deliver_lock_spans_the_de0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10aa73ee0>
+case = 'overlay'
+
+    @pytest.mark.parametrize("case", ["overlay", "replace"])
+    def test_deliver_lock_spans_the_destination_read_through_the_copy(
+            tmp_path: Path, monkeypatch, case):
+        dest = tmp_path / "inbox"
+        if case == "overlay":
+            build_ready(tmp_path, SLUG)
+            extra = ()
+        else:
+            _delivered_voiced(tmp_path)
+            extra = ("--replace-voiced",)
+        seen: list = []
+        _spy_held(monkeypatch, cli, "_read_destination_manifest", dest, seen)
+        _spy_held(monkeypatch, cli, "_replace_destination", dest, seen)
+        _spy_held(monkeypatch, shutil, "copytree", dest, seen)
+        commands = []
+        real_acquire = station_lock.acquire
+        monkeypatch.setattr(station_lock, "acquire", lambda p, *, command: (
+            commands.append(command), real_acquire(p, command=command))[1])
+    
+        r = _deliver(tmp_path, dest, *extra)
+    
+        assert r.exit_code == 0, r.output
+        names = [n for n, _ in seen]
+        assert names[0] == "_read_destination_manifest"
+        assert ("_replace_destination" in names) == (case == "replace")
+        assert "copytree" in names
+>       assert all(held for _, held in seen), seen
+E       AssertionError: [('_read_destination_manifest', False), ('copytree', False), ('copytree', False)]
+E       assert False
+E        +  where False = all(<generator object test_deliver_lock_spans_the_destination_read_through_the_copy.<locals>.<genexpr> at 0x10a9b9460>)
+
+packages/llama/tests/test_deliver_cmd.py:1198: AssertionError
+____ test_deliver_lock_spans_the_destination_read_through_the_copy[replace] ____
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_deliver_lock_spans_the_de1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a9eda20>
+case = 'replace'
+
+    @pytest.mark.parametrize("case", ["overlay", "replace"])
+    def test_deliver_lock_spans_the_destination_read_through_the_copy(
+            tmp_path: Path, monkeypatch, case):
+        dest = tmp_path / "inbox"
+        if case == "overlay":
+            build_ready(tmp_path, SLUG)
+            extra = ()
+        else:
+            _delivered_voiced(tmp_path)
+            extra = ("--replace-voiced",)
+        seen: list = []
+        _spy_held(monkeypatch, cli, "_read_destination_manifest", dest, seen)
+        _spy_held(monkeypatch, cli, "_replace_destination", dest, seen)
+        _spy_held(monkeypatch, shutil, "copytree", dest, seen)
+        commands = []
+        real_acquire = station_lock.acquire
+        monkeypatch.setattr(station_lock, "acquire", lambda p, *, command: (
+            commands.append(command), real_acquire(p, command=command))[1])
+    
+        r = _deliver(tmp_path, dest, *extra)
+    
+        assert r.exit_code == 0, r.output
+        names = [n for n, _ in seen]
+        assert names[0] == "_read_destination_manifest"
+        assert ("_replace_destination" in names) == (case == "replace")
+        assert "copytree" in names
+>       assert all(held for _, held in seen), seen
+E       AssertionError: [('_read_destination_manifest', False), ('_replace_destination', False), ('copytree', False), ('copytree', False)]
+E       assert False
+E        +  where False = all(<generator object test_deliver_lock_spans_the_destination_read_through_the_copy.<locals>.<genexpr> at 0x10aa084a0>)
+
+packages/llama/tests/test_deliver_cmd.py:1198: AssertionError
+______________ test_deliver_refuses_a_held_lock_naming_the_holder ______________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_deliver_refuses_a_held_lo0')
+
+    def test_deliver_refuses_a_held_lock_naming_the_holder(tmp_path: Path):
+        ws = build_ready(tmp_path, SLUG)
+        dest = tmp_path / "inbox"
+        assert _deliver(tmp_path, dest).exit_code == 0
+        _repackaged(tmp_path)
+        _lock_at(dest).write_text(FOREIGN_LOCK)
+        before = _tree(dest)
+        (tmp_path / "ledger.jsonl").unlink()
+    
+        r = _deliver(tmp_path, dest)
+    
+>       assert r.exit_code == 1
+E       assert 0 == 1
+E        +  where 0 = <Result okay>.exit_code
+
+packages/llama/tests/test_deliver_cmd.py:1214: AssertionError
+__________ test_deliver_batch_stops_at_a_held_lock_and_lists_the_rest __________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_deliver_batch_stops_at_a_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ab31320>
+
+    def test_deliver_batch_stops_at_a_held_lock_and_lists_the_rest(tmp_path: Path, monkeypatch):
+        for slug in ("s1-1973-06-10", "s2-1973-06-11", "s3-1973-06-12"):
+            build_ready(tmp_path, slug)
+        dest = tmp_path / "inbox"
+        real_acquire = station_lock.acquire
+        n = []
+    
+        def acquire(path, *, command):
+            n.append(command)
+            if len(n) == 2:
+                raise station_lock.StationLocked(path, FOREIGN_LOCK)
+            return real_acquire(path, command=command)
+    
+        monkeypatch.setattr(station_lock, "acquire", acquire)
+        r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--packaged",
+                                    "--dest", str(dest), "--yes"])
+>       assert r.exit_code == 1, r.output
+E       AssertionError: 3 show(s) to deliver:
+E           s1-1973-06-10
+E           s2-1973-06-11
+E           s3-1973-06-12
+E         library audio purged (1 B freed)
+E         delivered: /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_deliver_batch_stops_at_a_0/inbox/s1-1973-06-10
+E         library audio purged (1 B freed)
+E         delivered: /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_deliver_batch_stops_at_a_0/inbox/s2-1973-06-11
+E         library audio purged (1 B freed)
+E         delivered: /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_deliver_batch_stops_at_a_0/inbox/s3-1973-06-12
+E         
+E       assert 0 == 1
+E        +  where 0 = <Result okay>.exit_code
+
+packages/llama/tests/test_deliver_cmd.py:1253: AssertionError
+___________ test_library_show_lock_is_taken_before_the_station_lock ____________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_library_show_lock_is_take0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ab30ad0>
+
+    def test_library_show_lock_is_taken_before_the_station_lock(tmp_path: Path, monkeypatch):
+        build_ready(tmp_path, SLUG)
+        events: list = []
+        _record_lock_order(monkeypatch, events)
+        r = _deliver(tmp_path, tmp_path / "inbox")
+        assert r.exit_code == 0, r.output
+>       assert events == ["show", "station"]
+E       AssertionError: assert ['show'] == ['show', 'station']
+E         
+E         Right contains one more item: 'station'
+E         Use -v to get more diff
+
+packages/llama/tests/test_deliver_cmd.py:1308: AssertionError
+__________ test_clear_mark_lock_spans_read_through_clear_and_put_back __________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_clear_mark_lock_spans_rea0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a9ecd70>
+
+    def test_clear_mark_lock_spans_read_through_clear_and_put_back(tmp_path: Path, monkeypatch):
+        # success: the read and the clear under the lock, the purge after release
+        root = tmp_path / "ok"
+        root.mkdir()
+        ws, out = _setup(root)
+        lock = out.parent / station_lock.LOCK_NAME
+        seen: list = []
+        for name in ("read_station_manifest", "clear_mark"):
+            _spy_held(monkeypatch, station_mark, name, lock, seen)
+        _spy_held(monkeypatch, catalog, "purge_package_audio", lock, seen)
+        commands = []
+        real_acquire = station_lock.acquire
+        monkeypatch.setattr(station_lock, "acquire", lambda p, *, command: (
+            commands.append(command), real_acquire(p, command=command))[1])
+        r = _clear(root)
+        assert r.exit_code == 0, r.output
+>       assert seen == [("read_station_manifest", True), ("clear_mark", True),
+                        ("purge_package_audio", False)]
+E       AssertionError: assert [('read_stati...udio', False)] == [('read_stati...udio', False)]
+E         
+E         At index 0 diff: ('read_station_manifest', False) != ('read_station_manifest', True)
+E         Use -v to get more diff
+
+packages/llama/tests/test_clear_mark.py:442: AssertionError
+_____________________ test_clear_mark_refuses_a_held_lock ______________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_clear_mark_refuses_a_held0')
+
+    def test_clear_mark_refuses_a_held_lock(tmp_path: Path):
+        ws, out = _setup(tmp_path)
+        lock = out.parent / station_lock.LOCK_NAME
+        lock.write_text(FOREIGN_LOCK)
+>       r = _refused(tmp_path, ws, out, "the station is locked by another writer")
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+packages/llama/tests/test_clear_mark.py:471: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_clear_mark_refuses_a_held0')
+ws = <llama.workspace.ShowWorkspace object at 0x10a9e53d0>
+out = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_clear_mark_refuses_a_held0/inbox/gratefuldead-1973-06-10')
+expected = 'the station is locked by another writer', extra = ()
+
+    def _refused(tmp_path: Path, ws, out: Path, expected: str, *extra):
+        station = tree_bytes(out)
+        rec = _record_bytes(ws)
+        library = tree_bytes(ws.dir)
+        r = _clear(tmp_path, *extra)
+>       assert r.exit_code == 1, r.output
+E       AssertionError: mark cleared; the voicing is kept
+E         library audio purged (1 B freed)
+E         
+E       assert 0 == 1
+E        +  where 0 = <Result okay>.exit_code
+
+packages/llama/tests/test_clear_mark.py:83: AssertionError
+___________ test_library_show_lock_is_taken_before_the_station_lock ____________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-151/test_library_show_lock_is_take1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ab327b0>
+
+    def test_library_show_lock_is_taken_before_the_station_lock(tmp_path: Path, monkeypatch):
+        _setup(tmp_path)
+        events: list = []
+        real_lock, real_acquire = cli.file_lock, station_lock.acquire
+    
+        @contextmanager
+        def file_lock(*a, **k):
+            events.append("show")
+            with real_lock(*a, **k) as v:
+                yield v
+    
+        def acquire(path, *, command):
+            events.append("station")
+            return real_acquire(path, command=command)
+    
+        monkeypatch.setattr(cli, "file_lock", file_lock)
+        monkeypatch.setattr(station_lock, "acquire", acquire)
+        r = _clear(tmp_path)
+        assert r.exit_code == 0, r.output
+>       assert events == ["show", "station"]
+E       AssertionError: assert ['show'] == ['show', 'station']
+E         
+E         Right contains one more item: 'station'
+E         Use -v to get more diff
+
+packages/llama/tests/test_clear_mark.py:498: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_deliver_cmd.py::test_deliver_lock_spans_the_destination_read_through_the_copy[overlay]
+FAILED packages/llama/tests/test_deliver_cmd.py::test_deliver_lock_spans_the_destination_read_through_the_copy[replace]
+FAILED packages/llama/tests/test_deliver_cmd.py::test_deliver_refuses_a_held_lock_naming_the_holder
+FAILED packages/llama/tests/test_deliver_cmd.py::test_deliver_batch_stops_at_a_held_lock_and_lists_the_rest
+FAILED packages/llama/tests/test_deliver_cmd.py::test_library_show_lock_is_taken_before_the_station_lock
+FAILED packages/llama/tests/test_clear_mark.py::test_clear_mark_lock_spans_read_through_clear_and_put_back
+FAILED packages/llama/tests/test_clear_mark.py::test_clear_mark_refuses_a_held_lock
+FAILED packages/llama/tests/test_clear_mark.py::test_library_show_lock_is_taken_before_the_station_lock
+8 failed, 105 passed in 2.85s
+........................................................................ [ 63%]
+....................................F....                                [100%]
+=================================== FAILURES ===================================
+__________ test_clear_mark_lock_spans_read_through_clear_and_put_back __________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-152/test_clear_mark_lock_spans_rea0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c9c31c0>
+
+    def test_clear_mark_lock_spans_read_through_clear_and_put_back(tmp_path: Path, monkeypatch):
+        # success: the read and the clear under the lock, the purge after release
+        root = tmp_path / "ok"
+        root.mkdir()
+        ws, out = _setup(root)
+        lock = out.parent / station_lock.LOCK_NAME
+        seen: list = []
+        for name in ("read_station_manifest", "clear_mark"):
+            _spy_held(monkeypatch, station_mark, name, lock, seen)
+        _spy_held(monkeypatch, catalog, "purge_package_audio", lock, seen)
+        commands = []
+        real_acquire = station_lock.acquire
+        monkeypatch.setattr(station_lock, "acquire", lambda p, *, command: (
+            commands.append(command), real_acquire(p, command=command))[1])
+        r = _clear(root)
+        assert r.exit_code == 0, r.output
+        assert seen == [("read_station_manifest", True), ("clear_mark", True),
+                        ("purge_package_audio", False)]
+        assert commands == [f"llama clear-mark {SLUG}"]
+        assert not lock.exists()
+    
+        # the record write fails: put_back runs under the lock too
+        root = tmp_path / "putback"
+        root.mkdir()
+        ws, out = _setup(root)
+        lock = out.parent / station_lock.LOCK_NAME
+        seen.clear()
+        _spy_held(monkeypatch, station_mark, "put_back", lock, seen)
+    
+        def boom(ws_, outcome):
+            raise OSError(28, "No space left on device")
+    
+        monkeypatch.setattr(campaign, "add_clear", boom)
+        r = _clear(root)
+        assert r.exit_code == 1
+        assert "the station mark was put back" in " ".join(r.output.split())
+        assert ("put_back", True) in seen
+>       assert all(held for n, held in seen if n != "purge_package_audio")
+E       assert False
+E        +  where False = all(<generator object test_clear_mark_lock_spans_read_through_clear_and_put_back.<locals>.<genexpr> at 0x10c9a4660>)
+
+packages/llama/tests/test_clear_mark.py:463: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_clear_mark.py::test_clear_mark_lock_spans_read_through_clear_and_put_back
+1 failed, 112 passed in 2.64s
+........................................................................ [ 63%]
+.........................................                                [100%]
+113 passed in 3.77s
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 12%]
+........................................................................ [ 14%]
+........................................................................ [ 16%]
+........................................................................ [ 18%]
+........................................................................ [ 20%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 54%]
+........................................................................ [ 56%]
+........................................................................ [ 58%]
+........................................................................ [ 60%]
+........................................................................ [ 62%]
+........................................................................ [ 64%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 71%]
+........................................................................ [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 89%]
+........................................................................ [ 91%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+........................................                                 [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=81249) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3928 passed, 7 deselected, 24 warnings in 20.96s
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+........................................................................ [ 44%]
+........................................................................ [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 53%]
+........................................................................ [ 54%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+........................................................................ [ 57%]
+........................................................................ [ 58%]
+........................................................................ [ 59%]
+........................................................................ [ 60%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 64%]
+........................................................................ [ 65%]
+........................................................................ [ 66%]
+........................................................................ [ 67%]
+........................................................................ [ 68%]
+........................................................................ [ 69%]
+........................................................................ [ 70%]
+........................................................................ [ 71%]
+........................................................................ [ 72%]
+........................................................................ [ 73%]
+........................................................................ [ 74%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+........................................................................ [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 88%]
+........................................................................ [ 89%]
+........................................................................ [ 90%]
+........................................................................ [ 91%]
+........................................................................ [ 92%]
+.......s................................................................ [ 93%]
+........................................................................ [ 94%]
+........................................................................ [ 95%]
+........................................................................ [ 96%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+........................................................................ [ 99%]
+..............                                                           [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=82112) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6853 passed, 1 skipped, 8 deselected, 26 warnings in 80.40s (0:01:20)

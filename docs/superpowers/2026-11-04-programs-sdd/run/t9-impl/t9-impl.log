@@ -1,0 +1,73 @@
+        monkeypatch.setattr(os, "replace", replace)
+        monkeypatch.setattr(os, "stat", _failing(
+            real_stat, when=lambda a: bool(renamed) and Path(a[0]).name == "manifest.json"))
+        with pytest.raises(TitleWriteFailed) as info:
+            write_title(pkg, expect=raw, title="X")
+        msg = str(info.value)
+>       assert msg.endswith("manifest.json was replaced with this write's bytes "
+                            "(not verified); its mtime unknown"), msg
+E       AssertionError: show: restoring the mtime after the title write failed ([Errno 13] Permission denied); manifest.json holds this write's bytes, its mtime unknown
+E       assert False
+E        +  where False = <built-in method endswith of str object at 0x10c8b0c30>("manifest.json was replaced with this write's bytes (not verified); its mtime unknown")
+E        +    where <built-in method endswith of str object at 0x10c8b0c30> = "show: restoring the mtime after the title write failed ([Errno 13] Permission denied); manifest.json holds this write's bytes, its mtime unknown".endswith
+
+packages/emcee/tests/test_retitle_writer.py:631: AssertionError
+=========================== short test summary info ============================
+FAILED packages/emcee/tests/test_retitle_writer.py::test_write_oserrors_after_the_rename_say_what_the_file_holds
+FAILED packages/emcee/tests/test_retitle_writer.py::test_write_carries_on_when_the_share_refuses_fchmod[1]
+FAILED packages/emcee/tests/test_retitle_writer.py::test_write_carries_on_when_the_share_refuses_fchmod[45]
+FAILED packages/emcee/tests/test_retitle_writer.py::test_write_carries_on_when_the_share_refuses_fchmod[102]
+FAILED packages/emcee/tests/test_retitle_writer.py::test_write_carries_on_when_the_share_refuses_fchmod[22]
+FAILED packages/emcee/tests/test_retitle_writer.py::test_write_failed_temp_unlink_on_a_changed_file_is_a_before_rename_failure
+FAILED packages/emcee/tests/test_retitle_writer.py::test_write_failed_cleanup_unlink_keeps_the_original_cause
+FAILED packages/emcee/tests/test_retitle_writer.py::test_write_failed_cleanup_unlink_does_not_replace_a_keyboard_interrupt
+FAILED packages/emcee/tests/test_retitle_writer.py::test_write_after_rename_message_does_not_claim_a_restore_failed
+9 failed, 24 passed in 0.29s
+.................................                                        [100%]
+33 passed in 0.21s
+--- emcee suite after R9 fixes
+........................................................................ [ 85%]
+........................................................................ [ 90%]
+........................................................................ [ 96%]
+.............................................                            [100%]
+1269 passed, 1 deselected in 5.63s
+--- RED: retitle cmd + boundary
+ERROR packages/emcee/tests/test_retitle_cmd.py::test_changed_before_rename_is_skipped_and_listed
+ERROR packages/emcee/tests/test_retitle_cmd.py::test_awaiting_fix_shows_are_never_written
+ERROR packages/emcee/tests/test_retitle_cmd.py::test_rerun_after_success_has_nothing_to_write
+ERROR packages/emcee/tests/test_retitle_cmd.py::test_exit_code_ignores_awaiting_unchanged_and_unvoiced
+ERROR packages/emcee/tests/test_retitle_cmd.py::test_exit_code_is_1_when_a_package_is_refused
+ERROR packages/emcee/tests/test_retitle_cmd.py::test_exit_code_is_1_when_only_refused_and_nothing_to_write
+ERROR packages/emcee/tests/test_retitle_cmd.py::test_retitle_after_rename_in_config_changes_and_clears
+1 failed, 6 passed, 24 errors in 0.27s
+--- GREEN attempt
+...............................                                          [100%]
+31 passed in 0.30s
+--- emcee suite + full suite
+........................................................................ [ 94%]
+.....................................................................    [100%]
+1293 passed, 1 deselected in 5.81s
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6786 passed, 1 skipped, 8 deselected, 26 warnings in 78.34s (0:01:18)
+--- fix round 1 start
+                in result.stderr)
+        assert "  b" in result.stderr.splitlines()
+        assert calls == []
+        # R2: every planned manifest was re-read, each one under the lock.
+>       assert reread == [("a", True), ("b", True), ("c", True)]
+E       AssertionError: assert [('a', False)..., ('c', True)] == [('a', True),..., ('c', True)]
+E         
+E         At index 0 diff: ('a', False) != ('a', True)
+E         Left contains 3 more items, first extra item: ('a', True)
+E         Use -v to get more diff
+
+packages/emcee/tests/test_retitle_cmd.py:343: AssertionError
+=========================== short test summary info ============================
+FAILED packages/emcee/tests/test_retitle_cmd.py::test_plan_drift_under_the_lock_refuses_the_whole_run
+1 failed, 25 passed in 0.42s
+..........................                                               [100%]
+26 passed in 1.02s
+--- fix1 emcee suite
+.......................................................................  [100%]
+1295 passed, 1 deselected in 6.00s

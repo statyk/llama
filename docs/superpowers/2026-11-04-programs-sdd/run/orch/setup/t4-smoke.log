@@ -1,0 +1,8 @@
+  Transform  transforming modules took 2.17s · 46% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+  ✓  130 e2e/smoke.pw.mjs:1962:1 › the hostile fixture: a program and a block title with markup appear as literal text and add no element (349ms)
+  ✓  131 e2e/smoke.pw.mjs:1991:1 › at 320 px with a 60-character program and block title, document.scrollWidth <= 320 on the main page and the panel (223ms)
+
+  131 passed (3.7m)

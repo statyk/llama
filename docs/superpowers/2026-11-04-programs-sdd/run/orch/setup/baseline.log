@@ -1,0 +1,24 @@
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=8305) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6624 passed, 1 skipped, 8 deselected, 26 warnings in 82.29s (0:01:22)
+PYRC=0
+      Tests  524 passed (524)
+   Start at  01:54:40
+   Duration  2.71s (transform 51%, tests 28%, import 12%, worker 8%)
+
+  Transform  transforming modules took 2.52s · 51% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+NPMRC=0
+> typecheck
+> tsc --noEmit
+
+  ✓  105 e2e/smoke.pw.mjs:1582:3 › notes panel › the hostile fixture through the panel: its markup appears as literal text and adds no element (358ms)
+  ✓  106 e2e/smoke.pw.mjs:1613:1 › the pen's overhang shows: a J date and J names at 390 px draw the same with the label's clipping off (276ms)
+  ✓  107 e2e/smoke.pw.mjs:1624:1 › with nothing on air, the venue and date line keeps its height and the window does not move (134ms)
+  ✓  108 e2e/smoke.pw.mjs:1642:1 › a name stepping from long to a short name, or to off air, loses the class (142ms)
+
+  108 passed (3.5m)

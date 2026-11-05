@@ -1,0 +1,31 @@
+packages/emcee/tests/test_lock_cmd.py:10: in <module>
+    import emcee.station_lock as sl
+E   ModuleNotFoundError: No module named 'emcee.station_lock'
+=========================== short test summary info ============================
+ERROR packages/emcee/tests/test_station_lock.py
+ERROR packages/emcee/tests/test_lock_cmd.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.21s
+....................................                                     [100%]
+36 passed in 3.50s
+........................................................................ [ 91%]
+........................................................................ [ 97%]
+.................................                                        [100%]
+1185 passed, 1 deselected in 7.63s
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6675 passed, 1 skipped, 8 deselected, 26 warnings in 77.56s (0:01:17)
+fix1 start
+..............................................                           [100%]
+46 passed in 0.50s
+...........................................                              [100%]
+1195 passed, 1 deselected in 4.53s
+fix2 start
+............................................                             [100%]
+44 passed in 1.15s
+1200 passed, 1 deselected in 4.65s
+fix3 start
+...............................................                          [100%]
+47 passed in 0.63s
+1203 passed, 1 deselected in 4.78s

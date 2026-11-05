@@ -1,0 +1,7 @@
+pass 0: setup, spec+carryovers read
+pass 1/5: emcee lock, retitle, procs, cli read
+pass 2/5: llama deliver/clear-mark, bulk_apply read
+pass 3/5: transmitter + station_probe read
+pass 4/5: antenna read; fixture cross-check done
+pass 5/5: docs + triage done; writing handback
+handback written, sentinel touched

@@ -1,0 +1,5 @@
+
+[notice] A new release of pip is available: 26.2.1 -> 26.3
+[notice] To update, run: /Users/shawn/projects/llama/.claude/worktrees/programs/.venv/bin/python3.14 -m pip install --upgrade pip
+/Users/shawn/projects/llama/.claude/worktrees/programs/packages/emcee/src/emcee/__init__.py /Users/shawn/projects/llama/.claude/worktrees/programs/packages/llama/src/llama/__init__.py /Users/shawn/projects/llama/.claude/worktrees/programs/packages/transmitter/src/transmitter/__init__.py
+SETUP-OK

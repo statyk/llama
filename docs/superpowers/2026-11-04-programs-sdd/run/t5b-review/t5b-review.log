@@ -1,0 +1,5 @@
+refused rc=143 out=[] err=[] lock=lma-station-lock 1 aaaaaaaaaaaaaaaaaaaaa
+create-error rc=143 out=[] err=[] lock=
+write-error rc=143 out=[] err=[] lock=
+warn-release rc=143 out=[body ] err=[warning: the station lock at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-programs/e1c9d972-5748-4fa8-aa4d-b37f2e80851d/scratchpad/t5b/d/.lma-station.lock was not ours at release (foreign); writes since 2026-11-04T03:31:44-05:00 ran unguarded ] lock=foreign
+report written

@@ -1,0 +1,11 @@
+/Users/shawn/projects/llama/.claude/worktrees/programs/packages/llama/src/llama/__init__.py
+..                                                                       [100%]
+2 passed in 0.17s
+'import emcee' True
+'from emcee.x import y' True
+'    import emcee.cli' True
+"importlib.import_module('emcee.x')" True
+'__import__("emcee")' True
+'import os, emcee' False
+'import emceex' False
+'x = 1  # import emcee' False

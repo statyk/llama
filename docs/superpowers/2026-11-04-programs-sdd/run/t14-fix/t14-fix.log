@@ -1,0 +1,89 @@
+== RED record title
+            # this run's unrecorded write.
+            expected += [{"slug": pkg.name, "before_sha256": _sha(raw), "mtime_ns": mtime,
+                          "title": titles[pkg.name]},
+                         {"slug": pkg.name,
+                          "after_sha256": _sha((pkg / "manifest.json").read_bytes())}]
+>       assert _records(run_dir) == expected
+E       AssertionError: assert [{'slug': 'a'...1e93bac843e'}] == [{'slug': 'a'...1e93bac843e'}]
+E         
+E         At index 0 diff: {'slug': 'a', 'before_sha256': '9fddb539584da19ace54d96b18be3d80d03bde9af9da2f85b724f88cf54d9dbe', 'mtime_ns': 1700000000123456789} != {'slug': 'a', 'before_sha256': '9fddb539584da19ace54d96b18be3d80d03bde9af9da2f85b724f88cf54d9dbe', 'mtime_ns': 1700000000123456789, 'title': 'Dead Hour'}
+E         Use -v to get more diff
+
+packages/emcee/tests/test_retitle_cmd.py:444: AssertionError
+=========================== short test summary info ============================
+FAILED packages/emcee/tests/test_retitle_cmd.py::test_backup_saved_before_each_write_with_sha
+1 failed, 4 passed, 21 deselected in 0.21s
+== GREEN record title
+...........................................................              [100%]
+59 passed in 1.05s
+== RED cross
+E         ')]
+E       assert [0, 3] == [0, 0]
+E         
+E         At index 1 diff: 3 != 0
+E         Use -v to get more diff
+
+scripts/test_station_probe.py:149: AssertionError
+=========================== short test summary info ============================
+FAILED scripts/test_station_probe.py::test_cross_refuses_to_start_over_an_existing_lock_file
+FAILED scripts/test_station_probe.py::test_cross_that_never_acquired_exits_3_naming_the_lock_file
+FAILED scripts/test_station_probe.py::test_cross_both_sides_acquire_and_contend
+3 failed, 14 passed in 9.74s
+E       AssertionError: acquired 0 contended 5 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+E         
+E       assert 0 == 2
+E        +  where 0 = CompletedProcess(args=['/Users/shawn/projects/llama/.claude/worktrees/programs/.venv/bin/python3.14', '/Users/shawn/pr...eturncode=0, stdout='acquired 0 contended 5 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0\n', stderr='').returncode
+E       assert 0 == 3
+== GREEN cross
+.................                                                        [100%]
+17 passed in 9.90s
+.................                                                        [100%]
+17 passed in 9.85s
+.................                                                        [100%]
+17 passed in 9.84s
+== flake check: 20 two-sided paced runs, n 50
+1 a=0 b=0 | acquired 15 contended 35 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 23 contended 27 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+2 a=0 b=0 | acquired 18 contended 32 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 20 contended 30 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+3 a=0 b=0 | acquired 22 contended 28 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 21 contended 29 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+4 a=0 b=0 | acquired 27 contended 23 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 21 contended 29 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+5 a=0 b=0 | acquired 18 contended 32 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 18 contended 32 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+6 a=0 b=0 | acquired 24 contended 26 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 21 contended 29 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+7 a=0 b=0 | acquired 19 contended 31 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 17 contended 33 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+8 a=0 b=0 | acquired 19 contended 31 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 23 contended 27 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+9 a=0 b=0 | acquired 25 contended 25 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 18 contended 32 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+10 a=0 b=0 | acquired 22 contended 28 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 18 contended 32 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+11 a=0 b=0 | acquired 17 contended 33 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 23 contended 27 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+12 a=0 b=0 | acquired 21 contended 29 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 17 contended 33 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+13 a=0 b=0 | acquired 28 contended 22 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 17 contended 33 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+14 a=0 b=0 | acquired 19 contended 31 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 21 contended 29 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+15 a=0 b=0 | acquired 18 contended 32 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 25 contended 25 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+16 a=0 b=0 | acquired 18 contended 32 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 27 contended 23 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+17 a=0 b=0 | acquired 24 contended 26 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 12 contended 38 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+18 a=0 b=0 | acquired 23 contended 27 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 20 contended 30 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+19 a=0 b=0 | acquired 16 contended 34 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 19 contended 31 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+20 a=0 b=0 | acquired 27 contended 23 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0 | acquired 17 contended 33 vanished 0 double 0 marker-overlap 0 (advisory) unreadable 0
+== py3.11 probe
+.................                                                        [100%]
+17 passed in 9.55s
+== full suite (code state)
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=99621) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6889 passed, 1 skipped, 8 deselected, 26 warnings in 91.67s (0:01:31)
+....                                                                     [100%]
+4 passed in 0.22s
+== full suite (docs state)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6889 passed, 1 skipped, 8 deselected, 26 warnings in 94.45s (0:01:34)
+== antenna npm test
+      Tests  545 passed (545)
+   Start at  05:13:13
+   Duration  2.27s (transform 46%, tests 31%, import 13%, worker 10%)
+
+  Transform  transforming modules took 2.16s · 46% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
