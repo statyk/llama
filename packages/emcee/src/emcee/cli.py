@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
 import traceback
@@ -546,6 +547,22 @@ def _echo_keep_plan(config: EmceeConfig, presenter: Presenter, to_voice: list[Pa
         out(_stale_note(stale))
 
 
+def _sampled(to_voice: list[PackageStatus], n: int | None,
+             seed: int | None) -> list[PackageStatus]:
+    """`run --sample`: the n packages with the lowest sha256(seed:slug), in
+    station order, after printing `sampled n of m to voice (seed s)` (stderr).
+    Ranking by a per-slug hash, not a shuffle, keeps the sample stable when
+    the station gains or loses other packages."""
+    if n is None or not to_voice:
+        return to_voice
+    rank = sorted(to_voice, key=lambda s: hashlib.sha256(
+        f"{seed}:{s.path.name}".encode()).digest())
+    keep = {id(s) for s in rank[:n]}
+    picked = [s for s in to_voice if id(s) in keep]
+    typer.echo(f"sampled {len(picked)} of {len(to_voice)} to voice (seed {seed})", err=True)
+    return picked
+
+
 @app.command()
 def run(
     force: bool = typer.Option(False, "--force",
@@ -580,6 +597,13 @@ def run(
         False, "--drifted",
         help="With --keep-script: only packages whose recorded TTS differs from today's "
              "(no record counts as drifted)"),
+    sample: int = typer.Option(
+        None, "--sample", min=1,
+        help="Voice a random N of what would be voiced (drawn after every filter and "
+             "skip); the plan prints the seed"),
+    seed: int = typer.Option(
+        None, "--seed",
+        help="With --sample: reproduce a sample (same seed, same station = same packages)"),
 ):
     """Voice every pending package in the station, after a plan and a yes.
 
@@ -630,11 +654,22 @@ def run(
     does a null `dj_audio`). A recorded presenter other than ID is skipped
     (`script was written for <id>`). The clear nulls `dj_audio` on shows that
     may be airing, so the batch stops after 3 consecutive failures.
+
+    `--sample N [--seed S]` voices a random N of the packages that would be
+    voiced, drawn last (after every filter and skip, and after `--keep-script`'s
+    all-current skip); the plan opens with `sampled N of M to voice (seed S)`.
+    Without `--seed` one is drawn and printed. Each package ranks by
+    sha256(seed:slug), so a station change moves only the packages it touches
+    and a `--dry-run` and a `--yes` with the same seed pick the same ones.
     """
     if keep_script and presenter is None:
         _usage("--keep-script needs --presenter")
     if not keep_script and (presenter is not None or drifted):
         _usage("--presenter and --drifted need --keep-script")
+    if seed is not None and sample is None:
+        _usage("--seed needs --sample")
+    if sample is not None and seed is None:
+        seed = secrets.randbelow(100_000)
     config = load_config()
     root = _resolve_station_root(config, station_root)
     moves, statuses = _load_station(config, root)
@@ -715,8 +750,6 @@ def run(
             typer.echo(f"skip {slug}: kept script awaiting retry "
                        f"(emcee voice {slug} --keep-script)")
             continue
-        if dry_run and not keep_script:   # keep-script lists after its all-current skips
-            _echo_would_voice(config, status)
         to_voice.append(status)
 
     if unreadable:
@@ -737,7 +770,8 @@ def run(
                 for s in current:
                     typer.echo(f"skip {s.path.name}: every clip is already current")
                 to_voice = [s for s in to_voice if s not in current]
-                counts = {s.path.name: counts[s.path.name] for s in to_voice}
+            to_voice = _sampled(to_voice, sample, seed)
+            counts = {s.path.name: counts[s.path.name] for s in to_voice}
             if dry_run:
                 for s in to_voice:
                     _echo_would_voice(config, s)
@@ -745,10 +779,15 @@ def run(
             _echo_keep_plan(config, loaded, to_voice, counts, stale)
         elif stale:
             typer.echo(_stale_note(stale), err=True)
-    elif to_voice:
-        _echo_plan(config, to_voice, stale)
-    elif stale:
-        typer.echo(_stale_note(stale), err=True)
+    else:
+        to_voice = _sampled(to_voice, sample, seed)
+        if dry_run:
+            for s in to_voice:
+                _echo_would_voice(config, s)
+        if to_voice:
+            _echo_plan(config, to_voice, stale)
+        elif stale:
+            typer.echo(_stale_note(stale), err=True)
 
     if dry_run:
         typer.echo(f"{len(to_voice)} package(s) would be voiced"
