@@ -28,7 +28,14 @@ Documented limitations (spec C2):
      way), and its exception masks the original (which is its `__context__`).
      A leftover aside that cannot be removed refuses the unit like a leftover
      `.txn/`. The aside is single-use: a second set-aside in one unit refuses.
-Directories are not restored: an empty directory a failed unit created stays.
+Directories: after a failed unit's restore and put-back, every directory the
+unit created (absent from the snapshot's directory set) that the restore left
+empty is removed, deepest first, with `rmdir` only. A directory that existed
+before the unit is never removed, empty or not; a created directory still
+holding content the snapshot does not track (e.g. a subdirectory of
+`package/audio/`) stays, with its parents. Best-effort: an `rmdir` error skips
+that directory and never masks the original exception. A successful unit
+keeps the directories it created.
 """
 from __future__ import annotations
 
@@ -89,6 +96,20 @@ def _tracked_files(show_ws: ShowWorkspace) -> Iterator[str]:
                 yield rel
 
 
+def _dirs(show_ws: ShowWorkspace) -> list[str]:
+    """Posix relpaths of every directory under the show dir, except the top-level
+    `.txn/` and `.audio-aside/` (and everything under them). The show dir itself
+    is not listed."""
+    root = show_ws.dir
+    out = []
+    for dirpath, dirnames, _ in os.walk(root):
+        rel_dir = Path(dirpath).relative_to(root)
+        if rel_dir == Path("."):
+            dirnames[:] = [d for d in dirnames if d not in (TXN_DIR, ASIDE_DIR)]
+        out.extend((rel_dir / d).as_posix() for d in dirnames)
+    return sorted(out)
+
+
 def _audio_names(show_ws: ShowWorkspace) -> list[str]:
     audio = show_ws.package_dir / "audio"
     if not audio.is_dir():
@@ -98,10 +119,11 @@ def _audio_names(show_ws: ShowWorkspace) -> list[str]:
 
 def take_snapshot(show_ws: ShowWorkspace) -> None:
     txn = show_ws.dir / TXN_DIR
+    dirs = _dirs(show_ws)                              # before .txn/ itself exists
     for rel in _tracked_files(show_ws):
         atomic_write_bytes(txn / "files" / rel, (show_ws.dir / rel).read_bytes())
     atomic_write_bytes(txn / _INDEX,
-                       json.dumps({"audio": _audio_names(show_ws)}).encode())
+                       json.dumps({"audio": _audio_names(show_ws), "dirs": dirs}).encode())
 
 
 def restore_snapshot(show_ws: ShowWorkspace) -> None:
@@ -118,6 +140,27 @@ def restore_snapshot(show_ws: ShowWorkspace) -> None:
     for name in _audio_names(show_ws):                 # (c) drop audio the unit added
         if name not in keep_audio:
             (show_ws.package_dir / "audio" / name).unlink(missing_ok=True)
+
+
+def remove_created_dirs(show_ws: ShowWorkspace) -> None:
+    """Remove (rmdir only, deepest first) every directory not in the snapshot's
+    `dirs` that is empty now. Best-effort: an OSError skips that directory.
+    An index without `dirs` removes nothing (defensive only: a leftover `.txn/`
+    is deleted at unit entry, never restored, so every index this reads was
+    written by this code)."""
+    try:
+        before = json.loads((show_ws.dir / TXN_DIR / _INDEX).read_text()).get("dirs")
+    except (OSError, ValueError):
+        return
+    if before is None:
+        return
+    keep = set(before)
+    created = [rel for rel in _dirs(show_ws) if rel not in keep]
+    for rel in sorted(created, key=lambda r: r.count("/"), reverse=True):
+        try:
+            os.rmdir(show_ws.dir / rel)
+        except OSError:
+            pass                                       # non-empty, permission, gone
 
 
 def discard_snapshot(show_ws: ShowWorkspace) -> None:
@@ -160,6 +203,7 @@ def show_unit(show_ws: ShowWorkspace, expect: ShowView | None) -> Iterator[None]
         except BaseException:
             restore_snapshot(show_ws)      # if this raises, .txn/ stays; original is __context__
             put_back(show_ws)              # the old audio, under its old names
+            remove_created_dirs(show_ws)   # after put_back (it may mkdir package/audio/)
             discard_snapshot(show_ws)
             raise
         discard_aside(show_ws)

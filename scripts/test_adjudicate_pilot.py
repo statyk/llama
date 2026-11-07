@@ -225,6 +225,26 @@ def test_trial_whose_redo_appends_a_ledger_row_leaves_the_ledger_identical(tmp_p
     assert path.read_bytes() == before                         # and taken back out
 
 
+def test_trial_whose_redo_packages_leaves_no_package_dir(tmp_path, monkeypatch):
+    """Pilot defect (R1): a trial redo created package/ and package/audio/ in a show
+    without them, and the restore left both behind, empty."""
+    env = Env(tmp_path, monkeypatch)
+    show_dir = env.root / "shows" / HELD
+    assert not (show_dir / "package").exists()
+    fake = env.redo
+
+    def redo(entry, stage):
+        fake(entry, stage)
+        write_artifact(entry.ws.package_dir / "manifest.json", {"v": 3})
+        (entry.ws.package_dir / "audio").mkdir(parents=True, exist_ok=True)
+        (entry.ws.package_dir / "audio" / "01 - x.mp3").write_bytes(b"X")
+    env.redo = redo
+    env.run(trial_applies=1)
+    assert json.loads((env.out / "opus" / f"{HELD}.json").read_text())[
+        "result"]["status"] == "applied"
+    assert not (show_dir / "package").exists()
+
+
 def test_trial_policy_switches_always_others_up_to_the_limit():
     from llama.adjudicator.gate import GateResult
     from llama.adjudicator.verdict import Verdict

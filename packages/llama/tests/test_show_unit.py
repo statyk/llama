@@ -286,3 +286,115 @@ def test_two_repackagings_in_one_unit_restore_the_original_audio(tmp_path, monke
             raise LlamaError("after package")
     assert tree_bytes(ws.dir) == before                    # 03 - Jam.mp3 is j2's audio again
     assert not (ws.dir / ASIDE_DIR).exists()
+
+
+# --- directories a failed unit created (Task R1) ------------------------------
+
+import json  # noqa: E402
+import os  # noqa: E402
+
+
+def _paths(d):
+    """Every directory AND file under `d` (posix, relative), except the top-level `.lock`."""
+    out = set()
+    for dirpath, dirnames, filenames in os.walk(d):
+        rel = Path(dirpath).relative_to(d)
+        out.update((rel / n).as_posix() for n in dirnames + filenames)
+    out.discard(".lock")
+    return out
+
+
+def _bare_show(tmp_path):
+    """A show with no `package/` at all (as a held show is before packaging)."""
+    ws = ShowWorkspace(tmp_path / "shows" / "s")
+    write_artifact(ws.provenance, {"performance_id": "x/1"})
+    write_artifact(ws.show, {"title": "t"})
+    return ws
+
+
+def _package_it(ws):
+    write_artifact(ws.package_dir / "manifest.json", {"v": 3})
+    atomic_write_bytes(ws.package_dir / "audio" / "01 - A.mp3", b"A")
+
+
+def test_a_failed_unit_removes_the_directories_it_created(tmp_path):
+    ws = _bare_show(tmp_path); before = _paths(ws.dir)
+    assert not ws.package_dir.exists()
+    _fail_inside(ws, LlamaError("after package"), lambda: _package_it(ws))
+    assert _paths(ws.dir) == before
+    assert not ws.package_dir.exists() and not (ws.dir / ".txn").exists()
+
+
+def test_a_pre_existing_empty_package_audio_survives_a_failed_unit(tmp_path):
+    ws = _bare_show(tmp_path); (ws.package_dir / "audio").mkdir(parents=True)
+    before = _paths(ws.dir)
+    _fail_inside(ws, LlamaError("x"), lambda: _package_it(ws))
+    assert _paths(ws.dir) == before
+    assert (ws.package_dir / "audio").is_dir() and not any((ws.package_dir / "audio").iterdir())
+
+
+def test_a_pre_existing_empty_directory_elsewhere_survives_a_failed_unit(tmp_path):
+    ws = _show(tmp_path); (ws.dir / "research").mkdir()
+    before = _paths(ws.dir)
+    _fail_inside(ws, LlamaError("x"), lambda: write_artifact(ws.dir / "research" / "n.json", {}))
+    assert _paths(ws.dir) == before and (ws.dir / "research").is_dir()
+
+
+def test_a_created_directory_left_non_empty_by_the_restore_survives(tmp_path):
+    # Anything under package/audio/ that is not a direct audio file is untracked by
+    # the snapshot, so the restore leaves it; its created parents are not empty and
+    # must stay (rmdir only, never rmtree). A created empty sibling still goes.
+    ws = _bare_show(tmp_path)
+    def body():
+        atomic_write_bytes(ws.package_dir / "audio" / "sub" / "x.mp3", b"X")
+        (ws.dir / "extra").mkdir()
+    _fail_inside(ws, LlamaError("x"), body)
+    assert (ws.package_dir / "audio" / "sub" / "x.mp3").read_bytes() == b"X"
+    assert not (ws.dir / "extra").exists()
+
+
+def test_an_rmdir_error_neither_masks_the_original_nor_stops_the_removal(tmp_path, monkeypatch):
+    ws = _bare_show(tmp_path); before = _paths(ws.dir)
+    real, refused = os.rmdir, []
+    def flaky(path, *a, **k):
+        if Path(path).name == "extra":
+            refused.append(path)
+            raise PermissionError("no")
+        return real(path, *a, **k)
+    monkeypatch.setattr(show_unit_mod.os, "rmdir", flaky)
+    def body():
+        _package_it(ws); (ws.dir / "extra").mkdir()
+    with pytest.raises(LlamaError, match="the original"):
+        with show_unit(ws, capture_view(ws)):
+            body()
+            raise LlamaError("the original")
+    monkeypatch.undo()
+    assert refused                                           # the guarded rmdir did run
+    assert _paths(ws.dir) == before | {"extra"} and not (ws.dir / ".txn").exists()
+
+
+def test_a_successful_unit_keeps_the_directories_it_created(tmp_path):
+    ws = _bare_show(tmp_path)
+    with show_unit(ws, capture_view(ws)):
+        (ws.package_dir / "audio").mkdir(parents=True); (ws.dir / "extra").mkdir()
+    assert (ws.package_dir / "audio").is_dir() and (ws.dir / "extra").is_dir()
+
+
+def test_keyboard_interrupt_removes_the_directories_the_unit_created(tmp_path):
+    ws = _bare_show(tmp_path); before = _paths(ws.dir)
+    _fail_inside(ws, KeyboardInterrupt(), lambda: _package_it(ws))
+    assert _paths(ws.dir) == before
+
+
+def test_a_restore_without_a_recorded_directory_set_removes_no_directory(tmp_path, monkeypatch):
+    # Defensive only: a leftover .txn/ is deleted at entry, never restored, so an
+    # index without "dirs" is not reachable through show_unit.
+    ws = _bare_show(tmp_path)
+    real = show_unit_mod.take_snapshot
+    def old_index(show_ws):
+        real(show_ws)
+        idx = show_ws.dir / ".txn" / "index.json"
+        idx.write_text(json.dumps({"audio": json.loads(idx.read_text())["audio"]}))
+    monkeypatch.setattr(show_unit_mod, "take_snapshot", old_index)
+    _fail_inside(ws, LlamaError("x"), lambda: (ws.dir / "extra").mkdir())
+    assert (ws.dir / "extra").is_dir()
