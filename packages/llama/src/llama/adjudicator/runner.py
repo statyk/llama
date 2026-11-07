@@ -150,10 +150,12 @@ def _applicable(verdict: Verdict) -> list[tuple[int, object]]:
     return [(i, e) for i, e in enumerate(verdict.edits) if e.op not in PROPOSE_ONLY_OPS]
 
 
-def _applied_list(verdict: Verdict) -> list[dict]:
+def _applied_list(pairs: list[tuple[int | None, object]]) -> list[dict]:
+    """`pairs` are (index in the stored verdict's `edits`, edit), so `index` always points
+    into `rec.verdict["edits"]`; None for an edit with no such entry."""
     return [{"index": i, "op": e.op, "target": _target(e),
              "evidence_kinds": list(dict.fromkeys(ev.kind for ev in e.evidence))}
-            for i, e in _applicable(verdict)]
+            for i, e in pairs]
 
 
 def _base(ctx: Context, verdict: Verdict, outcome: str, *, gate: GateResult | None = None,
@@ -214,12 +216,17 @@ def adjudicate_show(ctx: Context, entry: CatalogEntry, *, dry_run: bool = False,
                     ) -> ShowOutcome:
     ws, slug = entry.ws, entry.slug
     path = _record_path(ctx, entry)
-    # 1-2: skips, with no call
-    if not _held(ws):
+    # 1-2: skips, with no call (a corrupt show.json fails here, before any spend)
+    try:
+        held = _held(ws)
+        current = held and not force and is_current(ws, path=path)
+    except Exception as exc:          # noqa: BLE001 - one show must not abort a backlog
+        return _failed(entry, "read show", exc)
+    if not held:
         return ShowOutcome(slug, NOT_HELD)
+    if current:
+        return ShowOutcome(slug, CURRENT)
     if not force:
-        if is_current(ws, path=path):
-            return ShowOutcome(slug, CURRENT)
         old = read_adjudication(ws, path=path)
         if dry_run and old is not None and not old.dry_run and old.outcome in _KEPT_FROM_DRY_RUN:
             return ShowOutcome(slug, HAS_RECORD,
@@ -281,7 +288,7 @@ def adjudicate_show(ctx: Context, entry: CatalogEntry, *, dry_run: bool = False,
 
     def on_commit(post: Show, res: ApplyResult) -> None:
         rec = _base(ctx, verdict, "applied", gate=gate, digest=show_digest(ws),
-                    applied=_applied_list(verdict), result=asdict(res),
+                    applied=_applied_list(_applicable(verdict)), result=asdict(res),
                     held_proposal=held_proposal(pre, post, verdict) if post.needs_review
                     else None)
         write_record(ws, rec, path=path)
@@ -333,6 +340,23 @@ def _accept_verdict(rec: AdjudicationRecord) -> Verdict | None:
     return None
 
 
+def _accept_pairs(stored: AdjudicationRecord, verdict: Verdict,
+                  show: Show) -> list[tuple[int | None, object]]:
+    """The applicable edits, each with its index in the STORED verdict's `edits`. For a
+    proposal that is the edit's own index (propose-only edits skipped, never re-based).
+    For a held_proposal overrule it is the index of the stored verdict's own `overrule`
+    edit for the same flag key, or None when the verdict had none (the overrule was
+    built from a spurious judgement alone)."""
+    if stored.outcome == "proposal":
+        return _applicable(verdict)
+    original = Verdict.model_validate(stored.verdict)
+    own = {}
+    for i, e in enumerate(original.edits):
+        if isinstance(e, OverruleFlag):
+            own.setdefault(_key(e.flag, show), i)
+    return [(own.get(_key(e.flag, show)), e) for e in verdict.edits]
+
+
 def _switch_refusal(slug: str, keyed: list[tuple[str, str]]) -> str:
     """`llama fix --recording`'s refusal text for filename-keyed entries."""
     by_key: dict[str, list[str]] = {}
@@ -348,7 +372,10 @@ def accept_proposal(ctx: Context, entry: CatalogEntry) -> ShowOutcome:
     path = _record_path(ctx, entry)
     # 1: a stored, non-dry-run proposal
     stored = read_adjudication(ws, path=path)
-    verdict = _accept_verdict(stored) if stored is not None else None
+    try:
+        verdict = _accept_verdict(stored) if stored is not None else None
+    except Exception as exc:          # noqa: BLE001 - a hand-edited or old-format record
+        return ShowOutcome(slug, NO_PROPOSAL, f"stored proposal unreadable: {exc}")
     if verdict is None:
         return ShowOutcome(slug, NO_PROPOSAL)
     # 2: the bundle's captured view is both the digest checked and the unit's expect
@@ -359,7 +386,8 @@ def accept_proposal(ctx: Context, entry: CatalogEntry) -> ShowOutcome:
     if view_digest(bundle.view) != stored.digest:
         return ShowOutcome(slug, PROPOSAL_STALE, "the show changed since the proposal")
     # 3: nothing applicable (never call apply with no edit: earliest_stage raises)
-    edits = [e for _, e in _applicable(verdict)]
+    pairs = _accept_pairs(stored, verdict, bundle.show)
+    edits = [e for _, e in pairs]
     if not edits:
         return ShowOutcome(slug, NO_PROPOSAL, "only propose-only edits")
     verdict = verdict.model_copy(update={"edits": edits})
@@ -379,7 +407,7 @@ def accept_proposal(ctx: Context, entry: CatalogEntry) -> ShowOutcome:
     def on_commit(post: Show, res: ApplyResult) -> None:
         rec = stored.model_copy(update={
             "version": RECORD_FILE_VERSION, "at": ctx.now(), "outcome": "accepted",
-            "dry_run": False, "digest": show_digest(ws), "applied": _applied_list(verdict),
+            "dry_run": False, "digest": show_digest(ws), "applied": _applied_list(pairs),
             "result": asdict(res), "held_proposal": None})
         write_record(ws, rec, path=path)
         committed["rec"] = rec

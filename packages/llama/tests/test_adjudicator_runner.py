@@ -195,9 +195,13 @@ def rig(tmp_path, monkeypatch):
     return Rig(tmp_path, monkeypatch)
 
 
+class ApplyCalled(BaseException):
+    """A BaseException, so the runner's Exception catch-all cannot turn it into FAILED."""
+
+
 def _no_apply(monkeypatch):
     def boom(*a, **k):
-        raise AssertionError("apply_verdict must not be called")
+        raise ApplyCalled("apply_verdict must not be called")
     monkeypatch.setattr(runner, "apply_verdict", boom)
 
 
@@ -208,7 +212,10 @@ SWITCH = V([ed("switch_recording", identifier="gd73-sib",
 
 # ---------------------------------------------------------------- skips
 
-def test_not_held_and_current_are_skipped_without_llm_call(rig):
+def test_not_held_and_current_are_skipped_without_llm_call(rig, monkeypatch):
+    def stale(*a, **k):
+        raise ApplyCalled("the stale check must come after the not-held and current skips")
+    monkeypatch.setattr(runner, "stale_message", stale)
     rig.pre(flags=())
     assert rig.run().outcome == NOT_HELD
     rig.pre()
@@ -775,8 +782,9 @@ def test_accept_held_proposal_overrules_leftover_flags(rig):
     rules = read_overrides(rig.ws).overrules
     assert [(r.kind, r.source) for r in rules] == [("venue", "adjudicate")]
     rec = read_record(rig.ws)
+    # the index of the stored verdict's own overrule edit for that flag key
     assert rec.outcome == "accepted" and rec.applied == [
-        {"index": 0, "op": "overrule", "target": VENUE_FLAG,
+        {"index": 1, "op": "overrule", "target": VENUE_FLAG,
          "evidence_kinds": ["taper-description"]}]
     assert not read_model(rig.ws.show, Show).needs_review
 
@@ -786,3 +794,124 @@ def test_hook_enabled_tristate():
     assert hook_enabled(Config(), True)
     off = Config.model_validate({"adjudicate": {"enabled": False}})
     assert not hook_enabled(off, None) and hook_enabled(off, True)
+
+
+# ---------------------------------------------------------------- fix round 1
+
+def test_accept_record_index_points_into_the_stored_verdict(rig):
+    """I1: a propose-only edit first; the exclude keeps its own index (1), not 0."""
+    rig.pre()
+    rig.proposal(V([{"op": "set_date", "value": "1973-06-11", "confidence": "low", "why": "w"},
+                    exclude_b("low")], [judge(TITLES_FLAG, "real-fixed-by-action")]))
+    rig.stub(POST_NO_B)
+    out = rig.accept()
+    assert out.outcome == ACCEPTED, out
+    rec = read_record(rig.ws)
+    assert rec.applied == [{"index": 1, "op": "exclude", "target": "b.mp3",
+                            "evidence_kinds": ["taper-description"]}]
+    assert rec.verdict["edits"][1]["op"] == "exclude"
+
+
+def test_held_proposal_overrule_without_its_own_edit_has_index_none(rig):
+    rig.pre(flags=[TITLES_FLAG, VENUE_FLAG])
+    rig.stub(mk([A, C], flags=[VENUE_FLAG]))
+    rig.queue(V([exclude_b()], [judge(TITLES_FLAG, "real-fixed-by-action"),
+                                judge(VENUE_FLAG, conf="low")]))
+    assert rig.run().outcome == APPLIED_HELD
+    rig.stub(mk([A, C]))
+    out = rig.accept()
+    assert out.outcome == ACCEPTED, out
+    assert read_record(rig.ws).applied == [
+        {"index": None, "op": "overrule", "target": VENUE_FLAG, "evidence_kinds": []}]
+
+
+def test_trial_ratelimited_propagates_with_nothing_written(rig):
+    """I2."""
+    rig.pre()
+    old = AdjudicationRecord(outcome="malformed", digest="old")
+    write_record(rig.ws, old)
+    before = tree_bytes(rig.ws.dir)
+    rig.stub(POST_NO_B, fail=RateLimited("w"))
+    rig.queue(EXCLUDE_B)
+    with pytest.raises(RateLimited):
+        rig.run(dry_run=True, trial_policy=lambda v, g: True)
+    assert read_record(rig.ws) == old and tree_bytes(rig.ws.dir) == before
+
+
+def test_trial_showchanged_is_changed_with_nothing_written(rig):
+    rig.pre()
+    rig.stub(POST_NO_B)
+    rig.provider.before = lambda: write_artifact(rig.ws.overrides, Overrides(venue="Kezar"))
+    rig.queue(EXCLUDE_B)
+    out = rig.run(dry_run=True, trial_policy=lambda v, g: True)
+    assert out.outcome == CHANGED and not rig.ws.adjudication.exists()
+    assert rig.stages == []
+
+
+@pytest.mark.parametrize("force", [False, True])
+def test_corrupt_show_json_is_failed_before_any_call(rig, force):
+    """M1."""
+    rig.pre()
+    entry = rig.entry()                     # resolved before the corruption (as a batch is)
+    rig.ws.show.write_text("{corrupt")
+    out = adjudicate_show(rig.ctx, entry, force=force)
+    assert out.outcome == FAILED and out.detail.startswith("read show: ")
+    assert rig.calls() == 0 and not rig.ws.adjudication.exists()
+
+
+@pytest.mark.parametrize("bad", [
+    {"outcome": "proposal", "verdict": {"edits": "nonsense"}},
+    {"outcome": "applied", "verdict": EXCLUDE_B,
+     "held_proposal": {"flags": [], "edits": [{"op": "overrule"}]}},
+    {"outcome": "applied", "verdict": EXCLUDE_B,
+     "held_proposal": {"flags": [{"flag": VENUE_FLAG, "judgement": "x"}],
+                       "edits": [{"op": "overrule", "flag": VENUE_FLAG, "confidence": "low",
+                                  "why": "w"}]}},
+])
+def test_unreadable_stored_proposal_is_no_proposal(rig, monkeypatch, bad):
+    """M2."""
+    rig.pre()
+    rec = AdjudicationRecord(digest=show_digest(rig.ws), **bad)
+    write_record(rig.ws, rec)
+    _no_apply(monkeypatch)
+    out = rig.accept()
+    assert out.outcome == NO_PROPOSAL and out.detail.startswith("stored proposal unreadable: ")
+    assert read_record(rig.ws) == rec
+
+
+def test_rehold_at_runner_level_clears_and_records_reheld(rig):
+    """M6: a successful re-hold auto-overrule; the record is the final state."""
+    rig.pre(flags=[TITLES_FLAG, VENUE_FLAG])
+    rig.stub(mk([A, C], flags=[VENUE_FLAG]))
+    rig.queue(V([exclude_b()], [judge(TITLES_FLAG, "real-fixed-by-action"),
+                                judge(VENUE_FLAG, conf="medium")]))
+    out = rig.run()
+    assert out.outcome == APPLIED, out
+    rec = read_record(rig.ws)
+    assert rec.digest == show_digest(rig.ws) and is_current(rig.ws)
+    assert rec.held_proposal is None and rec.result["reheld"] == [VENUE_FLAG]
+    assert rig.stages == ["gather", "package"]
+    assert [(r.kind, r.source) for r in read_overrides(rig.ws).overrules] == [
+        ("venue", "adjudicate")]
+    assert not read_model(rig.ws.show, Show).needs_review
+
+
+def test_accept_delivered_changed(tmp_path, monkeypatch):
+    """M6: accept's delivered_changed, by digest, on a venue-only accept."""
+    rig = Rig(tmp_path, monkeypatch, delivered=True)
+    tracks = [T("a.mp3", "A", 300.0), T("b.mp3", "B", 30.0), T("c.mp3", "C", 400.0)]
+    rig.pre(flags=[VENUE_FLAG], tracks=tracks)
+    rig.proposal(V([ed("venue", "low", evidence=[ev("Recorded at RFK Stadium")],
+                       venue="RFK Stadium, Washington")], [judge(VENUE_FLAG, conf="medium")]))
+    rig.stub(mk(tracks, venue="RFK Stadium, Washington"))
+    out = rig.accept()
+    assert out.outcome == ACCEPTED, out
+    assert out.changes == [] and out.delivered_changed is True
+
+
+def test_accept_not_delivered_is_not_delivered_changed(rig):
+    rig.pre()
+    rig.proposal(ACCEPTABLE)
+    rig.stub(POST_NO_B)
+    out = rig.accept()
+    assert out.outcome == ACCEPTED and out.delivered_changed is False
