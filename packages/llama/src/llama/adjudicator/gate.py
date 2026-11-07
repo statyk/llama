@@ -249,10 +249,11 @@ def _long_anchor(ev: Evidence, bundle: Bundle, filename: str) -> bool:
     if ev.kind not in LONG_BAR_KINDS:
         return False
     own = bundle.own_row(ev.kind, filename)
-    stem = Path(filename).stem
-    # A row naming a file of the same stem counts as the file's own row too: a derivative
-    # whose `original` is unrecorded has `own_row` None, and its flac row is still its own.
-    if not any(r != own and not (r.filename and Path(r.filename).stem == stem)
+    stem = Path(filename).stem.casefold()
+    # A row naming a file of the same stem (ignoring case) counts as the file's own row
+    # too: a derivative whose `original` is unrecorded has `own_row` None, and its flac
+    # row is still its own.
+    if not any(r != own and not (r.filename and Path(r.filename).stem.casefold() == stem)
                for r in quote_rows(ev, bundle)):
         return False
     return stem_in(ev.quote, filename)

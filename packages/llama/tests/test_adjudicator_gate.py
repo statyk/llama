@@ -1092,6 +1092,18 @@ def test_long_bar_same_stem_row_is_own_when_original_unrecorded():   # F3
                          file="x-d1t1.mp3")], b)).passed
 
 
+def test_long_bar_same_stem_compare_ignores_case():                   # F3 casefold
+    files = {"x-d1t1.mp3": FileMeta("x-d1t1.mp3", "derivative", "VBR MP3", "", 200.0, None),
+             "X-D1T1.flac": FileMeta("X-D1T1.flac", "original", "Flac", "", 200.0, None)}
+    rows = [Row(text="X-D1T1.flac | Flac | crowd | 200", filename="X-D1T1.flac",
+                length_s=200.0)]
+    b = make_bundle([trk("x-d1t1.mp3", dur=200.0)], files=files, sections={OTAG: rows})
+    assert b.own_row(OTAG, "x-d1t1.mp3") is None
+    g = gate_for(([ed("exclude", "high", [ev(OTAG, "X-D1T1.flac | Flac")],
+                      file="x-d1t1.mp3")], b))
+    assert (g.bar, g.passed) == ("long", False)
+
+
 def test_stem_without_a_letter_never_counts():                  # F4: a bare number is a position
     assert not stem_in("track 01 is a repeat", "01.mp3")
     assert not stem_in("01", "01.mp3")

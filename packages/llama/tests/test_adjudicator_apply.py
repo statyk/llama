@@ -1083,3 +1083,26 @@ def test_interrupt_during_the_removal_is_raised_after_the_restore(lib, monkeypat
     assert any("restored" in n and "not predicted" in n for n in e.value.__notes__), \
         e.value.__notes__
     assert tree_bytes(lib.ws.dir) == before_tree and not (lib.ws.dir / ".txn").exists()
+
+
+@pytest.mark.parametrize("original", [RateLimited("limit"), "showchanged"])
+def test_interrupt_during_the_removal_under_a_propagating_exception(lib, monkeypatch,
+                                                                     original):
+    """MR2c: a RateLimited or ShowChanged propagating while the ledger removal is
+    interrupted: the KeyboardInterrupt is raised, chained from the original, and the tree
+    is restored."""
+    from llama.show_unit import ShowChanged
+    if original == "showchanged":
+        original = ShowChanged("changed by another command")
+    lib.pre(flags=["unresolved track titles"])
+    before_tree = tree_bytes(lib.ws.dir)
+    held_ledger(lib)
+    monkeypatch.setattr(Ledger, "remove_added", _boom(KeyboardInterrupt("during undo")))
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    redo = _after_row(lib, lib.redo(_post_excluding_b()), original)
+    with pytest.raises(KeyboardInterrupt) as e:
+        lib.apply(v, redo)
+    assert e.value.args == ("during undo",)
+    assert e.value.__cause__ is original
+    assert any("after the apply was restored" in n for n in e.value.__notes__)
+    assert tree_bytes(lib.ws.dir) == before_tree and not (lib.ws.dir / ".txn").exists()
