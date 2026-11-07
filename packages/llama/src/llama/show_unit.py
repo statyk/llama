@@ -37,8 +37,9 @@ holding content the snapshot does not track (e.g. a subdirectory of
 that directory and never masks the original exception. A successful unit
 keeps the directories it created.
 Listing: the snapshot refuses (a `LlamaError`, before the body runs, leaving no
-`.txn/`) if any part of the show dir cannot be listed; a restore that cannot list
-a subtree skips it, which only means fewer removals.
+`.txn/`) if any part of the show dir cannot be listed or a file in it cannot be
+read; a restore that cannot list a subtree skips it, which only means fewer
+removals.
 """
 from __future__ import annotations
 
@@ -83,11 +84,16 @@ def capture_view(show_ws: ShowWorkspace) -> ShowView:
                     show=_read(show_ws.show))
 
 
+def _refuse(show_ws: ShowWorkspace, path, err: OSError) -> LlamaError:
+    """The snapshot's refusal when reading the show dir fails (raise it `from err`)."""
+    return LlamaError(f"{show_ws.dir.name}: cannot snapshot {path}: {err}")
+
+
 def _walk(show_ws: ShowWorkspace, strict: bool):
     """`os.walk` of the show dir. Strict (the snapshot): a directory that cannot be
     listed raises `LlamaError`; otherwise (a restore) it is skipped, as by default."""
     def refuse(err: OSError) -> None:
-        raise LlamaError(f"{show_ws.dir.name}: cannot snapshot {err.filename}: {err}") from err
+        raise _refuse(show_ws, err.filename, err) from err
     return os.walk(show_ws.dir, onerror=refuse if strict else None)
 
 
@@ -129,12 +135,22 @@ def _audio_names(show_ws: ShowWorkspace) -> list[str]:
 
 
 def take_snapshot(show_ws: ShowWorkspace) -> None:
+    """Every read of the show dir that fails refuses (`_refuse`); a failing write into
+    `.txn/` is not about the show and propagates as itself."""
     txn = show_ws.dir / TXN_DIR
     dirs = _dirs(show_ws, strict=True)                 # before .txn/ itself exists
     for rel in _tracked_files(show_ws, strict=True):
-        atomic_write_bytes(txn / "files" / rel, (show_ws.dir / rel).read_bytes())
-    atomic_write_bytes(txn / _INDEX,
-                       json.dumps({"audio": _audio_names(show_ws), "dirs": dirs}).encode())
+        src = show_ws.dir / rel
+        try:
+            data = src.read_bytes()
+        except OSError as err:
+            raise _refuse(show_ws, src, err) from err
+        atomic_write_bytes(txn / "files" / rel, data)
+    try:
+        audio = _audio_names(show_ws)
+    except OSError as err:
+        raise _refuse(show_ws, show_ws.package_dir / "audio", err) from err
+    atomic_write_bytes(txn / _INDEX, json.dumps({"audio": audio, "dirs": dirs}).encode())
 
 
 def restore_snapshot(show_ws: ShowWorkspace) -> None:

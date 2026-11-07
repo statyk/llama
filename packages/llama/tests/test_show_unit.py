@@ -431,7 +431,7 @@ def test_an_unreadable_subtree_refuses_the_unit_before_the_body(tmp_path):
     body_ran = []
     private.chmod(0o000)
     try:
-        with pytest.raises(LlamaError, match=r"s: cannot snapshot .*private") as ei:
+        with pytest.raises(LlamaError, match=r"^s: cannot snapshot .*private") as ei:
             with show_unit(ws, capture_view(ws)):
                 body_ran.append(True)
         assert isinstance(ei.value.__cause__, OSError)
@@ -453,7 +453,7 @@ def test_the_directory_walk_alone_refuses_an_unreadable_subtree(tmp_path, monkey
     body_ran = []
     private.chmod(0o000)
     try:
-        with pytest.raises(LlamaError, match="cannot snapshot"):
+        with pytest.raises(LlamaError, match=r"^s: cannot snapshot .*private"):
             with show_unit(ws, capture_view(ws)):
                 body_ran.append(True)
     finally:
@@ -474,7 +474,7 @@ def test_the_file_walk_alone_refuses_an_unreadable_subtree(tmp_path, monkeypatch
     monkeypatch.setattr(show_unit_mod, "_dirs", unreadable_after)
     body_ran = []
     try:
-        with pytest.raises(LlamaError, match="cannot snapshot"):
+        with pytest.raises(LlamaError, match=r"^s: cannot snapshot .*private"):
             with show_unit(ws, capture_view(ws)):
                 body_ran.append(True)
     finally:
@@ -497,3 +497,61 @@ def test_an_unreadable_subtree_at_restore_neither_raises_nor_masks_the_original(
         private.chmod(stat.S_IRWXU)
     assert not (ws.dir / ".txn").exists()
     assert _before(ws) == before
+
+
+# --- an unreadable FILE refuses the same way (Task R1c) -------------------------
+
+@_root_only
+def test_an_unreadable_file_refuses_the_unit_before_the_body(tmp_path):
+    # `private/` stays listable; only its file cannot be read.
+    ws, private = _show_with_private_dir(tmp_path); before = _before(ws)
+    secret = private / "notes.json"
+    body_ran = []
+    secret.chmod(0o000)
+    try:
+        with pytest.raises(LlamaError, match=r"^s: cannot snapshot .*private/notes\.json") as ei:
+            with show_unit(ws, capture_view(ws)):
+                body_ran.append(True)
+        assert isinstance(ei.value.__cause__, OSError)
+    finally:
+        secret.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    _assert_refused_unchanged(ws, private, before, body_ran)
+
+
+@_root_only
+def test_an_unlistable_audio_dir_is_refused_by_the_directory_walk(tmp_path):
+    # The strict directory walk descends into package/audio/, so it refuses first.
+    ws = _show(tmp_path); before = _before(ws)
+    audio = ws.package_dir / "audio"
+    body_ran = []
+    audio.chmod(0o300)
+    try:
+        with pytest.raises(LlamaError, match=r"^s: cannot snapshot .*package/audio") as ei:
+            with show_unit(ws, capture_view(ws)):
+                body_ran.append(True)
+        assert isinstance(ei.value.__cause__, OSError)
+    finally:
+        audio.chmod(stat.S_IRWXU)
+    _assert_refused_unchanged(ws, audio, before, body_ran)
+
+
+@_root_only
+def test_the_audio_listing_alone_refuses_an_unlistable_audio_dir(tmp_path, monkeypatch):
+    # package/audio/ turns unlistable only after both walks (a race), so only the
+    # snapshot's audio listing can refuse.
+    ws = _show(tmp_path); before = _before(ws)
+    audio = ws.package_dir / "audio"
+    real = show_unit_mod._tracked_files
+    def unlistable_after(show_ws, *a, **k):
+        yield from real(show_ws, *a, **k)
+        audio.chmod(0o300)
+    monkeypatch.setattr(show_unit_mod, "_tracked_files", unlistable_after)
+    body_ran = []
+    try:
+        with pytest.raises(LlamaError, match=r"^s: cannot snapshot .*package/audio") as ei:
+            with show_unit(ws, capture_view(ws)):
+                body_ran.append(True)
+        assert isinstance(ei.value.__cause__, OSError)
+    finally:
+        audio.chmod(stat.S_IRWXU)
+    _assert_refused_unchanged(ws, audio, before, body_ran)

@@ -7,6 +7,7 @@ mutation pass relies on."""
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 
@@ -781,6 +782,26 @@ def test_station_refusal_restores_and_becomes_proposal(lib, exc):
     r = lib.apply(v, _raising_redo(lib, exc))
     assert (r.status, r.error, r.held) == ("refused", str(exc), True)
     assert tree_bytes(lib.ws.dir) == before and lib.commits == []
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a chmod 0o000 file")
+def test_an_unreadable_file_at_unit_entry_is_refused_not_failed(lib):
+    # The snapshot's read refuses as a LlamaError, so the outcome is a clean
+    # refusal (a proposal), never an escaping OSError (a "failed" record).
+    lib.pre(flags=[VENUE_FLAG])
+    secret = lib.ws.dir / "secret.txt"
+    secret.write_bytes(b"x")
+    before = tree_bytes(lib.ws.dir)
+    calls = []
+    v = V([exclude("b.mp3")], [judge(VENUE_FLAG, conf="medium")])
+    secret.chmod(0o000)
+    try:
+        r = lib.apply(v, calls.append)
+    finally:
+        secret.chmod(0o600)
+    assert (r.status, r.held, calls, lib.commits) == ("refused", True, [], [])
+    assert r.error.startswith(f"{lib.ws.dir.name}: cannot snapshot {secret}: "), r.error
+    assert tree_bytes(lib.ws.dir) == before and not (lib.ws.dir / ".txn").exists()
 
 
 @pytest.mark.parametrize("exc", [IAError("download of a.mp3 failed"), TaskFailed("brief failed"),
