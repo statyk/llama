@@ -1366,3 +1366,15 @@ def test_placeholder_veto_counts_a_none_title():
     assert (g.bar, g.passed) == ("propose-only", False)
     assert g.reason == ("research-song overrule while 1 shipped title(s) are placeholders "
                         "(e.g. x-d1t2.mp3: None)")
+
+
+@pytest.mark.parametrize("title", ["dbb2010-07-31t01.mp3", "d1t02", "27:36.27", "05:27 -"],
+                         ids=["filename-stem", "short-stem", "timestamp", "timestamp-dash"])
+def test_placeholder_veto_counts_residue_and_timestamp_titles(title):
+    # Not the placeholder vocabulary (`is_placeholder` is False for each): the residue and
+    # timestamp classes of `is_placeholder_title`, which fire in the pilot (deepbananablackout).
+    b = _ph_bundle(SUGAREE, trk("x-d1t2.mp3", title, "tags"))
+    g = _ph_run(b, [ed("overrule", flag=SONG_FLAG)]).edits[0]
+    assert (g.bar, g.passed) == ("propose-only", False)
+    assert g.reason == ("research-song overrule while 1 shipped title(s) are placeholders "
+                        f"(e.g. x-d1t2.mp3: {title!r})")
