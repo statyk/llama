@@ -1,0 +1,477 @@
+"""The adjudicator's target validation and policy gate (spec "The policy gate", "Before
+judging", and the auto-switch bar under "Recording pin"). Pure code, no IO: the strict
+surface of the feature. A verdict auto-applies only when no veto holds and every edit
+passes its bar; otherwise it is stored as a proposal. Every bar reads the constants
+below, so a retune is one edit here (and the prompt, `prompts/adjudicate.md`, which
+states these rules to the model, must change with it)."""
+from __future__ import annotations
+
+import html
+import math
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+from llama.adjudicator.bundle import Bundle, Row, escape_braces
+from llama.adjudicator.verdict import (City, Evidence, Exclude, FlagJudgement, Include,
+                                       OverruleFlag, ProposeOnly, SetTitle, Structure,
+                                       SwitchRecording, Venue, Verdict)
+from llama.junk import DUPLICATE_DERIVATIVE_REASON, SPAM_REASON
+from llama.models import Show, Track
+from llama.override_keys import filename_keyed_entries
+from llama.overrules import flag_key
+from llama.placeholders import is_placeholder_title
+from llama.structure import is_filler
+
+SHORT_EDIT_MAX_S = 60.0       # an include/exclude longer than this takes the long bar
+VERDICT_SUM_MAX_S = 120.0     # ... and so does every one once the verdict's sum passes this
+SIBLING_TOL_S = 2.0           # sibling match: within max(SIBLING_TOL_S, SIBLING_TOL_FRAC * d)
+SIBLING_TOL_FRAC = 0.01
+COVERAGE_ADDED_MAX_S = 60.0   # a switch's coverage check (Task 6), kept here with the bars
+
+TITLE_BAR_SOURCES = {"unresolved", "tags", "desc-position", "sibling-format", "sibling-align",
+                     "sibling", "setlist", "setlist-gap"}
+LONG_BAR_KINDS = {"taper-description", "original-tag", "sibling-tracks"}
+TITLE_WEAK_KINDS = {"setlistfm", "jerrybase", "review"}
+TAPER_SIDE_KINDS = {"taper-description", "original-tag", "derivative-tag"}
+# The setlist-only kinds: a structure edit from these alone is propose-only.
+SETLIST_ONLY_KINDS = {"setlistfm", "jerrybase"}
+TITLE_OVERRULE_KINDS = {"taper-description", "original-tag", "sibling-tracks"}
+REFUSED_INCLUDE_REASONS = {"duplicate-listing", DUPLICATE_DERIVATIVE_REASON, SPAM_REASON}
+OPERATOR_EXCLUDED = "operator-excluded"
+MEDIUM_UP = {"medium", "high"}
+HIGH = {"high"}
+
+OVERRULE_BAR: dict[str, str] = {
+    "research-song": "title", "research-date": "title",
+    "research-sets": "structure", "alignment": "structure", "single-set": "structure",
+    "sets-not-found": "structure", "jerrybase-set-count": "structure",
+    "jerrybase-closer": "structure",
+    "venue": "medium", "briefing-song": "medium", "briefing-set": "medium",
+    "briefing-other": "medium",
+    "titles": "never", "low-confidence-setlist": "never", "tape-spans": "never",
+    "multi-event": "never", "events-unassigned": "never", "no-tracks": "never",
+    "merged-tracks": "never", "city": "never", "other": "never",
+}
+STRUCTURE_KINDS = {k for k, b in OVERRULE_BAR.items() if b == "structure"}
+
+EXISTING = "changes an existing overrides.json entry"
+_TRACK_LIST_OPS = {"include", "exclude", "switch_recording"}
+_SEGUE = re.compile(r"\s*(?:->|>)\s*")
+
+
+# ---------------------------------------------------------------- text checks
+
+def normalize(s: str) -> str:
+    s = html.unescape(s)
+    s = s.replace("‘", "'").replace("’", "'").replace("“", '"').replace("”", '"')
+    return " ".join(s.casefold().split())
+
+
+def _nq(quote: str) -> str:
+    """A quote normalised the way the bundle text was: braces escaped first."""
+    return normalize(escape_braces(quote))
+
+
+def quote_ok(ev: Evidence, bundle: Bundle) -> bool:
+    """The hallucination filter: the quote is in its CLAIMED kind's section. A quote
+    that normalises to nothing is a substring of everything, so it fails."""
+    q = _nq(ev.quote)
+    if not q:
+        return False
+    return q in normalize("\n".join(r.text for r in bundle.sections.get(ev.kind, [])))
+
+
+def quote_rows(ev: Evidence, bundle: Bundle) -> list[Row]:
+    q = _nq(ev.quote)
+    if not q:
+        return []
+    return [r for r in bundle.sections.get(ev.kind, []) if q in normalize(r.text)]
+
+
+def stem_in(quote: str, filename: str) -> bool:
+    """The file's stem occurs in the quote as a whole token: `d1t1` is not in `d1t10`."""
+    stem = normalize(Path(filename).stem)
+    if not stem:
+        return False
+    return re.search(r"(?<![0-9a-z])" + re.escape(stem) + r"(?![0-9a-z])",
+                     normalize(quote)) is not None
+
+
+def is_filler_title(title: str) -> bool:
+    parts = [p for p in _SEGUE.split(title) if p.strip()]
+    return bool(parts) and all(is_filler(p) for p in parts)
+
+
+def sibling_match(ev: Evidence, bundle: Bundle, track: Track) -> bool:
+    d = bundle.length_of(track.filename)
+    if d is None:
+        return False
+    tol = max(SIBLING_TOL_S, SIBLING_TOL_FRAC * d)
+    return any(r.length_s is not None and abs(r.length_s - d) <= tol
+               for r in quote_rows(ev, bundle))
+
+
+def overrule_bar(flag: str, show: Show) -> str:
+    key = flag_key(flag, show)
+    if key is None:
+        return "never"
+    return OVERRULE_BAR.get(key.kind, "never")
+
+
+# ---------------------------------------------------------------- results
+
+@dataclass(frozen=True)
+class Facts:
+    bundle: Bundle
+    delivered: bool
+    marked: bool
+    lineage: dict[str, float]
+    complaints: dict[str, int]
+
+
+@dataclass(frozen=True)
+class EditGate:
+    index: int
+    op: str
+    bar: str      # short | long | title | structure | medium | switch | propose-only | never
+    passed: bool
+    reason: str
+
+
+@dataclass(frozen=True)
+class GateResult:
+    edits: list[EditGate]
+    vetoes: list[str]
+    auto: bool
+
+
+# ---------------------------------------------------------------- validation
+
+def _track_names(show: Show) -> set[str]:
+    return {t.filename for t in show.tracks}
+
+
+def _structure_files(e: Structure) -> list[str]:
+    return list(e.breaks_after) + ([e.encore_after] if e.encore_after is not None else [])
+
+
+def validate_targets(verdict: Verdict, bundle: Bundle) -> list[str]:
+    """Every malformed target, one reason each; [] is valid. Filenames are matched
+    exactly and case-sensitively: a near miss names no file."""
+    show, ov = bundle.show, bundle.overrides
+    tracks = _track_names(show)
+    excluded = {x.get("filename") for x in show.excluded_files}
+    considered = set((bundle.selection.get("scores") or {}))
+    flags = set(show.review_flags)
+    keyed = set(ov.titles) | {str(f) for f in ov.set_breaks or ()}
+    if ov.encore_after is not None:
+        keyed.add(str(ov.encore_after))
+    out: list[str] = []
+    named: dict[str, list[int]] = {}      # file -> include/exclude/set_title edit indexes
+    excluded_by: dict[str, int] = {}
+    structures, switches = [], []
+    for i, e in enumerate(verdict.edits):
+        if isinstance(e, (Exclude, SetTitle)) and e.file not in tracks:
+            out.append(f"edit {i} {e.op}: {e.file} is not a current track")
+        if isinstance(e, Include) and e.file not in excluded:
+            out.append(f"edit {i} include: {e.file} is not an excluded file")
+        if isinstance(e, (Include, Exclude, SetTitle)):
+            named.setdefault(e.file, []).append(i)
+        if isinstance(e, Exclude):
+            excluded_by.setdefault(e.file, i)
+            if e.file in keyed:
+                out.append(f"edit {i} exclude: {e.file} carries an overrides.json title, "
+                           f"set break or encore key")
+        if isinstance(e, Structure):
+            structures.append(i)
+            for f in _structure_files(e):
+                if f not in tracks:
+                    out.append(f"edit {i} structure: {f} is not a current track")
+        if isinstance(e, SwitchRecording):
+            switches.append(i)
+            if e.identifier == show.identifier:
+                out.append(f"edit {i} switch_recording: {e.identifier} is the current recording")
+            elif e.identifier not in considered:
+                out.append(f"edit {i} switch_recording: {e.identifier} is not a considered "
+                           f"recording")
+        if isinstance(e, OverruleFlag) and e.flag not in flags:
+            out.append(f"edit {i} overrule: {e.flag!r} is not a current flag")
+    # Any file named by two include/exclude/set_title edits conflicts, the same op twice
+    # included (two titles for one file cannot both apply).
+    for f, idx in named.items():
+        if len(idx) > 1:
+            out.append(f"edits {', '.join(map(str, idx))}: conflict on {f}")
+    for i in structures:
+        for f in _structure_files(verdict.edits[i]):
+            if f in excluded_by:
+                out.append(f"edits {excluded_by[f]}, {i}: conflict on {f} "
+                           f"(excluded and named by the structure edit)")
+    if len(structures) > 1:
+        out.append(f"edits {', '.join(map(str, structures))}: more than one structure edit")
+    if len(switches) > 1:
+        out.append(f"edits {', '.join(map(str, switches))}: more than one switch_recording edit")
+    seen: set[str] = set()
+    for j in verdict.flags:
+        if j.flag not in flags:
+            out.append(f"flag judgement {j.flag!r}: not a current flag")
+        elif j.flag in seen:
+            out.append(f"flag judgement {j.flag!r}: judged twice")
+        seen.add(j.flag)
+    return out
+
+
+# ---------------------------------------------------------------- bars
+
+def _track(show: Show, filename: str) -> Track | None:
+    return next((t for t in show.tracks if t.filename == filename), None)
+
+
+def _excluded_row(show: Show, filename: str) -> dict | None:
+    return next((x for x in show.excluded_files if x.get("filename") == filename), None)
+
+
+def _dur(bundle: Bundle, filename: str) -> float:
+    d = bundle.length_of(filename)
+    return math.inf if d is None else d
+
+
+def _resolved_song(t: Track) -> bool:
+    return (t.title_source != "unresolved" and not is_placeholder_title(t.title)
+            and not is_filler_title(t.title))
+
+
+def _long_anchor(ev: Evidence, bundle: Bundle, filename: str) -> bool:
+    if ev.kind not in LONG_BAR_KINDS:
+        return False
+    own = bundle.own_row(ev.kind, filename)
+    if not any(r != own for r in quote_rows(ev, bundle)):
+        return False
+    return stem_in(ev.quote, filename)
+
+
+def _track_edit(e, bundle: Bundle, verdict_sum: float) -> tuple[str, bool, str]:
+    show, ov = bundle.show, bundle.overrides
+    if isinstance(e, Exclude):
+        t = _track(show, e.file)
+        if t is not None and _resolved_song(t):
+            return "propose-only", False, "exclude of a track with a resolved song title"
+        if e.file in ov.include:
+            return "propose-only", False, EXISTING
+    else:
+        row = _excluded_row(show, e.file) or {}
+        reasons = set(row.get("reasons") or [])
+        if reasons & REFUSED_INCLUDE_REASONS:
+            return ("propose-only", False,
+                    f"include of a file dropped as {', '.join(sorted(reasons & REFUSED_INCLUDE_REASONS))}")
+        if OPERATOR_EXCLUDED in reasons or e.file in ov.exclude:
+            return "propose-only", False, EXISTING
+    if _dur(bundle, e.file) > SHORT_EDIT_MAX_S or verdict_sum > VERDICT_SUM_MAX_S:
+        if e.confidence not in HIGH:
+            return "long", False, "long bar needs high confidence"
+        if not any(_long_anchor(ev, bundle, e.file) for ev in e.evidence):
+            return ("long", False, "long bar needs a quote from the taper description, an "
+                    "original tag or a sibling's tracks, outside the file's own tag row, "
+                    "naming the file's stem")
+        return "long", True, ""
+    if e.confidence not in MEDIUM_UP:
+        return "short", False, "short bar needs medium or high confidence"
+    return "short", True, ""
+
+
+def _title_anchor(ev: Evidence, e: SetTitle, bundle: Bundle, t: Track | None) -> bool:
+    if normalize(e.title) not in normalize(ev.quote):
+        return False
+    if ev.kind == "sibling-tracks":
+        return t is not None and sibling_match(ev, bundle, t)
+    if ev.kind == "taper-description":
+        return True
+    if ev.kind == "original-tag":
+        own = bundle.own_row("original-tag", e.file)
+        return own is not None and _nq(ev.quote) in normalize(own.text)
+    return False
+
+
+def _title_edit(e: SetTitle, bundle: Bundle) -> tuple[str, bool, str]:
+    t = _track(bundle.show, e.file)
+    if (t is not None and t.title_source == "override") or e.file in bundle.overrides.titles:
+        return "propose-only", False, EXISTING
+    if t is not None and t.title_source not in TITLE_BAR_SOURCES \
+            and not is_placeholder_title(t.title):
+        return "never", False, f"title over a {t.title_source} title"
+    if all(ev.kind in TITLE_WEAK_KINDS for ev in e.evidence):
+        return "propose-only", False, "setlist.fm, JerryBase or reviews alone"
+    if e.confidence not in HIGH:
+        return "title", False, "title bar needs high confidence"
+    if not any(_title_anchor(ev, e, bundle, t) for ev in e.evidence):
+        return ("title", False, "title bar needs the title quoted from the taper description, "
+                "this file's own original tag row, or a matching sibling file")
+    return "title", True, ""
+
+
+def _structure_evidence(e, bar: str) -> tuple[str, bool, str]:
+    if e.confidence not in HIGH:
+        return bar, False, f"{bar} bar needs high confidence"
+    if not any(ev.kind in TAPER_SIDE_KINDS for ev in e.evidence):
+        if bar == "structure" and all(ev.kind in SETLIST_ONLY_KINDS for ev in e.evidence):
+            return "propose-only", False, "setlist.fm or JerryBase alone"
+        return bar, False, f"{bar} bar needs a taper-side quote"
+    return bar, True, ""
+
+
+def _structure_edit(e: Structure, bundle: Bundle) -> tuple[str, bool, str]:
+    ov = bundle.overrides
+    if ov.set_breaks is not None or ov.encore_after is not None:
+        return "propose-only", False, EXISTING
+    return _structure_evidence(e, "structure")
+
+
+def _overrule_edit(e: OverruleFlag, verdict: Verdict, bundle: Bundle) -> tuple[str, bool, str]:
+    bar = overrule_bar(e.flag, bundle.show)
+    if bar == "never":
+        return "never", False, "this flag kind is never overruled automatically"
+    judged = next((j for j in verdict.flags if j.flag == e.flag), None)
+    if judged is None or judged.verdict != "spurious":
+        return bar, False, "overrule of a flag not judged spurious"
+    if bar == "medium":
+        if e.confidence not in MEDIUM_UP:
+            return bar, False, "medium bar needs medium or high confidence"
+        return bar, True, ""
+    if bar == "structure":
+        return _structure_evidence(e, "structure")
+    # title: the title bar's evidence kinds; these flags name a song or date, not a
+    # file, so the per-file anchors (sibling match, own tag row) do not apply.
+    if e.confidence not in HIGH:
+        return bar, False, "title bar needs high confidence"
+    if all(ev.kind in TITLE_WEAK_KINDS for ev in e.evidence):
+        return bar, False, "setlist.fm, JerryBase or reviews alone"
+    if not any(ev.kind in TITLE_OVERRULE_KINDS for ev in e.evidence):
+        return bar, False, ("title bar needs a quote from the taper description, an original "
+                            "tag or a sibling's tracks")
+    return bar, True, ""
+
+
+def _switch_edit(e: SwitchRecording, verdict: Verdict, facts: Facts) -> tuple[str, bool, str]:
+    b = facts.bundle
+    scores = b.selection.get("scores") or {}
+    sib = scores.get(e.identifier) or {}
+    cur = scores.get(b.show.identifier) or {}
+    propose: list[str] = []
+    fail: list[str] = []
+    if not (sib.get("kept_tracks") or 0) > 0:
+        fail.append("sibling has no file in the wanted format")
+    # Facts.complaints holds select's complaint count per identifier; a sibling missing
+    # from it is one select found no complaints against (0).
+    if facts.complaints.get(e.identifier, 0) != 0:
+        fail.append("select found recording complaints against the sibling")
+    s_rank, c_rank = facts.lineage.get(sib.get("lineage")), facts.lineage.get(cur.get("lineage"))
+    if s_rank is None or c_rank is None:
+        propose.append("lineage class not in the lineage table")
+    elif s_rank < c_rank:
+        fail.append("sibling's lineage class ranks worse than the current recording's")
+    if e.confidence not in HIGH:
+        fail.append("switch needs high confidence")
+    if facts.delivered:
+        fail.append("show is delivered")
+    if facts.marked:
+        fail.append("show is station-marked")
+    if filename_keyed_entries(b.overrides):
+        fail.append("overrides.json has filename-keyed entries")
+    if b.overrides.recording is not None:
+        propose.append(EXISTING)
+    for other in verdict.edits:
+        if other is not e and other.op != "venue":
+            fail.append(f"switch with a {other.op} edit")
+    reasons = propose + fail
+    if not reasons:
+        return "switch", True, ""
+    return ("propose-only" if propose else "switch"), False, "; ".join(reasons)
+
+
+def _bar(e, verdict: Verdict, facts: Facts, verdict_sum: float) -> tuple[str, bool, str]:
+    b = facts.bundle
+    if isinstance(e, ProposeOnly):
+        return "propose-only", False, f"{e.op} is propose-only"
+    if isinstance(e, (Include, Exclude)):
+        return _track_edit(e, b, verdict_sum)
+    if isinstance(e, SetTitle):
+        return _title_edit(e, b)
+    if isinstance(e, Structure):
+        return _structure_edit(e, b)
+    if isinstance(e, Venue):
+        if b.overrides.venue is not None:
+            return "propose-only", False, EXISTING
+        if e.confidence not in MEDIUM_UP:
+            return "medium", False, "venue needs medium or high confidence"
+        return "medium", True, ""
+    if isinstance(e, City):
+        return "propose-only", False, "city is propose-only"
+    if isinstance(e, SwitchRecording):
+        return _switch_edit(e, verdict, facts)
+    if isinstance(e, OverruleFlag):
+        return _overrule_edit(e, verdict, b)
+    return "never", False, f"unknown edit {e.op}"
+
+
+def _gate_edit(i: int, e, verdict: Verdict, facts: Facts, verdict_sum: float) -> EditGate:
+    bar, passed, reason = _bar(e, verdict, facts, verdict_sum)
+    if not isinstance(e, ProposeOnly) and bar not in ("propose-only", "never"):
+        bad = next((ev for ev in e.evidence if not quote_ok(ev, facts.bundle)), None)
+        if bad is not None:
+            passed, reason = False, f"quote not found in {bad.kind}"
+    return EditGate(index=i, op=e.op, bar=bar, passed=passed, reason=reason)
+
+
+def _vetoes(verdict: Verdict, show: Show) -> list[str]:
+    out: list[str] = []
+    if verdict.kind not in ("fix", "overrule"):
+        out.append(f"kind is {verdict.kind}")
+    if verdict.show_correct_after != "yes":
+        out.append(f"show not judged correct after the action ({verdict.show_correct_after})")
+    for j in verdict.flags:
+        if j.verdict in ("real-not-fixable", "undecidable"):
+            out.append(f"flag judged {j.verdict}: {j.flag}")
+    judged = {j.flag for j in verdict.flags}
+    for f in show.review_flags:
+        if f not in judged:
+            out.append(f"flag not judged: {f}")
+    if verdict.better_sibling is not None and not any(
+            isinstance(e, SwitchRecording) and e.identifier == verdict.better_sibling
+            for e in verdict.edits):
+        out.append(f"better_sibling {verdict.better_sibling} has no switch_recording edit to it")
+    if not verdict.edits:
+        out.append("no edits")
+    return out
+
+
+def evaluate(verdict: Verdict, facts: Facts) -> GateResult:
+    b = facts.bundle
+    verdict_sum = sum(_dur(b, e.file) for e in verdict.edits if isinstance(e, (Include, Exclude)))
+    edits = [_gate_edit(i, e, verdict, facts, verdict_sum) for i, e in enumerate(verdict.edits)]
+    vetoes = _vetoes(verdict, b.show)
+    auto = not vetoes and bool(edits) and all(g.passed for g in edits)
+    return GateResult(edits=edits, vetoes=vetoes, auto=auto)
+
+
+def flag_passes(j: FlagJudgement, show: Show, verdict: Verdict, gate: GateResult) -> bool:
+    """Whether a flag judgement clears its flag at a passing bar."""
+    if j.verdict == "real-fixed-by-action":
+        return j.confidence in MEDIUM_UP
+    if j.verdict != "spurious":
+        return False
+    bar = overrule_bar(j.flag, show)
+    if bar == "medium":
+        return j.confidence in MEDIUM_UP
+    if bar in ("title", "structure"):
+        passed = {g.index for g in gate.edits if g.passed}
+        return any(isinstance(e, OverruleFlag) and e.flag == j.flag and i in passed
+                   for i, e in enumerate(verdict.edits))
+    return False
+
+
+def has_track_list_edit(verdict: Verdict) -> bool:
+    return any(e.op in _TRACK_LIST_OPS for e in verdict.edits)
+
+
+def has_track_list_or_structure_edit(verdict: Verdict) -> bool:
+    return has_track_list_edit(verdict) or any(isinstance(e, Structure) for e in verdict.edits)
