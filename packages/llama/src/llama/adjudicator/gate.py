@@ -28,6 +28,7 @@ VERDICT_SUM_MAX_S = 120.0     # ... and so does every one once the verdict's sum
 SIBLING_TOL_S = 2.0           # sibling match: within max(SIBLING_TOL_S, SIBLING_TOL_FRAC * d)
 SIBLING_TOL_FRAC = 0.01
 COVERAGE_ADDED_MAX_S = 60.0   # a switch's coverage check (Task 6), kept here with the bars
+SIBLING_COVERAGE_TOL_S = 60.0  # a considered recording "keeps more" duration only past this
 
 TITLE_BAR_SOURCES = {"unresolved", "tags", "desc-position", "sibling-format", "sibling-align",
                      "sibling", "setlist", "setlist-gap"}
@@ -455,12 +456,51 @@ def _vetoes(verdict: Verdict, show: Show) -> list[str]:
     return out
 
 
+def _secs_text(s: float | None) -> str:
+    return "?" if s is None else f"{s:.0f}"
+
+
+def _coverage_vetoes(verdict: Verdict, bundle: Bundle) -> list[str]:
+    """A verdict with no switch_recording edit is propose-only while a considered recording
+    keeps more tracks than the current one (selection.json's `kept_tracks` against the
+    show's tracks), or more than SIBLING_COVERAGE_TOL_S more kept duration where both are
+    known. Fail closed: unreadable coverage (no `scores`, or an entry without a usable
+    `kept_tracks`) vetoes too; an unknown duration skips only the duration clause."""
+    if any(isinstance(e, SwitchRecording) for e in verdict.edits):
+        return []
+    tail = "no switch_recording edit"
+    sel = bundle.selection
+    scores = sel.get("scores") if isinstance(sel, dict) else None
+    if not isinstance(scores, dict):
+        return [f"considered recordings unknown (no selection.json scores); {tail}"]
+    show = bundle.show
+    n_cur = len(show.tracks)
+    durs = [t.duration_sec for t in show.tracks]
+    s_cur = None if any(d is None for d in durs) else float(sum(durs))
+    out: list[str] = []
+    for ident, entry in scores.items():
+        if ident == show.identifier:
+            continue
+        n = entry.get("kept_tracks") if isinstance(entry, dict) else None
+        if not isinstance(n, int) or isinstance(n, bool) or n < 0:
+            out.append(f"coverage of considered recording {ident} unknown (no usable "
+                       f"kept_tracks); {tail}")
+            continue
+        s = bundle.sibling_kept_s.get(ident)
+        longer = s is not None and s_cur is not None and s > s_cur + SIBLING_COVERAGE_TOL_S
+        if n > n_cur or longer:
+            out.append(f"considered recording {ident} keeps more ({n} tracks, {_secs_text(s)} s) "
+                       f"than the current ({n_cur} tracks, {_secs_text(s_cur)} s); {tail}")
+    return out
+
+
 def evaluate(verdict: Verdict, facts: Facts) -> GateResult:
     b = facts.bundle
     verdict_sum = sum(_dur(b, e.file) for e in verdict.edits if isinstance(e, (Include, Exclude)))
     edits = [_gate_edit(i, e, verdict, facts, verdict_sum) for i, e in enumerate(verdict.edits)]
     # Fail closed: the runner validates first, and this is the second layer.
-    vetoes = [f"malformed: {r}" for r in validate_targets(verdict, b)] + _vetoes(verdict, b.show)
+    vetoes = ([f"malformed: {r}" for r in validate_targets(verdict, b)]
+              + _vetoes(verdict, b.show) + _coverage_vetoes(verdict, b))
     auto = not vetoes and bool(edits) and all(g.passed for g in edits)
     return GateResult(edits=edits, vetoes=vetoes, auto=auto)
 

@@ -13,6 +13,7 @@ from llama import jerrybase, setlistfm
 from llama.catalog import recording_info
 from llama.config import Config
 from llama.ia_client import IAError
+from llama.junk import FORMAT_BY_AUDIO, filter_files
 from llama.models import Overrides, Provenance, Show, ShowNotes
 from llama.show_unit import ShowView, capture_view
 from llama.util import length_seconds
@@ -92,6 +93,10 @@ class Bundle:
     files: dict[str, FileMeta]
     sections: dict[str, list[Row]]
     text: str
+    # Considered recording -> the total length of the files select's filter keeps from its
+    # metadata (the basis of its `kept_tracks`). Absent when the metadata was not fetched
+    # or a kept file has no length: unknown, never 0.
+    sibling_kept_s: dict[str, float] = field(default_factory=dict)
 
     def own_row(self, kind: str, filename: str) -> Row | None:
         """`original-tag`: the row of the file's original (itself if it is one, else
@@ -154,6 +159,12 @@ def _sibling_rows(ident: str, md: dict | None) -> list[Row]:
     return rows
 
 
+def _kept_seconds(md: dict, want) -> float | None:
+    kept, _, _ = filter_files(md.get("files", []), want_format=want)
+    lengths = [length_seconds(f.get("length")) for f in kept]
+    return None if any(x is None for x in lengths) else float(sum(lengths))
+
+
 def _read_text(path, cap: int) -> str:
     try:
         return path.read_text()[:cap]
@@ -189,12 +200,17 @@ def build_bundle(show_ws: ShowWorkspace, ia, config: Config) -> Bundle:
 
     info = recording_info(show_ws)
     sib_blocks: list[list[Row]] = []
+    sib_kept_s: dict[str, float] = {}
+    want = FORMAT_BY_AUDIO[config.audio_format]
     for c in (info.considered if info else [])[:SIBLINGS_MAX]:
         try:
             sib_md = ia.metadata(c.identifier)
         except (IAError, httpx.HTTPError, ValueError):  # one unreachable sibling must not fail the bundle
             sib_md = None
         sib_blocks.append(_sibling_rows(c.identifier, sib_md))
+        kept_s = _kept_seconds(sib_md, want) if sib_md is not None else None
+        if kept_s is not None:
+            sib_kept_s[c.identifier] = kept_s
 
     art, date = show.artist, show.item_date or show.date   # gather looks up by the item's date
     cache = config.root / "cache" / f"{setlistfm.cache_key(art, date)}.json"
@@ -227,7 +243,8 @@ def build_bundle(show_ws: ShowWorkspace, ia, config: Config) -> Bundle:
         else:
             break
     return Bundle(slug=slug, show=show, overrides=overrides, view=view, provenance=provenance,
-                  selection=selection, files=files, sections=sections, text=text)
+                  selection=selection, files=files, sections=sections, text=text,
+                  sibling_kept_s=sib_kept_s)
 
 
 def _render(slug, show, overrides, view, show_ws, selection, sections, research) -> str:

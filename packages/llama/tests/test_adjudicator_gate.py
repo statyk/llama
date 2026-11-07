@@ -45,9 +45,11 @@ def make_bundle(tracks=(), *, excluded=(), overrides=None, sections=None, files=
     secs = {k: [] for k in EVIDENCE_KINDS}
     for k, rows in (sections or {}).items():
         secs[k] = [r if isinstance(r, Row) else Row(text=escape_braces(r)) for r in rows]
+    # The default sibling keeps as many tracks as the show: the sibling-coverage veto
+    # (tested on its own below) stays out of every other test.
     sel = selection if selection is not None else {
         "identifier": CUR, "scores": {CUR: {"lineage": "aud", "kept_tracks": 10},
-                                      SIB: {"lineage": "sbd", "kept_tracks": 12}}}
+                                      SIB: {"lineage": "sbd", "kept_tracks": len(tracks)}}}
     text = "\n".join(r.text for k in EVIDENCE_KINDS for r in secs[k])
     return Bundle(slug="gd1973-06-10", show=show, overrides=overrides or Overrides(), view=None,
                   provenance=None, selection=sel, files=files or {}, sections=secs, text=text)
@@ -117,7 +119,8 @@ STEM_QUOTE = [ev(DESC, "x-d1t1 is crowd noise")]
 def test_constants_have_the_specced_values():
     from llama.adjudicator import gate
     assert (gate.SHORT_EDIT_MAX_S, gate.VERDICT_SUM_MAX_S, gate.SIBLING_TOL_S,
-            gate.SIBLING_TOL_FRAC, gate.COVERAGE_ADDED_MAX_S) == (60.0, 120.0, 2.0, 0.01, 60.0)
+            gate.SIBLING_TOL_FRAC, gate.COVERAGE_ADDED_MAX_S,
+            gate.SIBLING_COVERAGE_TOL_S) == (60.0, 120.0, 2.0, 0.01, 60.0, 60.0)
     assert LONG_BAR_KINDS == {DESC, OTAG, SIBT}
     assert TITLE_WEAK_KINDS == {SLFM, JB, REV}
     assert TAPER_SIDE_KINDS == {DESC, OTAG, DTAG}
@@ -1118,3 +1121,102 @@ def test_stem_in_lookarounds_are_unicode_aware():               # F5
     assert not stem_in("x-d1t1é is a repeat", "x-d1t1.mp3")
     assert stem_in("«x-d1t1» is a repeat", "x-d1t1.mp3")
     assert stem_in("x-d1t1_vbr", "x-d1t1.mp3")
+
+
+# ---------------------------------------------------------------- sibling coverage (R2)
+# A verdict with no switch_recording edit is propose-only while a considered recording
+# keeps more than the current one (pilot-review §3 fix 1), and also while the considered
+# recordings' coverage cannot be read (fail closed: operator ruling 2026-11-07).
+
+def _cov(scores, *, sib_s=None, dur=30.0, selection=None, edits=None):
+    """One unresolved 30 s track, a passing short exclude of it, and `scores` beside the
+    current recording's own entry (which keeps 1)."""
+    import dataclasses
+    tracks = [trk("x-d1t1.mp3", dur=dur)]
+    sel = selection if selection is not None else {
+        "identifier": CUR, "scores": {CUR: {"lineage": "aud", "kept_tracks": 1}, **scores}}
+    b = make_bundle(tracks, sections={DESC: DESC_ROWS}, selection=sel)
+    b = dataclasses.replace(b, sibling_kept_s=dict(sib_s or {}))
+    return run(edits if edits is not None else [ed("exclude", "medium", file="x-d1t1.mp3")], b)
+
+
+def _cov_vetoes(r: GateResult) -> list[str]:
+    return [v for v in r.vetoes if v.startswith(("considered recording", "coverage of"))]
+
+
+def test_coverage_sibling_with_more_tracks_vetoes():                # tracks: 2 > 1
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 2}})
+    assert r.vetoes == [f"considered recording {SIB} keeps more (2 tracks, ? s) than the "
+                        f"current (1 tracks, 30 s); no switch_recording edit"]
+    assert r.auto is False and all(g.passed for g in r.edits)
+
+
+def test_coverage_sibling_with_equal_tracks_does_not_veto():        # tracks: 1 == 1
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}})
+    assert r.vetoes == [] and r.auto is True
+
+
+def test_coverage_sibling_with_fewer_tracks_does_not_veto():        # tracks: 0 < 1
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 0}})
+    assert r.vetoes == [] and r.auto is True
+
+
+def test_coverage_sibling_with_more_duration_beyond_tolerance_vetoes():   # 90.01 > 30 + 60
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 0}}, sib_s={SIB: 90.01})
+    assert r.vetoes == [f"considered recording {SIB} keeps more (0 tracks, 90 s) than the "
+                        f"current (1 tracks, 30 s); no switch_recording edit"]
+    assert r.auto is False
+
+
+def test_coverage_sibling_duration_within_tolerance_does_not_veto():     # 90.0 == 30 + 60
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}}, sib_s={SIB: 90.0})
+    assert r.vetoes == [] and r.auto is True
+
+
+def test_coverage_unknown_current_duration_skips_only_the_duration_clause():
+    long_ok = [ed("exclude", "high", STEM_QUOTE, file="x-d1t1.mp3")]   # unknown: long bar
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}}, sib_s={SIB: 9999.0}, dur=None,
+             edits=long_ok)
+    assert r.vetoes == [] and r.auto is True
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 2}}, sib_s={SIB: 9999.0}, dur=None,
+             edits=long_ok)
+    assert r.vetoes == [f"considered recording {SIB} keeps more (2 tracks, 9999 s) than the "
+                        f"current (1 tracks, ? s); no switch_recording edit"]
+
+
+def test_coverage_veto_absent_for_a_verdict_with_a_switch_edit():
+    edits = [ed("switch_recording", identifier=SIB, evidence=[ev(DESC, "taper notes")])]
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 9}}, sib_s={SIB: 9999.0}, edits=edits)
+    assert _cov_vetoes(r) == [] and r.vetoes == []
+    r = _cov({}, selection={}, edits=edits)
+    assert _cov_vetoes(r) == []          # (malformed here: no considered recordings at all)
+
+
+def test_coverage_the_current_recordings_own_entry_is_not_a_sibling():
+    r = _cov({}, selection={"identifier": CUR, "scores": {CUR: {"kept_tracks": 9}}},
+             sib_s={CUR: 9999.0})
+    assert r.vetoes == [] and r.auto is True
+
+
+def test_coverage_selection_with_no_other_recording_does_not_veto():
+    r = _cov({})
+    assert r.vetoes == [] and r.auto is True
+
+
+@pytest.mark.parametrize("sel", [{}, {"identifier": CUR}, {"identifier": CUR, "scores": None},
+                                 {"identifier": CUR, "scores": []}])
+def test_coverage_no_selection_vetoes(sel):                          # fail closed
+    r = _cov({}, selection=sel)
+    assert r.vetoes == ["considered recordings unknown (no selection.json scores); "
+                        "no switch_recording edit"]
+    assert r.auto is False
+
+
+@pytest.mark.parametrize("entry", [{"lineage": "sbd"}, {"kept_tracks": None},
+                                   {"kept_tracks": "3"}, {"kept_tracks": -1},
+                                   {"kept_tracks": True}, {"kept_tracks": 2.5}, None])
+def test_coverage_considered_entry_without_usable_kept_tracks_vetoes(entry):   # fail closed
+    r = _cov({SIB: entry})
+    assert r.vetoes == [f"coverage of considered recording {SIB} unknown (no usable "
+                        f"kept_tracks); no switch_recording edit"]
+    assert r.auto is False

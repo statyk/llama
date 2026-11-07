@@ -1029,3 +1029,23 @@ def test_accept_not_delivered_is_not_delivered_changed(rig):
     rig.stub(POST_NO_B)
     out = rig.accept()
     assert out.outcome == ACCEPTED and out.delivered_changed is False
+
+
+# ---------------------------------------------------------------- sibling coverage (R2)
+
+def test_a_fuller_sibling_without_a_switch_holds_with_the_proposal_stored(rig, monkeypatch):
+    """An otherwise auto verdict (EXCLUDE_B) on a show whose considered sibling keeps more
+    tracks lands as a proposal carrying the coverage veto; nothing is applied."""
+    rig.pre()
+    write_artifact(rig.ws.selection, {"identifier": "gd73", "scores": {
+        "gd73": {"lineage": "sbd", "kept_tracks": 3, "score": 3.0},
+        "gd73-sib": {"lineage": "sbd", "kept_tracks": 4, "score": 2.0}}})
+    _no_apply(monkeypatch)
+    before = tree_bytes(rig.ws.dir)
+    out = rig.proposal(EXCLUDE_B)
+    assert out.vetoes == ["considered recording gd73-sib keeps more (4 tracks, 0 s) than the "
+                          "current (3 tracks, 730 s); no switch_recording edit"]
+    assert all(g["passed"] for g in out.gate) and out.applied == []
+    assert read_overrides(rig.ws).exclude == [] and rig.stages == []
+    after = tree_bytes(rig.ws.dir)
+    assert {k: v for k, v in after.items() if k != "adjudication.json"} == before

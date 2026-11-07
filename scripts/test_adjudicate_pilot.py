@@ -82,7 +82,19 @@ class Env:
         self.out.mkdir()
         (self.out / "shows.json").write_text(json.dumps(
             [{"slug": s, "cls": "other"} for s in self.slugs]))
+        for slug in self.slugs:          # the gate's coverage veto fails closed without one
+            self.write_selection(slug, {})
         monkeypatch.setattr(runner, "stale_message", lambda *a, **k: None)
+
+    def write_selection(self, slug, siblings):
+        """selection.json: the show's own recording (as many tracks as the show) plus
+        `siblings` (identifier -> score entry)."""
+        from llama.workspace import ShowWorkspace
+        ws = ShowWorkspace(self.root / "shows" / slug)
+        show = read_model(ws.show, Show)
+        own = {"lineage": "sbd", "kept_tracks": len(show.tracks), "score": 3.0}
+        write_artifact(ws.selection, {"identifier": show.identifier,
+                                      "scores": {show.identifier: own, **siblings}})
 
     def redo(self, entry, stage):
         s = read_model(entry.ws.show, Show)
@@ -97,11 +109,8 @@ class Env:
 
     def add_sibling(self):
         """A considered recording, so a switch verdict validates."""
-        from llama.workspace import ShowWorkspace
-        ws = ShowWorkspace(self.root / "shows" / HELD)
-        write_artifact(ws.selection, {"identifier": read_model(ws.show, Show).identifier,
-                                      "scores": {"gd73-sib": {"lineage": "sbd",
-                                                              "kept_tracks": 3, "score": 2.0}}})
+        self.write_selection(HELD, {"gd73-sib": {"lineage": "sbd", "kept_tracks": 3,
+                                                 "score": 2.0}})
 
     def run(self, arm="opus", provider=None, **kw):
         provider = provider or FakeProvider([verdict() for _ in self.slugs])

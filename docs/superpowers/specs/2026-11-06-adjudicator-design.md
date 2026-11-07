@@ -201,6 +201,17 @@ A duration mismatch flag has no overrule kind and is never overruled.
 **Verdict-level vetoes** (from the prototype): auto-apply only when `kind` is `fix` or `overrule`, the
 show is judged correct after the action, and no flag is judged `real-not-fixable` or `undecidable`.
 
+**Sibling-coverage veto** (Shawn, 2026-11-07, after the pilot: the model's `better_sibling: null` is
+not trusted). A verdict with no `switch_recording` edit is propose-only while any considered
+recording (selection.json `scores` minus the current recording) keeps more tracks (`kept_tracks`
+against the show's track count) or, where both are known, more than `SIBLING_COVERAGE_TOL_S` (60 s)
+more kept duration (the sibling's select-filter kept files' lengths from its metadata, as the bundle
+fetches it, against the show's track durations). Equal or fewer does not veto. It fails closed:
+no `scores` in selection.json, or a considered entry without a usable `kept_tracks`, vetoes too;
+an unknown duration skips only the duration clause. A verdict with a switch is left to the
+auto-switch bar. This enforces "partial tape whose better sibling fails the auto-switch bar: hold"
+in code.
+
 Unsure on a long track means **held** (Shawn, 2026-11-06: hold for now; triaging dozens later is
 reasonable, hundreds is not). The 60 s and 120 s lines and the bars are constants in one place, so a
 later retune is one edit. (60 s is my call; Shawn's examples were 20 s vs 3 min.)

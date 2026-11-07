@@ -290,3 +290,35 @@ def test_unreachable_sibling_gets_a_metadata_unavailable_row(tmp_path):
     b = build_bundle(ws, Down(ia.md, ia.siblings), cfg)
     assert b.sections["sibling-tracks"] == [Row(text=f"{SIB}: (metadata unavailable)",
                                                 identifier=SIB)]
+
+
+def _mp3_sib(*lengths):
+    files = []
+    for i, ln in enumerate(lengths, 1):
+        files.append({"name": f"s{i:02d}.flac", "source": "original", "format": "Flac"})
+        files.append({"name": f"s{i:02d}.mp3", "source": "derivative", "format": "VBR MP3",
+                      "original": f"s{i:02d}.flac", "title": f"Song {i}",
+                      **({"length": ln} if ln is not None else {})})
+    return {"metadata": {"description": "sib"}, "files": files}
+
+
+def test_sibling_kept_duration_is_the_wanted_format_kept_total(tmp_path):     # R2
+    ws, _, ia, cfg = _setup(tmp_path)
+    ia.siblings[SIB] = _mp3_sib("100", "3:20")
+    assert build_bundle(ws, ia, cfg).sibling_kept_s == {SIB: pytest.approx(300.0)}
+    ia.siblings[SIB] = _sib_md()                     # Flac only: an mp3 config keeps nothing
+    assert build_bundle(ws, ia, cfg).sibling_kept_s == {SIB: 0.0}
+
+
+def test_sibling_kept_duration_skips_lengthless_files_and_unreachable_siblings(tmp_path):
+    from llama.ia_client import IAError
+    ws, _, ia, cfg = _setup(tmp_path)
+    ia.siblings[SIB] = _mp3_sib("100", None)     # select's filter drops a lengthless file
+    assert build_bundle(ws, ia, cfg).sibling_kept_s == {SIB: pytest.approx(100.0)}
+
+    class Down(StubIA):
+        def metadata(self, identifier):
+            if identifier == SIB:
+                raise IAError("boom")
+            return super().metadata(identifier)
+    assert build_bundle(ws, Down(ia.md, ia.siblings), cfg).sibling_kept_s == {}
