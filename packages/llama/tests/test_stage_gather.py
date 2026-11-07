@@ -965,6 +965,19 @@ def test_including_a_file_that_was_never_dropped_keeps_its_vote(tmp_path: Path):
     assert len(recovered) == 6, recovered
 
 
+def test_a_title_override_keyed_by_a_readmitted_file_applies(tmp_path: Path):
+    """The adjudicator's include + set_title of one file (R4) writes `include` and a
+    `titles` entry keyed by that filename; the resolver maps it onto the final kept list,
+    which holds the re-admitted file, so the title lands as an override."""
+    md = json.loads(FIXTURE.read_text())
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["FOLLOW-ME @BYPIKENO.mp3"],
+                                            titles={"FOLLOW-ME @BYPIKENO.mp3": "Bertha"}))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    t = next(t for t in show.tracks if t.filename == "FOLLOW-ME @BYPIKENO.mp3")
+    assert (t.title, t.title_source) == ("Bertha", "override")
+
+
 def test_readmission_does_not_stop_the_track_number_strip(tmp_path: Path):
     """The second recording-level gate, wired through `resolve_titles`'
     `gate_basis`. `clean_tag_titles` strips a leading track number only when

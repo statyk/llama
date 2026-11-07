@@ -218,17 +218,25 @@ def whole_show_diff(before: list[TrackRow], after: Show, edits: Sequence) -> lis
             sets = _sets_from_breaks(len(post_names), [pos[f] for f in struct.breaks_after], enc)
             labels = dict(zip(post_names, sets))
 
+    struct_files = ({*struct.breaks_after, struct.encore_after} - {None}
+                    if struct is not None else set())
     for t in after.tracks:
         f = t.filename
-        if f in includes or f not in pre:
-            continue
-        b = pre[f]
         if f in titled:
+            # Every set_title target, an included file too (R4): the override landed.
             if t.title != titled[f]:
                 out.append(f"{f}: title {t.title!r} (predicted {titled[f]!r})")
             if t.title_source != "override":
                 out.append(f"{f}: title_source {t.title_source!r} (predicted 'override')")
-        elif f in unnamed:
+        if f in includes:
+            # Its own set is predicted only when the structure edit names it.
+            if f in struct_files and labels is not None and t.set != labels[f]:
+                out.append(f"{f}: set {t.set!r} (predicted {labels[f]!r})")
+            continue
+        if f not in pre:
+            continue
+        b = pre[f]
+        if f in unnamed:
             if t.title != b.title:
                 out.append(f"{f}: title {b.title!r} -> {t.title!r} (not predicted)")
             if t.title_source != b.title_source:

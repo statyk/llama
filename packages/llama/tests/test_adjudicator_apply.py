@@ -313,6 +313,40 @@ def test_whole_show_diff_checks_set_title_target():
     assert d == ["a.mp3: title_source 'tags' (predicted 'override')"]
 
 
+# R4: a set_title (or a structure edit) on a file the verdict includes is predicted like
+# one on a current track: the included file's title must land as an override.
+
+def test_whole_show_diff_checks_the_set_title_of_an_included_file():
+    pre = mk([T("a.mp3"), T("b.mp3")])
+    e = edits(include("x.mp3"), set_title("x.mp3", "Jam"))
+    ok = mk([T("a.mp3"), T("x.mp3", "Jam", src="override"), T("b.mp3")])
+    assert whole_show_diff(capture_before(pre), ok, e) == []
+    d = whole_show_diff(capture_before(pre),
+                        mk([T("a.mp3"), T("x.mp3", "Jim", src="override"), T("b.mp3")]), e)
+    assert d == ["x.mp3: title 'Jim' (predicted 'Jam')"]
+    d = whole_show_diff(capture_before(pre),
+                        mk([T("a.mp3"), T("x.mp3", "Jam", src="tags"), T("b.mp3")]), e)
+    assert d == ["x.mp3: title_source 'tags' (predicted 'override')"]
+
+
+def test_whole_show_diff_checks_the_set_label_of_an_included_structure_file():
+    pre = mk([T("a.mp3"), T("b.mp3")])
+    e = edits(include("x.mp3"), structure([], "x.mp3"))
+    ok = mk([T("a.mp3"), T("x.mp3"), T("b.mp3", s="encore")])
+    assert whole_show_diff(capture_before(pre), ok, e) == []
+    off = mk([T("a.mp3"), T("x.mp3", s="encore"), T("b.mp3", s="encore")])
+    assert whole_show_diff(capture_before(pre), off, e) == [
+        "x.mp3: set 'encore' (predicted '1')"]
+
+
+def test_write_edits_include_and_set_title_of_one_file(tmp_path):
+    ws = ws_with(tmp_path, mk(ABC, excluded=[{"filename": "x.mp3", "reasons": ["short"]}]))
+    out = write_edits(ws, edits(include("x.mp3"), set_title("x.mp3", "Jam")),
+                      show=read_model(ws.show, Show), at=AT, defer_subjectless_structure=True)
+    assert out.include == ["x.mp3"] and out.titles == {"x.mp3": "Jam"}
+    assert read_overrides(ws) == out
+
+
 def test_track_changes_lines():
     pre = mk([T("a.mp3", "A", dur=65.0), T("b.mp3", "B", dur=None), T("c.mp3", "C")])
     post = mk([T("a.mp3", "Alpha", dur=65.0), T("c.mp3", "C", s="2"),
@@ -582,6 +616,37 @@ def test_apply_include_that_did_not_land_restores(lib):
     r = lib.apply(v, lib.redo(post))
     assert (r.status, r.diff) == ("restored", ["x.mp3: dropped (not predicted)"]), r
     assert tree_bytes(lib.ws.dir) == before
+
+
+def _include_titled(title, src):
+    return mk([T("a.mp3", "A", dur=300.0), T("b.mp3", "B", src="unresolved", dur=30.0),
+               T("c.mp3", "C", dur=400.0), T("x.mp3", title, src=src, dur=20.0)])
+
+
+def _v_include_titled():
+    return V([include("x.mp3"), set_title("x.mp3", "Jam")],
+             [judge("unresolved track titles", "real-fixed-by-action")])
+
+
+@pytest.mark.parametrize("title,src,line", [
+    ("Jim", "override", "x.mp3: title 'Jim' (predicted 'Jam')"),
+    ("Jam", "tags", "x.mp3: title_source 'tags' (predicted 'override')"),
+], ids=["title", "source"])
+def test_apply_include_lands_but_its_set_title_does_not_restores(lib, title, src, line):
+    lib.pre(flags=["unresolved track titles"])
+    before = tree_bytes(lib.ws.dir)
+    r = lib.apply(_v_include_titled(), lib.redo(_include_titled(title, src)))
+    assert (r.status, r.diff) == ("restored", [line]), r
+    assert lib.commits == [] and tree_bytes(lib.ws.dir) == before
+
+
+def test_apply_include_and_its_set_title_both_land_applies(lib):
+    lib.pre(flags=["unresolved track titles"])
+    r = lib.apply(_v_include_titled(), lib.redo(_include_titled("Jam", "override")))
+    assert (r.status, r.diff) == ("applied", []), r
+    assert r.changes == ["+ x.mp3 (0:20) Jam"] and lib.commits == [r]
+    ov = read_overrides(lib.ws)
+    assert ov.include == ["x.mp3"] and ov.titles == {"x.mp3": "Jam"}
 
 
 @pytest.mark.parametrize("mode", ["auto", "accept"])

@@ -162,12 +162,19 @@ def _structure_files(e: Structure) -> list[str]:
     return list(e.breaks_after) + ([e.encore_after] if e.encore_after is not None else [])
 
 
+_NOT_PLACEABLE = "is not a current track or a file this verdict includes"
+_INCLUDE_AND_TITLE = ["include", "set_title"]
+
+
 def validate_targets(verdict: Verdict, bundle: Bundle) -> list[str]:
     """Every malformed target, one reason each; [] is valid. Filenames are matched
-    exactly and case-sensitively: a near miss names no file."""
+    exactly and case-sensitively: a near miss names no file. A set_title or structure edit
+    may target a current track or an excluded file this same verdict includes (R4)."""
     show, ov = bundle.show, bundle.overrides
     tracks = _track_names(show)
     excluded = {x.get("filename") for x in show.excluded_files}
+    included = {e.file for e in verdict.edits if isinstance(e, Include)} & excluded
+    placeable = tracks | included
     considered = set((bundle.selection.get("scores") or {}))
     flags = set(show.review_flags)
     keyed = set(ov.titles) | {str(f) for f in ov.set_breaks or ()}
@@ -178,8 +185,10 @@ def validate_targets(verdict: Verdict, bundle: Bundle) -> list[str]:
     excluded_by: dict[str, int] = {}
     structures, switches = [], []
     for i, e in enumerate(verdict.edits):
-        if isinstance(e, (Exclude, SetTitle)) and e.file not in tracks:
-            out.append(f"edit {i} {e.op}: {e.file} is not a current track")
+        if isinstance(e, Exclude) and e.file not in tracks:
+            out.append(f"edit {i} exclude: {e.file} is not a current track")
+        if isinstance(e, SetTitle) and e.file not in placeable:
+            out.append(f"edit {i} set_title: {e.file} {_NOT_PLACEABLE}")
         if isinstance(e, Include) and e.file not in excluded:
             out.append(f"edit {i} include: {e.file} is not an excluded file")
         if isinstance(e, (Include, Exclude, SetTitle)):
@@ -192,8 +201,8 @@ def validate_targets(verdict: Verdict, bundle: Bundle) -> list[str]:
         if isinstance(e, Structure):
             structures.append(i)
             for f in _structure_files(e):
-                if f not in tracks:
-                    out.append(f"edit {i} structure: {f} is not a current track")
+                if f not in placeable:
+                    out.append(f"edit {i} structure: {f} {_NOT_PLACEABLE}")
         if isinstance(e, SwitchRecording):
             switches.append(i)
             if e.identifier == show.identifier:
@@ -204,9 +213,10 @@ def validate_targets(verdict: Verdict, bundle: Bundle) -> list[str]:
         if isinstance(e, OverruleFlag) and e.flag not in flags:
             out.append(f"edit {i} overrule: {e.flag!r} is not a current flag")
     # Any file named by two include/exclude/set_title edits conflicts, the same op twice
-    # included (two titles for one file cannot both apply).
+    # included (two titles for one file cannot both apply), except one include plus one
+    # set_title: re-admit the file and title it (R4).
     for f, idx in named.items():
-        if len(idx) > 1:
+        if len(idx) > 1 and sorted(verdict.edits[i].op for i in idx) != _INCLUDE_AND_TITLE:
             out.append(f"edits {', '.join(map(str, idx))}: conflict on {f}")
     for i in structures:
         for f in _structure_files(verdict.edits[i]):
@@ -387,8 +397,8 @@ def _placeholder_veto(e: OverruleFlag, verdict: Verdict, bundle: Bundle) -> str 
     (pre-verdict) show is a placeholder, or (b) any title of the predicted post-verdict
     kept set is: an unknown-song flag on such a show may be the only thing holding a
     `Track N` title off the air. Strict: set_title edits do not lift (a) (operator ruling
-    2026-11-07); (b) closes the include gap apply's re-check leaves (it does not compare
-    an included file's title)."""
+    2026-11-07); (b) closes the include gap apply's re-check leaves (it compares an
+    included file's title only when the verdict set_titles it)."""
     show = bundle.show
     key = flag_key(e.flag, show)
     if key is None or key.kind != "research-song":

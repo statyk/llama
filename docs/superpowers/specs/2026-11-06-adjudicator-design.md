@@ -234,8 +234,9 @@ is the current tracks minus excluded files plus included files, with `set_title`
 included file without a `set_title` takes the title gather's `tags` rung would give it: its own
 cleaned metadata tag (`clean_tag_title`) when `is_real_title` accepts it; otherwise (no metadata
 row, a blank, `unknown` or residue tag) its title is undeterminable and counts as a placeholder.
-This closes the include gap: apply's whole-show re-check does not compare an included file's
-title (`whole_show_diff` skips included files), so nothing after the gate would catch it.
+This closes the include gap: apply's whole-show re-check compares an included file's title only
+when the verdict `set_title`s it (`whole_show_diff`), so nothing after the gate would catch an
+included file's own placeholder tag.
 
 Unsure on a long track means **held** (Shawn, 2026-11-06: hold for now; triaging dozens later is
 reasonable, hundreds is not). The 60 s and 120 s lines and the bars are constants in one place, so a
@@ -246,11 +247,14 @@ later retune is one edit. (60 s is my call; Shawn's examples were 20 s vs 3 min.
 - **Stale pre-flight:** a show that fails llama's existing staleness check (`show.json` is not what
   gather keeps now; `fix` refuses such shows) is not judged. Its outcome is `stale: reprocess first`,
   listed in the run report; reprocessing is the campaign's or `redo`'s job.
-- **Target validation**, before anything is written: exclude, title and structure targets must be
-  current tracks; include targets must be excluded rows; a recording target must be a considered
-  recording. One file named by two conflicting edits, an exclude of a file carrying a title, break or
-  encore key (as `fix` refuses it), or any unknown filename makes the verdict malformed: the show
-  stays held with the verdict stored.
+- **Target validation**, before anything is written: exclude targets must be current tracks; title
+  and structure targets must be current tracks or excluded files the same verdict includes (Shawn,
+  2026-11-07, R4: re-admit a file and title it, or place a break or the encore on it); include
+  targets must be excluded rows; a recording target must be a considered recording. One file named
+  by two conflicting edits (two set_titles, include and exclude, exclude and set_title, the same
+  include or exclude twice; include plus set_title is no conflict), a structure naming a file the
+  verdict excludes, an exclude of a file carrying a title, break or encore key (as `fix` refuses it),
+  or any unknown filename makes the verdict malformed: the show stays held with the verdict stored.
 
 ### Apply and re-check
 
@@ -266,7 +270,9 @@ the redo; those flags are judged only by the re-hold rule.
   with the named titles changed and set labels as the structure edit gives them. Any difference not
   predicted (a change in the relative order of unnamed tracks, or in an unnamed track's title, title
   source or set; a kept set that is not exactly the prediction) restores the snapshot and keeps the
-  verdict as a proposal noting the diff. An included track's own title and set are not predicted; if
+  verdict as a proposal noting the diff. An included track's own title and set are not predicted,
+  except that a `set_title` on it must land (that title, title source `override`, as on a current
+  track) and a structure edit naming it must give it the predicted set label (R4); otherwise, if
   its title is unresolved, the usual `titles` flag holds the show. Segue loss from a structure edit is
   expected and stated.
 - **Silenced flags.** Any pre-apply flag key absent after the redo that the verdict did not judge

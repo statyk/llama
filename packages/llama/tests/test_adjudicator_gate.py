@@ -935,11 +935,13 @@ def test_validate_conflicts_and_keyed_exclude_and_unknown_flag_and_unconsidered_
     assert any("more than one switch_recording" in r
                for r in reasons([ed("switch_recording", identifier=SIB),
                                  ed("switch_recording", identifier=SIB)]))
-    # a judged flag that is not current, and a flag judged twice
+    # a judged flag that is not current, and a flag judged twice (differently: identical
+    # repeats collapse, R5)
     assert any("not a current flag" in r
                for r in reasons([ed("exclude", file=t1)], [judge(VENUE_FLAG), judge("bogus")]))
     assert any("judged twice" in r
-               for r in reasons([ed("exclude", file=t1)], [judge(VENUE_FLAG), judge(VENUE_FLAG)]))
+               for r in reasons([ed("exclude", file=t1)],
+                                [judge(VENUE_FLAG), judge(VENUE_FLAG, "undecidable")]))
     # an unconsidered switch
     assert reasons([ed("switch_recording", identifier="nope")])
 
@@ -951,6 +953,69 @@ def test_validate_rejects_exclude_of_a_keyed_file(ov):
     b = make_bundle(VB.show.tracks, overrides=ov, flags=[VENUE_FLAG])
     assert validate_targets(make_verdict([ed("exclude", file="gd73-06-10d1t01.mp3")],
                                          show=b.show), b)
+
+
+# R4 (pilot-review §5, waynehancock): a set_title or structure edit may target a file the
+# same verdict re-admits with an include; include + set_title of one file is no conflict.
+
+T1, T4 = "gd73-06-10d1t01.mp3", "gd73-06-10d1t04.mp3"     # T4 is VB's one excluded row
+
+
+def _vr(edits, flags=None):
+    return validate_targets(make_verdict(edits, flags, show=VB.show), VB)
+
+
+def test_validate_accepts_include_then_set_title_of_the_same_file():
+    assert _vr([ed("include", file=T4), ed("set_title", file=T4, title="Sugaree")]) == []
+    # either order
+    assert _vr([ed("set_title", file=T4, title="Sugaree"), ed("include", file=T4)]) == []
+
+
+@pytest.mark.parametrize("struct", [
+    ed("structure", breaks_after=[], encore_after=T4),
+    ed("structure", breaks_after=[T4], encore_after=None),
+], ids=["encore", "break"])
+def test_validate_accepts_include_then_structure_on_the_included_file(struct):
+    assert _vr([ed("include", file=T4), struct]) == []
+
+
+def test_validate_two_set_titles_on_an_included_file_conflict():
+    r = _vr([ed("include", file=T4), ed("set_title", file=T4, title="X"),
+             ed("set_title", file=T4, title="Y")])
+    assert r == [f"edits 0, 1, 2: conflict on {T4}"]
+
+
+def test_validate_two_set_titles_on_a_current_track_conflict():
+    r = _vr([ed("set_title", file=T1, title="X"), ed("set_title", file=T1, title="Y")])
+    assert r == [f"edits 0, 1: conflict on {T1}"]
+
+
+def test_validate_include_and_exclude_of_one_file_conflict():
+    r = _vr([ed("include", file=T4), ed("exclude", file=T4)])
+    assert f"edits 0, 1: conflict on {T4}" in r
+
+
+def test_validate_exclude_and_set_title_of_one_file_still_conflict():
+    r = _vr([ed("exclude", file=T1), ed("set_title", file=T1, title="X")])
+    assert r == [f"edits 0, 1: conflict on {T1}"]
+
+
+@pytest.mark.parametrize("edit", [
+    ed("set_title", file="gd73-06-10d1t09.mp3", title="X"),
+    ed("set_title", file=T4, title="X"),                # excluded, but not included here
+    ed("structure", breaks_after=[], encore_after=T4),
+])
+def test_validate_title_or_structure_on_a_file_neither_current_nor_included(edit):
+    f = edit.get("file") or edit.get("encore_after")
+    assert _vr([edit]) == [f"edit 0 {edit['op']}: {f} is not a current track or a file "
+                           f"this verdict includes"]
+
+
+def test_validate_an_included_near_miss_names_no_file():
+    # exact and case-sensitive: an include of T4 does not admit a set_title of its near miss
+    r = _vr([ed("include", file=T4), ed("set_title", file=T4.upper(), title="X")])
+    assert r == [f"edit 1 set_title: {T4.upper()} is not a current track or a file this "
+                 f"verdict includes"]
 
 
 # ---------------------------------------------------------------- flag_passes
@@ -1445,13 +1510,23 @@ def test_an_include_with_a_real_tag_title_does_not_trigger_the_veto():
 
 
 def test_a_set_title_on_the_included_file_lifts_clause_b():
-    # A set_title on an included file is malformed today (validate_targets: not a current
-    # track, and a conflict with the include), so the verdict never auto-applies; but
-    # clause (b) itself takes the set_title's title, so the overrule edit is not vetoed.
+    # R4: a set_title may target a file the same verdict includes, and clause (b) takes
+    # the set_title's title for it, so a real title clears the veto and the verdict is valid.
     r = _inc_run(_inc_bundle("Track 3"), ed("set_title", file=INC, title="Dark Star",
                                             evidence=[ev(DESC, "3. Dark Star")]))
     assert (r.edits[2].bar, r.edits[2].passed, r.edits[2].reason) == ("title", True, "")
-    assert r.auto is False and any(v.startswith("malformed") for v in r.vetoes)
+    assert r.vetoes == [] and r.auto is True
+
+
+def test_a_placeholder_set_title_on_the_included_file_triggers_clause_b():
+    # The included file's real tag does not help when the verdict titles it a placeholder.
+    r = _inc_run(_inc_bundle("Dark Star"), ed("set_title", file=INC, title="Track 3",
+                                              evidence=[ev(DESC, "taper notes")]))
+    g = r.edits[2]
+    assert (g.bar, g.passed) == ("propose-only", False)
+    assert g.reason == ("research-song overrule while 1 predicted post-verdict title(s) are "
+                        "placeholders (e.g. x-d1t3.mp3: 'Track 3')")
+    assert r.vetoes == [] and r.auto is False
 
 
 def test_a_set_title_to_a_placeholder_on_a_current_track_triggers_clause_b():
