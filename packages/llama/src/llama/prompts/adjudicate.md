@@ -75,6 +75,8 @@ Most holds are real llama defects, not bad research:
   act on the tape that excluding cannot cure, scrambled track order, a day-unknown date, anything
   needing a listen.
 - The placeholder rule false-demotes real titles like "Track 9" or "2:22": restore them with `set_title`.
+  That restores a song whose real name is "Track 9"; it does not make a shipped `Track N` title real.
+  A `Track N` title that only numbers the file is a placeholder, not a real title.
 
 ## Edits
 
@@ -127,6 +129,9 @@ for the operator instead of being applied. Write evidence so the gate can verify
   - title-kind flags (research-song, research-date: an unknown research song or date) need high
     confidence and a quote from `taper-description`, `original-tag` or `sibling-tracks`. They name a
     song or a date, not a file, so no title-in-quote, own-row or sibling-length anchor applies.
+    While any shipped title is a placeholder (`Track N`, `tmp`, a filename stem, a blank or
+    unresolved title), a research-song overrule is propose-only, even beside `set_title` edits
+    that fill those titles.
   - structure-kind flags (research-sets, alignment, single-set, sets-not-found, jerrybase-set-count,
     jerrybase-closer) need high confidence and a taper-side quote from `taper-description`,
     `original-tag` or `derivative-tag`, as a structure edit does.

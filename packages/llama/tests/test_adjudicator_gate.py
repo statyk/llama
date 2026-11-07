@@ -604,7 +604,8 @@ OVERRULE_CASES = [
 
 
 def _overrule_case(flag, conf="high", evidence=None, verdict="spurious", jconf="high"):
-    b = make_bundle([trk("x-d1t1.mp3")], flags=[flag], sections={
+    # A resolved title: the placeholder veto (tested on its own below) stays out.
+    b = make_bundle([trk("x-d1t1.mp3", "Sugaree", "tags")], flags=[flag], sections={
         DESC: ["taper notes"], DTAG: ["taper notes"], SLFM: ["taper notes"],
         REV: ["taper notes"], OTAG: ["taper notes"], SIBT: ["taper notes"]})
     v = make_verdict([ed("overrule", conf, evidence, flag=flag)],
@@ -998,7 +999,8 @@ def test_flag_passes_title_and_structure_kinds_need_a_passing_overrule_edit(flag
 
 def test_flag_passes_needs_the_overrule_edit_for_that_flag():
     flags = [SONG_FLAG, "research asserts unknown song: Bertha"]
-    b = make_bundle([trk("x-d1t1.mp3")], flags=flags, sections={DESC: ["taper notes"]})
+    b = make_bundle([trk("x-d1t1.mp3", "Sugaree", "tags")], flags=flags,
+                    sections={DESC: ["taper notes"]})
     v = make_verdict([ed("overrule", flag=SONG_FLAG)], [judge(f) for f in flags])
     gate = evaluate(v, make_facts(b))
     assert flag_passes(v.flags[0], b.show, v, gate)
@@ -1263,3 +1265,104 @@ def test_coverage_identifier_disagreement_vetoes(ident):                   # fai
     assert r.vetoes == [f"current recording unknown (show.json {CUR} vs selection.json "
                         f"{ident}); no switch_recording edit"]
     assert r.auto is False
+
+
+# ---------------------------------------------------------------- placeholder veto (R3)
+# While any shipped title of the current show is a placeholder (or unresolved, or blank:
+# fail closed), every research-song overrule is propose-only (pilot-review §3 fix 2;
+# operator ruling 2026-11-07). Strict: set_title edits in the same verdict do not lift it.
+
+DATE_FLAG = "research asserts wrong date: 1973-06-11"
+BRIEF_FLAG = "briefing mentions unknown song: Foo"
+SONG = (DESC, "taper notes")
+
+
+def _ph_bundle(*tracks, flags=(SONG_FLAG,)):
+    return make_bundle(list(tracks), flags=list(flags), sections={DESC: [
+        "taper notes", "1. Sugaree 2. Bertha"]})
+
+
+def _ph_run(bundle, edits, flags=None):
+    v = make_verdict(edits, [judge(f) for f in (flags or bundle.show.review_flags)])
+    return evaluate(v, make_facts(bundle))
+
+
+SUGAREE = trk("x-d1t1.mp3", "Sugaree", "tags")
+TRACK2 = trk("x-d1t2.mp3", "Track 2", "tags")
+
+
+def test_placeholder_veto_blocks_a_research_song_overrule():
+    b = _ph_bundle(SUGAREE, TRACK2)
+    v = make_verdict([ed("overrule", flag=SONG_FLAG, evidence=[ev(*SONG)])], [judge(SONG_FLAG)])
+    r = evaluate(v, make_facts(b))
+    g = r.edits[0]
+    assert (g.bar, g.passed) == ("propose-only", False)
+    assert g.reason == ("research-song overrule while 1 shipped title(s) are placeholders "
+                        "(e.g. x-d1t2.mp3: 'Track 2')")
+    assert r.vetoes == [] and r.auto is False
+    assert not flag_passes(v.flags[0], b.show, v, r)     # the flag stays uncleared
+
+
+def test_placeholder_veto_reason_counts_every_placeholder_and_names_the_first():
+    b = _ph_bundle(SUGAREE, TRACK2, trk("x-d1t3.mp3", "tmp", "tags"))
+    g = _ph_run(b, [ed("overrule", flag=SONG_FLAG)]).edits[0]
+    assert g.reason == ("research-song overrule while 2 shipped title(s) are placeholders "
+                        "(e.g. x-d1t2.mp3: 'Track 2')")
+
+
+def test_no_placeholder_titles_lets_the_research_song_overrule_pass():
+    b = _ph_bundle(SUGAREE, trk("x-d1t2.mp3", "Bertha", "setlist"))
+    r = _ph_run(b, [ed("overrule", flag=SONG_FLAG)])
+    assert (r.edits[0].bar, r.edits[0].passed, r.edits[0].reason) == ("title", True, "")
+    assert r.vetoes == [] and r.auto is True
+
+
+@pytest.mark.parametrize("flag,bar", [(DATE_FLAG, "title"), (BRIEF_FLAG, "medium"),
+                                      (SETS_FLAG, "structure"), (VENUE_FLAG, "medium")])
+def test_placeholder_veto_leaves_other_overrule_kinds_alone(flag, bar):
+    b = _ph_bundle(SUGAREE, TRACK2, flags=(flag,))
+    r = _ph_run(b, [ed("overrule", flag=flag)])
+    assert (r.edits[0].bar, r.edits[0].passed, r.edits[0].reason) == (bar, True, "")
+    assert r.auto is True
+
+
+def test_placeholder_veto_leaves_non_overrule_edits_alone():
+    b = _ph_bundle(SUGAREE, TRACK2, flags=())
+    r = _ph_run(b, [ed("set_title", file="x-d1t2.mp3", title="Bertha",
+                       evidence=[ev(DESC, "1. Sugaree 2. Bertha")])])
+    assert (r.edits[0].bar, r.edits[0].passed) == ("title", True)
+    assert r.auto is True
+
+
+def test_placeholder_veto_holds_even_when_set_title_edits_replace_the_placeholders():
+    b = _ph_bundle(SUGAREE, TRACK2)
+    r = _ph_run(b, [ed("set_title", file="x-d1t2.mp3", title="Bertha",
+                       evidence=[ev(DESC, "1. Sugaree 2. Bertha")]),
+                    ed("overrule", flag=SONG_FLAG)])
+    assert r.edits[0].passed                       # the fill passes its own bar ...
+    assert (r.edits[1].bar, r.edits[1].passed) == ("propose-only", False)
+    assert r.auto is False                         # ... but the mixed verdict is a proposal
+
+
+@pytest.mark.parametrize("track", [
+    trk("x-d1t2.mp3", "Bertha", "unresolved"),     # unresolved source, a real-looking title
+    trk("x-d1t2.mp3", "", "tags"),                 # empty title
+    trk("x-d1t2.mp3", "   ", "tags"),              # blank title
+], ids=["unresolved", "empty", "blank"])
+def test_placeholder_veto_counts_unresolved_and_blank_titles(track):
+    b = _ph_bundle(SUGAREE, track)
+    g = _ph_run(b, [ed("overrule", flag=SONG_FLAG)]).edits[0]
+    assert (g.bar, g.passed) == ("propose-only", False)
+    assert g.reason == ("research-song overrule while 1 shipped title(s) are placeholders "
+                        f"(e.g. x-d1t2.mp3: {track.title!r})")
+
+
+def test_placeholder_veto_counts_a_none_title():
+    none = trk("x-d1t2.mp3", "x", "tags").model_construct(
+        index=2, set="1", title=None, filename="x-d1t2.mp3", duration_sec=30.0,
+        title_source="tags")
+    b = _ph_bundle(SUGAREE, none)
+    g = _ph_run(b, [ed("overrule", flag=SONG_FLAG)]).edits[0]
+    assert (g.bar, g.passed) == ("propose-only", False)
+    assert g.reason == ("research-song overrule while 1 shipped title(s) are placeholders "
+                        "(e.g. x-d1t2.mp3: None)")

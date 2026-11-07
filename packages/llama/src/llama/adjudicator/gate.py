@@ -336,10 +336,36 @@ def _structure_edit(e: Structure, bundle: Bundle) -> tuple[str, bool, str]:
     return _structure_evidence(e, "structure")
 
 
+def is_placeholder_track(t: Track) -> bool:
+    """The placeholder veto's test, fail closed: a blank or missing title, an unresolved
+    source, or `is_placeholder_title` (which judges a blank title False on its own)."""
+    title = t.title if isinstance(t.title, str) else ""
+    return (not title.strip() or t.title_source == "unresolved"
+            or is_placeholder_title(title))
+
+
+def _placeholder_veto(e: OverruleFlag, show: Show) -> str | None:
+    """A research-song overrule is propose-only while any shipped title of the current
+    (pre-verdict) show is a placeholder: an unknown-song flag on such a show may be the
+    only thing holding a `Track N` title off the air. Strict: set_title edits in the same
+    verdict do not lift it (operator ruling 2026-11-07)."""
+    key = flag_key(e.flag, show)
+    if key is None or key.kind != "research-song":
+        return None
+    bad = [t for t in show.tracks if is_placeholder_track(t)]
+    if not bad:
+        return None
+    return (f"research-song overrule while {len(bad)} shipped title(s) are placeholders "
+            f"(e.g. {bad[0].filename}: {bad[0].title!r})")
+
+
 def _overrule_edit(e: OverruleFlag, verdict: Verdict, bundle: Bundle) -> tuple[str, bool, str]:
     bar = overrule_bar(e.flag, bundle.show)
     if bar == "never":
         return "never", False, "this flag kind is never overruled automatically"
+    veto = _placeholder_veto(e, bundle.show)
+    if veto is not None:
+        return "propose-only", False, veto
     judged = next((j for j in verdict.flags if j.flag == e.flag), None)
     if judged is None or judged.verdict != "spurious":
         return bar, False, "overrule of a flag not judged spurious"

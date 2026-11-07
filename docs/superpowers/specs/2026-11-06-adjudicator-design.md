@@ -213,6 +213,17 @@ different current recordings, or an entry (the current one's included) without a
 auto-switch bar. This enforces "partial tape whose better sibling fails the auto-switch bar: hold"
 in code.
 
+**Placeholder veto** (Shawn, 2026-11-07, after the pilot: Opus overruled five unknown-song flags on
+a show shipping `Track 3`/`Track 9`/`Track 11`/`Track 12`, and those flags were all that held the
+placeholders off the air). While any shipped title of the current (pre-verdict) show is a
+placeholder, every overrule of a `research-song` flag is propose-only (bar `propose-only`, not
+passed), with the reason `research-song overrule while <n> shipped title(s) are placeholders (e.g.
+<file>: '<title>')`. A placeholder is `is_placeholder_title(title)`, failing closed: a blank or
+missing title, or a `title_source` of `unresolved`, counts too. It is strict: `set_title` edits in
+the same verdict that would replace the placeholders do not lift it, so a verdict mixing title
+fills with a research-song overrule lands as a proposal (one keystroke for the operator). Other
+overrule kinds and non-overrule edits are unaffected.
+
 Unsure on a long track means **held** (Shawn, 2026-11-06: hold for now; triaging dozens later is
 reasonable, hundreds is not). The 60 s and 120 s lines and the bars are constants in one place, so a
 later retune is one edit. (60 s is my call; Shawn's examples were 20 s vs 3 min.)

@@ -1049,3 +1049,29 @@ def test_a_fuller_sibling_without_a_switch_holds_with_the_proposal_stored(rig, m
     assert read_overrides(rig.ws).exclude == [] and rig.stages == []
     after = tree_bytes(rig.ws.dir)
     assert {k: v for k, v in after.items() if k != "adjudication.json"} == before
+
+
+# ---------------------------------------------------------------- placeholder veto (R3)
+
+SONG_FLAG = "research asserts unknown song: Dark Star"
+SONG_OVERRULE = V([ed("overrule", flag=SONG_FLAG, evidence=[ev("Recorded at RFK Stadium")])],
+                  [judge(SONG_FLAG)], kind="overrule")
+
+
+def test_a_research_song_overrule_over_a_placeholder_title_holds_with_the_proposal_stored(
+        rig, monkeypatch):
+    """An otherwise auto overrule verdict on a show shipping a `Track N` title lands as a
+    proposal with the overrule edit not passed; nothing is applied."""
+    rig.pre(flags=(SONG_FLAG,), tracks=(T("a.mp3", "Bertha", 300.0), T("b.mp3", "Track 2", 30.0),
+                                       T("c.mp3", "Sugaree", 400.0)))
+    _no_apply(monkeypatch)
+    before = tree_bytes(rig.ws.dir)
+    out = rig.proposal(SONG_OVERRULE)
+    assert out.vetoes == []
+    assert [(g["bar"], g["passed"], g["reason"]) for g in out.gate] == [
+        ("propose-only", False, "research-song overrule while 1 shipped title(s) are "
+                                "placeholders (e.g. b.mp3: 'Track 2')")]
+    assert out.applied == [] and rig.stages == []
+    assert read_overrides(rig.ws).overrules == []
+    after = tree_bytes(rig.ws.dir)
+    assert {k: v for k, v in after.items() if k != "adjudication.json"} == before
