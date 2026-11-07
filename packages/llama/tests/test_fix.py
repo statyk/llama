@@ -1124,15 +1124,6 @@ def test_legacy_message(tmp_path):
 _SLUG = "gratefuldead-1973-06-10"
 
 
-def _packaged_with_two_recordings(tmp_path, monkeypatch):
-    """packaged_gd73 whose selection.json also considered a second recording."""
-    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
-    sel = json.loads(ws.selection.read_text())
-    sel["scores"]["gd73.sib"] = {**next(iter(sel["scores"].values())), "score": 1.0}
-    ws.selection.write_text(json.dumps(sel))
-    return cfg, ws
-
-
 def _gd73_show(tmp_path: Path, monkeypatch, *, overrides: Overrides | None = None,
                needs_review: bool = False) -> ShowWorkspace:
     """gratefuldead-1973-06-10 whose show.json is the real gather of gd73 under the
@@ -1612,9 +1603,6 @@ def test_fix_no_run_with_allow_download_names_it_in_the_staged_redo(tmp_path, mo
 
 # --- recording pin and --clear-include ---
 
-_SLUG = "gratefuldead-1973-06-10"
-
-
 def _packaged_with_two_recordings(tmp_path, monkeypatch):
     """packaged_gd73 whose selection.json also considered a second recording."""
     cfg, ws = packaged_gd73(tmp_path, monkeypatch)
@@ -1704,3 +1692,12 @@ def test_fix_clear_include_by_name_and_number(tmp_path, monkeypatch):
     r = cli_invoke(cfg, "fix", _SLUG, "--clear-include", "other.mp3")
     assert r.exit_code == 1 and "other.mp3 is not in overrides.include" in r.output
     assert read_overrides(ws).include == ["keep.mp3"]
+
+
+def test_fix_include_and_clear_include_of_the_same_file_refuse(tmp_path, monkeypatch):
+    cfg, ws = _packaged_with_two_recordings(tmp_path, monkeypatch)
+    write_artifact(ws.overrides, Overrides(include=["a.mp3"]))
+    r = cli_invoke(cfg, "fix", _SLUG, "--include", "a.mp3", "--clear-include", "a.mp3")
+    assert r.exit_code == 1
+    assert "--include and --clear-include name the same file(s): a.mp3" in r.output
+    assert read_overrides(ws).include == ["a.mp3"]

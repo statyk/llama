@@ -3700,6 +3700,16 @@ def fix(
         except LlamaError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(1)
+        try:
+            readd = _resolve_include_tokens(sws, include or [])
+        except LlamaError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1)
+        both = sorted(set(clear_include_files) & set(readd))
+        if both:
+            typer.echo("--include and --clear-include name the same file(s): "
+                       f"{', '.join(both)}", err=True)
+            raise typer.Exit(1)
         stored = read_overrides(sws).include
         for f in clear_include_files:
             if f not in stored:
@@ -3897,7 +3907,7 @@ def fix(
             undo, readmit = _split_include_targets(sws, inc) if inc else ([], [])
             ov = _edit_overrides(sws, add_exclude=add, rm_exclude=list(rm) + undo,
                                  add_include=readmit, rm_include=clear_include_files)
-            if clear_include_files:
+            if clear_include_files and not readmit:
                 lines.append(f"{entry.slug}: overrides.include = {ov.include}")
             if undo:
                 # The operator typed --include and would otherwise be told only that
