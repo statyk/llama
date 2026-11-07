@@ -4651,8 +4651,8 @@ def adjudicate(
     set_capture_dir(config.root / "llm-failures")
     ctx = _adjudicate_context(config, ia, ledger, make_providers(config))
     state_ = pacing_state.read_state(config.root)
-    def accept_verdict_ok(entry) -> bool:
-        stored = read_adjudication(entry.ws)
+
+    def acceptable(stored) -> bool:
         try:
             return stored is not None and runner.accept_verdict(stored) is not None
         except Exception:   # noqa: BLE001 - a hand-edited record has no proposal
@@ -4672,21 +4672,24 @@ def adjudicate(
             break
         try:
             if accept:
-                lines = None
-                if accept_verdict_ok(entry):
-                    stored = read_adjudication(entry.ws)
+                out = None
+                stored = read_adjudication(entry.ws)
+                if acceptable(stored):
                     try:
                         lines = report.render_proposal(
                             stored, read_model(entry.ws.show, Show), slug=entry.slug)
-                    except Exception:   # noqa: BLE001 - accept reports the unreadable record
-                        lines = None
-                if lines is not None:
-                    for line in lines:
-                        typer.echo(line)
-                    if not yes and not typer.confirm("Accept this proposal?", default=False):
-                        typer.echo(f"{entry.slug}: skipped")
-                        continue
-                out = runner.accept_proposal(ctx, entry)
+                    except Exception as exc:   # noqa: BLE001 - never apply what was not shown
+                        out = runner.ShowOutcome(entry.slug, runner.NO_PROPOSAL,
+                                                 f"proposal could not be rendered: {exc}")
+                    else:
+                        for line in lines:
+                            typer.echo(line)
+                        if not yes and not typer.confirm("Accept this proposal?",
+                                                         default=False):
+                            typer.echo(f"{entry.slug}: skipped")
+                            continue
+                if out is None:
+                    out = runner.accept_proposal(ctx, entry)
             else:
                 out = runner.adjudicate_show(ctx, entry, dry_run=dry_run, force=force)
         except RateLimited as exc:

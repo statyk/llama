@@ -251,7 +251,6 @@ def test_redeliver_names_replace_voiced_for_a_voiced_destination(rig, monkeypatc
     station = tmp_path / "station"
     (station / rig.slug).mkdir(parents=True)
     (station / rig.slug / "manifest.json").write_text(json.dumps({"dj_audio": {"x": 1}}))
-    monkeypatch.setattr(type(rig.config), "delivery_path", station, raising=False)
     cfg_text = rig.cfg.read_text()
     rig.cfg.write_text(f'delivery_path = "{station}"\n' + cfg_text)
     stub_runner(monkeypatch, lambda slug, n: runner.ShowOutcome(
@@ -271,3 +270,22 @@ def test_accept_prompts_only_when_there_is_an_acceptable_proposal(rig, monkeypat
     r = run(rig, rig.slug, "--accept")
     assert "Accept this proposal?" not in r.output and "proposal (" not in r.output
     assert f"{rig.slug}: no proposal" in r.output
+
+
+@pytest.mark.parametrize("extra,answer", [("--yes", None), (None, "n\n")])
+def test_accept_never_applies_when_the_proposal_cannot_be_rendered(rig, monkeypatch,
+                                                                    extra, answer):
+    import llama.adjudicator.report as report
+    rig.proposal(ACCEPTABLE)
+    before = (rig.ws.show.read_bytes(), rig.ws.adjudication.read_bytes())
+    applied = []
+    monkeypatch.setattr(runner, "accept_proposal", lambda *a, **k: applied.append(1))
+    monkeypatch.setattr(report, "render_proposal",
+                        lambda *a, **k: (_ for _ in ()).throw(ValueError("bad record")))
+    monkeypatch.setattr(cli, "_interactive", lambda: True)
+    args = (rig.slug, "--accept") + ((extra,) if extra else ())
+    r = run(rig, *args, **({"input": answer} if answer else {}))
+    assert applied == [] and not rig.ws.overrides.exists()
+    assert (f"{rig.slug}: no proposal (proposal could not be rendered: bad record)"
+            in r.output)
+    assert (rig.ws.show.read_bytes(), rig.ws.adjudication.read_bytes()) == before
