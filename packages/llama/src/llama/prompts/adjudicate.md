@@ -29,18 +29,22 @@ files: judge from the bundle alone. The bundle's sections:
   building-name variant is NOT an error (the venue-mismatch flag is then spurious).
 - Discs are not sets in general; a disc split that coincides with independent set evidence is strong.
 - A title taken only from a non-taper review is weaker than the taper's own text; use it only when it is
-  count-exact and corroborated (durations vs a sibling, a second source). Otherwise prefer `untitled`.
+  count-exact and corroborated (durations vs a sibling, a second source). Otherwise leave the track's
+  title unresolved; use `untitled` only when no track on the tape is resolvable.
 
 ## Class rulings
 
-- **Partial tape, no more complete sibling:** it airs. Set `"partial_tape": true`, judge its
-  partial-tape flags `spurious`, and fix or overrule the rest as usual. A song cut off at the tape's
-  edge airs as is.
+- **Partial tape, no more complete sibling:** it airs. Set `"partial_tape": true`; that is a note
+  for the record, not a clearance. Judge flags that only reflect the tape being partial `spurious`,
+  and clear every holding flag through its own bar (see "Clearing flags" below): for example, a
+  structure-kind flag caused by the missing part is overruled with a taper-side quote showing the
+  tape is partial. A song cut off at the tape's edge airs as is.
 - **Partial tape with a more complete sibling:** set `"partial_tape": true`, name the sibling in
-  `better_sibling`, and give a `switch_recording` edit to it. If the switch is not clearly better
-  (see the switch bar below), the show holds while the switch waits as a proposal.
-- **Better sibling recording** (not partial): give `better_sibling` and a `switch_recording` edit
-  only when the other recording is clearly better.
+  `better_sibling`, and give a `switch_recording` edit to it. The gate decides whether the switch
+  applies or waits as a proposal; while it waits the show holds.
+- **Better sibling recording** (not partial): whenever another considered recording is better, name
+  it in `better_sibling` and give a `switch_recording` edit to it. Do not hold back a switch you
+  think may miss the bar: the gate decides whether it applies or is proposed.
 - **Fully untitled tape** (nothing in the bundle names the songs): `"kind": "hold"`. You may add an
   `untitled` edit; it is propose-only.
 - **Scrambled or shifted tags:** `set_title` edits only when you are confident (high confidence,
@@ -90,7 +94,8 @@ its extension: edits name files, never track numbers or positions. The ops:
 - Propose-only, never applied; each says what the operator would run, with `value` where it applies:
   `set_date` (`value`: YYYY-MM-DD), `untitled` (a tape with no resolvable titles), `narration`
   (`value`: `vague`), `rm` (remove the show), `redo_research` (the research describes the wrong act
-  or show). These need no evidence.
+  or show). These need no evidence, but still carry `confidence` and `why`.
+  A propose-only edit means the whole verdict waits for the operator instead of applying.
 
 ## Evidence
 
@@ -104,7 +109,8 @@ for the operator instead of being applied. Write evidence so the gate can verify
   excluded files, research, briefing, notes or overrides.
 - **A short include or exclude** (60 s or less) needs medium or high confidence.
 - **A long or unknown-length include or exclude** (over 60 s, a `?` length, or any include/exclude
-  once the verdict's include/exclude total passes 120 s) needs high confidence and a quote from
+  once the verdict's include/exclude total passes 120 s; one `?`-length include or exclude makes
+  that total unbounded, so then EVERY include and exclude in the verdict takes this long bar) needs high confidence and a quote from
   `taper-description`, `original-tag` or `sibling-tracks`, taken from somewhere other than the file's
   own tag row, that contains the file's name without its extension (for `gd73-06-10d1t05.mp3`,
   `gd73-06-10d1t05`) as a whole token. A bare track number or position never counts.
@@ -113,33 +119,54 @@ for the operator instead of being applied. Write evidence so the gate can verify
 - **A title** needs high confidence and the title itself inside the quote, from the taper's text
   (`taper-description`), this file's own `original-tag` row, or a `sibling-tracks` row of a sibling
   file whose length is within max(2 s, 1 %) of this file's.
-- **A structure edit** needs high confidence and a quote of taper-side text: set headers,
-  `s1tNN`-style filenames, "Encore:", from `taper-description`, `original-tag`, `derivative-tag` or
-  `sibling-tracks`.
-- **An overrule** of a title-kind flag (unknown research song or date) needs the same evidence as a
-  title; of a structure-kind flag (research sets, alignment, single set, sets not found, JerryBase set
-  count or closer) the same as a structure edit. A venue or briefing flag overrule needs medium
-  confidence. Unresolved-title, setlist-confidence, tape-span, event, track-merge, city, duration and
-  other flags are never overruled automatically.
+- **A structure edit** needs high confidence and a quote of taper-side text (set headers,
+  `s1tNN`-style filenames, "Encore:") from `taper-description`, `original-tag` or `derivative-tag`.
+  A sibling's track list is not taper-side for structure.
+- **An overrule** needs the flag judged `spurious` in `flags`. Its bar depends on the flag:
+  - title-kind flags (research-song, research-date: an unknown research song or date) need high
+    confidence and a quote from `taper-description`, `original-tag` or `sibling-tracks`. They name a
+    song or a date, not a file, so no title-in-quote, own-row or sibling-length anchor applies.
+  - structure-kind flags (research-sets, alignment, single-set, sets-not-found, jerrybase-set-count,
+    jerrybase-closer) need high confidence and a taper-side quote from `taper-description`,
+    `original-tag` or `derivative-tag`, as a structure edit does.
+  - venue and briefing flags need medium confidence.
+  - unresolved titles, low-confidence setlist, tape-spans, multi-event, events-unassigned,
+    no-tracks, merged-tracks, city, duration mismatch and other flags are never overruled
+    automatically.
 - `setlistfm`, `jerrybase` and `review` evidence alone only propose; they never auto-apply a title or
   a structure.
 - `venue` needs medium confidence. `city` is always propose-only (a city conflict can mean another
   performance). An edit that changes or removes an existing `overrides.json` entry is propose-only.
-- **A switch** applies only when the sibling is clearly better: it adds tracks or resolved titles
-  (high confidence, quoted), `overrides.json` has no per-file entries, and the switch is the verdict's
-  only track-list, title or structure edit.
-- Nothing applies unless `kind` is `fix` or `overrule`, `show_correct_after` is `yes`, and no flag is
-  judged `real-not-fixable` or `undecidable`.
+- **A switch** applies only when the sibling is clearly better: in `## considered recordings` it
+  has `kept_tracks` above 0 and a lineage class no worse than the current recording's; it adds tracks
+  or resolved titles (high confidence, quoted); `overrides.json` has no per-file entries and no
+  recording pin; and the only other edit in the verdict, if any, is a `venue`. No overrule, city,
+  title, include, exclude or structure edit may ride with a switch.
+
+## Clearing flags
 
 In `flags`, copy each flag verbatim from the review-flags section (without the leading `- `) and
 judge every one: `real-fixed-by-action`, `spurious`, `real-not-fixable` or `undecidable`, with a
-confidence and a one-sentence `why`.
+confidence and a one-sentence `why`. Then:
+
+- A flag judged `real-fixed-by-action` (medium or high confidence) is cleared by your edits.
+- A venue or briefing flag judged `spurious` at medium or high confidence clears without an edit; an
+  `overrule` edit for it is also fine.
+- Every flag judged `spurious` whose bar is title or structure (research-song, research-date,
+  research-sets, alignment, single-set, sets-not-found, jerrybase-set-count, jerrybase-closer) ALSO
+  needs its own `overrule` edit with qualifying evidence. A bare judgement does not clear it.
+- A flag whose overrule bar is never (the list above) cannot be cleared automatically. When one of
+  them still holds after your edits, the show stays held: use `"kind": "hold"` and say so in `decide`.
+- A verdict with no edits never applies.
+- Nothing applies unless `kind` is `fix` or `overrule`, `show_correct_after` is `yes`, and no flag is
+  judged `real-not-fixable` or `undecidable`.
 
 ## Reply
 
-`kind` is `fix` (edits ship a correct show), `overrule` (the flags are spurious; ship as-is with
-`overrule` edits) or `hold` (the operator must decide; say what in `decide`). `root_causes` uses the
-pilot's tags: set-source-precedence, junk-filter-dropped-real-music, placeholder-titles-shipped,
+`kind` is `overrule` when every edit is an `overrule` (the flags are spurious; the show ships as
+is), `fix` when there are other edits that ship a correct show, or `hold` when the operator must
+decide (say what in `decide`), including when a flag that is never overruled still holds.
+`root_causes` uses the pilot's tags: set-source-precedence, junk-filter-dropped-real-music, placeholder-titles-shipped,
 same-item-other-format-has-titles, flags-echo-untitled-tape, partial-tape, spurious-*,
 jerrybase-anchoring-wrong, selection-should-prefer-sibling, wrong-content-on-tape,
 description-positional-titles, titles-from-reviews-only, shifted-or-scrambled-tags, research-wrong,
@@ -165,7 +192,9 @@ The shape, with every field (illustrative values):
      "confidence": "high",
      "evidence": [{"kind": "taper-description", "quote": "Set II"},
                   {"kind": "taper-description", "quote": "Encore:"}],
-     "why": "The taper's set headers place one break and the encore."}
+     "why": "The taper's set headers place one break and the encore."},
+    {"op": "set_date", "value": "1973-06-11", "confidence": "medium",
+     "why": "The taper notes the show ran past midnight; the operator decides the date."}
   ],
   "kind": "fix",
   "show_correct_after": "yes",

@@ -161,3 +161,89 @@ def test_model_label():
     assert model_label(Config()) == "claude_cli:opus"
     assert model_label(Config.model_validate({"llm": {"adjudicate": {"model": "sonnet"}}})) \
         == "claude_cli:sonnet"
+
+
+# --- fix round 1 ---
+
+def _edit_with(i, **kw):
+    return {**BASE, "edits": [{**EDITS[i], **kw}]}
+
+
+@pytest.mark.parametrize("i,field", [(0, "file"), (1, "file"), (2, "file"), (2, "title"),
+                                     (4, "venue"), (5, "city"), (6, "identifier"), (7, "flag")])
+def test_text_fields_are_stripped_and_non_empty(i, field):                 # Q-I1
+    v = Verdict.model_validate(_edit_with(i, **{field: "  x.mp3 \n"}))
+    assert getattr(v.edits[0], field) == "x.mp3"
+    for empty in ("", "  \t"):
+        with pytest.raises(ValidationError):
+            Verdict.model_validate(_edit_with(i, **{field: empty}))
+
+
+def test_structure_files_are_stripped_and_non_empty():                     # Q-I1
+    v = Verdict.model_validate(_edit_with(3, breaks_after=[" a.mp3 "], encore_after=" b.mp3 "))
+    assert v.edits[0].breaks_after == ["a.mp3"] and v.edits[0].encore_after == "b.mp3"
+    for bad in ({"breaks_after": ["a.mp3", " "]}, {"encore_after": ""}):
+        with pytest.raises(ValidationError):
+            Verdict.model_validate(_edit_with(3, **bad))
+
+
+def test_literal_fields_are_normalised():                                   # Q-m1
+    v = Verdict.model_validate({
+        **BASE, "kind": " Fix ", "show_correct_after": "YES",
+        "flags": [{**BASE["flags"][0], "verdict": " Spurious", "confidence": "High"}],
+        "edits": [{**EDITS[4], "op": " venue ", "confidence": "High",
+                   "evidence": [{"kind": " Review ", "quote": "q"}]},
+                  {**EDITS[11], "op": "RM", "confidence": " LOW "}]})
+    assert (v.kind, v.show_correct_after) == ("fix", "yes")
+    assert (v.flags[0].verdict, v.flags[0].confidence) == ("spurious", "high")
+    assert [e.op for e in v.edits] == ["venue", "rm"]
+    assert v.edits[0].confidence == "high" and v.edits[0].evidence[0].kind == "review"
+    assert v.edits[1].confidence == "low"
+
+
+def test_flag_text_drops_the_bullet():                                      # Q-m2
+    v = Verdict.model_validate({
+        **BASE, "flags": [{**BASE["flags"][0], "flag": "  - venue mismatch: x "}],
+        "edits": [{**EDITS[7], "flag": "- venue mismatch: x"}]})
+    assert v.flags[0].flag == "venue mismatch: x" and v.edits[0].flag == "venue mismatch: x"
+    assert Verdict.model_validate({**BASE, "flags": [{**BASE["flags"][0], "flag": "a - b"}]}
+                                  ).flags[0].flag == "a - b"
+
+
+def test_nulls_take_the_defaults():                                         # Q-m3
+    v = Verdict.model_validate({**BASE, "flags": None, "edits": None, "partial_tape": None,
+                                "root_causes": None})
+    assert (v.flags, v.edits, v.partial_tape, v.root_causes) == ([], [], False, [])
+    v = Verdict.model_validate({**BASE, "edits": [{**EDITS[11], "evidence": None}]})
+    assert v.edits[0].evidence == []
+
+
+def test_structure_encore_also_a_break_is_rejected():                       # Q-m5
+    with pytest.raises(ValidationError, match="also in breaks_after"):
+        Verdict.model_validate(_edit_with(3, breaks_after=["a.mp3", "b.mp3"], encore_after="b.mp3"))
+
+
+def test_nested_extra_keys_are_ignored():                                   # Q-m8
+    v = Verdict.model_validate({
+        **BASE, "flags": [{**BASE["flags"][0], "note": 1}],
+        "edits": [{**EDITS[4], "evidence": [{"kind": "review", "quote": "q", "page": 3}]}]})
+    assert not hasattr(v.flags[0], "note") and not hasattr(v.edits[0].evidence[0], "page")
+
+
+def test_prompt_states_the_gate_rules_from_fix_round_1():
+    text = " ".join(load_prompt("adjudicate").split())
+    for phrase in ("A sibling's track list is not taper-side for structure",           # S-I1
+                   "the only other edit in the verdict, if any, is a `venue`",          # S-I2
+                   "no recording pin",                                                  # S-I2
+                   "overrule** needs the flag judged `spurious`",                        # S-I3a
+                   "A bare judgement does not clear it",                                # S-I3b
+                   "A verdict with no edits never applies",                             # S-I3c
+                   "that is a note for the record, not a clearance",                    # S-I3d
+                   "EVERY include and exclude in the verdict takes this long bar",      # S-M1
+                   "no-tracks",                                                         # S-M2
+                   "no title-in-quote, own-row or sibling-length anchor applies",       # S-M3
+                   "the gate decides whether it applies or is proposed",                # S-M4
+                   "still carry `confidence` and `why`",                                # Q-m6
+                   "use `untitled` only when no track on the tape is resolvable"):      # Q-m7
+        assert phrase in text, phrase
+    assert "only when the other recording is clearly better" not in text
