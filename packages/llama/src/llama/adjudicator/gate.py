@@ -227,13 +227,32 @@ def validate_targets(verdict: Verdict, bundle: Bundle) -> list[str]:
         out.append(f"edits {', '.join(map(str, structures))}: more than one structure edit")
     if len(switches) > 1:
         out.append(f"edits {', '.join(map(str, switches))}: more than one switch_recording edit")
-    seen: set[str] = set()
+    # Repeated judgements of one flag that agree on verdict and confidence are one
+    # judgement, the first (review_flags may carry a string twice: pilot-review section 5,
+    # discobiscuits; `why` is prose the gate never reads); disagreeing ones are malformed.
+    seen: dict[str, FlagJudgement] = {}
     for j in verdict.flags:
         if j.flag not in flags:
             out.append(f"flag judgement {j.flag!r}: not a current flag")
         elif j.flag in seen:
-            out.append(f"flag judgement {j.flag!r}: judged twice")
-        seen.add(j.flag)
+            if not _agree(j, seen[j.flag]):
+                out.append(f"flag judgement {j.flag!r}: judged twice with different verdicts "
+                           f"or confidence")
+            continue
+        seen[j.flag] = j
+    return out
+
+
+def _agree(a: FlagJudgement, b: FlagJudgement) -> bool:
+    return (a.verdict, a.confidence) == (b.verdict, b.confidence)
+
+
+def first_judgements(verdict: Verdict) -> dict[str, FlagJudgement]:
+    """Each judged flag's FIRST judgement: a valid verdict's repeats agree on verdict and
+    confidence (`validate_targets`), so the first one's `why` is the one shown (R5)."""
+    out: dict[str, FlagJudgement] = {}
+    for j in verdict.flags:
+        out.setdefault(j.flag, j)
     return out
 
 

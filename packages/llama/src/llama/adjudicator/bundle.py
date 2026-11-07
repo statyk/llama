@@ -252,7 +252,9 @@ def build_bundle(show_ws: ShowWorkspace, ia, config: Config) -> Bundle:
 
 
 def _render(slug, show, overrides, view, show_ws, selection, sections, research) -> str:
-    out = [f"# {slug}", "## review flags", "\n".join(f"- {f}" for f in show.review_flags)]
+    # Each distinct flag once, in order: vet can emit a string twice (R5).
+    flags = dict.fromkeys(show.review_flags)
+    out = [f"# {slug}", "## review flags", "\n".join(f"- {f}" for f in flags)]
     out.append("## track table")
     out.append("n | set | title | title_source | matched | dur s | file")
     out.append("\n".join(

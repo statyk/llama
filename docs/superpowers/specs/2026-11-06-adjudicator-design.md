@@ -255,6 +255,11 @@ later retune is one edit. (60 s is my call; Shawn's examples were 20 s vs 3 min.
   include or exclude twice; include plus set_title is no conflict), a structure naming a file the
   verdict excludes, an exclude of a file carrying a title, break or encore key (as `fix` refuses it),
   or any unknown filename makes the verdict malformed: the show stays held with the verdict stored.
+  A flag judgement must name a current flag; repeated judgements of one flag that agree on verdict
+  and confidence count as one, the first (its `why` is the one shown; R5, 2026-11-07:
+  `review_flags` can carry a string twice, and the bundle lists each distinct flag once), and
+  repeated judgements that differ in verdict or confidence are malformed (`judged twice with
+  different verdicts or confidence`).
 
 ### Apply and re-check
 

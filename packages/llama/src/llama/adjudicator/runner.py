@@ -27,7 +27,8 @@ from herder import HerderError, TaskFailed
 from herder.limits import RateLimited
 from llama.adjudicator.apply import ApplyResult, apply_verdict
 from llama.adjudicator.bundle import Bundle, build_bundle
-from llama.adjudicator.gate import Facts, GateResult, evaluate, validate_targets
+from llama.adjudicator.gate import (Facts, GateResult, evaluate, first_judgements,
+                                    validate_targets)
 from llama.adjudicator.record import (AdjudicationRecord, RECORD_FILE_VERSION, is_current,
                                       read_record as read_adjudication, show_digest,
                                       view_digest, write_outside_unit, write_record)
@@ -192,7 +193,7 @@ def held_proposal(pre: Show, post: Show, verdict: Verdict) -> dict:
     """For an applied show still held: each remaining post flag with the verdict's
     judgement of the pre flag of the same key, and an overrule of each one judged
     spurious (the evidence of the verdict's own overrule edit for that key, else [])."""
-    judged = {_key(j.flag, pre): j for j in verdict.flags}
+    judged = {_key(f, pre): j for f, j in first_judgements(verdict).items()}
     overrule_ev = {}
     for e in verdict.edits:
         if isinstance(e, OverruleFlag):

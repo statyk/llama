@@ -25,7 +25,7 @@ from typing import Callable, Literal, Sequence
 from herder import HerderError, TaskFailed
 from herder.limits import RateLimited
 from llama.adjudicator.gate import (COVERAGE_ADDED_MAX_S, OPERATOR_EXCLUDED, STRUCTURE_KINDS,
-                                    GateResult, is_resolved_song, flag_passes,
+                                    GateResult, first_judgements, is_resolved_song, flag_passes,
                                     has_track_list_edit, has_track_list_or_structure_edit)
 from llama.adjudicator.verdict import (City, Exclude, Include, OverruleFlag, ProposeOnly,
                                        SetTitle, Structure, SwitchRecording, Venue, Verdict)
@@ -292,7 +292,7 @@ def silenced_flags(pre: Show, post: Show, verdict: Verdict, gate: GateResult | N
     account for: in `auto`, a judgement passing `flag_passes`; in `accept`, any judgement
     `spurious` or `real-fixed-by-action` (Shawn's acceptance replaces the bar)."""
     after = {_key(f, post) for f in post.review_flags}
-    judged = {j.flag: j for j in verdict.flags}
+    judged = first_judgements(verdict)
     out: list[str] = []
     for f in pre.review_flags:
         if _key(f, pre) in after:
@@ -351,7 +351,7 @@ def rehold_flags(pre: Show, post: Show, verdict: Verdict, gate: GateResult) -> l
         return None
     no_subjectless = has_track_list_or_structure_edit(verdict)
     passing_keys = set()
-    judged = {j.flag: j for j in verdict.flags}
+    judged = first_judgements(verdict)
     for f in pre.review_flags:
         j = judged.get(f)
         k = flag_key(f, pre)

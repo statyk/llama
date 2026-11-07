@@ -351,3 +351,15 @@ def test_kept_durations_follow_the_configured_audio_format(tmp_path):      # R2 
     b = build_bundle(ws, ia, flac)
     assert b.current_kept_s == pytest.approx(300.0)
     assert b.sibling_kept_s == {SIB: pytest.approx(30.0)}
+
+
+def test_review_flags_section_lists_a_duplicated_flag_once(tmp_path):     # R5
+    # vet can emit a flag string twice (research names a song and its reprise:
+    # discobiscuits-2002-10-02); the model judges what it is shown, so show it once.
+    a, b_ = "research asserts unknown song: Crystal Ball", "research asserts unknown song: Bertha"
+    ws, _, ia, cfg = _setup(tmp_path, held_flags=(a, b_, a, b_, a))
+    b = build_bundle(ws, ia, cfg)
+    sec = b.text.split("## review flags\n", 1)[1].split("\n## track table", 1)[0]
+    assert sec.splitlines() == [f"- {f}" for f in dict.fromkeys(b.show.review_flags)]
+    assert sec.splitlines()[-2:] == [f"- {a}", f"- {b_}"]
+    assert list(b.show.review_flags).count(a) == 3          # the show itself is untouched

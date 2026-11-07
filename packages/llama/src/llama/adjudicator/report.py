@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Callable
 
 from llama.adjudicator import runner
+from llama.adjudicator.gate import first_judgements
 from llama.adjudicator.record import AdjudicationRecord
 from llama.adjudicator.runner import ShowOutcome
 from llama.adjudicator.verdict import PROPOSE_ONLY_OPS, Verdict
@@ -89,7 +90,7 @@ def render_proposal(rec: AdjudicationRecord, show: Show, *, slug: str) -> list[s
     verdict = Verdict.model_validate(rec.verdict)
     lines = [f"proposal ({rec.model}, {rec.at}): {verdict.kind}; "
              f"correct after: {verdict.show_correct_after}"]
-    for j in verdict.flags:
+    for j in first_judgements(verdict).values():
         lines.append(_flag_line(j.flag, j.model_dump(mode="json")))
     gates = {g["index"]: g for g in rec.gate}
     durations = _durations(show)

@@ -12,8 +12,9 @@ from llama.adjudicator.gate import (LONG_BAR_KINDS, OVERRULE_BAR, REFUSED_INCLUD
                                     TITLE_WEAK_KINDS, EditGate, Facts, GateResult, evaluate,
                                     flag_passes, has_track_list_edit,
                                     has_track_list_or_structure_edit, is_filler_title, normalize,
-                                    quote_ok, quote_rows, sibling_match, stem_in,
-                                    validate_targets)
+                                    first_judgements, quote_ok, quote_rows, sibling_match,
+                                    stem_in, validate_targets)
+from llama.adjudicator.runner import held_proposal
 from llama.adjudicator.verdict import Evidence, Verdict
 from llama.junk import SPAM_REASON
 from llama.models import Overrides, Show, Track
@@ -1016,6 +1017,41 @@ def test_validate_an_included_near_miss_names_no_file():
     r = _vr([ed("include", file=T4), ed("set_title", file=T4.upper(), title="X")])
     assert r == [f"edit 1 set_title: {T4.upper()} is not a current track or a file this "
                  f"verdict includes"]
+
+
+# R5 (pilot-review §5, discobiscuits): review_flags may carry a flag twice. Repeated
+# judgements that agree on (verdict, confidence) collapse to the first; others are malformed.
+
+DUP = make_bundle(VB.show.tracks, flags=[VENUE_FLAG, VENUE_FLAG, SONG_FLAG])
+
+
+@pytest.mark.parametrize("second_why", ["first why", "other"], ids=["identical", "why-only"])
+def test_validate_agreeing_repeated_judgements_collapse_to_the_first(second_why):
+    first = {**judge(VENUE_FLAG), "why": "first why"}
+    second = {**judge(VENUE_FLAG), "why": second_why}
+    v = make_verdict([ed("overrule", flag=VENUE_FLAG)], [first, second, judge(SONG_FLAG)])
+    assert validate_targets(v, DUP) == []
+    kept = first_judgements(v)
+    assert list(kept) == [VENUE_FLAG, SONG_FLAG] and kept[VENUE_FLAG].why == "first why"
+    # the why shown in a held proposal (runner) is the first one's too
+    hp = held_proposal(DUP.show, DUP.show, v)
+    assert {f["judgement"]["why"] for f in hp["flags"] if f["flag"] == VENUE_FLAG} == {"first why"}
+
+
+@pytest.mark.parametrize("second", [judge(VENUE_FLAG, "undecidable"),
+                                    judge(VENUE_FLAG, conf="medium")],
+                         ids=["verdict", "confidence"])
+def test_validate_differing_repeated_judgements_are_malformed(second):
+    v = make_verdict([ed("overrule", flag=VENUE_FLAG)],
+                     [judge(VENUE_FLAG), second, judge(SONG_FLAG)])
+    assert validate_targets(v, DUP) == [
+        f"flag judgement {VENUE_FLAG!r}: judged twice with different verdicts or confidence"]
+
+
+def test_a_duplicated_flag_judged_once_is_judged():
+    v = make_verdict([ed("overrule", flag=VENUE_FLAG)], [judge(VENUE_FLAG), judge(SONG_FLAG)])
+    r = evaluate(v, make_facts(DUP))
+    assert not any("flag not judged" in x or "malformed" in x for x in r.vetoes), r.vetoes
 
 
 # ---------------------------------------------------------------- flag_passes
