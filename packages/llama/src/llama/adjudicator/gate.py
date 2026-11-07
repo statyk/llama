@@ -423,19 +423,13 @@ def _predicted_placeholders(verdict: Verdict, bundle: Bundle) -> list[tuple[str,
     return out
 
 
-def _has_research_song_overrule(verdict: Verdict, show: Show) -> bool:
-    return any(isinstance(e, OverruleFlag) and (k := flag_key(e.flag, show)) is not None
-               and k.kind == "research-song" for e in verdict.edits)
-
-
 def _include_placeholder(e: Include, verdict: Verdict, bundle: Bundle) -> str | None:
     """An include is propose-only when its predicted title (`_predicted_placeholders`:
     the verdict's set_title for the file, else its cleaned real tag) is a placeholder or
-    undeterminable: gather may ship that tag, and apply's re-check compares an included
-    file's title only when the verdict set_titles it (operator ruling 2026-11-07). A
-    verdict with a research-song overrule is left to `_placeholder_veto`'s clause (b),
-    which already makes it propose-only, so its R3 behaviour is unchanged."""
-    if _has_research_song_overrule(verdict, bundle.show) or _track(bundle.show, e.file):
+    undeterminable: gather may ship that tag (operator ruling 2026-11-07). It runs on every
+    include, a verdict with a research-song overrule included (clause (b) of
+    `_placeholder_veto` holds that overrule too); apply's whole-show check is the backstop."""
+    if _track(bundle.show, e.file):
         return None          # (an include of a current track is malformed: validate_targets)
     bad = [(fn, t) for fn, t in _predicted_placeholders(verdict, bundle) if fn == e.file]
     if not bad:
@@ -450,8 +444,8 @@ def _placeholder_veto(e: OverruleFlag, verdict: Verdict, bundle: Bundle) -> str 
     (pre-verdict) show is a placeholder, or (b) any title of the predicted post-verdict
     kept set is: an unknown-song flag on such a show may be the only thing holding a
     `Track N` title off the air. Strict: set_title edits do not lift (a) (operator ruling
-    2026-11-07); (b) closes the include gap apply's re-check leaves (it compares an
-    included file's title only when the verdict set_titles it)."""
+    2026-11-07); (b) keeps an include of a placeholder-titled file from clearing the
+    hold (the include check and apply's whole-show backstop hold the include itself)."""
     show = bundle.show
     key = flag_key(e.flag, show)
     if key is None or key.kind != "research-song":
@@ -604,7 +598,7 @@ def _kept_count(entry) -> int | None:
     return n
 
 
-def operator_pinned(bundle: Bundle) -> bool:
+def _operator_pinned(bundle: Bundle) -> bool:
     """Whether overrides.json pins the CURRENT recording by the operator's choice (Shawn's
     ruling, 2026-11-07: his choice of recording is the decision): `recording_source`
     "operator", or absent (a pin from before the field; every one came from `fix`). A
@@ -622,10 +616,10 @@ def _coverage_vetoes(verdict: Verdict, bundle: Bundle) -> list[str]:
     never vetoes on duration. Fail closed: no `scores`, show.json and selection.json naming
     different current recordings, or an entry (the current one's included) without a usable
     `kept_tracks` vetoes too; an unknown duration skips only the duration clause. An
-    operator pin on the current recording exempts the show (`operator_pinned`)."""
+    operator pin on the current recording exempts the show (`_operator_pinned`)."""
     if any(isinstance(e, SwitchRecording) for e in verdict.edits):
         return []
-    if operator_pinned(bundle):
+    if _operator_pinned(bundle):
         return []
     tail = "no switch_recording edit"
     sel = bundle.selection

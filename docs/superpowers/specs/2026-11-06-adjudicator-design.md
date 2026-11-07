@@ -236,11 +236,12 @@ is the current tracks minus excluded files plus included files, with `set_title`
 included file without a `set_title` takes the title gather's `tags` rung would give it: its own
 cleaned metadata tag (`clean_tag_title`) when `is_real_title` accepts it; otherwise (no metadata
 row, a blank, `unknown` or residue tag) its title is undeterminable and counts as a placeholder.
-This closes the include gap: apply's whole-show re-check compares an included file's title only
-when the verdict `set_title`s it (`whole_show_diff`), so nothing after the gate would catch an
-included file's own placeholder tag. On a verdict with no research-song overrule the same prediction
-makes the include itself propose-only (Shawn, 2026-11-07), reason `include ships a placeholder title
-(<file>: '<title>' | no determinable title)`.
+This closes the include gap at the gate. On every verdict, a research-song overrule or not, the
+same prediction makes the include itself propose-only (Shawn, 2026-11-07), reason `include ships a
+placeholder title (<file>: '<title>' | no determinable title)`. Apply's whole-show re-check is the
+backstop: an included file that lands after the re-gather with a placeholder title
+(`gate.is_placeholder_track`), whether or not the verdict `set_title`s it, fails the apply and the
+show is restored (`<file>: included with a placeholder title '<title>'`).
 
 Unsure on a long track means **held** (Shawn, 2026-11-06: hold for now; triaging dozens later is
 reasonable, hundreds is not). The 60 s and 120 s lines and the bars are constants in one place, so a

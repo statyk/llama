@@ -837,6 +837,23 @@ def test_accept_switch_coverage_failure_restores_and_names_fix_recording(rig):
     assert read_record(rig.ws) == rec and tree_bytes(rig.ws.dir) == before
 
 
+def _accepted_switch(rig):
+    """A switch proposal (held back by sibling complaints) whose accept commits."""
+    tracks = [T("a.mp3", "Bertha", 300.0), B, T("c.mp3", "Sugaree", 400.0)]
+    rig.pre(tracks=tracks)
+    rig.complaints("gd73-sib", 1)
+    rig.proposal(SWITCH)
+    rig.stub(mk(tracks, ident="gd73-sib"), select="gd73-sib")
+
+
+def test_accept_switch_records_the_pin_as_the_operators(rig):
+    # Shawn's ruling (2026-11-07): an accepted switch is his choice of recording.
+    _accepted_switch(rig)
+    assert rig.accept().outcome == ACCEPTED
+    ov = read_overrides(rig.ws)
+    assert (ov.recording, ov.recording_source) == ("gd73-sib", "operator")
+
+
 @pytest.mark.parametrize("result", ["restored", "refused", "transient", "changed"])
 def test_accept_non_commit_leaves_record_unchanged(rig, monkeypatch, result):
     rig.pre()

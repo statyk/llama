@@ -1488,6 +1488,34 @@ def test_coverage_operator_pin_on_another_recording_is_no_exemption():
     assert r.auto is False
 
 
+def test_coverage_pin_with_an_unknown_source_is_still_vetoed():    # a whitelist, fail closed
+    r = _cov(_MORE, overrides=Overrides(recording=CUR, recording_source="bogus"))
+    assert r.vetoes == [f"considered recording {SIB} keeps more (2 tracks, ? s) than the "
+                        f"current (1 tracks, 30 s); no switch_recording edit"]
+    assert r.auto is False
+
+
+_PIN = Overrides(recording=CUR, recording_source="operator")
+
+
+def test_operator_pin_exempts_only_the_coverage_veto():
+    # A verdict-level veto (an unjudged flag) beside a coverage veto the pin exempts.
+    b = make_bundle([trk("x-d1t1.mp3", dur=30.0)], flags=[VENUE_FLAG],
+                    sections={DESC: DESC_ROWS}, overrides=_PIN,
+                    selection={"identifier": CUR, "scores": {CUR: {"kept_tracks": 1}, **_MORE}})
+    v = make_verdict([ed("exclude", "medium", file="x-d1t1.mp3")], [])
+    r = evaluate(v, make_facts(b))
+    assert r.vetoes == [f"flag not judged: {VENUE_FLAG}"] and r.auto is False
+
+
+def test_operator_pin_does_not_exempt_a_malformed_target_veto():
+    b = make_bundle([trk("x-d1t1.mp3", dur=30.0)], sections={DESC: DESC_ROWS}, overrides=_PIN,
+                    selection={"identifier": CUR, "scores": {CUR: {"kept_tracks": 1}, **_MORE}})
+    r = run([ed("exclude", "medium", file="x-d1t2.mp3")], b)          # not a track
+    assert r.vetoes and all(x.startswith("malformed: edit 0") for x in r.vetoes), r.vetoes
+    assert r.auto is False
+
+
 # ---------------------------------------------------------------- placeholder veto (R3)
 # While any shipped title of the current show is a placeholder (or unresolved, or blank:
 # fail closed), every research-song overrule is propose-only (pilot-review §3 fix 2;
@@ -1602,8 +1630,8 @@ def test_placeholder_veto_counts_residue_and_timestamp_titles(title):
 
 
 # Clause (b) (R3 fix round 1, operator amendment): the predicted post-verdict kept set,
-# so an include re-admitting a placeholder-titled file cannot clear the hold either. Apply's
-# whole-show re-check does not compare an included file's title (apply.py whole_show_diff).
+# so an include re-admitting a placeholder-titled file cannot clear the hold either (the
+# include check below holds the include itself; apply's whole_show_diff is the backstop).
 
 INC = "x-d1t3.mp3"
 
@@ -1623,7 +1651,8 @@ def _inc_run(b, *extra):
 
 def test_placeholder_veto_counts_an_include_of_a_placeholder_titled_file():
     r = _inc_run(_inc_bundle("Track 3"))
-    assert r.edits[0].passed                        # the include passes its own bar
+    assert (r.edits[0].bar, r.edits[0].passed, r.edits[0].reason) == (   # the include check
+        "propose-only", False, "include ships a placeholder title (x-d1t3.mp3: 'Track 3')")
     g = r.edits[1]
     assert (g.bar, g.passed) == ("propose-only", False)
     assert g.reason == ("research-song overrule while 1 predicted post-verdict title(s) are "
@@ -1678,9 +1707,8 @@ def test_an_included_file_with_an_undeterminable_title_counts(tag, meta):     # 
 
 # Include placeholder check (final2 "Declined to judge" bullet 2, operator ruling
 # 2026-11-07): an include whose predicted title (the same verdict's set_title, else the
-# file's cleaned tag when real) is a placeholder or undeterminable is propose-only on any
-# verdict, not only one with a research-song overrule. With one, clause (b) of the
-# placeholder veto already makes the verdict propose-only (tests above stay as they were).
+# file's cleaned tag when real) is a placeholder or undeterminable is propose-only on every
+# verdict, a research-song overrule or not (f1-quality I2: no skip for any overrule kind).
 
 def _inc_only(tag, *, meta=True):
     """`_inc_bundle` with no review flags: an include-only verdict then passes or fails on
@@ -1715,6 +1743,18 @@ def test_an_include_of_a_residue_file_with_a_real_set_title_is_unaffected():
                                         evidence=[ev(DESC, "3. Dark Star")])], flags=[])
     assert [(g.bar, g.passed) for g in r.edits] == [("short", True), ("title", True)]
     assert r.vetoes == [] and r.auto is True
+
+
+def test_an_include_of_a_residue_file_beside_a_venue_overrule_is_propose_only():
+    # Only research-song overrules carry clause (b); the include check runs on every include.
+    b = _inc_only("d1t03")
+    b = dataclasses.replace(b, show=b.show.model_copy(
+        update={"review_flags": [VENUE_FLAG], "needs_review": True}))
+    r = _ph_run(b, [ed("include", "medium", file=INC), ed("overrule", flag=VENUE_FLAG)])
+    assert (r.edits[0].bar, r.edits[0].passed, r.edits[0].reason) == (
+        "propose-only", False, f"include ships a placeholder title ({INC}: no determinable title)")
+    assert r.edits[1].passed
+    assert r.vetoes == [] and r.auto is False
 
 
 def test_an_include_with_a_placeholder_set_title_is_propose_only():

@@ -16,7 +16,7 @@ from llama.adjudicator.record import read_record
 from llama.override_keys import filename_keyed_refusal
 from llama.pacing import PauseUntil, Proceed
 from llama.workspace import read_overrides
-from test_adjudicator_runner import (ACCEPTABLE, V, judge, CLOSER_FLAG, EXCLUDE_B, POST_NO_B, TITLES_FLAG, VENUE_FLAG, Rig, mk, A, C)
+from test_adjudicator_runner import (ACCEPTABLE, _accepted_switch, V, judge, CLOSER_FLAG, EXCLUDE_B, POST_NO_B, TITLES_FLAG, VENUE_FLAG, Rig, mk, A, C)
 from test_pipeline import fake_providers
 
 
@@ -225,6 +225,24 @@ def test_accept_yes_applies_and_prints_proposal_first(rig):
     assert lines.index(f"{rig.slug}: accepted") > 0
     assert read_overrides(rig.ws).exclude == ["b.mp3"]
     assert read_record(rig.ws).outcome == "accepted"
+
+
+def test_accept_of_a_switch_writes_an_operator_pin(rig):
+    _accepted_switch(rig)
+    r = run(rig, rig.slug, "--accept", "--yes")
+    assert f"{rig.slug}: accepted" in r.output, r.output
+    ov = read_overrides(rig.ws)
+    assert (ov.recording, ov.recording_source) == ("gd73-sib", "operator")
+
+
+def test_triage_a_of_a_switch_writes_an_operator_pin(rig, monkeypatch):
+    import typer.testing as typer_testing
+    monkeypatch.setattr(typer_testing._NamedTextIOWrapper, "isatty", lambda self: True)
+    _accepted_switch(rig)
+    r = cli_invoke(rig.cfg, "triage", rig.slug, input="a\n")
+    assert f"{rig.slug}: proposal accepted" in r.output, r.output
+    ov = read_overrides(rig.ws)
+    assert (ov.recording, ov.recording_source) == ("gd73-sib", "operator")
 
 
 def test_accept_interactive_decline_applies_nothing(rig, monkeypatch):

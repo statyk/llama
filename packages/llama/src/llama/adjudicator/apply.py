@@ -26,7 +26,8 @@ from herder import HerderError, TaskFailed
 from herder.limits import RateLimited
 from llama.adjudicator.gate import (COVERAGE_ADDED_MAX_S, OPERATOR_EXCLUDED, STRUCTURE_KINDS,
                                     GateResult, first_judgements, is_resolved_song, flag_passes,
-                                    has_track_list_edit, has_track_list_or_structure_edit)
+                                    has_track_list_edit, has_track_list_or_structure_edit,
+                                    is_placeholder_track)
 from llama.adjudicator.verdict import (City, Exclude, Include, OverruleFlag, ProposeOnly,
                                        SetTitle, Structure, SwitchRecording, Venue, Verdict)
 from llama.audio_reuse import StationUnpaired
@@ -238,6 +239,10 @@ def whole_show_diff(before: list[TrackRow], after: Show, edits: Sequence) -> lis
             if t.title_source != "override":
                 out.append(f"{f}: title_source {t.title_source!r} (predicted 'override')")
         if f in includes:
+            # The backstop to the gate's predicted title: whatever gather gave it, an
+            # included file never ships a placeholder title (fail closed).
+            if is_placeholder_track(t):
+                out.append(f"{f}: included with a placeholder title {t.title!r}")
             # Its own set is checked only when the structure edit names it: a consistency
             # check of the labels (derived from where the files landed), not a position
             # prediction; the gate keeps such a structure edit propose-only.

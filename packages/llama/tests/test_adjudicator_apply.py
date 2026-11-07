@@ -230,7 +230,7 @@ def test_earliest_stage_mapping():
 
 def test_whole_show_diff_accepts_exact_prediction():
     pre = mk([T("a.mp3", "A"), T("b.mp3", "B", src="unresolved"), T("c.mp3", "C", s="2")])
-    post = mk([T("a.mp3", "A"), T("x.mp3", "X", src="unresolved"),
+    post = mk([T("a.mp3", "A"), T("x.mp3", "Bird Song"),
                T("c.mp3", "Jam", src="override", s="2")])
     assert whole_show_diff(capture_before(pre), post,
                            edits(exclude("b.mp3"), include("x.mp3"),
@@ -311,15 +311,37 @@ def test_whole_show_diff_predicts_structure_labels_and_ignores_segue_loss():
         "b.mp3: set '1' -> '2' (predicted '1')"]
     # positions are counted in the AFTER list: an include before the break shifts them
     e2 = edits(include("x.mp3"), structure(["b.mp3"]))
-    post2 = mk([T("x.mp3", s="9"), T("a.mp3"), T("b.mp3"), T("c.mp3", s="2"),
+    post2 = mk([T("x.mp3", "Bird Song", s="9"), T("a.mp3"), T("b.mp3"), T("c.mp3", s="2"),
                 T("d.mp3", s="2"), T("e.mp3", s="2")])
     assert whole_show_diff(capture_before(pre), post2, e2) == []
 
 
 def test_whole_show_diff_does_not_predict_included_track_title():
     pre = mk([T("a.mp3"), T("b.mp3")])
-    post = mk([T("a.mp3"), T("x.mp3", "whatever", src="unresolved", s="7"), T("b.mp3")])
+    post = mk([T("a.mp3"), T("x.mp3", "whatever", src="tags", s="7"), T("b.mp3")])
     assert whole_show_diff(capture_before(pre), post, edits(include("x.mp3"))) == []
+
+
+# The include backstop (f1 spec-review note 2): the gate predicts an included file's
+# title; whatever gather actually gives it, an included file that lands with a
+# placeholder title (`gate.is_placeholder_track`) fails the check, set_title'd or not.
+
+@pytest.mark.parametrize("title,src", [("d1t03", "tags"), ("Track 3", "tags"),
+                                       ("Dark Star", "unresolved"), ("", "tags")],
+                         ids=["residue", "track-n", "unresolved", "blank"])
+def test_whole_show_diff_fails_an_include_that_lands_with_a_placeholder_title(title, src):
+    pre = mk([T("a.mp3"), T("b.mp3")])
+    post = mk([T("a.mp3"), T("x.mp3", title, src=src), T("b.mp3")])
+    assert whole_show_diff(capture_before(pre), post, edits(include("x.mp3"))) == [
+        f"x.mp3: included with a placeholder title {title!r}"]
+
+
+def test_whole_show_diff_fails_a_set_titled_include_that_lands_with_a_placeholder_title():
+    pre = mk([T("a.mp3"), T("b.mp3")])
+    post = mk([T("a.mp3"), T("x.mp3", "Track 3", src="override"), T("b.mp3")])
+    assert whole_show_diff(capture_before(pre), post,
+                           edits(include("x.mp3"), set_title("x.mp3", "Track 3"))) == [
+        "x.mp3: included with a placeholder title 'Track 3'"]
 
 
 def test_whole_show_diff_checks_set_title_target():
@@ -351,9 +373,9 @@ def test_whole_show_diff_checks_the_set_title_of_an_included_file():
 def test_whole_show_diff_checks_the_set_label_of_an_included_structure_file():
     pre = mk([T("a.mp3"), T("b.mp3")])
     e = edits(include("x.mp3"), structure([], "x.mp3"))
-    ok = mk([T("a.mp3"), T("x.mp3"), T("b.mp3", s="encore")])
+    ok = mk([T("a.mp3"), T("x.mp3", "Bird Song"), T("b.mp3", s="encore")])
     assert whole_show_diff(capture_before(pre), ok, e) == []
-    off = mk([T("a.mp3"), T("x.mp3", s="encore"), T("b.mp3", s="encore")])
+    off = mk([T("a.mp3"), T("x.mp3", "Bird Song", s="encore"), T("b.mp3", s="encore")])
     assert whole_show_diff(capture_before(pre), off, e) == [
         "x.mp3: set 'encore' (predicted '1')"]
 
@@ -361,9 +383,9 @@ def test_whole_show_diff_checks_the_set_label_of_an_included_structure_file():
 def test_whole_show_diff_checks_the_set_label_of_an_included_break_file():
     pre = mk([T("a.mp3"), T("b.mp3")])
     e = edits(include("x.mp3"), structure(["x.mp3"]))
-    ok = mk([T("a.mp3"), T("x.mp3"), T("b.mp3", s="2")])
+    ok = mk([T("a.mp3"), T("x.mp3", "Bird Song"), T("b.mp3", s="2")])
     assert whole_show_diff(capture_before(pre), ok, e) == []
-    off = mk([T("a.mp3"), T("x.mp3", s="2"), T("b.mp3", s="2")])
+    off = mk([T("a.mp3"), T("x.mp3", "Bird Song", s="2"), T("b.mp3", s="2")])
     assert whole_show_diff(capture_before(pre), off, e) == ["x.mp3: set '2' (predicted '1')"]
 
 
@@ -703,6 +725,24 @@ def test_apply_include_and_its_set_title_both_land_applies(lib):
 
 
 @pytest.mark.parametrize("mode", ["auto", "accept"])
+def test_apply_include_landing_with_a_residue_title_restores(lib, mode):
+    lib.pre(flags=["unresolved track titles"])
+    before = tree_bytes(lib.ws.dir)
+    v = V([include("x.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    r = lib.apply(v, lib.redo(_include_titled("d1t03", "tags")), mode=mode)
+    assert (r.status, r.diff) == ("restored", ["x.mp3: included with a placeholder title "
+                                               "'d1t03'"]), r
+    assert lib.commits == [] and tree_bytes(lib.ws.dir) == before
+
+
+def test_apply_include_landing_with_a_real_title_applies(lib):         # the control
+    lib.pre(flags=["unresolved track titles"])
+    v = V([include("x.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    r = lib.apply(v, lib.redo(_include_titled("Dark Star", "tags")))
+    assert (r.status, r.diff) == ("applied", []), r
+
+
+@pytest.mark.parametrize("mode", ["auto", "accept"])
 def test_switch_with_a_non_venue_edit_is_refused_before_writing(lib, mode):
     lib.pre(flags=[VENUE_FLAG])
     before = tree_bytes(lib.ws.dir)
@@ -726,7 +766,7 @@ def _labelled_by_overrides(show_ws) -> Show:
     sets = _sets_from_breaks(len(names), [pos[f] for f in ov.set_breaks or []],
                              pos[ov.encore_after] if ov.encore_after else None)
     rows = [T("a.mp3", "A", dur=300.0), T("b.mp3", "B", src="unresolved", dur=30.0),
-            T("x.mp3", "X", dur=20.0), T("c.mp3", "C", dur=400.0)]
+            T("x.mp3", "Bird Song", dur=20.0), T("c.mp3", "C", dur=400.0)]
     return mk([t.model_copy(update={"set": s}) for t, s in zip(rows, sets)])
 
 
