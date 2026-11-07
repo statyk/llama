@@ -1068,7 +1068,7 @@ def test_run_resume_never_replays_auto_over_the_explicit_flag(
 
     def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
                      force=False, force_stage=None,
-                     full_rationale=False, plan=False, pace=None):
+                     full_rationale=False, plan=False, pace=None, adjudicate=False):
         captured["auto"] = auto
 
     monkeypatch.setattr(cli, "_execute", fake_execute)

@@ -61,3 +61,19 @@ def _no_live_usage_meter(monkeypatch):
     """
     import llama.cli as cli
     monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: None, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_adjudication(monkeypatch):
+    """No test may adjudicate on the config default.
+
+    `[adjudicate] enabled` defaults to true, so without this every test whose show
+    ends held in `get`, `run approve`, `run resume` or `redo` would make an
+    adjudicator call -- a hook the test never asked for, spending from a provider
+    map that has no `adjudicate` entry. Only an explicit `--adjudicate` (or a test
+    re-patching `cli._adjudicate_enabled` to `runner.hook_enabled`, which runs
+    after this autouse fixture) adjudicates.
+    """
+    import llama.cli as cli
+    monkeypatch.setattr(cli, "_adjudicate_enabled", lambda config, flag: bool(flag),
+                        raising=False)

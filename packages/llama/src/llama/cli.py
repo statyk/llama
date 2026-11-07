@@ -205,6 +205,10 @@ def _print_artists(rows: list[dict]) -> None:
             typer.echo(f"      {a['reason']}")
 
 
+ADJUDICATE_HELP = ("Judge a show that ends held with the adjudicator "
+                   "(default: [adjudicate] enabled)")
+
+
 def _pace(config, wait: bool | None, max_wait: str | None,
            no_pacing: bool) -> PaceOptions:
     """Resolve the pacing flags, failing on a bad --max-wait before the run
@@ -421,7 +425,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              count: int, auto: bool, human_gate: bool, force: bool = False,
              force_stage: str | None = None,
              full_rationale: bool = False, plan: bool = False,
-             pace: PaceOptions | None = None) -> None:
+             pace: PaceOptions | None = None, adjudicate: bool = False) -> None:
     providers, llm_calls = count_llm_calls(make_providers(config))
     if pace is None:
         pace = pace_options(config)
@@ -570,13 +574,18 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         typer.echo(f"Shortlist awaits review: llama run approve {ws.name}")
         return
     setlistfm = make_client(config)
-    packaged = held = 0
+    packaged = held = judged = 0
     failures: list[dict] = []          # {show, error, kind, at} per show this run lost
     # A RateLimited is a window that refused us; a PauseUntil is one the gate
     # stopped short of. Both pause the run, and the block below renders either.
     limited: RateLimited | PauseUntil | None = None
+    # The pipeline step (spec "Pipeline step"): its provider comes from the COUNTED
+    # map, so a show's boundary includes its adjudication.
+    adjudicator = _adjudicate_context(config, ia, ledger, providers) if adjudicate else None
+    paused_in_adjudication = False
 
-    def _process(entry):
+    def _process(entry) -> bool:
+        """True when the show ended held (the adjudication trigger)."""
         nonlocal packaged, held, limited
         try:
             pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
@@ -609,6 +618,30 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         else:
             typer.echo(f"needs-review, skipped: {entry.candidate.performance_id}")
             held += 1
+            return True
+        return False
+
+    def _adjudicate(entry) -> bool:
+        """Judge one held show, outside its lock. True = the run pauses on it (`limited`
+        set); the show is then judged again, without a second `_process`, next cycle."""
+        nonlocal limited, judged, paused_in_adjudication
+        pid = entry.candidate.performance_id
+        try:
+            target = _resolve_show(config, ledger, slugify(pid))
+        except Exception as exc:   # noqa: BLE001 - the show's result is already committed
+            from llama.adjudicator import runner
+            _echo_adjudicated(pid, runner.ShowOutcome(slugify(pid), runner.FAILED,
+                                                      f"{type(exc).__name__}: {exc}"))
+            return False
+        out = _adjudicate_after(adjudicator, target, pace, state)
+        if isinstance(out, (PauseUntil, RateLimited)):
+            limited = out
+            paused_in_adjudication = True
+            return True
+        if out is not None:
+            judged += 1
+            _echo_adjudicated(pid, out)
+        return False
 
     def _outcome() -> str | None:
         parts = []
@@ -621,10 +654,19 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         return ", ".join(parts) if parts else None
 
     pending = list(chosen)
+    # Held shows whose adjudication paused: processed and counted already, so the next
+    # cycle only judges them, before `pending`.
+    adjudication_pending: list = []
     done_before_pause = -1                  # progress watermark; see the guard below
-    while pending:
-        deferred, unprocessed = [], []
-        for idx, entry in enumerate(pending):
+    while pending or adjudication_pending:
+        deferred, unprocessed, still_to_judge = [], [], []
+        for idx, entry in enumerate(adjudication_pending):
+            if _adjudicate(entry):
+                still_to_judge.extend(adjudication_pending[idx:])
+                break
+        if limited:
+            unprocessed.extend(pending)
+        for idx, entry in enumerate(pending if not limited else []):
             # BEFORE the show lock, and before any of this show's work: the
             # whole point is not to start a show the window cannot finish.
             reading_before = _meter(config, pace)
@@ -636,10 +678,11 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                 break
             lock_path = ws.show_ws(entry.candidate.performance_id).lock
             ran = True
+            ended_held = False
             calls_before = llm_calls()
             try:
                 with file_lock(lock_path, blocking=False):
-                    _process(entry)
+                    ended_held = _process(entry)
             except Locked:
                 deferred.append(entry)         # another run is building it
                 ran = False
@@ -649,6 +692,12 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             # run, which then reports `complete` having never processed it.
             if limited:
                 unprocessed.extend(pending[idx:])
+                break
+            # After the show lock, before the boundary: the learned cost includes it.
+            # A pause here leaves the show to be judged, not re-processed.
+            if adjudicate and ended_held and _adjudicate(entry):
+                still_to_judge.append(entry)
+                unprocessed.extend(pending[idx + 1:])
                 break
             if ran and reading_before is not None and llm_calls() > calls_before:
                 # A show that made no LLM call (a download-only resume, an
@@ -691,9 +740,13 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                     unprocessed.extend(deferred[idx:])
                     break
                 with file_lock(ws.show_ws(entry.candidate.performance_id).lock):
-                    _process(entry)
+                    ended_held = _process(entry)
                 if limited:
                     unprocessed.extend(deferred[idx:])
+                    break
+                if adjudicate and ended_held and _adjudicate(entry):
+                    still_to_judge.append(entry)
+                    unprocessed.extend(deferred[idx + 1:])
                     break
         if not limited:
             break
@@ -712,17 +765,23 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         # again would nap indefinitely against a backend that keeps refusing.
         # Checkpoint instead, and say WHY so it is not read as an ordinary
         # window pause.
-        done_now = packaged + held + len(failures)
+        done_now = packaged + held + len(failures) + judged
         stalled = done_now == done_before_pause
         done_before_pause = done_now
         if not _render_pause(
                 ws, limited, pace, when=when, stalled=stalled,
                 header=f"paused after {packaged + held} shows: {reason}",
                 outcome=_outcome(), failures=failures,
-                resume_prefix=f"{len(unprocessed)} shows left; "):
+                resume_prefix=f"{len(unprocessed) + len(still_to_judge)} shows left; "):
+            # The checkpoint lists them as before: a `run resume` re-runs process_show
+            # (its stages skip) and then judges. Exit as reapply's pause does.
+            if paused_in_adjudication and failures:
+                raise _PausedExit(1)
             return
         limited = None
+        paused_in_adjudication = False
         pending = unprocessed
+        adjudication_pending = still_to_judge
         continue
 
     outcome = _outcome()
@@ -837,7 +896,8 @@ def _interpret_with_pause(config, ws: RunWorkspace, req: dict,
 def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: bool,
               name: str | None,
               artist_cap: float | None, min_score: float | None, year_cap: float | None,
-              full_rationale: bool, pace: PaceOptions | None = None) -> None:
+              full_rationale: bool, pace: PaceOptions | None = None,
+              adjudicate: bool = False) -> None:
     """Query mode: today's `find` verbatim (interpret -> stamp explicit flags
     into criteria for replay -> `_execute`)."""
     if artist_cap == 0.0 or year_cap == 0.0:
@@ -886,11 +946,13 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
             return
         _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
                  human_gate=False,
-                 full_rationale=full_rationale, plan=plan, pace=pace)
+                 full_rationale=full_rationale, plan=plan, pace=pace,
+                 adjudicate=adjudicate)
 
 
 def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
-                 full_rationale: bool, pace: PaceOptions | None = None) -> None:
+                 full_rationale: bool, pace: PaceOptions | None = None,
+                 adjudicate: bool = False) -> None:
     """Profile mode: today's `profile run` verbatim (load profile -> stamp
     count into the run's criteria -> `_execute`)."""
     profile = load_profile(config.root, name)
@@ -917,7 +979,8 @@ def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
         write_artifact(ws.criteria, criteria)
         _execute(config, ia, ledger, ws, criteria, profile.count, auto,
                  human_gate=profile.human_gate,
-                 full_rationale=full_rationale, plan=plan, pace=pace)
+                 full_rationale=full_rationale, plan=plan, pace=pace,
+                 adjudicate=adjudicate)
 
 
 @app.command(rich_help_panel="Acquire",
@@ -959,6 +1022,8 @@ def get(
     no_pacing: bool = typer.Option(False, "--no-pacing",
                                    help="Disable usage pacing: a limit fails the show "
                                         "as it did before"),
+    adjudicate: bool = typer.Option(None, "--adjudicate/--no-adjudicate",
+                                    help=ADJUDICATE_HELP),
 ):
     """Acquire: find, vet, research, and package shows -- one-off (QUERY) or
     a standing profile (--profile NAME). --plan stops after the shortlist
@@ -985,10 +1050,11 @@ def get(
             typer.echo(f"set these on the profile: {', '.join(given)}", err=True)
             raise typer.Exit(1)
         _get_profile(config, ia, ledger, profile, auto, plan, full_rationale,
-                     pace=pace)
+                     pace=pace, adjudicate=_adjudicate_enabled(config, adjudicate))
         return
     _get_query(config, ia, ledger, query, limit, auto, plan, name,
-              artist_cap, min_score, year_cap, full_rationale, pace=pace)
+              artist_cap, min_score, year_cap, full_rationale, pace=pace,
+              adjudicate=_adjudicate_enabled(config, adjudicate))
 
 
 @app.command(rich_help_panel="Acquire",
@@ -1145,7 +1211,8 @@ def run_approve(
             criteria = read_model(ws.criteria, Criteria)
             _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
                      human_gate=False,
-                     full_rationale=full_rationale, pace=pace)
+                     full_rationale=full_rationale, pace=pace,
+                     adjudicate=_adjudicate_enabled(config, None))
         else:
             typer.echo(f"next: llama run resume {ws.name}")
 
@@ -1173,6 +1240,8 @@ def run_resume(
     no_pacing: bool = typer.Option(False, "--no-pacing",
                                    help="Disable usage pacing: a limit fails the show "
                                         "as it did before"),
+    adjudicate: bool = typer.Option(None, "--adjudicate/--no-adjudicate",
+                                    help=ADJUDICATE_HELP),
 ):
     """Resume a crashed or incomplete session from its artifacts (stages
     skip work already done), or with --all every session that is safe to
@@ -1186,17 +1255,19 @@ def run_resume(
                    err=True)
         raise typer.Exit(1)
     config, ia, ledger = _setup()
+    judge = _adjudicate_enabled(config, adjudicate)
     if all_runs:
         # A usage pause checkpoints rather than napping inside the operator's
         # sweep loop, unless --wait says otherwise (spec §6).
         pace = _pace(config, False if wait is None else wait, max_wait, no_pacing)
-        _sweep_runs(config, ia, ledger, full_rationale=full_rationale, pace=pace)
+        _sweep_runs(config, ia, ledger, full_rationale=full_rationale, pace=pace,
+                    adjudicate=judge)
         return
     pace = _pace(config, wait, max_wait, no_pacing)
     ws = _resolve_run(config, session)
     try:
         _resume_run(config, ia, ledger, ws, auto=auto, full_rationale=full_rationale,
-                    pace=pace, record_crash=False)
+                    pace=pace, record_crash=False, adjudicate=judge)
     except (Locked, RunMissing) as exc:
         raise _lock_refusal(ws, exc)
 
@@ -1210,12 +1281,20 @@ def _crash_record(exc: Exception) -> dict:
     return record
 
 
+class _PausedExit(typer.Exit):
+    """A run that checkpointed on an adjudication pause with failed shows: exit 1, as
+    reapply's pause does, but the `paused` marker it wrote stands (not a crash)."""
+
+
 def _is_crash(exc: Exception) -> bool:
+    if isinstance(exc, _PausedExit):
+        return False
     return not (isinstance(exc, typer.Exit) and exc.exit_code == 0)
 
 
 def _resume_run(config, ia, ledger, ws: RunWorkspace, *, auto: bool,
-                full_rationale: bool, pace: PaceOptions, record_crash: bool) -> None:
+                full_rationale: bool, pace: PaceOptions, record_crash: bool,
+                adjudicate: bool = False) -> None:
     """Resume one run under its run lock, taken here, non-blocking: `Locked`
     (live elsewhere) and `RunMissing` (removed) propagate to the caller.
 
@@ -1228,7 +1307,7 @@ def _resume_run(config, ia, ledger, ws: RunWorkspace, *, auto: bool,
     with run_lock(ws.dir, blocking=False):
         try:
             _resume_locked(config, ia, ledger, ws, auto=auto,
-                           full_rationale=full_rationale, pace=pace)
+                           full_rationale=full_rationale, pace=pace, adjudicate=adjudicate)
         except Exception as exc:
             if record_crash and _is_crash(exc):
                 mark_incomplete(ws, outcome=None, failures=[_crash_record(exc)])
@@ -1236,7 +1315,7 @@ def _resume_run(config, ia, ledger, ws: RunWorkspace, *, auto: bool,
 
 
 def _resume_locked(config, ia, ledger, ws: RunWorkspace, *, auto: bool,
-                   full_rationale: bool, pace: PaceOptions) -> None:
+                   full_rationale: bool, pace: PaceOptions, adjudicate: bool = False) -> None:
     """`run resume`'s body; the caller holds the run lock."""
     if not ws.criteria.exists():
         if not ws.request.exists():
@@ -1286,10 +1365,11 @@ def _resume_locked(config, ia, ledger, ws: RunWorkspace, *, auto: bool,
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=False,
              force_stage=None,
-             full_rationale=full_rationale, plan=plan, pace=pace)
+             full_rationale=full_rationale, plan=plan, pace=pace, adjudicate=adjudicate)
 
 
-def _sweep_runs(config, ia, ledger, *, full_rationale: bool, pace: PaceOptions) -> None:
+def _sweep_runs(config, ia, ledger, *, full_rationale: bool, pace: PaceOptions,
+                adjudicate: bool = False) -> None:
     """`run resume --all` (spec §6): one pass, then exit."""
     now = datetime.now(timezone.utc)
     eligible = []
@@ -1309,7 +1389,8 @@ def _sweep_runs(config, ia, ledger, *, full_rationale: bool, pace: PaceOptions) 
         typer.echo(f"== {info.id}")
         try:
             _resume_run(config, ia, ledger, ws, auto=True,
-                        full_rationale=full_rationale, pace=pace, record_crash=True)
+                        full_rationale=full_rationale, pace=pace, record_crash=True,
+                        adjudicate=adjudicate)
             result = session_state(ws.dir)
         except Locked:
             result = STATE_RUNNING           # turned live since the listing
@@ -4022,7 +4103,7 @@ def triage(
 
 
 def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool,
-                yes: bool) -> None:
+                yes: bool, adjudicate: bool = False) -> None:
     """The selector-batch form shared by a plain selector redo and a
     `--run`-scoped show-level redo: apply the selector, drop held shows
     (opt in via `--held` or an explicit `held` state), plan/confirm, then
@@ -4039,6 +4120,7 @@ def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool
         return
     if not _confirm_plan(kept, f"redo --from {from_stage}", yes):
         return
+    hook = _redo_adjudicator(config, ia, ledger) if adjudicate else None
     for e in kept:
         try:
             pkg = _redo_show(config, ia, ledger, e, from_stage,
@@ -4046,9 +4128,22 @@ def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool
             typer.echo(f"packaged: {pkg}" if pkg else f"still held: {e.slug}")
         except (LlamaError, TaskFailed, HerderError, IAError) as exc:
             typer.echo(f"FAILED {e.slug}: {exc}", err=True)
+            continue
+        if pkg or hook is None:
+            continue
+        # After the unit, per show, gated like reapply's list form. The first pause
+        # stops the judging; the redos go on.
+        out = hook(e)
+        if isinstance(out, (PauseUntil, RateLimited)):
+            typer.echo(f"paused adjudication: {out}; "
+                       "judge it later with: llama adjudicate --held")
+            hook = None
+        elif out is not None:
+            _echo_adjudicated(e.slug, out)
 
 
-def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str) -> None:
+def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str, *,
+                    adjudicate: bool = False) -> None:
     """`redo --run SESSION --from search|winnow`: the old `run --stage X
     --force` run-wide re-execution, relocated verbatim (approvals-loss
     confirm on a doomed shortlist, downstream-artifact deletion, then a
@@ -4072,7 +4167,7 @@ def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str) -> None:
                 path.unlink()
         _execute(config, ia, ledger, ws, criteria, criteria.count, True,
                  human_gate=False, force=False,
-                 force_stage=None, full_rationale=False)
+                 force_stage=None, full_rationale=False, adjudicate=adjudicate)
 
 
 @app.command(rich_help_panel="Fix & ship",
@@ -4102,6 +4197,8 @@ def redo(
         help="One named show only: re-package without the strict station reuse, "
              "downloading whatever no copy pairs (for a delivered show whose station "
              "copy is gone or cannot be paired)"),
+    adjudicate: bool = typer.Option(None, "--adjudicate/--no-adjudicate",
+                                    help=ADJUDICATE_HELP),
 ):
     """Re-run one show (--from STAGE), a selector batch, or a whole
     --run session -- the single re-execution verb (spec §7.1)."""
@@ -4129,11 +4226,12 @@ def redo(
     if run is not None:
         config, ia, ledger = _setup()
         if from_stage in RUN_LEVEL_STAGES:
-            _redo_run_level(config, ia, ledger, run, from_stage)
+            _redo_run_level(config, ia, ledger, run, from_stage,
+                            adjudicate=_adjudicate_enabled(config, adjudicate))
             return
         sel = build_selector(run=run)
         _redo_batch(config, ia, ledger, sel, from_stage, redo_research=redo_research,
-                   yes=yes)
+                   yes=yes, adjudicate=_adjudicate_enabled(config, adjudicate))
         return
 
     if name is not None:
@@ -4148,8 +4246,17 @@ def redo(
                              with_research=redo_research, allow_download=allow_download)
         if pkg:
             typer.echo(f"packaged: {pkg}")
-        else:
-            typer.echo(f"still held: {entry.slug}")
+            return
+        typer.echo(f"still held: {entry.slug}")
+        # Outside the unit and the strict-refusal hint: the redo is committed, and
+        # nothing the adjudication does changes its result or exit code.
+        if _adjudicate_enabled(config, adjudicate):
+            out = _redo_adjudicator(config, ia, ledger)(entry)
+            if isinstance(out, (PauseUntil, RateLimited)):
+                typer.echo(f"paused adjudication: {out}; "
+                           f"judge it later with: llama adjudicate {entry.slug}")
+            elif out is not None:
+                _echo_adjudicated(entry.slug, out)
         return
 
     if not other_selector:
@@ -4164,7 +4271,7 @@ def redo(
         raise typer.Exit(1)
     _note_unknown_profiles(config, profile)
     _redo_batch(config, ia, ledger, sel, from_stage, redo_research=redo_research,
-               yes=yes)
+               yes=yes, adjudicate=_adjudicate_enabled(config, adjudicate))
 
 
 @app.command(rich_help_panel="Fix & ship",
@@ -4576,6 +4683,72 @@ def _adjudicate_context(config, ia, ledger, providers):
         config=config, ia=ia, ledger=ledger, provider=providers.get("adjudicate"),
         redo=lambda e, st: _redo_show_locked(config, ia, ledger,
                                              _resolve_show(config, ledger, e.slug), st))
+
+
+def _adjudicate_enabled(config, flag: bool | None) -> bool:
+    """Whether the pipeline hook runs: the flag, else `[adjudicate] enabled`. The one
+    name tests patch (conftest keeps the suite off the config default)."""
+    from llama.adjudicator import runner
+
+    return runner.hook_enabled(config, flag)
+
+
+def _adjudicate_after(ctx, entry, pace: PaceOptions, state):
+    """The pipeline step (spec "Pipeline step"): the pacing gate, then
+    `runner.adjudicate_show`. Call it only after the caller's show lock and unit are
+    released (`file_lock` is not re-entrant, and the apply takes its own).
+
+    None when there is nothing to do (no context, not held, or a current record): no
+    meter read, no line. A `PauseUntil` (the gate) or `RateLimited` (the call) comes
+    back as a value for the caller to pause on, never raised; under `--no-pacing` a
+    `RateLimited` is the outcome `unjudged`. Anything else that goes wrong is a `failed`
+    outcome: nothing escapes into the caller, whose result is already committed."""
+    from llama.adjudicator import record, runner
+
+    if ctx is None:
+        return None
+    try:
+        ws = entry.ws
+        if not ws.show.exists() or not read_model(ws.show, Show).needs_review:
+            return None
+        if record.is_current(ws):
+            return None
+        verdict = decide(_pacing._now(), _meter(ctx.config, pace),
+                         Progress(state.per_show_delta), pace)
+        if isinstance(verdict, PauseUntil):
+            return verdict
+        return runner.adjudicate_show(ctx, entry)
+    except RateLimited as exc:
+        if not pace.enabled:
+            return runner.ShowOutcome(entry.slug, runner.UNJUDGED, str(exc))
+        return exc
+    except Exception as exc:   # noqa: BLE001 - never touches the caller's committed result
+        return runner.ShowOutcome(entry.slug, runner.FAILED, f"{type(exc).__name__}: {exc}")
+
+
+def _echo_adjudicated(name: str, out) -> None:
+    typer.echo(f"adjudicated {name}: {out.outcome}" + (f" ({out.detail})" if out.detail else ""))
+
+
+def _redo_adjudicator(config, ia, ledger):
+    """redo's hook: a callable entry -> `_adjudicate_after`'s result, built once per
+    command (context, pace from the config, the learned per-show cost). A failure
+    building it is that show's `failed` line, like any other."""
+    from llama.adjudicator import runner
+
+    built: dict = {}
+
+    def hook(entry):
+        try:
+            if not built:
+                built["ctx"] = _adjudicate_context(config, ia, ledger, make_providers(config))
+                built["pace"] = pace_options(config)
+                built["state"] = pacing_state.read_state(config.root)
+        except Exception as exc:   # noqa: BLE001
+            return runner.ShowOutcome(entry.slug, runner.FAILED,
+                                      f"{type(exc).__name__}: {exc}")
+        return _adjudicate_after(built["ctx"], entry, built["pace"], built["state"])
+    return hook
 
 
 @app.command(rich_help_panel="Fix & ship",
