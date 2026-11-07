@@ -253,7 +253,21 @@ def test_whole_show_diff_catches_reorder_and_set_change_and_extra_drop():
     # an exclude that did not land
     d = whole_show_diff(capture_before(pre), mk([T("a.mp3"), T("b.mp3"), T("c.mp3"),
                                                  T("d.mp3")]), edits(exclude("b.mp3")))
-    assert d == ["b.mp3: added (not predicted)"]
+    assert d == ["b.mp3: exclude did not land (not predicted)"]
+
+
+def test_whole_show_diff_catches_include_that_did_not_land():
+    pre = mk([T("a.mp3"), T("b.mp3")])
+    d = whole_show_diff(capture_before(pre), mk([T("a.mp3"), T("b.mp3")]), edits(include("x.mp3")))
+    assert d == ["x.mp3: dropped (not predicted)"]
+
+
+def test_whole_show_diff_catches_reordered_set_title_target():
+    pre = mk([T("a.mp3"), T("b.mp3", src="unresolved"), T("c.mp3")])
+    post = mk([T("b.mp3", "Jam", src="override"), T("a.mp3"), T("c.mp3")])
+    d = whole_show_diff(capture_before(pre), post, edits(set_title("b.mp3", "Jam")))
+    assert d == ["order of kept tracks changed: ['a.mp3', 'b.mp3', 'c.mp3'] -> "
+                 "['b.mp3', 'a.mp3', 'c.mp3'] (not predicted)"]
 
 
 def test_whole_show_diff_catches_unnamed_segue_change_without_structure():
@@ -393,6 +407,18 @@ def test_coverage_added_duration_boundary():
     p2 = mk([T("a1.mp3", "Bertha", dur=300.0), T("u1.mp3", "U", src="unresolved", dur=90.0),
              T("x1.mp3", "Dark Star", dur=10.0)], ident="sib")
     assert coverage_failures(pre2, p2, mode="auto") == []
+
+
+def test_coverage_post_title_must_be_a_resolved_song():
+    # a resolved pre title does not "appear" through an unresolved post track of that text
+    pre = mk([T("a.mp3", "Bertha", dur=300.0)])
+    rest = [T("b1.mp3", "Dark Star", dur=300.0)]
+    post = mk([T("a1.mp3", "Bertha", src="unresolved", dur=30.0)] + rest, ident="sib")
+    assert [f.split(":")[0] for f in coverage_failures(pre, post, mode="auto")] == [
+        "missing title"]
+    # control: the same title on a resolved post track passes
+    post = mk([T("a1.mp3", "Bertha", dur=30.0)] + rest, ident="sib")
+    assert coverage_failures(pre, post, mode="auto") == []
 
 
 def test_coverage_unknown_duration_fails_closed():
@@ -543,6 +569,30 @@ def test_apply_unpredicted_change_restores(lib):
     assert tree_bytes(lib.ws.dir) == before
 
 
+def test_apply_include_that_did_not_land_restores(lib):
+    lib.pre(flags=["unresolved track titles"])
+    before = tree_bytes(lib.ws.dir)
+    v = V([include("x.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    post = mk([T("a.mp3", "A", dur=300.0), T("b.mp3", "B", src="unresolved", dur=30.0),
+               T("c.mp3", "C", dur=400.0)])          # gather did not re-admit x.mp3
+    r = lib.apply(v, lib.redo(post))
+    assert (r.status, r.diff) == ("restored", ["x.mp3: dropped (not predicted)"]), r
+    assert tree_bytes(lib.ws.dir) == before
+
+
+@pytest.mark.parametrize("mode", ["auto", "accept"])
+def test_switch_with_a_non_venue_edit_is_refused_before_writing(lib, mode):
+    lib.pre(flags=[VENUE_FLAG])
+    before = tree_bytes(lib.ws.dir)
+    calls = []
+    v = V([switch("gd73-sib"), exclude("b.mp3")], [judge(VENUE_FLAG, conf="medium")])
+    r = lib.apply(v, calls.append, mode=mode)
+    assert r.status == "refused" and r.held is True and calls == []
+    assert r.error == ("switch_recording cannot be applied with other edits (exclude); "
+                       "only venue may accompany it")
+    assert tree_bytes(lib.ws.dir) == before and not (lib.ws.dir / ".txn").exists()
+
+
 def test_structure_only_verdict_writes_subjectless_structure_overrule(lib):
     # no track-list edit: the research-sets overrule is written before the redo
     lib.pre(flags=[SETS_FLAG])
@@ -594,10 +644,12 @@ def test_switch_also_runs_silenced_flags(lib):
         f"flag silenced without a passing judgement: {VENUE_FLAG}"]
     assert tree_bytes(lib.ws.dir) == before
     # judged spurious: the switch applies, and the whole-show check is not run on it
-    v = V([switch("gd73-sib")], [judge(VENUE_FLAG, conf="low")])
+    v = V([switch("gd73-sib"), ed("venue", venue="RFK Stadium")],
+          [judge(VENUE_FLAG, conf="low")])
     r = lib.apply(v, lib.redo(post, select="gd73"), mode="accept")
-    assert r.status == "applied", r
-    assert read_overrides(lib.ws).recording == "gd73-sib"
+    assert r.status == "applied", r                  # venue may accompany a switch
+    assert (read_overrides(lib.ws).recording, read_overrides(lib.ws).venue) == (
+        "gd73-sib", "RFK Stadium")
 
 
 def test_switch_coverage_failure_restores_snapshot(lib):
@@ -627,6 +679,25 @@ def test_rehold_overrules_only_full_key_matches_all_or_nothing(lib):
     s = read_model(lib.ws.show, Show)
     assert s.needs_review is False and s.review_flags == []
     assert (lib.ws.package_dir / "manifest.json").exists()
+
+
+def test_rehold_package_failure_restores(lib):
+    lib.pre(flags=[VENUE_FLAG])
+    before = tree_bytes(lib.ws.dir)
+    v = V([set_title("b.mp3", "Jam")], [judge(VENUE_FLAG, conf="medium")])
+    post = mk([T("a.mp3", "A", dur=300.0), T("b.mp3", "Jam", src="override", dur=30.0),
+               T("c.mp3", "C", dur=400.0)], flags=[VENUE_FLAG])
+    real = lib.redo(post)
+
+    def redo(stage):
+        if stage == "package":
+            write_artifact(lib.ws.adjudication, {"partial": True})
+            raise LlamaError("package refused")
+        return real(stage)
+    r = lib.apply(v, redo)
+    assert (r.status, r.error) == ("refused", "package refused"), r
+    assert lib.stages == ["gather"] and lib.commits == []
+    assert tree_bytes(lib.ws.dir) == before
 
 
 def test_rehold_any_unmatched_flag_keeps_the_hold(lib, tmp_path):
@@ -686,6 +757,7 @@ def test_trial_restores_but_reports_applied(lib):
                   on_commit=lambda post, res: write_artifact(lib.ws.adjudication, {"x": 1}))
     assert r == ApplyResult("applied", False, [], ["- b.mp3 (0:30) B"], None, [])
     assert tree_bytes(lib.ws.dir) == before and not lib.ws.adjudication.exists()
+    assert not (lib.ws.dir / ".txn").exists()
 
 
 def _raising_redo(lib, exc):

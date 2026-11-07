@@ -240,7 +240,7 @@ def _dur(bundle: Bundle, filename: str) -> float:
     return math.inf if d is None else d
 
 
-def _resolved_song(t: Track) -> bool:
+def is_resolved_song(t: Track) -> bool:
     return (t.title_source != "unresolved" and not is_placeholder_title(t.title)
             and not is_filler_title(t.title))
 
@@ -262,7 +262,7 @@ def _track_edit(e, bundle: Bundle, verdict_sum: float) -> tuple[str, bool, str]:
     show, ov = bundle.show, bundle.overrides
     if isinstance(e, Exclude):
         t = _track(show, e.file)
-        if t is not None and _resolved_song(t):
+        if t is not None and is_resolved_song(t):
             return "propose-only", False, "exclude of a track with a resolved song title"
         if e.file in ov.include:
             return "propose-only", False, EXISTING

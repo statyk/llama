@@ -21,7 +21,7 @@ from typing import Callable, Literal, Sequence
 from herder import HerderError, TaskFailed
 from herder.limits import RateLimited
 from llama.adjudicator.gate import (COVERAGE_ADDED_MAX_S, OPERATOR_EXCLUDED, STRUCTURE_KINDS,
-                                    GateResult, _resolved_song, flag_passes,
+                                    GateResult, is_resolved_song, flag_passes,
                                     has_track_list_edit, has_track_list_or_structure_edit)
 from llama.adjudicator.verdict import (City, Exclude, Include, OverruleFlag, ProposeOnly,
                                        SetTitle, Structure, SwitchRecording, Venue, Verdict)
@@ -183,15 +183,21 @@ def whole_show_diff(before: list[TrackRow], after: Show, edits: Sequence) -> lis
 
     predicted = (set(pre) | includes) - excludes
     kept = set(post_names)
-    out += [f"{f}: dropped (not predicted)" for f in [r.filename for r in before]
+    # Every predicted file missing after, an include that did not land included.
+    expected = [r.filename for r in before] + [e.file for e in edits if isinstance(e, Include)]
+    out += [f"{f}: dropped (not predicted)" for f in dict.fromkeys(expected)
             if f in predicted - kept]
-    out += [f"{f}: added (not predicted)" for f in post_names if f in kept - predicted]
+    out += [f"{f}: exclude did not land (not predicted)" for f in post_names if f in excludes]
+    out += [f"{f}: added (not predicted)" for f in post_names
+            if f in kept - predicted - excludes]
 
     unnamed = set(pre) - includes - excludes - set(titled)
-    was = [r.filename for r in before if r.filename in unnamed and r.filename in kept]
-    now = [f for f in post_names if f in unnamed]
+    # Play order over every kept non-included file (set_title targets too).
+    ordered = set(pre) - includes - excludes
+    was = [r.filename for r in before if r.filename in ordered and r.filename in kept]
+    now = [f for f in post_names if f in ordered]
     if was != now:
-        out.append(f"order of unnamed tracks changed: {was} -> {now} (not predicted)")
+        out.append(f"order of kept tracks changed: {was} -> {now} (not predicted)")
 
     labels: dict[str, str] | None = None
     if struct is not None:
@@ -293,9 +299,9 @@ def _dur_sum(tracks, *, unknown: float) -> float:
 def coverage_failures(pre: Show, post: Show, *, mode: Mode) -> list[str]:
     """A switch's coverage check against the pre-switch track list; [] passes."""
     out: list[str] = []
-    post_titles = {normalize_song(t.title) for t in post.tracks}
+    post_titles = {normalize_song(t.title) for t in post.tracks if is_resolved_song(t)}
     missing = [t.title for t in pre.tracks
-               if _resolved_song(t) and normalize_song(t.title) not in post_titles]
+               if is_resolved_song(t) and normalize_song(t.title) not in post_titles]
     if missing:
         out.append(f"missing title: {', '.join(missing)} not in the new recording")
     unknown = sum(t.duration_sec is None for t in list(pre.tracks) + list(post.tracks))
@@ -313,7 +319,7 @@ def coverage_failures(pre: Show, post: Show, *, mode: Mode) -> list[str]:
         out.append(f"added duration: {added:.1f} s on untitled or short-kept tracks is over "
                    f"{COVERAGE_ADDED_MAX_S:.0f} s")
     if mode == "auto":
-        n_res = sum(map(_resolved_song, post.tracks)), sum(map(_resolved_song, pre.tracks))
+        n_res = sum(map(is_resolved_song, post.tracks)), sum(map(is_resolved_song, pre.tracks))
         if not (len(post.tracks) > len(pre.tracks) or n_res[0] > n_res[1]):
             out.append("gain: the new recording adds neither tracks nor resolved titles")
         if post.needs_review:
@@ -368,6 +374,14 @@ def apply_verdict(show_ws: ShowWorkspace, verdict: Verdict, *, expect: ShowView,
         raise ValueError("auto mode needs the verdict's GateResult")
     edits = _applicable(verdict.edits)
     is_switch = any(isinstance(e, SwitchRecording) for e in edits)
+    if is_switch:
+        others = [e.op for e in edits if not isinstance(e, (SwitchRecording, Venue))]
+        if others:
+            # A switch is checked by coverage only, never by the whole-show diff, and
+            # `accept` skips the gate that keeps a switch alone: refuse before writing.
+            return ApplyResult("refused", _held_in(expect), [], [],
+                               f"switch_recording cannot be applied with other edits "
+                               f"({', '.join(others)}); only venue may accompany it", [])
     try:
         with show_unit(show_ws, expect):
             pre = read_model(show_ws.show, Show)
