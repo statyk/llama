@@ -204,10 +204,13 @@ show is judged correct after the action, and no flag is judged `real-not-fixable
 **Sibling-coverage veto** (Shawn, 2026-11-07, after the pilot: the model's `better_sibling: null` is
 not trusted). A verdict with no `switch_recording` edit is propose-only while any considered
 recording (selection.json `scores` minus the current recording) keeps more than the current one,
-like with like: more `kept_tracks` than the current recording's own `scores` entry or, where both
-are known, more than `SIBLING_COVERAGE_TOL_S` (60 s) more kept duration (each recording's
-select-filtered files' lengths from its own metadata, as the bundle fetches it). Equal or fewer does
-not veto. It fails closed: no `scores` in selection.json, show.json and selection.json naming
+like with like: more `kept_tracks` than the current recording's own `scores` entry or, as a
+tie-break only when the `kept_tracks` are EQUAL and both durations are known, more than
+`SIBLING_COVERAGE_TOL_S` (60 s) more kept duration (each recording's select-filtered files' lengths
+from its own metadata, as the bundle fetches it). A sibling with fewer kept tracks never vetoes on
+duration, and equal tracks within the tolerance do not veto (duration as a tie-break only is
+Shawn's ruling, 2026-11-07, resolving the R2 spec-review finding on the tolerance: full-show
+sources with fewer, longer files no longer demote a correct verdict). It fails closed: no `scores` in selection.json, show.json and selection.json naming
 different current recordings, or an entry (the current one's included) without a usable
 `kept_tracks`, vetoes too; an unknown duration skips only the duration clause. A verdict with a switch is left to the
 auto-switch bar. This enforces "partial tape whose better sibling fails the auto-switch bar: hold"

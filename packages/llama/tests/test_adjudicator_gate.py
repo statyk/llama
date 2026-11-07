@@ -1163,15 +1163,42 @@ def test_coverage_sibling_with_fewer_tracks_does_not_veto():        # tracks: 0 
     assert r.vetoes == [] and r.auto is True
 
 
-def test_coverage_sibling_with_more_duration_beyond_tolerance_vetoes():   # 90.01 > 30 + 60
+# Duration is a tie-break only (Shawn's ruling, 2026-11-07): it is compared only when the
+# sibling keeps exactly as many tracks as the current recording.
+
+def test_coverage_fewer_tracks_with_more_duration_does_not_veto():   # 0 < 1; 90.01 > 30 + 60
     r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 0}}, sib_s={SIB: 90.01})
-    assert r.vetoes == [f"considered recording {SIB} keeps more (0 tracks, 90 s) than the "
-                        f"current (1 tracks, 30 s); no switch_recording edit"]
+    assert r.vetoes == [] and r.auto is True
+
+
+def test_coverage_equal_tracks_with_more_duration_beyond_tolerance_vetoes():   # 90.01 > 30 + 60
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}}, sib_s={SIB: 90.01})
+    assert r.vetoes == [f"considered recording {SIB} keeps more duration on equal tracks "
+                        f"(1 tracks, 90 s) than the current (1 tracks, 30 s); "
+                        f"no switch_recording edit"]
     assert r.auto is False
 
 
 def test_coverage_sibling_duration_within_tolerance_does_not_veto():     # 90.0 == 30 + 60
     r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}}, sib_s={SIB: 90.0})
+    assert r.vetoes == [] and r.auto is True
+
+
+def test_coverage_more_tracks_with_less_duration_vetoes():          # 2 > 1; 10 < 30
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 2}}, sib_s={SIB: 10.0})
+    assert r.vetoes == [f"considered recording {SIB} keeps more (2 tracks, 10 s) than the "
+                        f"current (1 tracks, 30 s); no switch_recording edit"]
+    assert r.auto is False
+
+
+def test_coverage_more_tracks_and_more_duration_is_one_track_veto():   # 2 > 1; 9999 > 90
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 2}}, sib_s={SIB: 9999.0})
+    assert r.vetoes == [f"considered recording {SIB} keeps more (2 tracks, 9999 s) than the "
+                        f"current (1 tracks, 30 s); no switch_recording edit"]
+
+
+def test_coverage_equal_tracks_with_unknown_sibling_duration_does_not_veto():
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}})            # no sibling_kept_s entry
     assert r.vetoes == [] and r.auto is True
 
 
@@ -1242,8 +1269,9 @@ def test_coverage_current_duration_is_its_filtered_metadata_not_show_tracks():
     # show.json's track sums 3000 s, the current recording's filtered metadata 10 s
     r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}}, sib_s={SIB: 80.0}, cur_s=10.0,
              dur=3000.0, edits=[ed("exclude", "high", STEM_QUOTE, file="x-d1t1.mp3")])
-    assert r.vetoes == [f"considered recording {SIB} keeps more (1 tracks, 80 s) than the "
-                        f"current (1 tracks, 10 s); no switch_recording edit"]
+    assert r.vetoes == [f"considered recording {SIB} keeps more duration on equal tracks "
+                        f"(1 tracks, 80 s) than the current (1 tracks, 10 s); "
+                        f"no switch_recording edit"]
 
 
 @pytest.mark.parametrize("scores", [{}, {CUR: None}, {CUR: {"lineage": "aud"}},

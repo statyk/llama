@@ -543,11 +543,12 @@ def _kept_count(entry) -> int | None:
 
 def _coverage_vetoes(verdict: Verdict, bundle: Bundle) -> list[str]:
     """A verdict with no switch_recording edit is propose-only while a considered recording
-    keeps more than the current one, like with like: selection.json's `kept_tracks` on both
-    sides, and (where both are known) select-filtered metadata durations more than
-    SIBLING_COVERAGE_TOL_S apart. Fail closed: no `scores`, show.json and selection.json
-    naming different current recordings, or an entry (the current one's included) without
-    a usable `kept_tracks` vetoes too; an unknown duration skips only the duration clause."""
+    keeps more than the current one, like with like: more selection.json `kept_tracks`, or,
+    as a tie-break only on EQUAL `kept_tracks` (Shawn's ruling, 2026-11-07), a select-filtered
+    metadata duration more than SIBLING_COVERAGE_TOL_S longer; a sibling with fewer tracks
+    never vetoes on duration. Fail closed: no `scores`, show.json and selection.json naming
+    different current recordings, or an entry (the current one's included) without a usable
+    `kept_tracks` vetoes too; an unknown duration skips only the duration clause."""
     if any(isinstance(e, SwitchRecording) for e in verdict.edits):
         return []
     tail = "no switch_recording edit"
@@ -575,9 +576,13 @@ def _coverage_vetoes(verdict: Verdict, bundle: Bundle) -> list[str]:
             continue
         s = bundle.sibling_kept_s.get(ident)
         longer = s is not None and s_cur is not None and s > s_cur + SIBLING_COVERAGE_TOL_S
-        if n > n_cur or longer:
+        if n > n_cur:
             out.append(f"considered recording {ident} keeps more ({n} tracks, {_secs_text(s)} s) "
                        f"than the current ({n_cur} tracks, {_secs_text(s_cur)} s); {tail}")
+        if n == n_cur and longer:      # the tie-break: duration counts on equal tracks only
+            out.append(f"considered recording {ident} keeps more duration on equal tracks "
+                       f"({n} tracks, {_secs_text(s)} s) than the current ({n_cur} tracks, "
+                       f"{_secs_text(s_cur)} s); {tail}")
     return out
 
 
