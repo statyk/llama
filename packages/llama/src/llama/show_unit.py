@@ -36,6 +36,9 @@ holding content the snapshot does not track (e.g. a subdirectory of
 `package/audio/`) stays, with its parents. Best-effort: an `rmdir` error skips
 that directory and never masks the original exception. A successful unit
 keeps the directories it created.
+Listing: the snapshot refuses (a `LlamaError`, before the body runs, leaving no
+`.txn/`) if any part of the show dir cannot be listed; a restore that cannot list
+a subtree skips it, which only means fewer removals.
 """
 from __future__ import annotations
 
@@ -80,11 +83,19 @@ def capture_view(show_ws: ShowWorkspace) -> ShowView:
                     show=_read(show_ws.show))
 
 
-def _tracked_files(show_ws: ShowWorkspace) -> Iterator[str]:
+def _walk(show_ws: ShowWorkspace, strict: bool):
+    """`os.walk` of the show dir. Strict (the snapshot): a directory that cannot be
+    listed raises `LlamaError`; otherwise (a restore) it is skipped, as by default."""
+    def refuse(err: OSError) -> None:
+        raise LlamaError(f"{show_ws.dir.name}: cannot snapshot {err.filename}: {err}") from err
+    return os.walk(show_ws.dir, onerror=refuse if strict else None)
+
+
+def _tracked_files(show_ws: ShowWorkspace, *, strict: bool = False) -> Iterator[str]:
     """Posix relpaths of every file outside the top-level `.lock`, `.txn/`,
-    `.audio-aside/` and `package/audio/`."""
+    `.audio-aside/` and `package/audio/`. `strict`: see `_walk`."""
     root = show_ws.dir
-    for dirpath, dirnames, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in _walk(show_ws, strict):
         rel_dir = Path(dirpath).relative_to(root)
         if rel_dir == Path("."):
             dirnames[:] = [d for d in dirnames if d not in (TXN_DIR, ASIDE_DIR)]
@@ -96,13 +107,13 @@ def _tracked_files(show_ws: ShowWorkspace) -> Iterator[str]:
                 yield rel
 
 
-def _dirs(show_ws: ShowWorkspace) -> list[str]:
+def _dirs(show_ws: ShowWorkspace, *, strict: bool = False) -> list[str]:
     """Posix relpaths of every directory under the show dir, except the top-level
     `.txn/` and `.audio-aside/` (and everything under them). The show dir itself
-    is not listed."""
+    is not listed. `strict`: see `_walk`."""
     root = show_ws.dir
     out = []
-    for dirpath, dirnames, _ in os.walk(root):
+    for dirpath, dirnames, _ in _walk(show_ws, strict):
         rel_dir = Path(dirpath).relative_to(root)
         if rel_dir == Path("."):
             dirnames[:] = [d for d in dirnames if d not in (TXN_DIR, ASIDE_DIR)]
@@ -119,8 +130,8 @@ def _audio_names(show_ws: ShowWorkspace) -> list[str]:
 
 def take_snapshot(show_ws: ShowWorkspace) -> None:
     txn = show_ws.dir / TXN_DIR
-    dirs = _dirs(show_ws)                              # before .txn/ itself exists
-    for rel in _tracked_files(show_ws):
+    dirs = _dirs(show_ws, strict=True)                 # before .txn/ itself exists
+    for rel in _tracked_files(show_ws, strict=True):
         atomic_write_bytes(txn / "files" / rel, (show_ws.dir / rel).read_bytes())
     atomic_write_bytes(txn / _INDEX,
                        json.dumps({"audio": _audio_names(show_ws), "dirs": dirs}).encode())

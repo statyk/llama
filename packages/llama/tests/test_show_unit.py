@@ -398,3 +398,102 @@ def test_a_restore_without_a_recorded_directory_set_removes_no_directory(tmp_pat
     monkeypatch.setattr(show_unit_mod, "take_snapshot", old_index)
     _fail_inside(ws, LlamaError("x"), lambda: (ws.dir / "extra").mkdir())
     assert (ws.dir / "extra").is_dir()
+
+
+# --- the snapshot refuses on an unreadable subtree (Task R1b) ------------------
+
+import stat  # noqa: E402
+
+_root_only = pytest.mark.skipif(os.geteuid() == 0, reason="root reads a chmod 0o000 directory")
+
+
+def _show_with_private_dir(tmp_path):
+    """A show holding `private/` with a file and an empty sub-subdirectory."""
+    ws = _show(tmp_path)
+    write_artifact(ws.dir / "private" / "notes.json", {"n": 1})
+    (ws.dir / "private" / "empty").mkdir()
+    return ws, ws.dir / "private"
+
+
+def _before(ws):
+    return _paths(ws.dir), tree_bytes(ws.dir)
+
+
+def _assert_refused_unchanged(ws, private, before, body_ran):
+    private.chmod(stat.S_IRWXU)
+    assert not body_ran and not (ws.dir / ".txn").exists()
+    assert _before(ws) == before
+
+
+@_root_only
+def test_an_unreadable_subtree_refuses_the_unit_before_the_body(tmp_path):
+    ws, private = _show_with_private_dir(tmp_path); before = _before(ws)
+    body_ran = []
+    private.chmod(0o000)
+    try:
+        with pytest.raises(LlamaError, match=r"s: cannot snapshot .*private") as ei:
+            with show_unit(ws, capture_view(ws)):
+                body_ran.append(True)
+        assert isinstance(ei.value.__cause__, OSError)
+    finally:
+        private.chmod(stat.S_IRWXU)
+    _assert_refused_unchanged(ws, private, before, body_ran)
+
+
+@_root_only
+def test_the_directory_walk_alone_refuses_an_unreadable_subtree(tmp_path, monkeypatch):
+    # The subtree is readable again by the time the file walk runs, so only a
+    # strict directory walk can refuse.
+    ws, private = _show_with_private_dir(tmp_path); before = _before(ws)
+    real = show_unit_mod._tracked_files
+    def readable_again(show_ws, *a, **k):
+        private.chmod(stat.S_IRWXU)
+        return real(show_ws, *a, **k)
+    monkeypatch.setattr(show_unit_mod, "_tracked_files", readable_again)
+    body_ran = []
+    private.chmod(0o000)
+    try:
+        with pytest.raises(LlamaError, match="cannot snapshot"):
+            with show_unit(ws, capture_view(ws)):
+                body_ran.append(True)
+    finally:
+        private.chmod(stat.S_IRWXU)
+    _assert_refused_unchanged(ws, private, before, body_ran)
+
+
+@_root_only
+def test_the_file_walk_alone_refuses_an_unreadable_subtree(tmp_path, monkeypatch):
+    # The subtree turns unreadable only after the directory walk, so only a
+    # strict file walk can refuse (and the files it already saved are discarded).
+    ws, private = _show_with_private_dir(tmp_path); before = _before(ws)
+    real = show_unit_mod._dirs
+    def unreadable_after(show_ws, *a, **k):
+        out = real(show_ws, *a, **k)
+        private.chmod(0o000)
+        return out
+    monkeypatch.setattr(show_unit_mod, "_dirs", unreadable_after)
+    body_ran = []
+    try:
+        with pytest.raises(LlamaError, match="cannot snapshot"):
+            with show_unit(ws, capture_view(ws)):
+                body_ran.append(True)
+    finally:
+        private.chmod(stat.S_IRWXU)
+    _assert_refused_unchanged(ws, private, before, body_ran)
+
+
+@_root_only
+def test_an_unreadable_subtree_at_restore_neither_raises_nor_masks_the_original(tmp_path):
+    # Write+search but no read: the restore cannot list `private/` (so it unlinks
+    # and removes nothing there) but still puts its saved file back by name.
+    ws, private = _show_with_private_dir(tmp_path); before = _before(ws)
+    def body():
+        write_artifact(private / "notes.json", {"n": 2})
+        write_artifact(ws.show, {"changed": True})
+        private.chmod(0o300)
+    try:
+        _fail_inside(ws, RuntimeError("the original"), body)
+    finally:
+        private.chmod(stat.S_IRWXU)
+    assert not (ws.dir / ".txn").exists()
+    assert _before(ws) == before
