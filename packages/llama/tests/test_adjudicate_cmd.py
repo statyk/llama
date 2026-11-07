@@ -16,7 +16,7 @@ from llama.adjudicator.record import read_record
 from llama.override_keys import filename_keyed_refusal
 from llama.pacing import PauseUntil, Proceed
 from llama.workspace import read_overrides
-from test_adjudicator_runner import (ACCEPTABLE, CLOSER_FLAG, EXCLUDE_B, POST_NO_B, TITLES_FLAG, VENUE_FLAG, Rig, mk, A, C)
+from test_adjudicator_runner import (ACCEPTABLE, V, judge, CLOSER_FLAG, EXCLUDE_B, POST_NO_B, TITLES_FLAG, VENUE_FLAG, Rig, mk, A, C)
 from test_pipeline import fake_providers
 
 
@@ -289,3 +289,38 @@ def test_accept_never_applies_when_the_proposal_cannot_be_rendered(rig, monkeypa
     assert (f"{rig.slug}: no proposal (proposal could not be rendered: bad record)"
             in r.output)
     assert (rig.ws.show.read_bytes(), rig.ws.adjudication.read_bytes()) == before
+
+
+def test_accept_shows_no_prompt_for_a_stale_proposal(rig, monkeypatch):
+    rig.proposal(ACCEPTABLE)
+    rig.ws.overrides.write_text(json.dumps({"venue": "Elsewhere"}))   # the show's digest moves
+    monkeypatch.setattr(cli, "_interactive", lambda: True)
+    r = run(rig, rig.slug, "--accept")
+    assert "Accept this proposal?" not in r.output and "proposal (" not in r.output
+    assert f"{rig.slug}: proposal stale" in r.output
+
+
+def test_accept_shows_no_prompt_for_a_propose_only_proposal(rig, monkeypatch):
+    rig.proposal(V([{"op": "set_date", "value": "1973-06-11", "confidence": "high", "why": "w"}],
+                   [judge(TITLES_FLAG, "undecidable")], kind="hold"))
+    monkeypatch.setattr(cli, "_interactive", lambda: True)
+    r = run(rig, rig.slug, "--accept")
+    assert "Accept this proposal?" not in r.output and "proposal (claude" not in r.output
+    assert f"{rig.slug}: no proposal" in r.output
+
+
+def test_accept_applies_nothing_when_the_record_changed_after_it_was_shown(rig, monkeypatch):
+    import llama.adjudicator.report as report
+    from llama.adjudicator.record import write_record
+    rec = rig.proposal(ACCEPTABLE)
+    rig.stub(POST_NO_B)
+    real = report.render_proposal
+
+    def render_then_rewrite(*a, **k):
+        lines = real(*a, **k)
+        write_record(rig.ws, rec.model_copy(update={"at": "2099-01-01T00:00:00+00:00"}))
+        return lines
+    monkeypatch.setattr(report, "render_proposal", render_then_rewrite)
+    r = run(rig, rig.slug, "--accept", "--yes")
+    assert f"{rig.slug}: no proposal (proposal changed since it was shown; re-run)" in r.output
+    assert not rig.ws.overrides.exists()

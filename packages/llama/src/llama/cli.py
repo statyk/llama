@@ -2074,36 +2074,36 @@ def _stale_in_triage(ia, config, entry) -> str | None:
         return str(exc)
 
 
-def _print_adjudicator_proposal(entry) -> bool:
+def _print_adjudicator_proposal(entry):
     """Triage's view of the adjudicator's stored record for a held show: prints the
-    proposal (or an applied record's remaining hold) and returns whether `[a]` is offered
-    -- the record is current and holds at least one edit accept would apply. A dry-run,
-    malformed or unreadable record prints nothing. A proposal that cannot be rendered is
-    reported and never offered: what the operator cannot see is not accepted."""
+    proposal (or an applied record's remaining hold) and returns the record when `[a]` is
+    offered (`runner.acceptable_state` is "ok", the same predicate `adjudicate --accept`
+    gates its preview on), else None. A dry-run, malformed or unreadable record prints
+    nothing. A proposal that cannot be rendered is reported and never offered: what the
+    operator cannot see is not accepted."""
     from llama.adjudicator import record, report, runner
-    from llama.adjudicator.verdict import PROPOSE_ONLY_OPS
 
     rec = record.read_record(entry.ws)
     if rec is None or rec.dry_run:
-        return False
+        return None
     if not (rec.outcome == "proposal" or (rec.outcome == "applied" and rec.held_proposal)):
-        return False
+        return None
     try:
         lines = report.render_proposal(rec, read_model(entry.ws.show, Show), slug=entry.slug)
     except Exception as exc:   # noqa: BLE001 - a hand-edited record
         typer.echo(f"error: proposal could not be rendered: {exc}", err=True)
-        return False
+        return None
     for line in lines:
         typer.echo(line)
-    if not record.is_current(entry.ws):
+    try:
+        state = runner.acceptable_state(entry.ws, rec)
+    except Exception as exc:   # noqa: BLE001 - a hand-edited record
+        typer.echo(f"error: proposal cannot be accepted: {exc}", err=True)
+        return None
+    if state == "stale":
         typer.echo("proposal is stale (the show changed since it was judged); "
                    f"re-judge with: llama adjudicate {entry.slug}")
-        return False
-    try:
-        verdict = runner.accept_verdict(rec)
-    except Exception:   # noqa: BLE001
-        return False
-    return verdict is not None and any(e.op not in PROPOSE_ONLY_OPS for e in verdict.edits)
+    return rec if state == "ok" else None
 
 
 def _interactive_resolve(config, ia, ledger, entry) -> None:
@@ -2149,7 +2149,8 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
     if entry.provenance is not None and entry.ws.show.exists():
         resolved, total = _untitled_counts(read_model(entry.ws.show, Show))
         untitled_offered = total > 0 and resolved == 0
-    accept_offered = _print_adjudicator_proposal(entry)
+    shown = _print_adjudicator_proposal(entry)
+    accept_offered = shown is not None
     prompt_text = _resolve_prompt(titles=suggest_titles_offered,
                                   include=include_offered,
                                   untitled=untitled_offered,
@@ -2274,15 +2275,15 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             return
         elif choice == "a" and accept_offered:
             from llama.adjudicator import runner
-            made = _adjudicate_context(config, ia, ledger, make_providers(config))
             packaged: list = []
-
-            def redo_and_note(e, st, _redo=made.redo):
-                packaged.append(_redo(e, st))
-                return packaged[-1]
-            ctx = dataclasses.replace(made, redo=redo_and_note)
             try:
-                out = runner.accept_proposal(ctx, entry)
+                made = _adjudicate_context(config, ia, ledger, make_providers(config))
+
+                def redo_and_note(e, st, _redo=made.redo):
+                    packaged.append(_redo(e, st))
+                    return packaged[-1]
+                ctx = dataclasses.replace(made, redo=redo_and_note)
+                out = runner.accept_proposal(ctx, entry, expected_at=shown.at)
             except RateLimited as exc:
                 typer.echo(f"error: rate limited ({exc}); accept it later with: "
                            f"llama adjudicate {entry.slug} --accept --yes", err=True)
@@ -4904,7 +4905,7 @@ def adjudicate(
 
     def acceptable(stored) -> bool:
         try:
-            return stored is not None and runner.accept_verdict(stored) is not None
+            return runner.acceptable_state(entry.ws, stored) == "ok"
         except Exception:   # noqa: BLE001 - a hand-edited record has no proposal
             return False
 
@@ -4923,6 +4924,7 @@ def adjudicate(
         try:
             if accept:
                 out = None
+                shown_at = None
                 stored = read_adjudication(entry.ws)
                 if acceptable(stored):
                     try:
@@ -4932,6 +4934,7 @@ def adjudicate(
                         out = runner.ShowOutcome(entry.slug, runner.NO_PROPOSAL,
                                                  f"proposal could not be rendered: {exc}")
                     else:
+                        shown_at = stored.at
                         for line in lines:
                             typer.echo(line)
                         if not yes and not typer.confirm("Accept this proposal?",
@@ -4939,7 +4942,7 @@ def adjudicate(
                             typer.echo(f"{entry.slug}: skipped")
                             continue
                 if out is None:
-                    out = runner.accept_proposal(ctx, entry)
+                    out = runner.accept_proposal(ctx, entry, expected_at=shown_at)
             else:
                 out = runner.adjudicate_show(ctx, entry, dry_run=dry_run, force=force)
         except RateLimited as exc:

@@ -620,6 +620,26 @@ def test_accept_applies_failed_gate_edits_but_not_propose_only(rig):
     assert out.changes == ["- b.mp3 (0:30) B"]
 
 
+def test_accept_with_expected_at_applies_only_the_record_that_was_shown(rig, monkeypatch):
+    rig.pre()
+    rec = rig.proposal(ACCEPTABLE)
+    rig.stub(POST_NO_B)
+    write_record(rig.ws, rec.model_copy(update={"at": "2099-01-01T00:00:00+00:00"}))
+    before = rig.ws.show.read_bytes()
+    _no_apply(monkeypatch)
+    out = accept_proposal(rig.ctx, rig.entry(), expected_at=rec.at)
+    assert (out.outcome, out.detail) == (
+        NO_PROPOSAL, "proposal changed since it was shown; re-run")
+    assert rig.ws.show.read_bytes() == before and not rig.ws.overrides.exists()
+
+
+def test_accept_with_a_matching_expected_at_applies(rig):
+    rig.pre()
+    rec = rig.proposal(ACCEPTABLE)
+    rig.stub(POST_NO_B)
+    assert accept_proposal(rig.ctx, rig.entry(), expected_at=rec.at).outcome == ACCEPTED
+
+
 def test_accept_still_held_detail(rig):
     rig.pre()
     rig.proposal(ACCEPTABLE)

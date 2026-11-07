@@ -981,7 +981,7 @@ def _stub_accept(monkeypatch, outcome="accepted", detail="", raises=None):
     import llama.adjudicator.runner as runner
     calls = []
 
-    def accept(ctx, entry):
+    def accept(ctx, entry, **kw):
         calls.append(entry.slug)
         if raises is not None:
             raise raises
@@ -1053,7 +1053,7 @@ def test_triage_a_accepted_and_packaged_names_the_package(tmp_path, tty, monkeyp
     ws = _held_show(tmp_path)
     _adj_record(ws, [_EXCLUDE_A])
 
-    def accept(ctx, entry):
+    def accept(ctx, entry, **kw):
         pkg = ctx.redo(entry, "gather")
         assert pkg == Path("/pkg")
         return runner.ShowOutcome(entry.slug, runner.ACCEPTED)
@@ -1109,13 +1109,69 @@ def test_triage_a_other_outcome_prints_error_and_returns_to_prompt(tmp_path, tty
 
 
 def test_triage_a_changed_reenters_the_show(tmp_path, tty, monkeypatch):
+    import llama.adjudicator.runner as runner
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    rec = _adj_record(ws, [_EXCLUDE_A])
+
+    def accept(ctx, entry, **kw):
+        # the show moved under the accept: the stored record is no longer current
+        from llama.adjudicator.record import write_record
+        write_record(ws, rec.model_copy(update={"digest": "moved-on"}))
+        return runner.ShowOutcome(entry.slug, runner.CHANGED, "changed since the proposal was checked")
+    monkeypatch.setattr(runner, "accept_proposal", accept)
+    r = cli_invoke(cfg, "triage", input="a\ns\n")
+    assert "error: skipped: changed changed since the proposal was checked" in r.output
+    after = r.output.split("error: skipped: changed")[1]
+    assert "proposal is stale" in after                       # the show was re-read and re-printed
+    assert r.output.count("[a] accept proposal / [s]kip") == 1   # and the re-entered prompt has no [a]
+
+
+def test_triage_passes_the_rendered_records_at_to_accept(tmp_path, tty, monkeypatch):
+    import llama.adjudicator.runner as runner
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    rec = _adj_record(ws, [_EXCLUDE_A])
+    seen = []
+
+    def accept(ctx, entry, **kw):
+        seen.append(kw)
+        return runner.ShowOutcome(entry.slug, runner.ACCEPTED)
+    monkeypatch.setattr(runner, "accept_proposal", accept)
+    cli_invoke(cfg, "triage", input="a\n")
+    assert seen == [{"expected_at": rec.at}]
+
+
+def test_triage_names_the_entrys_slug_not_a_derived_one(tmp_path, tty):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path, "odd-library-name")   # != slugify(performance_id)
+    _adj_record(ws, [_SET_DATE])
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert "run: llama fix odd-library-name --set-date 1973-06-11" in r.output
+
+
+def test_triage_unreadable_acceptance_reports_and_offers_no_a(tmp_path, tty, monkeypatch):
+    import llama.adjudicator.runner as runner
     cfg = _cfg(tmp_path)
     ws = _held_show(tmp_path)
     _adj_record(ws, [_EXCLUDE_A])
-    _stub_accept(monkeypatch, outcome="skipped: changed", detail="changed since the proposal was checked")
+    monkeypatch.setattr(runner, "accept_verdict",
+                        lambda rec: (_ for _ in ()).throw(ValueError("bad verdict")))
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert "error: proposal cannot be accepted: bad verdict" in r.output
+    assert "[a] accept proposal" not in r.output
+
+
+def test_triage_a_provider_config_error_returns_to_the_prompt(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [_EXCLUDE_A])
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: (_ for _ in ()).throw(LlamaError("no such model")))
     r = cli_invoke(cfg, "triage", input="a\ns\n")
-    assert "error: skipped: changed changed since the proposal was checked" in r.output
-    assert r.output.count("[a] accept proposal / [s]kip") == 2   # re-entered, prompt again
+    assert r.exit_code == 0, r.output
+    assert "error: no such model" in r.output
+    assert r.output.count("[a] accept proposal / [s]kip") == 2
 
 
 def test_triage_unrenderable_proposal_prints_error_and_offers_no_a(tmp_path, tty, monkeypatch):

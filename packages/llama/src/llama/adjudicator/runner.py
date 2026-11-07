@@ -345,6 +345,21 @@ def accept_verdict(rec: AdjudicationRecord) -> Verdict | None:
     return None
 
 
+def acceptable_state(ws: ShowWorkspace, rec: AdjudicationRecord | None) -> str:
+    """Whether accept would apply `rec` now: "ok" (readable, not a dry run, current, and
+    holding at least one non-propose-only edit), "stale" (a proposal the show has moved
+    past) or "none". The one predicate behind triage's `[a]` and `adjudicate --accept`'s
+    preview. Raises when the record's verdict cannot be read."""
+    if rec is None or rec.dry_run:
+        return "none"
+    if not is_current(ws):
+        return "stale"
+    verdict = accept_verdict(rec)
+    if verdict is None or not _applicable(verdict):
+        return "none"
+    return "ok"
+
+
 def _accept_pairs(stored: AdjudicationRecord, verdict: Verdict,
                   show: Show) -> list[tuple[int | None, object]]:
     """The applicable edits, each with its index in the STORED verdict's `edits`. For a
@@ -362,7 +377,10 @@ def _accept_pairs(stored: AdjudicationRecord, verdict: Verdict,
     return [(own.get(_key(e.flag, show)), e) for e in verdict.edits]
 
 
-def accept_proposal(ctx: Context, entry: CatalogEntry) -> ShowOutcome:
+def accept_proposal(ctx: Context, entry: CatalogEntry, *,
+                    expected_at: str | None = None) -> ShowOutcome:
+    """Apply the stored proposal. `expected_at` is the `at` of the record the operator was
+    shown; a record that has been rewritten since is not applied."""
     ws, slug = entry.ws, entry.slug
     path = _record_path(ctx, entry)
     # 1: a stored, non-dry-run proposal
@@ -373,6 +391,8 @@ def accept_proposal(ctx: Context, entry: CatalogEntry) -> ShowOutcome:
         return ShowOutcome(slug, NO_PROPOSAL, f"stored proposal unreadable: {exc}")
     if verdict is None:
         return ShowOutcome(slug, NO_PROPOSAL)
+    if expected_at is not None and stored.at != expected_at:
+        return ShowOutcome(slug, NO_PROPOSAL, "proposal changed since it was shown; re-run")
     # 2: the bundle's captured view is both the digest checked and the unit's expect
     try:
         bundle = build_bundle(ws, ctx.ia, ctx.config)
