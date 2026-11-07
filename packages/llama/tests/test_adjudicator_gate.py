@@ -1021,3 +1021,88 @@ def test_has_track_list_edit_and_structure_variant():
 def test_gate_result_shape():
     r = evaluate(*veto_case())
     assert isinstance(r, GateResult) and isinstance(r.edits[0], EditGate)
+
+
+# ---------------------------------------------------------------- fix round 1 (t5-quality)
+
+def test_switch_with_fabricated_quote_fails():                 # F1(a): switch quotes are checked
+    v, f = switch_case()
+    v.edits[0].evidence[0] = Evidence(kind=SIBT, quote="a quote nobody wrote")
+    r = evaluate(v, f)
+    g = r.edits[0]
+    assert (g.passed, g.reason) == (False, "quote not found in sibling-tracks")
+    assert not r.auto
+
+
+def test_switch_with_no_evidence_fails():                      # F1(b): at least one checked quote
+    from llama.adjudicator.verdict import SwitchRecording
+    v, f = switch_case()
+    bare = SwitchRecording.model_construct(op="switch_recording", confidence="high",
+                                           evidence=[], why="w", identifier=SIB)
+    v = v.model_copy(update={"edits": [bare]})
+    g = evaluate(v, f).edits[0]
+    assert not g.passed and "switch needs at least one checked quote" in g.reason
+    assert evaluate(*switch_case()).edits[0].passed
+
+
+def _malformed(edit, *, flags=(VENUE_FLAG,)):
+    b = make_bundle([trk("x-d1t1.mp3", dur=10.0)], flags=list(flags),
+                    excluded=[{"filename": "x-d1t9.mp3", "reasons": ["short"],
+                               "duration_sec": 5.0}],
+                    sections={DESC: DESC_ROWS, SIBT: ["soundboard, complete"]})
+    v = make_verdict([edit], show=b.show)
+    return evaluate(v, make_facts(b))
+
+
+@pytest.mark.parametrize("edit", [
+    ed("exclude", "medium", file="x-d1t2.mp3"),                       # not a track
+    ed("set_title", "high", [ev(DESC, "x-d1t1 is crowd noise")], file="x-d1t2.mp3",
+       title="crowd"),                                               # not a track
+    ed("include", "medium", file="x-d1t1.mp3"),                       # a track, not an excluded row
+    ed("switch_recording", "high", [ev(SIBT, "soundboard, complete")],
+       identifier="gd73-06-10.unconsidered"),                       # not considered
+    ed("overrule", "medium", flag="venue mismatch: archive 'RFK'"),   # not a current flag
+], ids=["exclude", "set_title", "include", "switch", "overrule"])
+def test_evaluate_fails_closed_on_a_malformed_target(edit):        # F2
+    r = _malformed(edit)
+    assert any(v.startswith("malformed: edit 0") for v in r.vetoes), r.vetoes
+    assert not r.auto
+
+
+def test_evaluate_malformed_veto_even_when_the_edit_bar_passes():  # F2: bar passes, still vetoed
+    r = _malformed(ed("include", "medium", file="x-d1t1.mp3"))
+    assert r.edits[0].passed           # a 10 s track named as an include: the short bar passes
+    assert not r.auto
+    ok = _malformed(ed("exclude", "medium", file="x-d1t1.mp3"))
+    assert ok.auto and ok.vetoes == []
+
+
+def test_long_bar_same_stem_row_is_own_when_original_unrecorded():   # F3
+    files = {"x-d1t1.mp3": FileMeta("x-d1t1.mp3", "derivative", "VBR MP3", "", 200.0, None),
+             "x-d1t1.flac": FileMeta("x-d1t1.flac", "original", "Flac", "", 200.0, None)}
+    rows = [Row(text="x-d1t1.flac | Flac | crowd | 200", filename="x-d1t1.flac", length_s=200.0)]
+    b = make_bundle([trk("x-d1t1.mp3", dur=200.0)], files=files, sections={OTAG: rows})
+    assert b.own_row(OTAG, "x-d1t1.mp3") is None
+    g = gate_for(([ed("exclude", "high", [ev(OTAG, "x-d1t1.flac | Flac")], file="x-d1t1.mp3")], b))
+    assert (g.bar, g.passed) == ("long", False)
+    rows.append(Row(text="x-d1t2.flac | Flac | after x-d1t1.flac | Flac | 5",
+                    filename="x-d1t2.flac", length_s=5.0))
+    b = make_bundle([trk("x-d1t1.mp3", dur=200.0)], files=files, sections={OTAG: rows})
+    assert gate_for(([ed("exclude", "high", [ev(OTAG, "x-d1t1.flac | Flac")],
+                         file="x-d1t1.mp3")], b)).passed
+
+
+def test_stem_without_a_letter_never_counts():                  # F4: a bare number is a position
+    assert not stem_in("track 01 is a repeat", "01.mp3")
+    assert not stem_in("01", "01.mp3")
+    b = make_bundle([trk("01.mp3", dur=200.0)], sections={DESC: ["01 is crowd noise"]})
+    g = gate_for(([ed("exclude", "high", [ev(DESC, "01 is crowd noise")], file="01.mp3")], b))
+    assert (g.bar, g.passed) == ("long", False)
+    assert stem_in("d01 is a repeat", "d01.mp3")
+
+
+def test_stem_in_lookarounds_are_unicode_aware():               # F5
+    assert not stem_in("éx-d1t1 is a repeat", "x-d1t1.mp3")
+    assert not stem_in("x-d1t1é is a repeat", "x-d1t1.mp3")
+    assert stem_in("«x-d1t1» is a repeat", "x-d1t1.mp3")
+    assert stem_in("x-d1t1_vbr", "x-d1t1.mp3")

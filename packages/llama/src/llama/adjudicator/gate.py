@@ -58,6 +58,7 @@ STRUCTURE_KINDS = {k for k, b in OVERRULE_BAR.items() if b == "structure"}
 EXISTING = "changes an existing overrides.json entry"
 _TRACK_LIST_OPS = {"include", "exclude", "switch_recording"}
 _SEGUE = re.compile(r"\s*(?:->|>)\s*")
+_LETTER = re.compile(r"[^\W\d_]")
 
 
 # ---------------------------------------------------------------- text checks
@@ -90,11 +91,14 @@ def quote_rows(ev: Evidence, bundle: Bundle) -> list[Row]:
 
 
 def stem_in(quote: str, filename: str) -> bool:
-    """The file's stem occurs in the quote as a whole token: `d1t1` is not in `d1t10`."""
+    """The file's stem occurs in the quote as a whole token, not preceded or followed by
+    a letter or digit (Unicode-aware): `d1t1` is not in `d1t10` nor in `éd1t1`. A stem
+    with no letter (`01.mp3`) never counts: a bare number in a quote is a track position,
+    and a bare track number never names a file (operator ruling, 2026-11-07)."""
     stem = normalize(Path(filename).stem)
-    if not stem:
+    if not _LETTER.search(stem):
         return False
-    return re.search(r"(?<![0-9a-z])" + re.escape(stem) + r"(?![0-9a-z])",
+    return re.search(r"(?<![^\W_])" + re.escape(stem) + r"(?![^\W_])",
                      normalize(quote)) is not None
 
 
@@ -245,7 +249,11 @@ def _long_anchor(ev: Evidence, bundle: Bundle, filename: str) -> bool:
     if ev.kind not in LONG_BAR_KINDS:
         return False
     own = bundle.own_row(ev.kind, filename)
-    if not any(r != own for r in quote_rows(ev, bundle)):
+    stem = Path(filename).stem
+    # A row naming a file of the same stem counts as the file's own row too: a derivative
+    # whose `original` is unrecorded has `own_row` None, and its flac row is still its own.
+    if not any(r != own and not (r.filename and Path(r.filename).stem == stem)
+               for r in quote_rows(ev, bundle)):
         return False
     return stem_in(ev.quote, filename)
 
@@ -371,6 +379,8 @@ def _switch_edit(e: SwitchRecording, verdict: Verdict, facts: Facts) -> tuple[st
         fail.append("sibling's lineage class ranks worse than the current recording's")
     if e.confidence not in HIGH:
         fail.append("switch needs high confidence")
+    if not e.evidence:   # each quote is also substring-checked in `_gate_edit`
+        fail.append("switch needs at least one checked quote")
     if facts.delivered:
         fail.append("show is delivered")
     if facts.marked:
@@ -448,7 +458,8 @@ def evaluate(verdict: Verdict, facts: Facts) -> GateResult:
     b = facts.bundle
     verdict_sum = sum(_dur(b, e.file) for e in verdict.edits if isinstance(e, (Include, Exclude)))
     edits = [_gate_edit(i, e, verdict, facts, verdict_sum) for i, e in enumerate(verdict.edits)]
-    vetoes = _vetoes(verdict, b.show)
+    # Fail closed: the runner validates first, and this is the second layer.
+    vetoes = [f"malformed: {r}" for r in validate_targets(verdict, b)] + _vetoes(verdict, b.show)
     auto = not vetoes and bool(edits) and all(g.passed for g in edits)
     return GateResult(edits=edits, vetoes=vetoes, auto=auto)
 
