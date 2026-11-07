@@ -324,3 +324,17 @@ def test_accept_applies_nothing_when_the_record_changed_after_it_was_shown(rig, 
     r = run(rig, rig.slug, "--accept", "--yes")
     assert f"{rig.slug}: no proposal (proposal changed since it was shown; re-run)" in r.output
     assert not rig.ws.overrides.exists()
+
+
+def test_accept_shows_a_set_title_with_its_title_before_the_prompt(rig, monkeypatch):  # I1
+    rig.proposal(V([{"op": "set_title", "confidence": "low", "why": "w",
+                     "evidence": [{"kind": "taper-description",
+                                   "quote": "b.mp3 is a tuning fragment"}],
+                     "file": "b.mp3", "title": "Bertha"}],
+                   [judge(TITLES_FLAG, "real-fixed-by-action")]))
+    monkeypatch.setattr(cli, "_interactive", lambda: True)
+    r = run(rig, rig.slug, "--accept", input="n\n")
+    shown = '  edit 0: set_title b.mp3 -> "Bertha"'
+    assert shown in r.output, r.output
+    assert r.output.index(shown) < r.output.index("Accept this proposal?")
+    assert not rig.ws.overrides.exists()

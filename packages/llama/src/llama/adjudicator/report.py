@@ -30,7 +30,27 @@ def proposal_commands(slug: str, verdict: Verdict) -> list[str]:
     return out
 
 
-def _target(e) -> str:
+def _mmss(sec: float) -> str:
+    s = int(round(sec))
+    return f"{s // 60}:{s % 60:02d}"
+
+
+def _durations(show: Show) -> dict[str, float]:
+    """filename -> seconds, over the kept tracks and the excluded rows (where known)."""
+    out = {x.get("filename"): x.get("duration_sec") for x in show.excluded_files
+           if isinstance(x.get("duration_sec"), (int, float))}
+    out.update({t.filename: t.duration_sec for t in show.tracks if t.duration_sec is not None})
+    return out
+
+
+def _target(e, durations: dict[str, float] | None = None) -> str:
+    """What an edit names, as the operator must see it before accepting: a set_title with
+    its title, an include/exclude with the file's length where known."""
+    if getattr(e, "op", None) == "set_title":
+        return f'{e.file} -> "{e.title}"'
+    if getattr(e, "op", None) in ("include", "exclude"):
+        d = (durations or {}).get(e.file)
+        return e.file + (f" ({_mmss(d)})" if d is not None else "")
     for name in ("file", "identifier", "flag", "venue", "city"):
         if hasattr(e, name):
             return str(getattr(e, name))
@@ -49,15 +69,21 @@ def _flag_line(flag: str, j) -> str:
 
 
 def render_proposal(rec: AdjudicationRecord, show: Show, *, slug: str) -> list[str]:
-    """A stored proposal (or an applied record's remaining hold) as lines. `slug` is
-    the library slug the `run:` commands name (the caller's, never derived)."""
+    """A stored proposal (or an applied record's remaining hold) as lines: each edit with
+    what it would write (a set_title's title, an include/exclude's length from `show`
+    where known), its why and its evidence. What these lines show is what triage `[a]`
+    and `adjudicate --accept` apply. `slug` is the library slug the `run:` commands name
+    (the caller's, never derived)."""
     hp = rec.held_proposal
     if rec.outcome == "applied" and hp:
         lines = [f"applied ({rec.model}, {rec.at}), still held:"]
         for f in hp.get("flags", []):
             lines.append(_flag_line(f["flag"], f.get("judgement")))
         for i, e in enumerate(hp.get("edits", [])):
-            lines.append(f"  edit {i}: overrule {e['flag']}")
+            conf = f" ({e['confidence']})" if e.get("confidence") else ""
+            lines.append(f"  edit {i}: overrule {e['flag']}{conf}")
+            if e.get("why"):
+                lines.append(f"    why: {e['why']}")
             lines += [f'    {ev["kind"]}: "{ev["quote"]}"' for ev in e.get("evidence", [])]
         return lines
     verdict = Verdict.model_validate(rec.verdict)
@@ -66,10 +92,13 @@ def render_proposal(rec: AdjudicationRecord, show: Show, *, slug: str) -> list[s
     for j in verdict.flags:
         lines.append(_flag_line(j.flag, j.model_dump(mode="json")))
     gates = {g["index"]: g for g in rec.gate}
+    durations = _durations(show)
     for i, e in enumerate(verdict.edits):
         g = gates.get(i)
         bar = f" [{g['bar']}: {'passed' if g['passed'] else g['reason']}]" if g else ""
-        lines.append(f"  edit {i}: {e.op} {_target(e)}".rstrip() + bar)
+        lines.append(f"  edit {i}: {e.op} {_target(e, durations)}".rstrip() + bar)
+        if e.why:
+            lines.append(f"    why: {e.why}")
         lines += [f'    {ev.kind}: "{ev.quote}"' for ev in e.evidence]
     if verdict.kind == "hold" and verdict.decide:
         lines.append(f"  decide: {verdict.decide}")

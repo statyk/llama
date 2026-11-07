@@ -1193,3 +1193,15 @@ def test_triage_a_unrecognized_when_not_offered(tmp_path, tty, monkeypatch):
     calls = _stub_accept(monkeypatch)
     r = cli_invoke(cfg, "triage", input="a\n")
     assert "unrecognized; skipping" in r.output and calls == []
+
+
+def test_triage_shows_a_set_title_with_its_title_before_a(tmp_path, tty):     # I1
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [{"op": "set_title", "confidence": "low", "why": "the taper names it",
+                      "evidence": [_ADJ_EV], "file": "a.mp3", "title": "Bertha"}])
+    r = cli_invoke(cfg, "triage", input="s\n")
+    shown = '  edit 0: set_title a.mp3 -> "Bertha"'
+    assert shown in r.output, r.output
+    assert "    why: the taper names it" in r.output
+    assert r.output.index(shown) < r.output.index("[a] accept proposal")

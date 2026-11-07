@@ -7,7 +7,7 @@ from llama.adjudicator.record import AdjudicationRecord
 from llama.adjudicator.report import proposal_commands, render_proposal, render_report
 from llama.adjudicator.runner import ShowOutcome
 from llama.adjudicator.verdict import Verdict
-from llama.models import Show
+from llama.models import Show, Track
 
 SHOW = Show(performance_id="GratefulDead/1973-06-10", identifier="gd73",
             artist="Grateful Dead", date="1973-06-10")
@@ -66,8 +66,32 @@ def test_render_proposal_renders_held_proposal():
                                   "why": "jw", "evidence": [EV]}]})
     assert render_proposal(rec, SHOW, slug=SLUG) == [
         "applied (opus, T), still held:", "  flag: v -> spurious (low): jw",
-        "  flag: w -> not judged", "  edit 0: overrule v",
+        "  flag: w -> not judged", "  edit 0: overrule v (low)", "    why: jw",
         '    taper-description: "b.mp3 is a tuning fragment"']
+
+
+def test_render_proposal_shows_the_title_durations_and_why():         # I1
+    show = SHOW.model_copy(update={
+        "tracks": [Track(index=1, set="1", title="B", filename="b.mp3", duration_sec=30.0,
+                         title_source="tags")],
+        "excluded_files": [{"filename": "x.mp3", "reasons": ["implausibly short"],
+                            "duration_sec": 75.0}]})
+    v = verdict([
+        {"op": "set_title", "confidence": "low", "why": "the taper names it",
+         "evidence": [EV], "file": "b.mp3", "title": "Bertha"},
+        {"op": "exclude", "confidence": "high", "why": "tuning", "evidence": [EV],
+         "file": "b.mp3"},
+        {"op": "include", "confidence": "high", "why": "a real song", "evidence": [EV],
+         "file": "x.mp3"},
+        {"op": "include", "confidence": "high", "why": "w", "evidence": [EV],
+         "file": "unknown.mp3"}])
+    lines = render_proposal(record(v.model_dump(mode="json")), show, slug=SLUG)
+    i = lines.index('  edit 0: set_title b.mp3 -> "Bertha"')
+    assert lines[i + 1:i + 3] == ["    why: the taper names it",
+                                  '    taper-description: "b.mp3 is a tuning fragment"']
+    assert lines[lines.index("  edit 1: exclude b.mp3 (0:30)") + 1] == "    why: tuning"
+    assert "  edit 2: include x.mp3 (1:15)" in lines
+    assert "  edit 3: include unknown.mp3" in lines
 
 
 def out(slug, outcome, **kw):
