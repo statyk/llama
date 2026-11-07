@@ -34,9 +34,10 @@ files: judge from the bundle alone. The bundle's sections:
 
 ## Class rulings
 
-- **Partial tape, no more complete sibling:** it airs. Set `"partial_tape": true`; that is a note
+- **Partial tape, no more complete sibling:** it airs unless a flag whose bar is never still
+  holds. Set `"partial_tape": true`; that is a note
   for the record, not a clearance. Judge flags that only reflect the tape being partial `spurious`,
-  and clear every holding flag through its own bar (see "Clearing flags" below): for example, a
+  and clear every holding flag through its own bar (see "Clearing flags" and "Reply" below): for example, a
   structure-kind flag caused by the missing part is overruled with a taper-side quote showing the
   tape is partial. A song cut off at the tape's edge airs as is.
 - **Partial tape with a more complete sibling:** set `"partial_tape": true`, name the sibling in
@@ -157,7 +158,8 @@ confidence and a one-sentence `why`. Then:
   needs its own `overrule` edit with qualifying evidence. A bare judgement does not clear it.
 - A flag whose overrule bar is never (the list above) cannot be cleared automatically. When one of
   them still holds after your edits, the show stays held: use `"kind": "hold"` and say so in `decide`.
-- A verdict with no edits never applies.
+- A verdict with no edits never applies, however its flags are judged, so shipping as-is needs
+  at least one `overrule` edit.
 - Nothing applies unless `kind` is `fix` or `overrule`, `show_correct_after` is `yes`, and no flag is
   judged `real-not-fixable` or `undecidable`.
 

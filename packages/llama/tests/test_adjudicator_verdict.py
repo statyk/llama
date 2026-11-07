@@ -247,3 +247,9 @@ def test_prompt_states_the_gate_rules_from_fix_round_1():
                    "use `untitled` only when no track on the tape is resolvable"):      # Q-m7
         assert phrase in text, phrase
     assert "only when the other recording is clearly better" not in text
+
+
+@pytest.mark.parametrize("raw,want", [("  gd73-06-10.sib.flac \n", "gd73-06-10.sib.flac"),
+                                      ("   ", None), ("", None), (None, None)])
+def test_better_sibling_is_stripped_and_empty_means_none(raw, want):    # T4 re-review
+    assert Verdict.model_validate({**BASE, "better_sibling": raw}).better_sibling == want

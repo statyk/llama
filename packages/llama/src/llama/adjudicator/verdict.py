@@ -30,6 +30,14 @@ def _flag_text(v):
     return re.sub(r"^\s*-\s+", "", v) if isinstance(v, str) else v
 
 
+def _blank_to_none(v):
+    """An optional identifier as the model may spell it: stripped, and blank means None."""
+    if isinstance(v, str):
+        v = v.strip()
+        return v or None
+    return v
+
+
 def _non_empty(v: str) -> str:
     v = v.strip()
     if not v:
@@ -138,7 +146,7 @@ class Verdict(_Lax):
     kind: Annotated[Literal["fix", "overrule", "hold"], _Tok]
     show_correct_after: Annotated[Literal["yes", "no", "unsure"], _Tok]
     partial_tape: Annotated[bool, _null_to(lambda: False)] = False
-    better_sibling: str | None = None
+    better_sibling: Annotated[str | None, BeforeValidator(_blank_to_none)] = None
     decide: str | None = None          # what Shawn must decide, for a hold
     rationale: str
     root_causes: Annotated[list[str], _null_to(list)] = Field(default_factory=list)
