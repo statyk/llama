@@ -73,7 +73,7 @@ def test_original_and_derivative_rows_carry_filename_and_length(tmp_path):
     b = build_bundle(ws, ia, cfg)
     row = b.own_row("derivative-tag", FN)
     assert row.filename == FN and row.length_s == pytest.approx(664.0, abs=1)
-    assert row.text == f"{FN} | VBR MP3 | Morning Dew | 11:04"
+    assert row.text == f"{FN} | VBR MP3 | Morning Dew | 664"
     assert b.own_row("original-tag", FN).filename.endswith(".shn")
     assert b.own_row("original-tag", "gd73-06-10d1t01.shn").filename == "gd73-06-10d1t01.shn"
     assert b.own_row("derivative-tag", "gd73-06-10d1t01.shn") is None
@@ -105,7 +105,7 @@ def test_sibling_rows_carry_identifier_and_length(tmp_path):
     r = rows[1]
     assert (r.identifier, r.filename, r.title) == (SIB, "s01.flac", "Morning Dew")
     assert r.length_s == pytest.approx(664.0, abs=1)
-    assert r.text == f"{SIB} | s01.flac | Morning Dew | 11:04"
+    assert r.text == f"{SIB} | s01.flac | Morning Dew | 664"
 
 
 def test_setlistfm_is_read_from_cache_only(tmp_path):
@@ -182,6 +182,11 @@ def test_oversize_drops_siblings_last_first_then_research(tmp_path, monkeypatch)
     assert len(b.text) <= bm.BUNDLE_CAP
     assert _order(b) == order[:len(_order(b))] and 0 < len(_order(b)) < 8
     assert "R" * 12000 in b.text
+    assert _all_rows_in_text(b)
+    kept = set(_order(b))
+    for gone in set(order) - kept:
+        assert f"{gone} | s01.flac" not in b.text
+        assert all(r.identifier != gone for r in b.sections["sibling-tracks"])
     # a cap below the no-sibling size: all siblings gone, research is cut, the rest stays
     nosib = len(full.text) - sum(len(r.text) + 1 for r in full.sections["sibling-tracks"])
     monkeypatch.setattr(bm, "BUNDLE_CAP", nosib - 3000)
@@ -190,6 +195,8 @@ def test_oversize_drops_siblings_last_first_then_research(tmp_path, monkeypatch)
     assert 0 < c.text.count("R") < 12000
     for keep in ("## review flags", "## track table", "## excluded files", "## overrides.json"):
         assert keep in c.text
+    assert _all_rows_in_text(c)
+    assert "s01.flac" not in c.text and c.sections["sibling-tracks"] == []
     assert c.sections["taper-description"] == full.sections["taper-description"]
 
 
@@ -213,3 +220,73 @@ def test_bundle_view_is_captured_before_reading(tmp_path):
     assert b.view == capture_view(ws)
     assert isinstance(b, Bundle) and isinstance(b.sections["review"][0], Row)
     assert b.provenance is not None and b.selection["identifier"] == fixture_library.IDENT
+
+
+def _all_rows_in_text(b):
+    return all(r.text in b.text for k in EVIDENCE_KINDS for r in b.sections[k])
+
+
+def test_rows_are_substrings_of_text_including_braced_rows(tmp_path):
+    ws, _, ia, cfg = _setup(tmp_path)
+    ia.md["metadata"]["description"] = "{{a}} {{{b}}}"
+    ia.md["reviews"][0]["reviewbody"] = "{{x}}"
+    ia.md["files"][6]["title"] = "T{{q}}\x00"
+    b = build_bundle(ws, ia, cfg)
+    assert any("{ {a} }" in r.text for r in b.sections["taper-description"])
+    assert _all_rows_in_text(b)
+    assert b.files[FN].title == "T{ {q} }" and b.own_row("derivative-tag", FN).title == "T{ {q} }"
+
+
+def test_list_valued_description_notes_and_sibling_keep_text_verbatim(tmp_path):
+    ws, _, ia, cfg = _setup(tmp_path)
+    ia.md["metadata"]["description"] = ["Jerry's guitar", "line two"]
+    ia.md["metadata"]["notes"] = ["n1", "it's n2"]
+    ia.siblings[SIB]["metadata"]["description"] = ["sib's a", "sib b"]
+    b = build_bundle(ws, ia, cfg)
+    assert b.sections["taper-description"][0].text == "Jerry's guitar\nline two"
+    assert b.sections["taper-description"][1].text == "n1\nit's n2"
+    assert b.sections["sibling-tracks"][0].text == "sib's a\nsib b"
+    assert _all_rows_in_text(b)
+
+
+def test_lookups_use_the_item_date_when_a_date_override_corrected_it(tmp_path):
+    from llama.setlistfm import cache_key
+    from llama.workspace import write_artifact
+    ws, show, ia, cfg = _setup(tmp_path)
+    corrected = show.model_copy(update={"date": "1973-06-11", "item_date": show.date,
+                                        "date_source": "override"})
+    write_artifact(ws.show, corrected)
+    (tmp_path / "cache" / f"{cache_key(show.artist, show.date)}.json").write_text(
+        json.dumps({"setlist": [{"id": "ITEM-DATE"}]}))
+    (tmp_path / "cache" / f"{cache_key(show.artist, '1973-06-11')}.json").write_text(
+        json.dumps({"setlist": [{"id": "OVERRIDE-DATE"}]}))
+    rows = build_bundle(ws, ia, cfg).sections["setlistfm"]
+    assert len(rows) == 1 and "ITEM-DATE" in rows[0].text
+    on = build_bundle(ws, ia, Config(root=tmp_path, jerrybase={"enabled": True}))
+    assert on.sections["jerrybase"], "looked up by the item date 1973-06-10"
+
+
+def test_unknown_durations_render_as_question_mark(tmp_path):
+    from llama.workspace import write_artifact
+    ws, show, ia, cfg = _setup(tmp_path)
+    s = show.model_copy(deep=True)
+    s.tracks[0].duration_sec = None
+    s.excluded_files = [{"filename": "ex.mp3", "reasons": ["junk"], "duration_sec": None}]
+    write_artifact(ws.show, s)
+    b = build_bundle(ws, ia, cfg)
+    assert f"| ? | {s.tracks[0].filename}" in b.text
+    assert "ex.mp3 | ['junk'] | ?" in b.text
+
+
+def test_unreachable_sibling_gets_a_metadata_unavailable_row(tmp_path):
+    from llama.ia_client import IAError
+    ws, _, ia, cfg = _setup(tmp_path)
+
+    class Down(StubIA):
+        def metadata(self, identifier):
+            if identifier == SIB:
+                raise IAError("boom")
+            return super().metadata(identifier)
+    b = build_bundle(ws, Down(ia.md, ia.siblings), cfg)
+    assert b.sections["sibling-tracks"] == [Row(text=f"{SIB}: (metadata unavailable)",
+                                                identifier=SIB)]

@@ -7,9 +7,12 @@ import json
 import re
 from dataclasses import dataclass, field
 
+import httpx
+
 from llama import jerrybase, setlistfm
 from llama.catalog import recording_info
 from llama.config import Config
+from llama.ia_client import IAError
 from llama.models import Overrides, Provenance, Show, ShowNotes
 from llama.show_unit import ShowView, capture_view
 from llama.util import length_seconds
@@ -44,6 +47,19 @@ def escape_braces(text: str) -> str:
 
 def _clean(text) -> str:
     return escape_braces(str(text).replace("\x00", ""))
+
+
+def _text_field(value) -> str:
+    """An IA metadata field as text: a list (several values) joins with newlines, as
+    gather's `_description` does."""
+    if isinstance(value, list):
+        value = "\n".join(str(v) for v in value)
+    return str(value or "")
+
+
+def _secs(value) -> str:
+    s = length_seconds(value)
+    return "?" if s is None else f"{s:g}"
 
 
 @dataclass(frozen=True)
@@ -107,7 +123,7 @@ class Bundle:
 
 def _file_meta(f: dict) -> FileMeta:
     return FileMeta(name=f["name"], source=f.get("source", ""), format=f.get("format", ""),
-                    title=str(f.get("title", "") or ""), length_s=length_seconds(f.get("length")),
+                    title=_clean(f.get("title", "") or ""), length_s=length_seconds(f.get("length")),
                     original=f.get("original"))
 
 
@@ -119,9 +135,9 @@ def _file_rows(files: list[dict], source: str, ident: str | None) -> list[Row]:
     rows = []
     for f in [f for f in files if f.get("source") == source][:ROWS_PER_ITEM]:
         m = _file_meta(f)
-        fields = [m.name, m.format, m.title, f.get("length", "")]
+        fields = [m.name, m.format, m.title, _secs(f.get("length"))]
         if ident:
-            fields = [ident, m.name, m.title, f.get("length", "")]
+            fields = [ident, m.name, m.title, _secs(f.get("length"))]
         rows.append(Row(text=_clean(" | ".join(str(x) for x in fields)), filename=m.name,
                         identifier=ident, length_s=m.length_s, title=m.title))
     return rows
@@ -130,7 +146,7 @@ def _file_rows(files: list[dict], source: str, ident: str | None) -> list[Row]:
 def _sibling_rows(ident: str, md: dict | None) -> list[Row]:
     if md is None:
         return [Row(text=_clean(f"{ident}: (metadata unavailable)"), identifier=ident)]
-    desc = str(md.get("metadata", {}).get("description") or "").strip()[:SIBLING_DESC_CAP]
+    desc = _text_field(md.get("metadata", {}).get("description")).strip()[:SIBLING_DESC_CAP]
     rows = [Row(text=_clean(desc), identifier=ident)] if desc else []
     files = _audio(md)
     for src in ("original", "derivative"):
@@ -165,8 +181,8 @@ def build_bundle(show_ws: ShowWorkspace, ia, config: Config) -> Bundle:
     files = {f["name"]: _file_meta(f) for f in audio}
 
     sections: dict[str, list[Row]] = {k: [] for k in EVIDENCE_KINDS}
-    desc = str(meta.get("description") or "").strip()[:DESC_CAP]
-    notes = str(meta.get("notes") or "").strip()[:NOTES_CAP]
+    desc = _text_field(meta.get("description")).strip()[:DESC_CAP]
+    notes = _text_field(meta.get("notes")).strip()[:NOTES_CAP]
     sections["taper-description"] = [Row(text=_clean(t)) for t in (desc, notes) if t]
     sections["original-tag"] = _file_rows(audio, "original", None)
     sections["derivative-tag"] = _file_rows(audio, "derivative", None)
@@ -176,11 +192,11 @@ def build_bundle(show_ws: ShowWorkspace, ia, config: Config) -> Bundle:
     for c in (info.considered if info else [])[:SIBLINGS_MAX]:
         try:
             sib_md = ia.metadata(c.identifier)
-        except Exception:  # noqa: BLE001 - one unreachable sibling must not fail the bundle
+        except (IAError, httpx.HTTPError, ValueError):  # one unreachable sibling must not fail the bundle
             sib_md = None
         sib_blocks.append(_sibling_rows(c.identifier, sib_md))
 
-    art, date = show.artist, show.date
+    art, date = show.artist, show.item_date or show.date   # gather looks up by the item's date
     cache = config.root / "cache" / f"{setlistfm.cache_key(art, date)}.json"
     try:
         sl = json.loads(cache.read_text()).get("setlist")
@@ -220,10 +236,10 @@ def _render(slug, show, overrides, view, show_ws, selection, sections, research)
     out.append("n | set | title | title_source | matched | dur s | file")
     out.append("\n".join(
         f"{i} | {t.set} | {t.title} | {t.title_source} | {t.matched} | "
-        f"{round(t.duration_sec or 0)} | {t.filename}" for i, t in enumerate(show.tracks, 1)))
+        f"{'?' if t.duration_sec is None else round(t.duration_sec)} | {t.filename}" for i, t in enumerate(show.tracks, 1)))
     out.append("## excluded files")
     out.append("filename | reasons | dur s")
-    out.append("\n".join(f"{x.get('filename')} | {x.get('reasons')} | {x.get('duration_sec')}"
+    out.append("\n".join(f"{x.get('filename')} | {x.get('reasons')} | {'?' if x.get('duration_sec') is None else x.get('duration_sec')}"
                          for x in show.excluded_files))
     out.append("## overrides.json")
     out.append(json.dumps(overrides.model_dump(mode="json"), indent=1)
