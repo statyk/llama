@@ -1550,3 +1550,17 @@ def test_resolve_prompt_untitled_is_inserted_before_skip():
     text = cli._resolve_prompt(titles=True, include=True, untitled=True)
     assert text.replace("[u]ntitled / ", "") == base
     assert "[u]ntitled / [s]kip" in text
+
+
+def test_resolve_prompt_accept_is_inserted_before_skip_in_every_combination():
+    for titles in (False, True):
+        for include in (False, True):
+            for untitled in (False, True):
+                base = cli._resolve_prompt(titles=titles, include=include, untitled=untitled)
+                text = cli._resolve_prompt(titles=titles, include=include, untitled=untitled,
+                                           accept=True)
+                assert text.replace("[a] accept proposal / ", "") == base
+                assert "[a] accept proposal / [s]kip" in text
+                assert "[a] accept proposal" not in base
+                assert base.replace("[t] suggest titles / ", "").replace(
+                    "[u]ntitled / ", "").replace("[i]nclude dropped / ", "") == cli.RESOLVE_PROMPT

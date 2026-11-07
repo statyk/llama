@@ -943,3 +943,197 @@ def test_triage_vague_records_nothing(tmp_path, tty, monkeypatch):   # (pin)
     r = cli_invoke(cfg, "triage", input="v\n")
     assert r.exit_code == 0, r.output
     assert read_overrides(ws).overrules == []
+
+
+# --- the adjudicator's stored proposal: printed, and [a] accepts it ---
+
+_ADJ_SLUG = "gratefuldead-1973-06-10"
+_ADJ_FLAG = "research asserts wrong date: x"
+_ADJ_EV = {"kind": "taper-description", "quote": "a.mp3 is a tuning fragment"}
+
+
+def _adj_verdict(edits):
+    from llama.adjudicator.verdict import Verdict
+    return Verdict.model_validate({
+        "flags": [{"flag": _ADJ_FLAG, "verdict": "real-fixed-by-action",
+                   "confidence": "high", "why": "jw"}],
+        "edits": edits, "kind": "fix", "show_correct_after": "yes", "rationale": "r"})
+
+
+_EXCLUDE_A = {"op": "exclude", "confidence": "low", "why": "w", "evidence": [_ADJ_EV],
+              "file": "a.mp3"}
+_SET_DATE = {"op": "set_date", "confidence": "low", "why": "w", "evidence": [],
+             "value": "1973-06-11"}
+
+
+def _adj_record(ws, edits, *, current=True, **kw):
+    from llama.adjudicator.record import AdjudicationRecord, show_digest, write_record
+    fields = dict(at="2026-11-07T00:00:00+00:00", model="opus", outcome="proposal",
+                  verdict=_adj_verdict(edits).model_dump(mode="json"),
+                  digest=show_digest(ws) if current else "stale-digest")
+    fields.update(kw)
+    rec = AdjudicationRecord(**fields)
+    write_record(ws, rec)
+    return rec
+
+
+def _stub_accept(monkeypatch, outcome="accepted", detail="", raises=None):
+    import llama.adjudicator.runner as runner
+    calls = []
+
+    def accept(ctx, entry):
+        calls.append(entry.slug)
+        if raises is not None:
+            raise raises
+        return runner.ShowOutcome(entry.slug, outcome, detail)
+    monkeypatch.setattr(runner, "accept_proposal", accept)
+    return calls
+
+
+def test_triage_offers_a_only_for_current_proposal_with_applicable_edits(tmp_path, tty):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert "[a] accept proposal" not in r.output and "proposal (" not in r.output   # no record
+    _adj_record(ws, [_EXCLUDE_A])
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert r.exit_code == 0, r.output
+    assert "proposal (opus, 2026-11-07T00:00:00+00:00): fix" in r.output
+    assert "edit 0: exclude a.mp3" in r.output
+    assert "[a] accept proposal / [s]kip" in r.output
+
+
+def test_triage_stale_proposal_says_so_and_offers_no_a(tmp_path, tty):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [_EXCLUDE_A], current=False)
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert (f"proposal is stale (the show changed since it was judged); re-judge with: "
+            f"llama adjudicate {_ADJ_SLUG}") in r.output
+    assert "[a] accept proposal" not in r.output
+
+
+def test_triage_propose_only_proposal_prints_commands_without_a(tmp_path, tty):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [_SET_DATE])
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert f"run: llama fix {_ADJ_SLUG} --set-date 1973-06-11" in r.output
+    assert "[a] accept proposal" not in r.output
+
+
+def test_triage_dry_run_record_is_not_shown(tmp_path, tty):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [_EXCLUDE_A], dry_run=True)   # outcome stays "proposal": the flag alone decides
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert "proposal" not in r.output.replace("accept proposal", "") and "edit 0" not in r.output
+    assert "[a] accept proposal" not in r.output
+    ws2 = _held_show(tmp_path, "gratefuldead-1973-06-11")
+    _adj_record(ws2, [], outcome="malformed", malformed=["x"])
+    r = cli_invoke(cfg, "triage", _ADJ_SLUG.replace("10", "11"), input="s\n")
+    assert "edit 0" not in r.output and "[a] accept proposal" not in r.output
+
+
+def test_triage_a_accepts_and_leaves_show(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [_EXCLUDE_A])
+    calls = _stub_accept(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="a\n")
+    assert r.exit_code == 0, r.output
+    assert calls == [_ADJ_SLUG]
+    assert f"{_ADJ_SLUG}: proposal accepted" in r.output
+    assert "still held: " + _ADJ_SLUG in r.output
+
+
+def test_triage_a_accepted_and_packaged_names_the_package(tmp_path, tty, monkeypatch):
+    import llama.adjudicator.runner as runner
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [_EXCLUDE_A])
+
+    def accept(ctx, entry):
+        pkg = ctx.redo(entry, "gather")
+        assert pkg == Path("/pkg")
+        return runner.ShowOutcome(entry.slug, runner.ACCEPTED)
+    monkeypatch.setattr(runner, "accept_proposal", accept)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="a\n")
+    assert f"{_ADJ_SLUG}: proposal accepted" in r.output and "packaged: /pkg" in r.output
+
+
+def test_triage_applied_still_held_renders_held_proposal_and_offers_a(tmp_path, tty):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [], outcome="applied", held_proposal={
+        "flags": [{"flag": _ADJ_FLAG, "judgement": {"verdict": "spurious",
+                                                    "confidence": "low", "why": "jw"}}],
+        "edits": [{"op": "overrule", "flag": _ADJ_FLAG, "confidence": "low", "why": "jw",
+                   "evidence": [_ADJ_EV]}]})
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert "still held:" in r.output and f"edit 0: overrule {_ADJ_FLAG}" in r.output
+    assert "[a] accept proposal / [s]kip" in r.output
+
+
+def test_triage_applied_record_without_held_proposal_shows_nothing(tmp_path, tty):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [_EXCLUDE_A], outcome="applied")
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert "edit 0" not in r.output and "[a] accept proposal" not in r.output
+
+
+def test_triage_a_ratelimited_returns_to_prompt(tmp_path, tty, monkeypatch):
+    from herder.limits import RateLimited
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [_EXCLUDE_A])
+    _stub_accept(monkeypatch, raises=RateLimited("window used up"))
+    r = cli_invoke(cfg, "triage", input="a\ns\n")
+    assert r.exit_code == 0, r.output
+    assert (f"error: rate limited (window used up); accept it later with: "
+            f"llama adjudicate {_ADJ_SLUG} --accept --yes") in r.output
+    assert r.output.count("[a] accept proposal / [s]kip") == 2   # back at the prompt
+
+
+def test_triage_a_other_outcome_prints_error_and_returns_to_prompt(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [_EXCLUDE_A])
+    _stub_accept(monkeypatch, outcome="proposal stale", detail="the show changed")
+    r = cli_invoke(cfg, "triage", input="a\ns\n")
+    assert "error: proposal stale the show changed" in r.output
+    assert "proposal accepted" not in r.output
+    assert r.output.count("[a] accept proposal / [s]kip") == 2
+
+
+def test_triage_a_changed_reenters_the_show(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [_EXCLUDE_A])
+    _stub_accept(monkeypatch, outcome="skipped: changed", detail="changed since the proposal was checked")
+    r = cli_invoke(cfg, "triage", input="a\ns\n")
+    assert "error: skipped: changed changed since the proposal was checked" in r.output
+    assert r.output.count("[a] accept proposal / [s]kip") == 2   # re-entered, prompt again
+
+
+def test_triage_unrenderable_proposal_prints_error_and_offers_no_a(tmp_path, tty, monkeypatch):
+    import llama.adjudicator.report as report
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [_EXCLUDE_A])
+    calls = _stub_accept(monkeypatch)
+    monkeypatch.setattr(report, "render_proposal",
+                        lambda *a, **k: (_ for _ in ()).throw(ValueError("bad record")))
+    r = cli_invoke(cfg, "triage", input="a\n")
+    assert "error: proposal could not be rendered: bad record" in r.output
+    assert "[a] accept proposal" not in r.output and calls == []
+
+
+def test_triage_a_unrecognized_when_not_offered(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    _held_show(tmp_path)
+    calls = _stub_accept(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="a\n")
+    assert "unrecognized; skipping" in r.output and calls == []
