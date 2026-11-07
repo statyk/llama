@@ -36,7 +36,7 @@ from llama.catalog import CatalogEntry
 from llama.config import Config
 from llama.ledger import Ledger, is_delivered
 from llama.models import Show
-from llama.override_keys import clear_hint, filename_keyed_entries, refusal
+from llama.override_keys import filename_keyed_entries, filename_keyed_refusal, refusal
 from llama.overrules import flag_key
 from llama.show_unit import ShowChanged
 from llama.stages.select_recording import lineage_table
@@ -357,16 +357,6 @@ def _accept_pairs(stored: AdjudicationRecord, verdict: Verdict,
     return [(own.get(_key(e.flag, show)), e) for e in verdict.edits]
 
 
-def _switch_refusal(slug: str, keyed: list[tuple[str, str]]) -> str:
-    """`llama fix --recording`'s refusal text for filename-keyed entries."""
-    by_key: dict[str, list[str]] = {}
-    for key, f in keyed:
-        by_key.setdefault(key, []).append(f)
-    named = "; ".join(f"{k}: {', '.join(fs)}" for k, fs in by_key.items())
-    return (f"{slug}: overrides.json has filename-keyed entries ({named}); clear them first "
-            f"with: {clear_hint(slug, keyed)}")
-
-
 def accept_proposal(ctx: Context, entry: CatalogEntry) -> ShowOutcome:
     ws, slug = entry.ws, entry.slug
     path = _record_path(ctx, entry)
@@ -400,7 +390,7 @@ def accept_proposal(ctx: Context, entry: CatalogEntry) -> ShowOutcome:
     if switch is not None:
         keyed = filename_keyed_entries(bundle.overrides)
         if keyed:
-            return ShowOutcome(slug, FAILED, _switch_refusal(slug, keyed))
+            return ShowOutcome(slug, FAILED, filename_keyed_refusal(slug, keyed))
     # 6: apply, no gate and no re-hold
     committed: dict = {}
 

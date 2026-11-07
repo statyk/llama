@@ -33,7 +33,7 @@ from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger, is_delivered
 from llama.locks import Locked, RunMissing, file_lock, run_is_live, run_lock
 from llama.models import Criteria, LedgerEntry, Overrule, ShortlistEntry, Show
-from llama.override_keys import clear_hint, filename_keyed_entries
+from llama.override_keys import clear_hint, filename_keyed_entries, filename_keyed_refusal
 from llama.overrules import merge_rules, records_for
 from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
@@ -3681,13 +3681,7 @@ def fix(
                 raise typer.Exit(1)
             keyed = filename_keyed_entries(read_overrides(sws))
             if keyed:
-                by_key: dict[str, list[str]] = {}
-                for key, f in keyed:
-                    by_key.setdefault(key, []).append(f)
-                named = "; ".join(f"{k}: {', '.join(fs)}" for k, fs in by_key.items())
-                typer.echo(f"{entry.slug}: overrides.json has filename-keyed entries "
-                           f"({named}); clear them first with: "
-                           f"{clear_hint(entry.slug, keyed)}", err=True)
+                typer.echo(filename_keyed_refusal(entry.slug, keyed), err=True)
                 raise typer.Exit(1)
         elif read_overrides(sws).recording is None:
             typer.echo(f"{entry.slug}: no recording pin to clear", err=True)
@@ -4565,6 +4559,153 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
                    f"briefs, {downloads} downloads (~175 MB each, "
                    f"~{downloads * 175 / 1024:.1f} GB)")
     if failed:
+        raise typer.Exit(1)
+
+
+def _interactive() -> bool:
+    return sys.stdin.isatty()
+
+
+def _adjudicate_context(config, ia, ledger, providers):
+    """The adjudicator runner's context: its apply re-runs the show through
+    `_redo_show_locked` (inside the apply's own unit), and the LLM is the `adjudicate` task's
+    ladder. Shared by `adjudicate` and the pipeline hooks."""
+    from llama.adjudicator import runner
+
+    return runner.Context(
+        config=config, ia=ia, ledger=ledger, provider=providers.get("adjudicate"),
+        redo=lambda e, st: _redo_show_locked(config, ia, ledger,
+                                             _resolve_show(config, ledger, e.slug), st))
+
+
+@app.command(rich_help_panel="Fix & ship",
+             short_help="Judge held shows: auto-apply what passes the gate, propose the rest.")
+def adjudicate(
+    names: list[str] = typer.Argument(None, help="Show slug(s), unique substring, or path"),
+    held: bool = typer.Option(False, "--held", help="Selector: held shows (the default)"),
+    state: list[ShowState] = typer.Option(
+        [], "--state", help="Selector: shows in this derived state (repeatable)"),
+    artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
+    profile: list[str] = typer.Option(
+        [], "--profile", autocompletion=_complete_profile,
+        help="Selector: shows acquired by this standing profile (exact name; repeatable)"),
+    run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    dry_run: bool = typer.Option(False, "--dry-run",
+                                 help="Record verdicts and gate outcomes; apply nothing"),
+    force: bool = typer.Option(False, "--force",
+                               help="Judge again even when the show's record is current"),
+    accept: bool = typer.Option(False, "--accept",
+                                help="Apply the stored proposal of the named shows"),
+    yes: bool = typer.Option(False, "--yes", help="With --accept: do not ask per show"),
+    no_pacing: bool = typer.Option(False, "--no-pacing",
+                                   help="Do not pause for the usage window"),
+):
+    """Judge held shows with the adjudicator: a verdict that passes the policy gate is
+    applied (one unit, whole-show re-checked) and the show re-processed; anything else is
+    stored as a proposal (`llama triage` or --accept applies it). Paced like `reapply`;
+    re-run the same command to continue."""
+    from llama.adjudicator import report, runner
+    from llama import reapply as reapply_mod
+    from llama.catalog import iter_shows
+    from llama.cli_select import apply_selector, build_selector
+
+    selectors = bool(held or state or artist or profile or run)
+    if names and selectors:
+        typer.echo("give shows OR selectors, not both", err=True)
+        raise typer.Exit(1)
+    if accept:
+        if not names:
+            typer.echo("--accept takes named shows", err=True)
+            raise typer.Exit(1)
+        if dry_run or force:
+            typer.echo("--accept cannot be combined with --dry-run or --force", err=True)
+            raise typer.Exit(1)
+        if not yes and not _interactive():
+            typer.echo("--accept needs --yes when not interactive", err=True)
+            raise typer.Exit(1)
+    config, ia, ledger = _setup()
+    pace = _pace(config, None, None, no_pacing)
+    failed = False
+    entries = []
+    if names:
+        for name in names:
+            try:
+                entries.append(_resolve_show(config, ledger, name))
+            except LlamaError as exc:
+                typer.echo(f"FAILED {name}: {exc}", err=True)
+                failed = True
+    else:
+        try:
+            sel = build_selector(held=held or not selectors, states=state, artist=artist,
+                                 run=run, profiles=profile)
+        except LlamaError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1)
+        _note_unknown_profiles(config, profile)
+        entries = apply_selector(iter_shows(config.root, ledger), sel)
+    if not entries:
+        typer.echo("no matching shows")
+        raise typer.Exit(1 if failed else 0)
+
+    set_capture_dir(config.root / "llm-failures")
+    ctx = _adjudicate_context(config, ia, ledger, make_providers(config))
+    state_ = pacing_state.read_state(config.root)
+    resume = "  re-run the same command to continue (judged shows are skipped while current)"
+    outcomes: list = []
+    consecutive = 0
+    stopped = False
+
+    for entry in entries:
+        reading = _meter(config, pace)
+        verdict = decide(_pacing._now(), reading, Progress(state_.per_show_delta), pace)
+        if isinstance(verdict, PauseUntil):
+            typer.echo(f"paused: {str(verdict)}")
+            typer.echo(resume)
+            break
+        try:
+            if accept:
+                stored = runner.read_adjudication(entry.ws)
+                if stored is not None and not stored.dry_run:
+                    try:
+                        for line in report.render_proposal(stored, read_model(entry.ws.show, Show)):
+                            typer.echo(line)
+                    except Exception:   # noqa: BLE001 - an unreadable record is accept's NO_PROPOSAL
+                        pass
+                    if not yes and not typer.confirm("Accept this proposal?", default=False):
+                        typer.echo(f"{entry.slug}: skipped")
+                        continue
+                out = runner.accept_proposal(ctx, entry)
+            else:
+                out = runner.adjudicate_show(ctx, entry, dry_run=dry_run, force=force)
+        except RateLimited as exc:
+            typer.echo(f"paused: {str(exc)}")
+            typer.echo(resume)
+            break
+        except Exception as exc:   # noqa: BLE001 - one bad show never aborts the run
+            out = runner.ShowOutcome(entry.slug, runner.FAILED, f"{type(exc).__name__}: {exc}")
+        outcomes.append(out)
+        typer.echo(f"{out.slug}: {out.outcome}" + (f" ({out.detail})" if out.detail else ""))
+        if out.llm_failure:
+            consecutive += 1
+            if consecutive >= reapply_mod.STOP_AFTER_LLM_FAILURES:
+                typer.echo(f"stopping after {consecutive} consecutive LLM failures")
+                stopped = True
+                break
+        elif out.record is not None:
+            consecutive = 0
+
+    def voiced(slug: str) -> bool:
+        if config.delivery_path is None:
+            return False
+        try:
+            return _destination_is_voiced(config.delivery_path / slug)
+        except LlamaError:
+            return False
+
+    if outcomes:
+        for line in report.render_report(outcomes, voiced=voiced):
+            typer.echo(line)
+    if stopped or failed or any(o.outcome == runner.FAILED for o in outcomes):
         raise typer.Exit(1)
 
 

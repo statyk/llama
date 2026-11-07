@@ -111,6 +111,17 @@ def clear_hint(slug: str, entries: Sequence[tuple[str, str]]) -> str:
     return f"llama fix {slug} " + " ".join(flags)
 
 
+def filename_keyed_refusal(slug: str, keyed: Sequence[tuple[str, str]]) -> str:
+    """`llama fix --recording`'s refusal for filename-keyed entries, shared with the
+    adjudicator's switch_recording accept."""
+    by_key: dict[str, list[str]] = {}
+    for key, f in keyed:
+        by_key.setdefault(key, []).append(f)
+    named = "; ".join(f"{k}: {', '.join(fs)}" for k, fs in by_key.items())
+    return (f"{slug}: overrides.json has filename-keyed entries ({named}); clear them first "
+            f"with: {clear_hint(slug, keyed)}")
+
+
 def rekey_raw(raw: dict, filenames: Sequence[str]) -> dict:
     """The migration's mapping: a copy of `raw` with each legacy value N replaced by
     `filenames[N - 1]`. Only the three positional keys change; key order (top level

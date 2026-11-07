@@ -1,0 +1,142 @@
+"""What `llama adjudicate` prints (spec "Backlog command and pacing"): a stored proposal
+as lines, the propose-only items as the commands that do them, and the run report. Pure
+text over records and outcomes; nothing here reads or writes the library."""
+from __future__ import annotations
+
+from typing import Callable
+
+from llama.adjudicator import runner
+from llama.adjudicator.record import AdjudicationRecord
+from llama.adjudicator.runner import ShowOutcome
+from llama.adjudicator.verdict import PROPOSE_ONLY_OPS, Verdict
+from llama.models import Show
+from llama.util import slugify
+
+# The summary's order: the runner's outcome constants, in their order there.
+OUTCOME_ORDER = (runner.APPLIED, runner.APPLIED_HELD, runner.PROPOSAL, runner.MALFORMED,
+                 runner.STALE, runner.CURRENT, runner.HAS_RECORD, runner.NOT_HELD,
+                 runner.CHANGED, runner.UNJUDGED, runner.FAILED, runner.DRY_RUN,
+                 runner.ACCEPTED, runner.PROPOSAL_STALE, runner.NO_PROPOSAL)
+
+
+def proposal_commands(slug: str, verdict: Verdict) -> list[str]:
+    """The verdict's propose-only edits as the commands that carry them out."""
+    out: list[str] = []
+    for e in verdict.edits:
+        if e.op not in PROPOSE_ONLY_OPS:
+            continue
+        if e.op == "set_date":
+            out.append(f"llama fix {slug} --set-date {e.value}")
+        elif e.op == "untitled":
+            out.append(f"llama fix {slug} --untitled")
+        elif e.op == "narration":
+            out.append(f"llama fix {slug} --narration {e.value}")
+        elif e.op == "rm":
+            out.append(f"llama rm {slug}")
+        elif e.op == "redo_research":
+            out.append(f"llama redo {slug} --from research")
+    return out
+
+
+def _target(e) -> str:
+    for name in ("file", "identifier", "flag", "venue", "city"):
+        if hasattr(e, name):
+            return str(getattr(e, name))
+    if hasattr(e, "breaks_after"):
+        enc = getattr(e, "encore_after", None)
+        return (f"breaks_after={list(e.breaks_after)}"
+                + (f" encore_after={enc}" if enc is not None else ""))
+    v = getattr(e, "value", None)
+    return str(v) if v is not None else ""
+
+
+def _flag_line(flag: str, j) -> str:
+    if j is None:
+        return f"  flag: {flag} -> not judged"
+    return f"  flag: {flag} -> {j['verdict']} ({j['confidence']}): {j['why']}"
+
+
+def render_proposal(rec: AdjudicationRecord, show: Show) -> list[str]:
+    """A stored proposal (or an applied record's remaining hold) as lines. `show` names
+    the library slug (`slugify(performance_id)`) for the `run:` commands."""
+    hp = rec.held_proposal
+    if rec.outcome == "applied" and hp:
+        lines = [f"applied ({rec.model}, {rec.at}), still held:"]
+        for f in hp.get("flags", []):
+            lines.append(_flag_line(f["flag"], f.get("judgement")))
+        for i, e in enumerate(hp.get("edits", [])):
+            lines.append(f"  edit {i}: overrule {e['flag']}")
+            lines += [f'    {ev["kind"]}: "{ev["quote"]}"' for ev in e.get("evidence", [])]
+        return lines
+    verdict = Verdict.model_validate(rec.verdict)
+    lines = [f"proposal ({rec.model}, {rec.at}): {verdict.kind}; "
+             f"correct after: {verdict.show_correct_after}"]
+    for j in verdict.flags:
+        lines.append(_flag_line(j.flag, j.model_dump(mode="json")))
+    gates = {g["index"]: g for g in rec.gate}
+    for i, e in enumerate(verdict.edits):
+        g = gates.get(i)
+        bar = f" [{g['bar']}: {'passed' if g['passed'] else g['reason']}]" if g else ""
+        lines.append(f"  edit {i}: {e.op} {_target(e)}".rstrip() + bar)
+        lines += [f'    {ev.kind}: "{ev.quote}"' for ev in e.evidence]
+    if verdict.kind == "hold" and verdict.decide:
+        lines.append(f"  decide: {verdict.decide}")
+    if rec.partial_tape or verdict.partial_tape:
+        lines.append("  partial tape")
+    slug = slugify(show.performance_id)
+    lines += [f"  run: {c}" for c in proposal_commands(slug, verdict)]
+    return lines
+
+
+def _why_held(o: ShowOutcome) -> str:
+    rec = o.record
+    if o.outcome == runner.APPLIED_HELD:
+        flags = (rec.held_proposal or {}).get("flags", []) if rec is not None else []
+        return "applied, still held" + (f": {flags[0]['flag']}" if flags else "")
+    if rec is not None:
+        for g in rec.gate:
+            if not g.get("passed"):
+                return g.get("reason", "")
+        if rec.vetoes:
+            return rec.vetoes[0]
+        diff = rec.result.get("diff") if rec.result else None
+        if diff:
+            return diff[0]
+        if rec.result and rec.result.get("error"):
+            return rec.result["error"]
+    return o.detail
+
+
+def render_report(outcomes: list[ShowOutcome], *, voiced: Callable[[str], bool]) -> list[str]:
+    counts: dict[str, int] = {}
+    for o in outcomes:
+        counts[o.outcome] = counts.get(o.outcome, 0) + 1
+    order = [k for k in OUTCOME_ORDER if k in counts] + [k for k in counts
+                                                         if k not in OUTCOME_ORDER]
+    lines = [f"summary: {len(outcomes)} shows: "
+             + ", ".join(f"{k} {counts[k]}" for k in order)]
+
+    changed = [o for o in outcomes if o.changes]
+    if changed:
+        lines.append("auto-applied track-list changes:")
+        for o in changed:
+            lines.append(f"  {o.slug}:")
+            lines += [f"    {c}" for c in o.changes]
+    held = [o for o in outcomes if o.outcome in (runner.PROPOSAL, runner.APPLIED_HELD)]
+    if held:
+        lines.append("held with proposal:")
+        lines += [f"  {o.slug}: {_why_held(o)}" for o in held]
+    stale = [o for o in outcomes if o.outcome == runner.STALE]
+    if stale:
+        lines.append("stale: reprocess first:")
+        lines += [f"  {o.slug}: {o.detail}" for o in stale]
+    fixed = [o for o in outcomes if o.delivered_changed and o.fixed_eligible]
+    if fixed:
+        lines.append("eligible for llama deliver --fixed:")
+        lines += [f"  {o.slug}" for o in fixed]
+    redeliver = [o for o in outcomes if o.delivered_changed and not o.fixed_eligible]
+    if redeliver:
+        lines.append("delivered shows changed (re-deliver):")
+        lines += [f"  llama deliver {o.slug}" + (" --replace-voiced" if voiced(o.slug) else "")
+                  for o in redeliver]
+    return lines
