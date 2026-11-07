@@ -1124,6 +1124,15 @@ def test_legacy_message(tmp_path):
 _SLUG = "gratefuldead-1973-06-10"
 
 
+def _packaged_with_two_recordings(tmp_path, monkeypatch):
+    """packaged_gd73 whose selection.json also considered a second recording."""
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
+    sel = json.loads(ws.selection.read_text())
+    sel["scores"]["gd73.sib"] = {**next(iter(sel["scores"].values())), "score": 1.0}
+    ws.selection.write_text(json.dumps(sel))
+    return cfg, ws
+
+
 def _gd73_show(tmp_path: Path, monkeypatch, *, overrides: Overrides | None = None,
                needs_review: bool = False) -> ShowWorkspace:
     """gratefuldead-1973-06-10 whose show.json is the real gather of gd73 under the
@@ -1599,3 +1608,99 @@ def test_fix_no_run_with_allow_download_names_it_in_the_staged_redo(tmp_path, mo
     r = cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "X", "--no-run", "--allow-download")
     assert r.exit_code == 0, r.output
     assert "staged; next: llama redo gratefuldead-1973-06-10 --from gather --allow-download" in r.output
+
+
+# --- recording pin and --clear-include ---
+
+_SLUG = "gratefuldead-1973-06-10"
+
+
+def _packaged_with_two_recordings(tmp_path, monkeypatch):
+    """packaged_gd73 whose selection.json also considered a second recording."""
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
+    sel = json.loads(ws.selection.read_text())
+    sel["scores"]["gd73.sib"] = {**next(iter(sel["scores"].values())), "score": 1.0}
+    ws.selection.write_text(json.dumps(sel))
+    return cfg, ws
+
+
+def test_fix_recording_pins_and_redoes_from_select(tmp_path, monkeypatch):
+    cfg, ws = _packaged_with_two_recordings(tmp_path, monkeypatch)
+    assert "gd73.sib" in json.loads(ws.selection.read_text())["scores"]
+    r = cli_invoke(cfg, "fix", _SLUG, "--recording", "gd73.sib", "--no-run")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).recording == "gd73.sib"
+    assert "staged; next: llama redo gratefuldead-1973-06-10 --from select" in r.output
+
+
+def test_fix_recording_runs_the_select_redo(tmp_path, monkeypatch):
+    cfg, ws = _packaged_with_two_recordings(tmp_path, monkeypatch)
+    calls = _stub_redo(monkeypatch)
+    assert cli_invoke(cfg, "fix", _SLUG, "--recording", "gd73.sib").exit_code == 0
+    assert calls == ["select"]
+
+
+def test_fix_recording_refuses_unconsidered_identifier(tmp_path, monkeypatch):
+    cfg, ws = _packaged_with_two_recordings(tmp_path, monkeypatch)
+    r = cli_invoke(cfg, "fix", _SLUG, "--recording", "nope")
+    assert r.exit_code == 1
+    assert f"{_SLUG}: nope is not one of this show's considered recordings (llama show {_SLUG} lists them)" in r.output
+    assert read_overrides(ws).recording is None
+
+
+def test_fix_recording_refuses_while_filename_keyed_entries_exist(tmp_path, monkeypatch):
+    cfg, ws = _packaged_with_two_recordings(tmp_path, monkeypatch)
+    write_artifact(ws.overrides, Overrides(exclude=["x.mp3"], titles={"t.mp3": "T"}))
+    r = cli_invoke(cfg, "fix", _SLUG, "--recording", "gd73.sib")
+    assert r.exit_code == 1
+    assert (f"{_SLUG}: overrides.json has filename-keyed entries (exclude: x.mp3; titles: t.mp3); "
+            f"clear them first with: llama fix {_SLUG} --unexclude x.mp3 --clear-title t.mp3") in r.output
+    assert read_overrides(ws).recording is None
+
+
+def test_fix_recording_combines_with_no_other_edit_flag(tmp_path, monkeypatch):
+    cfg, ws = _packaged_with_two_recordings(tmp_path, monkeypatch)
+    r = cli_invoke(cfg, "fix", _SLUG, "--recording", "gd73.sib", "--set-venue", "V")
+    assert r.exit_code == 1 and "--recording cannot be combined with --set-venue" in r.output
+    r = cli_invoke(cfg, "fix", _SLUG, "--clear-recording", "--clear-include", "a.mp3")
+    assert r.exit_code == 1 and "--clear-recording cannot be combined with --clear-include" in r.output
+    assert read_overrides(ws).recording is None and read_overrides(ws).venue is None
+
+
+def test_fix_recording_allows_no_run_and_allow_download(tmp_path, monkeypatch):
+    cfg, ws = _packaged_with_two_recordings(tmp_path, monkeypatch)
+    r = cli_invoke(cfg, "fix", _SLUG, "--recording", "gd73.sib", "--no-run", "--allow-download")
+    assert r.exit_code == 0, r.output
+    assert "--from select --allow-download" in r.output
+
+
+def test_untitled_refuses_the_new_flags(tmp_path, monkeypatch):
+    cfg, ws = _packaged_with_two_recordings(tmp_path, monkeypatch)
+    for flag in (["--recording", "gd73.sib"], ["--clear-recording"], ["--clear-include", "a.mp3"]):
+        r = cli_invoke(cfg, "fix", _SLUG, "--untitled", *flag)
+        assert r.exit_code == 1 and f"--untitled cannot be combined with {flag[0]}" in r.output
+
+
+def test_fix_clear_recording(tmp_path, monkeypatch):
+    cfg, ws = _packaged_with_two_recordings(tmp_path, monkeypatch)
+    r = cli_invoke(cfg, "fix", _SLUG, "--clear-recording")
+    assert r.exit_code == 1 and "no recording pin to clear" in r.output
+    write_artifact(ws.overrides, Overrides(recording="gd73.sib"))
+    r = cli_invoke(cfg, "fix", _SLUG, "--clear-recording", "--no-run")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).recording is None
+    assert "staged; next: llama redo gratefuldead-1973-06-10 --from select" in r.output
+
+
+def test_fix_clear_include_by_name_and_number(tmp_path, monkeypatch):
+    cfg, ws = _packaged_with_two_recordings(tmp_path, monkeypatch)
+    first = read_model(ws.show, Show).tracks[0].filename
+    for token in (first, "1"):
+        write_artifact(ws.overrides, Overrides(include=[first, "keep.mp3"]))
+        r = cli_invoke(cfg, "fix", _SLUG, "--clear-include", token, "--no-run")
+        assert r.exit_code == 0, r.output
+        assert read_overrides(ws).include == ["keep.mp3"]
+        assert "staged; next: llama redo gratefuldead-1973-06-10 --from gather" in r.output
+    r = cli_invoke(cfg, "fix", _SLUG, "--clear-include", "other.mp3")
+    assert r.exit_code == 1 and "other.mp3 is not in overrides.include" in r.output
+    assert read_overrides(ws).include == ["keep.mp3"]

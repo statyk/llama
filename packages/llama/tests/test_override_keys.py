@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from llama.errors import LlamaError
 from llama.models import Overrides
-from llama.override_keys import (POSITIONAL_KEYS, Positions, classify, filename_values,
+from llama.override_keys import (clear_hint, filename_keyed_entries, POSITIONAL_KEYS, Positions, classify, filename_values,
                                  legacy_int, rekey_raw, resolve_positions)
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -174,3 +174,14 @@ def test_resolver_refusals():
         f"{SLUG}: overrides name files not in the track list: titles gone-1.mp3, "
         f"encore_after gone-2.mp3; clear them with llama fix {SLUG} --clear-title <file> "
         f"/ --clear-set-breaks / --clear-encore")
+
+
+def test_filename_keyed_entries_and_clear_hint():
+    ov = Overrides(exclude=["x.mp3"], include=["i.mp3"], titles={"t.mp3": "T"},
+                   set_breaks=["b.mp3"], encore_after="e.mp3", venue="V", recording="R")
+    assert filename_keyed_entries(ov) == [("exclude", "x.mp3"), ("include", "i.mp3"),
+        ("titles", "t.mp3"), ("set_breaks", "b.mp3"), ("encore_after", "e.mp3")]
+    assert clear_hint("s", filename_keyed_entries(ov)) == (
+        "llama fix s --unexclude x.mp3 --clear-include i.mp3 --clear-title t.mp3 "
+        "--clear-set-breaks --clear-encore")
+    assert filename_keyed_entries(Overrides(venue="V", recording="R")) == []

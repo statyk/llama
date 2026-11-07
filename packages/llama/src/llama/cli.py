@@ -33,6 +33,7 @@ from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger, is_delivered
 from llama.locks import Locked, RunMissing, file_lock, run_is_live, run_lock
 from llama.models import Criteria, LedgerEntry, Overrule, ShortlistEntry, Show
+from llama.override_keys import clear_hint, filename_keyed_entries
 from llama.overrules import merge_rules, records_for
 from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
@@ -59,7 +60,8 @@ from llama.stages.winnow import run_winnow
 from llama.status import configure_logging
 from llama.util import parse_performance_id, slugify
 from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
-                             read_model, read_model_list, write_artifact)
+                             read_json, read_model, read_model_list, read_overrides,
+                             write_artifact)
 
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "brief", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
@@ -1464,8 +1466,8 @@ def _exclusion_refusal(slug: str, file: str, key: str) -> str:
             f"llama fix {slug} {flag}")
 
 
-def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
-                    narration=None,
+def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(), rm_include=(),
+                    narration=None, recording=_UNSET,
                     venue=_UNSET, city=_UNSET, date=_UNSET, set_titles=None,
                     clear_titles=(), set_breaks=_UNSET, clear_set_breaks=False,
                     encore_after=_UNSET, clear_encore=False,
@@ -1515,7 +1517,7 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
     for f in add_exclude:
         if f not in exclude:
             exclude.append(f)
-    include = [f for f in ov.include if f not in set(add_exclude)]
+    include = [f for f in ov.include if f not in set(add_exclude) | set(rm_include)]
     for f in add_include:
         if f not in include:
             include.append(f)
@@ -1535,6 +1537,8 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
         "titles": titles,
         "overrules": merge_rules(ov.overrules, add_overrules),
     })
+    if recording is not _UNSET:
+        data = data.model_copy(update={"recording": recording})
     if venue is not _UNSET:
         data = data.model_copy(update={"venue": venue})
     if city is not _UNSET:
@@ -3554,6 +3558,15 @@ def fix(
              "combining the flags does not bring segues back."),
     clear_encore: bool = typer.Option(
         False, "--clear-encore", help="Clear the encore override"),
+    recording: str = typer.Option(
+        None, "--recording",
+        help="Pin the recording to use: an archive.org identifier among the show's "
+             "considered recordings (`llama show` lists them). Redoes from select"),
+    clear_recording: bool = typer.Option(
+        False, "--clear-recording", help="Remove the recording pin. Redoes from select"),
+    clear_include: list[str] = typer.Option(
+        None, "--clear-include",
+        help="Remove a file from overrides.include: the filename or its track number"),
     suggest_titles: bool = typer.Option(
         False, "--suggest-titles",
         help="Propose titles for unresolved tracks from the setlist and, on "
@@ -3615,7 +3628,8 @@ def fix(
                 ("--clear-set-breaks", clear_set_breaks),
                 ("--clear-encore", clear_encore), ("--clear-title", clear_title),
                 ("--set-venue", set_venue), ("--set-city", set_city),
-                ("--set-date", set_date)):
+                ("--set-date", set_date), ("--recording", recording),
+                ("--clear-recording", clear_recording), ("--clear-include", clear_include)):
             if given:
                 typer.echo(f"--untitled cannot be combined with {flag}", err=True)
                 raise typer.Exit(1)
@@ -3640,6 +3654,57 @@ def fix(
             return
         typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
         return
+
+    if recording is not None or clear_recording:
+        # Every refusal precedes any lock or write, like the --untitled block.
+        mine = "--recording" if recording is not None else "--clear-recording"
+        for flag, given in (
+                ("--clear-recording", clear_recording and recording is not None),
+                ("--suggest-titles", suggest_titles), ("--exclude", exclude),
+                ("--unexclude", unexclude), ("--include", include),
+                ("--clear-include", clear_include), ("--set-title", set_title),
+                ("--clear-title", clear_title), ("--set-breaks", set_breaks),
+                ("--clear-set-breaks", clear_set_breaks), ("--set-encore", set_encore),
+                ("--clear-encore", clear_encore), ("--set-venue", set_venue),
+                ("--set-city", set_city), ("--set-date", set_date),
+                ("--narration", narration), ("--overrule", overrule)):
+            if given:
+                typer.echo(f"{mine} cannot be combined with {flag}", err=True)
+                raise typer.Exit(1)
+        if recording is not None:
+            considered = (read_json(sws.selection).get("scores", {})
+                          if sws.selection.exists() else {})
+            if recording not in considered:
+                typer.echo(f"{entry.slug}: {recording} is not one of this show's "
+                           f"considered recordings (llama show {entry.slug} lists them)",
+                           err=True)
+                raise typer.Exit(1)
+            keyed = filename_keyed_entries(read_overrides(sws))
+            if keyed:
+                by_key: dict[str, list[str]] = {}
+                for key, f in keyed:
+                    by_key.setdefault(key, []).append(f)
+                named = "; ".join(f"{k}: {', '.join(fs)}" for k, fs in by_key.items())
+                typer.echo(f"{entry.slug}: overrides.json has filename-keyed entries "
+                           f"({named}); clear them first with: "
+                           f"{clear_hint(entry.slug, keyed)}", err=True)
+                raise typer.Exit(1)
+        elif read_overrides(sws).recording is None:
+            typer.echo(f"{entry.slug}: no recording pin to clear", err=True)
+            raise typer.Exit(1)
+
+    clear_include_files: list[str] = []
+    if clear_include:
+        try:
+            clear_include_files = _resolve_exclude_tokens(sws, clear_include)
+        except LlamaError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1)
+        stored = read_overrides(sws).include
+        for f in clear_include_files:
+            if f not in stored:
+                typer.echo(f"{entry.slug}: {f} is not in overrides.include", err=True)
+                raise typer.Exit(1)
 
     parsed_titles = {}
     for spec in (set_title or []):
@@ -3791,13 +3856,14 @@ def fix(
                 raise typer.Exit(0)
             typer.echo("proposal not adopted; continuing with the other edit flag(s) given")
 
-    did_files = bool(exclude or unexclude or include)
+    did_files = bool(exclude or unexclude or include or clear_include_files)
+    did_recording = recording is not None or clear_recording
     did_meta = bool(set_venue or set_city or set_date or parsed_titles
                     or clear_title_items or set_breaks or clear_set_breaks
                     or set_encore or clear_encore)
     did_narration = narration is not None
 
-    if not (did_files or did_meta or did_narration or overrule):
+    if not (did_files or did_meta or did_narration or overrule or did_recording):
         typer.echo("nothing to fix: give an edit flag (see --help), or inspect with: "
                    f"llama show {entry.slug}", err=True)
         raise typer.Exit(1)
@@ -3809,7 +3875,7 @@ def fix(
     if not sws.show.exists() and (narration is not None or overrule or include):
         refuse_no_show_json()
 
-    stage = "gather" if (did_files or did_meta) else ("brief" if did_narration else "package")
+    stage = "select" if did_recording else "gather" if (did_files or did_meta) else ("brief" if did_narration else "package")
     real_edit = False
     lines: list[str] = []   # printed after the unit: nothing writes to stdout inside it
     pkg = None
@@ -3830,7 +3896,9 @@ def fix(
             # Only with --include: it reads show.json, which may be absent.
             undo, readmit = _split_include_targets(sws, inc) if inc else ([], [])
             ov = _edit_overrides(sws, add_exclude=add, rm_exclude=list(rm) + undo,
-                                 add_include=readmit)
+                                 add_include=readmit, rm_include=clear_include_files)
+            if clear_include_files:
+                lines.append(f"{entry.slug}: overrides.include = {ov.include}")
             if undo:
                 # The operator typed --include and would otherwise be told only that
                 # overrides.EXCLUDE changed -- true, but it does not answer "what did
@@ -3848,6 +3916,11 @@ def fix(
             if readmit:
                 lines.append(f"{entry.slug}: overrides.include = {ov.include} "
                              "(the hold clears itself if a clean re-gather results)")
+            real_edit = True
+        if did_recording:
+            _edit_overrides(sws, recording=recording)   # None for --clear-recording
+            lines.append(f"{entry.slug}: recording pin = {recording}" if recording
+                         else f"{entry.slug}: recording pin cleared")
             real_edit = True
         if narration == NarrationMode.vague:
             _edit_overrides(sws, narration="vague")

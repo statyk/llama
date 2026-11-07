@@ -4,9 +4,10 @@ import re
 from llama.config import SelectionConfig
 from llama.junk import FORMAT_BY_AUDIO, filter_files
 from llama.models import Candidate, QualityAssessment
-from llama.scoring import lineage_class, score_recording
+from llama.scoring import LINEAGE_SCORES, lineage_class, score_recording
 from llama.titles import clean_tag_titles, title_fraction
-from llama.workspace import ShowWorkspace, read_json, should_run, write_artifact
+from llama.errors import LlamaError
+from llama.workspace import ShowWorkspace, read_json, read_overrides, should_run, write_artifact
 
 
 def _shnid(identifier: str) -> int:
@@ -39,6 +40,12 @@ def _era_lineage_scores(selection: SelectionConfig, collection: str, date: str) 
         if era.collection == collection and era.date_from <= date <= era.date_to:
             return era.scores
     return None
+
+
+def lineage_table(selection: SelectionConfig, collection: str, date: str) -> dict[str, float]:
+    """The lineage scores in force for this collection and date: the era's, else
+    the global `scoring.LINEAGE_SCORES`."""
+    return _era_lineage_scores(selection, collection, date) or LINEAGE_SCORES
 
 
 def run_select_recording(
@@ -99,6 +106,14 @@ def run_select_recording(
             "downloads_norm": round(downloads_norm, 3),
             "title_fraction": round(p["title_fraction"], 3),
         }
-    chosen = max(scores, key=lambda ident: scores[ident]["score"])
-    write_artifact(show_ws.selection, {"identifier": chosen, "scores": scores})
+    pin = read_overrides(show_ws).recording
+    if pin is not None and pin not in scores:
+        slug = show_ws.dir.name
+        raise LlamaError(f"{slug}: overrides.recording {pin} is not a recording of this "
+                         f"performance; clear it with: llama fix {slug} --clear-recording")
+    chosen = pin if pin is not None else max(scores, key=lambda ident: scores[ident]["score"])
+    out = {"identifier": chosen, "scores": scores}
+    if pin is not None:
+        out["pinned"] = True
+    write_artifact(show_ws.selection, out)
     return chosen

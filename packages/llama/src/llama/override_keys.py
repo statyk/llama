@@ -86,6 +86,31 @@ def filename_values(data: Mapping[str, object]) -> list[tuple[str, str]]:
     return [(k, str(v)) for k, v in _entries(data) if legacy_int(v) is None]
 
 
+def filename_keyed_entries(ov: Overrides) -> list[tuple[str, str]]:
+    """(key, filename) for every filename-keyed override, in the order exclude,
+    include, titles, set_breaks, encore_after."""
+    out: list[tuple[str, str]] = [("exclude", f) for f in ov.exclude]
+    out += [("include", f) for f in ov.include]
+    out += [("titles", str(f)) for f in ov.titles]
+    out += [("set_breaks", str(f)) for f in ov.set_breaks or ()]
+    if ov.encore_after is not None:
+        out.append(("encore_after", str(ov.encore_after)))
+    return out
+
+
+def clear_hint(slug: str, entries: Sequence[tuple[str, str]]) -> str:
+    """The `llama fix` command that clears `entries`: one flag per file, except
+    `--clear-set-breaks` and `--clear-encore`, which clear the whole key once."""
+    flags: list[str] = []
+    for key, f in entries:
+        flag = {"exclude": f"--unexclude {f}", "include": f"--clear-include {f}",
+                "titles": f"--clear-title {f}", "set_breaks": "--clear-set-breaks",
+                "encore_after": "--clear-encore"}[key]
+        if flag not in flags:
+            flags.append(flag)
+    return f"llama fix {slug} " + " ".join(flags)
+
+
 def rekey_raw(raw: dict, filenames: Sequence[str]) -> dict:
     """The migration's mapping: a copy of `raw` with each legacy value N replaced by
     `filenames[N - 1]`. Only the three positional keys change; key order (top level

@@ -1,9 +1,13 @@
 import json
 from pathlib import Path
 
-from llama.models import Candidate, QualityAssessment, RecordingSummary
+import pytest
+
+from llama.errors import LlamaError
+
+from llama.models import Candidate, Overrides, QualityAssessment, RecordingSummary
 from llama.stages.select_recording import run_select_recording
-from llama.workspace import ShowWorkspace
+from llama.workspace import ShowWorkspace, write_artifact
 
 
 def mp3(name, length="05:00"):
@@ -196,3 +200,38 @@ def test_zero_downloads_everywhere_is_neutral(tmp_path: Path):
     run_select_recording(sws, TitledIA(), cand, assessment(reviewed=""))
     sel = json.loads(sws.selection.read_text())
     assert all(v["downloads_norm"] == 0.0 for v in sel["scores"].values())
+
+
+def test_pin_wins_over_score_and_is_recorded(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(recording="gd73-06-10.aud"))
+    assert run_select_recording(sws, StubIA(), make_candidate(), assessment()) == "gd73-06-10.aud"
+    sel = json.loads(sws.selection.read_text())
+    assert sel["identifier"] == "gd73-06-10.aud" and sel["pinned"] is True
+    assert set(sel["scores"]) == {"gd73-06-10.sbd", "gd73-06-10.aud"}
+    assert sel["scores"]["gd73-06-10.sbd"]["score"] > sel["scores"]["gd73-06-10.aud"]["score"]
+
+
+def test_pin_not_among_candidates_refuses(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(recording="Z"))
+    with pytest.raises(LlamaError, match=r"overrides.recording Z is not a recording of this "
+                                          r"performance; clear it with: llama fix show --clear-recording"):
+        run_select_recording(sws, StubIA(), make_candidate(), assessment())
+    assert not sws.selection.exists()
+
+
+def test_no_pin_has_no_pinned_key(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "show")
+    run_select_recording(sws, StubIA(), make_candidate(), assessment())
+    assert "pinned" not in json.loads(sws.selection.read_text())
+
+
+def test_lineage_table_is_the_era_table_else_the_global_one():
+    from llama.config import SelectionConfig
+    from llama.scoring import LINEAGE_SCORES
+    from llama.stages.select_recording import lineage_table
+    sel = SelectionConfig()
+    assert lineage_table(sel, "Mekons", "1989-12-02") == LINEAGE_SCORES
+    era = next(e for e in sel.lineage_eras)
+    assert lineage_table(sel, era.collection, era.date_from) == era.scores

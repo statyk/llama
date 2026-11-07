@@ -222,8 +222,8 @@ class Overrule(BaseModel):
 
 class Overrides(BaseModel):
     """Hand-authored per-show operator input, durable across re-derivation.
-    Read by gather (exclude, include, venue, city, date, titles, set_breaks,
-    encore_after) and brief (narration); never auto-written by a stage.
+    Read by select (recording), gather (exclude, include, venue, city, date, titles,
+    set_breaks, encore_after) and brief (narration); never auto-written by a stage.
     Absent file == this default."""
     exclude: list[str] = Field(default_factory=list)   # source filenames to drop
     include: list[str] = Field(default_factory=list)   # filenames re-admitted past the junk filter
