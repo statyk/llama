@@ -367,32 +367,43 @@ class _LedgerUndo:
     """The ledger row this unit's redo may add, and its removal on a restore.
 
     `process_show` records exactly one row kind: (candidate pid, `selected`, the
-    provenance run), append-once on that key. Taken inside the unit (show lock held)
-    before any redo, `before` is that key's rows; a restore removes the key's rows not in
-    it. Only a holder of this show's lock runs `process_show` for it, so a new row of the
-    key is this unit's; a row of another run or status, or another show, is never
-    touched. No readable provenance means the redo refuses before `process_show`."""
+    provenance run), and `Ledger.record` is append-once on that key. Taken inside the unit
+    (show lock held) before any redo: if a row of the key already exists, the redo can add
+    nothing and the undo is a no-op; otherwise a restore removes every row of the key,
+    compared parsed (a concurrent `remove`/`remove_status` rewrite re-serializes lines, so
+    raw bytes are no identity). Only a holder of this show's lock runs `process_show` for
+    it, so such a row is this unit's; a row of another run or status, or another show, is
+    never touched. That argument assumes the show dir is `shows/<slugify(pid)>` (one lock
+    per pid): a hand-renamed show dir is outside the guarantee, as for `show_unit`
+    (limitation 4). An absent `ledger.jsonl` the redo created is left as a 0-byte file
+    (readers treat it as empty). No readable provenance means the redo refuses before
+    `process_show`, so there is nothing to undo."""
 
     def __init__(self, ledger: Ledger, show_ws: ShowWorkspace):
         self.ledger = ledger
+        self.interrupt: BaseException | None = None   # a non-Exception raised by the removal
         try:
             prov = read_model(show_ws.provenance, Provenance)
         except Exception:      # noqa: BLE001 - missing or unreadable: no redo can record
             self.key = None
             return
         self.key = (prov.candidate.performance_id, "selected", prov.run)
-        self.before = ledger.rows(*self.key)
+        self.existed = ledger.has_row(*self.key)
 
     def undo(self) -> str | None:
-        """Remove the added rows; never raises. A note when the removal failed."""
-        if self.key is None:
+        """Remove the added rows; never raises. A note when the removal failed; a
+        KeyboardInterrupt (or other non-Exception) during it is kept in `interrupt` for
+        the caller to re-raise once the original path has run."""
+        if self.key is None or self.existed:
             return None
         try:
-            self.ledger.remove_added(*self.key, before=self.before)
-        except Exception as exc:      # noqa: BLE001 - never mask the restore
+            self.ledger.remove_added(*self.key)
+        except BaseException as exc:      # noqa: BLE001 - never mask the restore
             note = (f"ledger: could not remove the {self.key[1]} row this apply added for "
-                    f"{self.key[0]} (run {self.key[2]}): {exc}")
+                    f"{self.key[0]} (run {self.key[2]}): {exc!r}")
             log.warning("%s", note)
+            if not isinstance(exc, Exception):
+                self.interrupt = exc
             return note
         return None
 
@@ -419,9 +430,11 @@ def apply_verdict(show_ws: ShowWorkspace, verdict: Verdict, *, expect: ShowView,
     """Apply `verdict` in one `show_unit`. `gate` is the verdict's GateResult in `auto` and
     None in `accept`. `on_commit` writes the applied record inside the unit. RateLimited,
     ShowChanged and KeyboardInterrupt propagate after the unit has restored the files.
-    Every restore (a trial included) first removes the ledger row the redo added; a
-    failure to do so is added to the outcome's `error` (or to the propagating exception's
-    notes), never in place of it."""
+    Every restore (a trial included) first removes the ledger row the redo added, under
+    the show lock and before the files come back (`_LedgerUndo`); a failure to do so is
+    added to the outcome's `error` (or to the propagating exception's notes), never in
+    place of it. A KeyboardInterrupt during that removal is re-raised only after the
+    restore and the outcome, with the outcome in its notes."""
     if mode == "auto" and gate is None:
         raise ValueError("auto mode needs the verdict's GateResult")
     edits = _applicable(verdict.edits)
@@ -434,10 +447,37 @@ def apply_verdict(show_ws: ShowWorkspace, verdict: Verdict, *, expect: ShowView,
             return ApplyResult("refused", _held_in(expect), [], [],
                                f"switch_recording cannot be applied with other edits "
                                f"({', '.join(others)}); only venue may accompany it", [])
+    undos: list[_LedgerUndo] = []
+    try:
+        res = _run_unit(show_ws, verdict, edits, is_switch, expect=expect, redo=redo,
+                        mode=mode, gate=gate, on_commit=on_commit, trial=trial, at=at,
+                        ledger=ledger, undos=undos)
+    except BaseException as exc:
+        pending = undos[0].interrupt if undos else None
+        if pending is not None and isinstance(exc, Exception):
+            pending.add_note(f"after the apply was restored: {exc!r}")
+            raise pending from exc
+        raise
+    pending = undos[0].interrupt if undos else None
+    if pending is not None:
+        # Ctrl-C during the ledger removal: the files are restored and the outcome
+        # decided; stop now rather than let a batch carry on past the operator's interrupt.
+        pending.add_note(f"after the apply was restored: {res.status}: "
+                         + "; ".join(res.diff + ([res.error] if res.error else [])))
+        raise pending
+    return res
+
+
+def _run_unit(show_ws: ShowWorkspace, verdict: Verdict, edits: list, is_switch: bool, *,
+              expect: ShowView, redo: Redo, mode: Mode, gate: GateResult | None,
+              on_commit: Callable[[Show, ApplyResult], None], trial: bool, at: str,
+              ledger: Ledger, undos: list) -> ApplyResult:
+    """The unit and its outcome; `undos` receives the unit's `_LedgerUndo`."""
     note: str | None = None      # a failed ledger removal, reported with the outcome
     try:
         with show_unit(show_ws, expect):
             undo = _LedgerUndo(ledger, show_ws)
+            undos.append(undo)
             try:
                 return _apply_in_unit(show_ws, verdict, edits, is_switch, redo=redo, mode=mode,
                                       gate=gate, on_commit=on_commit, trial=trial, at=at)

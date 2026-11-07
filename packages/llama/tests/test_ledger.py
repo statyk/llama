@@ -70,44 +70,43 @@ def _keyed(pid, status, run):
                        status=status, run=run, recorded_at="2026-11-07T00:00:00+00:00")
 
 
-def test_remove_added_removes_only_new_rows_of_the_key(tmp_path: Path):
+def _spaced(pid, status, run):
+    """A row as json.dumps writes it (spaces after separators): not model_dump_json's bytes."""
+    import json
+    return json.dumps({"performance_id": pid, "artist": "x", "date": "d", "status": status,
+                       "run": run, "recorded_at": "t0"}) + "\n"
+
+
+def test_has_row_reads_the_parsed_key(tmp_path: Path):
+    led = Ledger(tmp_path / "none" / "ledger.jsonl")
+    assert led.has_row("a", "selected", "r1") is False
+    assert not led.path.exists()
     led = Ledger(tmp_path / "ledger.jsonl")
-    led.record(entry("a"))
-    before = led.rows("a", "selected", "r2")
-    assert before == frozenset()
-    for e in (_keyed("a", "selected", "r2"), _keyed("a", "selected", "r3"),
-              _keyed("b", "selected", "r2"), _keyed("a", "rejected", "r2")):
-        led.record(e)
-    assert led.remove_added("a", "selected", "r2", before=before) == 1
-    assert [(e.performance_id, e.status, e.run) for e in led.entries()] == [
-        ("a", "selected", "r1"), ("a", "selected", "r3"), ("b", "selected", "r2"),
-        ("a", "rejected", "r2")]
+    led.path.write_text(_spaced("a", "selected", "r2") + "\n" + _spaced("b", "rejected", "r1"))
+    assert led.has_row("a", "selected", "r2") is True
+    assert led.has_row("a", "selected", "r1") is False
+    assert led.has_row("a", "rejected", "r2") is False
+    assert led.has_row("b", "rejected", "r1") is True
 
 
-def test_remove_added_keeps_rows_present_before_and_kept_bytes(tmp_path: Path):
+def test_remove_added_removes_every_row_of_the_key_compared_parsed(tmp_path: Path):
     p = tmp_path / "ledger.jsonl"
-    p.write_text('{"performance_id": "a", "artist": "x", "date": "d", "status": "selected", '
-                 '"run": "r2", "recorded_at": "t0"}\n'
-                 '{"performance_id": "z", "artist": "x", "date": "d", "status": "selected", '
-                 '"run": "r9", "recorded_at": "t0"}\n')
+    kept = [_spaced("a", "selected", "r1"), _spaced("a", "rejected", "r2"),
+            _spaced("b", "selected", "r2"), _spaced("a", "selected", "r3")]
+    p.write_text(kept[0] + _spaced("a", "selected", "r2") + kept[1] + "\n" + kept[2]
+                 + _keyed("a", "selected", "r2").model_dump_json() + "\n" + kept[3])
     led = Ledger(p)
-    before = led.rows("a", "selected", "r2")
-    assert len(before) == 1
-    raw = p.read_bytes()
-    with p.open("a") as f:                    # a hand-appended duplicate key (not via record)
-        f.write(_keyed("a", "selected", "r2").model_dump_json() + "\n")
-    assert led.remove_added("a", "selected", "r2", before=before) == 1
-    assert p.read_bytes() == raw              # kept rows byte-identical, never re-serialized
+    assert led.remove_added("a", "selected", "r2") == 2        # both spellings of the key
+    assert p.read_text() == kept[0] + kept[1] + "\n" + kept[2] + kept[3]   # raw, blank kept
 
 
 def test_remove_added_with_nothing_to_remove_is_a_no_op(tmp_path: Path):
     missing = Ledger(tmp_path / "none" / "ledger.jsonl")
-    assert missing.rows("a", "selected", "r1") == frozenset()
-    assert missing.remove_added("a", "selected", "r1", before=frozenset()) == 0
+    assert missing.remove_added("a", "selected", "r1") == 0
     assert not missing.path.exists()
     led = Ledger(tmp_path / "ledger.jsonl")
     led.record(entry("a"))
     ino, raw = led.path.stat().st_ino, led.path.read_bytes()
-    assert led.remove_added("a", "selected", "r1", before=led.rows("a", "selected", "r1")) == 0
-    assert led.remove_added("b", "selected", "r1", before=frozenset()) == 0
+    assert led.remove_added("a", "selected", "r2") == 0
+    assert led.remove_added("b", "selected", "r1") == 0
     assert led.path.read_bytes() == raw and led.path.stat().st_ino == ino

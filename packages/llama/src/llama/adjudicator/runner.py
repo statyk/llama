@@ -272,7 +272,8 @@ def adjudicate_show(ctx: Context, entry: CatalogEntry, *, dry_run: bool = False,
         result = {}
         if trial_policy is not None and _applicable(verdict) and trial_policy(verdict, gate):
             try:
-                res = apply_verdict(ws, verdict, expect=bundle.view, redo=partial(ctx.redo, entry), ledger=ctx.ledger,
+                res = apply_verdict(ws, verdict, expect=bundle.view, redo=partial(ctx.redo, entry),
+                                    ledger=ctx.ledger,
                                     mode="auto", gate=gate, on_commit=lambda post, r: None,
                                     trial=True, at=ctx.now())
             except RateLimited:
@@ -300,7 +301,8 @@ def adjudicate_show(ctx: Context, entry: CatalogEntry, *, dry_run: bool = False,
         committed["rec"] = rec
 
     try:
-        res = apply_verdict(ws, verdict, expect=bundle.view, redo=partial(ctx.redo, entry), ledger=ctx.ledger,
+        res = apply_verdict(ws, verdict, expect=bundle.view, redo=partial(ctx.redo, entry),
+                            ledger=ctx.ledger,
                             mode="auto", gate=gate, on_commit=on_commit, at=ctx.now())
     except RateLimited:
         raise
@@ -428,7 +430,8 @@ def accept_proposal(ctx: Context, entry: CatalogEntry, *,
         committed["rec"] = rec
 
     try:
-        res = apply_verdict(ws, verdict, expect=bundle.view, redo=partial(ctx.redo, entry), ledger=ctx.ledger,
+        res = apply_verdict(ws, verdict, expect=bundle.view, redo=partial(ctx.redo, entry),
+                            ledger=ctx.ledger,
                             mode="accept", gate=None, on_commit=on_commit, at=ctx.now())
     except RateLimited:
         raise

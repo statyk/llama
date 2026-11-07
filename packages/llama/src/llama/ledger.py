@@ -50,8 +50,9 @@ class Ledger:
             atomic_write_text(self.path, "".join(e.model_dump_json() + "\n" for e in kept))
             return len(before) - len(kept)
 
-    def _keyed_lines(self, performance_id: str, status: str, run: str) -> tuple[list[str], list[bool]]:
-        """Every raw line (newline kept) and whether it is a row of this key. Call under the lock."""
+    def _keyed_lines(self, performance_id: str, status: str,
+                     run: str) -> tuple[list[str], list[bool]]:
+        """Every raw line (newline kept) and whether its PARSED key is this one. Under the lock."""
         lines = self.path.read_text().splitlines(keepends=True)
         key = (performance_id, status, run)
         hits = []
@@ -63,33 +64,32 @@ class Ledger:
             hits.append((e.performance_id, e.status, e.run) == key)
         return lines, hits
 
-    def rows(self, performance_id: str, status: str, run: str) -> frozenset[str]:
-        """The raw rows (newline stripped) of one (performance_id, status, run) key, read
-        under the lock: the 'before' an undo of `remove_added` compares against."""
+    def has_row(self, performance_id: str, status: str, run: str) -> bool:
+        """Whether a row of this (performance_id, status, run) key exists, read under the
+        lock. `record` is append-once on the key, so when it does, no later `record` of
+        the key appends anything."""
         if not self.path.exists():
-            return frozenset()
+            return False
         with file_lock(self._lock):
             if not self.path.exists():
-                return frozenset()
-            lines, hits = self._keyed_lines(performance_id, status, run)
-            return frozenset(line.rstrip("\n") for line, hit in zip(lines, hits) if hit)
+                return False
+            return any(self._keyed_lines(performance_id, status, run)[1])
 
-    def remove_added(self, performance_id: str, status: str, run: str, *,
-                     before: frozenset[str]) -> int:
-        """Remove the rows of this key that are not in `before` (from `rows`): the rows
-        appended since. Every other line is kept byte-for-byte; nothing to remove writes
-        nothing (a missing ledger stays missing)."""
+    def remove_added(self, performance_id: str, status: str, run: str) -> int:
+        """Remove every row of this key (compared parsed, never by raw bytes, so a rewrite
+        that re-serialized the line cannot hide it). For a caller that saw no row of the
+        key before (`has_row`): every such row was added since. Every other line is kept
+        byte-for-byte; nothing to remove writes nothing (a missing ledger stays missing)."""
         if not self.path.exists():
             return 0
         with file_lock(self._lock):
             if not self.path.exists():
                 return 0
             lines, hits = self._keyed_lines(performance_id, status, run)
-            drop = [hit and line.rstrip("\n") not in before for line, hit in zip(lines, hits)]
-            if not any(drop):
+            if not any(hits):
                 return 0
-            atomic_write_text(self.path, "".join(l for l, d in zip(lines, drop) if not d))
-            return sum(drop)
+            atomic_write_text(self.path, "".join(l for l, h in zip(lines, hits) if not h))
+            return sum(hits)
 
     def latest_dispositions(self) -> list[LedgerEntry]:
         """One entry per performance id — the latest disposition (greatest

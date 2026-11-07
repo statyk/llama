@@ -965,17 +965,121 @@ def test_restore_with_no_row_added_leaves_the_ledger_alone(lib):
     assert lib.ledger.path.stat().st_ino == stat.st_ino      # not rewritten
 
 
+def _boom(exc):
+    def boom(*a, **k):
+        raise exc
+    return boom
+
+
+def _after_row(lib, real, exc):
+    """The real redo (which appends the row), then `exc`."""
+    def redo(stage):
+        real(stage)
+        raise exc
+    return redo
+
+
 def test_ledger_removal_failure_does_not_mask_the_restore(lib, monkeypatch):
     lib.pre(flags=["unresolved track titles"])
     before_tree = tree_bytes(lib.ws.dir)
     held_ledger(lib)
-
-    def boom(*a, **k):
-        raise OSError("ledger is read-only")
-    monkeypatch.setattr(Ledger, "remove_added", boom)
+    monkeypatch.setattr(Ledger, "remove_added", _boom(OSError("ledger is read-only")))
     v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
     post = mk([T("a.mp3", "Alpha", dur=300.0), T("c.mp3", "C", dur=400.0)])
     r = lib.apply(v, lib.redo(post))
     assert r.status == "restored" and r.diff == ["a.mp3: title 'A' -> 'Alpha' (not predicted)"]
     assert "ledger" in r.error and "ledger is read-only" in r.error, r
+    assert tree_bytes(lib.ws.dir) == before_tree and not (lib.ws.dir / ".txn").exists()
+
+
+@pytest.mark.parametrize("case", ["trial", "refused", "transient", "ratelimited"])
+def test_ledger_removal_failure_is_reported_on_every_path(lib, monkeypatch, case):
+    lib.pre(flags=["unresolved track titles"])
+    before_tree = tree_bytes(lib.ws.dir)
+    held_ledger(lib)
+    monkeypatch.setattr(Ledger, "remove_added", _boom(OSError("ledger is read-only")))
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    real = lib.redo(_post_excluding_b())
+    original = {"refused": LlamaError("refused late"), "transient": IAError("download failed"),
+                "ratelimited": RateLimited("limit")}.get(case)
+    redo = real if case == "trial" else _after_row(lib, real, original)
+    if case == "ratelimited":
+        with pytest.raises(RateLimited) as e:
+            lib.apply(v, redo)
+        assert any("ledger is read-only" in n for n in e.value.__notes__)
+    else:
+        r = lib.apply(v, redo, trial=case == "trial")
+        assert r.status == {"trial": "applied", "refused": "refused",
+                            "transient": "transient"}[case], r
+        if case != "trial":
+            assert r.error.startswith(str(original) + "; ledger: "), r.error
+        assert "ledger is read-only" in r.error, r
+    assert tree_bytes(lib.ws.dir) == before_tree and not (lib.ws.dir / ".txn").exists()
+
+
+def test_undo_runs_under_the_show_lock_before_the_files_are_restored(lib, monkeypatch):
+    from llama.locks import Locked, file_lock
+    lib.pre(flags=["unresolved track titles"])
+    before = held_ledger(lib)
+    real_remove, seen = Ledger.remove_added, []
+
+    def probe(self, *a, **k):
+        with pytest.raises(Locked):                  # the unit still holds the show lock
+            with file_lock(lib.ws.lock, blocking=False):
+                pass
+        seen.append((lib.ws.dir / ".txn").exists())  # and has not restored yet
+        return real_remove(self, *a, **k)
+    monkeypatch.setattr(Ledger, "remove_added", probe)
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    post = mk([T("a.mp3", "Alpha", dur=300.0), T("c.mp3", "C", dur=400.0)])
+    r = lib.apply(v, lib.redo(post))
+    assert r.status == "restored" and seen == [True]
+    assert lib.ledger.path.read_bytes() == before
+
+
+def test_a_row_present_before_survives_a_reserializing_rewrite_mid_unit(lib):
+    # The fixture's packaging recorded (PID, selected, r): re-spell it as json.dumps does.
+    lib.pre(flags=["unresolved track titles"])
+    lib.ledger.remove_status(PID, "selected")
+    with lib.ledger.path.open("a") as f:
+        f.write(_raw(PID, "selected", "r"))
+        f.write(_raw("GratefulDead/1977-05-08", "selected", "r"))
+    real = lib.redo(mk([T("a.mp3", "Alpha", dur=300.0), T("c.mp3", "C", dur=400.0)]))
+
+    def redo(stage):
+        out = real(stage)                            # record: a no-op, the key exists
+        lib.ledger.remove("GratefulDead/1977-05-08")  # another writer re-serializes the rest
+        return out
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    r = lib.apply(v, redo)
+    assert r.status == "restored", r
+    assert len(_selected(lib)) == 1                  # the row that was there before survives
+
+
+def test_interrupt_during_the_removal_leaves_the_original_interrupt_primary(lib, monkeypatch):
+    lib.pre(flags=["unresolved track titles"])
+    before_tree = tree_bytes(lib.ws.dir)
+    held_ledger(lib)
+    monkeypatch.setattr(Ledger, "remove_added", _boom(KeyboardInterrupt("during undo")))
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    redo = _after_row(lib, lib.redo(_post_excluding_b()), KeyboardInterrupt("original"))
+    with pytest.raises(KeyboardInterrupt) as e:
+        lib.apply(v, redo)
+    assert e.value.args == ("original",)
+    assert any("ledger" in n and "during undo" in n for n in e.value.__notes__)
+    assert tree_bytes(lib.ws.dir) == before_tree and not (lib.ws.dir / ".txn").exists()
+
+
+def test_interrupt_during_the_removal_is_raised_after_the_restore(lib, monkeypatch):
+    lib.pre(flags=["unresolved track titles"])
+    before_tree = tree_bytes(lib.ws.dir)
+    held_ledger(lib)
+    monkeypatch.setattr(Ledger, "remove_added", _boom(KeyboardInterrupt("during undo")))
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    post = mk([T("a.mp3", "Alpha", dur=300.0), T("c.mp3", "C", dur=400.0)])
+    with pytest.raises(KeyboardInterrupt) as e:
+        lib.apply(v, lib.redo(post))
+    assert e.value.args == ("during undo",)
+    assert any("restored" in n and "not predicted" in n for n in e.value.__notes__), \
+        e.value.__notes__
     assert tree_bytes(lib.ws.dir) == before_tree and not (lib.ws.dir / ".txn").exists()
