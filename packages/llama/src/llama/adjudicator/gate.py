@@ -58,6 +58,8 @@ OVERRULE_BAR: dict[str, str] = {
 STRUCTURE_KINDS = {k for k, b in OVERRULE_BAR.items() if b == "structure"}
 
 EXISTING = "changes an existing overrides.json entry"
+STRUCTURE_ON_INCLUDED = ("structure names a file this verdict includes; its position is not "
+                         "predicted")
 _TRACK_LIST_OPS = {"include", "exclude", "switch_recording"}
 _SEGUE = re.compile(r"\s*(?:->|>)\s*")
 _LETTER = re.compile(r"[^\W\d_]")
@@ -359,10 +361,16 @@ def _structure_evidence(e, bar: str) -> tuple[str, bool, str]:
     return bar, True, ""
 
 
-def _structure_edit(e: Structure, bundle: Bundle) -> tuple[str, bool, str]:
+def _structure_edit(e: Structure, verdict: Verdict, bundle: Bundle) -> tuple[str, bool, str]:
     ov = bundle.overrides
     if ov.set_breaks is not None or ov.encore_after is not None:
         return "propose-only", False, EXISTING
+    # Fail closed (R4 fix round 1): an included file's play position is not predicted, and
+    # apply's re-check derives the set labels from where the structure files actually land,
+    # so a break or encore anchored on an included file would split the show unchecked.
+    included = {x.file for x in verdict.edits if isinstance(x, Include)}
+    if included & set(_structure_files(e)):
+        return "propose-only", False, STRUCTURE_ON_INCLUDED
     return _structure_evidence(e, "structure")
 
 
@@ -511,7 +519,7 @@ def _bar(e, verdict: Verdict, facts: Facts, verdict_sum: float) -> tuple[str, bo
     if isinstance(e, SetTitle):
         return _title_edit(e, b)
     if isinstance(e, Structure):
-        return _structure_edit(e, b)
+        return _structure_edit(e, verdict, b)
     if isinstance(e, Venue):
         if b.overrides.venue is not None:
             return "propose-only", False, EXISTING

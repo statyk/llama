@@ -249,8 +249,9 @@ later retune is one edit. (60 s is my call; Shawn's examples were 20 s vs 3 min.
   listed in the run report; reprocessing is the campaign's or `redo`'s job.
 - **Target validation**, before anything is written: exclude targets must be current tracks; title
   and structure targets must be current tracks or excluded files the same verdict includes (Shawn,
-  2026-11-07, R4: re-admit a file and title it, or place a break or the encore on it); include
-  targets must be excluded rows; a recording target must be a considered recording. One file named
+  2026-11-07, R4: re-admit a file and title it, or place a break or the encore on it, the latter
+  valid but propose-only at the gate); include targets must be excluded rows; a recording target
+  must be a considered recording. One file named
   by two conflicting edits (two set_titles, include and exclude, exclude and set_title, the same
   include or exclude twice; include plus set_title is no conflict), a structure naming a file the
   verdict excludes, an exclude of a file carrying a title, break or encore key (as `fix` refuses it),
@@ -277,8 +278,11 @@ the redo; those flags are judged only by the re-hold rule.
   source or set; a kept set that is not exactly the prediction) restores the snapshot and keeps the
   verdict as a proposal noting the diff. An included track's own title and set are not predicted,
   except that a `set_title` on it must land (that title, title source `override`, as on a current
-  track) and a structure edit naming it must give it the predicted set label (R4); otherwise, if
-  its title is unresolved, the usual `titles` flag holds the show. Segue loss from a structure edit is
+  track) and a structure edit naming it must give it the set label its landed position implies (R4;
+  a consistency check, not a position prediction, so the gate keeps a structure edit naming an
+  included file propose-only, reason `structure names a file this verdict includes; its position
+  is not predicted`); otherwise, if its title is unresolved, the usual `titles` flag holds the
+  show. Segue loss from a structure edit is
   expected and stated.
 - **Silenced flags.** Any pre-apply flag key absent after the redo that the verdict did not judge
   `spurious` or `real-fixed-by-action` at a passing bar restores the snapshot and becomes a proposal.

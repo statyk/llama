@@ -124,7 +124,8 @@ for the operator instead of being applied. Write evidence so the gate can verify
   file whose length is within max(2 s, 1 %) of this file's.
 - **A structure edit** needs high confidence and a quote of taper-side text (set headers,
   `s1tNN`-style filenames, "Encore:") from `taper-description`, `original-tag` or `derivative-tag`.
-  A sibling's track list is not taper-side for structure.
+  A sibling's track list is not taper-side for structure. A structure edit that names a file your
+  verdict includes (in `breaks_after` or as `encore_after`) is proposed, never auto-applied.
 - **An overrule** needs the flag judged `spurious` in `flags`. Its bar depends on the flag:
   - title-kind flags (research-song, research-date: an unknown research song or date) need high
     confidence and a quote from `taper-description`, `original-tag` or `sibling-tracks`. They name a
@@ -132,7 +133,7 @@ for the operator instead of being applied. Write evidence so the gate can verify
     While any shipped title is a placeholder (`Track N`, `tmp`, a filename stem, a blank or
     unresolved title), a research-song overrule is propose-only, even beside `set_title` edits
     that fill those titles. The same holds when your edits would ship one (an `include` of a file
-    whose tag is a placeholder or blank).
+    whose tag is a placeholder or blank, unless the same verdict `set_title`s it with a real title).
   - structure-kind flags (research-sets, alignment, single-set, sets-not-found, jerrybase-set-count,
     jerrybase-closer) need high confidence and a taper-side quote from `taper-description`,
     `original-tag` or `derivative-tag`, as a structure edit does.

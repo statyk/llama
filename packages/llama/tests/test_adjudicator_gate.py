@@ -550,6 +550,40 @@ def test_structure_over_existing_override_is_propose_only(ov):
     assert (g.bar, g.reason) == ("propose-only", "changes an existing overrides.json entry")
 
 
+# I1 (R4 fix round 1): a structure edit naming a file the same verdict includes is
+# propose-only: the included file's play position is not predicted, so neither is the split.
+S_INC = "x-s1t03.mp3"
+
+
+def _s_inc_run(structure_edit):
+    b = make_bundle(S_TRACKS, excluded=[{"filename": S_INC, "reasons": ["short"],
+                                         "duration_sec": 10.0}],
+                    files={S_INC: FileMeta(S_INC, "original", "VBR MP3", "", 10.0, None)},
+                    sections={OTAG: ["x-s2t01.flac | Flac | Encore: U.S. Blues | 300"],
+                              DESC: ["Set II"]})
+    v = make_verdict([ed("include", "medium", [ev(DESC, "Set II")], file=S_INC),
+                      structure_edit], show=b.show)
+    return evaluate(v, make_facts(b))
+
+
+@pytest.mark.parametrize("edit", [struct(breaks=("x-s1t02.mp3",), encore=S_INC),
+                                  struct(breaks=(S_INC,), encore="x-s2t01.mp3")],
+                         ids=["encore", "break"])
+def test_structure_naming_an_included_file_is_propose_only(edit):
+    r = _s_inc_run(edit)
+    assert r.edits[0].passed and r.vetoes == []
+    assert (r.edits[1].bar, r.edits[1].passed, r.edits[1].reason) == (
+        "propose-only", False,
+        "structure names a file this verdict includes; its position is not predicted")
+    assert r.auto is False
+
+
+def test_structure_on_current_files_beside_an_include_is_unaffected():
+    r = _s_inc_run(struct())
+    assert [(g.bar, g.passed) for g in r.edits] == [("short", True), ("structure", True)]
+    assert r.auto is True
+
+
 # ---------------------------------------------------------------- venue, city
 
 def test_venue_medium_passes_low_fails_existing_override_proposes():   # venue override rule

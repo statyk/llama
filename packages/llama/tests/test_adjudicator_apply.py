@@ -339,6 +339,15 @@ def test_whole_show_diff_checks_the_set_label_of_an_included_structure_file():
         "x.mp3: set 'encore' (predicted '1')"]
 
 
+def test_whole_show_diff_checks_the_set_label_of_an_included_break_file():
+    pre = mk([T("a.mp3"), T("b.mp3")])
+    e = edits(include("x.mp3"), structure(["x.mp3"]))
+    ok = mk([T("a.mp3"), T("x.mp3"), T("b.mp3", s="2")])
+    assert whole_show_diff(capture_before(pre), ok, e) == []
+    off = mk([T("a.mp3"), T("x.mp3", s="2"), T("b.mp3", s="2")])
+    assert whole_show_diff(capture_before(pre), off, e) == ["x.mp3: set '2' (predicted '1')"]
+
+
 def test_write_edits_include_and_set_title_of_one_file(tmp_path):
     ws = ws_with(tmp_path, mk(ABC, excluded=[{"filename": "x.mp3", "reasons": ["short"]}]))
     out = write_edits(ws, edits(include("x.mp3"), set_title("x.mp3", "Jam")),

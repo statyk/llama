@@ -229,7 +229,9 @@ def whole_show_diff(before: list[TrackRow], after: Show, edits: Sequence) -> lis
             if t.title_source != "override":
                 out.append(f"{f}: title_source {t.title_source!r} (predicted 'override')")
         if f in includes:
-            # Its own set is predicted only when the structure edit names it.
+            # Its own set is checked only when the structure edit names it: a consistency
+            # check of the labels (derived from where the files landed), not a position
+            # prediction; the gate keeps such a structure edit propose-only.
             if f in struct_files and labels is not None and t.set != labels[f]:
                 out.append(f"{f}: set {t.set!r} (predicted {labels[f]!r})")
             continue
