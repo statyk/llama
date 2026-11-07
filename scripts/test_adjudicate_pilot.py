@@ -20,7 +20,7 @@ from herder import FakeProvider
 from llama.adjudicator import runner
 from llama.config import load_config
 from llama.ledger import Ledger
-from llama.models import Show
+from llama.models import Show, Track
 from llama.workspace import read_model, write_artifact
 
 HELD = "gratefuldead-1973-06-10"
@@ -41,12 +41,15 @@ def verdict(**kw):
 
 
 class Meter:
-    def __init__(self):
+    """Five-hour reading = the read count (1.0, 2.0, ...); seven-day is fixed."""
+
+    def __init__(self, seven=10.0):
         self.reads = 0
+        self.seven = seven
 
     def __call__(self):
         self.reads += 1
-        return float(self.reads)
+        return pilot.Windows(float(self.reads), self.seven)
 
 
 class IA:
@@ -84,8 +87,21 @@ class Env:
     def redo(self, entry, stage):
         s = read_model(entry.ws.show, Show)
         ov = json.loads(entry.ws.overrides.read_text()) if entry.ws.overrides.exists() else {}
+        tracks = list(s.tracks)
+        if ov.get("recording"):          # the re-gather of a switch: the sibling adds a song
+            tracks.append(Track(index=7, set="2", title="Brand New Song", filename="new.mp3",
+                                duration_sec=30.0, title_source="tags"))
         write_artifact(entry.ws.show, s.model_copy(update={
-            "venue": ov.get("venue", s.venue), "review_flags": [], "needs_review": False}))
+            "venue": ov.get("venue", s.venue), "review_flags": [], "needs_review": False,
+            "tracks": tracks}))
+
+    def add_sibling(self):
+        """A considered recording, so a switch verdict validates."""
+        from llama.workspace import ShowWorkspace
+        ws = ShowWorkspace(self.root / "shows" / HELD)
+        write_artifact(ws.selection, {"identifier": read_model(ws.show, Show).identifier,
+                                      "scores": {"gd73-sib": {"lineage": "sbd",
+                                                              "kept_tracks": 3, "score": 2.0}}})
 
     def run(self, arm="opus", provider=None, **kw):
         provider = provider or FakeProvider([verdict() for _ in self.slugs])
@@ -231,7 +247,7 @@ def test_run_never_calls_the_live_meter(tmp_path, monkeypatch):
     assert env.meter.reads == 4                                 # before and after, per show
     row = costs(env)[0]
     assert set(row) == {"slug", "cls", "outcome", "five_hour_before", "five_hour_after",
-                        "wall_s", "trial"}
+                        "wall_s", "trial", "trial_kind"}
     assert (row["five_hour_before"], row["five_hour_after"]) == (1.0, 2.0)
     assert row["cls"] == "other" and row["outcome"] == runner.DRY_RUN
 
@@ -243,6 +259,158 @@ def test_run_skips_shows_already_in_costs(tmp_path, monkeypatch):
     assert len(first.calls) == 2
     env.run(provider=FakeProvider([]))                          # a re-run spends nothing
     assert len(env.provider.calls) == 0 and len(costs(env)) == 2
+
+
+def test_run_resume_is_per_arm(tmp_path, monkeypatch):
+    env = Env(tmp_path, monkeypatch, second_held=True)
+    env.run("opus")
+    env.run("sonnet", provider=FakeProvider([verdict(), verdict()]))
+    assert len(env.provider.calls) == 2                # not skipped on opus's rows
+    assert [r["slug"] for r in costs(env, "sonnet")] == env.slugs
+
+
+def test_run_trials_an_auto_switch_end_to_end_and_restores(tmp_path, monkeypatch):
+    from llama.adjudicator.gate import EditGate, GateResult
+    env = Env(tmp_path, monkeypatch)
+    env.add_sibling()
+    sw = verdict(edits=[{"op": "switch_recording", "identifier": "gd73-sib", "confidence": "high",
+                         "why": "w", "evidence": [{"kind": "sibling-tracks", "quote": "Morning Dew"}]}])
+    monkeypatch.setattr(runner, "evaluate", lambda v, f: GateResult(
+        [EditGate(0, "switch_recording", "switch", True, "")], [], True))
+    before = tree(env.root, skip=("sink",))
+    env.run(provider=FakeProvider([sw]), trial_applies=0)      # a switch is trialled regardless
+    assert tree(env.root, skip=("sink",)) == before
+    row = costs(env)[0]
+    assert row["trial"] is True and row["trial_kind"] == "switch"
+    rec = json.loads((env.out / "opus" / f"{HELD}.json").read_text())
+    assert rec["result"]["status"] == "applied", rec["result"]
+
+
+def test_run_records_a_vanished_show_and_moves_on(tmp_path, monkeypatch):
+    env = Env(tmp_path, monkeypatch)
+    (env.out / "shows.json").write_text(json.dumps(
+        [{"slug": "gone-show", "cls": "other"}, {"slug": HELD, "cls": "other"}]))
+    env.run()
+    rows = costs(env)
+    assert rows[0]["slug"] == "gone-show" and rows[0]["outcome"].startswith("failed: ")
+    assert rows[1]["slug"] == HELD and rows[1]["outcome"] == runner.DRY_RUN
+    env.run(provider=FakeProvider([]))                         # a resume does not retry it
+    assert len(costs(env)) == 2
+
+
+def test_trial_limit_survives_a_resume(tmp_path, monkeypatch):
+    env = Env(tmp_path, monkeypatch, second_held=True)
+    (env.out / "opus").mkdir()
+    (env.out / "opus" / "costs.jsonl").write_text(json.dumps(
+        {"slug": HELD, "cls": "other", "outcome": runner.DRY_RUN, "five_hour_before": 1.0,
+         "five_hour_after": 2.0, "wall_s": 1.0, "trial": True, "trial_kind": "other"}) + "\n")
+    env.run(provider=FakeProvider([verdict()]), trial_applies=1)   # the one trial is spent
+    assert [r["trial"] for r in costs(env)] == [True, False]
+
+
+# ---- the pacing ceiling (fail closed)
+
+W = pilot.Windows
+
+
+def stopper(env, reading, **kw):
+    with pytest.raises(pilot.PilotStopped) as e:
+        env.run(read_meter=lambda: reading, **kw)
+    assert "\n" not in str(e.value)
+    assert len(env.provider.calls) == 0 and not (env.out / "opus" / "costs.jsonl").exists()
+    return str(e.value)
+
+
+@pytest.mark.parametrize("reading,limit_kw,needle", [
+    (W(85.0, 10.0), {}, "5-hour"),
+    (W(10.0, 80.0), {}, "7-day"),
+    (W(50.0, 10.0), {"stop_at_5h": 50.0}, "5-hour"),
+    (W(10.0, 61.0), {"stop_at_7d": 60.0}, "7-day"),
+    (None, {}, "unreadable"),
+    (W(10.0, None), {}, "missing"),
+    (W(None, 10.0), {}, "missing"),
+])
+def test_run_stops_before_a_show_when_a_window_is_at_its_limit_or_untrusted(
+        tmp_path, monkeypatch, reading, limit_kw, needle):
+    assert needle in stopper(Env(tmp_path, monkeypatch), reading, **limit_kw)
+
+
+def test_run_stops_on_a_stale_live_reading(tmp_path, monkeypatch):
+    import herder.usage as hu
+    real = hu.read_usage
+    stale = json.dumps({"result": "Showing last-known usage\nCurrent session: 5% used\n"
+                                  "Current week (all models): 5% used"})
+    monkeypatch.setattr(hu, "read_usage", lambda *a, **k: real(runner=lambda: stale))
+    assert pilot.live_meter() is None
+    env = Env(tmp_path, monkeypatch)
+    with pytest.raises(pilot.PilotStopped):
+        env.run(read_meter=pilot.live_meter)
+
+
+def test_run_proceeds_below_both_limits_and_stops_resumably(tmp_path, monkeypatch):
+    env = Env(tmp_path, monkeypatch, second_held=True)
+    readings = iter([W(10.0, 10.0), W(11.0, 10.0), W(90.0, 10.0)])   # 2nd show's gate read is high
+    with pytest.raises(pilot.PilotStopped):
+        env.run(read_meter=lambda: next(readings))
+    assert [r["slug"] for r in costs(env)] == [HELD]
+    env.run(provider=FakeProvider([verdict()]))                      # resumes with the next show
+    assert [r["slug"] for r in costs(env)] == env.slugs
+
+
+def test_run_stops_when_rate_limited(tmp_path, monkeypatch):
+    from herder.limits import RateLimited
+    env = Env(tmp_path, monkeypatch)
+    monkeypatch.setattr(runner, "adjudicate_show", lambda *a, **k: (_ for _ in ()).throw(
+        RateLimited("window")))
+    with pytest.raises(pilot.PilotStopped):
+        env.run()
+
+
+def test_main_exits_3_when_stopped(monkeypatch, tmp_path):
+    monkeypatch.setattr(pilot, "load_config", lambda p: object())
+
+    def stop(*a, **k):
+        raise pilot.PilotStopped("stopped")
+    monkeypatch.setattr(pilot, "run", stop)
+    assert pilot.main(["run", "--arm", "opus", "--out", str(tmp_path)]) == 3
+    monkeypatch.setattr(pilot, "run", lambda *a, **k: (_ for _ in ()).throw(
+        pilot.PilotRefused("busy")))
+    assert pilot.main(["run", "--arm", "opus", "--out", str(tmp_path)]) == 2
+
+
+def test_proto_ops_match_whole_flags_and_read_proto_is_defensive(tmp_path):
+    ops = pilot._proto_ops({"action": {"steps": [
+        {"cmd": "llama fix s --clear-include a.mp3 --clear-recording"},
+        {"cmd": "llama fix s --include b.mp3 --recording x"}]}})
+    assert ops == {"include", "switch_recording"}
+    assert pilot._proto_ops({"action": {"steps": [
+        {"cmd": "llama fix s --clear-include a.mp3 --clear-recording"}]}}) == set()
+    # a flag-looking string inside a value is not a flag
+    assert pilot._proto_ops({"action": {"steps": [
+        {"cmd": 'llama fix s --set-title 1="x--overrule"'}]}}) == {"set_title"}
+    (tmp_path / "a.json").write_text("[1]")
+    (tmp_path / "b.json").write_text(json.dumps({"root_causes": "partial-tape"}))
+    assert pilot._read_proto(tmp_path, "a") is None
+    assert pilot.classify(["x"], pilot._read_proto(tmp_path, "b")) == pilot.OTHER
+
+
+def test_arm_config_keeps_the_rest_of_an_existing_adjudicate_task(tmp_path):
+    from llama.config import Config
+    cfg = Config.model_validate({"llm": {"adjudicate": {"backend": "openrouter",
+                                                        "tier": "low"}}})
+    pinned = pilot.arm_config(cfg, "opus").llm["adjudicate"]
+    assert (pinned.backend, pinned.model, pinned.tier) == ("claude_cli", "opus", "low")
+
+
+def test_select_uses_the_catalog_entry_state_and_flags(tmp_path, monkeypatch):
+    from types import SimpleNamespace as NS
+    entries = [NS(slug="a", state="held", flags=["unresolved track titles"], ws=NS(dir=tmp_path / "a")),
+               NS(slug="b", state="packaged", flags=[], ws=NS(dir=tmp_path / "b"))]
+    monkeypatch.setattr(pilot, "iter_shows", lambda root, ledger: entries)   # no show.json anywhere
+    from llama.config import Config
+    rows = pilot.select(Config(root=tmp_path), tmp_path / "sel", n=5, seed=1,
+                        verdicts_dir=tmp_path / "x")
+    assert rows == [{"slug": "a", "cls": pilot.UNTITLED}]
 
 
 # ---- the process refusal (by name, via campaign_gate's parser)
@@ -292,34 +460,57 @@ def edit_rec(ops, *, auto=True, vetoes=(), cls_edits=None):
                         "rationale": "r"}}
 
 
+APPLIED_RESULT = {"status": "applied", "held": True, "diff": [], "changes": ["track 3 title"],
+                  "error": None, "reheld": []}
+
+
 def seed_pilot(out: Path):
     out.mkdir(parents=True, exist_ok=True)
     shows = [{"slug": "s-long", "cls": pilot.UNTITLED}, {"slug": "s-short", "cls": pilot.OTHER},
              {"slug": "s-part1", "cls": pilot.PARTIAL},
-             {"slug": "s-part2", "cls": pilot.PARTIAL_SIBLING}]
+             {"slug": "s-part2", "cls": pilot.PARTIAL_SIBLING},
+             {"slug": "s-switch", "cls": pilot.SIBLING}, {"slug": "s-solo", "cls": pilot.OTHER}]
     (out / "shows.json").write_text(json.dumps(shows))
     (out / "population.json").write_text(json.dumps(
-        {pilot.UNTITLED: 40, pilot.OTHER: 20, pilot.PARTIAL: 10, pilot.PARTIAL_SIBLING: 5}))
+        {pilot.UNTITLED: 40, pilot.OTHER: 20, pilot.PARTIAL: 10, pilot.PARTIAL_SIBLING: 5,
+         pilot.SIBLING: 8}))
     recs = {
         "s-long": edit_rec([("include", "long", True), ("set_title", "title", True),
                             ("structure", "structure", True)]),
         "s-short": edit_rec([("exclude", "short", True), ("venue", "medium", True)]),
         "s-part1": edit_rec([("exclude", "long", False)], vetoes=["show not judged correct"]),
         "s-part2": edit_rec([("switch_recording", "switch", False)]),
+        "s-switch": edit_rec([("switch_recording", "switch", True)]),
+        "s-solo": edit_rec([("venue", "medium", True)]),
     }
+    trials = {"s-long": "other", "s-switch": "switch"}
     for arm in ("opus", "sonnet"):
         d = out / arm
         d.mkdir()
         rows = []
         for i, s in enumerate(shows):
+            if arm == "sonnet" and s["slug"] == "s-solo":
+                continue                                       # judged by opus only
             rec = json.loads(json.dumps(recs[s["slug"]]))
             if arm == "sonnet" and s["slug"] == "s-short":
                 rec = edit_rec([("exclude", "long", False)])               # a disagreement
+            trial = s["slug"] in trials
+            if trial:
+                rec["result"] = dict(APPLIED_RESULT)
             (d / f"{s['slug']}.json").write_text(json.dumps(rec))
+            delta = 5.0 if trial else 1.0
+            after = 10.0 + i + delta
+            if arm == "sonnet" and s["slug"] == "s-part2":
+                after = 0.0                                    # the window reset mid-show
             rows.append({"slug": s["slug"], "cls": s["cls"], "outcome": "dry-run",
-                         "five_hour_before": 10.0 + i, "five_hour_after": 11.0 + i,
-                         "wall_s": 30.0 + (10 if arm == "sonnet" else 0), "trial": False})
+                         "five_hour_before": 10.0 + i, "five_hour_after": after,
+                         "wall_s": (200.0 if trial else 30.0) + (10 if arm == "sonnet" else 0),
+                         "trial": trial, "trial_kind": trials.get(s["slug"])})
         (d / "costs.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+
+
+def section(text, heading):
+    return text.split(heading)[1].split("\n## ")[0]
 
 
 def test_compare_lists_strict_surface_and_projection(tmp_path):
@@ -333,28 +524,51 @@ def test_compare_lists_strict_surface_and_projection(tmp_path):
     assert path == out / "compare.md"
     assert not path.name.upper().startswith(("REPORT", "SUMMARY", "FINDINGS", "ANALYSIS"))
     text = path.read_text()
-    strict = text.split("## Strict surface")[1].split("\n## ")[0]
+    strict = section(text, "## Strict surface")
     for needle in ("s-long", "include", "set_title", "structure", "quote-0", "quote-1", "quote-2"):
         assert needle in strict
+    assert "s-switch" in strict and "switch_recording" in strict   # an auto switch is strict
     assert "s-short" not in strict                    # short/medium edits are not strict
     assert "s-part2" not in strict                    # not auto-applied
-    auto = text.split("## Auto-apply list")[1].split("\n## ")[0]
+    auto = section(text, "## Auto-apply list")
     assert "s-short" in auto and "s-long" in auto and "s-part1" not in auto
-    # projection: UNTITLED 1 of 1 sampled would auto-apply -> not held-with-proposal;
-    # OTHER: opus auto (0 proposals) / sonnet 1 of 1 proposal x population 20
-    proj = text.split("## Projected held-with-proposal")[1].split("\n## ")[0]
-    assert "| other | sonnet |" in proj and "20" in proj
-    assert "## Disagreements" in text and "s-short" in text.split("## Disagreements")[1]
-    agree = text.split("## Agreement with the prototype")[1].split("\n## ")[0]
+    proj = section(text, "## Projected held-with-proposal")
+    assert "| other | opus | 0 of 2 | 20 | 0.0 |" in proj          # s-short and s-solo auto
+    assert "| other | sonnet | 1 of 1 | 20 | 20.0 |" in proj        # s-short held with proposal
+    dis = section(text, "## Disagreements")
+    assert ("- s-short (other): opus would auto-apply [('exclude', 'f0.mp3'), ('venue', 'V')] / "
+            "sonnet held with proposal [('exclude', 'f0.mp3')]") in dis
+    assert "- s-solo: missing in sonnet" in dis
+    agree = section(text, "## Agreement with the prototype")
     assert "| fix | fix | 1 |" in agree and "| exclude | 1 | 0 | 0 |" in agree
-    assert "## Cost" in text and "full sweep" in text.split("## Cost")[1]
+
+
+def test_compare_reports_trial_applies_and_separates_their_cost(tmp_path):
+    out = tmp_path / "pilot"
+    seed_pilot(out)
+    text = pilot.compare(out, verdicts_dir=tmp_path / "none").read_text()
+    trials = section(text, "## Trial applies")
+    assert "### opus" in trials and "### sonnet" in trials
+    assert "s-long" in trials and "s-switch" in trials
+    assert "switch" in trials.split("s-switch")[1].splitlines()[0]
+    assert "applied, still held" in trials and "track 3 title" in trials
+    cost = section(text, "## Cost and wall time")
+    assert "| opus | judge-only | 4 | 1.00 | 30.0 |" in cost
+    assert "| opus | trial | 2 | 5.00 | 200.0 |" in cost
+    assert "| sonnet | judge-only | 3 | 1.00 | 40.0 | 1 |" in cost      # a window reset dropped
+    assert "judge-only" in cost.split("full sweep")[1]
+    assert "83 points" in cost                                        # 1.00 x 83 held
+    per_show = section(text, "## Per-show cost")
+    assert "| s-switch | sibling" not in per_show                      # class column is the name
+    assert "| s-switch | better sibling | dry-run | switch | 5.0 | 200.0 |" in per_show
+    assert "| s-short | other | dry-run | - | 1.0 | 30.0 |" in per_show
 
 
 def test_compare_reports_partial_tape_gate_blockers(tmp_path):
     out = tmp_path / "pilot"
     seed_pilot(out)
     text = pilot.compare(out, verdicts_dir=tmp_path / "none").read_text()
-    sec = text.split("## Partial-tape classes")[1].split("\n## ")[0]
+    sec = section(text, "## Partial-tape classes")
     assert "partial tape" in sec and "partial tape with a better sibling" in sec
     assert "0 of 1" in sec or "0/1" in sec               # none could be auto-applied
     assert "show not judged correct" in sec              # the veto, tallied

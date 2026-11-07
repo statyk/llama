@@ -22,6 +22,7 @@ import os
 import random
 import sys
 import time
+from dataclasses import dataclass
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Callable
@@ -36,8 +37,6 @@ from llama.campaign_gate import ps_lines, tool_processes
 from llama.catalog import iter_shows, resolve_show
 from llama.config import LLMTaskConfig, load_config
 from llama.ledger import Ledger
-from llama.models import Show
-from llama.workspace import read_model
 
 SELF_SCRIPT = "adjudicate_pilot.py"
 DEFAULT_OUT = Path.home() / ".llama-harness" / "adjudicate-pilot"
@@ -128,9 +127,14 @@ def allocate(population: dict[str, int], n: int) -> dict[str, int]:
 def _read_proto(verdicts_dir: Path, slug: str) -> dict | None:
     p = verdicts_dir / f"{slug}.json"
     try:
-        return json.loads(p.read_text())
+        data = json.loads(p.read_text())
     except (OSError, ValueError):
         return None
+    if not isinstance(data, dict):
+        return None
+    if not isinstance(data.get("root_causes"), list):
+        data["root_causes"] = []
+    return data
 
 
 def select(config, out: Path, *, n: int = 30, seed: int = 20261106,
@@ -139,12 +143,9 @@ def select(config, out: Path, *, n: int = 30, seed: int = 20261106,
     ledger = Ledger(config.root / "ledger.jsonl")
     by_class: dict[str, list[tuple[str, Path]]] = defaultdict(list)
     for entry in iter_shows(config.root, ledger):
-        if not entry.ws.show.exists():
+        if entry.state != "held":                  # the catalog's own derived state and flags
             continue
-        show = read_model(entry.ws.show, Show)
-        if not show.needs_review:
-            continue
-        cls = classify(show.review_flags, _read_proto(verdicts_dir, entry.slug))
+        cls = classify(entry.flags, _read_proto(verdicts_dir, entry.slug))
         by_class[cls].append((entry.slug, entry.ws.dir))
     population = {c: len(by_class[c]) for c in CLASSES if by_class.get(c)}
     alloc = allocate(population, n)
@@ -167,7 +168,23 @@ def select(config, out: Path, *, n: int = 30, seed: int = 20261106,
 # ------------------------------------------------------------------ run
 
 class PilotRefused(Exception):
-    """`run` will not start; the message is the one-line reason."""
+    """`run` will not start; the message is the one-line reason (exit 2)."""
+
+
+class PilotStopped(Exception):
+    """`run` stopped cleanly and resumably (pacing ceiling, untrusted meter, rate limit);
+    the message is the one-line reason (exit 3). Re-run the same command to continue."""
+
+
+EXIT_REFUSED, EXIT_STOPPED = 2, 3
+STOP_AT_5H, STOP_AT_7D = 85.0, 80.0
+
+
+@dataclass(frozen=True)
+class Windows:
+    """One meter reading: percent used in each window (None = the window was missing)."""
+    five_hour: float | None
+    seven_day: float | None
 
 
 def running_tools(ps: Callable[[], list[str]] = ps_lines) -> list[str]:
@@ -184,43 +201,72 @@ def running_tools(ps: Callable[[], list[str]] = ps_lines) -> list[str]:
 
 def arm_config(config, arm: str):
     """`config` with `[llm.adjudicate]` pinned to the arm's alias: an explicit model,
-    so provider_ladder builds all-base rungs and never escalates."""
-    pin = LLMTaskConfig(backend="claude_cli", model=arm)
+    so provider_ladder builds all-base rungs and never escalates. Any other key of an
+    existing `[llm.adjudicate]` table is kept."""
+    old = config.llm.get("adjudicate")
+    pin = (old.model_copy(update={"model": arm, "backend": "claude_cli"}) if old is not None
+           else LLMTaskConfig(backend="claude_cli", model=arm))
     return config.model_copy(update={"llm": {**config.llm, "adjudicate": pin}})
 
 
-def make_trial_policy(trial_applies: int) -> Callable[[Verdict, GateResult], bool]:
-    """Trial-apply every gate.auto verdict with a switch, plus the first `trial_applies`
-    other gate.auto verdicts."""
-    others = [0]
+class TrialPolicy:
+    """Trial-apply every gate.auto verdict with a switch, plus `limit` other gate.auto
+    verdicts in all (`others` = how many were already spent, e.g. on an earlier resume).
+    `last_kind` is "switch", "other" or None for the most recent call."""
 
-    def policy(verdict: Verdict, gate: GateResult) -> bool:
+    def __init__(self, limit: int, others: int = 0):
+        self.limit, self.others, self.last_kind = limit, others, None
+
+    def __call__(self, verdict: Verdict, gate: GateResult) -> bool:
+        self.last_kind = None
         if not gate.auto:
             return False
         if any(isinstance(e, SwitchRecording) for e in verdict.edits):
-            return True
-        if others[0] < trial_applies:
-            others[0] += 1
-            return True
-        return False
-    return policy
+            self.last_kind = "switch"
+        elif self.others < self.limit:
+            self.others += 1
+            self.last_kind = "other"
+        return self.last_kind is not None
 
 
-def live_meter() -> float | None:
+def make_trial_policy(trial_applies: int, others: int = 0) -> TrialPolicy:
+    return TrialPolicy(trial_applies, others)
+
+
+def live_meter() -> Windows | None:
+    """The live reading of both windows, or None when it cannot be trusted. herder's
+    read_usage already returns None for a failed fetch and for the "Showing last-known
+    usage" banner (cached numbers), so a stale reading is None here too."""
     reading = herder_usage.read_usage()
-    if reading is None or reading.five_hour is None:
+    if reading is None:
         return None
-    return float(reading.five_hour.percent)
+    f, w = reading.five_hour, reading.seven_day
+    return Windows(float(f.percent) if f is not None else None,
+                   float(w.percent) if w is not None else None)
 
 
-def _done_slugs(path: Path) -> set[str]:
+def stop_reason(w: Windows | None, stop_5h: float, stop_7d: float) -> str | None:
+    """Why the run must not start another show, or None. Fails closed."""
+    if w is None:
+        return "usage meter unreadable or stale (failing closed)"
+    if w.five_hour is None or w.seven_day is None:
+        return "usage meter is missing a window (failing closed)"
+    if w.five_hour >= stop_5h:
+        return f"5-hour window at {w.five_hour:g}% (limit {stop_5h:g}%)"
+    if w.seven_day >= stop_7d:
+        return f"7-day window at {w.seven_day:g}% (limit {stop_7d:g}%)"
+    return None
+
+
+def _cost_rows(path: Path) -> list[dict]:
     if not path.exists():
-        return set()
-    return {json.loads(l)["slug"] for l in path.read_text().splitlines() if l.strip()}
+        return []
+    return [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
 
 
 def run(arm: str, *, config, out: Path, trial_applies: int = 3,
-        read_meter: Callable[[], float | None] = live_meter,
+        stop_at_5h: float = STOP_AT_5H, stop_at_7d: float = STOP_AT_7D,
+        read_meter: Callable[[], Windows | None] = live_meter,
         ps: Callable[[], list[str]] = ps_lines, ia=None, provider=None, redo=None) -> None:
     if arm not in ARMS:
         raise PilotRefused(f"unknown arm {arm!r}")
@@ -247,32 +293,36 @@ def run(arm: str, *, config, out: Path, trial_applies: int = 3,
     ctx = runner.Context(config=config, ia=ia, ledger=ledger, provider=provider, redo=redo,
                          sink=sink)
     costs = sink / "costs.jsonl"
-    done = _done_slugs(costs)
-    inner = make_trial_policy(trial_applies)
+    prior = _cost_rows(costs)
+    done = {r["slug"] for r in prior}
+    policy = make_trial_policy(trial_applies,
+                               others=sum(r.get("trial_kind") == "other" for r in prior))
     for row in shows:
         slug = row["slug"]
         if slug in done:
             continue
-        trial = [False]
-
-        def policy(v, g):
-            trial[0] = inner(v, g)
-            return trial[0]
         before = read_meter()
+        reason = stop_reason(before, stop_at_5h, stop_at_7d)
+        if reason is not None:
+            raise PilotStopped(f"stopped before {slug}: {reason}; re-run to resume")
+        policy.last_kind = None
         t0 = time.monotonic()
         try:
             entry = resolve_show(config.root, ledger, slug)
             outcome = runner.adjudicate_show(ctx, entry, force=True, dry_run=True,
                                              trial_policy=policy).outcome
         except RateLimited as exc:
-            print(f"rate limited at {slug}: {exc}; re-run to resume", file=sys.stderr)
-            return
+            raise PilotStopped(f"rate limited at {slug}: {exc}; re-run to resume") from exc
+        except Exception as exc:    # noqa: BLE001 - one show must not wedge every resume
+            outcome = f"failed: {type(exc).__name__}: {exc}"
         wall = time.monotonic() - t0
         after = read_meter()
         with costs.open("a") as f:
             f.write(json.dumps({"slug": slug, "cls": row["cls"], "outcome": outcome,
-                                "five_hour_before": before, "five_hour_after": after,
-                                "wall_s": round(wall, 2), "trial": trial[0]}) + "\n")
+                                "five_hour_before": before.five_hour,
+                                "five_hour_after": after.five_hour if after else None,
+                                "wall_s": round(wall, 2), "trial": policy.last_kind is not None,
+                                "trial_kind": policy.last_kind}) + "\n")
         print(f"{arm} {slug}: {outcome}")
 
 
@@ -319,7 +369,8 @@ def _proto_ops(proto: dict) -> set[str]:
     act = proto.get("action") or {}
     cmds = [s.get("cmd", "") if isinstance(s, dict) else str(s)
             for s in (act.get("steps") or act.get("commands") or [])]
-    return {op for c in cmds for flag, op in PROTO_OPS if flag in c}
+    tokens = {t for c in cmds for t in c.split()}          # whole flags: --clear-include != --include
+    return {op for flag, op in PROTO_OPS if flag in tokens}
 
 
 def _table(head: list[str], rows: list[list]) -> list[str]:
@@ -371,7 +422,8 @@ def compare(out: Path, *, verdicts_dir: Path = DEFAULT_VERDICTS) -> Path:
     md += _table(["class", "arm", "held with proposal", "population", "projected"], rows)
     md += ["", "Projected total: " + ", ".join(f"{a} {total[a]}" for a in arms)]
 
-    md += ["", "## Partial-tape classes: could the gate auto-apply?", ""]
+    md += ["", "## Partial-tape classes", "",
+           "Could the gate auto-apply them at all?", ""]
     for cls in (PARTIAL, PARTIAL_SIBLING):
         for a in arms:
             recs = [rec for r, rec in data[a].values()
@@ -387,14 +439,14 @@ def compare(out: Path, *, verdicts_dir: Path = DEFAULT_VERDICTS) -> Path:
                 if not rec["gate"] and not rec["vetoes"]:
                     tally["no edits"] += 1
             md += [f"    - {n} x {reason}" for reason, n in tally.most_common()]
-    md[md.index("## Partial-tape classes: could the gate auto-apply?")] = \
-        "## Partial-tape classes"
 
     md += ["", "## Disagreements between arms", ""]
     if len(arms) == 2:
         a, b = arms
-        for slug in data[a]:
-            if slug not in data[b]:
+        for slug in dict.fromkeys([*data[a], *data[b]]):
+            missing = [x for x in arms if slug not in data[x]]
+            if missing:
+                md.append(f"- {slug}: missing in {', '.join(missing)}")
                 continue
             (ra, ea), (rb, eb) = data[a][slug], data[b][slug]
             ca, cb = category(ra, ea), category(rb, eb)
@@ -432,21 +484,75 @@ def compare(out: Path, *, verdicts_dir: Path = DEFAULT_VERDICTS) -> Path:
                       for op, s in sorted(op_stats.items())])
         md.append("")
 
-    md += ["## Cost and wall time", ""]
-    held_total = sum(pop.values())
-    rows = []
+    md += ["## Trial applies", "",
+           "A trial apply is applied, then restored: what it measured about the re-run.", ""]
     for a in arms:
-        d = [r["five_hour_after"] - r["five_hour_before"] for r, _ in data[a].values()
-             if r["five_hour_before"] is not None and r["five_hour_after"] is not None]
-        w = [r["wall_s"] for r, _ in data[a].values()]
-        trial = [r for r, _ in data[a].values() if r["trial"]]
-        mean_d = sum(d) / len(d) if d else None
-        rows.append([a, len(w), f"{mean_d:.2f}" if d is not None and d else "n/a",
-                     f"{sum(w) / len(w):.1f}" if w else "n/a", len(trial),
-                     f"{mean_d * held_total:.0f} points, {sum(w) / len(w) * held_total / 3600:.1f} h"
-                     if d and w and held_total else "n/a"])
-    md += _table(["arm", "shows", "mean 5h-meter points/show", "mean wall s", "trial applies",
-                  f"projected full sweep ({held_total} held)"], rows)
+        md += [f"### {a}", ""]
+        lines = []
+        for slug, (r, rec) in data[a].items():
+            if not r.get("trial"):
+                continue
+            res = (rec or {}).get("result") or {}
+            kind = r.get("trial_kind") or "other"
+            if res.get("status") == "applied":
+                verdict_ = "applied, still held" if res.get("held") else "applied, hold cleared"
+            else:
+                verdict_ = str(res.get("status") or "no result")
+            detail = []
+            if res.get("diff"):
+                detail.append("restore reasons: " + "; ".join(res["diff"]))
+            if res.get("error"):
+                detail.append(f"error: {res['error']}")
+            if res.get("changes"):
+                detail.append("changes: " + "; ".join(res["changes"]))
+            if res.get("reheld"):
+                detail.append("re-hold overrules: " + "; ".join(res["reheld"]))
+            lines.append(f"- {slug} ({r['cls']}) {kind}: {verdict_}"
+                         + (f" [{' | '.join(detail)}]" if detail else ""))
+        md += lines or ["(none)"]
+        md.append("")
+
+    md += ["## Cost and wall time", "",
+           "Judge-only rows (one LLM call) and trial rows (judge plus a trial apply, which "
+           "re-runs vet and brief) are separate. Rows whose 5-hour meter fell or is unread "
+           "(a window reset) are counted in the last column and left out of the point means.",
+           ""]
+    held_total = sum(pop.values())
+    rows, proj = [], {}
+    for a in arms:
+        for kind, flag in (("judge-only", False), ("trial", True)):
+            rs = [r for r, _ in data[a].values() if bool(r.get("trial")) == flag]
+            ok = [r for r in rs if r["five_hour_before"] is not None
+                  and r["five_hour_after"] is not None
+                  and r["five_hour_after"] >= r["five_hour_before"]]
+            if not rs:
+                continue
+            mean_d = sum(r["five_hour_after"] - r["five_hour_before"] for r in ok) / len(ok) \
+                if ok else None
+            mean_w = sum(r["wall_s"] for r in rs) / len(rs)
+            rows.append([a, kind, len(rs), f"{mean_d:.2f}" if mean_d is not None else "n/a",
+                         f"{mean_w:.1f}", len(rs) - len(ok)])
+            if not flag:
+                proj[a] = (mean_d, mean_w)
+    md += _table(["arm", "rows", "shows", "mean 5h-meter points/show", "mean wall s",
+                  "dropped from points"], rows)
+    md += ["", f"Projected full sweep ({held_total} held shows), from the judge-only rows:"]
+    for a, (d, w) in proj.items():
+        md.append(f"- {a}: " + (f"{d * held_total:.0f} points, " if d is not None
+                                else "points n/a, ") + f"{w * held_total / 3600:.1f} h wall")
+
+    md += ["", "## Per-show cost", ""]
+    for a in arms:
+        md += [f"### {a}", ""]
+        prow = []
+        for slug, (r, _) in data[a].items():
+            b_, a_ = r["five_hour_before"], r["five_hour_after"]
+            prow.append([slug, r["cls"], r["outcome"],
+                         (r.get("trial_kind") or "other") if r.get("trial") else "-",
+                         f"{a_ - b_:.1f}" if b_ is not None and a_ is not None else "n/a",
+                         f"{r['wall_s']:.1f}"])
+        md += _table(["slug", "class", "outcome", "trial", "5h delta", "wall s"], prow)
+        md.append("")
 
     def auto_edits(a):
         for slug, (r, rec) in data[a].items():
@@ -494,6 +600,10 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--arm", choices=ARMS, required=True)
     r.add_argument("--out", type=Path, default=DEFAULT_OUT)
     r.add_argument("--trial-applies", type=int, default=3)
+    r.add_argument("--stop-at-5h", type=float, default=STOP_AT_5H,
+                   help="stop before a show when the 5-hour window is at/above this percent")
+    r.add_argument("--stop-at-7d", type=float, default=STOP_AT_7D,
+                   help="stop before a show when the 7-day window is at/above this percent")
     c = sub.add_parser("compare")
     c.add_argument("--out", type=Path, default=DEFAULT_OUT)
     c.add_argument("--verdicts", type=Path, default=DEFAULT_VERDICTS)
@@ -506,10 +616,14 @@ def main(argv: list[str] | None = None) -> int:
         select(config, args.out, n=args.n, seed=args.seed, verdicts_dir=args.verdicts)
         return 0
     try:
-        run(args.arm, config=config, out=args.out, trial_applies=args.trial_applies)
+        run(args.arm, config=config, out=args.out, trial_applies=args.trial_applies,
+            stop_at_5h=args.stop_at_5h, stop_at_7d=args.stop_at_7d)
     except PilotRefused as exc:
         print(exc, file=sys.stderr)
-        return 2
+        return EXIT_REFUSED
+    except PilotStopped as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_STOPPED
     return 0
 
 
