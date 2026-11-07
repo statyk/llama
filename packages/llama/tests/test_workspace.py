@@ -144,3 +144,10 @@ def test_notes_json_is_a_gather_artifact(tmp_path):
     write_artifact(ws.notes, {"gather": [], "vet": []})
     drop_stage_artifacts(ws, "gather")
     assert not ws.notes.exists()
+
+
+def test_adjudication_path_is_not_a_stage_artifact(tmp_path):
+    from llama.workspace import SHOW_STAGE_ORDER, show_stage_artifacts
+    ws = ShowWorkspace(tmp_path / "s")
+    assert ws.adjudication == tmp_path / "s" / "adjudication.json"
+    assert all(ws.adjudication not in show_stage_artifacts(ws, st) for st in SHOW_STAGE_ORDER)

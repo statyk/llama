@@ -213,7 +213,7 @@ class Overrule(BaseModel):
     kind: str
     subject: list[str] | None = None
     flag: str
-    source: str  # "fix" | "triage" | "untitled" | "backfill"
+    source: str  # "fix" | "triage" | "untitled" | "backfill" | "adjudicate"
     at: str      # UTC ISO-8601
     # Why it was recorded (the backfill names its basis); never part of a rule's
     # identity (`llama.overrules._ident`). None from fix/triage/untitled and old files.
@@ -239,12 +239,14 @@ class Overrides(BaseModel):
     set_breaks: list[int | str] | None = None          # filenames a break falls after
     encore_after: int | str | None = None              # filename the encore follows
     overrules: list[Overrule] = Field(default_factory=list)  # flags an operator overruled
+    recording: str | None = None                       # archive.org identifier: the pinned recording
 
 
 class ShowNotes(BaseModel):
     """`notes.json`: operator-facing notes, read only by `llama show` (and so
-    triage). Never read by brief, vet's prompt path or package, so a note can
-    never reach an LLM (held-backlog spec ruling 6). A gather artifact:
+    triage). Never read by brief, vet's prompt path or package, so a note never
+    reaches the briefing LLM (held-backlog spec ruling 6), but it does reach the
+    adjudicator's bundle (adjudicator spec, "Evidence bundle"). A gather artifact:
     `run_gather` replaces the whole file (`vet` and `brief` reset to []), vet
     sets `vet` and brief sets `brief` (its `overruled: <flag>` notes, bulk-apply
     spec "Overrules persist") on the file gather wrote."""

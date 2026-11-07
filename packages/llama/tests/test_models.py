@@ -119,3 +119,15 @@ def test_track_included_defaults_false():
     from llama.models import Track
     t = Track(index=1, set="1", title="Dark Star", filename="a.mp3", title_source="tags")
     assert t.included is False
+
+
+def test_overrides_recording_round_trips_and_defaults_none():
+    from llama.models import Overrides
+    assert Overrides().recording is None
+    assert Overrides.model_validate({"recording": "gd73.x"}).recording == "gd73.x"
+
+
+def test_shownotes_docstring_no_longer_claims_notes_never_reach_an_llm():
+    from llama.models import ShowNotes
+    assert "can never reach an LLM" not in ShowNotes.__doc__
+    assert "adjudicat" in ShowNotes.__doc__

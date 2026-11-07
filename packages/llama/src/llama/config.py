@@ -44,6 +44,7 @@ DEFAULT_TIERS = {
     "find_artists": "medium",
     "align_structure": "medium",
     "vet_research": "low",
+    "adjudicate": "high",
 }
 
 
@@ -141,6 +142,11 @@ class PacingConfig(_StrictModel):
         return v
 
 
+class AdjudicateConfig(_StrictModel):
+    """Judge a show that ends held with one LLM call (see llama/adjudicator)."""
+    enabled: bool = True
+
+
 class Config(_StrictModel):
     root: Path = DEFAULT_ROOT
     delivery_path: Path | None = None
@@ -153,6 +159,7 @@ class Config(_StrictModel):
     winnow: WinnowConfig = Field(default_factory=WinnowConfig)
     selection: SelectionConfig = Field(default_factory=SelectionConfig)
     pacing: PacingConfig = Field(default_factory=PacingConfig)
+    adjudicate: AdjudicateConfig = Field(default_factory=AdjudicateConfig)
     tiers: dict[str, dict[Tier, str]] = Field(default_factory=dict)
 
     @model_validator(mode="before")
@@ -285,6 +292,11 @@ reset_skew = "2m"
 # headroom for your own interactive sessions; the meter is account-wide.
 five_hour_ceiling = 90
 seven_day_ceiling = 90
+
+
+[adjudicate]
+# Judge a show that ends held (get, redo, run resume) with one LLM call and auto-apply only what the policy gate passes; --adjudicate/--no-adjudicate overrides this for one run
+enabled = true
 
 
 [artists]

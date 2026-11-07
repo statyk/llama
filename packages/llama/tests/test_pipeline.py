@@ -389,3 +389,9 @@ def test_process_show_stamps_profile_into_provenance_and_manifest(tmp_path: Path
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["source"]["profile"] == "prime-dead"  # ...and it reaches the manifest
     assert manifest["dj_notes"] is None                # llama never writes a script
+
+
+def test_make_providers_includes_adjudicate_at_high_tier():
+    from llama.config import Config
+    providers = pipeline.make_providers(Config())
+    assert [p.model for p in providers["adjudicate"]] == ["opus", "opus", "opus"]

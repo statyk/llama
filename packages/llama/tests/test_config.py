@@ -65,6 +65,7 @@ def test_default_tiers_vocabulary():
         "find_artists": "medium",
         "align_structure": "medium",
         "vet_research": "low",
+        "adjudicate": "high",
     }
 
 
@@ -342,3 +343,14 @@ def test_default_config_template_states_selection_defaults():
     }]
 
 
+
+
+def test_adjudicate_section_defaults_on_and_is_strict():
+    assert Config().adjudicate.enabled is True
+    with pytest.raises(ValidationError):
+        Config.model_validate({"adjudicate": {"enabeld": False}})
+    assert DEFAULT_TIERS["adjudicate"] == "high"
+
+
+def test_default_template_documents_adjudicate():
+    assert "[adjudicate]" in DEFAULT_CONFIG_TOML and "enabled = true" in DEFAULT_CONFIG_TOML.split("[adjudicate]")[1]
