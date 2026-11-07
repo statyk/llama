@@ -21,7 +21,7 @@ component. Those load on their own when you read a file under that directory, bu
 
 | Before running or changing | Read |
 |---|---|
-| `llama`: commands, pipeline, overrides, titles, junk filter, pacing, domain gotchas | `packages/llama/CLAUDE.md` |
+| `llama`: commands, pipeline, overrides, titles, junk filter, pacing, the adjudicator, domain gotchas | `packages/llama/CLAUDE.md` |
 | `emcee`: commands, voicing, TTS, presenters | `packages/emcee/CLAUDE.md` |
 | `transmitter`: playout service, scheduler | `packages/transmitter/CLAUDE.md` |
 | `antenna/`: Worker, cost guard, metronome, player | `antenna/CLAUDE.md` |

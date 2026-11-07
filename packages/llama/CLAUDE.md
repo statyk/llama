@@ -4,6 +4,7 @@ Commands, pipeline internals and domain rules for `llama` (`packages/llama/`). T
 
 ## Commands
 
+- Judge held shows: `llama adjudicate` (see `## Adjudicator`).
 - Run (llama, acquisition): `llama get "..."`, `llama get --profile <name>`,
   `llama get` takes `--wait/--no-wait`, `--max-wait <dur>` and `--no-pacing`
   (also on `run approve`/`run resume`): when the claude_cli backend refuses
@@ -554,11 +555,25 @@ The provider layer and the usage-limit classification are in `packages/herder/CL
   song-like-tracks and never inspects UNMATCHED ITEMS, so a partial recording
   can score ~1.0 while missing half the show; `select_recording`'s completeness
   is RELATIVE (best sibling), not absolute.
-- Nine named touchpoints (one
+- Ten named touchpoints (one
   per file under `packages/llama/src/llama/prompts/` — `synthesize` is gone,
   emcee has its own separate `scriptwrite` prompt), each with a Pydantic
   output schema. LLM calls live only at stage boundaries — everything else
   is deterministic.
+
+## Adjudicator
+
+Spec `docs/superpowers/specs/2026-11-06-adjudicator-design.md`; code `llama/adjudicator/` (`bundle`, `verdict`, `gate`, `apply`, `record`, `runner`, `report`); prompt `prompts/adjudicate.md`; task `adjudicate`, tier `high`, overridable via `[llm.adjudicate]`.
+
+- `llama adjudicate [<show>...] [--held|--state|--artist|--profile|--run] [--dry-run] [--force] [--accept [--yes]] [--no-pacing]`: judges held shows (the default selector) with one LLM call each, behind the pacing gate. A verdict the gate passes is applied in one `show_unit` (whole-show re-check, restored on any failure) and the show re-processed; anything else is stored as a proposal. `--dry-run` records verdicts and gate outcomes and applies nothing; `--accept` applies a stored proposal (no gate; `set_date`, `untitled`, `narration`, `rm`, `redo_research` stay propose-only everywhere).
+- Pipeline step: a show that ends held is adjudicated after its lock is released, at `get`, `run approve`, `run resume` (via `_execute`) and `redo` (single and batch). `[adjudicate] enabled` (default true) sets it; `--adjudicate/--no-adjudicate` overrides per run. `fix`, `triage`, `reapply` and the adjudicator's own apply never adjudicate.
+- The gate is deterministic code in `gate.py`, with every constant there only: `SHORT_EDIT_MAX_S = 60.0`, `VERDICT_SUM_MAX_S = 120.0`, `SIBLING_TOL_S = 2.0`, `SIBLING_TOL_FRAC = 0.01`, `COVERAGE_ADDED_MAX_S = 60.0` (a boundary is inclusive on the passing side). Bars: short, long (filename stem as a whole token in a quote), title, structure, medium, switch (coverage re-checked after the re-gather), propose-only, never. Evidence kinds are the closed set `taper-description`, `original-tag`, `derivative-tag`, `sibling-tracks`, `setlistfm`, `jerrybase`, `review`; edits name files, never track numbers; overrules carry `source: "adjudicate"`.
+- `<show>/adjudication.json` is the record (verdict, gate per edit, applied, result, model, digest). The digest (flags, track table, excluded rows, overrides without overrule timestamps, identifier; never research or briefing text) is the loop guard: a held show is judged again only when it moves. Adjudication is no stage, so `drop_stage_artifacts` never deletes it. A `RateLimited` leaves the record unchanged.
+- Triage offers `[a]` to accept a stored proposal (shown == accepted, same predicate as `adjudicate --accept`). `llama fix <show> --recording <id>` pins the recording (`overrides.json` `recording`; select honours it), `--clear-recording` removes the pin, `--clear-include <file|N>` removes an include entry.
+- Limitation: an adjudicator overrule of a subject-less flag kind persists for that recording like an operator overrule, so a later change that makes the problem real is not re-flagged.
+- **Rollout caveat:** a llama binary older than this release rewrites `overrides.json` through its own model and DROPS the new `recording` key (a pin is lost silently). Install the new binary before pinning, and never run an old one over a library holding pins.
+- Tests: `packages/llama/tests/conftest.py`'s autouse fixture patches `cli._adjudicate_enabled` so no test adjudicates on the config default; only an explicit `--adjudicate` (or re-patching to `runner.hook_enabled`) does.
+- Pilot: `scripts/adjudicate_pilot.py` (see `scripts/CLAUDE.md`) judges 30 stratified held shows per model, dry-run, before any full sweep.
 
 ## Domain gotchas
 
