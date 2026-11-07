@@ -1618,6 +1618,7 @@ def test_fix_recording_pins_and_redoes_from_select(tmp_path, monkeypatch):
     r = cli_invoke(cfg, "fix", _SLUG, "--recording", "gd73.sib", "--no-run")
     assert r.exit_code == 0, r.output
     assert read_overrides(ws).recording == "gd73.sib"
+    assert read_overrides(ws).recording_source == "operator"     # Shawn's pin
     assert "staged; next: llama redo gratefuldead-1973-06-10 --from select" in r.output
 
 
@@ -1673,10 +1674,11 @@ def test_fix_clear_recording(tmp_path, monkeypatch):
     cfg, ws = _packaged_with_two_recordings(tmp_path, monkeypatch)
     r = cli_invoke(cfg, "fix", _SLUG, "--clear-recording")
     assert r.exit_code == 1 and "no recording pin to clear" in r.output
-    write_artifact(ws.overrides, Overrides(recording="gd73.sib"))
+    write_artifact(ws.overrides, Overrides(recording="gd73.sib", recording_source="adjudicate"))
     r = cli_invoke(cfg, "fix", _SLUG, "--clear-recording", "--no-run")
     assert r.exit_code == 0, r.output
     assert read_overrides(ws).recording is None
+    assert read_overrides(ws).recording_source is None
     assert "staged; next: llama redo gratefuldead-1973-06-10 --from select" in r.output
 
 

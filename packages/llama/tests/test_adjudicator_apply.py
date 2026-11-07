@@ -127,7 +127,7 @@ def test_write_edits_is_filename_keyed_and_records_adjudicate_overrules(tmp_path
     ws = ws_with(tmp_path, show)
     ov = write_edits(ws, edits(exclude("b.mp3"), set_title("c.mp3", "Jam"), structure(["c.mp3"]),
                                overrule(VENUE_FLAG)), show=show, at=AT,
-                     defer_subjectless_structure=False)
+                     defer_subjectless_structure=False, mode="auto")
     assert ov.exclude == ["b.mp3"] and ov.titles == {"c.mp3": "Jam"} and ov.set_breaks == ["c.mp3"]
     assert ov.encore_after is None
     assert [(r.kind, r.source, r.at) for r in ov.overrules] == [("venue", "adjudicate", AT)]
@@ -138,10 +138,10 @@ def test_write_edits_structure_in_play_order_and_empty_is_kept(tmp_path):
     show = mk(ABC + [T("d.mp3")])
     ws = ws_with(tmp_path, show)
     ov = write_edits(ws, edits(structure(["c.mp3", "a.mp3"], "d.mp3")), show=show, at=AT,
-                     defer_subjectless_structure=False)
+                     defer_subjectless_structure=False, mode="auto")
     assert ov.set_breaks == ["a.mp3", "c.mp3"] and ov.encore_after == "d.mp3"
     ov = write_edits(ws, edits(structure([])), show=show, at=AT,
-                     defer_subjectless_structure=False)
+                     defer_subjectless_structure=False, mode="auto")
     assert ov.set_breaks == [] and read_overrides(ws).set_breaks == []   # forced no breaks
 
 
@@ -154,9 +154,28 @@ def test_write_edits_metadata_and_propose_only_ignored(tmp_path):
                                 "why": "w"},
                                {"op": "set_date", "value": "1974-01-01", "confidence": "high",
                                 "why": "w"}),
-                     show=show, at=AT, defer_subjectless_structure=False)
+                     show=show, at=AT, defer_subjectless_structure=False, mode="auto")
     assert (ov.venue, ov.city, ov.recording) == ("Kezar", "SF", "gd73-other")
     assert ov.narration == "full" and ov.date is None
+
+
+@pytest.mark.parametrize("mode,source", [("auto", "adjudicate"), ("accept", "operator")])
+def test_write_edits_records_who_set_the_recording_pin(tmp_path, mode, source):
+    # Shawn's ruling (2026-11-07): an accepted switch is his choice; an auto switch is not.
+    show = mk(ABC)
+    ws = ws_with(tmp_path, show)
+    ov = write_edits(ws, edits(switch("gd73-other")), show=show, at=AT,
+                     defer_subjectless_structure=False, mode=mode)
+    assert (ov.recording, ov.recording_source) == ("gd73-other", source)
+    assert read_overrides(ws).recording_source == source
+
+
+def test_write_edits_without_a_switch_keeps_the_pin_and_its_source(tmp_path):
+    show = mk(ABC)
+    ws = ws_with(tmp_path, show, Overrides(recording="gd73", recording_source="operator"))
+    ov = write_edits(ws, edits(ed("venue", venue="Kezar")), show=show, at=AT,
+                     defer_subjectless_structure=False, mode="auto")
+    assert (ov.recording, ov.recording_source) == ("gd73", "operator")
 
 
 def test_write_edits_include_of_operator_excluded_row_unexcludes(tmp_path):
@@ -164,7 +183,7 @@ def test_write_edits_include_of_operator_excluded_row_unexcludes(tmp_path):
                              {"filename": "y.mp3", "reasons": ["implausibly short"]}])
     ws = ws_with(tmp_path, show, Overrides(exclude=["x.mp3"], include=["b.mp3"]))
     ov = write_edits(ws, edits(include("x.mp3"), include("y.mp3"), exclude("b.mp3")),
-                     show=show, at=AT, defer_subjectless_structure=False)
+                     show=show, at=AT, defer_subjectless_structure=False, mode="auto")
     assert ov.exclude == ["b.mp3"]            # x un-excluded, b excluded
     assert ov.include == ["y.mp3"]            # y re-admitted, b no longer included
 
@@ -173,11 +192,11 @@ def test_write_edits_defers_subjectless_structure_overrules_with_track_list_edit
     show = mk(ABC, flags=[VENUE_FLAG, SETS_FLAG, CLOSER_FLAG])
     ws = ws_with(tmp_path, show)
     e = edits(exclude("b.mp3"), overrule(VENUE_FLAG), overrule(SETS_FLAG), overrule(CLOSER_FLAG))
-    ov = write_edits(ws, e, show=show, at=AT, defer_subjectless_structure=True)
+    ov = write_edits(ws, e, show=show, at=AT, defer_subjectless_structure=True, mode="auto")
     # research-sets is subject-less: deferred; jerrybase-closer has a subject: written
     assert [r.kind for r in ov.overrules] == ["venue", "jerrybase-closer"]
     ov = write_edits(ws_with(tmp_path / "2", show), e, show=show, at=AT,
-                     defer_subjectless_structure=False)
+                     defer_subjectless_structure=False, mode="auto")
     assert [r.kind for r in ov.overrules] == ["venue", "research-sets", "jerrybase-closer"]
 
 
@@ -185,9 +204,9 @@ def test_write_edits_merges_overrules_without_duplicates(tmp_path):
     show = mk(ABC, flags=[VENUE_FLAG])
     ws = ws_with(tmp_path, show)
     write_edits(ws, edits(overrule(VENUE_FLAG)), show=show, at=AT,
-                defer_subjectless_structure=False)
+                defer_subjectless_structure=False, mode="auto")
     ov = write_edits(ws, edits(overrule(VENUE_FLAG)), show=show, at="later",
-                     defer_subjectless_structure=False)
+                     defer_subjectless_structure=False, mode="auto")
     assert [(r.kind, r.at) for r in ov.overrules] == [("venue", AT)]
 
 
@@ -351,7 +370,8 @@ def test_whole_show_diff_checks_the_set_label_of_an_included_break_file():
 def test_write_edits_include_and_set_title_of_one_file(tmp_path):
     ws = ws_with(tmp_path, mk(ABC, excluded=[{"filename": "x.mp3", "reasons": ["short"]}]))
     out = write_edits(ws, edits(include("x.mp3"), set_title("x.mp3", "Jam")),
-                      show=read_model(ws.show, Show), at=AT, defer_subjectless_structure=True)
+                      show=read_model(ws.show, Show), at=AT, defer_subjectless_structure=True,
+                      mode="auto")
     assert out.include == ["x.mp3"] and out.titles == {"x.mp3": "Jam"}
     assert read_overrides(ws) == out
 
@@ -364,16 +384,16 @@ def test_write_edits_writes_a_break_on_a_file_the_verdict_includes(tmp_path):
     ws = ws_with(tmp_path, mk(ABC, excluded=[{"filename": "x.mp3", "reasons": ["short"]}]))
     show = read_model(ws.show, Show)
     out = write_edits(ws, edits(include("x.mp3"), structure(["x.mp3"], "c.mp3")), show=show,
-                      at=AT, defer_subjectless_structure=True)
+                      at=AT, defer_subjectless_structure=True, mode="auto")
     assert out.set_breaks == ["x.mp3"] and out.encore_after == "c.mp3"
     assert read_overrides(ws) == out
     # include after the structure edit, mixed with current tracks, and a stray file
     out = write_edits(ws, edits(structure(["x.mp3", "zz.mp3", "b.mp3", "a.mp3"]),
                                 include("x.mp3")), show=show, at=AT,
-                      defer_subjectless_structure=True)
+                      defer_subjectless_structure=True, mode="auto")
     assert out.set_breaks == ["a.mp3", "b.mp3", "x.mp3"]
     out = write_edits(ws, edits(structure(["x.mp3"])), show=show, at=AT,
-                      defer_subjectless_structure=True)
+                      defer_subjectless_structure=True, mode="auto")
     assert out.set_breaks == []                     # not included by this verdict
 
 
@@ -784,6 +804,18 @@ def test_switch_also_runs_silenced_flags(lib):
     assert r.status == "applied", r                  # venue may accompany a switch
     assert (read_overrides(lib.ws).recording, read_overrides(lib.ws).venue) == (
         "gd73-sib", "RFK Stadium")
+
+
+@pytest.mark.parametrize("mode,source", [("auto", "adjudicate"), ("accept", "operator")])
+def test_applied_switch_records_the_pin_source_by_mode(lib, mode, source):
+    lib.pre(flags=[VENUE_FLAG])
+    post = mk([T("a1.mp3", "A", dur=300.0), T("b1.mp3", "B", src="unresolved", dur=30.0),
+               T("c1.mp3", "C", dur=400.0), T("d1.mp3", "D", dur=100.0)], ident="gd73")
+    v = V([switch("gd73-sib")], [judge(VENUE_FLAG, conf="medium")])
+    r = lib.apply(v, lib.redo(post, select="gd73"), mode=mode)
+    assert r.status == "applied", r
+    ov = read_overrides(lib.ws)
+    assert (ov.recording, ov.recording_source) == ("gd73-sib", source)
 
 
 def test_switch_coverage_failure_restores_snapshot(lib):

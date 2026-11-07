@@ -132,9 +132,11 @@ def _structure_files_in_play_order(e: Structure, show: Show, included: set[str])
 
 
 def write_edits(show_ws: ShowWorkspace, edits: Sequence, *, show: Show, at: str,
-                defer_subjectless_structure: bool) -> Overrides:
+                defer_subjectless_structure: bool, mode: Mode) -> Overrides:
     """A raw filename-keyed update of `overrides.json` (never `cli._edit_overrides`, never
-    a track number). Propose-only ops are ignored. Returns what was written."""
+    a track number). Propose-only ops are ignored. Returns what was written. A switch's
+    pin records who chose it: `accept` is the operator's choice, `auto` the adjudicator's
+    (the sibling-coverage veto exempts only the former)."""
     ov = read_overrides(show_ws)
     exclude, include = list(ov.exclude), list(ov.include)
     titles = dict(ov.titles)
@@ -164,6 +166,7 @@ def write_edits(show_ws: ShowWorkspace, edits: Sequence, *, show: Show, at: str,
             update["city"] = e.city
         elif isinstance(e, SwitchRecording):
             update["recording"] = e.identifier
+            update["recording_source"] = "operator" if mode == "accept" else "adjudicate"
         elif isinstance(e, OverruleFlag):
             key = flag_key(e.flag, show)
             if (defer_subjectless_structure and key is not None
@@ -528,7 +531,7 @@ def _apply_in_unit(show_ws: ShowWorkspace, verdict: Verdict, edits: list, is_swi
     pre = read_model(show_ws.show, Show)
     before = capture_before(pre)
     write_edits(show_ws, edits, show=pre, at=at,
-                defer_subjectless_structure=has_track_list_edit(verdict))
+                defer_subjectless_structure=has_track_list_edit(verdict), mode=mode)
     redo(earliest_stage(edits))
     post = read_model(show_ws.show, Show)
     if is_switch:

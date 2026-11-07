@@ -240,6 +240,10 @@ class Overrides(BaseModel):
     encore_after: int | str | None = None              # filename the encore follows
     overrules: list[Overrule] = Field(default_factory=list)  # flags an operator overruled
     recording: str | None = None                       # archive.org identifier: the pinned recording
+    # Who set `recording`: "operator" (`fix --recording`, or an accepted adjudicator
+    # proposal) or "adjudicate" (an auto-applied switch). None on a pin written before
+    # the field, which counts as "operator" (every such pin came from `fix`).
+    recording_source: str | None = None
 
 
 class ShowNotes(BaseModel):

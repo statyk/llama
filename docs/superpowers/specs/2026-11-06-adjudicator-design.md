@@ -213,7 +213,9 @@ Shawn's ruling, 2026-11-07, resolving the R2 spec-review finding on the toleranc
 sources with fewer, longer files no longer demote a correct verdict). It fails closed: no `scores` in selection.json, show.json and selection.json naming
 different current recordings, or an entry (the current one's included) without a usable
 `kept_tracks`, vetoes too; an unknown duration skips only the duration clause. A verdict with a switch is left to the
-auto-switch bar. This enforces "partial tape whose better sibling fails the auto-switch bar: hold"
+auto-switch bar. An operator pin on the current recording (`overrides.recording_source` `operator`, or absent on an older
+pin; `fix --recording` and an accepted switch write `operator`, an auto switch `adjudicate`) exempts the show from this
+veto, its unknown-coverage arms included (Shawn, 2026-11-07: his choice of recording is the decision). This enforces "partial tape whose better sibling fails the auto-switch bar: hold"
 in code.
 
 **Placeholder veto** (Shawn, 2026-11-07, after the pilot: Opus overruled five unknown-song flags on

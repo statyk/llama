@@ -1627,7 +1627,9 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(), r
         "overrules": merge_rules(ov.overrules, add_overrules),
     })
     if recording is not _UNSET:
-        data = data.model_copy(update={"recording": recording})
+        data = data.model_copy(update={
+            "recording": recording,
+            "recording_source": "operator" if recording is not None else None})
     if venue is not _UNSET:
         data = data.model_copy(update={"venue": venue})
     if city is not _UNSET:

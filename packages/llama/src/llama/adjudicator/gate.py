@@ -578,6 +578,16 @@ def _kept_count(entry) -> int | None:
     return n
 
 
+def operator_pinned(bundle: Bundle) -> bool:
+    """Whether overrides.json pins the CURRENT recording by the operator's choice (Shawn's
+    ruling, 2026-11-07: his choice of recording is the decision): `recording_source`
+    "operator", or absent (a pin from before the field; every one came from `fix`). A
+    pin the adjudicator wrote on an auto switch ("adjudicate"), or any other value, is not."""
+    ov = bundle.overrides
+    return (ov.recording is not None and ov.recording == bundle.show.identifier
+            and ov.recording_source in (None, "operator"))
+
+
 def _coverage_vetoes(verdict: Verdict, bundle: Bundle) -> list[str]:
     """A verdict with no switch_recording edit is propose-only while a considered recording
     keeps more than the current one, like with like: more selection.json `kept_tracks`, or,
@@ -585,8 +595,11 @@ def _coverage_vetoes(verdict: Verdict, bundle: Bundle) -> list[str]:
     metadata duration more than SIBLING_COVERAGE_TOL_S longer; a sibling with fewer tracks
     never vetoes on duration. Fail closed: no `scores`, show.json and selection.json naming
     different current recordings, or an entry (the current one's included) without a usable
-    `kept_tracks` vetoes too; an unknown duration skips only the duration clause."""
+    `kept_tracks` vetoes too; an unknown duration skips only the duration clause. An
+    operator pin on the current recording exempts the show (`operator_pinned`)."""
     if any(isinstance(e, SwitchRecording) for e in verdict.edits):
+        return []
+    if operator_pinned(bundle):
         return []
     tail = "no switch_recording edit"
     sel = bundle.selection

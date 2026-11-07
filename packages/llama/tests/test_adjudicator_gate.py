@@ -1266,14 +1266,15 @@ def test_stem_in_lookarounds_are_unicode_aware():               # F5
 # recordings' coverage cannot be read (fail closed: operator ruling 2026-11-07).
 
 def _cov(scores, *, sib_s=None, cur_n=1, cur_s=30.0, dur=30.0, selection=None, edits=None,
-         excluded=()):
+         excluded=(), overrides=None):
     """One unresolved 30 s track, a passing short exclude of it, and `scores` beside the
     current recording's own entry (which keeps `cur_n`, `cur_s` seconds by select's filter)."""
     import dataclasses
     tracks = [trk("x-d1t1.mp3", dur=dur)]
     sel = selection if selection is not None else {
         "identifier": CUR, "scores": {CUR: {"lineage": "aud", "kept_tracks": cur_n}, **scores}}
-    b = make_bundle(tracks, sections={DESC: DESC_ROWS}, selection=sel, excluded=excluded)
+    b = make_bundle(tracks, sections={DESC: DESC_ROWS}, selection=sel, excluded=excluded,
+                    overrides=overrides)
     b = dataclasses.replace(b, sibling_kept_s=dict(sib_s or {}), current_kept_s=cur_s)
     return run(edits if edits is not None else [ed("exclude", "medium", file="x-d1t1.mp3")], b)
 
@@ -1435,6 +1436,45 @@ def test_coverage_identifier_disagreement_vetoes(ident):                   # fai
     r = _cov({}, selection=sel)
     assert r.vetoes == [f"current recording unknown (show.json {CUR} vs selection.json "
                         f"{ident}); no switch_recording edit"]
+    assert r.auto is False
+
+
+# An operator recording pin exempts the show (Shawn's ruling, 2026-11-07, final2 Minor 2):
+# his choice of recording is the decision. Only a pin on the CURRENT recording whose source
+# is "operator" (or absent: every pin written before the field came from `fix`) counts; a
+# pin the adjudicator wrote on an auto switch stays subject to the veto.
+
+_MORE = {SIB: {"lineage": "sbd", "kept_tracks": 2}}            # 2 > 1: vetoes unpinned
+
+
+@pytest.mark.parametrize("ov", [Overrides(recording=CUR, recording_source="operator"),
+                                Overrides(recording=CUR)], ids=["operator", "legacy-no-source"])
+def test_coverage_operator_pin_on_the_current_recording_exempts(ov):
+    r = _cov(_MORE, overrides=ov)
+    assert r.vetoes == [] and r.auto is True
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}}, sib_s={SIB: 9999.0}, overrides=ov)
+    assert r.vetoes == [] and r.auto is True                  # the duration tie-break too
+
+
+@pytest.mark.parametrize("sel", [{}, {"identifier": "gd73-06-10.other", "scores": {}},
+                                 {"identifier": CUR, "scores": {SIB: {"kept_tracks": None}}}],
+                         ids=["no-scores", "ident-disagrees", "unusable-entry"])
+def test_coverage_operator_pin_exempts_the_unknown_coverage_vetoes(sel):
+    r = _cov({}, selection=sel, overrides=Overrides(recording=CUR, recording_source="operator"))
+    assert _cov_vetoes(r) == [] and r.vetoes == [] and r.auto is True
+
+
+def test_coverage_adjudicate_pin_is_still_vetoed():
+    r = _cov(_MORE, overrides=Overrides(recording=CUR, recording_source="adjudicate"))
+    assert r.vetoes == [f"considered recording {SIB} keeps more (2 tracks, ? s) than the "
+                        f"current (1 tracks, 30 s); no switch_recording edit"]
+    assert r.auto is False
+
+
+def test_coverage_operator_pin_on_another_recording_is_no_exemption():
+    r = _cov(_MORE, overrides=Overrides(recording=SIB, recording_source="operator"))
+    assert r.vetoes == [f"considered recording {SIB} keeps more (2 tracks, ? s) than the "
+                        f"current (1 tracks, 30 s); no switch_recording edit"]
     assert r.auto is False
 
 
