@@ -292,7 +292,8 @@ def _long_anchor(ev: Evidence, bundle: Bundle, filename: str) -> bool:
     return stem_in(ev.quote, filename)
 
 
-def _track_edit(e, bundle: Bundle, verdict_sum: float) -> tuple[str, bool, str]:
+def _track_edit(e, verdict: Verdict, bundle: Bundle,
+                verdict_sum: float) -> tuple[str, bool, str]:
     show, ov = bundle.show, bundle.overrides
     if isinstance(e, Exclude):
         t = _track(show, e.file)
@@ -308,6 +309,9 @@ def _track_edit(e, bundle: Bundle, verdict_sum: float) -> tuple[str, bool, str]:
                     f"include of a file dropped as {', '.join(sorted(reasons & REFUSED_INCLUDE_REASONS))}")
         if OPERATOR_EXCLUDED in reasons or e.file in ov.exclude:
             return "propose-only", False, EXISTING
+        shipped = _include_placeholder(e, verdict, bundle)
+        if shipped is not None:
+            return "propose-only", False, shipped
     if _dur(bundle, e.file) > SHORT_EDIT_MAX_S or verdict_sum > VERDICT_SUM_MAX_S:
         if e.confidence not in HIGH:
             return "long", False, "long bar needs high confidence"
@@ -419,6 +423,28 @@ def _predicted_placeholders(verdict: Verdict, bundle: Bundle) -> list[tuple[str,
     return out
 
 
+def _has_research_song_overrule(verdict: Verdict, show: Show) -> bool:
+    return any(isinstance(e, OverruleFlag) and (k := flag_key(e.flag, show)) is not None
+               and k.kind == "research-song" for e in verdict.edits)
+
+
+def _include_placeholder(e: Include, verdict: Verdict, bundle: Bundle) -> str | None:
+    """An include is propose-only when its predicted title (`_predicted_placeholders`:
+    the verdict's set_title for the file, else its cleaned real tag) is a placeholder or
+    undeterminable: gather may ship that tag, and apply's re-check compares an included
+    file's title only when the verdict set_titles it (operator ruling 2026-11-07). A
+    verdict with a research-song overrule is left to `_placeholder_veto`'s clause (b),
+    which already makes it propose-only, so its R3 behaviour is unchanged."""
+    if _has_research_song_overrule(verdict, bundle.show) or _track(bundle.show, e.file):
+        return None          # (an include of a current track is malformed: validate_targets)
+    bad = [(fn, t) for fn, t in _predicted_placeholders(verdict, bundle) if fn == e.file]
+    if not bad:
+        return None
+    fn, title = bad[0]
+    shown = "no determinable title" if title is None else repr(title)
+    return f"include ships a placeholder title ({fn}: {shown})"
+
+
 def _placeholder_veto(e: OverruleFlag, verdict: Verdict, bundle: Bundle) -> str | None:
     """A research-song overrule is propose-only while (a) any shipped title of the current
     (pre-verdict) show is a placeholder, or (b) any title of the predicted post-verdict
@@ -515,7 +541,7 @@ def _bar(e, verdict: Verdict, facts: Facts, verdict_sum: float) -> tuple[str, bo
     if isinstance(e, ProposeOnly):
         return "propose-only", False, f"{e.op} is propose-only"
     if isinstance(e, (Include, Exclude)):
-        return _track_edit(e, b, verdict_sum)
+        return _track_edit(e, verdict, b, verdict_sum)
     if isinstance(e, SetTitle):
         return _title_edit(e, b)
     if isinstance(e, Structure):

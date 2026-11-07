@@ -238,7 +238,9 @@ cleaned metadata tag (`clean_tag_title`) when `is_real_title` accepts it; otherw
 row, a blank, `unknown` or residue tag) its title is undeterminable and counts as a placeholder.
 This closes the include gap: apply's whole-show re-check compares an included file's title only
 when the verdict `set_title`s it (`whole_show_diff`), so nothing after the gate would catch an
-included file's own placeholder tag.
+included file's own placeholder tag. On a verdict with no research-song overrule the same prediction
+makes the include itself propose-only (Shawn, 2026-11-07), reason `include ships a placeholder title
+(<file>: '<title>' | no determinable title)`.
 
 Unsure on a long track means **held** (Shawn, 2026-11-06: hold for now; triaging dozens later is
 reasonable, hundreds is not). The 60 s and 120 s lines and the bars are constants in one place, so a

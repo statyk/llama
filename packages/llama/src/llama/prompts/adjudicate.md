@@ -119,6 +119,8 @@ for the operator instead of being applied. Write evidence so the gate can verify
   `gd73-06-10d1t05`) as a whole token. A bare track number or position never counts.
 - An exclude of a track that carries a resolved song title, and an include of a file dropped as a
   duplicate listing, a duplicate derivative or spam-shaped, are propose-only.
+- An include of a file whose tag is a placeholder, blank or missing is propose-only, unless the
+  same verdict `set_title`s it with a real title.
 - **A title** needs high confidence and the title itself inside the quote, from the taper's text
   (`taper-description`), this file's own `original-tag` row, or a `sibling-tracks` row of a sibling
   file whose length is within max(2 s, 1 %) of this file's.

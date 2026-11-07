@@ -4,6 +4,8 @@ directly, with no IO. Each boundary test is a pass/fail pair whose comment names
 boundary it pins (the Task 5 mutation pass relies on them)."""
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from llama.adjudicator.bundle import EVIDENCE_KINDS, Bundle, FileMeta, Row, escape_braces
@@ -52,8 +54,15 @@ def make_bundle(tracks=(), *, excluded=(), overrides=None, sections=None, files=
         "identifier": CUR, "scores": {CUR: {"lineage": "aud", "kept_tracks": 10},
                                       SIB: {"lineage": "sbd", "kept_tracks": len(tracks)}}}
     text = "\n".join(r.text for k in EVIDENCE_KINDS for r in secs[k])
+    # By default each excluded file has a metadata row with a real tag (no length, so
+    # `length_of` is unchanged): an include then has a determinable, real predicted title,
+    # and the include placeholder check (tested on its own below) stays out of other tests.
+    if files is None:
+        files = {x["filename"]: FileMeta(name=x["filename"], source="original",
+                                         format="VBR MP3", title="Bird Song", length_s=None,
+                                         original=None) for x in excluded}
     return Bundle(slug="gd1973-06-10", show=show, overrides=overrides or Overrides(), view=None,
-                  provenance=None, selection=sel, files=files or {}, sections=secs, text=text)
+                  provenance=None, selection=sel, files=files, sections=secs, text=text)
 
 
 def make_facts(bundle, *, delivered=False, marked=False, lineage=None, complaints=None):
@@ -558,7 +567,8 @@ S_INC = "x-s1t03.mp3"
 def _s_inc_run(structure_edit):
     b = make_bundle(S_TRACKS, excluded=[{"filename": S_INC, "reasons": ["short"],
                                          "duration_sec": 10.0}],
-                    files={S_INC: FileMeta(S_INC, "original", "VBR MP3", "", 10.0, None)},
+                    files={S_INC: FileMeta(S_INC, "original", "VBR MP3", "Bird Song", 10.0,
+                                           None)},
                     sections={OTAG: ["x-s2t01.flac | Flac | Encore: U.S. Blues | 300"],
                               DESC: ["Set II"]})
     v = make_verdict([ed("include", "medium", [ev(DESC, "Set II")], file=S_INC),
@@ -1664,3 +1674,53 @@ def test_an_included_file_with_an_undeterminable_title_counts(tag, meta):     # 
     assert (g.bar, g.passed) == ("propose-only", False)
     assert g.reason == ("research-song overrule while 1 predicted post-verdict title(s) are "
                         "placeholders (e.g. x-d1t3.mp3: no determinable title)")
+
+
+# Include placeholder check (final2 "Declined to judge" bullet 2, operator ruling
+# 2026-11-07): an include whose predicted title (the same verdict's set_title, else the
+# file's cleaned tag when real) is a placeholder or undeterminable is propose-only on any
+# verdict, not only one with a research-song overrule. With one, clause (b) of the
+# placeholder veto already makes the verdict propose-only (tests above stay as they were).
+
+def _inc_only(tag, *, meta=True):
+    """`_inc_bundle` with no review flags: an include-only verdict then passes or fails on
+    its edits alone."""
+    b = _inc_bundle(tag, meta=meta)
+    return dataclasses.replace(b, show=b.show.model_copy(
+        update={"review_flags": [], "needs_review": False}))
+
+
+@pytest.mark.parametrize("tag,meta,shown", [
+    ("d1t03", True, "no determinable title"), ("Track 3", True, "'Track 3'"),
+    ("27:36.27", True, "no determinable title"), ("", True, "no determinable title"),
+    ("Dark Star", False, "no determinable title")],
+    ids=["residue", "track-n", "timestamp", "blank", "no-metadata-row"])
+def test_an_include_whose_predicted_title_is_a_placeholder_is_propose_only(tag, meta, shown):
+    r = _ph_run(_inc_only(tag, meta=meta), [ed("include", "medium", file=INC)], flags=[])
+    g = r.edits[0]
+    assert (g.bar, g.passed) == ("propose-only", False)
+    assert g.reason == f"include ships a placeholder title ({INC}: {shown})"
+    assert r.vetoes == [] and r.auto is False
+
+
+def test_an_include_with_a_real_tag_is_unaffected_by_the_include_check():
+    r = _ph_run(_inc_only("Dark Star"), [ed("include", "medium", file=INC)], flags=[])
+    assert (r.edits[0].bar, r.edits[0].passed, r.edits[0].reason) == ("short", True, "")
+    assert r.vetoes == [] and r.auto is True
+
+
+def test_an_include_of_a_residue_file_with_a_real_set_title_is_unaffected():
+    r = _ph_run(_inc_only("d1t03"), [ed("include", "medium", file=INC),
+                                     ed("set_title", file=INC, title="Dark Star",
+                                        evidence=[ev(DESC, "3. Dark Star")])], flags=[])
+    assert [(g.bar, g.passed) for g in r.edits] == [("short", True), ("title", True)]
+    assert r.vetoes == [] and r.auto is True
+
+
+def test_an_include_with_a_placeholder_set_title_is_propose_only():
+    r = _ph_run(_inc_only("Dark Star"), [ed("include", "medium", file=INC),
+                                         ed("set_title", file=INC, title="Track 3",
+                                            evidence=[ev(DESC, "taper notes")])], flags=[])
+    assert (r.edits[0].bar, r.edits[0].passed, r.edits[0].reason) == (
+        "propose-only", False, f"include ships a placeholder title ({INC}: 'Track 3')")
+    assert r.auto is False
