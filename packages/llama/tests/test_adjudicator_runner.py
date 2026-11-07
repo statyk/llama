@@ -1044,7 +1044,7 @@ def test_a_fuller_sibling_without_a_switch_holds_with_the_proposal_stored(rig, m
     before = tree_bytes(rig.ws.dir)
     out = rig.proposal(EXCLUDE_B)
     assert out.vetoes == ["considered recording gd73-sib keeps more (4 tracks, 0 s) than the "
-                          "current (3 tracks, 730 s); no switch_recording edit"]
+                          "current (3 tracks, 0 s); no switch_recording edit"]
     assert all(g["passed"] for g in out.gate) and out.applied == []
     assert read_overrides(rig.ws).exclude == [] and rig.stages == []
     after = tree_bytes(rig.ws.dir)

@@ -460,12 +460,21 @@ def _secs_text(s: float | None) -> str:
     return "?" if s is None else f"{s:.0f}"
 
 
+def _kept_count(entry) -> int | None:
+    """A selection.json scores entry's `kept_tracks`, or None when it is not usable."""
+    n = entry.get("kept_tracks") if isinstance(entry, dict) else None
+    if not isinstance(n, int) or isinstance(n, bool) or n < 0:
+        return None
+    return n
+
+
 def _coverage_vetoes(verdict: Verdict, bundle: Bundle) -> list[str]:
     """A verdict with no switch_recording edit is propose-only while a considered recording
-    keeps more tracks than the current one (selection.json's `kept_tracks` against the
-    show's tracks), or more than SIBLING_COVERAGE_TOL_S more kept duration where both are
-    known. Fail closed: unreadable coverage (no `scores`, or an entry without a usable
-    `kept_tracks`) vetoes too; an unknown duration skips only the duration clause."""
+    keeps more than the current one, like with like: selection.json's `kept_tracks` on both
+    sides, and (where both are known) select-filtered metadata durations more than
+    SIBLING_COVERAGE_TOL_S apart. Fail closed: no `scores`, show.json and selection.json
+    naming different current recordings, or an entry (the current one's included) without
+    a usable `kept_tracks` vetoes too; an unknown duration skips only the duration clause."""
     if any(isinstance(e, SwitchRecording) for e in verdict.edits):
         return []
     tail = "no switch_recording edit"
@@ -473,16 +482,21 @@ def _coverage_vetoes(verdict: Verdict, bundle: Bundle) -> list[str]:
     scores = sel.get("scores") if isinstance(sel, dict) else None
     if not isinstance(scores, dict):
         return [f"considered recordings unknown (no selection.json scores); {tail}"]
-    show = bundle.show
-    n_cur = len(show.tracks)
-    durs = [t.duration_sec for t in show.tracks]
-    s_cur = None if any(d is None for d in durs) else float(sum(durs))
+    cur = bundle.show.identifier
+    if sel.get("identifier") != cur:
+        return [f"current recording unknown (show.json {cur} vs selection.json "
+                f"{sel.get('identifier')}); {tail}"]
+    n_cur = _kept_count(scores.get(cur))
+    if n_cur is None:
+        return [f"coverage of the current recording {cur} unknown (no usable kept_tracks); "
+                f"{tail}"]
+    s_cur = bundle.current_kept_s
     out: list[str] = []
     for ident, entry in scores.items():
-        if ident == show.identifier:
+        if ident == cur:
             continue
-        n = entry.get("kept_tracks") if isinstance(entry, dict) else None
-        if not isinstance(n, int) or isinstance(n, bool) or n < 0:
+        n = _kept_count(entry)
+        if n is None:
             out.append(f"coverage of considered recording {ident} unknown (no usable "
                        f"kept_tracks); {tail}")
             continue

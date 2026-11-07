@@ -97,6 +97,9 @@ class Bundle:
     # metadata (the basis of its `kept_tracks`). Absent when the metadata was not fetched
     # or a kept file has no length: unknown, never 0.
     sibling_kept_s: dict[str, float] = field(default_factory=dict)
+    # The same total for the current recording, from its own metadata (None when unknown),
+    # so the coverage veto compares like with like.
+    current_kept_s: float | None = None
 
     def own_row(self, kind: str, filename: str) -> Row | None:
         """`original-tag`: the row of the file's original (itself if it is one, else
@@ -190,6 +193,8 @@ def build_bundle(show_ws: ShowWorkspace, ia, config: Config) -> Bundle:
     meta = md.get("metadata", {})
     audio = _audio(md)
     files = {f["name"]: _file_meta(f) for f in audio}
+    want = FORMAT_BY_AUDIO[config.audio_format]
+    current_kept_s = _kept_seconds(md, want)
 
     sections: dict[str, list[Row]] = {k: [] for k in EVIDENCE_KINDS}
     desc = _text_field(meta.get("description")).strip()[:DESC_CAP]
@@ -201,7 +206,6 @@ def build_bundle(show_ws: ShowWorkspace, ia, config: Config) -> Bundle:
     info = recording_info(show_ws)
     sib_blocks: list[list[Row]] = []
     sib_kept_s: dict[str, float] = {}
-    want = FORMAT_BY_AUDIO[config.audio_format]
     for c in (info.considered if info else [])[:SIBLINGS_MAX]:
         try:
             sib_md = ia.metadata(c.identifier)
@@ -244,7 +248,7 @@ def build_bundle(show_ws: ShowWorkspace, ia, config: Config) -> Bundle:
             break
     return Bundle(slug=slug, show=show, overrides=overrides, view=view, provenance=provenance,
                   selection=selection, files=files, sections=sections, text=text,
-                  sibling_kept_s=sib_kept_s)
+                  sibling_kept_s=sib_kept_s, current_kept_s=current_kept_s)
 
 
 def _render(slug, show, overrides, view, show_ws, selection, sections, research) -> str:

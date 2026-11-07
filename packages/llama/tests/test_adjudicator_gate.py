@@ -1128,15 +1128,15 @@ def test_stem_in_lookarounds_are_unicode_aware():               # F5
 # keeps more than the current one (pilot-review §3 fix 1), and also while the considered
 # recordings' coverage cannot be read (fail closed: operator ruling 2026-11-07).
 
-def _cov(scores, *, sib_s=None, dur=30.0, selection=None, edits=None):
+def _cov(scores, *, sib_s=None, cur_n=1, cur_s=30.0, dur=30.0, selection=None, edits=None):
     """One unresolved 30 s track, a passing short exclude of it, and `scores` beside the
-    current recording's own entry (which keeps 1)."""
+    current recording's own entry (which keeps `cur_n`, `cur_s` seconds by select's filter)."""
     import dataclasses
     tracks = [trk("x-d1t1.mp3", dur=dur)]
     sel = selection if selection is not None else {
-        "identifier": CUR, "scores": {CUR: {"lineage": "aud", "kept_tracks": 1}, **scores}}
+        "identifier": CUR, "scores": {CUR: {"lineage": "aud", "kept_tracks": cur_n}, **scores}}
     b = make_bundle(tracks, sections={DESC: DESC_ROWS}, selection=sel)
-    b = dataclasses.replace(b, sibling_kept_s=dict(sib_s or {}))
+    b = dataclasses.replace(b, sibling_kept_s=dict(sib_s or {}), current_kept_s=cur_s)
     return run(edits if edits is not None else [ed("exclude", "medium", file="x-d1t1.mp3")], b)
 
 
@@ -1174,12 +1174,9 @@ def test_coverage_sibling_duration_within_tolerance_does_not_veto():     # 90.0 
 
 
 def test_coverage_unknown_current_duration_skips_only_the_duration_clause():
-    long_ok = [ed("exclude", "high", STEM_QUOTE, file="x-d1t1.mp3")]   # unknown: long bar
-    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}}, sib_s={SIB: 9999.0}, dur=None,
-             edits=long_ok)
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}}, sib_s={SIB: 9999.0}, cur_s=None)
     assert r.vetoes == [] and r.auto is True
-    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 2}}, sib_s={SIB: 9999.0}, dur=None,
-             edits=long_ok)
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 2}}, sib_s={SIB: 9999.0}, cur_s=None)
     assert r.vetoes == [f"considered recording {SIB} keeps more (2 tracks, 9999 s) than the "
                         f"current (1 tracks, ? s); no switch_recording edit"]
 
@@ -1219,4 +1216,50 @@ def test_coverage_considered_entry_without_usable_kept_tracks_vetoes(entry):   #
     r = _cov({SIB: entry})
     assert r.vetoes == [f"coverage of considered recording {SIB} unknown (no usable "
                         f"kept_tracks); no switch_recording edit"]
+    assert r.auto is False
+
+
+# Like with like (R2 fix 1): the current side is the current recording's OWN selection.json
+# entry and its select-filtered metadata duration, never show.json's track list.
+
+def test_coverage_current_count_is_its_selection_kept_tracks_not_show_tracks():
+    # show.json ships 1 track, but select counted 3 for the current recording: a sibling at
+    # 2 keeps fewer on the same basis
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 2}}, cur_n=3)
+    assert r.vetoes == [] and r.auto is True
+    # select counted 0 for the current recording: a sibling at 1 keeps more
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}}, cur_n=0)
+    assert r.vetoes == [f"considered recording {SIB} keeps more (1 tracks, ? s) than the "
+                        f"current (0 tracks, 30 s); no switch_recording edit"]
+
+
+def test_coverage_current_duration_is_its_filtered_metadata_not_show_tracks():
+    # show.json's track sums 30 s, the current recording's filtered metadata 100 s
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}}, sib_s={SIB: 150.0}, cur_s=100.0)
+    assert r.vetoes == [] and r.auto is True
+    # show.json's track sums 3000 s, the current recording's filtered metadata 10 s
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 1}}, sib_s={SIB: 80.0}, cur_s=10.0,
+             dur=3000.0, edits=[ed("exclude", "high", STEM_QUOTE, file="x-d1t1.mp3")])
+    assert r.vetoes == [f"considered recording {SIB} keeps more (1 tracks, 80 s) than the "
+                        f"current (1 tracks, 10 s); no switch_recording edit"]
+
+
+@pytest.mark.parametrize("scores", [{}, {CUR: None}, {CUR: {"lineage": "aud"}},
+                                    {CUR: {"kept_tracks": "1"}}, {CUR: {"kept_tracks": -1}},
+                                    {CUR: {"kept_tracks": True}}])
+def test_coverage_current_without_usable_kept_tracks_vetoes(scores):      # fail closed
+    r = _cov({}, selection={"identifier": CUR, "scores": {**scores, SIB: {"kept_tracks": 0}}})
+    assert r.vetoes == [f"coverage of the current recording {CUR} unknown (no usable "
+                        f"kept_tracks); no switch_recording edit"]
+    assert r.auto is False
+
+
+@pytest.mark.parametrize("ident", ["gd73-06-10.other", None])
+def test_coverage_identifier_disagreement_vetoes(ident):                   # fail closed
+    sel = {"scores": {CUR: {"kept_tracks": 1}, SIB: {"kept_tracks": 0}}}
+    if ident is not None:
+        sel["identifier"] = ident
+    r = _cov({}, selection=sel)
+    assert r.vetoes == [f"current recording unknown (show.json {CUR} vs selection.json "
+                        f"{ident}); no switch_recording edit"]
     assert r.auto is False

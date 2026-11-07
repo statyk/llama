@@ -322,3 +322,32 @@ def test_sibling_kept_duration_skips_lengthless_files_and_unreachable_siblings(t
                 raise IAError("boom")
             return super().metadata(identifier)
     assert build_bundle(ws, Down(ia.md, ia.siblings), cfg).sibling_kept_s == {}
+
+
+def _two_format_md(flac_lengths, mp3_lengths, desc="d"):
+    """Flac originals and their VBR MP3 derivatives, the two with different lengths."""
+    files = []
+    for i, (fl, ml) in enumerate(zip(flac_lengths, mp3_lengths), 1):
+        files.append({"name": f"t{i:02d}.flac", "source": "original", "format": "Flac",
+                      "title": f"Song {i}", "length": fl})
+        files.append({"name": f"t{i:02d}.mp3", "source": "derivative", "format": "VBR MP3",
+                      "original": f"t{i:02d}.flac", "title": f"Song {i}", "length": ml})
+    return {"metadata": {"description": desc}, "files": files}
+
+
+def test_current_kept_duration_is_its_own_filtered_metadata(tmp_path):      # R2 fix 1 (F1b)
+    ws, _, ia, cfg = _setup(tmp_path)
+    ia.md = _two_format_md(["100", "200"], ["101", "202"])
+    assert build_bundle(ws, ia, cfg).current_kept_s == pytest.approx(303.0)
+    ia.md = {"metadata": {}, "files": []}
+    assert build_bundle(ws, ia, cfg).current_kept_s == 0.0
+
+
+def test_kept_durations_follow_the_configured_audio_format(tmp_path):      # R2 fix 1 (Q1)
+    ws, _, ia, _ = _setup(tmp_path)
+    flac = Config(root=tmp_path, audio_format="flac", jerrybase={"enabled": False})
+    ia.md = _two_format_md(["100", "200"], ["101", "202"])
+    ia.siblings[SIB] = _two_format_md(["10", "20"], ["11", "22"])
+    b = build_bundle(ws, ia, flac)
+    assert b.current_kept_s == pytest.approx(300.0)
+    assert b.sibling_kept_s == {SIB: pytest.approx(30.0)}
