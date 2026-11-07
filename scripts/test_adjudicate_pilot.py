@@ -197,6 +197,34 @@ def test_run_trials_switch_verdicts_and_restores(tmp_path, monkeypatch):
     assert costs(env)[0]["trial"] is True
 
 
+def test_trial_whose_redo_appends_a_ledger_row_leaves_the_ledger_identical(tmp_path, monkeypatch):
+    """The fake redo records the row process_show records when a show clears (pid,
+    `selected`, the provenance run); the trial's restore must take it back out."""
+    from llama.models import LedgerEntry, Provenance
+    env = Env(tmp_path, monkeypatch)
+    path = env.root / "ledger.jsonl"
+    path.write_text(json.dumps({"performance_id": "Other/1970-01-01", "artist": "x",
+                                "date": "1970-01-01", "status": "selected", "run": "r0",
+                                "recorded_at": "2026-01-01T00:00:00+00:00"}) + "\n")
+    before, appended = path.read_bytes(), []
+    fake = env.redo
+
+    def redo(entry, stage):
+        fake(entry, stage)
+        prov = read_model(entry.ws.provenance, Provenance)
+        Ledger(path).record(LedgerEntry(
+            performance_id=prov.candidate.performance_id, artist="Grateful Dead",
+            date="1973-06-10", status="selected", run=prov.run,
+            recorded_at="2026-11-07T00:00:00+00:00"))
+        appended.append(len(Ledger(path).entries()))
+    env.redo = redo
+    env.run(trial_applies=1)
+    assert appended == [2]                                     # the row was appended
+    rec = json.loads((env.out / "opus" / f"{HELD}.json").read_text())
+    assert rec["result"]["status"] == "applied"
+    assert path.read_bytes() == before                         # and taken back out
+
+
 def test_trial_policy_switches_always_others_up_to_the_limit():
     from llama.adjudicator.gate import GateResult
     from llama.adjudicator.verdict import Verdict
@@ -333,6 +361,13 @@ def stopper(env, reading, **kw):
 def test_run_stops_before_a_show_when_a_window_is_at_its_limit_or_untrusted(
         tmp_path, monkeypatch, reading, limit_kw, needle):
     assert needle in stopper(Env(tmp_path, monkeypatch), reading, **limit_kw)
+
+
+@pytest.mark.parametrize("reading", [W(84.99, 10.0), W(10.0, 79.99), W(84.99, 79.99)])
+def test_run_proceeds_just_below_the_default_limits(tmp_path, monkeypatch, reading):
+    env = Env(tmp_path, monkeypatch)
+    env.run(read_meter=lambda: reading)
+    assert [r["slug"] for r in costs(env)] == [HELD]
 
 
 def test_run_stops_on_a_stale_live_reading(tmp_path, monkeypatch):
@@ -553,6 +588,8 @@ def test_compare_reports_trial_applies_and_separates_their_cost(tmp_path):
     assert "switch" in trials.split("s-switch")[1].splitlines()[0]
     assert "applied, still held" in trials and "track 3 title" in trials
     cost = section(text, "## Cost and wall time")
+    assert ("| arm | kind | rows | mean 5h-meter points/show | mean wall s | dropped from points |"
+            in cost.splitlines())
     assert "| opus | judge-only | 4 | 1.00 | 30.0 |" in cost
     assert "| opus | trial | 2 | 5.00 | 200.0 |" in cost
     assert "| sonnet | judge-only | 3 | 1.00 | 40.0 | 1 |" in cost      # a window reset dropped

@@ -534,7 +534,7 @@ def compare(out: Path, *, verdicts_dir: Path = DEFAULT_VERDICTS) -> Path:
                          f"{mean_w:.1f}", len(rs) - len(ok)])
             if not flag:
                 proj[a] = (mean_d, mean_w)
-    md += _table(["arm", "rows", "shows", "mean 5h-meter points/show", "mean wall s",
+    md += _table(["arm", "kind", "rows", "mean 5h-meter points/show", "mean wall s",
                   "dropped from points"], rows)
     md += ["", f"Projected full sweep ({held_total} held shows), from the judge-only rows:"]
     for a, (d, w) in proj.items():
