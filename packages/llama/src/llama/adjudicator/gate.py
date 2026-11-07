@@ -22,6 +22,7 @@ from llama.override_keys import filename_keyed_entries
 from llama.overrules import flag_key
 from llama.placeholders import is_placeholder_title
 from llama.structure import is_filler
+from llama.titles import clean_tag_title, is_real_title
 
 SHORT_EDIT_MAX_S = 60.0       # an include/exclude longer than this takes the long bar
 VERDICT_SUM_MAX_S = 120.0     # ... and so does every one once the verdict's sum passes this
@@ -344,26 +345,72 @@ def is_placeholder_track(t: Track) -> bool:
             or is_placeholder_title(title))
 
 
-def _placeholder_veto(e: OverruleFlag, show: Show) -> str | None:
-    """A research-song overrule is propose-only while any shipped title of the current
-    (pre-verdict) show is a placeholder: an unknown-song flag on such a show may be the
-    only thing holding a `Track N` title off the air. Strict: set_title edits in the same
-    verdict do not lift it (operator ruling 2026-11-07)."""
+def _is_placeholder_text(title) -> bool:
+    return not isinstance(title, str) or not title.strip() or is_placeholder_title(title)
+
+
+def _included_title(bundle: Bundle, filename: str) -> str | None:
+    """The title gather's `tags` rung would give a re-admitted file: its own cleaned
+    metadata tag, when that is a real title. None (undeterminable) otherwise: no metadata
+    row, or a tag gather would not take as a real title."""
+    meta = bundle.files.get(filename)
+    tag = clean_tag_title(meta.title) if meta is not None else ""
+    return tag if tag and is_real_title(tag) else None
+
+
+def _predicted_placeholders(verdict: Verdict, bundle: Bundle) -> list[tuple[str, str | None]]:
+    """(file, title) for each placeholder title in the predicted post-verdict kept set:
+    current tracks minus excludes plus includes, set_title edits applied; an included file
+    without a set_title takes `_included_title`, None (undeterminable) counting too."""
+    excludes = {e.file for e in verdict.edits if isinstance(e, Exclude)}
+    titled = {e.file: e.title for e in verdict.edits if isinstance(e, SetTitle)}
+    out: list[tuple[str, str | None]] = []
+    for t in bundle.show.tracks:
+        if t.filename in excludes:
+            continue
+        if t.filename in titled:
+            if _is_placeholder_text(titled[t.filename]):
+                out.append((t.filename, titled[t.filename]))
+        elif is_placeholder_track(t):
+            out.append((t.filename, t.title))
+    for e in verdict.edits:
+        if not isinstance(e, Include) or e.file in excludes:
+            continue
+        title = titled[e.file] if e.file in titled else _included_title(bundle, e.file)
+        if _is_placeholder_text(title):
+            out.append((e.file, title))
+    return out
+
+
+def _placeholder_veto(e: OverruleFlag, verdict: Verdict, bundle: Bundle) -> str | None:
+    """A research-song overrule is propose-only while (a) any shipped title of the current
+    (pre-verdict) show is a placeholder, or (b) any title of the predicted post-verdict
+    kept set is: an unknown-song flag on such a show may be the only thing holding a
+    `Track N` title off the air. Strict: set_title edits do not lift (a) (operator ruling
+    2026-11-07); (b) closes the include gap apply's re-check leaves (it does not compare
+    an included file's title)."""
+    show = bundle.show
     key = flag_key(e.flag, show)
     if key is None or key.kind != "research-song":
         return None
     bad = [t for t in show.tracks if is_placeholder_track(t)]
-    if not bad:
-        return None
-    return (f"research-song overrule while {len(bad)} shipped title(s) are placeholders "
-            f"(e.g. {bad[0].filename}: {bad[0].title!r})")
+    if bad:
+        return (f"research-song overrule while {len(bad)} shipped title(s) are placeholders "
+                f"(e.g. {bad[0].filename}: {bad[0].title!r})")
+    post = _predicted_placeholders(verdict, bundle)
+    if post:
+        fn, title = post[0]
+        shown = "no determinable title" if title is None else repr(title)
+        return (f"research-song overrule while {len(post)} predicted post-verdict title(s) "
+                f"are placeholders (e.g. {fn}: {shown})")
+    return None
 
 
 def _overrule_edit(e: OverruleFlag, verdict: Verdict, bundle: Bundle) -> tuple[str, bool, str]:
     bar = overrule_bar(e.flag, bundle.show)
     if bar == "never":
         return "never", False, "this flag kind is never overruled automatically"
-    veto = _placeholder_veto(e, bundle.show)
+    veto = _placeholder_veto(e, verdict, bundle)
     if veto is not None:
         return "propose-only", False, veto
     judged = next((j for j in verdict.flags if j.flag == e.flag), None)

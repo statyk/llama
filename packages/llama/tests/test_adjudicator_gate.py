@@ -1378,3 +1378,68 @@ def test_placeholder_veto_counts_residue_and_timestamp_titles(title):
     assert (g.bar, g.passed) == ("propose-only", False)
     assert g.reason == ("research-song overrule while 1 shipped title(s) are placeholders "
                         f"(e.g. x-d1t2.mp3: {title!r})")
+
+
+# Clause (b) (R3 fix round 1, operator amendment): the predicted post-verdict kept set,
+# so an include re-admitting a placeholder-titled file cannot clear the hold either. Apply's
+# whole-show re-check does not compare an included file's title (apply.py whole_show_diff).
+
+INC = "x-d1t3.mp3"
+
+
+def _inc_bundle(tag, *, meta=True):
+    files = {INC: FileMeta(name=INC, source="original", format="VBR MP3", title=tag,
+                           length_s=30.0, original=None)} if meta else {}
+    return make_bundle([SUGAREE, trk("x-d1t2.mp3", "Bertha", "tags")], flags=[SONG_FLAG],
+                       excluded=[{"filename": INC, "reasons": ["short"], "duration_sec": 30.0}],
+                       files=files, sections={DESC: ["taper notes", "3. Dark Star"]})
+
+
+def _inc_run(b, *extra):
+    return _ph_run(b, [ed("include", "medium", file=INC), *extra,
+                       ed("overrule", flag=SONG_FLAG)])
+
+
+def test_placeholder_veto_counts_an_include_of_a_placeholder_titled_file():
+    r = _inc_run(_inc_bundle("Track 3"))
+    assert r.edits[0].passed                        # the include passes its own bar
+    g = r.edits[1]
+    assert (g.bar, g.passed) == ("propose-only", False)
+    assert g.reason == ("research-song overrule while 1 predicted post-verdict title(s) are "
+                        "placeholders (e.g. x-d1t3.mp3: 'Track 3')")
+    assert r.vetoes == [] and r.auto is False
+
+
+def test_an_include_with_a_real_tag_title_does_not_trigger_the_veto():
+    r = _inc_run(_inc_bundle("Dark Star"))
+    assert [(g.bar, g.passed) for g in r.edits] == [("short", True), ("title", True)]
+    assert r.auto is True
+
+
+def test_a_set_title_on_the_included_file_lifts_clause_b():
+    # A set_title on an included file is malformed today (validate_targets: not a current
+    # track, and a conflict with the include), so the verdict never auto-applies; but
+    # clause (b) itself takes the set_title's title, so the overrule edit is not vetoed.
+    r = _inc_run(_inc_bundle("Track 3"), ed("set_title", file=INC, title="Dark Star",
+                                            evidence=[ev(DESC, "3. Dark Star")]))
+    assert (r.edits[2].bar, r.edits[2].passed, r.edits[2].reason) == ("title", True, "")
+    assert r.auto is False and any(v.startswith("malformed") for v in r.vetoes)
+
+
+def test_a_set_title_to_a_placeholder_on_a_current_track_triggers_clause_b():
+    b = _ph_bundle(SUGAREE, trk("x-d1t2.mp3", "Bertha", "tags"))
+    r = _ph_run(b, [ed("set_title", file="x-d1t2.mp3", title="Track 2",
+                       evidence=[ev(DESC, "taper notes")]), ed("overrule", flag=SONG_FLAG)])
+    assert (r.edits[1].bar, r.edits[1].passed) == ("propose-only", False)
+    assert r.edits[1].reason == ("research-song overrule while 1 predicted post-verdict "
+                                 "title(s) are placeholders (e.g. x-d1t2.mp3: 'Track 2')")
+
+
+@pytest.mark.parametrize("tag,meta", [("", True), ("d1t03", True), ("unknown", True),
+                                      ("Dark Star", False)],
+                         ids=["blank-tag", "residue-tag", "unknown-tag", "no-metadata-row"])
+def test_an_included_file_with_an_undeterminable_title_counts(tag, meta):     # fail closed
+    g = _inc_run(_inc_bundle(tag, meta=meta)).edits[1]
+    assert (g.bar, g.passed) == ("propose-only", False)
+    assert g.reason == ("research-song overrule while 1 predicted post-verdict title(s) are "
+                        "placeholders (e.g. x-d1t3.mp3: no determinable title)")

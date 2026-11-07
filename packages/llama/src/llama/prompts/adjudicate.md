@@ -131,7 +131,8 @@ for the operator instead of being applied. Write evidence so the gate can verify
     song or a date, not a file, so no title-in-quote, own-row or sibling-length anchor applies.
     While any shipped title is a placeholder (`Track N`, `tmp`, a filename stem, a blank or
     unresolved title), a research-song overrule is propose-only, even beside `set_title` edits
-    that fill those titles.
+    that fill those titles. The same holds when your edits would ship one (an `include` of a file
+    whose tag is a placeholder or blank).
   - structure-kind flags (research-sets, alignment, single-set, sets-not-found, jerrybase-set-count,
     jerrybase-closer) need high confidence and a taper-side quote from `taper-description`,
     `original-tag` or `derivative-tag`, as a structure edit does.

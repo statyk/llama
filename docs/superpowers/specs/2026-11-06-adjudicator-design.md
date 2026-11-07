@@ -224,6 +224,16 @@ the same verdict that would replace the placeholders do not lift it, so a verdic
 fills with a research-song overrule lands as a proposal (one keystroke for the operator). Other
 overrule kinds and non-overrule edits are unaffected.
 
+The veto also fires (Shawn, 2026-11-07, R3 fix round 1) when any title of the **predicted
+post-verdict kept set** is a placeholder, reason `research-song overrule while <n> predicted
+post-verdict title(s) are placeholders (e.g. <file>: '<title>' | no determinable title)`. That set
+is the current tracks minus excluded files plus included files, with `set_title` edits applied. An
+included file without a `set_title` takes the title gather's `tags` rung would give it: its own
+cleaned metadata tag (`clean_tag_title`) when `is_real_title` accepts it; otherwise (no metadata
+row, a blank, `unknown` or residue tag) its title is undeterminable and counts as a placeholder.
+This closes the include gap: apply's whole-show re-check does not compare an included file's
+title (`whole_show_diff` skips included files), so nothing after the gate would catch it.
+
 Unsure on a long track means **held** (Shawn, 2026-11-06: hold for now; triaging dozens later is
 reasonable, hundreds is not). The 60 s and 120 s lines and the bars are constants in one place, so a
 later retune is one edit. (60 s is my call; Shawn's examples were 20 s vs 3 min.)
