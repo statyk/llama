@@ -338,3 +338,47 @@ def test_accept_shows_a_set_title_with_its_title_before_the_prompt(rig, monkeypa
     assert shown in r.output, r.output
     assert r.output.index(shown) < r.output.index("Accept this proposal?")
     assert not rig.ws.overrides.exists()
+
+
+def test_accept_never_applies_a_record_written_after_an_unacceptable_read(rig, monkeypatch):
+    """M1: with nothing acceptable read, --accept returns without applying, even when an
+    acceptable proposal lands between the read and the accept."""
+    from llama.adjudicator.record import write_record
+    rec = rig.proposal(ACCEPTABLE)
+    rig.ws.adjudication.unlink()
+    rig.stub(POST_NO_B)
+    real = runner.acceptable_state
+
+    def read_then_concurrent_write(ws, stored):
+        state = real(ws, stored)
+        write_record(rig.ws, rec)                     # a concurrent `llama adjudicate`
+        return state
+    monkeypatch.setattr(runner, "acceptable_state", read_then_concurrent_write)
+    r = run(rig, rig.slug, "--accept", "--yes")
+    assert f"{rig.slug}: no proposal" in r.output, r.output
+    assert not rig.ws.overrides.exists() and read_record(rig.ws).outcome == "proposal"
+
+
+def test_backlog_retries_a_failed_record_without_force(rig):          # I2
+    from herder import TaskFailed
+    rig.queue(TaskFailed("bad reply"))
+    r = run(rig)
+    assert f"{rig.slug}: failed" in r.output and read_record(rig.ws).outcome == "failed"
+    rig.queue(V([exclude_b_low()], [judge(TITLES_FLAG, "real-fixed-by-action")]))
+    r = run(rig)
+    assert f"{rig.slug}: held with proposal" in r.output, r.output
+    assert rig.calls() == 2 and read_record(rig.ws).outcome == "proposal"
+
+
+def test_dry_run_replaces_a_failed_record(rig):                        # I2
+    from herder import TaskFailed
+    rig.queue(TaskFailed("bad reply"))
+    run(rig)
+    rig.queue(EXCLUDE_B)
+    r = run(rig, "--dry-run")
+    assert f"{rig.slug}: dry-run" in r.output and read_record(rig.ws).outcome == "dry-run"
+
+
+def exclude_b_low():
+    from test_adjudicator_runner import exclude_b
+    return exclude_b("low")

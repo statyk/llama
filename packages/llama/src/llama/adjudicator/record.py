@@ -5,6 +5,11 @@ staleness test: over the show's flags, track table, excluded rows, overrides wit
 overrule timestamps, and identifier; never research or briefing text. A later run judges a
 held show again only when its digest moved.
 
+A `failed` record (outcome "failed", the error in `result["error"]`) marks a paid call
+that produced no verdict to store (the call failed, or the apply failed or hit a
+transient): it is current like any other record, so the pipeline hooks do not pay for the
+same unchanged show again; `llama adjudicate` re-judges it (it holds no proposal).
+
 An applied record is written inside the apply's `show_unit` (so it commits and restores
 with the show) by `write_record`, which takes no lock. Every other record is written after
 the unit has exited by `write_outside_unit`, which takes the show lock itself and writes
@@ -33,7 +38,7 @@ class AdjudicationRecord(BaseModel):
     at: str = ""
     model: str = ""
     dry_run: bool = False
-    outcome: Literal["applied", "proposal", "malformed", "dry-run", "accepted"]
+    outcome: Literal["applied", "proposal", "malformed", "dry-run", "accepted", "failed"]
     digest: str = ""
     verdict: dict = Field(default_factory=dict)
     malformed: list[str] = Field(default_factory=list)

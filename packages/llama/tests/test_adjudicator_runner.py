@@ -263,13 +263,77 @@ def test_bundle_error_is_failed_and_writes_nothing(rig, monkeypatch):
     assert rig.calls() == 0 and tree_bytes(rig.ws.dir) == before
 
 
-def test_llm_failure_marks_llm_failure_and_writes_nothing(rig):
+def test_llm_failure_marks_llm_failure_and_writes_a_failed_record(rig):
+    """I2: a failed call leaves a digest-keyed `failed` record and nothing else, so the
+    pipeline hooks do not pay for the same unchanged show again."""
     rig.pre()
     before = tree_bytes(rig.ws.dir)
     rig.queue(TaskFailed("bad reply"))
     out = rig.run()
     assert (out.outcome, out.llm_failure) == (FAILED, True)
-    assert tree_bytes(rig.ws.dir) == before
+    rec = read_record(rig.ws)
+    assert rec is not None and rec.outcome == "failed" and not rec.dry_run
+    assert rec.digest == show_digest(rig.ws) and "bad reply" in rec.result["error"]
+    assert is_current(rig.ws)
+    after = tree_bytes(rig.ws.dir)
+    after.pop("adjudication.json")
+    assert after == before
+
+
+def test_a_failed_record_is_current_by_default_and_retried_on_request(rig):
+    """I2: the hooks' default skips a current `failed` record; the backlog command's
+    `retry_failed` judges it again without --force."""
+    rig.pre()
+    rig.queue(TaskFailed("bad reply"))
+    assert rig.run().outcome == FAILED
+    assert rig.run().outcome == CURRENT and rig.calls() == 1
+    rig.queue(TaskFailed("bad again"))
+    assert rig.run(retry_failed=True).outcome == FAILED and rig.calls() == 2
+    assert "bad again" in read_record(rig.ws).result["error"]
+
+
+def test_retry_failed_still_skips_a_current_proposal(rig):
+    rig.pre()
+    rig.proposal(V([exclude_b("low")], [judge(TITLES_FLAG, "real-fixed-by-action")]))
+    assert rig.run(retry_failed=True).outcome == CURRENT and rig.calls() == 1
+
+
+def test_a_failed_record_is_rejudged_once_the_digest_moves(rig):
+    rig.pre()
+    rig.queue(TaskFailed("bad reply"))
+    assert rig.run().outcome == FAILED
+    rig.pre(flags=(TITLES_FLAG, VENUE_FLAG))                  # the show moved
+    rig.queue(TaskFailed("bad reply"))
+    assert rig.run().outcome == FAILED and rig.calls() == 2
+
+
+def test_llm_failure_on_a_changed_show_writes_nothing(rig):
+    """I2: CHANGED still writes nothing (the failed record is under the same writer)."""
+    rig.pre()
+    rig.provider.before = lambda: write_artifact(rig.ws.overrides, Overrides(venue="Kezar"))
+    rig.queue(TaskFailed("bad reply"))
+    out = rig.run()
+    assert (out.outcome, out.llm_failure) == (FAILED, True)
+    assert not rig.ws.adjudication.exists()
+
+
+def test_llm_failure_in_a_dry_run_writes_nothing(rig):
+    rig.pre()
+    rig.queue(TaskFailed("bad reply"))
+    assert rig.run(dry_run=True).outcome == FAILED
+    assert not rig.ws.adjudication.exists()
+
+
+def test_a_failed_record_is_never_acceptable(rig):
+    from llama.adjudicator.runner import acceptable_state
+    rig.pre()
+    rig.queue(TaskFailed("bad reply"))
+    rig.run()
+    rec = read_record(rig.ws)
+    assert acceptable_state(rig.ws, rec) == "none"
+    rig.pre(flags=(TITLES_FLAG, VENUE_FLAG))                  # stale: still no proposal
+    assert acceptable_state(rig.ws, rec) == "none"
+    assert rig.accept().outcome == NO_PROPOSAL
 
 
 def test_render_value_error_is_failed_without_llm_failure(rig, monkeypatch):
@@ -351,7 +415,7 @@ def test_switch_without_complaints_passes_the_gate(rig, monkeypatch):
     out = rig.run()
     assert seen and seen[0].auto, seen
     assert out.outcome == FAILED                 # C4: an unexpected error is a failure
-    assert not rig.ws.adjudication.exists()
+    assert read_record(rig.ws).outcome == "failed"           # I2: a paid call is recorded
 
 
 # ---------------------------------------------------------------- auto apply
@@ -439,6 +503,24 @@ def test_fixed_eligible_for_marked_show_whose_campaign_record_ends_processed(rig
     assert out.outcome == APPLIED and out.fixed_eligible is True
 
 
+def test_accept_of_a_marked_show_is_fixed_eligible(rig):             # M2
+    rig.pre()
+    campaign.add_mark(rig.ws, reason="piece 4", start_stage="gather", batch="w1",
+                      at="2026-01-01T00:00:00Z")
+    rig.proposal(ACCEPTABLE)
+    rig.stub(POST_NO_B)
+    out = rig.accept()
+    assert out.outcome == ACCEPTED and out.fixed_eligible is True
+
+
+def test_accept_of_an_unmarked_show_is_not_fixed_eligible(rig):         # M2
+    rig.pre()
+    rig.proposal(ACCEPTABLE)
+    rig.stub(POST_NO_B)
+    out = rig.accept()
+    assert out.outcome == ACCEPTED and out.fixed_eligible is False
+
+
 def test_unreadable_campaign_counts_as_marked_and_is_not_fixed_eligible(rig, monkeypatch):
     rig.pre()
     rig.ws.campaign.write_text("{broken")
@@ -481,14 +563,22 @@ def test_refused_apply_becomes_proposal_carrying_the_error(rig):
     assert (rec.result["status"], rec.result["error"]) == ("refused", "station copy does not pair")
 
 
-def test_transient_apply_failure_leaves_no_record(rig):
+def test_transient_apply_failure_writes_a_failed_record(rig):
+    """I2: an unjudged transient leaves a `failed` record of the pre-state digest."""
     rig.pre()
+    pre_digest = show_digest(rig.ws)
     before = tree_bytes(rig.ws.dir)
     rig.stub(POST_NO_B, fail=IAError("download of b.mp3 failed"))
     rig.queue(EXCLUDE_B)
     out = rig.run()
     assert out.outcome == UNJUDGED
-    assert tree_bytes(rig.ws.dir) == before and not rig.ws.adjudication.exists()
+    rec = read_record(rig.ws)
+    assert rec.outcome == "failed" and rec.digest == pre_digest == show_digest(rig.ws)
+    assert "download of b.mp3 failed" in rec.result["error"] and rec.verdict["edits"]
+    after = tree_bytes(rig.ws.dir)
+    after.pop("adjudication.json")
+    assert after == before
+    assert rig.run().outcome == CURRENT and rig.calls() == 1
 
 
 @pytest.mark.parametrize("exc", [ValueError("boom"), OSError("disk")])
@@ -500,7 +590,11 @@ def test_unexpected_apply_error_is_failed_not_a_crash(rig, exc):
     rig.queue(EXCLUDE_B)
     out = rig.run()
     assert out.outcome == FAILED and str(exc) in out.detail
-    assert tree_bytes(rig.ws.dir) == before
+    rec = read_record(rig.ws)                                  # I2
+    assert rec.outcome == "failed" and str(exc) in rec.result["error"]
+    after = tree_bytes(rig.ws.dir)
+    after.pop("adjudication.json")
+    assert after == before
 
 
 def test_apply_ratelimited_propagates_with_nothing_written(rig):

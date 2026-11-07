@@ -2079,12 +2079,15 @@ def _print_adjudicator_proposal(entry):
     proposal (or an applied record's remaining hold) and returns the record when `[a]` is
     offered (`runner.acceptable_state` is "ok", the same predicate `adjudicate --accept`
     gates its preview on), else None. A dry-run, malformed or unreadable record prints
-    nothing. A proposal that cannot be rendered is reported and never offered: what the
-    operator cannot see is not accepted."""
+    nothing; a failed one prints one line. A proposal that cannot be rendered is reported
+    and never offered: what the operator cannot see is not accepted."""
     from llama.adjudicator import record, report, runner
 
     rec = record.read_record(entry.ws)
     if rec is None or rec.dry_run:
+        return None
+    if rec.outcome == "failed":
+        typer.echo(f"last adjudication failed: {rec.result.get('error', '')}".rstrip())
         return None
     if not (rec.outcome == "proposal" or (rec.outcome == "applied" and rec.held_proposal)):
         return None
@@ -4772,8 +4775,9 @@ def _adjudicate_after(ctx, entry, pace: PaceOptions, state):
     `runner.adjudicate_show`. Call it only after the caller's show lock and unit are
     released (`file_lock` is not re-entrant, and the apply takes its own).
 
-    None when there is nothing to do (no context, not held, or a current record): no
-    meter read, no line. A `PauseUntil` (the gate) or `RateLimited` (the call) comes
+    None when there is nothing to do (no context, not held, or a current record, a
+    `failed` one included, so a show whose paid call failed is not paid for again until
+    its digest moves; `llama adjudicate` retries it): no meter read, no line. A `PauseUntil` (the gate) or `RateLimited` (the call) comes
     back as a value for the caller to pause on, never raised; under `--no-pacing` a
     `RateLimited` is the outcome `unjudged`. Anything else that goes wrong is a `failed`
     outcome: nothing escapes into the caller, whose result is already committed.
@@ -4903,11 +4907,11 @@ def adjudicate(
     ctx = _adjudicate_context(config, ia, ledger, make_providers(config))
     state_ = pacing_state.read_state(config.root)
 
-    def acceptable(stored) -> bool:
+    def acceptable(stored) -> str:
         try:
-            return runner.acceptable_state(entry.ws, stored) == "ok"
+            return runner.acceptable_state(entry.ws, stored)
         except Exception:   # noqa: BLE001 - a hand-edited record has no proposal
-            return False
+            return "none"
 
     resume = "  re-run the same command to continue (judged shows are skipped while current)"
     outcomes: list = []
@@ -4923,10 +4927,19 @@ def adjudicate(
             break
         try:
             if accept:
+                # Only the record that was read, judged acceptable and shown is ever
+                # passed on (`expected_at`): with nothing acceptable read, the outcome is
+                # decided here, so a record written meanwhile is never applied unseen.
                 out = None
                 shown_at = None
                 stored = read_adjudication(entry.ws)
-                if acceptable(stored):
+                st = acceptable(stored)
+                if st == "stale":
+                    out = runner.ShowOutcome(entry.slug, runner.PROPOSAL_STALE,
+                                             "the show changed since the proposal")
+                elif st != "ok":
+                    out = runner.ShowOutcome(entry.slug, runner.NO_PROPOSAL)
+                else:
                     try:
                         lines = report.render_proposal(
                             stored, read_model(entry.ws.show, Show), slug=entry.slug)
@@ -4944,7 +4957,8 @@ def adjudicate(
                 if out is None:
                     out = runner.accept_proposal(ctx, entry, expected_at=shown_at)
             else:
-                out = runner.adjudicate_show(ctx, entry, dry_run=dry_run, force=force)
+                out = runner.adjudicate_show(ctx, entry, dry_run=dry_run, force=force,
+                                             retry_failed=True)
         except RateLimited as exc:
             typer.echo(f"paused: {str(exc)}")
             typer.echo(resume)

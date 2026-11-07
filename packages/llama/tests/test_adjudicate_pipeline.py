@@ -749,3 +749,42 @@ def test_a_refused_adjudication_records_no_boundary(tmp_path, monkeypatch):
            pace=pacing.pace_options(Config(), max_wait="1h"))
     assert recorded == []
     assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_two_resume_passes_over_a_failing_adjudication_call_once(tmp_path, monkeypatch,
+                                                                  capsys):
+    """I2: the real runner behind `_execute`. The first pass's call fails and leaves a
+    `failed` record; the second pass (a `run resume` of the same unchanged show) skips it
+    with no call. A digest move judges it again."""
+    from herder import TaskFailed
+    from test_adjudicator_runner import Rig, TITLES_FLAG, VENUE_FLAG
+    _clock(monkeypatch)
+    rig = Rig(tmp_path, monkeypatch)
+    rig.pre()
+    pid = rig.entry().ws.dir.name
+    rig.queue(*[TaskFailed("bad reply")] * 6)
+    providers = collections.defaultdict(lambda: [FakeProvider(completes=["x"] * 50)])
+    providers["adjudicate"] = rig.provider
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "run_search", lambda *a, **k: None)
+    entries = [_entry(PID, 1)]
+    monkeypatch.setattr(cli, "run_winnow", lambda *a, **k: entries)
+    monkeypatch.setattr(cli, "choose_entries", lambda entries, *a, **k: entries)
+    monkeypatch.setattr(cli, "make_client", lambda config: None)
+    monkeypatch.setattr(cli, "process_show", lambda *a, **k: None)     # still held
+    pace = pacing.pace_options(Config(), no_pacing=True)
+
+    def one_pass():
+        cli._execute(rig.config, rig.ia, rig.ledger, RunWorkspace(tmp_path, "r1"),
+                     Criteria(query="x"), 1, auto=True, human_gate=False, pace=pace,
+                     adjudicate=True)
+    one_pass()
+    first = rig.calls()
+    assert first >= 1 and f"adjudicated {PID}: failed" in capsys.readouterr().out
+    one_pass()
+    assert rig.calls() == first
+    assert f"adjudicated {PID}" not in capsys.readouterr().out
+    rig.pre(flags=(TITLES_FLAG, VENUE_FLAG))                      # the digest moves
+    one_pass()
+    assert rig.calls() > first
+    assert pid == SLUG

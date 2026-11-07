@@ -1205,3 +1205,14 @@ def test_triage_shows_a_set_title_with_its_title_before_a(tmp_path, tty):     # 
     assert shown in r.output, r.output
     assert "    why: the taper names it" in r.output
     assert r.output.index(shown) < r.output.index("[a] accept proposal")
+
+
+def test_triage_failed_record_prints_one_line_and_offers_no_a(tmp_path, tty):  # I2
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    _adj_record(ws, [], outcome="failed", verdict={},
+                result={"error": "adjudicate call: bad reply"})
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert r.exit_code == 0, r.output
+    assert r.output.count("last adjudication failed: adjudicate call: bad reply") == 1
+    assert "[a] accept proposal" not in r.output and "proposal (" not in r.output

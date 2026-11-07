@@ -5,9 +5,12 @@ failure class mapped to an outcome and to exactly what is written.
 
 What is written, by outcome: an applied (or accepted) record inside the apply's unit; a
 proposal, malformed or dry-run record after it, by `write_outside_unit`, only while the
-show is still the state the verdict judged (else `CHANGED`); nothing at all for a
-failure, an unjudged transient, a concurrent change, or a `RateLimited` (which
-propagates for the caller to pause on).
+show is still the state the verdict judged (else `CHANGED`); a `failed` record, by the
+same writer and on the same condition, for a failure after the call was paid for (the
+call itself failed, the apply raised, or it hit a transient: `UNJUDGED`), outside a dry
+run, so the pipeline hooks do not pay again for the same unchanged show; nothing at all
+for a failure before the call (no spend), a concurrent change, or a `RateLimited`
+(which propagates for the caller to pause on).
 
 Never imports `llama.cli`: the redo arrives as `Context.redo`."""
 from __future__ import annotations
@@ -101,6 +104,13 @@ def hook_enabled(config: Config, flag: bool | None) -> bool:
 
 
 # ---------------------------------------------------------------- helpers
+
+def _fixed_eligible(ws: ShowWorkspace) -> bool:
+    """A station-marked show whose campaign record is processed after its last mark:
+    `llama deliver --fixed` takes it."""
+    camp, _ = _campaign(ws)
+    return last_mark(camp) is not None and not awaiting_fix(camp)
+
 
 def _record_path(ctx: Context, entry: CatalogEntry) -> Path | None:
     return ctx.sink / f"{entry.slug}.json" if ctx.sink is not None else None
@@ -213,18 +223,41 @@ def _failed(entry: CatalogEntry, what: str, exc: BaseException, **kw) -> ShowOut
     return ShowOutcome(entry.slug, FAILED, f"{what}: {exc}", **kw)
 
 
+def _record_failure(ctx: Context, entry: CatalogEntry, bundle: Bundle, out: ShowOutcome, *,
+                    verdict: Verdict | None = None, dry_run: bool = False) -> ShowOutcome:
+    """After a paid call that left no other record: a `failed` record of the judged
+    state, by `write_outside_unit` (nothing when the show moved meanwhile). Never in a
+    dry run. Returns `out` unchanged; a failure to write is only logged."""
+    if dry_run:
+        return out
+    rec = AdjudicationRecord(
+        version=RECORD_FILE_VERSION, at=ctx.now(), model=model_label(ctx.config),
+        outcome="failed", verdict=verdict.model_dump(mode="json") if verdict else {},
+        result={"error": out.detail})
+    try:
+        write_outside_unit(entry.ws, rec, expect=bundle.view, path=_record_path(ctx, entry))
+    except Exception as exc:          # noqa: BLE001 - the outcome is already a failure
+        log.warning("%s: could not write the failed adjudication record: %s", entry.slug, exc)
+    return out
+
+
 # ---------------------------------------------------------------- adjudicate
 
 def adjudicate_show(ctx: Context, entry: CatalogEntry, *, dry_run: bool = False,
-                    force: bool = False,
+                    force: bool = False, retry_failed: bool = False,
                     trial_policy: Callable[[Verdict, GateResult], bool] | None = None
                     ) -> ShowOutcome:
+    """`retry_failed` (the backlog command's) judges a current `failed` record again;
+    the pipeline hooks leave it False, so such a show waits for its digest to move."""
     ws, slug = entry.ws, entry.slug
     path = _record_path(ctx, entry)
     # 1-2: skips, with no call (a corrupt show.json fails here, before any spend)
     try:
         held = _held(ws)
         current = held and not force and is_current(ws, path=path)
+        if current and retry_failed:
+            stored = read_adjudication(ws, path=path)
+            current = stored is not None and stored.outcome != "failed"
     except Exception as exc:          # noqa: BLE001 - one show must not abort a backlog
         return _failed(entry, "read show", exc)
     if not held:
@@ -256,7 +289,9 @@ def adjudicate_show(ctx: Context, entry: CatalogEntry, *, dry_run: bool = False,
     except RateLimited:
         raise
     except (TaskFailed, HerderError) as exc:
-        return _failed(entry, "adjudicate call", exc, llm_failure=True)
+        return _record_failure(ctx, entry, bundle,
+                               _failed(entry, "adjudicate call", exc, llm_failure=True),
+                               dry_run=dry_run)
     except ValueError as exc:
         return _failed(entry, "adjudicate prompt", exc)
     # 6: target validation, before anything is written
@@ -309,20 +344,22 @@ def adjudicate_show(ctx: Context, entry: CatalogEntry, *, dry_run: bool = False,
     except ShowChanged:
         return ShowOutcome(slug, CHANGED, "changed while being judged")
     except Exception as exc:          # noqa: BLE001 - the unit restored the files
-        return _failed(entry, "apply", exc)
+        return _record_failure(ctx, entry, bundle, _failed(entry, "apply", exc),
+                               verdict=verdict)
     if res.status == "applied":
         rec = committed["rec"]
-        camp, _ = _campaign(ws)
         return ShowOutcome(slug, APPLIED_HELD if res.held else APPLIED, record=rec,
                            changes=list(res.changes),
                            delivered_changed=facts.delivered
                            and view_digest(bundle.view) != rec.digest,
-                           fixed_eligible=last_mark(camp) is not None and not awaiting_fix(camp))
+                           fixed_eligible=_fixed_eligible(ws))
     if res.status in ("restored", "refused"):
         rec = _base(ctx, verdict, "proposal", gate=gate, result=asdict(res))
         detail = "; ".join(res.diff) if res.status == "restored" else (res.error or "")
         return _write_after(ctx, entry, rec, bundle, PROPOSAL, detail)
-    return ShowOutcome(slug, UNJUDGED, f"transient: {res.error}")      # transient
+    return _record_failure(ctx, entry, bundle,                         # transient
+                           ShowOutcome(slug, UNJUDGED, f"transient: {res.error}"),
+                           verdict=verdict)
 
 
 # ---------------------------------------------------------------- accept
@@ -354,10 +391,12 @@ def acceptable_state(ws: ShowWorkspace, rec: AdjudicationRecord | None) -> str:
     preview. Raises when the record's verdict cannot be read."""
     if rec is None or rec.dry_run:
         return "none"
+    verdict = accept_verdict(rec)
+    if verdict is None:
+        return "none"                 # no proposal at all (a failed record, say): never stale
     if not is_current(ws):
         return "stale"
-    verdict = accept_verdict(rec)
-    if verdict is None or not _applicable(verdict):
+    if not _applicable(verdict):
         return "none"
     return "ok"
 
@@ -443,7 +482,8 @@ def accept_proposal(ctx: Context, entry: CatalogEntry, *,
         return ShowOutcome(slug, ACCEPTED, "still held" if res.held else "",
                            record=committed["rec"], changes=list(res.changes),
                            delivered_changed=is_delivered(ctx.ledger, bundle.show.performance_id)
-                           and view_digest(bundle.view) != committed["rec"].digest)
+                           and view_digest(bundle.view) != committed["rec"].digest,
+                           fixed_eligible=_fixed_eligible(ws))
     if res.status == "restored":
         first = res.diff[0] if res.diff else "no detail"
         detail = f"accept restored: {first}"
