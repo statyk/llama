@@ -10,9 +10,13 @@ the snapshot comes back byte-identical, and the verdict becomes a proposal notin
 
 This module never imports `llama.cli`: the redo arrives as a callable (the caller's
 `_redo_show_locked` bound to the show), and it never takes the show lock itself
-(`file_lock` is not re-entrant; `show_unit` holds it)."""
+(`file_lock` is not re-entrant; `show_unit` holds it).
+
+A restore also takes back the ledger row the redo added (`_LedgerUndo`): the snapshot
+covers the show directory only, and a redo that clears the hold records `selected`."""
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -28,7 +32,8 @@ from llama.adjudicator.verdict import (City, Exclude, Include, OverruleFlag, Pro
 from llama.audio_reuse import StationUnpaired
 from llama.errors import LlamaError
 from llama.ia_client import IAError
-from llama.models import Overrides, Show
+from llama.ledger import Ledger
+from llama.models import Overrides, Provenance, Show
 from llama.overrules import flag_key, merge_rules, records_for
 from llama.show_unit import ShowChanged, ShowView, show_unit
 from llama.songs import normalize_song
@@ -36,6 +41,8 @@ from llama.stages.gather import _sets_from_breaks
 from llama.station_mark import StationUnreadable
 from llama.workspace import (SHOW_STAGE_ORDER, ShowWorkspace, read_model, read_overrides,
                              write_artifact)
+
+log = logging.getLogger(__name__)
 
 Redo = Callable[[str], "Path | None"]
 Mode = Literal["auto", "accept"]
@@ -354,6 +361,48 @@ def rehold_flags(pre: Show, post: Show, verdict: Verdict, gate: GateResult) -> l
     return list(post.review_flags)
 
 
+# ---------------------------------------------------------------- the ledger
+
+class _LedgerUndo:
+    """The ledger row this unit's redo may add, and its removal on a restore.
+
+    `process_show` records exactly one row kind: (candidate pid, `selected`, the
+    provenance run), append-once on that key. Taken inside the unit (show lock held)
+    before any redo, `before` is that key's rows; a restore removes the key's rows not in
+    it. Only a holder of this show's lock runs `process_show` for it, so a new row of the
+    key is this unit's; a row of another run or status, or another show, is never
+    touched. No readable provenance means the redo refuses before `process_show`."""
+
+    def __init__(self, ledger: Ledger, show_ws: ShowWorkspace):
+        self.ledger = ledger
+        try:
+            prov = read_model(show_ws.provenance, Provenance)
+        except Exception:      # noqa: BLE001 - missing or unreadable: no redo can record
+            self.key = None
+            return
+        self.key = (prov.candidate.performance_id, "selected", prov.run)
+        self.before = ledger.rows(*self.key)
+
+    def undo(self) -> str | None:
+        """Remove the added rows; never raises. A note when the removal failed."""
+        if self.key is None:
+            return None
+        try:
+            self.ledger.remove_added(*self.key, before=self.before)
+        except Exception as exc:      # noqa: BLE001 - never mask the restore
+            note = (f"ledger: could not remove the {self.key[1]} row this apply added for "
+                    f"{self.key[0]} (run {self.key[2]}): {exc}")
+            log.warning("%s", note)
+            return note
+        return None
+
+
+def _with_note(text: str | None, note: str | None) -> str | None:
+    if note is None:
+        return text
+    return note if not text else f"{text}; {note}"
+
+
 # ---------------------------------------------------------------- the unit
 
 def _held_in(view: ShowView) -> bool:
@@ -366,10 +415,13 @@ def _held_in(view: ShowView) -> bool:
 def apply_verdict(show_ws: ShowWorkspace, verdict: Verdict, *, expect: ShowView, redo: Redo,
                   mode: Mode, gate: GateResult | None,
                   on_commit: Callable[[Show, ApplyResult], None], trial: bool = False,
-                  at: str) -> ApplyResult:
+                  at: str, ledger: Ledger) -> ApplyResult:
     """Apply `verdict` in one `show_unit`. `gate` is the verdict's GateResult in `auto` and
     None in `accept`. `on_commit` writes the applied record inside the unit. RateLimited,
-    ShowChanged and KeyboardInterrupt propagate after the unit has restored the files."""
+    ShowChanged and KeyboardInterrupt propagate after the unit has restored the files.
+    Every restore (a trial included) first removes the ledger row the redo added; a
+    failure to do so is added to the outcome's `error` (or to the propagating exception's
+    notes), never in place of it."""
     if mode == "auto" and gate is None:
         raise ValueError("auto mode needs the verdict's GateResult")
     edits = _applicable(verdict.edits)
@@ -382,48 +434,71 @@ def apply_verdict(show_ws: ShowWorkspace, verdict: Verdict, *, expect: ShowView,
             return ApplyResult("refused", _held_in(expect), [], [],
                                f"switch_recording cannot be applied with other edits "
                                f"({', '.join(others)}); only venue may accompany it", [])
+    note: str | None = None      # a failed ledger removal, reported with the outcome
     try:
         with show_unit(show_ws, expect):
-            pre = read_model(show_ws.show, Show)
-            before = capture_before(pre)
-            write_edits(show_ws, edits, show=pre, at=at,
-                        defer_subjectless_structure=has_track_list_edit(verdict))
-            redo(earliest_stage(edits))
-            post = read_model(show_ws.show, Show)
-            if is_switch:
-                failures = coverage_failures(pre, post, mode=mode)
-            else:
-                failures = whole_show_diff(before, post, edits)
-            failures += [f"flag silenced without a passing judgement: {f}"
-                         for f in silenced_flags(pre, post, verdict, gate, mode=mode)]
-            if failures:
-                raise _Restore(failures)
-            reheld: list[str] = []
-            if mode == "auto" and post.needs_review:
-                flags = rehold_flags(pre, post, verdict, gate)
-                if flags is not None:
-                    ov = read_overrides(show_ws)
-                    write_artifact(show_ws.overrides, ov.model_copy(update={
-                        "overrules": merge_rules(ov.overrules, records_for(
-                            flags, post, source="adjudicate", at=at))}))
-                    write_artifact(show_ws.show, post.model_copy(
-                        update={"needs_review": False, "review_flags": []}))
-                    redo("package")
-                    post = read_model(show_ws.show, Show)
-                    reheld = flags
-            result = ApplyResult("applied", post.needs_review, [], track_changes(before, post),
-                                 None, reheld)
-            on_commit(post, result)
-            if trial:
-                raise _TrialRestore(result)
-            return result
+            undo = _LedgerUndo(ledger, show_ws)
+            try:
+                return _apply_in_unit(show_ws, verdict, edits, is_switch, redo=redo, mode=mode,
+                                      gate=gate, on_commit=on_commit, trial=trial, at=at)
+            except BaseException as exc:
+                # Under the show lock, before show_unit restores the files: no other
+                # unit of this show can have recorded meanwhile.
+                note = undo.undo()
+                if note is not None:
+                    exc.add_note(note)
+                raise
     except _TrialRestore as t:
-        return replace(t.result, status="applied")
+        return replace(t.result, status="applied",
+                       error=_with_note(t.result.error, note))
     except _Restore as r:
-        return ApplyResult("restored", _held_in(expect), r.failures, [], None, [])
+        return ApplyResult("restored", _held_in(expect), r.failures, [],
+                           note, [])
     except (RateLimited, ShowChanged):
         raise
     except (IAError, TaskFailed, HerderError) as exc:
-        return ApplyResult("transient", _held_in(expect), [], [], str(exc), [])
+        return ApplyResult("transient", _held_in(expect), [], [],
+                           _with_note(str(exc), note), [])
     except (StationUnpaired, StationUnreadable, LlamaError) as exc:
-        return ApplyResult("refused", _held_in(expect), [], [], str(exc), [])
+        return ApplyResult("refused", _held_in(expect), [], [],
+                           _with_note(str(exc), note), [])
+
+
+def _apply_in_unit(show_ws: ShowWorkspace, verdict: Verdict, edits: list, is_switch: bool, *,
+                   redo: Redo, mode: Mode, gate: GateResult | None,
+                   on_commit: Callable[[Show, ApplyResult], None], trial: bool,
+                   at: str) -> ApplyResult:
+    """The unit's body; raises `_Restore`/`_TrialRestore` to restore."""
+    pre = read_model(show_ws.show, Show)
+    before = capture_before(pre)
+    write_edits(show_ws, edits, show=pre, at=at,
+                defer_subjectless_structure=has_track_list_edit(verdict))
+    redo(earliest_stage(edits))
+    post = read_model(show_ws.show, Show)
+    if is_switch:
+        failures = coverage_failures(pre, post, mode=mode)
+    else:
+        failures = whole_show_diff(before, post, edits)
+    failures += [f"flag silenced without a passing judgement: {f}"
+                 for f in silenced_flags(pre, post, verdict, gate, mode=mode)]
+    if failures:
+        raise _Restore(failures)
+    reheld: list[str] = []
+    if mode == "auto" and post.needs_review:
+        flags = rehold_flags(pre, post, verdict, gate)
+        if flags is not None:
+            ov = read_overrides(show_ws)
+            write_artifact(show_ws.overrides, ov.model_copy(update={
+                "overrules": merge_rules(ov.overrules, records_for(
+                    flags, post, source="adjudicate", at=at))}))
+            write_artifact(show_ws.show, post.model_copy(
+                update={"needs_review": False, "review_flags": []}))
+            redo("package")
+            post = read_model(show_ws.show, Show)
+            reheld = flags
+    result = ApplyResult("applied", post.needs_review, [], track_changes(before, post),
+                         None, reheld)
+    on_commit(post, result)
+    if trial:
+        raise _TrialRestore(result)
+    return result

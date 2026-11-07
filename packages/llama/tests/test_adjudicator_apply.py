@@ -6,6 +6,8 @@ test wants. This is the strict surface: each check has a pass/fail pair the Task
 mutation pass relies on."""
 from __future__ import annotations
 
+import json
+
 import pytest
 
 import llama.cli as cli
@@ -23,7 +25,7 @@ from llama.config import load_config
 from llama.errors import LlamaError
 from llama.ia_client import IAError
 from llama.ledger import Ledger
-from llama.models import Briefing, Overrides, Show, Track
+from llama.models import Briefing, LedgerEntry, Overrides, Show, Track
 from llama.show_unit import ShowChanged, capture_view
 from llama.station_mark import StationUnreadable
 from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
@@ -486,6 +488,7 @@ class Lib:
         self.root = tmp_path
         self.stages: list[str] = []
         self.commits: list = []
+        self.ledger = Ledger(tmp_path / "ledger.jsonl")
 
     def pre(self, flags=(), tracks=None) -> Show:
         tracks = tracks or [T("a.mp3", "A", dur=300.0), T("b.mp3", "B", src="unresolved",
@@ -533,7 +536,7 @@ class Lib:
         if gate == "pass":
             gate = passing(verdict) if mode == "auto" else None
         return apply_verdict(self.ws, verdict, expect=expect or capture_view(self.ws), redo=redo,
-                             mode=mode, gate=gate, trial=trial,
+                             mode=mode, gate=gate, trial=trial, ledger=self.ledger,
                              on_commit=on_commit or (lambda post, res: self.commits.append(res)),
                              at=AT)
 
@@ -827,3 +830,152 @@ def test_auto_mode_needs_a_gate(lib):
     v = V([exclude("b.mp3")], [judge(VENUE_FLAG, conf="medium")])
     with pytest.raises(ValueError):
         lib.apply(v, lib.redo(_post_excluding_b()), gate=None)
+
+
+# ---------------------------------------------------------------- the ledger rows a restore undoes
+#
+# A held show has no `selected` row for its run (process_show records one only when the
+# show clears). The fixture's packaging recorded one, so `held_ledger` removes it and seeds
+# rows that must survive, written with json.dumps spacing (not model_dump_json's) so a
+# rewrite that re-serializes the kept rows is not byte-identical.
+
+def _raw(pid, status, run, at="2026-01-01T00:00:00+00:00"):
+    return json.dumps({"performance_id": pid, "artist": "Grateful Dead", "date": "1973-06-10",
+                       "venue": None, "status": status, "run": run, "recorded_at": at}) + "\n"
+
+
+def held_ledger(lib) -> bytes:
+    lib.ledger.remove_status(PID, "selected")
+    with lib.ledger.path.open("a") as f:
+        f.write(_raw("GratefulDead/1977-05-08", "selected", "r"))
+        f.write(_raw(PID, "rejected", "r0"))
+    return lib.ledger.path.read_bytes()
+
+
+def _selected(lib, run="r"):
+    return [e for e in lib.ledger.entries()
+            if (e.performance_id, e.status, e.run) == (PID, "selected", run)]
+
+
+def _seen_row(lib, real, seen):
+    """The real redo, noting whether it appended this show's selected row."""
+    def redo(stage):
+        out = real(stage)
+        seen.append(len(_selected(lib)))
+        return out
+    return redo
+
+
+def test_whole_show_restore_removes_the_selected_row_its_redo_added(lib):
+    lib.pre(flags=["unresolved track titles"])
+    before, seen = held_ledger(lib), []
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    post = mk([T("a.mp3", "Alpha", dur=300.0), T("c.mp3", "C", dur=400.0)])
+    r = lib.apply(v, _seen_row(lib, lib.redo(post), seen))
+    assert r.status == "restored" and r.error is None, r
+    assert seen == [1]                                   # the redo did append the row
+    assert lib.ledger.path.read_bytes() == before
+
+
+def test_rehold_then_restore_removes_the_row_the_package_redo_added(lib):
+    lib.pre(flags=[VENUE_FLAG])
+    before, seen = held_ledger(lib), []
+    v = V([set_title("b.mp3", "Jam")], [judge(VENUE_FLAG, conf="medium")])
+    post = mk([T("a.mp3", "A", dur=300.0), T("b.mp3", "Jam", src="override", dur=30.0),
+               T("c.mp3", "C", dur=400.0)], flags=[VENUE_FLAG])
+
+    def on_commit(post, res):
+        raise LlamaError("record failed")
+    r = lib.apply(v, _seen_row(lib, lib.redo(post), seen), on_commit=on_commit)
+    assert (r.status, r.error) == ("refused", "record failed"), r
+    assert seen == [0, 1]                                # held after gather, cleared at package
+    assert lib.ledger.path.read_bytes() == before
+
+
+@pytest.mark.parametrize("exc", [LlamaError("refused late"), IAError("download failed"),
+                                 KeyboardInterrupt(), RateLimited("limit")])
+def test_exception_after_the_row_removes_it(lib, exc):
+    lib.pre(flags=["unresolved track titles"])
+    before, seen = held_ledger(lib), []
+    real = _seen_row(lib, lib.redo(_post_excluding_b()), seen)
+
+    def redo(stage):
+        real(stage)
+        raise exc
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    if isinstance(exc, (KeyboardInterrupt, RateLimited)):
+        with pytest.raises(type(exc)):
+            lib.apply(v, redo)
+    else:
+        assert lib.apply(v, redo).status in ("refused", "transient")
+    assert seen == [1]
+    assert lib.ledger.path.read_bytes() == before
+
+
+def test_trial_apply_removes_the_row_its_redo_added(lib):
+    lib.pre(flags=["unresolved track titles"])
+    before, seen = held_ledger(lib), []
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    r = lib.apply(v, _seen_row(lib, lib.redo(_post_excluding_b()), seen), trial=True)
+    assert r == ApplyResult("applied", False, [], ["- b.mp3 (0:30) B"], None, [])
+    assert seen == [1]
+    assert lib.ledger.path.read_bytes() == before
+
+
+def test_committed_apply_keeps_its_row(lib):
+    lib.pre(flags=["unresolved track titles"])
+    before = held_ledger(lib)
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    r = lib.apply(v, lib.redo(_post_excluding_b()))
+    assert r.status == "applied", r
+    after = lib.ledger.path.read_bytes()
+    assert after.startswith(before) and len(_selected(lib)) == 1
+    assert len(after.splitlines()) == len(before.splitlines()) + 1
+
+
+def test_foreign_rows_for_the_same_show_appended_mid_unit_survive(lib):
+    lib.pre(flags=["unresolved track titles"])
+    before, seen = held_ledger(lib), []
+    real = _seen_row(lib, lib.redo(_post_excluding_b()), seen)
+    foreign = [_raw(PID, "selected", "other-run", at="2026-11-07T01:00:00+00:00"),
+               _raw(PID, "rejected", "r", at="2026-11-07T01:00:01+00:00")]
+
+    def redo(stage):
+        with lib.ledger.path.open("a") as f:        # another writer, before and after our row
+            f.write(foreign[0])
+        out = real(stage)
+        with lib.ledger.path.open("a") as f:
+            f.write(foreign[1])
+        return out
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    r = lib.apply(v, redo, trial=True)
+    assert r.status == "applied" and seen == [1]
+    assert lib.ledger.path.read_bytes() == before + "".join(foreign).encode()
+
+
+def test_restore_with_no_row_added_leaves_the_ledger_alone(lib):
+    # the fixture's packaging already recorded (pid, selected, r): record is append-once
+    lib.pre(flags=["unresolved track titles"])
+    before = lib.ledger.path.read_bytes()
+    stat = lib.ledger.path.stat()
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    r = lib.apply(v, lib.redo(_post_excluding_b()), trial=True)
+    assert r.status == "applied" and r.error is None
+    assert lib.ledger.path.read_bytes() == before
+    assert lib.ledger.path.stat().st_ino == stat.st_ino      # not rewritten
+
+
+def test_ledger_removal_failure_does_not_mask_the_restore(lib, monkeypatch):
+    lib.pre(flags=["unresolved track titles"])
+    before_tree = tree_bytes(lib.ws.dir)
+    held_ledger(lib)
+
+    def boom(*a, **k):
+        raise OSError("ledger is read-only")
+    monkeypatch.setattr(Ledger, "remove_added", boom)
+    v = V([exclude("b.mp3")], [judge("unresolved track titles", "real-fixed-by-action")])
+    post = mk([T("a.mp3", "Alpha", dur=300.0), T("c.mp3", "C", dur=400.0)])
+    r = lib.apply(v, lib.redo(post))
+    assert r.status == "restored" and r.diff == ["a.mp3: title 'A' -> 'Alpha' (not predicted)"]
+    assert "ledger" in r.error and "ledger is read-only" in r.error, r
+    assert tree_bytes(lib.ws.dir) == before_tree and not (lib.ws.dir / ".txn").exists()
