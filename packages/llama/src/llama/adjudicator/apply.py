@@ -121,9 +121,14 @@ def earliest_stage(edits: Sequence) -> str:
     return min(stages, key=SHOW_STAGE_ORDER.index)
 
 
-def _structure_files_in_play_order(e: Structure, show: Show) -> list[str]:
+def _structure_files_in_play_order(e: Structure, show: Show, included: set[str]) -> list[str]:
+    """The break files on current tracks, in play order, then those the verdict includes
+    (not yet a track; gather maps filename keys onto its final kept list, so their order
+    is cosmetic). A break on a file neither current nor included is never written."""
     want = set(e.breaks_after)
-    return [t.filename for t in show.tracks if t.filename in want]
+    current = [t.filename for t in show.tracks if t.filename in want]
+    return current + [f for f in dict.fromkeys(e.breaks_after)
+                      if f in included and f not in current]
 
 
 def write_edits(show_ws: ShowWorkspace, edits: Sequence, *, show: Show, at: str,
@@ -136,6 +141,7 @@ def write_edits(show_ws: ShowWorkspace, edits: Sequence, *, show: Show, at: str,
     update: dict = {}
     rules = list(ov.overrules)
     excluded_rows = {x.get("filename"): x for x in show.excluded_files}
+    included = {e.file for e in _applicable(edits) if isinstance(e, Include)}
     for e in _applicable(edits):
         if isinstance(e, Include):
             reasons = (excluded_rows.get(e.file) or {}).get("reasons") or []
@@ -150,7 +156,7 @@ def write_edits(show_ws: ShowWorkspace, edits: Sequence, *, show: Show, at: str,
         elif isinstance(e, SetTitle):
             titles[e.file] = e.title
         elif isinstance(e, Structure):
-            update["set_breaks"] = _structure_files_in_play_order(e, show)
+            update["set_breaks"] = _structure_files_in_play_order(e, show, included)
             update["encore_after"] = e.encore_after
         elif isinstance(e, Venue):
             update["venue"] = e.venue

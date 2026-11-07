@@ -281,7 +281,8 @@ the redo; those flags are judged only by the re-hold rule.
   track) and a structure edit naming it must give it the set label its landed position implies (R4;
   a consistency check, not a position prediction, so the gate keeps a structure edit naming an
   included file propose-only, reason `structure names a file this verdict includes; its position
-  is not predicted`); otherwise, if its title is unresolved, the usual `titles` flag holds the
+  is not predicted`; accepting one writes the break or encore on the included file to
+  `overrides.json`, final2 F1); otherwise, if its title is unresolved, the usual `titles` flag holds the
   show. Segue loss from a structure edit is
   expected and stated.
 - **Silenced flags.** Any pre-apply flag key absent after the redo that the verdict did not judge
@@ -365,8 +366,9 @@ fills and replacements, switches; expected under a dozen) are also listed for Sh
 
 Acceptance bar before the full sweep: zero wrong auto-applied > 60 s track-list edits, title fills or
 replacements, structure edits or recording switches. Any class that fails becomes propose-only. Shawn
-decides the model from the results (leans Opus) and sees the projected cost of the full sweep before
-it starts.
+decided the model from the results (ruling 1, 2026-11-07): Opus is the default (task `adjudicate`,
+tier `high`), and Sonnet stays an option via an `[llm.adjudicate]` override. He sees the projected
+cost of the full sweep before it starts.
 
 ## Limitations
 

@@ -1265,14 +1265,15 @@ def test_stem_in_lookarounds_are_unicode_aware():               # F5
 # keeps more than the current one (pilot-review §3 fix 1), and also while the considered
 # recordings' coverage cannot be read (fail closed: operator ruling 2026-11-07).
 
-def _cov(scores, *, sib_s=None, cur_n=1, cur_s=30.0, dur=30.0, selection=None, edits=None):
+def _cov(scores, *, sib_s=None, cur_n=1, cur_s=30.0, dur=30.0, selection=None, edits=None,
+         excluded=()):
     """One unresolved 30 s track, a passing short exclude of it, and `scores` beside the
     current recording's own entry (which keeps `cur_n`, `cur_s` seconds by select's filter)."""
     import dataclasses
     tracks = [trk("x-d1t1.mp3", dur=dur)]
     sel = selection if selection is not None else {
         "identifier": CUR, "scores": {CUR: {"lineage": "aud", "kept_tracks": cur_n}, **scores}}
-    b = make_bundle(tracks, sections={DESC: DESC_ROWS}, selection=sel)
+    b = make_bundle(tracks, sections={DESC: DESC_ROWS}, selection=sel, excluded=excluded)
     b = dataclasses.replace(b, sibling_kept_s=dict(sib_s or {}), current_kept_s=cur_s)
     return run(edits if edits is not None else [ed("exclude", "medium", file="x-d1t1.mp3")], b)
 
@@ -1281,8 +1282,15 @@ def _cov_vetoes(r: GateResult) -> list[str]:
     return [v for v in r.vetoes if v.startswith(("considered recording", "coverage of"))]
 
 
-def test_coverage_sibling_with_more_tracks_vetoes():                # tracks: 2 > 1
-    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 2}})
+_INC_ROW = {"filename": "x-d1t9.mp3", "reasons": ["short"], "duration_sec": 5.0}
+
+
+# Only a switch exempts a verdict from the veto (final2 F2): an include verdict is held
+# to it like an exclude one.
+@pytest.mark.parametrize("edits", [
+    None, [ed("include", "medium", file="x-d1t9.mp3")]], ids=["exclude", "include"])
+def test_coverage_sibling_with_more_tracks_vetoes(edits):          # tracks: 2 > 1
+    r = _cov({SIB: {"lineage": "sbd", "kept_tracks": 2}}, edits=edits, excluded=[_INC_ROW])
     assert r.vetoes == [f"considered recording {SIB} keeps more (2 tracks, ? s) than the "
                         f"current (1 tracks, 30 s); no switch_recording edit"]
     assert r.auto is False and all(g.passed for g in r.edits)

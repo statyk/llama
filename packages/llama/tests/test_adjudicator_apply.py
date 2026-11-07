@@ -356,6 +356,27 @@ def test_write_edits_include_and_set_title_of_one_file(tmp_path):
     assert read_overrides(ws) == out
 
 
+# final2 F1: a break on a file the verdict includes is written (after the current tracks'
+# breaks, in play order; gather maps filename keys onto the final kept list, so the order
+# is cosmetic). A break on a file neither current nor included is never written.
+
+def test_write_edits_writes_a_break_on_a_file_the_verdict_includes(tmp_path):
+    ws = ws_with(tmp_path, mk(ABC, excluded=[{"filename": "x.mp3", "reasons": ["short"]}]))
+    show = read_model(ws.show, Show)
+    out = write_edits(ws, edits(include("x.mp3"), structure(["x.mp3"], "c.mp3")), show=show,
+                      at=AT, defer_subjectless_structure=True)
+    assert out.set_breaks == ["x.mp3"] and out.encore_after == "c.mp3"
+    assert read_overrides(ws) == out
+    # include after the structure edit, mixed with current tracks, and a stray file
+    out = write_edits(ws, edits(structure(["x.mp3", "zz.mp3", "b.mp3", "a.mp3"]),
+                                include("x.mp3")), show=show, at=AT,
+                      defer_subjectless_structure=True)
+    assert out.set_breaks == ["a.mp3", "b.mp3", "x.mp3"]
+    out = write_edits(ws, edits(structure(["x.mp3"])), show=show, at=AT,
+                      defer_subjectless_structure=True)
+    assert out.set_breaks == []                     # not included by this verdict
+
+
 def test_track_changes_lines():
     pre = mk([T("a.mp3", "A", dur=65.0), T("b.mp3", "B", dur=None), T("c.mp3", "C")])
     post = mk([T("a.mp3", "Alpha", dur=65.0), T("c.mp3", "C", s="2"),
@@ -541,18 +562,21 @@ class Lib:
         write_artifact(self.ws.show, show)
         return show
 
-    def redo(self, post: Show, *, select: str | None = None, post_fn=None):
-        """The real `_redo_show_locked`, with gather writing `post` when show.json was
-        dropped (else the existing show stands, as `should_run`), and with select stubbed
-        to `select` when given."""
+    def redo(self, post: Show | None, *, select: str | None = None, post_fn=None):
+        """The real `_redo_show_locked`, with gather writing `post` (or `post_fn(show_ws)`,
+        built from what the apply wrote) when show.json was dropped (else the existing
+        show stands, as `should_run`), and with select stubbed to `select` when given."""
         ws = self.ws
-        self.ia.lengths.update({t.filename: t.duration_sec for t in post.tracks})
+        if post is not None:
+            self.ia.lengths.update({t.filename: t.duration_sec for t in post.tracks})
 
         def gather(show_ws, *a, **k):
             if show_ws.show.exists():
                 return read_model(show_ws.show, Show)
-            write_artifact(show_ws.show, post)
-            return post
+            out = post_fn(show_ws) if post_fn is not None else post
+            self.ia.lengths.update({t.filename: t.duration_sec for t in out.tracks})
+            write_artifact(show_ws.show, out)
+            return out
 
         def brief(show_ws, *a, **k):
             write_artifact(show_ws.briefing_json, Briefing(context="c", significance="s"))
@@ -669,6 +693,38 @@ def test_switch_with_a_non_venue_edit_is_refused_before_writing(lib, mode):
     assert r.error == ("switch_recording cannot be applied with other edits (exclude); "
                        "only venue may accompany it")
     assert tree_bytes(lib.ws.dir) == before and not (lib.ws.dir / ".txn").exists()
+
+
+def _labelled_by_overrides(show_ws) -> Show:
+    """A gather stand-in for the structure overrides: a, b, x (re-admitted), c, with set
+    labels from `overrides.json`'s filename-keyed set_breaks/encore_after, as gather's
+    `resolve_positions` + `_sets_from_breaks` do."""
+    from llama.stages.gather import _sets_from_breaks
+    names = ["a.mp3", "b.mp3", "x.mp3", "c.mp3"]
+    ov = read_overrides(show_ws)
+    pos = {f: i for i, f in enumerate(names, 1)}
+    sets = _sets_from_breaks(len(names), [pos[f] for f in ov.set_breaks or []],
+                             pos[ov.encore_after] if ov.encore_after else None)
+    rows = [T("a.mp3", "A", dur=300.0), T("b.mp3", "B", src="unresolved", dur=30.0),
+            T("x.mp3", "X", dur=20.0), T("c.mp3", "C", dur=400.0)]
+    return mk([t.model_copy(update={"set": s}) for t, s in zip(rows, sets)])
+
+
+@pytest.mark.parametrize("breaks,encore,want", [
+    (["x.mp3"], None, ["1", "1", "1", "2"]),
+    (["a.mp3", "x.mp3"], None, ["1", "2", "2", "3"]),
+    ([], "x.mp3", ["1", "1", "1", "encore"]),
+], ids=["break", "break-and-current", "encore"])
+def test_accept_structure_on_an_included_file_lands(lib, breaks, encore, want):
+    # final2 F1: the gate makes this propose-only, so --accept is its route; the break
+    # (or encore) on the included file must reach overrides.json and the re-gather.
+    lib.pre(flags=[SETS_FLAG])
+    v = V([include("x.mp3"), structure(breaks, encore)], [judge(SETS_FLAG)])
+    r = lib.apply(v, lib.redo(None, post_fn=_labelled_by_overrides), mode="accept")
+    assert (r.status, r.diff) == ("applied", []), r
+    assert [t.set for t in read_model(lib.ws.show, Show).tracks] == want
+    ov = read_overrides(lib.ws)
+    assert (ov.include, ov.set_breaks, ov.encore_after) == (["x.mp3"], breaks, encore)
 
 
 def test_structure_only_verdict_writes_subjectless_structure_overrule(lib):

@@ -978,6 +978,21 @@ def test_a_title_override_keyed_by_a_readmitted_file_applies(tmp_path: Path):
     assert (t.title, t.title_source) == ("Bertha", "override")
 
 
+def test_a_set_break_keyed_by_a_readmitted_file_applies(tmp_path: Path):
+    """The adjudicator's accepted include + structure on one file (final2 F1) writes
+    `include` and a `set_breaks` entry naming that file; the resolver maps it onto the
+    final kept list, which holds the re-admitted file, so the break falls after it."""
+    md = json.loads(FIXTURE.read_text())
+    sws = ShowWorkspace(tmp_path / "show")
+    f = "FOLLOW-ME @BYPIKENO.mp3"
+    write_artifact(sws.overrides, Overrides(include=[f], set_breaks=[f]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    names = [t.filename for t in show.tracks]
+    i = names.index(f) + 1
+    assert 1 <= i < len(names), names
+    assert [t.set for t in show.tracks] == ["1"] * i + ["2"] * (len(names) - i)
+
+
 def test_readmission_does_not_stop_the_track_number_strip(tmp_path: Path):
     """The second recording-level gate, wired through `resolve_titles`'
     `gate_basis`. `clean_tag_titles` strips a leading track number only when
