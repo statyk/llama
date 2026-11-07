@@ -667,3 +667,85 @@ def test_apply_redo_never_adjudicates(tmp_path, monkeypatch):
     assert r.exit_code == 0, r.output
     assert f"adjudicated {rig.slug}: applied, still held" in r.output
     assert len(calls) == 1 and rig.calls() == 1
+
+
+# ---------------------------------------------------------------- fix round 1
+
+def test_a_deferred_pass_adjudication_pause_judges_without_reprocessing(
+        tmp_path, monkeypatch):
+    """I1: a show another run held (first pass Locked) is processed in the deferred pass;
+    its adjudication is refused, and the next cycle only judges it."""
+    _clock(monkeypatch)
+    real = cli.file_lock
+    monkeypatch.setattr(cli, "file_lock", lambda path, *, blocking=True: (
+        (_ for _ in ()).throw(Locked(path)) if not blocking else real(path, blocking=True)))
+    spy = _spy(monkeypatch, _limited(), None)
+    seen = _drive(tmp_path, monkeypatch, ["C/a"], pace=pacing.pace_options(Config()))
+    assert seen == ["C/a"]                                  # processed once
+    assert spy.calls == [slugify("C/a"), slugify("C/a")]
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_COMPLETE and info.outcome == "1 held"
+
+
+def test_a_cycle_that_only_judged_counts_as_progress(tmp_path, monkeypatch, capsys):
+    """I2: cycle 2 judges a (no show processed), then b's gate pauses. That cycle made
+    progress, so the second pause sleeps rather than checkpointing."""
+    _clock(monkeypatch, sleep_budget=20)
+    n = {"reads": 0}
+
+    def meter(config, pace):
+        n["reads"] += 1
+        # 1 pre-flight, 2 before a, 3 a's gate, (a refused) 4 a's gate, 5 before b: over
+        return _reading(five=99 if n["reads"] == 5 else 10)
+
+    monkeypatch.setattr(cli, "_meter", meter)
+    spy = _spy(monkeypatch, _limited(minutes=10), None, None)
+    seen = _drive(tmp_path, monkeypatch, ["C/a", "C/b"], pace=pacing.pace_options(Config()))
+    out = capsys.readouterr().out
+    assert "no progress" not in out
+    assert seen == ["C/a", "C/b"]
+    assert spy.calls == [slugify("C/a"), slugify("C/a"), slugify("C/b")]
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_COMPLETE and info.outcome == "2 held"
+
+
+def _recording(monkeypatch) -> list:
+    recorded: list = []
+    monkeypatch.setattr(cli.pacing_state, "record",
+                        lambda root, before, after: recorded.append((before, after))
+                        or cli.pacing_state.PacingState())
+    return recorded
+
+
+def test_a_gate_pause_before_adjudication_still_records_the_shows_boundary(
+        tmp_path, monkeypatch):
+    """M2 ruling: the show was fully processed before the adjudication gate paused, so
+    its processing cost is a valid sample."""
+    _clock(monkeypatch)
+    recorded = _recording(monkeypatch)
+    n = {"reads": 0}
+
+    def meter(config, pace):
+        n["reads"] += 1
+        return _reading(five=99 if n["reads"] == 3 else 10)   # 3: a's adjudication gate
+
+    monkeypatch.setattr(cli, "_meter", meter)
+    spy = _spy(monkeypatch)
+    seen = _drive(tmp_path, monkeypatch, ["C/a"], llm=True,
+                  pace=pacing.pace_options(Config(), wait=False))
+    assert seen == ["C/a"] and spy.calls == []
+    assert len(recorded) == 1
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_a_refused_adjudication_records_no_boundary(tmp_path, monkeypatch):
+    """M2 ruling, other half: a RateLimited in the adjudication call is a refused show
+    (partial work), excluded like any refused show."""
+    _clock(monkeypatch)
+    recorded = _recording(monkeypatch)
+    monkeypatch.setattr(cli, "_meter", lambda config, pace: _reading())
+    _spy(monkeypatch, _limited(minutes=120))
+    _drive(tmp_path, monkeypatch, ["C/a"], llm=True,
+           pace=pacing.pace_options(Config(), max_wait="1h"))
+    assert recorded == []
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED

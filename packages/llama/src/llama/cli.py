@@ -698,6 +698,13 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             if adjudicate and ended_held and _adjudicate(entry):
                 still_to_judge.append(entry)
                 unprocessed.extend(pending[idx + 1:])
+                # The GATE stopping short of the judging leaves a fully processed
+                # show, a valid sample; a refusal (RateLimited) in the call is partial
+                # work and stays excluded like any refused show.
+                if (isinstance(limited, PauseUntil) and ran and reading_before is not None
+                        and llm_calls() > calls_before):
+                    state = pacing_state.record(config.root, reading_before,
+                                                _meter(config, pace))
                 break
             if ran and reading_before is not None and llm_calls() > calls_before:
                 # A show that made no LLM call (a download-only resume, an
@@ -4702,7 +4709,11 @@ def _adjudicate_after(ctx, entry, pace: PaceOptions, state):
     meter read, no line. A `PauseUntil` (the gate) or `RateLimited` (the call) comes
     back as a value for the caller to pause on, never raised; under `--no-pacing` a
     `RateLimited` is the outcome `unjudged`. Anything else that goes wrong is a `failed`
-    outcome: nothing escapes into the caller, whose result is already committed."""
+    outcome: nothing escapes into the caller, whose result is already committed.
+
+    The gate is conservative: it reserves a whole show's learned `per_show_delta`
+    before one adjudication call, though the call costs less (spec: every
+    adjudication runs behind the existing gate, unchanged)."""
     from llama.adjudicator import record, runner
 
     if ctx is None:
