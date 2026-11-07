@@ -4605,6 +4605,7 @@ def adjudicate(
     stored as a proposal (`llama triage` or --accept applies it). Paced like `reapply`;
     re-run the same command to continue."""
     from llama.adjudicator import report, runner
+    from llama.adjudicator.record import read_record as read_adjudication
     from llama import reapply as reapply_mod
     from llama.catalog import iter_shows
     from llama.cli_select import apply_selector, build_selector
@@ -4650,6 +4651,13 @@ def adjudicate(
     set_capture_dir(config.root / "llm-failures")
     ctx = _adjudicate_context(config, ia, ledger, make_providers(config))
     state_ = pacing_state.read_state(config.root)
+    def accept_verdict_ok(entry) -> bool:
+        stored = read_adjudication(entry.ws)
+        try:
+            return stored is not None and runner.accept_verdict(stored) is not None
+        except Exception:   # noqa: BLE001 - a hand-edited record has no proposal
+            return False
+
     resume = "  re-run the same command to continue (judged shows are skipped while current)"
     outcomes: list = []
     consecutive = 0
@@ -4664,13 +4672,17 @@ def adjudicate(
             break
         try:
             if accept:
-                stored = runner.read_adjudication(entry.ws)
-                if stored is not None and not stored.dry_run:
+                lines = None
+                if accept_verdict_ok(entry):
+                    stored = read_adjudication(entry.ws)
                     try:
-                        for line in report.render_proposal(stored, read_model(entry.ws.show, Show)):
-                            typer.echo(line)
-                    except Exception:   # noqa: BLE001 - an unreadable record is accept's NO_PROPOSAL
-                        pass
+                        lines = report.render_proposal(
+                            stored, read_model(entry.ws.show, Show), slug=entry.slug)
+                    except Exception:   # noqa: BLE001 - accept reports the unreadable record
+                        lines = None
+                if lines is not None:
+                    for line in lines:
+                        typer.echo(line)
                     if not yes and not typer.confirm("Accept this proposal?", default=False):
                         typer.echo(f"{entry.slug}: skipped")
                         continue

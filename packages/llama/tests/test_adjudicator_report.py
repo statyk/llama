@@ -47,7 +47,7 @@ def test_render_proposal_layout():
     rec = record(v.model_dump(mode="json"), partial_tape=True, gate=[
         {"index": 0, "op": "exclude", "bar": "short", "passed": False, "reason": "too long"},
         {"index": 1, "op": "rm", "bar": "propose-only", "passed": True, "reason": ""}])
-    lines = render_proposal(rec, SHOW)
+    lines = render_proposal(rec, SHOW, slug=SLUG)
     assert lines[0] == "proposal (opus, 2026-11-07T00:00:00+00:00): hold; correct after: unsure"
     assert f"  flag: {FLAG} -> real-fixed-by-action (high): jw" in lines
     assert "  edit 0: exclude b.mp3 [short: too long]" in lines
@@ -64,7 +64,7 @@ def test_render_proposal_renders_held_proposal():
                                  {"flag": "w", "judgement": None}],
                        "edits": [{"op": "overrule", "flag": "v", "confidence": "low",
                                   "why": "jw", "evidence": [EV]}]})
-    assert render_proposal(rec, SHOW) == [
+    assert render_proposal(rec, SHOW, slug=SLUG) == [
         "applied (opus, T), still held:", "  flag: v -> spurious (low): jw",
         "  flag: w -> not judged", "  edit 0: overrule v",
         '    taper-description: "b.mp3 is a tuning fragment"']
@@ -95,6 +95,24 @@ def test_report_lists_track_changes_from_diff_with_durations():
                           voiced=lambda s: False)
     assert lines[1:] == ["auto-applied track-list changes:", "  s1:",
                          "    - gd73-06-10d2t01.mp3 (3:10) Jam"]
+
+
+def test_report_accepted_changes_get_their_own_section():
+    lines = render_report(
+        [out("s1", runner.APPLIED, changes=["- a.mp3 (1:00) A"]),
+         out("s2", runner.ACCEPTED, changes=["- b.mp3 (0:30) B"])], voiced=lambda s: False)
+    i, j = lines.index("auto-applied track-list changes:"), lines.index(
+        "accepted track-list changes:")
+    assert lines[i:j] == ["auto-applied track-list changes:", "  s1:", "    - a.mp3 (1:00) A"]
+    assert lines[j:] == ["accepted track-list changes:", "  s2:", "    - b.mp3 (0:30) B"]
+    only = render_report([out("s2", runner.ACCEPTED, changes=["x"])], voiced=lambda s: False)
+    assert "auto-applied track-list changes:" not in only
+
+
+def test_render_proposal_names_the_callers_slug():
+    v = verdict([{"op": "rm", "confidence": "high", "why": "w"}])
+    lines = render_proposal(record(v.model_dump(mode="json")), SHOW, slug="custom-slug")
+    assert lines[-1] == "  run: llama rm custom-slug"
 
 
 def test_report_names_redeliver_command_for_voiced():

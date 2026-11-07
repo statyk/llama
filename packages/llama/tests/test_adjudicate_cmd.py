@@ -14,7 +14,7 @@ import llama.cli as cli
 from conftest import cli_invoke
 from llama.adjudicator.record import read_record
 from llama.override_keys import filename_keyed_refusal
-from llama.pacing import PauseUntil
+from llama.pacing import PauseUntil, Proceed
 from llama.workspace import read_overrides
 from test_adjudicator_runner import (ACCEPTABLE, CLOSER_FLAG, EXCLUDE_B, POST_NO_B, TITLES_FLAG, VENUE_FLAG, Rig, mk, A, C)
 from test_pipeline import fake_providers
@@ -76,33 +76,50 @@ def test_dry_run_never_overwrites_a_proposal_without_force(rig):
 
 
 def test_force_rejudges(rig):
-    rig.stub(POST_NO_B)
+    rig.stub(mk([A, C], flags=[CLOSER_FLAG]))
     rig.queue(EXCLUDE_B)
-    assert run(rig).exit_code == 0
-    rig.pre()
+    assert run(rig).exit_code == 0 and rig.calls() == 1
+    plain = run(rig)
+    assert f"{rig.slug}: skipped: current" in plain.output and rig.calls() == 1
     rig.queue(EXCLUDE_B)
-    run(rig, "--force")
-    assert rig.calls() == 2
+    forced = run(rig, "--force")
+    assert rig.calls() == 2 and f"{rig.slug}: skipped: current" not in forced.output
 
 
 def test_pause_before_show_prints_and_stops_with_report(rig, monkeypatch):
-    monkeypatch.setattr(cli, "decide", lambda *a, **k: PauseUntil.__new__(PauseUntil))
+    many(rig, 3)
+    verdicts = [Proceed(), PauseUntil.__new__(PauseUntil)]
+    gate_calls = []
+
+    def decide_(*a, **k):
+        gate_calls.append(1)
+        return verdicts[len(gate_calls) - 1]
+    monkeypatch.setattr(cli, "decide", decide_)
     monkeypatch.setattr(PauseUntil, "__str__", lambda self: "5-hour window at 99%")
+    seen = stub_runner(monkeypatch, lambda slug, n: runner.ShowOutcome(slug, runner.CURRENT))
     r = cli_invoke(rig.cfg, "adjudicate")
-    assert r.exit_code == 0
-    assert "paused: 5-hour window at 99%" in r.output
+    assert r.exit_code == 0 and len(gate_calls) == 2 and len(seen) == 1
+    assert r.output.count("paused: ") == 1 and "paused: 5-hour window at 99%" in r.output
     assert "  re-run the same command to continue (judged shows are skipped while current)" \
         in r.output
-    assert rig.calls() == 0
+    assert "summary: 1 shows: skipped: current 1" in r.output
 
 
-def test_ratelimited_pauses_and_leaves_show_unjudged(rig):
+def test_ratelimited_pauses_and_leaves_show_unjudged(rig, monkeypatch):
+    many(rig, 3)
+    rig.stub(POST_NO_B)
+    rig.queue(EXCLUDE_B)                      # show 1 is judged and applied
     rig.provider.__class__ = type("RL", (FakeProvider,), {
-        "complete": lambda self, p: (_ for _ in ()).throw(RateLimited("window used up"))})
+        "complete": lambda self, p: (_ for _ in ()).throw(RateLimited("window used up"))
+        if self.calls else FakeProvider.complete(self, p)})
     r = run(rig)
-    assert r.exit_code == 0
-    assert "paused: " in r.output and "re-run the same command to continue" in r.output
-    assert read_record(rig.ws) is None
+    assert r.exit_code == 0, r.output
+    assert r.output.count("paused: ") == 1 and "re-run the same command to continue" in r.output
+    assert len(rig.provider.calls) == 1       # show 1's call; the second raised (unrecorded)
+    assert "summary: 1 shows: " in r.output   # the report so far has the judged show
+    slugs = sorted(p.name for p in rig.ws.dir.parent.iterdir() if p.is_dir())
+    judged = [s for s in slugs if (rig.ws.dir.parent / s / "adjudication.json").exists()]
+    assert len(judged) == 1
 
 
 def stub_runner(monkeypatch, outcomes):
@@ -167,6 +184,7 @@ def test_one_bad_show_does_not_abort(rig, monkeypatch):
 
 def test_bundle_error_on_first_show_second_still_judged(rig, monkeypatch):
     many(rig, 2)
+    rig.queue(ACCEPTABLE)                     # fails the gate: a stored proposal
     real = runner.build_bundle
     calls = []
 
@@ -178,6 +196,10 @@ def test_bundle_error_on_first_show_second_still_judged(rig, monkeypatch):
     monkeypatch.setattr(runner, "build_bundle", bad)
     r = run(rig)
     assert len(calls) == 2 and r.exit_code == 1 and "failed (bundle: no)" in r.output
+    assert f"{calls[1]}: held with proposal" in r.output and "summary: 2 shows: held with proposal 1, failed 1" \
+        in r.output
+    second = rig.ws.dir.parent / calls[1] / "adjudication.json"
+    assert second.exists() and not (rig.ws.dir.parent / calls[0] / "adjudication.json").exists()
 
 
 def test_exit_code_one_on_failure(rig, monkeypatch):
@@ -218,8 +240,34 @@ def test_accept_without_a_proposal(rig):
     assert f"{rig.slug}: no proposal" in r.output
 
 
-def test_fix_recording_and_runner_share_the_filename_keyed_refusal(tmp_path, monkeypatch):
+def test_filename_keyed_refusal_text():
     keyed = [("exclude", "x.mp3"), ("titles", "t.mp3")]
     assert filename_keyed_refusal("s", keyed) == (
         "s: overrides.json has filename-keyed entries (exclude: x.mp3; titles: t.mp3); "
         "clear them first with: llama fix s --unexclude x.mp3 --clear-title t.mp3")
+
+
+def test_redeliver_names_replace_voiced_for_a_voiced_destination(rig, monkeypatch, tmp_path):
+    station = tmp_path / "station"
+    (station / rig.slug).mkdir(parents=True)
+    (station / rig.slug / "manifest.json").write_text(json.dumps({"dj_audio": {"x": 1}}))
+    monkeypatch.setattr(type(rig.config), "delivery_path", station, raising=False)
+    cfg_text = rig.cfg.read_text()
+    rig.cfg.write_text(f'delivery_path = "{station}"\n' + cfg_text)
+    stub_runner(monkeypatch, lambda slug, n: runner.ShowOutcome(
+        slug, runner.APPLIED, delivered_changed=True))
+    r = run(rig)
+    assert f"  llama deliver {rig.slug} --replace-voiced" in r.output, r.output
+    (station / rig.slug / "manifest.json").write_text(json.dumps({"dj_audio": None}))
+    r = run(rig)
+    assert f"  llama deliver {rig.slug}\n" in r.output + "\n"
+    assert "--replace-voiced" not in r.output
+
+
+def test_accept_prompts_only_when_there_is_an_acceptable_proposal(rig, monkeypatch):
+    rig.queue(EXCLUDE_B)
+    assert run(rig, "--dry-run").exit_code == 0           # a dry-run record: never acceptable
+    monkeypatch.setattr(cli, "_interactive", lambda: True)
+    r = run(rig, rig.slug, "--accept")
+    assert "Accept this proposal?" not in r.output and "proposal (" not in r.output
+    assert f"{rig.slug}: no proposal" in r.output

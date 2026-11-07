@@ -61,6 +61,11 @@ ACCEPTED = "accepted"
 PROPOSAL_STALE = "proposal stale"
 NO_PROPOSAL = "no proposal"
 
+# The run report's summary order.
+OUTCOME_ORDER = (APPLIED, APPLIED_HELD, PROPOSAL, MALFORMED, STALE, CURRENT, HAS_RECORD,
+                 NOT_HELD, CHANGED, UNJUDGED, FAILED, DRY_RUN, ACCEPTED, PROPOSAL_STALE,
+                 NO_PROPOSAL)
+
 _KEPT_FROM_DRY_RUN = ("applied", "proposal", "accepted")
 
 
@@ -320,7 +325,7 @@ def adjudicate_show(ctx: Context, entry: CatalogEntry, *, dry_run: bool = False,
 
 # ---------------------------------------------------------------- accept
 
-def _accept_verdict(rec: AdjudicationRecord) -> Verdict | None:
+def accept_verdict(rec: AdjudicationRecord) -> Verdict | None:
     """The verdict accept applies, or None when the record holds no proposal."""
     if rec.dry_run:
         return None
@@ -363,7 +368,7 @@ def accept_proposal(ctx: Context, entry: CatalogEntry) -> ShowOutcome:
     # 1: a stored, non-dry-run proposal
     stored = read_adjudication(ws, path=path)
     try:
-        verdict = _accept_verdict(stored) if stored is not None else None
+        verdict = accept_verdict(stored) if stored is not None else None
     except Exception as exc:          # noqa: BLE001 - a hand-edited or old-format record
         return ShowOutcome(slug, NO_PROPOSAL, f"stored proposal unreadable: {exc}")
     if verdict is None:

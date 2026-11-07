@@ -10,14 +10,6 @@ from llama.adjudicator.record import AdjudicationRecord
 from llama.adjudicator.runner import ShowOutcome
 from llama.adjudicator.verdict import PROPOSE_ONLY_OPS, Verdict
 from llama.models import Show
-from llama.util import slugify
-
-# The summary's order: the runner's outcome constants, in their order there.
-OUTCOME_ORDER = (runner.APPLIED, runner.APPLIED_HELD, runner.PROPOSAL, runner.MALFORMED,
-                 runner.STALE, runner.CURRENT, runner.HAS_RECORD, runner.NOT_HELD,
-                 runner.CHANGED, runner.UNJUDGED, runner.FAILED, runner.DRY_RUN,
-                 runner.ACCEPTED, runner.PROPOSAL_STALE, runner.NO_PROPOSAL)
-
 
 def proposal_commands(slug: str, verdict: Verdict) -> list[str]:
     """The verdict's propose-only edits as the commands that carry them out."""
@@ -56,9 +48,9 @@ def _flag_line(flag: str, j) -> str:
     return f"  flag: {flag} -> {j['verdict']} ({j['confidence']}): {j['why']}"
 
 
-def render_proposal(rec: AdjudicationRecord, show: Show) -> list[str]:
-    """A stored proposal (or an applied record's remaining hold) as lines. `show` names
-    the library slug (`slugify(performance_id)`) for the `run:` commands."""
+def render_proposal(rec: AdjudicationRecord, show: Show, *, slug: str) -> list[str]:
+    """A stored proposal (or an applied record's remaining hold) as lines. `slug` is
+    the library slug the `run:` commands name (the caller's, never derived)."""
     hp = rec.held_proposal
     if rec.outcome == "applied" and hp:
         lines = [f"applied ({rec.model}, {rec.at}), still held:"]
@@ -83,7 +75,6 @@ def render_proposal(rec: AdjudicationRecord, show: Show) -> list[str]:
         lines.append(f"  decide: {verdict.decide}")
     if rec.partial_tape or verdict.partial_tape:
         lines.append("  partial tape")
-    slug = slugify(show.performance_id)
     lines += [f"  run: {c}" for c in proposal_commands(slug, verdict)]
     return lines
 
@@ -111,17 +102,19 @@ def render_report(outcomes: list[ShowOutcome], *, voiced: Callable[[str], bool])
     counts: dict[str, int] = {}
     for o in outcomes:
         counts[o.outcome] = counts.get(o.outcome, 0) + 1
-    order = [k for k in OUTCOME_ORDER if k in counts] + [k for k in counts
-                                                         if k not in OUTCOME_ORDER]
+    order = [k for k in runner.OUTCOME_ORDER if k in counts] + [k for k in counts
+                                                         if k not in runner.OUTCOME_ORDER]
     lines = [f"summary: {len(outcomes)} shows: "
              + ", ".join(f"{k} {counts[k]}" for k in order)]
 
-    changed = [o for o in outcomes if o.changes]
-    if changed:
-        lines.append("auto-applied track-list changes:")
-        for o in changed:
-            lines.append(f"  {o.slug}:")
-            lines += [f"    {c}" for c in o.changes]
+    for header, kinds in (("auto-applied track-list changes:", (runner.APPLIED, runner.APPLIED_HELD)),
+                          ("accepted track-list changes:", (runner.ACCEPTED,))):
+        changed = [o for o in outcomes if o.changes and o.outcome in kinds]
+        if changed:
+            lines.append(header)
+            for o in changed:
+                lines.append(f"  {o.slug}:")
+                lines += [f"    {c}" for c in o.changes]
     held = [o for o in outcomes if o.outcome in (runner.PROPOSAL, runner.APPLIED_HELD)]
     if held:
         lines.append("held with proposal:")
