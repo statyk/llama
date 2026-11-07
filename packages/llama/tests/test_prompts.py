@@ -13,6 +13,7 @@ EXPECTED = {
     "find_artists": {"query", "max_results", "artist_table"},
     "align_structure": {"tracks", "setlist"},
     "vet_research": {"research"},
+    "adjudicate": {"bundle"},
 }
 
 
