@@ -4821,7 +4821,7 @@ def test_final_kept_is_title_inputs_block(caplog):
 
 
 def _fw4_gather(tmp_path, tags, chosen_desc, slfm_sets, *, sib_desc=None,
-                creator="Taper Band", encore=True):
+                creator="Taper Band", encore=True, info=None):
     """compute_gather on a one- or two-recording item with a setlist.fm canonical.
     With `sib_desc`, a sibling recording carries that description (the donor when the
     chosen description has no segue)."""
@@ -4836,7 +4836,7 @@ def _fw4_gather(tmp_path, tags, chosen_desc, slfm_sets, *, sib_desc=None,
         cand = cand.model_copy(update={"recordings": [RecordingSummary(identifier=TP_IDENT),
                                                        RecordingSummary(identifier="sib")]})
     return compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, TP_IDENT,
-                          setlistfm=_FakeSetlistFM(*slfm_sets, encore=encore))
+                          setlistfm=_FakeSetlistFM(*slfm_sets, encore=encore, info=info))
 
 
 def _segued_tracks(res):
@@ -5337,3 +5337,226 @@ def test_compute_gather_llm_failures_raise(tmp_path):
                        FakeProvider(), make_candidate(), IDENT, align_provider=align,
                        jerrybase_enabled=False, llm_failures_raise=True)
     assert align.calls
+
+
+# --- Segue restore (spec 2026-11-07-segue-restore-design, "The rule") ---
+#
+# An add-only pass after `donor_segues`: E2 (the deterministic decision, only where the
+# LLM alignment won) and E3 (setlist.fm's own trailing-arrow marks, every path but the
+# override) may turn a shipped False into True, never the reverse.
+
+from llama.stages.gather import restore_segues  # noqa: E402
+
+_RS_FILL = ["Sugar Magnolia", "Casey Jones"]
+
+
+def _rs_tracks(titles, sets=None):
+    sets = sets or ["2"] * len(titles)
+    return [Track(index=i, set=s, title=t, filename=f"t{i:02d}.mp3", title_source="tags")
+            for i, (t, s) in enumerate(zip(titles, sets), 1)]
+
+
+def _rs_parse(titles, marked=(), sets=None):
+    """A ParsedSetlist of `titles`; `marked` holds item positions carrying a segue."""
+    sets = sets or ["2"] * len(titles)
+    return ParsedSetlist(items=[
+        SetlistItem(title=t, normalized=normalize_song(t), set=s, segue=k in marked)
+        for k, (t, s) in enumerate(zip(titles, sets))], confidence="high")
+
+
+def _rs(tracks, segues=None, *, sets=None, det=None, slfm=None, donor=None):
+    return restore_segues(tracks, segues if segues is not None else [False] * len(tracks),
+                          shipped_sets=sets or [t.set for t in tracks], det_segues=det,
+                          slfm_marked=slfm, donor=donor, aliases={})
+
+
+_CC = ["China Cat Sunflower", "I Know You Rider", "Morning Dew"]
+
+
+def test_restore_e3_china_cat():
+    slfm = _rs_parse(_CC + _RS_FILL, marked={0})
+    segues, restored = _rs(_rs_tracks(_CC), slfm=slfm)
+    assert segues == [True, False, False]
+    assert restored == [(0, "setlist.fm")]
+
+
+def test_restore_never_removes():
+    segues, restored = _rs(_rs_tracks(_CC), [False, True, False], slfm=_rs_parse(_CC + _RS_FILL))
+    assert segues == [False, True, False]
+    assert restored == []
+
+
+def test_restore_never_on_the_last_track():
+    # setlist.fm marks Morning Dew, the show's last track: nothing follows it.
+    slfm = _rs_parse(_CC + _RS_FILL, marked={2})
+    segues, restored = _rs(_rs_tracks(_CC), slfm=slfm, det=[False, False, True])
+    assert segues == [False, False, False]
+    assert restored == []
+
+
+def test_restore_never_crosses_a_set_break():
+    # setlist.fm writes `>` on the set-two closer (into the encore only on paper).
+    titles = ["China Cat Sunflower", "I Know You Rider", "Morning Dew", "Brokedown Palace"]
+    tracks = _rs_tracks(titles, ["2", "2", "2", "encore"])
+    slfm = _rs_parse(titles + _RS_FILL, marked={0, 2}, sets=["2", "2", "2", "encore"] + ["2", "2"])
+    segues, restored = _rs(tracks, slfm=slfm, det=[False, False, True, False])
+    assert segues == [True, False, False, False]
+    assert restored == [(0, "setlist.fm")]
+
+
+def test_restore_skips_a_mark_into_filler():
+    titles = ["Ripple", "Crowd", "Morning Dew"]
+    slfm = _rs_parse(["Ripple", "Morning Dew"] + _RS_FILL + ["Bertha"], marked={0})
+    segues, restored = _rs(_rs_tracks(titles), slfm=slfm, det=[True, False, False])
+    assert segues == [False, False, False]
+    assert restored == []
+
+
+def test_restore_skips_a_title_with_an_arrow():
+    titles = ["Slipknot! >", "Franklin's Tower", "Morning Dew"]
+    slfm = _rs_parse(["Slipknot!", "Franklin's Tower", "Morning Dew"] + _RS_FILL, marked={0})
+    segues, restored = _rs(_rs_tracks(titles), slfm=slfm, det=[True, False, False])
+    assert segues == [False, False, False]
+    assert restored == []
+
+
+_TURBIN = ["Turbin", "Lazy Bones", "Turbin", "Hot Tamale Baby", "Morning Dew"]
+
+
+def test_restore_e3_skips_where_the_donor_said_no():
+    # setlist.fm marks the SECOND Turbin (item 2); its own align() pairs it with track 3.
+    tracks = _rs_tracks(_TURBIN)
+    slfm = _rs_parse(_TURBIN + _RS_FILL, marked={2})
+    # No donor: added on the second occurrence, not the first.
+    segues, restored = _rs(tracks, slfm=slfm)
+    assert segues == [False, False, True, False, False]
+    assert restored == [(2, "setlist.fm")]
+    # A donor whose own alignment matches track 3 with no mark: the taper said no.
+    donor_no = _rs_parse(_TURBIN, marked={0})
+    segues, restored = _rs(tracks, slfm=slfm, donor=donor_no)
+    assert segues == [False, False, False, False, False]
+    assert restored == []
+    # A donor that does not match track 3 at all: no say, so E3 adds.
+    donor_silent = _rs_parse(["Turbin", "Lazy Bones"], marked={0})
+    segues, restored = _rs(tracks, slfm=slfm, donor=donor_silent)
+    assert segues == [False, False, True, False, False]
+    assert restored == [(2, "setlist.fm")]
+
+
+def test_restore_e2_adds_where_the_deterministic_decision_said_segue():
+    segues, restored = _rs(_rs_tracks(_CC), det=[True, False, False])
+    assert segues == [True, False, False]
+    assert restored == [(0, "the deterministic alignment")]
+
+
+def test_restore_e2_wins_attribution_over_e3():
+    slfm = _rs_parse(_CC + _RS_FILL, marked={0})
+    segues, restored = _rs(_rs_tracks(_CC), slfm=slfm, det=[True, False, False])
+    assert segues == [True, False, False]
+    assert restored == [(0, "the deterministic alignment")]
+
+
+# --- Segue restore, through compute_gather: one test per path ---
+
+
+def _restore_notes(res):
+    return [n for n in res.notes if n.startswith("segues restored")]
+
+
+def test_gather_deterministic_restores_a_setlistfm_mark(tmp_path):
+    slfm = _FakeSetlistFM(TP_SONGS[:3], TP_SONGS[3:], info={"Bravo": ">"})
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS), setlistfm=slfm)
+    assert res.show.structure.alignment == "deterministic"
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == [2]
+    assert _restore_notes(res) == ["segues restored: track 2 'Bravo' (setlist.fm)"]
+
+
+def test_gather_jerrybase_restores_a_setlistfm_mark(tmp_path, monkeypatch):
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
+        [("Charlie", "1"), ("Golf", "2")])])
+    slfm = _FakeSetlistFM(TP_SONGS, info={"Bravo": ">", "Charlie": ">"})
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS), setlistfm=slfm, jerrybase_enabled=True)
+    assert res.show.structure.alignment == "jerrybase"
+    assert _labels(res) == ["1", "1", "1", "2", "2", "2", "2"]
+    # Charlie closes the anchored set one: its mark does not cross the break.
+    assert _segued_tracks(res) == [2]
+    assert _restore_notes(res) == ["segues restored: track 2 'Bravo' (setlist.fm)"]
+
+
+def test_gather_taper_owned_restores_a_setlistfm_mark(tmp_path):
+    slfm = _FakeSetlistFM(TP_SONGS, info={"Bravo": ">", "Charlie": ">"})
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC), setlistfm=slfm)
+    assert res.show.structure.alignment == "taper"
+    assert _labels(res) == ["1", "1", "1", "2", "2", "2", "encore"]
+    # Charlie closes the taper's set one.
+    assert _segued_tracks(res) == [2]
+    assert _restore_notes(res) == ["segues restored: track 2 'Bravo' (setlist.fm)"]
+
+
+def test_gather_llm_won_restores_the_deterministic_segue(tmp_path):
+    # Four of seven tags match nothing, so the deterministic alignment (all set "1",
+    # Alpha and Bravo segued from the chosen description) is under the threshold and the
+    # LLM branch wins with full coverage, no segues and a break after track 1.
+    tags = ["Alpha", "Bravo", "Charlie", "Yak", "Zebu", "Quoll", "Gnu"]
+    desc = "Alpha >\nBravo >\nCharlie\nDelta\nEcho\nFoxtrot\nGolf"
+    llm_sets = ["1", "2", "2", "2", "2", "2", "2"]
+    llm_resp = json.dumps({"tracks": [
+        {"index": i, "set": s, "segue": False, "matched_title": t}
+        for i, (t, s) in enumerate(zip(tags, llm_sets), 1)]})
+    align_fake = FakeProvider(completes=[llm_resp])
+    res = _tp_gather(tmp_path, _tp_md(tags, desc), align_provider=align_fake)
+    assert align_fake.calls, "align_structure was not invoked"
+    assert res.show.structure.alignment == "llm"
+    assert _labels(res) == llm_sets
+    # Track 1's deterministic segue crosses the LLM's break, so the guard (on the
+    # final, LLM, sets) declines it; track 2's is restored.
+    assert _segued_tracks(res) == [2]
+    assert _restore_notes(res) == [
+        "segues restored: track 2 'Bravo' (the deterministic alignment)"]
+
+
+def test_gather_e3_respects_the_donor(tmp_path):
+    # The donor (the sibling's description) lists Bravo unmarked: setlist.fm's mark on it
+    # is not added. Alpha's mark is the donor's own.
+    donor = "Alpha >\nBravo\nCharlie\nDelta\nEcho\nFoxtrot\nGolf"
+    res = _fw4_gather(tmp_path, TP_SONGS, "\n".join(TP_SONGS), [TP_SONGS], sib_desc=donor,
+                      encore=False, info={"Bravo": ">"})
+    assert res.show.structure.source == "setlist.fm"
+    assert _segued_tracks(res) == [1]
+    assert _restore_notes(res) == []
+
+
+_DC15_TAGS = ["Shakedown Street", "Truckin'", "Wang Dang Doodle", "Truckin' Reprise", "Bertha",
+              "China Cat Sunflower", "I Know You Rider", "Morning Dew"]
+
+
+def test_gather_dc15_10_31_shape(tmp_path):
+    # deadandcompany-2015-10-31's setlist.fm shape: `Truckin'` info ">", `Wang Dang Doodle`
+    # info "> Truckin' reprise" (it went INTO something: no trailing arrow), China Cat ">".
+    slfm = _FakeSetlistFM(["Shakedown Street", "Truckin'", "Wang Dang Doodle", "Bertha"],
+                          ["China Cat Sunflower", "I Know You Rider", "Morning Dew"],
+                          info={"Truckin'": ">", "Wang Dang Doodle": "> Truckin' reprise",
+                                "China Cat Sunflower": ">"})
+    res = _tp_gather(tmp_path, _tp_md(_DC15_TAGS), setlistfm=slfm)
+    assert res.show.structure.alignment == "deterministic"
+    assert _segued_tracks(res) == [2, 6]
+    assert _restore_notes(res) == ["segues restored: track 2 'Truckin'' (setlist.fm); "
+                                   "track 6 'China Cat Sunflower' (setlist.fm)"]
+
+
+def test_gather_override_does_not_restore(tmp_path):
+    slfm = _FakeSetlistFM(TP_SONGS, info={"Bravo": ">"})
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS), setlistfm=slfm,
+                     overrides=Overrides(set_breaks=["tb1999-07-04t03.mp3"]))
+    assert res.show.structure.alignment == "override"
+    assert _segued_tracks(res) == []
+    assert _restore_notes(res) == []
+
+
+def test_gather_restore_note_is_op_notes_only(tmp_path):
+    slfm = _FakeSetlistFM(TP_SONGS[:3], TP_SONGS[3:], info={"Bravo": ">"})
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS), setlistfm=slfm)
+    assert len(_restore_notes(res)) == 1
+    assert not any("segues restored" in c for c in res.show.structure.conflicts)
+    assert "segues restored" not in res.show.model_dump_json()
