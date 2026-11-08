@@ -14,10 +14,6 @@ setlist and may be mentioned in a DJ script. Nothing is lost that a later re-gat
 **Strict surfaces this change must not touch:** the audio track list (which files air), titles, and
 set/encore labels. The rule changes only `segue` flags. It never deletes or overwrites user data
 beyond what gather already rewrites (`show.json`), and it makes no LLM call.
-**Strict surface added by goal 2:** clearing a voiced station copy's `awaiting_fix` mark puts it back
-on air. It must clear only a show whose station-vs-library differences are segues alone, and only
-through `clear-mark`'s existing path; a wrong clear airs a show whose songs or titles were awaiting a
-fix.
 
 ## Why
 
@@ -55,26 +51,10 @@ replaces the whole layout and drops every segue (adjudicator spec, "Verdict sche
 1. **A segue restore pass** at the end of gather's structure decision. It only adds segues, never
    removes one, and makes no LLM call. Where gather's own inputs clearly carry a segue that the chosen
    alignment dropped, it puts the segue back.
-2. **Voiced shows: clear, keep the voicing, list them** (Shawn, 2026-11-07: option 2 of three).
-   llama never writes a voiced station copy: `reapply` re-packages the library only, and the station
-   copy keeps its old segues and its `awaiting_fix` mark. For a reprocessed show whose station copy
-   is voiced, and whose station-vs-library differences (`station_mark.manifest_differences`, the
-   check `clear-mark` uses) are **segues only**, the mark is cleared as `llama clear-mark <slug>
-   --accept-change` clears it today. The show goes back on air with its old segues and old DJ audio
-   (Shawn: skip re-voicing). Each such show is appended to a durable **voiced-segue list** that Shawn
-   can read later and re-voice from by hand: slug, presenter, each differing segue as
-   `index title station → library`, and whether the library briefing was rewritten (`brief` fresh
-   vs reuse), so he can weigh the old voicing against it.
-   - Scope (my call): only reprocesses that commit (`reapply ... --allow-structure-change`, as the
-     waves run). A row reapply skips as `structure changed` is not cleared and not listed.
-   - Any other difference (a song, title, set, break, duration or briefing field in `COMPARED`)
-     disqualifies the show: it stays marked and goes through the existing route.
-   - Who clears it, `reapply` itself or a campaign step that runs `clear-mark --accept-change` over
-     the list, is the builder's call. Either way the clear goes through `clear-mark`'s existing code
-     path (emcee-running refusal, show lock, `campaign.json` `clears` entry with outcome
-     `change accepted`), never a new station write.
-   - Today this is 20 shows: 17 funk (jamesbrown), 2 indie (kurt), 1 bluegrass (monroe), all marked
-     for needs-LLM.
+2. **The 20 voiced needs-LLM shows are re-voiced** (Shawn, 2026-11-07: "I'll end up revoicing them";
+   most are on local Qwen, so a re-voice is cheap). Nothing new is built for them. After a reprocess
+   they take the existing route, `llama deliver <slug> --replace-voiced` then `emcee run`, as
+   campaign work. Today they are 17 funk (jamesbrown), 2 indie (kurt) and 1 bluegrass (monroe).
 3. **A measurement** that proves the rule before release (see Measurement).
 
 ## Non-goals
@@ -84,7 +64,7 @@ replaces the whole layout and drops every segue (adjudicator spec, "Verdict sche
 - Blocking or removing segues the alignment adds. The sample's adds were right (4 of 4).
 - Re-running the 621 needs-LLM shows. That's campaign work after the release; the campaign handoff
   owns it.
-- Re-voicing anything.
+- Any new route for voiced station copies (clearing their marks, writing their manifests).
 - A web lookup or any new evidence source. The rule reads only what gather already has.
 
 ## The rule
@@ -157,6 +137,5 @@ removes. The measurement checks both claims, not this paragraph.
 
 - Where exactly the pass sits in `compute_gather`, as long as it follows the final sets and
   `donor_segues`.
-- The note wording, and the voiced-segue list's file location and format. A file under the batch
-  directory, next to `progress.jsonl`, plus a stable aggregate path, is the suggestion.
+- The note wording.
 - How the offline measurement stands in for the LLM alignment.
