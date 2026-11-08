@@ -13,7 +13,9 @@ segues on a couple of hundred other library shows the next time each is re-gathe
 estimate from the 2026-11-07 review with a slightly different E3; Measurement 2 gives the real
 number), and each such show then reads as
 `structure changed` in `reapply` and loses briefing reuse (one fresh brief call). Those shows are
-not swept by this work; see Measurement 2. **Segues are a loose surface**
+not swept by this work; see Measurement 2. A v2.23.0 campaign arm would show each as a visible
+`segues` change and `mark` would take delivered copies off air, so Measurement 2 counts them by
+state and Shawn decides before any `mark --apply`. **Segues are a loose surface**
 (Shawn's rulings: "an occasional miss is acceptable"). A wrong segue airs as a wrong `>` in the
 setlist and may be mentioned in a DJ script. Nothing is lost that a later re-gather can't fix.
 **Strict surfaces this change must not touch:** the audio track list (which files air), titles, and
@@ -78,11 +80,11 @@ replaces the whole layout and drops every segue (adjudicator spec, "Verdict sche
 ## Non-goals
 
 - Keeping stored segues (the dropped direction).
-- Changing the adjudicator. A held show whose re-gather the pass changes is stale to the adjudicator
-  (`stale: reprocess first`), and an apply that re-gathers would read the add as an unpredicted
-  segue change and restore (`adjudicator/apply.py` `whole_show_diff`). So the campaign re-gathers
-  held shows on v2.23.0 (`reapply`) **before** adjudicating them, and `before` already carries the
-  adds. That ordering goes into the campaign handoff; nothing in the adjudicator changes.
+- Changing the adjudicator. Its staleness check compares filenames only, so it would judge a held
+  show the pass changes, and its apply's re-gather would read the add as an unpredicted segue
+  change and restore (`adjudicator/apply.py` `whole_show_diff`). So the campaign re-gathers held
+  shows on v2.23.0 (`reapply --allow-structure-change`) **before** adjudicating them, and `before`
+  already carries the adds. That ordering goes into the campaign handoff; nothing in the adjudicator changes.
 - Setting the flag from a title that already ends in an arrow (it already renders as a segue).
 - Blocking or removing segues the alignment adds. The sample's adds were right (4 of 4).
 - Re-running the 621 needs-LLM shows. That's campaign work after the release; the campaign handoff
@@ -141,7 +143,7 @@ The rule writes only `segue`. Sets, `matched`, coverage, conflicts, titles and f
 
 When it adds at least one segue, gather appends one line to `op_notes` (notes.json; **not** the
 structure `notes`, which flow into `StructureInfo.conflicts`, show.json and the briefing input):
-`segues restored from <evidence>: <titles>`. The wording is the builder's call.
+`segues restored: track <n> '<title>' (<evidence>); ...`. The wording is the builder's call.
 
 ### Expected effect on the sample
 

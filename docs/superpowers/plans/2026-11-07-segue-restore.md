@@ -34,7 +34,11 @@ from it).
 - No new constants or thresholds. Reuse `TRAILING_ARROW`, `_leads_with_filler` and the extracted
   `may_add` guard unchanged.
 - `from_setlistfm`, `blend_segues`, canonical ranking and the `align_structure` prompt are unchanged.
-- The note goes to `op_notes` (notes.json), never to the structure `notes`/`conflicts`.
+- The note goes to `op_notes` (notes.json), never to the structure `notes`/`conflicts`. It is ONE
+  line: `segues restored: track 18 'China Cat Sunflower' (setlist.fm); track 4 'X' (the deterministic alignment)`.
+- No captured fixture and no test fake carries setlist.fm `info` today, so E3 cannot move an existing
+  test expectation; only E2 can (LLM-won fake-provider tests, possibly in `test_replay`,
+  `test_reapply` or the adjudicator tests).
 - `pytest -q` stays offline and deterministic.
 
 ## Review Focus
@@ -105,14 +109,16 @@ def test_may_add_segue_extraction_is_behaviour_preserving():
     ...
 
 def test_canonical_build_carries_cleaned_setlistfm_marks():
-    # Reuse the FW4 builder (_fw4_build with _DC15_SLFM): cb.setlistfm_marked is not None,
-    # its items equal cb.setlist's titles where setlist.fm won, and a build with no
-    # setlist.fm client gives None.
+    # Reuse the FW4 builder (_fw4_build with _DC15_SLFM, plus one setlist.fm item named after
+    # the artist): cb.setlistfm_marked is not None, the artist item is dropped (clean() ran),
+    # and a build with no setlist.fm client gives None.
     ...
 ```
 
 Fill the `...` bodies with the assertions named in each comment, using the existing FW4 helpers
-(`_fw4_build`, `_DC15_SLFM`, `StubIA`, `make_candidate`).
+(`_fw4_build`, `_DC15_SLFM`, `StubIA`, `make_candidate`). Give `_FakeSetlistFM`
+(test_stage_gather.py ~3486) an optional `info: dict[str, str]` per song name, existing callers
+unchanged; Task 2 uses it.
 
 - [ ] **Step 2: Run to verify they fail**
 
@@ -121,8 +127,8 @@ Expected: FAIL (ImportError / AttributeError).
 
 - [ ] **Step 3: Implement**
 
-`setlistfm_marks` may share a private helper with `from_setlistfm`'s walk, but `from_setlistfm`'s
-output must stay byte-identical. Import `TRAILING_ARROW` from `llama.junk` (gather already imports
+Write `setlistfm_marks` as its own walk in gather.py (mirroring `from_setlistfm`'s rules: encore
+label, `tape` songs skipped, blank names skipped, None under 5 items); structure.py is not touched. Import `TRAILING_ARROW` from `llama.junk` (gather already imports
 from it). In `build_canonical`, keep `raw` from the existing `setlistfm.setlist(...)` call; don't
 fetch twice.
 
@@ -155,9 +161,9 @@ git commit -m "gather: setlist.fm segue marks on CanonicalBuild; may_add extract
 def restore_segues(tracks: list[Track], segues: list[bool], *, shipped_sets: list[str],
                    det_segues: list[bool] | None, slfm_marked: ParsedSetlist | None,
                    donor: ParsedSetlist | None,
-                   aliases: dict[str, str] | None) -> tuple[list[bool], dict[str, list[str]]]:
-    """Returns (new segues, {evidence: [track titles restored]}).
-    evidence keys: "the deterministic alignment" (E2), "setlist.fm" (E3)."""
+                   aliases: dict[str, str] | None) -> tuple[list[bool], list[tuple[int, str]]]:
+    """Returns (new segues, [(k, evidence), ...] in track order).
+    evidence: "the deterministic alignment" (E2) or "setlist.fm" (E3)."""
 ```
 
 Rule for each `k`, in order. Skip the track if `segues[k]` is already True, or
@@ -175,19 +181,21 @@ anchoring) as `det_result` before the LLM branch can replace it. After the exist
 - `det_segues = donor_segues(tracks, det_result, cb.segue_donor, family_aliases, shipped_sets=final_sets).segues` when `alignment == "llm"`, else None.
 - `segues, restored = restore_segues(tracks, result.segues, shipped_sets=final_sets, det_segues=det_segues, slfm_marked=cb.setlistfm_marked, donor=cb.segue_donor, aliases=family_aliases)`.
 - `result = result.model_copy(update={"segues": segues})`.
-- For each evidence key in insertion order with titles: `op_notes.append(f"segues restored from {key}: {'; '.join(titles)}")`.
+- If anything was restored, append the ONE line from Global Constraints, entries in track order,
+  each `track <n> '<title>' (<evidence>)`. For that, `restore_segues`' second return value is
+  `list[tuple[int, str]]` of `(k, evidence)` instead of the dict below; the caller formats it.
 
 The override branch is untouched.
 
-- [ ] **Step 1: Write the failing unit tests** (synthetic `Track`s, using the test module's
-  existing track builder)
+- [ ] **Step 1: Write the failing unit tests** (inline `Track(index=…, set=…, title=…, filename=…,
+  title_source=…)`, as the module's tests do, e.g. ~2795)
 
 ```python
 def test_restore_e3_china_cat():
     # tracks: "China Cat Sunflower", "I Know You Rider", "Morning Dew", all set "2", all False;
     # slfm_marked items: China Cat (segue True), I Know You Rider (False), Morning Dew (False) + 2 more
     # so it is not a stub; donor None, det_segues None.
-    # -> segues == [True, False, False]; restored == {"setlist.fm": ["China Cat Sunflower"]}
+    # -> segues == [True, False, False]; restored == [(0, "setlist.fm")]
 
 def test_restore_never_removes():           # segues True with no evidence stays True
 def test_restore_never_on_the_last_track():
@@ -198,7 +206,7 @@ def test_restore_e3_skips_where_the_donor_said_no():
     # donor's own align matches k with no mark -> E3 not added; a donor that doesn't match k -> added.
     # Include a repeated title ("Turbin" twice) so the second occurrence is the one tested.
 def test_restore_e2_adds_where_the_deterministic_decision_said_segue():
-    # det_segues [True, False, False], slfm None -> [True, ...], restored {"the deterministic alignment": [...]}
+    # det_segues [True, False, False], slfm None -> [True, ...], restored [(0, "the deterministic alignment")]
 def test_restore_e2_wins_attribution_over_e3():  # both hold -> listed under E2 only
 ```
 
@@ -210,8 +218,9 @@ Expected: FAIL (ImportError).
 - [ ] **Step 3: Implement `restore_segues`**
 
 - [ ] **Step 4: Write the failing gather integration tests**, one per path, through
-  `compute_gather` (or the module's existing gather harness), with a setlist.fm stub whose song
-  carries `info: ">"` on a track the canonical does not mark:
+  `compute_gather` (or the module's existing gather harness: `_fw4_gather`; for taper,
+  `_tp_gather`/`_tp_md`/`TP_SONGS` ~3500; for jerrybase, the `jerrybase_enabled=True` tests ~3667),
+  with `_FakeSetlistFM`'s `info` on a track the canonical does not mark:
 
 ```python
 def test_gather_deterministic_restores_a_setlistfm_mark():  # alignment "deterministic"; op_notes line
@@ -222,6 +231,13 @@ def test_gather_llm_won_restores_the_deterministic_segue():
     # result + donor_segues marks; alignment "llm" -> segue True and the E2 op_notes line.
     # Make the stub's set labels differ from step 1's on one track (a break moved by one), and
     # assert the guard reads the final (LLM) sets: a mark across the LLM's break is not added.
+def test_gather_e3_respects_the_donor():
+    # Via _fw4_gather(..., sib_desc=...): the donor's own alignment matches a track with no mark,
+    # setlist.fm marks it -> no segue added. Pins that the wiring passes cb.segue_donor.
+def test_gather_dc15_10_31_shape():
+    # setlist.fm shaped on deadandcompany-2015-10-31: Truckin' info ">", Wang Dang Doodle
+    # "> Truckin' reprise", China Cat Sunflower ">", tracks titled without arrows.
+    # -> China Cat restored; Wang Dang Doodle not restored by E3 (starts-with-arrow form).
 def test_gather_override_does_not_restore():                # structure override -> no restore, no note
 def test_gather_restore_note_is_op_notes_only():            # not in structure.conflicts / show.json
 ```
@@ -234,9 +250,9 @@ Expected: PASS.
 - [ ] **Step 6: Run the whole suite**
 
 Run: `./.venv/bin/pytest -q`
-Expected: all pass. If an existing test's expected segues change, **do not edit it yet**: list
-each one in the task report with the test name, the track, and the setlist.fm `info` (or E2 cause)
-behind it. The reviewer decides whether the new expectation is right before you update it.
+Expected: all pass. If an existing test's expected segues change (only E2 can do that), **stop
+before Step 7 and report BLOCKED** with each test name, the track and the cause. The orchestrator
+decides whether the new expectation is right before you update it and commit.
 
 - [ ] **Step 7: Commit**
 
@@ -261,27 +277,44 @@ git commit -m "gather: add-only segue restore pass (setlist.fm marks; determinis
   `python scripts/segue_restore_measure.py library --out DIR [--limit N]`. Both are read-only: they
   write only under `DIR` and replay scratch dirs.
 
-`spot`: for each slug, run `compute_legs` twice (A: `restore_segues` patched to return its input
-unchanged; B: real). LLM-won shows get a stub `align_structure` provider that answers with the
-stored `show.json`'s per-track `set`/`segue`, mapped **by filename**. Write `DIR/spot.json` and a
-readable `DIR/spot.txt`: per show, every segue that differs A→B, with its evidence key and the
-op_notes line.
+**One replay per show, both arms at once.** The script wraps `llama.stages.gather.restore_segues`
+(monkeypatch) with a recorder that calls the real function twice, with the real `donor` and with
+`donor=None`, and records its input segues (arm A), its output (arm B), and the second call's extra
+adds (the **donor-said-no skips**). It returns the first call's result. No rule logic is copied.
+The `info` form of an E3 add or skip is recovered by walking the show's raw cached setlist.fm songs
+in order and matching on `normalize_song` title (first unused match).
 
-`library`: for every library show that replays with no `needs_llm` verdict, the same A/B with no
-providers. Write `DIR/library.json` and print counts:
-- shows changed, segues added;
-- adds by setlist.fm `info` form (`>`, `->`, `) (>`, other);
-- **skipped because the donor said no**: a separate count, from an instrumented copy of the E3
-  check, not added;
-- a seeded random sample (`--seed`, default 20261107) of 20 adds and 20 donor-said-no skips, each
-  with slug, track title, `info`, and the selected recording's description line containing the
-  title (from `~/.llama/cache`), for hand-checking.
+`spot`: for each slug, `compute_legs` with `gather_providers=(None, stub)` where the stored alignment
+was `llm`. The stub is an object with `.complete(prompt) -> str` (herder/tasks.py ~94). It parses the
+`index | filename | title | dur` lines `_format_tracks` renders (gather.py ~450) and answers EVERY
+index: `set`/`segue` from the stored `show.json` track with that **filename**, `matched_title` = the
+title. A filename missing from the stored show gets the previous track's set and `segue=False`. The
+script records an error for any stored-`llm` show whose replay `structure.alignment` isn't `llm`, and
+reports any arm-A segue that differs from the stored one. Write `DIR/spot.json` and `DIR/spot.txt`:
+per show, every A→B add with its evidence and `info` form, and the donor-said-no skips.
 
-`CacheMiss` or `LlamaError` on a show is recorded and skipped; it never stops the run.
+`spot --live`: the same with real `gather_providers` from config (`extract_setlist`,
+`align_structure`), for Task 4 Step 3. It reads only, writes nothing outside `DIR` and replay scratch.
 
-- [ ] **Step 1: Write failing tests** for the pure parts: the by-filename stub mapping, the
-  `info`-form classifier (`">"`, `"->"`, `"x) (>"` → `") (>"`, `"> X reprise"` → other), the sample
-  being seeded/deterministic, and that A/B on a synthetic show reports exactly the restored segue.
+`library`: every library show whose replay has no gather LLM touchpoint (`legs.gather.needs_llm`
+empty and the stored alignment not `llm`; a missing `vetting.json` does not exclude a show). No
+providers. Write `DIR/library.json` and print:
+- shows changed and segues added;
+- changed shows **by state**: library-only, delivered unvoiced, delivered voiced (from the ledger and
+  `station_mark.destination_voiced`). A v2.23.0 campaign arm marks every one of them;
+- adds by `info` form (`>`, `->`, `) (>`, other), and the donor-said-no skips, counted the same way;
+- a seeded sample (`--seed`, default 20261107) of 20 adds stratified by form, and 20 skips, each with
+  slug, track number and title, `info`, and the selected recording's description line containing
+  the title (from `~/.llama/cache`), for hand-checking.
+
+`CacheMiss` or `LlamaError` on a show is recorded and skipped; it never stops the run. For library
+enumeration, config, `CacheOnlyIA` and `setlistfm_client`, follow `scripts/replay_holds.py`.
+
+- [ ] **Step 1: Write failing tests** for the pure parts: the stub's prompt parsing and
+  by-filename answers (every index answered, `matched_title` filled, a missing filename handled),
+  the `info`-form classifier (`">"`, `"->"`, `"x) (>"` → `") (>"`, `"> X reprise"` → other), the
+  recorder (A, B and the donor-said-no difference on a synthetic call), and the stratified sample
+  being seeded and deterministic.
 - [ ] **Step 2: Run to verify they fail** — `./.venv/bin/pytest scripts/test_segue_restore_measure.py -q`, FAIL.
 - [ ] **Step 3: Implement the script.**
 - [ ] **Step 4: Run** — `./.venv/bin/pytest scripts/test_segue_restore_measure.py -q` PASS, then `./.venv/bin/pytest -q` PASS.
@@ -303,14 +336,24 @@ git commit -m "scripts: segue restore measurement (spot A/B, library counts); do
   back: Uncle John's Band on 2015-11-10, the 5 lettuce-2008-08-06 drops); every other add listed
   with evidence.
 - [ ] **Step 2: Library run**, then hand-check both 20-samples against the descriptions. Write the
-  results to `docs/superpowers/2026-11-07-segue-restore/measurement.md` (counts, both hand-check
-  tallies, and every misfire with its slug).
-- [ ] **Step 3: Live sample: STOP for Shawn's go.** About 37 held needs-LLM shows,
-  `--with-gather-llm` in a scratch copy, nothing delivered, ~0.2 points of the 5-hour meter each
-  under usage pacing. Report the adds and drops versus stored, hand-check every restore and a
-  sample of the remaining drops, and append to `measurement.md`.
+  results to `docs/superpowers/2026-11-07-segue-restore/measurement.md` (counts, changed shows by state,
+  both hand-check tallies, and every misfire with its slug, including any setlist.fm mark that lands
+  on a tape that skips the next song).
+- [ ] **Step 3: Live sample: STOP for Shawn's go.** About 37 held needs-LLM shows via
+  `segue_restore_measure.py spot --live` (read-only, nothing written or delivered), ~0.2 points of
+  the 5-hour meter each under usage pacing. Report the LLM's own adds and drops versus stored
+  separately from the rule's restores (restores also lower the campaign's `align_reproduced`
+  metric), hand-check every restore and a sample of the remaining drops, append to `measurement.md`.
 - [ ] **Step 4: Campaign handoff.** Append to `~/.llama-harness/bulk-apply/handoff-campaign.md`:
-  held shows are re-gathered (`reapply`) on v2.23.0 **before** they are adjudicated; the 20 voiced
+  a v2.23.0 arm shows every show the rule changes as a visible `segues` change, and `mark` would
+  stamp delivered and voiced copies off air, so Shawn decides from `measurement.md`'s by-state
+  counts before any `mark --apply`; held shows are re-gathered with `reapply
+  --allow-structure-change` on v2.23.0 **before** they are adjudicated (the adjudicator's staleness
+  check compares filenames only, so it would judge a not-reapplied show and then restore the apply
+  on the unpredicted segue);
+  `align_reproduced` falls by the number of restores; the 20 voiced
   needs-LLM shows are re-voiced via `llama deliver <slug> --replace-voiced` then `emcee run`
   (17 funk/jamesbrown, 2 indie/kurt, 1 bluegrass/monroe); the other library shows E3 would change
-  are listed in `measurement.md` and not swept without Shawn's word.
+  are listed in `measurement.md` and not swept without Shawn's word. Also document, in the
+  packages/llama/CLAUDE.md paragraph (Task 3), the known limitation: a setlist.fm mark lands as a
+  segue into the next TRACK even where the tape skips the next song.
