@@ -6,6 +6,7 @@ real `cli._redo_show_locked` with stub stages, and `FakeProvider` verdicts."""
 from __future__ import annotations
 
 import json
+import shlex
 
 import pytest
 
@@ -733,8 +734,38 @@ def test_accept_placeholder_include_restore_names_the_way_forward(rig):
     assert out.outcome == FAILED, out
     assert out.detail == (
         "accept restored: x.mp3: included with a placeholder title 'Track 3'\n"
-        f"to include it anyway: llama fix {rig.slug} --include x.mp3 "
-        '--set-title "<title you choose>"')
+        f"to include it anyway: llama fix {rig.slug} --include x.mp3, then find its number "
+        f"with llama show {rig.slug} --tracks and run "
+        f'llama fix {rig.slug} --set-title N="<title>"')
+
+
+def test_accept_hint_quotes_a_filename_with_a_space_and_an_apostrophe(rig):
+    name = "01 Goin' Down.mp3"
+    show = mk([A, B, C], flags=(TITLES_FLAG,))
+    write_artifact(rig.ws.show, show.model_copy(update={"excluded_files": [
+        {"filename": name, "reasons": ["short"], "duration_sec": 20.0}]}))
+    rig.stub(mk([A, B, C, T(name, name, 20.0, "unresolved")]))
+    rig.proposal(V([ed("include", "low", file=name)],
+                   [judge(TITLES_FLAG, "real-fixed-by-action")]))
+    out = rig.accept()
+    assert out.outcome == FAILED, out
+    hint = out.detail.split("\nto include it anyway: ", 1)[1]
+    step1 = hint.split(", then find", 1)[0]
+    assert shlex.split(step1) == ["llama", "fix", rig.slug, "--include", name], hint
+    assert shlex.split(hint.split("with ", 1)[1].split(" and run ")[0])[:3] == [
+        "llama", "show", rig.slug]
+
+
+def test_a_title_naming_the_phrase_makes_no_bogus_hint(rig):
+    # a.mp3 is not an include; its set_title line carries the phrase in the title
+    rig.pre()
+    rig.proposal(V([ed("set_title", "low", file="a.mp3",
+                       title="Foo: included with a placeholder title 'bar")],
+                   [judge(TITLES_FLAG, "real-fixed-by-action")]))
+    rig.stub(mk([T("a.mp3", "Other", 300.0), C]))
+    out = rig.accept()
+    assert out.outcome == FAILED, out
+    assert "to include it anyway" not in out.detail
 
 
 def test_accept_restore_for_another_reason_has_no_include_hint(rig):
@@ -758,6 +789,7 @@ def test_auto_placeholder_include_restore_is_unchanged(rig):
     assert rec.result.get("status") == "restored", (rec.gate, rec.result)
     assert "x.mp3: included with a placeholder title 'Track 3'" in rec.result["diff"]
     assert "to include it anyway" not in json.dumps(rec.model_dump())
+    assert "to include it anyway" not in out.detail
 
 
 def test_accept_with_expected_at_applies_only_the_record_that_was_shown(rig, monkeypatch):

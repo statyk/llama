@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
-import re
+import shlex
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from functools import partial
@@ -33,8 +33,8 @@ from llama.adjudicator.gate import (Facts, GateResult, evaluate, first_judgement
 from llama.adjudicator.record import (AdjudicationRecord, RECORD_FILE_VERSION, is_current,
                                       read_record as read_adjudication, show_digest,
                                       view_digest, write_outside_unit, write_record)
-from llama.adjudicator.verdict import (PROPOSE_ONLY_OPS, Evidence, FlagJudgement, OverruleFlag,
-                                       SwitchRecording, Verdict, call_adjudicator, model_label)
+from llama.adjudicator.verdict import (PROPOSE_ONLY_OPS, Evidence, FlagJudgement, Include,
+                                       OverruleFlag, SwitchRecording, Verdict, call_adjudicator, model_label)
 from llama.campaign import CampaignUnreadable, awaiting_fix, last_mark
 from llama.campaign import read_record as read_campaign
 from llama.catalog import CatalogEntry
@@ -420,18 +420,21 @@ def _accept_pairs(stored: AdjudicationRecord, verdict: Verdict,
     return [(own.get(_key(e.flag, show)), e) for e in verdict.edits]
 
 
-_PLACEHOLDER_INCLUDE = re.compile(r"^(?P<file>.+): included with a placeholder title '")
-
-
-def _include_hint(slug: str, line: str) -> str:
-    """The way forward for an accept the placeholder-include backstop restored. apply returns
-    only text diff lines (no structured kind), so the line apply's whole_show_diff builds is
-    matched here; any other line yields no hint."""
-    m = _PLACEHOLDER_INCLUDE.match(line)
-    if m is None:
-        return ""
-    return (f"\nto include it anyway: llama fix {slug} --include {m['file']} "
-            f'--set-title "<title you choose>"')
+def _include_hint(slug: str, files: list[str], diff: list[str]) -> str:
+    """The way forward for an accept the placeholder-include backstop restored, one hint per
+    included file whose diff line says it landed with a placeholder title. apply returns only
+    text diff lines (no structured kind), so each is matched by its prefix, built from the
+    verdict's own Include files; the quoted title is never parsed. `fix --set-title` needs a
+    track NUMBER from the current show.json, which an excluded file has none of, hence two steps."""
+    out = []
+    for f in files:
+        prefix = f"{f}: included with a placeholder title "
+        if any(line.startswith(prefix) for line in diff):
+            s, q = shlex.quote(slug), shlex.quote(f)
+            out.append(f"\nto include it anyway: llama fix {s} --include {q}, then find its "
+                       f"number with llama show {s} --tracks and run "
+                       f'llama fix {s} --set-title N="<title>"')
+    return "".join(out)
 
 
 def accept_proposal(ctx: Context, entry: CatalogEntry, *,
@@ -505,7 +508,8 @@ def accept_proposal(ctx: Context, entry: CatalogEntry, *,
         detail = f"accept restored: {first}"
         if switch is not None and not first.startswith("flag silenced"):
             detail += f"; to switch anyway: llama fix {slug} --recording {switch.identifier}"
-        detail += "".join(_include_hint(slug, line) for line in res.diff)
+        detail += _include_hint(slug, [e.file for e in verdict.edits if isinstance(e, Include)],
+                                res.diff)
         return ShowOutcome(slug, FAILED, detail)
     if res.status == "refused":
         return ShowOutcome(slug, FAILED, res.error or "refused")
