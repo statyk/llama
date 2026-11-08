@@ -11,7 +11,8 @@ from herder.limits import RateLimited
 from llama import desc_list, jerrybase, taper, title_hygiene
 from llama.config import StructureConfig
 from llama.errors import LlamaError
-from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files, short_tag_is_junk
+from llama.junk import (FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, TRAILING_ARROW, filter_files,
+                        short_tag_is_junk)
 from llama.ia_client import IAError
 from llama.desc_list import DescRead, drop_leading_artist_items, read_desc_list
 from llama.lossless_titles import (SHIFTED_DELIVERED_NOTE, LosslessResult, apply_lossless,
@@ -854,6 +855,35 @@ class CanonicalBuild(NamedTuple):
     # pooled from on the setlist.fm path, G5 applied and cleaned like the
     # canonical; None on every other path. Read by `donor_segues` only.
     segue_donor: ParsedSetlist | None = None
+    # Segue restore: setlist.fm's own `info` arrow marks as a cleaned
+    # ParsedSetlist (`setlistfm_marks` then `clean`), set whenever setlist.fm
+    # returned an acceptable setlist, whichever parse won the canonical; None
+    # otherwise. Read by the restore pass only.
+    setlistfm_marked: ParsedSetlist | None = None
+
+
+def setlistfm_marks(raw: dict) -> ParsedSetlist | None:
+    """`structure.from_setlistfm`'s items, titles, `normalized` and set labels,
+    with `segue` read from each song's trailing-arrow `info`. None exactly when
+    `from_setlistfm` is (under 5 items). Its own walk: structure.py is untouched."""
+    items: list[SetlistItem] = []
+    set_no = 0
+    for s in (raw.get("sets") or {}).get("set") or []:
+        if s.get("encore"):
+            label = "encore"
+        else:
+            set_no += 1
+            label = str(set_no)
+        for song in s.get("song", []):
+            name = (song.get("name") or "").strip()
+            if not name or song.get("tape"):
+                continue
+            items.append(SetlistItem(
+                title=name, normalized=normalize_song(name), set=label,
+                segue=bool(TRAILING_ARROW.search((song.get("info") or "").strip()))))
+    if len(items) < 5:
+        return None
+    return ParsedSetlist(items=items, confidence="high")
 
 
 def _corroboration(parses: list[SourcedParse], descriptions: list[str], chosen_desc: str,
@@ -948,10 +978,12 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
     """
     parses, notes, descriptions = _collect_parses(ia, candidate, identifier, meta)
     slfm_parse = None
+    slfm_marks = None
     if setlistfm is not None:
         raw = setlistfm.setlist(artist, candidate.date,
                                 venue=candidate.venue, city=candidate.city)
         converted = from_setlistfm(raw) if raw else None
+        slfm_marks = setlistfm_marks(raw) if raw else None
         if converted is not None:
             slfm_parse = SourcedParse(source="setlist.fm", parsed=converted)
     # Before the setlist.fm insert, while `parses` is still parallel to
@@ -1003,7 +1035,16 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                    else None)
     return CanonicalBuild(setlist=canonical, notes=notes, source=source,
                           needs_llm=needs_llm, corroboration=corroboration,
-                          segue_donor=segue_donor)
+                          segue_donor=segue_donor,
+                          setlistfm_marked=clean(slfm_marks) if slfm_marks is not None else None)
+
+
+def _may_add_segue(tracks: list[Track], shipped_sets: list[str], k: int) -> bool:
+    """`donor_segues`' add guard: track k is not the show's last, and either the
+    shipped set labels put it in the same set as the next track or its own
+    title ends in `>`."""
+    return k + 1 < len(tracks) and (shipped_sets[k] == shipped_sets[k + 1]
+                                    or tracks[k].title.rstrip().endswith(">"))
 
 
 def donor_segues(tracks: list[Track], result: AlignResult, donor: ParsedSetlist | None,
@@ -1039,13 +1080,8 @@ def donor_segues(tracks: list[Track], result: AlignResult, donor: ParsedSetlist 
     if donor is None:
         return result
     own = align(tracks, donor, aliases=aliases)
-    n = len(tracks)
 
-    def may_add(k: int) -> bool:
-        return k + 1 < n and (shipped_sets[k] == shipped_sets[k + 1]
-                              or tracks[k].title.rstrip().endswith(">"))
-
-    segues = [o if m and (not o or p or may_add(k)) else p
+    segues = [o if m and (not o or p or _may_add_segue(tracks, shipped_sets, k)) else p
               for k, (p, o, m) in enumerate(zip(result.segues, own.segues, own.matched))]
     if segues == result.segues:
         return result

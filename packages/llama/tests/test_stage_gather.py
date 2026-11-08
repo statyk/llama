@@ -3485,11 +3485,13 @@ def _tp_candidate():
 
 class _FakeSetlistFM:
     """`build_canonical`'s setlist.fm client: one fixed setlist. Each set is a
-    list of names; `encore=True` marks the last set as setlist.fm's encore."""
+    list of names; `encore=True` marks the last set as setlist.fm's encore.
+    `info` maps a song name to its setlist.fm `info` text (e.g. `">"`)."""
 
-    def __init__(self, *sets, encore=False):
+    def __init__(self, *sets, encore=False, info=None):
+        info = info or {}
         self.raw = {"sets": {"set": [
-            {"song": [{"name": n} for n in names],
+            {"song": [{"name": n, **({"info": info[n]} if n in info else {})} for n in names],
              **({"encore": 1} if encore and k == len(sets) - 1 else {})}
             for k, names in enumerate(sets)]}}
 
@@ -4986,6 +4988,74 @@ def test_fw4_segue_donor_carries_g5_and_the_canonical_cleaning():
     kept, _, _ = filter_files(base["files"], want_format=("VBR MP3",))
     assert build_canonical(StubIA(base), make_candidate(), IDENT, base["metadata"], kept,
                            "Grateful Dead", []).segue_donor is None
+
+
+# --- segue restore, Task 1: setlist.fm marks, extracted guard, CanonicalBuild field ---
+
+
+def test_setlistfm_marks_reads_trailing_arrows_in_info():
+    from llama.stages.gather import setlistfm_marks
+    raw = {"sets": {"set": [
+        {"song": [{"name": "China Cat Sunflower", "info": ">"},
+                  {"name": "I Know You Rider", "info": "->"},
+                  {"name": "Row Jimmy", "info": "John Mayer on lead vocals) (>"},
+                  {"name": "In the Kitchen", "info": "> 'Bridgeless' reprise"},
+                  {"name": "Tape Song", "tape": True, "info": ">"},
+                  {"name": "Morning Dew"}]},
+        {"encore": 1, "song": [{"name": "Werewolves of London", "info": ">"}]}]}}
+    p = setlistfm_marks(raw)
+    assert [(i.title, i.set, i.segue) for i in p.items] == [
+        ("China Cat Sunflower", "1", True), ("I Know You Rider", "1", True),
+        ("Row Jimmy", "1", True), ("In the Kitchen", "1", False),
+        ("Morning Dew", "1", False), ("Werewolves of London", "encore", True)]
+
+
+def test_setlistfm_marks_matches_from_setlistfm_items_and_stub_rule():
+    from llama.stages.gather import setlistfm_marks
+    from llama.structure import from_setlistfm
+    raw = _FakeSetlistFM(*_DC15_SLFM, encore=True).raw
+    raw["sets"]["set"][0]["song"].insert(1, {"name": "  "})
+    raw["sets"]["set"][0]["song"].insert(2, {"name": "Tape Thing", "tape": True})
+    a, b = from_setlistfm(raw), setlistfm_marks(raw)
+    assert [(i.title, i.normalized, i.set) for i in b.items] == [
+        (i.title, i.normalized, i.set) for i in a.items]
+    assert b.confidence == a.confidence
+    assert not any(i.segue for i in b.items)
+    four = _FakeSetlistFM(["A", "B", "C", "D"]).raw
+    assert from_setlistfm(four) is None and setlistfm_marks(four) is None
+    assert setlistfm_marks({}) is None
+
+
+def test_may_add_segue_extraction_is_behaviour_preserving():
+    from llama.stages.gather import _may_add_segue
+    def trk(i, title):
+        return Track(index=i + 1, set="1", title=title, filename=f"{i}.mp3",
+                     title_source="tags")
+    tracks = [trk(0, "A"), trk(1, "B"), trk(2, "C >"), trk(3, "D")]
+    sets = ["1", "1", "1", "2"]
+    assert _may_add_segue(tracks, sets, 0) is True       # same set as next
+    assert _may_add_segue(tracks, sets, 2) is True       # set break but title ends in ">"
+    assert _may_add_segue(tracks, sets, 3) is False      # last track
+    tracks[2] = trk(2, "C")
+    assert _may_add_segue(tracks, sets, 2) is False      # set break, no ">"
+
+
+def test_canonical_build_carries_cleaned_setlistfm_marks():
+    base = json.loads(FIXTURE.read_text())
+    chosen = dict(base["metadata"], description=_DC15_CHOSEN)
+    sib = {"metadata": dict(base["metadata"], description=_DC15_DONOR), "files": []}
+    ia = MultiIA({IDENT: {"metadata": chosen, "files": base["files"]}, "sib": sib})
+    cand = make_candidate().model_copy(update={"recordings": [RecordingSummary(identifier=IDENT),
+                                                               RecordingSummary(identifier="sib")]})
+    kept = [{"name": f"t{i:02d}.mp3"} for i in range(17)]
+    sets = [["Grateful Dead"] + _DC15_SLFM[0]] + _DC15_SLFM[1:]
+    fake = _FakeSetlistFM(*sets, encore=True, info={"Shakedown Street": ">"})
+    cb = build_canonical(ia, cand, IDENT, chosen, kept, "Grateful Dead", [], setlistfm=fake)
+    m = cb.setlistfm_marked
+    assert m is not None
+    assert "Grateful Dead" not in [i.title for i in m.items]   # clean() ran
+    assert [i.title for i in m.items if i.segue] == ["Shakedown Street"]
+    assert build_canonical(ia, cand, IDENT, chosen, kept, "Grateful Dead", []).setlistfm_marked is None
 
 
 # --- FW4 fix round 1 ---
