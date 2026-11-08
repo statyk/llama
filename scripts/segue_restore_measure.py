@@ -39,7 +39,7 @@ from llama.workspace import ShowWorkspace
 
 SAMPLE_N = 20
 DEFAULT_SEED = 20261107
-FORMS = (">", "->", ") (>", "other")
+FORMS = (">", "->", ") (>", "other", "unmatched")
 _TRACK_LINE = re.compile(r"^(\d+) \| (.+?) \| (.*) \| (\S+)$")
 
 
@@ -209,7 +209,8 @@ def replay_one(ws: ShowWorkspace, *, config, ia, slfm, scratch: Path, rec: Recor
             info = infos[k] if e3 else None
             return {"slug": ws.dir.name, "track": k + 1, "title": call["titles"][k],
                     "evidence": ev, "info": info,
-                    "form": info_form(info) if e3 else "deterministic"}
+                    "form": ("deterministic" if not e3 else "unmatched" if info is None
+                             else info_form(info))}
 
         row["adds"] = [item(k, ev) for k, ev in call["adds"]]
         row["skips"] = [item(k, ev) for k, ev in call["skips"]]
@@ -247,7 +248,10 @@ def _setup(args):
 
 
 def _error(slug, err) -> dict:
-    return {"slug": slug, "error": f"{type(err).__name__}: {err}"[:300]}
+    if isinstance(err, str):
+        return {"slug": slug, "error": err[:300], "error_class": "str"}
+    return {"slug": slug, "error": f"{type(err).__name__}: {err}"[:300],
+            "error_class": type(err).__name__}
 
 
 def cmd_spot(args) -> int:
@@ -269,17 +273,21 @@ def cmd_spot(args) -> int:
             try:
                 stored = json.loads(ws.show.read_text())
                 stored_align = (stored.get("structure") or {}).get("alignment")
-                if stored_align != "llm":
-                    rows.append(_error(slug, f"stored alignment is {stored_align!r}, not llm"))
-                    continue
-                from llama.models import Show
-                stub = StubAligner(Show.model_validate(stored).tracks)
+                stored_llm = stored_align == "llm"
+                if providers is not None:
+                    use = providers
+                elif stored_llm:
+                    from llama.models import Show
+                    use = (None, StubAligner(Show.model_validate(stored).tracks))
+                else:
+                    use = None       # not stored llm: replayed as is, no stub
                 legs, row = replay_one(ws, config=config, ia=ia, slfm=slfm,
                                        scratch=args.out / "scratch" / slug, rec=rec,
-                                       providers=providers or (None, stub))
-                if row["alignment"] != "llm":
+                                       providers=use)
+                row["stored_alignment"] = stored_align
+                if stored_llm and row["alignment"] != "llm":
                     row["error"] = f"replay alignment is {row['alignment']!r}, not llm"
-                if row.get("a_diffs"):
+                if stored_llm and row.get("a_diffs"):
                     row["error"] = (row.get("error", "") + " arm A differs from stored segues").strip()
                 rows.append(row)
             except Exception as err:
@@ -295,7 +303,7 @@ def cmd_spot(args) -> int:
         if r.get("error") and r.get("called"):
             lines.append(f"  ERROR {r['error']}")
         for a in r.get("adds", []):
-            lines.append(f"  ADD  {a['track']:>3} {a['title']!r} ({a['evidence']}) info={a['info']!r}")
+            lines.append(f"  ADD  {a['track']:>3} {a['title']!r} ({a['evidence']}) info={a['info']!r} form={a['form']}")
         for a in r.get("skips", []):
             lines.append(f"  SKIP {a['track']:>3} {a['title']!r} info={a['info']!r}")
         for d in r.get("a_diffs", []):
@@ -360,7 +368,15 @@ def cmd_library(args) -> int:
         c = Counter(i["form"] for i in items)
         return ", ".join(f"{f} {c.get(f, 0)}" for f in (*FORMS, "deterministic"))
 
-    print(f"scanned {scanned} shows ({skipped} skipped for an LLM touchpoint, {len(errors)} errors)")
+    expected = ("CacheMiss", "LlamaError")
+    unexpected = [e for e in errors if e["error_class"] not in expected]
+    print(f"scanned {scanned} shows ({skipped} skipped for an LLM touchpoint, {len(errors)} errors: "
+          f"{len(errors) - len(unexpected)} CacheMiss/LlamaError, {len(unexpected)} OTHER)")
+    for e in unexpected[:10]:
+        print(f"  OTHER ERROR {e['slug']}: {e['error']}")
+    if not config.delivery_path or not config.delivery_path.is_dir() or not any(config.delivery_path.iterdir()):
+        print(f"WARNING: delivery root {config.delivery_path} is missing, unmounted or empty: "
+              "delivered shows are all counted 'delivered (station unreadable)'")
     print(f"shows changed {len(changed)}; segues added {len(adds)}")
     by_state = Counter(r["state"] for r in changed)
     print("changed by state: " + ", ".join(f"{k} {v}" for k, v in sorted(by_state.items())))

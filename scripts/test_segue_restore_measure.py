@@ -45,8 +45,6 @@ def test_info_form():
 
 
 def test_recorder_records_a_b_and_donor_said_no():
-    calls = []
-
     def real(tracks, segues, *, donor, **kw):
         # the donor suppresses track 1; without it track 1 is also added
         adds = [(0, "setlist.fm")] + ([] if donor else [(1, "setlist.fm")])
@@ -65,13 +63,6 @@ def test_recorder_records_a_b_and_donor_said_no():
     assert row["adds"] == [(0, "setlist.fm")]
     assert row["skips"] == [(1, "setlist.fm")]
     assert row["titles"] == ["A", "B", "C"]
-    assert calls == []
-
-
-def test_recorder_installs_over_gather(monkeypatch):
-    rec = m.Recorder(gather.restore_segues)
-    monkeypatch.setattr(gather, "restore_segues", rec)
-    assert gather.restore_segues is rec
 
 
 RAW = {"sets": {"set": [{"song": [
@@ -115,7 +106,9 @@ def test_library_runs_offline_and_writes_only_under_out(tmp_path):
     assert rc == 0
     assert gather.restore_segues is real      # the recorder is uninstalled
     data = json.loads((out / "library.json").read_text())
-    assert data["scanned"] + data["skipped_llm"] + len(data["errors"]) == 2
+    assert data["errors"] == []
+    assert data["scanned"] + data["skipped_llm"] == 2
+    assert data["scanned"] >= 1 and all(r["called"] for r in data["rows"])
     assert sorted(str(p.relative_to(root)) for p in root.rglob("*")) == before
     assert not (out / "scratch").exists()
 
@@ -126,3 +119,16 @@ def test_out_overlapping_library_is_refused(tmp_path):
     build_library(root)
     assert m.main(["--config", str(root / "config.toml"), "library",
                    "--out", str(root / "shows" / "x")]) == 2
+
+
+def test_spot_replays_a_stored_non_llm_show(tmp_path):
+    from fixture_library import build_library
+    root = tmp_path / "lib"
+    build_library(root)
+    out = tmp_path / "out"
+    rc = m.main(["--config", str(root / "config.toml"), "spot", "--out", str(out),
+                 "--slugs", "gratefuldead-1973-06-11"])
+    assert rc == 0
+    (row,) = json.loads((out / "spot.json").read_text())
+    assert "error" not in row and row["called"] and row["stored_alignment"] != "llm"
+    assert "adds" in row and "skips" in row
