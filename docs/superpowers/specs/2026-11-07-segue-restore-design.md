@@ -36,11 +36,19 @@ descriptions and setlist.fm in `~/.llama/cache`:
 
 The re-run was right 9 times and the stored side 3 times. Keeping stored segues would have undone 9
 correct changes to save 3. The 3 wrong drops have one thing in common: the evidence for the segue is
-strong and was already inside gather's own inputs. China Cat > Rider is in every description and in
-setlist.fm (`China Cat Sunflower[>]`), and the LLM dropped it anyway. On 2016-07-15 the selected
-tape's own track titles are `Slipknot! >` and `Terrapin Jam >`, and that show shipped on the
-**deterministic** alignment (`structure.alignment = "deterministic"`). So this isn't only an LLM
-problem. Any path can drop a segue the inputs plainly carry.
+strong and was already inside gather's own inputs, and none of the three is the LLM's fault alone:
+- **China Cat > Rider** is in every description and in setlist.fm (`"info": ">"`), but gather never
+  sees it as a segue. `from_setlistfm` (`structure.py:511`) writes `segue=False` for every song and
+  never reads `info`. `blend_segues` pools donor marks by exact title, so `China Cat Sunflower bw`
+  doesn't pool. And the donor's own alignment is used up by a copied block at the head of its
+  description. The deterministic decision itself says no segue (spec review, 2026-11-07, run
+  offline against the cache).
+- On **2016-07-15** the selected tape's own track titles are `Slipknot! >` and `Terrapin Jam >`. That
+  show shipped on the **deterministic** alignment (`structure.alignment = "deterministic"`).
+
+So any path can drop a segue the inputs plainly carry. The largest unused input is setlist.fm's own
+marks: in `~/.llama/cache`, 3,536 of 52,885 setlist.fm songs (6.7%) have an `info` beginning with
+`>`, 3,053 of them exactly `>`, and gather has never read one.
 
 The adjudicator isn't the place for this. Re-gathered shows mostly come out cleared, and a segue
 change raises no flag, so it never sees them. It refuses stale shows. And its only structure edit
@@ -65,16 +73,19 @@ replaces the whole layout and drops every segue (adjudicator spec, "Verdict sche
 - Re-running the 621 needs-LLM shows. That's campaign work after the release; the campaign handoff
   owns it.
 - Any new route for voiced station copies (clearing their marks, writing their manifests).
-- A web lookup or any new evidence source. The rule reads only what gather already has.
+- A web lookup or any new evidence source. The rule reads only what gather already fetches
+  (setlist.fm's `info` is in the response gather already caches).
+- Changing `from_setlistfm`, `blend_segues` or canonical ranking. setlist.fm's marks enter through
+  the restore pass only (E3), so canonical choice, title rungs and the LLM prompt are unchanged.
 
 ## The rule
 
 It runs once, after the final set labels are decided and after `donor_segues`, on every path that
-computes segues: deterministic, LLM-won (`alignment == "llm"`), sibling-aligned and taper-owned. It
-does **not** run on the structure-override path, where an override deliberately drops every segue
+computes segues, i.e. every `structure.alignment` value except `override`: `deterministic`,
+`jerrybase`, `taper` and `llm`. It does **not** run on the structure-override path, where an override deliberately drops every segue
 (adjudicator spec and `llama fix` help: "Any structure override loses every segue").
 
-Track `k` (not the last track) whose shipped segue is False gets `segue = True` when **either**
+Track `k` (not the last track) whose shipped segue is False gets `segue = True` when **any**
 evidence holds and the add guard passes:
 
 - **E1, the taper's arrow (every path):** the track's own title ends in a segue arrow
@@ -85,13 +96,22 @@ evidence holds and the add guard passes:
   track `k`. On the non-LLM paths E2 is not computed: there the shipped segues already ARE that
   decision, and re-adding the canonical's pooled marks would undo FW4 item 2's deliberate
   removals (the repeated-title mis-pooling cases, `Crazy Mona`, `Turbin`). The builder check
-  (2026-11-07) found this; it is my call, not Shawn's.
+  (2026-11-07) found this; it is my call, not Shawn's. Accepted limitation: the LLM branch runs only
+  when that deterministic alignment fell under the coverage threshold, so E2 reads an alignment
+  gather already judged weak. That's fine for a loose surface; Measurement 3 hand-checks it.
+- **E3, setlist.fm's mark (every path, when setlist.fm returned a setlist):** `align()` of the tracks
+  against the setlist.fm setlist (the same songs `from_setlistfm` keeps, with each song's segue
+  read as `info.strip().startswith(">")`) matches track `k`, and the matched song carries that mark.
+  A merged track takes its last component's mark, as `align()` already does. This is the China Cat
+  case (Shawn, 2026-11-07: option 1). It is new evidence for the pass only; `CanonicalBuild`
+  carries the marked setlist.fm parse alongside its existing fields, and nothing else reads it.
 
 **Add guard:** reuse `donor_segues`' `may_add`. The track isn't the show's last, and either the
 shipped set labels put it in the same set as the next track or its title ends in `>`. Also, a mark
-whose next track `_leads_with_filler` (G5's dangling-segue test) is not added. E2 already sees
-G5-cleaned donors; E1 needs the check explicitly, because `Ripple >` before `Crowd` is track flow,
-not a segue.
+whose next track `_leads_with_filler` (G5's dangling-segue test) is not added: `Ripple >` before
+`Crowd` is track flow, not a segue. For E1 the same-set clause never applies (an E1 title always
+ends in `>`), so an arrow-titled set closer gets a segue across the break, as `may_add` allows
+today. That is accepted: the taper wrote the arrow.
 
 The rule writes only `segue`. Sets, `matched`, coverage, conflicts, titles and flags are untouched.
 
@@ -101,21 +121,25 @@ the change visible in `llama show` and in replay diffs. The wording is the build
 
 ### Expected effect on the sample
 
-China Cat (E2, setlist.fm `[>]`), Slipknot! > and Terrapin Jam > (E1) come back. None of the 9 good
-changes is a drop of a segue that E1 or E2 supports (the lettuce drops were stored segues one track
-off; Uncle John's Band has no `>` in any source). So none of them is undone, because the rule never
-removes. The measurement checks both claims, not this paragraph.
+China Cat (E3), Slipknot! > and Terrapin Jam > (E1) come back. None of the 9 good changes is a drop
+of a segue the evidence supports (the lettuce drops were stored segues one track off; Uncle John's
+Band has no `>` in any source), and the rule never removes, so none of them is undone. Expected
+adds beyond the three (spec review, offline): `Morning Dew >` → `Casey Jones` on 2016-07-15 (E1; two
+taper descriptions carry it, setlist.fm doesn't), and `Greazy Groceries >` and `She's Music >` on
+dumpstaphunk-2009-02-09 (E2; the selected description has both). E3 will likely add more on the
+setlist.fm shows. The measurement checks all of this, not this paragraph.
 
 ## Measurement
 
-1. **Offline, no LLM:** the 10 spot-check shows replayed with the rule, in the replay harness, or by
-   gather against the cache with a recorded LLM alignment where one is needed. The builder picks
-   which; the current `show.json` holds the LLM alignment's output and can stand in for it. Pass:
-   the 3 wrong drops are restored, none of the 9 good changes is reverted, and no other segue on the
-   10 shows changes without the result saying why.
+1. **Offline, no LLM:** the 10 spot-check shows gathered against the cache twice on the same code,
+   rule off and rule on (A/B), with the LLM-won shows fed their recorded alignment (the current
+   `show.json`'s segues and sets, mapped **by filename**, not index: current code drops an edge
+   `Intro` on lettuce-2008-08-06 and soulive-2009-04-16). Pass: the 3 wrong drops are restored, none
+   of the 9 good changes is reverted, and every other add is listed with its evidence (E1/E2/E3).
 2. **Library-wide, no LLM:** a replay over every library show that gathers without an LLM call today
-   (the campaign's clean classes). It counts the segues the rule would add, by evidence (on these shows only E1 can fire, since E2 needs an LLM-won alignment),
-   with a hand-check sample of about 20 adds. This sizes the rule's reach outside needs-LLM. Clean
+   (the campaign's clean classes). It counts the segues the rule would add, by evidence (E1 and
+   E3; E2 needs an LLM-won alignment), with a hand-check sample of about 20 adds per evidence kind,
+   E3's drawn across `info` forms (`>`, `> X reprise`, `> Jam >`). This sizes the rule's reach outside needs-LLM. Clean
    shows that would change are reported, not reprocessed. Whether to sweep them is Shawn's call after
    the numbers.
 3. **Live sample:** about 37 held needs-LLM shows (the 10-27 trial's size; ~0.2 points of the 5-hour
@@ -128,8 +152,9 @@ removes. The measurement checks both claims, not this paragraph.
 - No new constants or thresholds. The guard reuses `may_add`, `TRAILING_ARROW` and
   `_leads_with_filler` as they are.
 - The rule is one function, unit-tested on its own, plus a gather integration test per path
-  (deterministic, LLM-won, donor, taper-owned, and override as the case where it must not run). Use
-  fixtures built from the three real cases above.
+  (`deterministic`, `jerrybase`, `taper`, `llm`, and `override` as the case where it must not run),
+  plus a donor case. Use fixtures built from the three real cases above.
+- `from_setlistfm`'s existing output is unchanged; E3 reads `info` in its own parse.
 - The suite stays offline and deterministic (`pytest -q`).
 - Ships in v2.23.0 alongside the adjudicator (the release is held for this).
 
