@@ -555,6 +555,7 @@ The provider layer and the usage-limit classification are in `packages/herder/CL
   song-like-tracks and never inspects UNMATCHED ITEMS, so a partial recording
   can score ~1.0 while missing half the show; `select_recording`'s completeness
   is RELATIVE (best sibling), not absolute.
+- **Segue restore** (`gather.restore_segues`, spec `docs/superpowers/specs/2026-11-07-segue-restore-design.md`): an add-only pass after `donor_segues`, on the final shipped set labels; it only ever turns a segue on, never off. Evidence E2, only where the alignment is `llm`: the segue the deterministic path would have shipped (`det_segues`). Evidence E3, on every path but `override`: a setlist.fm song whose `info` ends in an arrow (`setlistfm_marks`, `CanonicalBuild.setlistfm_marked`), matched to the track by its own `align()`. Skipped where the segue donor's own alignment matches the track and says no (the taper's description stands), where the title already ends in an arrow (it renders as a segue), on the last track, across a set break with no `>` of its own, and before a filler track. One `notes.json` line, `segues restored: track <n> '<title>' (<evidence>); ...`, never the structure `notes`. **Known limitation:** a setlist.fm mark lands as a segue into the next TRACK even where the tape skips the next song. Harness: `scripts/segue_restore_measure.py` (`scripts/CLAUDE.md`).
 - Ten named touchpoints (one
   per file under `packages/llama/src/llama/prompts/` — `synthesize` is gone,
   emcee has its own separate `scriptwrite` prompt), each with a Pydantic

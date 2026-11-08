@@ -11,7 +11,8 @@ from herder.limits import RateLimited
 from llama import desc_list, jerrybase, taper, title_hygiene
 from llama.config import StructureConfig
 from llama.errors import LlamaError
-from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files, short_tag_is_junk
+from llama.junk import (FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, TRAILING_ARROW, filter_files,
+                        short_tag_is_junk)
 from llama.ia_client import IAError
 from llama.desc_list import DescRead, drop_leading_artist_items, read_desc_list
 from llama.lossless_titles import (SHIFTED_DELIVERED_NOTE, LosslessResult, apply_lossless,
@@ -854,6 +855,35 @@ class CanonicalBuild(NamedTuple):
     # pooled from on the setlist.fm path, G5 applied and cleaned like the
     # canonical; None on every other path. Read by `donor_segues` only.
     segue_donor: ParsedSetlist | None = None
+    # Segue restore: setlist.fm's own `info` arrow marks as a cleaned
+    # ParsedSetlist (`setlistfm_marks` then `clean`), set whenever setlist.fm
+    # returned an acceptable setlist, whichever parse won the canonical; None
+    # otherwise. Read by the restore pass only.
+    setlistfm_marked: ParsedSetlist | None = None
+
+
+def setlistfm_marks(raw: dict) -> ParsedSetlist | None:
+    """`structure.from_setlistfm`'s items, titles, `normalized` and set labels,
+    with `segue` read from each song's trailing-arrow `info`. None exactly when
+    `from_setlistfm` is (under 5 items). Its own walk: structure.py is untouched."""
+    items: list[SetlistItem] = []
+    set_no = 0
+    for s in (raw.get("sets") or {}).get("set") or []:
+        if s.get("encore"):
+            label = "encore"
+        else:
+            set_no += 1
+            label = str(set_no)
+        for song in s.get("song", []):
+            name = (song.get("name") or "").strip()
+            if not name or song.get("tape"):
+                continue
+            items.append(SetlistItem(
+                title=name, normalized=normalize_song(name), set=label,
+                segue=bool(TRAILING_ARROW.search((song.get("info") or "").strip()))))
+    if len(items) < 5:
+        return None
+    return ParsedSetlist(items=items, confidence="high")
 
 
 def _corroboration(parses: list[SourcedParse], descriptions: list[str], chosen_desc: str,
@@ -948,10 +978,12 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
     """
     parses, notes, descriptions = _collect_parses(ia, candidate, identifier, meta)
     slfm_parse = None
+    slfm_marks = None
     if setlistfm is not None:
         raw = setlistfm.setlist(artist, candidate.date,
                                 venue=candidate.venue, city=candidate.city)
         converted = from_setlistfm(raw) if raw else None
+        slfm_marks = setlistfm_marks(raw) if raw else None
         if converted is not None:
             slfm_parse = SourcedParse(source="setlist.fm", parsed=converted)
     # Before the setlist.fm insert, while `parses` is still parallel to
@@ -1003,7 +1035,16 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                    else None)
     return CanonicalBuild(setlist=canonical, notes=notes, source=source,
                           needs_llm=needs_llm, corroboration=corroboration,
-                          segue_donor=segue_donor)
+                          segue_donor=segue_donor,
+                          setlistfm_marked=clean(slfm_marks) if slfm_marks is not None else None)
+
+
+def _may_add_segue(tracks: list[Track], shipped_sets: list[str], k: int) -> bool:
+    """`donor_segues`' add guard: track k is not the show's last, and either the
+    shipped set labels put it in the same set as the next track or its own
+    title ends in `>`."""
+    return k + 1 < len(tracks) and (shipped_sets[k] == shipped_sets[k + 1]
+                                    or tracks[k].title.rstrip().endswith(">"))
 
 
 def donor_segues(tracks: list[Track], result: AlignResult, donor: ParsedSetlist | None,
@@ -1039,17 +1080,60 @@ def donor_segues(tracks: list[Track], result: AlignResult, donor: ParsedSetlist 
     if donor is None:
         return result
     own = align(tracks, donor, aliases=aliases)
-    n = len(tracks)
 
-    def may_add(k: int) -> bool:
-        return k + 1 < n and (shipped_sets[k] == shipped_sets[k + 1]
-                              or tracks[k].title.rstrip().endswith(">"))
-
-    segues = [o if m and (not o or p or may_add(k)) else p
+    segues = [o if m and (not o or p or _may_add_segue(tracks, shipped_sets, k)) else p
               for k, (p, o, m) in enumerate(zip(result.segues, own.segues, own.matched))]
     if segues == result.segues:
         return result
     return result.model_copy(update={"segues": segues})
+
+
+def restore_segues(tracks: list[Track], segues: list[bool], *, shipped_sets: list[str],
+                   det_segues: list[bool] | None, slfm_marked: ParsedSetlist | None,
+                   donor: ParsedSetlist | None,
+                   aliases: dict[str, str] | None) -> tuple[list[bool], list[tuple[int, str]]]:
+    """Segue restore (spec 2026-11-07-segue-restore-design, "The rule"): an add-only
+    pass after `donor_segues`, once the shipped set labels are final. Returns the new
+    segues and `[(k, evidence), ...]` in track order, evidence `"the deterministic alignment"`
+    (E2) or `"setlist.fm"` (E3). It only ever turns False into True.
+
+    A track is skipped when its segue is already True, its title already ends in an
+    arrow (`TRAILING_ARROW`: it renders as a segue), `_may_add_segue` fails (last
+    track, or a set break after it with no `>` of its own), or the next track
+    `_leads_with_filler` (track flow, not a segue). Otherwise:
+
+    - E2: `det_segues[k]`, the segues the deterministic path would have shipped
+      (`det_segues` is None except where the LLM alignment won);
+    - E3: `slfm_marked`'s own align() matches track k to a marked item, and the
+      segue donor's own align() does not match track k with no mark (the taper's
+      description stands)."""
+    n = len(tracks)
+    out = list(segues)
+    restored: list[tuple[int, str]] = []
+    own = donor_own = None
+    for k in range(n):
+        if (out[k] or TRAILING_ARROW.search(tracks[k].title)
+                or not _may_add_segue(tracks, shipped_sets, k)
+                or (k + 1 < n and _leads_with_filler(tracks[k + 1].title))):
+            continue
+        if det_segues is not None and det_segues[k]:
+            out[k] = True
+            restored.append((k, "the deterministic alignment"))
+            continue
+        if slfm_marked is None:
+            continue
+        if own is None:
+            own = align(tracks, slfm_marked, aliases=aliases)
+        if not (own.matched[k] and own.segues[k]):
+            continue
+        if donor is not None:
+            if donor_own is None:
+                donor_own = align(tracks, donor, aliases=aliases)
+            if donor_own.matched[k] and not donor_own.segues[k]:
+                continue
+        out[k] = True
+        restored.append((k, "setlist.fm"))
+    return out, restored
 
 
 # Slice 2a's segue split: a core like `Ravine > J` is judged component by
@@ -1955,6 +2039,10 @@ def compute_gather(
                 # had a say (spec "Slice 0").
                 needs_align = True
             if llm_result is not None and llm_result.coverage >= structure_cfg.align_coverage_threshold:
+                # Segue restore E2 reads the deterministic alignment the LLM
+                # replaces. Anchoring and the taper step both skip this branch,
+                # so `result` here is exactly align() of the canonical.
+                det_result = result
                 # Deliberate trade-off: apply_llm_alignment never populates
                 # conflicts, so any deterministic-alignment conflicts are
                 # dropped when the LLM realignment wins.
@@ -1987,6 +2075,25 @@ def compute_gather(
             # the deterministic one wholesale, as before item 2.
             result = donor_segues(tracks, result, cb.segue_donor, family_aliases,
                                   shipped_sets=final_sets)
+        # Segue restore (spec 2026-11-07-segue-restore-design, "The rule"):
+        # add-only, after donor_segues and on the final shipped labels. E2 (the
+        # deterministic decision) only where the LLM alignment won; E3
+        # (setlist.fm's own marks) on every path here. The override branch
+        # never reaches this. Called through the module name: Task 3's
+        # measurement patches `llama.stages.gather.restore_segues`.
+        det_segues = (donor_segues(tracks, det_result, cb.segue_donor, family_aliases,
+                                   shipped_sets=final_sets).segues
+                      if alignment == "llm" else None)
+        segues, restored = restore_segues(tracks, result.segues, shipped_sets=final_sets,
+                                          det_segues=det_segues,
+                                          slfm_marked=cb.setlistfm_marked,
+                                          donor=cb.segue_donor, aliases=family_aliases)
+        result = result.model_copy(update={"segues": segues})
+        if restored:
+            # notes.json only: never the structure `notes`, which reach
+            # `StructureInfo.conflicts`, show.json and the briefing input.
+            op_notes.append("segues restored: " + "; ".join(
+                f"track {k + 1} '{tracks[k].title}' ({evidence})" for k, evidence in restored))
         tracks = [t.model_copy(update={
             "set": s, "segue": g,
             "matched": None if t.title_source in TAUTOLOGICAL_TITLE_SOURCES else m})
