@@ -58,7 +58,11 @@ has run).
   missing announcement audio, then a summary; a block entered mid-way, i.e. the phase-1 cutover or
   a fresh run after an outage, may record a MISS on its first show: only with a clock file, and only when the plan's end lands outside that block's window),
   `transmitter library` (eligible shows by profile with count/median/p10/p90, the interstitial
-  pool, ineligible packages by first reason incl. `awaiting fix from llama`). `status` reads
+  pool, ineligible packages by first reason incl. `awaiting fix from llama`),
+  `transmitter rotation [--days N] [--never]` (airplay by profile from `aired.jsonl` joined to the
+  eligible pool: eligible, played, never, plays, repeated, days between airings min/median/mean and
+  how many fall under `concert_gap_days`; airings of now-ineligible packages counted apart; the 10
+  most played; `--never` lists the never-played slugs; a show's profile is its CURRENT voiced one). `status` reads
   persisted rows, the clock files and the interstitials folder only: clock source, current/next block, misses and
   fill minutes by cause for the last and next 24 h, bends, degraded blocks, missing announcement
   audio; none of it alerts. `packages/transmitter/scripts/probe_estimates.py --config <config.toml> --time-one SLUG` prints an ineligible

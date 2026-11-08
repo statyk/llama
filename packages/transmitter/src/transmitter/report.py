@@ -301,3 +301,130 @@ def library_lines(rep: LibraryReport) -> list[str]:
         sample = ", ".join(slugs[:3]) + (", ..." if len(slugs) > 3 else "")
         lines.append(f"  {len(slugs):>4}  {reason}  ({sample})")
     return lines
+
+
+# --- rotation ------------------------------------------------------------------
+
+TOP_PLAYED = 10
+
+
+@dataclass(frozen=True)
+class ProfileRotation:
+    profile: str
+    eligible: int
+    played: int                 # eligible shows aired at least once
+    never: int
+    plays: int                  # airings of eligible shows
+    repeated: int               # eligible shows aired twice or more
+    gap_min: float | None       # days between consecutive airings of the same show
+    gap_median: float | None
+    gap_mean: float | None
+    under_gap: int              # such gaps shorter than `concert_gap_days`
+    never_slugs: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ShowPlays:
+    package: str
+    profile: str | None         # None: no longer eligible
+    plays: int
+    last_us: int
+
+
+@dataclass(frozen=True)
+class RotationReport:
+    profiles: list[ProfileRotation]
+    total: ProfileRotation
+    gone_shows: int             # aired, not eligible now
+    gone_plays: int
+    gone_under_gap: int
+    top: list[ShowPlays]
+    first_us: int | None        # the window's first and last airing
+    last_us: int | None
+    since_us: int | None
+    gap_days: float
+
+
+def _gaps(times: dict[str, list[int]]) -> list[float]:
+    return [(b - a) / _US_PER_DAY for ts in times.values() for a, b in zip(ts, ts[1:])]
+
+
+def _profile_rotation(name: str, packages: Sequence[str], times: dict[str, list[int]],
+                      gap_days: float) -> ProfileRotation:
+    mine = {p: times[p] for p in packages if p in times}
+    gaps = _gaps(mine)
+    never = tuple(sorted(p for p in packages if p not in times))
+    return ProfileRotation(
+        profile=name, eligible=len(packages), played=len(mine), never=len(never),
+        plays=sum(len(ts) for ts in mine.values()), repeated=sum(1 for ts in mine.values() if len(ts) > 1),
+        gap_min=min(gaps) if gaps else None, gap_median=statistics.median(gaps) if gaps else None,
+        gap_mean=statistics.fmean(gaps) if gaps else None,
+        under_gap=sum(1 for g in gaps if gap_days > 0 and g < gap_days), never_slugs=never)
+
+
+def rotation(eligible: Iterable[tuple[str, str | None]], airings: Iterable[tuple[str, int]], *,
+             gap_days: float, since_us: int | None = None) -> RotationReport:
+    """Airplay by profile. `eligible` is (package, profile) per show eligible now; `airings` is
+    (package, start_us) per aired show row. A show's profile is its current one; airings of a
+    package not eligible now are counted apart ("gone")."""
+    profile_of = dict(eligible)
+    times: dict[str, list[int]] = {}
+    for pkg, start in airings:
+        if since_us is None or start >= since_us:
+            times.setdefault(pkg, []).append(start)
+    for ts in times.values():
+        ts.sort()
+    by: dict[str, list[str]] = {}
+    for pkg, prof in profile_of.items():
+        by.setdefault(prof or "(none)", []).append(pkg)
+    profiles = [_profile_rotation(name, by[name], times, gap_days) for name in sorted(by)]
+    total = _profile_rotation("total", list(profile_of), times, gap_days)
+    gone = {p: ts for p, ts in times.items() if p not in profile_of}
+    gone_gaps = _gaps(gone)
+    top = sorted((ShowPlays(p, profile_of.get(p), len(ts), ts[-1]) for p, ts in times.items() if len(ts) > 1),
+                 key=lambda s: (-s.plays, -s.last_us, s.package))[:TOP_PLAYED]
+    starts = [t for ts in times.values() for t in ts]
+    return RotationReport(
+        profiles=profiles, total=total, gone_shows=len(gone), gone_plays=sum(len(ts) for ts in gone.values()),
+        gone_under_gap=sum(1 for g in gone_gaps if gap_days > 0 and g < gap_days), top=top,
+        first_us=min(starts) if starts else None, last_us=max(starts) if starts else None,
+        since_us=since_us, gap_days=gap_days)
+
+
+def _days(v: float | None) -> str:
+    return "-" if v is None else f"{v:.1f}"
+
+
+def rotation_lines(rep: RotationReport, *, tz: str, never: bool) -> list[str]:
+    rule = f"concert gap {rep.gap_days:g} days" if rep.gap_days > 0 else "no concert gap rule"
+    if rep.first_us is None:
+        span = "nothing aired" + (" in the window" if rep.since_us is not None else " yet")
+    else:
+        span = (f"airings {local_text(rep.first_us, tz)} .. {local_text(rep.last_us, tz)}"
+                + (f" (window from {local_text(rep.since_us, tz)})" if rep.since_us is not None else ""))
+    lines = [f"rotation   {span}; {rule}", "",
+             f"  {'profile':<16} {'eligible':>8} {'played':>6} {'never':>5} {'plays':>5} {'repeated':>8}  "
+             f"{'gap days min/median/mean':<24} {'under gap':>9}"]
+
+    def row(p: ProfileRotation) -> str:
+        gap = f"{_days(p.gap_min)} / {_days(p.gap_median)} / {_days(p.gap_mean)}"
+        return (f"  {p.profile:<16} {p.eligible:>8} {p.played:>6} {p.never:>5} {p.plays:>5} {p.repeated:>8}  "
+                f"{gap:<24} {p.under_gap:>9}")
+
+    lines += [row(p) for p in rep.profiles]
+    lines.append(row(rep.total))
+    lines.append(f"aired, no longer eligible  {rep.gone_shows} show(s), {rep.gone_plays} play(s)"
+                 + (f", {rep.gone_under_gap} gap(s) under the rule" if rep.gone_under_gap else ""))
+    lines.append("")
+    lines.append("most played" + ("" if rep.top else "  none repeated"))
+    for s in rep.top:
+        who = s.profile or "no longer eligible"
+        lines.append(f"  {s.package}  {s.plays} plays, last {local_text(s.last_us, tz)}  ({who})")
+    if never:
+        lines.append("")
+        lines.append("never played" + ("" if rep.total.never else "  none"))
+        for p in rep.profiles:
+            if p.never_slugs:
+                lines.append(f"  {p.profile} ({p.never})")
+                lines += [f"    {slug}" for slug in p.never_slugs]
+    return lines

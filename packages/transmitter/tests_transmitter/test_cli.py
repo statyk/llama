@@ -447,6 +447,36 @@ def test_library_reports_profiles_pool_and_ineligible(tmp_path, monkeypatch):
     assert engine.analyzed == []
 
 
+def test_rotation_reports_airplay_and_writes_nothing(tmp_path, monkeypatch):
+    import json
+    from transmitter.history import AiredRow
+    tx, root, engine, cfg = _setup(tmp_path, monkeypatch)
+    day = 86_400_000_000
+    now = service.now_us()
+
+    def aired(slug, ago_days, frame, kind="show"):
+        start = service.grid.us_to_iso(now - int(ago_days * day))
+        return AiredRow("etest", frame, frame + 1, kind, slug, package=slug if kind == "show" else None,
+                        start=start, end=start).to_json()
+
+    rows = [aired("band-2005-11-01", 40, 1), aired("band-2005-11-01", 10, 2), aired("id-x", 10, 3, "interstitial"),
+            aired("band-2005-11-02", 5, 4), aired("retired-2001-01-01", 3, 5)]
+    Workspace(tx).aired_path.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    before = _tree(tx)
+    result = CliRunner().invoke(app, ["rotation", "--never", "--config", str(cfg)])
+    assert result.exit_code == 0, result.output
+    out = result.output
+    indie = next(line for line in out.splitlines() if line.strip().startswith("indie"))
+    assert indie.split()[1:6] == ["3", "2", "1", "3", "1"]      # eligible played never plays repeated
+    assert "30.0 / 30.0 / 30.0" in indie
+    assert "aired, no longer eligible  1 show(s), 1 play(s)" in out
+    assert "band-2005-11-01  2 plays" in out
+    assert "never played" in out and "band-2005-11-03" in out
+    windowed = CliRunner().invoke(app, ["rotation", "--days", "7", "--config", str(cfg)]).output
+    assert "band-2005-11-01  2 plays" not in windowed and "window from" in windowed
+    assert _tree(tx) == before and engine.analyzed == []
+
+
 def test_status_says_no_clock_open_all_week(tmp_path, monkeypatch):
     tx, root, engine, cfg = _setup(tmp_path, monkeypatch, clock=None)
     result = CliRunner().invoke(app, ["status", "--config", str(cfg)])
