@@ -132,3 +132,11 @@ def test_rotation_lines():
     assert "never played" in out and "a3" in out
     empty = "\n".join(report.rotation_lines(report.rotation([], [], gap_days=45), tz="UTC", never=True))
     assert "nothing aired" in empty
+    windowed = "\n".join(report.rotation_lines(report.rotation([], [], gap_days=45, since_us=T0), tz="UTC",
+                                                never=False))
+    assert "nothing aired in the window (window from" in windowed
+
+
+def test_rotation_top_marks_eligible_show_without_profile_as_none_not_gone():
+    rep = report.rotation([("a", None)], [("a", T0), ("a", T0 + 50 * DAY), ("g", T0), ("g", T0 + DAY)], gap_days=45)
+    assert {s.package: s.profile for s in rep.top} == {"a": "(none)", "g": None}

@@ -326,7 +326,7 @@ class ProfileRotation:
 @dataclass(frozen=True)
 class ShowPlays:
     package: str
-    profile: str | None         # None: no longer eligible
+    profile: str | None         # None: not eligible now (an eligible show with no profile is "(none)")
     plays: int
     last_us: int
 
@@ -381,7 +381,7 @@ def rotation(eligible: Iterable[tuple[str, str | None]], airings: Iterable[tuple
     total = _profile_rotation("total", list(profile_of), times, gap_days)
     gone = {p: ts for p, ts in times.items() if p not in profile_of}
     gone_gaps = _gaps(gone)
-    top = sorted((ShowPlays(p, profile_of.get(p), len(ts), ts[-1]) for p, ts in times.items() if len(ts) > 1),
+    top = sorted((ShowPlays(p, (profile_of[p] or "(none)") if p in profile_of else None, len(ts), ts[-1]) for p, ts in times.items() if len(ts) > 1),
                  key=lambda s: (-s.plays, -s.last_us, s.package))[:TOP_PLAYED]
     starts = [t for ts in times.values() for t in ts]
     return RotationReport(
@@ -397,11 +397,11 @@ def _days(v: float | None) -> str:
 
 def rotation_lines(rep: RotationReport, *, tz: str, never: bool) -> list[str]:
     rule = f"concert gap {rep.gap_days:g} days" if rep.gap_days > 0 else "no concert gap rule"
+    window = f" (window from {local_text(rep.since_us, tz)})" if rep.since_us is not None else ""
     if rep.first_us is None:
-        span = "nothing aired" + (" in the window" if rep.since_us is not None else " yet")
+        span = "nothing aired" + (" in the window" if rep.since_us is not None else " yet") + window
     else:
-        span = (f"airings {local_text(rep.first_us, tz)} .. {local_text(rep.last_us, tz)}"
-                + (f" (window from {local_text(rep.since_us, tz)})" if rep.since_us is not None else ""))
+        span = f"airings {local_text(rep.first_us, tz)} .. {local_text(rep.last_us, tz)}" + window
     lines = [f"rotation   {span}; {rule}", "",
              f"  {'profile':<16} {'eligible':>8} {'played':>6} {'never':>5} {'plays':>5} {'repeated':>8}  "
              f"{'gap days min/median/mean':<24} {'under gap':>9}"]
