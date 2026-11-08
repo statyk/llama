@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from functools import partial
@@ -419,6 +420,20 @@ def _accept_pairs(stored: AdjudicationRecord, verdict: Verdict,
     return [(own.get(_key(e.flag, show)), e) for e in verdict.edits]
 
 
+_PLACEHOLDER_INCLUDE = re.compile(r"^(?P<file>.+): included with a placeholder title '")
+
+
+def _include_hint(slug: str, line: str) -> str:
+    """The way forward for an accept the placeholder-include backstop restored. apply returns
+    only text diff lines (no structured kind), so the line apply's whole_show_diff builds is
+    matched here; any other line yields no hint."""
+    m = _PLACEHOLDER_INCLUDE.match(line)
+    if m is None:
+        return ""
+    return (f"\nto include it anyway: llama fix {slug} --include {m['file']} "
+            f'--set-title "<title you choose>"')
+
+
 def accept_proposal(ctx: Context, entry: CatalogEntry, *,
                     expected_at: str | None = None) -> ShowOutcome:
     """Apply the stored proposal. `expected_at` is the `at` of the record the operator was
@@ -490,6 +505,7 @@ def accept_proposal(ctx: Context, entry: CatalogEntry, *,
         detail = f"accept restored: {first}"
         if switch is not None and not first.startswith("flag silenced"):
             detail += f"; to switch anyway: llama fix {slug} --recording {switch.identifier}"
+        detail += "".join(_include_hint(slug, line) for line in res.diff)
         return ShowOutcome(slug, FAILED, detail)
     if res.status == "refused":
         return ShowOutcome(slug, FAILED, res.error or "refused")

@@ -714,6 +714,52 @@ def test_accept_applies_failed_gate_edits_but_not_propose_only(rig):
     assert out.changes == ["- b.mp3 (0:30) B"]
 
 
+# An include whose file lands with a placeholder title is restored by the apply backstop,
+# in every mode. Only the accept message names the way forward (Shawn's ruling, option iii).
+INCLUDE_X = V([ed("include", "low", file="x.mp3")], [judge(TITLES_FLAG, "real-fixed-by-action")])
+X_EXCLUDED = [{"filename": "x.mp3", "reasons": ["short"], "duration_sec": 20.0}]
+
+
+def _include_rig(rig, title="Track 3"):
+    show = mk([A, B, C], flags=(TITLES_FLAG,))
+    write_artifact(rig.ws.show, show.model_copy(update={"excluded_files": X_EXCLUDED}))
+    rig.stub(mk([A, B, C, T("x.mp3", title, 20.0, "unresolved")]))
+
+
+def test_accept_placeholder_include_restore_names_the_way_forward(rig):
+    _include_rig(rig)
+    rig.proposal(INCLUDE_X)
+    out = rig.accept()
+    assert out.outcome == FAILED, out
+    assert out.detail == (
+        "accept restored: x.mp3: included with a placeholder title 'Track 3'\n"
+        f"to include it anyway: llama fix {rig.slug} --include x.mp3 "
+        '--set-title "<title you choose>"')
+
+
+def test_accept_restore_for_another_reason_has_no_include_hint(rig):
+    rig.pre()
+    rig.proposal(ACCEPTABLE)
+    rig.stub(mk([T("a.mp3", "Bertha", 300.0), C]))
+    out = rig.accept()
+    assert out.outcome == FAILED and "to include it anyway" not in out.detail
+
+
+def test_auto_placeholder_include_restore_is_unchanged(rig):
+    # The gate predicts a real title (the set_title), so apply runs; gather lands a
+    # placeholder and the backstop restores. The auto record carries the bare diff.
+    _include_rig(rig)
+    rig.queue(V([ed("include", "high", file="x.mp3"),
+                 ed("set_title", "high", file="x.mp3", title="Tuning")],
+                [judge(TITLES_FLAG, "real-fixed-by-action")]))
+    out = rig.run()
+    rec = read_record(rig.ws)
+    assert out.outcome == PROPOSAL, (out, rec.gate, rec.result)
+    assert rec.result.get("status") == "restored", (rec.gate, rec.result)
+    assert "x.mp3: included with a placeholder title 'Track 3'" in rec.result["diff"]
+    assert "to include it anyway" not in json.dumps(rec.model_dump())
+
+
 def test_accept_with_expected_at_applies_only_the_record_that_was_shown(rig, monkeypatch):
     rig.pre()
     rec = rig.proposal(ACCEPTABLE)
