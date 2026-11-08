@@ -110,3 +110,20 @@ Changed shows:
 
 - Adds: no clear misfire in 20. Classic segues (China Cat > Rider x2, Drums >, Space >, Touch of Grey ->, Dark Star ->, Pigs ->) agree with the tapes where the description lists them; about 9 can't be checked from the description (JRAD 2024-09-07 and others have none). The `) (>` form (setlist.fm joined notes) reads right in all sampled cases.
 - Skips: mixed, and several look like setlist.fm was right and the donor simply didn't notate the segue (gratefuldead-1989-07-17 Me and My Uncle -> Cumberland Blues, which the selected tape's own description writes with `->`; Space > on deadandcompany-2017-06-01). The skip rule follows the standing "tape notes stand" steer; 198 skips vs 84 adds means relaxing it would roughly triple the reach. Left for Shawn.
+
+## 3. Live sample (37 held needs-LLM shows, real LLM, read-only)
+
+Seed 20261108 over the 615 shows still awaiting fix for an LLM call (the 37 trial shows of 2026-10-27 excluded). Meter before: 5h 25%, 7d 24%. 35 of 37 replayed on the llm path; 2 (stevekimockband-2004-07-09, thenewdeal-2005-07-30) fell back to the deterministic alignment because the LLM result missed the coverage threshold (normal gather behaviour, not an error).
+
+The LLM's own changes versus stored (before the pass): 11 shows, 11 adds, 3 drops; far less churn than the 10-27 trial (17 of 37 shows, 19 adds, 17 drops).
+
+Drops and what the pass did:
+- radiators-2010-06-05 track 6 `Sunglasses On > Rockin' Pneumonia ...` → restored (the deterministic alignment).
+- thenewdeal-2005-07-30 track 9 `jam 5 >`: title ends in an arrow, so it still renders as a segue; untouched by design.
+- derektrucksband-2005-04-08 track 1 `Sahib Teri Bandi > Maki Madni > Sahib Teri Bandi` → Crow Jane: setlist.fm marks it but the donor's own alignment says no, so skipped (taper notes stand). Unclear which is right.
+
+Restores (2, both E2): the radiators drop above, and godspeedyoublackemperor-2000-10-31 track 4 `John Hughes` (a continuous-set band; plausible).
+
+LLM adds the pass leaves alone (non-goal: the pass never blocks adds): mostly plausible jam flows; one looks wrong, warrenzevon-1990-12-08 `Werewolves Of London` → `encore break 2` (a segue into filler, made by the LLM itself, not by the pass). Two (gratefuldead-1973-12-12 `Wharf Rat ->`, thenewdeal `DJ Omen >`) only set the flag on a title that already shows the arrow.
+
+Verdict: the pass caught the one listener-visible bad drop it could see, added nothing wrong, and the LLM's own churn is now small. Residual risk: LLM-made segues into filler (one in 37), outside this pass.
