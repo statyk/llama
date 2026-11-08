@@ -550,7 +550,7 @@ def status_lines(cfg: TransmitterConfig, t_us: int, cloud: Callable[[str], dict 
     return lines + _cloud_tail(cloud, cloud_error, t_us)
 
 
-# --- read-only operator views: `schedule` and `library` -------------------------
+# --- read-only operator views: `schedule`, `library` and `rotation` -------------
 
 def _preview_station(cfg: TransmitterConfig, t_us: int) -> tuple[pipeline.Station, bool]:
     """A station for read-only views. Never `open_station` (which creates epoch.json): with no epoch yet it
@@ -646,3 +646,20 @@ def library_report(cfg: TransmitterConfig, t_us: int) -> list[str]:
     for inel in ineligible:
         by_reason.setdefault(report.reason_key(inel.reasons[0]) if inel.reasons else "(no reason)", []).append(inel.slug)
     return report.library_lines(report.LibraryReport(stats, ids, anns, by_reason))
+
+
+def rotation_report(cfg: TransmitterConfig, t_us: int, *, days: float | None = None,
+                    never: bool = False) -> list[str]:
+    """`transmitter rotation`: airplay by profile, from `aired.jsonl` joined to the eligible pool.
+    Read-only (no lock, no analysis); a show's profile is its current voiced profile."""
+    if days is not None and days <= 0:
+        raise ConfigError(f"--days must be positive, not {days}")
+    st, _ = _preview_station(cfg, t_us)
+    pool = st.scan_pieces(t_us, read_only=True)
+    eligible = [(p.package, p.profile) for p in pool if p.kind == "show"]
+    airings = [(history.package_of(r), grid.iso_to_us(r.start)) for r in history.load_aired(st.ws)
+               if r.kind == "show"]
+    clock = clock_mod.live_clock(st.ws, save=False).clock
+    since = None if days is None else t_us - int(days * 86_400_000_000)
+    rep = report.rotation(eligible, airings, gap_days=clock.rotation.concert_gap_days, since_us=since)
+    return report.rotation_lines(rep, tz=clock.timezone, never=never)

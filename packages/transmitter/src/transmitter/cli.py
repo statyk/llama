@@ -264,6 +264,18 @@ def library(config: Path = CONFIG_OPT):
         typer.echo(line)
 
 
+@app.command()
+def rotation(
+    days: float = typer.Option(None, "--days", min=0.01, help="Only airings in the last N days (default: all)"),
+    never: bool = typer.Option(False, "--never", help="List the never-played eligible shows by profile"),
+    config: Path = CONFIG_OPT,
+):
+    """Airplay by profile: eligible, played, never played, plays, repeats, gap between airings. Read-only."""
+    cfg = load_config(config)
+    for line in service.rotation_report(cfg, service.now_us(), days=days, never=never):
+        typer.echo(line)
+
+
 @fallback_app.command("render")
 def fallback_render(
     loop: Path = typer.Argument(..., exists=True, dir_okay=False, help="Station-ID loop audio"),

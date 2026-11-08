@@ -83,3 +83,60 @@ def test_profile_stats_and_reason_key():
     assert report.reason_key("3 DJ clip(s) missing") == report.reason_key("1 DJ clip(s) missing")
     assert report.reason_key("3 of 12 track file(s) missing") == report.reason_key("1 of 9 track file(s) missing")
     assert report.fill_label("pool-short") == "pool short" and report.fill_label("structural") == "longer than max_shows"
+
+
+# --- rotation ------------------------------------------------------------------
+
+DAY = 86_400_000_000
+T0 = iso_to_us("2026-10-01T00:00:00Z")
+
+
+def test_rotation_counts_played_never_repeats_and_gaps():
+    eligible = [("a1", "dead"), ("a2", "dead"), ("a3", "dead"), ("b1", "indie"), ("b2", None)]
+    airings = [("a1", T0), ("a1", T0 + 10 * DAY), ("a1", T0 + 60 * DAY), ("a2", T0 + 5 * DAY),
+               ("b1", T0 + 1 * DAY), ("gone", T0 + 2 * DAY), ("gone", T0 + 3 * DAY)]
+    rep = report.rotation(eligible, airings, gap_days=45)
+    by = {p.profile: p for p in rep.profiles}
+    assert list(by) == ["(none)", "dead", "indie"]
+    d = by["dead"]
+    assert (d.eligible, d.played, d.never, d.plays, d.repeated) == (3, 2, 1, 4, 1)
+    assert d.never_slugs == ("a3",)
+    assert (d.gap_min, d.gap_median, d.gap_mean) == (10.0, 30.0, 30.0)
+    assert d.under_gap == 1
+    assert by["(none)"].never_slugs == ("b2",) and by["(none)"].gap_min is None
+    t = rep.total
+    assert (t.eligible, t.played, t.never, t.plays, t.repeated, t.under_gap) == (5, 3, 2, 5, 1, 1)
+    assert (rep.gone_shows, rep.gone_plays, rep.gone_under_gap) == (1, 2, 1)
+    assert rep.first_us == T0 and rep.last_us == T0 + 60 * DAY
+    assert [(s.package, s.plays, s.last_us) for s in rep.top] == [("a1", 3, T0 + 60 * DAY), ("gone", 2, T0 + 3 * DAY)]
+
+
+def test_rotation_since_window_and_gap_rule_off():
+    airings = [("a1", T0), ("a1", T0 + 10 * DAY), ("a1", T0 + 20 * DAY)]
+    rep = report.rotation([("a1", "dead")], airings, gap_days=45, since_us=T0 + 5 * DAY)
+    (d,) = rep.profiles
+    assert (d.plays, d.gap_min, d.under_gap) == (2, 10.0, 1)
+    assert report.rotation([("a1", "dead")], airings, gap_days=0).total.under_gap == 0
+
+
+def test_rotation_lines():
+    eligible = [("a1", "dead"), ("a3", "dead")]
+    airings = [("a1", T0), ("a1", T0 + 10 * DAY), ("gone", T0)]
+    rep = report.rotation(eligible, airings, gap_days=45)
+    out = "\n".join(report.rotation_lines(rep, tz="UTC", never=False))
+    assert "concert gap 45 days" in out and "dead" in out and "total" in out
+    assert "aired, no longer eligible  1 show(s), 1 play(s)" in out
+    assert "a1  2 plays" in out
+    assert "a3" not in out
+    out = "\n".join(report.rotation_lines(rep, tz="UTC", never=True))
+    assert "never played" in out and "a3" in out
+    empty = "\n".join(report.rotation_lines(report.rotation([], [], gap_days=45), tz="UTC", never=True))
+    assert "nothing aired" in empty
+    windowed = "\n".join(report.rotation_lines(report.rotation([], [], gap_days=45, since_us=T0), tz="UTC",
+                                                never=False))
+    assert "nothing aired in the window (window from" in windowed
+
+
+def test_rotation_top_marks_eligible_show_without_profile_as_none_not_gone():
+    rep = report.rotation([("a", None)], [("a", T0), ("a", T0 + 50 * DAY), ("g", T0), ("g", T0 + DAY)], gap_days=45)
+    assert {s.package: s.profile for s in rep.top} == {"a": "(none)", "g": None}
