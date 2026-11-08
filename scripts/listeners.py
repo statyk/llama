@@ -14,7 +14,9 @@ so `est` is approximate; at a handful of listeners treat it as "nobody / one /
 a few". Read-only; stdlib only.
 
   CF_API_TOKEN=... CF_ZONE_ID=... python3 scripts/listeners.py [--hours 24]
-      [--bucket 5m|1h] [--host listen.lma-radio.com] [--path /live.m3u8]
+      [--bucket 5m|1h] [--host listen.lma-radio.com] [--path /live.m3u8] [--utc]
+
+Bucket times print in local time unless --utc.
 
 The token needs Zone Analytics: Read on the station zone (the Worker's
 CF_ANALYTICS_TOKEN is account-scoped and lives only in Worker secrets).
@@ -79,6 +81,14 @@ def iso(t):
     return t.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def label(bucket, utc=False):
+    """Display form of a bucket timestamp ("2026-11-06T14:00:00Z"): UTC as-is, else local."""
+    if utc:
+        return bucket
+    t = dt.datetime.fromisoformat(bucket.replace("Z", "+00:00")).astimezone()
+    return t.strftime("%Y-%m-%d %H:%M %Z")
+
+
 def query(token, variables, bucket_field):
     body = json.dumps({"query": QUERY % (ROW_LIMIT, bucket_field), "variables": variables}).encode()
     req = urllib.request.Request(GRAPHQL_URL, data=body, method="POST", headers={
@@ -105,6 +115,7 @@ def main(argv=None):
     ap.add_argument("--bucket", choices=sorted(BUCKETS), default="1h")
     ap.add_argument("--host", default="listen.lma-radio.com")
     ap.add_argument("--path", default="/live.m3u8")
+    ap.add_argument("--utc", action="store_true", help="print bucket times in UTC (default: local)")
     a = ap.parse_args(argv)
     token, zone = os.environ.get("CF_API_TOKEN"), os.environ.get("CF_ZONE_ID")
     if not token or not zone:
@@ -117,15 +128,15 @@ def main(argv=None):
         rows += query(token, {"zone": zone, "start": iso(s), "end": iso(e),
                               "host": a.host, "path": a.path}, field)
     out = summarize(rows, field, secs)
-    print(f"{'bucket (UTC)':<22}{'requests':>9}{'est':>7}{'peers':>7}")
+    print(f"{'bucket (UTC)' if a.utc else 'bucket (local)':<22}{'requests':>9}{'est':>7}{'peers':>7}")
     for b, n, est, peers in out:
-        print(f"{b:<22}{n:>9}{est:>7.1f}{peers:>7}")
+        print(f"{label(b, a.utc):<22}{n:>9}{est:>7.1f}{peers:>7}")
     if out:
         peak = max(out, key=lambda r: r[2])
         total = sum(r[1] for r in out)
         hours = total * SEGMENT_SECONDS / 3600
-        print(f"\npeak est {peak[2]:.1f} at {peak[0]}; listening time ~{hours:.1f} h "
-              f"over {a.hours:g} h; first data {out[0][0]}")
+        print(f"\npeak est {peak[2]:.1f} at {label(peak[0], a.utc)}; listening time ~{hours:.1f} h "
+              f"over {a.hours:g} h; first data {label(out[0][0], a.utc)}")
     else:
         print("no listener requests in the window")
 

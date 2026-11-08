@@ -35,3 +35,17 @@ def test_windows_cover_the_range_without_gaps():
     assert w[0][0] == s and w[-1][1] == s + dt.timedelta(hours=13)
     assert all(a[1] == b[0] for a, b in zip(w, w[1:]))
     assert len(w) == 3
+
+
+def test_label_utc_passthrough_and_local_conversion(monkeypatch):
+    import time
+    from listeners import label
+    assert label("2026-11-06T14:00:00Z", utc=True) == "2026-11-06T14:00:00Z"
+    monkeypatch.setenv("TZ", "America/New_York")
+    time.tzset()
+    try:
+        assert label("2026-11-06T14:00:00Z") == "2026-11-06 09:00 EST"
+        assert label("2026-07-06T14:00:00Z") == "2026-07-06 10:00 EDT"
+    finally:
+        monkeypatch.undo()
+        time.tzset()

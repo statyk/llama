@@ -41,8 +41,8 @@ One-off and campaign tooling. The repo overview is the root `CLAUDE.md`; the lla
   is a one-off (imports llama): it applies deliver's audio purge, same
   verification, to shows delivered before deliver did it. Dry run unless
   `--apply`.
-- `CF_API_TOKEN=… CF_ZONE_ID=… python3 scripts/listeners.py [--hours 24] [--bucket 5m|1h]`
-  estimates listeners from the zone's HTTP analytics (stdlib-only, read-only): `live.m3u8`
+- `CF_API_TOKEN=… CF_ZONE_ID=… python3 scripts/listeners.py [--hours 24] [--bucket 5m|1h] [--utc]`
+  (bucket times print in local time unless `--utc`) estimates listeners from the zone's HTTP analytics (stdlib-only, read-only): `live.m3u8`
   requests per bucket ÷ polls per bucket (10.24 s segments) = `est` concurrent, plus
   `peers` = distinct (IP, user agent); transmitter's own checks and the ops pollers (`OWN_AGENTS`) are excluded; a new
   poller needs its user agent added there or it reads as a listener. Needs a local
