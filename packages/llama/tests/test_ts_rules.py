@@ -431,3 +431,31 @@ def test_per_set_source_annotations_do_not_end_a_segment():
     # phish2022-07-20.157402 ("(Source 1) Schoeps MK4v's ...") is not a numbered setlist
     assert "Schoeps" in source_lines("Phish Source: 32bit Float/48 (Source 1) Schoeps MK4v's &gt; "
                                      "Nbob Actives Location: TS")[0]
+
+
+# Task 2b review fix round 1.
+def test_band_mic_source_is_a_feed_not_aud():
+    # phish2000-06-14.004147.fukuoka.akg1000.flac1644: siblings call the same chain
+    # "DSBD+AUD Matrix Mix ... band source"; with "could [be] a matrix" it reads matrix.
+    assert _cls(description="Phish Source info: AKG C1000s > DAT (direct from Phish's mic source) "
+                "It also could a matrix that's mostly AUD also DAT") == "matrix"
+    # phish2000-06-15.028257.osaka.mtx.flac1644, the second chain alone: a band feed
+    assert _cls(description="Phish source: AKG C1000's > DAT(direct from Phish's mic source) from "
+                "Billy Rickards 03/11/01") == "sbd"
+
+
+def test_by_sbd_is_a_position_and_light_board_is_not_a_board():
+    # Phish2022-08-05.AKGCK63.Flac24 / phish2022-08-05.157559
+    assert _cls(source="AKG CK63 > ZOOM F3 Mic's were setup front right corner by SBD, 12 Feet High") == "aud"
+    # phish2021-10-29.163512.lasvegas.ak40.waltmon.flac2448
+    assert _cls(description="Phish Source: Neumann AK40 (110°/ ORTF / 8ft up / Front Left corner of "
+                "light board) > Sound Devices MP10II @ 32/48 Recorded") == "aud"
+    assert _cls(description="Phish Source: DAT (lighting board) > CD") == "unknown"
+
+
+def test_x_stream_cable_is_not_a_webcast():
+    # phish2003-07-31.019820.camden.ck61.akg480.watts.flac1644
+    assert _cls(description="Phish Source: (DIN, OTS) AKG 481>Audio Magic X-Stream >DMIC20>D8 (48k)") == "aud"
+    # phish1999-12-13.000922.providence.sr77.vernal.flac1644
+    assert _cls(description="Phish Source Info: Earthworks SR-77 > audiomagic X-stream XLR > Lunatec V2") == "aud"
+    assert _cls(description="Phish Source: webcast stream > WAV") == "webcast"

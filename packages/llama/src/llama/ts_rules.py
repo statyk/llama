@@ -150,6 +150,9 @@ def source_lines(description: str | None) -> list[str]:
         return []
     text = _TAG.sub("", _BREAK.sub("\n", description))
     text = html.unescape(text)
+    # The reader is chosen on whether the text has ANY line break: a partly-broken
+    # description whose labels sit mid-line takes the line reader and misses them.
+    # That costs recall (the tape stays unknown and holds), never a false ship.
     if "\n" not in text.strip():
         return _inline_segments(text)
     out = []
@@ -170,23 +173,36 @@ def _tokens(text: str) -> list[str]:
 # tokenizing, so it yields no sbd marker; the mic chain then decides.
 _BOARD = r"(?:sbd|soundboard|sound\s*board|board)"
 _BOARD_POSITION = re.compile(
-    r"(?<![a-z0-9])(?:behind|in\s+front\s+of|front\s+of|near|beside|next\s+to|above|inside|at"
+    r"(?<![a-z0-9])(?:behind|in\s+front\s+of|front\s+of|near|beside|next\s+to|above|inside|at|by"
     r"|(?:side|sides|corner|right|left|rear|back|front|center|centre)\s+of)"
     rf"\s*(?:the\s+)?{_BOARD}(?![a-z0-9])"
     rf"|@\s*(?:the\s+)?{_BOARD}(?![a-z0-9])"
     rf"|(?<![a-z0-9]){_BOARD}\s*(?:booth|b00th|rail|riser|area|platform|tower|cage)(?![a-z0-9])",
     re.I)
+# Not source evidence at all: a lighting board ("Front Left corner of light
+# board") is not a sound board, and Audio Magic's "X-Stream" is a mic cable, not
+# a stream. Blanked before tokenizing.
+_NOT_EVIDENCE = re.compile(
+    r"(?<![a-z0-9])(?:light(?:ing)?\s*board|x\s*-?\s*stream)(?![a-z0-9])", re.I)
+# The band's own feed: "AKG C1000s > DAT (direct from Phish's mic source)" (the
+# 2000 Japan tapes; siblings call the same chain "Band Source" and "DSBD+AUD
+# Matrix Mix"). Rewritten to a board word, so it reads sbd (matrix with a matrix
+# word beside it).
+_BAND_FEED = re.compile(
+    r"['’]s\s+mic\s+source|(?<![a-z0-9])direct\s+from\b[^.>]{0,40}?\bmic\s+source", re.I)
 
 
 def _field_tokens(text: str) -> list[str]:
     """Tokens of one evidence field, as classify reads them.
 
-    Board positions are blanked; a compound matrix token is split ("akgmatrix",
+    Lighting boards and X-Stream cables, then board positions, are blanked; a
+    band mic-source phrase becomes "sbd"; a compound matrix token is split ("akgmatrix",
     "30akgmatrix", "dhaudmatrix" -> its rig prefix, plus "aud" when the prefix
     ends in aud, plus "matrix"); "mtx" before "191..." is the Neumann RSM-191's
     M/S matrix box, a microphone part, not a matrix of sources.
     """
-    raw = _tokens(_BOARD_POSITION.sub(" ", text))
+    text = _BOARD_POSITION.sub(" ", _NOT_EVIDENCE.sub(" ", text))
+    raw = _tokens(_BAND_FEED.sub(" sbd ", text))
     out: list[str] = []
     for i, t in enumerate(raw):
         if t == "mtx" and i + 1 < len(raw) and raw[i + 1].startswith("191"):
