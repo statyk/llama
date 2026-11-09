@@ -997,18 +997,21 @@ class _CallCap:
 
     def __init__(self, inner, counter: list, cap: int):
         self._inner, self._counter, self._cap = inner, counter, cap
+        self.raws: list = []
 
     def complete(self, *args, **kwargs):
         if self._counter[0] >= self._cap:
             raise SystemExit(f"aborting: scorer call {self._counter[0] + 1} would exceed --max-calls {self._cap}")
         self._counter[0] += 1
-        return self._inner.complete(*args, **kwargs)
+        raw = self._inner.complete(*args, **kwargs)
+        self.raws.append(raw)
+        return raw
 
     def __getattr__(self, name):
         return getattr(self._inner, name)
 
 
-def render_scorer_md(sample, pct, rates, scores, attribution, orders, *, floor, today, seed) -> str:
+def render_scorer_md(sample, pct, rates, scores, attribution, orders, *, floor, today, seed, missing=()) -> str:
     """scores/attribution: {"A": {pid: x}, "B": {pid: x}}. Pure: all inputs are plain data."""
     from llama.stages.winnow import TS_NO_EVIDENCE_BASELINE
 
@@ -1018,7 +1021,11 @@ def render_scorer_md(sample, pct, rates, scores, attribution, orders, *, floor, 
     def base(pid):
         return TS_NO_EVIDENCE_BASELINE if pct.get(pid) is None else pct[pid] / 10
 
-    L = ["# Checkpoint B: scorer measurement", "",
+    L = ["# Checkpoint B: scorer measurement", ""]
+    if missing:
+        L += [f"**PARTIAL RUN: batches never scored: {', '.join(missing)}.** Shares and differences below "
+              "cover only the shows scored in each order.", ""]
+    L += [
          f"{len(sample)} Phish shows (seeded era-stratified sample, seed {seed}), scored through the real "
          f"`score_reviews` provider twice in two batch orders (A = chronological, B = seeded shuffle "
          f"mixing batches). Run date {today}. Baseline = percentile/10, or {TS_NO_EVIDENCE_BASELINE} with no percentile. "
@@ -1084,7 +1091,7 @@ def cmd_score(a, ia=None, providers=None, today=None) -> int:
 
     cfg_path = refuse_llama_home(a.config, "--config")
     work = refuse_llama_home(a.workspace, "--workspace")
-    out = Path(a.out) if a.out else EVIDENCE / "scorer.md"
+    out = refuse_llama_home(a.out, "--out") if a.out else EVIDENCE / "scorer.md"
     if not cfg_path.is_file():
         raise SystemExit(f"--config {cfg_path} does not exist")
     config = load_config(cfg_path)
@@ -1136,22 +1143,46 @@ def cmd_score(a, ia=None, providers=None, today=None) -> int:
         providers = make_providers(config)
     inner = providers["score_reviews"]
     counter = [0]
-    prov = [_CallCap(p, counter, a.max_calls) for p in inner] if isinstance(inner, (list, tuple)) \
-        else _CallCap(inner, counter, a.max_calls)
+    # Only the first ladder step (the medium tier): herder's retries then repeat on the same model and
+    # never escalate to a dearer one inside the approved spend.
+    first = inner[0] if isinstance(inner, (list, tuple)) else inner
+    prov = _CallCap(first, counter, a.max_calls)
     scores = {"A": {}, "B": {}}
     attribution = {"A": {}, "B": {}}
+    saved = work / "score-batches"
+    saved.mkdir(parents=True, exist_ok=True)
+    failure = None
+    done: set = set()
     for o in ("A", "B"):
-        for b in batches[o]:
-            res = W.score_batch(prov, [entries[p] for p in b], W.TS_PROMPT_BLOCK, criteria.soft_preferences)
+        for bi, b in enumerate(batches[o], 1):
+            name = f"{o}{bi}"
+            n_raw = len(prov.raws)
+            try:
+                res = W.score_batch(prov, [entries[p] for p in b], W.TS_PROMPT_BLOCK, criteria.soft_preferences)
+            except (Exception, SystemExit) as exc:  # noqa: BLE001 - keep what was paid for, then fail
+                failure = f"batch {name}: {type(exc).__name__}: {exc}"
+                (saved / f"{name}.failed.json").write_text(json.dumps(
+                    {"batch": name, "performance_ids": b, "error": failure, "raw": prov.raws[n_raw:]}, indent=2))
+                break
+            (saved / f"{name}.json").write_text(json.dumps(
+                {"batch": name, "performance_ids": b, "raw": prov.raws[n_raw:],
+                 "assessments": [x.model_dump() for x in res.assessments]}, indent=2))
+            done.add(name)
             for x in res.assessments:
                 scores[o][x.performance_id] = x.quality_score
                 attribution[o][x.performance_id] = x.attribution
+        if failure:
+            break
+    missing = [f"{o}{i}" for o in ("A", "B") for i in range(1, len(batches[o]) + 1) if f"{o}{i}" not in done]
     md = render_scorer_md(sample, pct, rates, scores, attribution, orders,
-                          floor=criteria.min_quality_score, today=today, seed=a.seed)
+                          floor=criteria.min_quality_score, today=today, seed=a.seed, missing=missing)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(md)
     print(md)
-    print(f"scorer calls made: {counter[0]}; wrote {out}", file=sys.stderr)
+    print(f"scorer calls made: {counter[0]}; wrote {out}; per-batch files in {saved}", file=sys.stderr)
+    if failure:
+        print(f"ABORTED ({failure}); partial scorer.md written, missing batches: {', '.join(missing)}", file=sys.stderr)
+        return 3
     return 0
 
 

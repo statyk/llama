@@ -155,7 +155,7 @@ def test_score_diff_is_exact_for_known_scores():
     assert "Order A: 1/2 at or above 6.0 (50%)" in md and "Order B: 1/2" in md
     assert "Overall: 2/4 at or above 6.0 (50%)" in md
     assert f"Largest per-show difference between orders: 1.0 at {p2} (A 3.0, B 4.0)" in md
-    assert "baseline: 0/2" in md or "baseline: 1/2" in md
+    assert "of their baseline: 0/2" in md
     assert "tied zero rates (tie-percentile caveat): " + p2 in md
 
 
@@ -172,8 +172,7 @@ def test_max_calls_aborts_before_spending(env):
     assert run(env, "--max-calls", "7", prov=prov) == 2
     assert prov.calls == []
     # and the runtime cap stops a provider retrying past the plan
-    with pytest.raises(SystemExit):
-        run(env, "--n", "5", "--max-calls", "2", prov=_BadJson())
+    assert run(env, "--n", "5", "--max-calls", "2", prov=_BadJson()) == 3
 
 
 class _BadJson:
@@ -190,3 +189,96 @@ def test_refuses_config_or_workspace_under_llama_home(env, tmp_path):
     with pytest.raises(SystemExit, match="~/.llama"):
         probe.main(["score", "--config", str(env["cfg"]), "--workspace", str(ll / "scratch")])
     assert not (ll / "scratch").exists()
+
+
+def test_failed_batch_mid_run_keeps_batches_and_writes_partial(env):
+    prov = _FailAfter(2)  # A1, A2 answer; A3 gets bad replies (TaskFailed after 3 attempts)
+    assert run(env, "--max-calls", "8", prov=prov) == 3
+    files = sorted(p.name for p in (env["work"] / "score-batches").iterdir())
+    assert "A1.json" in files and "A2.json" in files and "A3.failed.json" in files
+    saved = json.loads((env["work"] / "score-batches" / "A1.json").read_text())
+    assert saved["raw"] and saved["assessments"]
+    md = env["out"].read_text()
+    assert "PARTIAL RUN" in md and "A3, A4, B1, B2, B3, B4" in md
+
+
+def test_task_failed_mid_run_keeps_batches_and_writes_partial(env):
+    assert run(env, "--max-calls", "20", prov=_FailAfter(1)) == 3
+    files = sorted(p.name for p in (env["work"] / "score-batches").iterdir())
+    assert "A1.json" in files and "A2.failed.json" in files
+    md = env["out"].read_text()
+    assert "PARTIAL RUN" in md and "A2, A3, A4, B1, B2, B3, B4" in md
+
+
+class _FailAfter(ScoringProvider):
+    def __init__(self, ok):
+        super().__init__()
+        self.ok = ok
+
+    def complete(self, prompt):
+        if len(self.calls) >= self.ok:
+            self.calls.append(prompt)
+            return "not json"
+        return super().complete(prompt)
+
+
+def test_three_step_ladder_never_reaches_the_third_step(env):
+    med, med2, high = ScoringProvider(), ScoringProvider(), ScoringProvider()
+    assert run(env, "--max-calls", "20", prov=[med, med2, high]) == 0
+    assert len(med.calls) == 8 and med2.calls == [] and high.calls == []
+    bad = _FailAfter(0)
+    other, top = ScoringProvider(), ScoringProvider()
+    assert run(env, "--max-calls", "20", prov=[bad, other, top]) == 3
+    assert other.calls == [] and top.calls == []
+    assert len(bad.calls) == 3  # herder's retries all stayed on the first (medium) step
+
+
+def test_out_under_llama_home_refused(env):
+    (env["home"] / ".llama").mkdir()
+    with pytest.raises(SystemExit, match="~/.llama"):
+        probe.main(["score", "--config", str(env["cfg"]), "--workspace", str(env["work"]),
+                    "--out", str(env["home"] / ".llama" / "scorer.md")])
+
+
+def test_guard_catches_symlink_and_relative_path(env, monkeypatch):
+    ll = env["home"] / ".llama"
+    ll.mkdir()
+    link = env["work"] / "sneaky"
+    link.symlink_to(ll)
+    with pytest.raises(SystemExit, match="~/.llama"):
+        probe.refuse_llama_home(str(link / "scratch"), "--workspace")
+    monkeypatch.chdir(env["home"])
+    with pytest.raises(SystemExit, match="~/.llama"):
+        probe.refuse_llama_home(".llama/x", "--workspace")
+    with pytest.raises(SystemExit, match="~/.llama"):
+        probe.refuse_llama_home("../home/.llama", "--workspace")
+
+
+def test_first_batch_failure_saves_raw_replies(env):
+    # every reply bad: the first batch fails after 3 attempts and nothing later is spent
+    assert run(env, "--max-calls", "8", prov=_FailAfter(0)) == 3
+    failed = json.loads((env["work"] / "score-batches" / "A1.failed.json").read_text())
+    assert "TaskFailed" in failed["error"] and len(failed["raw"]) == 3
+    assert "PARTIAL RUN" in env["out"].read_text()
+
+
+class _FlakyFirst(ScoringProvider):
+    """Bad on each batch's first attempt, good on the retry: two calls per batch."""
+
+    def complete(self, prompt):
+        n = len(self.calls)
+        if n % 2 == 0:
+            self.calls.append(prompt)
+            return "not json"
+        return super().complete(prompt)
+
+
+def test_cap_abort_mid_run_keeps_batches_and_writes_partial(env):
+    prov = _FlakyFirst()
+    assert run(env, "--max-calls", "8", prov=prov) == 3
+    assert len(prov.calls) == 8  # A1-A4 used all 8; B1's first call hit the cap before spending
+    d = env["work"] / "score-batches"
+    assert {"A1.json", "A4.json", "B1.failed.json"} <= {p.name for p in d.iterdir()}
+    assert "SystemExit" in json.loads((d / "B1.failed.json").read_text())["error"]
+    md = env["out"].read_text()
+    assert "PARTIAL RUN" in md and "B1, B2, B3, B4" in md
