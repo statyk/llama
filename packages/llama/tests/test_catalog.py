@@ -199,3 +199,22 @@ def test_iter_shows_lists_legacy_migrated_and_mixed(tmp_path):
     assert [e.slug for e in entries] == ["a-legacy", "b-migrated", "c-mixed"]
     assert entries[1].overrides.titles == {"a.mp3": "X"}
     assert entries[1].overrides.encore_after == "a.mp3"
+
+
+def test_provenance_fallback_artist_shows_ts_display_name(tmp_path: Path):
+    from llama.config import TaperssectionArtist, TaperssectionConfig
+    from llama.taperssection import Allowlist
+    allowlist = Allowlist.from_config(TaperssectionConfig(artists=[
+        TaperssectionArtist(name="Phish", creators=["Phish"], lineages=["aud"])]))
+    ws = ShowWorkspace(tmp_path / "shows" / "ts-phish-1997-11-22")
+    write_artifact(ws.provenance, Provenance(
+        performance_id="ts-phish/1997-11-22", run="r1", dossier="great",
+        candidate=Candidate(performance_id="ts-phish/1997-11-22", collection="ts-phish",
+                            date="1997-11-22", recordings=[RecordingSummary(identifier="x")]),
+        processed_at="2026-07-17T00:00:00+00:00"))
+    ledger = Ledger(tmp_path / "ledger.jsonl")
+    (entry,) = iter_shows(tmp_path, ledger, allowlist)
+    assert entry.artist == "Phish"
+    # LMA collections and no-allowlist callers are untouched.
+    (entry,) = iter_shows(tmp_path, ledger)
+    assert entry.artist == "ts-phish"

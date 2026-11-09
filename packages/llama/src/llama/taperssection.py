@@ -25,6 +25,16 @@ def artist_key(name: str) -> str:
     return KEY_PREFIX + slugify(name)
 
 
+def display_label(allowlist: "Allowlist | None", key: str) -> str:
+    """The human-facing label for a collection/artist key: a resolvable `ts-` key
+    shows its entry's name; anything else (an LMA collection, an unknown or
+    unloadable ts key) shows as-is. Display only: never raises, never gates."""
+    if not is_synthetic(key) or not allowlist:
+        return key
+    entry = allowlist.by_key(key)
+    return entry.name if entry is not None else key
+
+
 def is_synthetic(key: str) -> bool:
     return key.startswith(KEY_PREFIX)
 

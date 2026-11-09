@@ -15,6 +15,7 @@ from llama.errors import LlamaError
 from llama.ledger import Ledger
 from llama.locks import file_lock
 from llama.models import LedgerEntry, Overrides, Provenance, Show
+from llama.taperssection import Allowlist, display_label
 from llama.workspace import ShowWorkspace, read_json, read_model, read_overrides
 
 
@@ -291,7 +292,8 @@ def purge_package_audio(ws: ShowWorkspace, delivered: Path, *,
     return result
 
 
-def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
+def iter_shows(root: Path, ledger: Ledger,
+               allowlist: Allowlist | None = None) -> list[CatalogEntry]:
     delivered = {e.performance_id for e in ledger.entries() if e.status == "delivered"}
     entries = []
     shows_dir = root / "shows"
@@ -306,7 +308,8 @@ def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
             show = read_model(ws.show, Show)
             artist, date = show.artist, show.date
         elif prov is not None:
-            artist, date = prov.candidate.collection, prov.candidate.date
+            artist = display_label(allowlist, prov.candidate.collection)
+            date = prov.candidate.date
         entries.append(CatalogEntry(slug=d.name, ws=ws, state=state, flags=flags,
                                     provenance=prov, artist=artist, date=date,
                                     overrides=read_overrides(ws),
@@ -364,7 +367,8 @@ def resolve_run(root: Path, name: str) -> str:
 
 
 def remove_show(entry: CatalogEntry, ledger: Ledger, *,
-                forget: bool = False, suppress: bool = False) -> list[str]:
+                forget: bool = False, suppress: bool = False,
+                allowlist: Allowlist | None = None) -> list[str]:
     """Delete a show dir and apply one of three history dispositions,
     returning the echo lines the CLI prints verbatim (spec §8.1).
 
@@ -392,7 +396,8 @@ def remove_show(entry: CatalogEntry, ledger: Ledger, *,
                 artist, date, venue = show.artist, show.date, show.venue
             else:
                 candidate = read_model(show_ws.provenance, Provenance).candidate
-                artist, date, venue = candidate.collection, candidate.date, candidate.venue
+                artist = display_label(allowlist, candidate.collection)
+                date, venue = candidate.date, candidate.venue
             ledger.record(LedgerEntry(
                 performance_id=pid, artist=artist, date=date, venue=venue,
                 status="rejected", run="manual",

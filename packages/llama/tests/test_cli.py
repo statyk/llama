@@ -1566,3 +1566,25 @@ def test_resolve_prompt_accept_is_inserted_before_skip_in_every_combination():
                 assert "[a] accept proposal" not in base
                 assert base.replace("[t] suggest titles / ", "").replace(
                     "[u]ntitled / ", "").replace("[i]nclude dropped / ", "") == cli.RESOLVE_PROMPT
+
+
+def test_print_shortlist_shows_ts_display_name(capsys):
+    from llama.config import TaperssectionArtist, TaperssectionConfig
+    from llama.models import QualityAssessment, ShortlistEntry
+    from llama.taperssection import Allowlist
+    allowlist = Allowlist.from_config(TaperssectionConfig(artists=[
+        TaperssectionArtist(name="Phish", creators=["Phish"], lineages=["aud"])]))
+
+    def entry(collection, rank):
+        return ShortlistEntry(
+            candidate=Candidate(performance_id=f"{collection}/1997-11-22",
+                                collection=collection, date="1997-11-22", venue="V",
+                                recordings=[RecordingSummary(identifier="x")]),
+            assessment=QualityAssessment(performance_id=f"{collection}/1997-11-22",
+                                         quality_score=7.0, rationale="r"),
+            rank=rank)
+    cli._print_shortlist([entry("ts-phish", 1), entry("GratefulDead", 2)],
+                         allowlist=allowlist)
+    out = capsys.readouterr().out
+    assert "Phish " in out and "ts-phish" not in out
+    assert "GratefulDead" in out

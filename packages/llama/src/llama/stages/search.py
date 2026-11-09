@@ -6,7 +6,7 @@ from llama.config import TaperssectionArtist
 from llama.grouping import _first, _summary, group_candidates
 from llama.models import Candidate, Criteria
 from llama.status import detail, step
-from llama.taperssection import Allowlist, is_synthetic
+from llama.taperssection import Allowlist, display_label, is_synthetic
 from llama.ts_measure import parse_title_venue
 from llama.workspace import RunWorkspace, read_model_list, should_run, write_artifact
 
@@ -143,9 +143,12 @@ def run_search(
         for artist in artists:
             Allowlist.for_candidate(allowlist, artist["identifier"])
         candidates: list[Candidate] = []
-        with step(f"searching the LMA ({len(artists)} artists)"):
+        with step(f"searching {len(artists)} artists"):
             for i, artist in enumerate(artists, 1):
-                detail(f"{artist.get('title') or artist['identifier']} ({i}/{len(artists)})")
+                ident = artist["identifier"]
+                label = (display_label(allowlist, ident) if is_synthetic(ident)
+                         else artist.get("title") or ident)
+                detail(f"{label} ({i}/{len(artists)})")
                 candidates.extend(_search_one(ia, artist["identifier"], criteria, allowlist,
                                               jerrybase_enabled))
         candidates.sort(key=lambda c: (c.date, c.performance_id))

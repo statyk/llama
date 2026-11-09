@@ -39,6 +39,6 @@ def run_discover(
     matched = find_matching_artists(provider, pool, _compose_query(criteria),
                                     max_results=max_artists)
     result = [{"identifier": a["identifier"], "title": a["title"]} for a in matched]
-    log.info("discover: %d artists matched on the LMA", len(result))
+    log.info("discover: %d artists matched", len(result))
     write_artifact(ws.artists, result)
     return result
