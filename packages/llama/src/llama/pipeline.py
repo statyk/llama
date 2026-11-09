@@ -153,7 +153,8 @@ def process_show(
                           audio_format=audio_format, force=force,
                           align_provider=providers.get("align_structure"),
                           setlistfm=setlistfm, structure_cfg=structure_cfg,
-                          jerrybase_enabled=jerrybase_enabled, allowlist=allowlist)
+                          jerrybase_enabled=jerrybase_enabled, allowlist=allowlist,
+                          assessment=entry.assessment)
     with step(f"[{pid}] researching"):
         research_md = run_research(show_ws, providers["deep_research"], show, dossier, force=force)
     with step(f"[{pid}] vetting research"):

@@ -9,7 +9,7 @@ from typing import NamedTuple
 from herder import HerderError, TaskFailed, run_json_task
 from herder.limits import RateLimited
 from llama import desc_list, jerrybase, taper, title_hygiene
-from llama.config import StructureConfig
+from llama.config import StructureConfig, TaperssectionArtist
 from llama.errors import LlamaError
 from llama.junk import (FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, TRAILING_ARROW, filter_files,
                         short_tag_is_junk)
@@ -20,7 +20,7 @@ from llama.lossless_titles import (SHIFTED_DELIVERED_NOTE, LosslessResult, apply
 from llama.title_cosmetics import cosmetic_strip
 from llama.title_hygiene import DDecision, SetlistPlan
 from llama.models import (AlignedStructure, AlignResult, JerrybaseEvent, Candidate, Overrides,
-                          ParsedSetlist,
+                          ParsedSetlist, QualityAssessment,
                           SetlistItem, Show, ShowNotes, SourcedParse, StructureInfo, Track)
 from llama.override_keys import Positions, resolve_positions
 from llama.overrules import split_overruled
@@ -36,6 +36,7 @@ from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align
                              _FILLER, _venues_equivalent_pre1b)
 from llama.placeholders import is_junk_tag
 from llama.taper import TaperDecision
+from llama.stages.select_recording import _ts_verdict
 from llama.taperssection import Allowlist
 from llama.titles import (_GLUED_NUM_PREFIX, _JOINED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
                           is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, shipped_short_tag, tag_core,
@@ -1857,6 +1858,44 @@ def two_venue_signature(candidate: Candidate) -> bool:
                for i, (va, ca) in enumerate(recs) for vb, cb in recs[i + 1:])
 
 
+# taperssection Task 10 (spec "Holds"): the two ts-only gather flags. Their kinds
+# (`overrules._PATTERNS`), adjudicator bars (`gate.OVERRULE_BAR`) and replay families
+# (`replay._FAMILIES`) key on these prefixes.
+LINEAGE_UNKNOWN_PREFIX = "unclassified lineage for"
+MISATTRIBUTION_PREFIX = "possible misattribution:"
+NO_ATTRIBUTION_REASON = "scorer gave no attribution verdict"
+
+
+def _ts_selected_verdict(candidate: Candidate, identifier: str,
+                         entry: TaperssectionArtist) -> str:
+    """The selected recording's verdict under the CURRENT entry, classified exactly as
+    select classifies it (`select_recording._ts_verdict` over the stored
+    `RecordingSummary`; ruling R3: recomputed, never stored). A selection the candidate
+    does not list cannot be classified, so it reads `unknown` (fail closed: it holds)."""
+    rec = next((r for r in candidate.recordings if r.identifier == identifier), None)
+    return "unknown" if rec is None else _ts_verdict(rec, entry)
+
+
+def _ts_hold_flags(verdict: str, identifier: str, entry: TaperssectionArtist,
+                   assessment: QualityAssessment | None) -> list[str]:
+    """The taperssection hold flags, lineage first. An unknown lineage holds (Checkpoint
+    A rule (a), a pinned unknown included); an attribution of `suspect`, or none at all
+    (the scorer omitted it, or no assessment was recorded), holds as misattribution."""
+    flags = []
+    if verdict == "unknown":
+        flags.append(f"{LINEAGE_UNKNOWN_PREFIX} {entry.name} "
+                     f"(allowed: {', '.join(entry.lineages)}): {identifier}")
+    attribution = assessment.attribution if assessment is not None else None
+    if attribution != "ok":
+        if attribution is None:
+            reason = NO_ATTRIBUTION_REASON
+        else:
+            reason = " ".join((assessment.attribution_reason or "").split()) \
+                or "scorer gave no reason"
+        flags.append(f"{MISATTRIBUTION_PREFIX} {reason}")
+    return flags
+
+
 def compute_gather(
     show_ws: ShowWorkspace,
     ia,
@@ -1872,6 +1911,7 @@ def compute_gather(
     enabled_slices: frozenset[str] = title_hygiene.ENABLED_SLICES,
     llm_failures_raise: bool = False,
     allowlist: Allowlist | None = None,
+    assessment: QualityAssessment | None = None,
 ) -> GatherResult:
     """Gather without the writes: `run_gather` minus `should_run` and the
     three artifacts. Reads `overrides.json` from `show_ws` and nothing else
@@ -1889,7 +1929,13 @@ def compute_gather(
     `TaskFailed`/`HerderError` from the `align_structure` call re-raises instead of
     degrading to the `low-confidence structure alignment` flag (the
     `extract_setlist` call already raises). Default False: every other caller
-    keeps today's degradation. `RateLimited` always re-raises."""
+    keeps today's degradation. `RateLimited` always re-raises.
+
+    `assessment` (taperssection Task 10) is the show's winnow assessment, read only on
+    a `ts-` candidate for its `attribution` verdict (None or absent holds as
+    misattribution). A `ts-` candidate whose selected recording the current entry
+    forbids raises `LlamaError` (ruling R27): gather never re-gathers a forbidden tape
+    on a path that skips select (replay, reapply, redo/fix from gather)."""
     structure_cfg = structure_cfg or StructureConfig()
     # Operator-facing notes for notes.json are `op_notes` below, deliberately a
     # SEPARATE list from the local `notes`, which keeps flowing into
@@ -1907,6 +1953,14 @@ def compute_gather(
     # without its allowlist raises after that one metadata fetch and before anything
     # else: no overrides read, no jerrybase lookup, no canonical or setlist.fm call.
     naming = gather_names(candidate.collection, artist, allowlist)
+    ts_entry = Allowlist.for_candidate(allowlist, candidate.collection)
+    ts_verdict = None
+    if ts_entry is not None:
+        ts_verdict = _ts_selected_verdict(candidate, identifier, ts_entry)
+        if ts_verdict == "forbidden":
+            raise LlamaError(f"{candidate.performance_id}: selected recording {identifier} is "
+                             "forbidden by the taperssection policy; re-select with redo "
+                             "--from select")
     want = FORMAT_BY_AUDIO[audio_format]
     # read_overrides is hoisted above filter_files (it only reads the show dir)
     # so operator re-admission can be applied inside the filter, where play
@@ -2336,6 +2390,8 @@ def compute_gather(
         flags.append("low-confidence setlist")
     if not tracks:
         flags.append("no playable tracks")
+    if ts_entry is not None:
+        flags += _ts_hold_flags(ts_verdict, identifier, ts_entry, assessment)
 
     structure_info = None
     if positions.set_breaks is not None or positions.encore_after is not None:
@@ -2444,6 +2500,7 @@ def run_gather(
     jerrybase_enabled: bool = False,
     *,
     allowlist: Allowlist | None = None,
+    assessment: QualityAssessment | None = None,
 ) -> Show:
     if not should_run(show_ws.show, force):
         return read_model(show_ws.show, Show)
@@ -2451,7 +2508,7 @@ def run_gather(
         show_ws, ia, provider, candidate, identifier,
         audio_format=audio_format, align_provider=align_provider,
         setlistfm=setlistfm, structure_cfg=structure_cfg,
-        jerrybase_enabled=jerrybase_enabled, allowlist=allowlist)
+        jerrybase_enabled=jerrybase_enabled, allowlist=allowlist, assessment=assessment)
     # notes.json is REPLACED on every gather (`vet` reset: a vet note belongs
     # to the gather it was raised against), and written BEFORE show.json:
     # show.json is `should_run`'s done-marker, so a crash between the two

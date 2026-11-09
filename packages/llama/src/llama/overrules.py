@@ -49,6 +49,10 @@ _PATTERNS: list[tuple[re.Pattern, str, str]] = [
     (re.compile(r"^no playable tracks"), "no-tracks", "none"),
     (re.compile(r"^briefing mentions unknown song: (.*)$", re.S), "briefing-song", "norm"),
     (re.compile(r"^briefing references nonexistent set: (.*)$", re.S), "briefing-set", "norm"),
+    # taperssection (Task 10): the subject is the selected identifier, as written.
+    (re.compile(r"^unclassified lineage for .* \(allowed: [^)]*\): (\S+)$"),
+     "lineage-unknown", "raw"),
+    (re.compile(r"^possible misattribution:"), "misattribution", "none"),
 ]
 
 

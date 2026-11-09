@@ -54,6 +54,8 @@ OVERRULE_BAR: dict[str, str] = {
     "titles": "never", "low-confidence-setlist": "never", "tape-spans": "never",
     "multi-event": "never", "events-unassigned": "never", "no-tracks": "never",
     "merged-tracks": "never", "city": "never", "other": "never",
+    # taperssection: no evidence kind can establish lineage, so only an operator clears it.
+    "lineage-unknown": "never", "misattribution": "medium",
 }
 STRUCTURE_KINDS = {k for k, b in OVERRULE_BAR.items() if b == "structure"}
 

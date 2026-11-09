@@ -645,6 +645,9 @@ OVERRULE_CASES = [
     ("merged tracks x-d1t05 span a set break", "merged-tracks", "never"),
     ("recordings of this date disagree on city: 'A' (selected) vs 'B'", "city", "never"),
     ("something else entirely", "other", "never"),
+    ("unclassified lineage for Phish (allowed: aud): ph1997-11-22.flac16", "lineage-unknown",
+     "never"),
+    ("possible misattribution: scorer gave no attribution verdict", "misattribution", "medium"),
 ]
 
 
