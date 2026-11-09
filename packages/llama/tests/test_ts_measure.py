@@ -99,3 +99,38 @@ def test_parse_title_venue_rejects(title):
 def test_venue_never_a_date():
     v, c = parse_title_venue("Phish - 1999-07-12 - 1999-07-12 - Mansfield, MA")
     assert v is None
+
+
+def test_live_at_splits_city():
+    assert parse_title_venue(
+        "Jerry Garcia live at Keystone, Berkeley, CA on 1974-01-17"
+    ) == ("Keystone", "Berkeley, CA")
+
+
+@pytest.mark.parametrize("title", [
+    "Phish 1997-11-22 mk4 hv-32p @ 9624.fixed",
+    "Phish 1997-11-22 Schoeps @ 24/96",
+    "Phish 1997-11-22 Schoeps @ 2496",
+])
+def test_at_sign_rejects_bitrate(title):
+    assert parse_title_venue(title) == (None, None)
+
+
+@pytest.mark.parametrize("title", [
+    "Phish - 1999-07-12 - Unknown Venue - Somewhere, NY",
+    "Phish - 1999-07-12 - unknown Date & Location",
+    "Phish - 1999-07-12 - Demo",
+    "Phish Live at Demo Tape on 1999-07-12",
+])
+def test_placeholder_venues_are_none(title):
+    assert parse_title_venue(title) == (None, None)
+
+
+def test_city_trailing_format_tag_stripped():
+    assert parse_title_venue(
+        "Phish - 2018-10-20 - Hampton Coliseum - Hampton, VA[FLAC 24-48]"
+    ) == ("Hampton Coliseum", "Hampton, VA")
+
+
+def test_percentile_all_ties_is_100():
+    assert percentile(5.0, [5.0, 5.0, 5.0]) == 100.0

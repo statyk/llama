@@ -66,8 +66,17 @@ _LIVE_AT = re.compile(r"\blive\s+at\s+(?P<v>.+?)\s+on\s+\S", re.I)
 _AT_SIGN = re.compile(r"@\s*(?P<rest>\S.*)$")
 
 
-def _clean(s: str | None) -> str | None:
+_PLACEHOLDER = re.compile(r"^(?:unknown|demo)", re.I)
+_BITRATE = re.compile(r"^\d|\d+/\d+|\d{4,}")
+_TRAILING_TAG = re.compile(r"\s*\[[^\]]*\]\s*$")
+
+
+def _clean(s: str | None, *, city: bool = False) -> str | None:
     s = (s or "").strip(" \t-,")
+    if city:
+        s = _TRAILING_TAG.sub("", s).strip(" \t-,")
+    elif _PLACEHOLDER.match(s):
+        return None
     if not s or _DATEISH.search(s) or _NOT_VENUE.match(s):
         return None
     return s
@@ -81,20 +90,21 @@ def parse_title_venue(title: str) -> tuple[str | None, str | None]:
     if len(parts) >= 3 and _DATEISH.fullmatch(parts[1]):
         venue = _clean(parts[2])
         if venue:
-            return venue, _clean(", ".join(parts[3:])) if len(parts) > 3 else None
+            return venue, _clean(", ".join(parts[3:]), city=True) if len(parts) > 3 else None
         return None, None
     m = _LIVE_AT.search(title)
     if m:
-        venue = _clean(m["v"])
-        return (venue, None) if venue else (None, None)
+        v, _, c = m["v"].partition(",")
+        venue = _clean(v)
+        return (venue, _clean(c, city=True)) if venue else (None, None)
     m = _AT_SIGN.search(title)
     if m:
         segs = [x.strip() for x in m["rest"].split(" - ")]
         if len(segs) >= 2:  # "@ venue - city, ST - mic chain": stop at the second segment
-            venue, city = _clean(segs[0]), _clean(segs[1])
+            venue, city = _clean(segs[0]), _clean(segs[1], city=True)
         else:
             v, _, c = segs[0].partition(",")
-            venue, city = _clean(v), _clean(c)
-        if venue:
+            venue, city = _clean(v), _clean(c, city=True)
+        if venue and not _BITRATE.search(venue):
             return venue, city
     return None, None
