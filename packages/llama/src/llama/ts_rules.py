@@ -35,20 +35,28 @@ MIC_WORDS: frozenset[str] = frozenset({
     "josephson", "c617", "c42", "sanken", "cos11", "cos11d", "ecm", "ecm909", "ecm959",
     "oktava", "earthworks", "qtc", "qtc40", "qtc1", "gefell", "m296", "rode", "nt5", "nt55",
     "microphone", "mics", "mic", "capsules", "omni", "cardioid", "hypercardioid",
+    "cm100", "cm300", "cm700",  # Nakamichi mics ("CM-300" splits to cm, 300: see _NAK_MIC)
 })
+# Purely numeric mic models collide with 4-digit shnids in identifiers
+# ("ph1994-06-22.4061.flac16"), so they count only outside the identifier.
+_NUMERIC_MICS = frozenset(w for w in MIC_WORDS if w.isdigit())
+_NAK_MIC = ({"cm"}, {"100", "300", "700"})
 
 # Taper positions and audience words. "fob" (front of board), "ots", "dfc"
 # (directly from center) and friends say where the mics stood, which only an
-# audience taper reports; "aud"/"audience" name the lineage itself. Phrases
-# such as "taper section" are matched separately in _has_taper_section.
+# audience taper reports (dfob/nfob = direct/near front of board, dfa = direct
+# from audience); "aud"/"audience" name the lineage itself. The phrase "taper
+# section" is matched separately in classify via _has_phrase; a bare "taper"
+# is a credit ("taper: Bob Smith"), not a position, so it is not listed.
 POSITION_WORDS: frozenset[str] = frozenset({
-    "fob", "dfob", "nfob", "ots", "dfc", "dfa", "taper", "tapers", "tapersection",
+    "fob", "dfob", "nfob", "ots", "dfc", "dfa", "tapersection",
     "aud", "audience",
 })
 
 # Recorders, decks and transfer gear. They appear in board feeds and audience
 # rigs alike, so they are never evidence for aud (or for any class). Listed so
 # the exclusion is explicit and tested (disjoint from the two sets above).
+# Documentation/disjointness only: it never adds evidence.
 DECK_WORDS: frozenset[str] = frozenset({
     "dat", "tascam", "sony", "744t", "722", "788t", "702", "nakamichi", "nak", "cassette",
     "minidisc", "md", "r09", "r-09", "edirol", "zoom", "marantz", "hhb", "da3", "da20",
@@ -68,6 +76,11 @@ _WEBCAST_WORDS = {"webcast", "stream", "streamed", "streaming", "livestream"}
 
 
 def source_lines(description: str | None) -> list[str]:
+    """Lines starting with Source/Src/Lineage/Transfer (after HTML to text).
+
+    The `\\b` in the pattern deliberately excludes "Transferred by..." and
+    "Sourcery", which are credits or prose, not source chains.
+    """
     if not description:
         return []
     text = _TAG.sub("", _BREAK.sub("\n", description))
@@ -94,12 +107,24 @@ def _has_phrase(toks: list[str], first: set[str], second: set[str]) -> bool:
     return any(a in first and b in second for a, b in zip(toks, toks[1:]))
 
 
+def _non_id_list(rec: RecordingSummary) -> list[str]:
+    toks: list[str] = []
+    for part in _evidence_text(rec)[1:]:
+        toks.extend(_tokens(part))
+        toks.append("|")
+    return toks
+
+
 def classify(rec: RecordingSummary) -> LineageClass:
     toks: list[str] = []
     for part in _evidence_text(rec):
         toks.extend(_tokens(part))
         toks.append("|")  # fields never form a phrase across a boundary
     s = set(toks)
+    # numeric mic models count outside the identifier only
+    non_id = set()
+    for part in _evidence_text(rec)[1:]:
+        non_id.update(_tokens(part))
     markers = set()
     if s & _MATRIX_WORDS:
         markers.add("matrix")
@@ -115,7 +140,12 @@ def classify(rec: RecordingSummary) -> LineageClass:
         if cls in markers:
             return cls  # a marker beats gear
     usable = s - DECK_WORDS
-    if usable & MIC_WORDS or usable & POSITION_WORDS:
+    mics = (usable & (MIC_WORDS - _NUMERIC_MICS)) | ((non_id - DECK_WORDS) & _NUMERIC_MICS)
+    if mics or usable & POSITION_WORDS:
+        return "aud"
+    if _has_phrase(toks, {"taper", "tapers"}, {"section"}):
+        return "aud"
+    if _has_phrase(_non_id_list(rec), *_NAK_MIC):
         return "aud"
     return "unknown"
 
@@ -132,9 +162,12 @@ def excluded(rec: RecordingSummary, entry: TaperssectionArtist) -> bool:
 _YMD = re.compile(r"(?<!\d)((?:19|20)\d\d)([-.])(\d\d)\2(\d\d)(?!\d)")
 _MDY = re.compile(r"(?<!\d)(\d{1,2})([-/])(\d{1,2})\2((?:19|20)\d\d)(?!\d)")
 _TOKEN_YYMMDD = re.compile(r"^([a-z]{2,12})(\d\d)(\d\d)(\d\d)$")
+_TOKEN_YYYYMMDD = re.compile(r"^([a-z]{2,12})((?:19|20)\d\d)(\d\d)(\d\d)$")
+_YY_SEP = re.compile(r"(?<![a-z0-9])([a-z]{2,12})(\d\d)([-.])(\d\d)\3(\d\d)(?!\d)", re.I)
 # Prefixes that are formats or lineage words, never an artist: "flac192000".
 _NOT_ARTIST = {"flac", "mp", "mp3", "shn", "shnf", "wav", "sbd", "aud", "fm", "mtx", "dat",
-               "cd", "md", "vbr", "kbps", "bit", "track", "disc", "set", "ogg", "m4a"}
+               "cd", "md", "vbr", "kbps", "bit", "track", "disc", "set", "ogg", "m4a",
+               "shnid", "etree", "id", "lma", "vol", "archive", "gdadt", "dt"}
 
 
 def _iso(y: int, m: int, d: int) -> str | None:
@@ -142,6 +175,10 @@ def _iso(y: int, m: int, d: int) -> str | None:
         return _date(y, m, d).isoformat()
     except ValueError:
         return None
+
+
+def _year2(yy: int) -> int:
+    return 1900 + yy if yy >= 50 else 2000 + yy
 
 
 def dates_claimed(identifier: str, title: str) -> set[str]:
@@ -157,10 +194,19 @@ def dates_claimed(identifier: str, title: str) -> set[str]:
                 out.add(iso)
         for tok in _tokens(text):
             m = _TOKEN_YYMMDD.match(tok)
-            if not m or m[1] in _NOT_ARTIST:
+            if m and m[1] not in _NOT_ARTIST:
+                iso = _iso(_year2(int(m[2])), int(m[3]), int(m[4]))
+                if iso:
+                    out.add(iso)
+            m = _TOKEN_YYYYMMDD.match(tok)
+            if m and m[1] not in _NOT_ARTIST:
+                iso = _iso(int(m[2]), int(m[3]), int(m[4]))
+                if iso:
+                    out.add(iso)
+        for m in _YY_SEP.finditer(text):
+            if m[1].lower() in _NOT_ARTIST:
                 continue
-            yy = int(m[2])
-            iso = _iso(1900 + yy if yy >= 50 else 2000 + yy, int(m[3]), int(m[4]))
+            iso = _iso(_year2(int(m[2])), int(m[4]), int(m[5]))
             if iso:
                 out.add(iso)
     return out

@@ -164,3 +164,52 @@ def test_lma_lineage_class_unchanged():
     assert lineage_class("gd77-05-08.sbd.hicks.4047.sbeok.shnf", {}) == "sbd"
     assert lineage_class("gd77-05-08.aud.vernon.1234.flac16", {}) == "aud"
     assert lineage_class("gd77-05-08.flac16", {}) == "unknown"
+
+
+def _cls(**kw):
+    return classify(RecordingSummary(**{"identifier": "x", **kw}))
+
+
+def test_taper_credit_is_not_a_position():
+    assert _cls(description="Source: DAT master (taper: Bob Smith)") == "unknown"
+    assert _cls(description="Source: DAT master (tapers: A and B)") == "unknown"
+    assert _cls(description="Source: taper section, DAT master") == "aud"
+    assert _cls(description="Source: Tapers Section > DAT") == "aud"
+
+
+def test_numeric_mic_models_not_from_identifier():
+    assert classify(RecordingSummary(identifier="ph1994-06-22.4061.flac16")) == "unknown"
+    assert _cls(description="Source: DPA 4061 > R-09") == "aud"
+    assert _cls(title="B&K 4011 recording") == "aud"
+    assert _cls(source="B&K 4011") == "aud"
+    # alphanumeric models still count in the identifier
+    assert classify(RecordingSummary(identifier="ph1994-06-22.km140.flac16")) == "aud"
+
+
+def test_nakamichi_mics():
+    assert _cls(description="Source: Nakamichi CM100 > cassette") == "aud"
+    assert _cls(description="Source: CM300 > DAT") == "aud"
+    assert _cls(description="Source: CM-700 > DAT") == "aud"
+    assert _cls(description="Source: cm 5 > DAT") == "unknown"
+
+
+def test_date_disagrees_without_rec_date_fails_closed():
+    # No rec.date but the identifier claims one: counts as disagreeing (Task 5 drops it).
+    assert date_disagrees(RecordingSummary(identifier="phish1997-12-29.x", date=None)) is True
+
+
+def test_more_date_forms():
+    assert dates_claimed("ph97-12-29", "") == {"1997-12-29"}
+    assert dates_claimed("ph17.07.30.x", "") == {"2017-07-30"}
+    assert dates_claimed("ph19971229", "") == {"1997-12-29"}
+    assert dates_claimed("ph20170730", "") == {"2017-07-30"}
+    assert dates_claimed("ph97-13-29", "") == set()
+    assert dates_claimed("ph19971329", "") == set()
+    assert dates_claimed("ph20170231", "") == set()
+
+
+def test_yymmdd_prefix_restricted():
+    for ident in ("shnid120101", "etree120101", "x.shnid120101.flac", "flac120101"):
+        assert dates_claimed(ident, "") == set()
+    assert dates_claimed("shnid97-12-29", "") == set()
+    assert dates_claimed("ph971229", "") == {"1997-12-29"}
