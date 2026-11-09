@@ -16,6 +16,7 @@ from llama.stages.research import run_research
 from llama.stages.select_recording import run_select_recording
 from llama.util import cap_across_artists
 from llama.stages.vet_research import run_vet_research
+from llama.taperssection import Allowlist
 from llama.status import step
 from llama.workspace import (RunWorkspace, ShowWorkspace, drop_stage_artifacts,
                              read_json, read_model, write_artifact)
@@ -126,6 +127,8 @@ def process_show(
     force_stage: str | None = None,
     profile: str | None = None,
     audio_reuse: ReusePlan | None = None,
+    *,
+    allowlist: Allowlist,
 ) -> Path | None:
     cand = entry.candidate
     show_ws = run_ws.show_ws(cand.performance_id)
@@ -144,13 +147,13 @@ def process_show(
     with step(f"[{pid}] selecting recording"):
         identifier = run_select_recording(show_ws, ia, cand, entry.assessment,
                                           audio_format=audio_format, force=force,
-                                          selection=selection_cfg)
+                                          selection=selection_cfg, allowlist=allowlist)
     with step(f"[{pid}] gathering"):
         show = run_gather(show_ws, ia, providers["extract_setlist"], cand, identifier,
                           audio_format=audio_format, force=force,
                           align_provider=providers.get("align_structure"),
                           setlistfm=setlistfm, structure_cfg=structure_cfg,
-                          jerrybase_enabled=jerrybase_enabled)
+                          jerrybase_enabled=jerrybase_enabled, allowlist=allowlist)
     with step(f"[{pid}] researching"):
         research_md = run_research(show_ws, providers["deep_research"], show, dossier, force=force)
     with step(f"[{pid}] vetting research"):

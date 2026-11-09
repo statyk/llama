@@ -603,7 +603,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                                setlistfm=setlistfm,
                                structure_cfg=config.structure, selection_cfg=config.selection,
                                jerrybase_enabled=config.jerrybase.enabled,
-                               force_stage=force_stage, profile=criteria.profile)
+                               force_stage=force_stage, profile=criteria.profile,
+                               allowlist=allowlist)
         except RateLimited as exc:
             # Caught BEFORE the HerderError arm below, which it subclasses.
             # Not a failure: nothing is wrong with this show. Its finished
@@ -3301,7 +3302,8 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
                        setlistfm=make_client(config), structure_cfg=config.structure,
                        jerrybase_enabled=config.jerrybase.enabled,
                        selection_cfg=config.selection, profile=prov.profile,
-                       audio_reuse=reuse)
+                       audio_reuse=reuse,
+                       allowlist=Allowlist.from_config(config.taperssection))
     mark = campaign.last_mark(rec)
     if mark is not None and (SHOW_STAGE_ORDER.index(from_stage)
                              <= SHOW_STAGE_ORDER.index(mark.start_stage)):

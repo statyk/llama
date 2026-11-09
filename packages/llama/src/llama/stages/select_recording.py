@@ -1,12 +1,15 @@
 import math
 import re
+from datetime import date
 
+from llama import ts_measure, ts_rules
 from llama.config import SelectionConfig
 from llama.junk import FORMAT_BY_AUDIO, filter_files
 from llama.models import Candidate, QualityAssessment
 from llama.scoring import LINEAGE_SCORES, lineage_class, score_recording
 from llama.titles import clean_tag_titles, title_fraction
 from llama.errors import LlamaError
+from llama.taperssection import Allowlist
 from llama.workspace import ShowWorkspace, read_json, read_overrides, should_run, write_artifact
 
 
@@ -48,6 +51,28 @@ def lineage_table(selection: SelectionConfig, collection: str, date: str) -> dic
     return _era_lineage_scores(selection, collection, date) or LINEAGE_SCORES
 
 
+def _ts_policy(candidate: Candidate, entry, pin: str | None):
+    """The taperssection per-tape policy filter (spec "Select-recording and the
+    per-tape policy filter"): forbidden and `exclude`-matching tapes are removed;
+    an unknown tape competes only when no allowed sibling remains, or when it is
+    the pin. Returns (the recordings to score, {identifier: lineage class}).
+    Raises LlamaError on a pin to a removed tape or on an empty remaining set."""
+    pid = candidate.performance_id
+    verdict = {}
+    for rec in candidate.recordings:
+        verdict[rec.identifier] = ("forbidden" if ts_rules.excluded(rec, entry)
+                                   else ts_rules.allowed(rec, entry, rule=ts_rules.RULE))
+    if pin is not None and verdict.get(pin) == "forbidden":
+        raise LlamaError(f"{pid}: pinned recording {pin} is forbidden by the taperssection policy")
+    any_allowed = "allowed" in verdict.values()
+    kept = [rec for rec in candidate.recordings
+            if verdict[rec.identifier] == "allowed"
+            or (verdict[rec.identifier] == "unknown" and (not any_allowed or rec.identifier == pin))]
+    if not kept:
+        raise LlamaError(f"{pid}: no recording allowed by the taperssection policy")
+    return kept, {rec.identifier: ts_rules.classify(rec) for rec in kept}
+
+
 def run_select_recording(
     show_ws: ShowWorkspace,
     ia,
@@ -56,21 +81,34 @@ def run_select_recording(
     audio_format: str = "mp3",
     force: bool = False,
     selection: SelectionConfig | None = None,
+    allowlist: Allowlist | None = None,
+    today: date | None = None,
 ) -> str:
+    # Fail closed first: a ts candidate with no usable allowlist raises even when
+    # a stored selection would otherwise short-cut (None for an LMA candidate).
+    entry = Allowlist.for_candidate(allowlist, candidate.collection)
     if not should_run(show_ws.selection, force):
         return read_json(show_ws.selection)["identifier"]
     selection = selection or SelectionConfig()
+    pin = read_overrides(show_ws).recording
+
+    recordings = candidate.recordings
+    ts_lineage: dict[str, str] | None = None
+    if entry is not None:
+        today = today or date.today()
+        recordings, ts_lineage = _ts_policy(candidate, entry, pin)
 
     want = FORMAT_BY_AUDIO[audio_format]
     prepared = []
-    for rec in candidate.recordings:
+    for rec in recordings:
         md = ia.metadata(rec.identifier)
         meta = md.get("metadata", {})
         files = md.get("files", [])
         kept, _, _ = filter_files(files, want_format=want)
         prepared.append({
             "rec": rec,
-            "lineage": lineage_class(rec.identifier, meta),
+            "lineage": (ts_lineage[rec.identifier] if ts_lineage is not None
+                        else lineage_class(rec.identifier, meta)),
             "has_format": bool(kept),
             "kept_tracks": len(kept),
             "title_fraction": title_fraction(clean_tag_titles(kept)),
@@ -82,11 +120,19 @@ def run_select_recording(
     bonuses = _taper_bonuses(selection.tapers.get(candidate.collection, {}), prepared)
     era_scores = _era_lineage_scores(selection, candidate.collection, candidate.date)
     max_kept = max((p["kept_tracks"] for p in prepared), default=0) or 1
-    max_log_downloads = max((math.log1p(p["rec"].downloads) for p in prepared), default=0.0)
+    if ts_lineage is not None:
+        # Allowlisted siblings: the age-adjusted per-day rate (None, no evidence -> 0).
+        for p in prepared:
+            p["downloads"] = ts_measure.rate(p["rec"].downloads,
+                                             p["rec"].addeddate or p["addeddate"], today) or 0.0
+    else:
+        for p in prepared:
+            p["downloads"] = p["rec"].downloads
+    max_log_downloads = max((math.log1p(p["downloads"]) for p in prepared), default=0.0)
     scores = {}
     for p in prepared:
         downloads_norm = (
-            math.log1p(p["rec"].downloads) / max_log_downloads if max_log_downloads else 0.0
+            math.log1p(p["downloads"]) / max_log_downloads if max_log_downloads else 0.0
         )
         scores[p["rec"].identifier] = {
             "score": score_recording(
@@ -106,7 +152,6 @@ def run_select_recording(
             "downloads_norm": round(downloads_norm, 3),
             "title_fraction": round(p["title_fraction"], 3),
         }
-    pin = read_overrides(show_ws).recording
     if pin is not None and pin not in scores:
         slug = show_ws.dir.name
         raise LlamaError(f"{slug}: overrides.recording {pin} is not a recording of this "
@@ -115,5 +160,7 @@ def run_select_recording(
     out = {"identifier": chosen, "scores": scores}
     if pin is not None:
         out["pinned"] = True
+    if ts_lineage is not None:
+        out["ts_lineage"] = {ident: ts_lineage[ident] for ident in scores}
     write_artifact(show_ws.selection, out)
     return chosen
