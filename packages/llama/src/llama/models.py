@@ -53,6 +53,10 @@ class RecordingSummary(BaseModel):
     num_reviews: int = 0
     downloads: int = 0
     description: str | None = None
+    creator: str | None = None
+    addeddate: str | None = None
+    source: str | None = None
+    lineage: str | None = None
 
 
 class Candidate(BaseModel):
