@@ -51,14 +51,6 @@ def lineage_table(selection: SelectionConfig, collection: str, date: str) -> dic
     return _era_lineage_scores(selection, collection, date) or LINEAGE_SCORES
 
 
-def _ts_verdict(rec: RecordingSummary, entry: TaperssectionArtist) -> str:
-    """allowed | forbidden | unknown under the entry. "forbidden" also covers a
-    tape matching one of the entry's `exclude` terms."""
-    if ts_rules.excluded(rec, entry):
-        return "forbidden"
-    return ts_rules.allowed(rec, entry, rule=ts_rules.RULE)
-
-
 def _ts_policy(candidate: Candidate, entry: TaperssectionArtist,
                pin: str | None) -> tuple[list[RecordingSummary], dict[str, str]]:
     """The taperssection per-tape policy filter (spec "Select-recording and the
@@ -67,7 +59,7 @@ def _ts_policy(candidate: Candidate, entry: TaperssectionArtist,
     the pin. Returns (the recordings to score, {identifier: lineage class}).
     Raises LlamaError on a pin to a removed tape or on an empty remaining set."""
     pid = candidate.performance_id
-    verdict = {rec.identifier: _ts_verdict(rec, entry) for rec in candidate.recordings}
+    verdict = {rec.identifier: ts_rules.verdict(rec, entry) for rec in candidate.recordings}
     if pin is not None and verdict.get(pin) == "forbidden":
         raise LlamaError(f"{pid}: pinned recording {pin} is forbidden by the taperssection policy")
     any_allowed = "allowed" in verdict.values()
@@ -102,7 +94,7 @@ def run_select_recording(
         # forbidden pin raises; any other forbidden pick is stale and re-selects.
         # A stored identifier that is not a recording of the candidate is kept.
         rec = next((r for r in candidate.recordings if r.identifier == stored), None)
-        if rec is None or _ts_verdict(rec, entry) != "forbidden":
+        if rec is None or ts_rules.verdict(rec, entry) != "forbidden":
             return stored
         if stored == read_overrides(show_ws).recording:
             raise LlamaError(f"{candidate.performance_id}: pinned recording {stored} is "

@@ -315,3 +315,41 @@ def test_process_show_passes_assessment_to_gather(tmp_path, monkeypatch):
         pipeline.process_show(RunWorkspace(tmp_path, "r"), _IA(), Ledger(tmp_path / "l.jsonl"),
                               entry, {"extract_setlist": None}, "r", allowlist=_al())
     assert seen["assessment"] is entry.assessment
+
+
+class _NoFetchIA:
+    def metadata(self, identifier):
+        raise AssertionError(f"metadata fetched for {identifier}")
+
+
+def test_forbidden_selection_raises_before_any_fetch(tmp_path):
+    # Review round 1 (ruling R29.2): under replay a CacheOnlyIA miss must not mask the
+    # re-select message, so the check runs before `ia.metadata`.
+    from llama.replay import CacheMiss
+    with pytest.raises(LlamaError, match="re-select with redo --from select"):
+        compute_gather(ShowWorkspace(tmp_path / "s"), _NoFetchIA(), None, _cand(R_SBD), SBD,
+                       allowlist=_al(), assessment=_qa())
+
+    class _MissIA:
+        def metadata(self, identifier):
+            raise CacheMiss(identifier)
+    sws = _library_show(tmp_path, _cand(R_AUD), AUD, _qa())
+    tightened = GARCIA.model_copy(update={"exclude": ["schoeps"]})
+    with pytest.raises(LlamaError, match=f"selected recording {AUD} is forbidden"):
+        compute_legs(sws, config=_config(tmp_path, tightened), ia=_MissIA(), slfm=None,
+                     scratch=tmp_path / "scratch" / "x")
+    # A ts key without its allowlist also fails closed before any fetch.
+    with pytest.raises(LlamaError, match="needs an allowlist"):
+        compute_gather(ShowWorkspace(tmp_path / "t"), _NoFetchIA(), None, _cand(R_AUD), AUD,
+                       allowlist=None)
+
+
+def test_ts_verdict_is_public_in_ts_rules():
+    from llama import ts_rules
+    import llama.stages.select_recording as sr
+    assert not hasattr(sr, "_ts_verdict")
+    assert ts_rules.verdict(R_SBD, GARCIA) == "forbidden"
+    assert ts_rules.verdict(R_AUD, GARCIA) == "allowed"
+    assert ts_rules.verdict(R_UNK, GARCIA) == "unknown"
+    assert ts_rules.verdict(R_AUD, GARCIA.model_copy(update={"exclude": ["schoeps"]})) == \
+        "forbidden"

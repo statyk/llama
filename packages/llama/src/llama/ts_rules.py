@@ -370,3 +370,13 @@ def allowed(
             return "unknown"
         cls = "aud"
     return "allowed" if cls in entry.lineages else "forbidden"
+
+
+def verdict(rec: RecordingSummary, entry: TaperssectionArtist) -> Literal["allowed", "forbidden", "unknown"]:
+    """allowed | forbidden | unknown under the entry, with the shipped rule. "forbidden"
+    also covers a tape matching one of the entry's `exclude` terms. The one verdict
+    select (the per-tape policy filter) and gather (the lineage hold, the forbidden
+    re-check) both use."""
+    if excluded(rec, entry):
+        return "forbidden"
+    return allowed(rec, entry, rule=RULE)

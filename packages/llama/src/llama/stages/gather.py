@@ -8,7 +8,7 @@ from typing import NamedTuple
 
 from herder import HerderError, TaskFailed, run_json_task
 from herder.limits import RateLimited
-from llama import desc_list, jerrybase, taper, title_hygiene
+from llama import desc_list, jerrybase, taper, title_hygiene, ts_rules
 from llama.config import StructureConfig, TaperssectionArtist
 from llama.errors import LlamaError
 from llama.junk import (FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, TRAILING_ARROW, filter_files,
@@ -36,7 +36,6 @@ from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align
                              _FILLER, _venues_equivalent_pre1b)
 from llama.placeholders import is_junk_tag
 from llama.taper import TaperDecision
-from llama.stages.select_recording import _ts_verdict
 from llama.taperssection import Allowlist
 from llama.titles import (_GLUED_NUM_PREFIX, _JOINED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
                           is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, shipped_short_tag, tag_core,
@@ -1869,11 +1868,11 @@ NO_ATTRIBUTION_REASON = "scorer gave no attribution verdict"
 def _ts_selected_verdict(candidate: Candidate, identifier: str,
                          entry: TaperssectionArtist) -> str:
     """The selected recording's verdict under the CURRENT entry, classified exactly as
-    select classifies it (`select_recording._ts_verdict` over the stored
+    select classifies it (`ts_rules.verdict` over the stored
     `RecordingSummary`; ruling R3: recomputed, never stored). A selection the candidate
     does not list cannot be classified, so it reads `unknown` (fail closed: it holds)."""
     rec = next((r for r in candidate.recordings if r.identifier == identifier), None)
-    return "unknown" if rec is None else _ts_verdict(rec, entry)
+    return "unknown" if rec is None else ts_rules.verdict(rec, entry)
 
 
 def _ts_hold_flags(verdict: str, identifier: str, entry: TaperssectionArtist,
@@ -1943,16 +1942,10 @@ def compute_gather(
     # (spec ruling 6).
     needs_align = False
 
-    md = ia.metadata(identifier)
-    meta = md.get("metadata", {})
-    artist = str(item_creator(meta) or candidate.collection)
-    # taperssection Task 6b: a `ts-` candidate ships the entry's display name, looks
-    # setlist.fm up by `entry.setlistfm or entry.name`, and matches on every spelling;
-    # an LMA candidate keys on `artist` three times over, as before. Resolved right
-    # after the item's metadata is read (it needs the creator), so a ts candidate
-    # without its allowlist raises after that one metadata fetch and before anything
-    # else: no overrides read, no jerrybase lookup, no canonical or setlist.fm call.
-    naming = gather_names(candidate.collection, artist, allowlist)
+    # taperssection (Task 10, ruling R27): the selected recording's verdict under the
+    # CURRENT entry needs only the candidate and the entry, so it is decided before any
+    # fetch: a forbidden selection raises the re-select message, never a cache miss.
+    # `for_candidate` fails closed here too (a ts key without its allowlist raises).
     ts_entry = Allowlist.for_candidate(allowlist, candidate.collection)
     ts_verdict = None
     if ts_entry is not None:
@@ -1961,6 +1954,16 @@ def compute_gather(
             raise LlamaError(f"{candidate.performance_id}: selected recording {identifier} is "
                              "forbidden by the taperssection policy; re-select with redo "
                              "--from select")
+
+    md = ia.metadata(identifier)
+    meta = md.get("metadata", {})
+    artist = str(item_creator(meta) or candidate.collection)
+    # taperssection Task 6b: a `ts-` candidate ships the entry's display name, looks
+    # setlist.fm up by `entry.setlistfm or entry.name`, and matches on every spelling;
+    # an LMA candidate keys on `artist` three times over, as before. Resolved right
+    # after the item's metadata is read (it needs the creator); a ts candidate without
+    # its allowlist has already raised above, before that fetch (Task 10).
+    naming = gather_names(candidate.collection, artist, allowlist)
     want = FORMAT_BY_AUDIO[audio_format]
     # read_overrides is hoisted above filter_files (it only reads the show dir)
     # so operator re-admission can be applied inside the filter, where play

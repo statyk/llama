@@ -1103,6 +1103,9 @@ def test_a_duplicated_flag_judged_once_is_judged():
 
 # ---------------------------------------------------------------- flag_passes
 
+MISATTR_FLAG = "possible misattribution: creator reads 'Garcia Tribute Band'"
+LINEAGE_FLAG = "unclassified lineage for Phish (allowed: aud): ph1997-11-22.flac16"
+
 FLAG_PASS_CASES = [
     ("real-fixed-by-action", "high", VENUE_FLAG, True),
     ("real-fixed-by-action", "medium", VENUE_FLAG, True),
@@ -1119,6 +1122,11 @@ FLAG_PASS_CASES = [
     ("spurious", "high", SETS_FLAG, False),
     ("real-not-fixable", "high", VENUE_FLAG, False),
     ("undecidable", "high", VENUE_FLAG, False),
+    # taperssection: misattribution clears at the medium bar, lineage-unknown never does.
+    ("spurious", "high", MISATTR_FLAG, True),
+    ("spurious", "medium", MISATTR_FLAG, True),
+    ("spurious", "low", MISATTR_FLAG, False),
+    ("spurious", "high", LINEAGE_FLAG, False),
 ]
 
 
