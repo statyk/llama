@@ -789,6 +789,23 @@ def cmd_dates(a) -> int:
     return 0
 
 
+def cmd_venue(a) -> int:
+    """3(g): run ts_measure.parse_title_venue over a seeded sample of Phish titles."""
+    from llama.ts_measure import parse_title_venue
+
+    docs = scrape_creator("Phish", Path(a.work))
+    titled = sorted((d for d in docs if d.get("title")), key=lambda d: d["identifier"])
+    sample = random.Random(a.seed).sample(titled, min(a.n, len(titled)))
+    rows, parsed = [], 0
+    for d in sample:
+        v, c = parse_title_venue(d["title"])
+        parsed += v is not None
+        rows.append(f"| {d['title'].replace('|', '/')} | {v} | {c} |")
+    print(f"sample {len(sample)} of {len(titled)}; parsed {parsed}; not parsed {len(sample) - parsed}", file=sys.stderr)
+    print("| title | venue | city |\n|---|---|---|\n" + "\n".join(rows))
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -804,12 +821,15 @@ def main(argv=None) -> int:
     dm.add_argument("--work", default=str(DEFAULT_WORK))
     dm.add_argument("--only", default="")
     dm.add_argument("--chars", type=int, default=900)
-    for n in ("lineage", "dates", "variant", "precision"):
+    for n in ("lineage", "dates", "variant", "precision", "venue"):
         x = sub.add_parser(n)
         x.add_argument("--work", default=str(DEFAULT_WORK))
+        if n == "venue":
+            x.add_argument("--n", type=int, default=100)
+            x.add_argument("--seed", type=int, default=7)
     a = p.parse_args(argv)
     return {"fields": cmd_fields, "garcia": cmd_garcia, "lineage": cmd_lineage, "dates": cmd_dates,
-            "variant": cmd_variant, "precision": cmd_precision, "dump": cmd_dump}[a.cmd](a)
+            "variant": cmd_variant, "precision": cmd_precision, "venue": cmd_venue, "dump": cmd_dump}[a.cmd](a)
 
 
 if __name__ == "__main__":

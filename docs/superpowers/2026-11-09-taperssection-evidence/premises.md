@@ -153,3 +153,15 @@ Command: `./.venv/bin/python scripts/taperssection_probe.py dates` (2026-11-09; 
 | Pearl Jam | 34 | 34 | 0 | 0.0% | 34 | 0 |
 | Mike Gordon | 41 | 41 | 0 | 0.0% | 27 | 0 |
 | Nine Inch Nails | 5 | 5 | 1 | 20.0% | 5 | 1 |
+
+## 3(g) title venue precision
+
+Command: `./.venv/bin/python scripts/taperssection_probe.py venue > table.md` (2026-11-09; cached Phish scrape of 11,133 items, no live call; seeded sample `random.Random(7).sample` of 100 titles, parser `llama.ts_measure.parse_title_venue`).
+
+Result, judged by reading each title:
+
+- Parsed (venue found): **91 of 100**. Correct: **90**. Wrong: **1** ("Phish Live At Syracuse Armory-Syracuse, New York On 1992-05-09" gave venue "Syracuse Armory-Syracuse, New York": venue and city fused in the title, so the venue slot also carries the city; harmless for a fallback label).
+- Faithful to a typo in the title (not counted wrong): "Northampton. MA", "Phileadelphia, PA".
+- Not parsed: **9 of 100**. Two have no venue to find ("Phish 08.13.04", "Phish - Undated and Uncirculated - 1980s compilation"). Seven carry a venue with no separator, so the parser abstains rather than guess a venue/city split: "Phish 2025-09-19 Hampton Coliseum Hampton, VA ak40" and four like it ("Phish 2024-07-23 Mohegan Sun Arena ...", "... Forest Hills Stadium Forest Hills, NY ...", "... Dick's Sporting Goods Park mk4v 2496", "2025-09-21 Hampton Coliseum ..."), plus "Phish Live At Folsom Field Boulder, CO 2025-07-04" and "Phish Live At Ameris Bank Amphitheatre Alpharetta, GA 2025-09-16" (no " on ").
+- Precision of parses: 90/91 = 99%. Recall on titles that name a venue: 91/98 = 93%. No date ever landed in a venue slot.
+- Probe fix made along the way: the first run gave a wrong parse for "PHiSH 2009-08-08 @ The Gorge Amphitheatre - George, WA - Nakamichi CM700/CP702" (city "WA - Nakamichi CM700/CP702"); the `@` form now stops at the second " - " segment (pinned in `test_parse_title_venue_three_forms`).
