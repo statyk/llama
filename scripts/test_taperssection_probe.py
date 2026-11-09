@@ -175,6 +175,24 @@ def test_max_calls_aborts_before_spending(env):
     assert run(env, "--n", "5", "--max-calls", "2", prov=_BadJson()) == 3
 
 
+class _LoudIA:
+    """Guard tests: the guard must refuse before any IO, so any archive.org call is a regression."""
+
+    def scrape(self, *a, **k):
+        raise AssertionError("guard regressed: reached archive.org scrape")
+
+    def metadata(self, *a, **k):
+        raise AssertionError("guard regressed: reached archive.org metadata")
+
+
+class _LoudProvider:
+    def complete(self, prompt):
+        raise AssertionError("guard regressed: reached the LLM provider")
+
+
+LOUD = {"ia": _LoudIA(), "providers": {"score_reviews": _LoudProvider()}, "today": TODAY}
+
+
 class _BadJson:
     def complete(self, prompt):
         return "not json"
@@ -185,9 +203,9 @@ def test_refuses_config_or_workspace_under_llama_home(env, tmp_path):
     ll.mkdir()
     (ll / "config.toml").write_text(CONFIG)
     with pytest.raises(SystemExit, match="~/.llama"):
-        probe.main(["score", "--config", str(ll / "config.toml"), "--workspace", str(env["work"])])
+        probe.main(["score", "--config", str(ll / "config.toml"), "--workspace", str(env["work"])], hooks=LOUD)
     with pytest.raises(SystemExit, match="~/.llama"):
-        probe.main(["score", "--config", str(env["cfg"]), "--workspace", str(ll / "scratch")])
+        probe.main(["score", "--config", str(env["cfg"]), "--workspace", str(ll / "scratch")], hooks=LOUD)
     assert not (ll / "scratch").exists()
 
 
@@ -237,7 +255,7 @@ def test_out_under_llama_home_refused(env):
     (env["home"] / ".llama").mkdir()
     with pytest.raises(SystemExit, match="~/.llama"):
         probe.main(["score", "--config", str(env["cfg"]), "--workspace", str(env["work"]),
-                    "--out", str(env["home"] / ".llama" / "scorer.md")])
+                    "--out", str(env["home"] / ".llama" / "scorer.md")], hooks=LOUD)
 
 
 def test_guard_catches_symlink_and_relative_path(env, monkeypatch):
