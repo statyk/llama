@@ -18,8 +18,9 @@ existing LMA artists**, in two strengths (my call, from the builder check):
   rendered text. Any prompt wording added for this feature renders only when
   the allowlist is non-empty.
 - **Populated allowlist:** each LMA artist's own search query, grouping, winnow
-  scoring inputs and recording selection are unchanged. Discovery's artist mix
-  and a mixed profile's shortlist may change **by design**, because allowlisted
+  scoring inputs (including the rendered scorer prompt and payload of an LMA
+  batch) and recording selection are unchanged. Discovery's artist mix and a
+  mixed profile's shortlist may change **by design**, because allowlisted
   artists now compete.
 A reviewer who finds an LMA-artist change outside those two bullets should
 treat it as a defect.
@@ -150,8 +151,8 @@ Lives in `config.toml`, the one hand-edited llama file. Sketch:
 
 ```toml
 [[taperssection.artists]]
-name = "Phish"                     # display name; what the LLM matcher and operator see
-creators = ["Phish"]               # exact uploader creator strings this entry covers
+name = "Phish"                     # display name; the artist everywhere a human or LLM sees one
+creators = ["Phish"]               # uploader creator spellings; a doc must match one exactly after normalization
 lineages = ["aud"]                 # lineage classes allowed to ship
 exclude = ["webcast", "livephish"] # tape-level ban terms (builder: decide the matching form)
 note = "audience only by operator choice; see research record"
@@ -187,30 +188,44 @@ match (identifier, title, `source`, `lineage`, `description`).
 
 Each allowlisted artist gets a **synthetic collection key** that is stable,
 derived only from `name`, safe for `slugify` and show directory names, and
-guaranteed never to equal a real LMA collection identifier. It flows wherever
-`Candidate.collection` flows today: performance ids (`<key>/<date>[/eN]`), show
-slugs, the ledger's performance identity, `Criteria.artists`, the artist index
-and manifests. The exact form is the builder's call (a prefix such as
-`taperssection-`, or a suffix). Show slugs are user-visible, so prefer
-readable.
+guaranteed never to equal a real LMA collection identifier. Uniqueness is
+**slug-level**: the key must not collide with any LMA collection after `slugify`
+(which lowercases), and it is checked against the index when the allowlist
+loads. It flows wherever `Candidate.collection` flows today: performance ids
+(`<key>/<date>[/eN]`), show slugs, the ledger's performance identity,
+`Criteria.artists`, the artist index and manifests. The exact form is the
+builder's call (a prefix such as `taperssection-`, or a suffix). Show slugs are
+user-visible, so prefer readable.
 
 **Renaming an entry's `name` changes its key**, which orphans existing shows the
 same way an LMA collection rename would. Document it. No migration.
 
-Downstream consumers that key on the artist must keep working: emcee's
-`[assign.artists]` rules (loose artist-name matching), transmitter's rotation
-by profile, and `llama status`/`show` display. The builder must check each and
-decide which field carries the human-readable artist name. Manifests are the
-only llama/emcee contract, and emcee must not import llama.
+**An unknown synthetic key is a hard error.** A pinned roster or stored criteria
+naming a synthetic-form key that matches no allowlist entry (for example after a
+rename) fails the run with a `LlamaError` naming the key. It does not fall
+through to an empty etree search.
+
+**The display name is the artist everywhere a human or LLM sees one.** For an
+allowlisted show, `show.artist`, and so the manifest's artist, is the entry's
+`name`, not the item's creator. The same name is the artist passed to winnow's
+light research, the shortlist display (`cli.py:189`, which today prints
+`c.collection` truncated to 18 characters) and the catalog fallbacks
+(`catalog.py:309`, `:395`). The builder checks that emcee's `[assign.artists]`
+rules (loose artist-name matching) and transmitter's artist separation
+(`transmitter/rules.py` compares `piece.artist`) still work with that name, as
+do transmitter's rotation by profile and `llama status`/`show` display.
+Manifests are the only llama/emcee contract, and emcee must not import llama.
 
 ## Artist index and discovery
 
 - `artist_index.build_index` gains a pass producing one entry per allowlisted
   artist: identifier = synthetic key, title = `name`, recordings and year
-  coverage aggregated from taperssection items matching its creators, and
-  downloads summed over those items. Whether LMA collection `downloads` and
-  summed item downloads are comparable is unverified. It doesn't matter for the
-  next point.
+  coverage aggregated from taperssection items whose normalized creator is
+  exactly one of the entry's `creators`, and downloads summed over those items.
+  The aggregation also stores the **per-show download measure** winnow ranks
+  against (see Winnow), not only per-artist sums. Whether LMA collection
+  `downloads` and summed item downloads are comparable is unverified. It doesn't
+  matter for the next point.
 - **Allowlisted artists bypass the discovery floor** (`filter_artists`'
   recordings-or-downloads test, my call): being on the list is the operator's
   curation. Small entries like NIN (5 items) would otherwise vanish.
@@ -225,34 +240,63 @@ only llama/emcee contract, and emcee must not import llama.
 
 `interpret`'s prompt has the LLM invent an LMA collection name in CamelCase
 (`"Phish"` → `collection: "Phish"`), which would search an empty LMA
-collection. A named allowlisted artist must resolve to its synthetic key. The
-builder decides how. A deterministic post-interpret mapping from `artist`
-against allowlist names and creators is preferred over prompt changes, as more
-testable. A named artist that is both an LMA collection and allowlisted cannot
-happen while the allowlist holds only artists with no LMA collection. The
-builder should still decide which wins and pin it with a test.
+collection. A named allowlisted artist must resolve to its synthetic key.
+**The mapping is deterministic and exact**: interpret's `artist`/`collection`
+maps to a synthetic key only on an exact normalized match with an entry's `name`
+or one of its `creators`, never a substring (unlike `resolve_artists`). It is
+applied inside `run_interpret`, so all three call sites get it: `_get_query`,
+`run resume`'s re-interpret and `profile add`. Test: an LMA tribute-band query
+("Jazz Is Phish 2005") is untouched. A named artist that is both an LMA
+collection and allowlisted cannot happen while the allowlist holds only artists
+with no LMA collection. The builder should still decide which wins and pin it
+with a test.
 
 ## Search and grouping
 
 For a synthetic key, `build_query` produces
 `collection:taperssection AND mediatype:audio AND creator:(<the entry's creators>)`
 plus the same date clause. Every other key's query is unchanged (the guarded
-surface; pin with tests). `group_candidates` then runs as today with the
-synthetic key as the collection label.
+surface; pin with tests). **The `creator:(...)` clause is only a prefilter.**
+archive.org's `creator:"X"` is a phrase/token match and returns tribute acts
+such as "Vitalogy: Pearl Jam Tribute", "Jerry Garcia Band Cover Band" and
+"Tribute - A Celebration Of The Allman Brothers Band". For synthetic keys,
+search adds `creator`, `addeddate` and `source` to the scrape fields
+(`description` is already there), and keeps a doc only when its normalized
+creator is exactly one of the entry's `creators`; the index aggregation applies
+the same test. Test: search and the index fed tribute-band docs keep none of
+them. `group_candidates` then runs as today with the synthetic key as the
+collection label.
 
-**jerrybase:** `jerrybase.lookup(collection, date)` and `is_family_artist` key
-on the collection. An entry's optional `jerrybase` field maps its synthetic key
-to the jerrybase artist key, so Garcia shows get event evidence (multi-event
-dates, set-break anchoring) and Dead vocabulary. Without the field the entry
-gets neither. (My call: JGB is in the vendored dataset and is the reason Garcia
-is worth doing well.)
+**jerrybase:** lookups do not all key on the same field. Grouping
+(`grouping.py:131`) and winnow (`winnow.py:41`) use the collection. Gather
+(`stages/gather.py:1866`, and the Dead vocabulary at `:1399`), the title
+proposal (`cli.py:3637`) and the adjudicator bundle (`adjudicator/bundle.py:228`)
+use `show.artist` or the creator. **Every jerrybase `lookup` and
+`is_family_artist` call resolves through one helper** that maps an allowlisted
+key or display name to the entry's optional `jerrybase` value, so Garcia shows
+get event evidence (multi-event dates, set-break anchoring) and Dead vocabulary.
+Without the field the entry gets neither. Test: a Garcia `/e1` candidate gets
+its event in gather. (My call: JGB is in the vendored dataset and is the reason
+Garcia is worth doing well.)
 
 Taperssection metadata is thinner than LMA. The sampled item had no venue,
-coverage, source or lineage. Expect more venue/city holds and weaker grouping.
-That is acceptable: the hold machinery exists for it. Do not loosen any hold
+coverage, source or lineage, and grouping will be weaker. Do not loosen any hold
 for these artists.
 
-## Winnow: downloads instead of reviews
+**Venue from the title.** Taperssection items rarely fill `venue` (1 of 300
+sampled Phish items) but put it in the title ("Phish - 1999-07-12 - Tweeter
+Center - Mansfield, MA", "Phish Live at The Centrum on …", "… @ Old Waldorf,
+SF"). For allowlisted items only, venue and city are parsed from title patterns
+when `venue`/`coverage` are empty. A venue still null after that raises no hold:
+the show ships "venue unknown", as today.
+
+**Per-set and partial items are a known limitation.** 336 of 11,134 Phish
+identifiers carry set, disc or partial tokens. Grouping makes them siblings, and
+select's completeness is relative. The fixture task checks whether an existing
+hold catches a set-only date. If none does, it is recorded as a known
+limitation, with no new mechanism.
+
+## Winnow: age-adjusted downloads instead of reviews
 
 Today every candidate must clear `min_reviews` (default 3) and
 `min_avg_rating` (3.5) before scoring. Almost no taperssection show would pass.
@@ -260,31 +304,55 @@ Today every candidate must clear `min_reviews` (default 3) and
 signal as we've got"):
 
 - The review and rating floor is not applied.
-- Show merit comes from **downloads ranked within the same artist**. A
-  downloader is mostly someone who was not at the show, which is the evidence
-  the quality philosophy asks for. Existing reviews, where present, still
-  count.
+- **Show merit comes from downloads per day since `addeddate`** (operator,
+  2026-11-09). Raw downloads mostly measure upload age. Measured on Phish
+  (median downloads by upload year): 2024, 336 (541 items); 2025, 166 (3,723
+  items); 2026, 40 (6,870 items). Among same-year uploads, show era barely moves
+  the median. Per show, the measure is its best recording's rate, and the show
+  is ranked against the artist's **whole taperssection catalogue** on that
+  per-show measure (from the index aggregation), not the run's date-filtered
+  pool. That is stable, and it means something even for a small run. An item
+  newer than 30 days counts as no download evidence. A downloader is mostly
+  someone who was not at the show, which is the evidence the quality philosophy
+  asks for. Existing reviews, where present, still count. The operator will
+  judge the signal in practice ("we'll see how helpful a signal it is").
+- **The pre-fetch sample and tie-break use the same measure.** For allowlisted
+  candidates, the `_evidence` key behind the `max_metadata_fetch` sample and the
+  final ordering is reviews first where present, then the age-adjusted download
+  measure. LMA ordering is unchanged (test).
 - **Downloads enter as evidence to the existing scorer** (operator, 2026-11-09):
   `score_reviews` receives, for an allowlisted show, its download percentile
   alongside whatever reviews exist, and produces the same `quality_score` every
   other show gets, gated by `min_quality_score`. So taperssection and LMA shows
   compete on one scale in mixed profiles under the same
-  `artist_cap`/`year_cap`/`count`. The percentile is taken over the artist's
-  **whole taperssection catalogue** (from the index aggregation), not the run's
-  date-filtered pool. That is stable, and it means something even for a small
-  run. An LMA show's scorer input is unchanged (guarded surface). The prompt
-  wording that explains the percentile renders only when an allowlisted show is
-  in the batch.
+  `artist_cap`/`year_cap`/`count`.
+- **Allowlisted shows are scored in batches of their own**, so an LMA batch
+  renders exactly today's prompt and payload. Test: rendered-prompt equality
+  for an LMA batch with a populated allowlist.
+- **Scorer payload and calibration.** Allowlisted payload entries add `creator`,
+  `title` and a truncated `description`. The prompt gives an explicit baseline
+  mapping from download percentile to a 0-10 score when a show has no reviews;
+  reviews, where present, adjust it. The plan includes an early measurement:
+  score about 20 Phish shows and check the spread against `min_quality_score`
+  before relying on it.
 - **A query naming one specific date skips the merit gate** (operator,
-  2026-11-09): `llama get "Phish 1997-11-22"` has already chosen the show.
+  2026-11-09): `llama get "Phish 1997-11-22"` has already chosen the show. This
+  applies to allowlisted artists only, when `date_from == date_to`. It skips the
+  review and rating floors and `min_quality_score` only. The scorer still runs,
+  so the misattribution check still applies.
 - **Misattribution check** (operator, 2026-11-09). Uploader details can't be
   trusted: `gd2015-05-14` is filed as "Grateful Dead" but is a 2015 Garcia
   tribute. Besides the `active_*` dates, the same scorer call answers, for each
   allowlisted show, whether the recording is the named artist or a
-  tribute/cover/mislabel, reading the description and title it is already
-  given. A suspect answer does not drop the show. It holds it with a review
-  flag naming the reason, with an overrule kind, so the adjudicator and triage
-  can clear it. The builder decides the output-schema field.
+  tribute/cover/mislabel, reading the `creator`, `title` and `description` added
+  to its payload. A suspect answer does not drop the show. It holds it with a
+  review flag naming the reason (see Holds). The builder decides the
+  output-schema field.
+- **Policy pre-filter.** Before winnow, recordings whose lineage is forbidden by
+  the entry, or which match an `exclude` term, are dropped, judged from
+  search-time fields (identifier, title, `description`, `source`). A show with
+  no remaining recording is dropped there, so it never spends a shortlist slot
+  or research. Select keeps the same filter as the final check.
 - Research and vet run as today. Phish and Garcia have plenty of online writing
   for research to draw on.
 
@@ -302,22 +370,44 @@ Policy filter, per recording of an allowlisted artist:
   include every class): stays a candidate. **If it is the recording selected,
   the show is held for review** with a review flag naming the reason. A show
   with a classified, allowed sibling simply selects among those normally (my
-  call on the detail; operator: "for now let's say held"). The hold flag needs
-  an overrule kind so `fix --overrule` and the adjudicator can clear it the
-  usual way.
+  call on the detail; operator: "for now let's say held").
 - Entry allows every lineage: no filtering beyond `exclude`.
-- A show whose every recording is filtered out yields no show, recorded the way
-  winnow and select record other rejections.
+- **Filtered recordings never appear in selection `scores`.** A recording pin
+  (`overrides.recording`, including an adjudicator `switch_recording`) naming a
+  forbidden or excluded recording raises `LlamaError` for that show (a per-show
+  failure), never ships. Test through the adjudicator's switch path.
+- **No silent rejection.** The winnow pre-filter means select normally never
+  sees an empty set. If it does, select raises `LlamaError` (a per-show
+  failure), never `ValueError` from `max()` on an empty set.
 
-`lineage_class` reads identifier, `lineage`, `source` and `title`.
-Taperssection identifiers are free-form, so expect many `unknown`s. **Hold-rate
-gate** (operator, 2026-11-09): an early task measures, on a sample of real
-Phish items (at least 100 show dates, stratified by era), how many shows would
-hold for `unknown` lineage. If more than 25% would, extending what
-`lineage_class` reads (for example `description`) becomes a required task,
-**for allowlisted artists only**, with tests showing LMA selection does not
-move. Below 25%, the adjudicator and `fix --overrule` clear the holds and the
-extension is optional.
+**Lineage classification for allowlisted artists** (operator, 2026-11-09).
+`lineage_class` reads identifier, `lineage`, `source` and `title`. Measured
+under it, 1,502 of 1,882 Phish dates (80%) would hold unknown under aud-only,
+190 ship aud and 190 have no allowed tape. Phish items describe sources as mic
+chains ("Schoeps CMC6/MK4 > 744T", "B&K 4011 (FOB)"). So, as required tasks:
+
+1. Build a positive-evidence classifier **for allowlisted artists only** that
+   also reads `description` and recognises taper gear and wording (mic and deck
+   makes, FOB, AUD, audience), with tests showing LMA classification is
+   unchanged.
+2. Measure it on the Phish catalogue.
+3. **Checkpoint: the operator rules**, with the measurement in hand, between:
+   - (a) if the vast majority of unknown dates gain positive evidence,
+     still-unknown tapes hold;
+   - (b) if only a minority do (the likely case), for an allowlisted artist the
+     absence of any sbd, matrix, FM, pre-FM or webcast marker in identifier,
+     title and description reads as aud.
+
+## Holds
+
+- **Carriers.** The misattribution verdict rides on the winnow assessment into
+  provenance. The unknown-lineage verdict rides in `selection.json`. Gather
+  reads both and emits the review flags, so replay and reapply reproduce them.
+- **Overrule kinds.** Each flag gets an `overrules.py` `_PATTERNS` kind, so
+  `fix --overrule`, triage and the adjudicator clear it the usual way.
+- **Adjudicator bars** (added to `OVERRULE_BAR`): unknown-lineage is `never`
+  (operator-only clear, because no adjudicator evidence kind can establish
+  lineage); misattribution is `medium`.
 
 ## Delivery formats
 
@@ -335,6 +425,19 @@ operator's prior concern ("we'll see how it looks in practice"), expect their
 first runs with `human_gate = true`. Existing profiles need no change: they
 reach allowlisted artists through discovery.
 
+## Unverified premises
+
+- Taper's Section's permission basis and each artist's hosting stance: the
+  research round.
+- The scorer's spread with zero reviews: the early ~20-show Phish measurement
+  (Winnow).
+- The junk filter and `FORMAT_BY_AUDIO` on taperssection file sets: the fixture
+  task.
+- `setlist.py` on `<div>`/`<p>` HTML descriptions: parse one captured Phish
+  description.
+- `year` present on taperssection items: verified (11,132 of 11,134 Phish
+  items).
+
 ## Success
 
 - A Phish profile run and a Garcia profile run each produce at least one
@@ -349,6 +452,7 @@ reach allowlisted artists through discovery.
 ## Left to the builder
 
 Key names and shapes; the synthetic-key form; creator normalization; exclude
-matching; the downloads-in-winnow mechanism; index cache invalidation; the hold
-flag's wording and overrule kind; which manifest field carries the display
-name. Each needs its rationale recorded in the plan.
+matching; the title venue patterns; where the per-show downloads store lives;
+the gear lexicon's contents; index cache invalidation; the hold flags' wording
+and overrule kind names; the misattribution output-schema field. Each needs its
+rationale recorded in the plan.
