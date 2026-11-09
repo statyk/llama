@@ -69,22 +69,69 @@ _BREAK = re.compile(r"<\s*br\s*/?\s*>|<\s*/?\s*(?:p|div)\b[^>]*>", re.I)
 _TAG = re.compile(r"<[^>]*>")
 _TOKEN = re.compile(r"[a-z0-9]+")
 
+# In-line source labels (Checkpoint A ruling (B)). The archive.org scrape serves
+# every description with its line breaks and tags collapsed, so a line-anchored
+# reader sees one line. A description with no line break is instead split at
+# in-line labels: Source(s)( info/information), Src, Lineage, Transfer(s).
+_INLINE_LABEL = re.compile(
+    r"(?<![a-z0-9])(?:sources?(?:\s+info(?:rmation)?)?|src|lineage|transfers?)\s*:", re.I)
+# A label preceded by one of these words introduces a fill or splice source, or is
+# prose ("I spliced in the missing portion with the following source: SBD > DAT",
+# "Patch Source: ..."): it does not describe the tape, so it is not read.
+_FILL_WORDS = frozenset({"following", "patch", "patched", "fill", "fills", "filler",
+                         "splice", "spliced"})
+_PREV_WORD = re.compile(r"([A-Za-z]+)\W{0,3}$")
+# A segment ends at the next in-line source label, the next "Label:"-shaped
+# token (one word, then a colon, not a URL), the start of a setlist, or at
+# SEGMENT_CAP characters, whichever comes first.
+_NEXT_LABEL = re.compile(r"(?<![A-Za-z0-9])[A-Za-z][A-Za-z']{0,24}\s*:(?!//)")
+_SETLIST_START = re.compile(
+    r"(?<![a-z0-9])(?:[sd]\d{1,2}t\d{1,2}"
+    r"|set\s*(?:[1-4]|i{1,3}|iv|one|two|three|four)(?![a-z0-9])"
+    r"|dis[ck]\s*(?:[1-4]|one|two|three|four)(?![a-z0-9])"
+    r"|encore(?![a-z])|\*+\s*setlist"
+    r"|0?1\s*[.)]\s|01\s*-\s)",
+    re.I)
+SEGMENT_CAP = 200
+
 _SBD_WORDS = {"sbd", "soundboard", "board", "patch", "patched"}
 _MATRIX_WORDS = {"matrix", "mtx"}
 _FM_WORDS = {"fm", "prefm"}
 _WEBCAST_WORDS = {"webcast", "stream", "streamed", "streaming", "livestream"}
 
 
-def source_lines(description: str | None) -> list[str]:
-    """Lines starting with Source/Src/Lineage/Transfer (after HTML to text).
+def _inline_segments(text: str) -> list[str]:
+    text = re.sub(r"\s+", " ", text)
+    out = []
+    for m in _INLINE_LABEL.finditer(text):
+        prev = _PREV_WORD.search(text[max(0, m.start() - 30):m.start()])
+        if prev and prev.group(1).lower() in _FILL_WORDS:
+            continue
+        rest = text[m.end():m.end() + SEGMENT_CAP]
+        stops = [x.start() for x in (_INLINE_LABEL.search(rest), _NEXT_LABEL.search(rest),
+                                     _SETLIST_START.search(rest)) if x]
+        body = rest[:min(stops)] if stops else rest
+        body = body.strip().rstrip("~-*#|,;").strip()
+        if body:
+            out.append(f"{m.group(0)} {body}")
+    return out
 
-    The `\\b` in the pattern deliberately excludes "Transferred by..." and
-    "Sourcery", which are credits or prose, not source chains.
+
+def source_lines(description: str | None) -> list[str]:
+    """The source text of a description (after HTML to text).
+
+    A description with line breaks: the lines starting with
+    Source/Src/Lineage/Transfer. The `\\b` in the pattern deliberately excludes
+    "Transferred by..." and "Sourcery", which are credits or prose, not source
+    chains. A description with no line break (what the archive.org scrape
+    serves): one segment per in-line label, bounded (see `_inline_segments`).
     """
     if not description:
         return []
     text = _TAG.sub("", _BREAK.sub("\n", description))
     text = html.unescape(text)
+    if "\n" not in text.strip():
+        return _inline_segments(text)
     out = []
     for line in text.splitlines():
         line = line.strip()

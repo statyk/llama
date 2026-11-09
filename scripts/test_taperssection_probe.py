@@ -24,6 +24,7 @@ def test_variant_keeps_line_based_reading_when_breaks_exist():
 def test_classify_variant_reads_inline_source_and_restores_source_lines():
     rec = RecordingSummary(identifier="phish1991-12-07.x", title="Phish 1991-12-07",
                            description="Phish 1991-12-07 Portsmouth Source: SBD > Cass Transfer: deck")
-    assert ts_rules.classify(rec) == "unknown"
+    # Task 2b adopted the in-line reading in the product (Checkpoint A ruling (B))
+    assert ts_rules.classify(rec) == "sbd"
     assert classify_variant(rec) == "sbd"
     assert ts_rules.source_lines is not source_lines_variant

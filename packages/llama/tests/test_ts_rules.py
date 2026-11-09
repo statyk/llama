@@ -221,3 +221,95 @@ def test_possessive_taper_section():
     assert _cls(description="Source: Tapers' Section") == "aud"
     assert _cls(title="Phish live, Taper's Section") == "aud"
     assert _cls(description="Source: DAT master (taper: Bob)") == "unknown"
+
+
+# --- Task 2b: the operator's Checkpoint A ruling --------------------------------
+# Real texts below are quoted from the hand-labelled 50-date sample
+# (docs/superpowers/2026-11-09-taperssection-evidence/lineage.md, lineage-labels.csv),
+# as the archive.org scrape serves them: one line, tags and breaks collapsed.
+
+
+def test_rule_is_operator_ruling():
+    # Operator ruling, Checkpoint A, 2026-11-09 (~11:18 EST): "all as recommended";
+    # (A) rule (a): a still-unknown tape holds.
+    assert ts_rules.RULE == "a"
+
+
+# phish1992-05-02.131528.chicago.rsm191.flac1648
+D_131528 = (
+    "PHISH Cabaret Metro Chicago, Illinois May 2, 1992 Source:  (FOB/150deg/m/s) Neumann RSM-191AS "
+    "&gt; MTX-191A &gt; Sony TCD-D3 &gt; DAT(m) Transfer:  DAT(m) &gt; Sony PCM-R500 &gt; SPDIF &gt; "
+    "Tascam HD-P2 &gt; CDWave &gt; FLAC  (16/48) DAT(m) provided by Bryon Sosinski Transfer by Terry "
+    "Watts Set I: 1. Jim 2. Forbin &gt; 3. Icculus &gt; 4. Mockingbird 5. Sparkle 6. Reba 7. Maze"
+)
+
+# phish1996-11-22.176530.spokane.akg414.at4031.wright.flac1648 (Transfer runs into the setlist)
+D_176530 = (
+    "Phish 11/22/1996 Spokane Arena - Spokane, WA Source: AKG 414/AT 4031 Matrix Transfer: Tascam "
+    "DA-20 MKII &gt; Tascam DR-680 &gt; Audacity &gt; WAV &gt; xACT &gt; FLAC Taped (almost certainly) "
+    "by Don Wright Transferred & Seeded by Bill Graves ~ Set 1 ~ 1. It's Ice 2. Runaway Jim 3. "
+    "Wolfman's Brother 4. Taste 5. Ginseng Sullivan 6. Sample in a Jar"
+)
+
+# phish1994-05-28.089594.monterey.mk4.byron.flac1644: a Schoeps master with an SBD splice
+# (labelled aud: an aud master with an SBD patch is aud). The second "source:" is a fill.
+D_089594 = (
+    "Phish May 28, 1994 Laguna Seca Raceway Monterey, CA source: Schoeps mk4 &gt; kc5 &gt; cmc5 &gt; "
+    "Sonosax SX-M2 &gt; Sony TCD-D10 pro II (@ 48 kHz) transfer: Tascam DA-20MKII &gt; Tascam HD-P2 "
+    "&gt; CF card &gt; usb 2.0 &gt; pc &gt; WaveLab 5.01b (fades, splice) &gt; r8brain v1.9 (resample "
+    "to 44.1 kHz) &gt; CD Wave v1.96.1 &gt; FLAC v1.2.1 (Level 8) FLAC tags added with metaflac v1.2.1 "
+    "recorded by Eliot Byron transferred by Jason Sobel (jasonsobel@gmail.com) seeded January 21, 2008 "
+    "notes: The original 48 kHz .wav files from the DAT transfer have been archived. Disc 1 - [62:29] "
+    "Set I 01 - [06:11] - Rift &gt; 02 - [04:52] - Sample in a Jar splice notes: The beginning of "
+    "\"Rift\" was missing from Eliot's DAT. I spliced in the missing portion with the following "
+    "source: SBD &gt; DAT http://db.etree.org/shn/8751 The SBD source was used for the following "
+    "portion of Rift: [00:00] to [01:00]"
+)
+
+# phish1994-05-28.133678.monterey.mtx.flac1644: a true 2-source SBD + AUD matrix
+D_133678 = (
+    "Phish 1994/05/28 Laguna Seca Raceway - Monterey, CA 2-Source Matrix Matrixed using Audacity "
+    "v2.0.3 by Steve M. *****Source 1***** shnid=8751 Source: SBD &gt; DAT Conversion: DAP1 @48khz "
+    "&gt; COAX ~50% of the matrix *****Source 2***** shnid=89594 Source: Schoeps mk4 &gt; kc5 &gt; "
+    "cmc5 &gt; Sonosax SX-M2 &gt; Sony TCD-D10 pro II (@ 48 kHz) Transfer: Tascam DA-20MKII"
+)
+
+
+def test_inline_labels_split_collapsed_text():
+    assert source_lines(D_131528) == [
+        "Source: (FOB/150deg/m/s) Neumann RSM-191AS > MTX-191A > Sony TCD-D3 > DAT(m)",
+        "Transfer: DAT(m) > Sony PCM-R500 > SPDIF > Tascam HD-P2 > CDWave > FLAC (16/48) DAT(m) "
+        "provided by Bryon Sosinski Transfer by Terry Watts",
+    ]
+
+
+def test_inline_label_forms():
+    d = "Phish 1997 Src: Schoeps Sources: DPA Source info: AKG Transfers: DAT Lineage: CD"
+    assert source_lines(d) == ["Src: Schoeps", "Sources: DPA", "Source info: AKG",
+                               "Transfers: DAT", "Lineage: CD"]
+    # word-anchored: a credit or a word containing a label is not one
+    assert source_lines("Transferred by: Bob. Resource: none") == []
+
+
+def test_inline_segment_stops_before_setlist_overrun():
+    # lineage.md lexicon-error item 5: the Transfer segment ran into the setlist
+    segs = source_lines(D_176530)
+    assert segs[0] == "Source: AKG 414/AT 4031 Matrix"
+    assert segs[1].startswith("Transfer: Tascam DA-20 MKII > Tascam DR-680")
+    assert "It's Ice" not in segs[1] and "Set 1" not in segs[1]
+
+
+def test_inline_segment_is_capped():
+    segs = source_lines("Phish Source: " + "Schoeps " * 100)
+    assert segs and len(segs[0]) <= 220
+
+
+def test_fill_source_is_not_a_source_line():
+    # lineage.md item 5: "the following source: SBD > DAT" is a splice fill, not the tape
+    assert all("SBD" not in s for s in source_lines(D_089594))
+    assert _cls(description=D_089594) == "aud"
+
+
+def test_line_based_reading_unchanged_with_breaks():
+    d = "Phish<br />Source: SBD > DAT the following source: AKG<br />Set 1: Ghost"
+    assert source_lines(d) == ["Source: SBD > DAT the following source: AKG"]
