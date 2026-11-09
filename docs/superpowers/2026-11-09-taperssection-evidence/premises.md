@@ -127,3 +127,29 @@ Output:
   noise lines parsed as encore songs ("Unfinished.", "----------", "original text file", "Phish 12-29-97", "Madison Square Garden", "New York", "NY"), and the plain list
   ends with "Uploaded to gdlive by ..." as an encore song; "Good Times Bad Times" is split into "Good Times" / "Bad Times"; "YEM" is a separate unresolved title.
   Net: HTML-free text parses with set markers but the setlist is duplicated and noisy while graded `high`. Same conclusion as for the secondary fixture.
+
+## 3(f) date cross-check per artist
+
+Command: `./.venv/bin/python scripts/taperssection_probe.py dates` (2026-11-09; scrape cached outside the repo; creator exact via `norm_creator`; "dates emptied" = dates whose every recording has `ts_rules.date_disagrees` true).
+
+| artist | exact-creator items | dated | date_disagrees | rate | dates | dates emptied |
+|---|---|---|---|---|---|---|
+| Phish | 11133 | 11131 | 168 | 1.5% | 1881 | 95 |
+| Jerry Garcia | 1648 | 1648 | 0 | 0.0% | 892 | 0 |
+| Gov't Mule | 360 | 359 | 17 | 4.7% | 284 | 13 |
+| Dave Matthews Band | 112 | 112 | 0 | 0.0% | 104 | 0 |
+| Trey Anastasio | 111 | 111 | 3 | 2.7% | 68 | 2 |
+| Trey Anastasio Band | 78 | 78 | 2 | 2.6% | 65 | 2 |
+| Pavement | 107 | 107 | 0 | 0.0% | 100 | 0 |
+| Medeski Martin & Wood | 101 | 101 | 1 | 1.0% | 90 | 1 |
+| Allman Brothers Band | 85 | 85 | 0 | 0.0% | 76 | 0 |
+| Black Crowes | 84 | 84 | 0 | 0.0% | 71 | 0 |
+| Wilco | 74 | 74 | 2 | 2.7% | 70 | 1 |
+| Warren Haynes | 51 | 51 | 1 | 2.0% | 39 | 1 |
+| Neil Young & Crazy Horse | 47 | 47 | 0 | 0.0% | 29 | 0 |
+| Sonic Youth | 44 | 44 | 0 | 0.0% | 44 | 0 |
+| Primus | 43 | 43 | 0 | 0.0% | 37 | 0 |
+| Bruce Hornsby | 44 | 44 | 2 | 4.5% | 41 | 2 |
+| Pearl Jam | 34 | 34 | 0 | 0.0% | 34 | 0 |
+| Mike Gordon | 41 | 41 | 0 | 0.0% | 27 | 0 |
+| Nine Inch Nails | 5 | 5 | 1 | 20.0% | 5 | 1 |
