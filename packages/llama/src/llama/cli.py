@@ -59,6 +59,7 @@ from llama.stages.interpret import run_interpret
 from llama.stages.search import run_search
 from llama.stages.winnow import run_winnow
 from llama.status import configure_logging
+from llama.taperssection import Allowlist
 from llama.util import parse_performance_id, slugify
 from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
                              read_json, read_model, read_model_list, read_overrides,
@@ -812,7 +813,8 @@ def _interpret_and_stamp(config, ws: RunWorkspace, req: dict) -> Criteria:
     silently. Two copies of this is exactly the drift T6b's checkpoint would
     otherwise introduce.
     """
-    criteria = run_interpret(ws, make_providers(config)["interpret"], req["query"])
+    criteria = run_interpret(ws, make_providers(config)["interpret"], req["query"],
+                             allowlist=Allowlist.from_config(config.taperssection))
     updates = {}
     # Falsy, not `is not None`: --limit is typer.Option(0, ...), so an
     # unspecified limit persists as 0, and `is not None` would stamp
@@ -5385,7 +5387,8 @@ def profile_add(
     config, ia, _ = _setup()
     with tempfile.TemporaryDirectory() as tmpdir:
         scratch = RunWorkspace(Path(tmpdir), "interpret")
-        criteria = run_interpret(scratch, make_providers(config)["interpret"], query)
+        criteria = run_interpret(scratch, make_providers(config)["interpret"], query,
+                                 allowlist=Allowlist.from_config(config.taperssection))
     updates = {}
     if artist_cap is not None:
         updates["artist_cap"] = artist_cap
