@@ -124,3 +124,46 @@ def test_template_seeds_empty_allowlist():
 
     cfg = Config.model_validate(tomllib.loads(DEFAULT_CONFIG_TOML))
     assert not Allowlist.from_config(cfg.taperssection)
+
+
+def test_match_creator_ignores_name_uses_creators_only():
+    al = _al(_entry("Jerry Garcia", creators=["Jerry Garcia Band"]))
+    e = al.entries[0]
+    assert not al.match_creator("Jerry Garcia", e)
+    assert al.match_creator("Jerry Garcia Band", e)
+
+
+def test_name_colliding_with_other_creator_or_name_rejected():
+    with pytest.raises(LlamaError):
+        _al(_entry("Jerry Garcia", creators=["Jerry Garcia Band"]),
+            _entry("Garcia Acoustic", creators=["Jerry Garcia"]))
+    with pytest.raises(LlamaError):
+        _al(_entry("Garcia Acoustic", creators=["Jerry Garcia"]),
+            _entry("Jerry Garcia", creators=["Jerry Garcia Band"]))
+    with pytest.raises(LlamaError):
+        _al(_entry("Phish", creators=["Phish"]), _entry("The Phish!", creators=["Other"]))
+
+
+def test_norm_creator_punct_then_the_and_accents():
+    assert norm_creator('"The Allman Brothers Band"') == "allman brothers band"
+    assert norm_creator("The-Band") == "band"
+    assert norm_creator("Béla Fleck") == norm_creator("Bela Fleck") == "bela fleck"
+
+
+def test_fingerprint_order_invariant_and_set_fields_sorted():
+    a, b = _entry("A", creators=["x", "y"], lineages=["aud", "sbd"]), _entry("B")
+    assert _al(a, b).fingerprint() == _al(b, a).fingerprint()
+    a2 = _entry("A", creators=["y", "x"], lineages=["sbd", "aud"])
+    assert _al(a, b).fingerprint() == _al(a2, b).fingerprint()
+
+
+def test_fingerprint_changes_on_rename_and_removal():
+    base = _al(_entry("Phish"), _entry("Other"))
+    assert base.fingerprint() != _al(_entry("Phish2", creators=["Phish"]), _entry("Other")).fingerprint()
+    assert base.fingerprint() != _al(_entry("Phish")).fingerprint()
+
+
+@pytest.mark.parametrize("bad", ["", "!!!", "   "])
+def test_name_without_alphanumerics_rejected(bad):
+    with pytest.raises(ValidationError):
+        TaperssectionArtist(name=bad, creators=["X"], lineages=["aud"])

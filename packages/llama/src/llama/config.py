@@ -1,5 +1,6 @@
 import re
 import tomllib
+import unicodedata
 from pathlib import Path
 from typing import Literal
 
@@ -162,6 +163,14 @@ class TaperssectionArtist(_StrictModel):
     active_from: str | None = None
     active_until: str | None = None
     setlistfm: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _name_has_alnum(cls, v):
+        folded = unicodedata.normalize("NFKD", v).lower()
+        if not re.search(r"[a-z0-9]", folded):
+            raise ValueError("name must contain letters or digits")
+        return v
 
     @field_validator("active_from", "active_until")
     @classmethod

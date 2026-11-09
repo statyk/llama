@@ -5,6 +5,7 @@ Imports the entry models from `config`; `config` never imports this module.
 import hashlib
 import json
 import re
+import unicodedata
 
 from llama.config import TaperssectionArtist, TaperssectionConfig
 from llama.errors import LlamaError
@@ -14,9 +15,10 @@ KEY_PREFIX = "ts-"
 
 
 def norm_creator(s: str) -> str:
-    s = s.lower().strip()
-    s = re.sub(r"^the\s+", "", s)
-    return re.sub(r"[^a-z0-9]+", " ", s).strip()
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c)).lower()
+    s = re.sub(r"[^a-z0-9]+", " ", s).strip()
+    return re.sub(r"^the ", "", s).strip()
 
 
 def artist_key(name: str) -> str:
@@ -47,11 +49,11 @@ class Allowlist:
                     "rename one in [[taperssection.artists]]"
                 )
             keys[k] = e.name
-            for c in {norm_creator(c) for c in e.creators}:
+            for c in {norm_creator(n) for n in (e.name, *e.creators)}:
                 if c in creators and creators[c] != e.name:
                     raise LlamaError(
-                        f"taperssection creator {c!r} appears in both {creators[c]!r} "
-                        f"and {e.name!r}; a creator may belong to one entry"
+                        f"taperssection spelling {c!r} appears in both {creators[c]!r} "
+                        f"and {e.name!r}; a name or creator may belong to one entry"
                     )
                 creators[c] = e.name
         return cls(list(cfg.artists))
@@ -95,7 +97,7 @@ class Allowlist:
         if creator is None:
             return False
         vals = creator if isinstance(creator, list) else [creator]
-        mine = {norm_creator(n) for n in self.matching_names(entry)}
+        mine = {norm_creator(n) for n in entry.creators}
         return any(isinstance(v, str) and norm_creator(v) in mine for v in vals)
 
     def resolve_name(self, name: str | None) -> TaperssectionArtist | None:
@@ -114,6 +116,11 @@ class Allowlist:
     def fingerprint(self) -> str | None:
         if not self.entries:
             return None
-        payload = [e.model_dump(exclude={"note"}) for e in self.entries]
+        payload = []
+        for e in sorted(self.entries, key=self.key):
+            d = e.model_dump(exclude={"note"})
+            for f in ("creators", "lineages", "exclude"):
+                d[f] = sorted(d[f])
+            payload.append(d)
         blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(blob.encode()).hexdigest()
