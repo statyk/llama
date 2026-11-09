@@ -30,7 +30,8 @@ CASES = [
     ("Source: AKG 480 AUD Matrix", "aud"),
     ("Source: SBD/AUD matrix (Schoeps)", "matrix"),
     ("This show was webcast live\nSource: Neumann AK43 > LC3", "aud"),
-    ("Transfer: DAT (patch master)", "sbd"),
+    # Checkpoint A ruling (C): patch with no board context is not sbd (was "sbd")
+    ("Transfer: DAT (patch master)", "unknown"),
     ("Source: DAT master", "unknown"),
 ]
 
@@ -313,3 +314,117 @@ def test_fill_source_is_not_a_source_line():
 def test_line_based_reading_unchanged_with_breaks():
     d = "Phish<br />Source: SBD > DAT the following source: AKG<br />Set 1: Ghost"
     assert source_lines(d) == ["Source: SBD > DAT the following source: AKG"]
+
+
+# (C) patch / patched reads sbd only with board context
+def test_patch_without_board_context_is_not_sbd():
+    # phish2003-07-21.109173.noblesville.u89i.markham.sobel.flac1644
+    assert _cls(description="Phish Source: Neumann u89i (hyper / 80 degrees) &gt; Apogee MiniMe "
+                "transfer: Tascam DA-20mkII &gt; pc &gt; Samplitude SE v9.1.1 (patch, fades) &gt; "
+                "r8brain PRO v1.5") == "aud"
+    assert _cls(description="Phish transfer: Samplitude SE v9.1.1 (patch, fades) &gt; CD Wave") == "unknown"
+    # phish1994-06-11.133981.morrison.tlm170i.flac1648
+    assert _cls(description="Phish Transfer:  DAT(m) &gt; Sony PCM-R500 &gt; FLAC (16/48) Source by "
+                "Doug Oade Patch DAT(m) provided by Bill Shaw") == "unknown"
+    assert _cls(description="PHISH Red Rocks Source:    (omni/10' split) Neumann TLM-170i's &gt; Oade "
+                "&gt; DAT(m) Transfer:  DAT(m) &gt; Sony PCM-R500 Source by Doug Oade Patch DAT(m) "
+                "provided by Bill Shaw") == "aud"
+    # phish1994-04-08.006044.statecollege.rsm190.flac1644
+    assert _cls(description="Phish Transfer: My patch master dat from sony d-7&gt;Sony DTC-690") == "unknown"
+    # phish1996-11-07.075699.lexington.mg300.mahan.flac1644
+    assert _cls(description="PHiSH source: Microtech Gefell m300 &gt; Aerco Preamp transfer: Fostex "
+                "D5 &gt; FLAC transfer/patch by Jordan Braunstein") == "aud"
+
+
+def test_patch_with_board_context_is_sbd():
+    assert _cls(description="Source: console patch > DAT") == "sbd"
+    assert _cls(description="Source: patch from the soundboard > DAT") == "sbd"
+
+
+# (C) board / SBD after a position word is a position, not a source
+def test_board_as_position():
+    # phish2024-07-19.168122.mansfield.mk41.flaschner.flac2448
+    assert _cls(description="PHISH July 19, 2024 Source: Schoeps mk41&gt;kc5&gt;cmc6&gt;Mix3ii@ 24/96 "
+                "(Dead center behind soundboard Sec6 Row e Seat 18) Recorded by: Dave Flaschner") == "aud"
+    # phish1991-07-20.005751.parksville.akg451.flac1644
+    assert _cls(description="phish @-arrowhead ranch, parksville,ny-91-07-20, /d1-d2./ "
+                "source:akg 451+ck8a in sbd b00th, by kevin shapiro.... seeded: by mikey k") == "aud"
+    # phish2009-12-05.103187.charlottesville.km140.evans.flac2496
+    assert _cls(description="Phish Source: Neumann ak40's(nos)&gt;lc3&gt;km100&gt;722&gt;@24/96 (ots "
+                "left back corner of sbd boomed over 8 inches inside sbd rail) Transfer: 722") == "aud"
+    # corpus forms quoted in lineage.md item 2
+    assert _cls(description="Phish Source: B&K 4011>SV255 at sbd") == "aud"
+    assert _cls(description="Phish Source: aud/48khz-rec. center @sbd-7 1/2 ft height; AKG460b") == "aud"
+    assert _cls(description="Phish Source: DPA 4018A(22cm-80deg/DFC/Behind SBD@12')") == "aud"
+    assert _cls(description="Phish Source: Neumann TLM-170 (hypercards, 20' in front of the board)") == "aud"
+    assert _cls(description="Phish Source: Schoeps 20 ft behind the board, right of SBD") == "aud"
+    # a position alone is not a source: no sbd, and no mic so not aud either
+    assert _cls(description="Phish Source: DAT master (behind the board)") == "unknown"
+    # a real board still reads sbd
+    assert _cls(description="Phish Source: SBD > DAT") == "sbd"
+    assert _cls(description="Phish Source: Unknown Soundboard > Cass") == "sbd"
+
+
+# (C) matrix only when board + audience are both indicated
+def test_aud_rig_matrix_reads_aud():
+    # phish1994-04-08.132135.universitypark.rsm190i.flac1648 (Neumann M/S box)
+    assert _cls(description="PHISH Source:  Neumann RSM-191i &gt; Neumann MTX-191 &gt; Teac DAP-20 "
+                "&gt; DAT(c) Transfer:  DAT(c)") == "aud"
+    assert _cls(description=D_131528) == "aud"
+    # phish1996-11-22.176530 (two audience rigs mixed)
+    assert _cls(description=D_176530) == "aud"
+    # ph-2024-07-30AKGmatrix (AKG ck63 + ck61), and corpus DPAmatrix / dhAUDmatrix identifiers
+    assert classify(RecordingSummary(identifier="ph-2024-07-30AKGmatrix")) == "aud"
+    assert classify(RecordingSummary(identifier="PH2025-09-16.DPAmatrix")) == "aud"
+    assert classify(RecordingSummary(identifier="ph1997-02-26.Stuttgart.Germany.dhAUDmatrix.Dec2024.flac16441")) == "aud"
+
+
+def test_board_plus_audience_matrix_stays_matrix():
+    # the real identifier carries the mtx; the description's source segments name SBD and Schoeps
+    assert classify(RecordingSummary(identifier="phish1994-05-28.133678.monterey.mtx.flac1644",
+                                     description=D_133678)) == "matrix"
+    assert _cls(description="Source: SBD/AUD matrix (Schoeps)") == "matrix"
+    assert classify(RecordingSummary(identifier="a.mtx.b")) == "matrix"
+
+
+# (C) broadcast words read fm (labelling convention: broadcast = fm)
+def test_broadcast_words_read_fm():
+    # phish1998-10-03.000770.tinleypark.broadcast.flac1644
+    assert _cls(description="Phish 1998-10-03 Farm Aid Source: CMT DSS Broadcast &gt; Tbfiji &gt; "
+                "Soundforge &gt; CD flac'd 2026-08-25 s1t01 - Birds of a Feather") == "fm"
+    # phish1998-10-03.015186.tinleypark.sbd.flac1644 ("DishNetwork> Tbfiji> Soundforge>")
+    assert _cls(source="DishNetwork> Tbfiji> Soundforge>") == "fm"
+    assert _cls(source="Dish Network > DAT") == "fm"
+    assert _cls(source="satellite feed > DAT") == "fm"
+
+
+# Corpus-review pins (lineage.md "What Task 2b changed"): cases the sample lacked.
+def test_dsbd_and_band_source_indicate_a_board():
+    # phish1992-12-31.000500.boston.mtx.flac1644: a board + audience matrix, not aud
+    assert _cls(description="Phish Source Info: Matrix(DSBD+Elektra AUD) DAT>CD") == "matrix"
+    assert _cls(description="Phish SOURCE: DSBD > DAT > Protools > CD") == "sbd"
+    # phish2000-06-15.098243.osaka.akgc1000.flac1644
+    assert _cls(description="Phish Source info: Band Source AKG C1000s > ? (direct from Phish's "
+                "mic source) It also could a matrix that's mostly AUD") == "matrix"
+
+
+def test_weak_broadcast_words_need_no_audience_evidence():
+    # phish1997-12-31.165734.newyork.mk41.flac1648 (DSS is a chain component here)
+    assert _cls(description="Phish Source: Schoeps MK41 &gt; DSS &gt; Tascam DA-P1 &gt; Sony TCD-D7") == "aud"
+    # phish2003-11-29.020756.philadelphia.at4051.clark.flac1644 (a Toshiba Satellite laptop)
+    assert _cls(description="Phish Source: AT4051a -&gt; V2 -&gt; AD500e -&gt; D100 Mic Transfer: D100 "
+                "-&gt; UA-5 -&gt; Toshiba Satellite 1135 -&gt; Soundforge 6.0") == "aud"
+    # phish2000-10-03.007655.burbank.sat.flac1644
+    assert _cls(description="Phish SOURCE: NBC Ku-band satellite feed &gt; DAT &gt; CDR") == "fm"
+
+
+def test_per_set_source_annotations_do_not_end_a_segment():
+    # phish2009-11-01.102339.indio.akg460.jbanyai.flac1644
+    assert _cls(description="Phish Indio, CA 2009-11-01 Source: (Set 1) AKG c460b|a60m|ck3 &gt; Segue "
+                "Dogstar XLRs &gt; Fostex FR-2LE (24bit/48khz) Transfer: CF Card") == "aud"
+    # phish1998-12-30.084945.newyork.mk4v.teddy.crow.flac1644
+    assert source_lines("Phish source: set 1 = (FOB) Schoeps mk4v &gt; kcy transfer: DA-20")[0] == (
+        "source: set 1 = (FOB) Schoeps mk4v > kcy")
+    # phish2022-07-20.157402 ("(Source 1) Schoeps MK4v's ...") is not a numbered setlist
+    assert "Schoeps" in source_lines("Phish Source: 32bit Float/48 (Source 1) Schoeps MK4v's &gt; "
+                                     "Nbob Actives Location: TS")[0]

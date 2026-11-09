@@ -85,18 +85,38 @@ _PREV_WORD = re.compile(r"([A-Za-z]+)\W{0,3}$")
 # token (one word, then a colon, not a URL), the start of a setlist, or at
 # SEGMENT_CAP characters, whichever comes first.
 _NEXT_LABEL = re.compile(r"(?<![A-Za-z0-9])[A-Za-z][A-Za-z']{0,24}\s*:(?!//)")
+# Not after "(": "(Set 1) AKG c460b ...", "DPA4018 (Set1: OTS ...)" annotate a
+# per-set source inside the chain. A numbered list is "1. Title" ("1)" also
+# numbers sources: "(Source 1) Schoeps ...").
 _SETLIST_START = re.compile(
-    r"(?<![a-z0-9])(?:[sd]\d{1,2}t\d{1,2}"
+    r"(?<![a-z0-9(])(?:[sd]\d{1,2}t\d{1,2}"
     r"|set\s*(?:[1-4]|i{1,3}|iv|one|two|three|four)(?![a-z0-9])"
     r"|dis[ck]\s*(?:[1-4]|one|two|three|four)(?![a-z0-9])"
     r"|encore(?![a-z])|\*+\s*setlist"
-    r"|0?1\s*[.)]\s|01\s*-\s)",
+    r"|0?1\.\s+[a-z]|01\s*-\s)",
     re.I)
+# A setlist marker this close to the label is part of the source text, not
+# after it ("source: set 1 = (FOB) Schoeps ...", "Source info: 1) Neumann ...").
+_SETLIST_MIN_OFFSET = 3
 SEGMENT_CAP = 200
 
-_SBD_WORDS = {"sbd", "soundboard", "board", "patch", "patched"}
+_SBD_WORDS = {"sbd", "dsbd", "soundboard", "board"}
+# "Band Source AKG C1000s (direct from Phish's mic source)": the band's own feed.
+_SBD_PHRASES = ({"band"}, {"source", "feed"})
+# Checkpoint A ruling (C): "patch"/"patched" is a splice edit or a digital copy in
+# taper text ("Samplitude (patch, fades)", "Patch DAT(m) provided by"); it reads
+# sbd only with board context in the same field.
+_PATCH_WORDS = {"patch", "patched"}
+_BOARD_CONTEXT = _SBD_WORDS | {"console", "desk"}
 _MATRIX_WORDS = {"matrix", "mtx"}
-_FM_WORDS = {"fm", "prefm"}
+# Broadcasts read fm (ruling (C), labelling convention (D): broadcast = fm).
+# "radio" is deliberately absent: Radio Shack mics are audience gear.
+_FM_WORDS = {"fm", "prefm", "broadcast", "broadcasts", "dishnetwork", "simulcast"}
+# Weak broadcast words: "satellite" is also a laptop ("Toshiba Satellite") and
+# "DSS" a chain component ("Schoeps MK41 > DSS > Tascam"), so they read fm only
+# on a tape with no audience evidence ("NBC Ku-band satellite feed > DAT").
+_FM_WEAK_WORDS = {"dss", "satellite"}
+_FM_PHRASES = ({"dish"}, {"network"})
 _WEBCAST_WORDS = {"webcast", "stream", "streamed", "streaming", "livestream"}
 
 
@@ -109,7 +129,7 @@ def _inline_segments(text: str) -> list[str]:
             continue
         rest = text[m.end():m.end() + SEGMENT_CAP]
         stops = [x.start() for x in (_INLINE_LABEL.search(rest), _NEXT_LABEL.search(rest),
-                                     _SETLIST_START.search(rest)) if x]
+                                     _SETLIST_START.search(rest, _SETLIST_MIN_OFFSET)) if x]
         body = rest[:min(stops)] if stops else rest
         body = body.strip().rstrip("~-*#|,;").strip()
         if body:
@@ -144,6 +164,46 @@ def _tokens(text: str) -> list[str]:
     return _TOKEN.findall(text.lower())
 
 
+# Checkpoint A ruling (C): a board named as where the mics stood is a position,
+# not a source ("Dead center behind soundboard", "in sbd b00th", "right of SBD",
+# "at sbd", "@sbd-7", "20' in front of the board"). The match is blanked before
+# tokenizing, so it yields no sbd marker; the mic chain then decides.
+_BOARD = r"(?:sbd|soundboard|sound\s*board|board)"
+_BOARD_POSITION = re.compile(
+    r"(?<![a-z0-9])(?:behind|in\s+front\s+of|front\s+of|near|beside|next\s+to|above|inside|at"
+    r"|(?:side|sides|corner|right|left|rear|back|front|center|centre)\s+of)"
+    rf"\s*(?:the\s+)?{_BOARD}(?![a-z0-9])"
+    rf"|@\s*(?:the\s+)?{_BOARD}(?![a-z0-9])"
+    rf"|(?<![a-z0-9]){_BOARD}\s*(?:booth|b00th|rail|riser|area|platform|tower|cage)(?![a-z0-9])",
+    re.I)
+
+
+def _field_tokens(text: str) -> list[str]:
+    """Tokens of one evidence field, as classify reads them.
+
+    Board positions are blanked; a compound matrix token is split ("akgmatrix",
+    "30akgmatrix", "dhaudmatrix" -> its rig prefix, plus "aud" when the prefix
+    ends in aud, plus "matrix"); "mtx" before "191..." is the Neumann RSM-191's
+    M/S matrix box, a microphone part, not a matrix of sources.
+    """
+    raw = _tokens(_BOARD_POSITION.sub(" ", text))
+    out: list[str] = []
+    for i, t in enumerate(raw):
+        if t == "mtx" and i + 1 < len(raw) and raw[i + 1].startswith("191"):
+            out.append("neumann")  # the RSM-191 system; Neumann makes only mics here
+            continue
+        if t.endswith("matrix") and len(t) > len("matrix"):
+            prefix = t[: -len("matrix")].lstrip("0123456789")
+            if prefix:
+                out.append(prefix)
+                if prefix.endswith("aud"):
+                    out.append("aud")
+            out.append("matrix")
+            continue
+        out.append(t)
+    return out
+
+
 def _evidence_text(rec: RecordingSummary) -> list[str]:
     parts = [rec.identifier, rec.title, rec.source or "", rec.lineage or ""]
     parts.extend(source_lines(rec.description))
@@ -157,47 +217,54 @@ def _has_phrase(toks: list[str], first: set[str], second: set[str]) -> bool:
 def _non_id_list(rec: RecordingSummary) -> list[str]:
     toks: list[str] = []
     for part in _evidence_text(rec)[1:]:
-        toks.extend(_tokens(part))
+        toks.extend(_field_tokens(part))
         toks.append("|")
     return toks
 
 
 def classify(rec: RecordingSummary) -> LineageClass:
+    parts = _evidence_text(rec)
+    fields = [_field_tokens(p) for p in parts]
     toks: list[str] = []
-    for part in _evidence_text(rec):
-        toks.extend(_tokens(part))
+    for f in fields:
+        toks.extend(f)
         toks.append("|")  # fields never form a phrase across a boundary
     s = set(toks)
     # numeric mic models count outside the identifier only
-    non_id = set()
-    for part in _evidence_text(rec)[1:]:
-        non_id.update(_tokens(part))
+    non_id = {t for f in fields[1:] for t in f}
     markers = set()
     if s & _MATRIX_WORDS:
         markers.add("matrix")
-    if s & _SBD_WORDS:
+    if (s & _SBD_WORDS or _has_phrase(toks, *_SBD_PHRASES)
+            or any(set(f) & _PATCH_WORDS and set(f) & _BOARD_CONTEXT for f in fields)):
         markers.add("sbd")
-    if s & _FM_WORDS:
-        markers.add("fm")
     if s & _WEBCAST_WORDS:
         markers.add("webcast")
-    if markers == {"matrix"} and _has_phrase(toks, {"aud", "audience"}, _MATRIX_WORDS):
-        return "aud"
-    for cls in ("matrix", "sbd", "fm", "webcast"):
-        if cls in markers:
-            return cls  # a marker beats gear
     usable = s - DECK_WORDS
     mics = (usable & (MIC_WORDS - _NUMERIC_MICS)) | ((non_id - DECK_WORDS) & _NUMERIC_MICS)
-    if mics or usable & POSITION_WORDS:
+    aud = bool(
+        mics
+        or usable & POSITION_WORDS
+        # "taper section", "tapers section", "Taper's Section" (apostrophe splits to taper, s)
+        or _has_phrase(toks, {"taper", "tapers"}, {"section"})
+        or any(a == "taper" and b == "s" and c == "section"
+               for a, b, c in zip(toks, toks[1:], toks[2:]))
+        or _has_phrase(_non_id_list(rec), *_NAK_MIC)
+    )
+    if s & _FM_WORDS or _has_phrase(toks, *_FM_PHRASES) or (s & _FM_WEAK_WORDS and not aud):
+        markers.add("fm")
+    if "matrix" in markers:
+        # Checkpoint A ruling (C): matrix only when board and audience are both
+        # indicated. A matrix word with audience evidence and no board, fm or
+        # webcast marker is a mix of audience rigs ("AKG 414/AT 4031 Matrix"):
+        # aud. A bare matrix word with no other evidence keeps the convention.
+        if markers & {"sbd", "fm", "webcast"} or not aud:
+            return "matrix"
         return "aud"
-    # "taper section", "tapers section", "Taper's Section" (apostrophe splits to taper, s)
-    if _has_phrase(toks, {"taper", "tapers"}, {"section"}) or any(
-        a == "taper" and b == "s" and c == "section" for a, b, c in zip(toks, toks[1:], toks[2:])
-    ):
-        return "aud"
-    if _has_phrase(_non_id_list(rec), *_NAK_MIC):
-        return "aud"
-    return "unknown"
+    for cls in ("sbd", "fm", "webcast"):
+        if cls in markers:
+            return cls  # a marker beats gear
+    return "aud" if aud else "unknown"
 
 
 def excluded(rec: RecordingSummary, entry: TaperssectionArtist) -> bool:
