@@ -163,7 +163,9 @@ def _description(meta: dict) -> str:
     return str(desc)
 
 
-def _creator(meta: dict) -> str | None:
+def item_creator(meta: dict) -> str | None:
+    """The item's creator: the first of a list, None when absent. Public: cli's title
+    proposal derives a ts show's creator with it, exactly as gather does."""
     creator = meta.get("creator")
     if isinstance(creator, list):
         creator = creator[0] if creator else None
@@ -1897,11 +1899,13 @@ def compute_gather(
 
     md = ia.metadata(identifier)
     meta = md.get("metadata", {})
-    artist = str(_creator(meta) or candidate.collection)
+    artist = str(item_creator(meta) or candidate.collection)
     # taperssection Task 6b: a `ts-` candidate ships the entry's display name, looks
     # setlist.fm up by `entry.setlistfm or entry.name`, and matches on every spelling;
-    # an LMA candidate keys on `artist` three times over, as before. Resolved first, so
-    # a ts candidate without its allowlist raises before any other work.
+    # an LMA candidate keys on `artist` three times over, as before. Resolved right
+    # after the item's metadata is read (it needs the creator), so a ts candidate
+    # without its allowlist raises after that one metadata fetch and before anything
+    # else: no overrides read, no jerrybase lookup, no canonical or setlist.fm call.
     naming = gather_names(candidate.collection, artist, allowlist)
     want = FORMAT_BY_AUDIO[audio_format]
     # read_overrides is hoisted above filter_files (it only reads the show dir)

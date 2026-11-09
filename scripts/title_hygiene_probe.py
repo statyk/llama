@@ -244,7 +244,7 @@ def _inputs(view: ShowWorkspace, stored: Show, prov: Provenance):
     md = ia.metadata(stored.identifier)
     meta = md.get("metadata", {})
     cand = prov.candidate
-    artist = str(G._creator(meta) or cand.collection)
+    artist = str(G.item_creator(meta) or cand.collection)
     events = jerrybase.lookup(artist, cand.date) if cfg.jerrybase.enabled else []
 
     def build(kept):

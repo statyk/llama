@@ -3608,7 +3608,7 @@ def _propose_titles_for_show(ia, config, entry, show, *, allowlist: Allowlist | 
     from llama.junk import FORMAT_BY_AUDIO
     from llama.models import TitleProposal
     from llama.setlistfm import make_client
-    from llama.stages.gather import _creator, build_canonical, final_kept, gather_names
+    from llama.stages.gather import build_canonical, final_kept, gather_names, item_creator
 
     cand = entry.provenance.candidate
     md = ia.metadata(show.identifier)
@@ -3616,7 +3616,7 @@ def _propose_titles_for_show(ia, config, entry, show, *, allowlist: Allowlist | 
     # The names gather itself used (taperssection Task 6b): an LMA show's
     # `show.artist` IS gather's creator, so it keys exactly as before; a ts show's
     # `show.artist` is the display name, so its creator comes from the item.
-    creator = (str(_creator(meta) or cand.collection) if is_synthetic(cand.collection)
+    creator = (str(item_creator(meta) or cand.collection) if is_synthetic(cand.collection)
                else show.artist)
     naming = gather_names(cand.collection, creator, allowlist)
     want = FORMAT_BY_AUDIO[config.audio_format]

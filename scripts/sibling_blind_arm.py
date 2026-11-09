@@ -12,7 +12,7 @@ whole value of this harness is that it measures the thing that ships:
   imported and CALLED     `junk.filter_files`, `titles.clean_tag_titles`,
                           `titles.title_fraction`, `util.length_seconds`,
                           `grouping.group_candidates`, `jerrybase.lookup`,
-                          `gather.show_metadata_norms`, `gather._creator`,
+                          `gather.show_metadata_norms`, `gather.item_creator`,
                           `gather._description`, `gather.load_donor_tapes`,
                           `gather.best_donor`, `gather._donor_key`,
                           `siblings.propose_rows`, `siblings.rate_alignment`,
@@ -63,7 +63,7 @@ from llama.junk import FORMAT_BY_AUDIO, filter_files
 from llama.models import Track
 from llama.siblings import (AUTO, DonorTape, SiblingRow, cplus_filter,
                             propose_rows, rate_alignment)
-from llama.stages.gather import (_creator, _description, _donor_key,
+from llama.stages.gather import (item_creator, _description, _donor_key,
                                  best_donor, load_donor_tapes,
                                  show_metadata_norms)
 from llama.structure import loosely_same_title
@@ -141,7 +141,7 @@ def _collection_of(meta: dict) -> str:
     for c in colls:
         if isinstance(c, str) and c.lower() not in _GENERIC_COLLECTIONS:
             return c
-    creator = _creator(meta)
+    creator = item_creator(meta)
     return str(creator or (colls[0] if colls else "") or "unknown")
 
 
@@ -192,7 +192,7 @@ def load_target(ia: CacheIA, candidate, identifier: str, want):
     if title_fraction(titles) < WELL_TAGGED:
         return None
     meta = md.get("metadata", {})
-    artist = str(_creator(meta) or candidate.collection)
+    artist = str(item_creator(meta) or candidate.collection)
     events = jerrybase.lookup(artist, candidate.date)
     norms = show_metadata_norms(artist, candidate, meta, events)
     return ([f["name"] for f in kept], durations, titles, norms)

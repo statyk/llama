@@ -43,7 +43,7 @@ def _inputs_like_gather(sws: ShowWorkspace, ia, cand: Candidate, ident: str, *, 
     field of the result is reconstructed here."""
     md = ia.metadata(ident)
     meta = md.get("metadata", {})
-    artist = str(gather_mod._creator(meta) or cand.collection)
+    artist = str(gather_mod.item_creator(meta) or cand.collection)
     events: list = []
     if build is None:
         def build(kept):

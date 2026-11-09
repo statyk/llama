@@ -253,3 +253,49 @@ def test_search_ts_title_venue_none_without_any_parse(tmp_path):
     cands = run_search(RunWorkspace(tmp_path, "r1"), ia,
                        Criteria(query="q", collection="ts-phish"), allowlist=_al(PHISH))
     assert [c.ts_title_venue for c in cands] == [None]
+
+
+# --- cli title proposal: the same names as gather (review round 1) ---------------
+
+def test_ts_title_proposal_uses_gather_names(tmp_path, monkeypatch):
+    """`fix --suggest-titles`/triage `[t]` build their canonical with gather's names:
+    setlist.fm by `entry.setlistfm`, and an in-list "JGB" banner (one of the entry's
+    creators, neither its name nor its setlistfm) dropped as an artist item. For a ts
+    show `show.artist` is the display name, so a cli that keyed on it would look up
+    "Jerry Garcia"; one that matched on the setlist.fm name alone would keep "JGB"."""
+    from types import SimpleNamespace
+
+    import llama.cli as cli
+    import llama.setlistfm as setlistfm_mod
+    import llama.stages.gather as gather_mod
+    from llama.jerrybase import artist_key
+    from llama.models import Overrides
+
+    md = _garcia_md()
+    md["metadata"]["description"] = ("Set 1\nJGB\nSugaree\nThey Love Each Other\n"
+                                     "Love in the Afternoon\nIt Ain't No Use\n")
+    al = _al(GARCIA.model_copy(update={"creators": [*GARCIA.creators, "JGB"]}))
+    cand = _cand("ts-jerry-garcia")
+    show = _gather(tmp_path, cand, md=copy.deepcopy(md), allowlist=al).show
+    assert show.artist == "Jerry Garcia"
+
+    client = _SetlistFM()
+    monkeypatch.setattr(setlistfm_mod, "make_client", lambda config: client)
+    built = []
+    real = gather_mod.build_canonical
+
+    def spy(*a, **k):
+        cb = real(*a, **k)
+        built.append(cb)
+        return cb
+
+    monkeypatch.setattr(gather_mod, "build_canonical", spy)
+    entry = SimpleNamespace(provenance=SimpleNamespace(candidate=cand), overrides=Overrides(),
+                            slug="ts-jerry-garcia-1982-06-24")
+    cfg = Config(root=tmp_path, jerrybase={"enabled": False})
+    cli._propose_titles_for_show(_IA(md), cfg, entry, show, allowlist=al)
+
+    assert client.calls == [("Jerry Garcia Band", G_DATE)]
+    titles = [i.title for i in built[0].setlist.items]
+    assert "Sugaree" in titles
+    assert not [t for t in titles if artist_key(t) == "jgb"]
