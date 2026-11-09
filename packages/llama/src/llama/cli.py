@@ -504,7 +504,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                                        force=force,
                                        allowlist=allowlist)
                 if not artists:
-                    typer.echo("no matching artists found - "
+                    typer.echo("no matching artists found"
+                               + ("" if allowlist else " on the LMA") + " - "
                                "try naming an artist or broadening the style", err=True)
                     # A clean stop, not a crash: unmarked, the run would read
                     # as incomplete and every `run resume --all` would re-run
@@ -5039,7 +5040,8 @@ def _rm_batch(config, ledger, sel, *, forget: bool, suppress: bool, yes: bool) -
     from llama.catalog import iter_shows, remove_show
     from llama.cli_select import HELD_NOTE, apply_selector, split_held
 
-    entries = apply_selector(iter_shows(config.root, ledger, Allowlist.from_config(config.taperssection)), sel)
+    allowlist = Allowlist.from_config(config.taperssection)
+    entries = apply_selector(iter_shows(config.root, ledger, allowlist), sel)
     kept, dropped = split_held(entries, sel)
     if dropped:
         typer.echo(HELD_NOTE.format(n=len(dropped)))
@@ -5051,7 +5053,7 @@ def _rm_batch(config, ledger, sel, *, forget: bool, suppress: bool, yes: bool) -
     for e in kept:
         try:
             lines = remove_show(e, ledger, forget=forget, suppress=suppress,
-                                allowlist=Allowlist.from_config(config.taperssection))
+                                allowlist=allowlist)
         except LlamaError as exc:
             typer.echo(f"FAILED {e.slug}: {exc}", err=True)
             continue
@@ -5229,7 +5231,7 @@ def _by_run_rollup(config, ledger) -> list[dict]:
     from llama.catalog import iter_shows
 
     by_run: dict[str, Counter] = {}
-    for e in iter_shows(config.root, ledger, Allowlist.from_config(config.taperssection)):
+    for e in iter_shows(config.root, ledger):
         if e.provenance:
             by_run.setdefault(e.provenance.run, Counter())[e.state] += 1
     runs_dir = config.root / "runs"
@@ -5497,13 +5499,12 @@ def profile_show(name: str = typer.Argument(...)):
     c = profile.criteria
     typer.echo(f"{profile.name}  count={profile.count}  human_gate={profile.human_gate}")
     typer.echo(f"query: {c.query}")
+    al = Allowlist.from_config(config.taperssection)
     if c.artists:
-        al = Allowlist.from_config(config.taperssection)
         typer.echo("pinned roster: " + ", ".join(display_label(al, a) for a in c.artists))
     else:
         typer.echo("no pinned roster")
     typer.echo("criteria:")
-    al = Allowlist.from_config(config.taperssection)
     typer.echo(f"  collection/artist: "
                f"{display_label(al, c.collection) if c.collection else '-'} / {c.artist or '-'}")
     typer.echo(f"  date range: {c.date_from or '-'} .. {c.date_to or '-'}")

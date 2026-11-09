@@ -3,7 +3,7 @@ from pathlib import Path
 
 from llama.artist_index import filter_artists, find_matching_artists, load_or_build
 from llama.models import Criteria
-from llama.taperssection import Allowlist
+from llama.taperssection import Allowlist, is_synthetic
 from llama.workspace import RunWorkspace, read_json, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -39,6 +39,7 @@ def run_discover(
     matched = find_matching_artists(provider, pool, _compose_query(criteria),
                                     max_results=max_artists)
     result = [{"identifier": a["identifier"], "title": a["title"]} for a in matched]
-    log.info("discover: %d artists matched", len(result))
+    where = "" if any(is_synthetic(a["identifier"]) for a in result) else " on the LMA"
+    log.info("discover: %d artists matched%s", len(result), where)
     write_artifact(ws.artists, result)
     return result

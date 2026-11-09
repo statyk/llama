@@ -26,6 +26,8 @@
       Checkpoint B (LIVE LLM, operator-approved spend only): 20 seeded era-stratified Phish shows through
       the real score_reviews provider in two batch orders; writes scorer.md. --dry-run builds and prints
       the plan and sample with no LLM call. Refuses --config/--workspace under ~/.llama.
+  python scripts/taperssection_probe.py venue [--n N] [--seed S] [--work DIR]
+      3(g): ts_measure.parse_title_venue over a seeded sample of Phish titles; prints a table.
   python scripts/taperssection_probe.py dump [--only 1,2] [--chars N]
       Labelling aid: the sample's recordings with full evidence text, classes hidden.
 `lineage` rewrites lineage.md whole: re-run `variant` and `precision` after it (the hand-written

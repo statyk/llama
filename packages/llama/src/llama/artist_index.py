@@ -405,13 +405,15 @@ TS_INVENTORY_NOTE = (
 def find_matching_artists(provider, artists: list[dict], query: str, max_results: int) -> list[dict]:
     """One inventory-in-context LLM call; identifiers joined back against the
     filtered index, so a hallucinated identifier can never reach the caller."""
-    with step("matching artists against the artist inventory (LLM)"):
+    has_ts = any(a.get("allowlisted") for a in artists)
+    with step("matching artists against the "
+              + ("artist" if has_ts else "LMA") + " inventory (LLM)"):
         result = run_json_task(
             provider, "find_artists", ArtistMatches,
             template=load_prompt("find_artists"),
             query=query, max_results=max_results,
             artist_table=render_artist_table(artists),
-            ts_note=TS_INVENTORY_NOTE if any(a.get("allowlisted") for a in artists) else "",
+            ts_note=TS_INVENTORY_NOTE if has_ts else "",
         )
     by_id = {a["identifier"]: a for a in artists}
     out: list[dict] = []

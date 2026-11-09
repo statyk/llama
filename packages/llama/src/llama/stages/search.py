@@ -143,7 +143,9 @@ def run_search(
         for artist in artists:
             Allowlist.for_candidate(allowlist, artist["identifier"])
         candidates: list[Candidate] = []
-        with step(f"searching {len(artists)} artists"):
+        lma_only = not any(is_synthetic(a["identifier"]) for a in artists)
+        with step(f"searching the LMA ({len(artists)} artists)" if lma_only
+                  else f"searching {len(artists)} artists"):
             for i, artist in enumerate(artists, 1):
                 ident = artist["identifier"]
                 label = (display_label(allowlist, ident) if is_synthetic(ident)
