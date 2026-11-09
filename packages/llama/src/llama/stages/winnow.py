@@ -140,6 +140,43 @@ def _has_songs(c: Candidate, criteria: Criteria, *, allowlist: Allowlist | None 
     )
 
 
+def build_payload_entry(c: Candidate, best, md: dict,
+                        ts_pct: dict[str, float | None]) -> dict:
+    """One show's scorer payload entry (reviews from `md`, the best recording's
+    metadata). A ts show also carries its download percentile and recordings."""
+    entry = {
+        "performance_id": c.performance_id,
+        "date": c.date,
+        "venue": c.venue,
+        "avg_rating": best.avg_rating,
+        "num_reviews": best.num_reviews,
+        "reviews": [
+            {"title": r.get("reviewtitle"), "stars": r.get("stars"),
+             "body": str(r.get("reviewbody") or "")[:1500]}
+            for r in md.get("reviews", [])[:10]
+        ],
+    }
+    if _is_ts(c):
+        entry["download_percentile"] = ts_pct.get(c.performance_id)
+        entry["recordings"] = [
+            {"identifier": r.identifier, "creator": r.creator, "title": r.title,
+             "description": (r.description or "")[:TS_DESCRIPTION_CHARS]}
+            for r in c.recordings
+        ]
+    return entry
+
+
+def score_batch(score_provider, batch: list[dict], ts_block: str,
+                soft_preferences: str | None) -> QualityBatch:
+    """One scorer call over a payload batch (`ts_block` is TS_PROMPT_BLOCK for a
+    Taper's Section batch, "" for an LMA batch)."""
+    return run_json_task(score_provider, "score_reviews", QualityBatch,
+                         template=load_prompt("score_reviews"),
+                         candidates_json=json.dumps(batch, indent=2),
+                         soft_preferences=soft_preferences or "(none)",
+                         ts_block=ts_block)
+
+
 def _passes_mechanical(c: Candidate, criteria: Criteria, *,
                        allowlist: Allowlist | None = None) -> bool:
     if not _is_ts(c):  # Taper's Section shows skip the review/rating floor
@@ -213,25 +250,8 @@ def run_winnow(
             detail(f"{i}/{len(survivors)}: {best.identifier}")
             md = ia.metadata(best.identifier)
             reviewed[c.performance_id] = best.identifier
-            entry = {
-                "performance_id": c.performance_id,
-                "date": c.date,
-                "venue": c.venue,
-                "avg_rating": best.avg_rating,
-                "num_reviews": best.num_reviews,
-                "reviews": [
-                    {"title": r.get("reviewtitle"), "stars": r.get("stars"),
-                     "body": str(r.get("reviewbody") or "")[:1500]}
-                    for r in md.get("reviews", [])[:10]
-                ],
-            }
+            entry = build_payload_entry(c, best, md, ts_pct)
             if _is_ts(c):
-                entry["download_percentile"] = ts_pct.get(c.performance_id)
-                entry["recordings"] = [
-                    {"identifier": r.identifier, "creator": r.creator, "title": r.title,
-                     "description": (r.description or "")[:TS_DESCRIPTION_CHARS]}
-                    for r in c.recordings
-                ]
                 ts_payload.append(entry)
             else:
                 payload.append(entry)
@@ -247,11 +267,8 @@ def run_winnow(
     with step(f"winnow: scoring reviews ({n_batches} batches)"):
         for bi, (batch, ts_block) in enumerate(batches, 1):
             detail(f"batch {bi}/{n_batches}")
-            result = run_json_task(score_provider, "score_reviews", QualityBatch,
-                                   template=load_prompt("score_reviews"),
-                                   candidates_json=json.dumps(batch, indent=2),
-                                   soft_preferences=criteria.soft_preferences or "(none)",
-                                   ts_block=ts_block)
+            result = score_batch(score_provider, batch, ts_block,
+                                 criteria.soft_preferences)
             for a in result.assessments:
                 a.reviewed_identifier = reviewed.get(a.performance_id, "")
                 if a.performance_id not in ts_pct:

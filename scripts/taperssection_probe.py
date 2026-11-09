@@ -22,6 +22,10 @@
       Coverage, the aud-only ship table and hand-label precision under the PRODUCT
       ts_rules.classify (after Task 2b); upserts the "Task 2b: product classifier after the
       ruling" section of lineage.md (appends it the first time).
+  python scripts/taperssection_probe.py score --config C --workspace W [--n 20] [--seed S] [--max-calls 8] [--dry-run] [--out F]
+      Checkpoint B (LIVE LLM, operator-approved spend only): 20 seeded era-stratified Phish shows through
+      the real score_reviews provider in two batch orders; writes scorer.md. --dry-run builds and prints
+      the plan and sample with no LLM call. Refuses --config/--workspace under ~/.llama.
   python scripts/taperssection_probe.py dump [--only 1,2] [--chars N]
       Labelling aid: the sample's recordings with full evidence text, classes hidden.
 `lineage` rewrites lineage.md whole: re-run `variant` and `precision` after it (the hand-written
@@ -42,7 +46,7 @@ from pathlib import Path
 from llama import jerrybase, ts_rules
 from llama.models import RecordingSummary
 from llama.scoring import lineage_class as today_class
-from llama.taperssection import norm_creator
+from llama.taperssection import artist_key, norm_creator
 from llama.ia_client import SCRAPE_URL, IAClient
 
 FIELDS = ["identifier", "creator", "addeddate", "source", "lineage", "downloads",
@@ -944,7 +948,214 @@ def cmd_venue(a) -> int:
     return 0
 
 
-def main(argv=None) -> int:
+SCORE_SEED = 20261109
+SCORE_BAND = 0.5
+
+
+def refuse_llama_home(path: str, what: str) -> Path:
+    """Resolve `path`; refuse it when it is (under) ~/.llama. The probe never reads or writes the live workspace."""
+    p = Path(path).expanduser().resolve()
+    root = (Path.home() / ".llama").resolve()
+    if p == root or root in p.parents:
+        raise SystemExit(f"refusing {what} {p}: under {root} (the probe never touches ~/.llama)")
+    return p
+
+
+def stratified_sample(cands: list, n: int, seed: int) -> list:
+    """n candidates across eras: date-sort, cut into n equal runs, one seeded pick per run
+    (the whole list when it has <= n). Deterministic given the seed; chronological order."""
+    cands = sorted(cands, key=lambda c: (c.date, c.performance_id))
+    if len(cands) <= n:
+        return cands
+    rng = random.Random(seed)
+    out = []
+    for i in range(n):
+        lo, hi = i * len(cands) // n, (i + 1) * len(cands) // n
+        out.append(cands[rng.randrange(lo, hi)])
+    return out
+
+
+def mixed_order(items: list, batch: int, seed: int) -> list:
+    """A seeded permutation whose batches share as little as possible with order A's batches
+    (best of 300 shuffles by the largest A-batch/B-batch overlap, stopping at <= batch // 2)."""
+    rng = random.Random(seed + 1)
+    a_batches = [set(items[i:i + batch]) for i in range(0, len(items), batch)]
+    best, best_overlap = list(items), None
+    for _ in range(300):
+        cand = list(items)
+        rng.shuffle(cand)
+        ov = max(len(set(cand[i:i + batch]) & ab) for i in range(0, len(cand), batch) for ab in a_batches)
+        if best_overlap is None or ov < best_overlap:
+            best, best_overlap = cand, ov
+        if ov <= max(1, batch // 2):
+            break
+    return best
+
+
+class _CallCap:
+    """Wraps a provider (or ladder): counts `complete` calls and raises BEFORE the one past the cap."""
+
+    def __init__(self, inner, counter: list, cap: int):
+        self._inner, self._counter, self._cap = inner, counter, cap
+
+    def complete(self, *args, **kwargs):
+        if self._counter[0] >= self._cap:
+            raise SystemExit(f"aborting: scorer call {self._counter[0] + 1} would exceed --max-calls {self._cap}")
+        self._counter[0] += 1
+        return self._inner.complete(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+
+def render_scorer_md(sample, pct, rates, scores, attribution, orders, *, floor, today, seed) -> str:
+    """scores/attribution: {"A": {pid: x}, "B": {pid: x}}. Pure: all inputs are plain data."""
+    from llama.stages.winnow import TS_NO_EVIDENCE_BASELINE
+
+    def fmt(v, spec=".1f"):
+        return "-" if v is None else format(v, spec)
+
+    def base(pid):
+        return TS_NO_EVIDENCE_BASELINE if pct.get(pid) is None else pct[pid] / 10
+
+    L = ["# Checkpoint B: scorer measurement", "",
+         f"{len(sample)} Phish shows (seeded era-stratified sample, seed {seed}), scored through the real "
+         f"`score_reviews` provider twice in two batch orders (A = chronological, B = seeded shuffle "
+         f"mixing batches). Run date {today}. Baseline = percentile/10, or {TS_NO_EVIDENCE_BASELINE} with no percentile. "
+         f"Floor (min_quality_score) = {floor}.", "",
+         "| date | identifier | percentile | baseline | score A | score B | |diff| | attribution A/B | notes |",
+         "|---|---|---|---|---|---|---|---|---|"]
+    diffs, within, tied = {}, 0, []
+    for c in sample:
+        pid = c.performance_id
+        a, b = scores["A"].get(pid), scores["B"].get(pid)
+        d = abs(a - b) if a is not None and b is not None else None
+        diffs[pid] = d
+        notes = []
+        if rates.get(pid) == 0:
+            tied.append(pid)
+            notes.append("percentile from tied zero rates")
+        if pct.get(pid) is None:
+            notes.append("no percentile")
+        got = [x for x in (a, b) if x is not None]
+        if got and all(abs(x - base(pid)) <= SCORE_BAND for x in got):
+            within += 1
+        L.append(f"| {c.date} | {c.recordings[0].identifier if c.recordings else pid} | {fmt(pct.get(pid))} | "
+                 f"{fmt(base(pid))} | {fmt(a)} | {fmt(b)} | {fmt(d)} | "
+                 f"{attribution['A'].get(pid) or '-'}/{attribution['B'].get(pid) or '-'} | {'; '.join(notes)} |")
+    L.append("")
+    allsc = []
+    for o in ("A", "B"):
+        vals = [scores[o][c.performance_id] for c in sample if scores[o].get(c.performance_id) is not None]
+        allsc += vals
+        n = sum(v >= floor for v in vals)
+        L.append(f"- Order {o}: {n}/{len(vals)} at or above {floor} ({100 * n / max(len(vals), 1):.0f}%)")
+    n = sum(v >= floor for v in allsc)
+    L.append(f"- Overall: {n}/{len(allsc)} at or above {floor} ({100 * n / max(len(allsc), 1):.0f}%)")
+    real = {k: v for k, v in diffs.items() if v is not None}
+    if real:
+        pid = max(real, key=lambda k: (real[k], k))
+        L.append(f"- Largest per-show difference between orders: {real[pid]:.1f} at {pid} "
+                 f"(A {fmt(scores['A'].get(pid))}, B {fmt(scores['B'].get(pid))})")
+    else:
+        L.append("- Largest per-show difference between orders: n/a (no show scored in both orders)")
+    L.append(f"- Shows with both scores within +/-{SCORE_BAND} of their baseline: {within}/{len(sample)} "
+             "(high = the scorer follows the baseline; low = it ignores it)")
+    L.append("- Shows whose percentile came from tied zero rates (tie-percentile caveat): "
+             + (", ".join(tied) if tied else "none"))
+    L += ["", "## Batches", ""]
+    for o in ("A", "B"):
+        for i in range(0, len(orders[o]), 5):
+            L.append(f"- {o}{i // 5 + 1}: " + ", ".join(p.split("/")[-1] for p in orders[o][i:i + 5]))
+    return "\n".join(L) + "\n"
+
+
+def cmd_score(a, ia=None, providers=None, today=None) -> int:
+    import math
+    from datetime import date as _date
+
+    from herder import render
+    from llama.config import load_config
+    from llama.models import Criteria
+    from llama.prompts import load_prompt
+    from llama.stages import winnow as W
+    from llama.stages.search import _search_one
+    from llama.taperssection import Allowlist
+
+    cfg_path = refuse_llama_home(a.config, "--config")
+    work = refuse_llama_home(a.workspace, "--workspace")
+    out = Path(a.out) if a.out else EVIDENCE / "scorer.md"
+    if not cfg_path.is_file():
+        raise SystemExit(f"--config {cfg_path} does not exist")
+    config = load_config(cfg_path)
+    allowlist = Allowlist.from_config(config.taperssection)
+    entry = next((e for e in allowlist.entries if norm_creator(e.name) == norm_creator("Phish")), None)
+    if entry is None:
+        raise SystemExit("the config's allowlist has no Phish entry")
+    key = artist_key(entry.name)
+    work.mkdir(parents=True, exist_ok=True)
+    today = today or _date.today()
+    if ia is None:
+        ia = IAClient(cache_dir=work / "ia-cache")
+    batch = a.batch_size
+    n_calls = 2 * math.ceil(a.n / batch)
+    print(f"planned scorer calls: ceil({a.n}/{batch}) x 2 = {n_calls} (--max-calls {a.max_calls})", file=sys.stderr)
+    if n_calls > a.max_calls:
+        print(f"refusing: {n_calls} planned calls exceed --max-calls {a.max_calls}", file=sys.stderr)
+        return 2
+
+    criteria = Criteria(query=f"Phish ({key})", collection=key)
+    cands = [c for c in _search_one(ia, key, criteria, allowlist, False)
+             if W._passes_mechanical(c, criteria, allowlist=allowlist)]
+    sample = stratified_sample(cands, a.n, a.seed)
+    rates, pct = W._ts_rates(ia, work, allowlist, sample, today)
+    entries = {}
+    for c in sample:
+        best = W._best_recording(c)
+        entries[c.performance_id] = W.build_payload_entry(c, best, ia.metadata(best.identifier), pct)
+    pids = [c.performance_id for c in sample]
+    orders = {"A": pids, "B": mixed_order(pids, batch, a.seed)}
+    batches = {o: [pids_[i:i + batch] for i in range(0, len(pids_), batch)] for o, pids_ in orders.items()}
+    print(f"sample ({len(sample)} of {len(cands)} candidates, seed {a.seed}):", file=sys.stderr)
+    for c in sample:
+        print(f"  {c.date} {c.performance_id} pct={pct.get(c.performance_id)}", file=sys.stderr)
+    for o in ("A", "B"):
+        for i, b in enumerate(batches[o], 1):
+            payload = [entries[p] for p in b]
+            prompt = render(load_prompt("score_reviews"), candidates_json=json.dumps(payload, indent=2),
+                            soft_preferences=criteria.soft_preferences or "(none)",
+                            ts_block=W.TS_PROMPT_BLOCK)
+            print(f"  batch {o}{i}: {', '.join(p.split('/')[-1] for p in b)} "
+                  f"({len(prompt)} prompt chars)", file=sys.stderr)
+    if a.dry_run:
+        print("dry run: no scorer call made", file=sys.stderr)
+        return 0
+
+    if providers is None:
+        from llama.pipeline import make_providers
+        providers = make_providers(config)
+    inner = providers["score_reviews"]
+    counter = [0]
+    prov = [_CallCap(p, counter, a.max_calls) for p in inner] if isinstance(inner, (list, tuple)) \
+        else _CallCap(inner, counter, a.max_calls)
+    scores = {"A": {}, "B": {}}
+    attribution = {"A": {}, "B": {}}
+    for o in ("A", "B"):
+        for b in batches[o]:
+            res = W.score_batch(prov, [entries[p] for p in b], W.TS_PROMPT_BLOCK, criteria.soft_preferences)
+            for x in res.assessments:
+                scores[o][x.performance_id] = x.quality_score
+                attribution[o][x.performance_id] = x.attribution
+    md = render_scorer_md(sample, pct, rates, scores, attribution, orders,
+                          floor=criteria.min_quality_score, today=today, seed=a.seed)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(md)
+    print(md)
+    print(f"scorer calls made: {counter[0]}; wrote {out}", file=sys.stderr)
+    return 0
+
+
+def main(argv=None, hooks: dict | None = None) -> int:
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
     f = sub.add_parser("fields")
@@ -965,7 +1176,18 @@ def main(argv=None) -> int:
         if n == "venue":
             x.add_argument("--n", type=int, default=100)
             x.add_argument("--seed", type=int, default=7)
+    sc = sub.add_parser("score")
+    sc.add_argument("--config", required=True, help="config.toml (allowlist + providers); never under ~/.llama")
+    sc.add_argument("--workspace", required=True, help="scratch dir for the IA cache and ts index; never under ~/.llama")
+    sc.add_argument("--n", type=int, default=20)
+    sc.add_argument("--batch-size", type=int, default=5)
+    sc.add_argument("--seed", type=int, default=SCORE_SEED)
+    sc.add_argument("--max-calls", type=int, default=8)
+    sc.add_argument("--dry-run", action="store_true")
+    sc.add_argument("--out", default=None)
     a = p.parse_args(argv)
+    if a.cmd == "score":
+        return cmd_score(a, **(hooks or {}))
     return {"fields": cmd_fields, "garcia": cmd_garcia, "lineage": cmd_lineage, "dates": cmd_dates,
             "variant": cmd_variant, "precision": cmd_precision, "product": cmd_product, "venue": cmd_venue, "dump": cmd_dump}[a.cmd](a)
 
