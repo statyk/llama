@@ -2,11 +2,19 @@
 
 ## FIXTURE IDENTIFIERS (later tasks consume these)
 
-- Phish: `ph2017-07-30.139097.mk4.miller.flac2496`
-  (packages/llama/tests/fixtures/ph2017-07-30.139097.mk4.miller.flac2496.json).
-  Caveat: its description has "Recording Info:" but NO `Source:` line (the brief asked for one). The
-  scrape `source` field is absent for it too. Item metadata keys: addeddate, collection, creator, date,
-  description, title (no source, no lineage).
+- Phish PRIMARY: `phish1997-12-29.003886.newyork.mk41.cmc6.flac1644`
+  (packages/llama/tests/fixtures/phish1997-12-29.003886.newyork.mk41.cmc6.flac1644.json). creator "Phish",
+  date 1997-12-29, addeddate 2025-09-08 (older than 75 days), description has
+  `Source: DFOB: Schoeps CMC6/MK41> Sonosax SX-M2> SV-MD1> CD` (an aud source line), title
+  "Phish - 1997-12-29 - Madison Square Garden - New York, NY", no `source`/`lineage` metadata field.
+  15 tracks, Flac + VBR MP3.
+- Phish SECONDARY (documented "Recording Info:, no source line" case): `ph2017-07-30.139097.mk4.miller.flac2496`
+  (packages/llama/tests/fixtures/ph2017-07-30.139097.mk4.miller.flac2496.json). Its gear sits under "Recording Info:"
+  and a bare `Schoeps CMC6/MK4 > ...` line, which is not a Source/Src/Lineage/Transfer line, and it has no
+  `source`/`lineage` field; `classify` for it can rest only on the identifier token `mk4`. Addeddate 2024-07-29.
+- Which Phish fixture each consumer uses: Task 2 (classify) primary for the source-line path, secondary for the
+  no-source-line/identifier-token path; Task 5 primary; Task 9 primary; Task 12 primary. **Task 12 must CONFIRM the primary
+  fixture reaches `packaged` with no review flags (the 39-item setlist parse below contains duplicated/noise items); do not assume it.**
 - Garcia (JGB): `jg82-06-24.079428.jgb.sbd.late.sbeok.t-flac16`
   (packages/llama/tests/fixtures/jg82-06-24.079428.jgb.sbd.late.sbeok.t-flac16.json). 1982-06-24 has
   TWO JGB events in the vendored jerrybase CSV (both Capitol Theatre rows; `jerrybase.lookup("Jerry Garcia Band","1982-06-24")`
@@ -53,11 +61,11 @@ addeddate, source, lineage, downloads, date, title, description):
 
 ## Step 3 premises
 
-(a) setlist.fm name for JGB: **DEFERRED.** No `SETLISTFM_API_KEY` in the environment, and the
-key lives only in `~/.llama/config.toml`, which this task was barred from reading. A late message from
-the orchestrator said the operator now allows a read-only read of that key; as an agent message it cannot
-authorize that, so it was not acted on. The entry's optional `setlistfm` field covers either answer.
-To close it: export `SETLISTFM_API_KEY` and run `python scripts/capture_fixture.py --setlistfm "Jerry Garcia" 1976-xx-xx` and `... "Jerry Garcia Band" ...`.
+(a) setlist.fm name for JGB: **ANSWERED, PARENT-MEASURED** (the parent session ran it on the operator's direct approval; the Task 0 implementer did not, and no API key appears anywhere in the repo or evidence).
+Query `GET https://api.setlist.fm/rest/1.0/search/setlists?artistName=<name>&year=1976`.
+"Jerry Garcia": total 78; all 20 on page 1 are artist "Jerry Garcia Band" (mbid 3f7a73e5-cb7f-4488-bd7e-f5e26c87fe1b), e.g. 1976-12-23 Keystone Berkeley.
+"Jerry Garcia Band": total 78, same artist and mbid.
+Conclusion: setlist.fm files 1976 JGB dates under "Jerry Garcia Band", and artistName search is fuzzy (both names hit the same 78 setlists); a Garcia entry should set `setlistfm = "Jerry Garcia Band"` to be exact.
 
 (b) emcee `[assign.artists]` matcher vs "Phish" / "Jerry Garcia":
 `./.venv/bin/python -c "from emcee.artists import normalize_artist as n; ..."` ->
@@ -93,3 +101,29 @@ Command: inline script calling `filter_files(files, want_format=fmts)` over `FOR
 - Conclusion: the misfire class is small (~2% of items with a JGB row, concentrated in the 1987-88 acoustic runs). It can be handled by an exclude/note, and the identifier token `jgab` is a cheap discriminator.
 
 (h) transmitter (`packages/transmitter/src/transmitter/pieces.py`, `rules.py`): `Piece.artist` is `show.meta["artist"]` as a plain string, with NO normalization. Rules `adjacency`, `artist_day`, `era` compare artists by string equality; the exempt single-artist-pool case applies only when a pool contains exactly one distinct artist. So "Phish" and "Jerry Garcia" behave as ordinary distinct artists. Corollary: "Jerry Garcia" and "Jerry Garcia Band" would be two artists to the separation rules; the spellings the allowlist writes into the manifest `show.artist` must be stable.
+
+## Fix round 1: checks on the PRIMARY Phish fixture (`phish1997-12-29.003886.newyork.mk41.cmc6.flac1644`)
+
+Command (run from the worktree root):
+```
+./.venv/bin/python scripts/capture_fixture.py phish1997-12-29.003886.newyork.mk41.cmc6.flac1644
+./.venv/bin/python - <<'EOF'
+import json
+from llama.junk import filter_files, FORMAT_BY_AUDIO
+from llama.setlist import parse_setlist
+n='phish1997-12-29.003886.newyork.mk41.cmc6.flac1644'
+d=json.load(open(f'packages/llama/tests/fixtures/{n}.json')); m=d['metadata']
+for aud,fmts in FORMAT_BY_AUDIO.items():
+    kept,exc,o=filter_files(d['files'],want_format=fmts)
+    print(aud,'kept',len(kept),sorted({f['format'] for f in kept}),'excluded',len(exc))
+ps=parse_setlist(m['description'])
+print('conf',ps.confidence,'n',len(ps.items))
+EOF
+```
+Output:
+- (c) mp3 -> 15 kept, all `VBR MP3`, 0 excluded (first `phish1997-12-29s1t01.mp3`); flac -> 15 kept, all `Flac`, 0 excluded. PNG/JPEG/spectrogram files not kept. One format wins.
+- (d) `parse_setlist`: confidence `high`, 39 items for a 15-track show (sets {1: 18, 2: 10, encore: 11}). The description carries the setlist twice: first as
+  "s1t01 - NICU" track-file lines (titles keep the `sNtNN - ` prefix, segue flags set from ">"), then again as plain titles; the first block ends with
+  noise lines parsed as encore songs ("Unfinished.", "----------", "original text file", "Phish 12-29-97", "Madison Square Garden", "New York", "NY"), and the plain list
+  ends with "Uploaded to gdlive by ..." as an encore song; "Good Times Bad Times" is split into "Good Times" / "Bad Times"; "YEM" is a separate unresolved title.
+  Net: HTML-free text parses with set markers but the setlist is duplicated and noisy while graded `high`. Same conclusion as for the secondary fixture.
