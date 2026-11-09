@@ -28,3 +28,12 @@ def test_classify_variant_reads_inline_source_and_restores_source_lines():
     assert ts_rules.classify(rec) == "sbd"
     assert classify_variant(rec) == "sbd"
     assert ts_rules.source_lines is not source_lines_variant
+
+
+def test_precision_stats_counts_false_aud_and_unknowns():
+    from taperssection_probe import precision_stats
+    T = {"a": "aud", "b": "sbd", "c": "aud", "d": "fm", "e": "unknown"}
+    M = {"a": "aud", "b": "aud", "c": "sbd", "d": "unknown", "e": "unknown"}
+    s = precision_stats(M, T)
+    assert s["false_aud"] == ["b"] and s["false_non"] == ["c"]
+    assert s["unk_non"] == ["d"] and s["recall"] == (1, 2)

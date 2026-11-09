@@ -2548,3 +2548,83 @@ Recall misses (not precision; for Task 2b if wanted). The 51 truly-aud tapes the
 - **Date drop (section iv).** `date_disagrees` drops 168 of 11,131 recordings (1.5%), touches 137 dates and empties 95 (5.1%). The sample has 3 dates whose only recordings are of another date (2025-09-06, 2016-10-13, 1992-01-01); the check is meant to drop these.
 - **Decisive fact for (a) vs (b).** Of the tapes still unknown, 1 of 126 under `classify` (0.8%, 95% upper bound 4.3%) and 1 of 56 under the variant (1.8%, upper bound 9.6%) is truly non-aud. That one is a CMT DSS satellite broadcast. Another 4 are truly undeterminable (1985 Goddard, an anonymous 1994 set): 3 tapes on one date, plus 1 on a date that also has true aud tapes. Counting those as not aud gives 5/126 = 4.0% and 5/56 = 8.9%. The rest are true aud (121/126; 51/56). Per date under rule (b), the 50 sampled dates come out as: 43 ship clean, 2 ship with a non-aud candidate beside true aud tapes (1998-10-03 broadcast, 1994-04-08 anonymous), 1 ships wrongly (1985-11-23, all undeterminable) and 4 have no allowed tape (the variant also forbids 1994-05-28, whose only aud tape it calls sbd). Rule (a) holds 18 dates, 17 of which have true aud tapes. The unknowns cluster by date and the sample is small, so treat the rates as indicative.
 - **Bigger risk than (a)/(b).** If the in-line fix ships without lexicon changes, false-non-aud becomes the dominant error. Corpus-wide that means 219 `patch`-only sbd calls, an estimated 80-100 board-as-position calls and 84 audience-mic "matrix" calls. These tapes are wrongly forbidden, never wrongly shipped. Task 2b cases 1-4 above address it.
+
+## Operator ruling (Checkpoint A)
+
+Operator, 2026-11-09 ~11:18 EST, verbatim: **"all as recommended"**. The recommendations it adopts, as relayed to Task 2b:
+
+- (A) Rule (a): still-unknown tapes hold. `RULE = "a"`; `test_rule_is_operator_ruling` asserts it.
+- (B) Adopt the in-line-label source_lines: split collapsed scrape text (descriptions served by the archive.org scrape with newlines/tags collapsed) at in-line `Source:`/`Lineage:`/`Transfer:` labels (and the variant's close forms: Src, Sources, Source info, Transfers), as a product change in `source_lines`. Existing line-based behaviour for descriptions WITH line breaks must keep working. Bound segments sensibly (stop at the next `Label:`-shaped token, cap length) and add a test for the overrun case from the sample.
+- (C) Lexicon fixes, each with an acceptance case taken from the hand-labelled sample:
+  - `patch`/`patched` reads sbd ONLY with board context (e.g. board/sbd/soundboard/console nearby in the same field); "Samplitude (patch, fades)" / "Patch DAT(m) provided by" style must not read sbd.
+  - board/SBD after a position word reads as a POSITION, not a source ("20 ft behind the board", "behind soundboard", "in sbd b00th", "right of SBD", "@SBD" in a taper-section line), i.e. does not produce sbd; with a mic present it reads aud.
+  - aud-rig "matrix" reads aud: Neumann `MTX-191` (an M/S box) and a mix of two audience rigs ("AKG 414/AT 4031 Matrix", `AKGmatrix`, `DPAmatrix`); matrix only when board+audience are both indicated.
+  - add broadcast words (DSS, DishNetwork, satellite, ... as the sample shows) -> fm.
+- (D) Labelling conventions: broadcast = fm; a board tape with aud fills = sbd; an aud master with an SBD patch = aud.
+
+### What Task 2b changed in `ts_rules` (hand-written)
+
+Acceptance cases: `packages/llama/tests/test_ts_rules.py`, the "Task 2b" block (each quotes the sample text with its identifier).
+
+- **Reader (B).** A description with no line break is split at in-line `Source(s)( info/information)`, `Src`, `Lineage`, `Transfer(s)` labels. A segment ends at the first of: the next in-line source label, the next one-word `Label:` token (not a URL), a setlist start (`s1t01`/`d1t01`, `Set 1`/`Set I`/`Set One`, `Disc 1`, `Encore`, `***Setlist`, `1. Title`, `01 - `; not within 3 chars of the label, not after `(`), or 200 chars. A label preceded by `following`, `patch(ed)`, `fill(s)`, `filler` or `splice(d)` is a fill or splice source and is skipped (item 5: `phish1994-05-28.089594`'s "the following source: SBD > DAT"). Descriptions with line breaks keep the line-based reading unchanged.
+- **patch (C).** `patch`/`patched` no longer reads sbd alone; it does with `sbd`/`dsbd`/`soundboard`/`board`/`console`/`desk` in the same field. The pre-2b acceptance case `Transfer: DAT (patch master)` therefore moved from sbd to unknown (ruling (C)).
+- **Board as position (C).** `behind`, `in front of`/`front of`, `near`, `beside`, `next to`, `above`, `inside`, `at`, `@`, and `side/sides/corner/right/left/rear/back/front/center of` before `(the) sbd/soundboard/sound board/board`, and `sbd/board` before `booth/b00th/rail/riser/area/platform/tower/cage`, are blanked before tokenizing: no sbd marker; the mic chain decides.
+- **Matrix (C).** A matrix word (`matrix`, `mtx`, or a compound ending in `matrix`: `akgmatrix`, `dpamatrix`, `dhaudmatrix`, whose prefix counts as evidence) reads `matrix` only with an sbd, fm or webcast marker, or with no audience evidence at all (a bare `mtx` identifier keeps the convention); with audience evidence and no board it reads aud. `MTX-191...` is the Neumann RSM-191's M/S box and counts as Neumann (mic) evidence, never as a matrix.
+- **Broadcast (C).** fm words now include `broadcast(s)`, `dishnetwork`, `dish network`, `simulcast`; `dss` and `satellite` read fm only when the tape has no audience evidence (corpus: "Toshiba Satellite" laptops and "Schoeps MK41 > DSS > Tascam" are aud tapes). `radio` is not added (Radio Shack mics).
+- **Two additions beyond the listed fixes, both making the classifier more conservative (towards non-aud):** `dsbd` is an sbd word (corpus: `Matrix(DSBD+Elektra AUD)` at phish1992-12-31.000500 otherwise read aud under the matrix fix, a false aud), and the phrase `band source`/`band feed` reads sbd (phish2000-06-14/15: "Band Source AKG C1000s (direct from Phish's mic source)", otherwise aud).
+
+Corpus review of the moves (product vs the recorded variant, 11,133 recordings): sbd->aud 304 and matrix->aud 83 were read through for board/feed/DSBD/direct/mixer words (128 flagged lines); all but three were a board-as-position, patch-as-edit, M/S box or audience-rig mix. Two (the DSBD and band-source cases above) are fixed by the two additions. One stays aud and is genuinely ambiguous: phish2000-06-14.004147 ("Source info: AKG C1000s > DAT (direct from Phish's mic source) It also could [be] a matrix that's mostly AUD"), which the variant read as matrix. Known residue in the non-aud direction (wrongly forbidden, never wrongly shipped): an aud master whose source line names a DSBD patch in-line ("AKG 460/CK61 ... DSBD [Rift opener only]", phish1994-07-05.001209) reads sbd; ruling (D) says aud, but no lexicon rule separates it from a board tape.
+
+## Task 2b: product classifier after the ruling
+
+`./.venv/bin/python scripts/taperssection_probe.py product` (cached scrape; no re-scrape). Classifier: the product `ts_rules.classify` after the Checkpoint A ruling (B: in-line source labels, segments bounded at the next label, a setlist start or 200 chars, fill sources skipped; C: patch needs board context, board-as-position, matrix needs a board, broadcast words read fm). The variant column is the probe-only `classify_variant` as recorded above at c2ac9c1c.
+
+- recordings with at least one source line: 8317/11133 = 74.7%
+- recording classes: product {'unknown': 2371, 'aud': 7785, 'fm': 72, 'sbd': 819, 'matrix': 83, 'webcast': 3}; variant {'unknown': 2345, 'matrix': 163, 'aud': 7406, 'sbd': 1150, 'fm': 65, 'webcast': 4}
+
+### Coverage (ii)
+
+| measure | product | variant (recorded) |
+|---|---|---|
+| of the 1237 dates unknown today, placed (any class) | 1114/1237 = 90.1% | 1113/1237 = 90.0% |
+| of those, placed aud | 1094/1237 = 88.4% | 1077/1237 = 87.1% |
+| dates still all-unknown | 123/1881 = 6.5% | 124/1881 = 6.6% |
+
+### Aud-only entry, ship status per date (1881 dates; aud / unknown-hold / no-allowed)
+
+Rule (a) is the ruling; rule (b) rows are for comparison only.
+
+| scenario | product | variant (recorded) |
+|---|---|---|
+| **rule (a), after date check** | **1422 / 151 / 308** | 1399 / 165 / 317 |
+| rule (a), before date check | 1489 / 177 / 215 | 1465 / 191 / 225 |
+| rule (b), after date check | 1573 / 0 / 308 | 1564 / 0 / 317 |
+| rule (b), before date check | 1666 / 0 / 215 | 1656 / 0 / 225 |
+
+### Precision against the hand labels (255 recordings, 50 dates)
+
+| measure | product | variant (recorded) |
+|---|---|---|
+| **false-aud** (says aud, label non-aud) | **0 of 166** | 0 of 152 |
+| **false-non-aud** (says sbd/matrix/fm/webcast, label aud) | **0 of 34** | 14 of 47 |
+| non-aud class wrong within non-aud | 3 | 3 |
+| aud recall | 166/217 = 76.5% | 152/217 = 70.0% |
+| placed (not unknown) | 200/255 = 78.4% | 199/255 = 78.0% |
+| **still-unknown** | **55; truly non-aud 0/55 = 0.0%; truly aud 51; undeterminable 4** | 56; truly non-aud 1/56 = 1.8%; truly aud 51; undeterminable 4 |
+| sampled dates, rule (a): ships clean / mixed / wrongly / holds (has-aud) / holds (no-aud) / no-allowed (has-aud) / no-allowed (no-aud) | 40 / 0 / 0 / 5 / 1 / 0 / 4 | 37 / 0 / 0 / 7 / 1 / 1 / 4 |
+
+Confusion, product (rows) vs label (columns):
+
+| product \ label | aud | sbd | matrix | fm | webcast | unknown |
+|---|---|---|---|---|---|---|
+| aud | 166 | 0 | 0 | 0 | 0 | 0 |
+| sbd | 0 | 26 | 1 | 2 | 0 | 0 |
+| matrix | 0 | 0 | 2 | 0 | 0 | 0 |
+| fm | 0 | 0 | 0 | 3 | 0 | 0 |
+| unknown | 51 | 0 | 0 | 0 | 0 | 4 |
+
+- false-aud: none
+- false-non-aud: none
+- non-aud class wrong: phish1998-10-03.015186.tinleypark.sbd.flac1644 [sbd vs fm: DishNetwork broadcast (no Source: label); broadcast read as fm]; phish1991-03-16.133702.breckenridge.sbd.flac1648 [sbd vs matrix: Audience & Soundboard Multitrack mix (identifier says sbd)]; phish1994-06-11.001354.morrison.sbd.flac1644 [sbd vs fm: DSB FM Broadcast (identifier says sbd)]
+- still-unknown, truly non-aud: none
+- non-clean sampled dates under rule (a): none

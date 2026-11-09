@@ -422,6 +422,9 @@ def test_per_set_source_annotations_do_not_end_a_segment():
     # phish2009-11-01.102339.indio.akg460.jbanyai.flac1644
     assert _cls(description="Phish Indio, CA 2009-11-01 Source: (Set 1) AKG c460b|a60m|ck3 &gt; Segue "
                 "Dogstar XLRs &gt; Fostex FR-2LE (24bit/48khz) Transfer: CF Card") == "aud"
+    # phish2024-12-29.169559.newyork.dpa4018.kutik.flac2448 ("(Set1: OTS ...)" mid-chain)
+    assert _cls(description="PHISH Source: DPA4018 (Set1: OTS / 16\" LOC / 9' up)(Set2: DFC / 11' up) "
+                "&gt; Edirol R4Pro (Oade preamp mod) @ 24/96 Recorded by Mike Kutik") == "aud"
     # phish1998-12-30.084945.newyork.mk4v.teddy.crow.flac1644
     assert source_lines("Phish source: set 1 = (FOB) Schoeps mk4v &gt; kcy transfer: DA-20")[0] == (
         "source: set 1 = (FOB) Schoeps mk4v > kcy")

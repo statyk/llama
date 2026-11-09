@@ -18,6 +18,10 @@
   python scripts/taperssection_probe.py precision [--work DIR]
       Score classify and classify_variant against lineage-labels.csv (hand labels of the 50-date
       sample), fill the label: lines in (iii) and upsert the "Precision (...)" section.
+  python scripts/taperssection_probe.py product [--work DIR]
+      Coverage, the aud-only ship table and hand-label precision under the PRODUCT
+      ts_rules.classify (after Task 2b); upserts the "Task 2b: product classifier after the
+      ruling" section of lineage.md (appends it the first time).
   python scripts/taperssection_probe.py dump [--only 1,2] [--chars N]
       Labelling aid: the sample's recordings with full evidence text, classes hidden.
 `lineage` rewrites lineage.md whole: re-run `variant` and `precision` after it (the hand-written
@@ -772,6 +776,140 @@ def cmd_precision(a) -> int:
     return 0
 
 
+
+# ------------------------------------------------- product: the classifier after the 2b ruling
+PRODUCT_HEADING = "Task 2b: product classifier after the ruling"
+# The probe variant's numbers as recorded in lineage.md ("Variant: ..." and "Precision (...)"),
+# measured at c2ac9c1c, before Task 2b changed ts_rules.
+VARIANT_RECORDED = {
+    "recs": "{'unknown': 2345, 'matrix': 163, 'aud': 7406, 'sbd': 1150, 'fm': 65, 'webcast': 4}",
+    "placed": "1113/1237 = 90.0%", "placed_aud": "1077/1237 = 87.1%", "all_unknown": "124/1881 = 6.6%",
+    "a_before": "1465 / 191 / 225", "a_after": "1399 / 165 / 317",
+    "b_before": "1656 / 0 / 225", "b_after": "1564 / 0 / 317",
+    "false_aud": "0 of 152", "false_non_aud": "14 of 47", "wrong_non": "3",
+    "aud_recall": "152/217 = 70.0%", "placed_sample": "199/255 = 78.0%",
+    "unk": "56; truly non-aud 1/56 = 1.8%; truly aud 51; undeterminable 4",
+    "dates_a": "37 / 0 / 0 / 7 / 1 / 1 / 4",
+}
+
+
+def precision_stats(M: dict, T: dict) -> dict:
+    """Scores classifier map M against hand labels T (identifier -> class)."""
+    from collections import Counter
+    said_aud = [i for i in T if M[i] == "aud"]
+    said_non = [i for i in T if M[i] in ("sbd", "matrix", "fm", "webcast")]
+    unk = [i for i in T if M[i] == "unknown"]
+    unk_t = Counter(T[i] for i in unk)
+    true_aud = [i for i in T if T[i] == "aud"]
+    return {
+        "conf": Counter((M[i], T[i]) for i in T),
+        "said_aud": said_aud,
+        "false_aud": [i for i in said_aud if T[i] != "aud"],
+        "said_non": said_non,
+        "false_non": [i for i in said_non if T[i] == "aud"],
+        "wrong_non": [i for i in said_non if T[i] not in ("aud", M[i])],
+        "unk": unk,
+        "unk_t": unk_t,
+        "unk_non": [i for i in unk if T[i] not in ("aud", "unknown")],
+        "recall": (sum(1 for i in true_aud if M[i] == "aud"), len(true_aud)),
+    }
+
+
+def date_outcomes(sample, g, M: dict, T: dict, rule: str = "a"):
+    """Per sampled date, aud-only entry, before the date check: counts and non-clean details."""
+    from collections import Counter
+    cnt, detail = Counter(), []
+    for d in sample:
+        ids = [r.identifier for r in g[d]]
+        truth = "has-aud" if any(T[i] == "aud" for i in ids) else "no-aud"
+        st = ship_status([M[i] for i in ids], rule)
+        if st == "aud":
+            as_aud = [i for i in ids if M[i] == "aud" or (rule == "b" and M[i] == "unknown")]
+            good = [i for i in as_aud if T[i] == "aud"]
+            k = "clean" if len(good) == len(as_aud) else ("mixed" if good else "wrong")
+            if k != "clean":
+                detail.append(f"{d}: ships {k}")
+            cnt[k] += 1
+        elif st == "unknown-hold":
+            cnt["hold-" + truth] += 1
+        else:
+            cnt["none-" + truth] += 1
+            if truth == "has-aud":
+                detail.append(f"{d}: no-allowed but truth has aud: "
+                              + ", ".join(f"{i} [{M[i]}]" for i in ids if T[i] == "aud"))
+    return cnt, detail
+
+
+def cmd_product(a) -> int:
+    """Coverage, ship table and hand-label precision under the PRODUCT ts_rules.classify."""
+    from collections import Counter
+    _, recs, g = load_phish(Path(a.work))
+    T = {r.identifier: today_of(r) for r in recs}
+    P = {r.identifier: ts_rules.classify(r) for r in recs}
+    DD = {r.identifier: ts_rules.date_disagrees(r) for r in recs}
+    cov, ship = coverage_tables(g, T, P, DD)
+    nd = len(g)
+    pct = lambda n, d: f"{n}/{d} = {100 * n / max(d, 1):.1f}%"
+    f3 = lambda c: f"{c['aud']} / {c['unknown-hold']} / {c['no-allowed']}"
+    nsl = sum(1 for r in recs if ts_rules.source_lines(r.description))
+    lab = {row["identifier"]: (row["label"], row["note"]) for row in csv.DictReader(open(LABELS))}
+    sample = random.Random(SEED).sample(sorted(g), min(50, len(g)))
+    srecs = [r for d in sample for r in sorted(g[d], key=lambda r: r.identifier)]
+    L = {r.identifier: lab[r.identifier][0] for r in srecs}
+    S = precision_stats({i: P[i] for i in L}, L)
+    n = len(L)
+    V = VARIANT_RECORDED
+    cnt, detail = date_outcomes(sample, g, P, L, "a")
+    out = [
+        "`./.venv/bin/python scripts/taperssection_probe.py product` (cached scrape; no re-scrape). "
+        "Classifier: the product `ts_rules.classify` after the Checkpoint A ruling (B: in-line source "
+        "labels, segments bounded at the next label, a setlist start or 200 chars, fill sources skipped; "
+        "C: patch needs board context, board-as-position, matrix needs a board, broadcast words read fm). "
+        "The variant column is the probe-only `classify_variant` as recorded above at c2ac9c1c.\n",
+        f"- recordings with at least one source line: {pct(nsl, len(recs))}",
+        f"- recording classes: product {dict(Counter(P.values()))}; variant {V['recs']}\n",
+        "### Coverage (ii)\n",
+        "| measure | product | variant (recorded) |", "|---|---|---|",
+        f"| of the {cov['unk_today']} dates unknown today, placed (any class) | {pct(cov['placed'], cov['unk_today'])} | {V['placed']} |",
+        f"| of those, placed aud | {pct(cov['placed_aud'], cov['unk_today'])} | {V['placed_aud']} |",
+        f"| dates still all-unknown | {pct(cov['all_unknown'], nd)} | {V['all_unknown']} |\n",
+        f"### Aud-only entry, ship status per date ({nd} dates; aud / unknown-hold / no-allowed)\n",
+        "Rule (a) is the ruling; rule (b) rows are for comparison only.\n",
+        "| scenario | product | variant (recorded) |", "|---|---|---|",
+        f"| **rule (a), after date check** | **{f3(ship['rule (a), after date check'])}** | {V['a_after']} |",
+        f"| rule (a), before date check | {f3(ship['rule (a), before date check'])} | {V['a_before']} |",
+        f"| rule (b), after date check | {f3(ship['rule (b), after date check'])} | {V['b_after']} |",
+        f"| rule (b), before date check | {f3(ship['rule (b), before date check'])} | {V['b_before']} |\n",
+        f"### Precision against the hand labels ({n} recordings, 50 dates)\n",
+        "| measure | product | variant (recorded) |", "|---|---|---|",
+        f"| **false-aud** (says aud, label non-aud) | **{len(S['false_aud'])} of {len(S['said_aud'])}** | {V['false_aud']} |",
+        f"| **false-non-aud** (says sbd/matrix/fm/webcast, label aud) | **{len(S['false_non'])} of {len(S['said_non'])}** | {V['false_non_aud']} |",
+        f"| non-aud class wrong within non-aud | {len(S['wrong_non'])} | {V['wrong_non']} |",
+        f"| aud recall | {pct(*S['recall'])} | {V['aud_recall']} |",
+        f"| placed (not unknown) | {pct(n - len(S['unk']), n)} | {V['placed_sample']} |",
+        f"| **still-unknown** | **{len(S['unk'])}; truly non-aud {pct(len(S['unk_non']), len(S['unk']))}; "
+        f"truly aud {S['unk_t']['aud']}; undeterminable {S['unk_t']['unknown']}** | {V['unk']} |",
+        f"| sampled dates, rule (a): ships clean / mixed / wrongly / holds (has-aud) / holds (no-aud) / "
+        f"no-allowed (has-aud) / no-allowed (no-aud) | {cnt['clean']} / {cnt['mixed']} / {cnt['wrong']} / "
+        f"{cnt['hold-has-aud']} / {cnt['hold-no-aud']} / {cnt['none-has-aud']} / {cnt['none-no-aud']} | {V['dates_a']} |\n",
+        "Confusion, product (rows) vs label (columns):\n",
+        "| product \\ label | " + " | ".join(CLASSES) + " |", "|---" * (len(CLASSES) + 1) + "|",
+    ]
+    for c in CLASSES:
+        row = [S["conf"][(c, t)] for t in CLASSES]
+        if sum(row):
+            out.append(f"| {c} | " + " | ".join(str(x) for x in row) + " |")
+    out.append("")
+    for name, ids in (("false-aud", S["false_aud"]), ("false-non-aud", S["false_non"]),
+                      ("non-aud class wrong", S["wrong_non"]), ("still-unknown, truly non-aud", S["unk_non"])):
+        out.append(f"- {name}: " + ("; ".join(f"{i} [{P[i]} vs {L[i]}: {lab[i][1]}]" for i in ids) or "none"))
+    out.append("- non-clean sampled dates under rule (a): " + ("; ".join(detail) or "none"))
+    md = (EVIDENCE / "lineage.md").read_text()
+    (EVIDENCE / "lineage.md").write_text(upsert_section(md, PRODUCT_HEADING, "\n".join(out)))
+    print("\n".join(out))
+    return 0
+
+
 def cmd_dates(a) -> int:
     work = Path(a.work)
     rows = ["| artist | exact-creator items | dated | date_disagrees | rate | dates | dates emptied |",
@@ -821,7 +959,7 @@ def main(argv=None) -> int:
     dm.add_argument("--work", default=str(DEFAULT_WORK))
     dm.add_argument("--only", default="")
     dm.add_argument("--chars", type=int, default=900)
-    for n in ("lineage", "dates", "variant", "precision", "venue"):
+    for n in ("lineage", "dates", "variant", "precision", "venue", "product"):
         x = sub.add_parser(n)
         x.add_argument("--work", default=str(DEFAULT_WORK))
         if n == "venue":
@@ -829,7 +967,7 @@ def main(argv=None) -> int:
             x.add_argument("--seed", type=int, default=7)
     a = p.parse_args(argv)
     return {"fields": cmd_fields, "garcia": cmd_garcia, "lineage": cmd_lineage, "dates": cmd_dates,
-            "variant": cmd_variant, "precision": cmd_precision, "venue": cmd_venue, "dump": cmd_dump}[a.cmd](a)
+            "variant": cmd_variant, "precision": cmd_precision, "product": cmd_product, "venue": cmd_venue, "dump": cmd_dump}[a.cmd](a)
 
 
 if __name__ == "__main__":
