@@ -6,7 +6,7 @@ from llama.prompts import load_prompt
 
 EXPECTED = {
     "interpret": {"query"},
-    "score_reviews": {"candidates_json", "soft_preferences"},
+    "score_reviews": {"candidates_json", "soft_preferences", "ts_block"},
     "light_research": {"artist", "date", "venue"},
     "extract_setlist": {"description"},
     "deep_research": {"artist", "date", "venue", "dossier", "setlist"},

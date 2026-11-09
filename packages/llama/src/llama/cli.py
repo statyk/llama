@@ -529,7 +529,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
                                    library_ids=library_performance_ids(config.root),
                                    shortlist_size=max(12, count),
-                                   max_metadata_fetch=config.winnow.max_metadata_fetch, force=force)
+                                   max_metadata_fetch=config.winnow.max_metadata_fetch, force=force,
+                                   cache_dir=config.root / "cache", allowlist=allowlist)
             break
         except RateLimited as exc:
             # BEFORE any `except HerderError`: RateLimited subclasses it, and the

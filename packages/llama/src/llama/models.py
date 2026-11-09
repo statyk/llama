@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -80,6 +82,12 @@ class QualityAssessment(BaseModel):
     recording_complaints: list[str] = Field(default_factory=list)
     rationale: str
     reviewed_identifier: str = ""  # set by winnow, not the LLM
+    # Taper's Section shows only: the scorer's misattribution verdict (is this
+    # the named artist, or a tribute/cover/mislabel?). None when the scorer
+    # omitted it, and always None on LMA shows; gather treats None on a ts show
+    # as suspect (Task 10).
+    attribution: Literal["ok", "suspect"] | None = None
+    attribution_reason: str | None = None
 
 
 class QualityBatch(BaseModel):
