@@ -389,3 +389,71 @@ def test_profile_artists_set_pins_ts_key(tmp_path, monkeypatch):
     result = runner.invoke(cli.app, [*cfg, "profile", "artists", "jg", "--set", "Jerry Garcia"])
     assert result.exit_code == 0, result.output
     assert load_profile(tmp_path, "jg").criteria.artists == ["ts-jerry-garcia"]
+
+
+# ---- fix round 1: a failed ts build never takes down LMA paths; truncation is suspect ----
+
+
+class FlakyTsIA(FakeIA):
+    """LMA queries answer; every taperssection query comes back empty."""
+
+    def scrape(self, query, fields, count=10000):
+        if "taperssection" in query:
+            self.queries.append((query, tuple(fields)))
+            return []
+        return super().scrape(query, fields, count)
+
+
+def test_load_or_build_survives_failed_ts_build(tmp_path, caplog):
+    today = load_or_build(FakeIA(), tmp_path / "a")
+    ia = FlakyTsIA()
+    got = load_or_build(ia, tmp_path / "b", allowlist=_al(_entry("Jerry Garcia")))
+    assert got == today
+    assert ia.ts_queries()  # it tried
+    assert not (tmp_path / "b" / TS_INDEX_FILENAME).exists()
+    assert "Jerry Garcia" in caplog.text and "taperssection" in caplog.text
+
+
+def test_load_ts_index_itself_still_raises(tmp_path):
+    with pytest.raises(LlamaError, match="Jerry Garcia"):
+        load_ts_index(FlakyTsIA(), tmp_path, _al(_entry("Jerry Garcia")))
+
+
+def test_resolve_missing_ts_row_mentions_failed_index():
+    with pytest.raises(ArtistResolutionError, match="could not be built"):
+        resolve_artists(LMA_INDEX, ["Jerry Garcia"], _al(_entry("Jerry Garcia")))
+
+
+def _flaky_cli(tmp_path, monkeypatch):
+    cfg = _cli(tmp_path, monkeypatch)
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: FlakyTsIA())
+    save_profile(tmp_path, Profile(name="p", criteria=Criteria(query="x")))
+    return cfg
+
+
+def test_profile_set_lma_artist_survives_failed_ts_build(tmp_path, monkeypatch):
+    cfg = _flaky_cli(tmp_path, monkeypatch)
+    result = runner.invoke(cli.app, [*cfg, "profile", "artists", "p", "--set", "Grateful Dead"])
+    assert result.exit_code == 0, result.output
+    assert load_profile(tmp_path, "p").criteria.artists == ["GratefulDead"]
+
+
+def test_profile_set_ts_artist_with_failed_ts_build_raises_naming_key(tmp_path, monkeypatch):
+    cfg = _flaky_cli(tmp_path, monkeypatch)
+    result = runner.invoke(cli.app, [*cfg, "profile", "artists", "p", "--set", "Jerry Garcia"])
+    assert result.exit_code != 0
+    assert "ts-jerry-garcia" in str(result.exception) + result.output
+    assert load_profile(tmp_path, "p").criteria.artists == []
+
+
+def test_full_page_multiple_is_suspect_truncation():
+    # a bad later page ends the cursor walk at exactly a page multiple
+    page = artist_index.TS_SCRAPE_PAGE
+    full = [{"identifier": f"pj{i}", "creator": "Pearl Jam", "date": "2000-08-03",
+             "year": "2000", "downloads": 1, "addeddate": "2020-01-01"} for i in range(page)]
+    ia = FakeIA(ts_pages={"Pearl Jam": [full]})
+    data = build_ts_index(ia, _al(_entry("Pearl Jam")))
+    assert len(ia.ts_queries()) == 2  # retried
+    assert data["artists"][0]["recordings"] == 3
+    with pytest.raises(LlamaError, match="Pearl Jam"):
+        build_ts_index(FakeIA(ts_pages={"Pearl Jam": [full] * 10}), _al(_entry("Pearl Jam")))

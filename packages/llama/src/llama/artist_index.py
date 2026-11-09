@@ -105,7 +105,16 @@ def load_or_build(
         raise LlamaError(
             f"LMA collection(s) {', '.join(clashes)} slugify to the taperssection key "
             f"prefix {KEY_PREFIX!r}; taperssection keys could collide with them")
-    return artists + load_ts_index(ia, cache_dir, allowlist, refresh=refresh, now=now)["artists"]
+    try:
+        ts = load_ts_index(ia, cache_dir, allowlist, refresh=refresh, now=now)
+    except (LlamaError, IAError) as exc:
+        # The LMA paths (discovery, `llama artists`, pinning an LMA artist) must
+        # not die with the taperssection index: return the LMA rows alone and
+        # say so loudly. load_ts_index itself stays fail-closed for its other callers.
+        log.warning("taperssection index could not be built (%s); continuing with "
+                    "LMA artists only, no Taper's Section artists this run", exc)
+        return artists
+    return artists + ts["artists"]
 
 
 def _load_or_build_lma(
@@ -157,6 +166,10 @@ TS_FIELDS = ["identifier", "creator", "date", "year", "downloads", "addeddate"]
 # a creator containing one of the entry's spellings (the probe's check); a
 # suspect response is retried TS_SCRAPE_ATTEMPTS times in all, TS_SCRAPE_RETRY_S
 # apart, then the build raises rather than caching a catalogue missing an entry.
+# IAClient.scrape's page size, passed explicitly: a result that is an exact
+# multiple of it is a cursor walk a bad later page may have cut short
+# (scrape drops `total`), so it is treated as suspect and retried.
+TS_SCRAPE_PAGE = 10000
 TS_SCRAPE_ATTEMPTS = 4
 TS_SCRAPE_RETRY_S = 10.0
 TS_PAGE_MATCH_SHARE = 0.8
@@ -194,7 +207,11 @@ def _scrape_entry(ia, allowlist: Allowlist, entry) -> list[dict]:
     for attempt in range(TS_SCRAPE_ATTEMPTS):
         if attempt:
             _sleep(TS_SCRAPE_RETRY_S)
-        docs = ia.scrape(query, TS_FIELDS)
+        docs = ia.scrape(query, TS_FIELDS, count=TS_SCRAPE_PAGE)
+        if docs and len(docs) % TS_SCRAPE_PAGE == 0:
+            log.warning("taperssection scrape for %r stopped at exactly %d docs, a page "
+                        "multiple (possibly truncated); retrying", entry.name, len(docs))
+            continue
         if not _plausible(docs, entry):
             log.warning("taperssection scrape for %r looked wrong (%d docs); retrying",
                         entry.name, len(docs))
@@ -336,7 +353,8 @@ def resolve_artists(index: list[dict], names: list[str],
             if row is None:
                 raise ArtistResolutionError(
                     f"cannot pin artist: {name!r} is allowlisted as {key!r} but the "
-                    "artist index has no row for it")
+                    "artist index has no row for it (the taperssection index could not "
+                    "be built; see the warning)")
             resolved.append(row)
             continue
         exact = [a for a in index
