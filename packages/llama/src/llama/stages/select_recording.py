@@ -1,6 +1,6 @@
 import math
 import re
-from datetime import date
+from datetime import date, datetime, timezone
 
 from llama import ts_measure, ts_rules
 from llama.config import SelectionConfig, TaperssectionArtist
@@ -10,7 +10,8 @@ from llama.scoring import LINEAGE_SCORES, lineage_class, score_recording
 from llama.titles import clean_tag_titles, title_fraction
 from llama.errors import LlamaError
 from llama.taperssection import Allowlist
-from llama.workspace import ShowWorkspace, read_json, read_overrides, should_run, write_artifact
+from llama.workspace import (ShowWorkspace, drop_stage_artifacts, read_json, read_overrides,
+                             should_run, write_artifact)
 
 
 def _shnid(identifier: str) -> int:
@@ -99,13 +100,17 @@ def run_select_recording(
         if stored == read_overrides(show_ws).recording:
             raise LlamaError(f"{candidate.performance_id}: pinned recording {stored} is "
                              "forbidden by the taperssection policy")
+        # The stale pick is replaced: drop gather and everything after it, so
+        # gather recomputes on the new pick (and its R27 check applies) instead of
+        # short-cutting to a show.json, research or package built on the old tape.
+        drop_stage_artifacts(show_ws, "gather")
     selection = selection or SelectionConfig()
     pin = read_overrides(show_ws).recording
 
     recordings = candidate.recordings
     ts_lineage: dict[str, str] | None = None
     if entry is not None:
-        today = today or date.today()
+        today = today or datetime.now(timezone.utc).date()   # winnow's UTC date
         recordings, ts_lineage = _ts_policy(candidate, entry, pin)
 
     want = FORMAT_BY_AUDIO[audio_format]

@@ -353,3 +353,108 @@ def test_lma_stored_selection_shortcut_unchanged(tmp_path):
         assert run_select_recording(sws, Boom(), tss.make_candidate(), tss.assessment(),
                                     allowlist=al, today=TODAY) == "gd73-06-10.aud"
     assert sws.selection.read_bytes() == before
+
+
+# --- final review I1: a stale pick re-selected on resume must not ship the old tape --
+
+def test_process_show_resume_after_tightening_regathers_new_pick(tmp_path, monkeypatch):
+    """A run paused after gather picked an sbd tape under a looser entry; the entry is
+    then tightened to aud-only and the run resumes (process_show, force=False). Select
+    re-picks the aud tape, and gather must recompute on it (where R27 applies) rather
+    than short-cut to the stored sbd `show.json`; every later artifact derived from
+    the old tape is dropped."""
+    import llama.pipeline as pipeline
+    import llama.stages.gather as gather_mod
+    from llama.ledger import Ledger
+    from llama.models import ShortlistEntry, Show
+    from llama.workspace import RunWorkspace
+
+    run_ws = RunWorkspace(tmp_path, "r")
+    sws = run_ws.show_ws(PID)
+    write_artifact(sws.selection, {"identifier": SBD, "scores": {}})
+    write_artifact(sws.show, Show(performance_id=PID, identifier=SBD, artist="Phish",
+                                  date="1997-11-22"))
+    write_artifact(sws.reviews, [])
+    write_artifact(sws.research, "# research on the sbd gather")
+    write_artifact(sws.vetting, {"stale": True})
+
+    seen = {}
+
+    def compute_gather(show_ws, ia, provider, candidate, identifier, **k):
+        seen["gather"] = identifier
+        raise LlamaError("stop at gather")
+
+    def research(show_ws, provider, show, dossier, force=False):
+        seen["research"] = show.identifier
+        raise LlamaError("stop at research")
+
+    monkeypatch.setattr(gather_mod, "compute_gather", compute_gather)
+    monkeypatch.setattr(pipeline, "run_research", research)
+    entry = ShortlistEntry(rank=1, candidate=cand(R_AUD, R_SBD), assessment=qa())
+    with pytest.raises(LlamaError):
+        pipeline.process_show(run_ws, IA(), Ledger(tmp_path / "l.jsonl"), entry,
+                              {"extract_setlist": None, "deep_research": None}, "r", allowlist=AL)
+    assert "research" not in seen, f"resume carried the stale {seen['research']} past gather"
+    assert seen["gather"] == AUD
+    assert json.loads(sws.selection.read_text())["identifier"] == AUD
+    for stale in (sws.show, sws.reviews, sws.research, sws.vetting):
+        assert not stale.exists(), stale
+
+
+def test_process_show_resume_with_allowed_stored_pick_keeps_artifacts(tmp_path, monkeypatch):
+    """The re-check only acts on a forbidden pick: an allowed stored pick short-cuts
+    select AND gather exactly as before, and nothing is dropped."""
+    import llama.pipeline as pipeline
+    import llama.stages.gather as gather_mod
+    from llama.ledger import Ledger
+    from llama.models import ShortlistEntry, Show
+    from llama.workspace import RunWorkspace
+
+    run_ws = RunWorkspace(tmp_path, "r")
+    sws = run_ws.show_ws(PID)
+    write_artifact(sws.selection, {"identifier": AUD, "scores": {}})
+    write_artifact(sws.show, Show(performance_id=PID, identifier=AUD, artist="Phish",
+                                  date="1997-11-22"))
+    write_artifact(sws.research, "# research")
+    seen = {}
+
+    def compute_gather(*a, **k):
+        raise AssertionError("gather recomputed for an allowed stored pick")
+
+    def research(show_ws, provider, show, dossier, force=False):
+        seen["research"] = show.identifier
+        raise LlamaError("stop at research")
+
+    monkeypatch.setattr(gather_mod, "compute_gather", compute_gather)
+    monkeypatch.setattr(pipeline, "run_research", research)
+    entry = ShortlistEntry(rank=1, candidate=cand(R_AUD, R_SBD), assessment=qa())
+    with pytest.raises(LlamaError, match="stop at research"):
+        pipeline.process_show(run_ws, IA(), Ledger(tmp_path / "l.jsonl"), entry,
+                              {"extract_setlist": None, "deep_research": None}, "r", allowlist=AL)
+    assert seen["research"] == AUD
+    assert sws.show.exists() and sws.research.exists()
+
+
+def test_default_today_is_the_utc_date_like_winnow(tmp_path, monkeypatch):
+    """Final review M4: with no `today`, select's 75-day cutoff uses the UTC date
+    (winnow's), not the local one."""
+    import datetime as real
+    import llama.stages.select_recording as sr
+    seen = []
+
+    class FakeDT(real.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            seen.append(tz)
+            return real.datetime(2026, 11, 9, 23, 30, tzinfo=real.timezone.utc)
+
+    monkeypatch.setattr(sr, "datetime", FakeDT)
+    # an addeddate at the 75-day edge of the UTC date
+    edge = R_AUD.model_copy(update={"downloads": 750, "addeddate": "2026-08-26T00:00:00Z"})
+    sws = ShowWorkspace(tmp_path / "show")
+    run_select_recording(sws, IA(), cand(edge), qa(), allowlist=AL)
+    implicit = json.loads(sws.selection.read_text())["scores"][AUD]
+    sws2 = ShowWorkspace(tmp_path / "show2")
+    run_select_recording(sws2, IA(), cand(edge), qa(), allowlist=AL, today=TODAY)
+    assert seen == [real.timezone.utc]
+    assert implicit == json.loads(sws2.selection.read_text())["scores"][AUD]
