@@ -25,15 +25,19 @@
   python scripts/taperssection_probe.py score --config C --workspace W [--n 20] [--seed S] [--max-calls 8] [--dry-run] [--out F]
       Checkpoint B (LIVE LLM, operator-approved spend only): 20 seeded era-stratified Phish shows through
       the real score_reviews provider in two batch orders; writes scorer.md. --dry-run builds and prints
-      the plan and sample with no LLM call. Refuses --config/--workspace under ~/.llama.
+      the plan and sample with no LLM call, but still scrapes archive.org live (the search, the
+      taperssection download index and item metadata, cached under --workspace). Refuses
+      --config/--workspace under ~/.llama.
   python scripts/taperssection_probe.py venue [--n N] [--seed S] [--work DIR]
       3(g): ts_measure.parse_title_venue over a seeded sample of Phish titles; prints a table.
-  python scripts/taperssection_probe.py dump [--only 1,2] [--chars N]
+  python scripts/taperssection_probe.py dump [--only 1,2] [--chars N] [--work DIR]
       Labelling aid: the sample's recordings with full evidence text, classes hidden.
 `lineage` rewrites lineage.md whole: re-run `variant` and `precision` after it (the hand-written
 "Precision: systematic lexicon errors" and "For the operator" sections must be restored by hand).
-`fields` and `garcia` write nothing; `lineage` and `dates` cache raw scrapes under --work
-(outside the repo) and `lineage` writes the evidence files.
+`fields` and `garcia` write nothing. Every `scrape_creator` user (`lineage`, `dates`, `variant`,
+`precision`, `product`, `venue` and `dump`) caches raw scrapes under --work (outside the repo),
+scraping live only when that cache is missing; `lineage` writes the evidence files, and
+`precision` also rewrites the `label:` lines of lineage.md section (iii).
 """
 import argparse
 import csv
