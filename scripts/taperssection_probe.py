@@ -25,8 +25,9 @@
   python scripts/taperssection_probe.py score --config C --workspace W [--n 20] [--seed S] [--max-calls 8] [--dry-run] [--out F]
       Checkpoint B (LIVE LLM, operator-approved spend only): 20 seeded era-stratified Phish shows through
       the real score_reviews provider in two batch orders; writes scorer.md. --dry-run builds and prints
-      the plan and sample with no LLM call, but still scrapes archive.org live (the search, the
-      taperssection download index and item metadata, cached under --workspace). Refuses
+      the plan and sample with no LLM call, but still calls archive.org live: the search
+      scrape is always live; item metadata and the taperssection download index are cached
+      under --workspace. Refuses
       --config/--workspace under ~/.llama.
   python scripts/taperssection_probe.py venue [--n N] [--seed S] [--work DIR]
       3(g): ts_measure.parse_title_venue over a seeded sample of Phish titles; prints a table.
