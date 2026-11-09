@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class SetlistConstraint(BaseModel):
@@ -88,6 +88,16 @@ class QualityAssessment(BaseModel):
     # as suspect (Task 10).
     attribution: Literal["ok", "suspect"] | None = None
     attribution_reason: str | None = None
+
+    @field_validator("attribution", mode="before")
+    @classmethod
+    def _lenient_attribution(cls, v):
+        # An LLM's "OK"/" Suspect " must not fail the whole batch; anything
+        # unrecognised is None, which a ts show's gather treats as suspect.
+        if isinstance(v, str):
+            v = v.strip().lower()
+            return v if v in ("ok", "suspect") else None
+        return None
 
 
 class QualityBatch(BaseModel):

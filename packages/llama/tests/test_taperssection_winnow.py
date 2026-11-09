@@ -143,7 +143,7 @@ def test_lma_only_run_never_builds_ts_index(tmp_path: Path):
 
 
 def test_ts_index_failure_raises_naming_cause(tmp_path: Path):
-    # R20: ts candidates + a failing build + no cache -> LlamaError; never
+    # R20: ts candidates + a failing build + no cached index file yet -> LlamaError; never
     # scored without rates, never silently dropped.
     ws, led = setup(tmp_path, [ts_candidate("1997-11-22")])
     ia = FakeIA(scrape_error=LlamaError("scrape endpoint down"))
@@ -398,3 +398,45 @@ def test_ts_index_ia_error_raises_llama_error(tmp_path: Path):
         run_winnow(ws, FakeProvider(), FakeProvider(), FakeIA(scrape_error=IAError("503")),
                    Criteria(query="q", collection="ts-phish"), led,
                    cache_dir=tmp_path / "cache", allowlist=AL, today=TODAY)
+
+
+def test_no_evidence_baseline_is_below_quality_floor():
+    # Stakes: a ts show must never ship merely because its counters read zero.
+    assert winnow.TS_NO_EVIDENCE_BASELINE < Criteria(query="q").min_quality_score
+    assert f"the baseline is {winnow.TS_NO_EVIDENCE_BASELINE}." in winnow.TS_PROMPT_BLOCK
+
+
+def test_ts_prompt_renders_no_evidence_baseline(tmp_path: Path):
+    ws, led = setup(tmp_path, [ts_candidate("1997-11-22")])
+    store(tmp_path / "cache", {})
+    fake = FakeProvider(completes=[assessments(["ts-phish/1997-11-22"], [3.0])], researches=[])
+    run_winnow(ws, fake, fake, FakeIA(), Criteria(query="q", collection="ts-phish"), led,
+               cache_dir=tmp_path / "cache", allowlist=AL, today=TODAY)
+    prompt = scorer_prompts(fake)[0]
+    assert payload_of(prompt)[0]["download_percentile"] is None
+    assert f"the baseline is {winnow.TS_NO_EVIDENCE_BASELINE}." in prompt
+    assert winnow.TS_NO_EVIDENCE_BASELINE < Criteria(query="q").min_quality_score
+
+
+def test_lma_attribution_from_scorer_is_dropped(tmp_path: Path):
+    ws, led = setup(tmp_path, LMA_CANDS[:1])
+    pid = LMA_CANDS[0].performance_id
+    extra = {pid: {"attribution": "suspect", "attribution_reason": "tribute"}}
+    fake = FakeProvider(completes=[assessments([pid], extra=extra)], researches=["r"])
+    entries = run_winnow(ws, fake, fake, FakeIA(), Criteria(query="q", collection="GratefulDead"),
+                         led, cache_dir=tmp_path / "cache", allowlist=AL, today=TODAY)
+    assert entries[0].assessment.attribution is None
+    assert entries[0].assessment.attribution_reason is None
+
+
+@pytest.mark.parametrize("raw,want", [("OK", "ok"), (" Suspect ", "suspect"), ("ok", "ok"),
+                                      ("unknown", None), (None, None), (3, None)])
+def test_attribution_parsing_is_lenient(raw, want):
+    from llama.models import QualityAssessment
+    a = QualityAssessment(performance_id="p", quality_score=5, rationale="r", attribution=raw)
+    assert a.attribution == want
+
+
+def test_attribution_absent_is_none():
+    from llama.models import QualityAssessment
+    assert QualityAssessment(performance_id="p", quality_score=5, rationale="r").attribution is None
