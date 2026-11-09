@@ -213,3 +213,11 @@ def test_yymmdd_prefix_restricted():
         assert dates_claimed(ident, "") == set()
     assert dates_claimed("shnid97-12-29", "") == set()
     assert dates_claimed("ph971229", "") == {"1997-12-29"}
+
+
+def test_possessive_taper_section():
+    assert _cls(description="Source: Taper's Section > DAT") == "aud"
+    assert _cls(description="Source: Taper’s Section") == "aud"
+    assert _cls(description="Source: Tapers' Section") == "aud"
+    assert _cls(title="Phish live, Taper's Section") == "aud"
+    assert _cls(description="Source: DAT master (taper: Bob)") == "unknown"

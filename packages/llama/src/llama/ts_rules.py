@@ -143,7 +143,10 @@ def classify(rec: RecordingSummary) -> LineageClass:
     mics = (usable & (MIC_WORDS - _NUMERIC_MICS)) | ((non_id - DECK_WORDS) & _NUMERIC_MICS)
     if mics or usable & POSITION_WORDS:
         return "aud"
-    if _has_phrase(toks, {"taper", "tapers"}, {"section"}):
+    # "taper section", "tapers section", "Taper's Section" (apostrophe splits to taper, s)
+    if _has_phrase(toks, {"taper", "tapers"}, {"section"}) or any(
+        a == "taper" and b == "s" and c == "section" for a, b, c in zip(toks, toks[1:], toks[2:])
+    ):
         return "aud"
     if _has_phrase(_non_id_list(rec), *_NAK_MIC):
         return "aud"
