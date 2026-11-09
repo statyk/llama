@@ -14,6 +14,7 @@ from importlib import resources
 from llama.models import JerrybaseEvent, JerrybaseSet, Track
 from llama.songs import GD_SHORTHAND
 from llama.structure import fuzzy_title_eq, is_filler, title_components
+from llama.taperssection import Allowlist
 
 log = logging.getLogger("llama")
 
@@ -129,6 +130,22 @@ def _load() -> dict[tuple[str, str], list[JerrybaseEvent]]:
         log.warning("jerrybase: could not load set_breaks.csv: %s", err)
         _INDEX = {}
     return _INDEX
+
+
+def jerrybase_artist(collection: str, fallback_artist: str, allowlist: Allowlist | None) -> str:
+    """The artist name every jerrybase `lookup`/`is_family_artist` call keys on.
+
+    Routes by the candidate's `collection` only, never by a name: a Taper's
+    Section synthetic key (`ts-...`) resolves to its allowlist entry's optional
+    `jerrybase` artist (`fallback_artist` when the entry sets none); any other
+    collection returns `fallback_artist` unchanged without consulting the
+    allowlist, so every LMA path keys exactly as before. A `ts-` key with no
+    (or an empty) allowlist, or an unknown one, raises `LlamaError`
+    (`Allowlist.for_candidate`): it never falls back to the LMA keying."""
+    entry = Allowlist.for_candidate(allowlist, collection)
+    if entry is None:
+        return fallback_artist
+    return entry.jerrybase or fallback_artist
 
 
 def lookup(artist: str, date: str) -> list[JerrybaseEvent]:

@@ -36,6 +36,7 @@ from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align
                              _FILLER, _venues_equivalent_pre1b)
 from llama.placeholders import is_junk_tag
 from llama.taper import TaperDecision
+from llama.taperssection import Allowlist
 from llama.titles import (_GLUED_NUM_PREFIX, _JOINED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
                           is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, shipped_short_tag, tag_core,
                           tag_layer, title_fraction, TagLayer)
@@ -1302,7 +1303,8 @@ class TitleInputs:
 
 def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, identifier: str,
                  artist: str, want: Sequence[str], events: list,
-                 build: Callable[[list[dict]], CanonicalBuild], slug: str) -> TitleInputs:
+                 build: Callable[[list[dict]], CanonicalBuild], slug: str,
+                 allowlist: Allowlist | None = None) -> TitleInputs:
     """`compute_gather`'s title prelude, as one builder (its only copy). It does
     no IO of its own: the canonical comes through `build` (the caller binds
     `build_canonical`), called once on the post-exclusion `kept`, and the two closures
@@ -1396,7 +1398,11 @@ def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, id
     # elsewhere. Non-family shows get an empty table, which makes the
     # vocabulary a provable no-op on the non-Dead corpus. Shared with
     # gather's `align()` call.
-    family_aliases = GD_SHORTHAND if jerrybase.is_family_artist(artist) else {}
+    # Keyed via `jerrybase_artist` on the candidate's collection: an allowlisted
+    # key with a `jerrybase` artist (Garcia -> JGB) is family; LMA keys as before.
+    family = jerrybase.is_family_artist(
+        jerrybase.jerrybase_artist(candidate.collection, artist, allowlist))
+    family_aliases = GD_SHORTHAND if family else {}
     desc = read_desc_list(_description(meta), len(kept), artist=artist,
                           clean=gather_cleaner(metadata_norms, artist))
 
@@ -1823,6 +1829,7 @@ def compute_gather(
     jerrybase_enabled: bool = False,
     enabled_slices: frozenset[str] = title_hygiene.ENABLED_SLICES,
     llm_failures_raise: bool = False,
+    allowlist: Allowlist | None = None,
 ) -> GatherResult:
     """Gather without the writes: `run_gather` minus `should_run` and the
     three artifacts. Reads `overrides.json` from `show_ws` and nothing else
@@ -1863,7 +1870,11 @@ def compute_gather(
     # head-banner guard and `show_metadata_norms` read the event venues as part
     # of this show's own metadata; nothing in this block reads a track or the
     # canonical setlist.
-    events = jerrybase.lookup(artist, candidate.date) if jerrybase_enabled else []
+    # Routed by the candidate's collection (taperssection Task 6a): a `ts-` key
+    # looks up its entry's `jerrybase` artist, or fails closed without an
+    # allowlist even when jerrybase is off; an LMA collection keys on `artist`.
+    jb_artist = jerrybase.jerrybase_artist(candidate.collection, artist, allowlist)
+    events = jerrybase.lookup(jb_artist, candidate.date) if jerrybase_enabled else []
     # `ev_n`, not `n`: a bare `n` here was once rebound by a later loop's
     # `for n, forced in ...`; the distinct name keeps the guarantee explicit.
     kind, ev_n = _event_kind(candidate.performance_id)
@@ -1894,7 +1905,7 @@ def compute_gather(
     # named `show`.
     inp = title_inputs(md, overrides, ia=ia, candidate=candidate, identifier=identifier,
                        artist=artist, want=want, events=events, build=build,
-                       slug=slugify(candidate.performance_id))
+                       slug=slugify(candidate.performance_id), allowlist=allowlist)
     positions = inp.positions
     cascade = title_cascade(inp, enabled=enabled_slices)
     excluded, ordering, cb = inp.excluded, inp.ordering, inp.cb
@@ -2371,6 +2382,8 @@ def run_gather(
     setlistfm=None,
     structure_cfg: StructureConfig | None = None,
     jerrybase_enabled: bool = False,
+    *,
+    allowlist: Allowlist | None = None,
 ) -> Show:
     if not should_run(show_ws.show, force):
         return read_model(show_ws.show, Show)
@@ -2378,7 +2391,7 @@ def run_gather(
         show_ws, ia, provider, candidate, identifier,
         audio_format=audio_format, align_provider=align_provider,
         setlistfm=setlistfm, structure_cfg=structure_cfg,
-        jerrybase_enabled=jerrybase_enabled)
+        jerrybase_enabled=jerrybase_enabled, allowlist=allowlist)
     # notes.json is REPLACED on every gather (`vet` reset: a vet note belongs
     # to the gather it was raised against), and written BEFORE show.json:
     # show.json is `should_run`'s done-marker, so a crash between the two

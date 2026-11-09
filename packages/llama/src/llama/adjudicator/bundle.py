@@ -15,6 +15,7 @@ from llama.config import Config
 from llama.ia_client import IAError
 from llama.junk import FORMAT_BY_AUDIO, filter_files
 from llama.models import Overrides, Provenance, Show, ShowNotes
+from llama.taperssection import Allowlist
 from llama.show_unit import ShowView, capture_view
 from llama.util import length_seconds
 from llama.workspace import ShowWorkspace, read_json, read_model, read_overrides
@@ -182,7 +183,8 @@ def _json_section(path, cap: int) -> str:
         return "(none)"
 
 
-def build_bundle(show_ws: ShowWorkspace, ia, config: Config) -> Bundle:
+def build_bundle(show_ws: ShowWorkspace, ia, config: Config, *,
+                 allowlist: Allowlist | None = None) -> Bundle:
     view = capture_view(show_ws)
     show = read_model(show_ws.show, Show)
     overrides = read_overrides(show_ws)
@@ -225,7 +227,10 @@ def build_bundle(show_ws: ShowWorkspace, ia, config: Config) -> Bundle:
     if sl:
         sections["setlistfm"] = [Row(text=_clean(json.dumps(sl, indent=1)[:SETLISTFM_CAP]))]
     if config.jerrybase.enabled:
-        sections["jerrybase"] = [Row(text=_clean(repr(e))) for e in jerrybase.lookup(art, date)]
+        # Routed by the candidate's collection (no provenance: no key, so `art`).
+        collection = provenance.candidate.collection if provenance is not None else art
+        jb_art = jerrybase.jerrybase_artist(collection, art, allowlist)
+        sections["jerrybase"] = [Row(text=_clean(repr(e))) for e in jerrybase.lookup(jb_art, date)]
     reviews = []
     for r in (md.get("reviews") or [])[:REVIEWS_MAX]:
         body = str(r.get("reviewbody", "")).replace("\n", " ")[:REVIEW_CAP]

@@ -3540,7 +3540,7 @@ def _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical):
     return prop, picks
 
 
-def _propose_titles_for_show(ia, config, entry, show):
+def _propose_titles_for_show(ia, config, entry, show, *, allowlist: Allowlist | None = None):
     """Build the canonical setlist and render a title-correspondence
     proposal for `show`'s tracks. `build_canonical` is always called with
     `provider=None` -- this CLI path must never fire an LLM call, since the
@@ -3638,7 +3638,8 @@ def _propose_titles_for_show(ia, config, entry, show):
         prop = TitleProposal(feasible=False, reason=reason)
         typer.echo(f"{entry.slug}: {prop.reason}")
         return prop, {}
-    events = jerrybase.lookup(show.artist, cand.date) if config.jerrybase.enabled else []
+    jb_artist = jerrybase.jerrybase_artist(cand.collection, show.artist, allowlist)
+    events = jerrybase.lookup(jb_artist, cand.date) if config.jerrybase.enabled else []
     canonical = build_canonical(ia, cand, show.identifier, meta, kept, show.artist, events,
                                 setlistfm=make_client(config), provider=None).setlist
 
@@ -3676,7 +3677,8 @@ def _propose_and_confirm_titles(ia, config, entry, show) -> dict[int, str] | Non
     nothing to adopt -- infeasible proposal, no picks, or a declined
     confirmation, each of which has already echoed its own reason. Every
     caller must treat None as "nothing changed", not as an error."""
-    prop, picks = _propose_titles_for_show(ia, config, entry, show)
+    prop, picks = _propose_titles_for_show(
+        ia, config, entry, show, allowlist=Allowlist.from_config(config.taperssection))
     if not prop.feasible:
         return None   # _propose_titles_for_show already echoed prop.reason
     if not picks:

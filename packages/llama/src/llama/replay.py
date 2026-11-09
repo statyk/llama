@@ -30,6 +30,7 @@ from llama.stages.brief import briefing_guard, normalize_briefing
 from llama.stages.gather import CascadeRecord, GatherResult, compute_gather
 from llama.stages.vet_research import VetOutcome, apply_vet
 from llama.structure import is_filler
+from llama.taperssection import Allowlist
 from llama.workspace import ShowWorkspace, read_model, read_overrides
 
 _REFUSED = "network refused by the cache-only client"
@@ -628,7 +629,8 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
         ShowWorkspace(scratch), ia, extract_provider, prov.candidate, stored.identifier,
         audio_format=config.audio_format, align_provider=align_provider, setlistfm=slfm,
         structure_cfg=config.structure, jerrybase_enabled=config.jerrybase.enabled,
-        enabled_slices=enabled_slices, llm_failures_raise=llm_failures_raise)
+        enabled_slices=enabled_slices, llm_failures_raise=llm_failures_raise,
+        allowlist=Allowlist.from_config(config.taperssection))
     needs_llm = list(gathered.needs_llm)
     if (gather_providers is None
             and stored.structure is not None and stored.structure.alignment == "llm"

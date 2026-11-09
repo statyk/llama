@@ -28,6 +28,7 @@ from herder import HerderError, TaskFailed
 from herder.limits import RateLimited
 from llama.adjudicator.apply import ApplyResult, apply_verdict
 from llama.adjudicator.bundle import Bundle, build_bundle
+from llama.taperssection import Allowlist
 from llama.adjudicator.gate import (Facts, GateResult, evaluate, first_judgements,
                                     validate_targets)
 from llama.adjudicator.record import (AdjudicationRecord, RECORD_FILE_VERSION, is_current,
@@ -280,7 +281,8 @@ def adjudicate_show(ctx: Context, entry: CatalogEntry, *, dry_run: bool = False,
         return ShowOutcome(slug, STALE, msg)
     # 4: bundle
     try:
-        bundle = build_bundle(ws, ctx.ia, ctx.config)
+        bundle = build_bundle(ws, ctx.ia, ctx.config,
+                              allowlist=Allowlist.from_config(ctx.config.taperssection))
     except Exception as exc:          # noqa: BLE001
         return _failed(entry, "bundle", exc)
     # 5: the one LLM call
@@ -455,7 +457,8 @@ def accept_proposal(ctx: Context, entry: CatalogEntry, *,
         return ShowOutcome(slug, NO_PROPOSAL, "proposal changed since it was shown; re-run")
     # 2: the bundle's captured view is both the digest checked and the unit's expect
     try:
-        bundle = build_bundle(ws, ctx.ia, ctx.config)
+        bundle = build_bundle(ws, ctx.ia, ctx.config,
+                              allowlist=Allowlist.from_config(ctx.config.taperssection))
     except Exception as exc:          # noqa: BLE001
         return _failed(entry, "bundle", exc)
     if view_digest(bundle.view) != stored.digest:

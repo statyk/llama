@@ -5,6 +5,7 @@ from llama import jerrybase
 from llama.models import Candidate, RecordingSummary
 from llama.songs import normalize_song
 from llama.structure import norm_title
+from llama.taperssection import Allowlist
 
 _EARLY_LATE = re.compile(r"\b(early|late)\b", re.I)
 _EARLY = re.compile(r"\bearly\b", re.I)
@@ -118,7 +119,11 @@ def _legacy_split(collection: str, date: str, recs: list) -> list[Candidate]:
 
 
 def group_candidates(collection: str, docs: list[dict],
-                     jerrybase_enabled: bool = True) -> list[Candidate]:
+                     jerrybase_enabled: bool = True, *,
+                     allowlist: Allowlist | None = None) -> list[Candidate]:
+    # Resolved once, up front, so a `ts-` key without an allowlist fails
+    # closed even with jerrybase off or no docs; an LMA collection keys as today.
+    jb_artist = jerrybase.jerrybase_artist(collection, collection, allowlist)
     by_date: dict[str, list[RecordingSummary]] = {}
     for doc in docs:
         date = str(_first(doc.get("date")) or "")[:10]
@@ -128,7 +133,7 @@ def group_candidates(collection: str, docs: list[dict],
 
     candidates: list[Candidate] = []
     for date, recs in by_date.items():
-        events = jerrybase.lookup(collection, date) if jerrybase_enabled else []
+        events = jerrybase.lookup(jb_artist, date) if jerrybase_enabled else []
         if len(events) > 1:
             candidates.extend(_partition(collection, date, recs, events))
         elif len(events) == 1:

@@ -9,6 +9,7 @@ from llama.prompts import load_prompt
 from llama.songs import GD_SHORTHAND
 from llama.status import detail, step
 from llama.structure import contains_sequence
+from llama.taperssection import Allowlist
 from llama.util import cap_across_artists
 from llama.workspace import RunWorkspace, read_model_list, should_run, write_artifact
 
@@ -24,7 +25,7 @@ def _evidence(c: Candidate):
             max((r.avg_rating or 0.0) for r in c.recordings))
 
 
-def _has_songs(c: Candidate, criteria: Criteria) -> bool:
+def _has_songs(c: Candidate, criteria: Criteria, *, allowlist: Allowlist | None = None) -> bool:
     """Whether this performance satisfies every setlist constraint.
 
     Matched against EVERY recording's description, not just the longest: the
@@ -38,7 +39,9 @@ def _has_songs(c: Candidate, criteria: Criteria) -> bool:
     drops the merged blob while still reporting `confidence="high"`. See
     `structure.contains_sequence`.
     """
-    aliases = GD_SHORTHAND if jerrybase.is_family_artist(c.collection) else {}
+    family = jerrybase.is_family_artist(
+        jerrybase.jerrybase_artist(c.collection, c.collection, allowlist))
+    aliases = GD_SHORTHAND if family else {}
     descs = [r.description or "" for r in c.recordings]
     return all(
         any(contains_sequence(d, sc.sequence, aliases) for d in descs)
@@ -46,12 +49,13 @@ def _has_songs(c: Candidate, criteria: Criteria) -> bool:
     )
 
 
-def _passes_mechanical(c: Candidate, criteria: Criteria) -> bool:
+def _passes_mechanical(c: Candidate, criteria: Criteria, *,
+                       allowlist: Allowlist | None = None) -> bool:
     best_rating = max((r.avg_rating or 0.0) for r in c.recordings)
     total_reviews = sum(r.num_reviews for r in c.recordings)
     if best_rating < criteria.min_avg_rating or total_reviews < criteria.min_reviews:
         return False
-    return _has_songs(c, criteria)
+    return _has_songs(c, criteria, allowlist=allowlist)
 
 
 def run_winnow(
