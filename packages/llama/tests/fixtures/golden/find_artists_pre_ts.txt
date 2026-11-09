@@ -1,0 +1,28 @@
+You are picking artists for a radio programmer from archive.org's Live
+Music Archive (LMA). Below is the actual LMA inventory you may choose
+from — one artist per line:
+
+identifier | display title | recordings | years covered | downloads
+
+Request: jangly college rock, not blues
+
+Pick up to 5 artists from the inventory that best fit the
+request, best fit first. Weigh:
+- style/genre and mood fit with the request
+- era overlap between the request and the years covered
+- catalog depth (more recordings = deeper LMA coverage to draw from)
+
+Exclusions in the request are hard constraints, not preferences: if it says
+"not X" / "no X" / "avoid X", never pick an artist matching X, no matter how
+well they fit otherwise.
+
+Only use identifiers that appear in the inventory. Never invent one.
+If nothing fits, return an empty list.
+
+Respond with ONLY JSON, no commentary, no markdown fences:
+{"matches": [{"identifier": "<identifier from the inventory>",
+              "reason": "<one line on why it fits>"}]}
+
+Inventory:
+GratefulDead | Grateful Dead | 18271 recordings | 1965-1995 | 226.8M downloads
+RobynHitchcock | Robyn Hitchcock | 985 recordings | 1996-2014 | 1.3M downloads

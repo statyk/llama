@@ -492,7 +492,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                                        min_recordings=config.artists.min_recordings,
                                        min_downloads=config.artists.min_downloads,
                                        max_artists=config.artists.max_matched,
-                                       force=force)
+                                       force=force,
+                                       allowlist=Allowlist.from_config(config.taperssection))
                 if not artists:
                     typer.echo("no matching artists found on the LMA - "
                                "try naming an artist or broadening the style", err=True)
@@ -1081,7 +1082,8 @@ def artists(
 ):
     """Search LMA artists with a natural-language query, or list the deepest catalogs."""
     config, ia, _ = _setup()
-    index = load_or_build(ia, config.root / "cache", refresh=refresh)
+    index = load_or_build(ia, config.root / "cache", refresh=refresh,
+                          allowlist=Allowlist.from_config(config.taperssection))
     mr = min_recordings if min_recordings is not None else config.artists.min_recordings
     md = min_downloads if min_downloads is not None else config.artists.min_downloads
     pool = index if include_junk else filter_artists(index, mr, md)
@@ -5398,8 +5400,9 @@ def profile_add(
         updates["year_cap"] = year_cap
     if artists:
         names = [n.strip() for n in artists.split(",") if n.strip()]
-        index = load_or_build(ia, config.root / "cache")
-        resolved = resolve_artists(index, names)
+        allowlist = Allowlist.from_config(config.taperssection)
+        index = load_or_build(ia, config.root / "cache", allowlist=allowlist)
+        resolved = resolve_artists(index, names, allowlist)
         updates["artists"] = [a["identifier"] for a in resolved]
         typer.echo("pinned: " + ", ".join(f"{a['title']} ({a['identifier']})" for a in resolved))
     if updates:
@@ -5427,8 +5430,9 @@ def profile_artists(
         save_profile(config.root, profile.model_copy(update={"criteria": criteria}))
         typer.echo("cleared pinned roster (reverts to the LLM matcher)")
         return
-    index = load_or_build(ia, config.root / "cache")
-    resolved = resolve_artists(index, names)
+    allowlist = Allowlist.from_config(config.taperssection)
+    index = load_or_build(ia, config.root / "cache", allowlist=allowlist)
+    resolved = resolve_artists(index, names, allowlist)
     criteria = profile.criteria.model_copy(update={"artists": [a["identifier"] for a in resolved]})
     save_profile(config.root, profile.model_copy(update={"criteria": criteria}))
     typer.echo("pinned: " + ", ".join(f"{a['title']} ({a['identifier']})" for a in resolved))

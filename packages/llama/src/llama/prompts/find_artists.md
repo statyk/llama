@@ -2,7 +2,7 @@ You are picking artists for a radio programmer from archive.org's Live
 Music Archive (LMA). Below is the actual LMA inventory you may choose
 from — one artist per line:
 
-identifier | display title | recordings | years covered | downloads
+identifier | display title | recordings | years covered | downloads{{ts_note}}
 
 Request: {{query}}
 
