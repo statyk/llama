@@ -12,6 +12,16 @@
       lineage-dates.csv into the evidence dir.
   python scripts/taperssection_probe.py dates [--work DIR]
       date_disagrees rate per survey artist (exact-creator filtered).
+  python scripts/taperssection_probe.py variant [--work DIR]
+      Re-run coverage (ii) and the ship table under classify_variant (in-line source labels,
+      probe-only) and upsert the "Variant: ..." section of lineage.md.
+  python scripts/taperssection_probe.py precision [--work DIR]
+      Score classify and classify_variant against lineage-labels.csv (hand labels of the 50-date
+      sample), fill the label: lines in (iii) and upsert the "Precision (...)" section.
+  python scripts/taperssection_probe.py dump [--only 1,2] [--chars N]
+      Labelling aid: the sample's recordings with full evidence text, classes hidden.
+`lineage` rewrites lineage.md whole: re-run `variant` and `precision` after it (the hand-written
+"Precision: systematic lexicon errors" and "For the operator" sections must be restored by hand).
 `fields` and `garcia` write nothing; `lineage` and `dates` cache raw scrapes under --work
 (outside the repo) and `lineage` writes the evidence files.
 """
@@ -437,6 +447,331 @@ def cmd_lineage(a) -> int:
     return 0
 
 
+# ------------------------------------------------- variant: in-line source labels
+# Probe-only. The scrape endpoint serves `description` with every line break and tag
+# collapsed, so ts_rules.source_lines (line-anchored) sees one line. When a description
+# has no line break, this variant splits it at in-line labels instead.
+_INLINE_LABEL = re.compile(
+    r"(?<![a-z0-9])(?:sources?(?:\s+info(?:rmation)?)?|src|lineage|transfers?)\s*:", re.I)
+# The next "Label:"-shaped token: one word (letters/apostrophe) then a colon, not a URL.
+_NEXT_LABEL = re.compile(r"(?<![A-Za-z0-9])[A-Za-z][A-Za-z']{0,24}\s*:(?!//)")
+SEG_CAP = 250
+
+
+def inline_source_segments(text: str) -> list[str]:
+    """Each in-line source label to the next Label:-shaped token, capped at SEG_CAP chars."""
+    out = []
+    for m in _INLINE_LABEL.finditer(text):
+        rest = text[m.end():m.end() + SEG_CAP]
+        nxt = _NEXT_LABEL.search(rest)
+        body = rest[:nxt.start()] if nxt else rest
+        seg = (m.group(0) + " " + body).strip()
+        if body.strip():
+            out.append(re.sub(r"\s+", " ", seg))
+    return out
+
+
+def source_lines_variant(description: str | None) -> list[str]:
+    """ts_rules.source_lines, except a description with no line break is split at in-line
+    labels (a line-start "Source: ..." becomes a capped segment, not the whole text)."""
+    if not description:
+        return []
+    import html as _h
+    text = _h.unescape(ts_rules._TAG.sub("", ts_rules._BREAK.sub("\n", description)))
+    if "\n" in text.strip():
+        return ts_rules.source_lines(description)
+    return inline_source_segments(text)
+
+
+def classify_variant(rec: RecordingSummary) -> str:
+    """ts_rules.classify with source_lines swapped for source_lines_variant (probe only)."""
+    orig = ts_rules.source_lines
+    ts_rules.source_lines = source_lines_variant
+    try:
+        return ts_rules.classify(rec)
+    finally:
+        ts_rules.source_lines = orig
+
+
+def coverage_tables(g, T, M, DD):
+    """(coverage dict, ship Counters) for classifier map M against today's map T."""
+    from collections import Counter
+    dcl = lambda d, m, drop=False: [m[r.identifier] for r in g[d] if not (drop and DD[r.identifier])]
+    unk_today = [d for d in g if all(c == "unknown" for c in dcl(d, T))]
+    cov = {
+        "unk_today": len(unk_today),
+        "placed": sum(1 for d in unk_today if any(c != "unknown" for c in dcl(d, M))),
+        "placed_aud": sum(1 for d in unk_today if "aud" in dcl(d, M)),
+        "all_unknown": sum(1 for d in g if all(c == "unknown" for c in dcl(d, M))),
+        "recs": dict(Counter(M.values())),
+    }
+    ship = {
+        "rule (a), before date check": Counter(ship_status(dcl(d, M)) for d in g),
+        "rule (a), after date check": Counter(ship_status(dcl(d, M, True)) for d in g),
+        "rule (b), before date check": Counter(ship_status(dcl(d, M), "b") for d in g),
+        "rule (b), after date check": Counter(ship_status(dcl(d, M, True), "b") for d in g),
+    }
+    return cov, ship
+
+
+def upsert_section(md: str, heading: str, body: str) -> str:
+    """Replace the `## heading` section (to the next `## ` or EOF), or append it."""
+    start = md.find(f"\n## {heading}")
+    block = f"\n## {heading}\n\n{body.rstrip()}\n"
+    if start < 0:
+        return md.rstrip("\n") + "\n" + block
+    nxt = md.find("\n## ", start + 4)
+    return md[:start] + block + (md[nxt:] if nxt >= 0 else "")
+
+
+def load_phish(work: Path):
+    docs = scrape_creator("Phish", work)
+    recs = exact_recs("Phish", docs)
+    g = group_by_date([r for r in recs if r.date])
+    return docs, recs, g
+
+
+VARIANT_HEADING = "Variant: in-line source labels (probe-only)"
+
+
+def cmd_variant(a) -> int:
+    _, recs, g = load_phish(Path(a.work))
+    T = {r.identifier: today_of(r) for r in recs}
+    C = {r.identifier: ts_rules.classify(r) for r in recs}
+    V = {r.identifier: classify_variant(r) for r in recs}
+    DD = {r.identifier: ts_rules.date_disagrees(r) for r in recs}
+    nd = len(g)
+    cc, sc = coverage_tables(g, T, C, DD)
+    cv, sv = coverage_tables(g, T, V, DD)
+    pct = lambda n, d: f"{n}/{d} = {100 * n / max(d, 1):.1f}%"
+    nseg = sum(1 for r in recs if source_lines_variant(r.description))
+    nsl = sum(1 for r in recs if ts_rules.source_lines(r.description))
+    from collections import Counter
+    moves = Counter((C[i], V[i]) for i in C if C[i] != V[i])
+    L = ["`./.venv/bin/python scripts/taperssection_probe.py variant` (cached scrape). `classify_variant` is "
+         "`ts_rules.classify` with `source_lines` replaced by `source_lines_variant`: a description with no line "
+         "break (every scraped Phish description: 0 of 11,133 has one) is split at in-line labels "
+         "`Source(s)( info):`, `Src:`, `Lineage:`, `Transfer(s):` (case-insensitive, word-anchored); each label runs "
+         f"to the next one-word `Label:` token, capped at {SEG_CAP} chars. A description that *starts* with `Source:` "
+         "is read by `classify` as one source line spanning the whole description (setlist and notes included); the "
+         "variant reads only the capped segment. Product code is unchanged.\n",
+         f"- recordings with at least one source line: classify {pct(nsl, len(recs))}; variant {pct(nseg, len(recs))}",
+         f"- recording classes: classify {cc['recs']}; variant {cv['recs']}",
+         f"- recordings whose class changes (classify -> variant): {sum(moves.values())}: "
+         + ", ".join(f"{a}->{b} {n}" for (a, b), n in moves.most_common()) + "\n",
+         "### Coverage (ii), side by side\n",
+         "| measure | classify | classify_variant |", "|---|---|---|",
+         f"| dates unknown under today's rule | {cc['unk_today']} | {cv['unk_today']} |",
+         f"| of those, placed (any class) | {pct(cc['placed'], cc['unk_today'])} | {pct(cv['placed'], cv['unk_today'])} |",
+         f"| of those, placed aud | {pct(cc['placed_aud'], cc['unk_today'])} | {pct(cv['placed_aud'], cv['unk_today'])} |",
+         f"| dates still all-unknown | {pct(cc['all_unknown'], nd)} | {pct(cv['all_unknown'], nd)} |\n",
+         "### Aud-only entry, ship status per date, side by side\n",
+         f"Total dates {nd}; cells are aud / unknown-hold / no-allowed.\n",
+         "| scenario | classify | classify_variant |", "|---|---|---|"]
+    for k in sc:
+        f = lambda c: f"{c['aud']} / {c['unknown-hold']} / {c['no-allowed']}"
+        L.append(f"| {k} | {f(sc[k])} | {f(sv[k])} |")
+    md = (EVIDENCE / "lineage.md").read_text()
+    (EVIDENCE / "lineage.md").write_text(upsert_section(md, VARIANT_HEADING, "\n".join(L)))
+    print("\n".join(L))
+    return 0
+
+
+def cmd_dump(a) -> int:
+    """Labelling aid: the 50 sample dates' recordings with full evidence text, classes hidden."""
+    import html as _h
+    _, recs, g = load_phish(Path(a.work))
+    sample = random.Random(SEED).sample(sorted(g), min(50, len(g)))
+    for i, d in enumerate(sample, 1):
+        if a.only and str(i) not in a.only.split(","):
+            continue
+        print(f"=== {i}. {d}")
+        for r in sorted(g[d], key=lambda r: r.identifier):
+            desc = _h.unescape(ts_rules._TAG.sub(" ", r.description or ""))
+            desc = re.sub(r"\s+", " ", desc)
+            print(f"--- {r.identifier}\n title: {r.title}\n source: {r.source!r} lineage: {r.lineage!r}\n"
+                  f" desc: {desc[:a.chars]}")
+    return 0
+
+
+LABELS = EVIDENCE / "lineage-labels.csv"
+CLASSES = ["aud", "sbd", "matrix", "fm", "webcast", "unknown"]
+
+
+def _ev_tokens(r, lines_fn):
+    """(all tokens, non-identifier tokens) as classify sees r with the given source_lines."""
+    parts = [r.identifier, r.title, r.source or "", r.lineage or "", *lines_fn(r.description)]
+    allt, nid = set(), set()
+    for i, t in enumerate(parts):
+        tk = ts_rules._tokens(t)
+        allt.update(tk)
+        if i:
+            nid.update(tk)
+    return allt, nid
+
+
+def _aud_evidence(r, lines_fn):
+    allt, nid = _ev_tokens(r, lines_fn)
+    u = allt - ts_rules.DECK_WORDS
+    mics = (u & (ts_rules.MIC_WORDS - ts_rules._NUMERIC_MICS)) | ((nid - ts_rules.DECK_WORDS) & ts_rules._NUMERIC_MICS)
+    return mics | (u & ts_rules.POSITION_WORDS)
+
+
+def _markers(r, lines_fn):
+    allt, _ = _ev_tokens(r, lines_fn)
+    m = ts_rules._SBD_WORDS | ts_rules._MATRIX_WORDS | ts_rules._FM_WORDS | ts_rules._WEBCAST_WORDS
+    return allt & m
+
+
+def _fill_labels(md: str, lab: dict) -> str:
+    out, cur = [], None
+    for ln in md.split("\n"):
+        m = re.match(r"- \*\*(.+)\*\*$", ln)
+        if m:
+            cur = m.group(1)
+        if ln.startswith("  - label:") and cur in lab:
+            ln = f"  - label: **{lab[cur][0]}** ({lab[cur][1]})" if lab[cur][1] else f"  - label: **{lab[cur][0]}**"
+        out.append(ln)
+    return "\n".join(out)
+
+
+def cmd_precision(a) -> int:
+    from collections import Counter
+    _, recs, g = load_phish(Path(a.work))
+    lab = {row["identifier"]: (row["label"], row["note"]) for row in csv.DictReader(open(LABELS))}
+    sample = random.Random(SEED).sample(sorted(g), min(50, len(g)))
+    srecs = [r for d in sample for r in sorted(g[d], key=lambda r: r.identifier)]
+    missing = [r.identifier for r in srecs if r.identifier not in lab]
+    if missing:
+        raise SystemExit(f"unlabelled: {missing[:5]}")
+    C = {r.identifier: ts_rules.classify(r) for r in srecs}
+    V = {r.identifier: classify_variant(r) for r in srecs}
+    T = {r.identifier: lab[r.identifier][0] for r in srecs}
+    n = len(srecs)
+    pct = lambda k, d: f"{k}/{d} = {100 * k / max(d, 1):.1f}%"
+    L = [f"Labels: [lineage-labels.csv](lineage-labels.csv) (identifier, label, note), hand-labelled from the full "
+         "scraped description, identifier, title and `source` field (metadata API read once, for `phish-02.16.03`). "
+         "Labeller was independent: classes were hidden while labelling. A truly undeterminable tape is labelled "
+         "`unknown`. A satellite/TV broadcast is labelled `fm` (broadcast). A patchwork of a board tape with "
+         "audience fills is labelled `sbd` (it is not an aud-only tape). `./.venv/bin/python "
+         "scripts/taperssection_probe.py precision` regenerates this section and fills the `label:` lines in (iii).\n",
+         f"- truth over the {n} recordings of the 50 dates: {dict(Counter(T.values()))}\n"]
+    for name, M in (("classify", C), ("classify_variant", V)):
+        conf = Counter((M[i], T[i]) for i in T)
+        L += [f"### Confusion, {name} (rows) vs label (columns)\n",
+              "| " + name + " \\ label | " + " | ".join(CLASSES) + " | total |",
+              "|---" * (len(CLASSES) + 2) + "|"]
+        for c in CLASSES:
+            row = [conf[(c, t)] for t in CLASSES]
+            if sum(row):
+                L.append(f"| {c} | " + " | ".join(str(x) for x in row) + f" | {sum(row)} |")
+        said_aud = [i for i in T if M[i] == "aud"]
+        false_aud = [i for i in said_aud if T[i] != "aud"]
+        said_non = [i for i in T if M[i] in ("sbd", "matrix", "fm", "webcast")]
+        false_non = [i for i in said_non if T[i] == "aud"]
+        wrong_non = [i for i in said_non if T[i] not in ("aud", M[i])]
+        unk = [i for i in T if M[i] == "unknown"]
+        unk_t = Counter(T[i] for i in unk)
+        unk_non = sum(v for k, v in unk_t.items() if k not in ("aud", "unknown"))
+        true_aud = sum(1 for i in T if T[i] == "aud")
+        L += ["",
+              f"- placed (not unknown): {pct(n - len(unk), n)}",
+              f"- **false-aud** (says aud, truth non-aud): {len(false_aud)} of {len(said_aud)} aud calls"
+              f" (aud precision {pct(len(said_aud) - len(false_aud), len(said_aud))})"
+              + (": " + ", ".join(f"{i} [{T[i]}]" for i in false_aud) if false_aud else ""),
+              f"- **false-non-aud** (says sbd/matrix/fm/webcast, truth aud): {len(false_non)} of {len(said_non)} non-aud calls"
+              + (": " + ", ".join(f"{i} [{M[i]}]" for i in false_non) if false_non else ""),
+              f"- non-aud class wrong within non-aud (e.g. sbd for fm): {len(wrong_non)}"
+              + (": " + ", ".join(f"{i} [{M[i]} vs {T[i]}]" for i in wrong_non) if wrong_non else ""),
+              f"- aud recall (truly aud tapes it calls aud): {pct(true_aud - sum(1 for i in T if T[i] == 'aud' and M[i] != 'aud'), true_aud)}",
+              f"- **unknown under {name}**: {len(unk)}; truth {dict(unk_t)}; truly non-aud (sbd/matrix/fm/webcast): "
+              f"**{pct(unk_non, len(unk))}**; truly aud {pct(unk_t['aud'], len(unk))}; undeterminable {unk_t['unknown']}"]
+        if unk_non:
+            L.append("  - truly non-aud unknowns (rule (b) would ship these as aud): "
+                     + "; ".join(f"{i} [{T[i]}: {lab[i][1]}]" for i in unk if T[i] not in ("aud", "unknown")))
+        L.append("")
+
+    # per date, aud-only entry
+    L += ["### Per date, aud-only entry: would-ship-aud correctness\n",
+          "Truth per date: `has-aud` if any recording is labelled aud, else `no-aud`. Predicted status as in (ii), "
+          "before the date check. `ships, clean` = every recording the entry would treat as aud is truly aud; "
+          "`ships, mixed` = it ships (a true aud exists among them) but one or more treated-as-aud recordings are "
+          "truly non-aud (selection could pick it); `ships wrongly` = it ships but no treated-as-aud recording is "
+          "truly aud.\n",
+          "| classifier, rule | ships, clean | ships, mixed | ships wrongly | holds (truth has-aud) | holds (truth no-aud) | no-allowed (truth has-aud) | no-allowed (truth no-aud) |",
+          "|---|---|---|---|---|---|---|---|"]
+    detail = []
+    for name, M in (("classify", C), ("classify_variant", V)):
+        for rule in ("a", "b"):
+            cnt = Counter()
+            for d in sample:
+                ids = [r.identifier for r in g[d]]
+                truth = "has-aud" if any(T[i] == "aud" for i in ids) else "no-aud"
+                st = ship_status([M[i] for i in ids], rule)
+                if st == "aud":
+                    as_aud = [i for i in ids if M[i] == "aud" or (rule == "b" and M[i] == "unknown")]
+                    good = [i for i in as_aud if T[i] == "aud"]
+                    k = "clean" if len(good) == len(as_aud) else ("mixed" if good else "wrong")
+                    if k != "clean":
+                        detail.append(f"{name} rule ({rule}) {d}: {k}; non-aud treated as aud: "
+                                      + ", ".join(f"{i} [{M[i]}->{T[i]}]" for i in as_aud if T[i] != "aud"))
+                    cnt[k] += 1
+                elif st == "unknown-hold":
+                    cnt["hold-" + truth] += 1
+                else:
+                    cnt["none-" + truth] += 1
+                    if truth == "has-aud":
+                        detail.append(f"{name} rule ({rule}) {d}: no-allowed but truth has aud: "
+                                      + ", ".join(f"{i} [{M[i]}]" for i in ids if T[i] == "aud"))
+            L.append(f"| {name}, ({rule}) | {cnt['clean']} | {cnt['mixed']} | {cnt['wrong']} | {cnt['hold-has-aud']} | "
+                     f"{cnt['hold-no-aud']} | {cnt['none-has-aud']} | {cnt['none-no-aud']} |")
+    truth_dates = Counter("has-aud" if any(T[r.identifier] == "aud" for r in g[d]) else "no-aud" for d in sample)
+    L += ["", f"Truth over the 50 dates: {dict(truth_dates)}.", ""]
+    L += ["Non-clean dates:"] + [f"- {x}" for x in detail] + [""]
+
+    # board-as-position, generic tokens
+    L += ["### Board/SBD as a position, and generic-token-only aud, in the sample\n",
+          "Recordings where a board/patch/sbd/stream marker and a mic or position word are both in the evidence "
+          "(under either view), with the verdict:\n"]
+    for r in srecs:
+        for name, fn, M in (("classify", ts_rules.source_lines, C), ("variant", source_lines_variant, V)):
+            mk = _markers(r, fn) & (ts_rules._SBD_WORDS | ts_rules._WEBCAST_WORDS)
+            ev = _aud_evidence(r, fn)
+            if mk and ev:
+                ok = "correct" if M[r.identifier] == T[r.identifier] else "WRONG"
+                L.append(f"- {r.identifier} ({name}): markers {sorted(mk)}, aud evidence {sorted(ev)[:4]} -> "
+                         f"{M[r.identifier]}; label {T[r.identifier]}: {ok} ({lab[r.identifier][1]})")
+    L.append("")
+    L.append("Recordings called aud on generic tokens only (`omni`, `bk`, `mic`, `mics`):\n")
+    found = False
+    for r in srecs:
+        for name, fn, M in (("classify", ts_rules.source_lines, C), ("variant", source_lines_variant, V)):
+            ev = _aud_evidence(r, fn)
+            if M[r.identifier] == "aud" and ev and ev <= GENERIC:
+                found = True
+                ok = "correct" if T[r.identifier] == "aud" else "WRONG"
+                L.append(f"- {r.identifier} ({name}): {sorted(ev)}; label {T[r.identifier]}: {ok}")
+    if not found:
+        L.append("- none in the sample")
+    L.append("")
+
+    # every disagreement, for the lexicon review
+    L += ["### Every disagreement with the label (excluding unknown calls)\n",
+          "| identifier | classify | variant | label | marker / aud evidence (variant view) | note |", "|---|---|---|---|---|---|"]
+    for r in srecs:
+        i = r.identifier
+        if (C[i] not in ("unknown", T[i])) or (V[i] not in ("unknown", T[i])):
+            L.append(f"| {i} | {C[i]} | {V[i]} | {T[i]} | {sorted(_markers(r, source_lines_variant))} / "
+                     f"{sorted(_aud_evidence(r, source_lines_variant))[:4]} | {lab[i][1]} |")
+    L.append("")
+    md = (EVIDENCE / "lineage.md").read_text()
+    md = _fill_labels(md, lab)
+    md = upsert_section(md, f"Precision (hand-labelled, n={n} recordings, 50 dates)", "\n".join(L))
+    (EVIDENCE / "lineage.md").write_text(md)
+    print("\n".join(L))
+    return 0
+
+
 def cmd_dates(a) -> int:
     work = Path(a.work)
     rows = ["| artist | exact-creator items | dated | date_disagrees | rate | dates | dates emptied |",
@@ -465,11 +800,16 @@ def main(argv=None) -> int:
     g.add_argument("--count", type=int, default=1000)
     g.add_argument("--pages", type=int, default=2)
     g.add_argument("--verbose", action="store_true")
-    for n in ("lineage", "dates"):
+    dm = sub.add_parser("dump")
+    dm.add_argument("--work", default=str(DEFAULT_WORK))
+    dm.add_argument("--only", default="")
+    dm.add_argument("--chars", type=int, default=900)
+    for n in ("lineage", "dates", "variant", "precision"):
         x = sub.add_parser(n)
         x.add_argument("--work", default=str(DEFAULT_WORK))
     a = p.parse_args(argv)
-    return {"fields": cmd_fields, "garcia": cmd_garcia, "lineage": cmd_lineage, "dates": cmd_dates}[a.cmd](a)
+    return {"fields": cmd_fields, "garcia": cmd_garcia, "lineage": cmd_lineage, "dates": cmd_dates,
+            "variant": cmd_variant, "precision": cmd_precision, "dump": cmd_dump}[a.cmd](a)
 
 
 if __name__ == "__main__":

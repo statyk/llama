@@ -49,7 +49,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1991-12-07 Portsmouth Music Hall  Portsmouth, NH Source: SBD > Cass/x Transfer: Sony TC-KA3ES > DSP24 > Wavelab 24/48wavs > FLAC16 Transfer, mastering, and FLAC16 by Marmar Thanks to Matt Lauten for the tapes! Set 1       s1t01 - Wilson s1t02 - Runaway Jim s1t03 - Foam s1t04 - Colonel Forbin's Ascent > s1t05 - Fly Famous Mockingbird s1t06 - My Sweet One s1t07 - Stash// s1t08 - The Curtain > s1t09 - Cavern s1t10 - The Mango Song s1t11 - Run Like an Antelope Set 2      s2t01 - "Merry Christmas" guitar line > s2t02 - Buried Alive s2t03 - Reba s2t04 - Chalk Dust Torture s2t05 - Sparkle s2t06 - Brother s2t07 - Lizards s2t08 - HYHU >  s2t09 - Terrapin > HYHU s2t10 - Harpua// -MISSING- E: Swe
-  - label:
+  - label: **sbd** (Source: SBD > Cass)
 - **phish1991-12-07.123072.portsmouth.sbd.flac1644**
   - title: Phish - 1991-12-07 - Portsmouth Music Hall - Portsmouth, NH
   - source field: None
@@ -57,7 +57,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1991-12-07 Portsmouth Music Hall Portsmouth, NH Source:  Unknown Soundboard Set 1 s1t01 Wilson s1t02 Runaway Jim s1t03 Foam s1t04 Colonel Forbin's Ascent > s1t05 Fly Famous Mockingbird s1t06 My Sweet One s1t07 Stash// s1t08 The Curtain > s1t09 Cavern s1t10 The Mango Song s1t11 Run Like An Antelope Set 2 s2t01 Buried Alive s2t02 Reba s2t03 Chalkdust Torture s2t04 Sparkle s2t05 Brother s2t06 The Lizards s2t07 Hold Your Head Up > s2t08 Terrapin > s2t09 //Hold Your Head Up s2t10 Harpua s2t11 Sweet Adeline s2t12 Golgi Apparatus Notes:  This was sent to me on a dvd.  I can not remember who sent me the dvd, and the         only source information given was that this was a soundboard.  The pre
-  - label:
+  - label: **sbd** (Source: Unknown Soundboard)
 - **phish1991-12-07.164810.portsmouth.cp1.flac1644**
   - title: Phish - 1991-12-07 - Portsmouth Music Hall - Portsmouth, NH
   - source field: None
@@ -65,7 +65,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish  12-07-1991  The Music Hall  Portsmouth,NH  Source: FOB Nak CM300 cp1 > Sony D-5 > MasterCass > Tascam DR-100 > 24bit WAV > Soundforge  16bit dither > FLAC Set 1 01.Wilson 02.Runaway Jim  03.Foam 04.Colonel Forbin > Famous Mockingbird  05.My Sweet One 06.Stash 07.Curtain 08.Cavern 09.The Mango Song  10.Run Like An Antelope  Set 2 11.Buried Alive  12.Reba 13.Chalkdust Torture  14.Sparkle  15.Brother  16.Lizards  17.Terrapin  18.Harpua  ***Encores*** 19.Sweet Adeline 20.Golgi Apparatus  Thanks to taperjon at Lossless Legs for sharing this previously uncirculated source.
-  - label:
+  - label: **aud** (FOB Nak CM300)
 
 ### 2. 1988-12-17
 
@@ -76,7 +76,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 12/17/1988 Stone Church Newmarket, NH Set I - Only Source: SBD > Cass > Cass (XLII) > Goldwave 44k (via Tascam 202 MK III) > mkw (shn) Notes: 1. Slight bass boost and high end trim during RIP 2. Pitch correction: 45 fine tune (side a) 60 fine tune (side B) 3. Analog flip after Slave (quick fade on applause) 4. Not sure about the Divided start -- sounds cut?? 5. Set was close to 82 minutes on RIP, but after pitch correction is only 79 minutes and will fit on an 80 minute CD.  How's that for serendipity? I haven't seen this show around, so I figured I'd use it for my first seed.  The quality is as good as anything I've heard from this era. ph1988-12-17d1t01-divided.shn ph1988-12-17d1t02-
-  - label:
+  - label: **sbd** (Source: SBD > Cass)
 
 ### 3. 1998-10-03
 
@@ -87,7 +87,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-10-03 Farm Aid New World Music Theatre Tinley Park, IL Source: CMT DSS Broadcast > Tbfiji > Soundforge > CD flac'd 2026-08-25 s1t01 - Birds of a Feather s1t02 - Trey talk s1t03 - Farmhouse s1t04 - Moma Dance s1t05 - Runaway Jim > s1t06 - Arc* > Down By The River* s1t07 - Moonlight in Vermont** s1t08 - Will the Circle be Unbroken** s1t09 - Amazing Grace*** s1t10 - Uncloudy Day** * Phish debut; Neil Young on guitar. ** Phish debut; Neil Young and Willie Nelson on guitar and Paul Schaffer on keyboards. *** Neil Young and Willie Nelson on guitar and Paul Schaffer on keyboards. This single set performance was part of the annual Farm Aid benefit concert which also included Hootie and th
-  - label:
+  - label: **fm** (CMT DSS (satellite TV) broadcast; broadcast read as fm)
 - **phish1998-10-03.015186.tinleypark.sbd.flac1644**
   - title: Phish - 1998-10-03 - World Music Theatre - Tinley Park, IL
   - source field: None
@@ -95,7 +95,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-10-03 Farm Aid New World Music Theatre Tinley Park, IL DishNetwork> Tbfiji> Soundforge> CdWav(trackbreaks)> shortn32 flac'd 2026-08-25 s1t01 - Birds of a Feather s1t02 - Trey talk s1t03 - Farmhouse s1t04 - Moma Dance s1t05 - Runaway Jim > Jam s1t06 - Down By The River* > Jam s1t07 - Moonlight in Vermont** s1t08 - Will the Circle be Unbroken** s1t09 - Amazing Grace*** s1t10 - Uncloudy Day** s1t11 - Announcemets s1t12 - Outro * Phish debut; Neil Young on guitar. ** Phish debut; Neil Young and Willie Nelson on guitar and Paul Schaffer on keyboards. *** Neil Young and Willie Nelson on guitar and Paul Schaffer on keyboards. This single set performance was part of the annual Farm Aid be
-  - label:
+  - label: **fm** (DishNetwork broadcast (no Source: label); broadcast read as fm)
 - **phish1998-10-03.095202.tinleypark.mtx.flac1644**
   - title: Phish - 1998-10-03 - World Music Theatre - Tinley Park, IL
   - source field: None
@@ -103,7 +103,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHiSH World Music Theater, Farm Aid Tinley Park, IL October 3, 1998 (Sat) ------------------------------------------------------------ SBD(broadcast)/AUD Matrix [SBD+AUD > Wavelab 5.01 > CD Wave 1.94.5 > Flac 16 (level 8)] Mixed by Ross P October 2008 ------------------------------------------------------------ AUD (shnid=85373): Schoeps MK4's>Nbox>Aiwa HDS200 (@44.1khz) DAT clone from master>Sony TCD-D10proII>Edirol R-4>WL5>CDWAV>FLAC Recorded from Section 103 Row QQ by Pepper and ? SBD (shnid=770): CMT DSS Broadcast > Tbfiji > Soundforge > CD ------------------------------------------------------------ One Set: d1t01 Birds of a Feather d1t02 Farmhouse d1t03 Moma Dance d1t04 Runaway Jim* > 
-  - label:
+  - label: **matrix** (SBD(broadcast)/AUD Matrix)
 - **phish1998-10-03.126725.tinleypark.mk4v.flac1644**
   - title: Phish - phish1998-10-03.095202.tinleypark.mtx.flac1644
   - source field: None
@@ -111,7 +111,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-10-03 World Music Theatre Tinley Park, IL Farm Aid Source:  FOB; Schoeps MK4V > KCY > Schoeps VMS02IB > Sony SBM-1 > Sony TCD D1000 Transfer:  DAT(c) @ 44.1k > Sony PCM-R500 > Korg MR-2000S > Samplitude Pro X (fades, edits) > TLH(flac 8) Thanks to Steve Mortlock for the DAT Transfer & edits by Jeff Mitchell (jeffhmitchell@gmail.com) Seeded to etree 2014-01-14 Set 1: s1t01 - Birds Of A Feather s1t02 - Farmhouse s1t03 - The Moma Dance s1t04 - Runaway Jim > s1t05 - Arc > s1t06 - Down By The River s1t07 - Moonlight In Vermont s1t08 - Will The Circle Be Unbroken > s1t09 - Amazing Grace s1t10 - Uncloudy Day Notes: This single set performance was part of the annual Farm Aid benefit conce
-  - label:
+  - label: **aud** (FOB Schoeps MK4V)
 - **phish1998-10-03.126726.tinleypark.nak300.flac1648**
   - title: Phish - 1998-10-03 - World Music Theatre - Tinley Park, IL
   - source field: None
@@ -119,7 +119,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-10-03 World Music Theatre Tinley Park, IL Farm Aid Source:  Nakamichi 300 Shotguns > EAA PSP2 > Sony D7 Transfer:  DAT(c) @ 48k > Sony PCM-R500 > Korg MR-2000S > Samplitude Pro X (fades, edits) > TLH(flac 8) Thanks to Steve Mortlock for the DAT Transfer & edits by Jeff Mitchell (jeffhmitchell@gmail.com) Seeded to etree 2014-01-14 Set 1: s1t01 - Birds Of A Feather s1t02 - Farmhouse s1t03 - The Moma Dance s1t04 - Runaway Jim > s1t05 - Arc > s1t06 - Down By The River s1t07 - Moonlight In Vermont s1t08 - Will The Circle Be Unbroken > s1t09 - Amazing Grace s1t10 - Uncloudy Day Notes: This single set performance was part of the annual Farm Aid benefit concert which also included Hootie 
-  - label:
+  - label: **aud** (Nakamichi 300 shotguns)
 
 ### 4. 1993-08-21
 
@@ -130,7 +130,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH 8/21/93 SALT AIR SALT LAKE CITY, UTAH =============================================================| SOURCE: AUDIENCE: SONY MC80'S> DAT  CONVERSION: DAT (FOSTEX D-5)> M-AUDIO DELTA DIO 2496 (TOSLINK  S/PDIF IN)> SAMPLITUDE MASTER 6.0 (CAPTURE, THEN RESAMPLED TO 44.1 kHz ON "ULTRA HIGH" SETTING)> CDWAVE (TRACK SPLITS)> SHN (WITH SEEK FILES APPENDED)  =============================================================| *** - SBEs fixed by set on d2t15 with Trader's Little Helper prior to shn>flac conversion - SHN>WAV>FLAC Level 6 via Trader's Little Helper - Tags via MediaMonkey - Consolidated original md5's to one file - Files renamed to adhere to etree naming standards - No music was harmed 
-  - label:
+  - label: **aud** (SOURCE: AUDIENCE: Sony MC80)
 
 ### 5. 2009-12-30
 
@@ -141,7 +141,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 12/30/2009 Miami, Florida American Airlines Arena Source: Schoeps mk41> KC5> M222> NT222> Lunatec V3> SD 722 (@24bit/48kHz) Location: OTS, Section 5, Row 13, Seats 12 & 13, 9' Stand, DINA Transfer: SD 722> Samplitude SE 9.1.1(dither/resample)> CDWave> flac(16/44) Taped, Transferred & Seeded by: taylorc (12/31/2009) Set I t01 [04:52] Soul Shakedown Party t02 [07:41] Runaway Jim t03 [08:33] Jesus Just Left Chicago t04 [02:38] Dixie Cannonball t05 [05:35] Stealing Time from the Faulty Plan t06 [06:47] Corinna t07 [04:59] What's the Use> t08 [07:59] Tela t09 [05:19] Gone t10 [02:44] Rocky Top t11 [07:24] Chalk Dust Torture t12 [11:21] David Bowie Set II t13 [13:21] Sand t14 [13:01] The Cur
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105219.miami.mk41.m222.taylorc.flac2448**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -149,7 +149,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 12/30/2009 Miami, Florida American Airlines Arena Source: Schoeps mk41> KC5> M222> NT222> Lunatec V3> SD 722 (@24bit/48kHz) Location: OTS, Section 5, Row 13, Seats 12 & 13, 9' Stand, DINA Transfer: SD 722> Samplitude SE 9.1.1> CDWave> flac(24/48) Taped, Transferred & Seeded by: taylorc (12/31/2009) Set I t01 [04:52] Soul Shakedown Party t02 [07:36] Runaway Jim t03 [08:38] Jesus Just Left Chicago t04 [02:38] Dixie Cannonball t05 [05:34] Stealing Time from the Faulty Plan t06 [06:02] Corinna> t07 [05:45] What's the Use> t08 [07:59] Tela t09 [05:18] Gone t10 [02:44] Rocky Top t11 [07:24] Chalk Dust Torture t12 [11:21] David Bowie Set II t13 [13:21] Sand t14 [13:02] The Curtain With> t15 [
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105220.miami.me80.litzenberger.flac1644**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -157,7 +157,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish American Airlines Arena Miami, FL December 30, 2009 Sennheiser ME-80's>Sound Devices 744t (@24/48) SD744t>Soundforge 9 (Fades, Sample/Bit Rate Conversion to 16/44.1)>CDWAV>FLAC Recorded and Processed By Keith Litzenberger Setlist: Set 1: 01 Soul Shakedown Party 02 Runaway Jim 03 Jesus Just Left Chicago 04 Dixie Cannonball 05 Stealing Time From The Faulty Plan 06 Corinna 07 What's The Use? 08 Tela 09 Gone 10 Rocky Top 11 Chalk Dust Torture 12 David Bowie Set 2: 01 Sand 02 The Curtain With 03 Lifeboy 04 Back On The Train > 05 Wading In The Velvet Sea 06 Hold Your Head Up > 07 Love You > 08 Hold Your Head Up 09 Free 10 Boogie On Reggae Woman 11 Run Like An Antelope Encore: 12 Frankenstein
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105220.miami.me80.litzenberger.flac2448**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -165,7 +165,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish American Airlines Arena Miami, FL December 30, 2009 **24BIT/48KHZ** Sennheiser ME-80's>Sound Devices 744t (@24/48) SD744t>Soundforge 9 (Fades)>CDWAV>FLAC Recorded and Processed By Keith Litzenberger Setlist: Set 1: 01 Soul Shakedown Party 02 Runaway Jim 03 Jesus Just Left Chicago 04 Dixie Cannonball 05 Stealing Time From The Faulty Plan 06 Corinna 07 What's The Use? 08 Tela 09 Gone 10 Rocky Top 11 Chalk Dust Torture 12 David Bowie Set 2: 01 Sand 02 The Curtain With 03 Lifeboy 04 Back On The Train > 05 Wading In The Velvet Sea 06 Hold Your Head Up > 07 Love You > 08 Hold Your Head Up 09 Free 10 Boogie On Reggae Woman 11 Run Like An Antelope Encore: 12 Frankenstein
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105221.miami.mk41.litzenberger.flac1644**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -173,7 +173,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish American Airlines Arena Miami, FL December 30, 2009 Schoeps MK41's>Schoeps KCY 250/05I>Schoeps VST62ui>Aerco MP2>Sound Devices 744t (@24/48) SD744t>Soundforge 9 (Fades, Sample/Bit Rate Conversion to 16/44.1)>CDWAV>FLAC Recorded and Processed By Keith Litzenberger Setlist: Set 1: 01 Soul Shakedown Party 02 Runaway Jim 03 Jesus Just Left Chicago 04 Dixie Cannonball 05 Stealing Time From The Faulty Plan 06 Corinna 07 What's The Use? 08 Tela 09 Gone 10 Rocky Top 11 Chalk Dust Torture 12 David Bowie Set 2: 01 Sand 02 The Curtain With 03 Lifeboy 04 Back On The Train > 05 Wading In The Velvet Sea 06 Hold Your Head Up > 07 Love You > 08 Hold Your Head Up 09 Free 10 Boogie On Reggae Woman 11 Ru
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105222.miami.ak50.skeens.flac1644**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -181,7 +181,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 12/30/09 American Airlines Arena Miami FL source-neumann ak50's>lc3's>km100's>V3>722/cf card @ 24/48 located in the OTS ROB transfer-cf card>sony viao>**!!-addawav fix>cdwave>wavelab 6>TLH @ FLAC level 8>utorrent taper-Mark Skeens aka "local crew 147" set 1 soul shakedown party runaway jim jesus left chicago **!! dixie cannonball stealing time from the faulty plan corinna what's the use? tela gone rocky top chalkdust torture david bowie set 2 sand curtain with lifeboy back on the train> velvet sea hyhu> love you> hyhu free boogie on reggae woman run like an antelope encore-frankenstein **!!-my s/spdif cable jiggled on the v3 so I dropped out for about 35 seconds and it's just a blank s
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105223.miami.km150.litzenberger.flac1644**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -189,7 +189,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish American Airlines Arena Miami, FL December 30, 2009 Neumann KM150's>Sound Devices MP2>Korg MR-1 Korg MR1>Audiogate(Fades, render to 16/44.1)>CDWAV>FLAC Recorded and Processed By Keith Litzenberger Setlist: Set 1: 01 Soul Shakedown Party 02 Runaway Jim 03 Jesus Just Left Chicago 04 Dixie Cannonball 05 Stealing Time From The Faulty Plan 06 Corinna 07 What's The Use? 08 Tela 09 Gone 10 Rocky Top 11 Chalk Dust Torture 12 David Bowie Set 2: 01 Sand 02 The Curtain With 03 Lifeboy 04 Back On The Train > 05 Wading In The Velvet Sea 06 Hold Your Head Up > 07 Love You > 08 Hold Your Head Up 09 Free 10 Boogie On Reggae Woman 11 Run Like An Antelope Encore: 12 Frankenstein
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105226.miami.mk5.taylorc.flac1644**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -197,7 +197,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 12/30/2009 Miami, Florida American Airlines Arena Source: Schoeps mk5(omni)> KCY> Schoeps VMS02IB> Apogee Mini-Me> SD 722 (@24bit/48kHz) Location: OTS, Section 5, Row 13, Seats 12 & 13, 9' Stand, 0 Degrees, 16" Spread Transfer: SD 722> Samplitude SE 9.1.1(dither/resample)> CDWave> flac(16/44) Taped, Transferred & Seeded by: taylorc (12/31/2009) Set I t01 [04:52] Soul Shakedown Party t02 [07:37] Runaway Jim t03 [08:37] Jesus Just Left Chicago t04 [02:38] Dixie Cannonball t05 [05:35] Stealing Time from the Faulty Plan t06 [06:01] Corinna t07 [05:40] What's the Use> t08 [08:05] Tela t09 [05:19] Gone t10 [02:43] Rocky Top t11 [07:24] Chalk Dust Torture t12 [11:21] David Bowie Set II t13 [1
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105226.miami.mk5.taylorc.flac2448**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -205,7 +205,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 12/30/2009 Miami, Florida American Airlines Arena Source: Schoeps mk5(omni)> KCY> Schoeps VMS02IB> Apogee Mini-Me> SD 722 (@24bit/48kHz) Location: OTS, Section 5, Row 13, Seats 12 & 13, 9' Stand, 0 Degrees, 16" Spread Transfer: SD 722> Samplitude SE 9.1.1> CDWave> flac(24/48) Taped, Transferred & Seeded by: taylorc (01/02/2010) Set I t01 [04:52] Soul Shakedown Party t02 [07:36] Runaway Jim t03 [08:38] Jesus Just Left Chicago t04 [02:38] Dixie Cannonball t05 [05:35] Stealing Time from the Faulty Plan t06 [06:01] Corinna> t07 [05:45] What's the Use> t08 [07:59] Tela t09 [05:19] Gone t10 [02:44] Rocky Top t11 [07:23] Chalk Dust Torture t12 [11:22] David Bowie Set II t13 [13:13] Sand t14 [
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105228.miami.senn441.padelimike.flac1644**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -213,7 +213,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHiSH 12/30/2009 American Airlines Arena Miami, Fla. Field: Sennheiser MD441U > Edirol R4Pro ( Oade preamp mod ) @ 24/88.2 config: 60 degrees 61cm, OTS, right of SBD, even with CK5, 13 feet high. Path: R4Pro > WaveBurner ( track, fade, SRC, BRC ) > xACT ( to flac, tagging and checksums ) Set the First: 01 lights out 02 Soul Shakedown Party 03 Runaway Jim 04 Jesus Just Left Chicago 05 Dixie Cannonball 06 Stealing Time from the Faulty Plan 07 Corinna 08 What's the Use 09 Tela 10 Gone 11 Rocky Top 12 Chalkdust Torture 13 David Bowie Set the Second: 01 lights out 02 Sand 03 The Curtain With 04 Lifeboy 05 Back on the Train 06 Wading in the Velvet Sea 07 HYHU 08 Love You --------------------------
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105229.miami.mk5.mk41.taylorc.flac1644**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -221,7 +221,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 12/30/2009 Miami, Florida American Airlines Arena 4-channel Mix: Source 1: Schoeps mk5(omni)> KCY> Schoeps VMS02IB> Apogee Mini-Me> SD 722 (@24bit/48kHz) Location: OTS, Section 5, Row 13, Seats 12 & 13, 9' Stand, 0 Degrees, 16" Spread Source 2: Schoeps mk41> KC5> M222> NT222> Lunatec V3> SD 722 (@24bit/48kHz) Location: OTS, Section 5, Row 13, Seats 12 & 13, 9' Stand, DINA Transfer: SD 722> Samplitude SE 9.1.1(dither/resample)> CDWave> flac(16/44) Taped, Transferred & Seeded by: taylorc (12/31/2009) Set I t01 [04:52] Soul Shakedown Party t02 [07:36] Runaway Jim t03 [08:38] Jesus Just Left Chicago t04 [02:38] Dixie Cannonball t05 [05:35] Stealing Time from the Faulty Plan t06 [06:01] Cor
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105229.miami.mk5.mk41.taylorc.flac2448**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -229,7 +229,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 12/30/2009 Miami, Florida American Airlines Arena 4-channel Mix: Source 1: Schoeps mk5(omni)> KCY> Schoeps VMS02IB> Apogee Mini-Me> SD 722 (@24bit/48kHz) Location: OTS, Section 5, Row 13, Seats 12 & 13, 9' Stand, 0 Degrees, 16" Spread Source 2: Schoeps mk41> KC5> M222> NT222> Lunatec V3> SD 722 (@24bit/48kHz) Location: OTS, Section 5, Row 13, Seats 12 & 13, 9' Stand, DINA Transfer: SD 722> Samplitude SE 9.1.1> CDWave> flac(24/48) Taped, Transferred & Seeded by: taylorc (01/02/2010) Set I t01 [04:52] Soul Shakedown Party t02 [07:37] Runaway Jim t03 [08:38] Jesus Just Left Chicago t04 [02:38] Dixie Cannonball t05 [05:35] Stealing Time from the Faulty Plan t06 [06:01] Corinna t07 [05:45] 
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105292.miami.km184.teamdrink.flac1644**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -237,7 +237,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish American Airlines Arena Miami, FL December 30, 2009 source:  Neumann km184 > Lunatec V3 > Audio Magic Presto II > Sound Devices 722 location: OTS, right of SBD, even with CK5, 13 feet high. transfer:  CF Card -> MacBook OS X 10.5.6 (Bias Peak Pro 5.2) -> FLAC taped, transfered & uploaded by "TEAM DRINK" teamdrink2 AT yahoo DOT com January 1, 2010 ***Cover Art Included*** Disc 1 - [75:51] ---SET 1--- 01 - [04:28] - Soul Shakedown Party 02 - [07:41] - Runaway Jim 03 - [08:32] - Jesus Just Left Chicago 04 - [02:40] - Dixie Cannonball 05 - [05:34] - Stealing Time From The Faulty Plan 06 - [05:37] - Corrina 07 - [06:10] - What's The Use? 08 - [07:58] - Tela 09 - [05:20] - Gone 10 - [02:43] 
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.105435.miami.mk41.flaschner.flac1644**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -245,7 +245,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 30, 2009 American Airlines Arena Miami, FL source: Schoeps mk41 > kc5 > cmc6 > Sonosax SX-M2 > Sound Devices 722 (@ 24 / 96 kHz) (mics clamped to Taylor's stand) transfer: CF card > wavelab (resample/dither to 16 bit / 44.1 kHz) > CD Wave > flac v1.2.1 taped by Dave Flaschner transferred by Rob Adler disc 1 Set I 01. Soul Shakedown Party 02. Runaway Jim 03. Jesus Just Left Chicago 04. Dixie Cannonball * 05. Stealing Time From the Faulty Plan 06. Corina 07. What's the Use 08. Tela 09. Gone ** 10. Rocky Top 11. Chalk Dust Torture 12. David Bowie disc 2 Set II 01. Sand 02. The Curtain With 03. Lifeboy 04. Back on the Train > 05. Wading in the Velvet Sea 06. Hold Your Head Up > 07
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.114254.miami.ck3.akg460.nbanyai.flac1644**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -253,7 +253,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish American Airlines Arena Miami, FL 2009-12-30 Source:  AKG ck3|a60m|c460b > Segue Dogstar XLRs > Fostex FR-2LE (24bit/48khz) Transfer:  CF Card > .bwf > Audacity (gain/fades/dither/resample) > CDWav > .wav > .flac Location:  OTS, LOC, stand @ ~7' Config:  PAS, 20cm @ 70* taped by: nbanyai27/AudBall transferred by:  (jbanyai97@yahoo.com) Set One: 01.  Soul Shakedown Party  (4:37) 02.  Runaway Jim  (7:33) 03.  Jesus Just Left Chicago  (8:42) 04.  Dixie Cannonball *  (2:39) 05.  Stealing Time From The Faulty Plan  (5:35) 06.  Corinna  (6:47) 07.  What's The Use?  (5:01) 08.  Tela  (7:59) 09.  Gone %  (5:20) 10.  Rocky Top  (2:44) 11.  Chalk Dust Torture  (7:24) 12.  David Bowie  (11:24) Se
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 - **phish2009-12-30.114332.miami.cp101.nak1000.audball.flac1644**
   - title: Phish - 2009-12-30 - American Airlines Arena - Miami, FL
   - source field: None
@@ -261,7 +261,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish American Airlines Arena Miami, FL 2009-12-30 Source: Nakamichi CM-1000|CP-101 (Sank p48) >          Oade Concert Mod Marantz PMD-661 (-18db atten.) @ 24bit/48kHz Transfer: PMD-661 > USB > Adobe Audition 3.0 > CDWave > FLAC (Level 8) Mic Location/Setup: OTS, ROC, ~7ft high, PAS t&t: audBall Set 1 01. Soul Shakedown Party 02. Runaway Jim 03. Jesus Left Chicago 04. Dixie Cannonball * 05. Stealing Time From The Faulty Plan 06. Corinna 07. What's The Use 08. Tela 09. Gone * 10. Rocky Top 11. Chalkdust Torture 12. David Bowie Set 2 01. Sand 02. The Curtain (With) > 03. Lifeboy 04. Back On The Train > 05. Wading In The Velvet Sea 06. HYHU > Love You > HYHU 07. Free > 08. Boogie On Reggae Woma
-  - label:
+  - label: **aud** (mic chain (OTS etc.))
 
 ### 6. 1991-03-16
 
@@ -272,7 +272,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1991-06-16 Ten Mile Room Breckenridge, CO Source: Pre-soundboard mix > DAT (48k) > PC via Event Gina S/PDIF > 44.1k (Cool Edit Pro, very high quality setting) > CD sbe fix, flac, tag 2025-09-12 - Jeff Mitchell Set 1 s1t01 - The Man Who Stepped Into Yesterday > s1t02 - Avenu Malkenu > s1t03 - The Man Who Stepped Into Yesterday > s1t04 - Golgi Apparatus s1t05 - Reba s1t06 - The Landlady > s1t07 - Bathtub Gin s1t08 - The Curtain s1t09 - Rocky Top s1t10 - Colonel Forbin's Ascent > s1t11 - Fly Famous Mockingbird > s1t12 - The Oh Kee Pa Ceremony > s1t13 - Suzy Greenberg > s1t14 - Run Like An Antelope Set 2 s2t01 - Llama s2t02 - Divided Sky s2t03 - Guelah Papyrus s2t04 - My Sweet One s2t05 - 
-  - label:
+  - label: **sbd** (Pre-soundboard mix)
 - **phish1991-03-16.000444.breckenridge.sbd.flac1644**
   - title: Phish - 1991-03-16 - Ten Mile High Room - Breckenridge, CO
   - source field: None
@@ -280,7 +280,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1991-03-16 Ten Mile Room Breckenridge, CO Source: DAT SBD > DAT(x3) > Prodif24 > SoundForge > SHN flac, tag 2025-09-12 - Jeff Mitchell Set 1 s1t01 - The Man Who Stepped Into Yesterday > Avenu Malkenu > The Man Who Stepped Into Yesterday > s1t02 - Golgi Apparatus s1t03 - Reba s1t04 - The Landlady > s1t05 - Bathtub Gin s1t06 - The Curtain s1t07 - Rocky Top s1t08 - Colonel Forbin's Ascent > s1t09 - Fly Famous Mockingbird > s1t10 - The Oh Kee Pa Ceremony > s1t11 - Suzy Greenberg > s1t12 - Run Like An Antelope Set 2 s2t01 - Llama s2t02 - Divided Sky s2t03 - Guelah Papyrus s2t04 - My Sweet One s2t05 - Split Open & Melt s2t06 - Magilla > s2t07 - Buried Alive > s2t08 - The Squirming Coil > s2t
-  - label:
+  - label: **sbd** (DAT SBD)
 - **phish1991-03-16.025433.breckenridge.sbd.flac1644**
   - title: Phish - 1991-03-16 - Ten Mile High Room - Breckenridge, CO
   - source field: None
@@ -288,7 +288,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1991-03-16 Ten Mile Room Breckenridge, CO  Source:  dSbd Transfer:  Tascam DA-20MKII>Hosa ODL 276>JB3>wav>SF6>CDWave>wav>FLAC Tranfered: Phil Lucks (luckspATcomcastDOTnet) Set1 Disk1: 1:  TMWSIY->  2:  Avenu Malkenu->  3:  TMWSIY 4:  Golgi Apparatus  5:  Reba  6:  The Landlady  7:  Bathtub Gin  8:  The Curtain 9:  Rocky Top 10: Colonel Forbin's Ascent->  11: Famous Mockingbird 12: Oh Kee Pa Ceremony->  13: Suzy Greenberg 14: Run Like an Antelope  Set2 Disk 2: 1:  Llama  2:  The Divided Sky  3:  Guelah Papyrus 4:  My Sweet One 5:  Split Open and Melt 6:  Magilla->  7:  Buried Alive 8:  The Squirming Coil 9:  Cavern 10: You Enjoy Myself  11: E: Manteca->  12: Possum  notes: -fades added 
-  - label:
+  - label: **sbd** (dSbd)
 - **phish1991-03-16.133702.breckenridge.sbd.flac1648**
   - title: Phish - 1991-03-16 - Ten Hile Hight Room - Breckenridge, CO
   - source field: None
@@ -296,7 +296,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1991-03-16 Ten Mile Room Breckenridge, CO Source:  Audience & Soundboard Multitrack mix Transfer:  DAT(c) @ 48kHz > Sony PCM-R500 > Canare Coax > Korg MR-2000S > Kimber USB 2.0 > Samplitude Pro X v12.5.0.264 (fades, edits) > TLH v2.7.0 (flac 8, ffp) > Foobar2000 v1.2.9 Live Show Tagger DAT provided by Charlie Miller & Arielle Phares Transfer & edits by Jeff Mitchell (jeffhmitchell@gmail.com) Seeded to etree 2015-07-08 Set 1: s1t01 - Intro s1t02 - The Man Who Stepped Into Yesterday > s1t03 - Avenu Malkenu > s1t04 - The Man Who Stepped Into Yesterday > s1t05 - Golgi Apparatus s1t06 - Reba s1t07 - The Landlady > s1t08 - Bathtub Gin s1t09 - The Curtain > s1t10 - Rocky Top s1t11 - Colonel F
-  - label:
+  - label: **matrix** (Audience & Soundboard Multitrack mix (identifier says sbd))
 
 ### 7. 1996-11-22
 
@@ -307,7 +307,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1996-11-22 Spokane Arena Spokane, WA Source:    AKG 414/AT 4031 > Soundcraft Mixpad > DA-P1 Taper:    Don Wright Transfer:    Aiwa XD-001 DAT > Black&White DigiCoax > Z-Cyber Nightingale Pro 6 S/PDIF > Cool Edit Pro@16/44.1 kHz > CD Wav > mkwACT 0.97 BETA 1 > SHN. by Friedemann Rothfuchs, kushelphish@gmx.de; used DAT is 2nd Generation digital clone and was provided by Aldo Torre (thanks!) There also is a 48 kHz .shn of this transfer. flac's 2026-08-10 Edits: Fade in and out and start and end of sets Flaws: Not quite sure if this is really a flaw, but there's a weird noise in d1t06 at 00:47 that's on the DAT as well. The noise is slight and I couldn't figure out how I could edit it out 
-  - label:
+  - label: **aud** (AKG 414/AT 4031 mics)
 - **phish1996-11-22.176530.spokane.akg414.at4031.wright.flac1648**
   - title: Phish - 1996-11-22 - Spokane Arena - Spokane, WA
   - source field: None
@@ -315,7 +315,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 11/22/1996 Spokane Arena - Spokane, WA Source: AKG 414/AT 4031 Matrix Transfer: Tascam DA-20 MKII > Tascam DR-680 > Audacity > WAV > xACT > FLAC Taped (almost certainly) by Don Wright Transferred & Seeded by Bill Graves ~ Set 1 ~ 1. It's Ice 2. Runaway Jim 3. Wolfman's Brother 4. Taste 5. Ginseng Sullivan 6. Sample in a Jar 7. Fast Enough For You 8. Train Song 9. Stash 10. Cavern ~ Set 2 ~ 1. Down with Disease > 2. Prince Caspian 3. Maze 4. Billy Breathes 5. Swept Away > 6. Steep 7. Character Zero 8. Theme From the Bottom 9. Slave to the Traffic Light 10. Hello My Baby ~ Encore ~ 11. Crowd 12. Julius Notes: - This is almost certainly the same recording source as etreeID #24647, but I d
-  - label:
+  - label: **aud** (AKG 414/AT 4031 Matrix = a mix of two audience mics, not sbd+aud)
 
 ### 8. 1995-10-07
 
@@ -326,7 +326,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 10-7-95  Spokane Opera House Spokane, WA  Source: Neumann KM140 (No other source info given) Transfer: DA-20->Delta Dio 2496->Soundforge 4.5 (48>44.1 resampling on highest accuracy setting w/anti alias filter)->CDWAV->SHN Transfer by: Brandon Johnston (bisq1@yahoo.com) DISC 1 Set 1:  1.Julius 2.Gumbo 3.Fog That Surrounds 4.Mound 5.Possum 6.The Mango Song 7.Acoustic Army 8.Wilson 9.Run Like an Antelope  DISC 2 (80 minute disc) Set 2:  1.Makisupa Policeman 2.Cars Trucks Buses 3.Split Open and Melt 4.Strange Design 5.It's Ice 6.Contact 7.Frankenstein 8.Harry Hood 9.Sweet Adeline  10.crowd noise 11.E: Fire  Notes: I applied fades in and out of each set using soundforge 4.5. I also normaliz
-  - label:
+  - label: **aud** (Neumann KM140)
 
 ### 9. 1991-12-04
 
@@ -337,7 +337,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHiSH 1991-12-04 Glitz Auditorium Hawkins Hall SUNY Plattsburgh Plattsburgh, NY Source: Unknown AUD Rig> DAT> Cass/?> DAT> REBA> SHNv3 Transfer: Cass/? Sony TC-KA3ES> Tascam DA-40 DAT@48kHz> REBA> Wavelab 4.0g (editing, processing, tracking)> SHN flac & tag 2025-11-16 Set 1: s1t01 - Llama> s1t02 - Reba s1t03 - The Landlady> s1t04 - Runaway Jim s1t15 - Cavern> s1t06 - Poor Heart s1t07 - Brother s1t08 - The Squirming Coil// s1t09 - \\Dinner and a Movie s1t10 - BATR> s1t11 - David Bowie Set 2: s2t01 - My Sweet One s2t02 - Stash s2t03 - The Mango Song> s2t04 - Mike's Song> s2t05 - Hydrogen> s2t06 - Weekapaug Groove// s2t07 - \\Sparkle> s2t08 - Lizards s2t09 - Chalkdust Torture s2t10 - HYHU>Love 
-  - label:
+  - label: **aud** (Unknown AUD rig)
 - **phish1991-12-04.109510.plattsburgh.sbd.flac1648**
   - title: Phish - 1991-12-04 - Glitz Auditorium - Hawkins Hall - SUNY Plattsburgh - Plattsbutgh, NY
   - source field: None
@@ -345,7 +345,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Wednesday, 12/04/1991 E. Glenn Giltz Auditorium, SUNY-Plattsburgh, Plattsburgh, NY SBD Cass > Cass > Audacity > TLH (slight clip in beginning of both Coil and Chalkdust at flip) Setlist Info courtesy of Phish.net Set 1: Llama, Reba, The Landlady, Runaway Jim, Cavern, Poor Heart, Brother, The Squirming Coil, Dinner and a Movie > Bouncing Around the Room > David Bowie Set 2: My Sweet One, Stash, The Mango Song, Mike's Song > I Am Hydrogen > Weekapaug Groove, Sparkle, The Lizards, Chalk Dust Torture, Hold Your Head Up > Love You > Hold Your Head Up, Golgi Apparatus Encore: Sweet Adeline, Suzy Greenberg Notes: The long David Bowie intro contained a Silver Bells tease from Page, three Charlie Cha
-  - label:
+  - label: **sbd** (SBD Cass (no Source: label))
 - **phish1991-12-04.109607.plattsburgh.sbd.flac2496**
   - title: Phish - 1991-12-04 - Glitz Auditorium - SUNY Plattsburgh - Plattsburgh, NY
   - source field: None
@@ -353,7 +353,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 4th, 1991 E. Glenn Giltz Auditorium (SUNY-Plattsburgh) Plattsburgh, New York -Source was on Maxell XLII-S Analog Cassettes -Cassette lineage is SBD>MAC>Parker's copy -A>D via Nakamichi Dragon>Korg MR1000>Korg Audio Gate>WAV -Tracking performed in Adobe Audition 3.0 -FLAC conversion via Trader's Little Helper -Thanks to Parker Harrington for the source tapes. Set I 1. Llama [3:45] 2. Reba [10:30] 3. Landlady [3:30] 4. Runaway Jim [7:47] 5. Cavern [4:46] 6. Poor Heart [3:10] 7. Brother [5:01] 8. // Squirming Coil [6:26] 9. Dinner and a Movie > [3:31] 10. Bouncing > [3:44] 11. David Bowie [14:58] Set I Time: [1:07:08] Set II 1. My Sweet One [3:02] 2. Stash [8:15] 3. Mango Song [7
-  - label:
+  - label: **sbd** (Cassette lineage is SBD>MAC)
 
 ### 10. 1985-11-23
 
@@ -364,7 +364,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > 11-23-85 Goddard College Cafeteria, Plainfield, VT  Cass/1 > digital remastering > D8 > CDR Seeded by Ben Mohr (bmohr@udel.edu) carini.etree.org --------------- Disc 1: (44:31) --------------- 1. Mike's Song (4:33) 2. Whipping Post -> (16:03) 3. Jam -> Harry Hood intro (11:11) 4. Run Like An Antelope -> (9:01) 5. Dave's Energy Guide (3:43) This is an oldie but goodie.  The sound quality is not perfect but what  can you expect from an '85.  I'm assuming this is a soundboard recording  but I won't make any judgments since it wasn't in the source info given to me. Enjoy!!!
-  - label:
+  - label: **unknown** (Cass/1 only; undeterminable)
 - **phish1985-11-23.092573.plainfield.unk.flac1644**
   - title: Phish - 1985-11-23 - Goddard College - Plainfield, VT
   - source field: None
@@ -372,7 +372,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHiSH 11/23/85 - Goddard College, Plainfield, VT (Mike's Epiphany show) Source: Unknown Set III: 1. Mike's Song -> 2. Goddard Jam #1-> 3. Goddard Jam #2 -> 4. Run Like an Antelope -> 5. Dave's Energy Guide thanks to BortPimpRed and all the others who helped spread this gem!
-  - label:
+  - label: **unknown** (Source: Unknown)
 - **phish1985-11-23.100780.plainfield.master.flac16**
   - title: Phish - 1985-11-23 - Goddard College - Plainfield, VT
   - source field: None
@@ -380,7 +380,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > A Christmas Gift From Trey, December 1985 Part 1 of 2 (Side A) PHISH November 23, 1985 Godard College Source:  Master > Cass > Cass Transfer:  Cass2 > HHB > CDR > Flac Set 3:    01. Mike's Song 02. Whipping Post Jam 03. Antelope -> 04. Dave's Energy Guide Bonus Filler: 05. Frankenstein, courtesy of Jon Fishman, recorded "a capella" on Paluska's answering machine at some point prior to the April 1990 Colorado tour.  Thanks to Franklin Malemud for recently reminding me of this version's existence, and to Ellis Godard for emailing us a .wav of it.  This used to circulate widely on cassettes traded in the 1990s. An 11/23/85 Godard (side A) / Trey's 4 Track Project (side B) cassette tape used to 
-  - label:
+  - label: **unknown** (Master > Cass (band gift); undeterminable)
 - **phish1985-11-23.145341.plainfield.sbd.flac1648**
   - title: Phish - 1985-11-23 - Goddard College - Plainfield, VT
   - source field: None
@@ -388,7 +388,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH Goddard College Plainfield, Vermont November 23, 1985 Source:  Unknown SBD > ??? > Cass(2) > ??? > DAT(c) Transfer:  DAT(c) > Tascam DA-20mkII > Tascam HD-P2 > CDWave > FLAC (16/48) Source by unknown DAT(c) provided by Brian Frost Transfer by Terry Watts Set I: 01. ,,Mike's Song,, 02. ,,Whipping Post Jam,, 03. Antelope > 04. Dave's Energy Guide Notes: Warts and all... Terry Watts
-  - label:
+  - label: **sbd** (Unknown SBD > Cass)
 
 ### 11. 2025-07-18
 
@@ -399,7 +399,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - July 18, 2025 United Center - Chicago, IL Recording Info: AKG C460B/CK61 > Sound Devices 744T (24-bit/96k) > Samplitude Pro X6 Suite > FLAC/24 (1 DVD FLAC) Recorded by Charlie Miller charliemiller87@earthlink.net August 11, 2025 Set 1: 01 - Crowd 02 - Harry Hood 03 - Oblivion 04 - Heavy Things 05 - Bathtub Gin 06 - On Your Way Down 07 - Limb By Limb 08 - Hey Stranger > 09 - Character Zero Set 2: 10 - Crowd 11 - No Men In No Man's Land > 12 - What's Going Through Your Mind > 13 - Crosseyed And Painless > 14 - Farmhouse 15 - Light > 16 - Backwards Down The Number Line > 17 - Cavern Encore: 18 - Encore Break 19 - The Horse > 20 - Silent In The Morning 21 - 46 Days
-  - label:
+  - label: **aud** (Recording Info: AKG C460B/CK61 (no Source: label))
 - **ph2025-07-18.ck63.stearns.flac24**
   - title: Phish 2025-07-18 United Center, Chicago, IL (akg ck63)
   - source field: None
@@ -407,7 +407,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish United Center Chicago, IL 07/18/2025 Source: AKG CK-63 ULS (DIN) > Nbob actives > Naiant PFA's > Sound Devices MixPre 6 II @ 24bit/48kHz Location: FOB/DFC 6ft up Transfer: SD > WaveLab 6 (Loudness Normalize, Fades, 24bit/48kHz with Apogee UV22HR Dither) > CDWave (Tracking) > Traders Little Helper (FLAC6) Tagging: FLACs Tagged With Mp3tag v3.01 Recorded by Ryan Stearns Set 1: 01 Intro 02 Harry Hood 03 Oblivion 04 Heavy Things 05 Bathtub Gin 06 On Your Way Down 07 Limb By Limb 08 Hey Stranger >  09 Character Zero Set 2:  01 Intro 02 No Men In No Man's Land >  03 What's Going Through Your Mind >  04 Crosseyed & Painless >  05 Farmhouse 06 Light >  07 Backwards Down The Number Line >  08 C
-  - label:
+  - label: **aud** (AKG CK-63 FOB/DFC)
 - **ph2025-07-18.mk22.cmc1k.sxr4.2496**
   - title: Phish 2025-07-18 United Center Chicago, IL fob mk22
   - source field: None
@@ -415,7 +415,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2025-07-18 United Center Chicago, IL Schoeps mk22>cmc1k>Sonosax sx-r4+ 24bit/96khz fob dfc 60' from stage NOS WAV>Imac>wav>Reaper(fades,tracking,add gain,eq,fab filter pro L2)>XAct(FLAC 8,ffp,tagging) Recorded and transferred by Andy Murray Set 1  01 crowd 02 Harry Hood 03 Oblivion 04 Heavy Things 05 Bathtub Gin 06 On Your Way Down 07 Limb By Limb 08 Hey Stranger > 09 Character Zero Set 2 10 crowd 11 No Men In No Man's Land > 12 What's Going Through Your Mind > 13 Crosseyed and Painless > 14 Farmhouse 15 Light > 16 Backwards Down the Number Line > 17 Cavern encore 18 The Horse > 19 Silent in the Morning 20 46 Days Trey teased Let It Grow (Grateful Dead) in Oblivion. Bathtub Gin include
-  - label:
+  - label: **aud** (Schoeps mk22 fob)
 - **phish2025-07-18.173705.chicago.mk4v.murray.flac2496**
   - title: Phish - 2025-07-18 - United Center - Chicago, IL
   - source field: None
@@ -423,7 +423,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2025-07-18 United Center Chicago, IL Schoeps mk4v>kc5>cmc6>Sonosax ad8+>Sonosax sx-r4+ 24bit/96khz DIN PAS fob dfc 60' from stage WAV>Imac>wav>Reaper(fades,tracking,add gain,eq,fab filter pro L2)>XAct(FLAC 8,ffp,tagging) Recorded and transferred by Andy Murray Set 1 01 crowd 02 Harry Hood 03 Oblivion 04 Heavy Things 05 Bathtub Gin 06 On Your Way Down 07 Limb By Limb 08 Hey Stranger > 09 Character Zero Set 2 10 crowd 11 No Men In No Man's Land > 12 What's Going Through Your Mind > 13 Crosseyed and Painless > 14 Farmhouse 15 Light > 16 Backwards Down the Number Line > 17 Cavern encore 18 The Horse > 19 Silent in the Morning 20 46 Days Trey teased Let It Grow (Grateful Dead) in Oblivion. 
-  - label:
+  - label: **aud** (Schoeps mk4v fob)
 - **phish2025-07-18akg481**
   - title: Phish live at the United Center on 07-18-2025
   - source field: None
@@ -431,7 +431,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 07-18-2025 United Center Chicago, IL Source:  AKG C480 B / CK61-ULS (NOS) > Tascam FR-AV2 (32/96) Location:  FOB, DFC, 6' high, 50' from stage Info:  SD > PC > Wave Lab 6.1 (fades, levels, edits, down sampled to 24/96) > CD Wave 1.98 (tracks) > Traders Little Helper (flac 8) Taped by:  Rob O'Brien Set 1: 01.  Harry Hood 02.  Oblivion 03.  Heavy Things 04.  Bathtub Gin 05.  On Your Way Down 06.  Limb By Limb 07.  Hey Stranger > 08.  Character Zero Set 2: 09.  No Men In No Man's Land > 10.  What's Going Through Your Mind > 11.  Crosseyed and Painless > 12.  Farmhouse 13.  Light > 14.  Backwards Down The Number Line 15.  Cavern Encore: 16.  The Horse > Silent In The Morning 17.  46 Days N
-  - label:
+  - label: **aud** (AKG C480B/CK61 FOB)
 
 ### 12. 1997-12-05
 
@@ -442,7 +442,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish  1997-12-05 Cleveland State University Convocation Center  Cleveland, OH Source: Schoeps CMC6/mk41>EAA PSP-2>SBM-1>DA-P1 Transfer: D8>Coresound>Prodif Plus>Cooledit>CDwav>SHN Transfer and Encoding: Mike Fischer (phishsdank@aol.com) sbe fix, flac, tag - 2025-09-07 Jeff Mitchell Set 1 s1t01 - Crowd s1t02 - Ghost > s1t03 - Wilson > s1t04 - Funky Bitch >' s1t05 - Black-Eyed Katy s1t06 - Sparkle > s1t07 - Runaway Jim > s1t08 - My Friend, My Friend s1t09 - Ginseng Sullivan s1t10 - Limb By Limb > s1t11 - Character Zero Set 2 s2t01 - Crowd s2t02 - Stash s2t03 - Bouncing Around The Room; s2t04 - Julius* > s2t05 - Slave To The Traffic Light* > s2t06 - The Lizards s2t07 - Loving Cup > s2t08 - Cha
-  - label:
+  - label: **aud** (Schoeps)
 - **phish1997-12-05.015663.cleveland.mk41.cmc6.flac1644**
   - title: Phish - 1997-12-05 - Cleveland State University Convocation Center - Cleveland, OH
   - source field: None
@@ -450,7 +450,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish  1997-12-05 Cleveland State University Convocation Center  Cleveland, OH Source:  Schoeps CMC6/MK41 > PSP-2 > SBM-1 > DA-P1 flac, tag - 2025-09-07 Jeff Mitchell Set 1 s1t01 - Ghost > s1t02 - Wilson > s1t03 - Funky Bitch >' s1t04 - Black-Eyed Katy s1t05 - Sparkle > s1t06 - Runaway Jim > s1t07 - My Friend, My Friend s1t08 - Ginseng Sullivan s1t19 - Limb By Limb > s1t10 - Character Zero Set 2 s2t01 - Stash s2t02 - Bouncing Around The Room; s2t03 - Julius* > s2t04 - Slave To The Traffic Light* > s2t05 - The Lizards s2t06 - Loving Cup > s2t07 - Chalk Dust Torture Encore s2t08 - Bold As Love *Unfinished. Julius and Slave were both unfinished.  ------ original text file Phish Cleveland State 
-  - label:
+  - label: **aud** (Schoeps)
 - **phish1997-12-05.016621.cleveland.mg210.wilhelm.flac16**
   - title: Phish - 1997-12-05 - Cleveland State University Convocation Center - Cleveland, OH
   - source field: None
@@ -458,7 +458,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH Cleveland State University Convocation Center Cleveland, Ohio December 5, 1997 Source:  (OTS/DFC) Microtech Geffel M210 > Oade M248 > Sony SBM-1 > Tascam DA-P1 Transfer:  Sony PCM-R500 > Edirol UA-1D > Soundforge 6.0 > CDWave > SHN Source and Transfer by Jason Wilhelm, Chicago Tapers Coalition SHN > WAV > SHNTOOLs (SBEs FIXed) > WAV > FLAC by Terry Watts Disc 1 Set I: 1. Ghost 2. Wilson 3. Funky Bitch 4. BEK 5. Sparkle 6. Jim >  7. My Friend 8. Ginseng Sullivan Disc 2 Set I: 1. Limb by Limb 2. Zero Set IIe: 3. Stash 4. Bouncing 5. Julius Disc 3 Set IIe: 1. Slave 2. Lizards 3. Loving Cup 4. Chalkdust 5. e: Bold as Love Notes: SBEs FIXed on D2t02 and D3t05 separately (by sets). Terry Wat
-  - label:
+  - label: **aud** (OTS/DFC Gefell M210)
 - **phish1997-12-05.080764.cleveland.cmc621.ebel.flac16**
   - title: Phish - 1997-12-05 - Cleveland State University Convocation Center - Cleveland, OH
   - source field: None
@@ -466,7 +466,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 12-05-1997 Cleveland State Univ. Convocation Center Cleveland, Ohio -------------------------------------------------------------------------------------------- Source: Schoeps cmc621>Sonosax>sv255 Clone: SV3700>SV3700 Conversion: HHB PDR1000-> M-Audio Firewire Solo> Soundforge 8-> CD Wave 1.954->FLAC Frontend level 8 ---------------- Recorded FOB DFC by Pete Ebel. Transferred from DAT by Adam Gross <k144@optonline.net> There are no glitches that I am aware of. If you find any, please let me know and I will try fix. -------------------------------------------------------------------------------------------- Disc 1 Set 1: Ghost 16:26 Wilson 04:39 Funky Bitch 06:57 Black-Eyed Katy 08:12 
-  - label:
+  - label: **aud** (Schoeps cmc621 FOB DFC)
 - **phish1997-12-05.112181.cleveland.km184.flac16**
   - title: Phish - 1997-12-05 - Cleveland State University Convocation Center - Cleveland, OH
   - source field: None
@@ -474,7 +474,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHiSH December 5th, 1997 CSU Convocation Center Cleveland, OH Source: (OTS) Neumann KM184 > DAT @ 48kHz Transfer: DA-20mkII > Delta DiO 2496 > Wavelab 6(fades) > r8brain > CDWave > TLH Taper: unknown Transferred by K.C. Cadwallader [02/28/11] SET I: d1t01 - Ghost > d1t02 - Wilson > d1t03 - Funky Bitch d1t04 - Black Eyed Katy d1t05 - Sparkle d1t06 - Runaway Jim > d1t07 - My Friend, My Friend d1t08 - Ginseng Sullivan d2t01 - Limb By Limb d2t02 - Character Zero SET II: d2t03 - Stash d2t04 - Bouncing Around The Room d3t01 - Julius > d3t02 - Slave d3t03 - Lizards d3t04 - Loving Cup d3t05 - Chalkdust Torture d3t06 - encore break d3t07 - E: Axis: Bold As Love
-  - label:
+  - label: **aud** (OTS KM184)
 - **phish1997-12-05.112492.cleveland.bk4011.lamke.flac16**
   - title: Phish - 1997-12-05 - Cleveland State University Convocation Center - Cleveland, OH
   - source field: None
@@ -482,7 +482,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Convocation Center Cleveland, OH December 5, 1997 Source:  (ORTF/110^) B&K 4011s > Neumann BS48i-2 > Modified Sony TCD-D10 Pro > DAT(m) Transfer:  DAT(m) > Sony DTC-59ES > SPDIF > Tascam HD-P2 > Audacity (16/48 > 16/44) > CDWave > FLAC DAT(m) sourced by Mark Lamke DAT(m) provided by Mark Lamke via Alan Schmit Transfer by Terry Watts 16/48k Master FLAC available Disk I Set I: 1. Ghost 2. Wilson 3. Funky Bitch 4. Black-Eyed Katy 5. Sparkle 6. Runaway Jim > 7. My Friend 8. Ginseng Sullivan Disk 2 Set I: 1. Limb by Limb 2. Zero Set II: 3. Stash Disk 3 Set IIe: 1. Bouncing 2. Julius > 3. Slave > 4. Lizards 5. Loving Cup 6. Chalkdust 7. e: Bold as Love
-  - label:
+  - label: **aud** (B&K 4011 ORTF)
 - **phish1997-12-05.150688.cleveland.sony.boedicker.flac1644**
   - title: Phish - 1997-12-05 - Cleveland State University Convocation Center - Cleveland, OH
   - source field: None
@@ -490,7 +490,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish-Convocation Center,Clevelnd,OH 1997-12-05 Source:Sony Stereo Mic>Sony WM-D6C Cassette Deck>2 Maxell XL-II-S 90 Minute Master Cassette Tapes>Sony TC-D5M Cassette Deck(Playback)> Edirol R-09 HR(24/44.1 KHZ)>Cd Wav Editor>Traders Little Helper>Flac level 8.Sector Boundaries Aligned Using Traders Little Helper. Taped By Dave Boedicker,On The Left SideOf Arena,About 1/4 Of The Way Up. Setlist: Set I: Ghost, Wilson > Funky Bitch > Black-Eyed Katy* > Sparkle > Runaway Jim > My Friend My Friend, Ginseng Sullivan, Limb By Limb > Character Zero Set II: Stash, Bouncing Around The Room, Julius, Slave To The Traffic Light, Lizards, Loving Cup, Chalk Dust Torture E: Bold As Love Comment Cleveland St
-  - label:
+  - label: **aud** (Sony stereo mic > WM-D6C)
 - **phish1997-12-05.151608.cleveland.u89.flac1648**
   - title: Phish - 1997-12-05 - Cleveland State University Convocation Center - Cleveland; OH
   - source field: None
@@ -498,7 +498,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1997-12-05 CSU Convocation Center Cleveland, OH Source:  Neumann U89 > Sonosax SX-M2 > Sony SBM-1 Transfer:  DAT @ 48kHz > Sony PCM-R500 > Korg MR-2000S > Samplitude Pro X4 > TLH (flac 8) > Foobar Live Show Tagger Transfer & Edits by Jeff Mitchell (jeffhmitchell@gmail.com) Seeded to etree 2021-01-29 Set 1 s1t01 - Set 1 Intro s1t02 - Ghost > s1t03 - Wilson > s1t04 - Funky Bitch > s1t05 - Black-Eyed Katy s1t06 - Sparkle > s1t07 - Runaway Jim > s1t08 - My Friend, My Friend s1t09 - Ginseng Sulliavan s1t10 - Limb By Limb > s1t11 - Character Zero Set 2 s2t01 - Set 2 Inro s2t02 - Stash s2t03 - Bouncing Around The Room s2t04 - Julius > s2t05 - Slave To The Traffic Light > s2t06 - The Lizards s
-  - label:
+  - label: **aud** (Neumann U89)
 - **phish1997-12-05.165731.cleveland.km184.flac1648**
   - title: Phish - 1997-12-05 - Cleveland State University Convocation Center - Cleveland, OH
   - source field: None
@@ -506,7 +506,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1997-12-05 CSU Convocation Center Cleveland, OH Source:  Neumann KM184 > Beyer MV100 > Tascam DA-P1 Transfer:  DAT @ 48kHz > Sony PCM-R500 > Tascam SS-R1 > Samplitude Pro X7 > dBpoweramp (flac8) > Foobar Live Show Tagger > TLH (ffp) Transfer by Jeff Mitchell (jeffhmitchell@gmail.com) DAT provided by Charlie Miller & Arielle Phares Transferred 2023-04-26 Set 1 s1t01 - Set 1 Intro s1t02 - Ghost > s1t03 - Wilson > s1t04 - Funky Bitch > s1t05 - Black-Eyed Katy s1t06 - Sparkle > s1t07 - Runaway Jim > s1t08 - My Friend, My Friend s1t09 - Ginseng Sullivan s1t10 - Limb By Limb > s1t11 - Character Zero Set 2 s2t01 - Set 2 Intro s2t02 - Stash s2t03 - Bouncing Around The Room s2t04 - Julius* > s2
-  - label:
+  - label: **aud** (Neumann KM184)
 
 ### 13. 2025-09-06
 
@@ -517,7 +517,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2025-07-15 TD Pavilion at the Mann Philadelphia, PA Schoeps mk4mk8(midside)>cmc1k>Sonosax ad8+>Sonosax sx-r4+ 24bit/96khz midside LOC OTS row behind the sbd WAV>Imac>wav>Reaper(fades,tracking,add gain,mixed for midside,eq,fab filter pro L2)>XAct(FLAC 8,ffp,tagging) Recorded and transferred by Andy Murray Thanks to John Herrold for the clamp space Set 1 01 crowd 02 Punch You in the Eye > 03 Everything's Right 04 Camel Walk 05 Theme From the Bottom > 06 Prince Caspian > 07 It's Ice 08 About to Run 09 David Bowie Set 2 10 crowd 11 Sand 12 My Friend My Friend 13 Boogie On Reggae Woman 14 Blaze On > 15 Carini encore 16 Shade 17 I Didn't Know 18 Wilson > 19 Possum Trey teased the Theme from 
-  - label:
+  - label: **aud** (Schoeps M/S, OTS row behind the sbd (sbd as position); date field misdated (show 2025-07-15))
 - **ph2025-07-16.mk4mk8ms.cmc1k.ad8.sxr4.remastered.2496**
   - title: Phish 2025-07-16 TD Pavilion at the Mann Philadelphia, PA OTS mk4/mk8 midside remastered
   - source field: None
@@ -525,7 +525,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2025-07-16 TD Pavilion at the Mann Philadelphia, PA Schoeps mk4/mk8(midside)>cmc1k>Sonosax ad8+>Sonosax sx-r4+ 24bit/96khz midside LOC OTS row behind the sbd WAV>Imac>wav>Reaper(fades,tracking,add gain,mixed for midside,eq,fab filter pro L2)>XAct(FLAC 8,ffp,tagging) Recorded and transferred by Andy Murray Thanks to John Herrold for the clamp space Set 1 01 crowd 02 The Dogs 03 Evolve 04 Fluffhead 05 Gumbo 06 Pebbles and Marbles 07 Roggae 08 Ginseng Sullivan 09 Guelah Papyrus 10 Julius 11 Split Open and Melt Set 2 12 crowd 13 The Curtain With 14 A Wave of Hope -> 15 Mercy > 16 Simple > 17 Ether Edge -> 18 Maze 19 Twenty Years Later > 20 Run Like an Antelope encore 21 You Enjoy Myself Tr
-  - label:
+  - label: **aud** (Schoeps M/S, OTS row behind the sbd; misdated)
 - **ph2025-07-19.mk4mk8ms.cmc1k.ad8.sxr4.2496**
   - title: Phish 2025-07-19 United Center Chicago, IL fob mk4/mk8 midside
   - source field: None
@@ -533,7 +533,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2025-07-19 United Center Chicago, IL Schoeps mk4/mk8(midside)>cmc1k>Sonosax ad8+>Sonosax sx-r4+ 24bit/96khz fob dfc 50' from stage midside WAV>Imac>wav>Reaper(fades,tracking,add gain,mixed for midside,eq,fab filter pro L2)>XAct(FLAC 8,ffp,tagging) Recorded and transferred by Andy Murray Set 1 01 crowd 02 Life Saving Gun > 03 Steam 04 McGrupp and the Watchful Hosemasters 05 The Line 06 Seven Below 07 Ocelot 08 Ya Mar 09 Mountains in the Mist 10 Golgi Apparatus 11 Most Events Aren't Planned Set 2 12 crowd 13 Tube 14 A Song I Heard the Ocean Sing > 15 Down with Disease -> 16 Seven Below > 17 Down with Disease 18 Pillow Jets > 19 Also Sprach Zarathustra > 20 Chalk Dust Torture encore 21 Wh
-  - label:
+  - label: **aud** (Schoeps M/S fob dfc; misdated)
 
 ### 14. 1990-04-09
 
@@ -544,7 +544,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 4-9-90 Set 1 Fly Me to the Moon Saloon - Telluride, CO Source: SBD > Cass/4 > DAT > CDR > EAC (secure) > shntool > FLAC CDRs provided by Maria Rogers FLAC Conversion by Ben Mohr (benjamin.mohr@ce.gatech.edu) ------------------------------------------------  Disc 1:                                (41:03) ------------------------------------------------ -Set 1- 1. Reba                                 (11:51)           2. Cavern*                              (04:45) 3. AC/DC Bag                            (05:48) 4. Oh Kee Pah Ceremony                  (01:40) [??? (see notes)]                        5. Caravan                              (07:10) 6. Rocky Top                            (
-  - label:
+  - label: **sbd** (SBD > Cass/4)
 - **phish1990-04-09.154153.telluride.sbd.flac16**
   - title: Phish - 1990-04-09 - Fly Me To The Moon Saloon - Telluride, CO
   - source field: None
@@ -552,7 +552,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish April 9, 1990 Fly Me to the Moon Saloon Telluride Colorado Source: SBD > Cass/1 (from Niel Ringstad) Taped by: Mike Lynch  Conversion (Jeff Goldberg): Cass/1 > TASCAM 112RmkII w/ LA-112 balanced output > Apogee ADC (@ 24-bit, 96 kHz) > DAW: Avid Pro Tools | Ultimate Restoration: iZotope RX Advanced Mastering, Dithering, & File Conversion: Steinberg WaveLab Pro Tracklist: Set I: 1. // Reba 2. Cavern 3. The Oh Kee Pa Ceremony > 4. AC/DC Bag 5. Caravan 6. Rocky Top > 7. Alumni Blues > 8. Letter to Jimmy Page > 9. Alumni Blues 10. Ya Mar 11. // The Sloth 12. McGrupp and the Watchful Hosemasters > 13. Dinner and a Movie > 14. Bouncing Around the Room 15. Runaway Jim 16. David Bowie * Set II
-  - label:
+  - label: **sbd** (SBD > Cass/1)
 - **phish1990-04-09.166777.telluride.sbd.flac1644**
   - title: Phish - 1990-04-09 - Fly Me To The Moon Saloon - Telluride, CO
   - source field: None
@@ -560,7 +560,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1990-04-09  Fly Me To The Moon Saloon Telluride,CO **THIS IS A PATCHED REMASTER  OF 154153*** Patches provided by unseeded  SBD/1 Viking tape: Reba (0:00-3:49) Sloth (0:00-2:33)  Funky Bitch (entire track) Esther (0:00-2:19) Post Show Announcement added, which  seems to indicate as late as the night  before that a show occurred on 4/10.   Whether it did or not, I don't have a tape.  154153 Source: SBD > Cass/1  (from Niel Ringstad) Taped by: Mike Lynch  Conversion (Jeff Goldberg): Cass/1 >  TASCAM 112RmkII w/ LA-112 balanced output >  Apogee ADC (@ 24-bit, 96 kHz) >  DAW: Avid Pro Tools | Ultimate Restoration:  iZotope RX Advanced Mastering, Dithering, &  File Conversion: Steinberg Wav
-  - label:
+  - label: **sbd** (patched remaster of the SBD 154153 with SBD/1 patches)
 
 ### 15. 1992-05-02
 
@@ -571,7 +571,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 5-2-92 - Remastered Version Cabaret Metro - Chicago, IL NOTE: THIS SHOW HAS BEEN ALTERED FROM IT'S ORIGINAL STATE Source: DAUD, FOB, 20ft from stage, DFC Stand at 8ft height mic at 150 degrees Neumann RSM191A-S>Neumann MTX191A>Panasonic SV255(@48K) Transfer:Sony PCM-R300>Zoltrix Nightengale via optical cable> Sound Forge 4.5h(record, 48-44.1 with anti-alias @ highest setting)>CDWAV(tracking)>mkwACT(seek tables appended) **No DAE** Edits: Master DAT had 26 instances of diginoise during Stash, and one during YEM, repaired by Eric Warren <tungstengruvsten@hotmail.com> Fades in/out at beginning and end of sets added Remaster: Remastered using Steinberg Magneto 1.5 and Loudness Maximzer in 
-  - label:
+  - label: **aud** (DAUD FOB; Neumann RSM191 > MTX191A (MTX = Neumann M/S matrix box, not a sbd+aud matrix))
 - **phish1992-05-02.131528.chicago.rsm191.flac1648**
   - title: Phish - 1992-05-02 - Cabaret Metro - Chicago, IL
   - source field: None
@@ -579,7 +579,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH Cabaret Metro Chicago, Illinois May 2, 1992 Source:  (FOB/150deg/m/s) Neumann RSM-191AS > MTX-191A > Sony TCD-D3 > DAT(m) Transfer:  DAT(m) > Sony PCM-R500 > SPDIF > Tascam HD-P2 > CDWave > FLAC  (16/48) DAT(m) provided by Bryon Sosinski Transfer by Terry Watts Set I: 1. Jim 2. Forbin > 3. Icculus > 4. Mockingbird 5. Sparkle 6. Reba 7. Maze 8. Bouncing 9. Stash 10. Coil 11. Llama Set IIe: 1. Glide 2. Bowie > 3. Band/Crew Football Theme Song > 4. Bowie 5. Tela 6. Foam 7. YEM 8. Chalkdust 9. Cold As Ice > Cracklin' Rosie > Cold As Ice 10. Cavern 11. e: Sleeping Monkey 12. e: BBFCFM
-  - label:
+  - label: **aud** (FOB m/s Neumann RSM-191AS > MTX-191A)
 - **phish1992-05-02.138656.chicago.nak.flac1644**
   - title: Phish - 1992-05-02 - Cabaret Metro - Chicago, IL
   - source field: None
@@ -587,7 +587,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > The PHiSH 05-02-92 Cabaret Metro, Chicago, IL Nak's hung from the ceiling > dat > cdr cdr > eac > shn v 3.0 > [flac(8) by mvernon ~ 6/25/17 see notes] Set 1 d1t01 - Runaway Jim, d1t02 - Colonel Forbin's Ascent-> d1t03 - Icculus-> d1t04 - Famous Mockingbird, d1t05 - Sparkle, d1t06 - Reba, d1t07 - Maze, d1t08 - Bouncing Around the Room, d1t09 - Stash, d1t10 - The Squirming Coil, d2t01 - Llama Set 2 d2t02 - Glide, d2t03 - Intro...> d2t04 - David Bowie> d2t05 - Band Football Theme Song > David Bowie d2t06 - Tela, d2t07 - Foam, d2t08 - You Enjoy Myself, d3t01 - Chalk Dust Torture, d3t02 - Cracklin' Rosie, d3t03 - Cavern d3t04 - E: Sleeping Monkey, d3t05 - Big Black Furry Creature From Mars Notes:
-  - label:
+  - label: **aud** (Nak's hung from the ceiling (no Source: label))
 
 ### 16. 1998-10-29
 
@@ -598,7 +598,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > BARN58 Set 1 1.  crowd 2.  Julius 3.  Roggae 4.  Llama 5.  Limb By Limb 6.  banter - Trey asks Fishman to do the proper drum ending 7.  Limb By Limb (Fishman solo drum ending) 8.  Driver * 9.  banter - the man in my little head 10. Sleep * 11. Frankie Says * 12. Birds of a Feather 13. McGrupp and the Watchful Hosemasters 14. Character Zero 15. crowd Set 2 1.  crowd 2.  Possum -> 3.  The Moma Dance -> 4.  Reba -> 5.  Walk Away -> # 6.  Simple -> 7.  Albuquerque 8.  David Bowie 9.  encore break 10. Something ^ 11. crowd
-  - label:
+  - label: **aud** (Neumann TLM170 FOB (source field))
 - **phish1998-10-29.000779.losangeles.mk4.flac1644**
   - title: Phish - 1998-10-29 - Greek Theater - Los Angeles, CA
   - source field: None
@@ -606,7 +606,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-10-29 Greek Theatre Los Angeles, CA Source: Schoeps CMC64 > Sonosax > Apogee AD500E Set 1 s1t01 - Julius s1t02 - Roggae s1t03 - Llama s1t04 - Limb By Limb s1t05 - Driver*; Sleep* s1t06 - Frankie Says s1t07 - Birds Of A Feather s1t08 - McGrupp & The Watchful Horsemasters > s1t09 - Character Zero Set 2 s2t01 - Possum > s2t02 - The Moma Dance > s2t03 - Reba > s2t04 - Walk Away > s2t05 - Simple > s2t06 - Albuquerque s2t07 - David Bowie Encore s2t08 - Something*** [1] Acoustic. [2] No whistling. [3] Phish debut. Driver and Sleep were performed acoustic. Moma contained a Super Bad tease from Trey. Reba did not have the whistling ending. Walk Away was played for the first time since May 
-  - label:
+  - label: **aud** (Schoeps CMC64)
 - **phish1998-10-29.005009.losangeles.mk21.flac1644**
   - title: Phish - 1998-10-29 - Greek Theater - Los Angeles, CA
   - source field: None
@@ -614,7 +614,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-10-29 Greek Theatre Los Angeles, CA Source : Set 1 cmc6/mk21>sonsax>ad1k fob          Set 2 cmc6/mk21>ad1k fob flac'd 2026-08-26 Set 1 s1t01 - Julius s1t02 - Roggae s1t03 - Llama s1t04 - Limb By Limb s1t05 - Driver s1t06 - Sleep s1t07 - Frankie Says s1t08 - Birds Of A Feather s1t09 - McGrupp & The Watchful Horsemasters > s1t10 - Character Zero Set 2 s2t01 - Possum > s2t02 - The Moma Dance > s2t03 - Reba > s2t04 - Walk Away > s2t05 - Simple > s2t06 - Albuquerque s2t07 - David Bowie Encore s2t08 - Something Notes: Driver and Sleep were performed acoustic. Reba did not have the whistling ending. Walk Away was played for the first time since May 7, 1994 (367 shows). This show marked t
-  - label:
+  - label: **aud** (cmc6/mk21 fob)
 - **phish1998-10-29.109536.losangeles.bk4011.nutter.flac1644**
   - title: Phish - 1998-10-29 - Greek Theater - Los Angeles, CA
   - source field: None
@@ -622,7 +622,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Greek Theatre La, Ca 10.29.1998 *Brought To You By gotfob* Source: Marc Nutters Rig OTS/B&K 401l's > V2 > A/D 1000 > HHb @ 48k > Dat * Audio Magic Cables for all connections in chain. Transfer: Fostex D5 @ 48k > Sd 702 @ 48k > Wavelab 6.0 (resample) > Cd Wave > TLH > 16/44.1 Set I/Disc I d1t01.  Julius d1t02.  Roggae d1t03.  Llama d1t04.  Limb By Limb d1t05.  Limb By Limb (Fishman solo drum ending) d1t06.  Driver @ d1t07.  Sleep @ d1t08.  Frankie Says  d1t09.  Birds of a Feather d1t10.  McGrupp and the Watchful Hosemasters d1t11.  Character Zero Set II/Disc II d2t01.  Possum > d2t02.  The Moma Dance > d2t03.  Reba > d2t04.  Walk Away > # d2t05.  Simple > d2t06.  Albuquerque d2t07.  Dav
-  - label:
+  - label: **aud** (OTS B&K 4011)
 - **phish1998-10-29.126852.losangeles.bk4011.flac1648**
   - title: Phish - 1998-10-29 - Greek Theater - Los Angeles, CA
   - source field: None
@@ -630,7 +630,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-10-29 Greek Theatre Los Angeles, CA Source:  BK4011 > Lunatec V2 > Apogee AD1000 Transfer:  DAT(c) @ 48k > Sony PCM-R500 > Korg MR-2000S > Samplitude Pro X (fades, edits) > TLH(flac 8) Thanks to Steve Mortlock for the DAT Transfer & edits by Jeff Mitchell (jeffhmitchell@gmail.com) Seeded to etree 2014-01-24 Set 1: s1t01 - Julius s1t02 - Roggae s1t03 - Llama s1t04 - Limb By Limb s1t05 - Driver s1t06 - Sleep s1t07 - Frankie Says s1t08 - Birds Of A Feather s1t09 - McGrupp & The Watchful Horsemasters > s1t10 - Character Zero Set 2: s2t01 - Possum > s2t02 - The Moma Dance > s2t03 - Reba > s2t04 - Walk Away > s2t05 - Simple > s2t06 - Albuquerque s2t07 - David Bowie s2t08 - Encore Break 
-  - label:
+  - label: **aud** (BK4011)
 - **phish1998-10-29.126853.losangeles.cmc6.mk21.flac1644**
   - title: Phish - 1998-10-29 - Greek Theater - Los Angeles, CA
   - source field: None
@@ -638,7 +638,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-10-29 Greek Theatre Los Angeles, CA Source:  Set 1:  Schoeps CMC6/MK21 > Sonosax SX-M2 > Apogee AD1000; Set 2:  Schoeps CMC6/MK21 > Apogee AD1000 Transfer:  DAT(c) @ 44.1k > Sony PCM-R500 > Korg MR-2000S > Samplitude Pro X (fades, edits) > TLH(flac 8) Thanks to Steve Mortlock for the DAT Transfer & edits by Jeff Mitchell (jeffhmitchell@gmail.com) Seeded to etree 2014-01-24 Set 1: s1t01 - Julius s1t02 - Roggae s1t03 - Llama s1t04 - Limb By Limb s1t05 - Driver s1t06 - Sleep s1t07 - Frankie Says s1t08 - Birds Of A Feather s1t09 - McGrupp & The Watchful Horsemasters > s1t10 - Character Zero Set 2: s2t01 - Possum > s2t02 - The Moma Dance > s2t03 - Reba > s2t04 - Walk Away > s2t05 - Sim
-  - label:
+  - label: **aud** (Schoeps CMC6/MK21)
 - **phish1998-10-29.126854.losangeles.m300.flac1644**
   - title: Phish - 1998-10-29 - Greek Theater - Los Angeles, CA
   - source field: None
@@ -646,7 +646,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-10-29 Greek Theatre Los Angeles, CA Source:  Microtech Gefell M300 > Beyer > Sony SBM-1 > Sony TCD-D8 Transfer:  DAT(c) @ 44.1k > Sony PCM-R500 > Korg MR-2000S > Samplitude Pro X (fades, edits) > TLH(flac 8) Thanks to Steve Mortlock for the DAT Transfer & edits by Jeff Mitchell (jeffhmitchell@gmail.com) Seeded to etree 2014-01-24 Set 1: s1t01 - Julius s1t02 - Roggae s1t03 - Llama s1t04 - Limb By Limb s1t05 - Driver s1t06 - Sleep s1t07 - Frankie Says s1t08 - Birds Of A Feather s1t09 - McGrupp & The Watchful Horsemasters > s1t10 - Character Zero Set 2: s2t01 - Possum > s2t02 - The Moma Dance > s2t03 - Reba > s2t04 - Walk Away > s2t05 - Simple > s2t06 - Albuquerque s2t07 - David Bowi
-  - label:
+  - label: **aud** (Microtech Gefell M300)
 - **phish1998-10-29.166179.losangeles.m300.flac1644**
   - title: Phish - 1998-10-29 - Greek Theater - Los Angeles, CA
   - source field: None
@@ -654,7 +654,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-10-29 Greek Theatre Los Angeles, CA Source:  Microtech Gefell M300 > Beyer > Sony SBM-1 > Sony TCD-D8 Transfer: DAT @48kHz > Sony PCM-R500 > Tascam SS-R1 > iZotope RX8 > Samplitude Pro X7 > dBpoweramp > Foobar Live Show Tagger Transfer by Jeff Mitchell (jeffhmitchell@gmail.com) DAT provided by Charlie Miller & Arielle Phares Transferred 2023-05-09 Set 1 s1t01 - Julius s1t02 - Roggae s1t03 - Llama s1t04 - Limb By Limb s1t05 - Driver* s1t06 - Sleep* s1t07 - Frankie Says s1t08 - Birds Of A Feather s1t09 - McGrupp & The Watchful Horsemasters > s1t10 - Character Zero Set 2 s2t01 - Possum > s2t02 - The Moma Dance > s2t03 - Reba > s2t04 - Walk Away > s2t05 - Simple > s2t06 - Albuquerque 
-  - label:
+  - label: **aud** (Microtech Gefell M300)
 - **phish1998-10-29.m300.166179**
   - title: Phish Live at Greek Theatre on 1998-10-29
   - source field: None
@@ -662,7 +662,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-10-29 Greek Theatre Los Angeles, CA Source:  Microtech Gefell M300 > Beyer > Sony SBM-1 > Sony TCD-D8 Transfer: DAT @48kHz > Sony PCM-R500 > Tascam SS-R1 > iZotope RX8 > Samplitude Pro X7 > dBpoweramp > Foobar Live Show Tagger Transfer by Jeff Mitchell (jeffhmitchell@gmail.com) DAT provided by Charlie Miller & Arielle Phares Transferred 2023-05-09 Set 1 s1t01 - Julius s1t02 - Roggae s1t03 - Llama s1t04 - Limb By Limb s1t05 - Driver* s1t06 - Sleep* s1t07 - Frankie Says s1t08 - Birds Of A Feather s1t09 - McGrupp & The Watchful Horsemasters > s1t10 - Character Zero Set 2 s2t01 - Possum > s2t02 - The Moma Dance > s2t03 - Reba > s2t04 - Walk Away > s2t05 - Simple > s2t06 - Albuquerque 
-  - label:
+  - label: **aud** (Microtech Gefell M300)
 
 ### 17. 1992-06-28
 
@@ -673,7 +673,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish June 28, 1992 Roskilde Festival Roskilde, Denmark source: Sony ECM-155 > Denon DTR-80P (@ 48 kHz) transfer: Tascam DA-20mkII > Marantz PMD-661 > SDHC card > usb 2.0 > pc > Samplitude SE v9.1.1 (fades, volume adjustments, track splits, resample to 44.1 kHz) > FLAC v1.2.1 (Level 8) transferred by Jason Sobel (jasonsobel@gmail.com) seeded July 18, 2009 notes: FLAC tags added with metaflac v1.2.1 Each channel was normalized independently to balance the levels. There was a short cut during the encore break audience noise.  I cross-faded the audience noise to make it appear seamless. The original 48 kHz files from the DAT transfer have been archived and are available upon request. This show 
-  - label:
+  - label: **aud** (Sony ECM-155 lavalier mics)
 - **phish1992-06-28.023937.roskilde.aud.flac1644**
   - title: Phish - 1992-06-28 - Roskilde Festival - Roskilde, Denmark
   - source field: None
@@ -681,7 +681,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Roskilde Festival, Roskilde, Denmark; Saturday, 06-27-1992 Source: Unknown DAUD @ 48 kHz (plus a few Seconds Cass/3 in Track 01) Taper: Unknown Transfer: Aiwa XD-001 DAT > Black&White DigiCoax > Z-Cyber Nightingale Pro 6 S/PDIF > Cool Edit Pro@16/44.1 kHz > CD Wav > mkwACT 0.97 BETA 1 > SHN. by Friedemann Rothfuchs, kushelphish@gmx.de Edit(s) done: Fade out at the end of the Set (Cool Edit Pro 2.0) There also is a 48 kHz .shn of this transfer. flac & tag 2025-12-09 01: Intro* [00:21] 02: Runaway Jim [07:01] 03: Foam [07:20] 04: Sparkle [04:02] 05: Reba [10:39] 06: Maze [08:08] 07: All Things Reconsidered [03:06] 08: Chalkdust Torture [05:56] 09: Bouncing Around The Room [03:53] 10: Unc
-  - label:
+  - label: **aud** (Unknown DAUD)
 
 ### 18. 1995-10-13
 
@@ -692,7 +692,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 10/13/1995 Will Rogers Auditorium Fort Worth, TX. Source: Tascam PE-125 > D7 > DAT (Bill Shaw's Rig) Transfer: Jeff Ishaq (jishaq@earthlink.net) Fostex D5 > WaveTerminal 2496 > CDRWin > SHN Seeded by: Barton Hodges (barton@gcmcomputers.com) DATs provided by: cdub (cdubbydub@juno.com) and Bryan (wking@flash.net) Note: d2t06: 00:08-00:09, background noise might be confused for a DAE skip -- it's not! flac & tag 2026-02-18 Disc 1 [61:26] ------ Set 1: 1. [08:33] Ya Mar 2. [03:28] Also Sprach Zarathustra > 3. [11:21] Maze 4. [06:27] Billy Breathes 5. [02:52] Blue and Lonesome * 6. [02:52] Prince Caspian 7. [11:07] Split Open and Melt 8. [14:45] Fluffhead 9. [03:45] Life On Mars? ** Set 2: 
-  - label:
+  - label: **aud** (Tascam PE-125 (a condenser mic) > D7)
 
 ### 19. 2024-07-19
 
@@ -703,7 +703,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-07-19  Xfinity Center Mansfield, MA Schoeps mk22>cmc1k>Sonosax m2d2 (aes out)>Sonosax SX-R4+ 24bit/96khz NOS 60 degrees from OTS sec 6 row E dfc WAV>Imac>wav>Reaper(fades,tracking,normalize,fab filter pro L2)>XAct(FLAC 8,ffp,tagging) Recorded,transferred and seeded by Andy Murray Thanks to Noah Bickart for lending us his horizontal mic bar Set 1 01 crowd 02 Buried Alive >  03 Character Zero 04 Hey Stranger 05 Down with Disease 06 Roggae > 07 NICU 08 Stash 09 46 Days Set 2 10 crowd 11 Suzy Greenberg > 12 Run Like an Antelope > 13 Ghost > 14 Light > 15 Pillow Jets > 16 Beneath a Sea of Stars Part 1 >  17 Split Open and Melt encore 18 Harry Hood Trey teased Macarena in Down with Dise
-  - label:
+  - label: **aud** (Schoeps mk22 OTS)
 - **ph2024-07-19.mk41v.cmc1k.sxr4.2496**
   - title: Phish 2024-07-19 Xfinity Center mk41v 2496
   - source field: 'Schoeps mk41v>cmc1k>Sonosax SX-R4+ 24bit/96khz DINa from OTS sec 6 row E dfc'
@@ -711,7 +711,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-07-19  Xfinity Center Mansfield, MA Schoeps mk41v>cmc1k>Sonosax SX-R4+ 24bit/96khz DINa from OTS sec 6 row E dfc WAV>Imac>wav>Reaper(fades,tracking,normalize,fab filter pro L2)>XAct(FLAC 8,ffp,tagging) Recorded,transferred and seeded by Andy Murray Thanks to Noah Bickart for lending us his horizontal mic bar Set 1 01 crowd 02 Buried Alive >  03 Character Zero 04 Hey Stranger 05 Down with Disease 06 Roggae > 07 NICU 08 Stash 09 46 Days Set 2 10 crowd 11 Suzy Greenberg > 12 Run Like an Antelope > 13 Ghost > 14 Light > 15 Pillow Jets > 16 Beneath a Sea of Stars Part 1 >  17 Split Open and Melt encore 18 Harry Hood Trey teased Macarena in Down with Disease. Trey and Page teased Maria 
-  - label:
+  - label: **aud** (Schoeps mk41v OTS)
 - **ph2024-07-19.mk4v.cmc1k.sxr4.2496**
   - title: Phish 2024-07-19 Xfinity Center mk4v 2496
   - source field: 'Schoeps mk22>cmc1k>Sonosax m2d2 (aes out)>Sonosax SX-R4+ 24bit/96khz NOS 60 degrees from OTS sec 6 row E dfc'
@@ -719,7 +719,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-07-19  Xfinity Center Mansfield, MA Schoeps mk22>cmc1k>Sonosax m2d2 (aes out)>Sonosax SX-R4+ 24bit/96khz NOS 60 degrees from OTS sec 6 row E dfc WAV>Imac>wav>Reaper(fades,tracking,normalize,fab filter pro L2)>XAct(FLAC 8,ffp,tagging) Recorded,transferred and seeded by Andy Murray Thanks to Noah Bickart for lending us his horizontal mic bar Set 1 01 crowd 02 Buried Alive >  03 Character Zero 04 Hey Stranger 05 Down with Disease 06 Roggae > 07 NICU 08 Stash 09 46 Days Set 2 10 crowd 11 Suzy Greenberg > 12 Run Like an Antelope > 13 Ghost > 14 Light > 15 Pillow Jets > 16 Beneath a Sea of Stars Part 1 >  17 Split Open and Melt encore 18 Harry Hood Trey teased Macarena in Down with Dise
-  - label:
+  - label: **aud** (Schoeps OTS)
 - **phish2024-07-19.168035.mansfield.ccm4v.obanion.flac2496**
   - title: Phish - 2024-07-19 - Xfinity Center - Mansfield, MA
   - source field: None
@@ -727,7 +727,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Xfinity Center Mansfield, MA 2024-07-19 Source: OTS/10'high/DFC Schoeps CCM4V's (DIN) > Sound Devices MixPre 3 I @ 24/96 Sound Forge 18.0 Pro (volume,balance,fades) > CD Wave > FLAC (level 8) Recorded By: Ben Obanion Processed By: Brian Lee  (blee421@hotmail.com) Several People to thank! JDS for the Schoeps 4V's, Andy Murray for the wind screens, Jason Sobel for the clamp space. Thank you gentlemen! SET 1: Theme From the Bottom > Back on the Train Sand > Bouncing Around the Room Backwards Down the Number Line Human Nature* > It's Ice > Wolfman's Brother Drift While You're Sleeping SET 2: You Enjoy Myself > Oblivion > No Men In No Man's Land > Monsters Also Sprach Zarathustra > Chalk Du
-  - label:
+  - label: **aud** (OTS Schoeps CCM4V)
 - **phish2024-07-19.168122.mansfield.mk41.flaschner.flac2448**
   - title: Phish - 2024-07-19 - Xfinity Center - Mansfield, MA
   - source field: None
@@ -735,7 +735,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH July 19, 2024 Xfinity Center Mansfield, Massachusetts Source: Schoeps mk41>kc5>cmc6>Mix3ii@ 24/96 (Dead center behind soundboard Sec6 Row e Seat 18) Recorded by: Dave Flaschner wav > Audacity > xACT(FLAC/TAG) 24/48; DiGiHoArDeRs: 7/26/24 SET ONE Buried Alive Character Zero Hey Stranger Down With Disease Roggae NICU Stash 46 Days SET TWO Suzy Greenberg Run Like An Antelope Ghost > Light Pillow Jets Beneath A Sea Of Start Part 1 Split Open And Melt ENCORE Harry Hood
-  - label:
+  - label: **aud** (Schoeps mk41, dead center behind soundboard (sbd as position))
 - **phish2024-07-19.168603.mansfield.mk4.miller.flac1648**
   - title: Phish - 2024-07-19 - Xfinity Center - Mansfield, MA
   - source field: None
@@ -743,7 +743,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - July 19, 2024 Xfinity Center (Great Woods) - Mansfield, MA Recording Info: Schoeps CMC6/MK4 > Sound Devices 744T (24-bit/96k) > Samplitude Pro X6 Suite (16-bit/48k) > FLAC/16 (3 Discs Audio / 1 DVD FLAC) Recorded by Charlie Miller charliemiller87@earthlink.net August 21, 2024 Notes: -- Thanks to Jason Adler for the clamp space -- Trey teased Macarena in Down With Disease -- Trey and Page teased Maria in Light -- Split Open And Melt contained Shipwreck quotes Set 1: 01 - Crowd 02 - Buried Alive > 03 - Character Zero 04 - Hey Stranger 05 - Down With Disease 06 - Roggae > 07 - NICU 08 - Stash 09 - 46 Days Set 2: 10 - Crowd 11 - Suzy Greenberg > 12 - Run Like An Antelope > 13 - Ghost > 1
-  - label:
+  - label: **aud** (Recording Info: Schoeps CMC6/MK4)
 - **phish2024-07-19.24b96k.m60cmxy4v**
   - title: Phish 7/19/24 Xfinity Center - Mansfield, MA (Front of House M60+CMXY4v)
   - source field: None
@@ -751,7 +751,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Friday July 19, 2024 Xfinity Center Mansfield, MA 01 Set 1 02 Buried Alive > 03 Character Zero 04 Hey Stranger 05 Down with Disease 06 Roggae > 07 NICU 08 Stash > 09 46 Days 10 Set 2 11 Suzy Greenberg > 12 Run Like an Antelope > 13 Ghost > 14 Light > 15 Pillow Jets > 16 Beneath a Sea of Stars Part 1 > 17 Split Open and Melt     18 Encore: 19 Harry Hood source 1: (Front of House ~7') Telefunken M60 FET (TK 62) NOS > Sound Devices Mix Pre 6 (24/96) > SDHC > WAV source 2: (Front of House ~7') Schoeps CMXY 4V (XY 90°) > Sound Devices Mix Pre 6 (24/96) > SDHC > WAV recorded by Scott Medeiros mastered by Clinton Vadnais Scott Medeiros, representing Telefunken Elektroakustik and Fairchild Rec
-  - label:
+  - label: **aud** (Front of House M60+CMXY4v (title only))
 - **phish2024-07-19.mg20.flac24**
   - title: Phish, Xfinity Center, Mansfield, MA 7/19/2024
   - source field: None
@@ -759,7 +759,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-07-19 Xfinity Center Mansfield, MA Taper: Patrick Price Set 1: 01  Crowd 02  Buried Alive >  03  Character Zero 04  Hey Stranger 05  Down with Disease 06  Roggae >  07  NICU 08  Stash 09  46 Days Set 2:  01  Crowd 02  Suzy Greenberg >  03  Run Like an Antelope >  04  Ghost >  05  Light >  06  Pillow Jets >  07  Beneath a Sea of Stars Part 1 >  08  Split Open and Melt 09  Encore Break ENCORE:  10  Harry Hood Show Notes: Trey and Page teased Maria in Light. Split Open and Melt contained Shipwreck quotes. Recording Notes: Microtech Gefell M-20 (DINa) > Nbob Actives > Nbox Platinum > Sound Devices MixPre 10 II Recording Format: Wav file, 32bit Float @ 48 kHz Sample Rate Location: Tape
-  - label:
+  - label: **aud** (mic model in identifier only (mg20, Gefell); taper credit)
 - **phish2024-07-19.mk22.flac24**
   - title: Phish, Xfinity Center, Mansfield, MA 7/19/2024
   - source field: None
@@ -767,7 +767,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-07-19 Xfinity Center Mansfield, MA Taper: Patrick Price Set 1: 01  Crowd 02  Buried Alive >  03  Character Zero 04  Hey Stranger 05  Down with Disease 06  Roggae >  07  NICU 08  Stash 09  46 Days Ser 2:  01  Crowd 02  Suzy Greenberg >  03  Run Like an Antelope >  04  Ghost >  05  Light >  06  Pillow Jets >  07  Beneath a Sea of Stars Part 1 >  08  Split Open and Melt 09  Encore Break ENCORE:  10  Harry Hood Show Notes: Trey and Page teased Maria in Light. Split Open and Melt contained Shipwreck quotes. Recording Notes: Schoeps MK22's (NOS) > Nbob Actives > Naiant PFAs > Sound Devices MixPre 10 II Recording Format: Wav file, 32bit Float @ 48 kHz Sample Rate Location: Tapers Section
-  - label:
+  - label: **aud** (mk22 in identifier only)
 - **phish2024-07-19.mk41v.flac24**
   - title: Phish, Xfinity Center, Mansfield, MA 7/19/2024
   - source field: None
@@ -775,7 +775,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-07-19 Xfinity Center Mansfield, MA Taper: Patrick Price Set 1: 01  Crowd 02  Buried Alive >  03  Character Zero 04  Hey Stranger 05  Down with Disease 06  Roggae >  07  NICU 08  Stash 09  46 Days Ser 2:  01  Crowd 02  Suzy Greenberg >  03  Run Like an Antelope >  04  Ghost >  05  Light >  06  Pillow Jets >  07  Beneath a Sea of Stars Part 1 >  08  Split Open and Melt 09  Encore Break ENCORE:  10  Harry Hood Show Notes: Trey and Page teased Maria in Light. Split Open and Melt contained Shipwreck quotes. Recording Notes: Schoeps MK41v's (DINa/Vertical) > Nbob Actives > Naiant PFA > Sound Devices MixPre 10 II Recording Format: Wav file, 32bit Float @ 48 kHz Sample Rate Location: Tape
-  - label:
+  - label: **aud** (mk41v in identifier only)
 - **phish2024-07-19.mk4v.flac24**
   - title: Phish, Xfinity Center, Mansfield, MA 7/19/2024
   - source field: None
@@ -783,7 +783,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-07-19 Xfinity Center Mansfield, MA Taper: Patrick Price Set 1: 01  Crowd 02  Buried Alive >  03  Character Zero 04  Hey Stranger 05  Down with Disease 06  Roggae >  07  NICU 08  Stash 09  46 Days Ser 2:  01  Crowd 02  Suzy Greenberg >  03  Run Like an Antelope >  04  Ghost >  05  Light >  06  Pillow Jets >  07  Beneath a Sea of Stars Part 1 >  08  Split Open and Melt 09  Encore Break ENCORE:  10  Harry Hood Show Notes: Trey and Page teased Maria in Light. Split Open and Melt contained Shipwreck quotes. Recording Notes: Schoeps MK4v's (DIN/Vertical) > KC5 Actives > Nbox Platinum > Sound Devices MixPre 10 II Recording Format: Wav file, 32bit Float @ 48 kHz Sample Rate Location: Tape
-  - label:
+  - label: **aud** (mk4v in identifier only)
 - **phish2024-07-19.sterlingaudio.flac24**
   - title: Phish, 2024-07-19, Xfinity Center, Mansfield, MA
   - source field: None
@@ -791,7 +791,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-07-19 Xfinity Center Mansfield, MA Source: Sterling Audio SL230MP > Tascam Dr60 d > Wav (24/44.1) Lineage: SD Card > Cd Wave Editor > Flac (Level 8) Taped by: Darinski Transferred by: Darinski Uploaded and Mastered by: Mike Bogigian Set 1:  01 Buried Alive ->  02 Character Zero 03 Hey Stranger 04 Down with Disease 05 Roggae ->  06 NICU 07 Stash 08 46 Days Set 2:  09 Suzy Greenberg ->  10 Run Like an Antelope ->  11 Ghost ->  12 Light ->  13 Pillow Jets ->  14 Beneath a Sea of Stars Part 1 ->  15 Split Open and Melt Encore:  16 Encore Break 17 Harry Hood Notes: Trey teased Macarena in Down with Disease Trey and Page teased Maria in Light Split Open and Melt contained Shipwreck quot
-  - label:
+  - label: **aud** (Sterling Audio SL230MP mic > Tascam DR60)
 - **phish2024-07-19akg.ck63**
   - title: Phish Live at Xfinity Center, Mansfield, MA on 2024-07-19
   - source field: None
@@ -799,7 +799,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-07-19 The Xfinity Center Mansfield, MA Location: OTS: Section 6 Row E, Seat 14 DFC; on stand approx. 8’-9' Source: AKG CK63  > Nbob Cables > PFAS > Zoom F3 @ 96 kHz 32 bit A big thanks to Andy Murray for the clamp space. Transfer: WAV > Adobe Audition 24.00 > FLAC 16/96 > xACT Taped by: Mark Davidson Set I : Crowd Buried Alive Character Zero Hey Stranger Down With Disease Roggae NICU Stash 46 Days Set II : Crowd Suzy Greenberg Run Like An Antelope Ghost > Light > Pillow Jets Beneath a Sea of Stars Part 1 Split Open and Melt Encore Break Harry Hood ;flac fingerprints generated by xACT 2.54 on 2024-07-20 06:02:24 +0000 phish2024-07-19akg.ck63.nbob.actives.pfas.f3.s01t01.flac:71c8da0
-  - label:
+  - label: **aud** (OTS AKG CK63)
 - **phish2024-07-19schoeps24bit**
   - title: Phish Live at Xfinity Center (Great Woods) on 2024-07-19
   - source field: None
@@ -807,7 +807,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - July 19, 2024 Xfinity Center (Great Woods) - Mansfield, MA Recording Info: Schoeps CMC6/MK4 > Sound Devices 744T (24-bit/96k) > Samplitude Pro X6 Suite > FLAC/24 (1 DVD FLAC) Recorded by Charlie Miller charliemiller87@earthlink.net August 21, 2024 Notes: -- Thanks to Jason Adler for the clamp space -- Trey teased Macarena in Down With Disease -- Trey and Page teased Maria in Light -- Split Open And Melt contained Shipwreck quotes Set 1: 01 - Crowd 02 - Buried Alive > 03 - Character Zero 04 - Hey Stranger 05 - Down With Disease 06 - Roggae > 07 - NICU 08 - Stash 09 - 46 Days Set 2: 10 - Crowd 11 - Suzy Greenberg > 12 - Run Like An Antelope > 13 - Ghost > 14 - Light > 15 - Pillow Jets 
-  - label:
+  - label: **aud** (Recording Info: Schoeps CMC6/MK4)
 
 ### 20. 1991-07-26
 
@@ -818,7 +818,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 7-26-1991 Georgia Theater  Athens,    GA  Source: Shure 57 > Casio D7 > SPDIF > ? > CDR Thanks to Brandon Johnston for the EAC'd files. Mastering and FLAC by Marmar Disc 1: -Set 1- 01. Chalk Dust Torture 02. Reba 03. My Sweet One 04. Foam 05. Suzie Greenberg 06. Cavern 07. T.M.W.S.I.Y. > 08. Avenu Malkenu > 09. T.M.W.S.I.Y.^ 10. Buried Alive 11. Bouncing Around the Room 12. The Landlady 13. GCH Introductions 14. Golgi Apparatus Disc 2: -Set 2- 01. Announcement 02. Stash 03. Dinner and a Movie >^^ 04. You Enjoy Myself 05. Flat Fee 06. Funky Bitch 07. The Squirming Coil 08. Tweezer Disc 3: 01. Sweet Adeline 02. Lizards* > 03. Tweezer Reprise ENCORES:  04. Lawn Boy 05. Frankenstein  06. G
-  - label:
+  - label: **aud** (Shure 57 mic > Casio D7)
 - **phish1991-07-26.135988.athens.shure57.flac1644**
   - title: Phish - 1991-07-26 - Georgia Theater - Athens, GA
   - source field: None
@@ -826,7 +826,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - July 26, 1991 Georgia Theater - Athens, GA Recording Info: Sure SM57 -> Dat (48k) Transfer Info: Dat (Tascam DA-20) -> Tascam SS-R200 (48k) -> Samplitude Professional v11.2.1 -> FLAC/44.1k (2 Discs Audio / 1 DVD FLAC) All Transfers and Mastering By Charlie Miller charliemiller87@earthlink.net June 14, 2016 Notes: -- This is not perfect but is stil an upgrade -- With The Giant Country Horns -- Lizards with happy birthday to Chris Kuroda Set 1: s1t01 - Chalk Dust Torture s1t02 - Reba s1t03 - My Sweet One s1t04 - Foam s1t05 - Suzy Greenberg s1t06 - Cavern s1t07 - The Man Who Stepped Into Yesterday -> s1t08 - Avinu Malkeinu -> s1t09 - The Man Who Stepped Into Yesterday s1t10 - Buried Ali
-  - label:
+  - label: **aud** (Recording Info: Sure SM57)
 - **phish1991-07-26.135989.athens.shure57.flac1648**
   - title: Phish - 1991-07-26 - Georgia Theater - Athens, GA
   - source field: None
@@ -834,7 +834,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - July 26, 1991 Georgia Theater - Athens, GA Recording Info: Sure SM57 -> Dat (48k) Transfer Info: Dat (Tascam DA-20) -> Tascam SS-R200 (48k) -> Samplitude Professional v11.2.1 -> FLAC/48 (1 DVD FLAC) All Transfers and Mastering By Charlie Miller charliemiller87@earthlink.net June 14, 2016 Notes: -- This is not perfect but is stil an upgrade -- With The Giant Country Horns -- Lizards with happy birthday to Chris Kuroda Set 1: s1t01 - Chalk Dust Torture s1t02 - Reba s1t03 - My Sweet One s1t04 - Foam s1t05 - Suzy Greenberg s1t06 - Cavern s1t07 - The Man Who Stepped Into Yesterday -> s1t08 - Avinu Malkeinu -> s1t09 - The Man Who Stepped Into Yesterday s1t10 - Buried Alive s1t11 - Bouncing
-  - label:
+  - label: **aud** (Recording Info: Sure SM57)
 
 ### 21. 1994-06-11
 
@@ -845,7 +845,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1994-06-11 Red Rocks Amphitheater Morrison, CO  Source:  DSB FM Broadcast > DAT Extraction and conversion by Phulcrum <phulcrum1@mindspring.com> http://gamehendge.dyndns.org sbd fix, flac & tag 2026-02-24 Set 1 s1t01 - Wilson s1t02 - Chalkdust Torture s1t03 - You Enjoy Myself s1t04 - Rift s1t05 - Down With Disease s1t06 - It's Ice s1t07 - Tela s1t08 - Stash  Set 2 s2t01 - Also Sprach Zarathustra->  s2t02 - Run Like an Antelope s2t03 - Fluffhead s2t04 - Scent of a Mule s2t05 - Split Open and Melt s2t06 - The Squirming Coil s2t07 - Maze s2t08 - Contact->  s2t09 - Frankenstein  Encore: s2t10 - Suzy Greenberg  * Last "Frankenstein", 07-26-91  Frankenstein was performed for the first time s
-  - label:
+  - label: **fm** (DSB FM Broadcast (identifier says sbd))
 - **phish1994-06-11.008863.morrison.fm.flac1644**
   - title: Phish - 1994-06-11 - Red Rocks Amphitheater - Morrison, CO
   - source field: None
@@ -853,7 +853,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Red Rocks Amphitheater, Morrison, CO  June 11, 1994 Source:  FM Broadcast-> DAT-> CDR Original extraction and conversion by Phulcrum.  Edits (as noted below) by Jimbo. *** - SBEs fixed by set on d1t08, d2t07 and d3t03 with Trader's Little Helper prior to shn>flac conversion - SHN>WAV>FLAC Level 6 via Trader's Little Helper - Tags via MediaMonkey - Original shn md5 untouched and left in the folder - Renamed files to get rid of the "fixed" part - No music was harmed during the manipulation of these files By geewiz 6/8/2012 (geewiz010@yahoo.com) *** Disc 1, Set 1: 01. Wilson 02. Chalk Dust Torture 03. You Enjoy Myself 04. Rift 05. Down With Disease 06. It's Ice 07. Tela 08. Stash  Disc 2,
-  - label:
+  - label: **fm** (FM Broadcast)
 - **phish1994-06-11.090472.morrison.tlm170.flac1644**
   - title: Phish - 1994-06-11 - Red Rocks Amphitheater - Morrison, CO
   - source field: None
@@ -861,7 +861,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish June 11, 1994 Red Rocks Amphitheater Morrison, CO source: Neumann TLM 170 transfer: Tascam DA-20MKII > Tascam HD-P2 > CF card > usb 2.0 > pc > WaveLab 5.01b (fades) > r8brain v1.9 (resample to 44.1 kHz) > CD Wave v1.96.1 > FLAC v1.2.1 (Level 8) FLAC tags added with metaflac v1.2.1 transferred by Jason Sobel (jasonsobel@gmail.com) seeded March 2, 2008 notes: The original 48 kHz .wav files from the DAT transfer have been archived, and are available upon request. Big thanks to Eliot Byron for letting me borrow his DATs! Disc 1 - [68:32] Set I 01 - [04:40] - Wilson > 02 - [06:05] - Chalk Dust Torture 03 - [20:12] - You Enjoy Myself > 04 - [05:51] - Rift 05 - [07:07] - Down with Disease 06 
-  - label:
+  - label: **aud** (Neumann TLM 170)
 - **phish1994-06-11.124103.morrison.fm.flac1644**
   - title: Phish - 1994-06-11 - Red Rocks Amphitheater - Morrison, CO
   - source field: None
@@ -869,7 +869,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - June 11, 1994 Red Rocks Amphitheatre - Morrison, CO Recording Info: FM -> Dat (48k) Transfer Info: Dat (Sony R500) -> Tascam SS-R05 -> Samplitude Professional v11.2.1 -> FLAC (2 Discs Audio / 1 DVD FLAC) All Transfers and Mastering By Charlie Miller charliemiller87@earthlink.net March 8, 2013 Notes: -- Encore moved to end of Set 1 to fit show onto 2 discs -- Set 2 and Encore are seamless -- This is a better (and cleaner) transfer than the other soures Set 1: d1t01 - Wilson d1t02 - Chalk Dust Torture d1t03 - You Enjoy Myself d1t04 - Rift d1t05 - Down With Disease d1t06 - It's Ice d1t07 - Tela d1t08 - Stash Set 2: d2t01 - Also Sprach Zarathustra -> d2t02 - Run Like An Antelope d2t03 - 
-  - label:
+  - label: **fm** (Recording Info: FM)
 - **phish1994-06-11.133981.morrison.tlm170i.flac1648**
   - title: Phish - 1994-06-11 - Red Rocks Amphitheater - Morrison, CO
   - source field: None
@@ -877,7 +877,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH Red Rocks Amphitheatre Morrison, Colorado June 11, 1994 Source:    (omni/10' split) Neumann TLM-170i's > Oade > (Oade) Panasonic SV-250 > Sony TCD-D3 > DAT(m) Transfer:  DAT(m) > Sony PCM-R500 > SPDIF > Tascam HD-P2 > CDWave > FLAC (16/48) Source by Doug Oade Patch DAT(m) provided by Bill Shaw Transfer by Terry Watts and Jeff Mitchell Set I 1. Wilson > 2. Chalkdust 3. YEM > 4. Rift 5. DwD 6. Ice > 7. Tela 8. Stash Set IIe: 1. 2001 > 2. Antelope 3. Fluff 4. Scent 5. Split Open 6. Coil 7. Maze 8. Contact > 9. Frankenstein 10. e: Suzy Greenberg Notes: Warts and all... The beginning of Set IIe: and the encore was missing on the DAT(m). The missing ~31:21 at the beginning of Set IIe: was pa
-  - label:
+  - label: **aud** (Neumann TLM-170i omni; 'Patch DAT(m) provided by' = an audience patch off Oade's rig, not a board)
 - **phish1994-06-11.141941.morrison.tlm170.flac1648**
   - title: Phish - 1994-06-11 - Red Rocks Amphitheater - Morrison, CO
   - source field: None
@@ -885,7 +885,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Red Rocks Amphitheatre Morrison, Colorado June 11, 1994 Normalized/Panned from 133981 Source:    (omni/10' split) Neumann TLM-170i's > Oade > (Oade) Panasonic SV-250 > Sony TCD-D3 > DAT(m) Transfer:  DAT(m) > Sony PCM-R500 > SPDIF > Tascam HD-P2 > CDWave > FLAC (16/48) Source by Doug Oade Patch DAT(m) provided by Bill Shaw Transfer by Terry Watts and Jeff Mitchell Brought down volume on encore to match set, balanced, normalized, re-balanced mix to 60% R/L Additional mods by Eric Wilkens  Set I 1. Wilson > 2. Chalkdust 3. YEM > 4. Rift 5. DwD 6. Ice > 7. Tela 8. Stash Set IIe: 1. 2001 > 2. Antelope 3. Fluff 4. Scent 5. Split Open 6. Coil 7. Maze 8. Contact > 9. Frankenstein 10. e: Suzy 
-  - label:
+  - label: **aud** (same as 133981 (Patch DAT(m)))
 
 ### 22. 2012-06-19
 
@@ -896,7 +896,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish June 19, 2012 nTelos Pavilion Portsmouth, VA Source: Busman k11 > BSC2 > Lunatec V2 > Tascam DR100-mkII (24/44.1) Transfer: SDHC > Sound Forge 10 > CD Wave > .flac (level 8) Location: FOB / DFC / Mics up 6 feet, ORTF Taper: M. Terry Set I 01. Sample in a Jar 02. Party Time* 03. Simple > 04. Axilla 05. Tube 06. Kill Devil Falls 07. Water in the Sky > 08. Horn 09. Babylon Baby 10. Bathtub Gin > 11. Stealing Time from the Faulty Plan 12. I Didn't Know > 13. Run Like an Antelope Set II 01. Back on the Train > 02. Rift 03. Split Open and Melt > 04. The Mango Song > 05. Backwards Down the Number Line 06. Limb By Limb 07. Shine a Light 08. Lengthwise > 09. Maze 10. Cavern > 11. Fire Encore: 1
-  - label:
+  - label: **aud** (Busman k11 FOB/DFC ORTF)
 
 ### 23. 2024-07-30
 
@@ -907,7 +907,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 7/30/2024 Chaifetz Arena St. Louis, MO Source: AKG ck63 (DINa/Ch 1-2) + AKG ck61 (NOS/CH 3-4) > nBob Actives > MixPre-6 (24/48) > SD Card Location: FOB/DFC GA Floor (on mic tree @ ~6') Transfer: Wave Agent (Split PolyWav Files) > Audacity (Matrix/ Compression/Normalizing/Fades) > Fission (Tracking/Conversion to 16/44.1) > xACT (Fix SBEs/FLAC Level 8/Tagging) Recorded & Transferred by mccordo Set I 1. Intro/Crowd/Tuning 2. Cars Trucks Buses 3. Gotta Jibboo  4. NICU 5. Ocelot 6. Evolve  7. Theme From the Bottom  8. Vultures  9. Timber (Jerry the Mule) 10. Everything’s Right 11. Crowd/Outro Set II 1. Intro/Crowd/Tuning 2. I Never Needed You Like This Before 3. Tweezer 4. Ether Edge > 5. P
-  - label:
+  - label: **aud** (AKG ck63+ck61 FOB, 'matrix' = mix of two aud mic pairs)
 - **phish-2024-07-30**
   - title: PHISH, Live at Chaifetz Arena, 07/30/2024
   - source field: None
@@ -915,7 +915,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Chaifetz Arena - Saint Louis University St. Louis, MO 2024-07-30 ///24 BIT/96Khz/// Source: FOB/DFC/6.5'high DPA 2012 (DIN) > Lunatec V2 > Apogee Mini Me (AES/EBU) > Tascam DR-100 MK III @ 24 Bit/96Khz. iZotope RX 10 Audio Editor (normalize,fades) > CD Wave > FLAC (level 8)  Recorded By: Mark Terry Processed By: Brian Lee (blee421@hotmail.com) Huge thanks goes out to Mark Terry for sharing his files. SET 1:  01. Cars Trucks Buses 02. Gotta Jibboo  03. NICU  04. Ocelot 05. Evolve  06. Theme From the Bottom  07. Vultures  08. Timber (Jerry the Mule)  09. Everything's Right SET 2:  01. I Never Needed You Like This Before 02. Tweezer  03. Ether Edge >  04. Piper  05. Meat  06. Blaze On ENC
-  - label:
+  - label: **aud** (FOB/DFC DPA 2012)
 - **phish2024-07-30.168235.stlouis.dpa4015.downs.flac2448**
   - title: Phish - 2024-07-30 - Chaifetz Arena - St. Louis, MO
   - source field: None
@@ -923,7 +923,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 07/30/2024 Chaifetz Arena St. Louis MO Source: DPA 4015c (nos)> sonosax sx-r4+ Location: FOB/DFC 6ft Transfer: SD> Samplitude 11.5> CD WAVE> Trader's Little Helper> Foobar Taped, tracked, seeded by Adam Downs (BigPermTaper) Set 1 01. Cars, Truck, Buses 02. Gotta Jibboo 03. NICU 04. Ocelot 05. Evolve 06. Theme From the Bottom 07. Vultures 08. Timber (Jerry the Mule) 09. Everything’s Right Set 2 10. I Never Needed You Like This Before 11. Tweezer 12. Ether Edge 13. Piper 14. Meat 15. Blaze On Encore: 16. Saw It Again 17. Tweezer Reprise
-  - label:
+  - label: **aud** (DPA 4015c FOB)
 - **phish2024-07-30.168236.stlouis.fob.dpa4061.mk41v.djphrayz.flac1648**
   - title: Phish - 2024-07-30 - Chaifezt Arena - St. Louis, MO
   - source field: None
@@ -931,7 +931,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Chaifetz St Louis, MO 7/30/2024 DPA4061s (FOB/DFC/AB100/~6.5') > MP10ii Ch1/2 (24/48) mk41Vs (FOB/DFC/XY/~6') > MP10ii Ch7/8 (24/48) SDHC > mixed and processed in Reaper > tracked in CDWav > encoded in dBpoweramp > tagged in Mp3tag recorded, processed, tagged, and posted by djphrayz Set 1 1.  Cars Trucks Buses 2.  Gotta Jibboo 3.  NICU 4.  Ocelot 5.  Evolve 6.  Theme From the Bottom 7.  Vultures 8.  Timber (Jerry the Mule) 9.  Everything's Right Set 2 1.  I Never Needed You Like This Before 2.  Tweezer 3.  Ether Edge -> 4.  Piper 5.  Meat 6.  Blaze On 7.  encore break 8.  Saw It Again > 9.  Tweezer Reprise
-  - label:
+  - label: **aud** (DPA4061 + mk41V FOB (no Source: label))
 - **phish2024-07-30.168237.stlouis.fob.dpa4061.mk41v.djphrayz.flac2448**
   - title: Phish - 2024-07-30 - Chaifetz Arena - St. Louis, MO
   - source field: None
@@ -939,7 +939,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Chaifetz St Louis, MO 7/30/2024 DPA4061s (FOB/DFC/AB100/~6.5') > MP10ii Ch1/2 (24/48) mk41Vs (FOB/DFC/XY/~6') > MP10ii Ch7/8 (24/48) SDHC > mixed and processed in Reaper > tracked in CDWav > encoded in dBpoweramp > tagged in Mp3tag recorded, processed, tagged, and posted by djphrayz Set 1 1.  Cars Trucks Buses 2.  Gotta Jibboo 3.  NICU 4.  Ocelot 5.  Evolve 6.  Theme From the Bottom 7.  Vultures 8.  Timber (Jerry the Mule) 9.  Everything's Right Set 2 1.  I Never Needed You Like This Before 2.  Tweezer 3.  Ether Edge -> 4.  Piper 5.  Meat 6.  Blaze On 7.  encore break 8.  Saw It Again > 9.  Tweezer Reprise
-  - label:
+  - label: **aud** (DPA4061 + mk41V FOB)
 - **phish2024-07-30.168238.stlouis.fob.mk4v.king.flac2496**
   - title: Phish - 2024-07-30 - Chaifetz Arena - St. Louis, MO
   - source field: None
@@ -947,7 +947,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-07-30 Chaifetz Arena Saint Louis Mo Source: Schoeps mk4v>kcy>aki>M222>NT222>Sonosax R4+ (24/96) Location: FOB 6 ft Transfer:SDHC>Wave Agent>Amadeus Pro>xACT Taped By: Chris King Set  1 01.Intro 02.Cars Trucks Buses 03.Gotta Jibboo 04.NICU 05.Ocelot 06.Evolve 07.Theme From the Bottom 08.Vultures 09.Timber 10.Everything's Right Set 2 01.I Never Needed You Like This Before 02.Tweezer 03.Ether Edge> 04.Piper 05.Meat 06.Blaze On 07.Saw It Again> 08.Tweezer Reprise
-  - label:
+  - label: **aud** (Schoeps mk4v FOB)
 - **phish2024-07-30.168239.stlouis.fob.mk22.king.flac2496**
   - title: Phish - 2024-07-30 - Chaifetz Arena - St. Louis, MO
   - source field: None
@@ -955,7 +955,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-07-30 Chaifetz Arena Saint Louis Mo Source: Schoeps mk22 > kcy > aki > cmc6xt > Sonosax R4+24/96 Location: FOB 6 ft Transfer:SDHC>Wave Agent>Amadeus Pro>xACT Taped By: Chris King Set  1 01.Intro 02.Cars Trucks Buses 03.Gotta Jibboo 04.NICU 05.Ocelot 06.Evolve 07.Theme From the Bottom 08.Vultures 09.Timber 10.Everything's Right Set 2 01.I Never Needed You Like This Before 02.Tweezer 03.Ether Edge> 04.Piper 05.Meat 06.Blaze On 07.Saw It Again> 08.Tweezer Reprise
-  - label:
+  - label: **aud** (Schoeps mk22 FOB)
 - **phish2024-07-30.168257.stlouis.fob.akg483.djphrayz.flac1648**
   - title: Phish - 2024-07-30 - Chaifetz Arena - St. Louis, MO
   - source field: None
@@ -963,7 +963,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Chaifetz St Louis, MO 7/30/2024 AKG483s (FOB/DFC/17cm@90°/~6') > MP10ii Ch5/6 (24/48) SDHC > processed in Reaper > tracked in CDWav > encoded in dBpoweramp > tagged in Mp3tag recorded, processed, tagged, and posted by djphrayz Set 1 1.  Cars Trucks Buses 2.  Gotta Jibboo 3.  NICU 4.  Ocelot 5.  Evolve 6.  Theme From the Bottom 7.  Vultures 8.  Timber (Jerry the Mule) 9.  Everything's Right Set 2 1.  I Never Needed You Like This Before 2.  Tweezer 3.  Ether Edge -> 4.  Piper 5.  Meat 6.  Blaze On 7.  encore break 8.  Saw It Again > 9.  Tweezer Reprise
-  - label:
+  - label: **aud** (AKG483 FOB)
 - **phish2024-07-30.168258.stlouis.fob.akg483.djphrayz.flac2448**
   - title: Phish - 2024-07-30 - Chaifetz Arena - St. Louis, MO
   - source field: None
@@ -971,7 +971,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Chaifetz St Louis, MO 7/30/2024 AKG483s (FOB/DFC/17cm@90°/~6') > MP10ii Ch5/6 (24/48) SDHC > processed in Reaper > tracked in CDWav > encoded in dBpoweramp > tagged in Mp3tag recorded, processed, tagged, and posted by djphrayz Set 1 1.  Cars Trucks Buses 2.  Gotta Jibboo 3.  NICU 4.  Ocelot 5.  Evolve 6.  Theme From the Bottom 7.  Vultures 8.  Timber (Jerry the Mule) 9.  Everything's Right Set 2 1.  I Never Needed You Like This Before 2.  Tweezer 3.  Ether Edge -> 4.  Piper 5.  Meat 6.  Blaze On 7.  encore break 8.  Saw It Again > 9.  Tweezer Reprise
-  - label:
+  - label: **aud** (AKG483 FOB)
 - **phish2024-07-30.168259.stlouis.fob.at4031.djphrayz.flac1648**
   - title: Phish - 2024-07-30 - Chaifetz Arena - St. Louis, MO
   - source field: None
@@ -979,7 +979,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Chaifetz St Louis, MO 7/30/2024 AT4031s (FOB/DFC/34cm@70°/~6') > MP10ii Ch3/4 (24/48) SDHC > processed in Reaper > tracked in CDWav > encoded in dBpoweramp > tagged in Mp3tag recorded, processed, tagged, and posted by djphrayz Set 1 1.  Cars Trucks Buses 2.  Gotta Jibboo 3.  NICU 4.  Ocelot 5.  Evolve 6.  Theme From the Bottom 7.  Vultures 8.  Timber (Jerry the Mule) 9.  Everything's Right Set 2 1.  I Never Needed You Like This Before 2.  Tweezer 3.  Ether Edge -> 4.  Piper 5.  Meat 6.  Blaze On 7.  encore break 8.  Saw It Again > 9.  Tweezer Reprise
-  - label:
+  - label: **aud** (AT4031 FOB)
 - **phish2024-07-30.168260.stlouis.fob.at4031.djphrayz.flac2448**
   - title: Phish - 2024-07-30 - Chaifetz Arena - St. Louis, MO
   - source field: None
@@ -987,7 +987,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Chaifetz St Louis, MO 7/30/2024 AT4031s (FOB/DFC/34cm@70°/~6') > MP10ii Ch3/4 (24/48) SDHC > processed in Reaper > tracked in CDWav > encoded in dBpoweramp > tagged in Mp3tag recorded, processed, tagged, and posted by djphrayz Set 1 1.  Cars Trucks Buses 2.  Gotta Jibboo 3.  NICU 4.  Ocelot 5.  Evolve 6.  Theme From the Bottom 7.  Vultures 8.  Timber (Jerry the Mule) 9.  Everything's Right Set 2 1.  I Never Needed You Like This Before 2.  Tweezer 3.  Ether Edge -> 4.  Piper 5.  Meat 6.  Blaze On 7.  encore break 8.  Saw It Again > 9.  Tweezer Reprise
-  - label:
+  - label: **aud** (AT4031 FOB)
 - **phish2024-07-30.168621.stlouis.fob.mk4.miller.flac1648**
   - title: Phish - 2024-07-30 - Chaifetz Arena - St. Louis, MO
   - source field: None
@@ -995,7 +995,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - July 30, 2024 Chaifetz Arena - Saint Louis, MO Recording Info: (FOB) Schoeps CMC6/MK4 > Sound Devices 744T (24-bit/96k) > Samplitude Pro X6 Suite (16-bit/48k) > FLAC/16 (3 Discs Audio / 1 DVD FLAC) Recorded by Charlie Miller charliemiller87@earthlink.net August 23, 2024 Notes: -- Thanks to Joe Logrippo for the clamp space -- Trey teased Gloria (Laura Branigan) in Piper Set 1: 01 - Crowd 02 - Cars Trucks Buses 03 - Gotta Jibboo 04 - NICU 05 - Ocelot 06 - Evolve 07 - Theme From The Bottom 08 - Vultures 09 - Timber 10 - Everything's Right Set 2: 11 - Crowd 12 - I Never Needed You Like This Before 13 - Tweezer 14 - Ether Edge > 15 - Piper 16 - Meat 17 - Blaze On Encore: 18 - Encore Break
-  - label:
+  - label: **aud** (Recording Info: FOB Schoeps)
 - **phish2024-07-30schoeps24bit**
   - title: Phish Live at Chaifetz Arena on 2024-07-30
   - source field: None
@@ -1003,7 +1003,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - July 30, 2024 Chaifetz Arena - Saint Louis, MO Recording Info: (FOB) Schoeps CMC6/MK4 > Sound Devices 744T (24-bit/96k) > Samplitude Pro X6 Suite > FLAC/24 (1 DVD FLAC) Recorded by Charlie Miller charliemiller87@earthlink.net August 23, 2024 Notes: -- Thanks to Joe Logrippo for the clamp space -- Trey teased Gloria (Laura Branigan) in Piper Set 1: 01 - Crowd 02 - Cars Trucks Buses 03 - Gotta Jibboo 04 - NICU 05 - Ocelot 06 - Evolve 07 - Theme From The Bottom 08 - Vultures 09 - Timber 10 - Everything's Right Set 2: 11 - Crowd 12 - I Never Needed You Like This Before 13 - Tweezer 14 - Ether Edge > 15 - Piper 16 - Meat 17 - Blaze On Encore: 18 - Encore Break 19 - Saw It Again > 20 - Twe
-  - label:
+  - label: **aud** (Recording Info: FOB Schoeps)
 
 ### 24. 1994-04-21
 
@@ -1014,7 +1014,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - 04-21-94 Lawerence Joel Veteran's Memeorial Coliseum, Winston-Salem, NC Welcome to my masterclone copy of this show. My friends Brad and Larry from Richmand VA taped. Here's their setup: 15 Ft. pole; Front Row; Center AKG 460 Cards>XLR's>Power Supply>XLR"S>1/4's> TEAC>DAT. Mastercloned via: Panasonic 3700>COAX>Panasonic 3700 Their journey to SHN: Technics SV 260A>COAX>WAV>CDWAV>SHN. I have used the MKW audio compression tool.These SHN files are seekable in your SHNamp. Also, I have included the md5 for the wav files. Please se it to verify yours. I hope you enjoy listening to this show as much as I enjoyed attending it.If you are receiving this in audio,I request you not "reshorten" 
-  - label:
+  - label: **aud** (AKG 460 cards front row (no Source: label))
 - **phish1994-04-21.003944.winstonsalem.ck61.akg460.flac1644**
   - title: Phish - 1994-04-21 - Lawrence Joel Veterans Memorial Coliseum - Winston-Salem, NC
   - source field: None
@@ -1022,7 +1022,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH     4-21-94 LAWRENCE JOEL VETERANS MEMORIAL COLISEUM, WINSTON-SALEM, NC ===========================================================| SOURCE: AKG460b/ck61 (FOB) > DAT (Teac DA-P20)  CONVERSION: CTD8000H-S > DAT2WAV > SOUNDFORGE 5.0  (Resampling from 48kHz to 44.1kHz, level 4 w/anti alias filtering) > CD WAVE  (track splits)  > SHN ===========================================================| DISC 1: SET 1: 01. CHALK DUST TORTURE 02. SPARKLE 03. FOAM 04. GLIDE 05. SPLIT OPEN AND MELT 06. LIZARDS 07. DOWN WITH DISEASE > 08. IF I COULD 09. CAVERN DISC 2: SET 2: 01. ALSO SPRACH ZARATHUSTRA >  02. MAZE > 03. FLUFFHEAD 04. MIKE'S SONG >  05. I AM HYDROGEN >  06. WEEKAPAUG GROOVE 07. SCENT OF A
-  - label:
+  - label: **aud** (SOURCE: AKG460b/ck61 FOB)
 
 ### 25. 2022-08-02
 
@@ -1033,7 +1033,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Blossom Music Center Cuyahoga Falls, OH 08/02/2022 Source: AKG CK-61 ULS (NOS) + AKG CK-63 ULS (DIN) > Nbob actives > Naiant PFA's > Sound Devices MixPre 6 II @ 24bit/48kHz Location: OTS/DFC 7ft up Transfer: SD > WaveLab 6 (4 Channel Mix, EQ, Gain, Fades, Convert to 16bit/48kHz with Apogee UV22HR Dither) > CDWave (Tracking) > Traders Little Helper (FLAC6) Tagging: FLACs Tagged With Mp3tag v3.01 Recorded by Ryan Stearns Set 1: 01 Intro 02 Strawberry Fields Forever 03 Crowd Control 04 Punch You In The Eye > 05 46 Days > 06 You Enjoy Myself 07 Tube > 08 Shade 09 Reba 10 Cavern Set 2: 01 Intro 02 Free > 03 Esther > 04 Blaze On > 05 Scents & Subtle Sounds > 06 2001 > 07 Split Open & Melt En
-  - label:
+  - label: **aud** (AKG CK-61 + CK-63 OTS)
 - **phish2022-08-02.157545.cuyahogafalls.ck8.smith.flac1648**
   - title: Phish - 2022-08-02 - Blossom Music Center - Cuyahoga Falls, OH
   - source field: None
@@ -1041,7 +1041,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Aug 2,2022 BLOSSOM MUSIC CENTER Cuyahoga Falls, OH AKG460b/A60/CK8s>MixPre6 24/96 > 16/48 OTS/ROC/PAS ~6.5' high Recorded by Chase Smith Mastered by Joe Logrippo Mastering: Adobe Audition > TLH Tagging: Live Show Tagger Set 1 01. Crowd 02. Strawberry Fields Forever 03. Crowd Control 04. Punch You in the Eye > 05. 46 Days > 06. You Enjoy Myself 07. Tube > 08. Shade 09. Reba 10. Cavern Set 2 01. Crowd 02. Free > 03. Esther > 04. Blaze On > 05. Scents and Subtle Sounds > 06. Also Sprach Zarathustra > 07. Split Open and Melt 08. Encore Break 09. Bathtub Gin Notes Courtesy of https://phish.net/setlists/phish-august-02-2022-blossom-music-center-cuyahoga-falls-oh-usa.html Strawberry Fields Fo
-  - label:
+  - label: **aud** (AKG460b/CK8 OTS (no Source: label))
 - **phish2022-08-02.157546.cuyahogafalls.ck8.smith.flac2496**
   - title: Phish - 2022-08-02 - Blossom Music Center - Cuyahoga Falls, OH
   - source field: None
@@ -1049,7 +1049,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Aug 2,2022 BLOSSOM MUSIC CENTER Cuyahoga Falls, OH AKG460b/A60/CK8s>MixPre6 24/96 OTS/ROC/PAS ~6.5' high Recorded by Chase Smith Mastered by Joe Logrippo Mastering: Adobe Audition > TLH Tagging: Live Show Tagger Set 1 01. Crowd 02. Strawberry Fields Forever 03. Crowd Control 04. Punch You in the Eye > 05. 46 Days > 06. You Enjoy Myself 07. Tube > 08. Shade 09. Reba 10. Cavern Set 2 01. Crowd 02. Free > 03. Esther > 04. Blaze On > 05. Scents and Subtle Sounds > 06. Also Sprach Zarathustra > 07. Split Open and Melt 08. Encore Break 09. Bathtub Gin Notes Courtesy of https://phish.net/setlists/phish-august-02-2022-blossom-music-center-cuyahoga-falls-oh-usa.html Strawberry Fields Forever wa
-  - label:
+  - label: **aud** (AKG460b/CK8 OTS)
 - **phish2022-08-02.157894.cuyahogafalls.u89i.durham.flac2496**
   - title: Phish - 2022-08-02 - Blossom Music Center - Cuyahoga Falls, OH
   - source field: None
@@ -1057,7 +1057,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > phish 02 august 2022 blossom music center cuyahoga falls, oh loation:    ots right of center, on stand approx. 71/2' mounted to rear railing of foh divider source:    neumann u89i -> sonosax sx-m2d2 -> mixpre 6ii; recorded at 192 kHz 32 bit (float), seeded at 96 kHz, 24 bit transfer:    mixpre 6ii -> usb C -> laptop edits:        channels summed, normalized, dithered, resampled, track split & flac'd in magix sound forge pro audio suite 16, flac files         tagged using foobar2000 taped by:    team no drama 192 kHz 24 bit files available upon request set I: 01. rowdy wooks 02. strawberry fields forever 03. crowd control 04. punch you in the eye 05. 46 days -> 06. you enjoy myself -> 07. tub
-  - label:
+  - label: **aud** (Neumann U89i OTS)
 - **phish2022-08-02.158184.cuyahogafalls.cmc141vl.durham.flac2496**
   - title: Phish - 2022-08-02 - Blossom Music Center - Cuyahoga Falls, OH
   - source field: None
@@ -1065,7 +1065,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > phish 02 august 2022 blossom music center cuyahoga falls, oh loation:    ots right of center, on stand approx. 71/2' mounted to rear railing of foh divider source:    schoeps cmc141vL -> ak2Lsu -> ks5 -> aksu2ta3 -> sonosax sx-m2d2 -> sd mixpre 6ii; recorded @ 192 kHz 32 bit (float);         seeded @ 96 kHz 24 bit transfer:    mixpre 6ii -> usb C -> laptop edits:    channels summed, normalized, dithered, resampled, track split & flac'd in magix sound forge pro audio suite 16, flac files         tagged using foobar2000 taped by:    team no drama 192 kHz 24 bit files available upon request set I: 01. rowdy wooks 02. strawberry fields forever 03. crowd control 04. punch you in the eye 05. 46 da
-  - label:
+  - label: **aud** (Schoeps cmc141 OTS)
 - **phish2022-08-02.161592.cuyahogafalls..dpa4023.stubbe.flac2496**
   - title: Phish - 2022-08-02 - Blossom Music Center - Cuyahoga Falls, OH
   - source field: None
@@ -1073,7 +1073,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish  08/02/2022 Blossom Music Center Cuyahoga Falls, OH **24 bit** Source: DPA 4023>EAA PSP-2>Sound Devices 722 (24/96) Config/Location: DIN/OTS/SROC 7’stand clamped Transfer: 722>Firewire>Macbook> Sound Studio 3.6(fades, normalize peak, +gain, track)> xACT 2.51(encode, tag, fingerprint)>flac24 (level 8 ) Taped and Transferred by: Lenny Stubbe Set I: (1:14:27) 01. intro 02. Strawberry Fields Forever 03. Crowd Control 04. Punch You in the Eye 05. 46 Days> 06. You Enjoy Myself 07. Tube 08. Shade 09. Reba 10. Cavern Set II: (1:32:33) 01. intro 02. Free> 03. Esther 04. Blaze On> 05. Scents and Subtle Sounds> 06. 2001> 07. Split Open and Melt 08. encore break 09. Bathtub Gin Notes: - Strawberry
-  - label:
+  - label: **aud** (DPA 4023 OTS)
 - **phish2022-08-02.167602.cuyahogafalls.ck61.stearns.flac2448**
   - title: Phish - 2022-08-02 - Blossom Music Center - Cuyahoga Falls, OH
   - source field: None
@@ -1081,7 +1081,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Blossom Music Center Cuyahoga Falls, OH 08/02/2022 Source: AKG CK-61 ULS (NOS) > Nbob actives > Naiant PFA's > Sound Devices MixPre 6 II @ 24bit/48kHz Location: OTS/DFC 7ft up Transfer: SD > WaveLab 6 (Normalize, Fades, 24bit/48kHz with Apogee UV22HR Dither) > CDWave (Tracking) > Traders Little Helper (FLAC6) Tagging: FLACs Tagged With Mp3tag v3.01 Recorded by Ryan Stearns Set 1: 01 Intro 02 Strawberry Fields Forever 03 Crowd Control 04 Punch You In The Eye > 05 46 Days > 06 You Enjoy Myself 07 Tube > 08 Shade 09 Reba 10 Cavern Set 2: 01 Intro 02 Free > 03 Esther > 04 Blaze On > 05 Scents & Subtle Sounds > 06 2001 > 07 Split Open & Melt Encore: 08 Bathtub Gin
-  - label:
+  - label: **aud** (AKG CK-61 OTS)
 
 ### 26. 1995-10-05
 
@@ -1092,7 +1092,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > 10/5/95 Portland Memorial Coliseum, Portland OR seeded by: Susan Chen (schen@tampabay.rr.com) dagaz.etree.org Source: Neumann KA-100>DAT flac & tag 2026-02-18 Disc 1: 1. Chalk Dust Torture 2. Ha Ha Ha 3. The Fog that Surrounds 4. The Horse > 5. Silent in the Morning 6. Cars Trucks & Buses 7. Strange Design 8. Divided Sky 9. Acoustic Army 10. Julius 11. Suzie Greenberg 12. Amazing Grace (last song of 2nd set) 13. While My Guitar Gently Weeps (encore) Disc 2: 1. Also Sprach Zarathustra 2. Runaway Jim 3. Col. Forbin's Ascent >Matrix rap > 4. Famous Mockingbird 5. Scent of a Mule 6. Cavern, 7. David Bowie 8. Lifeboy 9. Amazing Grace (last song of 2nd set) 10. While My Guitar Gently Weeps (encore
-  - label:
+  - label: **aud** (Neumann KA-100 > DAT)
 - **phish1995-10-05.022170.portland.neumann.flac1644**
   - title: Phish - 1995-10-05 - Memorial Coliseum - Portland, OR
   - source field: None
@@ -1100,7 +1100,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Memorial Coliseum Portland, OR October 5, 1995 Source: Neumann KA100 Transfer: Tascam DA-302 > Digipro 002 > Protools LE > CD Wave > MKW ACT > SHN (Transfered by LiverLobes@hotmail.com (John P. Tambroni) and The Mad Hermit) flac & tag 2026-02-18 Disc 1 (79:11) 01. Chalkdust Torture (7:38) 02. Ha Ha Ha (2:00) 03. Taste/Fog That Surrounds (6:06) 04. The Horse   (1:21) 05. Silent in the Morning (5:19) 06. Cars Trucks Buses (3:53) 07. Strange Design (3:03) 08. The Divided Sky (16:55) 09. Acoustic Army (4:05) 10. Julius (7:13) 11. Suzy Greenberg (8:07) 12.  2001 (4:43) 13. Runaway Jim (8:41) Disc 2 (70:13) 01. Col. Forbin's Ascent (11:03) 02. Fly Famous Mockingbird (6:06) 03. Scent of a Mul
-  - label:
+  - label: **aud** (Neumann KA100)
 
 ### 27. 1996-11-19
 
@@ -1111,7 +1111,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1996-11-19 Municipal Auditorium Kansas City, MO. Source: AKG 460s > D8  Conversion: Tascam DA-20 mkII > Marantz CDR 630 by Joby Semmler (jsemmler@aol.com) CDR > EAC > WAV > SHN by Barton Hodges (barton@shaggy.etree.org) flac'd 2026-08-10 Set 1 s1t01 - Ya Mar s1t02 - AC/DC Bag s1t03 - Foam s1t04 - Theme From the Bottom s1t05 - Mound s1t06 - Stash s1t07 - Fee* s1t08 - Taste s1t09 - Loving Cup Set 2 s2t01 - David Bowie s2t02 - A Day in the Life s2t03 - Bathtub Gin s2t04 - Vibration of Life s2t05 - You Enjoy Myself s2t06 - The Star Spangled Banner s2t07 - Fire Encore s2t08 - The Squirming Coil * Trey sang verses through megaphone. Trey sang the verses of Fee through a megaphone. Trey annou
-  - label:
+  - label: **aud** (AKG 460s > D8)
 - **phish1996-11-19.000647.kansascity.akg451.flac1644**
   - title: Phish - 1996-11-19 - Municipal Auditorium - Kansas City, MO
   - source field: None
@@ -1119,7 +1119,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1996-11-19 Municipal Auditorium Kansas City, MO. Source: AKG 460s > D8  Conversion: Tascam DA-20 mkII > Marantz CDR 630 by Joby Semmler (jsemmler@aol.com) CDR > EAC > WAV > SHN by Barton Hodges (barton@shaggy.etree.org) flac'd 2026-08-10 Set 1 s1t01 - Ya Mar s1t02 - AC/DC Bag s1t03 - Foam s1t04 - Theme From the Bottom s1t05 - Mound s1t06 - Stash s1t07 - Fee* s1t08 - Taste s1t09 - Loving Cup Set 2 s2t01 - David Bowie s2t02 - A Day in the Life s2t03 - Bathtub Gin s2t04 - Vibration of Life s2t05 - You Enjoy Myself s2t06 - The Star Spangled Banner s2t07 - Fire Encore s2t08 - The Squirming Coil * Trey sang verses through megaphone. Trey sang the verses of Fee through a megaphone. Trey annou
-  - label:
+  - label: **aud** (AKG 460s > D8)
 - **phish1996-11-19.122422.kansascity.bg40.smith.flac1644**
   - title: Phish - 1996-11-19 - Municipal Auditorium - Kansas City, MO
   - source field: None
@@ -1127,7 +1127,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1996-11-19 Municipal Auditorium Kansas City, MO Source: Shure BG4.0's (ots/center) > Sony TCD-D8 Lineage: DAT/M > DAT/1 > Marantz PMD-700 > Marantz PMD-660 (16/48) > Audacity > CDWav > FLAC (16/44.1) Recorded: Chase Smith Transfer/seed: Brad Foster Set One: [01:20:15] 01. Ya Mar 02. AC/DC Bag > 03. Foam 04. Theme From The Bottom 05. Mound 06. Stash 07. Fee > 08. Taste 09. Loving Cup Set Two: [01:31:53] 01. David Bowie 02. A Day In The Life > 03. Bathtub Gin > 04. The Vibration Of Life * > 05. You Enjoy Myself ** 06. The Star Spangled Banner 07. Fire 08. encore break 09. The Squirming Coil Total tracks = [02:52:08] Notes: * - Dedicated to the crew in general, and specifically Bob Neuman
-  - label:
+  - label: **aud** (Shure BG4.0 ots/center)
 
 ### 28. 1996-07-11
 
@@ -1138,7 +1138,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish July 11, 1996  Shepherds Bush Empire London, England  Source: DSBD Transfer: Tascam DA-20 > Delta DiO 2496 > Sound Forge 6.0 (48>44.1) > CDWave > flac16 Transferred by: Daniel Shay <daniel_shay@hotmaildotcom> DISC 1                    [59:10] Set I: 01.  Runaway Jim                [07:51] 02.  Cavern                [04:48] 03.  Reba*                [11:53] 04.  I Didn't Know                [03:12] 05.  Sparkle                [03:46] 06.  Stash                [10:57] 07.  Scent of a Mule            [11:30] 08.  Sample in a Jar             [05:13] DISC 2                    [77:51] Set II: 01.  Harry Hood >                [12:37]  02.  Bouncing Around the Room >        [03:17] 03.  Also S
-  - label:
+  - label: **sbd** (DSBD)
 - **phish1996-07-11.126114.london.sbd.flac1644**
   - title: Phish - 1996-07-11 - Shepherds Bush Empire - London, England
   - source field: None
@@ -1146,7 +1146,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 07/11/1996 Shepherd's Bush Empire London, England **16 bit/44.1khz** Source: SBD > DAT (48 khz) Transfer: Sony PCM-2600(Apogee AES/EBU)>Sound Devices 722 (16/48)> Firewire>Macbook>Sound Studio 3.6(fades, normalize peak, +gain, track)> Wave Editor 1.5.7 (iZotope Resampler)> xACT 2.23(align on sector boundaries, encode, tag, fingerprint)>flac16 (level 8 ) DAT clone (unknown gen) provided by: Marcus Thunich Transferred and seeded by: Lenny Stubbe Set I: (59:21) 01. intro 02. Runaway Jim 03. Cavern> 04. Reba 05. I Didn't Know 06. Sparkle 07. Stash 08. Scent of a Mule 09. Sample in a Jar Set II: (1:18:15) 01. intro 02. Harry Hood> 03. Bouncing Around the Room> 04. 2001> 05. Maze 06. Lizards
-  - label:
+  - label: **sbd** (SBD > DAT)
 - **phish1996-07-11.126115.london.sbd.flac1648**
   - title: Phish - 1996-07-11 - Shepherds Bush Empire - London, England
   - source field: None
@@ -1154,7 +1154,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 07/11/1996 Shepherd's Bush Empire London, England **16 bit/48khz** Source: SBD > DAT (48 khz) Transfer: Sony PCM-2600(Apogee AES/EBU)>Sound Devices 722 (16/48)> Firewire>Macbook>Sound Studio 3.6(fades, normalize peak, +gain, track)> xACT 2.23(encode, tag, fingerprint)>flac16 (level 8 ) DAT clone (unknown gen) provided by: Marcus Thunich Transferred and seeded by: Lenny Stubbe Set I: (59:21) 01. intro 02. Runaway Jim 03. Cavern> 04. Reba 05. I Didn't Know 06. Sparkle 07. Stash 08. Scent of a Mule 09. Sample in a Jar Set II: (1:18:15) 01. intro 02. Harry Hood> 03. Bouncing Around the Room> 04. 2001> 05. Maze 06. Lizards 07. HYHU> 08. Terrapin> 09. HYHU 10. You Enjoy Myself 11. Hello My B
-  - label:
+  - label: **sbd** (SBD > DAT)
 - **phish1996-07-11.143849.london.akg393.flac1648**
   - title: Phish - 1996-07-11 - Shepherds Bush Empire - London, England
   - source field: None
@@ -1162,7 +1162,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1996-07-11 Shepherd's Bush Empire London, England Source:  AKG393 > Pre-amp > Sony SBM-1 > Sony D7 Transfer:  DAT(c) @48kHz > Sony PCM-R500 > Korg MR-2000S > Samplitude Pro X3 > dBpoweramp Music Converter > Foobar2000 (Live Show Tagger) Transfer & edits by Jeff Mitchell (jeffhmitchell@gmail.com) Seeded to etree 2018-11-21 Set 1 s1t01 - Intro s1t02 - Runaway Jim s1t03 - Cavern > s1t04 - Reba s1t05 - I Didn't Know s1t06 - Sparkle s1t07 - Stash s1t08 - Scent Of A Mule s1t09 - Sample In A Jar Set 2 s2t01 - Set 2 Intro s2t02 - Harry Hood > s2t03 - Bouncing Around The Room > s2t04 - Also Sprach Zarathustra > s2t05 - Maze s2t06 - The Lizards s2t07 - Hold Your Head Up > s2t08 - Terrapin > s2t0
-  - label:
+  - label: **aud** (AKG393 > SBM-1)
 - **phish1996-07-11.147346.london.akg414.flac1648**
   - title: Phish - 1996-07-11 - Shepherds Bush Empire - London, England
   - source field: None
@@ -1170,7 +1170,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH July 11, 1996 Shepard's Bush Empire London, England Source: FOB AKG 414 > DAT @ 16/48 Transfer: DAT > Sony PCM R300 > Tascam DR 680 > Audacity > xACT(FLAC/TAG) 16/48 DiGiHoArDeRs 8/14/19 SET ONE Runaway Jim Cavern Reba I Didn't Know Sparkle Stash Scent Of A Mule Sample In A Jar SET TWO Harry Hood Bouncing Around The Room Also Sprach Zarathustra > Maze The Lizards Terrapin You Enjoy Myself Hello My Baby ENCORE A Day In The Life
-  - label:
+  - label: **aud** (FOB AKG 414)
 - **phish1996-07-11.152272.london.pe125.flac1648**
   - title: Phish - 1996-07-11 - Shepherds Bush Empire - London, England
   - source field: None
@@ -1178,7 +1178,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Sheperds Bush Empire London, England July 11 1996 Tascam PE-125 cardioid microphones > Sony TCD-D7 (48k) DAT Master > Tascam us144-mkII > PC/WAV > Audacity > CD Wave > TLH FLAC 16/48 Recorded and transferred by - Bill Shaw * * * This is a 16/48 fileset * * * Set I 01. Runaway Jim 02. Cavern 03. Reba 04. I Didn't Know 05. Sparkle 06. Stash 07. Scent of a Mule 08. Sample In a Jar Set II 09. Harry Hood 10. Bouncing Around The Room 11. 2001 12. Maze 13. Lizards 14. HYHU / Terrapin / HYHU 15. You Enjoy Myself 16. Hello My Baby (a capella, no PA) 17. - crowd / encore break - 18. A Day In The Life 19. fade out... From the DAT collection of Bill Shaw A Third Bowl Production.
-  - label:
+  - label: **aud** (Tascam PE-125 cardioid microphones (no Source: label))
 
 ### 29. 1992-07-19
 
@@ -1189,7 +1189,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > BARN152 1.  Poor Heart (cuts in) 2.  Maze 3.  Runaway Jim 4.  David Bowie * 5.  Sweet Adeline +
-  - label:
+  - label: **aud** (Sony ECM-959 stereo mic in hat (source field))
 
 ### 30. 2003-07-21
 
@@ -1200,7 +1200,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Monday, July 21, 2003 Deer Creek Amphitheater Noblesville, IN ~~ 16 Bit | 48 kHz FLAC's ~~ ** A {Beats By Bean|Team Pittsburgh|Team AKG} Recording ** AKG CK 61 + c480b [DIN|LOC|Front Rail|OTS] -> Audio Magic X-Stream XLR's -> Graham Patten DMIC-20 ->  Sony Coax -> 7-Pin Digital Cable -> Sony TCD-D8 [16 Bit|48 kHz|Maxell HS-4 DAT Tapes] Tascam DAP-1 [DAT Master] > Hosa ODL-276 [Coax>Optical|Bit Perfect] > Creative Nomad JukeBox 3 >  WaveLab Pro v11.1 [Fades|Levels|FabFilter Pro C2|iZotope Ozone 10 Maximizer] >  CD Wave v1.98 [Tracking|Cue Sheets] > CKRename v1.08 [File Naming] >  TLH v2.8.4 [FLAC|Level 8|Verify|Checksums] > MP3Tag v3.35.1 [Tags] Recorded|Transferred|Processed|Uploaded ~
-  - label:
+  - label: **aud** (AKG CK61 OTS)
 - **phish2003-07-21.018647.noblesville.mg300.szaks.flac1644**
   - title: Phish - 2003-07-21 - Verizon Wireless Music Center - Noblesville. IN
   - source field: None
@@ -1208,7 +1208,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2003-07-21 Verizon Wireless Music Center Noblesville IN Source: MG300 > minime > wavelab (16/48 picturebook) Taped and transfered by steve szaks (WWW.PHATDATS.COM) flac & tag 2025-12-21  Set 1 s1t01 - Cities s1t02 - Runaway Jim s1t03 - Meat s1t04 - Water in the Sky s1t05 - Stash s1t06 - Old Home Place s1t07 - Vultures s1t08 - Birds of a Feather > s1t09 - Mike's Song > s1t10 - I am Hydrogen > s1t11 - Weekapaug Groove* Set 2 s2t01 - Suzy Greenberg > s2t02 - Taste s2t03 - 46 Days > s2t04 - Tweezer > s2t05 - Also Sprach Zarathustra > s2t06 - Limb By Limb > s2t07 - Good Times Bad Times Encore s2t08 - Loving Cup > s2t09 - Tweezer Reprise * Concluded with a rave-up ending akin to the ending o
-  - label:
+  - label: **aud** (MG300 (Gefell) > minime)
 - **phish2003-07-21.035406.noblesville.ck61.akg480.bean.flac1644**
   - title: Phish - 2003-07-21 - Verizon Wireless Music Center - Noblesville, IN
   - source field: None
@@ -1216,7 +1216,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 7-21-03 Deer Creek Noblesville, IN AKG CK61/480 >> DMIC-20@48k >> D-8 DAP1 >> ODL-276 >> JB3 >> PC >> Wavelab 4.0c >> CD Wave >> FLAC Frontend *DIN/OTS* Taped, tracked and transferred by Bean (diskobean@taperssection.com) 2 SETS ~d1: set 1~ 01. crowd 02. Cities 03. Runaway Jim 04. Meat 05. Water In The Sky 06. Stash 07. Old Home Place 08. Vultures 09. Birds Of A Feather ~d2: set 1(cont.)~ 01. Mike's Song >>> 02. I Am Hydrogen >>> 03. Weekapaug Groove set 2: 04. crowd 05. Suzy Greenberg >>> 06. Taste >>> 07. 46 Days ~d3: set 2(cont.)~ 01. Tweezer >>> 02. 2001 >>> 03. Limb By Limb >>> 04. Good Times Bad Times 05. E: Loving Cup >>> 06. Tweezer Reprise
-  - label:
+  - label: **aud** (AKG CK61/480 DIN/OTS)
 - **phish2003-07-21.109173.noblesville.u89i.markham.sobel.flac1644**
   - title: Phish - 2003-07-21 - Verizon Wireless Music Center - Noblesville, IN
   - source field: None
@@ -1224,7 +1224,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish July 21, 2003 Verizon Wireless Music Center Noblesville, IN source: Neumann u89i (hyper / 80 degrees) > Apogee MiniMe > Tascam DA-P1 (@ 48 kHz) recorded from the center of the front row of the taper's section transfer: Tascam DA-20mkII > Marantz PMD-661 > SDHC card > usb 2.0 > pc > Samplitude SE v9.1.1 (patch, fades) > r8brain PRO v1.5 (resample to 44.1 kHz) > CD Wave v1.98 (track splits) > FLAC v1.2.1 (Level 8) recorded by Tim Markham transferred by Jason Sobel (jasonsobel@gmail.com) seeded August 3, 2010 note: FLAC tags added with metaflac v1.2.1 the original 48 kHz files from the DAT transfer have been archived and are available upon request Big thanks to Tim for letting me borrow h
-  - label:
+  - label: **aud** (Neumann u89i taper's section)
 - **phish2003-07-21.135476.noblesville.u89i.mitchell.flac1648**
   - title: Phish - 2003-07-21 - Verizon Wireless Music Center - Noblesville, IN
   - source field: None
@@ -1232,7 +1232,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2003-07-21 Verizon Wireless Music Center Noblesville, IN Source:  Neumann U-89 > Apogee Mini Me > Sony PCM-D100 Transfer:  DAT(c) @ 48kHz > Tascam DA-20MKII > Canare Coax > Korg MR-2000S > Kimber USB 2.0 > Samplitude Pro X Suite v12.5.2.284 > TLH v2.7.0 (flac 8, ffp) > Foobar2000 v1.2.9 Live Show Tagger DAT provided by Dave Flaschner Transfer & edits by Jeff Mitchell (jeffhmitchell@gmail.com) Seeded to etree 2016-04-08 Set 1: s1t01 - Crowd s1t02 - Cities > s1t03 - Runaway Jim s1t04 - Meat s1t05 - Water In The Sky s1t06 - Stash s1t07 - The Old Home Place s1t08 - Vultures s1t09 - Birds Of A Feather > s1t10 - Mike's Song > s1t11 - I Am Hydrogen s1t12 - Weekapaug Groove Set 2: s2t01 - Suzy
-  - label:
+  - label: **aud** (Neumann U-89)
 
 ### 31. 2009-12-05
 
@@ -1243,7 +1243,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 5th, 2009 John Paul Jones Arena Charlottesville, VA Source: Audix m1280/HC > Lunatec V3 > (Busman Mod) Tascam HD-P2 (24/48) Transfer: CF > WaveLab 4.0 (Fades, 16/44.1) > CD Wave > .flac (Level 8) Location: OTS / LOC / Mics up 9 feet, ORTF Taper: Mark Terry (mterry@taperssection.com) Disc One - 01. AC/DC Bag 02. Chalk Dust Torture 03. Stealing Time From The Faulty Plan 04. The Divided Sky 05. Ya Mar 06. Sneakin' Sally Thru The Alley 07. Old Home Place 08. Cavern 09. Funky Bitch 10. David Bowie Disc Two - 01. The Wedge 02. Bold As Love Set Two 03. Tweezer > 04. Light > 05. Piper > 06. Free 07. Sweet Virginia Disc Three 01. Harry Hood > 02. Suzy Greenberg 03. Golgi Apparatus 04. 
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **ph2009-12-05.dpasax.flacf24**
   - title: Phish Live at John Paul Jones Arena on 2009-12-05
   - source field: None
@@ -1251,7 +1251,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 12/05/09 John Paul Jones Arena, Charlottesville, Va Source: DPA 4022 (FOB, DFC, ORTF, 6' up) > Sonosax SX-M2 > Edirol R44 (24/48) Transfer: SDHC Card > PC > Wavelab 6 (Fades, Bass reduction via ANWIDA Soft GEQ31V, Compression on Glowstick Hit) > CD Wave > Trader's Little Helper Taped and Transfered by: Brian Hadella Set 1: 01.  Crowd 02.  AC/DC Bag 03.  Chalk Dust Torture 04.  Stealing Time From the Faulty Plan 05.  The Divided Sky  06.  Ya Mar  07.  Sneakin' Sally through the Alley 08.  The Old Home Place 09.  Cavern 10.  Funky Bitch 11.  David Bowie 12.  The Wedge  13.  Bold As Love Set 2:  01.  Crowd 02.  Tweezer >  03.  Light >  04.  Piper >  05.  Free 06.  Sweet Virginia 07.  Harr
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103175.charlottesville.ak43.scott.flac1644**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1259,7 +1259,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 5th, 2009 John Pual Jones Arena Charlottesville, VA ***16 BIT*** Source: Neumann ak43's(nos)>lc3>km100>V3>722>@24/48 Location: FOB>DFC>50' from stage @ 6' Transfer: 722>cd wave>wavelab(fades/resample)>trader's little helper>flac Taped & transferred by Jamie Scott Set 1: (96.52) 01) Intro 02) AC/DC Bag 03) Chalk Dust Torture 04) Stealing Time From The Faulty Plan 05) The Divided Sky 06) Ya Mar 07) Sneakin' Sally Thru The Alley 08) Old Home Place 09) Cavern 10) Funky Bitch 11) David Bowie 12) The Wedge 13) Bold as Love Set2: (96:37) 01) Intro 02) Tweezer > 03) Light > 04) Piper > 05) Free 06) Sweet Virginia 07) Harry Hood > 08) Suzy Greenberg 09) Golgi Apparatus 10) Run Like an 
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103187.charlottesville.km140.evans.flac1644**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1267,7 +1267,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 5th, 2009 John Paul Jones Arena University of Virginia Charlottesville, VA Taper: Nate Evans (tapernate@gmail.com) Source: Neumann ak40's(nos)>lc3>km100>722>@24/96 Transfer: 722>firewire> PC Processing: dithered to 16 bit, resampled to 44.1 kHz & tracking using SoundForge 7.0. Conversion: Traders Little Helper used to align on boundries and flac at level 8 Set I 01. AC/DC Bag -> 02. Chalkdust Torture 03. Stealing Time From The Faulty Plan 04. The Divided Sky 05. Ya Mar(with naked guy) 06. Sneaking Sally Through the Alley 07. Old Home Place 08. Cavern 09. Funky Bitch 10. David Bowie 11. The Wedge 12. Bold as Love Set II 01. Tweezer -> 02. Light -> 03. Piper -> 04. Free 05. Swee
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103187.charlottesville.km140.evans.flac2496**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1275,7 +1275,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 5th, 2009 John Paul Jones Arena University of Virginia Charlottesville, VA this is the 24/96 file set for audio files Taper: Nate Evans (tapernate@gmail.com) Source: Neumann ak40's(nos)>lc3>km100>722>@24/96 (ots left back corner of sbd boomed over 8 inches inside sbd rail) Transfer: 722>firewire> PC Processing: dithered to 16 bit, resampled to 44.1 kHz & tracking using SoundForge 7.0. Conversion: Traders Little Helper used to align on boundries and flac at level 8 I ran this as hot as i could and picked up all the sound the 140's and the 722 could handle Set I 01. AC/DC Bag -> 02. Chalkdust Torture 03. Stealing Time From The Faulty Plan 04. The Divided Sky 05. Ya Mar(with nake
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103203.charlottesville.mk4v.flac1644**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1283,7 +1283,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 5, 2009 John Paul Jones Arena Charlottesville, VA source: Schoeps mk4v (FOB/DINa) > kc5 > cmc6xt > Sonosax SX-M2 > Mytek 192 > Tascam HD-P2 (24/96) transfer: CF > Audacity > Sound Studio > xACT > .flac (16/44) Disc 1 - Set 1 01 Crowd 02 AC/DC Bag 03 Chalk Dust Torture 04 Stealing Time From The Faulty Plan 05 The Divided Sky 06 Ya Mar 07 Sneakin\' Sally Thru The Alley 08 Old Home Place 09 Cavern 10 Funky Bitch 11 David Bowie Disc 2 - Set 1 cont. 01 The Wedge 02 Bold As Love Set 2 03 Crowd 04 Tweezer > 05 Light > 06 Piper > 07 Free 08 Sweet Virginia Disc 3 - Set 2 cont. 01 Harry Hood > 02 Suzy Greenberg 03 Golgi Apparatus 04 Run Like An Antelope 05 Crowd Encore 06 Loving Cup > 0
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103204.charlottesville.bk4022.davis.flac1644**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1291,7 +1291,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 5, 2009 John Paul Jones Arena Charlottesville, Va **16 bit source** Source: B&K4022 (ortf) > Sonosax > 744T Location: fob/dfc Transfer: 744T>wavelab (fades/resampling/dithering)>cd wave>flac Taped by: derek davis & jamie Scott graciously ran my rig for me Transferred by: craig davis Disc One/Set One: 01 Intro/tuning 02 AC/DC Bag 03 Chalk Dust Torture 04 Stealing Time From The Faulty Plan 05 The Divided Sky 06 Ya Mar 07 Sneakin\' Sally Thru The Alley 08 Old Home Place 09 Cavern 10 Funky Bitch 11 David Bowie Disc Two/Set One (cont.): 01 The Wedge 02 Bold As Love Set Two: 03 Tweezer > 04 Light > 05 Piper > 06 Free 07 Sweet Virginia Disc Three/Set Two (cont.): 01 Harry Hood > 02 S
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103205.charlottesville.mk41.cmc6.stober.flac1644**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1299,7 +1299,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 5th 2009 John Paul Jones Arena Charlottesville,Va Source: Schoeps mk41 ( OTS,DIN) > kc5 > cmc6 > Lunatec V2 > Apogee Mini-Me ( AES out 24/96) > Sound Device 702 Transfer : CF > PC > Wavelab 5.0 > CDWave > xACT > Flac(6) > 16/44.1 Recorded By: Brent Stober SET 1 DISC 1 01.crowd 02.AC/DC Bag 03.Chalk Dust Torture 04.Stealing Time From The Faulty Plan 05.The Divided Sky 06.Ya Mar 07.Sneakin\' Sally Thru The Alley 08.Old Home Place 09.Cavern 10.Funky Bitch 11.David Bowie DISC 2 01.The Wedge 02.Bold As Love Set Two 03.crowd 04.Tweezer > 05.Light > 06.Piper > 07.Free 08.Sweet Virginia DISC 3 01.Harry Hood > 02.Suzy Greenberg 03.Golgi Apparatus 04.Run Like An Antelope 05.crowd Encore
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103207.charlottesville.ck63.akg480.drew.flac1644**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1307,7 +1307,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2009-12-05 John Paul Jones Arena Charlottesville, VA Source:AKGs483s>V3 Spdif>R44 Oade (ConcertMod)24/96 Location:OTS 9ft Stand Transfer:SDHC>DBP 16/44>Wav Merge>CdWav>Flac 8   Recorded By Drew/Becky/Brent(Chris King In Spirit)  Disc One - 01. AC/DC Bag 02. Chalk Dust Torture 03. Stealing Time From The Faulty Plan 04. The Divided Sky 05. Ya Mar 06. Sneakin\' Sally Thru The Alley 07. Old Home Place 08. Cavern 09. Funky Bitch 10. David Bowie Disc Two - 11. The Wedge 12. Bold As Love Set Two 13. Tweezer > 14. Light > 15. Piper > 16. Free 17. Sweet Virginia Disc Three 18. Harry Hood > 19. Suzy Greenberg 20. Golgi Apparatus 21. Run Like An Antelope Encore 22. Loving Cup > 23. Tweezer Repris
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103211.charlottesville.dpa4021.flac1644**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1315,7 +1315,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 5, 2009 John Paul Jones Arena Charlottesville, VA source: DPA 4021 (ORTF/FOB) > Oade m148 > Sony D50 (24/48) transfer: Memory Stick > Audacity > Sound Studio > xACT > .flac (16/44) Disc 1 - Set 1 01 Crowd 02 AC/DC Bag 03 Chalk Dust Torture 04 Stealing Time From The Faulty Plan 05 The Divided Sky 06 Ya Mar 07 Sneakin' Sally Thru The Alley 08 Old Home Place 09 Cavern 10 Funky Bitch 11 David Bowie Disc 2 - Set 1 cont. 01 The Wedge 02 Bold As Love Set 2 03 Crowd 04 Tweezer > 05 Light > 06 Piper > 07 Free 08 Sweet Virginia Disc 3 - Set 2 cont. 01 Harry Hood > 02 Suzy Greenberg 03 Golgi Apparatus 04 Run Like An Antelope 05 Crowd Encore 06 Loving Cup > 07 Tweezer Reprise
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103212.charlottesville.ck63.akg460.brown.flac1644**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1323,7 +1323,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 5th, 2009 John Paul Jones Arena University of Virginia Charlottesville, VA Taper: Timothy Brown (timothydavidbrown@gmail.com) Source: AKG C460Bs/CK63s (PAS, ~8ft on stand, OTS, LOC)->PS2->Edirol R-09HR (24 bit/96 kHz) Transfer: SDHC -> PC Processing: Fade in, fade out, dithered to 16 bit, resampled to 44.1 kHz & tracking using SoundForge 9.0. Conversion: FLAC frontend 1.7.1 used to align on sector boundaries and for Flac16 Conversion @ level 8 Tagging: Band name, Venue and Song Title in Foobar2000 ***************************************************************** ********* PLEASE SPREAD, BUT PLEASE INCLUDE SOURCE INFO ********* ****** DO NOT SELL OR DISTRIBUTE FOR A PROFIT BY A
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103212.charlottesville.ck63.akg460.brown.flac2496**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1331,7 +1331,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 5th, 2009 John Paul Jones Arena University of Virginia Charlottesville, VA Taper: Timothy Brown (timothydavidbrown@gmail.com) Source: AKG C460Bs/CK63s (PAS, ~8ft on stand, OTS, LOC)->PS2->Edirol R-09HR (24 bit/96 kHz) Transfer: SDHC -> PC Processing: Fade in, fade out and tracking using SoundForge 9.0. Conversion: FLAC frontend 1.7.1 for Flac24 Conversion @ level 8 Tagging: Band name, Venue and Song Title in Foobar2000 ***************************************************************** ********* PLEASE SPREAD, BUT PLEASE INCLUDE SOURCE INFO ********* ********THIS IS A 24 BIT FILE SET NOT INTENDED FOR CDR*********** ***************A 16 BIT FILE SET FOR CDR EXISTS*****************
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103297.charlottesville.mk4.cmc6.durham.flac1644**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1339,7 +1339,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 05 December 2009 John Paul Jones Arena, Charlottesville, VA FOB: dfc approximately 35-45' from stage on stand (5'11" 1st Set, 6'2" 2nd Set): Schoeps MK4 (DINa) > KC5 > CMC6 > Apogee Mini-MP > Tascam HD-P2 @ 96 kHz 24 bit Transfer: Tascam HD-P2 (via fire wire) > Dell XPS1730 Rendered & edited in Vegas 8.0 Resampled, dithered, and track split using Sony Sound Forge 9.0 taping, transferring, editing, etc. by jadedphan <durhambrian@hotmail.com> 96 kHz 24 bit masters available upon request Set One: Rowdy Wooks > AC/DC Bag Chalk Dust Torture Stealing Time From The Faulty Plan The Divided Sky Ya Mar Sneakin' Sally Thru The Alley Old Home Place Cavern Funky Bitch David Bowie The Wedge Bold as 
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103297.charlottesville.mk4.cmc6.durham.flac2496**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1347,7 +1347,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 05 December 2009 John Paul Jones Arena, Charlottesville, VA FOB: dfc approximately 35-45' from stage on stand: Schoeps MK4 (DINa) > KC5 > CMC6 > Apogee Mini-MP > Tascam HD-P2 @ 96 kHz 24 bit Transfer: Tascam HD-P2 (via fire wire) > Dell XPS1730 Rendered & edited in Vegas 8.0 taping, transferring, editing, etc. by jadedphan <durhambrian@hotmail.com> thanks to BarryBlade for the ticket hook up! Set One: Rowdy Wooks > AC/DC Bag Chalk Dust Torture Stealing Time From The Faulty Plan The Divided Sky Ya Mar Sneakin' Sally Thru The Alley Old Home Place Cavern Funky Bitch David Bowie The Wedge Axis: Bold as Love Set Two: Rowdy Wooks con't > Tweezer > Light > Piper > Free Sweet Virginia Harry Ho
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.103304.charlottesville.mk41v.m222.mk4v.ak43.davis.flac1644**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1355,7 +1355,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish December 5th, 2009 John Paul Jones Arena Charlottesville, VA ***16 BIT*** Source: Schoeps mk41v's(DINa)>kc5>m222>nt222>744t + Schoeps mk4v's(NOS)>kcy>lemosax>744t + Neumann ak43's(NOS)>lc3>km100>Lunatec V3(analog out)>722(c-linked to 744t) Location: FOB/DFC stand @ 6ft. Transfer: 744t>Wavelab 5>CD Wave>Wavelab 5>Flac Taped and Transferred by Derek Davis Set 1 01 Intro 02 AC/DC Bag 03 Chalk Dust Torture 04 Stealing Time From The Faulty Plan 05 The Divided Sky 06 Ya Mar 07 Sneakin' Sally Thru The Alley 08 Old Home Place 09 Cavern 10 Funky Bitch 11 David Bowie 12 The Wedge 13 Bold As Love Set 2 01 Intro 02 Tweezer ~> 03 Light ~> 04 Piper ~> 05 Free 06 Sweet Virginia 07 Harry Hood ~> 08 Su
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.164630.charlottesville.mk4.durham.flac2496**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1363,7 +1363,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > phish 05 december 2009 john paul jones arena charlottesville, va location:    fob, dfc approximately 35-45' from stage; on stand approx. 5'11" 1st Set, 6'2" 2nd Set source:    schoeps mk4 (DINa) -> kc5 -> cmc6 -> apogee mini-mp -> tascam hd-p2 @ 96 kHz 24 bit transfer:    tascam hd-p2 -> firewire -> dell xps-1730 laptop edits:    channels summed & balanced, normalized, fades added, flac'd & tra ck split in magix sound forge             16.1.1; flac files tagged using foobar2000 taped by:    team no drama contact jadedphan@hotmail.com> with questions, concerns, or complaints set I: 01. rowdy wooks 02. ac/dc bag 03. chalkdust torture 04. stealing time drom the faulty plan 05. the divided sky 0
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 - **phish2009-12-05.179793.103297.charlottesville.mk4.cmc6.durham.flac2496**
   - title: Phish - 2009-12-05 - John Paul Jones Arena - Charlottesville, VA
   - source field: None
@@ -1371,7 +1371,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 05 December 2009 John Paul Jones Arena, Charlottesville, VA FOB: dfc approximately 35-45' from stage on stand: Schoeps MK4 (DINa) > KC5 > CMC6 > Apogee Mini-MP > Tascam HD-P2 @ 96 kHz 24 bit Transfer: Tascam HD-P2 (via fire wire) > Dell XPS1730 Rendered & edited in Vegas 8.0 taping, transferring, editing, etc. by jadedphan <durhambrian@hotmail.com> thanks to BarryBlade for the ticket hook up! Set One: Rowdy Wooks > AC/DC Bag Chalk Dust Torture Stealing Time From The Faulty Plan The Divided Sky Ya Mar Sneakin' Sally Thru The Alley Old Home Place Cavern Funky Bitch David Bowie The Wedge Axis: Bold as Love Set Two: Rowdy Wooks con't > Tweezer > Light > Piper > Free Sweet Virginia Harry Ho
-  - label:
+  - label: **aud** (mic chain (OTS/FOB))
 
 ### 32. 1996-11-07
 
@@ -1382,7 +1382,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1996-11-07 Rupp Arena Lexington, KY Source: Nakamichi CM300+CP4 Transfer: Fostex D-5 > U2A > CoolEdit > shn flac & sbe fix 2026-08-10 Set I s1t01 - Chalk Dust Torture s1t02 - Weigh > s1t03 - Rift > s1t04 - Guelah Papyrus s1t05 - Stash s1t06 - Waste s1t07 - Guyote s1t08 - Free > s1t09 - Tela s1t10 - Character Zero Set 2 s2t01 - Suzie Greenberg > s2t02 - Bathtub Gin* > s2t03 - Hold Your Head Up > s2t04 - Bike > s2t05 - Hold Your Head Up s2t06 - You Enjoy Myself Encore s2t07 - Frankenstein * Unfinished. Page teased HYHU before Suzy. Bathtub Gin was unfinished and included a Dave's Energy Guide tease from Trey. Fish humorously stumbled through Bike, which was played by request. This show i
-  - label:
+  - label: **aud** (Nakamichi CM300+CP4)
 - **phish1996-11-07.022065.lexington.akg460.ck61.flac1644**
   - title: Phish - 1996-11-07 - Rupp Arena - Lexington, KY
   - source field: None
@@ -1390,7 +1390,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1996-11-07 Rupp Arena Lexington, KY Source: AKG 460/ck61>Oade>DA-P1  Transfer: Tascam DA-302 > Digipro 002 > Protools LE > CD Wave > MKW ACT > SHN  (Transfered by LiverLobes@hotmail.com (John P. Tambroni) and The Mad Hermit) Set I s1t01 - Chalk Dust Torture s1t02 - Weigh > s1t03 - Rift > s1t04 - Guelah Papyrus s1t05 - Stash s1t06 - Waste s1t07 - Guyote s1t08 - Free > s1t09 - Tela s1t10 - Character Zero Set 2 s2t01 - Suzie Greenberg > s2t02 - Bathtub Gin* > s2t03 - Hold Your Head Up > s2t04 - Bike > s2t05 - Hold Your Head Up s2t06 - You Enjoy Myself Encore s2t07 - Frankenstein * Unfinished. Page teased HYHU before Suzy. Bathtub Gin was unfinished and included a Dave's Energy Guide tease
-  - label:
+  - label: **aud** (AKG 460/ck61)
 - **phish1996-11-07.022116.lexington.shureVP88.flac1644**
   - title: Phish - 1996-11-07 - Rupp Arena - Lexington, KY
   - source field: None
@@ -1398,7 +1398,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1996-11-07 Rupp Arena Lexington, KY source: Shure V P88 > Refrence Audio Design Preamp > D7 > D(1) transfer: Casio DA-R100 > M-Audio 24/96 via Coax SPDIF > Wavelab (fades, BBE > L2 > sample rate convert & rendered w/ UV22HR) > CD-WAV > SHNv3 transfer by shakedown@furthurnet.org on 01/19/04 flac'd 2026-08-10 Set I s1t01 - Chalk Dust Torture s1t02 - Weigh > s1t03 - Rift > s1t04 - Guelah Papyrus s1t05 - Stash s1t06 - Waste s1t07 - Guyote s1t08 - Free > s1t09 - Tela s1t10 - Character Zero Set 2 s2t01 - Suzie Greenberg > s2t02 - Bathtub Gin* > s2t03 - Hold Your Head Up > Bike > Hold Your Head Up s2t04 - You Enjoy Myself Encore s2t05 - Frankenstein * Unfinished. Page teased HYHU before Suzy.
-  - label:
+  - label: **aud** (Shure VP88 stereo mic)
 - **phish1996-11-07.075699.lexington.mg300.mahan.flac1644**
   - title: Phish - 1996-11-07 - Rupp Arena - Lexington, KY
   - source field: None
@@ -1406,7 +1406,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHiSH - 11/07/96 Rupp Arena, Lexington, KY source: Microtech Gefell m300 > Aerco Preamp > Marantz PMD-700  (48 kHz)  transfer: Fostex D5 > ipaq H5555 via PDAudio card optical input >          SoundForge 6.0 (resampling & fades) > CD Wav (track splits) > FLAC transfer/patch by Jordan Braunstein taped by Joe Mahan DISC ONE set I: 01. Chalkdust Torture*  (Shure VP88 source) 02. Weigh > 03. Rift 04. Guelah Papyrus 05. Stash 06. Waste 07. Guyute 08. Free >  09. Tela 10. Character Zero DISC TWO set II: 01. Suzy Greenberg > 02. Bathtub Gin > 03. HYHU > Bike > HYHU 04. You Enjoy Myself encore: 05. Frankenstein SHOW NOTES: * source: Shure V P88 > Refrence Audio Design Preamp > D7 > D(1)   transfer: C
-  - label:
+  - label: **aud** (Microtech Gefell m300)
 - **phish1996-11-07.118853.lexington.akg398.dunbar.flac1648**
   - title: Phish - 1996-11-07 - Rupp Arena - Lexington, KY
   - source field: None
@@ -1414,7 +1414,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish  11/7/96 Rupp Arena - Lexington, KY Source: AKG 398 > DAT Transfer: D8 > Behringer UCA202 > Audacity > WAV > FLAC Taped by Robert Dunbar Transferred by Bill Graves Disc 1 - Set 1: 1. Crowd 2. Chalkdust Torture 3. Weigh > 4. Rift 5. Guleah Papyrus 6. Stash 7. Waste 8. Guyute 9. Free 10. Tela 11. Character Zero Disc 2 - Set 2: 1. Crowd/Banter 2. Suzy Greenburg > 3. Bathtub Gin > 4. HYHU 5. Bike >  6. HYHU Disc 3: 1. You Enjoy Myself - encore 2. Crowd 3. Frankenstein Notes: - This show is one of about 200 tapes that were received as part of a DAT liquidation. - The only source info on the tape is "AKG 398."  - Small section of digi-noise in Rift.
-  - label:
+  - label: **aud** (AKG 398 > DAT)
 - **phish1996-11-07.121411.lexington.akg461.jkt.flac1644**
   - title: Phish - 1996-11-07 - Rupp Arena - Lexington, KY
   - source field: None
@@ -1422,7 +1422,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > phish rupp arena lexington, ky 1996-11-07 Set 1: 01- Chalk Dust Torture 02- Weigh > 03- Rift > 04- Guelah Papyrus 05- Stash 06- Waste 07- Guyute 08- Free > 09- Tela 10- Character Zero Set 2: 01- Suzy Greenberg > 02- Bathtub Gin > 03- Hold Your Head Up > Bike > Hold Your Head Up 04- You Enjoy Myself Encore: 05- Frankenstein Notes: Fishman humorously stumbled through Bike, which was played by request. setlist info courtesy of phish.net/setlists (edited) source: akg460b/ck61>b18>d7 ots by JK transfer: DATmaster/sony pcm-r500>marantz pmd661>audiogate(16/44)>cdwave>tlh(flac16) by john m 2012-07-21
-  - label:
+  - label: **aud** (akg461 in identifier only; no source text)
 - **phish1996-11-07.167718.lexington.akg393.flac1644**
   - title: Phish - 1996-11-07 - Rupp Arena - Lexington, KY
   - source field: None
@@ -1430,7 +1430,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish November 7, 1996 Rupp Arena Lineage: AKG-393>SBM>DAT 48 khz DAT Transfer: DAT>s/pdif>Mac>Audacity>44.1 kHz> FLAC 1. chalkdust torture 2. weigh 3. Rift 4. guelph papyrus 5. stash 6. waste 7. guyute 8. free 9. tela 10. character zero ———————————————————————— 11. “phish banter” 12. suzy greenberg 13. bathtub gin 14. hold your head up 15. bike 16. hold your head up reprise 17. you enjoy myself 18. “encore break” 19. frankenstein NOTES: I got this in a trade;  since I’m from KY , I always liked getting tapes from my area.  I remember vaguely getting this tape shortly after the show … there was a guy named “Andy” from Eastern Ky that taped a lot of shows in the tri state area . He also used 
-  - label:
+  - label: **aud** (Lineage: AKG-393 > SBM)
 
 ### 33. 2025-04-22
 
@@ -1441,7 +1441,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 4/22/2025 Bill Graham Civic Auditorium San Francisco, CA Source: DPA 4015c (NOS) > MixPre 3 > SD Card (24/48) Location: OTS (GA Floor/Right Front Corner of Board on stand @ ~6.5’) Transfer: Wave Agent (Split PolyWav Files) > Audacity (Compression/Normalizing/Fades) > Fission (Tracking) > xACT (Fix SBEs/FLAC Level 8/Tagging) Recorded & Transferred by mccordo Set I 1. Intro/Crowd/Tuning 2. Buried Alive 3. Axilla (Part II) > 4. Mike's Song > 5. I Am Hydrogen > 6. Weekapaug Groove 7. My Soul 8. Halley's Comet 9. Roggae > 10. Maze 11. Split Open and Melt 12. Crowd/Outro Set II 1. Intro/Crowd/Tuning 2. Carini 3. No Men in No Man's Land > 4. Ruby Waves 5. Waste > 6. What's the Use? > 7. Down 
-  - label:
+  - label: **aud** (DPA 4015c OTS)
 - **phish2025-04-22.171061.sanfrancisco.km150.lazor.flac2448**
   - title: Phish - 2025-04-22 - Bill Graham Civic Auditorium - San Francisco, CA
   - source field: None
@@ -1449,7 +1449,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH April 22, 2025 Bill Graham Civic Auditorium San Francisco, California Source: Neumann KM150 (OTS / 90˚ / 7' up) > Zoom F3 @ 32/48; Captured By Matt "Lazy Lightning" Lazor wav > Audacity > iZoptopeRX > xACT(FLAC/TAG) 24/48 Processing: DiGiHoArDeRs 4/24/25 SET ONE Buried Alive Axilla II Mike's Song I Am Hydrogen Weekapaug Groove My Soul Halley's Comet Roggae Maze Split Open And Melt SET TWO Carini > No Mens In No Man's Land > Ruby Waves Waste What's The Use > Down With Disease ENCORE Fluffhead
-  - label:
+  - label: **aud** (Neumann KM150 OTS)
 - **phish2025-04-22.171062.sanfrancisco.mk4.levy.flac1648**
   - title: Phish - 2025-04-22 - Bill Graham Civic Auditorium - San Francisce, CA
   - source field: None
@@ -1457,7 +1457,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 04/22/2025 Bill Graham Civic Auditorium; San Francisco, CA Source: Schoeps MK4> CMC6> SD MixPre-6 II Lineage: 32-bit 192kHz Wave SD MixPre-6 II> Reaper 16-bit 48kHz Wave > xact 16-bit FLAC Recorded by: Oren Levy Transferred and Mastered by: Phishrabbi SET 1: Buried Alive, Axilla (Part II) > Mike's Song > I Am Hydrogen > Weekapaug Groove, My Soul, Halley's Comet, Roggae > Maze, Split Open and Melt SET 2: Carini, No Men In No Man's Land > Ruby Waves, Waste > What's the Use? > Down with Disease ENCORE: Fluffhead
-  - label:
+  - label: **aud** (Schoeps MK4)
 - **phish2025-04-22.171063.sanfrancisco.mk4.phishrabbi.flac2448**
   - title: Phish - 2025-04-22 - Bill Graham Civic Auditorium - San Francisco, CA
   - source field: None
@@ -1465,7 +1465,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 04/22/2025 Bill Graham Civic Auditorium; San Francisco, CA Source: Schoeps MK4> CMC6> SD MixPre-6 II Lineage: 32-bit 192kHz Wave SD MixPre-6 II> Reaper 16-bit 48kHz Wave > xact 16-bit FLAC Recorded by: Oren Levy Transferred and Mastered by: Phishrabbi SET 1: Buried Alive, Axilla (Part II) > Mike's Song > I Am Hydrogen > Weekapaug Groove, My Soul, Halley's Comet, Roggae > Maze, Split Open and Melt SET 2: Carini, No Men In No Man's Land > Ruby Waves, Waste > What's the Use? > Down with Disease ENCORE: Fluffhead
-  - label:
+  - label: **aud** (Schoeps MK4)
 - **phish2025-04-22.171201.sanfrancisco.km140.lazor.flac2448**
   - title: Phish - 2025-04-22 - Bill Graham Civic Auditorium - San Francisco, CA
   - source field: None
@@ -1473,7 +1473,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH April 22, 2025 Bill Graham Civic Auditorium San Francisco, California Source: Neumann KM140 (OTS / 90˚ / 7' up) > Sound Devices MixPre 3ii @ 32/48; Captured By Matt "Lazy Lightning" Lazor wav > Audacity > iZoptopeRX > xACT(FLAC/TAG) 24/48 Processing: DiGiHoArDeRs 4/30/25 SET ONE Buried Alive Axilla II Mike's Song I Am Hydrogen Weekapaug Groove My Soul Halley's Comet Roggae Maze Split Open And Melt SET TWO Carini > No Mens In No Man's Land > Ruby Waves Waste What's The Use > Down With Disease ENCORE Fluffhead
-  - label:
+  - label: **aud** (Neumann KM140 OTS)
 - **phish2025-04-22.171201.sanfrancisco.km140.lazor.flac2448_202509**
   - title: Phish - 2025-04-22 - Bill Graham Civic Auditorium - San Francisco, CA
   - source field: None
@@ -1481,7 +1481,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH April 22, 2025 Bill Graham Civic Auditorium San Francisco, California Source: Neumann KM140 (OTS / 90˚ / 7' up) > Sound Devices MixPre 3ii @ 32/48; Captured By Matt "Lazy Lightning" Lazor wav > Audacity > iZoptopeRX > xACT(FLAC/TAG) 24/48 Processing: DiGiHoArDeRs 4/30/25 SET ONE Buried Alive Axilla II Mike's Song I Am Hydrogen Weekapaug Groove My Soul Halley's Comet Roggae Maze Split Open And Melt SET TWO Carini > No Mens In No Man's Land > Ruby Waves Waste What's The Use > Down With Disease ENCORE Fluffhead
-  - label:
+  - label: **aud** (Neumann KM140 OTS)
 - **phish2025-04-22.171287.sanfrancisco.ck63.miller.flac2496**
   - title: Phish - 2025-04-22 - Bill Graham Civic Auditorium - San Francisco, VA
   - source field: None
@@ -1489,7 +1489,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - April 22, 2025 Bill Graham Civic Auditorium - San Francisco, CA Recording Info: AKG C460B/CK63-ULS > Sound Devices 744T (24-bit/96k) > Samplitude Pro X6 Suite > FLAC/24 (1 DVD FLAC) Recorded by Charlie Miller charliemiller87@earthlink.net May 3, 2025 Set 1: 01 - Crowd 02 - Buried Alive 03 - Axilla II > 04 - Mike's Song > 05 - I Am Hydrogen > 06 - Weekapaug Groove 07 - My Soul 08 - Halley's Comet 09 - Roggae > 10 - Maze 11 - Split Open And Melt Set 2: 12 - Crowd 13 - Carini 14 - No Men In No Man's Land > 15 - Ruby Waves 16 - Waste > 17 - What's The Use? > 18 - Down With Disease Encore: 19 - Encore Break 20 - Fluffhead
-  - label:
+  - label: **aud** (Recording Info: AKG CK63)
 - **phish2025-04-22.171331.sanfrancisco.ck63.miller.flac1648**
   - title: Phish - 2025-04-22 - Bill Graham Civic Auditorium - San Francisco, CA
   - source field: None
@@ -1497,7 +1497,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - April 22, 2025 Bill Graham Civic Auditorium - San Francisco, CA Recording Info: AKG C460B/CK63-ULS > Sound Devices 744T (24-bit/96k) > Samplitude Pro X6 Suite > FLAC/24 (1 DVD FLAC) Recorded by Charlie Miller charliemiller87@earthlink.net May 3, 2025 Converted and downsampled from 24bit/96kHz to 16bit/48kHz in Foobar2000 w/dBPoweramp/SSRC plugin by Tyler/MrCompletely Set 1: 01 - Crowd 02 - Buried Alive 03 - Axilla II > 04 - Mike's Song > 05 - I Am Hydrogen > 06 - Weekapaug Groove 07 - My Soul 08 - Halley's Comet 09 - Roggae > 10 - Maze 11 - Split Open And Melt Set 2: 12 - Crowd 13 - Carini 14 - No Men In No Man's Land > 15 - Ruby Waves 16 - Waste > 17 - What's The Use? > 18 - Down Wi
-  - label:
+  - label: **aud** (Recording Info: AKG CK63)
 - **phish2025-04-22.dpa4011er.flac24**
   - title: Phish Live at Bill Graham Civic Auditorium on April 22nd, 2025
   - source field: None
@@ -1505,7 +1505,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish April 22, 2025 Bill Graham Civic Auditorium  San Francisco, CA Taper: Ryan Hoyt Equipment: dpa4011er > sx-r4+ (non-US version) Conversion: Post processing applied in iZotope to raise presence of the lower end Location: FOH, mics PAS at 7' *** A 16/44.1 conversion of this source exists *** 01. Intro                      00:58.734 02. Buried Alive               03:02.234 03. Axilla (Part II) >         06:18.751 04. Mike's Song >              09:38.706 05. I Am Hydrogen >            02:46.341 06. Weekapaug Groove           04:54.184 07. My Soul                    06:39.794 08. Halley's Comet             19:50.529 09. Roggae >                   11:03.439 10. Maze                       09:4
-  - label:
+  - label: **aud** (Equipment: dpa4011er FOH mics)
 - **phish2025-04-22.dpa4028.flac24**
   - title: Phish Live at Bill Graham Civic Auditorium on April 22nd, 2025
   - source field: None
@@ -1513,7 +1513,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish April 22, 2025 Bill Graham Civic Auditorium  San Francisco, CA Taper: Ryan Hoyt Equipment: dpa4028 > sx-r4+ (non-US version) Conversion: slight EQ to soften mid-low and brighten upper. compression added between -2 and -0.5 Location: FOH, mics DINa at 7' *** A 16/44.1 conversion of this source exists *** 01. Intro                      00:58.734 02. Buried Alive               03:02.234 03. Axilla (Part II) >         06:18.751 04. Mike's Song >              09:38.706 05. I Am Hydrogen >            02:46.342 06. Weekapaug Groove           04:54.184 07. My Soul                    06:39.795 08. Halley's Comet             19:50.530 09. Roggae >                   11:03.440 10. Maze            
-  - label:
+  - label: **aud** (Equipment: dpa4028 FOH mics)
 
 ### 34. 2016-10-13
 
@@ -1524,7 +1524,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2016-10-14 North Charleston Coliseum Charleston, SC Source:Schoeps mk41v(dina)>kc5>M222> NT222>Sonosax SX-R4+ 24/96 Location:OTS Transfer:SDHC>Audacity 16/44.1>Amadeus Pro>xACT Taped By: Chris King Set 1 01.Petrichor 02.Ghost 03.Heavy Things 04.Home 05 Poor Heart 06.Bathtub Gin 07.555 08.Horn 09.More Set 2 01.NMINML 02.DWD 03.Cities 04.Roggae 05.20 Years Later 06.Light 07.Free 08.Boogie on Reggae Woman 09.Harry Hood 10.Encore 11.Winterqueen 12.Tube 13.Rocky Top Only thing changed was the date so if you downloaded the version before this its the same show just corrected the date.
-  - label:
+  - label: **aud** (Schoeps mk41v OTS; misdated (show 2016-10-14))
 
 ### 35. 2021-08-14
 
@@ -1535,7 +1535,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Beach Atlantic City, NJ 8/14/2021 AT4031s (FOB/DFC/[60°@47 cm]/~6.5') > Zoom F8 (24/48) SDHC > processed in Reaper > tracked in CDWav > encoded in dBpoweramp > tagged in Mp3tag recorded, processed, tagged, and posted by djphrayz Set 1 1.  Slow Llama 2.  Tube 3.  Destiny Unbound 4.  Ya Mar 5.  46 Days 6.  Reba 7.  Soul Shakedown Party 8.  Split Open and Melt 9.  The Squirming Coil Set 2 1.  I Never Needed You Like This Before 2.  Drowned > 3.  Ghost -> 4.  Scents and Subtle Sounds > 5.  Chalk Dust Torture -> 6.  No Quarter > 7.  Slave to the Traffic Light 8.  Suzy Greenberg Encore 9.  A Life Beyond The Dream 10. Tweezer Reprise photo by Rene Huemer
-  - label:
+  - label: **aud** (AT4031 FOB (no Source: label))
 - **phish2021-08-14.153029.atlanticcity.at4031.djphrayz.flac2448**
   - title: Phish - 2021-08-14 - Atlantic City Beach - Atlantic City, NJ
   - source field: None
@@ -1543,7 +1543,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Beach Atlantic City, NJ 8/14/2021 AT4031s (FOB/DFC/[60°@47 cm]/~6.5') > Zoom F8 (24/48) SDHC > processed in Reaper > tracked in CDWav > encoded in dBpoweramp > tagged in Mp3tag recorded, processed, tagged, and posted by djphrayz Set 1 1.  Slow Llama 2.  Tube 3.  Destiny Unbound 4.  Ya Mar 5.  46 Days 6.  Reba 7.  Soul Shakedown Party 8.  Split Open and Melt 9.  The Squirming Coil Set 2 1.  I Never Needed You Like This Before 2.  Drowned > 3.  Ghost -> 4.  Scents and Subtle Sounds > 5.  Chalk Dust Torture -> 6.  No Quarter > 7.  Slave to the Traffic Light 8.  Suzy Greenberg Encore 9.  A Life Beyond The Dream 10. Tweezer Reprise
-  - label:
+  - label: **aud** (AT4031 FOB)
 - **phish2021-08-14.153054.atlanticcity.mk22.durham.flac2496**
   - title: Phish - 2021-08-14 - Atlantic City Beach - Atlantic City, NJ
   - source field: None
@@ -1551,7 +1551,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 14 August 2021 Atlantic Beach Atlantic City, NJ taped by: 'Team No Drama' Source: FOB: Schoeps MK22 (nos) -> nbobs actives -> PSP3 -> SD Mixpre 6ii @ 96 kHz, 32 bit float dfc, 6 1/2' on stand Transfer: SD mixpre 6 ii -> USBc -> CPU transferred, and edited by jadedphan: channels summed, fades in/out added, normalized (-.2), and dithered to 24 bit in Sony Vegas Pro 16 Set I: 01. rowdy wooks 02. Llama (slow) 03. Tube 04. Destiny Unbound 05. Ya Mar 06. 46 Days 07. Reba 08. Soul Shakedown Party 09. Split Open & Melt 10. The Squirming Coil Set II: 01. rowdy wooks 02. I Never Needed You Like This Before 03. Drowned -> 04. Ghost -> 05. Scents & Subtle Sounds -> 06. No Quarter 07. Slave to the 
-  - label:
+  - label: **aud** (FOB Schoeps MK22)
 - **phish2021-08-14.153087.atlanticcity.dpa2011.cappelen.flac1644**
   - title: Phish - 2021-08-14 - Atlantic City Beach - Atlantic Beach, NJ
   - source field: None
@@ -1559,7 +1559,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Beach Atlantic City, NJ 8/14/2021 DPA 2011Cs (FOB[PAS@12"]/~5.5') > Zoom F8 (24/48) SDHC > processed in Reaper > tracked in CDWav > encoded in dBpoweramp > tagged in Mp3tag recorded and transferred by Ted Cappelen processed, tagged, and posted by djphrayz Set 1 1.  Slow Llama 2.  Tube 3.  Destiny Unbound 4.  Ya Mar 5.  46 Days 6.  Reba 7.  Soul Shakedown Party 8.  Split Open and Melt 9.  The Squirming Coil Set 2 1.  I Never Needed You Like This Before 2.  Drowned > 3.  Ghost -> 4.  Scents and Subtle Sounds > 5.  Chalk Dust Torture -> 6.  No Quarter > 7.  Slave to the Traffic Light 8.  Suzy Greenberg Encore 9.  A Life Beyond The Dream 10. Tweezer Reprise
-  - label:
+  - label: **aud** (DPA 2011C FOB (no Source: label))
 - **phish2021-08-14.153088.atlanticcity.dpa2011.cappelen.flac2448**
   - title: Phish - 2021-08-14 - Atlantic City Beach - Atlantic City, NJ
   - source field: None
@@ -1567,7 +1567,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Beach Atlantic City, NJ 8/14/2021 DPA 2011Cs (FOB[PAS@12"]/~5.5') > Zoom F8 (24/48) SDHC > processed in Reaper > tracked in CDWav > encoded in dBpoweramp > tagged in Mp3tag recorded and transferred by Ted Cappelen processed, tagged, and posted by djphrayz Set 1 1.  Slow Llama 2.  Tube 3.  Destiny Unbound 4.  Ya Mar 5.  46 Days 6.  Reba 7.  Soul Shakedown Party 8.  Split Open and Melt 9.  The Squirming Coil Set 2 1.  I Never Needed You Like This Before 2.  Drowned > 3.  Ghost -> 4.  Scents and Subtle Sounds > 5.  Chalk Dust Torture -> 6.  No Quarter > 7.  Slave to the Traffic Light 8.  Suzy Greenberg Encore 9.  A Life Beyond The Dream 10. Tweezer Reprise
-  - label:
+  - label: **aud** (DPA 2011C FOB)
 - **phish2021-08-14.153089.atlanticcity.scx25.cappelen.flac1644**
   - title: Phish - 2021-08-14 - Atlantic City Beach - Atlantic City, NJ
   - source field: None
@@ -1575,7 +1575,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Beach Atlantic City, NJ 8/14/2021 Audix SCX25s (FOB[PAS@7"]/~5.5') > Zoom F8 (24/48) SDHC > processed in Reaper > tracked in CDWav > encoded in dBpoweramp > tagged in Mp3tag recorded and transferred by Ted Cappelen processed, tagged, and posted by djphrayz Set 1 1.  Slow Llama 2.  Tube 3.  Destiny Unbound 4.  Ya Mar 5.  46 Days 6.  Reba 7.  Soul Shakedown Party 8.  Split Open and Melt 9.  The Squirming Coil Set 2 1.  I Never Needed You Like This Before 2.  Drowned > 3.  Ghost -> 4.  Scents and Subtle Sounds > 5.  Chalk Dust Torture -> 6.  No Quarter > 7.  Slave to the Traffic Light 8.  Suzy Greenberg Encore 9.  A Life Beyond The Dream 10. Tweezer Reprise
-  - label:
+  - label: **aud** (Audix SCX25 FOB (no Source: label))
 - **phish2021-08-14.153090.atlanticcity.scx25.cappelen.flac2448**
   - title: Phish - 2021-08-14 - Atlantic City Beach - Atlantic City, NJ
   - source field: None
@@ -1583,7 +1583,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Beach Atlantic City, NJ 8/14/2021 Audix SCX25s (FOB[PAS@7"]/~5.5') > Zoom F8 (24/48) SDHC > processed in Reaper > tracked in CDWav > encoded in dBpoweramp > tagged in Mp3tag recorded and transferred by Ted Cappelen processed, tagged, and posted by djphrayz Set 1 1.  Slow Llama 2.  Tube 3.  Destiny Unbound 4.  Ya Mar 5.  46 Days 6.  Reba 7.  Soul Shakedown Party 8.  Split Open and Melt 9.  The Squirming Coil Set 2 1.  I Never Needed You Like This Before 2.  Drowned > 3.  Ghost -> 4.  Scents and Subtle Sounds > 5.  Chalk Dust Torture -> 6.  No Quarter > 7.  Slave to the Traffic Light 8.  Suzy Greenberg Encore 9.  A Life Beyond The Dream 10. Tweezer Reprise
-  - label:
+  - label: **aud** (Audix SCX25 FOB)
 - **phish2021-08-14.153583.atlanticcity.km150.nyctaper.flac1644**
   - title: Phish - 2021-08-14 - Atlantic City Beach - Atlantic City, NJ
   - source field: None
@@ -1591,7 +1591,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2021-08-14 The Beach Atlantic City NJ Digital Master Recording Tapers Section at Soundboard Neumann KM-150 Hypers > Sound Devices 744t > 24bit 48kHz wav > Soundforge (post production) > CDWave 1.95 (tracking) > TLH  > flac (320 MP3 and tagging via Foobar) Please support this legendary band: http://phish.com/ Recorded and Produced by nyctaper Setlist: Set 1 [Total Time 1:20:54] 01  Llama 02  Tube 03  Destiny Unbound 04  Ya Mar 05  46 Days 06  Reba 07  Soul Shakedown Party 08  Split Open and Melt 09  The Squirming Coil Set 2 [Total Time 1:24:54] 10  I Never Needed You Like This Before 11  Drowned 12  Ghost 13  Scents and Subtle Sounds 14  Chalk Dust Torture 15  No Quarter 16  Slave to th
-  - label:
+  - label: **aud** (Tapers Section at Soundboard, Neumann KM-150 (sbd as position))
 - **phish2021-08-14.164277.atlanticcity.mk4v.durham.flac2496**
   - title: Phish - 2021-08-14 - Atlantic City Beach - Atlantic City, NJ
   - source field: None
@@ -1599,7 +1599,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > phish 14 august 2021 atlantic beach atlantic city, nj location:    fob, slightly right of center; on stand approx, 6'4" source:    schoeps mk4v (DINa) -> kcy -> vms5u -> sd 788t @ 96 kHz 24 bit transfer:    external cf card reader -> usb-c -> laptop edits:    channels summed & balanced, flac'd ^ track split in magix sound forge 16.1.1;         flac files tagged using foobar2000 taped by:    sam edwards with team no drama contact jadedphan@hotmail.com with questions, concerns, or complaints set I: 01. rowdy wooks 02. llama (slow) 03. tube 04. destiny unbound 05. ya mar 06. 46 days 07. reba 08. soul shakedown party 09. split open & melt set II: 01. rowdy wooks 02. i never needed you like this 
-  - label:
+  - label: **aud** (Schoeps mk4v fob)
 - **phish2021-08-14.164296.atlanticcity.mk22.durham.flac2496**
   - title: Phish - 2021-08-14 - Atlantic City Beach - Atlantic City, NJ
   - source field: None
@@ -1607,7 +1607,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > phish 14 august 2021 atlantic city beach atlantic city, nj location:    just under halfway between foh & stage, right of center; on stand approx. 6'4" source:    schoeps mk22 (nos) -> nbobs -> aeta psp3 -> sd mixpre 6ii; recorded at 96 kHz 32 bit (float);         seeded at 96 kHz 24 bit transfer:    mixpre 6ii -> usb-c -> laptop edits:    channels summed & balanced, fades added, dithered, flac'd & track split in magix sound forge 16.1.1;         flac files tagged using foobar2000 taped by:    team no drama contact jadedphan@hotmail.com with questions, concerns, or complaints set I: 01. rowdy wooks 02. llama (slow) 03. tube 04. destiny unbound 05. ya mar 06. 46 days 07. reba 08. soul shakedow
-  - label:
+  - label: **aud** (Schoeps mk22)
 
 ### 36. 1990-02-23
 
@@ -1618,7 +1618,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 02-23-90 Haverford College, Haverford, PA Source [From Phil's Soundboard List and Dan Marquardt]: SBD>Cass0>DAT>CD CD-R > EAC > SHN and upload by Mike Shumsky (michael.shumsky@yale.edu) Disc Three (the encores) can fit at the end of Disc Two on an overburned 80  minute CD or be used as filler on the CD of your choice. Disc 1, Set 1: 1. Alumni Blues 2. You Enjoy Myself 3. Possum 4. Foam 5. Carolina 6. Rocky Top 7. Dinner and a Movie 8. Ya Mar 9. Walk Away 10. Bouncing Around the Room 11. Run Like an Antelope Disc 2, Set 2: 1. Golgi Apparatus 2. Reba 3. Bathtub Gin 4. Jesus Just Left Chicago 5. Tela 6. Oh Kee Pa Ceremony-> 7. Suzy Greenberg* 8. Mike's Song-> I Am Hydrogen-> Weekapaug Gro
-  - label:
+  - label: **sbd** (SBD>Cass0)
 - **phish1990-02-23.126065.keene.sbd.flac1648**
   - title: Phish - 1990-02-23 - Haverford College - Haverford, PA
   - source field: None
@@ -1626,7 +1626,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1990-02-23 Haverford College Haverford, PA Source:  SBD Transfer:  DAT(c) @ 48k > Sony PCM-R500 > Tascam SS-R1 > Samplitude Pro X (fades, edits) > TLH(flac 8) Thanks to Steve Mortlock for the DAT Transfer & edits by Jeff Mitchell (jeffhmitchell@gmail.com) Seeded to etree 2013-11-03 Set 1: s1t01 - Alumni Blues s1t02 - You Enjoy Myself > s1t03 - Possum s1t04 - Foam s1t05 - Carolina s1t06 - Rocky Top s1t07 - Dinner & A Movie > s1t08 - Ya Mar s1t09 - Walk Away s1t10 - Bouncing Around The Room > s1t11 - Run Like An Antelope Set 2: s2t01 - Golgi Apparatus > s2t02 - Reba s2t03 - Bathtub Gin s2t04 - Jesus Just Left Chicago s2t05 - Tela > s2t06 - The Oh Kee Pa Ceremony > s2t07 - Suzy Greenberg 
-  - label:
+  - label: **sbd** (Source: SBD)
 
 ### 37. 1992-03-12
 
@@ -1637,7 +1637,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 3-12-92 Flynn Theater  Burlington, VT Source: SBD > ? (Unknown DAT/Analog Gens) > CD > EAC > Wavelab (mastering) > FLAC16 Thanks to Alec Swenson for the source discs. Set II: Golgi Apparatus*  Tweezer  Eliza  It's Ice  Bouncing Around the Room  The Squirming Coil  -Uncle Pen *Missing*-  /David Bowie**  -Cracklin' Rosie *Missing*- My Sweet One  Cavern -MISSING- Encores * Slightly bassy sound at start caused from bad analog transfer, clears up mid song. ** Small cut at start, must assume a tape flip was here....Intro teases Uncle Pen (cut), Squirming Coil, Bouncing Around The Room, It's Ice, Eliza, Tweezer, Golgi, Bowie, YEM. The start and cut were crossfaded.
-  - label:
+  - label: **sbd** (SBD > ?)
 - **phish1992-03-12.081001.burlington.akg414.flac1644**
   - title: Phish - 1992-03-12 - Flynn Theater - Burlington, VT
   - source field: None
@@ -1645,7 +1645,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1992-03-12 Flynn Theatre Burlington, VT Taped by: Dave Schanker Source: AKG 414 > D5 (Cass0) > Cass1 Transfer: Yamaha KX-R470 > DSP24 > Wavelab > FLAC16 Thanks to Todd Ahrens for the source tapes! Transfer, mastering, and FLAC16 by: Marmar- imthemarmar@gmail.com Set 1 s1t01 - Runaway Jim s1t02 - Foam s1t03 - Sparkle s1t04 - Stash s1t05 - I Didn't Know s1t06 - Reba s1t07 - Buried Alive s1t08 - Rift* s1t09 - Magilla s1t10 - Llama s1t11 - You Enjoy Myself Set 2 s2t01 - Set 2 Intro s2t02 - Golgi Apparatus s2t03 - Tweezer s2t04 - Eliza s2t05 - It's Ice s2t06 - Bouncing Around the Room s2t07 - The Squirming Coil s2t08 - Uncle Pen s2t09 - David Bowie s2t10 - Cold As Ice s2t11 - Cracklin' Rosi
-  - label:
+  - label: **aud** (AKG 414 > D5)
 - **phish1992-03-12.111594.burlington.sbd.set2.flac1644**
   - title: Phish - 1992-03-12 - Flynn Theater - Burlington, VT
   - source field: None
@@ -1653,7 +1653,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 3/12/92  Set 2 Flynn Theater  Burlington, VT This is a compilation of two different sources: Source 1: SBD > ? (Unknown DAT/Analog Gens) > CD > EAC > Wavelab (mastering) > FLAC16 Provided by previous Marmar seed, whom is responsible for the mastering. Discs received from Alec Swenson. Source 2(*): Master Cassette Audience (unknown mics) > Sony D5 Transfer: Aiwa AD-F850 3-Head > Apogee AD1000 > Sony PCM R-500 > HHB CDR-850 Conversion: EAC (Secure Mode) > WAV > ShnTool > FLAC (1.7.1) All tracks were extracted with 100% quality. Set II: 1. Golgi Apparatus* (Just the pre banter from Source 2) 2. Tweezer  3. Eliza  4. It's Ice 5. Bouncing Around the Room  6. The Squirming Coil > 7. Uncle Pe
-  - label:
+  - label: **sbd** (patchwork: SBD primary, aud master-cassette fills for 8 tracks (not aud-only))
 - **phish1992-03-12.124147.burlington.sbd.flac1644**
   - title: Phish - 1992-03-12 - Flynn Theater - Burlington, VT
   - source field: None
@@ -1661,7 +1661,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1992-03-12 Flynn Theatre - Burlington, VT Source:  SBD > MC > Nak DR-1 > Sony R500 Transfer:  DAT @ 48k > Sony PCM-R500 > Tascam SS-R1 > SoX v14.4.1 (48k > 44.1k) > Samplitude 11.01 (fades, edits) > CD Wave v1.98 > TLH (flac 8) Thanks Dave Flaschner & Terry Watts for the DAT Transferred by Jeff Mitchell (jeffhmitchell@gmail.com) Notes: - The beginning of Runaway Jim was missing, this was patched using shnid #81001 - There was ~03:00 missing in Rift, this was patched using shnid #81001. - Sweet Adeline was not audible, this was patched using shnid #81001. Patch Source Info: Taped by: Dave Schanker Source: AKG 414 > D5 (Cass0) > Cass1 Transfer: Yamaha KX-R470 > DSP24 > Wavelab > FLAC16 T
-  - label:
+  - label: **sbd** (SBD > MC)
 - **phish1992-03-12.168962.burlington.sbd.flac1644**
   - title: Phish - 1992-03-12 - Flynn Theater - Burlington, VT
   - source field: None
@@ -1669,7 +1669,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH, THURSDAY 03/12/1992 THE FLYNN THEATRE Burlington, VT SET 1: Runaway Jim, Foam, Sparkle, Stash, I Didn't Know[1], Reba, Buried Alive > Rift, Magilla, Llama, You Enjoy Myself SET 2: Golgi Apparatus, Tweezer, Eliza > It's Ice > Bouncing Around the Room, The Squirming Coil > Uncle Pen, David Bowie, Cold as Ice > Cracklin' Rosie > Cold as Ice, My Sweet One > Cavern ENCORE: Sweet Adeline[2], Weigh > Tweezer Reprise [1] Fish on Bag-Vac. [2] Without microphones. Trey teased Buried Alive in Stash. I Didn't Know featured Fish on Bag-Vac and was dedicated to Nectar, who was in attendance. Trey teased Lazy in Llama, Long Tall Glasses in Tweezer, and Long Train Runnin' in It's Ice. Bowie’s intro c
-  - label:
+  - label: **sbd** ('Recorded from the soundboard feed' (deep in notes))
 
 ### 38. 1992-01-01
 
@@ -1680,7 +1680,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1992-11-27 Capitol Theater Port Chester, NY Source:  AKG414 > Custom Oade Preamp > Sony D-10 Pro II > DAT Transfer: DAT(m) @ 48kHz > Sony PCM-R500 > Tascam DA-3000 Taped & Transferred by Jim Wise Set 1 s1t01 - Rift > s1t02 - Wilson > s1t03 - Divided Sky > s1t04 - Colonel Forbin's Ascent > s1t05 - Fly Famous Mockingbird > s1t06 - Split Open & Melt s1t07 - Lawn Boy s1t08 - Reba s1t09 - Llama > s1t10 - Mound s1t11 - Memories s1t12 - Runaway Jim Set 2 s2t01 - Axilla s2t02 - Poor Heart > s2t03 - Possum s2t04 - Glide > s2t05 - It's Ice > s2t06 - McGrupp & The Watchful Horsemasters > s2t07 - I walk The Line > s2t08 - David Bowie s2t09 - The Horse > s2t10 - Silent In The Morning s2t11 - Faht s
-  - label:
+  - label: **aud** (AKG414 > Oade; misdated (show 1992-11-27))
 - **phish1992-xx-xx.138739.sbd.flac1644**
   - title: Phish - April 1992 Elektra Records Live Demo
   - source field: None
@@ -1688,7 +1688,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH April 1992 "Elektra Records Live Demo, 4/16-21/92" Source:  Mystery Gen Analog Cassette (Maxell XL II 90) Transfer: SBD Cass > HHB > CDR > FLAC 01. Rocky Top, 4/18/92 02. Contact, 4/18/92 03. BBFCFM, 4/18/92 04. NICU, 4/21/92 05. My Friend My Friend, 4/19/92 06. Fee -> 4/16/92 07. Maze, 4/16/92 08. Horse > 3/7/92 (first live performance) 09. Silent in the Morning, 3/7/92 (first live performance) 10. Mound, 4/18/92 11. Weigh, 4/21/92 12. My Mind's Got A Mind Of Its Own, 4/21/92 13. Rift, 4/16/92 14. Sleeping Monkey, 4/16/92 Ellis "of Lemuria" Godard sent me this tape to transfer it to disc and get it online for you. This tape used to circulate in the 1990s, and it is a mixed "demo" tape
-  - label:
+  - label: **sbd** (SBD Cass (Elektra demo compilation, placeholder date))
 
 ### 39. 2016-07-22
 
@@ -1699,7 +1699,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Inglewood, CA The Forum July 22, 2016 (Friday) Source : Microtech Gefell M21/actives (DINa)> Naiant Tinybox (+18db) > Tascam DR-60D (24/48) Location: FOB/DFC, 6.5' up Transfer: Audacity (normalize,resample,dither) > cdwav (track) > TLH (flac,meta) Recorded and Mastered by: Aaron Bowers (obaaron) SET 1: 01. The Moma Dance 02. Sample in a Jar 03. Paul and Silas 04. Yarmouth Road 05. Kill Devil Falls 06. Horn 07. Halfway To The Moon 08. Heavy Things 09. Blaze On 10. Stash 11. Cavern 12. Run Like an Antelope SET 2: 01. Axilla I 02. Fuego 03. Back on the Train 04. Saw It Again 05. Prince Caspian 06. Waves 07. Joy 08. The Wedge 09. Scent of a Mule 10. Rock and Roll 11. You Enjoy Myself 12. E
-  - label:
+  - label: **aud** (Gefell M21 FOB/DFC)
 - **phish2016-07-22.136585.inglewood.mbho44.bsc1k11.logrippo.flac1648**
   - title: Phish - 2016-07-22 - The Forum - Inglewood, CA
   - source field: None
@@ -1707,7 +1707,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish June 22,2016 The Forum Inglewood, CA *** 16bit file set *** Source: MBHO440 ORTF + BSC1-K11 XY > H6 @24/48 channels 1 and 3 BSC1's channels 2 and 4 440's Location: Right corner of SBD, 10' high Transfer: SDHC > Adobe Audition CS6 > TLH Recorded, Transferred, Mastered by Joe Logrippo (aka wharfratjoe) Tagging: Live Show Tagger Set 1: 01. The Moma Dance > 02. Sample in a Jar 03. Paul and Silas* 04. Yarmouth Road 05. Kill Devil Falls 06. Horn 07. Halfway to the Moon 08. Heavy Things > 09. Blaze On 10. Stash 11. Cavern > 12. Run Like an Antelope Set 2: 01. Axilla 02. Fuego > 03. Back on the Train > 04. Saw It Again > 05. Prince Caspian > 06. Waves > 07. Joy 08. The Wedge 09. Scent Of A Mul
-  - label:
+  - label: **aud** (MBHO440 ORTF; Location: right corner of SBD (sbd as position))
 - **phish2016-07-22.136586.inglewood.mbho44.bsc1k11.logrippo.flac2448**
   - title: Phish - 2016-07-22 - The Forum - Inglewood, CA
   - source field: None
@@ -1715,7 +1715,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish June 22,2016 The Forum Inglewood, CA *** 24bit file set *** Source: MBHO440 ORTF + BSC1-K11 XY > H6 @24/48 channels 1 and 3 BSC1's channels 2 and 4 440's Location: Right corner of SBD, 10' high Transfer: SDHC > Adobe Audition CS6 > TLH Recorded, Transferred, Mastered by Joe Logrippo (aka wharfratjoe) Tagging: Live Show Tagger Set 1: 01. The Moma Dance > 02. Sample in a Jar 03. Paul and Silas* 04. Yarmouth Road 05. Kill Devil Falls 06. Horn 07. Halfway to the Moon 08. Heavy Things > 09. Blaze On 10. Stash 11. Cavern > 12. Run Like an Antelope Set 2: 01. Axilla 02. Fuego > 03. Back on the Train > 04. Saw It Again > 05. Prince Caspian > 06. Waves > 07. Joy 08. The Wedge 09. Scent Of A Mul
-  - label:
+  - label: **aud** (MBHO440 ORTF; right corner of SBD)
 - **phish2016-07-22.136592.inglewood.mk4v.bowers.flac1644**
   - title: Phish - 2016-07-22 - The Forum - Inglewood, CA
   - source field: None
@@ -1723,7 +1723,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Inglewood, CA The Forum July 22, 2016 (Friday) Source : Schoeps MK4V > nbob actives > Naiant Littlebox > Tascam DR-60D (24/48) Location: FOB/DFC, 6.5' up Transfer: Audacity (normalize,resample,dither) > cdwav (track) > TLH (flac,meta) Recorded and Mastered by: Aaron Bowers (obaaron) SET 1: 01. The Moma Dance 02. Sample in a Jar 03. Paul and Silas 04. Yarmouth Road 05. Kill Devil Falls 06. Horn 07. Halfway To The Moon 08. Heavy Things 09. Blaze On 10. Stash 11. Cavern 12. Run Like an Antelope SET 2: 01. Axilla I 02. Fuego 03. Back on the Train 04. Saw It Again 05. Prince Caspian 06. Waves 07. Joy 08. The Wedge 09. Scent of a Mule 10. Rock and Roll 11. You Enjoy Myself 12. Encore Crowd 1
-  - label:
+  - label: **aud** (Schoeps MK4V FOB)
 - **phish2016-07-22.136594.inglewood.km140.hodulik.flac1644**
   - title: Phish - 2016-07-22 - The Forum - Inglewood, CA
   - source field: None
@@ -1731,7 +1731,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 7-22-16 The Forum, Inglewood CA Neumann Ak40>Lc3ka>Km100>V3>MiniMe>PMD661 24/48 FOB CF Card>Soundforge9.0 (normalized)>CDWave>TLH Taped And Transferred By Todd Hodulik Set 1 1. The Moma Dance 2. Sample In A Jar 3. Paul & Silas 4. Yarmouth Road 5. Kill Devil Falls 6. Horn 7. Halfway to the Moon 8. Heavy Things 9. Blaze On 10. Stash 11. Cavern 12. Run LIke an Antelope Set 2 1. Axila 2. Fuego 3. Back On THe Train 4. Saw It Again 5. Prince Caspian 6. Waves 7. Joy 8. The Wedge 9. Scent OF A MUle 10. Rock & Roll 11. You Enjoy Myself E: Booogie On Reggae Women Bouncin Round The Room Golgi Apparatus
-  - label:
+  - label: **aud** (Neumann AK40/KM100 FOB (no Source: label))
 - **phish2016-07-22.136848.inglewood.ck8.akg460.logrippo.flac1644**
   - title: Phish - 2016-07-22 - The Forum - Inglewood, CA
   - source field: None
@@ -1739,7 +1739,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Inglewood, CA The Forum July 22, 2016 (Friday) Source  : AKG c460b/ck8 (PAS) > Tascam DR-70D (24/48) Location: OTS, Right corner of SBD, 9' high Transfer: Audacity (amplify,resample,dither) > cdwav (track) > TLH (flac8,meta) Recorded by: Joe Logrippo (wharfratjoe) Seeded by  : Aaron Bowers (obaaron) SET 1: 01. The Moma Dance 02. Sample in a Jar 03. Paul and Silas 04. Yarmouth Road 05. Kill Devil Falls 06. Horn 07. Halfway To The Moon 08. Heavy Things 09. Blaze On 10. Stash 11. Cavern 12. Run Like an Antelope SET 2: 01. Axilla I 02. Fuego 03. Back on the Train 04. Saw It Again 05. Prince Caspian 06. Waves 07. Joy 08. The Wedge 09. Scent of a Mule 10. Rock and Roll 11. You Enjoy Myself 1
-  - label:
+  - label: **aud** (AKG c460b/ck8; OTS right corner of SBD)
 
 ### 40. 1993-03-13
 
@@ -1750,7 +1750,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 3/13/93  Balch Fieldhouse, University of Colorado Boulder, CO  Source: Aud(unknown mics)>DAT>Cass/3 (recorded 4/15/93) Transfer: Dennon DRW-840> Sony PCM-r500 at 44.1> Audiophile 2496> CD Wave Editor> FLAC on 10/21/04 by EEE Disc 1 / Set 1: 70min t01 - Crowd t02 - The Landlady* t03 - Funky Bitch* t04 - Bouncing Around the Room t05 - Maze t06 - Fee t07 - All Things Reconsidered t08 - Split Open and Melt^ t09 - Contact t10 - Llama t11 - Wilson+ t12 - Run Like an Antelope+ Disc 2 / Set II: 72min t01 - Suzy Greenberg t02 - Tweezer t03 - Lizards t04 - It's Ice t05 - Glide t06 - Uncle Pen t07 - Big Ball Jam t08 - Mike's Song->  t09 - I Am Hydrogen->  t10 - Weekapaug\Groove$ t11 - Fast Enough
-  - label:
+  - label: **aud** (Aud (unknown mics))
 - **phish1993-03-13.081391.boulder.aud.flac1644**
   - title: Phish - 1993-03-13 - Balch Fieldhouse - University of Colorado - Boulder, CO
   - source field: None
@@ -1758,7 +1758,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 03-13-93 Balch Fieldhouse, University of Colorado Boulder, CO Source: Neumann Transfer: Sony PCM R500>Opcode DatPort>SF4.5>CD Wave>FLAC                                      Taper: unknown Seed: Kevin Shapiro DAT>FLAC Transfer by Chris Moore Tracking by Chris Moore ------------------------------------  Disc 1:                    (68:43) ------------------------------------ -Set 1- 1. The Landlady             (04:08) 2. Funky Bitch            (04:21) 3. Bouncing Around The Room (03:34) 4. Maze                    (09:25) 5. Fee                     (05:11) 6. All Things Reconsidered  (02:44) 7. Split Open and Melt      (09:06) 8. Contact*             (06:15) 9. Llama                   (04:
-  - label:
+  - label: **aud** (Source: Neumann)
 - **phish1993-03-13.081504.boulder.me80.flac1644**
   - title: Phish - 1993-03-13 - Balch Fieldhouse - University of Colorado - Boulder, CO
   - source field: None
@@ -1766,7 +1766,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Balch Fieldhouse University of Colorado Boulder, CO March 13, 1993 Source: Sennheiser ME-80s > Sony TCD-D3 @ 48kHz Transfer: Sony PCM-R500 > Delta Di0 2496 > Soundforge 8 > CDwav > 48kHz FLAC v1.7.1 Transferred, Encoded, and Seeded by Matt Edlhuber <medlhuber@hotmail.com> Mastering: 16/48 FLAC > Wavelab 5.01b (editing/mastering/48>44.1) > FLAC 16 Mastering by Marmar- imthemarmar@gmail.com ***unaltered 16/48kHz FLACs are archived*** Thanks to Bill Shaw for the tapes! Set 1: 01. The Landlady 02. Funky Bitch 03. Bouncing Around the Room 04. Maze 05. Fee 06. All Things Reconsidered 07. Split Open and Melt^ 08. Contact 09. Llama 10. Wilson 11. Run Like An Antelope Set 2: 01. Suzy Greenberg 
-  - label:
+  - label: **aud** (Sennheiser ME-80)
 
 ### 41. 1991-07-20
 
@@ -1777,7 +1777,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > phish @-arrowhead ranch, parksville,ny-91-07-20, /d1-d2./ source:akg 451+ck8a in sbd b00th, by kevin shapiro.... seeded: by mikey k unidecker@mediaone.net....or t34mbtpz on irc.etree.org transfer:da20mkII>rme96/8>cd wav(editor)>mkw>shn(44.1). ####### w/the giant country horns#################### flac'd & tagged 2025-10-30 J. Mitchell    *disc one*(57:14:25) 1)  intro>chalkdust (6:35) 2)  foam    (7:41:27) 3)  squirming coil (5:50:29) 4)  llama  (4:11:56) 5)  oh kee pa ceremony (1:45:19) 6)  suzy greenberg (4:58:65) 7)  landlady (6:53:62) 8)  bathtub gin (6:36:35) 9)  my sweet one (2:10:48) 10) david bowie (10:30:59)   *disc two*( 79:03:04) 1)  burried alive (2:18:18) 2)  reba (11:30:53) 3)  
-  - label:
+  - label: **aud** (source: akg 451+ck8a in sbd b00th (sbd as position))
 - **phish1991-07-20.133847.parksville.akg451.ck8.flac1648**
   - title: Phish - 1991-07-20 - Arrowhead Ranch - Parksville, NY
   - source field: None
@@ -1785,7 +1785,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1991-07-20 Arrowhead Ranch Parksville, NY Source:  AKG451/CK8A > MC > DAT Transfer:  DAT(c) @ 48kHz > Sony PCM-R500 > Canare Coax > Korg MR-2000S > Kimber USB 2.0 > Samplitude Pro X v12.5.0.264 (fades, edits) > TLH v2.7.0 (flac 8, ffp) > Foobar2000 v1.2.9 Live Show Tagger DAT provided by Charlie Miller & Arielle Phares Transfer & edits by Jeff Mitchell (jeffhmitchell@gmail.com) Seeded to etree 2015-07-24 Set 1: s1t01 - Intro s1t02 - Chalk Dust Torture s1t03 - Foam s1t04 - The Squirming Coil > s1t05 - Llama s1t06 - The Oh Kee Pa Ceremony > s1t07 - Suzy Greenberg s1t08 - The Landlady s1t09 - Bathtub Gin s1t10 - My Sweet One s1t11 - David Bowie Set 2: s2t01 - Intro s2t02 - Buried Alive > 
-  - label:
+  - label: **aud** (AKG451/CK8A > MC)
 
 ### 42. 2003-02-16
 
@@ -1796,7 +1796,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - 02/16/03 Thomas and Mack Center Las Vegas, NV David Bowie > Catapult > David Bowie Horn > Guyute Round Room Golden Lady Poor Heart Pebbles And Marbles Down With Disease > Seven Below > Down With Disease > Anything But Me > Piper > Makisupa Policeman Character Zero Friday Sony 959 > Sony D-08 DAT > SD > Audacity > TLH > FLAC
-  - label:
+  - label: **aud** (Sony 959 (ECM-959 stereo mic) > D-08, at end of description, no label (metadata API checked))
 - **phish2003-02-16.015262.lasvegas.mk4.cmc6.gordon.lutch.flac1644**
   - title: Phish - 2003-02-16 - Thomas & Mack Center - Las Vegas, NV
   - source field: None
@@ -1804,7 +1804,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish Sunday, February 16, 2003 Thomas and Mack Center Las Vegas, NV Source: Schoeps MK4 > KC5 > CMC6 > Lunatec V3@16/44 > S/PDIF > VX Pocket > Vegas Video 3.0 > wav > Soundforge 5.0 (edits) > mkw 0.97b > .shn *No resampling was performed* Recording by Scott Gordon and Jamie Lutch flac & tag 2025-12-19 Set 1 s1t01 - David Bowie >    18:35 s1t02 - Catapult >        00:55 s1t03 - David Bowie        02:51 s1t04 - Horn            03:51 s1t05 - Guyute        10:32 s1t06 - Round Room         12:23 s1t07 - Golden Lady*        04:29 s1t08 - Poor Heart        03:01 s1t09 - Pebbles & Marbles     11:46 Set 2 s2t01 - Down With Disease >     10:38 s2t02 - Seven Below**>     10:05 s2t03 - Down With Diseas
-  - label:
+  - label: **aud** (Schoeps MK4)
 - **phish2003-02-16.015444.lasvegas.km140.dobert.koorey.flac1644**
   - title: Phish - 2003-02-16 - Thomas & Mack Center - Las Vegas, NV
   - source field: None
@@ -1812,7 +1812,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 02/16/03 Thomas and Mack Center - Las Vegas, Nevada km140's>v2>ad2k>p1>rme96>cdwav>flac1.1 Taped/Seeded by Tim Dobert/Dave Koorey = phrog@etree.org Set1 d1: 01: David Bowie > 02: Catapult > 03: David Bowie, 04: Horn, 05: Guyute, 06: Round Room, 07: Golden Lady*, 08: Poor Heart, 09: Pebbles & Marbles Set2 d2: 01: Down With Disease > 02: Seven Below > 03: Down With Disease, 04: Anything But Me, 05: Piper** > 06: Down With Disease > 07: Makisupa Policeman***, 08: Character Zer0 09: Encore: Friday Notes: * - Stevie Wonder cover, last played 10/20/94 ** - with glow war *** - keyword was "spliff" but stretched out ("sp", then a 3-5 second pause, then "liff")
-  - label:
+  - label: **aud** (km140 (no Source: label))
 - **phish2003-02-16.016068.lasvegas.km184.flac1644**
   - title: Phish - 2003-02-16 - Thomas & Mack Center - Las Vegas, NV
   - source field: None
@@ -1820,7 +1820,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2003-02-16 Thomas and Mack Center Las Vegas, NV Source info: Neumann KM184 > Mini-Me > DA-P1` Transfer: DA-P1 > VX Pocket > Soundforge > CDWav > shn Transferred by Jeff Killion <jkillion@urban-engineering.com sbe fix, flac & tag 2025-12-19 Set I s1t01 - David Bowie > s1t02 - Catapult > s1t03 - David Bowie s1t04 - Horn s1t05 - Guyute s1t06 - Round Room s1t07 - Golden Lady > s1t08 - Poor Heart s1t09 - Pebbles & Marbles Set 2 s2t01 - Down with Disease > s2t02 - 7 Below > s2t03 - Down with Disease > s2t04 - Anything But Me > s2t05 - Piper > s2t06 - Down with Disease > s2t07 - Makisupa Policeman s2t08 - Character Zero Encore s2t09 - Friday -------------------------- original text Phish 2-16
-  - label:
+  - label: **aud** (Source info: Neumann KM184)
 - **phish2003-02-16.121036.lasvegas.mk41.cmc6.lynch.sobel.flac1644**
   - title: Phish - 2003-02-16 - Thomas & Mack Center - Las Vegas, NV
   - source field: None
@@ -1828,7 +1828,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish February 16, 2003 Thomas & Mack Center Las Vegas, NV source: Schoeps mk41 > kc5 > cmc6 > Aeta PSP-3 > Apogee Mini-Me > Sony Vaio @ 24 bit / 48 kHz transfer: .WAV > Samplitude SE v9.1.1 (invert one channel, fades, track splits) > SoX 14.4.0 (resample to 44.1 kHz, dither to 16 bit) > FLAC v1.2.1 (Level 8) recorded by Geoff Lynch transferred by Jason Sobel (jasonsobel@gmail.com) seeded July 3, 2012 notes: On the original recording, the polarity of one channel was opposite relative to the other channel. I inverted one channel, so that the two would channels would be in the same relative phase. FLAC tags added with metaflac v1.2.1 Big thanks to Geoff for sending me the raw files. these 16 b
-  - label:
+  - label: **aud** (Schoeps mk41)
 - **phish2003-02-16.121037.lasvegas.mk41.cmc6.lynch.sobel.flac2448**
   - title: Phish - 2003-02-16 - Thomas & Mack Center - Las Vegas, NV
   - source field: None
@@ -1836,7 +1836,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish February 16, 2003 Thomas & Mack Center Las Vegas, NV source: Schoeps mk41 > kc5 > cmc6 > Aeta PSP-3 > Apogee Mini-Me > Sony Vaio @ 24 bit / 48 kHz transfer: .WAV > Samplitude SE v9.1.1 (invert one channel, fades, track splits) > FLAC v1.2.1 (Level 8) recorded by Geoff Lynch transferred by Jason Sobel (jasonsobel@gmail.com) seeded July 3, 2012 notes: On the original recording, the polarity of one channel was opposite relative to the other channel. I inverted one channel, so that the two would channels would be in the same relative phase. FLAC tags added with metaflac v1.2.1 Big thanks to Geoff for sending me the raw files. these are "high resolution" 24 bit / 48 kHz files, and cannot be
-  - label:
+  - label: **aud** (Schoeps mk41)
 - **phish2003-02-16.135459.lasvegas.bk4022.watts.flac1648**
   - title: Phish - 2003-02-16 - Thomas & Mack Center - Las Vegas, NV
   - source field: None
@@ -1844,7 +1844,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH Thomas & Mack Center Las Vegas, Nevada February 16, 2003 Source:  (OTS/DFC/XY) B&K 4022's > EAA PSP-2 > Apogee Mini-Me > HHb PDR-1000 > DAT(c) Transfer:  DAT(c) > Sony PCM-R500 > SPDIF > Tascam HD-P2 > CDWave > FLAC  (16/48) Source by unknown DAT(c) provided by Marc Natelsky Transfer by Terry Watts Set I: 1. Bowie > 2. Catapult > 3. Bowie 4. Horn 5. Guyute 6. Round Room 7. Golden Lady > 8. Poor Heart 9. Pebbles & Marbles Set II: 1. DwD > 2. Seven Below > 3. DwD > 4. Anything But Me > 5. Piper > 6. DwD > 7. Makisupa 8. Zero 9. e: Friday Notes: Warts and all... Terry Watts
-  - label:
+  - label: **aud** (OTS B&K 4022)
 - **phish2003-02-16.137606.lasvegas.km140.lazor.digihoarders.flac1644**
   - title: Phish - 2003-02-16 - Thomas & Mack Center - Las Vegas, NV
   - source field: None
@@ -1852,7 +1852,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH February 16, 2003 Thomas & Mack Center Las Vegas, Nevada Source: Neumann KM140s(OTS/ORTF) > V2 > SBM1 > D8 Transfer: DAT/m > Tascam DA-20 MKII > SPDIF > MacMini(Audacity) > xACT(FLAC/TAG) Taper: Matt “Lazy Lightning” Lazor Transfer: DiGiHoArDeRs 01/09/17  SET ONE 01. David Bowie > 02. Catapult > 03. David Bowie 04. Horn > 05. Guyute 06. Round Room 07. Golden Lady > 08. Poor Heart 09. Pebbles and Marbles SET TW0 10. Down with Disease > 11. Seven Below > 12. Down with Disease > 13. Anything But Me > 14. Piper > 15. Makisupa Policeman 16. Character Zero ENCORE 17. Friday
-  - label:
+  - label: **aud** (KM140 OTS)
 - **phish2003-02-16.143890.lasvegas.km140.digihoarders.flac1644**
   - title: Phish - 2003-02-16 - Thomas & Mack Center - Las Vegas, NV
   - source field: None
@@ -1860,7 +1860,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH February 16, 2003 Thomas & Mack Center Las Vegas, Nevada Source: Neumann KM140s(OTS/ORTF) > Lunatec V2 > Sony SBM1 > Sony TCD-8 @ 16/44.1k; Recorded: Mark Skeens; Transfer: DAT/M > Sony PCM R-300 (coaxial) > Tascam DR-680; DiGiHoArDeRs: 11/23/18 SET ONE David Bowie/Catapult/David Bowie Horn Guyute Round Room Golden Lady Poor Heart Pebbles and Marbles SET TWO Down with Disease > Seven Below > Down with Disease > Anything But Me > Piper > Makisupa Policeman Character Zero ENCORE Friday
-  - label:
+  - label: **aud** (KM140 OTS)
 
 ### 43. 2024-08-07
 
@@ -1871,7 +1871,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH Van Andel Arena Grand Rapids, MI August 07. 2024 (Wednesday)  Taper: Duncan Oldham SET 1:  01. My Soul 02. Undermind >  03. Oblivion  04. Driver 05. 555 06. Birds of a Feather  07. Ether Edge ->  08. It's Ice 09. About to Run 10. Walls of the Cave SET 2:  11. Say It To Me S.A.N.T.O.S. >  12. A Wave of Hope >  13. Prince Caspian >  14. Light >  15. Loving Cup 16. What's Going Through Your Mind >  17. Wolfman's Brother >  18. Death Don't Hurt Very Long *  19. Evolve * 20. Mountains in the Mist *  21. Blaze On * ENCORE:  22. Encore Break  23. Ginseng Sullivan * 24. The Old Home Place * 25. Frankenstein * * With Billy Strings Joining on Lead Guitar and Vocals This show featured the Phish d
-  - label:
+  - label: **aud** (Neumann KM185 (source field))
 - **Phish2024-08-07.SchoepsMK41V.Duncan.Lee.Flac24**
   - title: Phish Live at Van Andel Arena on August 07, 2024
   - source field: None
@@ -1879,7 +1879,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH Van Andel Arena Grand Rapids, MI August 07. 2024 (Wednesday)  Taper: Duncan Oldham SET 1:  01. My Soul 02. Undermind >  03. Oblivion  04. Driver 05. 555 06. Birds of a Feather  07. Ether Edge ->  08. It's Ice 09. About to Run 10. Walls of the Cave SET 2:  11. Say It To Me S.A.N.T.O.S. >  12. A Wave of Hope >  13. Prince Caspian >  14. Light >  15. Loving Cup 16. What's Going Through Your Mind * >  17. Wolfman's Brother * >  18. Death Don't Hurt Very Long *  19. Evolve * 20. Mountains in the Mist *  21. Blaze On * ENCORE:  22. Encore Break  23. Ginseng Sullivan * 24. The Old Home Place * 25. Frankenstein * * With Billy Strings Joining on Lead Guitar and Vocals This show featured the Phi
-  - label:
+  - label: **aud** (SchoepsMK41V in identifier only)
 - **ph2024-08-07.ck61.nbob.actives.pfas.mixpre6ii.s01t04**
   - title: Phish Live at Van Andel Arena on August 7th 2024
   - source field: None
@@ -1887,7 +1887,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-08-07 Van Andel Arena Grand Rapids, MI Location: FOB @ around 6 feet Source: AKG CK61 (DIN)  > Nbob Cables > PFAS > Mixpre 6 ii @ 96 kHz 32 bit Transfer: WAV > Adobe Audition 24.00 > FLAC 24/96 > xACT Recorded by: Mark Davidson Set I: Crowd My Soul Undermind Oblivion Driver 555 Birds Of A Feather Ether Edge It's Ice About To Run Walls Of The Cave Set II:   Say It To Me S.A.N.T.O.S. A Wave of Hope > Prince Caspian > Light Loving Cup What's Going Through Your Mind Wolfman's Brother > Death Don't Hurt Very Long Evolve Mountains in the Mist Blaze On Encore Break Ginseng Sullivan The Old Home Place Frankenstein ;flac fingerprints generated by xACT 2.54 on 2024-08-09 17:50:45 +0000 ph20
-  - label:
+  - label: **aud** (AKG CK61 FOB)
 - **phish2024-08-07.168435.grandrapids.km185.oldham.flac2448**
   - title: Phish - 2024-08-07 - Van Andel Arena - Grand Rapids, MI
   - source field: None
@@ -1895,7 +1895,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH Van Andel Arena Grand Rapids, MI August 07. 2024 (Wednesday) Taper: Duncan Oldham SET 1: 01. My Soul 02. Undermind > 03. Oblivion 04. Driver 05. 555 06. Birds of a Feather 07. Ether Edge -> 08. It's Ice 09. About to Run 10. Walls of the Cave SET 2: 11. Say It To Me S.A.N.T.O.S. > 12. A Wave of Hope > 13. Prince Caspian > 14. Light > 15. Loving Cup 16. What's Going Through Your Mind > 17. Wolfman's Brother > 18. Death Don't Hurt Very Long * 19. Evolve * 20. Mountains in the Mist * 21. Blaze On * ENCORE: 22. Encore Break 23. Ginseng Sullivan * 24. The Old Home Place * 25. Frankenstein * * With Billy Strings Joining on Lead Guitar and Vocals This show featured the Phish debut of What's Go
-  - label:
+  - label: **aud** (km185 in identifier only)
 - **phish2024-08-07.168492.grandrapids.fob.ck61.davidson.flac2496**
   - title: Phish - 2024-08-07 - Van Andel Arena - Grand Rapids, MI
   - source field: None
@@ -1903,7 +1903,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-08-07 Van Andel Arena Grand Rapids, MI Location: FOB @ around 6 feet Source: AKG CK61 (DIN)  > Nbob Cables > PFAS > Mixpre 6 ii @ 96 kHz 32 bit Transfer: WAV > Adobe Audition 24.00 > FLAC 24/96 > xACT Recorded by: Mark Davidson Set I: Crowd My Soul Undermind Oblivion Driver 555 Birds Of A Feather Ether Edge It's Ice About To Run Walls Of The Cave Set II: Say It To Me S.A.N.T.O.S. A Wave of Hope > Prince Caspian > Light Loving Cup What's Going Through Your Mind Wolfman's Brother > Death Don't Hurt Very Long Evolve Mountains in the Mist Blaze On Encore Break Ginseng Sullivan The Old Home Place Frankenstein
-  - label:
+  - label: **aud** (AKG CK61 FOB)
 - **phish2024-08-07.168572.grandrapids.mk22.m21.hernandez.flac2448**
   - title: Phish - 2024-08-07 - Van Andel Arena - Grand Rapids, MI
   - source field: None
@@ -1911,7 +1911,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH August 6, 2024 Van Andel Arena Grand Rapids, Michigan Source: Schoeps mk22>nbob cables>nbox platnum>mixpre6 + Gefell M21>nbob cables>Grace v2>mixpre6; Taped by phatdats wav > Audacity > xACT(FLAC/TAG)24/48; Processing: Hernandez 8/23/24 SET 1: My Soul, Undermind > Oblivion, Driver, 555, Birds of a Feather, Ether Edge -> It's Ice, About to Run, Walls of the Cave SET 2: Say It To Me S.A.N.T.O.S. > A Wave of Hope > Prince Caspian > Light > Loving Cup, What's Going Through Your Mind[1] > Wolfman's Brother[2] > Death Don't Hurt Very Long[3], Evolve[2], Mountains in the Mist[4], Blaze On[2] ENCORE: Ginseng Sullivan[5], The Old Home Place[5], Frankenstein[6] [1] Phish debut; Billy Strings on 
-  - label:
+  - label: **aud** (Schoeps mk22 + Gefell M21)
 - **phish2024-08-07.168601.grandrapids.fob.mk4.miller.flac1648**
   - title: Phish - 2024-08-07 - Van Andel Arena - Grand Rapids, MI
   - source field: None
@@ -1919,7 +1919,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - August 7, 2024 Van Andel Arena - Grand Rapids, MI Recording Info: (FOB) Schoeps CMC6/MK4 > Sound Devices 744T (24-bit/96k) > Samplitude Pro X6 Suite (16-bit/48k) > FLAC/16 (3 Discs Audio / 1 DVD FLAC) Recorded by Charlie Miller charliemiller87@earthlink.net August 24, 2024 Notes: -- Thanks to Duncan Oldham for the clamp space -- What's Going Through Your Mind through Frankenstein with Billy Strings Set 1: 01 - Crowd 02 - My Soul 03 - Undermind > 04 - Oblivion 05 - Driver 06 - 555 07 - Birds Of A Feather 08 - Ether Edge > 09 - It's Ice 10 - About To Run 11 - Walls Of The Cave Set 2: 12 - Crowd 13 - Say It To Me S.A.N.T.O.S. > 14 - A Wave Of Hope > 15 - Prince Caspian > 16 - Light > 17
-  - label:
+  - label: **aud** (Recording Info: FOB Schoeps)
 - **phish2024-08-07.168602.grandrapids.fob.mk4.miller.flac2496**
   - title: Phish - 2024-08-07 - Van Andel Arena - Grand Rapids, MI
   - source field: None
@@ -1927,7 +1927,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - August 7, 2024 Van Andel Arena - Grand Rapids, MI Recording Info: (FOB) Schoeps CMC6/MK4 > Sound Devices 744T (24-bit/96k) > Samplitude Pro X6 Suite > FLAC/24 (1 DVD FLAC) Recorded by Charlie Miller charliemiller87@earthlink.net August 24, 2024 Notes: -- Thanks to Duncan Oldham for the clamp space -- What's Going Through Your Mind through Frankenstein with Billy Strings Set 1: 01 - Crowd 02 - My Soul 03 - Undermind > 04 - Oblivion 05 - Driver 06 - 555 07 - Birds Of A Feather 08 - Ether Edge > 09 - It's Ice 10 - About To Run 11 - Walls Of The Cave Set 2: 12 - Crowd 13 - Say It To Me S.A.N.T.O.S. > 14 - A Wave Of Hope > 15 - Prince Caspian > 16 - Light > 17 - Loving Cup 18 - What's Goi
-  - label:
+  - label: **aud** (Recording Info: FOB Schoeps)
 - **phish2024-08-07ck61.nbob.actives.pfas.mixpre6ii.2496**
   - title: Phish Live at Van Andel Arena on 2024-08-07
   - source field: None
@@ -1935,7 +1935,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2024-08-07 Van Andel Arena Grand Rapids, MI Location: FOB @ around 6 feet Source: AKG CK61 (DIN)  > Nbob Cables > PFAS > Mixpre 6 ii @ 96 kHz 32 bit Transfer: WAV > Adobe Audition 24.00 > FLAC 24/96 > xACT Recorded by: Mark Davidson Set I: Crowd My Soul Undermind Oblivion Driver 555 Birds Of A Feather Ether Edge It's Ice About To Run Walls Of The Cave Set II:   Say It To Me S.A.N.T.O.S. A Wave of Hope > Prince Caspian > Light Loving Cup What's Going Through Your Mind Wolfman's Brother > Death Don't Hurt Very Long Evolve Mountains in the Mist Blaze On Encore Break Ginseng Sullivan The Old Home Place Frankenstein ;flac fingerprints generated by xACT 2.54 on 2024-08-09 17:50:45 +0000 ph20
-  - label:
+  - label: **aud** (AKG CK61 FOB)
 - **phish2024-08-07schoeps24bit**
   - title: Phish Live at Van Andel Arena on 2024-08-07
   - source field: None
@@ -1943,7 +1943,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - August 7, 2024 Van Andel Arena - Grand Rapids, MI Recording Info: (FOB) Schoeps CMC6/MK4 > Sound Devices 744T (24-bit/96k) > Samplitude Pro X6 Suite > FLAC/24 (1 DVD FLAC) Recorded by Charlie Miller charliemiller87@earthlink.net August 24, 2024 Notes: -- Thanks to Duncan Oldham for the clamp space -- What's Going Through Your Mind through Frankenstein with Billy Strings Set 1: 01 - Crowd 02 - My Soul 03 - Undermind > 04 - Oblivion 05 - Driver 06 - 555 07 - Birds Of A Feather 08 - Ether Edge > 09 - It's Ice 10 - About To Run 11 - Walls Of The Cave Set 2: 12 - Crowd 13 - Say It To Me S.A.N.T.O.S. > 14 - A Wave Of Hope > 15 - Prince Caspian > 16 - Light > 17 - Loving Cup 18 - What's Goi
-  - label:
+  - label: **aud** (Recording Info: FOB Schoeps)
 
 ### 44. 1997-08-09
 
@@ -1954,7 +1954,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish - 8/9/97 Alpine Valley Music Theater, East Troy, WI Source: Schoeps CMC6/mk4 > Lunatec 316 > Apogee AD-1000 > HHb PortaDat (Audio Magic Aprentice Cables) Thanks timeflack for the DAT -> CD conversion and upload! Note: It s possible to fit the mike's -> Weekapaug section  (69:40 or so) on it's own disk, and put Crossroads, Wilson -> Foam, and the encores  on a 3rd disk if you so choose.   That would mean that: Disk 2 would have d2t4-d2t9, d3t1-d3t2,  and Disk3 would have d2t1-d2t3, d3t3-d3t4. Disk1: 1) Theme from the Bottom 2) PYITE 3) Ghost -> 4) Taste 5) Dogs Stole Things 6) Reba 7) Lawn Boy Disk2:  1) Crossroads 2) Wilson -> 3) Foam 4) Mike's Song ->   [short drop out/diginoise here 
-  - label:
+  - label: **aud** (Schoeps CMC6/mk4)
 - **phish1997-08-09.080310.easttroy.km140.cowan.flac16**
   - title: Phish - 1997-08-09 - Alpine Valley Music Theater - East Troy, WI
   - source field: None
@@ -1962,7 +1962,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish August 9, 1997 Alpine Valley East Troy, WI source: (FOB) Neumann km140 > Sonosax SX-M2 > Tascam DA-P1 (@ 44.1 kHz) transfer: Sony PCM-R500 > Tascam HD-P2 > CF card > usb > pc > WaveLab 5.01b (fades) > CD Wave v1.95 > FLAC v1.1.2 (Level 8) recorded by Jim Cowan transferred by Jason Sobel (jasonsobel@gmail.com) seeded November 26, 2006 note: Clones from the master DATs were used in this transfer. Thanks to Jim for making a great recording, and thanks to Dave Flaschner for letting me borrow the DATs. Disc 1 - [74:07] Set I 01 - [10:56] - Theme From the Bottom 02 - [08:42] - Punch You in the Eye 03 - [15:39] - Ghost -> 04 - [10:53] - Taste 05 - [04:38] - Dogs Stole Things 06 - [15:32] - Re
-  - label:
+  - label: **aud** (FOB Neumann km140)
 - **phish1997-08-09.105383.easttroy.bk4021.estrin.fox.flac16**
   - title: Phish - 1997-08-09 - Alpine Valley Music Theater - East Troy, WI
   - source field: None
@@ -1970,7 +1970,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish August 9, 1997 Alpine Valley Music Theatre East Troy, WI source: (FOB) B+K 4021 > beyerdynamic MV 100 > Sony SBM-1 > DAT transfer: Sony PCM-R500 -> Sound Devices 744T > Samplitude SE v9.1.1 (level adjustment, splices, fades, track splits) > FLAC v1.2.1 (Level 8) recorded by Dan Estrin & Gary Fox transferred by Charlie Miller tracked/FLAC'ed by Jason Sobel (jasonsobel@gmail.com) seeded January 9, 2010 note: FLAC tags added with metaflac v1.2.1 I smoothed out a level adjustment in the first couple of minutes of "Theme from the Bottom" Disc 1 - [73:50] Set I 01 - [00:48] - set 1 intro 02 - [09:50] - Theme From the Bottom 03 - [08:44] - Punch You in the Eye 04 - [15:36] - Ghost -> 05 - [10
-  - label:
+  - label: **aud** (FOB B+K 4021)
 - **phish1997-08-09.137671.easttroy.at815.lazor.flac1644**
   - title: Phish - 1997-08-09 - Alpine Valley Music Theater - East Troy, WI
   - source field: None
@@ -1978,7 +1978,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH August 9, 1997 Alpine Valley Music Theater East Troy, Wisconsin Source: Audio Technica 815 shotguns (OTS/PAS) > D8 @ 16/48 Transfer: DAT/m > Tascam DA-20 MKII > SPDIF > MacMini(Audacity) > xACT(FLAC/TAG) 16/44.1 Taper: Matt “Lazy Lightning” Lazor Transfer: DiGiHoArDeRs 1/23/17 last 41s of set one spliced w/ Audio Technica M33s SET ONE 01. Theme from the Bottom 02. Punch You in the Eye 03. Ghost > 04. Taste 05. Dogs Stole Things 06. Reba 07. Lawn Boy 08. Crossroads SET TWO 09. Wilson > 10. Foam 11. Mike's Song > 12. Ain't Love Funny > 13. Simple > 14. Swept Away > 15. Steep > 16. Scent of a Mule 17. Slave to the Traffic Light 18. Weekapaug Groove ENCORE 19. When the Circus Comes 20. Roc
-  - label:
+  - label: **aud** (AT 815 shotguns OTS)
 - **phish1997-08-09.137672.easttroy.at815.lazor.flac1648**
   - title: Phish - 1997-08-09 - Alpine Valley Music Theater - East Troy, WI
   - source field: None
@@ -1986,7 +1986,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH August 9, 1997 Alpine Valley Music Theater East Troy, Wisconsin Source: Audio Technica 815 shotguns (OTS/PAS) > D8 @ 16/48 Transfer: DAT/m > Tascam DA-20 MKII > SPDIF > MacMini(Audacity) > xACT(FLAC/TAG) 16/48 Taper: Matt “Lazy Lightning” Lazor Transfer: DiGiHoArDeRs 1/23/17 last 41s of set one spliced w/ Audio Technica M33s SET ONE 01. Theme from the Bottom 02. Punch You in the Eye 03. Ghost > 04. Taste 05. Dogs Stole Things 06. Reba 07. Lawn Boy 08. Crossroads SET TWO 09. Wilson > 10. Foam 11. Mike's Song > 12. Ain't Love Funny > 13. Simple > 14. Swept Away > 15. Steep > 16. Scent of a Mule 17. Slave to the Traffic Light 18. Weekapaug Groove ENCORE 19. When the Circus Comes 20. Rocky
-  - label:
+  - label: **aud** (AT 815 shotguns OTS)
 - **phish1997-08-09.145370.easttroy.akg391.flac1644**
   - title: Phish - 1997-08-09 - Alpine Valley Music Theater - East Troy, WI
   - source field: None
@@ -1994,7 +1994,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1997-08-09 Alpine Valley Music Theatre East Troy, WI Source:  AKG 391 > Sony SBM-1 > Sony TCD-D8 Transfer:  DAT(m) @44.1kHz > Sony PCM-R500 > Korg MR-2000S > Samplitude Pro X4 Transfer & edits by Jeff Mitchell Seeded to etree 2019-02-23 Set 1 s1t01 - Introduction s1t02 - Theme From The Bottom s1t03 - Punch You In The Eye s1t04 - Ghost > s1t05 - Taste s1t06 - Dogs Stole Things s1t07 - Reba s1t08 - Lawn Boy > s1t09 - Crossroads Set 2 s2t01 - Wilson > s2t02 - Foam s2t03 - Mike's Song > s2t04 - Aint't Love Funny > s2t05 - Simple > s2t06 - Swept Away > s2t07 - Steep > s2t08 - Scent Of A Mule s2t09 - Slave To The Traffic Light > s2t10 - Weekapaug Groove s2t11 - Encore Break Encore s2t12 - Wh
-  - label:
+  - label: **aud** (AKG 391 > SBM-1)
 
 ### 45. 1991-02-20
 
@@ -2005,7 +2005,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1991-02-20      Kahootz Richmond, VA    Taper: Matt Hiles Source: FOB Nakamichi 300 + CP-1 > Casio DA7 > VHS Hi-Fi > DAT         **see notes about lineage** Transfer: unknown Seeded by Brad Sall (walleye420@yahoo.com) Fixes and notes by Ben Mohr (bmohr@udel.edu) Special thanks to Mark Lynn for his great help! flac & tag 2025-09-11 Jaeff Mitchell ------------------------------------  Disc 1:                    (73:36) ------------------------------------ -Set 1-  1. Intro                    (00:51) 2. Buried Alive             (02:37) 3. Cavern ->                (04:32) 4. Possum                   (09:47) 5. Squirming Coil >         (06:20) 6. Tweezer                  (11:49) 7. My Sweet
-  - label:
+  - label: **aud** (FOB Nakamichi 300)
 - **phish1991-02-20.139776.richmond.nak300.cp1.flac1648**
   - title: Phish - 1991-02-20 - Kahootz - Richmond, VA
   - source field: None
@@ -2013,7 +2013,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH Kahootz Richmond, Virginia February 20, 1991 Source:  (FOB) Nakamichi cm-300/cp-1's > Casio DA-7 > DAT(m) > VHS Hi-Fi(m) > DAT(m) Transfer:  DAT(m) > Tascam DA-20 mkII > SPDIF > Tascam HD-P2 (16/48) Source by Matt Hiles and Mark Lynn Transfer by Terry Watts Set I: 1. Buried Alive 2. Cavern > 3. Possum 4. Coil > 5. Tweezer 6. MSO 7. Bouncin' 8. Llama 9. YEM 10. Magilla 11. Golgi Set IIe: 1. ,,Foam 2. Divided Sky 3. Guelah Papyrus,, Notes: Tape flip after Llama. The rest of Set IIe: is missing. Warts and all... Terry Watts
-  - label:
+  - label: **aud** (FOB Nakamichi cm-300)
 
 ### 46. 1994-04-08
 
@@ -2024,7 +2024,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 04-08-94 Recreation Hall Penn State University University Park, PA Source:    DAUD/OTS/DFC >Neumann rsm 190i> neumann m/s preamp> Teac DA-p20>            Oade Active > Sony D-7 @ 48k Transfer: My patch master dat from sony d-7>Sony DTC-690> Audioquest           Optilink 1> SEK'D Prodif Plus> Samplitude v5.5> Soundforge xp           4.5 (resample @ 4/4 with anti alias filter)> Cdwav 1.6>           Mkw act 0.97b1 Edits: I did a 20 second fade in on the first disc. The levels were         very high as the band took the stage and there is a big jump         downward at the instant maze starts. This seems to lesson the         jump somewhat. No music was faded only crowd.        Also the en
-  - label:
+  - label: **aud** (DAUD/OTS Neumann rsm190i; 'Transfer: My patch master dat' = taper's patch copy, not a board)
 - **phish1994-04-08.013092.statecollege.aud.flac1644**
   - title: Phish - 1994-04-08 - Recreation Hall - University Park, PA
   - source field: None
@@ -2032,7 +2032,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1994-08-04 Recreation Hall Penn State University State College, PA Source: DAUD Transfer: DAT Clone > Panasonic SV-3700 > RCA Cable(S/PDIF) > Tascam PCI-822 > Cool Edit Pro(48k >44.1k and minor editing) > CDWav > MKWshn DAT provided by: Andrew Hoeveler Conversion by: Greg Mault - cheesephan@yahoo.com sbe fix, flac & tag 2023-01-28 **Their is some very nasty diginoise durning a few songs, mostly during the encore. ** These anomolies are on the master DAT. I'm distributing this show because of its rarity. Set 1 s1t01 - Maze s1t02 - Glide > s1t03 - Foam s1t04 - I Didn't Know* s1t05 - Punch You in the Eye s1t06 - The Horse**  > s1t07 - Silent in the Morning > s1t08 - Down With Disease > s1
-  - label:
+  - label: **aud** (Source: DAUD)
 - **phish1994-04-08.028442.statecollege.unk.set1.flac1644**
   - title: Phish - 1994-04-08 - Recreation Hall - University Park, PA
   - source field: None
@@ -2040,7 +2040,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1994-04-08 Recreation Hall Penn State University University Park,PA Source:Mr. Anonymous?(set 1 only) Transfer:D>D>C>CDR>EAC(100% extraction w/secure mode)>CDWave>FLAC(Level 7) Set 1 s1t01 - Maze s1t02 - Glide > s1t03 - Foam s1t04 - I Didn't Know* s1t05 - Punch You in the Eye s1t06 - The Horse**  > s1t07 - Silent in the Morning > s1t08 - Down With Disease > s1t09 - If I Could s1t10 - Lawn Boy s1t11 - Llama * Mimi Fishman on cymbals ** The beginning featured Trey on acoustic guitar.
-  - label:
+  - label: **unknown** (Source: Mr. Anonymous? D>D>C; undeterminable)
 - **phish1994-04-08.098902.statecollege.nak300.flac1644**
   - title: Phish - 1994-04-08 - Recreation Hall - University Park, PA
   - source field: None
@@ -2048,7 +2048,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish April 8, 1994 Recreation Hall, Penn State State College, PA source: (FOB) Nak 300 > DAT (@ 48 kHz) (the mics were in an ORTF configuration) transfer: Tascam DA-20mkII > Marantz PMD-661 > SDHC card > usb 2.0 > pc > r8brain v1.9 (resample to 44.1 kHz) > CD Wave v1.98 (track splits) > Samplitude SE v9.1.1 (fades, splice) > FLAC v1.2.1 (Level 8) transferred by Jason Sobel (jasonsobel@gmail.com) seeded May 9, 2009 notes: FLAC tags added with metaflac v1.2.1 The original 48 kHz files from the DAT transfer have been archived and are available upon request. Big thanks to Eliot Byron for letting me borrow his DATs! Disc 1 - [66:29] Set I 01 - [09:41] - Maze -> 02 - [04:37] - Glide -> 03 - [09:3
-  - label:
+  - label: **aud** (FOB Nak 300 ORTF)
 - **phish1994-04-08.130331.statecollege.sbd.flac1648**
   - title: Phish - 1994-04-08 - Recreation Hall - Penn State University - University Park, PA
   - source field: None
@@ -2056,7 +2056,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH Recreation Hall Penn State University State College, Pennsylvania April 8, 1994 Source:  Soundboard > Cass(m) > DAT(c) Transfer:  DAT(c) > Sony PCM-R500 > SPDIF > Tascam HD-P2 > CDWave > FLAC (16/48) Source provided by Peter Grow Transfer by Terry Watts Set I: 1. Maze 2. Glide > 3. Foam 4. IDK * 5. Punch 6. Horse > 7. Silent > 8. DwD > 9. If I Could 10. Lawn Boy 11. Llama Notes: * w/ Mimi Fishman, cymbals. Set I only.  Warts and all. Terry Watts
-  - label:
+  - label: **sbd** (Soundboard > Cass(m))
 - **phish1994-04-08.132135.universitypark.rsm190i.flac1648**
   - title: Phish - 1994-04-08 - Recreation Hall - Penn State University - University Park, PA
   - source field: None
@@ -2064,7 +2064,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH Recreation Hall Penn State University University Park, PA April 8, 1994 Source:  Neumann RSM-191i > Neumann MTX-191 > Teac DAP-20 > DAT(c) Transfer:  DAT(c) > Sony PCM-R500 > SPDIF > Tascam HD-P2 > Sox > CDWave > FLAC (16/48) Source by Unknown DAT(c) provided by Steve Mortlock Transfer by Terry Watts Set I: 1. Maze 2. Glide > 3. Foam 4. IDK 5. Punch 6. Horse > 7. Silent > 8. DwD > 9. If I Could 10. Lawn Boy 11. Llama Set IIe: 1. Melt 2. McGrupp 3. It's Ice > 4. Sparkle > 5. Hood 6. Bouncing > 7. BBJ 8. Bowie 9. Suzy 10. e: Contact 11. e: BBFCFM Notes: Emphasis removed with Sox.  Thanks to Jason Sobel for his help. Warts and all... Terry Watts
-  - label:
+  - label: **aud** (Neumann RSM-191i > Neumann MTX-191 (M/S matrix box))
 - **phish1994-04-08.150687.statecollege.nak300.cp4.boedicker.flac1644**
   - title: Phish - 1994-04-08 - Recreation Hall - Penn State University - University Park, PA
   - source field: None
@@ -2072,7 +2072,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish-Recreation Hall,Penn State University,State College,PA 1994-04-08 Source:Nakamichi 300 Mics W/CP4 Shotguns>Sony WM-D6C Cassette Master>2 Maxell XL-II-S 90 And 100 Minute Cassette Master Tapes> Sony TC-D5M Cassette Deck(Playback)>Edirol R-09 HR(24/4.1 Khz)>CD Wav Editor>Traders Little Helper>Flac level 8.Sector Boundaries Aligned Using Traders Little Helper.Taped By Dave Boedicker,Official Taper Section. Setlist: Set I: Maze, Glide > Foam, I Didn't Know*, Punch You In The Eye, The Horse > Silent In The Morning > Down With Disease > If I Could, Lawn Boy, Llama Set II: Split Open And Melt > McGrupp And The Watchful Horsemasters, It's Ice > Sparkle > Harry Hood, Bouncing Around The Room > 
-  - label:
+  - label: **aud** (Nakamichi 300 shotguns > WM-D6C)
 
 ### 47. 1994-05-28
 
@@ -2083,7 +2083,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 05-28-94 Laguna Seca Raceway, Monterey, CA  -------------------------------------------------------------------------------------------- This show is included in the 1994 Phish Project. http://people.atl.mediaone.net/danmarq/1994_phish_project.html ---------------- Source:         DSBD>DAT (Unknown DAT generations) Conversion:     Tascam DA-20 MkII-> Monster Coax-> M-Audio Audiophile 24/96->                 Soundforge 5.0b (48KHz->44.1KHz at highest setting [4 of 4],                 with anti-alias filter)-> CD Wave 1.61-> mkwACT v0.97                 **No DAE at all** Minor Edits:    Fades in/out at cassette flip, as well as the start/end of set. ---------------- Transferred by Dan Ma
-  - label:
+  - label: **sbd** (Source: DSBD>DAT (past 250 chars of header))
 - **phish1994-05-28.008751.monterey.sbd.flac1644**
   - title: Phish - 1994-05-28 - Laguna Seca Raceway - Monterey, CA
   - source field: None
@@ -2091,7 +2091,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 5/28/94 Laguna Seca Raceway - Monterey, CA Source: SBD > DAT Source: (YEM -> end) CMC54 > Sono > DAP1 Conversion: DAP1 @48khz > COAX > S/PDIF > SoundForge > CDWAV for Tracksplitting > Shorten32.exe Taper unknown.  Seeded by Jonathon Schuster <jpschust@saturdayschildrecords.com> Seeding notes: There were a few pops on the dat.  Since I am not that experienced with smoothing I figured I would leave them in for integrity.   Disc 1 Set I 01.  Rift                 (6:10) 02.  Sample in a Jar          (4:51) 03.  Foam             (9:55) 04.  Bouncing Round the Room     (3:42) 05.  Stash             (12:01) 06.  The Horse >                 (1:28) 07.  Silent in the Morning     (4:57) 08.  The
-  - label:
+  - label: **sbd** (SBD > DAT, with aud CMC54 fill from YEM to end (patchwork, sbd primary))
 - **phish1994-05-28.089594.monterey.mk4.byron.flac1644**
   - title: Phish - 1994-05-28 - Laguna Seca Raceway - Monterey, CA
   - source field: None
@@ -2099,7 +2099,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish May 28, 1994 Laguna Seca Raceway Monterey, CA source: Schoeps mk4 > kc5 > cmc5 > Sonosax SX-M2 > Sony TCD-D10 pro II (@ 48 kHz) transfer: Tascam DA-20MKII > Tascam HD-P2 > CF card > usb 2.0 > pc > WaveLab 5.01b (fades, splice) > r8brain v1.9 (resample to 44.1 kHz) > CD Wave v1.96.1 > FLAC v1.2.1 (Level 8) FLAC tags added with metaflac v1.2.1 recorded by Eliot Byron transferred by Jason Sobel (jasonsobel@gmail.com) seeded January 21, 2008 notes: The original 48 kHz .wav files from the DAT transfer have been archived, and are available upon request. Big thanks to Eliot for letting me borrow the master DATs! Disc 1 - [62:29] Set I 01 - [06:11] - Rift > 02 - [04:52] - Sample in a Jar 03 - 
-  - label:
+  - label: **aud** (Schoeps mk4 master; description notes SBD (shnid 8751) patched in for a portion (aud primary))
 - **phish1994-05-28.133678.monterey.mtx.flac1644**
   - title: Phish - 1994-05-28 - Laguna Seca Raceway - Monterey, CA
   - source field: None
@@ -2107,7 +2107,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1994/05/28 Laguna Seca Raceway - Monterey, CA 2-Source Matrix Matrixed using Audacity v2.0.3 by Steve M. (steveam91@gmail.com) on 2/14/13 Last updated 6/22/14; added new album art, changed some tags, re-encoded to FLAC level 8. Also, see [2] *****Source 1***** shnid=8751 Source: SBD > DAT Conversion: DAP1 @48khz > COAX > S/PDIF > SoundForge > CDWAV for Tracksplitting > Shorten32.exe ~50% of the matrix *****Source 2***** shnid=89594 Source: Schoeps mk4 > kc5 > cmc5 > Sonosax SX-M2 > Sony TCD-D10 pro II (@ 48 kHz) Transfer: Tascam DA-20MKII > Tascam HD-P2 > WaveLab 5.01b (fades, splice) > r8brain v1.9 (48 to 44.1 kHz) > CD Wave v1.96.1 > FLAC v1.2.1 (Level 8) Taped by Eliot Byron Transfe
-  - label:
+  - label: **matrix** (2-source SBD+AUD matrix)
 - **phish1994-05-28.134168.monterey.sbd.flac1648**
   - title: Phish - 1994-05-28 - Laguna Seca Raceway - Monterey, CA
   - source field: None
@@ -2115,7 +2115,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH Laguna Seca Raceway Monterey, California May 28, 1994 Source:  SBD > ??? > DAT(c) Transfer:  DAT(c) > Sony PCM-R500 > SPDIF > Tascam HD-P2 > CDWave > FLAC (16/48) Source by unknown DAT(c) provided by Steve Mortlock Transfer by Terry Watts Set I: 1. Rift 2. Sample 3. Foam 4. Bouncing 5. Stash 6. Horse > Silent 7. Sloth 8. Maze 9. Cavern Set II: 1.  Axilla II > 2.  It's Ice 3.  Tweezer 4.  Lifeboy 5.  Reba 6.  Fee > 7.  Llama Notes: YEM > Poor Heart missing. Warts and all... Terry Watts
-  - label:
+  - label: **sbd** (SBD > ??? > DAT)
 
 ### 48. 1995-06-08
 
@@ -2126,7 +2126,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish June 8th, 1995 The Delta Center Salt Lake City, Utah Source: AKG 460B > CK6 > DAT > CDR > EAC > SHN Eac'd by: James Dunnican  (jdunnican@earthlink.net) (any taper info please email to correct the source) Disc 1  Set 1: ---------------- 1. Don't You Wanna Go 2. Ha, Ha, Ha 3. Runaway Jim 4. Geulah Papyrus 5. Mound 6. Fast Enough 7. Reba 8. Prince Caspien * 9. Chaulkdust Torture Disc 2  Set 2: ---------------- 1. Simple 2. Rift 3. Free 4. Bouncin' 5. Tweezer > 6. Lifeboy 7. Poor Heart 8. Julius 9. crowd noise 10 E: Good Times Bad Times * = 1st time played This show was moved from Wolf Mountain Amphiteater in Park City due to snowy weather.
-  - label:
+  - label: **aud** (AKG 460B > CK6)
 
 ### 49. 2010-08-12
 
@@ -2137,7 +2137,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHiSH August 12th, 2010 Deer Creek Amp - Noblesville, IN Source: Neumann AK50/LC3/KM100 > Apogee Mini-Me > Sound Devices 702 [24/48] Location: OTS/front row,centered, DINa config @ 7' high Transfer: CF > Wavelab 6(fades,Crystal Resampler,UV22HR) > CDWave > TLH Recorded & transferred by K.C. Cadwallader ==== SET I ==== d1t01 - Runaway Jim* d1t02 - Punch You In The Eye d1t03 - Roggae d1t04 - Cars, Trucks & Buses d1t05 - Sample In A Jar d1t06 - NICU d1t07 - Horn d1t08 - Sugar Shack d1t09 - Wolfman's Brother d1t10 - Time Turns Elastic ==== SET II ==== d2t01 - crowd d2t02 - Drowned > d2t03 - Gotta Jibboo > d2t04 - Bathtub Gin d2t05 - My Friend My Friend d2t06 - Buffalo Bill d2t07 - Twist d2t08 - 
-  - label:
+  - label: **aud** (Neumann AK50/KM100 OTS)
 - **phish2010-08-12.109409.noblesville.mbho.price.flac1644**
   - title: Phish - 2010-08-12 - Verizon Wireless Music Center - Noblesville, IN
   - source field: None
@@ -2145,7 +2145,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > PHISH 2010-08-12 Verizon Wireless Music Center Noblesville, IN , United States Taped By Brian Price brian@liverecording.org A Team Kansasouri Presentation Do not sell this recording. Please trade as high quality FLAC files. MBHO KA200N/MB603>Edirol R44 @24/44.1 Normalize in Audacity>Dither to 16 Bit>Tracked in CDWav>Flac Set I: 01 Intro 02 Runaway Jim 03 Punch You In the Eye 04 Roggae 05 Cars Trucks Buses > 06 Sample in a Jar 07 NICU 08 Horn 09 Sugar Shack 10 Wolfman's Brother 11 Time Turns Elastic Set II: 01 Intro 02 Drowned 03 Gotta Jibboo > 04 Bathtub Gin 05 My Friend, My Friend 06 Buffalo Bill > 07 Twist 08 The Horse > 09 Silent In The Morning 10 Split Open & Melt > 11 Dog Faced Boy 12 H
-  - label:
+  - label: **aud** (MBHO KA200N/MB603 (no Source: label))
 - **phish2010-08-12.109439.noblesville.mk41.flac1644**
   - title: Phish - 2010-08-12 - Verizon Wireless Music Center - Noblesville, IN
   - source field: None
@@ -2153,7 +2153,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish August 12, 2010 Verizon Wireless Music Center Noblesville, IN source: Schoeps mk41 (DINa) > kc5 > cmc6xt > Sonosax SX-M2 > Mytek Stereo 192 ADC > Tascam HD-P2 (24/48) transfer: CF > Sound Studio > xACT > .flac (16/44) Disc 1 - Set 1 01 Crowd 02 Runaway Jim 03 Punch You In The Eye 04 Roggae 05 Cars Trucks Buses 06 Sample In A Jar 07 NICU 08 Horn 09 Sugar Shack 10 Wolfman's Brother 11 Time Turns Elastic Disc 2 - Set 2 01 Crowd 02 Drowned -> 03 Gotta Jibboo -> 04 Bathtub Gin 05 My Friend, My Friend 06 Buffalo Bill 07 Twist -> 08 The Horse -> 09 Silent In The Morning Disc 3 - Set 2 cont. 01 Split Open And Melt 02 Dog Faced Boy 03 Harry Hood 04 Golgi Apparatus Encore: 05 Fee -> 06 NO2 -> 07
-  - label:
+  - label: **aud** (Schoeps mk41)
 - **phish2010-08-12.109443.noblesville.km184.king.flac1644**
   - title: Phish - 2010-08-12 - Verizon Wireless Music Center - Noblesville, IN
   - source field: None
@@ -2161,7 +2161,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2010-08-12 Verizon Wireless Music Center Noblesville, IN  Source:Neumann KM184's>Grace Design Lunatec V2>R44 Oade (OCM) (24/96)  Location:DFC Row 1 Behind Board 7ft Transfer:SDHC>Audacity16/44>Cdwave>Foobar2000  Taped By: Chris King Set I: 01 Runaway Jim 02 Punch You In the Eye 03 Roggae 04 Cars Trucks Buses > 05 Sample in a Jar 06 NICU 07 Horn 08 Sugar Shack 09 Wolfman's Brother 10 Time Turns Elastic Set II: 01 Drowned 02 Gotta Jibboo > 03 Bathtub Gin 04 My Friend, My Friend 05 Buffalo Bill > 06 Twist 07 The Horse > 08 Silent In The Morning 09 Split Open & Melt > 10 Dog Faced Boy 11 Harry Hood > 12 Golgi Apparatus Encore: 13 Fee* > 14 N20 > 15 Kung > 16 Fire Notes: *With Megaphone Las
-  - label:
+  - label: **aud** (Neumann KM184; Location: behind board)
 - **phish2010-08-12.109566.noblesville.mk41.wilson.flac1644**
   - title: Phish - 2010-08-12 - Verizon Wireless Music Center - Noblesville, IN
   - source field: None
@@ -2169,7 +2169,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 8-12-2010 Verizon Wireless Ampitheater Noblesville, IN Schoeps MK41>Nbox>Sound Devices 722>wav(24/48)>wav(16/44.1)>flac Resampled, dithered and gain added with Wavelab 5 Recorded by John Wilson (jmwils1_at_gmail.com) Set 1 Disc 1: 01 Crowd 02 Runaway Jim 03 Punch You In The Eye 04 Roggae 05 Cars Trucks Buses 06 Sample In A Jar 07 NICU 08 Horn 09 Sugar Shack 10 Wolfman's Brother 11 Time Turns Elastic Set 2 Disc 2: 01 Crowd 02 Drowned > 03 Gotta Jibboo > 04 Bathtub Gin 05 My Friend, My Friend 06 Buffalo Bill 07 Twist 08 The Horse > 09 Silent In The Morning Disc 3: 01 Split Open And Melt 02 Dog Faced Boy 03 Harry Hood 04 Golgi Apparatus 05 Crowd Encore: 06 Fee > 07 NO2 > 08 Kung > 09 Fire
-  - label:
+  - label: **aud** (Schoeps MK41 (no Source: label))
 - **phish2010-08-12.111095.noblesville.akg483.king.flac1644**
   - title: Phish - 2010-08-12 - Verizon Wireless Music Center - Noblesville, IN
   - source field: None
@@ -2177,7 +2177,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 2010-08-12 Verizon Wireless Music Center Noblesville, IN  Source:AKG483>Grace Design Lunatec V3(AES/Spdif)>R44 Oade (OCM) (24/96)  Location:DFC Row 1 Behind Board 7ft Transfer:SDHC>Audacity16/44>Amadeus Pro>xACT Taped By: Chris King Set I: 01 Runaway Jim 02 Punch You In the Eye 03 Roggae 04 Cars Trucks Buses > 05 Sample in a Jar 06 NICU 07 Horn 08 Sugar Shack 09 Wolfman's Brother 10 Time Turns Elastic Set II: 01 Drowned 02 Gotta Jibboo > 03 Bathtub Gin 04 My Friend, My Friend 05 Buffalo Bill > 06 Twist 07 The Horse > 08 Silent In The Morning 09 Split Open & Melt > 10 Dog Faced Boy 11 Harry Hood > 12 Golgi Apparatus Encore: 13 Crowd 14 Fee* > 15 N20 > 16 Kung > 17 Fire Notes: *With Mega
-  - label:
+  - label: **aud** (AKG483; Location: behind board)
 - **phish2010-08-12.180015.109330.noblesville.mk41.mk21.downs.flac2448**
   - title: Phish - 2010-08-12 - Verizon Wireless Music Center - Noblesville, IN
   - source field: None
@@ -2185,7 +2185,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 8/12/10 Deer Creek Nobelsville IN Source: Schoeps mk41 (DINa)> KCY> vms5u + mk21 (NOS) > CMR>naiant pfa> m248> dr-680 Location: OTS 7' high Transfer: sd>samplitude>cd wave editor>tlh Taped & seeded by Adam Downs Set 1 Runaway Jim Punch You in the Eye Roggae Cars Trucks Buses Sample in a Jar NICU Horn Sugar Shack Wolfman's Brother Time Turns Elastic Set 2 Drowned> Gotta Jaboo> Bathtub Gin> My Friend My Friend Buffalo Bill Twist Horse> Silent in the Morning Split Open & Melt> Dog Faced Boy Harry Hood> Golgi Apparatus Encore Break Fee> NO2> Kung> Fire
-  - label:
+  - label: **aud** (Schoeps mk41 + mk21 OTS)
 - **phish2010-08-12.180016.109439.noblesville.mk41.flac2448**
   - title: Phish - 2010-08-12 - Verizon Wireless Music Center - Noblesville, IN
   - source field: None
@@ -2193,7 +2193,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish August 12, 2010 Verizon Wireless Music Center Noblesville, IN source: Schoeps mk41 (DINa) > kc5 > cmc6xt > Sonosax SX-M2 > Mytek Stereo 192 ADC > Tascam HD-P2 (24/48) transfer: CF > Sound Studio > xACT > .flac (24/48) Set 1 01 Crowd 02 Runaway Jim 03 Punch You In The Eye 04 Roggae 05 Cars Trucks Buses 06 Sample In A Jar 07 NICU 08 Horn 09 Sugar Shack 10 Wolfman's Brother 11 Time Turns Elastic Set 2 12 Crowd 13 Drowned -> 14 Gotta Jibboo -> 15 Bathtub Gin 16 My Friend, My Friend 17 Buffalo Bill 18 Twist -> 19 The Horse -> 20 Silent In The Morning 21 Split Open And Melt 22 Dog Faced Boy 23 Harry Hood 24 Golgi Apparatus Encore: 25 Fee -> 26 NO2 -> 27 Kung -> 28 Fire
-  - label:
+  - label: **aud** (Schoeps mk41)
 
 ### 50. 1998-07-15
 
@@ -2204,7 +2204,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-07-15 Portland Meadows Portland, OR Set I: Schoeps CMC64 > V2 > A1000 > HHb Set II: B&K 4011 > V2 > A1000 > HHb Transfer: Daniel Panice Distribution: John Tambroni flac'd & sbe fix 2026-08-15 Set 1 s1t01 - Wolfman's Brother s1t02 - Water in the Sky s1t03 - Moma Dance s1t04 - Guyute d1t05 - Horn > s1t06 - Jam > s1t07 - Chalkdust Torture s1t08 - Brian and Robert s1t09 - Beauty of My Dreams s1t10 - Cars Trucks Busses s1t11 - Roggae s1t12 - Birds of a Feather s1t13 - Loving Cup Set 2 s2t01 - Limb by Limb s2t02 - Simple s2t03 - Tweezer s2t04 - Free s2t05 - Meat s2t06 - Harry Hood Encore s2t07 - Wilson s2t08 - Tweezer Reprise Page teased "Charge!" after Moma Dance. Some humor surrounded
-  - label:
+  - label: **aud** (Schoeps CMC64 / B&K 4011 (no Source: label))
 - **phish1998-07-15.006306.portland.mk4.set1.kmi84.set2.flac1644**
   - title: Phish - 1998-07-15 - Portland Meadows - Portland, OR
   - source field: None
@@ -2212,7 +2212,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-07-15 Portland Meadows Portland, OR Source: Set I : Schoeps CMC64>Lunatec V2>DA-P1     Set II: Neumann KMi84>Sonosax>SBM-1 Transfer: D7 > Coresound > Prodif Plus > Sampiltude 5.5 > CDwav > mkw > shn Transfer & Encoding: Mike Fischer (phishsdank@aol.com) flac'd 2026-08-15 Set 1 s1t01 - Wolfman's Brother s1t02 - Water in the Sky s1t03 - Moma Dance s1t04 - Guyute d1t05 - Horn > s1t06 - Chalkdust Torture s1t07 - Brian and Robert s1t08 - Beauty of My Dreams s1t09 - Cars Trucks Busses s1t10 - Roggae s1t11 - Birds of a Feather s1t12 - Loving Cup Set 2 s2t01 - Limb by Limb s2t02 - Simple s2t03 - Tweezer s2t04 - Free s2t05 - Meat s2t06 - Harry Hood s2t07 - Encore Breal Encore s2t08 - Wilso
-  - label:
+  - label: **aud** (Schoeps CMC64 / Neumann KMi84)
 - **phish1998-07-15.101934.portland.bk4011.nutter.flac1644**
   - title: Phish - 1998-07-15 - Portland Meadows - Portland, OR
   - source field: None
@@ -2220,7 +2220,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish July 15, 1998 Portland Meadows Portland, OR source: B&K 4011 > Lunatec V2 > Apogee AD-1000 > HHb PDR 1000 (@ 48 kHz) transfer: Tascam DA-20mkII > Marantz PMD-661 > SDHC card > usb 2.0 > pc > Samplitude SE v9.1.1 (fades, volume adjustments) > r8brain v1.9 (resample to 44.1 kHz) > CD Wave v1.98 (track splits) > FLAC v1.2.1 (Level 8) recorded by Marc Nutter transferred by Jason Sobel (jasonsobel@gmail.com) seeded October 10, 2009 notes: FLAC tags added with metaflac v1.2.1 The original 48 kHz files from the DAT transfer have been archived and are available upon request. Disc 1 - [78:12] Set I 01 - [01:22] - set 1 intro 02 - [08:55] - Wolfman's Brother 03 - [03:16] - Water in the Sky 04 - 
-  - label:
+  - label: **aud** (B&K 4011)
 - **phish1998-07-15.126292.portland.cmc64.flac1648**
   - title: Phish - 1998-07-15 - Portland Meadows - Portland, OR
   - source field: None
@@ -2228,7 +2228,7 @@ Each recording: identifier, title, `source`, today's class, `classify` class, so
   - source lines: (none)
   - description (first lines):
     > Phish 1998-07-15 Portland Meadows Portland, OR Source:  Schoeps CMC64 > Lunatec V2 > Apogee AD1000 > Tascam DA-P1 Transfer:  DAT(c) @ 48k > Sony PCM-R500 > Tascam SS-R1 > Samplitude Pro X (fades, edits) > TLH(flac 8) Thanks to Steve Mortlock for the DAT Transfer & edits by Jeff Mitchell (jeffhmitchell@gmail.com) Seeded to etree 2013-12-07 Set 1: s1t01 - Wolfman's Brother s1t02 - Water In The Sky s1t03 - The Moma Dance s1t04 - Guyute s1t05 - Horn > s1t06 - Chalk Dust Torture s1t07 - Brian & Robert s1t08 - Beauty Of My Dreams s1t09 - Cars Trucks Buses s1t10 - Roggae s1t11 - Birds Of A Feather s1t12 - Loving Cup Set 2: s2t01 - Limb By Limb > s2t02 - Simple > s2t03 - Tweezer > s2t04 - Free s2t05
-  - label:
+  - label: **aud** (Schoeps CMC64)
 
 ## (iv) date_disagrees drop count
 
@@ -2379,3 +2379,172 @@ Examples (board-only first), showing identifier, field, matched markers/gear, te
 
 8000 of 11133 recordings have `Source:` somewhere in the description but no line that begins with it (the source text sits inside a longer line, typically a description with no line breaks), so `classify` cannot read it. Classes of those under classify: {'unknown': 4082, 'aud': 3213, 'sbd': 606, 'fm': 55, 'matrix': 44}. Examples: 1992-06-28-roskilde-festival-roskilde-denmark, 2025-09-19.KM140, 2026.07.17, 8-whats-going-through-your-mind, PH2025-04-22.DPA4015c
 
+## Variant: in-line source labels (probe-only)
+
+`./.venv/bin/python scripts/taperssection_probe.py variant` (cached scrape). `classify_variant` is `ts_rules.classify` with `source_lines` replaced by `source_lines_variant`: a description with no line break (every scraped Phish description: 0 of 11,133 has one) is split at in-line labels `Source(s)( info):`, `Src:`, `Lineage:`, `Transfer(s):` (case-insensitive, word-anchored); each label runs to the next one-word `Label:` token, capped at 250 chars. A description that *starts* with `Source:` is read by `classify` as one source line spanning the whole description (setlist and notes included); the variant reads only the capped segment. Product code is unchanged.
+
+- recordings with at least one source line: classify 5/11133 = 0.0%; variant 8327/11133 = 74.8%
+- recording classes: classify {'unknown': 5774, 'matrix': 82, 'aud': 4417, 'fm': 72, 'sbd': 788}; variant {'unknown': 2345, 'matrix': 163, 'aud': 7406, 'sbd': 1150, 'fm': 65, 'webcast': 4}
+- recordings whose class changes (classify -> variant): 3622: unknown->aud 3163, unknown->sbd 213, aud->sbd 144, unknown->matrix 49, aud->matrix 33, fm->sbd 8, matrix->aud 4, sbd->matrix 3, unknown->webcast 3, aud->webcast 1, unknown->fm 1
+
+### Coverage (ii), side by side
+
+| measure | classify | classify_variant |
+|---|---|---|
+| dates unknown under today's rule | 1237 | 1237 |
+| of those, placed (any class) | 932/1237 = 75.3% | 1113/1237 = 90.0% |
+| of those, placed aud | 916/1237 = 74.1% | 1077/1237 = 87.1% |
+| dates still all-unknown | 305/1881 = 16.2% | 124/1881 = 6.6% |
+
+### Aud-only entry, ship status per date, side by side
+
+Total dates 1881; cells are aud / unknown-hold / no-allowed.
+
+| scenario | classify | classify_variant |
+|---|---|---|
+| rule (a), before date check | 1263 / 417 / 201 | 1465 / 191 / 225 |
+| rule (a), after date check | 1208 / 378 / 295 | 1399 / 165 / 317 |
+| rule (b), before date check | 1680 / 0 / 201 | 1656 / 0 / 225 |
+| rule (b), after date check | 1586 / 0 / 295 | 1564 / 0 / 317 |
+
+## Precision (hand-labelled, n=255 recordings, 50 dates)
+
+Labels: [lineage-labels.csv](lineage-labels.csv) (identifier, label, note), hand-labelled from the full scraped description, identifier, title and `source` field (metadata API read once, for `phish-02.16.03`). Labeller was independent: classes were hidden while labelling. A truly undeterminable tape is labelled `unknown`. A satellite/TV broadcast is labelled `fm` (broadcast). A patchwork of a board tape with audience fills is labelled `sbd` (it is not an aud-only tape). `./.venv/bin/python scripts/taperssection_probe.py precision` regenerates this section and fills the `label:` lines in (iii).
+
+- truth over the 255 recordings of the 50 dates: {'sbd': 26, 'aud': 217, 'fm': 5, 'matrix': 3, 'unknown': 4}
+
+### Confusion, classify (rows) vs label (columns)
+
+| classify \ label | aud | sbd | matrix | fm | webcast | unknown | total |
+|---|---|---|---|---|---|---|---|
+| aud | 95 | 0 | 0 | 0 | 0 | 0 | 95 |
+| sbd | 0 | 26 | 1 | 2 | 0 | 0 | 29 |
+| matrix | 1 | 0 | 2 | 0 | 0 | 0 | 3 |
+| fm | 0 | 0 | 0 | 2 | 0 | 0 | 2 |
+| unknown | 121 | 0 | 0 | 1 | 0 | 4 | 126 |
+
+- placed (not unknown): 129/255 = 50.6%
+- **false-aud** (says aud, truth non-aud): 0 of 95 aud calls (aud precision 95/95 = 100.0%)
+- **false-non-aud** (says sbd/matrix/fm/webcast, truth aud): 1 of 34 non-aud calls: phish1998-10-03.126725.tinleypark.mk4v.flac1644 [matrix]
+- non-aud class wrong within non-aud (e.g. sbd for fm): 3: phish1998-10-03.015186.tinleypark.sbd.flac1644 [sbd vs fm], phish1991-03-16.133702.breckenridge.sbd.flac1648 [sbd vs matrix], phish1994-06-11.001354.morrison.sbd.flac1644 [sbd vs fm]
+- aud recall (truly aud tapes it calls aud): 95/217 = 43.8%
+- **unknown under classify**: 126; truth {'aud': 121, 'fm': 1, 'unknown': 4}; truly non-aud (sbd/matrix/fm/webcast): **1/126 = 0.8%**; truly aud 121/126 = 96.0%; undeterminable 4
+  - truly non-aud unknowns (rule (b) would ship these as aud): phish1998-10-03.000770.tinleypark.broadcast.flac1644 [fm: CMT DSS (satellite TV) broadcast; broadcast read as fm]
+
+### Confusion, classify_variant (rows) vs label (columns)
+
+| classify_variant \ label | aud | sbd | matrix | fm | webcast | unknown | total |
+|---|---|---|---|---|---|---|---|
+| aud | 152 | 0 | 0 | 0 | 0 | 0 | 152 |
+| sbd | 9 | 26 | 1 | 2 | 0 | 0 | 38 |
+| matrix | 5 | 0 | 2 | 0 | 0 | 0 | 7 |
+| fm | 0 | 0 | 0 | 2 | 0 | 0 | 2 |
+| unknown | 51 | 0 | 0 | 1 | 0 | 4 | 56 |
+
+- placed (not unknown): 199/255 = 78.0%
+- **false-aud** (says aud, truth non-aud): 0 of 152 aud calls (aud precision 152/152 = 100.0%)
+- **false-non-aud** (says sbd/matrix/fm/webcast, truth aud): 14 of 47 non-aud calls: phish1998-10-03.126725.tinleypark.mk4v.flac1644 [matrix], phish1996-11-22.176530.spokane.akg414.at4031.wright.flac1648 [matrix], phish1992-05-02.131528.chicago.rsm191.flac1648 [matrix], phish2024-07-19.168122.mansfield.mk41.flaschner.flac2448 [sbd], phish1994-06-11.133981.morrison.tlm170i.flac1648 [sbd], phish1994-06-11.141941.morrison.tlm170.flac1648 [sbd], ph-2024-07-30AKGmatrix [matrix], phish2003-07-21.109173.noblesville.u89i.markham.sobel.flac1644 [sbd], phish2009-12-05.103187.charlottesville.km140.evans.flac2496 [sbd], phish1996-11-07.075699.lexington.mg300.mahan.flac1644 [sbd], phish1991-07-20.005751.parksville.akg451.flac1644 [sbd], phish1994-04-08.006044.statecollege.rsm190.flac1644 [sbd], phish1994-04-08.132135.universitypark.rsm190i.flac1648 [matrix], phish1994-05-28.089594.monterey.mk4.byron.flac1644 [sbd]
+- non-aud class wrong within non-aud (e.g. sbd for fm): 3: phish1998-10-03.015186.tinleypark.sbd.flac1644 [sbd vs fm], phish1991-03-16.133702.breckenridge.sbd.flac1648 [sbd vs matrix], phish1994-06-11.001354.morrison.sbd.flac1644 [sbd vs fm]
+- aud recall (truly aud tapes it calls aud): 152/217 = 70.0%
+- **unknown under classify_variant**: 56; truth {'fm': 1, 'aud': 51, 'unknown': 4}; truly non-aud (sbd/matrix/fm/webcast): **1/56 = 1.8%**; truly aud 51/56 = 91.1%; undeterminable 4
+  - truly non-aud unknowns (rule (b) would ship these as aud): phish1998-10-03.000770.tinleypark.broadcast.flac1644 [fm: CMT DSS (satellite TV) broadcast; broadcast read as fm]
+
+### Per date, aud-only entry: would-ship-aud correctness
+
+Truth per date: `has-aud` if any recording is labelled aud, else `no-aud`. Predicted status as in (ii), before the date check. `ships, clean` = every recording the entry would treat as aud is truly aud; `ships, mixed` = it ships (a true aud exists among them) but one or more treated-as-aud recordings are truly non-aud (selection could pick it); `ships wrongly` = it ships but no treated-as-aud recording is truly aud.
+
+| classifier, rule | ships, clean | ships, mixed | ships wrongly | holds (truth has-aud) | holds (truth no-aud) | no-allowed (truth has-aud) | no-allowed (truth no-aud) |
+|---|---|---|---|---|---|---|---|
+| classify, (a) | 28 | 0 | 0 | 17 | 1 | 0 | 4 |
+| classify, (b) | 43 | 2 | 1 | 0 | 0 | 0 | 4 |
+| classify_variant, (a) | 37 | 0 | 0 | 7 | 1 | 1 | 4 |
+| classify_variant, (b) | 42 | 2 | 1 | 0 | 0 | 1 | 4 |
+
+Truth over the 50 dates: {'has-aud': 45, 'no-aud': 5}.
+
+Non-clean dates:
+- classify rule (b) 1998-10-03: mixed; non-aud treated as aud: phish1998-10-03.000770.tinleypark.broadcast.flac1644 [unknown->fm]
+- classify rule (b) 1985-11-23: wrong; non-aud treated as aud: phish1985-11-23.000370.plainfield.unk.flac1644 [unknown->unknown], phish1985-11-23.092573.plainfield.unk.flac1644 [unknown->unknown], phish1985-11-23.100780.plainfield.master.flac16 [unknown->unknown]
+- classify rule (b) 1994-04-08: mixed; non-aud treated as aud: phish1994-04-08.028442.statecollege.unk.set1.flac1644 [unknown->unknown]
+- classify_variant rule (a) 1994-05-28: no-allowed but truth has aud: phish1994-05-28.089594.monterey.mk4.byron.flac1644 [sbd]
+- classify_variant rule (b) 1998-10-03: mixed; non-aud treated as aud: phish1998-10-03.000770.tinleypark.broadcast.flac1644 [unknown->fm]
+- classify_variant rule (b) 1985-11-23: wrong; non-aud treated as aud: phish1985-11-23.000370.plainfield.unk.flac1644 [unknown->unknown], phish1985-11-23.092573.plainfield.unk.flac1644 [unknown->unknown], phish1985-11-23.100780.plainfield.master.flac16 [unknown->unknown]
+- classify_variant rule (b) 1994-04-08: mixed; non-aud treated as aud: phish1994-04-08.028442.statecollege.unk.set1.flac1644 [unknown->unknown]
+- classify_variant rule (b) 1994-05-28: no-allowed but truth has aud: phish1994-05-28.089594.monterey.mk4.byron.flac1644 [sbd]
+
+### Board/SBD as a position, and generic-token-only aud, in the sample
+
+Recordings where a board/patch/sbd/stream marker and a mic or position word are both in the evidence (under either view), with the verdict:
+
+- phish1991-03-16.133702.breckenridge.sbd.flac1648 (variant): markers ['sbd', 'soundboard'], aud evidence ['audience'] -> sbd; label matrix: WRONG (Audience & Soundboard Multitrack mix (identifier says sbd))
+- phish2024-07-19.168122.mansfield.mk41.flaschner.flac2448 (variant): markers ['soundboard'], aud evidence ['cmc6', 'mk41', 'schoeps'] -> sbd; label aud: WRONG (Schoeps mk41, dead center behind soundboard (sbd as position))
+- phish1994-06-11.133981.morrison.tlm170i.flac1648 (variant): markers ['patch'], aud evidence ['neumann', 'omni'] -> sbd; label aud: WRONG (Neumann TLM-170i omni; 'Patch DAT(m) provided by' = an audience patch off Oade's rig, not a board)
+- phish1994-06-11.141941.morrison.tlm170.flac1648 (variant): markers ['patch'], aud evidence ['neumann', 'omni'] -> sbd; label aud: WRONG (same as 133981 (Patch DAT(m)))
+- phish2003-07-21.109173.noblesville.u89i.markham.sobel.flac1644 (variant): markers ['patch'], aud evidence ['akg', 'ck61', 'neumann'] -> sbd; label aud: WRONG (Neumann u89i taper's section)
+- phish2009-12-05.103187.charlottesville.km140.evans.flac2496 (variant): markers ['sbd'], aud evidence ['ak40', 'km140', 'neumann', 'ots'] -> sbd; label aud: WRONG (mic chain (OTS/FOB))
+- phish1996-11-07.075699.lexington.mg300.mahan.flac1644 (variant): markers ['patch'], aud evidence ['gefell'] -> sbd; label aud: WRONG (Microtech Gefell m300)
+- phish1992-03-12.111594.burlington.sbd.set2.flac1644 (variant): markers ['sbd'], aud evidence ['audience', 'mics'] -> sbd; label sbd: correct (patchwork: SBD primary, aud master-cassette fills for 8 tracks (not aud-only))
+- phish1992-03-12.124147.burlington.sbd.flac1644 (variant): markers ['sbd'], aud evidence ['akg'] -> sbd; label sbd: correct (SBD > MC)
+- phish1991-07-20.005751.parksville.akg451.flac1644 (variant): markers ['sbd'], aud evidence ['akg'] -> sbd; label aud: WRONG (source: akg 451+ck8a in sbd b00th (sbd as position))
+- phish1994-04-08.006044.statecollege.rsm190.flac1644 (variant): markers ['patch'], aud evidence ['dfc', 'neumann', 'ots'] -> sbd; label aud: WRONG (DAUD/OTS Neumann rsm190i; 'Transfer: My patch master dat' = taper's patch copy, not a board)
+- phish1994-05-28.089594.monterey.mk4.byron.flac1644 (variant): markers ['sbd'], aud evidence ['mk4', 'schoeps'] -> sbd; label aud: WRONG (Schoeps mk4 master; description notes SBD (shnid 8751) patched in for a portion (aud primary))
+- phish1994-05-28.133678.monterey.mtx.flac1644 (variant): markers ['sbd'], aud evidence ['mk4', 'schoeps'] -> matrix; label matrix: correct (2-source SBD+AUD matrix)
+
+Recordings called aud on generic tokens only (`omni`, `bk`, `mic`, `mics`):
+
+- phish2009-12-30.114332.miami.cp101.nak1000.audball.flac1644 (variant): ['mic']; label aud: correct
+- phish1997-12-05.150688.cleveland.sony.boedicker.flac1644 (variant): ['mic']; label aud: correct
+- phish1994-04-08.150687.statecollege.nak300.cp4.boedicker.flac1644 (variant): ['mics']; label aud: correct
+
+### Every disagreement with the label (excluding unknown calls)
+
+| identifier | classify | variant | label | marker / aud evidence (variant view) | note |
+|---|---|---|---|---|---|
+| phish1998-10-03.015186.tinleypark.sbd.flac1644 | sbd | sbd | fm | ['sbd'] / [] | DishNetwork broadcast (no Source: label); broadcast read as fm |
+| phish1998-10-03.126725.tinleypark.mk4v.flac1644 | matrix | matrix | aud | ['mtx'] / ['fob', 'schoeps'] | FOB Schoeps MK4V |
+| phish1991-03-16.133702.breckenridge.sbd.flac1648 | sbd | sbd | matrix | ['sbd', 'soundboard'] / ['audience'] | Audience & Soundboard Multitrack mix (identifier says sbd) |
+| phish1996-11-22.176530.spokane.akg414.at4031.wright.flac1648 | unknown | matrix | aud | ['matrix'] / ['akg'] | AKG 414/AT 4031 Matrix = a mix of two audience mics, not sbd+aud |
+| phish1992-05-02.131528.chicago.rsm191.flac1648 | unknown | matrix | aud | ['mtx'] / ['fob', 'neumann'] | FOB m/s Neumann RSM-191AS > MTX-191A |
+| phish2024-07-19.168122.mansfield.mk41.flaschner.flac2448 | aud | sbd | aud | ['soundboard'] / ['cmc6', 'mk41', 'schoeps'] | Schoeps mk41, dead center behind soundboard (sbd as position) |
+| phish1994-06-11.001354.morrison.sbd.flac1644 | sbd | sbd | fm | ['fm', 'sbd'] / [] | DSB FM Broadcast (identifier says sbd) |
+| phish1994-06-11.133981.morrison.tlm170i.flac1648 | unknown | sbd | aud | ['patch'] / ['neumann', 'omni'] | Neumann TLM-170i omni; 'Patch DAT(m) provided by' = an audience patch off Oade's rig, not a board |
+| phish1994-06-11.141941.morrison.tlm170.flac1648 | unknown | sbd | aud | ['patch'] / ['neumann', 'omni'] | same as 133981 (Patch DAT(m)) |
+| ph-2024-07-30AKGmatrix | aud | matrix | aud | ['matrix'] / ['akg', 'ck61'] | AKG ck63+ck61 FOB, 'matrix' = mix of two aud mic pairs |
+| phish2003-07-21.109173.noblesville.u89i.markham.sobel.flac1644 | unknown | sbd | aud | ['patch'] / ['akg', 'ck61', 'neumann'] | Neumann u89i taper's section |
+| phish2009-12-05.103187.charlottesville.km140.evans.flac2496 | aud | sbd | aud | ['sbd'] / ['ak40', 'km140', 'neumann', 'ots'] | mic chain (OTS/FOB) |
+| phish1996-11-07.075699.lexington.mg300.mahan.flac1644 | unknown | sbd | aud | ['patch'] / ['gefell'] | Microtech Gefell m300 |
+| phish1991-07-20.005751.parksville.akg451.flac1644 | unknown | sbd | aud | ['sbd'] / ['akg'] | source: akg 451+ck8a in sbd b00th (sbd as position) |
+| phish1994-04-08.006044.statecollege.rsm190.flac1644 | unknown | sbd | aud | ['patch'] / ['dfc', 'neumann', 'ots'] | DAUD/OTS Neumann rsm190i; 'Transfer: My patch master dat' = taper's patch copy, not a board |
+| phish1994-04-08.132135.universitypark.rsm190i.flac1648 | unknown | matrix | aud | ['mtx'] / ['neumann'] | Neumann RSM-191i > Neumann MTX-191 (M/S matrix box) |
+| phish1994-05-28.089594.monterey.mk4.byron.flac1644 | aud | sbd | aud | ['sbd'] / ['mk4', 'schoeps'] | Schoeps mk4 master; description notes SBD (shnid 8751) patched in for a portion (aud primary) |
+
+## Precision: systematic lexicon errors (Task 2b acceptance cases)
+
+Hand-written from the sample labels and a corpus-wide count over the 11,133 scraped Phish recordings (counts under `classify_variant`, which reads the description; `classify` reads almost none of it, so most of these errors are latent today and surface as soon as Task 5 reads in-line source text). Each is a candidate Task 2b acceptance case: the example text should classify as the label shown.
+
+1. **`patch` / `patched` is not a board marker in taper text.** It means a splice edit or a digital copy patch. Corpus: **219** recordings are `sbd` under the variant on `patch` alone (no sbd/soundboard/board token); 202 of them also carry mic or position evidence. Under `classify` the 5 `patch` hits (phish1996-08-04/05/06/07, phish2012-09-01) are tapers'-section Neumann TLM170 tapes, also called sbd. Sample cases, all truly aud:
+   - `Samplitude SE v9.1.1 (patch, fades)` (phish2003-07-21.109173...u89i) -> aud
+   - `Source by Doug Oade Patch DAT(m) provided by Bill Shaw` (phish1994-06-11.133981 / .141941, Neumann TLM-170i omni) -> aud
+   - `transfer/patch by Jordan Braunstein` (phish1996-11-07.075699, Gefell m300) -> aud
+   - `Transfer: My patch master dat from sony d-7` (phish1994-04-08.006044, DAUD/OTS Neumann) -> aud
+   - source field `Neumann TLM170 (tapers' section) -> ... -> digital patch -> Denon DTR-80p(m)` (phish1996-08-04) -> aud
+2. **The board as a position.** `sbd`/`soundboard`/`board` naming where the mics stood, inside the source line. Sample: 3 variant errors. Corpus: 19 recordings are `sbd` on `board` alone with mic evidence; of 146 `sbd`-with-mic-evidence recordings, a 14-recording spot check found 8 position cases, 2 aud-with-SBD-patch tapes and 4 true boards. Cases:
+   - `source: akg 451+ck8a in sbd b00th, by kevin shapiro` (phish1991-07-20.005751) -> aud
+   - `Schoeps mk41>kc5>cmc6>Mix3ii@ 24/96 (Dead center behind soundboard Sec6 Row e Seat 18)` (phish2024-07-19.168122) -> aud
+   - `Neumann ak40's(nos)>lc3>km100>722>@24/96 (ots left back corner of sbd boomed over 8 inches inside sbd rail)` (phish2009-12-05.103187 2496) -> aud
+   - Corpus: `B&K 4011>SV255 at sbd`, `aud/48khz-rec. center @sbd-7 1/2 ft height; AKG460b`, `DPA 4018A(22cm-80deg/DFC/Behind SBD@12')`, `(30 foot split on each side of the SBD)`, `Neumann TLM-170 (hypercards, 20' in front of the board ...)` -> aud.
+3. **`matrix` / `mtx` that is not board + audience.** (a) The Neumann RSM-191 stereo shotgun's M/S matrix box, `MTX-191(A)`: `Neumann RSM-191AS > MTX-191A` (phish1992-05-02.131528), `Neumann RSM-191i > Neumann MTX-191` (phish1994-04-08.132135) -> aud. (b) A mix of two or more audience rigs: `AKG 414/AT 4031 Matrix` (phish1996-11-22.176530), `ph-2024-07-30AKGmatrix` (AKG ck63 + ck61) -> aud; corpus identifiers `DPAmatrix`, `dhAUDmatrix`, `AKG.AUD.Matrix`. Corpus: **84** variant-matrix recordings have mic evidence and no sbd/fm marker anywhere; the existing `aud matrix` adjacency rule catches only the adjacent spelling.
+4. **Broadcasts are not in the lexicon.** `Source: CMT DSS Broadcast > Tbfiji > Soundforge` (phish1998-10-03.000770) is `unknown` under both views, so rule (b) would ship it as aud: the **only truly non-aud unknown in the sample**. `DishNetwork> Tbfiji>` (phish1998-10-03.015186) and `DSB FM Broadcast` (phish1994-06-11.001354) come out `sbd` from the identifier, harmless for an aud-only entry. Candidates: `broadcast`, `dss`, `satellite`, `dishnetwork`, `simulcast`, `radio` as fm (or webcast) markers.
+5. **Segment overrun and patchwork descriptions (variant only).** A Transfer segment with no following `Label:` runs 250 chars into credits and setlists, and some descriptions carry a second `Source:` for a fill tape: phish1994-05-28.089594 (Schoeps mk4 master) adds `source: SBD > DAT ... The SBD source was used for the following portion` and becomes `sbd`. Truly mixed tapes exist (taperjon's `The Source 139310 SBD provides the complete tracks ...`); the operator may want a separate ruling on aud tapes with SBD patches. A narrower stop (end the segment at `Transfer:` body end, at `set`/`disc`/`s1t01`-style setlist starts, or at 120 chars) would cut most overrun.
+6. **Metadata copied between items.** phish1998-10-03.126725 (FOB Schoeps MK4V) has the title `Phish - phish1998-10-03.095202.tinleypark.mtx.flac1644`, so both views say matrix. Not a lexicon fix; noted so the case is not mistaken for one.
+
+Recall misses (not precision; for Task 2b if wanted). The 51 truly-aud tapes the variant leaves unknown fail on (i) compound tokens: `mk41v`, `mk4v`, `ck63`, `ck8`, `akg483`, `akg393`, `akg414`, `schoeps24bit`, `dpa2011`, `dpa4028`, `km150`, `km185`, `mbho44`, `senn441`, `me80`, `mg300`, `pe125`, `shure57`, `scx25`; (ii) mic models not listed: Shure SM57/VP88/BG4.0, Tascam PE-125, Sennheiser ME-80/MD441, Neumann KM150/KM185/U89/TLM170/KA100, Gefell M300/M21/MG20, AKG 391/393/398/414/460/483, CK63/CK8, MBHO KA200N/440, Audix SCX25/M1280, Busman/BSC, Sterling SL230, Nakamichi `300` without `cm`; (iii) source text under labels the variant does not read: `Recording Info:` (Charlie Miller's many seeds), `Equipment:`, and no label at all (`DPA4061s (FOB/DFC/...) > MP10ii`).
+
+## For the operator (Checkpoint A, Step 4)
+
+- **Coverage.** Of the 1,237 dates unknown under today's `lineage_class`, `classify` places 932 (75.3%) and the in-line-label variant places 1,113 (90.0%). Dates still all-unknown: 305 of 1,881 (16.2%) under `classify`, 124 (6.6%) under the variant. The scrape serves every Phish description with no line breaks, so production `classify` reads the source text of only 5 of 11,133 recordings. Its coverage comes from identifiers, titles and the `source` field.
+- **Aud-only ship status, after the date check (aud / hold / no-allowed of 1,881 dates).** `classify`: rule (a) 1208 / 378 / 295; rule (b) 1586 / 0 / 295. Variant: rule (a) 1399 / 165 / 317; rule (b) 1564 / 0 / 317.
+- **Precision (hand-labelled, 255 recordings over 50 dates; truth 217 aud, 26 sbd, 3 matrix, 5 fm/broadcast, 4 undeterminable).** Aud precision is 100% under both: `classify` 95/95 and the variant 152/152 (false-aud 0). False-non-aud: `classify` 1 of 34 non-aud calls; the variant **14 of 47** (`patch` 5, board-as-position 3, matrix that is not board+aud 5, one of them via a title copied from another item; an SBD patch fill 1). Aud recall: 43.8% under `classify`, 70.0% under the variant.
+- **Date drop (section iv).** `date_disagrees` drops 168 of 11,131 recordings (1.5%), touches 137 dates and empties 95 (5.1%). The sample has 3 dates whose only recordings are of another date (2025-09-06, 2016-10-13, 1992-01-01); the check is meant to drop these.
+- **Decisive fact for (a) vs (b).** Of the tapes still unknown, 1 of 126 under `classify` (0.8%, 95% upper bound 4.3%) and 1 of 56 under the variant (1.8%, upper bound 9.6%) is truly non-aud. That one is a CMT DSS satellite broadcast. Another 4 are truly undeterminable (1985 Goddard, an anonymous 1994 set): 3 tapes on one date, plus 1 on a date that also has true aud tapes. Counting those as not aud gives 5/126 = 4.0% and 5/56 = 8.9%. The rest are true aud (121/126; 51/56). Per date under rule (b), the 50 sampled dates come out as: 43 ship clean, 2 ship with a non-aud candidate beside true aud tapes (1998-10-03 broadcast, 1994-04-08 anonymous), 1 ships wrongly (1985-11-23, all undeterminable) and 4 have no allowed tape (the variant also forbids 1994-05-28, whose only aud tape it calls sbd). Rule (a) holds 18 dates, 17 of which have true aud tapes. The unknowns cluster by date and the sample is small, so treat the rates as indicative.
+- **Bigger risk than (a)/(b).** If the in-line fix ships without lexicon changes, false-non-aud becomes the dominant error. Corpus-wide that means 219 `patch`-only sbd calls, an estimated 80-100 board-as-position calls and 84 audience-mic "matrix" calls. These tapes are wrongly forbidden, never wrongly shipped. Task 2b cases 1-4 above address it.

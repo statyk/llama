@@ -1,0 +1,256 @@
+identifier,label,note
+phish1991-12-07.031613.portsmouth.sbd.flac1644,sbd,Source: SBD > Cass
+phish1991-12-07.123072.portsmouth.sbd.flac1644,sbd,Source: Unknown Soundboard
+phish1991-12-07.164810.portsmouth.cp1.flac1644,aud,FOB Nak CM300
+phish1988-12-17.029621.newmarket.sbd.set1.flac1644,sbd,Source: SBD > Cass
+phish1998-10-03.000770.tinleypark.broadcast.flac1644,fm,CMT DSS (satellite TV) broadcast; broadcast read as fm
+phish1998-10-03.015186.tinleypark.sbd.flac1644,fm,DishNetwork broadcast (no Source: label); broadcast read as fm
+phish1998-10-03.095202.tinleypark.mtx.flac1644,matrix,SBD(broadcast)/AUD Matrix
+phish1998-10-03.126725.tinleypark.mk4v.flac1644,aud,FOB Schoeps MK4V
+phish1998-10-03.126726.tinleypark.nak300.flac1648,aud,Nakamichi 300 shotguns
+phish1993-08-21.005024.saltlakecity.mc80.flac1644,aud,SOURCE: AUDIENCE: Sony MC80
+phish2009-12-30.105219.miami.mk41.m222.taylorc.flac1644,aud,mic chain (OTS etc.)
+phish2009-12-30.105219.miami.mk41.m222.taylorc.flac2448,aud,mic chain (OTS etc.)
+phish2009-12-30.105220.miami.me80.litzenberger.flac1644,aud,mic chain (OTS etc.)
+phish2009-12-30.105220.miami.me80.litzenberger.flac2448,aud,mic chain (OTS etc.)
+phish2009-12-30.105221.miami.mk41.litzenberger.flac1644,aud,mic chain (OTS etc.)
+phish2009-12-30.105222.miami.ak50.skeens.flac1644,aud,mic chain (OTS etc.)
+phish2009-12-30.105223.miami.km150.litzenberger.flac1644,aud,mic chain (OTS etc.)
+phish2009-12-30.105226.miami.mk5.taylorc.flac1644,aud,mic chain (OTS etc.)
+phish2009-12-30.105226.miami.mk5.taylorc.flac2448,aud,mic chain (OTS etc.)
+phish2009-12-30.105228.miami.senn441.padelimike.flac1644,aud,mic chain (OTS etc.)
+phish2009-12-30.105229.miami.mk5.mk41.taylorc.flac1644,aud,mic chain (OTS etc.)
+phish2009-12-30.105229.miami.mk5.mk41.taylorc.flac2448,aud,mic chain (OTS etc.)
+phish2009-12-30.105292.miami.km184.teamdrink.flac1644,aud,mic chain (OTS etc.)
+phish2009-12-30.105435.miami.mk41.flaschner.flac1644,aud,mic chain (OTS etc.)
+phish2009-12-30.114254.miami.ck3.akg460.nbanyai.flac1644,aud,mic chain (OTS etc.)
+phish2009-12-30.114332.miami.cp101.nak1000.audball.flac1644,aud,mic chain (OTS etc.)
+phish1991-03-16.000442.breckenridge.sbd.flac1644,sbd,Pre-soundboard mix
+phish1991-03-16.000444.breckenridge.sbd.flac1644,sbd,DAT SBD
+phish1991-03-16.025433.breckenridge.sbd.flac1644,sbd,dSbd
+phish1991-03-16.133702.breckenridge.sbd.flac1648,matrix,Audience & Soundboard Multitrack mix (identifier says sbd)
+phish1996-11-22.024647.spokane.akg414.wright.flac1644,aud,AKG 414/AT 4031 mics
+phish1996-11-22.176530.spokane.akg414.at4031.wright.flac1648,aud,"AKG 414/AT 4031 Matrix = a mix of two audience mics, not sbd+aud"
+phish1995-10-07.008152.spokane.km140.flac1644,aud,Neumann KM140
+phish1991-12-04.020758.plattsburgh.aud.flac1644,aud,Unknown AUD rig
+phish1991-12-04.109510.plattsburgh.sbd.flac1648,sbd,SBD Cass (no Source: label)
+phish1991-12-04.109607.plattsburgh.sbd.flac2496,sbd,Cassette lineage is SBD>MAC
+phish1985-11-23.000370.plainfield.unk.flac1644,unknown,Cass/1 only; undeterminable
+phish1985-11-23.092573.plainfield.unk.flac1644,unknown,Source: Unknown
+phish1985-11-23.100780.plainfield.master.flac16,unknown,Master > Cass (band gift); undeterminable
+phish1985-11-23.145341.plainfield.sbd.flac1648,sbd,Unknown SBD > Cass
+2025-07-18.CK61,aud,Recording Info: AKG C460B/CK61 (no Source: label)
+ph2025-07-18.ck63.stearns.flac24,aud,AKG CK-63 FOB/DFC
+ph2025-07-18.mk22.cmc1k.sxr4.2496,aud,Schoeps mk22 fob
+phish2025-07-18.173705.chicago.mk4v.murray.flac2496,aud,Schoeps mk4v fob
+phish2025-07-18akg481,aud,AKG C480B/CK61 FOB
+phish1997-12-05.002460.cleveland.mk41.cmc6.flac1644,aud,Schoeps
+phish1997-12-05.015663.cleveland.mk41.cmc6.flac1644,aud,Schoeps
+phish1997-12-05.016621.cleveland.mg210.wilhelm.flac16,aud,OTS/DFC Gefell M210
+phish1997-12-05.080764.cleveland.cmc621.ebel.flac16,aud,Schoeps cmc621 FOB DFC
+phish1997-12-05.112181.cleveland.km184.flac16,aud,OTS KM184
+phish1997-12-05.112492.cleveland.bk4011.lamke.flac16,aud,B&K 4011 ORTF
+phish1997-12-05.150688.cleveland.sony.boedicker.flac1644,aud,Sony stereo mic > WM-D6C
+phish1997-12-05.151608.cleveland.u89.flac1648,aud,Neumann U89
+phish1997-12-05.165731.cleveland.km184.flac1648,aud,Neumann KM184
+ph2025-07-15.mk4mk8ms.cmc1k.ad8.sxr4.remastered.2496.remastered,aud,"Schoeps M/S, OTS row behind the sbd (sbd as position); date field misdated (show 2025-07-15)"
+ph2025-07-16.mk4mk8ms.cmc1k.ad8.sxr4.remastered.2496,aud,"Schoeps M/S, OTS row behind the sbd; misdated"
+ph2025-07-19.mk4mk8ms.cmc1k.ad8.sxr4.2496,aud,Schoeps M/S fob dfc; misdated
+phish1990-04-09.015187.telluride.sbd.set1.flac16,sbd,SBD > Cass/4
+phish1990-04-09.154153.telluride.sbd.flac16,sbd,SBD > Cass/1
+phish1990-04-09.166777.telluride.sbd.flac1644,sbd,patched remaster of the SBD 154153 with SBD/1 patches
+phish1992-05-02.008544.chicago.rsm191.shapiro.flac1644,aud,"DAUD FOB; Neumann RSM191 > MTX191A (MTX = Neumann M/S matrix box, not a sbd+aud matrix)"
+phish1992-05-02.131528.chicago.rsm191.flac1648,aud,"FOB m/s Neumann RSM-191AS > MTX-191A"
+phish1992-05-02.138656.chicago.nak.flac1644,aud,Nak's hung from the ceiling (no Source: label)
+phish1998-10-29,aud,Neumann TLM170 FOB (source field)
+phish1998-10-29.000779.losangeles.mk4.flac1644,aud,Schoeps CMC64
+phish1998-10-29.005009.losangeles.mk21.flac1644,aud,cmc6/mk21 fob
+phish1998-10-29.109536.losangeles.bk4011.nutter.flac1644,aud,OTS B&K 4011
+phish1998-10-29.126852.losangeles.bk4011.flac1648,aud,BK4011
+phish1998-10-29.126853.losangeles.cmc6.mk21.flac1644,aud,Schoeps CMC6/MK21
+phish1998-10-29.126854.losangeles.m300.flac1644,aud,Microtech Gefell M300
+phish1998-10-29.166179.losangeles.m300.flac1644,aud,Microtech Gefell M300
+phish1998-10-29.m300.166179,aud,Microtech Gefell M300
+1992-06-28-roskilde-festival-roskilde-denmark,aud,Sony ECM-155 lavalier mics
+phish1992-06-28.023937.roskilde.aud.flac1644,aud,Unknown DAUD
+phish1995-10-13.001626.fortworth.pe125.flac1644,aud,Tascam PE-125 (a condenser mic) > D7
+ph2024-07-19.mk22.cmc1k.m2d2.sxr4.2496,aud,Schoeps mk22 OTS
+ph2024-07-19.mk41v.cmc1k.sxr4.2496,aud,Schoeps mk41v OTS
+ph2024-07-19.mk4v.cmc1k.sxr4.2496,aud,Schoeps OTS
+phish2024-07-19.168035.mansfield.ccm4v.obanion.flac2496,aud,OTS Schoeps CCM4V
+phish2024-07-19.168122.mansfield.mk41.flaschner.flac2448,aud,"Schoeps mk41, dead center behind soundboard (sbd as position)"
+phish2024-07-19.168603.mansfield.mk4.miller.flac1648,aud,Recording Info: Schoeps CMC6/MK4
+phish2024-07-19.24b96k.m60cmxy4v,aud,Front of House M60+CMXY4v (title only)
+phish2024-07-19.mg20.flac24,aud,"mic model in identifier only (mg20, Gefell); taper credit"
+phish2024-07-19.mk22.flac24,aud,mk22 in identifier only
+phish2024-07-19.mk41v.flac24,aud,mk41v in identifier only
+phish2024-07-19.mk4v.flac24,aud,mk4v in identifier only
+phish2024-07-19.sterlingaudio.flac24,aud,Sterling Audio SL230MP mic > Tascam DR60
+phish2024-07-19akg.ck63,aud,OTS AKG CK63
+phish2024-07-19schoeps24bit,aud,Recording Info: Schoeps CMC6/MK4
+phish1991-07-26.029202.athens.shure57.flac1644,aud,Shure 57 mic > Casio D7
+phish1991-07-26.135988.athens.shure57.flac1644,aud,Recording Info: Sure SM57
+phish1991-07-26.135989.athens.shure57.flac1648,aud,Recording Info: Sure SM57
+phish1994-06-11.001354.morrison.sbd.flac1644,fm,DSB FM Broadcast (identifier says sbd)
+phish1994-06-11.008863.morrison.fm.flac1644,fm,FM Broadcast
+phish1994-06-11.090472.morrison.tlm170.flac1644,aud,Neumann TLM 170
+phish1994-06-11.124103.morrison.fm.flac1644,fm,Recording Info: FM
+phish1994-06-11.133981.morrison.tlm170i.flac1648,aud,"Neumann TLM-170i omni; 'Patch DAT(m) provided by' = an audience patch off Oade's rig, not a board"
+phish1994-06-11.141941.morrison.tlm170.flac1648,aud,"same as 133981 (Patch DAT(m))"
+ph2012-06-19,aud,Busman k11 FOB/DFC ORTF
+ph-2024-07-30AKGmatrix,aud,"AKG ck63+ck61 FOB, 'matrix' = mix of two aud mic pairs"
+phish-2024-07-30,aud,FOB/DFC DPA 2012
+phish2024-07-30.168235.stlouis.dpa4015.downs.flac2448,aud,DPA 4015c FOB
+phish2024-07-30.168236.stlouis.fob.dpa4061.mk41v.djphrayz.flac1648,aud,DPA4061 + mk41V FOB (no Source: label)
+phish2024-07-30.168237.stlouis.fob.dpa4061.mk41v.djphrayz.flac2448,aud,DPA4061 + mk41V FOB
+phish2024-07-30.168238.stlouis.fob.mk4v.king.flac2496,aud,Schoeps mk4v FOB
+phish2024-07-30.168239.stlouis.fob.mk22.king.flac2496,aud,Schoeps mk22 FOB
+phish2024-07-30.168257.stlouis.fob.akg483.djphrayz.flac1648,aud,AKG483 FOB
+phish2024-07-30.168258.stlouis.fob.akg483.djphrayz.flac2448,aud,AKG483 FOB
+phish2024-07-30.168259.stlouis.fob.at4031.djphrayz.flac1648,aud,AT4031 FOB
+phish2024-07-30.168260.stlouis.fob.at4031.djphrayz.flac2448,aud,AT4031 FOB
+phish2024-07-30.168621.stlouis.fob.mk4.miller.flac1648,aud,Recording Info: FOB Schoeps
+phish2024-07-30schoeps24bit,aud,Recording Info: FOB Schoeps
+phish1994-04-21.002904.winstonsalem.akg460.flac1644,aud,AKG 460 cards front row (no Source: label)
+phish1994-04-21.003944.winstonsalem.ck61.akg460.flac1644,aud,SOURCE: AKG460b/ck61 FOB
+phish2022-08-02.157516.cuyahogafalls.ck61.ck63.stearns.flac1648,aud,AKG CK-61 + CK-63 OTS
+phish2022-08-02.157545.cuyahogafalls.ck8.smith.flac1648,aud,AKG460b/CK8 OTS (no Source: label)
+phish2022-08-02.157546.cuyahogafalls.ck8.smith.flac2496,aud,AKG460b/CK8 OTS
+phish2022-08-02.157894.cuyahogafalls.u89i.durham.flac2496,aud,Neumann U89i OTS
+phish2022-08-02.158184.cuyahogafalls.cmc141vl.durham.flac2496,aud,Schoeps cmc141 OTS
+phish2022-08-02.161592.cuyahogafalls..dpa4023.stubbe.flac2496,aud,DPA 4023 OTS
+phish2022-08-02.167602.cuyahogafalls.ck61.stearns.flac2448,aud,AKG CK-61 OTS
+phish1995-10-05.000617.portland.neumann.flac1644,aud,Neumann KA-100 > DAT
+phish1995-10-05.022170.portland.neumann.flac1644,aud,Neumann KA100
+phish1996-11-19.000646.kansascity.akg460.flac1644,aud,AKG 460s > D8
+phish1996-11-19.000647.kansascity.akg451.flac1644,aud,AKG 460s > D8
+phish1996-11-19.122422.kansascity.bg40.smith.flac1644,aud,Shure BG4.0 ots/center
+phish1996-07-11.022400.london.sbd.flac1644,sbd,DSBD
+phish1996-07-11.126114.london.sbd.flac1644,sbd,SBD > DAT
+phish1996-07-11.126115.london.sbd.flac1648,sbd,SBD > DAT
+phish1996-07-11.143849.london.akg393.flac1648,aud,AKG393 > SBM-1
+phish1996-07-11.147346.london.akg414.flac1648,aud,FOB AKG 414
+phish1996-07-11.152272.london.pe125.flac1648,aud,Tascam PE-125 cardioid microphones (no Source: label)
+phish1992-07-19,aud,Sony ECM-959 stereo mic in hat (source field)
+ph2003-07-21.ots.ck61.c480b.dmic20.d8.bean.cm.flac1648,aud,AKG CK61 OTS
+phish2003-07-21.018647.noblesville.mg300.szaks.flac1644,aud,MG300 (Gefell) > minime
+phish2003-07-21.035406.noblesville.ck61.akg480.bean.flac1644,aud,AKG CK61/480 DIN/OTS
+phish2003-07-21.109173.noblesville.u89i.markham.sobel.flac1644,aud,Neumann u89i taper's section
+phish2003-07-21.135476.noblesville.u89i.mitchell.flac1648,aud,Neumann U-89
+ph2009-12-05,aud,mic chain (OTS/FOB)
+ph2009-12-05.dpasax.flacf24,aud,mic chain (OTS/FOB)
+phish2009-12-05.103175.charlottesville.ak43.scott.flac1644,aud,mic chain (OTS/FOB)
+phish2009-12-05.103187.charlottesville.km140.evans.flac1644,aud,mic chain (OTS/FOB)
+phish2009-12-05.103187.charlottesville.km140.evans.flac2496,aud,mic chain (OTS/FOB)
+phish2009-12-05.103203.charlottesville.mk4v.flac1644,aud,mic chain (OTS/FOB)
+phish2009-12-05.103204.charlottesville.bk4022.davis.flac1644,aud,mic chain (OTS/FOB)
+phish2009-12-05.103205.charlottesville.mk41.cmc6.stober.flac1644,aud,mic chain (OTS/FOB)
+phish2009-12-05.103207.charlottesville.ck63.akg480.drew.flac1644,aud,mic chain (OTS/FOB)
+phish2009-12-05.103211.charlottesville.dpa4021.flac1644,aud,mic chain (OTS/FOB)
+phish2009-12-05.103212.charlottesville.ck63.akg460.brown.flac1644,aud,mic chain (OTS/FOB)
+phish2009-12-05.103212.charlottesville.ck63.akg460.brown.flac2496,aud,mic chain (OTS/FOB)
+phish2009-12-05.103297.charlottesville.mk4.cmc6.durham.flac1644,aud,mic chain (OTS/FOB)
+phish2009-12-05.103297.charlottesville.mk4.cmc6.durham.flac2496,aud,mic chain (OTS/FOB)
+phish2009-12-05.103304.charlottesville.mk41v.m222.mk4v.ak43.davis.flac1644,aud,mic chain (OTS/FOB)
+phish2009-12-05.164630.charlottesville.mk4.durham.flac2496,aud,mic chain (OTS/FOB)
+phish2009-12-05.179793.103297.charlottesville.mk4.cmc6.durham.flac2496,aud,mic chain (OTS/FOB)
+phish1996-11-07.004755.lexington.nak300.flac1644,aud,Nakamichi CM300+CP4
+phish1996-11-07.022065.lexington.akg460.ck61.flac1644,aud,AKG 460/ck61
+phish1996-11-07.022116.lexington.shureVP88.flac1644,aud,Shure VP88 stereo mic
+phish1996-11-07.075699.lexington.mg300.mahan.flac1644,aud,Microtech Gefell m300
+phish1996-11-07.118853.lexington.akg398.dunbar.flac1648,aud,AKG 398 > DAT
+phish1996-11-07.121411.lexington.akg461.jkt.flac1644,aud,akg461 in identifier only; no source text
+phish1996-11-07.167718.lexington.akg393.flac1644,aud,Lineage: AKG-393 > SBM
+PH2025-04-22.DPA4015c,aud,DPA 4015c OTS
+phish2025-04-22.171061.sanfrancisco.km150.lazor.flac2448,aud,Neumann KM150 OTS
+phish2025-04-22.171062.sanfrancisco.mk4.levy.flac1648,aud,Schoeps MK4
+phish2025-04-22.171063.sanfrancisco.mk4.phishrabbi.flac2448,aud,Schoeps MK4
+phish2025-04-22.171201.sanfrancisco.km140.lazor.flac2448,aud,Neumann KM140 OTS
+phish2025-04-22.171201.sanfrancisco.km140.lazor.flac2448_202509,aud,Neumann KM140 OTS
+phish2025-04-22.171287.sanfrancisco.ck63.miller.flac2496,aud,Recording Info: AKG CK63
+phish2025-04-22.171331.sanfrancisco.ck63.miller.flac1648,aud,Recording Info: AKG CK63
+phish2025-04-22.dpa4011er.flac24,aud,Equipment: dpa4011er FOH mics
+phish2025-04-22.dpa4028.flac24,aud,Equipment: dpa4028 FOH mics
+phish2016-10-14.137049.northcharleston.mk41v.m222.king.flac1644,aud,Schoeps mk41v OTS; misdated (show 2016-10-14)
+phish2021-08-14.153028.atlanticcity.at4031.djphrayz.flac1644,aud,AT4031 FOB (no Source: label)
+phish2021-08-14.153029.atlanticcity.at4031.djphrayz.flac2448,aud,AT4031 FOB
+phish2021-08-14.153054.atlanticcity.mk22.durham.flac2496,aud,FOB Schoeps MK22
+phish2021-08-14.153087.atlanticcity.dpa2011.cappelen.flac1644,aud,DPA 2011C FOB (no Source: label)
+phish2021-08-14.153088.atlanticcity.dpa2011.cappelen.flac2448,aud,DPA 2011C FOB
+phish2021-08-14.153089.atlanticcity.scx25.cappelen.flac1644,aud,Audix SCX25 FOB (no Source: label)
+phish2021-08-14.153090.atlanticcity.scx25.cappelen.flac2448,aud,Audix SCX25 FOB
+phish2021-08-14.153583.atlanticcity.km150.nyctaper.flac1644,aud,"Tapers Section at Soundboard, Neumann KM-150 (sbd as position)"
+phish2021-08-14.164277.atlanticcity.mk4v.durham.flac2496,aud,Schoeps mk4v fob
+phish2021-08-14.164296.atlanticcity.mk22.durham.flac2496,aud,Schoeps mk22
+phish1990-02-23.001359.haverford.sbd.flac1644,sbd,SBD>Cass0
+phish1990-02-23.126065.keene.sbd.flac1648,sbd,Source: SBD
+phish1992-03-12.028441.burlington.sbd.set2.flac1644,sbd,SBD > ?
+phish1992-03-12.081001.burlington.akg414.flac1644,aud,AKG 414 > D5
+phish1992-03-12.111594.burlington.sbd.set2.flac1644,sbd,"patchwork: SBD primary, aud master-cassette fills for 8 tracks (not aud-only)"
+phish1992-03-12.124147.burlington.sbd.flac1644,sbd,SBD > MC
+phish1992-03-12.168962.burlington.sbd.flac1644,sbd,'Recorded from the soundboard feed' (deep in notes)
+phish1992-11-27.138121.portchester.akg414.wise.flac1648,aud,AKG414 > Oade; misdated (show 1992-11-27)
+phish1992-xx-xx.138739.sbd.flac1644,sbd,"SBD Cass (Elektra demo compilation, placeholder date)"
+phish2016-07-22.136579.inglewood.m21.bowers.flac1644,aud,Gefell M21 FOB/DFC
+phish2016-07-22.136585.inglewood.mbho44.bsc1k11.logrippo.flac1648,aud,"MBHO440 ORTF; Location: right corner of SBD (sbd as position)"
+phish2016-07-22.136586.inglewood.mbho44.bsc1k11.logrippo.flac2448,aud,"MBHO440 ORTF; right corner of SBD"
+phish2016-07-22.136592.inglewood.mk4v.bowers.flac1644,aud,Schoeps MK4V FOB
+phish2016-07-22.136594.inglewood.km140.hodulik.flac1644,aud,Neumann AK40/KM100 FOB (no Source: label)
+phish2016-07-22.136848.inglewood.ck8.akg460.logrippo.flac1644,aud,"AKG c460b/ck8; OTS right corner of SBD"
+phish1993-03-13.026413.boulder.aud.flac1644,aud,Aud (unknown mics)
+phish1993-03-13.081391.boulder.aud.flac1644,aud,Source: Neumann
+phish1993-03-13.081504.boulder.me80.flac1644,aud,Sennheiser ME-80
+phish1991-07-20.005751.parksville.akg451.flac1644,aud,"source: akg 451+ck8a in sbd b00th (sbd as position)"
+phish1991-07-20.133847.parksville.akg451.ck8.flac1648,aud,AKG451/CK8A > MC
+phish-02.16.03,aud,"Sony 959 (ECM-959 stereo mic) > D-08, at end of description, no label (metadata API checked)"
+phish2003-02-16.015262.lasvegas.mk4.cmc6.gordon.lutch.flac1644,aud,Schoeps MK4
+phish2003-02-16.015444.lasvegas.km140.dobert.koorey.flac1644,aud,km140 (no Source: label)
+phish2003-02-16.016068.lasvegas.km184.flac1644,aud,Source info: Neumann KM184
+phish2003-02-16.121036.lasvegas.mk41.cmc6.lynch.sobel.flac1644,aud,Schoeps mk41
+phish2003-02-16.121037.lasvegas.mk41.cmc6.lynch.sobel.flac2448,aud,Schoeps mk41
+phish2003-02-16.135459.lasvegas.bk4022.watts.flac1648,aud,OTS B&K 4022
+phish2003-02-16.137606.lasvegas.km140.lazor.digihoarders.flac1644,aud,KM140 OTS
+phish2003-02-16.143890.lasvegas.km140.digihoarders.flac1644,aud,KM140 OTS
+Phish2024-08-07.Duncan.Lee.NeumannKM185.Flac24,aud,Neumann KM185 (source field)
+Phish2024-08-07.SchoepsMK41V.Duncan.Lee.Flac24,aud,SchoepsMK41V in identifier only
+ph2024-08-07.ck61.nbob.actives.pfas.mixpre6ii.s01t04,aud,AKG CK61 FOB
+phish2024-08-07.168435.grandrapids.km185.oldham.flac2448,aud,km185 in identifier only
+phish2024-08-07.168492.grandrapids.fob.ck61.davidson.flac2496,aud,AKG CK61 FOB
+phish2024-08-07.168572.grandrapids.mk22.m21.hernandez.flac2448,aud,Schoeps mk22 + Gefell M21
+phish2024-08-07.168601.grandrapids.fob.mk4.miller.flac1648,aud,Recording Info: FOB Schoeps
+phish2024-08-07.168602.grandrapids.fob.mk4.miller.flac2496,aud,Recording Info: FOB Schoeps
+phish2024-08-07ck61.nbob.actives.pfas.mixpre6ii.2496,aud,AKG CK61 FOB
+phish2024-08-07schoeps24bit,aud,Recording Info: FOB Schoeps
+phish1997-08-09.000682.easttroy.mk4.nutter.flac16,aud,Schoeps CMC6/mk4
+phish1997-08-09.080310.easttroy.km140.cowan.flac16,aud,FOB Neumann km140
+phish1997-08-09.105383.easttroy.bk4021.estrin.fox.flac16,aud,FOB B+K 4021
+phish1997-08-09.137671.easttroy.at815.lazor.flac1644,aud,AT 815 shotguns OTS
+phish1997-08-09.137672.easttroy.at815.lazor.flac1648,aud,AT 815 shotguns OTS
+phish1997-08-09.145370.easttroy.akg391.flac1644,aud,AKG 391 > SBM-1
+phish1991-02-20.002321.richmond.nak300.fixed.flac1644,aud,FOB Nakamichi 300
+phish1991-02-20.139776.richmond.nak300.cp1.flac1648,aud,FOB Nakamichi cm-300
+phish1994-04-08.006044.statecollege.rsm190.flac1644,aud,"DAUD/OTS Neumann rsm190i; 'Transfer: My patch master dat' = taper's patch copy, not a board"
+phish1994-04-08.013092.statecollege.aud.flac1644,aud,Source: DAUD
+phish1994-04-08.028442.statecollege.unk.set1.flac1644,unknown,Source: Mr. Anonymous? D>D>C; undeterminable
+phish1994-04-08.098902.statecollege.nak300.flac1644,aud,FOB Nak 300 ORTF
+phish1994-04-08.130331.statecollege.sbd.flac1648,sbd,Soundboard > Cass(m)
+phish1994-04-08.132135.universitypark.rsm190i.flac1648,aud,"Neumann RSM-191i > Neumann MTX-191 (M/S matrix box)"
+phish1994-04-08.150687.statecollege.nak300.cp4.boedicker.flac1644,aud,Nakamichi 300 shotguns > WM-D6C
+phish1994-05-28.007068.monterey.sbd.flac1644,sbd,Source: DSBD>DAT (past 250 chars of header)
+phish1994-05-28.008751.monterey.sbd.flac1644,sbd,"SBD > DAT, with aud CMC54 fill from YEM to end (patchwork, sbd primary)"
+phish1994-05-28.089594.monterey.mk4.byron.flac1644,aud,"Schoeps mk4 master; description notes SBD (shnid 8751) patched in for a portion (aud primary)"
+phish1994-05-28.133678.monterey.mtx.flac1644,matrix,2-source SBD+AUD matrix
+phish1994-05-28.134168.monterey.sbd.flac1648,sbd,SBD > ??? > DAT
+phish1995-06-08.012119.saltlakecity.akg460.flac1644,aud,AKG 460B > CK6
+phish2010-08-12.109361.noblesville.km150.cadwallader.flac1644,aud,Neumann AK50/KM100 OTS
+phish2010-08-12.109409.noblesville.mbho.price.flac1644,aud,MBHO KA200N/MB603 (no Source: label)
+phish2010-08-12.109439.noblesville.mk41.flac1644,aud,Schoeps mk41
+phish2010-08-12.109443.noblesville.km184.king.flac1644,aud,"Neumann KM184; Location: behind board"
+phish2010-08-12.109566.noblesville.mk41.wilson.flac1644,aud,Schoeps MK41 (no Source: label)
+phish2010-08-12.111095.noblesville.akg483.king.flac1644,aud,"AKG483; Location: behind board"
+phish2010-08-12.180015.109330.noblesville.mk41.mk21.downs.flac2448,aud,Schoeps mk41 + mk21 OTS
+phish2010-08-12.180016.109439.noblesville.mk41.flac2448,aud,Schoeps mk41
+phish1998-07-15.001089.portland.mk4.set1.bk4011.set2.flac1644,aud,Schoeps CMC64 / B&K 4011 (no Source: label)
+phish1998-07-15.006306.portland.mk4.set1.kmi84.set2.flac1644,aud,Schoeps CMC64 / Neumann KMi84
+phish1998-07-15.101934.portland.bk4011.nutter.flac1644,aud,B&K 4011
+phish1998-07-15.126292.portland.cmc64.flac1648,aud,Schoeps CMC64
