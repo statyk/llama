@@ -1,3 +1,4 @@
+import re
 import tomllib
 from pathlib import Path
 from typing import Literal
@@ -147,6 +148,33 @@ class AdjudicateConfig(_StrictModel):
     enabled: bool = True
 
 
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+class TaperssectionArtist(_StrictModel):
+    """One allowlisted archive.org Taper's Section artist (see llama/taperssection)."""
+    name: str
+    creators: list[str] = Field(min_length=1)
+    lineages: list[Literal["aud", "sbd", "matrix", "fm", "webcast"]] = Field(min_length=1)
+    exclude: list[str] = Field(default_factory=list)
+    note: str = ""
+    jerrybase: str | None = None
+    active_from: str | None = None
+    active_until: str | None = None
+    setlistfm: str | None = None
+
+    @field_validator("active_from", "active_until")
+    @classmethod
+    def _iso_date(cls, v):
+        if v is not None and not _ISO_DATE.match(v):
+            raise ValueError(f"{v!r} is not a YYYY-MM-DD date")
+        return v
+
+
+class TaperssectionConfig(_StrictModel):
+    artists: list[TaperssectionArtist] = Field(default_factory=list)
+
+
 class Config(_StrictModel):
     root: Path = DEFAULT_ROOT
     delivery_path: Path | None = None
@@ -160,6 +188,7 @@ class Config(_StrictModel):
     selection: SelectionConfig = Field(default_factory=SelectionConfig)
     pacing: PacingConfig = Field(default_factory=PacingConfig)
     adjudicate: AdjudicateConfig = Field(default_factory=AdjudicateConfig)
+    taperssection: TaperssectionConfig = Field(default_factory=TaperssectionConfig)
     tiers: dict[str, dict[Tier, str]] = Field(default_factory=dict)
 
     @model_validator(mode="before")
@@ -340,4 +369,18 @@ collection = "GratefulDead"
 date_from = "1980-01-01"
 date_to = "1987-12-31"
 scores = { matrix = 3.0, aud = 2.0, sbd = 1.0 }
+
+# [[taperssection.artists]]
+# Allowlist an archive.org Taper's Section artist so llama treats it as a
+# first-class artist (synthetic collection key "ts-" + slug of name). No entries
+# by default.
+# name = "Phish"
+# creators = ["Phish"]
+# lineages = ["aud", "sbd", "matrix"]
+# exclude = []
+# note = ""
+# jerrybase = "phish"
+# active_from = "1983-01-01"
+# active_until = "2099-12-31"
+# setlistfm = "e01646f2-2a04-450d-8bf2-0d993082e058"
 """
