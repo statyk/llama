@@ -711,12 +711,13 @@ def test_suggest_titles_threads_setlistfm_client_and_jerrybase_events(tmp_path, 
     real_build_canonical = gather_mod.build_canonical
     captured = {}
 
-    def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None):
+    def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None,
+            names=None):
         captured["setlistfm"] = setlistfm
         captured["events"] = events
         captured["provider"] = provider
         return real_build_canonical(ia, cand, identifier, meta, kept, artist, events,
-                                    setlistfm=setlistfm, provider=provider)
+                                    setlistfm=setlistfm, provider=provider, names=names)
 
     monkeypatch.setattr(gather_mod, "build_canonical", spy)
     monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
@@ -766,11 +767,12 @@ def test_suggest_titles_drops_excluded_files_from_kept(tmp_path, monkeypatch):
     real_build_canonical = gather_mod.build_canonical
     captured = {}
 
-    def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None):
+    def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None,
+            names=None):
         captured["kept"] = list(kept)
         captured["provider"] = provider
         return real_build_canonical(ia, cand, identifier, meta, kept, artist, events,
-                                    setlistfm=setlistfm, provider=provider)
+                                    setlistfm=setlistfm, provider=provider, names=names)
 
     monkeypatch.setattr(gather_mod, "build_canonical", spy)
     monkeypatch.setattr("typer.confirm", lambda *a, **k: False)

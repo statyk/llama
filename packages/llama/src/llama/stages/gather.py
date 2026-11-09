@@ -14,7 +14,7 @@ from llama.errors import LlamaError
 from llama.junk import (FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, TRAILING_ARROW, filter_files,
                         short_tag_is_junk)
 from llama.ia_client import IAError
-from llama.desc_list import DescRead, drop_leading_artist_items, read_desc_list
+from llama.desc_list import DescRead, artist_names, drop_leading_artist_items, read_desc_list
 from llama.lossless_titles import (SHIFTED_DELIVERED_NOTE, LosslessResult, apply_lossless,
                                    demoted_note)
 from llama.title_cosmetics import cosmetic_strip
@@ -168,6 +168,34 @@ def _creator(meta: dict) -> str | None:
     if isinstance(creator, list):
         creator = creator[0] if creator else None
     return creator
+
+
+@dataclass(frozen=True)
+class GatherNames:
+    """Who a show is, three ways (taperssection Task 6b; spec "Naming and keys").
+    `display` is `Show.artist`; `setlistfm` is the name setlist.fm is looked up (and
+    cached) by; `matching` is every spelling the artist-matching uses take (title
+    cleaning, the artist-item and banner drops, `cosmetic_strip`,
+    `show_metadata_norms`). An LMA show is `(creator, creator, (creator,))`: today's
+    keying exactly."""
+    display: str
+    setlistfm: str
+    matching: tuple[str, ...]
+
+
+def gather_names(collection: str, creator: str, allowlist: Allowlist | None) -> GatherNames:
+    """The names for a candidate of `collection` whose item creator is `creator`.
+
+    A `ts-` key resolves through `Allowlist.for_candidate` (it raises `LlamaError`
+    without a populated allowlist, or for an unknown key: a ts show never runs down the
+    LMA path): `display` is the entry's `name`, `setlistfm` is `entry.setlistfm or
+    entry.name`, and `matching` is `allowlist.matching_names(entry)` plus the creator,
+    de-duplicated in order. Any other collection never consults the allowlist."""
+    entry = Allowlist.for_candidate(allowlist, collection)
+    if entry is None:
+        return GatherNames(creator, creator, (creator,))
+    matching = tuple(_dedupe_ordered([*allowlist.matching_names(entry), creator]))
+    return GatherNames(entry.name, entry.setlistfm or entry.name, matching)
 
 
 def _dedupe_ordered(items: list[str]) -> list[str]:
@@ -604,7 +632,7 @@ def _date_norms(date: str) -> set[str]:
     return {n for n in (fuzzy_norm_title(r) for r in renderings) if n}
 
 
-def show_metadata_norms(artist: str, candidate: Candidate, meta: dict,
+def show_metadata_norms(artist: str | Sequence[str], candidate: Candidate, meta: dict,
                         events: list) -> set[str]:
     """The closed vocabulary the head-banner guard matches against: everything
     this show's own metadata says about who/where/when it is.
@@ -618,7 +646,8 @@ def show_metadata_norms(artist: str, candidate: Candidate, meta: dict,
     `structure.hygienic_title`'s own docstring already gives for the
     identical choice, one task earlier in this feature."""
     norms = _date_norms(candidate.date)
-    for value in (artist, candidate.venue, candidate.city,
+    # `artist` may be the names tuple of an allowlisted show (`GatherNames.matching`).
+    for value in (*artist_names(artist), candidate.venue, candidate.city,
                   meta.get("venue"), meta.get("coverage")):
         norms |= _place_norms(value if isinstance(value, str) else None)
     for event in events:
@@ -761,18 +790,19 @@ def _strip_head_banner(parsed: ParsedSetlist, norms: set[str]) -> ParsedSetlist:
     return parsed.model_copy(update={"items": kept})
 
 
-def _drop_artist_items(parsed: ParsedSetlist, artist: str) -> ParsedSetlist:
-    """Remove setlist items that are just the performing artist's name.
+def _drop_artist_items(parsed: ParsedSetlist, artist: str | Sequence[str]) -> ParsedSetlist:
+    """Remove setlist items that are just the performing artist's name (any of the
+    names, for an allowlisted show's `GatherNames.matching` tuple).
 
     LMA descriptions routinely put the band name on its own line above the
     songs; the parser has no artist to compare against, so it emits it as a
     song. It can never match a track, and every such item pushes the alignment
     pointer one step further from where the next real song sits.
     """
-    key = jerrybase.artist_key(artist)
-    if not key:
+    keys = {k for n in artist_names(artist) if (k := jerrybase.artist_key(n))}
+    if not keys:
         return parsed
-    kept = [i for i in parsed.items if jerrybase.artist_key(i.title) != key]
+    kept = [i for i in parsed.items if jerrybase.artist_key(i.title) not in keys]
     if len(kept) == len(parsed.items):
         return parsed
     return parsed.model_copy(update={"items": kept})
@@ -957,7 +987,8 @@ def _drop_dangling_segues(parsed: ParsedSetlist) -> ParsedSetlist:
 
 def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                     kept: list[dict], artist: str, events, *,
-                    setlistfm=None, provider=None) -> CanonicalBuild:
+                    setlistfm=None, provider=None,
+                    names: Sequence[str] | None = None) -> CanonicalBuild:
     """The cleaned canonical performance setlist: every recording's
     description, plus setlist.fm when configured, ranked pick-best, then
     head-banner-stripped, artist-item-dropped and footnote-marker-stripped.
@@ -976,7 +1007,11 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
     `.source` names the winning parse's provenance (a `SourcedParse.source`
     value, or None if nothing ranked) -- `run_gather` reports it as
     `StructureInfo.source`.
+
+    `artist` is the name setlist.fm is looked up by; `names` (default `(artist,)`)
+    are the spellings the cleaning matches on (`GatherNames`, taperssection Task 6b).
     """
+    names = tuple(names) if names is not None else (artist,)
     parses, notes, descriptions = _collect_parses(ia, candidate, identifier, meta)
     slfm_parse = None
     slfm_marks = None
@@ -1021,11 +1056,11 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
         donor = _drop_dangling_segues(best_lma.parsed) if best_lma else None
         canonical = blend_segues(canonical, donor)
 
-    metadata_norms = show_metadata_norms(artist, candidate, meta, events)
+    metadata_norms = show_metadata_norms(names, candidate, meta, events)
 
     def clean(parsed: ParsedSetlist) -> ParsedSetlist:
         parsed = _strip_head_banner(parsed, metadata_norms)
-        parsed = _drop_artist_items(parsed, artist)
+        parsed = _drop_artist_items(parsed, names)
         return _strip_footnote_markers(parsed)
 
     canonical = clean(canonical)
@@ -1217,7 +1252,7 @@ def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: st
 # both (Task 16); they are the only copy of the prelude and the title block.
 
 
-def gather_cleaner(metadata_norms: set[str], artist: str) -> desc_list.Cleaner:
+def gather_cleaner(metadata_norms: set[str], artist: str | Sequence[str]) -> desc_list.Cleaner:
     """Reader (ii)'s cleaner (spec slice 2 (ii)): `build_canonical`'s cleaning with one
     difference. `_strip_head_banner`, then `drop_leading_artist_items` (artist items in the
     leading run only, never mid-list: a self-titled song stays), then
@@ -1304,7 +1339,8 @@ class TitleInputs:
 def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, identifier: str,
                  artist: str, want: Sequence[str], events: list,
                  build: Callable[[list[dict]], CanonicalBuild], slug: str,
-                 allowlist: Allowlist | None = None) -> TitleInputs:
+                 allowlist: Allowlist | None = None,
+                 names: Sequence[str] | None = None) -> TitleInputs:
     """`compute_gather`'s title prelude, as one builder (its only copy). It does
     no IO of its own: the canonical comes through `build` (the caller binds
     `build_canonical`), called once on the post-exclusion `kept`, and the two closures
@@ -1315,7 +1351,11 @@ def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, id
     `slug` is the show's LIBRARY slug (`slugify(performance_id)`), named in the
     resolver's refusals; never a workspace dir name, which is `show` in replay's and
     reapply's scratch dirs. The resolver runs on the final kept list, after the
-    exclusion, and raises before the canonical is built."""
+    exclusion, and raises before the canonical is built.
+
+    `artist` is the item creator (jerrybase's fallback key); `names` (default
+    `(artist,)`) are the spellings the artist matching takes (`GatherNames.matching`)."""
+    names = tuple(names) if names is not None else (artist,)
     meta = md.get("metadata", {})
     files = md.get("files", [])
     fk = final_kept(files, overrides, want)
@@ -1383,7 +1423,7 @@ def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, id
     # Recomputed (not re-fetched) rather than threaded out of build_canonical:
     # it's a pure function of already-in-scope values, and adopt_gap_titles
     # needs it independently of the canonical-setlist build.
-    metadata_norms = show_metadata_norms(artist, candidate, meta, events)
+    metadata_norms = show_metadata_norms(names, candidate, meta, events)
     # The same one-file-must-not-decide-for-the-recording rule as
     # `recovery_basis` above, applied to the OTHER recording-level gate:
     # clean_tag_titles' enumerated-tape test, which decides whether a leading
@@ -1403,8 +1443,8 @@ def title_inputs(md: dict, overrides: Overrides, *, ia, candidate: Candidate, id
     family = jerrybase.is_family_artist(
         jerrybase.jerrybase_artist(candidate.collection, artist, allowlist))
     family_aliases = GD_SHORTHAND if family else {}
-    desc = read_desc_list(_description(meta), len(kept), artist=artist,
-                          clean=gather_cleaner(metadata_norms, artist))
+    desc = read_desc_list(_description(meta), len(kept), artist=names,
+                          clean=gather_cleaner(metadata_norms, names))
 
     def sibling_step(tracks: list[Track]) -> tuple[list[Track], list[str], DonorRows | None]:
         return _sibling_transfer_full(ia, candidate, identifier, want, tracks, metadata_norms)
@@ -1858,6 +1898,11 @@ def compute_gather(
     md = ia.metadata(identifier)
     meta = md.get("metadata", {})
     artist = str(_creator(meta) or candidate.collection)
+    # taperssection Task 6b: a `ts-` candidate ships the entry's display name, looks
+    # setlist.fm up by `entry.setlistfm or entry.name`, and matches on every spelling;
+    # an LMA candidate keys on `artist` three times over, as before. Resolved first, so
+    # a ts candidate without its allowlist raises before any other work.
+    naming = gather_names(candidate.collection, artist, allowlist)
     want = FORMAT_BY_AUDIO[audio_format]
     # read_overrides is hoisted above filter_files (it only reads the show dir)
     # so operator re-admission can be applied inside the filter, where play
@@ -1897,15 +1942,16 @@ def compute_gather(
     # the new slices at their places; `enabled_slices` picks which run.
     # The comments at each step live in those two functions.
     def build(kept: list[dict]) -> CanonicalBuild:
-        return build_canonical(ia, candidate, identifier, meta, kept, artist, events,
-                               setlistfm=setlistfm, provider=provider)
+        return build_canonical(ia, candidate, identifier, meta, kept, naming.setlistfm, events,
+                               setlistfm=setlistfm, provider=provider, names=naming.matching)
 
     # `slug` is the library slug (`RunWorkspace.show_ws`'s `slugify(performance_id)`),
     # never `show_ws.dir.name`: replay and reapply point `show_ws` at a scratch dir
     # named `show`.
     inp = title_inputs(md, overrides, ia=ia, candidate=candidate, identifier=identifier,
                        artist=artist, want=want, events=events, build=build,
-                       slug=slugify(candidate.performance_id), allowlist=allowlist)
+                       slug=slugify(candidate.performance_id), allowlist=allowlist,
+                       names=naming.matching)
     positions = inp.positions
     cascade = title_cascade(inp, enabled=enabled_slices)
     excluded, ordering, cb = inp.excluded, inp.ordering, inp.cb
@@ -2226,6 +2272,16 @@ def compute_gather(
         venue, city = sel_venue, sel_city
         flags.append(f"{_CITY_CONFLICT_FLAG}: '{sel_city}' (selected) vs '{vote_city}'")
 
+    # taperssection Task 6b: a ts candidate's title venue (search's most common
+    # `parse_title_venue`) is the LAST resort, only once the vote, jerrybase and the
+    # city chain above left the venue empty. Applied after every venue-mismatch and
+    # city-conflict decision, so it can never raise or clear either hold; a city the
+    # chain already has stays. An operator override below still wins.
+    if not _stripped(venue) and candidate.ts_title_venue is not None:
+        t_venue, t_city = candidate.ts_title_venue
+        if _stripped(t_venue):
+            venue, city, venue_source = t_venue, city or t_city, "title"
+
     if overrides.venue is not None:
         venue, venue_source = overrides.venue, "override"
         flags = [f for f in flags if not f.startswith("venue mismatch")]
@@ -2312,7 +2368,7 @@ def compute_gather(
     # structure above was computed from the pre-strip titles (spec "Slice 5").
     title_paths = cascade.paths
     if "slice5" in enabled_slices:
-        tracks, strip_notes, changed = cosmetic_strip(tracks, artist=artist)
+        tracks, strip_notes, changed = cosmetic_strip(tracks, artist=naming.matching)
         op_notes += strip_notes
         if changed:
             paths = list(title_paths)
@@ -2329,7 +2385,7 @@ def compute_gather(
     show = Show(
         performance_id=candidate.performance_id,
         identifier=identifier,
-        artist=artist,
+        artist=naming.display,
         date=date,
         date_source=date_source,
         item_date=item_date,

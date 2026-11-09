@@ -1,4 +1,5 @@
 import logging
+from collections import Counter
 
 from llama import ts_rules
 from llama.config import TaperssectionArtist
@@ -6,6 +7,7 @@ from llama.grouping import _first, _summary, group_candidates
 from llama.models import Candidate, Criteria
 from llama.status import detail, step
 from llama.taperssection import Allowlist, is_synthetic
+from llama.ts_measure import parse_title_venue
 from llama.workspace import RunWorkspace, read_model_list, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -106,9 +108,22 @@ def _search_one(ia, collection: str, criteria: Criteria, allowlist: Allowlist | 
     docs = ts_filter_docs(docs, entry, rule=ts_rules.RULE)
     # Filtering precedes grouping, so a date whose every recording was dropped
     # never becomes a candidate.
-    return [c for c in group_candidates(collection, docs, jerrybase_enabled=jerrybase_enabled,
-                                        allowlist=allowlist)
+    return [c.model_copy(update={"ts_title_venue": title_venue(c)})
+            for c in group_candidates(collection, docs, jerrybase_enabled=jerrybase_enabled,
+                                      allowlist=allowlist)
             if c.recordings]
+
+
+def title_venue(candidate: Candidate) -> tuple[str | None, str | None] | None:
+    """The most common (venue, city) parsed from a ts candidate's recording titles
+    (`parse_title_venue`), or None when no title names a venue. Ties go to the
+    parse met first, in recording order. Gather's last-resort venue only: it is never
+    written into a recording's `venue`/`coverage`."""
+    parses = [p for r in candidate.recordings
+              if (p := parse_title_venue(r.title))[0]]
+    if not parses:
+        return None
+    return Counter(parses).most_common(1)[0][0]
 
 
 def run_search(

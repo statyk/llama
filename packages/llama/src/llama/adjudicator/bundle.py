@@ -219,7 +219,16 @@ def build_bundle(show_ws: ShowWorkspace, ia, config: Config, *,
             sib_kept_s[c.identifier] = kept_s
 
     art, date = show.artist, show.item_date or show.date   # gather looks up by the item's date
-    cache = config.root / "cache" / f"{setlistfm.cache_key(art, date)}.json"
+    # A ts show's setlist.fm cache is keyed on the name gather looked it up by,
+    # `entry.setlistfm or entry.name` (taperssection Task 6b); an LMA show's on its
+    # artist, as before. No provenance means no key: the LMA keying. A pipeline-built
+    # ts show always has one (`process_show` writes provenance.json before gather).
+    if provenance is not None:
+        entry = Allowlist.for_candidate(allowlist, provenance.candidate.collection)
+        slfm_art = (entry.setlistfm or entry.name) if entry is not None else art
+    else:
+        slfm_art = art
+    cache = config.root / "cache" / f"{setlistfm.cache_key(slfm_art, date)}.json"
     try:
         sl = json.loads(cache.read_text()).get("setlist")
     except (OSError, ValueError, AttributeError):
@@ -227,7 +236,8 @@ def build_bundle(show_ws: ShowWorkspace, ia, config: Config, *,
     if sl:
         sections["setlistfm"] = [Row(text=_clean(json.dumps(sl, indent=1)[:SETLISTFM_CAP]))]
     if config.jerrybase.enabled:
-        # Routed by the candidate's collection (no provenance: no key, so `art`).
+        # Routed by the candidate's collection (no provenance: no key, so `art`; a
+        # pipeline-built ts show always carries provenance, written before gather).
         collection = provenance.candidate.collection if provenance is not None else art
         jb_art = jerrybase.jerrybase_artist(collection, art, allowlist)
         sections["jerrybase"] = [Row(text=_clean(repr(e))) for e in jerrybase.lookup(jb_art, date)]

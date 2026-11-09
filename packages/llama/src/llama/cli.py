@@ -3435,7 +3435,7 @@ def _sibling_run_reasons(prop_rows) -> list[tuple[int, int, str]]:
     return runs
 
 
-def _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical):
+def _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical, names=None):
     """Task 6's entry seam: the sibling-transfer arm of
     `_propose_titles_for_show`, attempted BEFORE the canonical correspondence
     DP. Loads donors exactly as `gather._sibling_transfer_full` does and picks the
@@ -3477,7 +3477,8 @@ def _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical):
     from llama.models import ProposalRow, TitleProposal
     from llama.stages.gather import best_donor, show_metadata_norms
 
-    metadata_norms = show_metadata_norms(show.artist, cand, meta, events)
+    # `names`: gather's matching names (`GatherNames.matching`); default show.artist.
+    metadata_norms = show_metadata_norms(names or show.artist, cand, meta, events)
     donor, rows, res, notes = best_donor(ia, cand, show.identifier, want,
                                          show.tracks, metadata_norms)
     for note in notes:      # m4: a donor that existed and failed to fetch is
@@ -3607,11 +3608,17 @@ def _propose_titles_for_show(ia, config, entry, show, *, allowlist: Allowlist | 
     from llama.junk import FORMAT_BY_AUDIO
     from llama.models import TitleProposal
     from llama.setlistfm import make_client
-    from llama.stages.gather import build_canonical, final_kept
+    from llama.stages.gather import _creator, build_canonical, final_kept, gather_names
 
     cand = entry.provenance.candidate
     md = ia.metadata(show.identifier)
     meta = md.get("metadata", {})
+    # The names gather itself used (taperssection Task 6b): an LMA show's
+    # `show.artist` IS gather's creator, so it keys exactly as before; a ts show's
+    # `show.artist` is the display name, so its creator comes from the item.
+    creator = (str(_creator(meta) or cand.collection) if is_synthetic(cand.collection)
+               else show.artist)
+    naming = gather_names(cand.collection, creator, allowlist)
     want = FORMAT_BY_AUDIO[config.audio_format]
     # gather's own final kept list (spec 4.2 "one shared helper"), over the stored
     # overrides: include is applied inside the filter (a recomputation without it
@@ -3644,16 +3651,18 @@ def _propose_titles_for_show(ia, config, entry, show, *, allowlist: Allowlist | 
         prop = TitleProposal(feasible=False, reason=reason)
         typer.echo(f"{entry.slug}: {prop.reason}")
         return prop, {}
-    jb_artist = jerrybase.jerrybase_artist(cand.collection, show.artist, allowlist)
+    jb_artist = jerrybase.jerrybase_artist(cand.collection, creator, allowlist)
     events = jerrybase.lookup(jb_artist, cand.date) if config.jerrybase.enabled else []
-    canonical = build_canonical(ia, cand, show.identifier, meta, kept, show.artist, events,
-                                setlistfm=make_client(config), provider=None).setlist
+    canonical = build_canonical(ia, cand, show.identifier, meta, kept, naming.setlistfm, events,
+                                setlistfm=make_client(config), provider=None,
+                                names=naming.matching).setlist
 
     # Task 6: the sibling-transfer arm, attempted BEFORE the canonical DP.
     # `canonical` is already built above -- needed either way, since the
     # sibling arm's own disagreement/coverage display reads it too -- so
     # trying the sibling arm first costs nothing extra when it declines.
-    sib = _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical)
+    sib = _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical,
+                            names=naming.matching)
     if sib is not None:
         return sib
 

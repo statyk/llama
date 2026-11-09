@@ -11,6 +11,7 @@ bracket pair or edits inside one (`Esau (s2t01)` -> `Esau ()`). `E:` and set mar
 never touched."""
 
 import re
+from collections.abc import Sequence
 
 from llama.models import Track
 from llama.placeholders import is_junk_tag
@@ -32,18 +33,23 @@ _BRACKET_PAIR = re.compile(r"\([^()]*\)|\[[^\[\]]*\]")
 _EMPTY_PAIR = re.compile(r"\(\s*\)|\[\s*\]")
 
 
-def _strip_artist(text: str, artist: str | None) -> str:
-    """A leading `<artist> - ` whose prefix is the show's artist (`fuzzy_norm_title`)."""
+def _strip_artist(text: str, artist: str | Sequence[str] | None) -> str:
+    """A leading `<artist> - ` whose prefix is the show's artist (`fuzzy_norm_title`),
+    or any one of the names when `artist` is a tuple (an allowlisted show's matching
+    names, taperssection Task 6b)."""
     if not artist:
         return text
+    names = (artist,) if isinstance(artist, str) else tuple(artist)
     head, sep, rest = text.partition(_ARTIST_SEP)
-    want = fuzzy_norm_title(artist)
-    if sep and want and fuzzy_norm_title(head) == want:
+    if not sep:
+        return text
+    got = fuzzy_norm_title(head)
+    if got and any(got == fuzzy_norm_title(n) for n in names if n):
         return rest
     return text
 
 
-def _strip(title: str, artist: str | None = None) -> str:
+def _strip(title: str, artist: str | Sequence[str] | None = None) -> str:
     out = _LEADING_TIME.sub("", title)
     out = _STEM.sub("", out)
     out = _TAIL.sub("", out)
@@ -69,10 +75,11 @@ def _acceptable(text: str) -> bool:
     return any(ch.isalnum() for ch in core) and not is_junk_tag(core)
 
 
-def cosmetic_strip(tracks: list[Track], *, artist: str | None = None,
+def cosmetic_strip(tracks: list[Track], *, artist: str | Sequence[str] | None = None,
                    ) -> tuple[list[Track], list[str], list[int]]:
     """Returns (tracks, notes, changed 0-based positions); inputs are not mutated. `artist`
-    is the show's artist (`compute_gather` threads it); None strips no artist prefix."""
+    is the show's artist, or the tuple of names an allowlisted show matches on
+    (`compute_gather` threads it); None strips no artist prefix."""
     out: list[Track] = []
     notes: list[str] = []
     changed: list[int] = []

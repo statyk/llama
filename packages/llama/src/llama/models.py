@@ -66,6 +66,11 @@ class Candidate(BaseModel):
     venue: str | None = None
     city: str | None = None
     recordings: list[RecordingSummary]
+    # Taper's Section only (taperssection Task 6b): the most common (venue, city)
+    # parsed from the recordings' titles (`ts_measure.parse_title_venue`), set by
+    # search for a `ts-` candidate. Gather's last-resort venue, used only after the
+    # vote/jerrybase/city chain left the venue empty. Always None on LMA candidates.
+    ts_title_venue: tuple[str | None, str | None] | None = None
 
 
 class QualityAssessment(BaseModel):
@@ -192,7 +197,7 @@ class Show(BaseModel):
     date: str
     venue: str | None = None
     city: str | None = None
-    venue_source: str = "item"  # "item" | "jerrybase" | "override" (venue from an override)
+    venue_source: str = "item"  # "item" | "jerrybase" | "override" (venue from an override) | "title" (a ts candidate's title venue)
     # Presentation date is correctable (vet may adopt a research date over an
     # archive year-only placeholder, or an operator override); identity never changes.
     item_date: str | None = None  # original archive date, set only when corrected
