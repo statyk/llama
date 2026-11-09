@@ -59,7 +59,7 @@ from llama.stages.interpret import run_interpret
 from llama.stages.search import run_search
 from llama.stages.winnow import run_winnow
 from llama.status import configure_logging
-from llama.taperssection import Allowlist
+from llama.taperssection import Allowlist, is_synthetic
 from llama.util import parse_performance_id, slugify
 from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
                              read_json, read_model, read_model_list, read_overrides,
@@ -428,6 +428,12 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              force_stage: str | None = None,
              full_rationale: bool = False, plan: bool = False,
              pace: PaceOptions | None = None, adjudicate: bool = False) -> None:
+    # Fail closed before anything else (no LLM, no scrape): a pinned or stored
+    # Taper's Section key must still be in [[taperssection.artists]].
+    allowlist = Allowlist.from_config(config.taperssection)
+    for key in ([criteria.collection] if criteria.collection else []) + list(criteria.artists):
+        if is_synthetic(key):
+            Allowlist.for_candidate(allowlist, key)
     providers, llm_calls = count_llm_calls(make_providers(config))
     if pace is None:
         pace = pace_options(config)
@@ -493,7 +499,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                                        min_downloads=config.artists.min_downloads,
                                        max_artists=config.artists.max_matched,
                                        force=force,
-                                       allowlist=Allowlist.from_config(config.taperssection))
+                                       allowlist=allowlist)
                 if not artists:
                     typer.echo("no matching artists found on the LMA - "
                                "try naming an artist or broadening the style", err=True)
@@ -519,7 +525,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                         artists = pruned
                         write_artifact(ws.artists, artists)
             run_search(ws, ia, criteria, artists=artists, force=force,
-                       jerrybase_enabled=config.jerrybase.enabled)
+                       jerrybase_enabled=config.jerrybase.enabled, allowlist=allowlist)
             shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
                                    library_ids=library_performance_ids(config.root),
                                    shortlist_size=max(12, count),

@@ -31,7 +31,21 @@ def _summary(doc: dict, date: str) -> RecordingSummary:
         num_reviews=int(_first(doc.get("num_reviews")) or 0),
         downloads=int(_first(doc.get("downloads")) or 0),
         description=str(_first(doc.get("description")) or "") or None,
+        # Requested only by the Taper's Section search (TS_EXTRA_FIELDS); an LMA
+        # scrape never asks for them, so they stay None there.
+        creator=_text(doc.get("creator")),
+        addeddate=_text(doc.get("addeddate")),
+        source=_text(doc.get("source")),
+        lineage=_text(doc.get("lineage")),
     )
+
+
+def _text(value) -> str | None:
+    """A text field as one string: a list's non-empty values joined with "; "
+    (every `source`/`lineage` value is classify evidence), else None."""
+    vals = value if isinstance(value, list) else [value]
+    parts = [str(v) for v in vals if v is not None and str(v).strip()]
+    return "; ".join(parts) or None
 
 
 def _make_candidate(pid, collection, recs, venue=None, city=None) -> Candidate:
