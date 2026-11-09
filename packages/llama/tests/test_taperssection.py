@@ -1,3 +1,4 @@
+import re
 import pytest
 from pydantic import ValidationError
 
@@ -103,6 +104,30 @@ def test_min_lengths_and_dates_validated():
     with pytest.raises(ValidationError):
         _entry(active_from="1997/01/01")
     assert _entry(active_from="1997-01-01", active_until="2000-12-31")
+
+
+def test_creator_with_double_quote_rejected():
+    # final review M2: search's _ts_query quotes each spelling as a Lucene phrase
+    with pytest.raises(ValidationError, match="double quote"):
+        _entry(creators=['Phish "live"'])
+    assert _entry(creators=["Phish's Band"])
+
+
+def test_default_config_template_example_parses_and_matches_rulings():
+    """final review M1: the commented example, uncommented, is a valid config that
+    matches the spec sketch (Phish audience only; setlistfm is an artist name)."""
+    import tomllib
+    from llama.config import DEFAULT_CONFIG_TOML, Config
+    tail = DEFAULT_CONFIG_TOML.split("# [[taperssection.artists]]", 1)[1]
+    body = [ln[2:] for ln in ("# [[taperssection.artists]]" + tail).splitlines()
+            if re.match(r"# (\[\[taperssection\.artists\]\]|[a-z_]+ = )", ln)]
+    arts = Config(**tomllib.loads("\n".join(body))).taperssection.artists
+    assert [a.name for a in arts] == ["Phish", "Jerry Garcia"]
+    phish = arts[0]
+    assert phish.lineages == ["aud"] and phish.jerrybase is None
+    assert set(phish.exclude) == {"webcast", "livephish"}
+    for a in arts:
+        assert a.setlistfm is None or not re.fullmatch(r"[0-9a-f-]{36}", a.setlistfm)
 
 
 def test_empty_fingerprint_is_none():

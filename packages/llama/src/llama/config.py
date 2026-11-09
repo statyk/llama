@@ -172,6 +172,15 @@ class TaperssectionArtist(_StrictModel):
             raise ValueError("name must contain letters or digits")
         return v
 
+    @field_validator("creators")
+    @classmethod
+    def _creators_unquoted(cls, v):
+        # Each spelling is put inside a quoted Lucene phrase by the search query.
+        for c in v:
+            if '"' in c:
+                raise ValueError(f"creator {c!r} must not contain a double quote")
+        return v
+
     @field_validator("active_from", "active_until")
     @classmethod
     def _iso_date(cls, v):
@@ -383,13 +392,17 @@ scores = { matrix = 3.0, aud = 2.0, sbd = 1.0 }
 # Allowlist an archive.org Taper's Section artist so llama treats it as a
 # first-class artist (synthetic collection key "ts-" + slug of name). No entries
 # by default.
-# name = "Phish"
-# creators = ["Phish"]
+# name = "Phish"                     # display name
+# creators = ["Phish"]               # uploader creator spellings
+# lineages = ["aud"]                 # lineage classes allowed to ship
+# exclude = ["webcast", "livephish"] # tape-level ban terms
+# note = "audience only by operator choice"
+#
+# [[taperssection.artists]]
+# name = "Jerry Garcia"
+# creators = ["Jerry Garcia", "Jerry Garcia Band"]
 # lineages = ["aud", "sbd", "matrix"]
-# exclude = []
-# note = ""
-# jerrybase = "phish"
-# active_from = "1983-01-01"
-# active_until = "2099-12-31"
-# setlistfm = "e01646f2-2a04-450d-8bf2-0d993082e058"
+# jerrybase = "Jerry Garcia Band"    # optional: jerrybase artist key
+# active_until = "1995-08-09"        # optional active bounds (active_from too)
+# setlistfm = "Jerry Garcia Band"    # optional: setlist.fm artist name (not an MBID)
 """
