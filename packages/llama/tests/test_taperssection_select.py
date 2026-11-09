@@ -289,3 +289,67 @@ def test_adjudicator_switch_to_forbidden_raises(tmp_path, monkeypatch):
     assert tree_bytes(lib.ws.dir) == before
     assert read_overrides(lib.ws).recording is None
     assert read_model(lib.ws.show, Show).identifier == AUD
+
+
+# --- a stored selection is re-checked under the CURRENT entry (review round 1) --
+
+def _stored(tmp_path, ident, *, pin=None):
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.selection, {"identifier": ident, "scores": {}})
+    if pin is not None:
+        write_artifact(sws.overrides, Overrides(recording=pin))
+    return sws
+
+
+def test_stored_forbidden_selection_reselects_allowed_sibling(tmp_path):
+    # selected under an older, looser entry; the entry is now aud-only
+    sws = _stored(tmp_path, SBD)
+    ia = IA()
+    chosen = run_select_recording(sws, ia, cand(R_AUD, R_SBD), qa(), allowlist=AL, today=TODAY)
+    assert chosen == AUD
+    sel = json.loads(sws.selection.read_text())
+    assert sel["identifier"] == AUD and set(sel["scores"]) == {AUD}
+    assert SBD not in ia.fetched
+
+
+def test_stored_excluded_selection_reselects(tmp_path):
+    sws = _stored(tmp_path, EXC)
+    chosen = run_select_recording(sws, IA(), cand(R_AUD, R_EXC), qa(), allowlist=AL, today=TODAY)
+    assert chosen == AUD
+    assert json.loads(sws.selection.read_text())["identifier"] == AUD
+
+
+def test_stored_forbidden_pinned_selection_raises(tmp_path):
+    sws = _stored(tmp_path, SBD, pin=SBD)
+    before = sws.selection.read_bytes()
+    with pytest.raises(LlamaError) as ei:
+        run_select_recording(sws, IA(), cand(R_AUD, R_SBD), qa(), allowlist=AL, today=TODAY)
+    assert str(ei.value) == (f"{PID}: pinned recording {SBD} is forbidden by the "
+                             "taperssection policy")
+    assert sws.selection.read_bytes() == before
+
+
+@pytest.mark.parametrize("ident", [AUD, UNK, "not-a-recording-of-this-show"])
+def test_stored_allowed_unknown_or_foreign_selection_reused_untouched(tmp_path, ident):
+    sws = _stored(tmp_path, ident)
+    before = sws.selection.read_bytes()
+    ia = IA()
+    chosen = run_select_recording(sws, ia, cand(R_AUD, R_UNK, R_SBD), qa(), allowlist=AL,
+                                  today=TODAY)
+    assert chosen == ident and ia.fetched == []
+    assert sws.selection.read_bytes() == before
+
+
+def test_lma_stored_selection_shortcut_unchanged(tmp_path):
+    import test_stage_select as tss
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.selection, {"identifier": "gd73-06-10.aud", "scores": {}})
+    before = sws.selection.read_bytes()
+
+    class Boom:
+        def metadata(self, identifier):
+            raise AssertionError("short-cut fetched metadata")
+    for al in (None, AL):
+        assert run_select_recording(sws, Boom(), tss.make_candidate(), tss.assessment(),
+                                    allowlist=al, today=TODAY) == "gd73-06-10.aud"
+    assert sws.selection.read_bytes() == before

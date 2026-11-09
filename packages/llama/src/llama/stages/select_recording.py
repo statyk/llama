@@ -3,9 +3,9 @@ import re
 from datetime import date
 
 from llama import ts_measure, ts_rules
-from llama.config import SelectionConfig
+from llama.config import SelectionConfig, TaperssectionArtist
 from llama.junk import FORMAT_BY_AUDIO, filter_files
-from llama.models import Candidate, QualityAssessment
+from llama.models import Candidate, QualityAssessment, RecordingSummary
 from llama.scoring import LINEAGE_SCORES, lineage_class, score_recording
 from llama.titles import clean_tag_titles, title_fraction
 from llama.errors import LlamaError
@@ -51,17 +51,23 @@ def lineage_table(selection: SelectionConfig, collection: str, date: str) -> dic
     return _era_lineage_scores(selection, collection, date) or LINEAGE_SCORES
 
 
-def _ts_policy(candidate: Candidate, entry, pin: str | None):
+def _ts_verdict(rec: RecordingSummary, entry: TaperssectionArtist) -> str:
+    """allowed | forbidden | unknown under the entry. "forbidden" also covers a
+    tape matching one of the entry's `exclude` terms."""
+    if ts_rules.excluded(rec, entry):
+        return "forbidden"
+    return ts_rules.allowed(rec, entry, rule=ts_rules.RULE)
+
+
+def _ts_policy(candidate: Candidate, entry: TaperssectionArtist,
+               pin: str | None) -> tuple[list[RecordingSummary], dict[str, str]]:
     """The taperssection per-tape policy filter (spec "Select-recording and the
     per-tape policy filter"): forbidden and `exclude`-matching tapes are removed;
     an unknown tape competes only when no allowed sibling remains, or when it is
     the pin. Returns (the recordings to score, {identifier: lineage class}).
     Raises LlamaError on a pin to a removed tape or on an empty remaining set."""
     pid = candidate.performance_id
-    verdict = {}
-    for rec in candidate.recordings:
-        verdict[rec.identifier] = ("forbidden" if ts_rules.excluded(rec, entry)
-                                   else ts_rules.allowed(rec, entry, rule=ts_rules.RULE))
+    verdict = {rec.identifier: _ts_verdict(rec, entry) for rec in candidate.recordings}
     if pin is not None and verdict.get(pin) == "forbidden":
         raise LlamaError(f"{pid}: pinned recording {pin} is forbidden by the taperssection policy")
     any_allowed = "allowed" in verdict.values()
@@ -88,7 +94,19 @@ def run_select_recording(
     # a stored selection would otherwise short-cut (None for an LMA candidate).
     entry = Allowlist.for_candidate(allowlist, candidate.collection)
     if not should_run(show_ws.selection, force):
-        return read_json(show_ws.selection)["identifier"]
+        stored = read_json(show_ws.selection)["identifier"]
+        if entry is None:
+            return stored
+        # Re-check the stored pick under the CURRENT entry: an entry tightened
+        # since the show was selected must not ship a now-forbidden tape. A
+        # forbidden pin raises; any other forbidden pick is stale and re-selects.
+        # A stored identifier that is not a recording of the candidate is kept.
+        rec = next((r for r in candidate.recordings if r.identifier == stored), None)
+        if rec is None or _ts_verdict(rec, entry) != "forbidden":
+            return stored
+        if stored == read_overrides(show_ws).recording:
+            raise LlamaError(f"{candidate.performance_id}: pinned recording {stored} is "
+                             "forbidden by the taperssection policy")
     selection = selection or SelectionConfig()
     pin = read_overrides(show_ws).recording
 
