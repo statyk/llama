@@ -2,8 +2,8 @@
 
 Branch `taperssection-allowlist`, worktree `.claude/worktrees/taperssection`, from
 merge base `1079044f`. Steps 1, 4 and 5 are offline (fake LLM backend, captured
-fixtures, no live archive.org). Step 2's replay is blocked on an operator ruling
-and Step 3 waits for operator approval.
+fixtures, no live archive.org). Step 2's replay is blocked on an operator ruling.
+Step 3 ran live with operator approval.
 
 ## Step 1: offline end-to-end
 
@@ -93,10 +93,113 @@ find ~/.llama/shows -newer $S/stamp | head      # must be empty
 
 ## Step 3: live smoke
 
-**Step 3: pending operator approval.** Not run. To run it: a scratch config with a
-Phish and a Warren Haynes entry, `llama --config <scratchpad>/ts-config.toml get
-"Phish 1997-11-22" --plan`, and an `llama artists "blues rock"`-style query. Never
-touch `~/.llama/config.toml`.
+**Result: pass on both commands.** Run 2026-11-09 with operator approval (both
+commands, plan only, scratch config and workspace outside `~/.llama`), from the
+worktree root at `c41a8b52`, with `./.venv/bin/python -m llama`.
+
+Scratch config `<scratchpad>/t12smoke/ts-config.toml` (`root` is
+`<scratchpad>/t12smoke/root`; the backend is the operator's production `claude_cli`
+with default tiers):
+
+```toml
+root = "<scratchpad>/t12smoke/root"
+
+[llm.default]
+backend = "claude_cli"
+
+[[taperssection.artists]]
+name = "Phish"
+creators = ["Phish"]
+lineages = ["aud"]
+exclude = ["webcast", "livephish"]
+note = "audience only by operator choice; see research record"
+
+[[taperssection.artists]]
+name = "Warren Haynes"
+creators = ["Warren Haynes"]
+lineages = ["aud", "sbd", "matrix"]
+```
+
+The Phish entry is the spec's example. The spec gives Warren Haynes no lineages or
+extra spellings, so the entry uses the brief's default `["aud", "sbd", "matrix"]`
+and the one creator spelling `Warren Haynes` (the premises survey counts 51
+exact-creator items for it).
+
+**`llama --config <cfg> get "Phish 1997-11-22" --plan`** (exit 0). Key lines:
+
+```
+searching Taper's Section
+scrape: 18/18 docs
+building taperssection index (one request per allowlisted artist)
+scrape: 11,133/1,133 docs
+scrape: 91/91 docs
+winnow: 1 candidates -> 1 after library+ledger -> 1 after mechanical
+winnow: scoring reviews (1 batches)
+winnow: researching shortlist (1 shows)
+ 1. 1997-11-22  Phish               ?                           score 3.3
+      There are no reviews. The baseline comes from the 33rd download percentile, ...
+shortlist ready — nothing processed.
+```
+
+- `criteria.json`: `collection: "ts-phish"`, `artist: "Phish"`, date 1997-11-22 to
+  1997-11-22. Interpret resolved the query to `ts-phish` through the allowlist.
+- One candidate, `ts-phish/1997-11-22`, with 18 taperssection recordings. The scorer
+  verdict has `attribution: "ok"` and score 3.3: no reviews, a below-floor baseline
+  from the download percentile. It shortlisted anyway because a single-date query
+  skips the quality floor for ts shows. light_research found the show's reputation
+  (phish.net "Best of 1997", JamBase).
+- The session parked as awaiting approval (`llama run approve 2026-11-09-phish-1997-11-22`).
+  Nothing was processed, downloaded or delivered. The scratch root holds only
+  `runs/<session>/` (request, criteria, candidates, shortlist, session) and `cache/`
+  (one item's metadata and `taperssection_index.json`, two artists).
+
+Observations, none a failure of this step:
+
+- The venue prints as `?`: a taperssection candidate carries no venue (the LMA
+  `venue` field is absent there). light_research found Hampton Coliseum from the date.
+- winnow's review fetch picked a set-1-only item
+  (`ph1997-11-22d1t04...kmi84.set1.flac16`) as the show's best recording. The scorer
+  lists "Source one (KMi84) is missing Set II" among its complaints. Recording
+  selection happens later, in select, so this changes only which item's reviews the
+  scorer read. It is the per-set case Step 4 records.
+- `scrape: 11,133/1,133 docs` is cosmetic and comes from existing code: archive.org's
+  scrape API reports the *remaining* count as `total` on cursor pages. The artist
+  index build shows the same thing (`270,000/36,834`). `ia_client.scrape` is
+  unchanged by this branch.
+
+**`llama --config <cfg> artists "blues rock"`** (exit 0). It built the LMA artist
+index (9,334 collections). It reused the taperssection index the `get` run had just
+built, with no rebuild line. Then it made one matcher call. Key lines:
+
+```
+building artist index (~30 requests, a minute or two)
+matching artists against the artist inventory (LLM)
+ 1. Derek Trucks Band                          1063 rec  1991-2009     3.4M dl
+ 2. Tedeschi Trucks Band                       1353 rec  2010-2026     5.0M dl
+ 3. North Mississippi Allstars                 1536 rec  1998-2026     1.7M dl
+ 4. Warren Haynes                                51 rec  1993-2026    18.8k dl
+      Premier blues-rock guitarist and vocalist, Taper's Section recordings
+ 5. Marcus King Band                            374 rec  2014-2026   559.4k dl
+ ...
+20. Robert Jon & The Wreck                       44 rec  2021-2026    14.4k dl
+```
+
+Warren Haynes is listed at rank 4 with 51 recordings, the survey's exact-creator
+count. The matcher saw the `Taper's Section` annotation (the "artist inventory"
+step label and the reason text). Phish is not listed, which is right for the query.
+
+**LLM calls: 4**, against an approved estimate of about 2-3 and a stop line of 6.
+`get --plan` made 3: interpret, score_reviews (one ts batch) and light_research (one
+shortlist entry). `artists` made 1: find_artists. The count comes from the code path
+(`_get_query` -> `_execute` -> `run_winnow`; `artists` -> `find_matching_artists`)
+and from the step lines above. The `pacing:` line is the live `/usage` meter read,
+which costs no tokens. No retry or `llm-failures/` directory appeared.
+
+**`~/.llama`:** nothing was read or written. Both commands ran with `--config` on the
+scratch file, whose `root` is the scratch directory. `load_config` reads only the
+given path, and every write went under the scratch root (`runs/`, `cache/`). No
+command named `~/.llama` or the station root. Full output:
+`.superpowers/sdd/taperssection/t12-smoke/t12-smoke.log` (not committed).
 
 ## Step 4: per-set items
 
