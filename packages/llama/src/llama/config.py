@@ -1,4 +1,6 @@
+import re
 import tomllib
+import unicodedata
 from pathlib import Path
 from typing import Literal
 
@@ -147,6 +149,50 @@ class AdjudicateConfig(_StrictModel):
     enabled: bool = True
 
 
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+class TaperssectionArtist(_StrictModel):
+    """One allowlisted archive.org Taper's Section artist (see llama/taperssection)."""
+    name: str
+    creators: list[str] = Field(min_length=1)
+    lineages: list[Literal["aud", "sbd", "matrix", "fm", "webcast"]] = Field(min_length=1)
+    exclude: list[str] = Field(default_factory=list)
+    note: str = ""
+    jerrybase: str | None = None
+    active_from: str | None = None
+    active_until: str | None = None
+    setlistfm: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _name_has_alnum(cls, v):
+        folded = unicodedata.normalize("NFKD", v).lower()
+        if not re.search(r"[a-z0-9]", folded):
+            raise ValueError("name must contain letters or digits")
+        return v
+
+    @field_validator("creators")
+    @classmethod
+    def _creators_unquoted(cls, v):
+        # Each spelling is put inside a quoted Lucene phrase by the search query.
+        for c in v:
+            if '"' in c:
+                raise ValueError(f"creator {c!r} must not contain a double quote")
+        return v
+
+    @field_validator("active_from", "active_until")
+    @classmethod
+    def _iso_date(cls, v):
+        if v is not None and not _ISO_DATE.match(v):
+            raise ValueError(f"{v!r} is not a YYYY-MM-DD date")
+        return v
+
+
+class TaperssectionConfig(_StrictModel):
+    artists: list[TaperssectionArtist] = Field(default_factory=list)
+
+
 class Config(_StrictModel):
     root: Path = DEFAULT_ROOT
     delivery_path: Path | None = None
@@ -160,6 +206,7 @@ class Config(_StrictModel):
     selection: SelectionConfig = Field(default_factory=SelectionConfig)
     pacing: PacingConfig = Field(default_factory=PacingConfig)
     adjudicate: AdjudicateConfig = Field(default_factory=AdjudicateConfig)
+    taperssection: TaperssectionConfig = Field(default_factory=TaperssectionConfig)
     tiers: dict[str, dict[Tier, str]] = Field(default_factory=dict)
 
     @model_validator(mode="before")
@@ -340,4 +387,22 @@ collection = "GratefulDead"
 date_from = "1980-01-01"
 date_to = "1987-12-31"
 scores = { matrix = 3.0, aud = 2.0, sbd = 1.0 }
+
+# [[taperssection.artists]]
+# Allowlist an archive.org Taper's Section artist so llama treats it as a
+# first-class artist (synthetic collection key "ts-" + slug of name). No entries
+# by default.
+# name = "Phish"                     # display name
+# creators = ["Phish"]               # uploader creator spellings
+# lineages = ["aud"]                 # lineage classes allowed to ship
+# exclude = ["webcast", "livephish"] # tape-level ban terms
+# note = "audience only by operator choice"
+#
+# [[taperssection.artists]]
+# name = "Jerry Garcia"
+# creators = ["Jerry Garcia", "Jerry Garcia Band"]
+# lineages = ["aud", "sbd", "matrix"]
+# jerrybase = "Jerry Garcia Band"    # optional: jerrybase artist key
+# active_until = "1995-08-09"        # optional active bounds (active_from too)
+# setlistfm = "Jerry Garcia Band"    # optional: setlist.fm artist name (not an MBID)
 """

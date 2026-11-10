@@ -48,6 +48,7 @@ from llama.overrules import flag_key, merge_rules, records_for, split_overruled
 from llama.replay import (CacheMiss, CacheOnlyIA, code_identity, config_fingerprint,
                           input_digests, row_label_only, row_visible_changes)
 from llama.stages.select_recording import run_select_recording
+from llama.taperssection import Allowlist
 from llama.station_mark import destination_voiced
 from llama.show_unit import show_unit
 from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
@@ -613,7 +614,8 @@ def reselect_rows(root: Path, config, source: list[dict]) -> list[dict]:
             try:
                 pick = run_select_recording(ShowWorkspace(Path(tmp) / slug), ia, prov.candidate,
                                             assessment, config.audio_format, force=True,
-                                            selection=config.selection)
+                                            selection=config.selection,
+                                            allowlist=Allowlist.from_config(config.taperssection))
             except CacheMiss as exc:
                 raise LlamaError(f"{slug}: {exc}") from exc
             if pick == stored:

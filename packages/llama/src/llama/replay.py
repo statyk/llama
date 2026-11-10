@@ -30,6 +30,7 @@ from llama.stages.brief import briefing_guard, normalize_briefing
 from llama.stages.gather import CascadeRecord, GatherResult, compute_gather
 from llama.stages.vet_research import VetOutcome, apply_vet
 from llama.structure import is_filler
+from llama.taperssection import Allowlist
 from llama.workspace import ShowWorkspace, read_model, read_overrides
 
 _REFUSED = "network refused by the cache-only client"
@@ -129,6 +130,11 @@ def config_fingerprint(config: Config) -> str:
         "jerrybase": config.jerrybase.model_dump(),
         "setlistfm_configured": setlistfm_configured(config),
     }
+    # taperssection Task 10: an allowlist edit (a `note`-only one excepted) changes the
+    # fingerprint; an empty allowlist adds no key, so today's fingerprint is unchanged.
+    allowlist_fp = Allowlist.from_config(config.taperssection).fingerprint()
+    if allowlist_fp is not None:
+        payload["taperssection"] = allowlist_fp
     return _sha256(json.dumps(payload, sort_keys=True).encode())
 
 
@@ -167,6 +173,8 @@ _FAMILIES: tuple[tuple[str, Callable[[str], bool]], ...] = (
     ("events", lambda f: f.startswith(("tape spans", "unassigned multi-event", "multi-event date"))),
     ("tracks", lambda f: f.startswith("no playable tracks")),
     ("package", lambda f: f.startswith(package_stage.FLAG_PREFIX)),
+    ("lineage-unknown", lambda f: f.startswith("unclassified lineage for")),
+    ("misattribution", lambda f: f.startswith("possible misattribution:")),
 )
 
 
@@ -628,7 +636,8 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
         ShowWorkspace(scratch), ia, extract_provider, prov.candidate, stored.identifier,
         audio_format=config.audio_format, align_provider=align_provider, setlistfm=slfm,
         structure_cfg=config.structure, jerrybase_enabled=config.jerrybase.enabled,
-        enabled_slices=enabled_slices, llm_failures_raise=llm_failures_raise)
+        enabled_slices=enabled_slices, llm_failures_raise=llm_failures_raise,
+        allowlist=Allowlist.from_config(config.taperssection), assessment=prov.assessment)
     needs_llm = list(gathered.needs_llm)
     if (gather_providers is None
             and stored.structure is not None and stored.structure.alignment == "llm"

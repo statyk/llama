@@ -11,7 +11,7 @@ crowd noise) separately from opinions about the performance.
 Candidates (JSON):
 {{candidates_json}}
 
-Programmer's style/mood guidance (weigh shows matching it higher): {{soft_preferences}}
+Programmer's style/mood guidance (weigh shows matching it higher): {{soft_preferences}}{{ts_block}}
 
 Respond with ONLY JSON in this shape:
 {"assessments": [

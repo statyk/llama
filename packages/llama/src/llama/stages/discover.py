@@ -3,6 +3,7 @@ from pathlib import Path
 
 from llama.artist_index import filter_artists, find_matching_artists, load_or_build
 from llama.models import Criteria
+from llama.taperssection import Allowlist, is_synthetic
 from llama.workspace import RunWorkspace, read_json, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -30,13 +31,15 @@ def run_discover(
     min_downloads: int = 50000,
     max_artists: int = 20,  # same budget as `llama artists`: test-drives must preview the real slate
     force: bool = False,
+    allowlist: Allowlist | None = None,
 ) -> list[dict]:
     if not should_run(ws.artists, force):
         return read_json(ws.artists)
-    pool = filter_artists(load_or_build(ia, cache_dir), min_recordings, min_downloads)
+    pool = filter_artists(load_or_build(ia, cache_dir, allowlist=allowlist), min_recordings, min_downloads)
     matched = find_matching_artists(provider, pool, _compose_query(criteria),
                                     max_results=max_artists)
     result = [{"identifier": a["identifier"], "title": a["title"]} for a in matched]
-    log.info("discover: %d artists matched on the LMA", len(result))
+    where = "" if any(is_synthetic(a["identifier"]) for a in result) else " on the LMA"
+    log.info("discover: %d artists matched%s", len(result), where)
     write_artifact(ws.artists, result)
     return result

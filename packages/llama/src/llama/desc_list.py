@@ -269,16 +269,25 @@ strip is never a removal. The cleaned items are the input items minus the remove
 in order."""
 
 
-def drop_leading_artist_items(parsed: ParsedSetlist, artist: str) -> ParsedSetlist:
-    """Drop the LEADING run of items that are just the performing artist's name.
+def artist_names(artist: str | Sequence[str]) -> tuple[str, ...]:
+    """One artist string, or the names tuple an allowlisted (`ts-`) show matches on
+    (taperssection Task 6b: the entry's name and creators plus the item creator), as a
+    tuple. An LMA show passes its one creator string, so it matches exactly as before."""
+    return (artist,) if isinstance(artist, str) else tuple(artist)
+
+
+def drop_leading_artist_items(parsed: ParsedSetlist,
+                              artist: str | Sequence[str]) -> ParsedSetlist:
+    """Drop the LEADING run of items that are just the performing artist's name (any of
+    the names, for a tuple).
 
     Unlike gather's `_drop_artist_items`, which drops them anywhere, a self-titled song
     further down the list (railroadearth-2004-04-09's `Railroad Earth`) stays."""
-    key = jerrybase.artist_key(artist)
-    if not key:
+    keys = {k for n in artist_names(artist) if (k := jerrybase.artist_key(n))}
+    if not keys:
         return parsed
     n = 0
-    while n < len(parsed.items) and jerrybase.artist_key(parsed.items[n].title) == key:
+    while n < len(parsed.items) and jerrybase.artist_key(parsed.items[n].title) in keys:
         n += 1
     if not n:
         return parsed
@@ -320,7 +329,7 @@ def _blocks(sets: Sequence[str]) -> tuple[tuple[int, ...], tuple[str, ...]]:
     return tuple(blocks), tuple(boundaries)
 
 
-def read_parse(desc: str, *, artist: str, clean: Cleaner) -> DescList | str:
+def read_parse(desc: str, *, artist: str | Sequence[str], clean: Cleaner) -> DescList | str:
     """`parse_setlist`'s items for the selected description as one list, or a reason.
 
     Each raw line `parse_setlist` parses is judged ON ITS OWN (`_emit_items([line])`, so no
@@ -382,7 +391,8 @@ class DescRead:
     parsed: DescList | str
 
 
-def read_desc_list(desc: str, n_tracks: int, *, artist: str, clean: Cleaner) -> DescRead:
+def read_desc_list(desc: str, n_tracks: int, *, artist: str | Sequence[str],
+                   clean: Cleaner) -> DescRead:
     """Both readers over the selected description; `used` is the first of (i), (ii) that
     is admissible and has exactly `n_tracks` entries."""
     numbered = read_numbered(desc)

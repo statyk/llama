@@ -177,9 +177,9 @@ def test_profile_artists_set_show_and_clear(tmp_path, monkeypatch):
     assert runner.invoke(cli.app, ["--config", cfg, "profile", "add", "myprof", "q"]).exit_code == 0
 
     # offline artist resolution: echo names as identifiers
-    monkeypatch.setattr(cli, "load_or_build", lambda ia, cache: [])
+    monkeypatch.setattr(cli, "load_or_build", lambda ia, cache, **kw: [])
     monkeypatch.setattr(cli, "resolve_artists",
-                        lambda index, names: [{"identifier": n, "title": n} for n in names])
+                        lambda index, names, allowlist=None: [{"identifier": n, "title": n} for n in names])
 
     r = runner.invoke(cli.app, ["--config", cfg, "profile", "artists", "myprof",
                                 "--set", "Galactic, Lettuce"])
@@ -227,7 +227,7 @@ def test_profile_add_pins_resolved_artists(tmp_path: Path, monkeypatch):
     criteria_json = json.dumps({"query": "funk"})
     monkeypatch.setattr(cli, "make_providers",
                         lambda config: {"interpret": FakeProvider(completes=[criteria_json])})
-    monkeypatch.setattr(cli, "load_or_build", lambda ia, cache: PIN_INDEX)
+    monkeypatch.setattr(cli, "load_or_build", lambda ia, cache, **kw: PIN_INDEX)
     result = runner.invoke(cli.app, ["--config", cfg, "profile", "add", "funky", "funk",
                                      "--artists", "galactic, lettuce"])
     assert result.exit_code == 0, result.output
@@ -243,7 +243,7 @@ def test_profile_add_rejects_unknown_pinned_artist(tmp_path: Path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     monkeypatch.setattr(cli, "make_providers",
                         lambda config: {"interpret": FakeProvider(completes=[json.dumps({"query": "funk"})])})
-    monkeypatch.setattr(cli, "load_or_build", lambda ia, cache: PIN_INDEX)
+    monkeypatch.setattr(cli, "load_or_build", lambda ia, cache, **kw: PIN_INDEX)
     result = runner.invoke(cli.app, ["--config", cfg, "profile", "add", "funky", "funk",
                                      "--artists", "Zebra Ensemble"])
     # resolve_artists now raises ArtistResolutionError, an uncaught LlamaError that

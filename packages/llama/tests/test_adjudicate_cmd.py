@@ -188,11 +188,11 @@ def test_bundle_error_on_first_show_second_still_judged(rig, monkeypatch):
     real = runner.build_bundle
     calls = []
 
-    def bad(ws, ia, config):
+    def bad(ws, ia, config, **k):
         calls.append(ws.dir.name)
         if len(calls) == 1:
             raise OSError("no")
-        return real(ws, ia, config)
+        return real(ws, ia, config, **k)
     monkeypatch.setattr(runner, "build_bundle", bad)
     r = run(rig)
     assert len(calls) == 2 and r.exit_code == 1 and "failed (bundle: no)" in r.output

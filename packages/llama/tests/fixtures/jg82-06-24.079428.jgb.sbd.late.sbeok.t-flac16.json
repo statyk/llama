@@ -1,0 +1,399 @@
+{
+  "metadata": {
+    "identifier": "jg82-06-24.079428.jgb.sbd.late.sbeok.t-flac16",
+    "collection": [
+      "taperssection",
+      "audio_music"
+    ],
+    "creator": "Jerry Garcia",
+    "date": "1982-06-24",
+    "mediatype": "audio",
+    "title": "Jerry Garcia live at Capitol Theatre, Passaic, NJ on 1982-06-24",
+    "uploader": "wharfratjoe@gmail.com",
+    "collection_added": "audio_music",
+    "publicdate": "2025-11-10 19:15:15",
+    "addeddate": "2025-11-10 19:15:15",
+    "description": "This is a tagged version of shnid: 79428\n\nJERRY GARCIA BAND \nCapitol Theater \nPassaic NJ \n06-24-1982 \n\nLate Show - Soundboard \n\nDisc One (42:31) \n\n01 Sugaree \n02 They Love Eachother \n03 Love in the Afternoon \n04 It's No Use \n\nDisc Two (46:25) \n\n01 Let it Rock \n02 Simple Twist of Fate > \n03 Dear Prudence > \n04 Run for the Roses \n05 Encore: Deal \n\nSource: SBD > CM > DAT > CDR > EAC > Soundforge > CD-Wave > \nTLH v.1.0.0.72 (for SBE-OK, FLAC compression & checksums) > \nFLAC, October 2006. \n\nNotes: This was the last JGB show with Bill Kreutzmann, \nJimmy Warren, Essra Mowhawk, and Liz Stires. Some of the \nsongs start abruptly due to tape pauses. The very end of \nRun for the Roses is clipped. Soundforge was used to make \nfades, adjust levels, and for some small edits. With big \nthanks to Jon P for transferring his DAT to CDR. EAC thru \nFLAC by Andrew F.                          ****ENJOY**** \n\nTagging notes:\nShow information is embedded within the header of each flac file. \nIt will display on any player capable of directly playing flac files. \nIf converted to wav during processing, all tags will be stripped, \nhowever audio data will remain unaffected. \nIf you must transcode to a lossy format, do so directly Flac > Lossy.\nUse ffp to validate audio integrity.\nMd5 values will change if tagging is altered.\nA Mills 9/16/14\n\nFFP \n\njgb1982-06-24B-d1t01.flac:e457f17dbbfe4b55f1b3eaad498a989b \njgb1982-06-24B-d1t02.flac:4f521f7d97221cb69614c525aaa153ff \njgb1982-06-24B-d1t03.flac:84932e4a12969cde80ce695791de9eaf \njgb1982-06-24B-d1t04.flac:bc390d0a8dc295bceed771e265324dfb \njgb1982-06-24B-d2t01.flac:1b54a259414e71b68541748b1d67a2aa \njgb1982-06-24B-d2t02.flac:0fc87429c005c79a86d507a2bee1122d \njgb1982-06-24B-d2t03.flac:639856ca326c92d90a2b84205b4f9afb \njgb1982-06-24B-d2t04.flac:6f153af106ea4303e5e9a75d8d1986e5 \njgb1982-06-24B-d2t05.flac:f78488451be4ab50e1cb1c1b8f143d7b \n\nSHNTOOL \n\n    length     expanded size   cdr  WAVE problems filename \n    13:20.46      141228236    ---   --   ---xx   jgb1982-06-24B-d1t01.flac \n     8:21.53       88501100    ---   --   ---xx   jgb1982-06-24B-d1t02.flac \n    10:53.41      115285676    ---   --   ---xx   jgb1982-06-24B-d1t03.flac \n     9:55.73      105129740    ---   --   ---xx   jgb1982-06-24B-d1t04.flac \n     6:41.53       70861100    ---   --   ---xx   jgb1982-06-24B-d2t01.flac \n    13:40.74      144822092    ---   --   ---xx   jgb1982-06-24B-d2t02.flac \n    12:58.23      137293340    ---   --   ---xx   jgb1982-06-24B-d2t03.flac \n     5:27.14       57715772    ---   --   ---xx   jgb1982-06-24B-d2t04.flac \n     7:37.29       80683052    ---   --   ---xx   jgb1982-06-24B-d2t05.flac \n    88:57.31      941520108 B                     (totals for 9 files, 0.5658 overall compression ratio) \n\nThere were no sector boundary errors. "
+  },
+  "files": [
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "b34ed052a18731fe50206def29f5aa7b"
+    },
+    {
+      "name": "jg82-06-24.079428.jgb.sbd.late.sbeok.t-flac16_archive.torrent",
+      "source": "metadata",
+      "format": "Archive BitTorrent",
+      "md5": "ee987d59b9ee3d70ba969d830f7f61ae"
+    },
+    {
+      "name": "jg82-06-24.079428.jgb.sbd.late.sbeok.t-flac16_files.xml",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "fd32ad9ae2269721d31bb174825d056c"
+    },
+    {
+      "name": "jg82-06-24.079428.jgb.sbd.late.sbeok.t-flac16_meta.sqlite",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "657cf40fc9fcffcc75d84b0a050c3650"
+    },
+    {
+      "name": "jg82-06-24.079428.jgb.sbd.late.sbeok.t-flac16_meta.xml",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "1b58f89fd2b2c413a6ad2b1b745b9e96"
+    },
+    {
+      "name": "jg82-06-24.079428.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "f8448d0ed8484fff4d9597af813b8fe0"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t01.afpk",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t01.flac",
+      "format": "Columbia Peaks",
+      "md5": "56b6c2e7a752d5d68f7403153735160f"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "800.61",
+      "md5": "de3cbe60262ebcc586c3817653b64acb",
+      "title": "Sugaree"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t01.mp3",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t01.flac",
+      "format": "VBR MP3",
+      "length": "13:21",
+      "md5": "125f683b3d9dc66e6935eebd9357976c",
+      "title": "Sugaree"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t01.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t01.flac",
+      "format": "PNG",
+      "md5": "6e025e6acbbaba1abeea67bd2f8dbc88"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t01_spectrogram.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t01.flac",
+      "format": "Spectrogram",
+      "md5": "111bc8fed1d9281124cd3f9502294758"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t02.afpk",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t02.flac",
+      "format": "Columbia Peaks",
+      "md5": "6facd7ffdb9f0b359f5b88d0afa88aca"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "501.71",
+      "md5": "04d34cf3d2b872f013c7018f3014d4d1",
+      "title": "They Love Each Other"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t02.mp3",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t02.flac",
+      "format": "VBR MP3",
+      "length": "08:22",
+      "md5": "bb2bc80135a481a3d2572113886bccc3",
+      "title": "They Love Each Other"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t02.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t02.flac",
+      "format": "PNG",
+      "md5": "e7f73a63bf9d79a9c8fceda1177126eb"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t02_spectrogram.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t02.flac",
+      "format": "Spectrogram",
+      "md5": "fa1cc5bda4e533d22cc0911119baab01"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t03.afpk",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t03.flac",
+      "format": "Columbia Peaks",
+      "md5": "a4359956dcdf9a4e3f1d8ccb3d543bf4"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "653.55",
+      "md5": "479351f01a8a8464c5b63e01e6db0b90",
+      "title": "Love in the Afternoon"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t03.mp3",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t03.flac",
+      "format": "VBR MP3",
+      "length": "10:54",
+      "md5": "85304da113155452e1670f916688be25",
+      "title": "Love in the Afternoon"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t03.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t03.flac",
+      "format": "PNG",
+      "md5": "5feffb8ec01a6430723bec82922cbaee"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t03_spectrogram.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t03.flac",
+      "format": "Spectrogram",
+      "md5": "f94b3704775751a04bad43b367e1b14c"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t04.afpk",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t04.flac",
+      "format": "Columbia Peaks",
+      "md5": "722bcd8539bb2a8c8615cb8a00fc8a43"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "595.97",
+      "md5": "1ed0daaba9eb0640015b5953f3f5846a",
+      "title": "It Ain't No Use"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t04.mp3",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t04.flac",
+      "format": "VBR MP3",
+      "length": "09:56",
+      "md5": "4160b8d11c400c416c08ff5451804bf6",
+      "title": "It Ain't No Use"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t04.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t04.flac",
+      "format": "PNG",
+      "md5": "2c86af46f627f108d2aec252514d1d54"
+    },
+    {
+      "name": "jgb1982-06-24B-d1t04_spectrogram.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d1t04.flac",
+      "format": "Spectrogram",
+      "md5": "4048d0dbd2fcf3563fb6d3e42567eed1"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t01.afpk",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t01.flac",
+      "format": "Columbia Peaks",
+      "md5": "775a02122ae93c4c7648004b9206aa59"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "401.71",
+      "md5": "a121d45478b88c52811feaef49de74af",
+      "title": "Let It Rock"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t01.mp3",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t01.flac",
+      "format": "VBR MP3",
+      "length": "06:42",
+      "md5": "9760892fa9df29e795b737cb91bb477e",
+      "title": "Let It Rock"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t01.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t01.flac",
+      "format": "PNG",
+      "md5": "98bbd61dbad9d9c31efe7eabb45f2702"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t01_spectrogram.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t01.flac",
+      "format": "Spectrogram",
+      "md5": "62f054c3131268852622b2fc7bdcb379"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t02.afpk",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t02.flac",
+      "format": "Columbia Peaks",
+      "md5": "6fdfd309c1e89f8a0ab6f4727a2b3107"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "820.99",
+      "md5": "fd0cf3f59dd762bffa78337d758d7662",
+      "title": "Simple Twist of Fate"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t02.mp3",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t02.flac",
+      "format": "VBR MP3",
+      "length": "13:41",
+      "md5": "5a97bb6a3ec2ff084c532b6dbad3f228",
+      "title": "Simple Twist of Fate"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t02.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t02.flac",
+      "format": "PNG",
+      "md5": "20631248c2a822334fd07bf3720a4fba"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t02_spectrogram.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t02.flac",
+      "format": "Spectrogram",
+      "md5": "39b9b53e4880e2d53d8fb8761b5a6b92"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t03.afpk",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t03.flac",
+      "format": "Columbia Peaks",
+      "md5": "e7f8bbc00a165e537728ef1d740b74eb"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "778.31",
+      "md5": "40bb0963e16063922afb9dd526f29125",
+      "title": "Dear Prudence"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t03.mp3",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t03.flac",
+      "format": "VBR MP3",
+      "length": "12:58",
+      "md5": "69b24ae7f0120a5ea1f4e578a69f2a57",
+      "title": "Dear Prudence"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t03.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t03.flac",
+      "format": "PNG",
+      "md5": "4c17b345189948d89eaffae07930cbfe"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t03_spectrogram.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t03.flac",
+      "format": "Spectrogram",
+      "md5": "14a67e66a6f98301eba1df44cad2feb6"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t04.afpk",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t04.flac",
+      "format": "Columbia Peaks",
+      "md5": "4b7c3c7dde3762c6a1333c0885b32850"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "327.19",
+      "md5": "626bc05819e29f527b05c42d611e39fa",
+      "title": "Run for the Roses"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t04.mp3",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t04.flac",
+      "format": "VBR MP3",
+      "length": "05:27",
+      "md5": "dcd3e5936b42494d0514390804ffd097",
+      "title": "Run for the Roses"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t04.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t04.flac",
+      "format": "PNG",
+      "md5": "be292de9f02dd0b6bb29d02d0edc527c"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t04_spectrogram.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t04.flac",
+      "format": "Spectrogram",
+      "md5": "ec8a24259bac1d1aa5ab4a4f1a90615a"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t05.afpk",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t05.flac",
+      "format": "Columbia Peaks",
+      "md5": "0071c03a5f4e74ef8fd0ffdd2b894158"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "457.39",
+      "md5": "49c6fad9817e9477c918b25f0a6936c9",
+      "title": "Deal"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t05.mp3",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t05.flac",
+      "format": "VBR MP3",
+      "length": "07:37",
+      "md5": "c1583609b5bc947c294fe916ea50f615",
+      "title": "Deal"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t05.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t05.flac",
+      "format": "PNG",
+      "md5": "a30d938a9532fc8d0232593cf07fbf03"
+    },
+    {
+      "name": "jgb1982-06-24B-d2t05_spectrogram.png",
+      "source": "derivative",
+      "original": "jgb1982-06-24B-d2t05.flac",
+      "format": "Spectrogram",
+      "md5": "a8980a5b763cebc6b91cfb1a66e78c8c"
+    }
+  ],
+  "reviews": []
+}

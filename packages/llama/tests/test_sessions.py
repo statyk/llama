@@ -137,7 +137,7 @@ def test_empty_winnow_still_marks_complete(tmp_path: Path, monkeypatch):
                             "query": "x", "collection": "GratefulDead", "artist": "Grateful Dead",
                         })]), "score_reviews": FakeProvider(), "light_research": FakeProvider()})
     monkeypatch.setattr(cli, "run_search",
-                        lambda ws, ia, criteria, artists=None, force=False, jerrybase_enabled=True: [])
+                        lambda ws, ia, criteria, artists=None, force=False, jerrybase_enabled=True, allowlist=None: [])
     monkeypatch.setattr(cli, "run_winnow", lambda *a, **k: [])
 
     result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--auto",

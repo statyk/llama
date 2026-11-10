@@ -59,6 +59,7 @@ from llama.stages.interpret import run_interpret
 from llama.stages.search import run_search
 from llama.stages.winnow import run_winnow
 from llama.status import configure_logging
+from llama.taperssection import Allowlist, display_label, is_synthetic
 from llama.util import parse_performance_id, slugify
 from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
                              read_json, read_model, read_model_list, read_overrides,
@@ -181,12 +182,13 @@ RATIONALE_WIDTH = 90   # wrap column for the indented rationale block
 RATIONALE_LINES = 3    # default cap; --full-rationale lifts it
 
 
-def _print_shortlist(entries: list[ShortlistEntry], full: bool = False) -> None:
+def _print_shortlist(entries: list[ShortlistEntry], full: bool = False,
+                     allowlist: Allowlist | None = None) -> None:
     for i, e in enumerate(entries):
         if i:
             typer.echo()
         c = e.candidate
-        typer.echo(f"{e.rank:2d}. {c.date}  {c.collection:18.18s}  {c.venue or '?':26.26s}  "
+        typer.echo(f"{e.rank:2d}. {c.date}  {display_label(allowlist, c.collection):18.18s}  {c.venue or '?':26.26s}  "
                    f"score {e.assessment.quality_score:.1f}")
         lines = textwrap.wrap(e.assessment.rationale, width=RATIONALE_WIDTH)
         if not full and len(lines) > RATIONALE_LINES:
@@ -427,6 +429,12 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              force_stage: str | None = None,
              full_rationale: bool = False, plan: bool = False,
              pace: PaceOptions | None = None, adjudicate: bool = False) -> None:
+    # Fail closed before anything else (no LLM, no scrape): a pinned or stored
+    # Taper's Section key must still be in [[taperssection.artists]].
+    allowlist = Allowlist.from_config(config.taperssection)
+    for key in ([criteria.collection] if criteria.collection else []) + list(criteria.artists):
+        if is_synthetic(key):
+            Allowlist.for_candidate(allowlist, key)
     providers, llm_calls = count_llm_calls(make_providers(config))
     if pace is None:
         pace = pace_options(config)
@@ -482,18 +490,22 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             artists = None
             if criteria.artists:
                 # Pinned roster: deterministic fan-out, no LLM matching, no prune gate.
-                artists = [{"identifier": a, "title": a} for a in criteria.artists]
+                artists = [{"identifier": a, "title": display_label(allowlist, a)}
+                           for a in criteria.artists]
                 write_artifact(ws.artists, artists)
-                typer.echo("pinned artists: " + ", ".join(criteria.artists))
+                typer.echo("pinned artists: "
+                           + ", ".join(display_label(allowlist, a) for a in criteria.artists))
             elif criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
                 artists = run_discover(ws, providers["find_artists"], ia, criteria,
                                        cache_dir=config.root / "cache",
                                        min_recordings=config.artists.min_recordings,
                                        min_downloads=config.artists.min_downloads,
                                        max_artists=config.artists.max_matched,
-                                       force=force)
+                                       force=force,
+                                       allowlist=allowlist)
                 if not artists:
-                    typer.echo("no matching artists found on the LMA - "
+                    typer.echo("no matching artists found"
+                               + ("" if allowlist else " on the LMA") + " - "
                                "try naming an artist or broadening the style", err=True)
                     # A clean stop, not a crash: unmarked, the run would read
                     # as incomplete and every `run resume --all` would re-run
@@ -517,11 +529,12 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                         artists = pruned
                         write_artifact(ws.artists, artists)
             run_search(ws, ia, criteria, artists=artists, force=force,
-                       jerrybase_enabled=config.jerrybase.enabled)
+                       jerrybase_enabled=config.jerrybase.enabled, allowlist=allowlist)
             shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
                                    library_ids=library_performance_ids(config.root),
                                    shortlist_size=max(12, count),
-                                   max_metadata_fetch=config.winnow.max_metadata_fetch, force=force)
+                                   max_metadata_fetch=config.winnow.max_metadata_fetch, force=force,
+                                   cache_dir=config.root / "cache", allowlist=allowlist)
             break
         except RateLimited as exc:
             # BEFORE any `except HerderError`: RateLimited subclasses it, and the
@@ -552,7 +565,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         typer.echo("No shows survived winnowing.")
         mark_complete(ws, "no shows survived winnowing")
         return
-    _print_shortlist(shortlist, full=full_rationale)
+    _print_shortlist(shortlist, full=full_rationale, allowlist=allowlist)
     if plan:
         mark_awaiting(ws)
         typer.echo("shortlist ready — nothing processed.")
@@ -594,7 +607,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                                setlistfm=setlistfm,
                                structure_cfg=config.structure, selection_cfg=config.selection,
                                jerrybase_enabled=config.jerrybase.enabled,
-                               force_stage=force_stage, profile=criteria.profile)
+                               force_stage=force_stage, profile=criteria.profile,
+                               allowlist=allowlist)
         except RateLimited as exc:
             # Caught BEFORE the HerderError arm below, which it subclasses.
             # Not a failure: nothing is wrong with this show. Its finished
@@ -812,7 +826,8 @@ def _interpret_and_stamp(config, ws: RunWorkspace, req: dict) -> Criteria:
     silently. Two copies of this is exactly the drift T6b's checkpoint would
     otherwise introduce.
     """
-    criteria = run_interpret(ws, make_providers(config)["interpret"], req["query"])
+    criteria = run_interpret(ws, make_providers(config)["interpret"], req["query"],
+                             allowlist=Allowlist.from_config(config.taperssection))
     updates = {}
     # Falsy, not `is not None`: --limit is typer.Option(0, ...), so an
     # unspecified limit persists as 0, and `is not None` would stamp
@@ -1066,7 +1081,7 @@ def get(
 
 
 @app.command(rich_help_panel="Acquire",
-             short_help="Search LMA artists, or list the deepest catalogs.")
+             short_help="Search artists (LMA, plus allowlisted Taper's Section), or list the deepest catalogs.")
 def artists(
     query: str = typer.Argument(None, help="Natural-language artist query (omit to list by catalog size)"),
     limit: int = typer.Option(20, "--limit", help="Max artists to show"),
@@ -1077,9 +1092,11 @@ def artists(
     include_junk: bool = typer.Option(False, "--include-junk", help="Skip the junk filter entirely"),
     refresh: bool = typer.Option(False, "--refresh", help="Force an artist index rebuild"),
 ):
-    """Search LMA artists with a natural-language query, or list the deepest catalogs."""
+    """Search artists (LMA, plus any allowlisted Taper's Section artists) with a
+    natural-language query, or list the deepest catalogs."""
     config, ia, _ = _setup()
-    index = load_or_build(ia, config.root / "cache", refresh=refresh)
+    index = load_or_build(ia, config.root / "cache", refresh=refresh,
+                          allowlist=Allowlist.from_config(config.taperssection))
     mr = min_recordings if min_recordings is not None else config.artists.min_recordings
     md = min_downloads if min_downloads is not None else config.artists.min_downloads
     pool = index if include_junk else filter_artists(index, mr, md)
@@ -1203,7 +1220,8 @@ def run_approve(
     # At entry: before the shortlist prints, any prompt or any write.
     with _run_locked(ws):
         entries = read_model_list(ws.shortlist, ShortlistEntry)
-        _print_shortlist(entries, full=full_rationale)
+        _print_shortlist(entries, full=full_rationale,
+                         allowlist=Allowlist.from_config(config.taperssection))
         picks = typer.prompt("Approve which ranks? (comma-separated)",
                              default="", show_default=False)
         wanted = _parse_ranks(picks) & {e.rank for e in entries}
@@ -2919,7 +2937,7 @@ def _deliver_batch(config, ledger, sel, dest, yes, fixed: bool = False) -> None:
     from llama.catalog import iter_shows
     from llama.cli_select import HELD_NOTE, apply_selector, split_held
 
-    entries = apply_selector(iter_shows(config.root, ledger), sel)
+    entries = apply_selector(iter_shows(config.root, ledger, Allowlist.from_config(config.taperssection)), sel)
     if fixed:
         station = dest or config.delivery_path
         if station is None:
@@ -3290,7 +3308,8 @@ def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
                        setlistfm=make_client(config), structure_cfg=config.structure,
                        jerrybase_enabled=config.jerrybase.enabled,
                        selection_cfg=config.selection, profile=prov.profile,
-                       audio_reuse=reuse)
+                       audio_reuse=reuse,
+                       allowlist=Allowlist.from_config(config.taperssection))
     mark = campaign.last_mark(rec)
     if mark is not None and (SHOW_STAGE_ORDER.index(from_stage)
                              <= SHOW_STAGE_ORDER.index(mark.start_stage)):
@@ -3425,7 +3444,7 @@ def _sibling_run_reasons(prop_rows) -> list[tuple[int, int, str]]:
     return runs
 
 
-def _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical):
+def _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical, names=None):
     """Task 6's entry seam: the sibling-transfer arm of
     `_propose_titles_for_show`, attempted BEFORE the canonical correspondence
     DP. Loads donors exactly as `gather._sibling_transfer_full` does and picks the
@@ -3467,7 +3486,8 @@ def _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical):
     from llama.models import ProposalRow, TitleProposal
     from llama.stages.gather import best_donor, show_metadata_norms
 
-    metadata_norms = show_metadata_norms(show.artist, cand, meta, events)
+    # `names`: gather's matching names (`GatherNames.matching`); default show.artist.
+    metadata_norms = show_metadata_norms(names or show.artist, cand, meta, events)
     donor, rows, res, notes = best_donor(ia, cand, show.identifier, want,
                                          show.tracks, metadata_norms)
     for note in notes:      # m4: a donor that existed and failed to fetch is
@@ -3536,7 +3556,7 @@ def _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical):
     return prop, picks
 
 
-def _propose_titles_for_show(ia, config, entry, show):
+def _propose_titles_for_show(ia, config, entry, show, *, allowlist: Allowlist | None = None):
     """Build the canonical setlist and render a title-correspondence
     proposal for `show`'s tracks. `build_canonical` is always called with
     `provider=None` -- this CLI path must never fire an LLM call, since the
@@ -3597,11 +3617,17 @@ def _propose_titles_for_show(ia, config, entry, show):
     from llama.junk import FORMAT_BY_AUDIO
     from llama.models import TitleProposal
     from llama.setlistfm import make_client
-    from llama.stages.gather import build_canonical, final_kept
+    from llama.stages.gather import build_canonical, final_kept, gather_names, item_creator
 
     cand = entry.provenance.candidate
     md = ia.metadata(show.identifier)
     meta = md.get("metadata", {})
+    # The names gather itself used (taperssection Task 6b): an LMA show's
+    # `show.artist` IS gather's creator, so it keys exactly as before; a ts show's
+    # `show.artist` is the display name, so its creator comes from the item.
+    creator = (str(item_creator(meta) or cand.collection) if is_synthetic(cand.collection)
+               else show.artist)
+    naming = gather_names(cand.collection, creator, allowlist)
     want = FORMAT_BY_AUDIO[config.audio_format]
     # gather's own final kept list (spec 4.2 "one shared helper"), over the stored
     # overrides: include is applied inside the filter (a recomputation without it
@@ -3634,15 +3660,18 @@ def _propose_titles_for_show(ia, config, entry, show):
         prop = TitleProposal(feasible=False, reason=reason)
         typer.echo(f"{entry.slug}: {prop.reason}")
         return prop, {}
-    events = jerrybase.lookup(show.artist, cand.date) if config.jerrybase.enabled else []
-    canonical = build_canonical(ia, cand, show.identifier, meta, kept, show.artist, events,
-                                setlistfm=make_client(config), provider=None).setlist
+    jb_artist = jerrybase.jerrybase_artist(cand.collection, creator, allowlist)
+    events = jerrybase.lookup(jb_artist, cand.date) if config.jerrybase.enabled else []
+    canonical = build_canonical(ia, cand, show.identifier, meta, kept, naming.setlistfm, events,
+                                setlistfm=make_client(config), provider=None,
+                                names=naming.matching).setlist
 
     # Task 6: the sibling-transfer arm, attempted BEFORE the canonical DP.
     # `canonical` is already built above -- needed either way, since the
     # sibling arm's own disagreement/coverage display reads it too -- so
     # trying the sibling arm first costs nothing extra when it declines.
-    sib = _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical)
+    sib = _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical,
+                            names=naming.matching)
     if sib is not None:
         return sib
 
@@ -3672,7 +3701,8 @@ def _propose_and_confirm_titles(ia, config, entry, show) -> dict[int, str] | Non
     nothing to adopt -- infeasible proposal, no picks, or a declined
     confirmation, each of which has already echoed its own reason. Every
     caller must treat None as "nothing changed", not as an error."""
-    prop, picks = _propose_titles_for_show(ia, config, entry, show)
+    prop, picks = _propose_titles_for_show(
+        ia, config, entry, show, allowlist=Allowlist.from_config(config.taperssection))
     if not prop.feasible:
         return None   # _propose_titles_for_show already echoed prop.reason
     if not picks:
@@ -4173,7 +4203,7 @@ def triage(
         if not selector_active(sel):
             sel = build_selector(held=True)   # triage's default: held (spec §2 exception)
         _note_unknown_profiles(config, profile)
-        entries = apply_selector(iter_shows(config.root, ledger), sel)
+        entries = apply_selector(iter_shows(config.root, ledger, Allowlist.from_config(config.taperssection)), sel)
     if not entries:
         typer.echo("no matching shows")
         return
@@ -4190,7 +4220,7 @@ def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool
     from llama.catalog import iter_shows
     from llama.cli_select import HELD_NOTE, apply_selector, split_held
 
-    entries = apply_selector(iter_shows(config.root, ledger), sel)
+    entries = apply_selector(iter_shows(config.root, ledger, Allowlist.from_config(config.taperssection)), sel)
     kept, dropped = split_held(entries, sel)
     if dropped:
         typer.echo(HELD_NOTE.format(n=len(dropped)))
@@ -4900,7 +4930,7 @@ def adjudicate(
             typer.echo(str(exc), err=True)
             raise typer.Exit(1)
         _note_unknown_profiles(config, profile)
-        entries = apply_selector(iter_shows(config.root, ledger), sel)
+        entries = apply_selector(iter_shows(config.root, ledger, Allowlist.from_config(config.taperssection)), sel)
     if not entries:
         typer.echo("no matching shows")
         raise typer.Exit(1 if failed else 0)
@@ -5010,7 +5040,8 @@ def _rm_batch(config, ledger, sel, *, forget: bool, suppress: bool, yes: bool) -
     from llama.catalog import iter_shows, remove_show
     from llama.cli_select import HELD_NOTE, apply_selector, split_held
 
-    entries = apply_selector(iter_shows(config.root, ledger), sel)
+    allowlist = Allowlist.from_config(config.taperssection)
+    entries = apply_selector(iter_shows(config.root, ledger, allowlist), sel)
     kept, dropped = split_held(entries, sel)
     if dropped:
         typer.echo(HELD_NOTE.format(n=len(dropped)))
@@ -5021,7 +5052,8 @@ def _rm_batch(config, ledger, sel, *, forget: bool, suppress: bool, yes: bool) -
         return
     for e in kept:
         try:
-            lines = remove_show(e, ledger, forget=forget, suppress=suppress)
+            lines = remove_show(e, ledger, forget=forget, suppress=suppress,
+                                allowlist=allowlist)
         except LlamaError as exc:
             typer.echo(f"FAILED {e.slug}: {exc}", err=True)
             continue
@@ -5078,7 +5110,8 @@ def rm(
         # forget/suppress mutual exclusion and no-resolvable-pid errors are
         # raised by remove_show itself and left to propagate -- the
         # LlamaError boundary prints them cleanly (main_cli's `error: ...`).
-        for line in remove_show(entry, ledger, forget=forget, suppress=suppress):
+        for line in remove_show(entry, ledger, forget=forget, suppress=suppress,
+                                 allowlist=Allowlist.from_config(config.taperssection)):
             typer.echo(line)
         return
 
@@ -5121,7 +5154,9 @@ def _resolve_pid_and_metadata(config, ledger, name: str) -> tuple[str, str, str,
         artist, show_date, venue = show.artist, show.date, show.venue
     else:
         candidate = entry.provenance.candidate
-        artist, show_date, venue = candidate.collection, candidate.date, candidate.venue
+        artist = display_label(Allowlist.from_config(config.taperssection),
+                               candidate.collection)
+        show_date, venue = candidate.date, candidate.venue
     return pid, artist, show_date, venue
 
 
@@ -5292,7 +5327,7 @@ def status(
             typer.echo(f"{row['id']:34.34s} {summary:40.40s} {label:40.40s}{running}")
         return
 
-    entries = apply_selector(iter_shows(config.root, ledger), sel)
+    entries = apply_selector(iter_shows(config.root, ledger, Allowlist.from_config(config.taperssection)), sel)
     filtering = selector_active(sel)
     entries.sort(key=lambda e: (_STATE_RANK[e.state], e.slug))
     if not all_shows and not filtering:
@@ -5385,7 +5420,8 @@ def profile_add(
     config, ia, _ = _setup()
     with tempfile.TemporaryDirectory() as tmpdir:
         scratch = RunWorkspace(Path(tmpdir), "interpret")
-        criteria = run_interpret(scratch, make_providers(config)["interpret"], query)
+        criteria = run_interpret(scratch, make_providers(config)["interpret"], query,
+                                 allowlist=Allowlist.from_config(config.taperssection))
     updates = {}
     if artist_cap is not None:
         updates["artist_cap"] = artist_cap
@@ -5395,8 +5431,9 @@ def profile_add(
         updates["year_cap"] = year_cap
     if artists:
         names = [n.strip() for n in artists.split(",") if n.strip()]
-        index = load_or_build(ia, config.root / "cache")
-        resolved = resolve_artists(index, names)
+        allowlist = Allowlist.from_config(config.taperssection)
+        index = load_or_build(ia, config.root / "cache", allowlist=allowlist)
+        resolved = resolve_artists(index, names, allowlist)
         updates["artists"] = [a["identifier"] for a in resolved]
         typer.echo("pinned: " + ", ".join(f"{a['title']} ({a['identifier']})" for a in resolved))
     if updates:
@@ -5416,7 +5453,9 @@ def profile_artists(
     profile = load_profile(config.root, name)
     if set_ is None:
         roster = profile.criteria.artists
-        typer.echo(", ".join(roster) if roster else "no pinned roster (uses the LLM matcher)")
+        al = Allowlist.from_config(config.taperssection)
+        typer.echo(", ".join(display_label(al, a) for a in roster) if roster
+                   else "no pinned roster (uses the LLM matcher)")
         return
     names = [n.strip() for n in set_.split(",") if n.strip()]
     if not names:
@@ -5424,8 +5463,9 @@ def profile_artists(
         save_profile(config.root, profile.model_copy(update={"criteria": criteria}))
         typer.echo("cleared pinned roster (reverts to the LLM matcher)")
         return
-    index = load_or_build(ia, config.root / "cache")
-    resolved = resolve_artists(index, names)
+    allowlist = Allowlist.from_config(config.taperssection)
+    index = load_or_build(ia, config.root / "cache", allowlist=allowlist)
+    resolved = resolve_artists(index, names, allowlist)
     criteria = profile.criteria.model_copy(update={"artists": [a["identifier"] for a in resolved]})
     save_profile(config.root, profile.model_copy(update={"criteria": criteria}))
     typer.echo("pinned: " + ", ".join(f"{a['title']} ({a['identifier']})" for a in resolved))
@@ -5459,12 +5499,14 @@ def profile_show(name: str = typer.Argument(...)):
     c = profile.criteria
     typer.echo(f"{profile.name}  count={profile.count}  human_gate={profile.human_gate}")
     typer.echo(f"query: {c.query}")
+    al = Allowlist.from_config(config.taperssection)
     if c.artists:
-        typer.echo("pinned roster: " + ", ".join(c.artists))
+        typer.echo("pinned roster: " + ", ".join(display_label(al, a) for a in c.artists))
     else:
         typer.echo("no pinned roster")
     typer.echo("criteria:")
-    typer.echo(f"  collection/artist: {c.collection or '-'} / {c.artist or '-'}")
+    typer.echo(f"  collection/artist: "
+               f"{display_label(al, c.collection) if c.collection else '-'} / {c.artist or '-'}")
     typer.echo(f"  date range: {c.date_from or '-'} .. {c.date_to or '-'}")
     typer.echo(f"  artist_cap/year_cap/min_quality_score: "
                f"{c.artist_cap} / {c.year_cap} / {c.min_quality_score}")

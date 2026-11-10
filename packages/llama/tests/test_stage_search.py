@@ -94,3 +94,29 @@ def test_run_search_splits_multi_event_when_enabled(tmp_path: Path):
     off = run_search(RunWorkspace(tmp_path / "off", "r"), StubIA(docs),
                      Criteria(query="q", collection="GratefulDead"), jerrybase_enabled=False)
     assert [c.performance_id for c in off] == ["GratefulDead/1970-02-14/late"]
+
+
+def _labels(monkeypatch):
+    import llama.stages.search as search_mod
+    steps = []
+
+    class _Step:
+        def __init__(self, label):
+            steps.append(label)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+    monkeypatch.setattr(search_mod, "step", _Step)
+    monkeypatch.setattr(search_mod, "detail", lambda *_a, **_k: None)
+    return steps
+
+
+def test_lma_only_fan_out_keeps_lma_label(tmp_path: Path, monkeypatch):
+    steps = _labels(monkeypatch)
+    run_search(RunWorkspace(tmp_path, "r1"), StubIA([]), Criteria(query="q"),
+               artists=[{"identifier": "GratefulDead", "title": "Grateful Dead"},
+                        {"identifier": "Mekons", "title": "Mekons"}])
+    assert steps == ["searching the LMA (2 artists)"]

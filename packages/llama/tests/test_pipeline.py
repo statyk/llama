@@ -357,6 +357,7 @@ def test_process_show_stamps_profile_into_provenance_and_manifest(tmp_path: Path
     from llama.models import (Candidate, Provenance, QualityAssessment,
                               RecordingSummary, ShortlistEntry)
     from llama.pipeline import process_show
+    from llama.taperssection import Allowlist
     from llama.workspace import RunWorkspace, read_model
 
     fixture = json.loads(FIXTURE.read_text())
@@ -381,7 +382,8 @@ def test_process_show_stamps_profile_into_provenance_and_manifest(tmp_path: Path
     }
     ws = RunWorkspace(tmp_path, "voicerun")
     pkg = process_show(ws, FakeIA(), Ledger(tmp_path / "ledger.jsonl"), entry,
-                       providers, "voicerun", jerrybase_enabled=False, profile="prime-dead")
+                       providers, "voicerun", jerrybase_enabled=False, profile="prime-dead",
+                       allowlist=Allowlist.empty())
     assert pkg is not None
     prov = read_model(tmp_path / "shows" / "gratefuldead-1973-06-10" / "provenance.json",
                       Provenance)

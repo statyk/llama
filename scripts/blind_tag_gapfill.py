@@ -65,7 +65,7 @@ from llama.ia_client import IAError
 from llama.junk import FORMAT_BY_AUDIO, filter_files
 from llama.models import Candidate, ParsedSetlist, SetlistItem, Track
 from llama.songs import GD_SHORTHAND
-from llama.stages.gather import (_collect_parses, _description, _creator,
+from llama.stages.gather import (_collect_parses, _description, item_creator,
                                  _drop_artist_items, _recover_format_titles,
                                  _strip_head_banner, show_metadata_norms)
 from llama.structure import (adopt_gap_titles, blend_segues, fuzzy_norm_title,
@@ -145,7 +145,7 @@ def _collection_of(meta: dict) -> str:
     for c in colls:
         if isinstance(c, str) and c.lower() not in _GENERIC_COLLECTIONS:
             return c
-    creator = _creator(meta)
+    creator = item_creator(meta)
     return str(creator or (colls[0] if colls else "") or "unknown")
 
 
@@ -215,7 +215,7 @@ def prepare(ia: CacheIA, candidate: Candidate, identifier: str,
     """
     md = ia.metadata(identifier)
     meta = md.get("metadata", {})
-    artist = str(_creator(meta) or candidate.collection)
+    artist = str(item_creator(meta) or candidate.collection)
     want = FORMAT_BY_AUDIO[audio_format]
     kept, _excluded, ordering = filter_files(md.get("files", []), want_format=want)
     if not kept:

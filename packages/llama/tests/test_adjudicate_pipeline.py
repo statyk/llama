@@ -452,7 +452,7 @@ def test_redo_run_level_passes_redo_flag(tmp_path, monkeypatch):
 def test_get_passes_the_flag_in_both_modes(tmp_path, monkeypatch):
     from llama.profiles import Profile, save_profile
     cfg = _cfg(tmp_path)
-    monkeypatch.setattr(cli, "run_interpret", lambda ws, provider, query: Criteria(query=query))
+    monkeypatch.setattr(cli, "run_interpret", lambda ws, provider, query, **kw: Criteria(query=query))
     monkeypatch.setattr(cli, "make_providers", lambda config: collections.defaultdict(lambda: None))
     seen = _captured(monkeypatch)
     assert cli_invoke(cfg, "get", "q", "--auto", "--name", "r1", "--adjudicate").exit_code == 0
@@ -466,7 +466,7 @@ def test_get_passes_the_flag_in_both_modes(tmp_path, monkeypatch):
 
 def test_request_json_never_records_adjudicate(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    monkeypatch.setattr(cli, "run_interpret", lambda ws, provider, query: Criteria(query=query))
+    monkeypatch.setattr(cli, "run_interpret", lambda ws, provider, query, **kw: Criteria(query=query))
     monkeypatch.setattr(cli, "make_providers", lambda config: collections.defaultdict(lambda: None))
     _captured(monkeypatch)
     r = cli_invoke(cfg, "get", "q", "--auto", "--name", "r1", "--adjudicate")

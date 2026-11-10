@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class SetlistConstraint(BaseModel):
@@ -53,6 +55,10 @@ class RecordingSummary(BaseModel):
     num_reviews: int = 0
     downloads: int = 0
     description: str | None = None
+    creator: str | None = None
+    addeddate: str | None = None
+    source: str | None = None
+    lineage: str | None = None
 
 
 class Candidate(BaseModel):
@@ -62,6 +68,11 @@ class Candidate(BaseModel):
     venue: str | None = None
     city: str | None = None
     recordings: list[RecordingSummary]
+    # Taper's Section only (taperssection Task 6b): the most common (venue, city)
+    # parsed from the recordings' titles (`ts_measure.parse_title_venue`), set by
+    # search for a `ts-` candidate. Gather's last-resort venue, used only after the
+    # vote/jerrybase/city chain left the venue empty. Always None on LMA candidates.
+    ts_title_venue: tuple[str | None, str | None] | None = None
 
 
 class QualityAssessment(BaseModel):
@@ -71,6 +82,22 @@ class QualityAssessment(BaseModel):
     recording_complaints: list[str] = Field(default_factory=list)
     rationale: str
     reviewed_identifier: str = ""  # set by winnow, not the LLM
+    # Taper's Section shows only: the scorer's misattribution verdict (is this
+    # the named artist, or a tribute/cover/mislabel?). None when the scorer
+    # omitted it, and always None on LMA shows; gather treats None on a ts show
+    # as suspect (Task 10).
+    attribution: Literal["ok", "suspect"] | None = None
+    attribution_reason: str | None = None
+
+    @field_validator("attribution", mode="before")
+    @classmethod
+    def _lenient_attribution(cls, v):
+        # An LLM's "OK"/" Suspect " must not fail the whole batch; anything
+        # unrecognised is None, which a ts show's gather treats as suspect.
+        if isinstance(v, str):
+            v = v.strip().lower()
+            return v if v in ("ok", "suspect") else None
+        return None
 
 
 class QualityBatch(BaseModel):
@@ -188,7 +215,7 @@ class Show(BaseModel):
     date: str
     venue: str | None = None
     city: str | None = None
-    venue_source: str = "item"  # "item" | "jerrybase" | "override" (venue from an override)
+    venue_source: str = "item"  # "item" | "jerrybase" | "override" (venue from an override) | "title" (a ts candidate's title venue)
     # Presentation date is correctable (vet may adopt a research date over an
     # archive year-only placeholder, or an operator override); identity never changes.
     item_date: str | None = None  # original archive date, set only when corrected

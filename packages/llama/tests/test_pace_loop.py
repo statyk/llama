@@ -971,7 +971,7 @@ def _seeded_run(tmp_path, name="r1"):
 
 
 def test_get_passes_the_pacing_flags_through_to_the_loop(tmp_path, monkeypatch):
-    monkeypatch.setattr(cli, "run_interpret", lambda ws, provider, query: Criteria(query=query))
+    monkeypatch.setattr(cli, "run_interpret", lambda ws, provider, query, **kw: Criteria(query=query))
     monkeypatch.setattr(cli, "make_providers", lambda config: collections.defaultdict(lambda: None))
     result, seen = _captured_pace(tmp_path, monkeypatch,
                                   ["get", "q", "--auto", "--name", "r1",
@@ -983,7 +983,7 @@ def test_get_passes_the_pacing_flags_through_to_the_loop(tmp_path, monkeypatch):
 
 
 def test_get_defaults_come_from_the_config(tmp_path, monkeypatch):
-    monkeypatch.setattr(cli, "run_interpret", lambda ws, provider, query: Criteria(query=query))
+    monkeypatch.setattr(cli, "run_interpret", lambda ws, provider, query, **kw: Criteria(query=query))
     monkeypatch.setattr(cli, "make_providers", lambda config: collections.defaultdict(lambda: None))
     result, seen = _captured_pace(tmp_path, monkeypatch,
                                   ["get", "q", "--auto", "--name", "r1"],

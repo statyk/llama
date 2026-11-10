@@ -859,8 +859,8 @@ def test_accept_race_show_changes_between_check_and_write_refuses(rig, monkeypat
     rig.stub(POST_NO_B)
     real = runner.build_bundle
 
-    def racing(show_ws, ia, config):
-        b = real(show_ws, ia, config)
+    def racing(show_ws, ia, config, **k):
+        b = real(show_ws, ia, config, **k)
         write_artifact(show_ws.overrides, Overrides(venue="Kezar"))
         return b
     monkeypatch.setattr(runner, "build_bundle", racing)
@@ -877,8 +877,8 @@ def test_accept_revalidates_targets(rig, monkeypatch):
     # The same digest, but b.mp3 is no longer a track in the bundle the accept builds.
     real = runner.build_bundle
 
-    def gone(show_ws, ia, config):
-        b = real(show_ws, ia, config)
+    def gone(show_ws, ia, config, **k):
+        b = real(show_ws, ia, config, **k)
         return b.__class__(**{**b.__dict__, "show": b.show.model_copy(
             update={"tracks": [t for t in b.show.tracks if t.filename != "b.mp3"]})})
     monkeypatch.setattr(runner, "build_bundle", gone)
@@ -949,8 +949,8 @@ def test_accept_non_commit_leaves_record_unchanged(rig, monkeypatch, result):
         rig.stub(POST_NO_B)
         real = runner.build_bundle
 
-        def racing(show_ws, ia, config):
-            b = real(show_ws, ia, config)
+        def racing(show_ws, ia, config, **k):
+            b = real(show_ws, ia, config, **k)
             write_artifact(show_ws.overrides, Overrides(venue="Kezar"))
             return b
         monkeypatch.setattr(runner, "build_bundle", racing)

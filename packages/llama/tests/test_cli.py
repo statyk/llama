@@ -711,12 +711,13 @@ def test_suggest_titles_threads_setlistfm_client_and_jerrybase_events(tmp_path, 
     real_build_canonical = gather_mod.build_canonical
     captured = {}
 
-    def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None):
+    def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None,
+            names=None):
         captured["setlistfm"] = setlistfm
         captured["events"] = events
         captured["provider"] = provider
         return real_build_canonical(ia, cand, identifier, meta, kept, artist, events,
-                                    setlistfm=setlistfm, provider=provider)
+                                    setlistfm=setlistfm, provider=provider, names=names)
 
     monkeypatch.setattr(gather_mod, "build_canonical", spy)
     monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
@@ -766,11 +767,12 @@ def test_suggest_titles_drops_excluded_files_from_kept(tmp_path, monkeypatch):
     real_build_canonical = gather_mod.build_canonical
     captured = {}
 
-    def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None):
+    def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None,
+            names=None):
         captured["kept"] = list(kept)
         captured["provider"] = provider
         return real_build_canonical(ia, cand, identifier, meta, kept, artist, events,
-                                    setlistfm=setlistfm, provider=provider)
+                                    setlistfm=setlistfm, provider=provider, names=names)
 
     monkeypatch.setattr(gather_mod, "build_canonical", spy)
     monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
@@ -1564,3 +1566,25 @@ def test_resolve_prompt_accept_is_inserted_before_skip_in_every_combination():
                 assert "[a] accept proposal" not in base
                 assert base.replace("[t] suggest titles / ", "").replace(
                     "[u]ntitled / ", "").replace("[i]nclude dropped / ", "") == cli.RESOLVE_PROMPT
+
+
+def test_print_shortlist_shows_ts_display_name(capsys):
+    from llama.config import TaperssectionArtist, TaperssectionConfig
+    from llama.models import QualityAssessment, ShortlistEntry
+    from llama.taperssection import Allowlist
+    allowlist = Allowlist.from_config(TaperssectionConfig(artists=[
+        TaperssectionArtist(name="Phish", creators=["Phish"], lineages=["aud"])]))
+
+    def entry(collection, rank):
+        return ShortlistEntry(
+            candidate=Candidate(performance_id=f"{collection}/1997-11-22",
+                                collection=collection, date="1997-11-22", venue="V",
+                                recordings=[RecordingSummary(identifier="x")]),
+            assessment=QualityAssessment(performance_id=f"{collection}/1997-11-22",
+                                         quality_score=7.0, rationale="r"),
+            rank=rank)
+    cli._print_shortlist([entry("ts-phish", 1), entry("GratefulDead", 2)],
+                         allowlist=allowlist)
+    out = capsys.readouterr().out
+    assert "Phish " in out and "ts-phish" not in out
+    assert "GratefulDead" in out
