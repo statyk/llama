@@ -73,7 +73,10 @@ the baseline loads it as is.
 
 **Arms.** No venv was created and nothing was installed. The baseline is merge base
 `1079044f`, materialized with `git archive` and run with the worktree's interpreter
-with `PYTHONPATH` set to the baseline source. Import proofs, printed by the same
+with `PYTHONPATH` set to the baseline source. This deviates from the plan's
+"own interpreter": no venv was built (`pip install` would have needed network, which the
+operator ruling forbids); the worktree interpreter ran with `PYTHONPATH` shadowing the
+baseline source, and the arm's runtime `llama_file` (inside baseline-tree) is the proof. Import proofs, printed by the same
 interpreter and environment:
 
 - baseline: `llama` -> `~/.llama-harness/taperssection/baseline-tree/packages/llama/src/llama/__init__.py`,
@@ -129,8 +132,10 @@ JSONs flattened every key of all 3983 rows. Apart from `generated_at`, `llama_fi
 The empty allowlist adds no key to any row or to the fingerprint. (b) Real behaviour
 changes: **none**. No verdict, flag, selection, outcome or state differs for any show.
 (c) Unreplayable or cache-miss rows: 0 in the baseline and 0 in the candidate. This
-confirms the guarded claim: with an empty allowlist, LMA behaviour is identical to the
-baseline.
+confirms the guarded claim for the stages the replay exercises (gather, vet, the brief
+guard and the config fingerprint) over all 3983 library shows. The search, winnow,
+selection, interpret and discover paths and prompt rendering are not re-run by the
+replay; they rest on the full suite.
 
 **Write check** (stamp taken before any read, at 19:46:27; checked at 19:48:55):
 `find /Users/shawn/.llama/shows /Users/shawn/.llama/cache /Users/shawn/.llama/ledger.jsonl /Users/shawn/.llama/config.toml -newer $S/stamp`
