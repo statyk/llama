@@ -46,50 +46,98 @@ gives 2 passed (commit `4e64ee90`).
 deselected. The baseline before Task 12 was 7963 passed; Task 12 adds the 2 end-to-end
 tests.
 
-**Two-arm replay: BLOCKED-ON-RULING, not run.** Operator ruling R6 allows the replay
-read-only over `~/.llama/shows` only. `scripts/replay_holds.py` needs more of
-`~/.llama` than that. Read from the source, not run:
+**Two-arm replay: run 2026-11-09 under operator ruling (b). Result: the arms are
+identical, row for row.** Ruling (b) allows read-only access to `~/.llama/shows`,
+`~/.llama/cache`, `~/.llama/ledger.jsonl` and `~/.llama/config.toml`, with station
+delivery off, a scratch config per arm outside `~/.llama`, no network and no LLM.
+What `scripts/replay_holds.py` reads (from the source):
 
 | path | read by | why |
 |---|---|---|
-| `~/.llama/config.toml` | `run` (`args.config or DEFAULT_ROOT / "config.toml"`) and `compare` (`_delivery_path`) | the default config. `--config` accepts a scratch file, but `root` must still be `~/.llama` to reach the shows. |
-| `~/.llama/ledger.jsonl` | `run`: `Ledger(root / "ledger.jsonl").entries()` | the delivered set, which feeds `derive_state` and the replay's state |
-| `~/.llama/cache/md_<id>.json` | `CacheOnlyIA(root / "cache")` in `run`; `_description` in `compare` | the replay is cache-only: every show's archive.org metadata |
-| `~/.llama/cache/<setlist.fm key>.json` | `setlistfm_client(config)` -> `CacheOnlySetlistFM(config.root / "cache")` | setlist.fm evidence, when a key is configured |
-| `~/.llama/shows/**` | `_targets`, `replay_show`, `compare` | allowed |
-| `<delivery_path>/<slug>/manifest.json` (station root) | `compare` -> `_is_voiced` -> `cli._destination_is_voiced` | the voiced check, read-only. It is off when the config has no `delivery_path`. |
+| `~/.llama/config.toml` | read once, to build the scratch config below | the operator's real `[structure]`, `[jerrybase]`, `[setlistfm]` and so on |
+| `~/.llama/ledger.jsonl` | `run`: `Ledger(root / "ledger.jsonl").entries()` | the delivered set, which feeds `derive_state` |
+| `~/.llama/cache/md_<id>.json` | `CacheOnlyIA(root / "cache")` in `run`; `_description` in `compare` | the replay is cache-only |
+| `~/.llama/cache/<setlist.fm key>.json` | `setlistfm_client(config)` -> `CacheOnlySetlistFM` | setlist.fm evidence. The cache key is `cache_key(artist, date)` and does not involve the API key. |
+| `~/.llama/shows/**` | `_targets`, `replay_show`, `compare` | the library |
+| station `manifest.json` | `compare` -> `_is_voiced` | not read: the scratch config has no `delivery_path`, so the voiced check is off |
 
-Writes: only `--out` (refused if it overlaps the root), `--scratch` (default
-`tempfile.mkdtemp`, outside `~/.llama`) and the `compare --out` directory. Nothing is
-written under `~/.llama`.
+**Scratch config** (`<scratchpad>/t12replay/cfg.toml`, mode 600, outside `~/.llama`).
+It was built by parsing `~/.llama/config.toml` with `tomllib` and writing the result with
+`tomli_w`. The values were never displayed. Keys changed (names only): `delivery_path`
+dropped; `setlistfm.api_key` set to the literal `PLACEHOLDER-NOT-A-SECRET`, so
+setlist.fm still counts as configured and the cache-only client is used; `root` set
+explicitly to `/Users/shawn/.llama` (it was absent and defaulted to the same path). The
+config had no `[taperssection]` table. Both arms used the same file. The candidate
+therefore ran an empty allowlist (`load_config` gives `taperssection = artists=[]`), and
+the baseline loads it as is.
 
-A scratch config whose `root` is a scratch directory with only `shows` linked in would
-satisfy R6. It would also empty the cache and the ledger, so every show would replay
-as a cache miss (unreplayable) and the arms would measure nothing. The ruling needs
-one of these:
+**Arms.** No venv was created and nothing was installed. The baseline is merge base
+`1079044f`, materialized with `git archive` and run with the worktree's interpreter
+with `PYTHONPATH` set to the baseline source. Import proofs, printed by the same
+interpreter and environment:
 
-- (a) allow read-only access to `~/.llama/cache` and `~/.llama/ledger.jsonl`, with
-  `--config` set to a scratch config whose `root = "/Users/shawn/.llama"`, `[jerrybase]`
-  and `[structure]` copied from the operator's, and no `delivery_path` (voiced check
-  off). The arms then reflect that config, not the operator's.
-- (b) the same, plus a read of `~/.llama/config.toml` itself, which gives the
-  operator's real config fingerprint and the voiced check.
+- baseline: `llama` -> `~/.llama-harness/taperssection/baseline-tree/packages/llama/src/llama/__init__.py`,
+  `herder` -> `.../baseline-tree/packages/herder/src/herder/__init__.py` (the arm's
+  `llama_file` agrees). The archive is not a git checkout, so the arm's `sha` reads
+  `version:0.1.0`. The baseline and candidate `packages/llama/src` trees differ in 26
+  files.
+- candidate: `llama` -> `<worktree>/packages/llama/src/llama/__init__.py`, `herder` ->
+  `<worktree>/packages/herder/src/herder/__init__.py`, and `sha` is `8cf68ced`.
 
-The baseline tree was not materialized. No path under `~/.llama` was read or written
-for Step 2. Commands for when the ruling lands (write check included):
+Every replay command ran with `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY` (and their
+lower-case forms) set to `http://127.0.0.1:9`, `NO_PROXY` empty, and
+`SETLISTFM_API_KEY` and `ANTHROPIC_API_KEY` unset. No output mentions the proxy or any
+network error.
 
 ```
-H=~/.llama-harness/taperssection; S=<scratchpad>/t12; mkdir -p $H/baseline-tree
-touch $S/stamp
-git archive 1079044f | tar -x -C $H/baseline-tree
-python3 -m venv $H/baseline-tree/.venv
-$H/baseline-tree/.venv/bin/python -m pip install -e $H/baseline-tree/packages/herder -e $H/baseline-tree/packages/llama
-$H/baseline-tree/.venv/bin/python -c "import llama; print(llama.__file__)"      # must be inside baseline-tree
-(cd $H/baseline-tree && .venv/bin/python scripts/replay_holds.py run --all --config <cfg> --out $H/base-all.json)
-./.venv/bin/python scripts/replay_holds.py run --all --config <cfg> --out $H/cand-all.json   # empty allowlist
-./.venv/bin/python scripts/replay_holds.py compare $H/base-all.json $H/cand-all.json --config <cfg> --out $H/cmp-all
-find ~/.llama/shows -newer $S/stamp | head      # must be empty
+H=~/.llama-harness/taperssection; S=<scratchpad>/t12replay; touch $S/stamp
+mkdir $H/baseline-tree && git -C <worktree> archive 1079044f | tar -x -C $H/baseline-tree
+(cd $H/baseline-tree && PYTHONPATH=$H/baseline-tree/packages/llama/src:$H/baseline-tree/packages/herder/src \
+   <worktree>/.venv/bin/python scripts/replay_holds.py run --all --config $S/cfg.toml \
+   --scratch $S/scratch-base --out $H/base-all.json)
+(cd <worktree> && ./.venv/bin/python scripts/replay_holds.py run --all --config $S/cfg.toml \
+   --scratch $S/scratch-cand --out $H/cand-all.json)
+./.venv/bin/python scripts/replay_holds.py compare $H/base-all.json $H/cand-all.json --config $S/cfg.toml --out $H/cmp-all
+./.venv/bin/python scripts/replay_holds.py compare $H/base-all.json $H/cand-all.json --config $S/cfg.toml --out $H/cmp-all-norepro --no-repro-gate
+find ~/.llama/shows ~/.llama/cache ~/.llama/ledger.jsonl ~/.llama/config.toml -newer $S/stamp
 ```
+
+**Counts.** Both arms gave the same totals: 3983 shows, clean=3191, clean-changed=46,
+needs-brief=2, needs-llm=607, newly-held=37, still-held=99, still-held-package=1, and
+unreplayable=0. Both runs exited 0.
+
+**Compare.** The gated `compare` exited 3 and wrote only `drift.txt`. The reason is
+`baseline reproduces 100/102 held shows that are not needs-LLM (< 99%)`. That gate
+compares the baseline arm with the stored library, not with the candidate. The two
+misses are `gratefuldead-1991-06-25`: stored has a venue-mismatch flag that the replay
+does not raise. The second is `stevekimockband-2003-03-11`: stored has one more
+`research asserts unknown song` flag. Both are drift that predates this branch, and the
+baseline code gives the same result. The run with `--no-repro-gate` exited 0. It did not
+exit 2, so the digests, the config fingerprint (`3f1af9a8...` in both arms), the
+setlist.fm configuration (true in both) and the show set are all equal. Its
+`summary.txt` reports: needs-LLM 607/607; held needs-LLM 168/168; holds cleared 0 and
+added 0; newly cleared 0; packaged exposure 0; structure changed 0; venue changes 0;
+title changes 0 (packaged, voiced and delivered); `flags.txt` 0 families; taper
+changes 0 in every bucket; voiced check off. `drift.txt` (39 shows) and
+`taper_cleared.txt` (2 shows: `darkstarorchestra-2009-05-24`,
+`joerussosalmostdead-2017-01-12`, both `needs-brief` in both arms) compare each arm
+with the stored state. They are the same in both arms. A direct diff of the two arm
+JSONs flattened every key of all 3983 rows. Apart from `generated_at`, `llama_file` and
+`sha`, it found no key that only one arm has and no value that differs.
+
+**Classification.** (a) Digest or fingerprint noise from new null-valued keys: none.
+The empty allowlist adds no key to any row or to the fingerprint. (b) Real behaviour
+changes: **none**. No verdict, flag, selection, outcome or state differs for any show.
+(c) Unreplayable or cache-miss rows: 0 in the baseline and 0 in the candidate. This
+confirms the guarded claim: with an empty allowlist, LMA behaviour is identical to the
+baseline.
+
+**Write check** (stamp taken before any read, at 19:46:27; checked at 19:48:55):
+`find /Users/shawn/.llama/shows /Users/shawn/.llama/cache /Users/shawn/.llama/ledger.jsonl /Users/shawn/.llama/config.toml -newer $S/stamp`
+printed nothing (0 hits). No `llama`, `bulk_apply` or adjudicator process was running before
+or after the replay (`ps` check). Both `--scratch` directories were empty afterwards. The
+only writes were `~/.llama-harness/taperssection/{baseline-tree,base-all.json,cand-all.json,cmp-all,cmp-all-norepro}`
+and the scratchpad.
 
 ## Step 3: live smoke
 
