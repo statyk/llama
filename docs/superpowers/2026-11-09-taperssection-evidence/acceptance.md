@@ -2,8 +2,9 @@
 
 Branch `taperssection-allowlist`, worktree `.claude/worktrees/taperssection`, from
 merge base `1079044f`. Steps 1, 4 and 5 are offline (fake LLM backend, captured
-fixtures, no live archive.org). Step 2's replay is blocked on an operator ruling.
-Step 3 ran live with operator approval.
+fixtures, no live archive.org). Step 2's two-arm replay was run under operator ruling (b)
+and found the arms identical for the stages it exercises (see Step 2). Step 3 ran live
+with operator approval.
 
 ## Step 1: offline end-to-end
 
