@@ -3,7 +3,9 @@ their title alone (tuning / crowd noise / silence anywhere; intro words at a
 show or set start; outro words at the show end).
 
 Authority: docs/superpowers/specs/2026-11-13-junk-tag-drop-design.md, "The
-rule". No I/O; imports only llama.junk, llama.titles and the stdlib."""
+rule". The last track of the list a rule is judged on, if its title starts with an
+arrow, is never dropped under any rule (A, B or C). No I/O; imports only
+llama.junk, llama.titles and the stdlib."""
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -97,6 +99,7 @@ def plan_drops(tracks: Sequence[DropInput], *,
         t = tracks[i]
         first = k == 0 or tracks[rest[k - 1]].set != t.set
         if (first and t.filename not in include
+                and not (k == len(rest) - 1 and leading_arrow(t.title))
                 and not trailing_arrow(t.title, raw_arrow=t.raw_arrow)
                 and is_intro_title(t.title)):
             drops[i] = "B"
@@ -134,7 +137,7 @@ def hold_flag(drop: JunkDrop, *, total: float, median: float) -> str:
 
 
 _REF = re.compile(
-    r"\btracks?(?:\(s\))?\s+(\d+(?:\s*(?:-|,)\s*\d+)*)(?![\d])")
+    r"\btracks?(?:\(s\))?\s+(\d+-\d+(?!\d|:\d)|\d+(?:\s*,\s*\d+)*(?!\d))")
 
 
 def renumber_text(text: str, numbers: Mapping[int, int | None]) -> str:
@@ -153,7 +156,7 @@ def renumber_text(text: str, numbers: Mapping[int, int | None]) -> str:
                 return f"track {kept[0]}"
             return f"{word} {kept[0]}-{kept[-1]}"
         nums = [int(x) for x in re.split(r"\s*,\s*", body)]
-        if not any(k in numbers for k in nums):
+        if all(numbers.get(k, k) == k for k in nums):
             return m.group(0)
         mapped = [numbers.get(k, k) for k in nums]
         kept = [k for k in mapped if k is not None]

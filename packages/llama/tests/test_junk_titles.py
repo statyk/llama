@@ -100,3 +100,26 @@ def test_renumber_text_extra_shapes():
     assert renumber_text("tracks 1, 2, 4", m) == "tracks 1, 2"
     assert renumber_text("tracks 2-4", m) == "track 2"
     assert renumber_text("tracks 1-5", m) == "tracks 1-3"
+
+
+@pytest.mark.parametrize("text", ["tracks 1-3, 5", "tracks 1-3-5", "tracks 1,2,3", "tracks 2 - 5",
+                                  "track  5", "tracks 1, 2, 3 and track 4"])
+def test_renumber_text_identity_never_raises_and_is_unchanged(text):
+    ident = {i: i for i in range(1, 8)}
+    assert renumber_text(text, ident) == text
+
+
+@pytest.mark.parametrize("text", ["tracks 1-3, 5", "tracks 1-3-5"])
+def test_renumber_text_odd_shapes_do_not_raise(text):
+    renumber_text(text, {1: 1, 2: None, 3: 2, 4: 3, 5: 4})
+
+
+def test_renumber_text_does_not_read_times_as_tracks():
+    m = {1: 1, 2: 2, 3: None, 4: 3, 5: 4, 6: 5, 7: 6}
+    assert renumber_text("track 5 - 6:30 long", m) == "track 4 - 6:30 long"
+    assert renumber_text("track 5-6:30 long", m) == "track 4-6:30 long"
+
+
+@pytest.mark.parametrize("title", ["-> Crowd", "-> Intro"])
+def test_last_track_leading_arrow_never_drops_under_any_rule(title):
+    assert plan_drops([D("a", "S", "1", 100.0), D("b", title, "2", 100.0)]) == []
