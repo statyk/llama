@@ -244,6 +244,7 @@ else:                                                # this run's write: put it 
   never-stored state (`ready`/`pending`, plus `unsupported` for a pre-v3
   manifest), not llama's. There is no separate work-queue file: "not
   broadcast-ready" *is* the predicate `emcee run` sweeps on.
+  Scriptwrite reads the manifest's optional `dropped_tracks` (llama's junk-tag drop; absent/null/`[]` = none) from the raw dict and adds a `scriptwrite.dropped_note` to the prompt (empty = prompt byte-identical to before; `script_guard` unchanged); every rewrite path (`rewrite_manifest`, `retitle`) edits the raw dict, so the field survives.
   `process.py:process_package` orchestrates one package: resolve the
   package ONCE (`resolve_voicing`: effective profile, then `resolve_assignment(config, profile)`
   against `[assign]`, then `resolve_tts`) and pass that `Voicing` through → `scriptwrite.py` (script LLM task + `script_guard`,

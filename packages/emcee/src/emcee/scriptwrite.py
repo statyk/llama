@@ -78,6 +78,50 @@ def narration_note(narration: str) -> str:
     return _VAGUE_NOTE + "\n\n" if narration == "vague" else ""
 
 
+def _mmss(value) -> str | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+        return None
+    total = int(round(value))
+    return f"{total // 60}:{total % 60:02d}"
+
+
+def dropped_note(manifest: dict) -> str:
+    """The prompt note naming tracks llama cut as non-music (the manifest's
+    optional `dropped_tracks`), or "" when there are none. Read from the raw
+    dict; absent, null, [], a non-list, or entries without a usable title all
+    mean none, so a show without drops renders a byte-identical prompt."""
+    entries = manifest.get("dropped_tracks")
+    if not isinstance(entries, list):
+        return ""
+    parts: list[str] = []
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        title = e.get("title")
+        if not isinstance(title, str) or not title:
+            continue
+        bits: list[str] = []
+        dur = _mmss(e.get("duration_sec"))
+        if dur:
+            bits.append(dur)
+        after = e.get("after_track")
+        if not isinstance(after, int) or isinstance(after, bool) or after < 0:
+            pass
+        elif after == 0:
+            bits.append("before track 1")
+        else:
+            bits.append(f"after track {after}")
+        parts.append(f'"{title}"' + (f" ({', '.join(bits)})" if bits else ""))
+    if not parts:
+        return ""
+    return (
+        "Cut from this broadcast as non-music: " + "; ".join(parts) + ". "
+        "These are normally not worth mentioning; mention one only when it "
+        "matters, for example a long cut that explains a jump in the show.\n"
+        "Dropped titles are not songs: never put one in mentioned_songs.\n"
+    )
+
+
 # --- guard constants, ported verbatim from synthesize.py:29-35.
 
 # Set-count claims in script prose. "sets of ..." ("two sets of fiddle tunes")
@@ -268,6 +312,7 @@ def write_script(
         briefing_md=briefing_md,
         lead_in_sets=", ".join(f'"{s}"' for s in lead_in_sets),
         encore_note=encore_note,
+        dropped_note=dropped_note(manifest),
         style=persona_style(presenter, title) if presenter else NEUTRAL_STYLE,
         narration_note=narration_note(narration),
     )
