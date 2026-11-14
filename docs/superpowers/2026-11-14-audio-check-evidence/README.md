@@ -18,3 +18,18 @@ from the station copy (`/Volumes/media/lma-radio/delivered/<slug>/audio/`), neve
 - `population.tsv`: per-drop verdicts under the three rules plus the operator label where
   one exists. `music_y06` is the chosen rule: 27 tracks True, 2 of them Gomez "Silence"
   (restored by the vocabulary change) -> 25 tracks / 22 shows.
+
+## After spec review round 1 (2026-11-14)
+
+- The first pass paired drops to station files by title + duration (first match) and
+  mis-paired 18 drops. `all2.json` (not committed) re-pairs by track index + title +
+  duration: 933 distinct files. `rescore.py` re-scores; `population2.tsv` (source file,
+  station file, operator label, run/frac at Music > 0.55, chosen verdict) SUPERSEDES
+  `population.tsv`.
+- Round 3 (`make_page3.py`, `sample3.json`, `human_labels3.json`): 19 near-bar tracks, the
+  never-heard radiators-1996-02-17 D3T01, and 20 random junk verdicts >= 60 s. One operator
+  mislabel corrected in the file (item 024, philleshandfriends-2006-02-11 "Crowd": crowd).
+- `norm_test.py`: loudness normalisation before YAMNet; changed little, not adopted.
+- Chosen rule: Music > 0.55 per window, run >= 120 s, frac >= 0.60. Flags 28 shows (8
+  already size-held); 19 of 22 hidden songs caught; 9 labelled-junk false alarms; 0 songs in
+  the 20 random junk verdicts.
