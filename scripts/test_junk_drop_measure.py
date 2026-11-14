@@ -204,3 +204,23 @@ def test_refuses_out_inside_shows(tmp_path):
         code, _ = _run(tmp_path, base, cand, _tsv(tmp_path / "d.tsv", []), lib, out=out)
         assert code == 2
     assert not (lib.parent / "out").exists() and not (lib / "out").exists()
+
+
+def test_baseline_slug_missing_from_candidate_arm_is_not_in_arm(tmp_path):
+    lib = _library(tmp_path, {"s": [("k.mp3", "R")], "gone": [("a.mp3", "Tuning")]})
+    base = tmp_path / "b.json"
+    base.write_text(json.dumps({"scope": "all", "shows": {"s": _row(["k.mp3"]), "e": _row([])}}))
+    cand = tmp_path / "c.json"
+    cand.write_text(json.dumps({"scope": "held", "shows": {"s": _row(["k.mp3"])}}))
+    tsv = _tsv(tmp_path / "d.tsv", [("gone", "a.mp3", "Tuning", "A", False)])
+    code, out = _run(tmp_path, base, cand, tsv, lib)
+    assert code == 0
+    assert _cat(out, "baseline", "gone", "a.mp3") == ["not-in-arm"]
+    text = (out / "summary.md").read_text()
+    assert "base arm shows: 2 (scope all)" in text
+    assert "candidate arm shows: 1 (scope held)" in text
+    assert "in both arms: 1" in text
+    assert "absent from the candidate arm: 1" in text
+    assert "absent from the base arm: 1" in text
+    assert "empty filenames (skipped by kept-track deltas), base: 1" in text
+    assert "- not-in-arm: 1" in text

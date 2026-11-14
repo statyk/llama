@@ -25,6 +25,10 @@ Calls made where the brief left room:
 - `adjacent_to_drop`: the candidate's pre-drop order is rebuilt from its kept list plus its
   `junk_drops` (each inserted after `after_track` kept tracks, drop order within a
   position); True when the track right after this one in that order was dropped.
+- A baseline-only drop whose slug is not in the candidate arm is `not-in-arm` (checked first:
+  the replay never looked at that show). summary.md ends with a Coverage block (arm sizes,
+  intersection, baseline slugs absent from each arm, empty-`filenames` rows per arm, each arm's
+  `scope`); kept-track deltas cover only slugs in both arms with non-empty `filenames`.
 - A baseline-only drop's candidate "final title" is the candidate row's title for that file
   (it was kept); `arrowed` uses `junk_titles.trailing_arrow` on it.
 - `override_keys.tsv` takes only filename (string) entries of `set_breaks` and `encore_after`;
@@ -54,7 +58,7 @@ VOCAB = (r"tuning(?:\s*up)?|tune\s*up|crowd(?:\s+noise)?|silence",
          r"intro(?:duction)?s?",
          r"outros?")
 
-BASE_ONLY = ("operator-include", "arrowed", "needs-llm-row", "title-differs", "not-kept", "other")
+BASE_ONLY = ("not-in-arm", "operator-include", "arrowed", "needs-llm-row", "title-differs", "not-kept", "other")
 CAND_ONLY = ("title-differs", "not-in-show.json", "parts-split", "edge-run", "other")
 DIFF_COLS = ["side", "slug", "filename", "title_baseline", "title_cand", "rule", "category"]
 DELTA_COLS = ["slug", "filename", "set_base", "set_cand", "title_base", "title_cand",
@@ -78,10 +82,16 @@ def _read_json(path: Path):
 
 
 def _load_arm(path: Path) -> dict:
+    """The arm's rows by slug; `_arm_scope` reads the arm's own `scope` echo."""
     data = _read_json(path)
     if not isinstance(data, dict) or not isinstance(data.get("shows"), dict):
         raise Refusal(f"cannot read arm {path}")
     return data["shows"]
+
+
+def _arm_scope(path: Path):
+    data = _read_json(path)
+    return data.get("scope") if isinstance(data, dict) else None
 
 
 def _load_baseline(path: Path) -> list[dict]:
@@ -193,7 +203,9 @@ def compare(args: argparse.Namespace) -> int:
         row = cand.get(slug) or {}
         ctitle = _title_map(row).get(fn)
         btitle = r["title"]
-        if fn in (overrides(slug).get("include") or []):
+        if slug not in cand:
+            cat = "not-in-arm"
+        elif fn in (overrides(slug).get("include") or []):
             cat = "operator-include"
         elif ctitle is not None and junk_titles.trailing_arrow(ctitle):
             cat = "arrowed"
@@ -220,6 +232,9 @@ def compare(args: argparse.Namespace) -> int:
     (args.out / "vocabulary.txt").write_text("".join(v + "\n" for v in vocab))
 
     deltas = []
+    empty = {"base": 0, "cand": 0}
+    for name, arm in (("base", base), ("cand", cand)):
+        empty[name] = sum(1 for r in arm.values() if not r.get("filenames"))
     for slug in sorted(set(base) & set(cand)):
         b, c = base[slug], cand[slug]
         if not b.get("filenames") or not c.get("filenames"):
@@ -263,13 +278,29 @@ def compare(args: argparse.Namespace) -> int:
     _tsv(args.out / "override_keys.tsv", OVERRIDE_COLS, okeys)
 
     (args.out / "summary.md").write_text(_summary(base_drops, cand_drops, cand_cats, base_cats,
-                                                  len(deltas), len(okeys), len(vocab)))
+                                                  len(deltas), len(okeys), len(vocab),
+                                                  _coverage(base, cand, base_drops, empty, args)))
     print(f"wrote {args.out}: {len(diffs)} difference(s), {len(deltas)} kept-track delta(s), "
           f"{len(okeys)} override key(s), {len(vocab)} vocabulary violation(s)", file=sys.stderr)
     return 3 if vocab else 0
 
 
-def _summary(base_drops, cand_drops, cand_cats, base_cats, n_deltas, n_okeys, n_vocab) -> str:
+def _coverage(base, cand, base_drops, empty, args) -> list[str]:
+    both = set(base) & set(cand)
+    bslugs = {s for s, _ in base_drops}
+    out = ["## Coverage", "",
+           f"- base arm shows: {len(base)}" + (f" (scope {_arm_scope(args.base)})" if _arm_scope(args.base) else ""),
+           f"- candidate arm shows: {len(cand)}" + (f" (scope {_arm_scope(args.cand)})" if _arm_scope(args.cand) else ""),
+           f"- in both arms: {len(both)}",
+           f"- baseline slugs absent from the candidate arm: {len(bslugs - set(cand))}",
+           f"- baseline slugs absent from the base arm: {len(bslugs - set(base))}",
+           f"- rows with empty filenames (skipped by kept-track deltas), base: {empty['base']}",
+           f"- rows with empty filenames (skipped by kept-track deltas), candidate: {empty['cand']}", ""]
+    return out
+
+
+def _summary(base_drops, cand_drops, cand_cats, base_cats, n_deltas, n_okeys, n_vocab,
+             coverage) -> str:
     b_rows = [(s, r["rule"]) for (s, _), r in base_drops.items()]
     c_rows = [(s, d.get("rule")) for (s, _), d in cand_drops.items()]
     b_held = [s for (s, _), r in base_drops.items() if str(r["held"]).lower() == "true"]
@@ -292,7 +323,8 @@ def _summary(base_drops, cand_drops, cand_cats, base_cats, n_deltas, n_okeys, n_
     out += [f"- {c}: {base_cats.get(c, 0)}" for c in BASE_ONLY]
     out += ["", f"Kept-track deltas: {n_deltas} (kept_track_deltas.tsv)",
             f"Override keys naming a dropped file: {n_okeys} (override_keys.tsv)",
-            f"Vocabulary violations: {n_vocab} (vocabulary.txt; exit 3 when non-zero)", ""]
+            f"Vocabulary violations: {n_vocab} (vocabulary.txt; exit 3 when non-zero)", "",
+            *coverage]
     return "\n".join(out)
 
 
