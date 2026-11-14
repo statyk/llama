@@ -1,0 +1,993 @@
+{
+  "metadata": {
+    "identifier": "gd1979-12-05.sbd.miller.112163.flac16",
+    "title": "Grateful Dead Live at Uptown Theater on 1979-12-05",
+    "creator": "Grateful Dead",
+    "mediatype": "etree",
+    "collection": [
+      "GratefulDead",
+      "etree",
+      "stream_only"
+    ],
+    "type": "sound",
+    "description": "Set 1\n\nAlabama Getaway-> Greatest Story Ever Told, Dire Wolf, Me & My Uncle-> Big River, Cold Rain & Snow, Easy To Love You, Althea-> Lost Sailor-> Saint Of Circumstance\n\nSet 2\n\nShakedown Street-> Samson & Delilah, Ship of Fools, He's Gone-> The Other One-> Drums-> Black Peter-> I Need A Miracle-> Bertha-> Good Lovin', E: Johnny B. Goode, E: Don't Ease Me In\n\n1/0/00",
+    "date": "1979-12-05",
+    "year": "1979",
+    "subject": "Soundboard;Charlie Miller",
+    "publicdate": "2011-03-04 03:24:13",
+    "addeddate": "2011-03-03 00:16:40",
+    "uploader": "mvernon54@yahoo.com",
+    "venue": "Uptown Theater",
+    "coverage": "Chicago, IL",
+    "source": "SBD -> Cassette Master -> Dat (44.1k) -> Data DVD",
+    "lineage": "Data DVD -> Adobe Audition v3.0 -> Samplitude Professional v11.2 -> FLAC",
+    "transferer": "Charlie Miller",
+    "runtime": "203:47.74",
+    "md5s": "07b26af591c8381a7762058b7b31285f *gd79-12-05d1t01.flac 2bd844f25dfa1b3ff050c25f2da3de3f *gd79-12-05d1t02.flac 9bcfeb732289f4ea8464e5b099bd4328 *gd79-12-05d1t03.flac a1d94fa715361a42dfa23c732fcedd3e *gd79-12-05d1t04.flac f3c6fc31e201565e9d1e0b2a86bb1a73 *gd79-12-05d1t05.flac 6bcfff00e099271d220a7ed64d252637 *gd79-12-05d1t06.flac 46da68c5d1905f3c5625a8c591f321c6 *gd79-12-05d1t07.flac f638d9618fc5938ae0763a613208f56a *gd79-12-05d1t08.flac 448f241a6448f0cf51d9082228b3cb66 *gd79-12-05d1t09.flac 0c68db2ad3a552d316df78624fe6c21b *gd79-12-05d1t10.flac 1cc3098d54ca40bb660698550bf1c0bd *gd79-12-05d1t11.flac 921f44361a3ea1c99fa33bc3895f5c98 *gd79-12-05d2t01.flac 1c7ca7a56e12aa72d63515e19fd516ce *gd79-12-05d2t02.flac 7693250e06ce94be9b135283003867a7 *gd79-12-05d2t03.flac 8611583fe63a44ac0de42d9de7cd66c3 *gd79-12-05d2t04.flac d7a12722791da8245b2ff9e036c06c18 *gd79-12-05d2t05.flac e87e022193b17d87bf36a10955e671ba *gd79-12-05d2t06.flac 45193a5cee7c8a4b059f1eb817015ceb *gd79-12-05d2t07.flac e3476d6b35096caa44cd8a1d0bade90d *gd79-12-05d3t01.flac cb76894ced2557e9d90b91eabf7e2967 *gd79-12-05d3t02.flac de769edc2650eef0d928d4afd9b41ece *gd79-12-05d3t03.flac 97635079089160e904bde1455c475ead *gd79-12-05d3t04.flac fb7a1e16131796150c3d7b7e56e9c93c *gd79-12-05d3t05.flac 35b705a1001c213133025ddb0a1bd446 *gd79-12-05d3t06.flac beea5f85f6787c356fc9ceb0f036d31b *gd79-12-05d3t07.flac",
+    "notes": "Notes:\n-- Set 2 is seamless\n-- Thanks to Jacque for being patient with me while I worked on this\n-- Thanks to Joe B. Jones for his help with the pitch correction",
+    "updatedate": "2011-03-04 03:24:32",
+    "updater": "Matthew Vernon",
+    "backup_location": "ia903609_1",
+    "access-restricted-item": "true"
+  },
+  "files": [
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "9537c3cb39d2cce72c92c2de450aedf8"
+    },
+    {
+      "name": "gd1979-12-05.sbd.miller.112163.flac16.ffp",
+      "source": "derivative",
+      "original": [
+        "gd79-12-05d1t01.flac",
+        "gd79-12-05d1t02.flac",
+        "gd79-12-05d1t03.flac",
+        "gd79-12-05d1t04.flac",
+        "gd79-12-05d1t05.flac",
+        "gd79-12-05d1t06.flac",
+        "gd79-12-05d1t07.flac",
+        "gd79-12-05d1t08.flac",
+        "gd79-12-05d1t09.flac",
+        "gd79-12-05d1t10.flac",
+        "gd79-12-05d1t11.flac",
+        "gd79-12-05d2t01.flac",
+        "gd79-12-05d2t02.flac",
+        "gd79-12-05d2t03.flac",
+        "gd79-12-05d2t04.flac",
+        "gd79-12-05d2t05.flac",
+        "gd79-12-05d2t06.flac",
+        "gd79-12-05d2t07.flac",
+        "gd79-12-05d3t01.flac",
+        "gd79-12-05d3t02.flac",
+        "gd79-12-05d3t03.flac",
+        "gd79-12-05d3t04.flac",
+        "gd79-12-05d3t05.flac",
+        "gd79-12-05d3t06.flac",
+        "gd79-12-05d3t07.flac"
+      ],
+      "format": "Flac FingerPrint",
+      "md5": "e57faebb7b511004fa73e3cfdfa4261f"
+    },
+    {
+      "name": "gd1979-12-05.sbd.miller.112163.flac16.md5",
+      "source": "derivative",
+      "original": [
+        "gd79-12-05d1t01.flac",
+        "gd79-12-05d1t02.flac",
+        "gd79-12-05d1t03.flac",
+        "gd79-12-05d1t04.flac",
+        "gd79-12-05d1t05.flac",
+        "gd79-12-05d1t06.flac",
+        "gd79-12-05d1t07.flac",
+        "gd79-12-05d1t08.flac",
+        "gd79-12-05d1t09.flac",
+        "gd79-12-05d1t10.flac",
+        "gd79-12-05d1t11.flac",
+        "gd79-12-05d2t01.flac",
+        "gd79-12-05d2t02.flac",
+        "gd79-12-05d2t03.flac",
+        "gd79-12-05d2t04.flac",
+        "gd79-12-05d2t05.flac",
+        "gd79-12-05d2t06.flac",
+        "gd79-12-05d2t07.flac",
+        "gd79-12-05d3t01.flac",
+        "gd79-12-05d3t02.flac",
+        "gd79-12-05d3t03.flac",
+        "gd79-12-05d3t04.flac",
+        "gd79-12-05d3t05.flac",
+        "gd79-12-05d3t06.flac",
+        "gd79-12-05d3t07.flac"
+      ],
+      "format": "Checksums",
+      "md5": "f9099fd7213133a10393b608cd2338e1"
+    },
+    {
+      "name": "gd1979-12-05.sbd.miller.112163.flac16_archive.torrent",
+      "source": "original",
+      "format": "Archive BitTorrent",
+      "md5": "b90acad44e90b94cd054765f05a9a713"
+    },
+    {
+      "name": "gd1979-12-05.sbd.miller.112163.flac16_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "a5f9630548fb7ec528f36c8ae470b78b"
+    },
+    {
+      "name": "gd1979-12-05.sbd.miller.112163.flac16_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "07a08eab1783a181765b2f922d98d075"
+    },
+    {
+      "name": "gd1979-12-05.sbd.miller.112163.flac16_reviews.xml",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "cf3e802252761e374f5d80ca84eda28f"
+    },
+    {
+      "name": "gd79-12-05.112163.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "d2f2c3c99ebaaad2d3cb1a3ec5ae97aa"
+    },
+    {
+      "name": "gd79-12-05.ffp",
+      "source": "original",
+      "format": "Flac FingerPrint",
+      "md5": "422fc2f3831205bf24e6c347e9c1f8d8"
+    },
+    {
+      "name": "gd79-12-05.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "90d57db597c00cddc2d97e270622e0a1"
+    },
+    {
+      "name": "gd79-12-05d1t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "280.38",
+      "md5": "07b26af591c8381a7762058b7b31285f",
+      "title": "Tuning"
+    },
+    {
+      "name": "gd79-12-05d1t01.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d1t01.flac",
+      "format": "VBR MP3",
+      "length": "04:40",
+      "md5": "b15afff9dcf211fe7e7e178f55ed0080",
+      "title": "Tuning"
+    },
+    {
+      "name": "gd79-12-05d1t01.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d1t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "277.28",
+      "md5": "0342963709c33a727d1433f7b504eea2"
+    },
+    {
+      "name": "gd79-12-05d1t01.png",
+      "source": "derivative",
+      "original": "gd79-12-05d1t01.flac",
+      "format": "PNG",
+      "md5": "3e4a4a14bd8718f67b2404098ed3b117"
+    },
+    {
+      "name": "gd79-12-05d1t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "429.46",
+      "md5": "2bd844f25dfa1b3ff050c25f2da3de3f",
+      "title": "Alabama Getaway ->"
+    },
+    {
+      "name": "gd79-12-05d1t02.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d1t02.flac",
+      "format": "VBR MP3",
+      "length": "07:09",
+      "md5": "81f84d4bfec071d265fcddf26fed9dc1",
+      "title": "Alabama Getaway ->"
+    },
+    {
+      "name": "gd79-12-05d1t02.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d1t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "426.89",
+      "md5": "9f5faa6727eb1425512e3f01c7bddb9c"
+    },
+    {
+      "name": "gd79-12-05d1t02.png",
+      "source": "derivative",
+      "original": "gd79-12-05d1t02.flac",
+      "format": "PNG",
+      "md5": "f8802a1a115f34b1e79ca350ebd695a5"
+    },
+    {
+      "name": "gd79-12-05d1t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "433.37",
+      "md5": "9bcfeb732289f4ea8464e5b099bd4328",
+      "title": "Greatest Story Ever Told"
+    },
+    {
+      "name": "gd79-12-05d1t03.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d1t03.flac",
+      "format": "VBR MP3",
+      "length": "07:13",
+      "md5": "02a445a4c19d6fc8d175d9dfb97e4fab",
+      "title": "Greatest Story Ever Told"
+    },
+    {
+      "name": "gd79-12-05d1t03.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d1t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "430.44",
+      "md5": "1456da6757f05313ad9d52332c497813"
+    },
+    {
+      "name": "gd79-12-05d1t03.png",
+      "source": "derivative",
+      "original": "gd79-12-05d1t03.flac",
+      "format": "PNG",
+      "md5": "67b39f74c5c3d575c2375fb5cbc49be9"
+    },
+    {
+      "name": "gd79-12-05d1t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "345.78",
+      "md5": "a1d94fa715361a42dfa23c732fcedd3e",
+      "title": "Dire Wolf"
+    },
+    {
+      "name": "gd79-12-05d1t04.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d1t04.flac",
+      "format": "VBR MP3",
+      "length": "05:45",
+      "md5": "84452f1cef29b50f6b2c48de80590166",
+      "title": "Dire Wolf"
+    },
+    {
+      "name": "gd79-12-05d1t04.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d1t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "342.9",
+      "md5": "7143f30d0e9443e64897f0be252826e7"
+    },
+    {
+      "name": "gd79-12-05d1t04.png",
+      "source": "derivative",
+      "original": "gd79-12-05d1t04.flac",
+      "format": "PNG",
+      "md5": "b93d2aa39ae9b342024f9b16876b5de5"
+    },
+    {
+      "name": "gd79-12-05d1t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "186.18",
+      "md5": "f3c6fc31e201565e9d1e0b2a86bb1a73",
+      "title": "Me And My Uncle ->"
+    },
+    {
+      "name": "gd79-12-05d1t05.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d1t05.flac",
+      "format": "VBR MP3",
+      "length": "03:06",
+      "md5": "497ee1257023fdae98fc8a82469028a6",
+      "title": "Me And My Uncle ->"
+    },
+    {
+      "name": "gd79-12-05d1t05.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d1t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "183.59",
+      "md5": "61694df9d643c5d2c754db86c84dd131"
+    },
+    {
+      "name": "gd79-12-05d1t05.png",
+      "source": "derivative",
+      "original": "gd79-12-05d1t05.flac",
+      "format": "PNG",
+      "md5": "5bab60c3f4471f286ff28c199124621c"
+    },
+    {
+      "name": "gd79-12-05d1t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "564.24",
+      "md5": "6bcfff00e099271d220a7ed64d252637",
+      "title": "Big River"
+    },
+    {
+      "name": "gd79-12-05d1t06.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d1t06.flac",
+      "format": "VBR MP3",
+      "length": "09:24",
+      "md5": "4342dfa643e9351605bfab9f7dfa63bd",
+      "title": "Big River"
+    },
+    {
+      "name": "gd79-12-05d1t06.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d1t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "561.28",
+      "md5": "203857efe3179d0ba27ae2cdd5b0ac26"
+    },
+    {
+      "name": "gd79-12-05d1t06.png",
+      "source": "derivative",
+      "original": "gd79-12-05d1t06.flac",
+      "format": "PNG",
+      "md5": "52d67b565968b6c0c8bfda2ac381a647"
+    },
+    {
+      "name": "gd79-12-05d1t07.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "690.36",
+      "md5": "46da68c5d1905f3c5625a8c591f321c6",
+      "title": "Cold Rain And Snow"
+    },
+    {
+      "name": "gd79-12-05d1t07.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d1t07.flac",
+      "format": "VBR MP3",
+      "length": "11:30",
+      "md5": "ee7f383c3a6094fcdaa960012d08053a",
+      "title": "Cold Rain And Snow"
+    },
+    {
+      "name": "gd79-12-05d1t07.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d1t07.flac",
+      "format": "Ogg Vorbis",
+      "length": "687.38",
+      "md5": "988e7072b57a8fe0e6c9d7785dfdc61e"
+    },
+    {
+      "name": "gd79-12-05d1t07.png",
+      "source": "derivative",
+      "original": "gd79-12-05d1t07.flac",
+      "format": "PNG",
+      "md5": "8516402b5c42cbcfb00fefa9b142af64"
+    },
+    {
+      "name": "gd79-12-05d1t08.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "195.54",
+      "md5": "f638d9618fc5938ae0763a613208f56a",
+      "title": "Easy To Love You ->"
+    },
+    {
+      "name": "gd79-12-05d1t08.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d1t08.flac",
+      "format": "VBR MP3",
+      "length": "03:15",
+      "md5": "1a15c462d51c7ddc97efa19615b44a3b",
+      "title": "Easy To Love You ->"
+    },
+    {
+      "name": "gd79-12-05d1t08.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d1t08.flac",
+      "format": "Ogg Vorbis",
+      "length": "192.47",
+      "md5": "3a3519225107ba0793f2e59438cf668a"
+    },
+    {
+      "name": "gd79-12-05d1t08.png",
+      "source": "derivative",
+      "original": "gd79-12-05d1t08.flac",
+      "format": "PNG",
+      "md5": "1a790ffb2bb71f4b211dae6ce9890511"
+    },
+    {
+      "name": "gd79-12-05d1t09.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "665.57",
+      "md5": "448f241a6448f0cf51d9082228b3cb66",
+      "title": "Althea ->"
+    },
+    {
+      "name": "gd79-12-05d1t09.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d1t09.flac",
+      "format": "VBR MP3",
+      "length": "11:05",
+      "md5": "ae9c9fff9a02fe620129d0f6e3bd9265",
+      "title": "Althea ->"
+    },
+    {
+      "name": "gd79-12-05d1t09.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d1t09.flac",
+      "format": "Ogg Vorbis",
+      "length": "662.16",
+      "md5": "46b969ceed87fd6ae370c1c391046104"
+    },
+    {
+      "name": "gd79-12-05d1t09.png",
+      "source": "derivative",
+      "original": "gd79-12-05d1t09.flac",
+      "format": "PNG",
+      "md5": "ba6d188f477d173c472beda1371cb826"
+    },
+    {
+      "name": "gd79-12-05d1t10.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "402.12",
+      "md5": "0c68db2ad3a552d316df78624fe6c21b",
+      "title": "Lost Sailor ->"
+    },
+    {
+      "name": "gd79-12-05d1t10.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d1t10.flac",
+      "format": "VBR MP3",
+      "length": "06:42",
+      "md5": "315f6d83209517e74170a18cf46c0151",
+      "title": "Lost Sailor ->"
+    },
+    {
+      "name": "gd79-12-05d1t10.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d1t10.flac",
+      "format": "Ogg Vorbis",
+      "length": "398.3",
+      "md5": "e3125554d2c86c38d1589962cdb62e8e"
+    },
+    {
+      "name": "gd79-12-05d1t10.png",
+      "source": "derivative",
+      "original": "gd79-12-05d1t10.flac",
+      "format": "PNG",
+      "md5": "3228038fcb06c956fa8f90785d765c2d"
+    },
+    {
+      "name": "gd79-12-05d1t11.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "363.49",
+      "md5": "1cc3098d54ca40bb660698550bf1c0bd",
+      "title": "Saint Of Circumstance"
+    },
+    {
+      "name": "gd79-12-05d1t11.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d1t11.flac",
+      "format": "VBR MP3",
+      "length": "06:03",
+      "md5": "4002a40b27b5abe8bcbc72d6e0f0981f",
+      "title": "Saint Of Circumstance"
+    },
+    {
+      "name": "gd79-12-05d1t11.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d1t11.flac",
+      "format": "Ogg Vorbis",
+      "length": "359.34",
+      "md5": "dbd01c13b78fa0615e2e0e18b3c8f4d4"
+    },
+    {
+      "name": "gd79-12-05d1t11.png",
+      "source": "derivative",
+      "original": "gd79-12-05d1t11.flac",
+      "format": "PNG",
+      "md5": "76ae6e24318f2067ea5c164a2ab7270c"
+    },
+    {
+      "name": "gd79-12-05d2t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "57.18",
+      "md5": "921f44361a3ea1c99fa33bc3895f5c98",
+      "title": "Tuning"
+    },
+    {
+      "name": "gd79-12-05d2t01.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d2t01.flac",
+      "format": "VBR MP3",
+      "length": "00:57",
+      "md5": "aea171941cda53d44b5760e8dea1c049",
+      "title": "Tuning"
+    },
+    {
+      "name": "gd79-12-05d2t01.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d2t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "52.82",
+      "md5": "43cd2dbae02705947569cedd58d676fd"
+    },
+    {
+      "name": "gd79-12-05d2t01.png",
+      "source": "derivative",
+      "original": "gd79-12-05d2t01.flac",
+      "format": "PNG",
+      "md5": "64cda5d15378a4cc7e6aa8fad8b2bb7f"
+    },
+    {
+      "name": "gd79-12-05d2t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "1067.06",
+      "md5": "1c7ca7a56e12aa72d63515e19fd516ce",
+      "title": "Shakedown Street ->"
+    },
+    {
+      "name": "gd79-12-05d2t02.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d2t02.flac",
+      "format": "VBR MP3",
+      "length": "17:47",
+      "md5": "bea1fb790c8c6f2427637cbab60537f7",
+      "title": "Shakedown Street ->"
+    },
+    {
+      "name": "gd79-12-05d2t02.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d2t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "1063.01",
+      "md5": "63c807c1bc5fd94c489583376f21fc96"
+    },
+    {
+      "name": "gd79-12-05d2t02.png",
+      "source": "derivative",
+      "original": "gd79-12-05d2t02.flac",
+      "format": "PNG",
+      "md5": "0b3146245056eb6cdb9a000a7454eb6e"
+    },
+    {
+      "name": "gd79-12-05d2t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "627.74",
+      "md5": "7693250e06ce94be9b135283003867a7",
+      "title": "Samson And Delilah"
+    },
+    {
+      "name": "gd79-12-05d2t03.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d2t03.flac",
+      "format": "VBR MP3",
+      "length": "10:27",
+      "md5": "c8ce26c70f00429df8f22ec8fde2609e",
+      "title": "Samson And Delilah"
+    },
+    {
+      "name": "gd79-12-05d2t03.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d2t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "624.76",
+      "md5": "7aaedaecf93881cb8e03845c58d4eb0b"
+    },
+    {
+      "name": "gd79-12-05d2t03.png",
+      "source": "derivative",
+      "original": "gd79-12-05d2t03.flac",
+      "format": "PNG",
+      "md5": "273c13c7ea2715be1560e2ef206420aa"
+    },
+    {
+      "name": "gd79-12-05d2t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "807.96",
+      "md5": "8611583fe63a44ac0de42d9de7cd66c3",
+      "title": "Ship Of Fools"
+    },
+    {
+      "name": "gd79-12-05d2t04.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d2t04.flac",
+      "format": "VBR MP3",
+      "length": "13:27",
+      "md5": "5db5c897d1158e366172df8aa4b1108b",
+      "title": "Ship Of Fools"
+    },
+    {
+      "name": "gd79-12-05d2t04.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d2t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "804",
+      "md5": "c900bc41a5d35aa19f2bc8966fcb61d6"
+    },
+    {
+      "name": "gd79-12-05d2t04.png",
+      "source": "derivative",
+      "original": "gd79-12-05d2t04.flac",
+      "format": "PNG",
+      "md5": "874d5e58fe466213ab29cd2672b10961"
+    },
+    {
+      "name": "gd79-12-05d2t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "986.1",
+      "md5": "d7a12722791da8245b2ff9e036c06c18",
+      "title": "He's Gone ->"
+    },
+    {
+      "name": "gd79-12-05d2t05.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d2t05.flac",
+      "format": "VBR MP3",
+      "length": "16:26",
+      "md5": "2c060af8ea516a5eff284e19242c0750",
+      "title": "He's Gone ->"
+    },
+    {
+      "name": "gd79-12-05d2t05.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d2t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "982.96",
+      "md5": "ebd19a596b4841dc853743c23661fd0b"
+    },
+    {
+      "name": "gd79-12-05d2t05.png",
+      "source": "derivative",
+      "original": "gd79-12-05d2t05.flac",
+      "format": "PNG",
+      "md5": "4b9e7eda2149aebaa44481f3eaa4b05e"
+    },
+    {
+      "name": "gd79-12-05d2t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "1047.13",
+      "md5": "e87e022193b17d87bf36a10955e671ba",
+      "title": "The Other One ->"
+    },
+    {
+      "name": "gd79-12-05d2t06.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d2t06.flac",
+      "format": "VBR MP3",
+      "length": "17:27",
+      "md5": "1562686cb4a1a32b9493249be0eb1452",
+      "title": "The Other One ->"
+    },
+    {
+      "name": "gd79-12-05d2t06.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d2t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "1044.51",
+      "md5": "2940f4c52afe74a87d3e82cce1ec9651"
+    },
+    {
+      "name": "gd79-12-05d2t06.png",
+      "source": "derivative",
+      "original": "gd79-12-05d2t06.flac",
+      "format": "PNG",
+      "md5": "96cc1e858896d5f2deca772192ce76f6"
+    },
+    {
+      "name": "gd79-12-05d2t07.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "168.21",
+      "md5": "45193a5cee7c8a4b059f1eb817015ceb",
+      "title": "Drums ->"
+    },
+    {
+      "name": "gd79-12-05d2t07.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d2t07.flac",
+      "format": "VBR MP3",
+      "length": "02:48",
+      "md5": "186bb69d93d812bfc75d278f629dfea7",
+      "title": "Drums ->"
+    },
+    {
+      "name": "gd79-12-05d2t07.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d2t07.flac",
+      "format": "Ogg Vorbis",
+      "length": "165.71",
+      "md5": "0728d9c450af21e2039b81e49f10a933"
+    },
+    {
+      "name": "gd79-12-05d2t07.png",
+      "source": "derivative",
+      "original": "gd79-12-05d2t07.flac",
+      "format": "PNG",
+      "md5": "01fd9caf491db31116a5131a9dfbc505"
+    },
+    {
+      "name": "gd79-12-05d3t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "329.18",
+      "md5": "e3476d6b35096caa44cd8a1d0bade90d",
+      "title": "Space ->"
+    },
+    {
+      "name": "gd79-12-05d3t01.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d3t01.flac",
+      "format": "VBR MP3",
+      "length": "05:29",
+      "md5": "2e5246872f7d94e44acf265fc298211d",
+      "title": "Space ->"
+    },
+    {
+      "name": "gd79-12-05d3t01.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d3t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "326.24",
+      "md5": "a0724f4dbe62089d23b647a1b35d128a"
+    },
+    {
+      "name": "gd79-12-05d3t01.png",
+      "source": "derivative",
+      "original": "gd79-12-05d3t01.flac",
+      "format": "PNG",
+      "md5": "e6aa7fe929ef68c851cf7a2d89c55e19"
+    },
+    {
+      "name": "gd79-12-05d3t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "731.86",
+      "md5": "cb76894ced2557e9d90b91eabf7e2967",
+      "title": "Black Peter ->"
+    },
+    {
+      "name": "gd79-12-05d3t02.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d3t02.flac",
+      "format": "VBR MP3",
+      "length": "12:11",
+      "md5": "deef536c93300628162f2c73bd55b3f7",
+      "title": "Black Peter ->"
+    },
+    {
+      "name": "gd79-12-05d3t02.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d3t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "728.62",
+      "md5": "a4c3499d95ac214d10a81864c1df5d02"
+    },
+    {
+      "name": "gd79-12-05d3t02.png",
+      "source": "derivative",
+      "original": "gd79-12-05d3t02.flac",
+      "format": "PNG",
+      "md5": "29f649c4bec63f665b170bebf34bbd20"
+    },
+    {
+      "name": "gd79-12-05d3t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "194.76",
+      "md5": "de769edc2650eef0d928d4afd9b41ece",
+      "title": "I Need A Miracle ->"
+    },
+    {
+      "name": "gd79-12-05d3t03.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d3t03.flac",
+      "format": "VBR MP3",
+      "length": "03:14",
+      "md5": "d21a84a856d3100b4635b8b615b01aa5",
+      "title": "I Need A Miracle ->"
+    },
+    {
+      "name": "gd79-12-05d3t03.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d3t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "191.99",
+      "md5": "511907bbbb303693624c2ac8c4b672d1"
+    },
+    {
+      "name": "gd79-12-05d3t03.png",
+      "source": "derivative",
+      "original": "gd79-12-05d3t03.flac",
+      "format": "PNG",
+      "md5": "b5e9bf19cae1fa889ba638fe87e1411e"
+    },
+    {
+      "name": "gd79-12-05d3t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "399.02",
+      "md5": "97635079089160e904bde1455c475ead",
+      "title": "Bertha ->"
+    },
+    {
+      "name": "gd79-12-05d3t04.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d3t04.flac",
+      "format": "VBR MP3",
+      "length": "06:39",
+      "md5": "dd873b295d8e5ac572c19f130b893a02",
+      "title": "Bertha ->"
+    },
+    {
+      "name": "gd79-12-05d3t04.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d3t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "396.14",
+      "md5": "515bed9c92edda61cc79e40cbe78964c"
+    },
+    {
+      "name": "gd79-12-05d3t04.png",
+      "source": "derivative",
+      "original": "gd79-12-05d3t04.flac",
+      "format": "PNG",
+      "md5": "1303779d6b90f2bd16d40b8f3cc7fee7"
+    },
+    {
+      "name": "gd79-12-05d3t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "702.57",
+      "md5": "fb7a1e16131796150c3d7b7e56e9c93c",
+      "title": "Good Lovin'"
+    },
+    {
+      "name": "gd79-12-05d3t05.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d3t05.flac",
+      "format": "VBR MP3",
+      "length": "11:42",
+      "md5": "98b18296a8c6efd804654a0c5f0d14cd",
+      "title": "Good Lovin'"
+    },
+    {
+      "name": "gd79-12-05d3t05.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d3t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "699.42",
+      "md5": "677096233e7f6eda2ce619211e4d7efc"
+    },
+    {
+      "name": "gd79-12-05d3t05.png",
+      "source": "derivative",
+      "original": "gd79-12-05d3t05.flac",
+      "format": "PNG",
+      "md5": "3763828a1da06a325c29cdb189450d15"
+    },
+    {
+      "name": "gd79-12-05d3t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "337.48",
+      "md5": "35b705a1001c213133025ddb0a1bd446",
+      "title": "Johnny B. Goode"
+    },
+    {
+      "name": "gd79-12-05d3t06.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d3t06.flac",
+      "format": "VBR MP3",
+      "length": "05:37",
+      "md5": "c87941299cc859fb6cbcce6489d975aa",
+      "title": "Johnny B. Goode"
+    },
+    {
+      "name": "gd79-12-05d3t06.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d3t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "334.53",
+      "md5": "bc33710def484e18793812fcba30ae94"
+    },
+    {
+      "name": "gd79-12-05d3t06.png",
+      "source": "derivative",
+      "original": "gd79-12-05d3t06.flac",
+      "format": "PNG",
+      "md5": "67df1439f08977fe6281d7caaf9041c8"
+    },
+    {
+      "name": "gd79-12-05d3t07.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "215.14",
+      "md5": "beea5f85f6787c356fc9ceb0f036d31b",
+      "title": "Don't Ease Me In"
+    },
+    {
+      "name": "gd79-12-05d3t07.mp3",
+      "source": "derivative",
+      "original": "gd79-12-05d3t07.flac",
+      "format": "VBR MP3",
+      "length": "03:35",
+      "md5": "285365f3c3532bd0111dc9a6e221ad4a",
+      "title": "Don't Ease Me In"
+    },
+    {
+      "name": "gd79-12-05d3t07.ogg",
+      "source": "derivative",
+      "original": "gd79-12-05d3t07.flac",
+      "format": "Ogg Vorbis",
+      "length": "212.25",
+      "md5": "b98e676c3b7f3930f52e6eec45094566"
+    },
+    {
+      "name": "gd79-12-05d3t07.png",
+      "source": "derivative",
+      "original": "gd79-12-05d3t07.flac",
+      "format": "PNG",
+      "md5": "2106bc2b650951a6748519e6bd6effb0"
+    }
+  ],
+  "reviews": [
+    {
+      "reviewbody": "Now put this in your ear and smoke it. Yeah, much love for 73 and 74 but in 78 and 79 there are some burners. This is one of them. Brent especially is on the money tonight, not much Bob screaming and Jerry is running up and down the frets like a man on a mission. I do not review many shows, but having seen the Dead over 100 times, and missing those days like crazy sometimes feel the need to poke my head out of the sand. Kids, listen to this and smile. And of course Mr. Miller, wherever you are, thank you! Your work has made my day countless times. Take care all and God Bless the Grateful Dead.",
+      "reviewtitle": "Mr. Charlie Miller does it again....",
+      "reviewer": "Oregon Green",
+      "reviewdate": "2011-03-30 02:10:12",
+      "createdate": "2011-03-30 02:10:12",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "I don't know if I have ever encountered a show that slowed the music down for soooooooo much of both sets!  Check out the 11+ minute Althea, just note after note after note.  The Shakedown is just as mellow, Brent throws in some of Cape Cod-style funk and then Sampson rocks, of course.  But Jerry's back with Ship of Fools into He's Gone.  The Other One brings it up a bit, but out of drums into Black Peter!  Jerry, what are you telling us\nIt's a great show, beautiful Mr. Miller sound.  Just a totally unique vibe to this show.  Jerry was. going. real. slow.  Love it!\n\nMYSTERY OF THE 11 MINUTE ALTHEA SOLVED!!!\n\nI love this song - I was there when they began playing it and I stayed through the end.  Hunter/Garcia, 'nuff said.  My earlier comment noted how sloooowww this show runs, but how to explain an 8 or 9 minute song lasting 11 minutes?.  I took another listen.  After crushing the \"and forgetting the love we bring\" closing line, the Boys wander back into a jam that leads ol' Jerry back to the microphone to repeat the \"There are things you can replace, and others you cannot\" stanza.  It's pretty funny because the first time through, he sang \"things we can replace and others you cannot\".  Second time through, he uses the \"we\" both times.  Guess he wasn't finished taking it out for the test drive.  The rest of the band never misses a beat after the repeated stanza, Jerry sings the last two stanzas again and the song reaches its beautiful conclusion.\n\nAll things considered, it's remarkable that stuff like this didn't happen more often (like all the time).  Think of all that energy popping on stage - how to keep it all together?",
+      "reviewtitle": "Need to slow down? Here's your show! UPDATE!!!",
+      "reviewer": "sugareesupreme",
+      "reviewdate": "2017-07-10 12:42:25",
+      "createdate": "2012-11-11 03:35:58",
+      "stars": "5"
+    },
+    {
+      "reviewtitle": "uptown 79'",
+      "reviewbody": "all in all this is a good show that is well played.It started off kind of slow but by the end of the first set is started to spark.Set 2 is where the action is and a funky Shakedown gets the set going .He's Gone,The other One,and Black Peter are highlights.",
+      "stars": "5",
+      "reviewer": "gr8fuldad73",
+      "reviewdate": "2021-06-28 03:43:58",
+      "createdate": "2013-07-13 05:13:02",
+      "reviewer_itemname": "@gr8fuldad73"
+    },
+    {
+      "reviewbody": "I don't usually write specifically about an individual show, so much as the impression that it makes on me, but this is actually a quite extraordinary effort.  There is an elevated energy running through the band that is evident throughout the show - Jerry even goes a little scat in Black Peter - making it well worth listening to.  The jam from He's Gone to the Other One is particularly interesting.  It might be the best show if its era without a scarlet > fire or estimated > eyes.",
+      "reviewtitle": "bread crumb",
+      "reviewer": "kbmill",
+      "reviewdate": "2014-11-26 01:00:01",
+      "createdate": "2014-11-26 01:00:01",
+      "stars": "0"
+    },
+    {
+      "reviewbody": "Give this one a listen and you know that this is the new dead sound they were looking for. Brent is all over this Getaway. Check out Big River for another example. Brent showcase. Love these Alabama openers. First night segues into Promised Land, tonight into the Greatest Story Ever Told. This new era dead still finding its way, some curious choices, but all told I dig it a lot. Can imagine some might've been less than enthused, but I think the sequence to close the set, highlighting Go to Heaven, is great: Easy to Love You->Althea->Sailor->Saint. \n\nI hear ya, sugareesupreme: Some slower, mellower playing throughout this show. But it's not sleepy and in general it works. The band is focused. Example is Cold Rain and Slow. I mean, Snow! Althea is a sweet groove. Dig it. At any rate, this show is really all about the second set. \n\nSecond set pops out the gates with a 17 minute Shakedown opener. Headyversion love by grendel: \"A funk-laden but more laid-back, groovier vibe marks this excellent entry from Chicago. Notable for A+ vocals & harmonies and Bobby shines in end jam!\" Solid start to an excellent, nearly two hour set. Samson that follows bring the heat. The 60+ minutes that follow are great, must-listen: Grendel, again, on Samson: \"Possibly best-ever of the Brent era. Bob preaches fire & brimstone and Jerry shreds the living daylights out of every jam. Serious MUST listen version.\" It's followed by a beautiful Ship of Fools. Some discussion on headyversion that it might be the \"best post '77 version.\" Whoa! Then comes He's Gone, with Jerry and Brent trading licks toward the end. Phil is really prominent in the jam, too- getting ready for Other One. Bobby wasn't kidding: At the start of He's Gone, he said \"We're gonna beg your indulgence and do another semi-slow song, but it won't stay slow forever.\" With the avalanche unleashed by Phil and co. at the start of o1 you know he's not messing around. 17-minute absolute savage version, especially enchanting near end. Spacey and dark as it segues into drums. Short drums, but the drums theme continues from the end of o1 through to space. Segue into Black Peter. This whole jam sequence starting with he's gone is excellent. To boot, after that you get another solid 30 minutes of music- with a double encore. \n\nIn short, this is a fantastic show to close out the run. They would return in August '80 for another three-nighter. It's a good one! These runs seem to just keep getting better. This one's a scorcher, my favorite of this run. Five stars on the strength of the music, alone. Not to mention, this fantastic SBD. ",
+      "reviewtitle": "Dec79- Uptown n3 finale",
+      "reviewer": "mcgrupp216",
+      "reviewer_itemname": "@mcgrupp216",
+      "reviewdate": "2018-05-14 17:23:47",
+      "createdate": "2018-05-14 17:23:47",
+      "stars": "5"
+    }
+  ]
+}

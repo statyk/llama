@@ -243,3 +243,47 @@ def test_short2a_arrowed_is_empty_without_2a(tmp_path):
     assert res.title_record.short2a_arrowed == ()
     assert [t.title for t in res.show.tracks][1] == "Crowd >"   # its own arrow keeps it
     assert res.junk_drops == ()
+
+
+def _real_item(tmp_path, fixture: str, ident: str, date: str, overrides: Overrides):
+    from llama.models import Candidate, RecordingSummary
+    md = json.loads((Path(__file__).parent / "fixtures" / fixture).read_text())
+    cand = Candidate(performance_id=f"x/{date}", collection="x", date=date, venue="v",
+                     city="c", recordings=[RecordingSummary(identifier=ident)])
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, overrides)
+    return compute_gather(sws, StubIA(md), None, cand, ident)
+
+
+def test_1979_12_05_tuning_drops(tmp_path):
+    ident = "gd1979-12-05.sbd.miller.112163.flac16"
+    res = _real_item(tmp_path, f"{ident}.json", ident, "1979-12-05", Overrides())
+    show = res.show
+    assert "gd79-12-05d1t01.mp3" not in [t.filename for t in show.tracks]
+    rows = [r for r in show.excluded_files if r["filename"] == "gd79-12-05d1t01.mp3"]
+    assert len(rows) == 1
+    assert rows[0]["reasons"] == ["junk title"]
+    assert rows[0]["title"] == "Tuning"
+    assert rows[0]["after_track"] == 0
+    assert show.tracks[0].title.startswith("Alabama Getaway")
+
+
+def test_railroadearth_2006_02_18_encore_on_dropped_crowd(tmp_path):
+    ident = "rre2006-02-18.oktava.flac16"
+    ov = Overrides(set_breaks=["rre2006-02-18d1t07.oktava.mp3"],
+                   encore_after="rre2006-02-18d3t06.oktava.mp3")
+    res = _real_item(tmp_path, f"{ident}.json", ident, "2006-02-18", ov)
+    show = res.show
+    assert len(show.tracks) == 19
+    by_index = {t.index: t for t in show.tracks}  # 1-based, as the brief numbers them
+    assert by_index[17] is show.tracks[16] and by_index[18] is show.tracks[17]
+    assert show.set_breaks == [7, 17]
+    assert (show.tracks[16].title, show.tracks[16].set) == ("Bird In A House", "2")
+    assert (show.tracks[17].title, show.tracks[17].set) == ("Shockenaw Mountain Breakdown",
+                                                            "encore")
+    rows = [r for r in show.excluded_files if r["filename"] == "rre2006-02-18d3t06.oktava.mp3"]
+    assert len(rows) == 1
+    assert rows[0]["title"] == "Crowd"
+    assert rows[0]["set"] == "2"
+    assert rows[0]["after_track"] == 17
+    assert not any(h for h in res.junk_drops if h.held)
