@@ -25,10 +25,11 @@ Voxtral credits on a Voxtral show).
   replaced only by name, in batches the operator approves before anything is replaced,
   each show followed by its re-voice.
 - A station manifest carrying `awaiting_fix` is **not airable** (transmitter) and emcee
-  skips it. This rollout marks only unvoiced station copies, which are not airable anyway,
-  so a mark takes nothing off air; **no voiced station copy is marked**. A stray station
-  mark is reversed with `bulk_apply.py unmark`, by its marking batch (`llama clear-mark`
-  refuses unvoiced copies).
+  skips it. This rollout station-marks only unvoiced copies, which are not airable anyway,
+  so a mark takes nothing off air; **no voiced station copy is marked** (the marking
+  command re-reads station state under the lock; enforced in code, with a test). A stray
+  mark is reversed per batch, not per show, with `bulk_apply.py unmark` (`llama
+  clear-mark` refuses unvoiced copies).
 - The manifest is the only contract between llama, emcee and transmitter. Its new field
   must be additive and optional: every existing reader must keep working on packages with
   it, without it, and with it `null` or `[]`. The same holds for the new key in the
@@ -99,7 +100,8 @@ the end rule mirrors it and touches 2 tracks today.)
 
 **Edge runs (my call).** "First of the show/set" and "last of the tape" are judged
 AFTER rule A's drops, so a run at an edge goes whole: set 2 opening `Crowd`, `Intro`
-drops both; `Outro`, `Crowd` at the end drops both. (The 2026-11-13 baseline judged
+drops both; `Outro`, `Crowd` at the end drops both. Rule A runs first, then B and C once
+each on what A left (no iteration to a fixed point). (The 2026-11-13 baseline judged
 position on the original list, so expect a few more B/C drops than it shows; report them.)
 
 **Segue arrows keep**, as in the existing operator ruling: a title that ends in
@@ -152,7 +154,7 @@ drop itself is in the population it is compared against; this is what was measur
   (operator-only) in `OVERRULE_BAR`, like `lineage-unknown`. The hold exists because a
   human ear is the test; an LLM reading tags cannot hear a mislabelled song. An
   adjudicator `include` of a file carrying the new reason is propose-only (the reason
-  joins the gate's refused-include set).
+  joins the gate's refused-include set), and so is a `set_title` on such a file.
 
 ## Placement in gather (builder's choice, with constraints)
 
@@ -162,10 +164,10 @@ live there whole. Constraints:
 
 - It must see the final titles and final set labels, and run before `Show` is built.
 - Gather's other hold checks (structure guard, jerrybase closer tripwire and
-  `filler_tail_closers`, the multi-event span check, `no playable tracks`) may see the
-  list before or after the drop, builder's choice. Any hold they add or clear across the
-  library replay is reported to the operator with the show and the flag; it need not be
-  zero (my call).
+  `filler_tail_closers`, the multi-event span check) may see the list before or after the
+  drop, builder's choice; `no playable tracks` is evaluated after it. Any hold they add or
+  clear across the library replay is reported to the operator with the show and the
+  flag; it need not be zero (my call).
 - Dropping must not change which tracks the structure/alignment step saw in a way that
   moves set boundaries for the remaining tracks; if the builder re-runs structure after
   the drop, measure the delta on the library replay and report it.
@@ -173,7 +175,8 @@ live there whole. Constraints:
 - The replay harness and `reapply` pass through the same code (one implementation).
 - Staleness compares against the post-drop list: `staleness.stale_message` and the
   `--suggest-titles` comparison in `cli.py` use one shared helper, gather's final kept
-  list (`gather.final_kept`) minus this rule's drops, so a show the rule changed is not
+  list (`gather.final_kept`) minus the files `show.json`'s `excluded_files` records with
+  the new reason, so a show the rule changed is not
   reported stale.
 
 ## The package: `dropped_tracks`
@@ -182,11 +185,12 @@ The manifest gains an optional top-level list (schema stays v3):
 
     "dropped_tracks": [
       {"title": "Tuning", "duration_sec": 280.4, "set": "1", "after_track": 0,
-       "filename": "gd79-12-05d1t01.mp3", "reason": "junk title"}
+       "source_file": "gd79-12-05d1t01.mp3", "reason": "junk title"}
     ]
 
 - `after_track`: the kept track index it sat after (0 = before the first track), so a
-  reader can place it inline. `set`: the set label it carried.
+  reader can place it inline. `set`: the set label it carried. `source_file`: the
+  archive.org source filename (the file was never packaged).
 - **Only this rule's drops are listed** (my call). The short arm's drops (tag-judged or
   not) record no title or position and share their reason with untagged drops, so listing
   them would need a second implementation of the short rule. Spam, duplicate or
@@ -207,12 +211,14 @@ The manifest gains an optional top-level list (schema stays v3):
   notes JSON (e.g. `dropped`: entries with `title`, `set`, `after_track`), tolerating a
   damaged value the way `part()` does. An old or cached reader ignores the key.
 - `_setlist_html` (the static `show/<slug>.html`) and the slide-up notes panel merge those
-  entries inline at their `after_track` position and render them greyed and struck
-  through. On the antenna side only new code merges them, in a new module (antenna's rule:
-  a deployed module gains no exports); `setlistCard` (`panel.js`) renders the result.
+  entries inline at their `after_track` position, struck through with `<s>` (or `<del>`),
+  so no new CSS is needed; grey is an optional CSS refinement. On the antenna side only
+  new code merges them, in a new module (antenna's rule: a deployed module gains no
+  exports); `setlistCard` (`panel.js`) renders the result.
 - Struck entries are **not counted** in the list numbering (the setlist is an `<ol>`;
-  `<li value=...>` or a CSS counter, builder's choice). A dropped entry whose set has no
-  kept tracks adds no set heading.
+  `<li value=...>` or a CSS counter, builder's choice). A struck entry joins the
+  preceding group (the following one when it is first); groups and set labels are
+  counted over kept tracks only.
 - Nothing changes on the now-playing view.
 - A manifest or notes file without the field renders exactly as today (shows not yet re-delivered
   keep their old manifests until the rollout reaches them). transmitter stays Python 3.11-compatible.
@@ -228,7 +234,8 @@ emcee never imports llama; it reads the manifest field.
 
 ## Rollout
 
-1. Release llama, emcee and transmitter/antenna (deploy) with the change.
+1. Release llama, emcee and transmitter/antenna with the change (deploy
+   transmitter/antenna; the llama and emcee binaries are installed at step 4).
 2. A separate pass after the release (operator, 2026-11-13), not part of the 2026-10
    bulk-apply campaign, whose batch work is done. It reuses that campaign's machinery
    (`scripts/bulk_apply.py`, `scripts/CLAUDE.md`), run from a campaign worktree pinned to
@@ -241,53 +248,70 @@ emcee never imports llama; it reads the manifest field.
    re-delivered with `--replace-voiced` during the campaign that await re-voicing; they get
    no special priority either way (operator).
 
-   **Membership:** a show is in the rollout when its live station manifest lists a source
-   file that the re-processed library show drops under this rule. Not "library `show.json`
-   changed" (that misses shows fixed after the release) and not "library differs from
-   station" (that sweeps in shows the operator ruled with `--accept-change`). A show not on
-   the station is in when the rule drops a file from its library show. Before a show is
-   re-processed, membership is judged from the release's library replay (the drops it
-   would make) against the live station manifest; step 6 checks it again before any
-   voiced replacement.
-3. **Mark every affected show first.** `reapply` skips a show whose campaign record is
-   processed and unmarked, and 480 of the 699 carry `processed`. The mark uses a new
-   reason, `junk-title drop`, which joins the campaign's set. Two kinds, by the show's
-   live station state:
-   - **Unvoiced station copy** (held or not): a normal station mark (`awaiting_fix`). It
-     takes nothing off air (transmitter needs `dj_audio`), and emcee skips marked copies,
-     so no affected show is voiced from its stale manifest in the meantime. Mark these at
-     release, before any further `emcee run`.
-   - **Voiced station copy, or no station copy:** a library-only mark (a `campaign.json`
-     mark with no station write; a small new option on `bulk_apply.py mark`, e.g.
-     `--library-only`). No voiced station copy is ever marked in this rollout.
-4. **Re-process:** `llama reapply --from-list <list> --allow-structure-change`. Shows with
-   a stored `llm` alignment (81 of 699 measured) need `--with-gather-llm`: they run in
-   their own waves, sized from a pilot's meter readings (the reapply rule), or are left
-   library-unchanged and listed.
+   **Membership** comes from one read-only list command (a new script or subcommand; the
+   builder names it). Per show it pairs station tracks to source files by index and title
+   against the show's pre-reprocess `show.json` (or `reuse-anchor.json` when present), the
+   rule `audio_reuse._pair` uses. A show whose station copy does not pair is listed
+   `unpaired` and left out, never guessed (all 933 station-side drop rows pair today). A
+   show is a member when a paired station track is a file this rule drops, or, not on the
+   station, when the rule drops a file from its library show. (Not "library `show.json`
+   changed", which misses shows fixed after the release, nor "library differs from
+   station", which sweeps in shows ruled `--accept-change`.) The drops come from the
+   release's library replay, or, for a show it cannot gather LLM-free (stored `llm`
+   alignment), from its current `show.json` titles and set labels (the baseline's method).
+   The list records each member's pairs (station packaged filename and title, the
+   `source_file` it pairs with), which is what step 6 re-checks against. `unpaired` shows
+   are reported to the operator and otherwise left as they are (a documented limitation).
+   Per member it outputs: slug; station state (unvoiced, voiced with presenter, currently
+   resolved backend and clip count, or not on station); drop list (title, duration); held
+   or not; any other station-vs-library track difference.
+3. **Mark every member, before installing the release binaries,** from the pinned
+   worktree (its replay decides membership). No `emcee run` or `emcee voice` between
+   building the list and the end of marking. (`reapply` skips a processed, unmarked show:
+   480 of the 699.) A dedicated command takes only the list (not `bulk_apply.py mark`,
+   which marks every visible change and writes voiced copies), reason `junk-title drop`
+   (it joins the campaign's set). Under the station lock it re-reads each station
+   manifest: an unvoiced copy (held or not) gets a station mark (`awaiting_fix`) and a
+   campaign mark; a voiced copy or none, a campaign mark only. Its batch record is what
+   `bulk_apply.py unmark` reverses. A station mark takes nothing off air (transmitter
+   needs `dj_audio`), and emcee skips it.
+4. **Install the release, then re-process:** `llama reapply --from-list <list>
+   --allow-structure-change`. The stored-`llm` shows (81 of 699 measured) are processed
+   too, in their own `--with-gather-llm` wave(s), sized from a pilot's meter readings (the
+   reapply rule). Brief and vet holds from re-processing are listed in the run report and
+   in step 6's approval list (`deliver` refuses a held show).
 5. **Unvoiced delivered (~528):** re-deliver with `llama deliver --fixed`, which also
    clears the mark.
 6. **Voiced (150):** mlx_audio and Voxtral alike (Voxtral, operator 2026-11-14: "Let's
    just do all of them"), in batches the operator approves **before anything is replaced**.
-   The approval list is built per show from live state: the current clip count (set
-   intros plus outro, from its `dj_audio`); the presenter's currently resolved backend (as
-   in `emcee status`'s `(now:)` column, not the recorded one); the show's drop list
-   (titles, durations; the cheapest moment to catch a mislabel); and any other
-   station-vs-library difference. After approval, per show: re-check membership (the drop
-   is still there and the station copy still differs on tracks; a show `--include`d in the
-   meantime leaves the batch), then `llama deliver <slug> --replace-voiced` by name, then
-   `emcee voice <slug>`. Not `emcee run`: it voices every pending package on the station
-   (2,784 today) and has no slug selector. A re-voice that fails is retried with
-   `emcee voice <slug>`; until then the show is off air.
-7. **Held (19):** go to the operator's triage, whatever their voicing. Only an overrule
-   (accepting the drop) sends a held show on to re-delivery: unvoiced by `deliver --fixed`,
-   voiced by the step 6 batch route. An `--include` resolution changes nothing at the
-   station: the station copy already has the track and stays as it is; if unvoiced, its
-   mark is cleared by `deliver --fixed`, a re-delivery with no change. A voiced held show
-   keeps airing as it is throughout. `gratefuldead-1969-03-01` (Voxtral, held) follows
-   this.
+   The approval list is the list command's entry per show, from live state (the current
+   clip count, set intros plus outro, from its `dj_audio`; the presenter's currently
+   resolved backend, as in `emcee status`'s `(now:)` column, not the recorded one; the
+   drop list, the cheapest moment to catch a mislabel; any other station-vs-library
+   difference), plus any brief or vet hold. After approval, per show: re-check membership
+   against the pairs the list recorded (re-packaging deletes `reuse-anchor.json` and
+   `show.json` is post-drop by then): the recorded station track is still in the station
+   manifest, and the library `show.json` still excludes its `source_file` with the new
+   reason (a show `--include`d in the meantime leaves the batch),
+   then `llama deliver <slug> --replace-voiced` by name, then `emcee voice <slug>`. Not
+   `emcee run`: it voices every pending package on the station (2,784 today) and has no
+   slug selector. A re-voice that fails is retried with `emcee voice <slug>`; until then
+   the show is off air.
+7. **Held (19):** go to the operator's triage, whatever their voicing. An overrule
+   (accepting the drop) sends a held show on by its normal route: unvoiced by `deliver
+   --fixed`, voiced by the step 6 batch. An `--include` resolution is a no-change only
+   when the show has no other drop: the station copy already has the track and stays as
+   it is, and an unvoiced copy's mark is cleared by `deliver --fixed` with no change. A
+   held show still a member after its resolution (other drops remain) continues by its
+   normal route. A voiced held show keeps airing as it is until then.
+   `gratefuldead-1969-03-01` (Voxtral, held) follows this.
+8. **Close:** after the last wave, `bulk_apply.py unmark --batch <the marking batch>`
+   reverses the marks of shows never processed and leaves processed ones alone; list
+   those shows.
 
 **Cost.** ~700 fresh briefs (every changed show fails `briefing_reusable` on "tracks
-differ"; reapply's pacing gate paces them); 81 `--with-gather-llm` shows; Voxtral ~269
+differ"; reapply's pacing gate paces them); 81 `--with-gather-llm` shows; ~150
+scriptwrite LLM calls (`emcee voice` re-scripts each voiced show); Voxtral ~269
 clips over 96 shows (counted in segments; chunked synthesis may make more API calls per
 clip).
 
@@ -295,10 +319,11 @@ clip).
 
 - Library replay: drop and hold counts match the 2026-11-13 measurement within what the
   final-title vs show.json-title difference explains (report every difference). Expected
-  deltas: ~14 extra drops from `junk.parts` splitting (`(crowd)`, `[crowd]`,
-  `***crowd noise***`, `Crowd + Tuning`, `Crowd~`, ...), 2 operator includes that will not
-  drop (`billystrings-2017-07-15`, `cubensis-2011-01-22`), and the extra B/C drops from
-  edge runs.
+  deltas: ~31 extra drops from `junk.parts` splitting (measured 2026-11-14; mostly
+  bracketed or punctuated set-opening intros, `(Intro)`, `[Intro]`, `Intro,`, `~intro~`,
+  plus `crowd)`, `/-crowd`), with the 26 arrowed titles keeping as in the baseline; 2
+  operator includes that will not drop (`billystrings-2017-07-15`,
+  `cubensis-2011-01-22`); and the extra B/C drops from edge runs.
 - Zero drops of a title outside the vocabulary (a test over the replay output).
 - The 1979-12-05 case: its `Tuning` would drop (the operator is fixing that show by hand
   first; test on a fixture).
@@ -309,7 +334,8 @@ clip).
   (a test).
 - Every manifest and notes reader (llama, emcee, transmitter, antenna) passes on a package
   with the field, without it, and with it `null` or `[]`.
-- The rollout reports the `--with-gather-llm` shows as their own bucket.
+- The marking command never station-marks a voiced copy (a test).
+- The rollout reports the `--with-gather-llm` shows as their own wave.
 
 ## Planned follow-up (not this work)
 
@@ -324,7 +350,8 @@ string and the manifest's `dropped_tracks` are what let that pass find every dro
 
 The reason string, the flag wording, where in `compute_gather` the rule sits (within the
 constraints above), where each drop's record lives in `Show`, the field's and the notes
-key's exact names, how struck entries skip the numbering, and test layout.
+key's exact names, how struck entries skip the numbering, the list and marking commands'
+names, and test layout.
 
 ## Measurements behind this (2026-11-13, show.json titles, not final-title gather)
 
