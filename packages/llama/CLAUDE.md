@@ -143,7 +143,7 @@ Commands, pipeline internals and domain rules for `llama` (`packages/llama/`). T
   either side**. A row whose `input_digests` changed since the harness ran is
   skipped. Batch state is `<root>/reapply/<sha256(list bytes)[:16]>/`
   (`list.json`, append-only `progress.jsonl`; outside `runs/`): re-running the
-  same list resumes, skipping rows with `retryable: false`. A pacing gate (list
+  same list resumes, skipping rows with `retryable: false`. Replay rows carry `junk_drops` (one dict per junk-title drop) and their `cascade` positions are remapped to the kept tracks. A pacing gate (list
   form only) runs before each show's lock; a pause or `RateLimited` prints the
   resume command; `STOP_AFTER_LLM_FAILURES = 3` consecutive LLM failures stop
   the batch. **The learned per-show EWMA cannot size this batch (spec
