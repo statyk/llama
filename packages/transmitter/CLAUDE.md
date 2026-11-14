@@ -23,7 +23,9 @@ each pass re-sends the same batch and spends PUT budget. `timeline.json` shows c
 document carries `blocks` (spans from the full persisted plan); the publisher
 writes `notes/_lineup.json` (nominal occurrences, now -24 h to +8 d, rewritten
 only on change, `max-age=300`); and the clock is loaded with
-`live_clock(save=False)`. Publish, prune and
+`live_clock(save=False)`. A show's notes JSON gains `dropped` (`{title, set, after_track}`, valid
+entries of the manifest's optional `dropped_tracks`, read raw; absent when none) and `site._setlist_html`
+strikes those titles through in place without counting them (the now-playing view is unchanged). Publish, prune and
 `fallback render` share a non-waiting flock (`publish.publish_lock`): when it
 is held they raise `PublishLocked`: `run` holds it only during its
 once-a-minute publish/prune step, so a manual `transmitter publish` while the
