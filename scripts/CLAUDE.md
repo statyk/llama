@@ -63,6 +63,7 @@ One-off and campaign tooling. The repo overview is the root `CLAUDE.md`; the lla
 
 ## Replay and probe harnesses
 
+- `python scripts/junk_drop_measure.py compare --base B --cand C --baseline TSV --shows DIR --out OUT` (spec `docs/superpowers/specs/2026-11-13-junk-tag-drop-design.md`; own interpreter; tests `scripts/test_junk_drop_measure.py`) compares a candidate `replay_holds.py run` arm (rows carry `junk_drops`; a base row lacking the key means none) against the baseline `docs/superpowers/2026-11-13-junk-tag-drop-evidence/drops.tsv`. Read-only on `--shows`; exit 2 for an unreadable input or an `--out` overlapping the library root (the parent of `--shows`), exit 3 when a candidate drop has a part outside the operator's vocabulary. Writes `summary.md` (counts by rule/held, candidate vs baseline, the expected-delta categories), `differences.tsv` (every (slug, filename) in one side only, with a category), `vocabulary.txt`, `kept_track_deltas.tsv` (set/title/segue changes on tracks kept in both arms, with `adjacent_to_drop`) and `override_keys.tsv` (`set_breaks`/`encore_after` naming a dropped file). Hold changes are `replay_holds.py compare`'s job.
 - `scripts/replay_holds.py run --out <arm.json> [--held|--all|--slugs F]`
   replays holds read-only under THIS tree's code (use that tree's own
   interpreter; it exits 2 unless `llama.__file__` is inside the tree, and
