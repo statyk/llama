@@ -373,6 +373,17 @@ class ManifestBriefing(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class DroppedTrack(BaseModel):
+    """A kept-out junk-titled file (tuning, banter), recorded in the manifest for
+    the notes and the website. `after_track` = kept tracks before it (0 = first)."""
+    title: str
+    duration_sec: float | None = None
+    set: str
+    after_track: int
+    source_file: str
+    reason: str
+
+
 class Manifest(BaseModel):
     schema_version: int = 3
     show: dict
@@ -387,6 +398,9 @@ class Manifest(BaseModel):
     research_vetted: bool = False
     total_duration_sec: float
     set_durations_sec: dict[str, float]
+    # Optional (schema stays v3): absent/null/[] all mean none. The written
+    # manifest omits the key when None; readers of station manifests use raw JSON.
+    dropped_tracks: list[DroppedTrack] | None = None
 
 
 class LedgerEntry(BaseModel):

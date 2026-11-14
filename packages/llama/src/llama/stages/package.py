@@ -5,8 +5,10 @@ from llama import audio_reuse, campaign
 from llama.audio import packaged_filename, read_duration, tag_audio
 from llama.errors import LlamaError
 from llama.manifest import build_manifest, m3u_text
+from llama.junk_titles import REASON as JUNK_REASON
 from llama.models import (
     Briefing,
+    DroppedTrack,
     ManifestBriefing,
     ManifestTrack,
     Show,
@@ -164,12 +166,20 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
 
     write_artifact(pkg / "playlist.m3u", m3u_text([t.filename for t in packaged]))
     # Manifest last: it is the package's "outputs written only on success" marker.
-    write_artifact(manifest_path, build_manifest(
+    dropped = [DroppedTrack(title=row.get("title") or "", duration_sec=row.get("duration_sec"),
+                            set=str(row.get("set") or ""), after_track=row.get("after_track") or 0,
+                            source_file=row["filename"], reason=JUNK_REASON)
+               for row in show.excluded_files if JUNK_REASON in (row.get("reasons") or [])]
+    manifest = build_manifest(
         show, packaged,
         briefing=ManifestBriefing(narration=briefing.narration, vetted=vetted),
         context=context,
         research=research_name, reviews="reviews.md", research_vetted=vetted,
-        profile=profile))
+        profile=profile, dropped_tracks=dropped or None)
+    data = manifest.model_dump(mode="json", by_alias=True)
+    if data.get("dropped_tracks") is None:
+        del data["dropped_tracks"]        # no drop, no change: the key is omitted
+    write_artifact(manifest_path, data)
     audio_reuse.drop_anchor(show_ws)      # a package was built: the anchor has served
     campaign.after_package(show_ws)       # last step, after the manifest write
     return pkg, flags
