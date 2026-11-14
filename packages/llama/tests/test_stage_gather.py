@@ -4661,6 +4661,29 @@ def test_wholly_junk_final_title_notes(tmp_path):
     assert not any("wholly junk" in n for n in res2.notes)
 
 
+def _sk_junk_md_titled(short, junk_title):
+    titles = ["Alpha", "Bravo", None, "Delta", "Echo"]
+    md = _tp_md(titles, f"1. Alpha\n2. Bravo\n3. {junk_title}\n4. Delta\n5. Echo",
+                lengths={3: "00:20"} if short else None)
+    for f in md["files"]:
+        if f.get("title") is None:
+            f.pop("title", None)
+    return md
+
+
+def test_wholly_junk_final_title_notes_outside_drop_vocabulary(tmp_path):
+    """Spec 2.5 positive: `Applause` is wholly junk (JUNK_PART) but outside the
+    junk-title drop vocabulary, so it keeps and the short-kept note fires."""
+    res = _tp_gather(tmp_path, _sk_junk_md_titled(True, "Applause"), sub="a")
+    assert res.junk_drops == ()
+    t3 = res.show.tracks[2]
+    assert (t3.title, t3.short_kept) == ("Applause", True)
+    assert "short-kept track 3 'Applause': its final title is wholly junk" in res.notes
+    res2 = _tp_gather(tmp_path, _sk_junk_md_titled(False, "Applause"), sub="b")
+    assert res2.show.tracks[2].title == "Applause" and not res2.show.tracks[2].short_kept
+    assert not any("wholly junk" in n for n in res2.notes)
+
+
 def test_short_kept_file_votes_like_any_kept_file(tmp_path):
     """(pin) spec 2.5: a short-kept file is in both recording-level bases; an
     operator-included file is left out of both."""

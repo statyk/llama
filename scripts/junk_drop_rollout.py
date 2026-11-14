@@ -3,7 +3,7 @@
 `docs/superpowers/specs/2026-11-13-junk-tag-drop-design.md`, "Rollout").
 
 `list --arm A --emcee-status S --out DIR [--config P]` is the read-only membership list
-(Rollout step 2). It reads the library, the station and the arm (a `replay_holds.py run
+(spec Rollout step 2, runbook step 4). It reads the library, the station and the arm (a `replay_holds.py run
 --all` arm written by THIS code under THIS config) and writes only under `DIR`:
 
 - `members.json`: one row per member show (its drops, station state, the station tracks
@@ -21,7 +21,7 @@ A show with a station copy is a member when a station track paired with `plan_re
 (show.json, else `reuse-anchor.json`) is a dropped source file; a show with no station
 copy is a member when it has a drop.
 
-`mark --list DIR/members.json [--config P] [--apply]` is the marking batch (Rollout step 3),
+`mark --list DIR/members.json [--config P] [--apply]` is the marking batch (spec Rollout step 3, runbook step 5),
 run BEFORE the release binaries are installed. It takes only the list (refused unless its
 `sha` and `config_fingerprint` are the running code's and config's) and marks each member
 with reason `junk-title drop` through `bulk_apply.mark_apply(skip_voiced=True,
@@ -34,7 +34,7 @@ on. `--apply` also requires the campaign pin and `llama`/`emcee` at least
 JUNK_MARK_TOOLS_FLOOR.
 
 `approval --list DIR/members.json --emcee-status S [--config P] [--backend B] [--out F]`
-(Rollout step 6, read-only but for `--out`) is the operator's approval list of voiced copies,
+(spec Rollout step 6, runbook step 9; read-only but for `--out`) is the operator's approval list of voiced copies,
 from LIVE state: the station manifest decides voiced (a member voiced since the list appears;
 one no longer voiced is listed under `no longer voiced (unvoiced route)`), the fresh status
 file gives presenter and backend_now, the live `dj_audio` the clip count, the library
@@ -46,7 +46,7 @@ with reason `junk title`, not held, voiced. Exit 0 only when every check passes,
 `leave <slug> out of this batch`. Unlike `mark`, neither applies the identity gate to the
 list (shape checks only; its sha, config fingerprint and written_at are printed as
 information): everything they act on is re-read live, and a list rebuilt after the
-re-process (Rollout step 4) cannot pair the dropped sources, so it shows no voiced member.
+re-process (spec Rollout step 4, runbook step 7) cannot pair the dropped sources, so it shows no voiced member.
 
 Run it with the pinned worktree's own interpreter, by path. Refusals exit 2.
 """
@@ -78,7 +78,7 @@ MEMBERS, REPLAYABLE, NEEDS_LLM, UNPAIRED = (
     "members.json", "reapply-replayable.json", "reapply-needs-llm.json", "unpaired.json")
 OUTPUT_FILES = (MEMBERS, REPLAYABLE, NEEDS_LLM, UNPAIRED)
 STATES = ("unvoiced", "voiced", "not on station")
-# `mark --apply` runs before the release binaries are installed (spec Rollout step 3), so
+# `mark --apply` runs before the release binaries are installed (spec Rollout step 3, runbook step 5), so
 # the installed tools are checked against this floor, not CAMPAIGN_MIN_VERSION.
 JUNK_MARK_TOOLS_FLOOR = "2.23.0"
 MARKING_DIR = Path("campaign") / "marking"
@@ -490,7 +490,7 @@ def _null(v) -> str:
 
 
 def cmd_approval(args) -> int:
-    """The operator's approval list for the voiced batch (Rollout step 6), from LIVE
+    """The operator's approval list for the voiced batch (spec Rollout step 6, runbook step 9), from LIVE
     state: the station manifest decides voiced, the fresh status file the presenter and
     backend_now, the library show.json the holds. Writes only `--out`."""
     config = bulk_apply._config(args)
@@ -563,7 +563,7 @@ def cmd_approval(args) -> int:
 
 
 def cmd_recheck(args) -> int:
-    """The pre-`--replace-voiced` re-check of one approved show (Rollout step 6). Writes
+    """The pre-`--replace-voiced` re-check of one approved show (spec Rollout step 6, runbook step 9). Writes
     nothing; exit 0 only when every check passes, 1 otherwise."""
     config = bulk_apply._config(args)
     station_root = _station_gate(config)

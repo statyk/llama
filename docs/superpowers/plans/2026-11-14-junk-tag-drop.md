@@ -920,12 +920,18 @@ Nothing here is done by an implementer or the orchestrator.
 4. **List.** `emcee status --json > H/emcee-status.json`, then
    `WT/.venv/bin/python WT/scripts/junk_drop_rollout.py list --arm H/arm.json --emcee-status H/emcee-status.json --out H/list`.
    Read the counts; take `H/list/unpaired.json` to the operator (left as they are).
+   RUNBOOK-1: the 23 baseline drops the replay could not reach (`needs-llm-row` in the
+   2026-11-14 evidence) are on needs-llm shows. They take their drops from `show.json`
+   (`drop_source: show.json`), land in `reapply-needs-llm.json` and run in the
+   `--with-gather-llm` wave.
    **Keep `H/list/members.json` for the whole rollout** (through step 11): it is the durable
    record of each member's pairs that steps 5 and 9 act on, and it cannot be rebuilt later.
 5. **Mark.** `... junk_drop_rollout.py mark --list H/list/members.json` (dry run), then `--apply`.
    Exit 0 required; a stop (emcee running, station locked) is re-run after the cause is cleared.
 6. **Install** llama and emcee 2.24.0.
-7. **Re-process.** Every `reapply` runs the campaign worktree's `WT/.venv/bin/llama`, not the
+7. **Re-process.** RUNBOOK-2, before any reapply: hand-check `darkstarorchestra-2009-05-24`.
+   Its `structure-changed` outcome is an artifact of comparing by position after its
+   tuning/intro drop (9 stored tracks vs 8 kept). Every `reapply` runs the campaign worktree's `WT/.venv/bin/llama`, not the
    installed binary: `reapply.load_list` refuses a list whose `sha` is not the running code's
    `code_identity()`, and the installed binary reports `version:<x>`. The installed binaries are
    still what `deliver`, `triage` and `emcee` use, and what the tool gates check.
@@ -954,6 +960,7 @@ Nothing here is done by an implementer or the orchestrator.
 11. **Close.** `WT/.venv/bin/python WT/scripts/bulk_apply.py unmark --batch <root>/campaign/marking/<id>`
     (dry run), then `--apply`; it reverses never-processed shows and lists the processed ones.
 
-Notes: `deliver`'s awaiting-fix refusal hint adds `--with-gather-llm` only for the old frozen
+Notes: RUNBOOK-3: the 13th `override_keys` row (`moe-2002-06-22`, `/-crowd`) is expected; it is a
+`parts-split` extra. `deliver`'s awaiting-fix refusal hint adds `--with-gather-llm` only for the old frozen
 needs-LLM list; for this rollout use the list's `needs_llm` field. A selector `deliver` (incl.
 `--fixed`) never replaces a voiced destination.

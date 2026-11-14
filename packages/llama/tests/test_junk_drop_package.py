@@ -89,7 +89,8 @@ def test_build_manifest_parameter_defaults_to_none():
 # --- station readers read raw JSON and must not care about the key -----------------
 
 DAMAGED = ["a string", {"title": "x"}, [{"title": "ok", "set": "1", "after_track": 0},
-                                        "not an object", 7, None]]
+                                        "not an object", 7, None],
+          None, []]
 
 
 @pytest.mark.parametrize("damaged", DAMAGED)

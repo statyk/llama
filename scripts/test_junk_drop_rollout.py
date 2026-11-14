@@ -984,7 +984,8 @@ def test_recheck_refuses_unmounted_station(tmp_path, capsys):
     capsys.readouterr()
     assert _recheck(cfg2, lst, "s1") == 2
     assert "empty" in capsys.readouterr().err
-    cfg2.write_text(f'root = "{root}"\ndelivery_path = "{tmp_path / 'gone'}"\n')
+    gone = tmp_path / "gone"
+    cfg2.write_text(f'root = "{root}"\ndelivery_path = "{gone}"\n')
     assert _recheck(cfg2, lst, "s1") == 2
     assert "station root" in capsys.readouterr().err
 

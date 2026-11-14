@@ -374,7 +374,7 @@ class ManifestBriefing(BaseModel):
 
 
 class DroppedTrack(BaseModel):
-    """A kept-out junk-titled file (tuning, banter), recorded in the manifest for
+    """A kept-out junk-titled file (tuning, crowd, silence, edge intro/outro), recorded in the manifest for
     the notes and the website. `after_track` = kept tracks before it (0 = first)."""
     title: str
     duration_sec: float | None = None
