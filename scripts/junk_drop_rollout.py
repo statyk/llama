@@ -71,9 +71,9 @@ MARKING_DIR = Path("campaign") / "marking"
 
 # --- gates ------------------------------------------------------------------------
 
-def _gates(args):
-    """(config, station_root, arm bytes, arm, running sha, fingerprint) or GateRefused."""
-    config = bulk_apply._config(args)
+def _station_gate(config) -> Path:
+    """The configured station root, refused (GateRefused) when absent, unreadable or
+    empty (an unmounted share). `list` and `mark` both pass through here."""
     station_root = config.delivery_path
     if station_root is None:
         raise GateRefused("no delivery_path in config: the station root is needed")
@@ -82,6 +82,34 @@ def _gates(args):
         raise GateRefused(bulk_apply._empty_station_message(station_root))
     if problem is not None:
         raise GateRefused(f"station root {station_root} is {problem} (is the station mounted?)")
+    return station_root
+
+
+def _identity_gate(doc: dict, config, *, what: str, rerun: str) -> tuple[str, str]:
+    """(running sha, config fingerprint) when `doc` (an arm or a list) was written by THIS
+    code under THIS config; GateRefused otherwise, and always when either side is a
+    `-dirty` tree. `what` names the document, `rerun` the command that rebuilds it.
+    `list` and `mark` both pass through here."""
+    sha = llama.replay.code_identity()
+    fp = llama.replay.config_fingerprint(config)
+    doc_sha = doc.get("sha")
+    if str(doc_sha).endswith("-dirty") or sha.endswith("-dirty"):
+        raise GateRefused(f"the {what} was written by code {doc_sha}; running code is {sha}: "
+                          f"an uncommitted tree has no code identity, commit first and re-run "
+                          f"{rerun}")
+    if doc_sha != sha:
+        raise GateRefused(f"the {what} was written by code {doc_sha}; running code is {sha}: "
+                          f"re-run {rerun} from this tree")
+    if doc.get("config_fingerprint") != fp:
+        raise GateRefused(f"the {what} was written under config "
+                          f"{doc.get('config_fingerprint')}; this config is {fp}")
+    return sha, fp
+
+
+def _gates(args):
+    """(config, station_root, arm bytes, arm, running sha, fingerprint) or GateRefused."""
+    config = bulk_apply._config(args)
+    station_root = _station_gate(config)
     out = getattr(args, "out", None)
     if out is not None:
         for what, p in (("library root", config.root), ("station root", station_root)):
@@ -89,19 +117,7 @@ def _gates(args):
                 raise GateRefused(f"--out {out} overlaps the {what} {p}")
     raw, arm = bulk_apply._read_json_file(args.arm, "arm")
     rows = bulk_apply._arm_rows(arm)
-    sha = llama.replay.code_identity()
-    fp = llama.replay.config_fingerprint(config)
-    arm_sha = arm.get("sha")
-    if str(arm_sha).endswith("-dirty") or sha.endswith("-dirty"):
-        raise GateRefused(f"the arm was written by code {arm_sha}; running code is {sha}: an "
-                          "uncommitted tree has no code identity, commit first and re-run "
-                          "replay_holds.py run --all")
-    if arm_sha != sha:
-        raise GateRefused(f"the arm was written by code {arm_sha}; running code is {sha}: "
-                          "re-run replay_holds.py run --all from this tree")
-    if arm.get("config_fingerprint") != fp:
-        raise GateRefused(f"the arm was written under config {arm.get('config_fingerprint')}; "
-                          f"this config is {fp}")
+    sha, fp = _identity_gate(arm, config, what="arm", rerun="replay_holds.py run --all")
     return config, station_root, raw, rows, sha, fp
 
 
@@ -317,34 +333,13 @@ def cmd_list(args) -> int:
 
 # --- mark -------------------------------------------------------------------------
 
-def _station_gate(config) -> Path:
-    station_root = config.delivery_path
-    if station_root is None:
-        raise GateRefused("no delivery_path in config: the station root is needed")
-    problem = bulk_apply._station_root_problem(station_root)
-    if problem == "empty":
-        raise GateRefused(bulk_apply._empty_station_message(station_root))
-    if problem is not None:
-        raise GateRefused(f"station root {station_root} is {problem} (is the station mounted?)")
-    return station_root
-
-
-def _read_list(path: Path, sha: str, fp: str) -> tuple[bytes, list[dict]]:
-    """(list bytes, member rows) of a `list` members.json written by THIS code and config."""
+def _read_list(path: Path, config) -> tuple[bytes, list[dict], str]:
+    """(list bytes, member rows, running sha) of a `list` members.json written by THIS
+    code and config."""
     raw, doc = bulk_apply._read_json_file(path, "membership list")
     if not isinstance(doc, dict) or not isinstance(doc.get("rows"), list):
         raise GateRefused(f"{path} is not a `junk_drop_rollout.py list` members.json")
-    list_sha = doc.get("sha")
-    if str(list_sha).endswith("-dirty") or sha.endswith("-dirty"):
-        raise GateRefused(f"the list was written by code {list_sha}; running code is {sha}: "
-                          "an uncommitted tree has no code identity, commit first and re-run "
-                          "the list")
-    if list_sha != sha:
-        raise GateRefused(f"the list was written by code {list_sha}; running code is {sha}: "
-                          "re-run junk_drop_rollout.py list from this tree")
-    if doc.get("config_fingerprint") != fp:
-        raise GateRefused(f"the list was written under config {doc.get('config_fingerprint')}; "
-                          f"this config is {fp}")
+    sha, _ = _identity_gate(doc, config, what="list", rerun="junk_drop_rollout.py list")
     rows, seen = [], set()
     for r in doc["rows"]:
         if not (isinstance(r, dict) and isinstance(r.get("slug"), str)
@@ -354,7 +349,7 @@ def _read_list(path: Path, sha: str, fp: str) -> tuple[bytes, list[dict]]:
             raise GateRefused(f"{path}: {r['slug']} is listed twice")
         seen.add(r["slug"])
         rows.append(r)
-    return raw, rows
+    return raw, rows, sha
 
 
 def _dry_state(root: Path, station_root: Path, slug: str,
@@ -389,8 +384,7 @@ def cmd_mark(args) -> int:
     config = bulk_apply._config(args)
     root = config.root
     station_root = _station_gate(config)
-    sha = llama.replay.code_identity()
-    raw, rows = _read_list(args.list, sha, llama.replay.config_fingerprint(config))
+    raw, rows, sha = _read_list(args.list, config)
     if not args.apply:
         delivered = bulk_apply._DeliveredIds(root / "ledger.jsonl")
         counts: Counter = Counter()
