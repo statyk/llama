@@ -80,7 +80,7 @@ Anything but `"on"` is the rollback: cron's loop exactly as before, and the obje
   stale cached module would lack them and fail the import. Assets and `index.html` deploy separately,
   so `page.js` and `panel.js` must also work against the previous `index.html` (no `#lineup`; a
   `#coming-up` that is itself the `.tickets` grid gets flat tickets). Tickets show the show's
-  `program` (fallback `LMA RADIO PRESENTS`, as in `show.html`'s `$presents` and the panel). Coming up
+  `program` (fallback `LMA RADIO PRESENTS`, as in `show.html`'s `$presents` and the panel). The notes panel strikes junk-dropped tracks into the setlist card via `dropped.js` (`mergeDropped`, the algorithm of transmitter's `site._setlist_html`, from the notes' optional `dropped` list). Coming up
   groups its tickets by block occurrence (`block` + `nominal_start`) under the timeline's `blocks`
   headings; Just aired stays flat. The weekly lineup comes from `notes/_lineup.json`, refetched
   every 30 minutes with the timeline; a failed fetch keeps the last one, and the section is hidden

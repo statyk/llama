@@ -1,6 +1,7 @@
 // The slide-up notes panel: a history entry on the same URL, over the player, so
 // the audio keeps playing. Elements are built with createElement and textContent
 // only. Every link is built from the encoded slug.
+import { mergeDropped } from "./dropped.js";
 import { panelModel } from "./notes.js";
 import { el } from "./page.js";
 import { airLine, notesHref, showHref, zoneLabel } from "./timeline.js";
@@ -76,12 +77,25 @@ function ticketView(slug, model) {
   return big;
 }
 
-function setlistCard(sets) {
+function setlistCard(setlist, dropped) {
+  const sets = mergeDropped(setlist, dropped);
   const card = el("div", "jcard");
-  for (const { set, lines } of sets) {
+  for (const { set, items } of sets) {
     const label = sets.length > 1 ? setLabel(set) : "";
     if (label) card.append(el("p", "kick", label));
-    card.append(list("ol", lines));
+    const node = el("ol");
+    for (const item of items) {
+      if (item.struck) {
+        const li = el("li", "dropped");
+        li.append(el("s", null, item.text));
+        node.append(li);
+      } else {
+        const li = el("li", null, item.text);
+        if (item.value !== null) li.value = item.value;
+        node.append(li);
+      }
+    }
+    card.append(node);
   }
   if (sets.length === 0) card.append(el("p", null, "No setlist."));
   return card;
@@ -112,9 +126,9 @@ function linerNotes(sections) {
   return liner;
 }
 
-function notesView(slug, model) {
+function notesView(slug, model, raw) {
   const left = el("div");
-  left.append(el("h2", "kick", "Setlist"), setlistCard(model.sets), airBox(model.airtimes));
+  left.append(el("h2", "kick", "Setlist"), setlistCard(raw.setlist || [], raw.dropped), airBox(model.airtimes));
   if (model.lineage) {
     const lineage = el("div", "meta");
     lineage.append(el("b", "label", "Taper's lineage"), el("br"), model.lineage);
@@ -135,8 +149,9 @@ async function load(slug, mine) {
   try {
     const res = await fetch(notesHref(slug));
     if (!res.ok) throw new Error(`notes: ${res.status}`);
-    const model = panelModel(await res.json());
-    nodes = model.kind === "ready" ? notesView(slug, model) : showPageLink(slug);
+    const raw = await res.json();
+    const model = panelModel(raw);
+    nodes = model.kind === "ready" ? notesView(slug, model, raw) : showPageLink(slug);
   } catch {
     nodes = showPageLink(slug);
   }

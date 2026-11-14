@@ -2610,13 +2610,18 @@ def test_2b_demotes_a_whole_tmp_tape_and_notes_each_track(tmp_path):
     sws = ShowWorkspace(tmp_path / "s")
     res = compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
                          F_IDENT, jerrybase_enabled=False)
-    assert len(res.show.tracks) == 20
+    # Junk-title drop (spec 2026-11-13-junk-tag-drop-design, rule A/B): D fills both
+    # `01.tuningup` and `10.tuningup` `Tuning Up`, so both drop after the fill and the
+    # 2b notes are renumbered (track 1's reads `dropped track`).
+    assert len(res.show.tracks) == 18
+    assert [d.filename for d in res.junk_drops] == ["01.tuningup.mp3", "10.tuningup.mp3"]
     assert all(t.title_source == "desc-position" for t in res.show.tracks)
-    assert [t.title for t in res.show.tracks][9:11] == ["Tuning Up", "Terrapin Station"]
+    assert [t.title for t in res.show.tracks][7:9] == ["Franklin's Tower", "Terrapin Station"]
     assert "unresolved track titles" not in res.show.review_flags
     demotions = [n for n in res.notes if n.startswith("placeholder tag title: ")]
-    assert len(demotions) == len(res.show.tracks)
-    assert demotions[0] == f"placeholder tag title: track 1 '{'tmp'}' demoted to unresolved"
+    assert len(demotions) == len(res.show.tracks) + len(res.junk_drops)
+    assert demotions[0] == f"placeholder tag title: dropped track '{'tmp'}' demoted to unresolved"
+    assert demotions[1] == f"placeholder tag title: track 1 '{'tmp'}' demoted to unresolved"
 
 
 def test_2b_does_not_touch_a_real_tagged_tape(tmp_path):
@@ -2677,14 +2682,19 @@ def test_2b_never_judges_an_override_title(tmp_path):
                                                     "03.twodjinn.mp3": "Two Djinn"}))
     res = compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
                          F_IDENT, jerrybase_enabled=False)
+    # Junk-title drop (spec 2026-11-13-junk-tag-drop-design, rule A/B): an override that is a
+    # vocabulary word drops like any other title, so the `Tuning Up` override at track 1
+    # (and D's `Tuning Up` at track 10) drop and the notes are renumbered: `Two Djinn`
+    # is track 2 now, and the one `dropped track` note is 10.tuningup's own `tmp`.
     tracks = res.show.tracks
-    assert (tracks[0].title, tracks[0].title_source) == ("Tuning Up", "override")
-    assert (tracks[2].title, tracks[2].title_source) == ("Two Djinn", "override")
+    assert [d.filename for d in res.junk_drops] == ["01.tuningup.mp3", "10.tuningup.mp3"]
+    assert (tracks[1].title, tracks[1].title_source) == ("Two Djinn", "override")
     demoted = [n for n in res.notes if n.startswith("placeholder tag title: ")]
-    assert len(demoted) == len(tracks) - 2
-    assert not any(n.startswith(("placeholder tag title: track 1 ", "placeholder tag title: track 3 "))
-                   for n in demoted)
-    assert demoted[0] == "placeholder tag title: track 2 'tmp' demoted to unresolved"
+    assert len(demoted) == len(tracks) + len(res.junk_drops) - 2
+    assert not any(n.startswith("placeholder tag title: track 2 ") for n in demoted)
+    assert [n for n in demoted if n.startswith("placeholder tag title: dropped")] == [
+        "placeholder tag title: dropped track 'tmp' demoted to unresolved"]
+    assert demoted[0] == "placeholder tag title: track 1 'tmp' demoted to unresolved"
 
 
 def _furthur_md():
@@ -2708,7 +2718,9 @@ def test_2b_demotes_a_recovered_sibling_format_placeholder_and_files_no_sibling_
     # original's `Track 10`, spec 2.2), so 20 tracks match the description's 20
     # entries and D fills every track 2b demoted (`sibling-format` had 2b not fired).
     assert {t.title_source for t in res.show.tracks} == {"desc-position"}
-    assert "placeholder tag title: track 1 'Track 01' demoted to unresolved" in res.notes
+    # Junk-title drop (spec 2026-11-13-junk-tag-drop-design, rule A/B): track 1 (D's
+    # `Tuning Up`) drops, so its note is renumbered.
+    assert "placeholder tag title: dropped track 'Track 01' demoted to unresolved" in res.notes
     assert not any(n.startswith("format sibling tagged") for n in res.notes)
 
 
@@ -4089,7 +4101,9 @@ def test_filler_only_label_difference_keeps_step_one_alignment(tmp_path, monkeyp
     assert res.taper_owned is True
     assert seen["shipped"] != seen["step1"]                   # the labels do differ ...
     assert [i for i, (a, b) in enumerate(zip(seen["shipped"], seen["step1"])) if a != b] == [3]
-    assert _labels(res) == seen["shipped"]                    # ... and ship
+    # Junk-title drop (spec 2026-11-13-junk-tag-drop-design, rule A/B): the filler
+    # track is `Tuning`, so it drops and the other labels ship.
+    assert _labels(res) == seen["shipped"][:3] + seen["shipped"][4:]   # ... and ship
     assert res.show.structure.alignment == res.step1_alignment == "deterministic"
     assert _was_notes(res) == []
 
@@ -4635,12 +4649,38 @@ def _sk_junk_md(short):
 
 def test_wholly_junk_final_title_notes(tmp_path):
     """Spec 2.5: a short-kept track whose final title is wholly junk is noted."""
+    # Junk-title drop (spec 2026-11-13-junk-tag-drop-design, rule A/B): `Crowd Noise` now
+    # drops (rule A) before the note loop, so the 2.5 note has no track to name, short or
+    # not; it still fires for wholly junk titles outside the drop vocabulary.
     res = _tp_gather(tmp_path, _sk_junk_md(True), sub="a")
-    t3 = res.show.tracks[2]
-    assert t3.title == "Crowd Noise" and t3.short_kept is True
-    assert "short-kept track 3 'Crowd Noise': its final title is wholly junk" in res.notes
+    assert [(d.title, d.position) for d in res.junk_drops] == [("Crowd Noise", 2)]
+    assert "Crowd Noise" not in [t.title for t in res.show.tracks]
+    assert not any("wholly junk" in n for n in res.notes)
     res2 = _tp_gather(tmp_path, _sk_junk_md(False), sub="b")
-    assert res2.show.tracks[2].title == "Crowd Noise" and not res2.show.tracks[2].short_kept
+    assert [(d.title, d.position) for d in res2.junk_drops] == [("Crowd Noise", 2)]
+    assert not any("wholly junk" in n for n in res2.notes)
+
+
+def _sk_junk_md_titled(short, junk_title):
+    titles = ["Alpha", "Bravo", None, "Delta", "Echo"]
+    md = _tp_md(titles, f"1. Alpha\n2. Bravo\n3. {junk_title}\n4. Delta\n5. Echo",
+                lengths={3: "00:20"} if short else None)
+    for f in md["files"]:
+        if f.get("title") is None:
+            f.pop("title", None)
+    return md
+
+
+def test_wholly_junk_final_title_notes_outside_drop_vocabulary(tmp_path):
+    """Spec 2.5 positive: `Applause` is wholly junk (JUNK_PART) but outside the
+    junk-title drop vocabulary, so it keeps and the short-kept note fires."""
+    res = _tp_gather(tmp_path, _sk_junk_md_titled(True, "Applause"), sub="a")
+    assert res.junk_drops == ()
+    t3 = res.show.tracks[2]
+    assert (t3.title, t3.short_kept) == ("Applause", True)
+    assert "short-kept track 3 'Applause': its final title is wholly junk" in res.notes
+    res2 = _tp_gather(tmp_path, _sk_junk_md_titled(False, "Applause"), sub="b")
+    assert res2.show.tracks[2].title == "Applause" and not res2.show.tracks[2].short_kept
     assert not any("wholly junk" in n for n in res2.notes)
 
 
@@ -4671,9 +4711,11 @@ def test_furthur_tuning_up_short_kept_is_noted_wholly_junk(tmp_path):
     by D; that final title is wholly junk, so the note fires."""
     res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_furthur_md()), None,
                          _furthur_candidate(), F_IDENT)
-    t10 = res.show.tracks[9]
-    assert (t10.title, t10.short_kept) == ("Tuning Up", True)
-    assert "short-kept track 10 'Tuning Up': its final title is wholly junk" in res.notes
+    # Junk-title drop (spec 2026-11-13-junk-tag-drop-design, rule A/B): D's `Tuning Up`
+    # drops (rule A) before the note loop, so the note no longer fires.
+    assert "10.tuningup.mp3" in [d.filename for d in res.junk_drops]
+    assert "10.tuningup.mp3" not in [t.filename for t in res.show.tracks]
+    assert not any("wholly junk" in n for n in res.notes)
 
 
 # --- piece 4 spec 4.1: filename-valued positional overrides, one resolver ---
@@ -4908,7 +4950,9 @@ _MOE_SLFM = [["Not Coming Down", "Wormwood", "Cathedral", "Bullet", "Okayalright
              ["Raise a Glass", "September", "Rebubula"]]
 # The marks shipped, exactly: the pooled fallback (2, 3, 7, 9, 12) and the own
 # alignment's (14, 20); 5 `Bullet ->` is the known loss.
-MOE_SEGUED = [2, 3, 7, 9, 12, 14, 20]
+# Junk-title drop: `intro` (track 1, rule B) and `crowd` (track 18, rule A) drop, so
+# the pre-drop marks [2, 3, 7, 9, 12, 14, 20] renumber to these.
+MOE_SEGUED = [1, 2, 6, 8, 11, 13, 18]
 
 
 def test_fw4_pooling_stays_the_fallback_where_own_alignment_does_not_cover(tmp_path):
@@ -5213,10 +5257,16 @@ def test_fw4r2_gain_ships_when_the_shipped_sets_agree(tmp_path):
     # from track 12's (two), but the shipped labels put both in set two.
     res = _fw4_gather(tmp_path, _JRAD17_TAGS, _JRAD17_DESC, _JRAD17_SLFM,
                       creator="Joe Russo's Almost Dead")
+    # Junk-title drop (spec 2026-11-13-junk-tag-drop-design, rule A/B): `Intro` (track 1)
+    # drops under B and `***crowd noise***` (18) under A; `***Second Set Intro***` keeps
+    # (`second set intro` is not an intro word). Morfbeats/Dark Star are tracks 10/11 now
+    # and the marks renumber.
     t = res.show.tracks
     assert res.show.structure.source == "setlist.fm"
-    assert t[10].set == t[11].set == "2"
-    assert _segued_tracks(res) == [2, 3, 4, 5, 7, 8, 11, 12, 13, 14]
+    assert [d.position for d in res.junk_drops] == [0, 17]
+    assert (t[9].title, t[10].title) == ("Morfbeats", "Dark Star")
+    assert t[9].set == t[10].set == "2"
+    assert _segued_tracks(res) == [1, 2, 3, 4, 6, 7, 10, 11, 12, 13]
 
 
 def test_fw4r2_gain_across_a_shipped_set_break_is_still_declined(tmp_path):

@@ -523,6 +523,7 @@ a { color: inherit; }
   line-height: 1.55;
 }
 .jcard ol { margin: 0; padding-left: 24px; }
+.jcard li.dropped { list-style: none; color: var(--perf); }
 .liner { font-family: Georgia, serif; font-size: 14.5px; line-height: 1.5; }
 .liner h3 {
   margin: 12px 0 3px;

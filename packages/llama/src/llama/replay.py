@@ -769,18 +769,27 @@ class ShowReplay:
     segues: list[bool] = dataclasses.field(default_factory=list)
     breaks: list[int] = dataclasses.field(default_factory=list)
     flags: list[str] = dataclasses.field(default_factory=list)
+    # Junk-title drop (spec 2026-11-13-junk-tag-drop-design). Base-arm rows lack this key.
+    # One dict per dropped track, in drop order: `filename`, `title`, `set`, `after_track`,
+    # `duration_sec`, `rule`, `held`. `cascade` positions are remapped to the kept tracks.
+    junk_drops: list[dict] = dataclasses.field(default_factory=list)
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
 
 
-def _cascade_dict(rec: CascadeRecord | None) -> dict:
+def _cascade_dict(rec: CascadeRecord | None, keep: Sequence[int] | None = None) -> dict:
     """The cascade's fills and declines for the harness (positions 1-based; the dict keys of
     `d_track_declines`, `c_changed` and `short4_declined` are strings so an arm survives a JSON round trip).
-    `c_demoted` lists slice 3's shifted-delivered-set demotions (final review C-1)."""
+    `c_demoted` lists slice 3's shifted-delivered-set demotions (final review C-1).
+    `keep` (the pre-drop positions of the kept tracks, `GatherResult.kept_positions`) maps every
+    position to its index among them and omits the dropped ones; None leaves positions as is."""
     if rec is None:
         return {}
-    one = lambda xs: sorted(p + 1 for p in xs)   # noqa: E731
+    idx = None if keep is None else {p: i for i, p in enumerate(keep)}
+    new = (lambda p: p) if idx is None else idx.get   # noqa: E731
+    one = lambda xs: sorted(new(p) + 1 for p in xs if idx is None or p in idx)   # noqa: E731
+    pairs = lambda m: sorted((new(p), v) for p, v in m.items() if idx is None or p in idx)   # noqa: E731
     d, c = rec.d, rec.lossless
     return {
         "s_mode": rec.s_plan.mode,
@@ -789,14 +798,14 @@ def _cascade_dict(rec: CascadeRecord | None) -> dict:
         "deferred_applied": one(rec.deferred_applied),
         "d_fills": one(d.fills) if d is not None else [],
         "d_failed": d.failed[0][0] if d is not None and d.failed else None,
-        "d_track_declines": ({str(p + 1): v for p, v in sorted(d.track_declines.items())}
+        "d_track_declines": ({str(p + 1): v for p, v in pairs(d.track_declines)}
                              if d is not None else {}),
-        "c_changed": ({str(p + 1): v for p, v in sorted(c.changed.items())}
+        "c_changed": ({str(p + 1): v for p, v in pairs(c.changed)}
                       if c is not None else {}),
         "c_declined": c.declined if c is not None else None,
         "c_demoted": one(c.demoted) if c is not None else [],
         "short4": one(rec.short4),
-        "short4_declined": {str(p + 1): v for p, v in sorted(rec.short4_declined.items())},
+        "short4_declined": {str(p + 1): v for p, v in pairs(rec.short4_declined)},
         "gap_filled": one(rec.gap_filled),
     }
 
@@ -873,7 +882,10 @@ def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlis
         r.titles = [t.title for t in g.show.tracks]
         r.title_sources = [t.title_source for t in g.show.tracks]
         r.title_paths = list(g.title_paths)
-        r.cascade = _cascade_dict(g.title_record)
+        r.cascade = _cascade_dict(g.title_record, keep=g.kept_positions)
+        r.junk_drops = [{"filename": j.filename, "title": j.title, "set": j.set,
+                         "after_track": j.after_track, "duration_sec": j.duration_sec,
+                         "rule": j.rule, "held": j.held} for j in g.junk_drops]
         r.filenames = [t.filename for t in g.show.tracks]
         r.short_kept = [bool(t.short_kept) for t in g.show.tracks]
         r.segues = [bool(t.segue) for t in g.show.tracks]

@@ -130,30 +130,30 @@ def _stub_tools(monkeypatch, tools: dict[str, list[tuple[str, str]]]):
 
 def test_version_gate(monkeypatch):
     echoed = []
-    ok = {"llama": [("/a/llama", "2.20.0")], "emcee": [("/a/emcee", "2.20.0")]}
+    ok = {"llama": [("/a/llama", "2.24.0")], "emcee": [("/a/emcee", "2.24.0")]}
     _stub_tools(monkeypatch, ok)
     campaign_gate.require_tools(echoed.append, pin=None)
-    assert campaign_gate.version_ok("2.20.0", campaign_gate.CAMPAIGN_MIN_VERSION)
+    assert campaign_gate.version_ok("2.24.0", campaign_gate.CAMPAIGN_MIN_VERSION)
     assert campaign_gate.version_ok("2.21.0\n", "2.20.0")
     assert not campaign_gate.version_ok("2.9.0", "2.20.0")
     assert campaign_gate.version_newer("2.21.0", "2.20.0")
     assert not campaign_gate.version_newer("2.20.0", "2.20.0")
     assert not campaign_gate.version_newer("2.20.0rc1", "2.19.0")
-    for bad in ("2.19.0", "0.1.0", "2.20.0rc1"):
+    for bad in ("2.23.0", "0.1.0", "2.24.0rc1"):
         for tool in ("llama", "emcee"):
-            tools = {"llama": [("/a/llama", "2.20.0")], "emcee": [("/a/emcee", "2.20.0")]}
+            tools = {"llama": [("/a/llama", "2.24.0")], "emcee": [("/a/emcee", "2.24.0")]}
             tools[tool] = [(f"/b/{tool}", bad)]
             _stub_tools(monkeypatch, tools)
             with pytest.raises(campaign_gate.GateRefused, match=f"/b/{tool}"):
                 campaign_gate.require_tools(lambda _m: None, pin=None)
     # a tool not on PATH at all
-    _stub_tools(monkeypatch, {"llama": [("/a/llama", "2.20.0")]})
+    _stub_tools(monkeypatch, {"llama": [("/a/llama", "2.24.0")]})
     with pytest.raises(campaign_gate.GateRefused, match="emcee"):
         campaign_gate.require_tools(lambda _m: None, pin=None)
-    # a pin of 2.20.0 with an installed 2.21.0 llama is refused, naming the path
-    _stub_tools(monkeypatch, {"llama": [("/c/llama", "2.21.0")], "emcee": [("/a/emcee", "2.20.0")]})
+    # a pin of 2.24.0 with an installed 2.25.0 llama is refused, naming the path
+    _stub_tools(monkeypatch, {"llama": [("/c/llama", "2.25.0")], "emcee": [("/a/emcee", "2.24.0")]})
     with pytest.raises(campaign_gate.GateRefused, match="/c/llama"):
-        campaign_gate.require_tools(lambda _m: None, pin={"version": "2.20.0"})
+        campaign_gate.require_tools(lambda _m: None, pin={"version": "2.24.0"})
     campaign_gate.require_tools(lambda _m: None, pin=None)       # no pin: newer is fine
     assert issubclass(campaign_gate.GateRefused, LlamaError)
 
@@ -219,3 +219,23 @@ def test_write_json_syncs_the_directory(tmp_path, monkeypatch):
     (tmp_path / "rekey-applied.json").write_text("{}")
     assert campaign_gate.retire_rekey_restore(tmp_path, by="x", at="t")
     assert synced == [tmp_path]
+
+
+def test_require_tools_minimum(monkeypatch):
+    """`minimum` lowers (or raises) the floor for one caller; None keeps
+    CAMPAIGN_MIN_VERSION, the junk-title drop release (junk-tag-drop plan Task 14)."""
+    assert campaign_gate.CAMPAIGN_MIN_VERSION == "2.24.0"
+    old = {"llama": [("/a/llama", "2.23.0")], "emcee": [("/a/emcee", "2.23.1")]}
+    _stub_tools(monkeypatch, old)
+    campaign_gate.require_tools(lambda _m: None, pin=None, minimum="2.23.0")
+    with pytest.raises(campaign_gate.GateRefused, match="llama below 2.24.0: /a/llama"):
+        campaign_gate.require_tools(lambda _m: None, pin=None)
+    with pytest.raises(campaign_gate.GateRefused, match="below 2.24.0"):
+        campaign_gate.require_tools(lambda _m: None, pin=None, minimum=None)
+    _stub_tools(monkeypatch, {"llama": [("/a/llama", "2.22.9")], "emcee": [("/a/emcee", "2.23.0")]})
+    with pytest.raises(campaign_gate.GateRefused, match="llama below 2.23.0: /a/llama"):
+        campaign_gate.require_tools(lambda _m: None, pin=None, minimum="2.23.0")
+    # the pin's newer-than check still holds under a lowered floor
+    _stub_tools(monkeypatch, {"llama": [("/c/llama", "2.25.0")], "emcee": [("/a/emcee", "2.23.0")]})
+    with pytest.raises(campaign_gate.GateRefused, match="newer than the pinned 2.24.0"):
+        campaign_gate.require_tools(lambda _m: None, pin={"version": "2.24.0"}, minimum="2.23.0")

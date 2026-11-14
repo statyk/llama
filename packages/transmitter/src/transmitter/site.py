@@ -262,7 +262,7 @@ def build_notes(slug: str, manifest: dict | None, briefing: str | None, airtimes
         # Cached metadata fills a missing OR null field (llama writes null for unknown).
         value = section.get(key)
         return meta.get(key) if value is None else value
-    return {
+    notes = {
         "slug": slug,
         "artist": pick(show, "artist"),
         "date": pick(show, "date"),
@@ -278,6 +278,31 @@ def build_notes(slug: str, manifest: dict | None, briefing: str | None, airtimes
         "airtimes": airtimes,
         "program": program_title(manifest),
     }
+    dropped = valid_dropped(manifest.get("dropped_tracks"))
+    if dropped:
+        notes["dropped"] = dropped
+    return notes
+
+
+def valid_dropped(raw) -> list[dict]:
+    """The usable entries of a manifest's `dropped_tracks`, as {title, set, after_track}.
+
+    The field is optional and read raw (transmitter never imports llama), so a damaged
+    value reads as none and a bad entry is skipped: not an object, `title` not a
+    non-empty string, `after_track` not a non-negative integer (a bool is not one)."""
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        title, after = entry.get("title"), entry.get("after_track")
+        if not isinstance(title, str) or not title:
+            continue
+        if isinstance(after, bool) or not isinstance(after, int) or after < 0:
+            continue
+        out.append({"title": title, "set": entry.get("set"), "after_track": after})
+    return out
 
 
 def _text(value) -> str:
@@ -323,14 +348,36 @@ def _set_label(value) -> str:
     return f"Set {text}" if text.isdigit() else text[:1].upper() + text[1:]
 
 
-def _setlist_html(setlist: Sequence[Mapping]) -> str:
-    groups: list[tuple[object, list[str]]] = []
-    for entry in setlist:
+def _setlist_html(setlist: Sequence[Mapping], dropped: Sequence = ()) -> str:
+    """Kept entries group by set. A dropped entry is struck through where it was, right
+    after the kept entry with 1-based index `after_track` (0: the very start; past the
+    end: the last group), and is never counted: a kept <li> after a struck one in its
+    group carries value= its kept ordinal, so the numbers stay those of the tape."""
+    struck: dict[int, list[str]] = {}
+    for entry in valid_dropped(list(dropped)):
+        struck.setdefault(min(entry["after_track"], len(setlist)), []).append(
+            f'<li class="dropped"><s>{html.escape(entry["title"])}</s></li>')
+    # Each group is [set, items]; an item is (kept?, html-without-value), kept ones in order.
+    groups: list[list] = []
+    for index, entry in enumerate(setlist, 1):
         if not groups or groups[-1][0] != entry.get("set"):
-            groups.append((entry.get("set"), []))
-        groups[-1][1].append(f"<li>{html.escape(_setlist_line(entry))}</li>")
+            groups.append([entry.get("set"), []])
+        if index == 1:
+            groups[-1][1].extend((False, line) for line in struck.get(0, []))
+        groups[-1][1].append((True, html.escape(_setlist_line(entry))))
+        groups[-1][1].extend((False, line) for line in struck.get(index, []))
+    if not setlist and struck:
+        groups.append([None, [(False, line) for line in struck[0]]])
     out = []
-    for value, lines in groups:
+    for value, items in groups:
+        lines, ordinal, seen_struck = [], 0, False
+        for kept, text in items:
+            if not kept:
+                seen_struck = True
+                lines.append(text)
+                continue
+            ordinal += 1
+            lines.append(f'<li value="{ordinal}">{text}</li>' if seen_struck else f"<li>{text}</li>")
         label = _set_label(value) if len(groups) > 1 else ""
         if label:
             out.append(f'<p class="kick">{html.escape(label)}</p>')
@@ -385,7 +432,7 @@ def render_show_page(template: str, notes: Mapping, *, site_url: str | None, sta
         "where": html.escape(where_line(notes.get("venue"), notes.get("city"))),
         "archive_html": archive_html,
         "sections_html": _sections_html(sections),
-        "setlist_html": _setlist_html(notes.get("setlist") or []),
+        "setlist_html": _setlist_html(notes.get("setlist") or [], notes.get("dropped") or ()),
         "lineage": lineage_html,
         "slug": html.escape(notes["slug"]),
         "presents": html.escape(_text(notes.get("program")) or "LMA RADIO PRESENTS"),

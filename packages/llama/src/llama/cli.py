@@ -3651,7 +3651,11 @@ def _propose_titles_for_show(ia, config, entry, show, *, allowlist: Allowlist | 
     # catches the metadata-cache-refresh case, where lengths could still
     # match by coincidence. This must be a hard decline, not a warning --
     # nothing downstream can tell a stale proposal from a fresh one.
-    kept_names = [f["name"] for f in kept]
+    # Compared less gather's junk-title drops (`staleness.expected_track_files`, the
+    # helper `_stale` uses); the canonical below is still built over the pre-drop
+    # `kept`, as gather builds it.
+    from llama.staleness import expected_track_files
+    kept_names = expected_track_files([f["name"] for f in kept], show, entry.overrides.include)
     track_names = [t.filename for t in show.tracks]
     if kept_names != track_names:
         reason = (f"show.json is stale relative to overrides.json "

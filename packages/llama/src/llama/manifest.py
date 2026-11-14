@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 from llama.models import (
+    DroppedTrack,
     Manifest,
     ManifestBriefing,
     ManifestTrack,
@@ -19,6 +20,7 @@ def build_manifest(
     reviews: str | None = None,
     research_vetted: bool = False,
     profile: str | None = None,
+    dropped_tracks: list[DroppedTrack] | None = None,
 ) -> Manifest:
     per_set: dict[str, float] = defaultdict(float)
     for t in packaged:
@@ -37,6 +39,7 @@ def build_manifest(
         research_vetted=research_vetted,
         total_duration_sec=sum(t.duration_sec or 0.0 for t in packaged),
         set_durations_sec=dict(per_set),
+        dropped_tracks=dropped_tracks,
     )
 
 

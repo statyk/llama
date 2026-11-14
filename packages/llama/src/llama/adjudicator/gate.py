@@ -17,6 +17,7 @@ from llama.adjudicator.verdict import (City, Evidence, Exclude, FlagJudgement, I
                                        OverruleFlag, ProposeOnly, SetTitle, Structure,
                                        SwitchRecording, Venue, Verdict)
 from llama.junk import DUPLICATE_DERIVATIVE_REASON, SPAM_REASON
+from llama.junk_titles import REASON as JUNK_TITLE_REASON
 from llama.models import Show, Track
 from llama.override_keys import filename_keyed_entries
 from llama.overrules import flag_key
@@ -39,7 +40,8 @@ TAPER_SIDE_KINDS = {"taper-description", "original-tag", "derivative-tag"}
 # The setlist-only kinds: a structure edit from these alone is propose-only.
 SETLIST_ONLY_KINDS = {"setlistfm", "jerrybase"}
 TITLE_OVERRULE_KINDS = {"taper-description", "original-tag", "sibling-tracks"}
-REFUSED_INCLUDE_REASONS = {"duplicate-listing", DUPLICATE_DERIVATIVE_REASON, SPAM_REASON}
+REFUSED_INCLUDE_REASONS = {"duplicate-listing", DUPLICATE_DERIVATIVE_REASON, SPAM_REASON,
+                           JUNK_TITLE_REASON}
 OPERATOR_EXCLUDED = "operator-excluded"
 MEDIUM_UP = {"medium", "high"}
 HIGH = {"high"}
@@ -56,6 +58,8 @@ OVERRULE_BAR: dict[str, str] = {
     "merged-tracks": "never", "city": "never", "other": "never",
     # taperssection: no evidence kind can establish lineage, so only an operator clears it.
     "lineage-unknown": "never", "misattribution": "medium",
+    # a junk-title drop held for review: only an operator releases it.
+    "junk-drop": "never",
 }
 STRUCTURE_KINDS = {k for k, b in OVERRULE_BAR.items() if b == "structure"}
 
@@ -341,6 +345,9 @@ def _title_anchor(ev: Evidence, e: SetTitle, bundle: Bundle, t: Track | None) ->
 
 
 def _title_edit(e: SetTitle, bundle: Bundle) -> tuple[str, bool, str]:
+    row = _excluded_row(bundle.show, e.file)
+    if row is not None and JUNK_TITLE_REASON in (row.get("reasons") or []):
+        return "propose-only", False, f"title of a file dropped as {JUNK_TITLE_REASON}"
     t = _track(bundle.show, e.file)
     if (t is not None and t.title_source == "override") or e.file in bundle.overrides.titles:
         return "propose-only", False, EXISTING

@@ -468,7 +468,7 @@ def test_show_replay_to_dict_has_the_contract_keys_plus_date():
         "slfm_miss", "unreplayable", "taper_owned", "sets", "filler", "taper_source",
         "taper_reason", "step1_alignment", "self_filled", "desc_position", "titles",
         "title_sources", "title_paths", "cascade", "filenames", "short_kept", "segues", "breaks",
-        "flags"]
+        "flags", "junk_drops"]
     assert r.to_dict()["date"] is None
 
 

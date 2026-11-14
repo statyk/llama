@@ -542,20 +542,25 @@ def test_shifted_mp3_tag_set_darkstarorchestra_2014_07_31(tmp_path: Path):
     ia, cand, ident = _dso_2014_07_31()
     res = compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, ident)
     t = res.show.tracks
-    assert fuzzy_norm_title(t[2].title) != fuzzy_norm_title("Duprees Diamond Blues")
-    assert t[2].title_source in ("unresolved", "desc-position", "setlist")
+    # Junk-title drop (spec 2026-11-13-junk-tag-drop-design, rule A): the two `Tuning`
+    # files (pre-drop tracks 1 and 11) drop, so pre-drop track N is track N-1 up to 10
+    # and N-2 after; the demoted track 3 is track 2 now.
+    assert [d.filename for d in res.junk_drops] == ["dso2014-07-31d1t01.mp3",
+                                                    "dso2014-07-31d2t01.mp3"]
+    assert fuzzy_norm_title(t[1].title) != fuzzy_norm_title("Duprees Diamond Blues")
+    assert t[1].title_source in ("unresolved", "desc-position", "setlist")
     shipped_unconfirmed = [x for x in t if x.title_source == "tags"
-                           and x.index not in (1, 2)]
+                           and x.index != 1]
     assert res.show.needs_review or res.show.review_flags or not shipped_unconfirmed
-    assert [x.title for x in t[3:20]] == _DSO_FLAC_4_20
-    assert all(x.title_source == "sibling-format" for x in t[3:20])
-    assert res.title_paths[3:20] == ("C2",) * 17
+    assert [x.title for x in t[2:18]] == [x for x in _DSO_FLAC_4_20 if x != "Tuning"]
+    assert all(x.title_source == "sibling-format" for x in t[2:18])
+    assert res.title_paths[2:18] == ("C2",) * 16
     assert ("lossless titles: shifted delivered tag set; unconfirmed tags demoted: "
-            "tracks 3") in res.notes
+            "tracks 2") in res.notes
     # Today (slice 3 off) the tape ships as tagged, shifted throughout.
     off = compute_gather(ShowWorkspace(tmp_path / "off"), ia, None, cand, ident,
                          enabled_slices=ALL_SLICES - {"slice3"})
-    assert off.show.tracks[2].title == "Duprees Diamond Blues"
+    assert off.show.tracks[1].title == "Duprees Diamond Blues"
 
 
 def test_shifted_set_demotion_never_touches_an_override(tmp_path: Path):
@@ -567,10 +572,11 @@ def test_shifted_set_demotion_never_touches_an_override(tmp_path: Path):
                                                     "Greatest Story Ever Told"}))
     res = compute_gather(sws, ia, None, cand, ident)
     t = res.show.tracks
-    assert (t[2].title, t[2].title_source) == ("Greatest Story Ever Told", "override")
+    # Junk-title drop: pre-drop tracks 1 and 11 (`Tuning`) drop, so everything shifts.
+    assert (t[1].title, t[1].title_source) == ("Greatest Story Ever Told", "override")
     assert res.title_record.lossless.demoted == ()
     assert not any(n.startswith("lossless titles: shifted") for n in res.notes)
-    assert [x.title for x in t[3:20]] == _DSO_FLAC_4_20
+    assert [x.title for x in t[2:18]] == [x for x in _DSO_FLAC_4_20 if x != "Tuning"]
 
 
 def test_cosmetic_strip_receives_the_show_artist(tmp_path: Path):

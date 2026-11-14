@@ -88,7 +88,7 @@ Write each lead-in and the outro as short paragraphs: one thought per
 paragraph, typically two to four sentences. Separate paragraphs with a blank
 line, written inside the JSON string as the escape \n\n —
 never a raw line break inside a JSON string.
-{{encore_note}}
+{{dropped_note}}{{encore_note}}
 {{feedback}}
 
 Respond with ONLY JSON in this shape:

@@ -1,0 +1,56 @@
+{
+  "schema_version": 3,
+  "show": {
+    "artist": "Grateful Dead",
+    "date": "1973-06-10",
+    "venue": "RFK Stadium",
+    "city": null,
+    "context": ""
+  },
+  "source": {
+    "performance_id": "GratefulDead/1973-06-10",
+    "identifier": "gd73",
+    "url": "",
+    "lineage": null,
+    "profile": "prime-dead"
+  },
+  "tracks": [
+    {
+      "index": 1,
+      "set": "1",
+      "title": "Morning Dew",
+      "filename": "01 - Morning Dew.mp3",
+      "duration_sec": 600.0,
+      "segue": false
+    },
+    {
+      "index": 2,
+      "set": "2",
+      "title": "Dark Star",
+      "filename": "02 - Dark Star.mp3",
+      "duration_sec": 1800.0,
+      "segue": false
+    }
+  ],
+  "set_breaks": [
+    {
+      "after_track": 1
+    }
+  ],
+  "briefing": {
+    "file": "briefing.md",
+    "json": "briefing.json",
+    "narration": "full",
+    "vetted": false
+  },
+  "dj_notes": null,
+  "dj_audio": null,
+  "research": null,
+  "reviews": "reviews.md",
+  "research_vetted": false,
+  "total_duration_sec": 2400.0,
+  "set_durations_sec": {
+    "1": 600.0,
+    "2": 1800.0
+  }
+}

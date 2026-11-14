@@ -96,7 +96,8 @@ a delivered show in `~/.llama/shows/` normally has an empty `package/audio/`.
   guarded (retry-once-then-hold), and stamped with the `narration`
   directive from `overrides.json`. The show-package contract is **manifest
   v3**: a required `briefing` block (`file`, `json`, `narration`, `vetted`)
-  alongside the existing fields; `package` copies both briefing files into
+  alongside the existing fields, plus an optional `dropped_tracks` list (junk-titled files kept
+  out of the package; absent/null/`[]` all mean none, never in `station_mark.COMPARED`); `package` copies both briefing files into
   `package/` and hard-fails if a show has no briefing artifacts. The
   manifest model also carries `dj_notes`/`dj_audio` fields, which llama
   always writes as `null` — they are **emcee-written passthrough blocks**,

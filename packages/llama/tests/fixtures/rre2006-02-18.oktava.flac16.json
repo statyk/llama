@@ -1,0 +1,1365 @@
+{
+  "metadata": {
+    "identifier": "rre2006-02-18.oktava.flac16",
+    "mediatype": "etree",
+    "subject": "Live concert",
+    "publicdate": "2006-02-23 10:24:46",
+    "creator": "Railroad Earth",
+    "description": "DISC 01:SET I :\n01: Long Way To Go\n02: Chains\n03: Seven Story Mountain\n04: Said What You Mean\n05: Stillwater Getaway\n06: Saddle of the Sun\n07: Old Dangerfield\n\nDISC 02:SET II \n01: Mardi Gras Celebration (Hey Pocky Way on PA)\n02: Lordy Lordy\n03: Just So You Know\n04: The Cuckoo\n05: Peace\n06: Water Fountain Quicksand\n\nDISC 03:SET II (cont'd)\n01: John's Jig>\n02: Smilin' Like a Buddha>\n03: I Am A Mess\n04: Big River\n05: Bird In A House\nE:\n06: (crowd)\n07: Shockenaw Mountain Breakdown\n08. Catfish John",
+    "coverage": "Teaneck, NJ",
+    "date": "2006-02-18",
+    "uploader": "dsocks14@yahoo.com",
+    "addeddate": "2006-02-23 02:52:29",
+    "adder": "Dan Sock",
+    "pick": "0",
+    "notes": "In general a chatty hootin hollerin recording at times.\n",
+    "source": "oktava mc-012(cards)>m-audio mobile pre-usb>sony vaio vng-s260 (Using Goldwave @48kHz)",
+    "taper": "Don Dix",
+    "venue": "Mexicali Blues Cafe",
+    "transferer": "Don Dix/Dan Sock",
+    "discs": "3",
+    "has_mp3": "1",
+    "shndiscs": "2",
+    "publisher": "Don Dix",
+    "updater": "unix:etree",
+    "type": "sound",
+    "year": "2006",
+    "collection": [
+      "RailroadEarth",
+      "etree"
+    ],
+    "title": "Railroad Earth Live at Mexicali Blues Cafe on 2006-02-18",
+    "backup_location": "ia903600_13"
+  },
+  "files": [
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "769dc157122093e6070deed4e7476a1d"
+    },
+    {
+      "name": "rre2006-02-18.oktava.ffp.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "feba8bcb99eb8438fe5f28c6c25a489a"
+    },
+    {
+      "name": "rre2006-02-18.oktava.flac16_archive.torrent",
+      "source": "metadata",
+      "format": "Archive BitTorrent",
+      "md5": "66292bcbdbb252b35c207a801b343e81"
+    },
+    {
+      "name": "rre2006-02-18.oktava.flac16_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "565f83a8712fc2e3f1bdbb747bb376e7"
+    },
+    {
+      "name": "rre2006-02-18.oktava.flac16_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "644c985b79c43ce1f144897f0e35330a"
+    },
+    {
+      "name": "rre2006-02-18.oktava.flac16_reviews.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "7ca57ed09ff94c58f1d7d7630dace422"
+    },
+    {
+      "name": "rre2006-02-18.oktava.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "667785e728ad61e5183f5cd2ca117bf5"
+    },
+    {
+      "name": "rre2006-02-18d1t01.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t01.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "05f686531e21a84cdab17c3bce215095"
+    },
+    {
+      "name": "rre2006-02-18d1t01.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "427.6",
+      "md5": "aed8020761293cd1c5a495611971cc0d",
+      "title": "Long Way To Go"
+    },
+    {
+      "name": "rre2006-02-18d1t01.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t01.oktava.flac",
+      "format": "VBR MP3",
+      "length": "07:07",
+      "md5": "806f1223a4d02cf9d99d6b35b7251583",
+      "title": "Long Way To Go"
+    },
+    {
+      "name": "rre2006-02-18d1t01.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t01.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "427.6",
+      "md5": "73e6f6350b830226860a689953ec3f95"
+    },
+    {
+      "name": "rre2006-02-18d1t01.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t01.oktava.flac",
+      "format": "PNG",
+      "md5": "231e57e5796dceb7217fbe2dd7f5f0bd"
+    },
+    {
+      "name": "rre2006-02-18d1t01.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t01.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "f9c8a23722b193f7f9493b73d8be390c"
+    },
+    {
+      "name": "rre2006-02-18d1t01.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t01.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "d4963e96a1a39a7257a47f6a40c5cf5b"
+    },
+    {
+      "name": "rre2006-02-18d1t01.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t01.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "a68d19a404614086de03539942cafd6e"
+    },
+    {
+      "name": "rre2006-02-18d1t02.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t02.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "6052e4e3eddf9d34875e800531b4c6de"
+    },
+    {
+      "name": "rre2006-02-18d1t02.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "367.38",
+      "md5": "828f66e2881cccee98088191aa02e83c",
+      "title": "Chains"
+    },
+    {
+      "name": "rre2006-02-18d1t02.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t02.oktava.flac",
+      "format": "VBR MP3",
+      "length": "06:07",
+      "md5": "42ae1bc1707dc97e6ad8ef8901527461",
+      "title": "Chains"
+    },
+    {
+      "name": "rre2006-02-18d1t02.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t02.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "367.39",
+      "md5": "d6747d09261802a5d1d917550001ef75"
+    },
+    {
+      "name": "rre2006-02-18d1t02.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t02.oktava.flac",
+      "format": "PNG",
+      "md5": "fdec52b09f49f8ade00a1a29132170e9"
+    },
+    {
+      "name": "rre2006-02-18d1t02.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t02.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "23d38b10eb00072a7e28cebf8247cc2e"
+    },
+    {
+      "name": "rre2006-02-18d1t02.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t02.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "70af05fd305f2626c0d9b2abccfbab7b"
+    },
+    {
+      "name": "rre2006-02-18d1t02.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t02.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "803c22b2cb47a3a4a12a86787c2a4b88"
+    },
+    {
+      "name": "rre2006-02-18d1t03.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t03.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "e3a8835611ee6be8e302e1eafcf562bf"
+    },
+    {
+      "name": "rre2006-02-18d1t03.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "1102.05",
+      "md5": "2f499a83a2c4c690a83f7738a0b5e9c0",
+      "title": "Seven Story Mountain"
+    },
+    {
+      "name": "rre2006-02-18d1t03.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t03.oktava.flac",
+      "format": "VBR MP3",
+      "length": "18:22",
+      "md5": "c01c632feb740897373ea3d362960c18",
+      "title": "Seven Story Mountain"
+    },
+    {
+      "name": "rre2006-02-18d1t03.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t03.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "1102.05",
+      "md5": "98a32127dbbdde7837f39b8d2d12125f"
+    },
+    {
+      "name": "rre2006-02-18d1t03.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t03.oktava.flac",
+      "format": "PNG",
+      "md5": "cf71e79af7c052020af9ad9016de5cf6"
+    },
+    {
+      "name": "rre2006-02-18d1t03.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t03.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "15d02a4fc8e0734e2bd719683f4c9193"
+    },
+    {
+      "name": "rre2006-02-18d1t03.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t03.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "0f2d70c13a94aa7f3201cafd9918b7bf"
+    },
+    {
+      "name": "rre2006-02-18d1t03.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t03.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "4a09db37f09dc598b7249528c6019c0a"
+    },
+    {
+      "name": "rre2006-02-18d1t04.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t04.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "1e29afa2ad68570464e77a1de3ced61b"
+    },
+    {
+      "name": "rre2006-02-18d1t04.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "446.9",
+      "md5": "cfd93680fd86e357b7d4489240455cd9",
+      "title": "Said What You Mean"
+    },
+    {
+      "name": "rre2006-02-18d1t04.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t04.oktava.flac",
+      "format": "VBR MP3",
+      "length": "07:26",
+      "md5": "4881a9669e2e119ede53b989f822a0bd",
+      "title": "Said What You Mean"
+    },
+    {
+      "name": "rre2006-02-18d1t04.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t04.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "446.91",
+      "md5": "d95db3bc410648bf18010f2e07168a71"
+    },
+    {
+      "name": "rre2006-02-18d1t04.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t04.oktava.flac",
+      "format": "PNG",
+      "md5": "31b46e0134bed7e800ea30d630d5d050"
+    },
+    {
+      "name": "rre2006-02-18d1t04.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t04.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "29faec38d17e48bfafa7fc8f63eea05d"
+    },
+    {
+      "name": "rre2006-02-18d1t04.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t04.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "40210df4f0599a185a91bb240301da58"
+    },
+    {
+      "name": "rre2006-02-18d1t04.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t04.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "311075983069a5d2b583e8ddeeb1acf8"
+    },
+    {
+      "name": "rre2006-02-18d1t05.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t05.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "f7e05dde881fb8aa2b9b74bf93353e79"
+    },
+    {
+      "name": "rre2006-02-18d1t05.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "610.36",
+      "md5": "b9e4f9dde851c3c52a41fba96ef6f761",
+      "title": "Stillwater Getaway"
+    },
+    {
+      "name": "rre2006-02-18d1t05.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t05.oktava.flac",
+      "format": "VBR MP3",
+      "length": "10:10",
+      "md5": "132bdd0b5d99d7e541acf1103c27e206",
+      "title": "Stillwater Getaway"
+    },
+    {
+      "name": "rre2006-02-18d1t05.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t05.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "610.36",
+      "md5": "1c6fbad966e69583a76f1835f87c8920"
+    },
+    {
+      "name": "rre2006-02-18d1t05.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t05.oktava.flac",
+      "format": "PNG",
+      "md5": "e6d0f3e12a1c24d43d7200030274aaf1"
+    },
+    {
+      "name": "rre2006-02-18d1t05.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t05.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "760bbf40b79ce18371c2d42bd4ccee5b"
+    },
+    {
+      "name": "rre2006-02-18d1t05.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t05.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "aff0aa0a0fe7edbd45fb66649d7d037b"
+    },
+    {
+      "name": "rre2006-02-18d1t05.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t05.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "ff773372b083ae57f952936ec755ab26"
+    },
+    {
+      "name": "rre2006-02-18d1t06.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t06.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "6013e9376dfc736f3b5923c50b987a69"
+    },
+    {
+      "name": "rre2006-02-18d1t06.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "380.25",
+      "md5": "fada03da94ec77ccec52b13577012f6d",
+      "title": "Saddle of the Sun"
+    },
+    {
+      "name": "rre2006-02-18d1t06.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t06.oktava.flac",
+      "format": "VBR MP3",
+      "length": "06:20",
+      "md5": "4bab7a3b38ebad4d02149008a904a3e3",
+      "title": "Saddle of the Sun"
+    },
+    {
+      "name": "rre2006-02-18d1t06.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t06.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "380.25",
+      "md5": "8d89c54de7c5a76ebdfa72ce6f8afa44"
+    },
+    {
+      "name": "rre2006-02-18d1t06.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t06.oktava.flac",
+      "format": "PNG",
+      "md5": "d764c51cfcfc511c4b96dcd1fad4660f"
+    },
+    {
+      "name": "rre2006-02-18d1t06.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t06.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "435dc3d5418ff191cab314dc12ef9816"
+    },
+    {
+      "name": "rre2006-02-18d1t06.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t06.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "7c33de00bc3e63a452a61175eb870a49"
+    },
+    {
+      "name": "rre2006-02-18d1t06.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t06.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "ac631c069756c18efa7dda876f136cae"
+    },
+    {
+      "name": "rre2006-02-18d1t07.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t07.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "b25afd7be39667d78a9b8b461f480b4d"
+    },
+    {
+      "name": "rre2006-02-18d1t07.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "521.98",
+      "md5": "283a87654139f464633a61b15bf8b8e3",
+      "title": "Old Dangerfield"
+    },
+    {
+      "name": "rre2006-02-18d1t07.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t07.oktava.flac",
+      "format": "VBR MP3",
+      "length": "08:42",
+      "md5": "2c9663bb3e3a6e1c7680b580a79ce4fc",
+      "title": "Old Dangerfield"
+    },
+    {
+      "name": "rre2006-02-18d1t07.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t07.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "521.99",
+      "md5": "7e9920072aff1432d770c8a7aa45fbb9"
+    },
+    {
+      "name": "rre2006-02-18d1t07.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t07.oktava.flac",
+      "format": "PNG",
+      "md5": "1976155263706ee0ff6eed36050b2d84"
+    },
+    {
+      "name": "rre2006-02-18d1t07.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t07.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "48dddccf2e5d1013600f07a8915de1b9"
+    },
+    {
+      "name": "rre2006-02-18d1t07.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t07.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "a91245f28c2c09dfc924e43dc8ae7a87"
+    },
+    {
+      "name": "rre2006-02-18d1t07.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d1t07.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "e6b557b8cdee7a6c938c55c74faca66a"
+    },
+    {
+      "name": "rre2006-02-18d2t01.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t01.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "59926a1b11af7a219efd9649a6bdb0b1"
+    },
+    {
+      "name": "rre2006-02-18d2t01.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "76.28",
+      "md5": "0bf528470e9c83569ae16760bf7a297b",
+      "title": "Mardi Gras Celebration (Hey Pocky Way on PA)"
+    },
+    {
+      "name": "rre2006-02-18d2t01.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t01.oktava.flac",
+      "format": "VBR MP3",
+      "length": "01:16",
+      "md5": "2404e2114bfd2c0d60a79c76daa91cd7",
+      "title": "Mardi Gras Celebration (Hey Pocky Way on PA)"
+    },
+    {
+      "name": "rre2006-02-18d2t01.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t01.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "76.28",
+      "md5": "a7fd93246bb8b8afc82f23cba558208f"
+    },
+    {
+      "name": "rre2006-02-18d2t01.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t01.oktava.flac",
+      "format": "PNG",
+      "md5": "5f36f723a17e73e7c27d66d5ae54f956"
+    },
+    {
+      "name": "rre2006-02-18d2t01.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t01.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "52885107be53261e35e515717ceb550b"
+    },
+    {
+      "name": "rre2006-02-18d2t01.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t01.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "746525ee9741419967c09f5036f249dc"
+    },
+    {
+      "name": "rre2006-02-18d2t01.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t01.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "bc35f3bfb85ed70be2d8f141daf35637"
+    },
+    {
+      "name": "rre2006-02-18d2t02.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t02.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "d2f4d5e6380862a06b51410199360e81"
+    },
+    {
+      "name": "rre2006-02-18d2t02.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "307.7",
+      "md5": "ab3de7c1f4fdfeb7fe63827f6d9e1e46",
+      "title": "Lordy Lordy"
+    },
+    {
+      "name": "rre2006-02-18d2t02.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t02.oktava.flac",
+      "format": "VBR MP3",
+      "length": "05:07",
+      "md5": "a9a3167084354949d7fdf14e2f61d7ce",
+      "title": "Lordy Lordy"
+    },
+    {
+      "name": "rre2006-02-18d2t02.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t02.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "307.71",
+      "md5": "8dbc5ce1776d988ed11d06582127a969"
+    },
+    {
+      "name": "rre2006-02-18d2t02.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t02.oktava.flac",
+      "format": "PNG",
+      "md5": "dd9d906aea6212332b6f720b9a2d369c"
+    },
+    {
+      "name": "rre2006-02-18d2t02.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t02.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "f41a5986330bac379181ba14b4e6ce2d"
+    },
+    {
+      "name": "rre2006-02-18d2t02.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t02.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "783e529d985efb4148e41b9617798aa1"
+    },
+    {
+      "name": "rre2006-02-18d2t02.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t02.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "a1a478d596f7fc62b3db00daf1084fdc"
+    },
+    {
+      "name": "rre2006-02-18d2t03.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t03.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "6e9cfc60ef9ba38225d33f2e2799eafc"
+    },
+    {
+      "name": "rre2006-02-18d2t03.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "756.68",
+      "md5": "c1768c275c3ba81e929b1bc5b5f08295",
+      "title": "Just So You Know"
+    },
+    {
+      "name": "rre2006-02-18d2t03.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t03.oktava.flac",
+      "format": "VBR MP3",
+      "length": "12:36",
+      "md5": "7eaefcff990dcc3fa87d0dd3c19420ce",
+      "title": "Just So You Know"
+    },
+    {
+      "name": "rre2006-02-18d2t03.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t03.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "756.68",
+      "md5": "b4dfa7a99426f74c5f836c583633d9b4"
+    },
+    {
+      "name": "rre2006-02-18d2t03.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t03.oktava.flac",
+      "format": "PNG",
+      "md5": "138b4d23c93dd2a670bfd0b376ab3f18"
+    },
+    {
+      "name": "rre2006-02-18d2t03.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t03.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "5073f1535bf48627968cec63ffe6447e"
+    },
+    {
+      "name": "rre2006-02-18d2t03.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t03.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "204821488aa8ccece5e7972aca2e94e4"
+    },
+    {
+      "name": "rre2006-02-18d2t03.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t03.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "ed0c36a838099ed3c1786296135c8e5a"
+    },
+    {
+      "name": "rre2006-02-18d2t04.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t04.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "57e63cb6b0fc7ac0fc96c0c5a8e35a0b"
+    },
+    {
+      "name": "rre2006-02-18d2t04.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "707.08",
+      "md5": "bc172d60306f27767205db4e3dd3edb8",
+      "title": "The Cuckoo"
+    },
+    {
+      "name": "rre2006-02-18d2t04.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t04.oktava.flac",
+      "format": "VBR MP3",
+      "length": "11:47",
+      "md5": "24768ab6e1cac1e080412ded0d95a053",
+      "title": "The Cuckoo"
+    },
+    {
+      "name": "rre2006-02-18d2t04.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t04.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "707.08",
+      "md5": "7b9461c766f4734708c840ac2ed7fb4b"
+    },
+    {
+      "name": "rre2006-02-18d2t04.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t04.oktava.flac",
+      "format": "PNG",
+      "md5": "27862fc0aef7a78cccaec21a407033c2"
+    },
+    {
+      "name": "rre2006-02-18d2t04.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t04.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "76ff0f59f6c437bfcf8852b10514da65"
+    },
+    {
+      "name": "rre2006-02-18d2t04.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t04.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "9924d99296f16fdf323e5326307c82af"
+    },
+    {
+      "name": "rre2006-02-18d2t04.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t04.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "a289459a02170dc28e297a83a720729f"
+    },
+    {
+      "name": "rre2006-02-18d2t05.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t05.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "b9794fcb64b39f2f69fa14023e3e25a3"
+    },
+    {
+      "name": "rre2006-02-18d2t05.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "305.92",
+      "md5": "2d5e9caf86a9c8fa79e4b558f3c9f436",
+      "title": "Peace"
+    },
+    {
+      "name": "rre2006-02-18d2t05.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t05.oktava.flac",
+      "format": "VBR MP3",
+      "length": "05:05",
+      "md5": "9ffae48d262fb0f8685e5f64d449af2a",
+      "title": "Peace"
+    },
+    {
+      "name": "rre2006-02-18d2t05.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t05.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "305.92",
+      "md5": "72e1f20c06df6a7ce9b121c6ce835fbc"
+    },
+    {
+      "name": "rre2006-02-18d2t05.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t05.oktava.flac",
+      "format": "PNG",
+      "md5": "caa89d8fca80104eea501351424fdd32"
+    },
+    {
+      "name": "rre2006-02-18d2t05.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t05.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "51aacaaef0ec67dd1c2b74544f5e8128"
+    },
+    {
+      "name": "rre2006-02-18d2t05.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t05.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "2e707b75bfcdfecb942818a2d911b6f6"
+    },
+    {
+      "name": "rre2006-02-18d2t05.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t05.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "bb4cb38b1ace1c17f3d0322db3cf94df"
+    },
+    {
+      "name": "rre2006-02-18d2t06.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t06.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "ad3dfc3bb090e7961368702d08bfbfa8"
+    },
+    {
+      "name": "rre2006-02-18d2t06.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "290.57",
+      "md5": "0187e57306f126a940abcc4f195a4e39",
+      "title": "Waterfountain Quicksand"
+    },
+    {
+      "name": "rre2006-02-18d2t06.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t06.oktava.flac",
+      "format": "VBR MP3",
+      "length": "04:50",
+      "md5": "8219e7fb8a4cd8e3db10ca07b06b2aa8",
+      "title": "Waterfountain Quicksand"
+    },
+    {
+      "name": "rre2006-02-18d2t06.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t06.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "290.57",
+      "md5": "8cf9ae8577a5bce541db434f13e99282"
+    },
+    {
+      "name": "rre2006-02-18d2t06.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t06.oktava.flac",
+      "format": "PNG",
+      "md5": "c752428ed5a1494da30e79b7ff58992a"
+    },
+    {
+      "name": "rre2006-02-18d2t06.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t06.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "511914ab969671ff43cc493eb09d672f"
+    },
+    {
+      "name": "rre2006-02-18d2t06.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t06.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "1c3f49c5a9f71dbcef594708bcc96272"
+    },
+    {
+      "name": "rre2006-02-18d2t06.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d2t06.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "e06b20e3fb925efc3c3e225e312e3f48"
+    },
+    {
+      "name": "rre2006-02-18d3t01.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t01.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "1abf91db7590e8958f6c5c16df6d3419"
+    },
+    {
+      "name": "rre2006-02-18d3t01.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "243.76",
+      "md5": "9c5290a8df9d031fd61de022b6b3699a",
+      "title": "Johns Jig>"
+    },
+    {
+      "name": "rre2006-02-18d3t01.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t01.oktava.flac",
+      "format": "VBR MP3",
+      "length": "04:03",
+      "md5": "1b208a5f0360f2b9df81ea070f81b39f",
+      "title": "Johns Jig>"
+    },
+    {
+      "name": "rre2006-02-18d3t01.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t01.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "243.76",
+      "md5": "352239bc1ef20350c173011d1f02dd2c"
+    },
+    {
+      "name": "rre2006-02-18d3t01.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t01.oktava.flac",
+      "format": "PNG",
+      "md5": "cafe298d0ef1c72182491dc2f8a79e17"
+    },
+    {
+      "name": "rre2006-02-18d3t01.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t01.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "edb229bb71e9ca6bb8edcf345e283fbf"
+    },
+    {
+      "name": "rre2006-02-18d3t01.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t01.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "2fa4488551a112cc5b491197097b7d8f"
+    },
+    {
+      "name": "rre2006-02-18d3t01.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t01.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "9e5f3f0e1620b64f5b6c542eb7ea7765"
+    },
+    {
+      "name": "rre2006-02-18d3t02.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t02.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "b1dcaa0c22e509af400624a018e44eca"
+    },
+    {
+      "name": "rre2006-02-18d3t02.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "872.34",
+      "md5": "e13c2b505021a9bbef877960b62309cf",
+      "title": "Smilin' Like A Buddha>"
+    },
+    {
+      "name": "rre2006-02-18d3t02.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t02.oktava.flac",
+      "format": "VBR MP3",
+      "length": "14:32",
+      "md5": "6686df5062c4a3116a4305802a4fb1e9",
+      "title": "Smilin' Like A Buddha>"
+    },
+    {
+      "name": "rre2006-02-18d3t02.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t02.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "872.35",
+      "md5": "11465aff77877ddf8287f5e7b4dbf200"
+    },
+    {
+      "name": "rre2006-02-18d3t02.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t02.oktava.flac",
+      "format": "PNG",
+      "md5": "22722a21d9e65322a5f363a3c36f78e3"
+    },
+    {
+      "name": "rre2006-02-18d3t02.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t02.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "233dd67eb2dd278db23e805bbdbaa253"
+    },
+    {
+      "name": "rre2006-02-18d3t02.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t02.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "f34290e910c0a1252e957d6e805f83b4"
+    },
+    {
+      "name": "rre2006-02-18d3t02.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t02.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "de6cbb74d4d19fddfd0f2d5738415f91"
+    },
+    {
+      "name": "rre2006-02-18d3t03.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t03.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "493c6cfc23f66fcc3850c56d73c49a80"
+    },
+    {
+      "name": "rre2006-02-18d3t03.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "904.53",
+      "md5": "7bc3d717e95513e587002bb761e3f7f7",
+      "title": "I Am A Mess"
+    },
+    {
+      "name": "rre2006-02-18d3t03.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t03.oktava.flac",
+      "format": "VBR MP3",
+      "length": "15:04",
+      "md5": "f11cabd860a008af1bf820dce5028d68",
+      "title": "I Am A Mess"
+    },
+    {
+      "name": "rre2006-02-18d3t03.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t03.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "904.53",
+      "md5": "96dc9c5eaa483f5a4ec5852bebf35878"
+    },
+    {
+      "name": "rre2006-02-18d3t03.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t03.oktava.flac",
+      "format": "PNG",
+      "md5": "91995937860d2b4d8aa0ad997f4df75b"
+    },
+    {
+      "name": "rre2006-02-18d3t03.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t03.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "9e8b10c05b83dd7ecf75be68546b0f5d"
+    },
+    {
+      "name": "rre2006-02-18d3t03.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t03.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "d33a3bc2bfb2799b35065c9974252a67"
+    },
+    {
+      "name": "rre2006-02-18d3t03.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t03.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "9e93bff68dd995258bcc866d7646e147"
+    },
+    {
+      "name": "rre2006-02-18d3t04.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t04.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "dd30b9d043c784d1baea4c692b62628e"
+    },
+    {
+      "name": "rre2006-02-18d3t04.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "361.5",
+      "md5": "6f006eb00069ba6f76c83751f98eb004",
+      "title": "Big River"
+    },
+    {
+      "name": "rre2006-02-18d3t04.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t04.oktava.flac",
+      "format": "VBR MP3",
+      "length": "06:01",
+      "md5": "5e8ba0c5fe4e6428bef012083246f5f4",
+      "title": "Big River"
+    },
+    {
+      "name": "rre2006-02-18d3t04.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t04.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "361.51",
+      "md5": "63b61744882f3dd831e0e0449c387856"
+    },
+    {
+      "name": "rre2006-02-18d3t04.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t04.oktava.flac",
+      "format": "PNG",
+      "md5": "d583719db499504c7e22ef4027b4ff5b"
+    },
+    {
+      "name": "rre2006-02-18d3t04.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t04.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "45f601cca3693f16c75d587241718672"
+    },
+    {
+      "name": "rre2006-02-18d3t04.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t04.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "f067064dbdbe88301d730fd5de2d45fb"
+    },
+    {
+      "name": "rre2006-02-18d3t04.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t04.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "bf22df836fea8b42c3d142757b67fb86"
+    },
+    {
+      "name": "rre2006-02-18d3t05.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t05.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "4c2aae3e097d53108a837ca1f216f389"
+    },
+    {
+      "name": "rre2006-02-18d3t05.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "424.08",
+      "md5": "5797a9fdb8bc406556372e80a3f8ff2a",
+      "title": "Bird In A House"
+    },
+    {
+      "name": "rre2006-02-18d3t05.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t05.oktava.flac",
+      "format": "VBR MP3",
+      "length": "07:04",
+      "md5": "d5b0fc9e72cf19ebb717c426870361ec",
+      "title": "Bird In A House"
+    },
+    {
+      "name": "rre2006-02-18d3t05.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t05.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "424.08",
+      "md5": "ad5a4979a8f14ebbe392fa7990aa177c"
+    },
+    {
+      "name": "rre2006-02-18d3t05.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t05.oktava.flac",
+      "format": "PNG",
+      "md5": "ce31c379d54be186144f501b8c5dab82"
+    },
+    {
+      "name": "rre2006-02-18d3t05.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t05.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "45a1c7c908ac6f3d3fd6d6cbffa3fe58"
+    },
+    {
+      "name": "rre2006-02-18d3t05.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t05.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "e4c66895c18d3b92b220eb6e06bcb705"
+    },
+    {
+      "name": "rre2006-02-18d3t05.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t05.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "77869e881b95e303767bb40814113ffd"
+    },
+    {
+      "name": "rre2006-02-18d3t06.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t06.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "a26c4eb8e22ae04ac8b52893d4bfcf79"
+    },
+    {
+      "name": "rre2006-02-18d3t06.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "265.82",
+      "md5": "ed7479375c00306a14d74cc6eef19ea0",
+      "title": "Crowd"
+    },
+    {
+      "name": "rre2006-02-18d3t06.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t06.oktava.flac",
+      "format": "VBR MP3",
+      "length": "04:25",
+      "md5": "c82b6c7574347bc40d871aeaa4b7e2b5",
+      "title": "Crowd"
+    },
+    {
+      "name": "rre2006-02-18d3t06.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t06.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "265.83",
+      "md5": "6f0cc6ace4e06256c06c57e0608be329"
+    },
+    {
+      "name": "rre2006-02-18d3t06.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t06.oktava.flac",
+      "format": "PNG",
+      "md5": "3b561f1654b45e4295d74b410e2b89fd"
+    },
+    {
+      "name": "rre2006-02-18d3t06.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t06.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "fa632426ef90c48d6dc307df97c0d2b2"
+    },
+    {
+      "name": "rre2006-02-18d3t06.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t06.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "5308300cd0df912e1d45a36e5aab3b16"
+    },
+    {
+      "name": "rre2006-02-18d3t06.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t06.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "1a4045e6d981b68fcc7e6f81fb0ebfe0"
+    },
+    {
+      "name": "rre2006-02-18d3t07.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t07.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "8d36fde51091f7224ffe17920d8eec43"
+    },
+    {
+      "name": "rre2006-02-18d3t07.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "258.7",
+      "md5": "c19336ac057eeef076c35ec5a131efaf",
+      "title": "Shockenaw Mountain Breakdown"
+    },
+    {
+      "name": "rre2006-02-18d3t07.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t07.oktava.flac",
+      "format": "VBR MP3",
+      "length": "04:18",
+      "md5": "06a27f5c58bbd8363b067c65b2724c1d",
+      "title": "Shockenaw Mountain Breakdown"
+    },
+    {
+      "name": "rre2006-02-18d3t07.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t07.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "258.71",
+      "md5": "40adc0512fdd71a59f002d2bf7b3f11a"
+    },
+    {
+      "name": "rre2006-02-18d3t07.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t07.oktava.flac",
+      "format": "PNG",
+      "md5": "477d3822e6fc45703ca852d90f72ec03"
+    },
+    {
+      "name": "rre2006-02-18d3t07.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t07.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "e3d83952cc102ff90c7604cc72aa7e9a"
+    },
+    {
+      "name": "rre2006-02-18d3t07.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t07.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "005fa447a0951017f974552e4b0cdaa0"
+    },
+    {
+      "name": "rre2006-02-18d3t07.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t07.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "cfe069919b248ee1cba75f2275135327"
+    },
+    {
+      "name": "rre2006-02-18d3t08.oktava.afpk",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t08.oktava.flac",
+      "format": "Columbia Peaks",
+      "md5": "db82b4131200727d02ed8057383edf0a"
+    },
+    {
+      "name": "rre2006-02-18d3t08.oktava.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "756.57",
+      "md5": "87745cc16718a4ffa1656205563a7bbb",
+      "title": "Catfish John"
+    },
+    {
+      "name": "rre2006-02-18d3t08.oktava.mp3",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t08.oktava.flac",
+      "format": "VBR MP3",
+      "length": "12:36",
+      "md5": "db59154272ee27918c10b8010cf4ea83",
+      "title": "Catfish John"
+    },
+    {
+      "name": "rre2006-02-18d3t08.oktava.ogg",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t08.oktava.flac",
+      "format": "Ogg Vorbis",
+      "length": "756.57",
+      "md5": "0c3b41c2181fe32b2543994fbd250bd2"
+    },
+    {
+      "name": "rre2006-02-18d3t08.oktava.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t08.oktava.flac",
+      "format": "PNG",
+      "md5": "b4d167d120cdf62186d8e728edd4322c"
+    },
+    {
+      "name": "rre2006-02-18d3t08.oktava_esshigh.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t08.oktava_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "7428d0c5f0dd3d3d98e0f219d2242107"
+    },
+    {
+      "name": "rre2006-02-18d3t08.oktava_esslow.json.gz",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t08.oktava.flac",
+      "format": "Essentia Low GZ",
+      "md5": "04f860e9ad3189b687cbd55b46dc8af9"
+    },
+    {
+      "name": "rre2006-02-18d3t08.oktava_spectrogram.png",
+      "source": "derivative",
+      "original": "rre2006-02-18d3t08.oktava.flac",
+      "format": "Spectrogram",
+      "md5": "a960c487a11aa08577e9d00425e59360"
+    }
+  ],
+  "reviews": [
+    {
+      "review_id": "63166",
+      "reviewbody": "great show - jams galore - great sound too.  i sent a friend to this show (i'm in colorado) and this show blew him through the roof.  wish i could have been there, but this is the next best thing!",
+      "reviewtitle": "into the stratosphere",
+      "reviewer": "burtrashbaum",
+      "reviewdate": "2006-02-24 08:07:18",
+      "createdate": "2006-02-24 08:07:18",
+      "stars": "5"
+    },
+    {
+      "review_id": "66159",
+      "reviewtitle": "CENSORED DUE TO ONLINE HARASSMENT",
+      "reviewer": "Jac from Tucson",
+      "reviewdate": "2006-04-11 17:40:43",
+      "createdate": "2006-04-08 10:06:24",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "grow a dick you queen",
+      "reviewtitle": "online harassment?",
+      "reviewer": "musicsonlyoutlaw",
+      "reviewdate": "2012-02-01 08:32:34",
+      "createdate": "2012-02-01 08:32:34",
+      "stars": "5"
+    }
+  ]
+}

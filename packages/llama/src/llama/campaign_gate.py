@@ -128,7 +128,7 @@ def ps_lines() -> list[str]:
 
 # --- Task 12: version gate, pin, rekey retirement ---
 
-CAMPAIGN_MIN_VERSION = "2.20.0"       # the release this build ships in; confirm at release
+CAMPAIGN_MIN_VERSION = "2.24.0"       # the junk-title drop release; confirm at release
 _VERSION = re.compile(r"[0-9]+(?:\.[0-9]+)+")
 _VERSION_TIMEOUT_S = 120
 PIN_FILE = Path("campaign") / "pin.json"
@@ -192,10 +192,13 @@ def tool_versions(tool: str) -> list[tuple[str, str]]:
     return out
 
 
-def require_tools(echo: Callable[[str], None], *, pin: dict | None) -> None:
-    """Every `llama` and `emcee` on PATH reports at least CAMPAIGN_MIN_VERSION, and, with
-    a pin, no `llama` is newer than the pinned version (an installed newer build would
-    write what the pinned code would not). Raises GateRefused, naming each path."""
+def require_tools(echo: Callable[[str], None], *, pin: dict | None,
+                  minimum: str | None = None) -> None:
+    """Every `llama` and `emcee` on PATH reports at least `minimum` (None:
+    CAMPAIGN_MIN_VERSION), and, with a pin, no `llama` is newer than the pinned version
+    (an installed newer build would write what the pinned code would not). Raises
+    GateRefused, naming each path."""
+    floor = CAMPAIGN_MIN_VERSION if minimum is None else minimum
     problems = []
     for tool in ("llama", "emcee"):
         try:
@@ -206,8 +209,8 @@ def require_tools(echo: Callable[[str], None], *, pin: dict | None) -> None:
             problems.append(f"no {tool} on PATH")
         for p, out in found:
             echo(f"{tool} on PATH: {p} {out}")
-            if not version_ok(out, CAMPAIGN_MIN_VERSION):
-                problems.append(f"{tool} below {CAMPAIGN_MIN_VERSION}: {p} "
+            if not version_ok(out, floor):
+                problems.append(f"{tool} below {floor}: {p} "
                                 f"{' | '.join(out.splitlines())}")
             elif tool == "llama" and pin and version_newer(out, pin["version"]):
                 problems.append(f"llama newer than the pinned {pin['version']}: {p} {out}")
