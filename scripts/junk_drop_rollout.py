@@ -1,0 +1,322 @@
+#!/usr/bin/env python3
+"""Junk-title drop rollout tooling (spec
+`docs/superpowers/specs/2026-11-13-junk-tag-drop-design.md`, "Rollout").
+
+`list --arm A --emcee-status S --out DIR [--config P]` is the read-only membership list
+(Rollout step 2). It reads the library, the station and the arm (a `replay_holds.py run
+--all` arm written by THIS code under THIS config) and writes only under `DIR`:
+
+- `members.json`: one row per member show (its drops, station state, the station tracks
+  paired with a dropped source file, any other station-vs-library track difference);
+- `reapply-replayable.json` / `reapply-needs-llm.json`: predicted lists for `llama reapply
+  --from-list` (loadable by `reapply.load_list`), the second for the `--with-gather-llm`
+  wave(s);
+- `unpaired.json`: shows with drops whose station copy does not pair (left out, never
+  guessed), and shows that could not be read.
+
+A show's drops are the arm row's `junk_drops`, or, for a row the replay could not gather
+LLM-free (`needs-llm`, `unreplayable`), `junk_titles.plan_drops` over the CURRENT
+`show.json` (titles, set labels, `overrides.include`; breaker over show.json durations).
+A show with a station copy is a member when a station track paired with `plan_reuse`
+(show.json, else `reuse-anchor.json`) is a dropped source file; a show with no station
+copy is a member when it has a drop.
+
+Run it with the pinned worktree's own interpreter, by path. Refusals exit 2.
+"""
+import argparse
+import hashlib
+import json
+import sys
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import bulk_apply   # noqa: E402
+import replay_holds   # noqa: E402
+
+import llama.replay   # noqa: E402
+from llama import audio_reuse, junk_titles   # noqa: E402
+from llama.campaign_gate import GateRefused   # noqa: E402
+from llama.errors import LlamaError   # noqa: E402
+from llama.models import Show   # noqa: E402
+from llama.workspace import ShowWorkspace, read_model, read_overrides   # noqa: E402
+
+SHOW_JSON_OUTCOMES = ("needs-llm", "unreplayable")
+MEMBERS, REPLAYABLE, NEEDS_LLM, UNPAIRED = (
+    "members.json", "reapply-replayable.json", "reapply-needs-llm.json", "unpaired.json")
+OUTPUT_FILES = (MEMBERS, REPLAYABLE, NEEDS_LLM, UNPAIRED)
+STATES = ("unvoiced", "voiced", "not on station")
+
+
+# --- gates ------------------------------------------------------------------------
+
+def _gates(args):
+    """(config, station_root, arm bytes, arm, running sha, fingerprint) or GateRefused."""
+    config = bulk_apply._config(args)
+    station_root = config.delivery_path
+    if station_root is None:
+        raise GateRefused("no delivery_path in config: the station root is needed")
+    problem = bulk_apply._station_root_problem(station_root)
+    if problem == "empty":
+        raise GateRefused(bulk_apply._empty_station_message(station_root))
+    if problem is not None:
+        raise GateRefused(f"station root {station_root} is {problem} (is the station mounted?)")
+    out = getattr(args, "out", None)
+    if out is not None:
+        for what, p in (("library root", config.root), ("station root", station_root)):
+            if replay_holds._overlaps(out, p):
+                raise GateRefused(f"--out {out} overlaps the {what} {p}")
+    raw, arm = bulk_apply._read_json_file(args.arm, "arm")
+    rows = bulk_apply._arm_rows(arm)
+    sha = llama.replay.code_identity()
+    fp = llama.replay.config_fingerprint(config)
+    arm_sha = arm.get("sha")
+    if str(arm_sha).endswith("-dirty") or sha.endswith("-dirty"):
+        raise GateRefused(f"the arm was written by code {arm_sha}; running code is {sha}: an "
+                          "uncommitted tree has no code identity, commit first and re-run "
+                          "replay_holds.py run --all")
+    if arm_sha != sha:
+        raise GateRefused(f"the arm was written by code {arm_sha}; running code is {sha}: "
+                          "re-run replay_holds.py run --all from this tree")
+    if arm.get("config_fingerprint") != fp:
+        raise GateRefused(f"the arm was written under config {arm.get('config_fingerprint')}; "
+                          f"this config is {fp}")
+    return config, station_root, raw, rows, sha, fp
+
+
+# --- per show ---------------------------------------------------------------------
+
+def _arm_drops(row: dict) -> list[dict]:
+    return [{"source_file": d.get("filename"), "title": d.get("title"),
+             "duration_sec": d.get("duration_sec"), "set": d.get("set"),
+             "after_track": d.get("after_track"), "rule": d.get("rule"),
+             "held": bool(d.get("held"))}
+            for d in (row.get("junk_drops") or []) if isinstance(d, dict)]
+
+
+def _arm_predicted(row: dict) -> list[dict]:
+    side = bulk_apply._row_side(row)
+    return [{"source_file": t["filename"], "title": t["title"], "set": t["set"],
+             "segue": bool(t["segue"])} for t in side]
+
+
+def _show_json_plan(ws: ShowWorkspace, show: Show) -> tuple[list[dict], list[dict]]:
+    """(drops, predicted kept tracks) from the current show.json, gather's rule: a kept
+    track whose next track dropped loses its segue unless its own title ends in an arrow."""
+    include = frozenset(read_overrides(ws).include)
+    tracks = show.tracks
+    plan = junk_titles.plan_drops(
+        [junk_titles.DropInput(filename=t.filename, title=t.title, set=t.set,
+                               duration_sec=t.duration_sec) for t in tracks], include=include)
+    rules = {d.position: d.rule for d in plan}
+    total, median = junk_titles.show_stats([t.duration_sec for t in tracks])
+    drops, kept = [], []
+    for i, t in enumerate(tracks):
+        if i in rules:
+            drops.append({"source_file": t.filename, "title": t.title,
+                          "duration_sec": t.duration_sec, "set": t.set, "after_track": len(kept),
+                          "rule": rules[i],
+                          "held": junk_titles.held(t.duration_sec, total=total, median=median)})
+            continue
+        segue = bool(t.segue) and not ((i + 1) in rules
+                                       and not junk_titles.trailing_arrow(t.title))
+        kept.append({"source_file": t.filename, "title": t.title, "set": t.set, "segue": segue})
+    return drops, kept
+
+
+def _b(v) -> str:
+    return "true" if v else "false"
+
+
+def _other_differences(paired: list[tuple[str, dict]], drop_srcs: set[str],
+                       predicted: list[dict]) -> list[str]:
+    """The paired station tracks other than the drop pairs against the predicted
+    post-reprocess tracks, by source file, in station order; added tracks last."""
+    pred = {p["source_file"]: p for p in predicted}
+    seen: set[str] = set()
+    out: list[str] = []
+    for src, st in paired:
+        if src in drop_srcs:
+            continue
+        seen.add(src)
+        p = pred.get(src)
+        if p is None:
+            out.append(f"removed {src} '{st.get('title')}'")
+            continue
+        if st.get("title") != p["title"]:
+            out.append(f"title {src}: '{st.get('title')}' -> '{p['title']}'")
+        if st.get("set") != p["set"]:
+            out.append(f"set {src}: {st.get('set')} -> {p['set']}")
+        if bool(st.get("segue")) != p["segue"]:
+            out.append(f"segue {src}: {_b(st.get('segue'))} -> {_b(p['segue'])}")
+    for p in predicted:
+        if p["source_file"] not in seen and p["source_file"] not in drop_srcs:
+            out.append(f"added {p['source_file']} '{p['title']}'")
+    return out
+
+
+def _backend_now(tts_now) -> str | None:
+    if not isinstance(tts_now, dict):
+        return None
+    if "unresolved" in tts_now:
+        return "unresolved"
+    return tts_now.get("backend")
+
+
+def _clips(dj_audio) -> int:
+    if not isinstance(dj_audio, dict):
+        return 0
+    intros = dj_audio.get("set_intros")
+    return (len(intros) if isinstance(intros, dict) else 0) + (1 if dj_audio.get("outro") else 0)
+
+
+def _station_tracks(manifest: Path) -> tuple[dict | None, dict[str, dict]]:
+    """(raw manifest or None when unreadable, packaged filename -> track)."""
+    try:
+        data = json.loads(manifest.read_text())
+    except (OSError, ValueError):
+        return None, {}
+    if not isinstance(data, dict):
+        return None, {}
+    tracks = data.get("tracks") if isinstance(data.get("tracks"), list) else []
+    return data, {t["filename"]: t for t in tracks
+                  if isinstance(t, dict) and isinstance(t.get("filename"), str)}
+
+
+def _one_show(root: Path, station_root: Path, slug: str, row: dict,
+              status: dict[str, dict]) -> tuple[str, dict | None]:
+    """("member" | "unpaired" | "none", row)."""
+    ws = ShowWorkspace(root / "shows" / slug)
+    if not ws.dir.is_dir():
+        return "unpaired", {"slug": slug, "detail": "no library show directory", "drops": []}
+    needs_llm = row.get("outcome") in SHOW_JSON_OUTCOMES
+    try:
+        if needs_llm:
+            drops, predicted = _show_json_plan(ws, read_model(ws.show, Show))
+        else:
+            drops, predicted = _arm_drops(row), _arm_predicted(row)
+    except (OSError, ValueError, LlamaError) as exc:
+        return "unpaired", {"slug": slug, "detail": f"cannot read the show: "
+                            f"{bulk_apply._one_line(exc)}", "drops": []}
+    drop_srcs = {d["source_file"] for d in drops}
+    st_dir = station_root / slug
+    manifest = st_dir / "manifest.json"
+    station = {"state": "not on station", "presenter": None, "backend_now": None, "clips": 0}
+    pairs: list[dict] = []
+    other: list[str] = []
+    if manifest.exists():
+        data, by_name = _station_tracks(manifest)
+        plan = audio_reuse.plan_reuse(ws, st_dir)
+        names = {src: path.name for src, path in plan.station.items()}
+        if not names:
+            if drops:
+                return "unpaired", {"slug": slug, "detail": "station copy does not pair",
+                                    "drops": drops}
+            return "none", None
+        order = list(by_name)
+        paired = sorted(((src, by_name.get(n, {"filename": n})) for src, n in names.items()),
+                        key=lambda p: order.index(p[1]["filename"])
+                        if p[1]["filename"] in by_name else len(order))
+        pairs = [{"station_file": st["filename"], "station_title": st.get("title"),
+                  "source_file": src} for src, st in paired if src in drop_srcs]
+        if not pairs:
+            return "none", None
+        other = _other_differences(paired, drop_srcs, predicted)
+        dj = data.get("dj_audio") if data is not None else None
+        if dj is not None:
+            st = status.get(slug) or {}
+            station = {"state": "voiced", "presenter": st.get("voiced_by"),
+                       "backend_now": _backend_now(st.get("tts_now")), "clips": _clips(dj)}
+        else:
+            station = {**station, "state": "unvoiced"}
+    elif not drops:
+        return "none", None
+    return "member", {
+        "slug": slug, "outcome": "member", "briefing": row.get("briefing"),
+        "digests": row.get("digests") if isinstance(row.get("digests"), dict) else {},
+        "needs_llm": needs_llm, "drop_source": "show.json" if needs_llm else "replay",
+        "station": station, "drops": drops, "held": any(d["held"] for d in drops),
+        "pairs": pairs, "other_differences": other,
+        "arm_outcome": row.get("outcome")}
+
+
+# --- list -------------------------------------------------------------------------
+
+def _write(path: Path, doc: dict) -> None:
+    path.write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n")
+
+
+def cmd_list(args) -> int:
+    config, station_root, raw, rows, sha, fp = _gates(args)
+    _, status_doc = bulk_apply._read_json_file(args.emcee_status, "emcee status")
+    if not isinstance(status_doc, list):
+        raise GateRefused(f"{args.emcee_status} is not an `emcee status --json` list")
+    status = {s["slug"]: s for s in status_doc
+              if isinstance(s, dict) and isinstance(s.get("slug"), str)}
+    members, unpaired = [], []
+    for slug in sorted(rows):
+        kind, item = _one_show(config.root, station_root, slug, rows[slug], status)
+        if kind == "member":
+            members.append(item)
+        elif kind == "unpaired":
+            unpaired.append(item)
+    at = datetime.now(timezone.utc).isoformat()
+    head = {"sha": sha, "config_fingerprint": fp, "written_at": at}
+    member_rows = [{k: v for k, v in m.items() if k != "arm_outcome"} for m in members]
+    out = args.out
+    out.mkdir(parents=True, exist_ok=True)
+    _write(out / MEMBERS, {**head, "arm_sha256": hashlib.sha256(raw).hexdigest(),
+                           "rows": member_rows})
+
+    def predicted(ms):
+        return [{"slug": m["slug"], "outcome": m["arm_outcome"], "briefing": m["briefing"],
+                 "digests": m["digests"]} for m in ms]
+    llm = [m for m in members if m["needs_llm"]]
+    _write(out / REPLAYABLE, {**head, "rows": predicted([m for m in members
+                                                          if not m["needs_llm"]])})
+    _write(out / NEEDS_LLM, {**head, "rows": predicted(llm)})
+    _write(out / UNPAIRED, {**head, "rows": unpaired})
+
+    states = Counter(m["station"]["state"] for m in members)
+    backends = Counter(m["station"]["backend_now"] or "none" for m in members
+                       if m["station"]["state"] == "voiced")
+    print(f"members: {len(members)}")
+    for s in STATES:
+        print(f"  {s}: {states.get(s, 0)}")
+    print("voiced by backend_now: " + (", ".join(f"{b} {n}" for b, n in sorted(backends.items()))
+                                       or "none"))
+    print(f"held: {sum(1 for m in members if m['held'])}")
+    print(f"with-gather-llm wave: {len(llm)}")
+    print(f"unpaired: {len(unpaired)}")
+    for u in unpaired:
+        print(f"  {u['slug']}: {u['detail']}")
+    print(f"wrote {', '.join(OUTPUT_FILES)} to {out}")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--config", type=Path, default=None,
+                        help="config.toml (the library root, station root and fingerprint)")
+    p = sub.add_parser("list", parents=[common],
+                       help="the read-only membership list (writes only under --out)")
+    p.add_argument("--arm", type=Path, required=True,
+                   help="a `replay_holds.py run --all` arm from this code and config")
+    p.add_argument("--emcee-status", type=Path, required=True,
+                   help="the file `emcee status --json` wrote")
+    p.add_argument("--out", type=Path, required=True)
+    p.set_defaults(fn=cmd_list)
+    args = ap.parse_args(argv)
+    try:
+        return args.fn(args)
+    except (GateRefused, LlamaError) as err:
+        print(str(err), file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
