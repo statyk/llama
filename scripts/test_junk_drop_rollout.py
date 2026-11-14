@@ -398,3 +398,325 @@ def test_list_writes_nothing_outside_out(tmp_path):
     assert {k: tree(p) for k, p in (("lib", root), ("station", station))} == before
     assert {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in inputs} == inputs
     assert sorted(p.name for p in out.iterdir()) == sorted(jdr.OUTPUT_FILES)
+
+
+# --- mark (plan Task 14; spec "Rollout" step 3, Stakes) ----------------------------
+
+import bulk_apply as ba   # noqa: E402
+from llama import campaign, campaign_gate, station_lock, station_mark   # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _no_tools(monkeypatch):
+    """No real emcee check, pin or PATH probe: `mark --apply`'s gates are stubbed and
+    recorded (a test that wants them to refuse replaces them)."""
+    monkeypatch.setattr(station_mark, "emcee_running", lambda: [])
+    monkeypatch.setattr(campaign_gate, "ps_lines", lambda: [])
+    seen: dict = {}
+    pin = {"tag": "v2.24.0", "sha": SHA, "version": "2.24.0"}
+    monkeypatch.setattr(jdr, "require_pinned_code", lambda root: seen.setdefault("pin", root)
+                        and pin)
+    monkeypatch.setattr(jdr, "require_tools",
+                        lambda echo, *, pin, minimum=None: seen.setdefault(
+                            "tools", {"pin": pin, "minimum": minimum}))
+    return seen
+
+
+def _deliver(root: Path, slug: str) -> None:
+    with (root / "ledger.jsonl").open("a") as f:
+        f.write(json.dumps({"performance_id": f"band/{slug}", "artist": "Band",
+                            "date": "2001-01-01", "status": "delivered", "run": "r1",
+                            "recorded_at": "2026-01-01T00:00:00Z"}) + "\n")
+
+
+def _member(ws: ShowWorkspace, *, state="unvoiced", held=False) -> dict:
+    return {"slug": ws.dir.name, "outcome": "member", "briefing": "fresh",
+            "digests": input_digests(ws), "needs_llm": False, "drop_source": "replay",
+            "station": {"state": state, "presenter": None, "backend_now": None, "clips": 0},
+            "drops": [{"source_file": "t1.mp3", "title": "Tuning", "duration_sec": 300.0,
+                       "set": "1", "after_track": 0, "rule": "A", "held": held}],
+            "held": held, "pairs": [], "other_differences": []}
+
+
+def _list_file(tmp_path, cfg, *members, sha=SHA, fingerprint=None) -> Path:
+    path = tmp_path / "out" / "members.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fp = fingerprint or config_fingerprint(load_config(cfg))
+    path.write_text(json.dumps({"sha": sha, "config_fingerprint": fp,
+                                "written_at": "2026-11-14T00:00:00+00:00",
+                                "arm_sha256": "0" * 64, "rows": list(members)}, indent=1))
+    return path
+
+
+def _mark(cfg, lst, *, apply=False) -> int:
+    return jdr.main(["mark", "--list", str(lst), "--config", str(cfg)]
+                    + (["--apply"] if apply else []))
+
+
+def _batch_of(root: Path, lst: Path) -> Path:
+    return root / "campaign" / "marking" / hashlib.sha256(lst.read_bytes()).hexdigest()[:16]
+
+
+def _lines(batch: Path) -> dict[str, dict]:
+    return {json.loads(l)["slug"]: json.loads(l)
+            for l in (batch / "record.jsonl").read_text().splitlines()}
+
+
+def _stat(path: Path) -> tuple[bytes, int]:
+    return path.read_bytes(), path.stat().st_mtime_ns
+
+
+def _marks(ws: ShowWorkspace) -> list[tuple[str, str]]:
+    rec = campaign.read_record(ws)
+    return [(m.reason, m.batch) for m in rec.marks] if rec else []
+
+
+def test_mark_never_station_marks_a_voiced_copy(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "v1", ["Tuning", "Bertha", "Sugaree"])
+    out = _station(station, "v1", ["Tuning", "Bertha", "Sugaree"], dj_audio=VOICED)
+    _deliver(root, "v1")
+    arm = _arm(tmp_path, cfg, _row(ws, drops=[_drop("t1.mp3", "Tuning")]))
+    rc, listed = _list(tmp_path, cfg, arm, status=_status(
+        tmp_path, {"slug": "v1", "voiced_by": "phil", "tts_now": {"backend": "voxtral"}}))
+    assert rc == 0 and _members(listed)["v1"]["station"]["state"] == "voiced"
+    lst = listed / "members.json"
+    before = _stat(out / "manifest.json")
+    capsys.readouterr()
+    assert _mark(cfg, lst) == 0                                   # dry run
+    dry = capsys.readouterr().out
+    assert "v1: voiced: campaign mark only" in dry and ": would station-mark" not in dry
+    assert _mark(cfg, lst, apply=True) == 0
+    assert _stat(out / "manifest.json") == before                 # bytes and mtime
+    assert sorted(p.name for p in out.iterdir()) == ["manifest.json"]
+    batch = _batch_of(root, lst)
+    assert _marks(ws) == [("junk-title drop", batch.name)]
+    line = _lines(batch)["v1"]
+    assert line["station"] == "voiced: campaign mark only"
+    assert line["reason"] == "junk-title drop" and line["start_stage"] == "gather"
+    assert not (batch / "before" / "v1.json").exists()
+
+
+def test_mark_station_marks_unvoiced_held_or_not(tmp_path):
+    cfg, root, station = _lib(tmp_path)
+    shows = {}
+    for slug, held in (("plain", False), ("held", True)):
+        shows[slug] = _show(root, slug, ["Tuning", "Bertha"])
+        _station(station, slug, ["Tuning", "Bertha"])
+        _deliver(root, slug)
+    originals = {s: (station / s / "manifest.json").read_bytes() for s in shows}
+    lst = _list_file(tmp_path, cfg, _member(shows["plain"]), _member(shows["held"], held=True))
+    assert _mark(cfg, lst, apply=True) == 0
+    batch = _batch_of(root, lst)
+    lines = _lines(batch)
+    for slug, ws in shows.items():
+        data = json.loads((station / slug / "manifest.json").read_text())
+        rec = campaign.read_record(ws)
+        assert data["awaiting_fix"] == {"reason": "junk-title drop",
+                                        "marked_at": rec.marks[-1].at}
+        assert _marks(ws) == [("junk-title drop", batch.name)]
+        assert lines[slug]["station"] == "marked"
+        assert (batch / "before" / f"{slug}.json").read_bytes() == originals[slug]
+    inputs = json.loads((batch / "inputs.json").read_text())
+    assert inputs["list"] == str(lst)
+    assert inputs["list_sha256"] == hashlib.sha256(lst.read_bytes()).hexdigest()
+    assert inputs["sha"] == SHA and inputs["station_root"] == str(station)
+    assert inputs["created_at"]
+
+
+def test_voiced_check_reads_under_the_lock(tmp_path, monkeypatch, capsys):
+    """The copy is voiced after the dry run read it and before the apply's locked
+    re-read: the apply sees it voiced and leaves it unmarked."""
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "s1", ["Tuning", "Bertha"])
+    out = _station(station, "s1", ["Tuning", "Bertha"])
+    _deliver(root, "s1")
+    lst = _list_file(tmp_path, cfg, _member(ws))
+    assert _mark(cfg, lst) == 0
+    assert "s1: unvoiced: would station-mark" in capsys.readouterr().out
+    real = station_lock.for_package
+    held = []
+
+    @__import__("contextlib").contextmanager
+    def voiced_once_locked(o, *, command):
+        with real(o, command=command) as h:
+            held.append(command)
+            data = json.loads((Path(o) / "manifest.json").read_text())
+            data["dj_audio"] = VOICED                        # emcee voiced it meanwhile
+            (Path(o) / "manifest.json").write_text(json.dumps(data, indent=2) + "\n")
+            yield h
+    monkeypatch.setattr(ba.station_lock, "for_package", voiced_once_locked)
+    voiced = (out / "manifest.json")
+    assert _mark(cfg, lst, apply=True) == 0
+    assert held == ["bulk_apply mark"]
+    data = json.loads(voiced.read_text())
+    assert data["dj_audio"] == VOICED and data.get("awaiting_fix") is None
+    batch = _batch_of(root, lst)
+    assert _lines(batch)["s1"]["station"] == "voiced: campaign mark only"
+    assert _marks(ws) == [("junk-title drop", batch.name)]
+
+
+def test_not_on_station_member_gets_campaign_mark_only(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "lib1", ["Bertha", "Crowd"])
+    lst = _list_file(tmp_path, cfg, _member(ws, state="not on station"))
+    assert _mark(cfg, lst) == 0
+    assert "lib1: not delivered: campaign mark only" in capsys.readouterr().out
+    station_before = sorted(p.name for p in station.iterdir())
+    assert _mark(cfg, lst, apply=True) == 0
+    batch = _batch_of(root, lst)
+    assert _lines(batch)["lib1"]["station"] == "not delivered"
+    assert _marks(ws) == [("junk-title drop", batch.name)]
+    assert sorted(p.name for p in station.iterdir()) == station_before
+
+
+def test_delivered_without_station_copy_is_ok(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    slug = "philleshandfriends-2008-11-01"
+    ws = _show(root, slug, ["Intro", "Bertha"])
+    _deliver(root, slug)                                          # delivered, copy gone
+    lst = _list_file(tmp_path, cfg, _member(ws, state="not on station"))
+    assert _mark(cfg, lst) == 0
+    assert f"{slug}: no station copy: campaign mark only" in capsys.readouterr().out
+    assert _mark(cfg, lst, apply=True) == 0
+    batch = _batch_of(root, lst)
+    assert _lines(batch)[slug]["station"] == "no station copy"
+    assert _marks(ws) == [("junk-title drop", batch.name)]
+    # the same item through bulk_apply's batch without the flag still exits 1
+    other = root / "campaign" / "marking" / "0000000000000000"
+    item = ba.MarkItem(slug, ba.REASON_JUNK, "gather", input_digests(ws))
+    assert ba.mark_apply(root, [item], station_root=station, batch=other,
+                         echo=lambda m: None) == 1
+
+
+def test_bulk_unmark_reverses_a_junk_batch(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    u1 = _show(root, "u1", ["Tuning", "Bertha"])
+    _station(station, "u1", ["Tuning", "Bertha"])
+    v1 = _show(root, "v1", ["Tuning", "Bertha"])
+    _station(station, "v1", ["Tuning", "Bertha"], dj_audio=VOICED)
+    p1 = _show(root, "p1", ["Tuning", "Bertha"])
+    _station(station, "p1", ["Tuning", "Bertha"])
+    for s in ("u1", "v1", "p1"):
+        _deliver(root, s)
+    originals = {s: (station / s / "manifest.json").read_bytes() for s in ("u1", "v1", "p1")}
+    lst = _list_file(tmp_path, cfg, _member(u1), _member(v1, state="voiced"), _member(p1))
+    assert _mark(cfg, lst, apply=True) == 0
+    batch = _batch_of(root, lst)
+    assert campaign.mark_processed(p1, held=False)                # processed since marking
+    p1_station = (station / "p1" / "manifest.json").read_bytes()
+    capsys.readouterr()
+    assert ba.main(["unmark", "--batch", str(batch), "--config", str(cfg), "--apply"]) == 1
+    text = capsys.readouterr().out
+    assert (station / "u1" / "manifest.json").read_bytes() == originals["u1"]
+    assert (station / "v1" / "manifest.json").read_bytes() == originals["v1"]
+    assert _marks(u1) == [] and _marks(v1) == []
+    assert _marks(p1) == [("junk-title drop", batch.name)]        # left alone
+    assert (station / "p1" / "manifest.json").read_bytes() == p1_station
+    assert "p1: processed since marked: re-deliver instead" in text
+
+
+def test_rerun_skips_recorded_items(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    u1 = _show(root, "u1", ["Tuning", "Bertha"])
+    _station(station, "u1", ["Tuning", "Bertha"])
+    v1 = _show(root, "v1", ["Tuning", "Bertha"])
+    _station(station, "v1", ["Tuning", "Bertha"], dj_audio=VOICED)
+    lib1 = _show(root, "lib1", ["Tuning", "Bertha"])
+    for s in ("u1", "v1"):
+        _deliver(root, s)
+    lst = _list_file(tmp_path, cfg, _member(u1), _member(v1, state="voiced"),
+                     _member(lib1, state="not on station"))
+    assert _mark(cfg, lst, apply=True) == 0
+    batch = _batch_of(root, lst)
+
+    def snap(p):
+        return {str(f.relative_to(p)): _stat(f) for f in sorted(p.rglob("*")) if f.is_file()}
+    before = (snap(root), snap(station))
+    capsys.readouterr()
+    assert _mark(cfg, lst, apply=True) == 0
+    text = capsys.readouterr().out
+    for s in ("u1", "v1", "lib1"):
+        assert f"{s}: skipped: already recorded" in text
+    after_root = snap(root)
+    assert (after_root, snap(station)) == before
+    assert len((batch / "record.jsonl").read_text().splitlines()) == 3
+
+
+def test_mark_refuses_stale_list(tmp_path, capsys, monkeypatch, _no_tools):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "s1", ["Tuning", "Bertha"])
+    _station(station, "s1", ["Tuning", "Bertha"])
+    _deliver(root, "s1")
+    originals = (station / "s1" / "manifest.json").read_bytes()
+    cases = [({"sha": "other"}, "running code is abc"),
+             ({"fingerprint": "f" * 16}, "under config ffffffffffffffff")]
+    for kw, needle in cases:
+        lst = _list_file(tmp_path, cfg, _member(ws), **kw)
+        for apply in (False, True):
+            capsys.readouterr()
+            assert _mark(cfg, lst, apply=apply) == 2
+            assert needle in capsys.readouterr().err
+    monkeypatch.setattr("llama.replay.code_identity", lambda: SHA + "-dirty")
+    lst = _list_file(tmp_path, cfg, _member(ws), sha=SHA + "-dirty")
+    assert _mark(cfg, lst, apply=True) == 2
+    assert "uncommitted" in capsys.readouterr().err
+    monkeypatch.setattr("llama.replay.code_identity", lambda: SHA)
+    # an unmounted (empty) station refuses
+    lst = _list_file(tmp_path, cfg, _member(ws))
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    cfg2 = tmp_path / "config2.toml"
+    cfg2.write_text(f'root = "{root}"\ndelivery_path = "{empty}"\n')
+    assert _mark(cfg2, _list_file(tmp_path, cfg2, _member(ws)), apply=True) == 2
+    assert "mounted" in capsys.readouterr().err
+    # nothing written by any refusal
+    assert not (root / "campaign").exists()
+    assert campaign.read_record(ws) is None
+    assert (station / "s1" / "manifest.json").read_bytes() == originals
+    assert "tools" not in _no_tools
+
+
+def test_mark_apply_requires_pin_and_tools_floor(tmp_path, capsys, monkeypatch, _no_tools):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "s1", ["Tuning", "Bertha"])
+    lst = _list_file(tmp_path, cfg, _member(ws, state="not on station"))
+    assert _mark(cfg, lst) == 0                                   # the dry run needs neither
+    assert _no_tools == {}
+    assert _mark(cfg, lst, apply=True) == 0
+    assert _no_tools["pin"] == root
+    assert _no_tools["tools"] == {"pin": {"tag": "v2.24.0", "sha": SHA, "version": "2.24.0"},
+                                  "minimum": jdr.JUNK_MARK_TOOLS_FLOOR}
+    assert jdr.JUNK_MARK_TOOLS_FLOOR == "2.23.0"
+
+    def refuse(root):
+        raise campaign_gate.GateRefused("no pin: campaign/pin.json is missing")
+    monkeypatch.setattr(jdr, "require_pinned_code", refuse)
+    ws2 = _show(root, "s2", ["Tuning", "Bertha"])
+    lst2 = _list_file(tmp_path, cfg, _member(ws2, state="not on station"))
+    capsys.readouterr()
+    assert _mark(cfg, lst2, apply=True) == 2
+    assert "no pin" in capsys.readouterr().err
+    assert campaign.read_record(ws2) is None
+    assert not _batch_of(root, lst2).exists()
+
+
+def test_mark_dry_run_writes_nothing(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    u1 = _show(root, "u1", ["Tuning", "Bertha"])
+    _station(station, "u1", ["Tuning", "Bertha"])
+    h1 = _show(root, "h1", ["Tuning", "Bertha"])
+    _station(station, "h1", ["Tuning", "Bertha"])
+    for s in ("u1", "h1"):
+        _deliver(root, s)
+    lst = _list_file(tmp_path, cfg, _member(u1), _member(h1, held=True))
+
+    def snap(p):
+        return {str(f.relative_to(p)): _stat(f) for f in sorted(p.rglob("*")) if f.is_file()}
+    before = (snap(root), snap(station))
+    assert _mark(cfg, lst) == 0
+    text = capsys.readouterr().out
+    assert "u1: unvoiced: would station-mark" in text
+    assert "h1: unvoiced (held): would station-mark" in text
+    assert "dry run: nothing written (pass --apply)" in text
+    assert (snap(root), snap(station)) == before

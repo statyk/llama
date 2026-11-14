@@ -1509,3 +1509,69 @@ def test_unmark_stops_when_the_lock_cannot_be_created(tmp_path, monkeypatch, _lo
     assert {s: campaign.read_record(ws).model_dump_json() for s, ws in wss.items()} == recs
     assert msgs[0].startswith("d1: refused: cannot create the station lock")
     assert "d2: not attempted" in msgs and "p1: not attempted" in msgs
+
+
+# --- junk-tag-drop plan Task 14: skip_voiced / no_copy_ok (defaults are today's) ---------
+
+def test_skip_voiced_default_is_todays_behaviour(tmp_path):
+    """Without `skip_voiced` a voiced copy IS station-marked (today's batch); with it the
+    copy is untouched and recorded `voiced: campaign mark only`, campaign mark written."""
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "v1", delivered=True, voiced=True, station=station)
+    items = [_item("v1", reason=ba.REASON_JUNK, digests=input_digests(ws))]
+    batch = _batch(tmp_path)
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 0
+    data = json.loads((station / "v1" / "manifest.json").read_text())
+    assert data["awaiting_fix"]["reason"] == "junk-title drop"
+    assert [l["station"] for l in _records(batch)] == ["marked"]
+
+    cfg2, root2, station2 = _lib(tmp_path / "two")
+    ws2 = _show(root2, "v1", delivered=True, voiced=True, station=station2)
+    path = station2 / "v1" / "manifest.json"
+    before = (path.read_bytes(), path.stat().st_mtime_ns)
+    b2 = root2 / "campaign" / "marking" / "fedcba9876543210"
+    b2.mkdir(parents=True)
+    items2 = [_item("v1", reason=ba.REASON_JUNK, digests=input_digests(ws2))]
+    assert ba.mark_apply(root2, items2, station_root=station2, batch=b2, echo=lambda m: None,
+                         skip_voiced=True) == 0
+    assert (path.read_bytes(), path.stat().st_mtime_ns) == before
+    assert not (b2 / "before" / "v1.json").exists()
+    line = _records(b2)[0]
+    assert line["station"] == ba.VOICED_CAMPAIGN_ONLY == "voiced: campaign mark only"
+    assert line["before_sha256"] is None and line["after_sha256"] is None
+    assert line["mark_added"] is True
+    assert campaign.read_record(ws2).marks[-1].reason == "junk-title drop"
+    assert ba.VOICED_CAMPAIGN_ONLY in ba._STATION_OK
+    assert ba.REASON_JUNK in ba._REASON_KINDS
+
+
+def test_skip_voiced_still_marks_an_unvoiced_copy(tmp_path):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "u1", delivered=True, station=station)
+    batch = _batch(tmp_path)
+    assert ba.mark_apply(root, [_item("u1", reason=ba.REASON_JUNK, digests=input_digests(ws))],
+                         station_root=station, batch=batch, echo=lambda m: None,
+                         skip_voiced=True) == 0
+    assert json.loads((station / "u1" / "manifest.json").read_text())["awaiting_fix"]
+    assert [l["station"] for l in _records(batch)] == ["marked"]
+
+
+def test_no_copy_ok_counts_a_missing_station_copy(tmp_path):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "gone", delivered=True)                  # ledger-delivered, no copy
+    (station / "other").mkdir()                               # a mounted station
+    items = [_item("gone", reason=ba.REASON_JUNK, digests=input_digests(ws))]
+    batch = _batch(tmp_path)
+    msgs = []
+    assert ba.mark_apply(root, items, station_root=station, batch=batch, echo=msgs.append,
+                         no_copy_ok=True) == 0
+    assert "not marked (" not in "\n".join(msgs)
+    assert [l["station"] for l in _records(batch)] == ["no station copy"]
+    assert campaign.awaiting_fix(campaign.read_record(ws))
+    # a re-run judges the whole record the same way
+    assert ba.mark_apply(root, items, station_root=station, batch=batch, echo=lambda m: None,
+                         no_copy_ok=True) == 0
+    # without the flag the same record is listed, exit 1 (today's rule)
+    assert ba.mark_apply(root, items, station_root=station, batch=batch,
+                         echo=lambda m: None) == 1

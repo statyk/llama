@@ -517,15 +517,20 @@ REASON_LLM = "replay needs an LLM call"
 REASON_GUARD = "stored briefing fails today's guard"
 REASON_RESELECTION = "recording re-selection"
 REASON_NEWLY_HELD = "newly held by today's checks"
+REASON_JUNK = "junk-title drop"       # scripts/junk_drop_rollout.py mark (junk-tag-drop spec)
 _REASON_KINDS = (REASON_CHANGED, REASON_LLM, REASON_GUARD, REASON_RESELECTION,
-                 REASON_NEWLY_HELD)
+                 REASON_NEWLY_HELD, REASON_JUNK)
 # Rows whose diff comes from the provider-less fallback alignment (an artefact): they are
 # marked only by a re-selection or by the frozen list, never by a visible change.
 _NO_DIFF = ("needs-llm", "unreplayable")
 _PLAN_COLUMNS = ("delivered unvoiced", "delivered voiced", "packaged", "briefed", "held")
 # Exit 0 only when every delivered item's last record line is one of these (the brief's
 # rule, literally: "no station copy" is listed too). "not delivered" lines never count.
-_STATION_OK = ("marked", "already marked")
+# `skip_voiced` (the junk-title drop batch only): a voiced copy is never station-marked;
+# its campaign mark is written and nothing on air changes.
+VOICED_CAMPAIGN_ONLY = "voiced: campaign mark only"
+_STATION_OK = ("marked", "already marked", VOICED_CAMPAIGN_ONLY)
+_NO_COPY = "no station copy"
 _NOT_DELIVERED = "not delivered"
 # Task 15b (M1): the station copy carries this batch's mark, but its reversal evidence
 # is not (yet) on record. Neither is `refused` (the station IS marked); both are listed
@@ -848,17 +853,25 @@ def _reversal(saved: Path, raw: bytes, data: dict, line: dict | None) -> bytes |
 
 
 def _mark_station(item: MarkItem, out: Path, batch: Path, at: str, batch_at: str | None,
-                  line: dict | None) -> tuple[str, str | None, str | None]:
+                  line: dict | None, *,
+                  skip_voiced: bool = False) -> tuple[str, str | None, str | None]:
     """(station outcome, before sha, after sha) for a delivered show's station copy.
     The caller checked emcee just before. Never raises for a station problem (pointer c).
     A copy already carrying THIS batch's mark (`marked_at` is the batch's library mark
     `at`: a run stopped between the station write and its record line, or an unsaved
     before copy) is recorded `marked` once `_reversal` verifies its before bytes (saved
-    as the before copy), else `_UNVERIFIED`; it is never re-written (Task 15b M1)."""
+    as the before copy), else `_UNVERIFIED`; it is never re-written (Task 15b M1).
+    With `skip_voiced` (the caller holds the station lock), a copy this read finds voiced
+    (`dj_audio` non-null) and not carrying this batch's mark is `VOICED_CAMPAIGN_ONLY`:
+    no station write, no before copy."""
     saved = batch / "before" / f"{item.slug}.json"
     try:
         raw, data = station_mark.read_station_manifest(out)
         mark = station_mark.mark_of(data)
+        own_mark = (mark is not None and batch_at is not None
+                    and mark.get("marked_at") == batch_at)
+        if skip_voiced and data.get("dj_audio") is not None and not own_mark:
+            return VOICED_CAMPAIGN_ONLY, None, None
         if mark is not None:
             if batch_at is None or mark.get("marked_at") != batch_at:
                 return "already marked", None, None
@@ -933,7 +946,7 @@ def _station_copy_problem(out: Path) -> str | None:
     try:
         st = os.stat(out)
     except FileNotFoundError:
-        return "no station copy"
+        return _NO_COPY
     except OSError as exc:
         return f"refused: station copy unreadable ({_one_line(exc)})"
     if not stat.S_ISDIR(st.st_mode):
@@ -982,7 +995,8 @@ def _station_locked(out: Path, *, command: str):
 
 def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
               record: Path, delivered_ids: _DeliveredIds,
-              line: dict | None = None) -> tuple[str, bool, _Stop | None]:
+              line: dict | None = None, *, skip_voiced: bool = False,
+              no_copy_ok: bool = False) -> tuple[str, bool, _Stop | None]:
     """One item under the show lock: (what happened, whether it must be listed as not
     marked, why the batch stops here, if it does). The library mark is written first and
     made durable; a station failure never rolls it back (the library side is the safe
@@ -990,7 +1004,7 @@ def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
     station step (the copy's first stat through `_mark_station`, the emcee check between)
     runs under the station lock; a held lock, or one that cannot be created, refuses the
     item (retryable) and stops the batch. The holder lines go to the stop only, never
-    into the one-line record."""
+    into the one-line record. `skip_voiced` and `no_copy_ok` are `mark_apply`'s."""
     ws = ShowWorkspace(root / "shows" / item.slug)
     if not ws.dir.is_dir():
         return "skipped: no show directory", True, None
@@ -1026,7 +1040,8 @@ def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
                         stop = _Stop("emcee is running", running)
                     else:
                         station, before_sha, after_sha = _mark_station(
-                            item, out, batch, at, own.at if own else None, line)
+                            item, out, batch, at, own.at if own else None, line,
+                            skip_voiced=skip_voiced)
             except _LockRefused as exc:            # held, or it could not be created
                 station, stop = exc.station, exc.stop
         _append_jsonl(record, {"slug": item.slug, "reason": item.reason,
@@ -1034,11 +1049,16 @@ def _mark_one(root: Path, item: MarkItem, station_root: Path, batch: Path,
                                "station": station, "before_sha256": before_sha,
                                "after_sha256": after_sha, "at": at})
     library = "library mark added" if mark_added else "library mark kept"
-    return f"{station} ({library})", delivered and station not in _STATION_OK, stop
+    ok = _station_ok(no_copy_ok)
+    return f"{station} ({library})", delivered and station not in ok, stop
+
+
+def _station_ok(no_copy_ok: bool) -> tuple[str, ...]:
+    return _STATION_OK + ((_NO_COPY,) if no_copy_ok else ())
 
 
 def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: Path,
-               echo) -> int:
+               echo, skip_voiced: bool = False, no_copy_ok: bool = False) -> int:
     """The marking batch (spec "The marking batch"). Per item, under the show lock: the
     digests re-checked, the campaign record marked (durable) unless already awaiting, then
     a delivered show's station copy marked, one `record.jsonl` line per item. Items already
@@ -1049,7 +1069,13 @@ def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: 
     when every delivered item is `marked` or `already marked`, judged over the batch's
     WHOLE record (each slug's last line, earlier runs included, so a re-run still reports
     a terminal `no station copy`) plus this run's items that wrote no line (inputs
-    changed, errors, not reached); else 1, listing each."""
+    changed, errors, not reached); else 1, listing each.
+
+    The junk-title drop batch (`scripts/junk_drop_rollout.py mark`) passes both flags:
+    `skip_voiced` never station-marks a copy the locked re-read finds voiced (recorded
+    `VOICED_CAMPAIGN_ONLY`, campaign mark written); `no_copy_ok` counts a delivered item
+    recorded `no station copy` as OK (nothing on air to protect). Both default to False,
+    which is the campaign batch's behaviour exactly."""
     (batch / "before").mkdir(parents=True, exist_ok=True)
     record = batch / "record.jsonl"
     last = _last_lines(record)
@@ -1069,7 +1095,8 @@ def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: 
             continue
         try:
             what, problem, stop = _mark_one(root, item, station_root, batch, record,
-                                            delivered_ids, last.get(item.slug))
+                                            delivered_ids, last.get(item.slug),
+                                            skip_voiced=skip_voiced, no_copy_ok=no_copy_ok)
         except Exception as exc:
             what, problem = f"error: {_one_line(exc)}", True
         echo(f"{item.slug}: {what}")
@@ -1082,9 +1109,10 @@ def mark_apply(root: Path, items: list[MarkItem], *, station_root: Path, batch: 
             echo(f"refusing to mark station copies: {stop.reason}; the batch stops")
             for line in stop.lines:
                 echo(f"  {line.strip()}")
+    ok = _station_ok(no_copy_ok)
     for slug, line in sorted(_last_lines(record).items()):
         station = str(line.get("station"))
-        if slug not in listed and station not in _STATION_OK and station != _NOT_DELIVERED:
+        if slug not in listed and station not in ok and station != _NOT_DELIVERED:
             listed[slug] = f"{slug}: {station} (recorded)"
     echo(f"marking {batch.name}: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items()))
          + f"; record: {record}")

@@ -21,6 +21,18 @@ A show with a station copy is a member when a station track paired with `plan_re
 (show.json, else `reuse-anchor.json`) is a dropped source file; a show with no station
 copy is a member when it has a drop.
 
+`mark --list DIR/members.json [--config P] [--apply]` is the marking batch (Rollout step 3),
+run BEFORE the release binaries are installed. It takes only the list (refused unless its
+`sha` and `config_fingerprint` are the running code's and config's) and marks each member
+with reason `junk-title drop` through `bulk_apply.mark_apply(skip_voiced=True,
+no_copy_ok=True)`: under the station lock the station manifest is re-read; an unvoiced copy
+(held or not) gets a station mark and a campaign mark, a voiced copy or none a campaign mark
+only. No voiced station copy is ever marked. The batch is `<root>/campaign/marking/<id>/`
+(`id` = the list's sha256, first 16), reversed by `bulk_apply.py unmark --batch`. The dry
+run (no `--apply`) writes nothing and prints, per member, the station state it would act
+on. `--apply` also requires the campaign pin and `llama`/`emcee` at least
+JUNK_MARK_TOOLS_FLOOR.
+
 Run it with the pinned worktree's own interpreter, by path. Refusals exit 2.
 """
 import argparse
@@ -38,7 +50,10 @@ import replay_holds   # noqa: E402
 
 import llama.replay   # noqa: E402
 from llama import audio_reuse, junk_titles   # noqa: E402
-from llama.campaign_gate import GateRefused   # noqa: E402
+from llama import station_mark   # noqa: E402
+from llama.campaign_gate import (GateRefused, require_pinned_code,   # noqa: E402
+                                 require_tools)
+from llama.catalog import _performance_id   # noqa: E402
 from llama.errors import LlamaError   # noqa: E402
 from llama.models import Show   # noqa: E402
 from llama.workspace import ShowWorkspace, read_model, read_overrides   # noqa: E402
@@ -48,6 +63,10 @@ MEMBERS, REPLAYABLE, NEEDS_LLM, UNPAIRED = (
     "members.json", "reapply-replayable.json", "reapply-needs-llm.json", "unpaired.json")
 OUTPUT_FILES = (MEMBERS, REPLAYABLE, NEEDS_LLM, UNPAIRED)
 STATES = ("unvoiced", "voiced", "not on station")
+# `mark --apply` runs before the release binaries are installed (spec Rollout step 3), so
+# the installed tools are checked against this floor, not CAMPAIGN_MIN_VERSION.
+JUNK_MARK_TOOLS_FLOOR = "2.23.0"
+MARKING_DIR = Path("campaign") / "marking"
 
 
 # --- gates ------------------------------------------------------------------------
@@ -296,6 +315,113 @@ def cmd_list(args) -> int:
     return 0
 
 
+# --- mark -------------------------------------------------------------------------
+
+def _station_gate(config) -> Path:
+    station_root = config.delivery_path
+    if station_root is None:
+        raise GateRefused("no delivery_path in config: the station root is needed")
+    problem = bulk_apply._station_root_problem(station_root)
+    if problem == "empty":
+        raise GateRefused(bulk_apply._empty_station_message(station_root))
+    if problem is not None:
+        raise GateRefused(f"station root {station_root} is {problem} (is the station mounted?)")
+    return station_root
+
+
+def _read_list(path: Path, sha: str, fp: str) -> tuple[bytes, list[dict]]:
+    """(list bytes, member rows) of a `list` members.json written by THIS code and config."""
+    raw, doc = bulk_apply._read_json_file(path, "membership list")
+    if not isinstance(doc, dict) or not isinstance(doc.get("rows"), list):
+        raise GateRefused(f"{path} is not a `junk_drop_rollout.py list` members.json")
+    list_sha = doc.get("sha")
+    if str(list_sha).endswith("-dirty") or sha.endswith("-dirty"):
+        raise GateRefused(f"the list was written by code {list_sha}; running code is {sha}: "
+                          "an uncommitted tree has no code identity, commit first and re-run "
+                          "the list")
+    if list_sha != sha:
+        raise GateRefused(f"the list was written by code {list_sha}; running code is {sha}: "
+                          "re-run junk_drop_rollout.py list from this tree")
+    if doc.get("config_fingerprint") != fp:
+        raise GateRefused(f"the list was written under config {doc.get('config_fingerprint')}; "
+                          f"this config is {fp}")
+    rows, seen = [], set()
+    for r in doc["rows"]:
+        if not (isinstance(r, dict) and isinstance(r.get("slug"), str)
+                and isinstance(r.get("digests"), dict)):
+            raise GateRefused(f"{path}: a row without a slug or digests: {r!r}"[:300])
+        if r["slug"] in seen:
+            raise GateRefused(f"{path}: {r['slug']} is listed twice")
+        seen.add(r["slug"])
+        rows.append(r)
+    return raw, rows
+
+
+def _dry_state(root: Path, station_root: Path, slug: str,
+               delivered: "bulk_apply._DeliveredIds") -> tuple[str, bool]:
+    """(the station state the apply would act on, whether it would station-mark), read now
+    with no lock; the apply re-reads it under the station lock."""
+    ws = ShowWorkspace(root / "shows" / slug)
+    if not ws.dir.is_dir():
+        return "no show directory", False
+    try:
+        pid = _performance_id(ws)
+    except (OSError, ValueError, LlamaError) as exc:
+        return f"unreadable show ({bulk_apply._one_line(exc)})", False
+    if not (pid and pid in delivered):
+        return "not delivered", False
+    out = station_root / slug
+    problem = bulk_apply._station_copy_problem(out)
+    if problem is not None:
+        return problem, False
+    try:
+        _, data = station_mark.read_station_manifest(out)
+    except LlamaError as exc:
+        return f"unreadable ({bulk_apply._one_line(exc)})", False
+    if data.get("dj_audio") is not None:
+        return "voiced", False
+    if station_mark.mark_of(data) is not None:
+        return "unvoiced, already marked", False
+    return "unvoiced", True
+
+
+def cmd_mark(args) -> int:
+    config = bulk_apply._config(args)
+    root = config.root
+    station_root = _station_gate(config)
+    sha = llama.replay.code_identity()
+    raw, rows = _read_list(args.list, sha, llama.replay.config_fingerprint(config))
+    if not args.apply:
+        delivered = bulk_apply._DeliveredIds(root / "ledger.jsonl")
+        counts: Counter = Counter()
+        for r in rows:
+            state, would = _dry_state(root, station_root, r["slug"], delivered)
+            held = " (held)" if r.get("held") else ""
+            act = "would station-mark" if would else "campaign mark only"
+            counts[act] += 1
+            print(f"{r['slug']}: {state}{held}: {act}")
+        print(f"members: {len(rows)}; would station-mark {counts['would station-mark']}, "
+              f"campaign mark only {counts['campaign mark only']}")
+        running = station_mark.emcee_running()
+        print("emcee running: " + ("yes" if running else "no"))
+        for line in running:
+            print(f"  {line}")
+        print("dry run: nothing written (pass --apply)")
+        return 0
+    pin = require_pinned_code(root)
+    require_tools(bulk_apply._echo, pin=pin, minimum=JUNK_MARK_TOOLS_FLOOR)
+    items = [bulk_apply.MarkItem(r["slug"], bulk_apply.REASON_JUNK, "gather", r["digests"])
+             for r in rows]
+    batch = root / MARKING_DIR / hashlib.sha256(raw).hexdigest()[:16]
+    if not (batch / "inputs.json").exists():
+        bulk_apply._write_json(batch / "inputs.json", {
+            "list": str(args.list), "list_sha256": hashlib.sha256(raw).hexdigest(),
+            "sha": sha, "station_root": str(station_root),
+            "created_at": datetime.now(timezone.utc).isoformat()})
+    return bulk_apply.mark_apply(root, items, station_root=station_root, batch=batch,
+                                 echo=bulk_apply._echo, skip_voiced=True, no_copy_ok=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -310,6 +436,13 @@ def main(argv: list[str] | None = None) -> int:
                    help="the file `emcee status --json` wrote")
     p.add_argument("--out", type=Path, required=True)
     p.set_defaults(fn=cmd_list)
+    p = sub.add_parser("mark", parents=[common],
+                       help="the junk-title drop marking batch (dry run unless --apply)")
+    p.add_argument("--list", type=Path, required=True,
+                   help="the members.json `list` wrote, from this code and config")
+    p.add_argument("--apply", action="store_true",
+                   help="write the campaign and station marks (never a voiced copy's)")
+    p.set_defaults(fn=cmd_mark)
     args = ap.parse_args(argv)
     try:
         return args.fn(args)

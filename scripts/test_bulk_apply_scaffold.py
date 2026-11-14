@@ -127,10 +127,12 @@ def test_pin_and_tool_gate_agree_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setattr(ba, "REPO", tmp_path / "repo")
     monkeypatch.setattr(ba, "code_identity", lambda: sha)
     monkeypatch.setattr(ba.llama, "__version__", "0.0.0+unknown")
-    assert ba.main(["pin", "--tag", "v2.20.0", "--config", str(cfg)]) == 0
+    # a release at CAMPAIGN_MIN_VERSION (2.24.0 since the junk-title drop), same commit
+    subprocess.run(["git", "-C", str(tmp_path / "repo"), "tag", "v2.24.0", sha], check=True)
+    assert ba.main(["pin", "--tag", "v2.24.0", "--config", str(cfg)]) == 0
     def run(cmd, **kw):
         if cmd[0] == "which":
             return types.SimpleNamespace(returncode=0, stdout=f"/a/{cmd[2]}\n", stderr="")
-        return types.SimpleNamespace(returncode=0, stdout="2.20.0\n", stderr="")
+        return types.SimpleNamespace(returncode=0, stdout="2.24.0\n", stderr="")
     monkeypatch.setattr(campaign_gate.subprocess, "run", run)
     campaign_gate.require_tools(lambda _m: None, pin=campaign_gate.read_pin(root))
