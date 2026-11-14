@@ -90,8 +90,8 @@ Baseline: `docs/superpowers/2026-11-13-junk-tag-drop-evidence/` (`measure.py`, `
 `after_track` = the number of KEPT tracks before the dropped one in the pre-drop order (0 = before
 the first kept track). `set` = the dropped track's set label.
 
-Manifest top-level (llama `Manifest.dropped_tracks: list[DroppedTrack] | None = None`; `null` when
-the show has no drop):
+Manifest top-level (llama `Manifest.dropped_tracks: list[DroppedTrack] | None = None`; the written
+manifest omits the key when the show has no drop):
 
     "dropped_tracks": [{"title": "Tuning", "duration_sec": 280.0, "set": "1", "after_track": 0,
                         "source_file": "gd79-12-05d1t01.mp3", "reason": "junk title"}]
@@ -126,11 +126,13 @@ integer, a boolean counting as invalid) are skipped. One CSS rule in `antenna/pu
   struck `<li>` gets class `dropped` and one CSS rule (`list-style: none`); a stale cached CSS
   shows a stray number on the struck line only, the kept numbers stay right.
 - **Byte stability:** the notes key and the scriptwrite note appear only when there is a drop;
-  the manifest writes `dropped_tracks: null` when there is none.
+  the manifest omits `dropped_tracks` when there is none (absent = none), so a show with no drop
+  packages byte-identically.
 - **Recorded pairs:** the list records the station tracks paired with a dropped source file
   (what the step 6 re-check needs).
-- **Delivered with no station copy:** keeps `bulk_apply`'s existing `no station copy` outcome
-  (campaign mark written, listed, exit 1).
+- **Delivered with no station copy:** `bulk_apply`'s existing `no station copy` outcome
+  (campaign mark written) counts as OK for the junk-drop batch, since nothing on air needs
+  protecting; other batches are unchanged (Task 14).
 - **Version gate vs. "mark before installing":** `CAMPAIGN_MIN_VERSION` is bumped as the spec
   asks, so the membership arm runs as `replay_holds.py run` from the pinned worktree (not
   `bulk_apply.py arm`), and `mark --apply` checks the pin plus tools at least `2.23.0`.
@@ -298,7 +300,9 @@ Implementer model: opus
 
 **Files:**
 - Modify: `packages/llama/src/llama/stages/gather.py` (`CascadeRecord`, `title_cascade`, `GatherResult`, `compute_gather`)
-- Modify: `packages/llama/CLAUDE.md` (Domain gotchas: one bullet "Junk-title drop")
+- Modify: `packages/llama/CLAUDE.md` (Domain gotchas: one bullet "Junk-title drop"; it also states
+  the limitation that set labels are not renumbered, so a middle numbered set made only of dropped
+  tracks leaves a gap ("1", "3"), fixed with one `llama fix`)
 - Test: `packages/llama/tests/test_gather_junk_drop.py`
 
 **Interfaces:**
@@ -337,8 +341,8 @@ returns nothing, the function's result is exactly today's (same objects, same or
    only. (The short-kept note loop after the drop already reads the new indices; it is not
    renumbered again.)
 6. Drop rows appended to `excluded`; one `hold_flag` per held drop appended to `flags`.
-7. `no playable tracks` is evaluated on the kept list (moved below the drop; added when the kept
-   list is empty and not already present).
+7. The existing `no playable tracks` check stays where it is. A second check after the drop adds
+   the flag only when the drop emptied the kept list and the flag is not already present.
 `_apply_overrules` stays last.
 
 - [ ] **Step 1: Write failing tests** in `test_gather_junk_drop.py`, on a fixture-derived item
@@ -488,14 +492,21 @@ station.
   `summary.md`, `differences.tsv`, `vocabulary.txt`, `kept_track_deltas.tsv`, `override_keys.tsv`;
   never the arms)
 
+**Stop point (before Step 1):** the orchestrator reports to the parent that the arms are about to
+run and waits for the parent's go that library writers (the `run resume --all` loop, deliveries,
+`fix`) are paused for the window. Once both arms finish, it tells the parent the writers may
+resume.
+
 - [ ] **Step 1: Base arm (pre-change code).** Confirm the main checkout's code equals the plan's
   base: `git -C /Users/shawn/projects/llama diff --quiet a03fc04e HEAD -- packages scripts` (exit 0)
   and `/Users/shawn/projects/llama/.venv/bin/python -c "import llama; print(llama.__file__)"` is
   under `/Users/shawn/projects/llama/packages/`. Then, in the background:
   `/Users/shawn/projects/llama/.venv/bin/python /Users/shawn/projects/llama/scripts/replay_holds.py run --all --out ~/.llama-harness/junk-tag-drop/base.json`
   If either check fails, stop and report BLOCKED (do not build a base any other way unasked).
-- [ ] **Step 2: Candidate arm** (worktree code, committed tree):
+- [ ] **Step 2: Candidate arm** (worktree code, committed tree), started at once, concurrently with
+  the base arm:
   `./.venv/bin/python scripts/replay_holds.py run --all --out ~/.llama-harness/junk-tag-drop/cand.json`
+  Wait for both arms to finish before Step 3.
 - [ ] **Step 3: Hold deltas:**
   `./.venv/bin/python scripts/replay_holds.py compare ~/.llama-harness/junk-tag-drop/base.json ~/.llama-harness/junk-tag-drop/cand.json --out ~/.llama-harness/junk-tag-drop/compare`
   (exit 2 for differing show sets/config, or exit 3 for base reproduction under 99%, is a stop:
@@ -555,12 +566,14 @@ Implementer model: opus
 **Files:**
 - Modify: `packages/llama/src/llama/staleness.py`, `packages/llama/src/llama/cli.py`
   (`--suggest-titles` comparison near `kept_names != track_names`)
+- Modify: `packages/llama/CLAUDE.md` (one clause on the staleness check)
 - Test: `packages/llama/tests/test_junk_drop_staleness.py`
 
 **Interfaces:**
-- Produces: `staleness.expected_track_files(kept: Sequence[str], show: Show) -> list[str]` — `kept`
+- Produces: `staleness.expected_track_files(kept: Sequence[str], show: Show, include: Collection[str]) -> list[str]` — `kept`
   (gather's `final_kept(...).kept` names, in order) minus the filenames of `show.excluded_files`
-  rows whose `reasons` contain `junk_titles.REASON`. `stale_message` and the `--suggest-titles`
+  rows whose `reasons` contain `junk_titles.REASON` and whose file is NOT in `overrides.include`
+  (`include`). `stale_message` and the `--suggest-titles`
   comparison both compare `show.tracks` filenames with it (the canonical in `--suggest-titles`
   keeps being built over the pre-drop `kept`, as gather builds it).
 - [ ] **Step 1: Tests:** `test_show_the_rule_changed_is_not_stale` (gather a dropped show into a
@@ -569,6 +582,8 @@ Implementer model: opus
   `test_suggest_titles_not_declined_on_a_dropped_show`; `test_regather_is_idempotent_and_not_stale`
   (`redo --from gather` twice: identical `show.json`); `test_fix_include_restores_a_dropped_track_and_clears_its_hold`
   (a held drop; `fix --include <file>` → track kept, no junk row, not held);
+  `test_fix_include_no_run_of_a_dropped_file_is_stale` (`fix --include <dropped> --no-run` →
+  `stale_message(...)` is not None);
   `test_show_tracks_lists_junk_title_reason` (`llama show <name> --tracks` prints the row with
   reason `junk title`, distinct from `implausibly short`).
 - [ ] **Step 2–4:** FAIL, implement, PASS (file and suite).
@@ -592,9 +607,11 @@ Implementer model: sonnet
   (permissive, like the other persisted models); `Manifest.dropped_tracks: list[DroppedTrack] | None = None`;
   `build_manifest(..., dropped_tracks: list[DroppedTrack] | None = None)`; `build_package` passes the
   `REASON` rows of `show.excluded_files` in row order (`source_file` = row `filename`, `reason` =
-  `REASON`), or `None` when there are none.
+  `REASON`), or `None` when there are none; the written `manifest.json` omits the `dropped_tracks`
+  key when it is `None` (every other field is written as today).
 - [ ] **Step 1: Tests:** `test_package_writes_dropped_tracks` (manifest JSON equals the Shared
-  contracts example for a show with one drop row); `test_package_without_drops_writes_null`;
+  contracts example for a show with one drop row); `test_package_without_drops_omits_key` (no
+  `dropped_tracks` key; manifest bytes equal today's);
   `test_manifest_reads_absent_null_empty_and_list`; `test_dropped_track_duration_none`;
   `test_station_readers_tolerate_damaged_dropped_tracks` (llama reads station manifests as raw
   JSON: `station_mark.manifest_differences`, `deliver`'s voiced-destination check and
@@ -602,9 +619,10 @@ Implementer model: sonnet
   string, a dict, or a list with a malformed entry); `test_compared_is_unchanged` (pins
   `station_mark.COMPARED` to today's tuple and `"dropped_tracks"` absent from it);
   `test_clear_mark_ignores_dropped_tracks` and `test_replace_voiced_equal_test_ignores_dropped_tracks`
-  (library and station manifests equal on COMPARED but differing in `dropped_tracks`: `clear-mark`
-  clears; `deliver --replace-voiced` refuses as "equals the voiced station copy"; use the existing
-  `test_clear_mark.py` / `test_deliver_gate.py` setups).
+  (setup: a voiced AND marked station copy and a library manifest, equal on COMPARED and differing
+  only in `dropped_tracks`: `clear-mark` clears; `deliver --replace-voiced` refuses as "equals the
+  voiced station copy"; use the existing `test_clear_mark.py` / `test_deliver_gate.py` setups).
+  These pin the contract only: this rollout never station-marks a voiced copy.
 - [ ] **Step 2–4:** FAIL, implement, PASS (file and suite).
 - [ ] **Step 5: Commit** `feat(llama): manifest dropped_tracks (optional, schema stays v3)`.
 
@@ -678,7 +696,7 @@ Implementer model: sonnet
 
 **Files:**
 - Create: `antenna/public/assets/dropped.js`, `antenna/test/dropped.test.ts`
-- Modify: `antenna/public/assets/panel.js` (`setlistCard` and its caller; no new exports),
+- Modify: `antenna/public/assets/panel.js` (`setlistCard`, `notesView`, `load`; no new exports),
   `antenna/public/assets/radio.css` (the one rule in Shared contracts)
 - Modify: `antenna/CLAUDE.md` (player bullet: one sentence)
 
@@ -690,9 +708,11 @@ Implementer model: sonnet
   algorithm (kept text = `setlistLine(entry)`, struck text = `tidyTitle(title)`; `value` set as in
   the contract, else `null`); with `dropped` absent/null/`[]`/invalid it equals `groupSets(setlist)`
   mapped to `{text, struck: false, value: null}`. `panel.js` builds the card from
-  `mergeDropped(notes.setlist || [], notes.dropped)` (the raw notes it already fetched), rendering a
-  struck item as `el("li", "dropped")` holding `el("s", null, text)` and setting `li.value` when
-  `value` is not null. `panelModel` is not changed.
+  `mergeDropped(raw.setlist || [], raw.dropped)`, rendering a struck item as
+  `el("li", "dropped")` holding `el("s", null, text)` and setting `li.value` when `value` is not
+  null. The raw notes reach the card this way: `load()` keeps the parsed notes JSON (`raw`) and
+  calls `notesView(slug, model, raw)`, which passes `raw.dropped` to the card's merge.
+  `panelModel` is not changed.
 - [ ] **Step 1: Tests** in `dropped.test.ts`, one `it` per Task 11 rendering case (inline and not
   counted, start of the first group, tail of the last group, beyond the kept count, only struck
   entries), asserted on the model (`text`, `struck`, `value`), plus `ignores a damaged dropped
@@ -724,7 +744,9 @@ Implementer model: opus
   `reuse-anchor.json`); `junk_titles.plan_drops`/`show_stats`/`held` for needs-LLM rows;
   `llama.replay.code_identity`, `config_fingerprint`; `bulk_apply._station_root_problem`.
 - Produces: `junk_drop_rollout.py list --arm A --emcee-status S --out DIR [--config P]`
-  (read-only everywhere: library, station, arm). Refuses (exit 2) an arm whose `sha` is not the
+  (read-only everywhere: library, station, arm). Every subcommand (`list`, `mark`, `approval`,
+  `recheck`) takes `[--config P]`, which gives the library root, the station root and the config
+  fingerprint. Refuses (exit 2) an arm whose `sha` is not the
   running code's (or `-dirty` on either side), a config-fingerprint mismatch, a missing
   `delivery_path`, an unmounted or empty station root, an `--out` overlapping the library or
   station. Per show:
@@ -741,7 +763,8 @@ Implementer model: opus
     station_title, source_file}], other_differences: [str]}`. `pairs` are the station tracks paired
     with a dropped source file. `clips` = `len(dj_audio.set_intros) + (1 if dj_audio.outro else 0)`
     from the station manifest; `presenter` = the status row's `voiced_by`; `backend_now` =
-    `tts_now.backend`. `other_differences` compares the paired station tracks other than the drop
+    `tts_now.backend`, `null` when `tts_now` is null, `"unresolved"` for the `{"unresolved": ...}`
+    form. `other_differences` compares the paired station tracks other than the drop
     pairs with the predicted post-reprocess tracks (the arm row's `filenames`/`titles`/`sets`/
     `segues`; for needs-LLM rows, show.json minus the drops) as `title <src>: '<a>' -> '<b>'`,
     `set <src>: <a> -> <b>`, `segue <src>: <a> -> <b>`, `added <src> '<title>'`,
@@ -755,7 +778,8 @@ Implementer model: opus
   `test_member_by_paired_station_track`; `test_not_on_station_member`; `test_unpaired_is_left_out_and_listed`;
   `test_station_track_not_dropped_is_not_member`; `test_needs_llm_row_uses_show_json`;
   `test_with_gather_llm_shows_are_their_own_wave` (both reapply lists, and the printed line);
-  `test_reapply_lists_load_with_reapply_load_list`; `test_voiced_entry_carries_clips_presenter_backend`;
+  `test_reapply_lists_load_with_reapply_load_list`; `test_voiced_entry_carries_clips_presenter_backend`
+  (including `backend_now` `null` for a null `tts_now` and `"unresolved"` for the unresolved form);
   `test_other_differences_reported`; `test_refuses_stale_arm_and_unmounted_station`;
   `test_list_writes_nothing_outside_out` (library and station trees byte- and mtime-identical).
 - [ ] **Step 2–4:** FAIL, implement, PASS (file and suite).
@@ -784,24 +808,31 @@ Implementer model: opus
     `_mark_station`) with a non-null `dj_audio` and no mark of THIS batch returns
     `(VOICED_CAMPAIGN_ONLY, None, None)`: no station write, no before copy. Default `False` is
     today's behaviour exactly.
+  - `mark_apply(..., no_copy_ok: bool = False)`: with it, a delivered item recorded
+    `no station copy` (campaign mark written; nothing on air to protect) counts as OK alongside
+    `_STATION_OK`, both in `_mark_one`'s problem test and in the whole-record pass, so the batch
+    can exit 0. Default `False` is today's behaviour exactly (listed, exit 1).
   - `campaign_gate.require_tools(echo, *, pin, minimum: str | None = None)` (None = `CAMPAIGN_MIN_VERSION`);
     `CAMPAIGN_MIN_VERSION = "2.24.0"` (comment: the junk-title drop release; confirm at release);
     `junk_drop_rollout.JUNK_MARK_TOOLS_FLOOR = "2.23.0"` (marking runs BEFORE the release
     binaries are installed, spec Rollout step 3).
-  - `junk_drop_rollout.py mark --list DIR/members.json [--apply]`: refuses (exit 2) a list whose
-    `sha`/`config_fingerprint` is not the running code's/config's; with `--apply` also requires
-    `require_pinned_code(root)` and `require_tools(..., minimum=JUNK_MARK_TOOLS_FLOOR)`, refuses
-    `--campaign-dir` (it has none) and an unmounted station. Items:
+  - `junk_drop_rollout.py mark --list DIR/members.json [--config P] [--apply]`: refuses (exit 2) a
+    list whose `sha`/`config_fingerprint` is not the running code's/config's; with `--apply` also
+    requires `require_pinned_code(root)` and `require_tools(..., minimum=JUNK_MARK_TOOLS_FLOOR)`,
+    and refuses an unmounted station. Items:
     `MarkItem(slug, REASON_JUNK, "gather", row["digests"])`; batch id
     `sha256(list bytes)[:16]`; batch dir `<root>/campaign/marking/<id>/` with `inputs.json`
     (`list`, `list_sha256`, `sha`, `station_root`, `created_at`); then
-    `mark_apply(..., skip_voiced=True)`. The dry run prints per member the station state it would
+    `mark_apply(..., skip_voiced=True, no_copy_ok=True)`. The dry run prints per member the station state it would
     act on (re-read, no lock) and `would station-mark` only for unvoiced copies.
 - [ ] **Step 1: Tests:** `test_mark_never_station_marks_a_voiced_copy` (voiced station manifest
   byte- and mtime-identical after `--apply`; campaign mark written; record line
   `voiced: campaign mark only`); `test_mark_station_marks_unvoiced_held_or_not`;
   `test_voiced_check_reads_under_the_lock` (the copy becomes voiced between the dry-run read and
   the apply: not marked); `test_not_on_station_member_gets_campaign_mark_only`;
+  `test_delivered_without_station_copy_is_ok` (a delivered member whose station copy is absent,
+  e.g. `philleshandfriends-2008-11-01`: campaign mark written, record line `no station copy`,
+  exit 0; the same item through `bulk_apply mark` without the flag still exits 1);
   `test_bulk_unmark_reverses_a_junk_batch` (unvoiced copy put back, campaign marks removed, the
   voiced row's mark removed, processed shows left and listed); `test_rerun_skips_recorded_items`;
   `test_mark_refuses_stale_list`; `test_skip_voiced_default_is_todays_behaviour` (existing
@@ -821,20 +852,22 @@ Implementer model: opus
 
 **Interfaces:**
 - Produces:
-  - `approval --list DIR/members.json --emcee-status S [--backend voxtral|mlx_audio|elevenlabs] [--out F]`
+  - `approval --list DIR/members.json --emcee-status S [--config P] [--backend voxtral|mlx_audio|elevenlabs] [--out F]`
     (read-only): for each member whose LIVE station copy is voiced (re-read now), one block: slug,
-    presenter, `backend_now` from the fresh status file, clip count from the live `dj_audio`, the
+    presenter, `backend_now` from the fresh status file (`null` when `tts_now` is null,
+    `unresolved` for the unresolved form, shown as such), clip count from the live `dj_audio`, the
     drop list (title, `m:ss`, held), `other_differences` from the list, and the library
     `show.json` hold flags now (brief/vet holds from re-processing); a held show is listed under
     `held (not approvable)`. `--out F` writes the approvable slugs one per line. A member voiced
     after the list was built appears (live state wins); one no longer voiced is listed under
     `no longer voiced (unvoiced route)`.
-  - `recheck --list DIR/members.json <slug>` (read-only; exit 0 only when it passes): the slug is a
+  - `recheck --list DIR/members.json [--config P] <slug>` (read-only; exit 0 only when it passes): the slug is a
     member; at least one recorded pair has its `station_file` with `station_title` still in the
     live station manifest's tracks AND its `source_file` excluded in the library `show.json` with
     reason `junk title`; the library show is not held; the station copy is voiced. Prints each
     check `ok`/`FAIL` and, on failure, `leave <slug> out of this batch`.
 - [ ] **Step 1: Tests:** `test_approval_uses_live_state`; `test_approval_lists_held_apart`;
+  `test_approval_shows_null_and_unresolved_backend`;
   `test_approval_writes_approvable_slugs`; `test_recheck_passes`;
   `test_recheck_fails_after_include` (source file now kept); `test_recheck_fails_when_station_track_gone`;
   `test_recheck_fails_on_held`; `test_recheck_reads_without_writing`.
@@ -852,8 +885,8 @@ Implementer model: opus
 - Modify: whichever CLAUDE.md a review finds stale (facts only)
 
 - [ ] **Step 1:** If any commit after Task 6 touched `junk_titles.py`, `stages/gather.py` or
-  `replay.py`, re-run Task 6 Steps 2–4 (same read-only rules, same output directory with a
-  `-final` suffix) and record the deltas against Task 6's numbers.
+  `replay.py`, re-run Task 6 Steps 2–4 (same read-only rules and the same stop point for pausing
+  library writers, same output directory with a `-final` suffix) and record the deltas against Task 6's numbers.
 - [ ] **Step 2:** Run the whole suite (`./.venv/bin/python -m pytest -q`), `cd antenna && npm test`,
   and the Debian-12 script if docker is available. Record counts.
 - [ ] **Step 3: Write `acceptance.md`**: one row per spec Acceptance bullet with the evidence:
@@ -863,7 +896,8 @@ Implementer model: opus
   `override_keys.tsv`); `dropped_tracks` leaves the equal-copy tests unchanged (Task 9 tests);
   every reader with the field present, absent, null, `[]` (Tasks 9–12 test names per reader); the
   marking command never station-marks a voiced copy (Task 14 test); the `--with-gather-llm` shows
-  as their own wave (Task 13 test). Also each Stakes strict surface with the test that guards it.
+  as their own wave (Task 13 test). Also each Stakes strict surface with the test that guards it;
+  for the replace-voiced surface that is the Task 15 `recheck` tests.
 - [ ] **Step 4: Commit** `docs(junk-tag-drop): acceptance record`.
 
 ---
@@ -878,7 +912,8 @@ Nothing here is done by an implementer or the orchestrator.
    antenna assets (`npm run deploy:assets -- --dry-run`, then without it; the Worker itself is
    unchanged). Do NOT install the new llama/emcee binaries yet.
 2. **Pin.** `git worktree add .claude/worktrees/campaign-v2.24.0 v2.24.0`; give it its own venv;
-   `WT/.venv/bin/python WT/scripts/bulk_apply.py pin --tag v2.24.0 --replace`. Stop the
+   `WT/.venv/bin/python WT/scripts/bulk_apply.py pin --tag v2.24.0 --replace`. Re-pinning retires
+   the `campaign-v2.23.0` worktree: finish or move its leftovers first. Stop the
    `run resume --all` loop. From here until step 5 ends: no `emcee run`, no `emcee voice`.
 3. **Arm.** `WT/.venv/bin/python WT/scripts/replay_holds.py run --all --out H/arm.json`
    (not `bulk_apply.py arm`: its tool gate would refuse the old installed binaries).
@@ -888,12 +923,17 @@ Nothing here is done by an implementer or the orchestrator.
 5. **Mark.** `... junk_drop_rollout.py mark --list H/list/members.json` (dry run), then `--apply`.
    Exit 0 required; a stop (emcee running, station locked) is re-run after the cause is cleared.
 6. **Install** llama and emcee 2.24.0.
-7. **Re-process.** Pilot a few shows from `H/list/reapply-replayable.json`
-   (`llama reapply --from-list ... --allow-structure-change --stop-at-points <n>`, reading the
-   `meter:` lines to size waves), then the rest in waves; then
-   `llama reapply --from-list H/list/reapply-needs-llm.json --allow-structure-change --with-gather-llm`
+7. **Re-process.** Every `reapply` runs the campaign worktree's `WT/.venv/bin/llama`, not the
+   installed binary: `reapply.load_list` refuses a list whose `sha` is not the running code's
+   `code_identity()`, and the installed binary reports `version:<x>`. The installed binaries are
+   still what `deliver`, `triage` and `emcee` use, and what the tool gates check.
+   Pilot a few shows from `H/list/reapply-replayable.json`
+   (`WT/.venv/bin/llama reapply --from-list ... --allow-structure-change --stop-at-points <n>`,
+   reading the `meter:` lines to size waves), then the rest in waves; then
+   `WT/.venv/bin/llama reapply --from-list H/list/reapply-needs-llm.json --allow-structure-change --with-gather-llm`
    as its own wave(s), pilot first. Brief/vet holds are in each batch's report.
-8. **Unvoiced.** `llama deliver --fixed` (re-delivers and clears each mark).
+8. **Unvoiced.** `llama deliver --fixed` (re-delivers and clears each mark). Then restart the
+   `run resume --all` loop.
 9. **Voiced, per batch the operator approves before anything is replaced.**
    `emcee status --json > H/status-now.json`;
    `... junk_drop_rollout.py approval --list H/list/members.json --emcee-status H/status-now.json [--backend voxtral] --out H/batch-N.txt`;
