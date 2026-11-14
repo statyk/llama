@@ -720,3 +720,240 @@ def test_mark_dry_run_writes_nothing(tmp_path, capsys):
     assert "h1: unvoiced (held): would station-mark" in text
     assert "dry run: nothing written (pass --apply)" in text
     assert (snap(root), snap(station)) == before
+
+
+# --- approval and recheck (plan Task 15; spec "Rollout" step 6, Stakes) --------------
+
+def _reprocess(ws: ShowWorkspace, dropped=("t1.mp3",), *, flags=()) -> None:
+    """The library show.json after step 4's re-process: each dropped file leaves `tracks`
+    for an `excluded_files` row with reason `junk title`; `flags` hold the show."""
+    show = Show.model_validate_json(ws.show.read_text())
+    gone = [t for t in show.tracks if t.filename in dropped]
+    kept = [t for t in show.tracks if t.filename not in dropped]
+    rows = [{"filename": t.filename, "reasons": ["junk title"], "duration_sec": t.duration_sec,
+             "title": t.title, "set": t.set, "after_track": 0} for t in gone]
+    show = show.model_copy(update={"tracks": kept,
+                                   "excluded_files": show.excluded_files + rows,
+                                   "review_flags": list(flags), "needs_review": bool(flags)})
+    ws.show.write_text(show.model_dump_json(indent=2))
+
+
+def _voiced_member(ws: ShowWorkspace, *, state="voiced", presenter="phil",
+                   backend_now="voxtral", clips=3, other=()) -> dict:
+    m = _member(ws, state=state)
+    m["station"] = {"state": state, "presenter": presenter, "backend_now": backend_now,
+                    "clips": clips}
+    m["drops"][0]["duration_sec"] = 280.0
+    m["pairs"] = [{"station_file": "01 - Tuning.mp3", "station_title": "Tuning",
+                   "source_file": "t1.mp3"}]
+    m["other_differences"] = list(other)
+    return m
+
+
+def _voiced_show(root, station, slug, *, dj_audio=VOICED):
+    ws = _show(root, slug, ["Tuning", "Bertha", "Sugaree"])
+    _station(station, slug, ["Tuning", "Bertha", "Sugaree"], dj_audio=dj_audio)
+    _reprocess(ws)
+    return ws
+
+
+def _approval(cfg, lst, status, *extra) -> int:
+    return jdr.main(["approval", "--list", str(lst), "--emcee-status", str(status),
+                     "--config", str(cfg), *extra])
+
+
+def _recheck(cfg, lst, slug) -> int:
+    return jdr.main(["recheck", "--list", str(lst), "--config", str(cfg), slug])
+
+
+def _section(text: str, head: str) -> str:
+    """The lines under the `head` heading, up to the next unindented line."""
+    lines = text.splitlines()
+    start = next(i for i, l in enumerate(lines) if l.startswith(head))
+    out = []
+    for l in lines[start + 1:]:
+        if l and not l.startswith(" "):
+            break
+        out.append(l)
+    return "\n".join(out)
+
+
+def test_approval_uses_live_state(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    a = _voiced_show(root, station, "a")                 # voiced then and now
+    b = _voiced_show(root, station, "b")                 # voiced since the list
+    c = _voiced_show(root, station, "c")                 # unvoiced since the list
+    lst = _list_file(tmp_path, cfg, _voiced_member(a, other=["set t3.mp3: 1 -> 2"]),
+                     _voiced_member(b, state="unvoiced", presenter=None, backend_now=None,
+                                    clips=0),
+                     _voiced_member(c))
+    one = {**VOICED, "set_intros": {"1": "dj-audio/set1.mp3"}, "outro": None}
+    data = json.loads((station / "b" / "manifest.json").read_text())
+    data["dj_audio"] = one
+    (station / "b" / "manifest.json").write_text(json.dumps(data))
+    data = json.loads((station / "c" / "manifest.json").read_text())
+    data["dj_audio"] = None
+    (station / "c" / "manifest.json").write_text(json.dumps(data))
+    status = _status(tmp_path,
+                     {"slug": "a", "voiced_by": "bob", "tts_now": {"backend": "mlx_audio"}},
+                     {"slug": "b", "voiced_by": "phil", "tts_now": {"backend": "voxtral"}})
+    assert _approval(cfg, lst, status) == 0
+    text = capsys.readouterr().out
+    ok = _section(text, "approvable")
+    assert "a: presenter bob, backend_now mlx_audio, clips 3" in ok      # fresh, not listed
+    assert "drop 'Tuning' 4:40 held no" in ok
+    assert "other set t3.mp3: 1 -> 2" in ok
+    assert "library hold flags: none" in ok
+    assert "b: presenter phil, backend_now voxtral, clips 1" in ok
+    assert "c:" not in ok
+    assert "  c" in _section(text, "no longer voiced (unvoiced route)")
+
+
+def test_approval_lists_held_apart(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    a = _voiced_show(root, station, "a")
+    h = _voiced_show(root, station, "h")
+    _reprocess(h, flags=["briefing contradicts the setlist: 'Dark Star'"])
+    lst = _list_file(tmp_path, cfg, _voiced_member(a), _voiced_member(h))
+    status = _status(tmp_path, *({"slug": s, "voiced_by": "phil",
+                                  "tts_now": {"backend": "voxtral"}} for s in ("a", "h")))
+    out = tmp_path / "approved.txt"
+    assert _approval(cfg, lst, status, "--out", str(out)) == 0
+    text = capsys.readouterr().out
+    held = _section(text, "held (not approvable)")
+    assert "h: presenter phil" in held
+    assert "library hold flags: briefing contradicts the setlist: 'Dark Star'" in held
+    assert "h:" not in _section(text, "approvable")
+    assert out.read_text() == "a\n"
+
+
+def test_approval_shows_null_and_unresolved_backend(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    shows = {s: _voiced_show(root, station, s) for s in ("n", "u", "x")}
+    lst = _list_file(tmp_path, cfg, *(_voiced_member(ws) for ws in shows.values()))
+    status = _status(tmp_path, {"slug": "n", "voiced_by": "phil", "tts_now": None},
+                     {"slug": "u", "voiced_by": "phil",
+                      "tts_now": {"unresolved": "no such presenter"}},
+                     {"slug": "x", "voiced_by": "phil", "tts_now": {"backend": "voxtral"}})
+    assert _approval(cfg, lst, status) == 0
+    ok = _section(capsys.readouterr().out, "approvable")
+    assert "n: presenter phil, backend_now null, clips 3" in ok
+    assert "u: presenter phil, backend_now unresolved, clips 3" in ok
+    # --backend narrows the voiced entries to one live backend
+    assert _approval(cfg, lst, status, "--backend", "voxtral") == 0
+    ok = _section(capsys.readouterr().out, "approvable")
+    assert "x: presenter phil" in ok and "n:" not in ok and "u:" not in ok
+
+
+def test_approval_writes_approvable_slugs(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    a = _voiced_show(root, station, "a")
+    b = _voiced_show(root, station, "b")
+    h = _voiced_show(root, station, "h")
+    _reprocess(h, flags=["vet: research asserts a song not in the show"])
+    g = _voiced_show(root, station, "g")
+    data = json.loads((station / "g" / "manifest.json").read_text())
+    data["dj_audio"] = None
+    (station / "g" / "manifest.json").write_text(json.dumps(data))
+    lst = _list_file(tmp_path, cfg, *(_voiced_member(ws) for ws in (a, b, h, g)))
+    status = _status(tmp_path, *({"slug": s, "voiced_by": "phil",
+                                  "tts_now": {"backend": "voxtral"}} for s in "abhg"))
+    out = tmp_path / "approved.txt"
+    assert _approval(cfg, lst, status, "--out", str(out)) == 0
+    assert out.read_text() == "a\nb\n"
+    # an --out inside the library or the station is refused, nothing written
+    for bad in (root / "approved.txt", station / "approved.txt"):
+        capsys.readouterr()
+        assert _approval(cfg, lst, status, "--out", str(bad)) == 2
+        assert "overlaps" in capsys.readouterr().err
+        assert not bad.exists()
+    # and a list from other code is refused
+    stale = _list_file(tmp_path, cfg, _voiced_member(a), sha="old")
+    assert _approval(cfg, stale, status) == 2
+    assert "running code is abc" in capsys.readouterr().err
+
+
+def test_recheck_passes(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _voiced_show(root, station, "s1")
+    lst = _list_file(tmp_path, cfg, _voiced_member(ws))
+    assert _recheck(cfg, lst, "s1") == 0
+    text = capsys.readouterr().out
+    assert "FAIL" not in text and "leave s1 out" not in text
+    assert text.count(": ok") == 4
+
+
+def _recheck_fails(cfg, lst, slug, capsys, needle):
+    capsys.readouterr()
+    assert _recheck(cfg, lst, slug) == 1
+    text = capsys.readouterr().out
+    fail = [l for l in text.splitlines() if "FAIL" in l]
+    assert fail and needle in fail[0]
+    assert f"leave {slug} out of this batch" in text
+
+
+def test_recheck_fails_after_include(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "s1", ["Tuning", "Bertha", "Sugaree"])
+    _station(station, "s1", ["Tuning", "Bertha", "Sugaree"], dj_audio=VOICED)
+    lst = _list_file(tmp_path, cfg, _voiced_member(ws))
+    # `llama fix s1 --include t1.mp3`: the source file is kept, not excluded
+    _recheck_fails(cfg, lst, "s1", capsys, "pair")
+    # excluded for another reason is not the junk-title drop either
+    show = Show.model_validate_json(ws.show.read_text())
+    show = show.model_copy(update={
+        "tracks": show.tracks[1:],
+        "excluded_files": [{"filename": "t1.mp3", "reasons": ["operator excluded"]}]})
+    ws.show.write_text(show.model_dump_json(indent=2))
+    _recheck_fails(cfg, lst, "s1", capsys, "pair")
+    # not a member at all
+    _recheck_fails(cfg, lst, "nope", capsys, "member")
+
+
+def test_recheck_fails_when_station_track_gone(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _voiced_show(root, station, "s1")
+    lst = _list_file(tmp_path, cfg, _voiced_member(ws))
+    path = station / "s1" / "manifest.json"
+    data = json.loads(path.read_text())
+    data["tracks"][0]["title"] = "Tuning Jam"            # same file, other title
+    path.write_text(json.dumps(data))
+    _recheck_fails(cfg, lst, "s1", capsys, "pair")
+    data["tracks"] = data["tracks"][1:]                  # the file is gone
+    path.write_text(json.dumps(data))
+    _recheck_fails(cfg, lst, "s1", capsys, "pair")
+    # an unvoiced copy fails the voiced check too
+    ws2 = _voiced_show(root, station, "s2", dj_audio=None)
+    lst = _list_file(tmp_path, cfg, _voiced_member(ws), _voiced_member(ws2))
+    _recheck_fails(cfg, lst, "s2", capsys, "voiced")
+
+
+def test_recheck_fails_on_held(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _voiced_show(root, station, "s1")
+    _reprocess(ws, dropped=(), flags=["junk-title drop held for review: 'Tuning' (4:40, ...)"])
+    show = Show.model_validate_json(ws.show.read_text())
+    assert show.needs_review and any(r["filename"] == "t1.mp3" for r in show.excluded_files)
+    lst = _list_file(tmp_path, cfg, _voiced_member(ws))
+    _recheck_fails(cfg, lst, "s1", capsys, "held")
+
+
+def test_recheck_reads_without_writing(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ok = _voiced_show(root, station, "ok")
+    held = _voiced_show(root, station, "held")
+    _reprocess(held, dropped=(), flags=["vet: x"])
+    lst = _list_file(tmp_path, cfg, _voiced_member(ok), _voiced_member(held))
+    status = _status(tmp_path, {"slug": "ok", "voiced_by": "phil",
+                                "tts_now": {"backend": "voxtral"}})
+
+    def tree(base: Path):
+        return {str(p.relative_to(base)): (hashlib.sha256(p.read_bytes()).hexdigest()
+                                           if p.is_file() else None, p.stat().st_mtime_ns)
+                for p in sorted(base.rglob("*"))}
+    before = tree(tmp_path)
+    assert _recheck(cfg, lst, "ok") == 0
+    assert _recheck(cfg, lst, "held") == 1
+    assert _recheck(cfg, lst, "nope") == 1
+    assert _approval(cfg, lst, status) == 0
+    assert tree(tmp_path) == before

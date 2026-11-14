@@ -33,6 +33,19 @@ run (no `--apply`) writes nothing and prints, per member, the station state it w
 on. `--apply` also requires the campaign pin and `llama`/`emcee` at least
 JUNK_MARK_TOOLS_FLOOR.
 
+`approval --list DIR/members.json --emcee-status S [--config P] [--backend B] [--out F]`
+(Rollout step 6, read-only but for `--out`) is the operator's approval list of voiced copies,
+from LIVE state: the station manifest decides voiced (a member voiced since the list appears;
+one no longer voiced is listed under `no longer voiced (unvoiced route)`), the fresh status
+file gives presenter and backend_now, the live `dj_audio` the clip count, the library
+show.json the holds now (a held show is listed under `held (not approvable)`). `--out` gets
+the approvable slugs, one per line. `recheck --list DIR/members.json [--config P] <slug>`
+(read-only) is the check before `llama deliver <slug> --replace-voiced`: a member, a recorded
+pair still on the station (file and title) whose source file the library show.json excludes
+with reason `junk title`, not held, voiced. Exit 0 only when every check passes, else 1 and
+`leave <slug> out of this batch`. Both take the list through the same identity gate as
+`mark`.
+
 Run it with the pinned worktree's own interpreter, by path. Refusals exit 2.
 """
 import argparse
@@ -106,15 +119,29 @@ def _identity_gate(doc: dict, config, *, what: str, rerun: str) -> tuple[str, st
     return sha, fp
 
 
+def _out_gate(out: Path | None, config, station_root: Path) -> None:
+    """GateRefused when `out` overlaps the library or the station root. `list` and
+    `approval` both pass through here."""
+    if out is None:
+        return
+    for what, p in (("library root", config.root), ("station root", station_root)):
+        if replay_holds._overlaps(out, p):
+            raise GateRefused(f"--out {out} overlaps the {what} {p}")
+
+
+def _read_status(path: Path) -> dict[str, dict]:
+    """slug -> row of an `emcee status --json` file."""
+    _, doc = bulk_apply._read_json_file(path, "emcee status")
+    if not isinstance(doc, list):
+        raise GateRefused(f"{path} is not an `emcee status --json` list")
+    return {s["slug"]: s for s in doc if isinstance(s, dict) and isinstance(s.get("slug"), str)}
+
+
 def _gates(args):
     """(config, station_root, arm bytes, arm, running sha, fingerprint) or GateRefused."""
     config = bulk_apply._config(args)
     station_root = _station_gate(config)
-    out = getattr(args, "out", None)
-    if out is not None:
-        for what, p in (("library root", config.root), ("station root", station_root)):
-            if replay_holds._overlaps(out, p):
-                raise GateRefused(f"--out {out} overlaps the {what} {p}")
+    _out_gate(args.out, config, station_root)
     raw, arm = bulk_apply._read_json_file(args.arm, "arm")
     rows = bulk_apply._arm_rows(arm)
     sha, fp = _identity_gate(arm, config, what="arm", rerun="replay_holds.py run --all")
@@ -207,6 +234,14 @@ def _clips(dj_audio) -> int:
     return (len(intros) if isinstance(intros, dict) else 0) + (1 if dj_audio.get("outro") else 0)
 
 
+def _voiced_station(dj_audio, status_row: dict | None) -> dict:
+    """A voiced copy's station entry: presenter and backend_now from its `emcee status
+    --json` row, clips from its live `dj_audio`."""
+    st = status_row or {}
+    return {"state": "voiced", "presenter": st.get("voiced_by"),
+            "backend_now": _backend_now(st.get("tts_now")), "clips": _clips(dj_audio)}
+
+
 def _station_tracks(manifest: Path) -> tuple[dict | None, dict[str, dict]]:
     """(raw manifest or None when unreadable, packaged filename -> track)."""
     try:
@@ -261,9 +296,7 @@ def _one_show(root: Path, station_root: Path, slug: str, row: dict,
         other = _other_differences(paired, drop_srcs, predicted)
         dj = data.get("dj_audio") if data is not None else None
         if dj is not None:
-            st = status.get(slug) or {}
-            station = {"state": "voiced", "presenter": st.get("voiced_by"),
-                       "backend_now": _backend_now(st.get("tts_now")), "clips": _clips(dj)}
+            station = _voiced_station(dj, status.get(slug))
         else:
             station = {**station, "state": "unvoiced"}
     elif not drops:
@@ -285,11 +318,7 @@ def _write(path: Path, doc: dict) -> None:
 
 def cmd_list(args) -> int:
     config, station_root, raw, rows, sha, fp = _gates(args)
-    _, status_doc = bulk_apply._read_json_file(args.emcee_status, "emcee status")
-    if not isinstance(status_doc, list):
-        raise GateRefused(f"{args.emcee_status} is not an `emcee status --json` list")
-    status = {s["slug"]: s for s in status_doc
-              if isinstance(s, dict) and isinstance(s.get("slug"), str)}
+    status = _read_status(args.emcee_status)
     members, unpaired = [], []
     for slug in sorted(rows):
         kind, item = _one_show(config.root, station_root, slug, rows[slug], status)
@@ -416,6 +445,155 @@ def cmd_mark(args) -> int:
                                  echo=bulk_apply._echo, skip_voiced=True, no_copy_ok=True)
 
 
+# --- approval and recheck ---------------------------------------------------------
+
+BACKENDS = ("voxtral", "mlx_audio", "elevenlabs")
+
+
+def _library_show(root: Path, slug: str) -> tuple[Show | None, str | None]:
+    """(the library show.json now, or None and why)."""
+    ws = ShowWorkspace(root / "shows" / slug)
+    if not ws.show.exists():
+        return None, "no library show.json"
+    try:
+        return read_model(ws.show, Show), None
+    except (OSError, ValueError, LlamaError) as exc:
+        return None, f"cannot read show.json: {bulk_apply._one_line(exc)}"
+
+
+def _mmss(d) -> str:
+    s = int(round(float(d or 0)))
+    return f"{s // 60}:{s % 60:02d}"
+
+
+def _null(v) -> str:
+    return "null" if v is None else str(v)
+
+
+def cmd_approval(args) -> int:
+    """The operator's approval list for the voiced batch (Rollout step 6), from LIVE
+    state: the station manifest decides voiced, the fresh status file the presenter and
+    backend_now, the library show.json the holds. Writes only `--out`."""
+    config = bulk_apply._config(args)
+    station_root = _station_gate(config)
+    _out_gate(args.out, config, station_root)
+    _, rows, _ = _read_list(args.list, config)
+    status = _read_status(args.emcee_status)
+    approvable, held, gone, cannot = [], [], [], []
+    unvoiced = other_backend = 0
+    for r in rows:
+        slug = r["slug"]
+        was_voiced = (r.get("station") or {}).get("state") == "voiced"
+        manifest = station_root / slug / "manifest.json"
+        data, _ = _station_tracks(manifest)
+        if data is None:
+            if manifest.exists():
+                cannot.append(f"{slug}: station manifest unreadable")
+            elif was_voiced:
+                cannot.append(f"{slug}: no station copy")
+            else:
+                unvoiced += 1
+            continue
+        dj = data.get("dj_audio")
+        if dj is None:
+            if was_voiced:
+                gone.append(slug)
+            else:
+                unvoiced += 1
+            continue
+        station = _voiced_station(dj, status.get(slug))
+        if args.backend and station["backend_now"] != args.backend:
+            other_backend += 1
+            continue
+        show, problem = _library_show(config.root, slug)
+        if show is None:
+            cannot.append(f"{slug}: {problem}")
+            continue
+        (held if show.needs_review else approvable).append((r, station, show.review_flags))
+
+    def block(r, station, flags):
+        print(f"  {r['slug']}: presenter {_null(station['presenter'])}, backend_now "
+              f"{_null(station['backend_now'])}, clips {station['clips']}")
+        for d in r.get("drops") or []:
+            print(f"    drop '{d.get('title')}' {_mmss(d.get('duration_sec'))} held "
+                  f"{'yes' if d.get('held') else 'no'}")
+        for o in r.get("other_differences") or []:
+            print(f"    other {o}")
+        print("    library hold flags: " + ("; ".join(flags) or "none"))
+
+    print(f"approvable: {len(approvable)}")
+    for e in approvable:
+        block(*e)
+    print(f"held (not approvable): {len(held)}")
+    for e in held:
+        block(*e)
+    print(f"no longer voiced (unvoiced route): {len(gone)}")
+    for slug in gone:
+        print(f"  {slug}")
+    print(f"cannot check (not approvable): {len(cannot)}")
+    for line in cannot:
+        print(f"  {line}")
+    print(f"unvoiced members (not in this list): {unvoiced}")
+    if args.backend:
+        print(f"voiced members on another backend_now (not shown): {other_backend}")
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text("".join(f"{r['slug']}\n" for r, _, _ in approvable))
+        print(f"wrote {len(approvable)} approvable slugs to {args.out}")
+    return 0
+
+
+def cmd_recheck(args) -> int:
+    """The pre-`--replace-voiced` re-check of one approved show (Rollout step 6). Writes
+    nothing; exit 0 only when every check passes, 1 otherwise."""
+    config = bulk_apply._config(args)
+    station_root = _station_gate(config)
+    _, rows, _ = _read_list(args.list, config)
+    slug = args.slug
+    row = next((r for r in rows if r["slug"] == slug), None)
+    checks = [("member of the list", row is not None, None)]
+    if row is not None:
+        manifest = station_root / slug / "manifest.json"
+        data, by_name = _station_tracks(manifest)
+        show, problem = _library_show(config.root, slug)
+        junk = {e.get("filename") for e in (show.excluded_files if show else [])
+                if isinstance(e, dict) and junk_titles.REASON in (e.get("reasons") or [])}
+        pairs = [p for p in row.get("pairs") or [] if isinstance(p, dict)]
+        live, why = [], []
+        for p in pairs:
+            st = by_name.get(p.get("station_file"))
+            if st is None or st.get("title") != p.get("station_title"):
+                why.append(f"'{p.get('station_file')}' '{p.get('station_title')}' "
+                           f"not in the station manifest")
+            elif p.get("source_file") not in junk:
+                why.append(f"{p.get('source_file')} not excluded with reason "
+                           f"'{junk_titles.REASON}' in the library show.json")
+            else:
+                live.append(f"{p['station_file']} -> {p['source_file']}")
+        if data is None:
+            why.insert(0, "station manifest missing or unreadable")
+        if show is None:
+            why.insert(0, problem)
+        if not pairs:
+            why.append("the list records no pair")
+        checks.append(("a recorded pair is on the station and dropped in the library",
+                       bool(live), "; ".join(live) if live else "; ".join(why)))
+        checks.append(("library show not held", show is not None and not show.needs_review,
+                       problem if show is None
+                       else ("; ".join(show.review_flags) or None) if show.needs_review
+                       else None))
+        checks.append(("station copy voiced",
+                       data is not None and data.get("dj_audio") is not None,
+                       None if data is not None else "station manifest missing or unreadable"))
+    for name, ok, detail in checks:
+        print(f"{slug}: {name}: {'ok' if ok else 'FAIL'}" + (f" ({detail})" if detail else ""))
+    if all(ok for _, ok, _ in checks):
+        print(f"{slug}: recheck passed")
+        return 0
+    print(f"leave {slug} out of this batch")
+    return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -437,6 +615,23 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--apply", action="store_true",
                    help="write the campaign and station marks (never a voiced copy's)")
     p.set_defaults(fn=cmd_mark)
+    p = sub.add_parser("approval", parents=[common],
+                       help="the voiced approval list from live state (writes only --out)")
+    p.add_argument("--list", type=Path, required=True,
+                   help="the members.json `list` wrote, from this code and config")
+    p.add_argument("--emcee-status", type=Path, required=True,
+                   help="a FRESH `emcee status --json` file")
+    p.add_argument("--backend", choices=BACKENDS, default=None,
+                   help="only voiced members whose backend_now is this")
+    p.add_argument("--out", type=Path, default=None,
+                   help="write the approvable slugs here, one per line")
+    p.set_defaults(fn=cmd_approval)
+    p = sub.add_parser("recheck", parents=[common],
+                       help="the read-only re-check before `deliver --replace-voiced`")
+    p.add_argument("--list", type=Path, required=True,
+                   help="the members.json `list` wrote, from this code and config")
+    p.add_argument("slug")
+    p.set_defaults(fn=cmd_recheck)
     args = ap.parse_args(argv)
     try:
         return args.fn(args)
