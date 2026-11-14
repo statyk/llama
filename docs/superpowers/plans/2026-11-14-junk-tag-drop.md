@@ -920,6 +920,8 @@ Nothing here is done by an implementer or the orchestrator.
 4. **List.** `emcee status --json > H/emcee-status.json`, then
    `WT/.venv/bin/python WT/scripts/junk_drop_rollout.py list --arm H/arm.json --emcee-status H/emcee-status.json --out H/list`.
    Read the counts; take `H/list/unpaired.json` to the operator (left as they are).
+   **Keep `H/list/members.json` for the whole rollout** (through step 11): it is the durable
+   record of each member's pairs that steps 5 and 9 act on, and it cannot be rebuilt later.
 5. **Mark.** `... junk_drop_rollout.py mark --list H/list/members.json` (dry run), then `--apply`.
    Exit 0 required; a stop (emcee running, station locked) is re-run after the cause is cleared.
 6. **Install** llama and emcee 2.24.0.
@@ -940,6 +942,11 @@ Nothing here is done by an implementer or the orchestrator.
    operator approves the batch; then per slug, one at a time:
    `... junk_drop_rollout.py recheck --list H/list/members.json <slug> && llama deliver <slug> --replace-voiced && emcee voice <slug>`.
    A failed re-voice is retried with `emcee voice <slug>` (the show is off air until then).
+   `approval` and `recheck` do not check the list's code or config identity (they print it);
+   exit 2 from either means an unmounted (or empty) station root or a damaged
+   `members.json`: fix the mount or restore the kept file. **NEVER rebuild the list after
+   step 7:** the post-drop `show.json` and the deleted `reuse-anchor.json` can no longer pair
+   the dropped tracks, so a rebuilt list silently shows 0 voiced members.
 10. **Held.** `llama triage` over the held members, any voicing. Overrule → the show's normal route
     (unvoiced: `deliver --fixed`; voiced: a step 9 batch). `--include` → no change when no other
     drop remains (unvoiced: `deliver --fixed` clears the mark; voiced: keeps airing); a show still

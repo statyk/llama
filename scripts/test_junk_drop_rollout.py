@@ -867,10 +867,15 @@ def test_approval_writes_approvable_slugs(tmp_path, capsys):
         assert _approval(cfg, lst, status, "--out", str(bad)) == 2
         assert "overlaps" in capsys.readouterr().err
         assert not bad.exists()
-    # and a list from other code is refused
-    stale = _list_file(tmp_path, cfg, _voiced_member(a), sha="old")
-    assert _approval(cfg, stale, status) == 2
-    assert "running code is abc" in capsys.readouterr().err
+    # a list from other code or config is accepted (no identity gate); its identity is
+    # printed as information
+    capsys.readouterr()
+    stale = _list_file(tmp_path, cfg, _voiced_member(a), sha="old", fingerprint="f" * 16)
+    assert _approval(cfg, stale, status, "--out", str(out)) == 0
+    text = capsys.readouterr().out
+    assert "list: sha old, config_fingerprint ffffffffffffffff" in text
+    assert "not checked" in text
+    assert out.read_text() == "a\n"
 
 
 def test_recheck_passes(tmp_path, capsys):
@@ -957,3 +962,41 @@ def test_recheck_reads_without_writing(tmp_path, capsys):
     assert _recheck(cfg, lst, "nope") == 1
     assert _approval(cfg, lst, status) == 0
     assert tree(tmp_path) == before
+
+
+def test_recheck_accepts_a_list_from_other_code(tmp_path, capsys, monkeypatch):
+    cfg, root, station = _lib(tmp_path)
+    ws = _voiced_show(root, station, "s1")
+    lst = _list_file(tmp_path, cfg, _voiced_member(ws), sha="old", fingerprint="f" * 16)
+    monkeypatch.setattr("llama.replay.code_identity", lambda: SHA + "-dirty")
+    assert _recheck(cfg, lst, "s1") == 0
+    assert "list: sha old, config_fingerprint ffffffffffffffff" in capsys.readouterr().out
+
+
+def test_recheck_refuses_unmounted_station(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _voiced_show(root, station, "s1")
+    lst = _list_file(tmp_path, cfg, _voiced_member(ws))
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    cfg2 = tmp_path / "config2.toml"
+    cfg2.write_text(f'root = "{root}"\ndelivery_path = "{empty}"\n')
+    capsys.readouterr()
+    assert _recheck(cfg2, lst, "s1") == 2
+    assert "empty" in capsys.readouterr().err
+    cfg2.write_text(f'root = "{root}"\ndelivery_path = "{tmp_path / 'gone'}"\n')
+    assert _recheck(cfg2, lst, "s1") == 2
+    assert "station root" in capsys.readouterr().err
+
+
+def test_recheck_refuses_a_damaged_list(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _voiced_show(root, station, "s1")
+    twice = _list_file(tmp_path, cfg, _voiced_member(ws), _voiced_member(ws))
+    capsys.readouterr()
+    assert _recheck(cfg, twice, "s1") == 2
+    assert "s1 is listed twice" in capsys.readouterr().err
+    bad = {k: v for k, v in _voiced_member(ws).items() if k != "slug"}
+    noslug = _list_file(tmp_path, cfg, _voiced_member(ws), bad)
+    assert _recheck(cfg, noslug, "s1") == 2
+    assert "a row without a slug or digests" in capsys.readouterr().err

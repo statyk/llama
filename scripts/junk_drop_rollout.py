@@ -43,8 +43,10 @@ the approvable slugs, one per line. `recheck --list DIR/members.json [--config P
 (read-only) is the check before `llama deliver <slug> --replace-voiced`: a member, a recorded
 pair still on the station (file and title) whose source file the library show.json excludes
 with reason `junk title`, not held, voiced. Exit 0 only when every check passes, else 1 and
-`leave <slug> out of this batch`. Both take the list through the same identity gate as
-`mark`.
+`leave <slug> out of this batch`. Unlike `mark`, neither applies the identity gate to the
+list (shape checks only; its sha, config fingerprint and written_at are printed as
+information): everything they act on is re-read live, and a list rebuilt after the
+re-process (Rollout step 4) cannot pair the dropped sources, so it shows no voiced member.
 
 Run it with the pinned worktree's own interpreter, by path. Refusals exit 2.
 """
@@ -362,13 +364,12 @@ def cmd_list(args) -> int:
 
 # --- mark -------------------------------------------------------------------------
 
-def _read_list(path: Path, config) -> tuple[bytes, list[dict], str]:
-    """(list bytes, member rows, running sha) of a `list` members.json written by THIS
-    code and config."""
+def _list_rows(path: Path) -> tuple[bytes, dict, list[dict]]:
+    """(list bytes, document, member rows) of a `list` members.json, shape checks only
+    (GateRefused for a damaged list): every row has a slug and digests, no slug twice."""
     raw, doc = bulk_apply._read_json_file(path, "membership list")
     if not isinstance(doc, dict) or not isinstance(doc.get("rows"), list):
         raise GateRefused(f"{path} is not a `junk_drop_rollout.py list` members.json")
-    sha, _ = _identity_gate(doc, config, what="list", rerun="junk_drop_rollout.py list")
     rows, seen = [], set()
     for r in doc["rows"]:
         if not (isinstance(r, dict) and isinstance(r.get("slug"), str)
@@ -378,7 +379,25 @@ def _read_list(path: Path, config) -> tuple[bytes, list[dict], str]:
             raise GateRefused(f"{path}: {r['slug']} is listed twice")
         seen.add(r["slug"])
         rows.append(r)
+    return raw, doc, rows
+
+
+def _read_list(path: Path, config) -> tuple[bytes, list[dict], str]:
+    """(list bytes, member rows, running sha) of a `list` members.json written by THIS
+    code and config (`mark`'s reader)."""
+    raw, doc, rows = _list_rows(path)
+    sha, _ = _identity_gate(doc, config, what="list", rerun="junk_drop_rollout.py list")
     return raw, rows, sha
+
+
+def _read_list_info(path: Path) -> list[dict]:
+    """The member rows for `approval` and `recheck`: shape checks only, NO identity gate
+    (everything they act on is re-read live, and a list rebuilt after the re-process
+    cannot pair the dropped sources). The list's identity is printed as information."""
+    _, doc, rows = _list_rows(path)
+    print(f"list: sha {doc.get('sha')}, config_fingerprint {doc.get('config_fingerprint')}, "
+          f"written_at {doc.get('written_at')} (information only, not checked)")
+    return rows
 
 
 def _dry_state(root: Path, station_root: Path, slug: str,
@@ -477,7 +496,7 @@ def cmd_approval(args) -> int:
     config = bulk_apply._config(args)
     station_root = _station_gate(config)
     _out_gate(args.out, config, station_root)
-    _, rows, _ = _read_list(args.list, config)
+    rows = _read_list_info(args.list)
     status = _read_status(args.emcee_status)
     approvable, held, gone, cannot = [], [], [], []
     unvoiced = other_backend = 0
@@ -548,7 +567,7 @@ def cmd_recheck(args) -> int:
     nothing; exit 0 only when every check passes, 1 otherwise."""
     config = bulk_apply._config(args)
     station_root = _station_gate(config)
-    _, rows, _ = _read_list(args.list, config)
+    rows = _read_list_info(args.list)
     slug = args.slug
     row = next((r for r in rows if r["slug"] == slug), None)
     checks = [("member of the list", row is not None, None)]
