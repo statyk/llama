@@ -287,3 +287,16 @@ def test_railroadearth_2006_02_18_encore_on_dropped_crowd(tmp_path):
     assert rows[0]["set"] == "2"
     assert rows[0]["after_track"] == 17
     assert not any(h for h in res.junk_drops if h.held)
+
+
+def test_junk_drop_overrule_turns_hold_into_note(tmp_path):
+    from llama.models import Overrule
+    rule = Overrule(identifier=IDENT, kind="junk-drop", subject=[F["d1t02"]],
+                    flag="f", source="fix", at="2026-11-14T00:00:00Z")
+    res = _gather(tmp_path, _md({"d1t02": ("Crowd", "6:40")}), Overrides(overrules=[rule]))
+    (drop,) = res.junk_drops
+    flag = junk_titles.hold_flag(drop, total=4682.0, median=532.0)
+    assert not any(f.startswith(junk_titles.HOLD_PREFIX) for f in res.show.review_flags)
+    assert "overruled: " + flag in res.notes
+    assert res.show.needs_review is False
+    assert F["d1t02"] not in [t.filename for t in res.show.tracks]

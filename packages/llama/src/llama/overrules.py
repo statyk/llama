@@ -53,6 +53,9 @@ _PATTERNS: list[tuple[re.Pattern, str, str]] = [
     (re.compile(r"^unclassified lineage for .* \(allowed: [^)]*\): (\S+)$"),
      "lineage-unknown", "raw"),
     (re.compile(r"^possible misattribution:"), "misattribution", "none"),
+    # junk-title drop (spec "What a drop looks like"): the subject is the filename; the
+    # duration and percentages in the flag never key it.
+    (re.compile(r"^junk-title drop held for review: .* file (.+)$", re.S), "junk-drop", "raw"),
 ]
 
 

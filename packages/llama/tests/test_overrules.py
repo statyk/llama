@@ -119,3 +119,14 @@ def test_overrules_round_trip_through_write_artifact(tmp_path):
     write_artifact(p, ov)
     assert Overrides.model_validate_json(p.read_text()) == ov
     assert json.loads(p.read_text())["overrules"][1]["subject"] is None
+
+
+def test_junk_drop_flag_key_is_the_filename():
+    a = ("junk-title drop held for review: 'Crowd' (6:40, 8.5% of show, 0.75x median) "
+         "file gd73-06-10d1t02.mp3")
+    b = ("junk-title drop held for review: 'Crowd' (7:01, 9.9% of show, 0.80x median) "
+         "file gd73-06-10d1t02.mp3")
+    ka, kb = flag_key(a, _show()), flag_key(b, _show())
+    assert ka == kb == FlagKey("junk-drop", ("gd73-06-10d1t02.mp3",))
+    other = a.replace("d1t02", "d1t03")
+    assert flag_key(other, _show()) != ka

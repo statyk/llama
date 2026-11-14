@@ -134,7 +134,8 @@ def test_constants_have_the_specced_values():
     assert LONG_BAR_KINDS == {DESC, OTAG, SIBT}
     assert TITLE_WEAK_KINDS == {SLFM, JB, REV}
     assert TAPER_SIDE_KINDS == {DESC, OTAG, DTAG}
-    assert REFUSED_INCLUDE_REASONS == {"duplicate-listing", "duplicate derivative", SPAM_REASON}
+    assert REFUSED_INCLUDE_REASONS == {"duplicate-listing", "duplicate derivative", SPAM_REASON,
+                                       "junk title"}
     assert STRUCTURE_KINDS == {"research-sets", "alignment", "single-set", "sets-not-found",
                                "jerrybase-set-count", "jerrybase-closer"}
     assert TITLE_BAR_SOURCES == {"unresolved", "tags", "desc-position", "sibling-format",
@@ -648,6 +649,8 @@ OVERRULE_CASES = [
     ("unclassified lineage for Phish (allowed: aud): ph1997-11-22.flac16", "lineage-unknown",
      "never"),
     ("possible misattribution: scorer gave no attribution verdict", "misattribution", "medium"),
+    ("junk-title drop held for review: 'Crowd' (6:40, 8.5% of show, 0.75x median) file x-d1t1.mp3",
+     "junk-drop", "never"),
 ]
 
 
@@ -1775,3 +1778,32 @@ def test_an_include_with_a_placeholder_set_title_is_propose_only():
     assert (r.edits[0].bar, r.edits[0].passed, r.edits[0].reason) == (
         "propose-only", False, f"include ships a placeholder title ({INC}: 'Track 3')")
     assert r.auto is False
+
+
+# ---------------------------------------------------------------- junk-title drop (operator-only)
+
+JUNK_FLAG = ("junk-title drop held for review: 'Crowd' (6:40, 8.5% of show, 0.75x median) "
+             "file x-d1t1.mp3")
+
+
+def test_adjudicator_never_overrules_junk_drop():
+    g = overrule_gate(JUNK_FLAG)
+    assert (g.bar, g.passed) == ("never", False)
+    assert OVERRULE_BAR["junk-drop"] == "never"
+
+
+def test_include_of_junk_title_file_is_propose_only():
+    from llama import junk_titles
+    assert junk_titles.REASON in REFUSED_INCLUDE_REASONS
+    g = gate_for(_include_row(["junk title"]))
+    assert (g.bar, g.passed) == ("propose-only", False)
+    assert "junk title" in g.reason
+
+
+def test_set_title_on_junk_title_file_is_propose_only():
+    b = make_bundle([trk("x-d1t2.mp3")], sections={DESC: ["x-d1t1 Sugaree"]},
+                    excluded=[{"filename": "x-d1t1.mp3", "reasons": ["junk title"],
+                               "duration_sec": 400.0, "title": "Crowd"}])
+    g = gate_for(([title_edit(file="x-d1t1.mp3")], b))
+    assert (g.bar, g.passed) == ("propose-only", False)
+    assert "junk title" in g.reason
