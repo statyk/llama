@@ -1,0 +1,602 @@
+[
+ {
+  "group": "longest15",
+  "slug": "dirtydozenbrassband-2005-05-28",
+  "title": "intro",
+  "dur": 710,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/dirtydozenbrassband-2005-05-28/audio/01 - intro.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "gratefuldead-1969-08-16",
+  "title": "Tuning",
+  "dur": 643,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1969-08-16/audio/05 - Tuning.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "smashingpumpkins-1998-05-19",
+  "title": "Crowd Noise",
+  "dur": 593,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/smashingpumpkins-1998-05-19/audio/17 - Crowd Noise.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "gratefuldead-1988-03-24",
+  "title": "Crowd/Tuning",
+  "dur": 559,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1988-03-24/audio/20 - Crowd_Tuning.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "gratefuldead-1972-05-07",
+  "title": "Intro",
+  "dur": 550,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1972-05-07/audio/01 - Intro.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "yondermountainstringband-2006-08-25",
+  "title": "outro",
+  "dur": 523,
+  "rule": "C",
+  "path": "/Volumes/media/lma-radio/delivered/yondermountainstringband-2006-08-25/audio/21 - outro.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "moe-2007-05-03",
+  "title": "crowd",
+  "dur": 508,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/moe-2007-05-03/audio/14 - crowd.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "drive-bytruckers-2012-03-09",
+  "title": "Crowd",
+  "dur": 495,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/drive-bytruckers-2012-03-09/audio/23 - Crowd.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "gratefuldead-1982-09-05",
+  "title": "Tuning",
+  "dur": 483,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1982-09-05/audio/01 - Tuning.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "railroadearth-2013-03-29",
+  "title": "Crowd",
+  "dur": 463,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/railroadearth-2013-03-29/audio/20 - Crowd.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "mymorningjacket-2011-05-31",
+  "title": "Crowd",
+  "dur": 433,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/mymorningjacket-2011-05-31/audio/21 - Crowd.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "darkstarorchestra-2005-06-07",
+  "title": "Tuning",
+  "dur": 409,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/darkstarorchestra-2005-06-07/audio/11 - Tuning.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "radiators-2010-07-03",
+  "title": "Tuning",
+  "dur": 404,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/radiators-2010-07-03/audio/01 - Tuning.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "umphreysmcgee-2005-12-31",
+  "title": "crowd",
+  "dur": 401,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/umphreysmcgee-2005-12-31/audio/27 - crowd.mp3"
+ },
+ {
+  "group": "longest15",
+  "slug": "darkstarorchestra-2005-08-13",
+  "title": "crowd/tuning",
+  "dur": 399,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/darkstarorchestra-2005-08-13/audio/03 - crowd_tuning.mp3"
+ },
+ {
+  "group": "shortjunk",
+  "slug": "gratefuldead-1972-09-10",
+  "title": "tuning",
+  "dur": 92,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1972-09-10/audio/22 - tuning.mp3"
+ },
+ {
+  "group": "shortjunk",
+  "slug": "gratefuldead-1970-05-02",
+  "title": "Tuning",
+  "dur": 107,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1970-05-02/audio/01 - Tuning.mp3"
+ },
+ {
+  "group": "shortjunk",
+  "slug": "gratefuldead-1986-03-24",
+  "title": "tuning",
+  "dur": 92,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1986-03-24/audio/09 - Tuning.mp3"
+ },
+ {
+  "group": "shortjunk",
+  "slug": "gratefuldead-1981-03-14",
+  "title": "crowd/tuning",
+  "dur": 110,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1981-03-14/audio/01 - crowd_tuning.mp3"
+ },
+ {
+  "group": "shortjunk",
+  "slug": "buckethead-2004-06-04",
+  "title": "Crowd Noise",
+  "dur": 64,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/buckethead-2004-06-04/audio/01 - Crowd Noise.mp3"
+ },
+ {
+  "group": "shortjunk",
+  "slug": "moe-2004-01-31",
+  "title": "Crowd",
+  "dur": 93,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/moe-2004-01-31/audio/23 - Crowd.mp3"
+ },
+ {
+  "group": "shortjunk",
+  "slug": "radiators-2003-05-01",
+  "title": "tuning",
+  "dur": 92,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/radiators-2003-05-01/audio/01 - tuning.mp3"
+ },
+ {
+  "group": "shortjunk",
+  "slug": "radiators-1999-03-13",
+  "title": "Tuning",
+  "dur": 96,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/radiators-1999-03-13/audio/12 - Tuning.mp3"
+ },
+ {
+  "group": "shortjunk",
+  "slug": "discobiscuits-2006-07-02",
+  "title": "Tuning",
+  "dur": 52,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/discobiscuits-2006-07-02/audio/18 - Tuning.mp3"
+ },
+ {
+  "group": "shortjunk",
+  "slug": "yondermountainstringband-2009-08-28",
+  "title": "Crowd",
+  "dur": 105,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/yondermountainstringband-2009-08-28/audio/01 - Crowd.mp3"
+ },
+ {
+  "group": "shortjunk",
+  "slug": "allenstone-2012-11-04",
+  "title": "crowd noise",
+  "dur": 80,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/allenstone-2012-11-04/audio/21 - crowd noise.mp3"
+ },
+ {
+  "group": "shortjunk",
+  "slug": "gratefuldead-1977-05-07",
+  "title": "Tune Up",
+  "dur": 103,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1977-05-07/audio/16 - Tune Up.mp3"
+ },
+ {
+  "group": "midjunk",
+  "slug": "gratefuldead-1977-05-28",
+  "title": "Crowd",
+  "dur": 153,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1977-05-28/audio/30 - Crowd.mp3"
+ },
+ {
+  "group": "midjunk",
+  "slug": "furthur-2010-09-25",
+  "title": "Tuning",
+  "dur": 165,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/furthur-2010-09-25/audio/01 - Tuning.mp3"
+ },
+ {
+  "group": "midjunk",
+  "slug": "gomez-2006-03-21",
+  "title": "Silence",
+  "dur": 185,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/gomez-2006-03-21/audio/12 - Silence.mp3"
+ },
+ {
+  "group": "midjunk",
+  "slug": "robynhitchcock-2006-11-25",
+  "title": "tuning",
+  "dur": 174,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/robynhitchcock-2006-11-25/audio/13 - tuning.mp3"
+ },
+ {
+  "group": "midjunk",
+  "slug": "moe-2005-03-05",
+  "title": "Crowd",
+  "dur": 130,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/moe-2005-03-05/audio/16 - Crowd.mp3"
+ },
+ {
+  "group": "midjunk",
+  "slug": "railroadearth-2007-04-25",
+  "title": "crowd",
+  "dur": 157,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/railroadearth-2007-04-25/audio/14 - crowd.mp3"
+ },
+ {
+  "group": "midjunk",
+  "slug": "railroadearth-2009-02-19",
+  "title": "crowd",
+  "dur": 146,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/railroadearth-2009-02-19/audio/17 - crowd.mp3"
+ },
+ {
+  "group": "midjunk",
+  "slug": "furthur-2012-07-15",
+  "title": "Tuning Up",
+  "dur": 238,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/furthur-2012-07-15/audio/01 - Tuning Up.mp3"
+ },
+ {
+  "group": "midjunk",
+  "slug": "philleshandfriends-1999-05-29",
+  "title": "Crowd/Tuning",
+  "dur": 219,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/philleshandfriends-1999-05-29/audio/20 - Crowd_Tuning.mp3"
+ },
+ {
+  "group": "midjunk",
+  "slug": "gratefuldead-1984-06-21",
+  "title": "tuning",
+  "dur": 168,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1984-06-21/audio/02 - tuning.mp3"
+ },
+ {
+  "group": "midjunk",
+  "slug": "johnkadlecik-2011-05-06",
+  "title": "tuning",
+  "dur": 174,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/johnkadlecik-2011-05-06/audio/01 - tuning.mp3"
+ },
+ {
+  "group": "midjunk",
+  "slug": "darkstarorchestra-2014-07-31",
+  "title": "Tuning",
+  "dur": 240,
+  "rule": "A",
+  "path": "/Volumes/media/lma-radio/delivered/darkstarorchestra-2014-07-31/audio/01 - Tuning.mp3"
+ },
+ {
+  "group": "longintro",
+  "slug": "mymorningjacket-2006-12-29",
+  "title": "Intro",
+  "dur": 360,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/mymorningjacket-2006-12-29/audio/01 - Intro.mp3"
+ },
+ {
+  "group": "longintro",
+  "slug": "motherhips-2011-02-04",
+  "title": "Intro",
+  "dur": 193,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/motherhips-2011-02-04/audio/01 - Intro.mp3"
+ },
+ {
+  "group": "longintro",
+  "slug": "campervanbeethoven-2003-01-18",
+  "title": "intro",
+  "dur": 215,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/campervanbeethoven-2003-01-18/audio/26 - intro.mp3"
+ },
+ {
+  "group": "longintro",
+  "slug": "darkstarorchestra-2005-06-06",
+  "title": "Intro",
+  "dur": 241,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/darkstarorchestra-2005-06-06/audio/16 - Intro.mp3"
+ },
+ {
+  "group": "longintro",
+  "slug": "moe-2004-09-04",
+  "title": "Intro",
+  "dur": 215,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/moe-2004-09-04/audio/09 - Intro.mp3"
+ },
+ {
+  "group": "longintro",
+  "slug": "moe-2004-09-04",
+  "title": "Intro",
+  "dur": 286,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/moe-2004-09-04/audio/14 - Intro.mp3"
+ },
+ {
+  "group": "longintro",
+  "slug": "darkstarorchestra-2004-12-04",
+  "title": "Intro",
+  "dur": 187,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/darkstarorchestra-2004-12-04/audio/01 - Intro.mp3"
+ },
+ {
+  "group": "longintro",
+  "slug": "furthur-2012-07-11",
+  "title": "intro",
+  "dur": 195,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/furthur-2012-07-11/audio/01 - intro.mp3"
+ },
+ {
+  "group": "longintro",
+  "slug": "moe-2004-10-31",
+  "title": "Intro",
+  "dur": 191,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/moe-2004-10-31/audio/01 - Intro.mp3"
+ },
+ {
+  "group": "longintro",
+  "slug": "mymorningjacket-2008-08-16",
+  "title": "Introduction",
+  "dur": 344,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/mymorningjacket-2008-08-16/audio/01 - Introduction.mp3"
+ },
+ {
+  "group": "longintro",
+  "slug": "gratefuldead-1970-05-24",
+  "title": "Intro",
+  "dur": 291,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1970-05-24/audio/01 - Intro.mp3"
+ },
+ {
+  "group": "longintro",
+  "slug": "moe-2006-01-22",
+  "title": "Intro",
+  "dur": 194,
+  "rule": "B",
+  "path": "/Volumes/media/lma-radio/delivered/moe-2006-01-22/audio/01 - Intro.mp3"
+ },
+ {
+  "group": "song",
+  "slug": "charlieparr-2003-01-10",
+  "title": "Yo-Yo Blues",
+  "dur": 186,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/charlieparr-2003-01-10/audio/16 - Yo-Yo Blues.mp3"
+ },
+ {
+  "group": "song",
+  "slug": "charlieparr-2003-01-10",
+  "title": "Mahtowa Stomp",
+  "dur": 179,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/charlieparr-2003-01-10/audio/25 - Mahtowa Stomp.mp3"
+ },
+ {
+  "group": "song",
+  "slug": "railroadearth-2009-06-18",
+  "title": "Reuben's Train **",
+  "dur": 600,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/railroadearth-2009-06-18/audio/14 - Reuben's Train.mp3"
+ },
+ {
+  "group": "song",
+  "slug": "ryanadams-2006-08-03",
+  "title": "Bartering Lines >",
+  "dur": 307,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/ryanadams-2006-08-03/audio/12 - Bartering Lines.mp3"
+ },
+ {
+  "group": "song",
+  "slug": "soundtribesector9-2005-02-05",
+  "title": "F-word",
+  "dur": 308,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/soundtribesector9-2005-02-05/audio/04 - F-word.mp3"
+ },
+ {
+  "group": "song",
+  "slug": "mymorningjacket-2006-12-29",
+  "title": "One Big Holiday",
+  "dur": 366,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/mymorningjacket-2006-12-29/audio/18 - One Big Holiday.mp3"
+ },
+ {
+  "group": "song",
+  "slug": "mymorningjacket-2006-12-29",
+  "title": "I Will Sing You Songs",
+  "dur": 535,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/mymorningjacket-2006-12-29/audio/23 - I Will Sing You Songs.mp3"
+ },
+ {
+  "group": "song",
+  "slug": "joerussosalmostdead-2013-01-26",
+  "title": "Help On The Way >",
+  "dur": 261,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/joerussosalmostdead-2013-01-26/audio/15 - Help On The Way.mp3"
+ },
+ {
+  "group": "song",
+  "slug": "moe-2009-06-13",
+  "title": "moe. to Grace Potters and The Nocturnals Switchover >",
+  "dur": 797,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/moe-2009-06-13/audio/14 - moe. to Grace Potters and The Nocturnals Switchover.mp3"
+ },
+ {
+  "group": "song",
+  "slug": "moe-2009-06-13",
+  "title": "Skrunk >",
+  "dur": 597,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/moe-2009-06-13/audio/23 - Skrunk.mp3"
+ },
+ {
+  "group": "song",
+  "slug": "lettuce-2002-06-09",
+  "title": "The Flu",
+  "dur": 620,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/lettuce-2002-06-09/audio/04 - The Flu.mp3"
+ },
+ {
+  "group": "song",
+  "slug": "infamousstringdusters-2009-05-22",
+  "title": "Getting Down The Road (Hillbillies Nightclub)",
+  "dur": 397,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/infamousstringdusters-2009-05-22/audio/02 - Getting Down The Road (Hillbillies Nightclub).mp3"
+ },
+ {
+  "group": "space",
+  "slug": "gratefuldead-1983-10-08",
+  "title": "Drums",
+  "dur": 581,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1983-10-08/audio/12 - Drums.mp3"
+ },
+ {
+  "group": "space",
+  "slug": "gratefuldead-1983-10-08",
+  "title": "Space",
+  "dur": 477,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1983-10-08/audio/13 - Space.mp3"
+ },
+ {
+  "group": "space",
+  "slug": "gratefuldead-1969-02-28",
+  "title": "Drums >",
+  "dur": 15,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1969-02-28/audio/09 - Drums.mp3"
+ },
+ {
+  "group": "space",
+  "slug": "gratefuldead-1971-12-10",
+  "title": "Drums",
+  "dur": 192,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1971-12-10/audio/22 - Drums.mp3"
+ },
+ {
+  "group": "space",
+  "slug": "gratefuldead-1972-05-03",
+  "title": "Drums >",
+  "dur": 203,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1972-05-03/audio/23 - Drums.mp3"
+ },
+ {
+  "group": "space",
+  "slug": "gratefuldead-1987-07-02",
+  "title": "Drums",
+  "dur": 370,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1987-07-02/audio/20 - Drums.mp3"
+ },
+ {
+  "group": "space",
+  "slug": "gratefuldead-1987-07-02",
+  "title": "Space",
+  "dur": 460,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1987-07-02/audio/21 - Space.mp3"
+ },
+ {
+  "group": "space",
+  "slug": "gratefuldead-1980-10-10",
+  "title": "Drums >",
+  "dur": 655,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1980-10-10/audio/26 - Drums.mp3"
+ },
+ {
+  "group": "space",
+  "slug": "gratefuldead-1980-10-10",
+  "title": "Space >",
+  "dur": 571,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1980-10-10/audio/27 - Space.mp3"
+ },
+ {
+  "group": "space",
+  "slug": "gratefuldead-1972-12-31",
+  "title": "Drums >",
+  "dur": 214,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1972-12-31/audio/20 - Drums.mp3"
+ },
+ {
+  "group": "space",
+  "slug": "gratefuldead-1989-12-30",
+  "title": "Space >",
+  "dur": 472,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1989-12-30/audio/16 - Space.mp3"
+ },
+ {
+  "group": "space",
+  "slug": "gratefuldead-1974-10-20",
+  "title": "Drums >",
+  "dur": 250,
+  "rule": "",
+  "path": "/Volumes/media/lma-radio/delivered/gratefuldead-1974-10-20/audio/15 - Drums.mp3"
+ }
+]
