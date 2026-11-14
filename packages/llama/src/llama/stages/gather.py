@@ -17,6 +17,7 @@ from llama.ia_client import IAError
 from llama.desc_list import DescRead, artist_names, drop_leading_artist_items, read_desc_list
 from llama.lossless_titles import (SHIFTED_DELIVERED_NOTE, LosslessResult, apply_lossless,
                                    demoted_note)
+from llama import junk_titles
 from llama.title_cosmetics import cosmetic_strip
 from llama.title_hygiene import DDecision, SetlistPlan
 from llama.models import (AlignedStructure, AlignResult, JerrybaseEvent, Candidate, Overrides,
@@ -1479,6 +1480,9 @@ class CascadeRecord:
     short4_declined: dict[int, str]
     gap_filled: tuple[int, ...]
     deferred_applied: tuple[int, ...]
+    # Junk-title drop (spec 2026-11-13-junk-tag-drop-design, "Segue arrows keep"): where
+    # slice 2a accepted a tag whose raw tag-layer text has a trailing arrow.
+    short2a_arrowed: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1706,11 +1710,16 @@ def title_cascade(inp: TitleInputs, *,
     # (M9: an `overrides.titles` position is `override` by now, so it is never
     # judged or noted). Over the same tag layer `resolve_titles` used. Its
     # notes go to notes.json only (ruling 6), never `structure.conflicts`.
+    before = tracks
     tracks, short_notes = accept_short_tags(tracks, titles, delivered_source,
                                             corroboration=cb.corroboration,
                                             metadata_norms=inp.metadata_norms,
                                             demoted=frozenset(demoted), tag_sources=sources)
     op_notes += short_notes
+    # `accept_short_tags` replaces a track object only where it accepted a tag.
+    short2a_arrowed = tuple(i for i, (b, a) in enumerate(zip(before, tracks))
+                            if a is not b and i < len(titles)
+                            and junk_titles.trailing_arrow(titles[i]))
 
     short4: tuple[int, ...] = ()
     short4_declined: dict[int, str] = {}
@@ -1748,7 +1757,7 @@ def title_cascade(inp: TitleInputs, *,
         wholly_untagged=untagged, fetch_siblings=fetch_siblings,
         s_positions=tuple(s_positions), lossless=lossless, s_plan=plan, d=d,
         short4=short4, short4_declined=dict(short4_declined), gap_filled=gap_filled,
-        deferred_applied=deferred_applied)
+        deferred_applied=deferred_applied, short2a_arrowed=short2a_arrowed)
     return TitleCascade(tracks=tracks, op_notes=op_notes, struct_notes=struct_notes,
                         self_filled=title_hygiene.is_self_filled(tracks, d),
                         paths=_paths(record, n), record=record)
@@ -1796,7 +1805,11 @@ class GatherResult(NamedTuple):
     `title_cascade`'s self-filled predicate (spec slice 2, "Self-filled
     tapes"); `title_paths` is per track which new path filled it (`""`, `C1`,
     `C2`, `S`, `S-deferred`, `D`, `4`); `title_record` is the cascade's
-    `CascadeRecord` (fills and declines)."""
+    `CascadeRecord` (fills and declines; pre-drop positions).
+
+    Junk-title drop, in-process only: `junk_drops` are the tracks the rule dropped
+    (`junk_titles.JunkDrop`, pre-drop positions), and `kept_positions` the pre-drop
+    0-based position of each kept track in order, None when nothing dropped."""
     show: Show
     reviews: list[dict]
     notes: list[str]
@@ -1807,6 +1820,8 @@ class GatherResult(NamedTuple):
     self_filled: bool = False
     title_paths: tuple[str, ...] = ()
     title_record: CascadeRecord | None = None
+    junk_drops: tuple[junk_titles.JunkDrop, ...] = ()
+    kept_positions: tuple[int, ...] | None = None
 
 
 # Slice 1 1d's hold (Contracts "Exact note and flag strings"); an operator
@@ -2439,6 +2454,32 @@ def compute_gather(
                 paths[pos] += "+5"
             title_paths = tuple(paths)
 
+    # Junk-title drop (spec 2026-11-13-junk-tag-drop-design): on the final titles and
+    # set labels, after every hold check above (computed on the pre-drop list; structure
+    # is not re-run, so kept tracks keep their set labels). No drop, no change.
+    junk_drops: tuple[junk_titles.JunkDrop, ...] = ()
+    kept_positions: tuple[int, ...] | None = None
+    jd = _junk_drop(tracks, arrowed=frozenset(cascade.record.short2a_arrowed),
+                    include=frozenset(overrides.include))
+    if jd is not None:
+        junk_drops, kept_positions = jd.drops, jd.kept_positions
+        tracks = jd.kept
+        breaks = set_breaks(tracks)
+        flags = [junk_titles.renumber_text(f, jd.numbers) for f in flags]
+        op_notes = [junk_titles.renumber_text(n, jd.numbers) for n in op_notes]
+        if structure_info is not None:
+            structure_info = structure_info.model_copy(update={"conflicts": [
+                junk_titles.renumber_text(c, jd.numbers) for c in structure_info.conflicts]})
+        title_paths = tuple(title_paths[i] for i in kept_positions if i < len(title_paths))
+        excluded = list(excluded) + [
+            {"filename": d.filename, "reasons": [junk_titles.REASON],
+             "duration_sec": d.duration_sec, "title": d.title, "set": d.set,
+             "after_track": d.after_track} for d in junk_drops]
+        flags += [junk_titles.hold_flag(d, total=jd.total, median=jd.median)
+                  for d in junk_drops if d.held]
+        if not tracks and "no playable tracks" not in flags:
+            flags.append("no playable tracks")
+
     # Spec 2.5: a short-kept track whose FINAL title (any rung) is wholly junk.
     for t in tracks:
         if t.short_kept and short_tag_is_junk(t.title):
@@ -2476,7 +2517,54 @@ def compute_gather(
     return GatherResult(show=show, reviews=md.get("reviews", []), notes=op_notes,
                         needs_llm=needs_llm, taper_owned=taper_owned, taper=decision,
                         step1_alignment=step1_alignment, self_filled=cascade.self_filled,
-                        title_paths=title_paths, title_record=cascade.record)
+                        title_paths=title_paths, title_record=cascade.record,
+                        junk_drops=junk_drops, kept_positions=kept_positions)
+
+
+@dataclass(frozen=True)
+class _JunkDropPlan:
+    drops: tuple[junk_titles.JunkDrop, ...]
+    kept: list[Track]                    # re-indexed 1..n
+    kept_positions: tuple[int, ...]      # pre-drop 0-based position of each kept track
+    numbers: dict[int, int | None]       # pre-drop 1-based track number -> new (None: dropped)
+    total: float                         # breaker stats over the pre-drop tracks
+    median: float
+
+
+def _junk_drop(tracks: list[Track], *, arrowed: frozenset[int],
+               include: frozenset[str]) -> _JunkDropPlan | None:
+    """The junk-title drop over gather's final tracks (spec "What a drop looks like"),
+    or None when the rule drops nothing. A kept track whose pre-drop next track dropped
+    loses its segue unless its own title ends in an arrow; nothing else on a kept track
+    changes but its index."""
+    plan = junk_titles.plan_drops(
+        [junk_titles.DropInput(filename=t.filename, title=t.title, set=t.set,
+                               duration_sec=t.duration_sec, raw_arrow=i in arrowed)
+         for i, t in enumerate(tracks)], include=include)
+    if not plan:
+        return None
+    rules = {d.position: d.rule for d in plan}
+    total, median = junk_titles.show_stats([t.duration_sec for t in tracks])
+    drops: list[junk_titles.JunkDrop] = []
+    kept: list[Track] = []
+    positions: list[int] = []
+    numbers: dict[int, int | None] = {}
+    for i, t in enumerate(tracks):
+        if i in rules:
+            numbers[i + 1] = None
+            drops.append(junk_titles.JunkDrop(
+                filename=t.filename, title=t.title, set=t.set, duration_sec=t.duration_sec,
+                rule=rules[i], position=i, after_track=len(kept),
+                held=junk_titles.held(t.duration_sec, total=total, median=median)))
+            continue
+        update: dict = {"index": len(kept) + 1}
+        if t.segue and (i + 1) in rules and not junk_titles.trailing_arrow(t.title):
+            update["segue"] = False
+        numbers[i + 1] = len(kept) + 1
+        positions.append(i)
+        kept.append(t.model_copy(update=update))
+    return _JunkDropPlan(drops=tuple(drops), kept=kept, kept_positions=tuple(positions),
+                         numbers=numbers, total=total, median=median)
 
 
 def _apply_overrules(show: Show, rules, op_notes: list[str]) -> Show:
