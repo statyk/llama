@@ -278,7 +278,7 @@ not `junk`, unless it is a `music` drop with a recorded music-hold overrule. Thi
 at the irreversible step; it also covers drops that first appear at reapply
 (`--with-gather-llm`).
 
-**Unchecked drops in the rollout (my call, pending operator confirmation).** Unvoiced
+**Unchecked drops in the rollout (operator, 2026-11-14).** Unvoiced
 members are re-delivered and then voiced by emcee in ordinary rotation, reaching the same
 costly undo. The expected unchecked count after the pre-pass is near zero, so in the rollout
 an unchecked drop sets aside **any** member, voiced or not, from reapply and approval until
