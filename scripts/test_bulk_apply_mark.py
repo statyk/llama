@@ -1575,3 +1575,30 @@ def test_no_copy_ok_counts_a_missing_station_copy(tmp_path):
     # without the flag the same record is listed, exit 1 (today's rule)
     assert ba.mark_apply(root, items, station_root=station, batch=batch,
                          echo=lambda m: None) == 1
+
+
+def test_skip_voiced_keeps_this_batchs_own_mark_on_a_voiced_copy(tmp_path):
+    """A voiced copy that already carries THIS batch's mark (a run stopped between its
+    station write and its record line) is not `voiced: campaign mark only`: it takes the
+    own-mark path, recorded `marked` once `_reversal` verifies the before copy, so
+    `unmark` can still put it back. Pins the `own_mark` exemption of `skip_voiced`."""
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "v1", delivered=True, voiced=True, station=station)
+    out = station / "v1"
+    original = (out / "manifest.json").read_bytes()
+    batch = _batch(tmp_path)
+    at = "2026-11-14T00:00:00.000000Z"
+    campaign.add_mark(ws, reason=ba.REASON_JUNK, start_stage="gather", batch=batch.name, at=at)
+    (batch / "before").mkdir()
+    (batch / "before" / "v1.json").write_bytes(original)
+    station_mark.write_mark(out, reason=ba.REASON_JUNK, marked_at=at)
+    marked = (out / "manifest.json").read_bytes()
+    items = [_item("v1", reason=ba.REASON_JUNK, digests=input_digests(ws))]
+    assert ba.mark_apply(root, items, station_root=station, batch=batch, echo=lambda m: None,
+                         skip_voiced=True, no_copy_ok=True) == 0
+    line = _records(batch)[0]
+    assert line["station"] == "marked"
+    assert line["before_sha256"] == _sha(original) and line["after_sha256"] == _sha(marked)
+    assert (out / "manifest.json").read_bytes() == marked          # never re-written
+    assert ba.unmark(root, batch, station_root=station, apply=True, echo=lambda m: None) == 0
+    assert (out / "manifest.json").read_bytes() == original
