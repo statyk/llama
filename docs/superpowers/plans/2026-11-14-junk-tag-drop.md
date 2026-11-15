@@ -911,10 +911,35 @@ Nothing here is done by an implementer or the orchestrator.
    `2.24.0`; if not, correct `CAMPAIGN_MIN_VERSION` first). Deploy transmitter on hugo and the
    antenna assets (`npm run deploy:assets -- --dry-run`, then without it; the Worker itself is
    unchanged). Do NOT install the new llama/emcee binaries yet.
+   Before trusting the built llama binary, run the labelled gate against it:
+   `python scripts/audio_check_labelled_gate.py --binary <path to llama>` (share mounted).
+   Exit 0 prints `PASS`. Exit 2: unusable evidence, not exactly 145 labelled tracks, or no
+   binary at `--binary`. Exit 1: any blocker, including a labelled file missing on the share, so
+   exit 1 can mean "share incomplete" (the `FAIL:` list says which).
 2. **Pin.** `git worktree add .claude/worktrees/campaign-v2.24.0 v2.24.0`; give it its own venv;
    `WT/.venv/bin/python WT/scripts/bulk_apply.py pin --tag v2.24.0 --replace`. Re-pinning retires
    the `campaign-v2.23.0` worktree: finish or move its leftovers first. Stop the
    `run resume --all` loop. From here until step 5 ends: no `emcee run`, no `emcee voice`.
+2a. **Audio-check pre-pass** (spec `docs/superpowers/specs/2026-11-14-junk-drop-audio-check-design.md`,
+   "Runbook order": pre-pass, then arm, then `list`). Run with the new llama, from `WT`:
+   `WT/.venv/bin/llama audio-prepass --out H/audio-prepass`. It needs `delivery_path` set and
+   the station mounted (exit 2, nothing written, otherwise), reads station copies where they
+   pair and archive.org otherwise, writes only each show's `audio-check.json` and
+   `H/audio-prepass/summary.json`, and is resumable; exit 3 means the classifier would not load
+   (nothing written). Then the population gate:
+   `python WT/scripts/audio_check_population.py --summary H/audio-prepass/summary.json`
+   (exit 1 on `INCOMPLETE: summary.json has no finished_at (pre-pass did not finish)`, a caught
+   labelled song flipped to junk, a caught song missing or `failed`, or a held count outside
+   28 +/- 3).
+   **Station decode failures.** A station copy that will not decode is not retried from
+   archive.org: the file gets a `failed` row (`decode failed: ...`) in `summary.json`, is never
+   cached, and the run's last line counts it under `failed`. Repair or re-deliver that station
+   file and re-run the pre-pass (current verdicts are not recomputed; failures are retried), or
+   accept it as a recorded failure: its drop then reads `unchecked` in `list` and `reapply`
+   skips the show.
+   **Any pre-pass run after an arm invalidates that arm** (the cache file is one of replay's
+   `input_digests`, so reapply would skip its rows as `skipped: inputs changed`): after every
+   pre-pass, re-arm and rebuild the list.
 3. **Arm.** `WT/.venv/bin/python WT/scripts/replay_holds.py run --all --out H/arm.json`
    (not `bulk_apply.py arm`: its tool gate would refuse the old installed binaries).
 4. **List.** `emcee status --json > H/emcee-status.json`, then
@@ -926,6 +951,12 @@ Nothing here is done by an implementer or the orchestrator.
    `--with-gather-llm` wave.
    **Keep `H/list/members.json` for the whole rollout** (through step 11): it is the durable
    record of each member's pairs that steps 5 and 9 act on, and it cannot be rebuilt later.
+   **Acceptance readings.** About 28 shows are held by the audio check (8 of them already
+   size-held, so about 20 new). `list` ends with every member drop as
+   `<slug> <source file>: <outcome>` and a total `unchecked: <n>`; `n` should be 0 except for
+   failures recorded by the pre-pass. That total counts MEMBER drops only: the drops of the
+   shows in `unpaired.json` are not in it. A larger `unchecked`: run the pre-pass again with
+   `--arm H/arm.json`, re-arm, rebuild the list.
 5. **Mark.** `... junk_drop_rollout.py mark --list H/list/members.json` (dry run), then `--apply`.
    Exit 0 required; a stop (emcee running, station locked) is re-run after the cause is cleared.
 6. **Install** llama and emcee 2.24.0.
@@ -940,6 +971,21 @@ Nothing here is done by an implementer or the orchestrator.
    reading the `meter:` lines to size waves), then the rest in waves; then
    `WT/.venv/bin/llama reapply --from-list H/list/reapply-needs-llm.json --allow-structure-change --with-gather-llm`
    as its own wave(s), pilot first. Brief/vet holds are in each batch's report.
+   **Unchecked-drop gate.** Any `reapply` (apply or not) of a show whose freshly computed
+   junk-title drops include one that is neither `junk` nor `music` writes nothing and records
+   the retryable `skipped: unchecked drop (<files>)`; the show keeps its marks. Precedence: the
+   skip is decided after the (last) recompute and before the needs-llm outcome, so on an apply
+   it wins over `needs-llm`, with or without `--with-gather-llm`; the earlier skips
+   (`skipped: re-selection`, `processed`, `not held`, `inputs changed`) win over it. The one
+   exception is `--dry-run --with-gather-llm`, which reports `dry-run: needs-llm` before it
+   reaches the gate. Retry loop: `WT/.venv/bin/llama audio-prepass --out H/audio-prepass
+   --from-skips ~/.llama/reapply/<list hash>/progress.jsonl`, then re-arm (`replay_holds.py
+   run --all --out H/arm-retry-N.json`) and build the retry list into a NEW directory
+   `junk_drop_rollout.py list --arm H/arm-retry-N.json --emcee-status ... --out H/list-retry-N`.
+   Use `H/list-retry-N` only for the skipped rows: keep just their rows in its
+   `reapply-replayable.json` / `reapply-needs-llm.json` (`rows` array; `sha` and
+   `config_fingerprint` stay) and run `reapply --from-list` on that. It never replaces
+   `H/list/members.json`, and marks are not re-applied (the skipped shows are still marked).
 8. **Unvoiced.** `llama deliver --fixed` (re-delivers and clears each mark). Then restart the
    `run resume --all` loop.
 9. **Voiced, per batch the operator approves before anything is replaced.**
@@ -948,6 +994,12 @@ Nothing here is done by an implementer or the orchestrator.
    operator approves the batch; then per slug, one at a time:
    `... junk_drop_rollout.py recheck --list H/list/members.json <slug> && llama deliver <slug> --replace-voiced && emcee voice <slug>`.
    A failed re-voice is retried with `emcee voice <slug>` (the show is off air until then).
+   Strings you will see: `approval` lists a show the audio check refuses under
+   `refused by the audio check (not approvable): <n>` and leaves it out of `--out`; `recheck`
+   fails the check `every junk-title drop passes the audio check`; both name the file with
+   `<slug>: <filename> audio check is <check or "missing">; clear the hold with llama triage
+   (records an overrule) or retitle the track`. Clear it with `llama triage` (or retitle), then
+   re-run `recheck`.
    `approval` and `recheck` do not check the list's code or config identity (they print it);
    exit 2 from either means an unmounted (or empty) station root or a damaged
    `members.json`: fix the mount or restore the kept file. **NEVER rebuild the list after
