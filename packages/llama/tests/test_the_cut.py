@@ -34,10 +34,12 @@ def test_profile_has_no_presenter_or_title_attrs():
     assert not hasattr(p, "title")
 
 
-def test_llama_pyproject_declares_neither_numpy_nor_lameenc():
+def test_llama_pyproject_declares_no_lameenc():
+    # numpy came back as a deliberate runtime dependency of the audio check
+    # (spec 2026-11-14-junk-drop-audio-check, Packaging); the DJ-voicing cut's
+    # lameenc must still stay out.
     pyproject = Path(__file__).parent.parent / "pyproject.toml"
     text = pyproject.read_text()
-    assert "numpy" not in text
     assert "lameenc" not in text
 
 

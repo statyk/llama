@@ -1,4 +1,16 @@
+import importlib.util
+
 import pytest
+
+
+def pytest_collection_modifyitems(config, items):
+    """`real_model` tests load the bundled ONNX model: skip them without onnxruntime."""
+    if importlib.util.find_spec("onnxruntime") is not None:
+        return
+    skip = pytest.mark.skip(reason="onnxruntime is not installed")
+    for item in items:
+        if "real_model" in item.keywords:
+            item.add_marker(skip)
 
 
 def cli_invoke(cfg_path, *args, **kwargs):

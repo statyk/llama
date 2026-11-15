@@ -30,3 +30,12 @@ full setlists.
 
 Run `python scripts/refresh_jerrybase.py` (manual; never run by the pipeline).
 After a refresh, update the pinned commit SHA above.
+
+# YAMNet model and class map (audio check)
+
+`yamnet.onnx` is TF Hub `google/yamnet/1` (Apache-2.0) converted whole, log-mel front end
+included, by `scripts/export_yamnet_onnx.py` (tf2onnx, opset 17, float32). Its sha256 is
+pinned as `llama.audio_check.model.MODEL_SHA256`; parity with TF Hub is in
+`docs/superpowers/2026-11-14-audio-check-evidence/onnx-parity.md`. `yamnet_class_map.csv`
+is the Hub model's own class map (the export checks they are equal). Re-exporting is not
+byte-reproducible: a new file is a new model (new sha, re-run parity, bump `rule.VERSION`).

@@ -131,3 +131,12 @@ def test_each_drum_label_alone_counts_as_musical(label):
     a = scores(260, music=0.0)
     a[:, model.CLASS_NAMES.index(label)] = 0.6
     assert rule.verdict(rule.measure(a, 125.0)) == "music"
+
+
+def test_version_pins_model_and_rule():
+    # changing any of these without the others fails
+    assert (rule.VERSION, model.MODEL_SHA256, rule.MUSIC_MIN, rule.DRUM_MIN, rule.SPEECH_MAX,
+            rule.RUN_MIN_SEC, rule.FRAC_MIN, rule.WINDOW_SEC) == (
+        "yamnet-onnx-1/rule-0.55-120-0.60",
+        "f6715c8eea28e034b467756202d1adc1f9cd6cc9582ee76021c2824d44d791a9",
+        0.55, 0.3, 0.3, 120, 0.60, 10)
