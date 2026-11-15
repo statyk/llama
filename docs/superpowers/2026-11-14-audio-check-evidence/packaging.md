@@ -68,17 +68,40 @@ Drops: 31 music = the 30 `music_chosen` non-Silence rows of the sample plus
 gomez-2006-03-21 "Silence" (round 1). Space/Drums reads music in 7 of 12, as the spec's
 "Known limits" says. Every Gomez "Silence" run/frac equals the spike's.
 
-## CI rehearsal (Steps 5-6) -- to fill after operator approval
+## CI rehearsal (Steps 5-6)
 
-Run id: _TBD_. Per leg (size of `llama`, `llama --version` startup; before = v2.23.0
-release artifact of the same leg):
+Run 43678663853 (`release.yml`, ref `audio-check` @ 64c97ffa, version
+`2.24.0-rc.audiocheck1`, `skip_release=true`), 2026-11-15. Before = the v2.23.0 release
+artifact of the same leg, unpacked. Startup is not measured on the non-macOS legs (their
+binaries do not run on the build Mac); the smoke column is the build's own
+`llama _audio-check` on the source-tree tone.
 
 | leg | before size | after size | before startup | after startup | smoke |
 |---|---|---|---|---|---|
-| linux x64 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| linux arm64 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| macos arm64 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| windows x64 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+| linux x64 | 32,354,616 B | 77,495,112 B | not measured | not measured | `verdict=junk run=0 frac=0.00` |
+| linux arm64 | 31,283,192 B | 72,748,600 B | not measured | not measured | `verdict=junk run=0 frac=0.00` |
+| macos arm64 | 18.2 MB | _TBD_ | 1.51 s | _TBD_ | _TBD_: leg FAILED before llama was built |
+| windows x64 | 19,385,576 B | 60,835,488 B | not measured | not measured | `verdict=junk run=0 frac=0.00` |
 
-Labelled gate on the downloaded `macos-arm64` artifact: _TBD_ (tracks found, exit code,
-per-group result).
+macOS arm64: the leg failed while notarizing `emcee` (built first): `xcrun notarytool`
+returned HTTP 403, "A required agreement is missing or has expired". This is an Apple
+Developer account agreement, not a code fault; no `macos-arm64` artifact was uploaded.
+The macOS row, and the labelled gate on its signed artifact, wait for the agreement to be
+renewed and the failed job re-run.
+
+Archive contents (PyInstaller `archive_viewer -l -r` on each downloaded `llama`):
+
+- all three green legs: onnxruntime pybind module (`onnxruntime_pybind11_state`),
+  `_miniaudio`, `_cffi_backend`, `llama/data/yamnet.onnx` (16,108,442 B),
+  `yamnet_class_map.csv`, `audio_check_tone.mp3`, the `llama.audio_check` modules.
+- windows x64 also: `onnxruntime/capi/onnxruntime.dll`, `onnxruntime_providers_shared.dll`,
+  and the VC++ runtime `msvcp140.dll`, `MSVCP140_1.dll`, `vcruntime140.dll`,
+  `vcruntime140_1.dll` (bundled, so a clean Windows machine does not need the
+  redistributable; GitHub's runner has it installed, so a green smoke alone would not
+  prove this).
+- linux: no standalone `libonnxruntime*.so`; the core is linked into the pybind `.so`
+  (only `libonnxruntime_providers_shared.so` is separate). The smoke step proves it loads.
+
+Labelled gate on the downloaded, signed `macos-arm64` artifact: _TBD_ (blocked on the
+macOS re-run above). Mandatory: the build's smoke step runs before signing, so this is
+the only check of the signed, hardened-runtime binary loading the onnxruntime dylib.
