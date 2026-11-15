@@ -31,6 +31,10 @@ per-tool entitlements or signing-metadata file.
    `_version.py` and emcee's); each package's static `pyproject.toml`
    `version` is not the source of truth. The `prep` job validates the
    version against a strict allowlist regex before anything runs.
+   A LOCAL `packaging/build.py` run writes the same (gitignored)
+   `packages/llama/src/llama/_version.py`, and leaves it behind; while it
+   exists, `test_version_resolves_from_installed_metadata` fails in the dev
+   venv, so delete the file after a local build before running the suite.
 3. The workflow builds all eight targets (both tools × four platform legs),
    signs the macOS + Windows binaries of both tools, and the `release` job
    attaches the archives + `SHA256SUMS` to a GitHub Release.
