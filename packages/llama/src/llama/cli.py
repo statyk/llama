@@ -5269,6 +5269,24 @@ def _by_run_rollup(config, ledger) -> list[dict]:
     return rows
 
 
+def _count_unchecked_drop_shows(root: Path) -> int:
+    """Library shows whose `show.json` has a junk-title drop recorded `check ==
+    "unchecked"`. Rows written before the audio check carry no `check` key and are
+    not counted."""
+    import json as _json
+
+    n = 0
+    shows_dir = root / "shows"
+    for d in sorted(shows_dir.iterdir()) if shows_dir.is_dir() else []:
+        try:
+            rows = _json.loads((d / "show.json").read_text()).get("excluded_files") or []
+        except (OSError, ValueError, AttributeError):
+            continue
+        if any(isinstance(r, dict) and r.get("check") == "unchecked" for r in rows):
+            n += 1
+    return n
+
+
 @app.command(rich_help_panel="Watch",
              short_help="Every show and its state, held-for-review first (sessions: run list).")
 def status(
@@ -5355,6 +5373,10 @@ def status(
             } for e in entries],
         }, indent=2))
         return
+    unchecked = _count_unchecked_drop_shows(config.root)
+    if unchecked:
+        # stderr: stdout stays one row per show, so it pipes.
+        typer.echo(f"audio check: {unchecked} show(s) with unchecked junk-title drops", err=True)
     if not entries:
         typer.echo("no shows", err=True)
         return
@@ -5371,6 +5393,25 @@ def status(
         typer.echo(f"{e.slug:42.42s} {e.state:10s} {e.artist:20.20s} {e.date:10s} {run_name}{suffix}")
         for f in e.flags if show_flags else ():
             typer.echo(f"      - {f}")
+
+
+@app.command("_audio-check", hidden=True)
+def audio_check_cmd(file: Path = typer.Argument(..., help="An MP3 or FLAC file")):
+    """Diagnostic: classify one file with the junk-drop audio check.
+
+    Prints `verdict=<music|junk> run=<int> frac=<0.00>` on stdout (exit 0). When
+    the check cannot run, prints `unchecked: <reason>` on stderr and exits 2."""
+    # Lazy: numpy/onnxruntime/miniaudio load only when this command runs.
+    from llama.audio_check import classify
+
+    try:
+        if not file.is_file():
+            raise LlamaError(f"no such file: {file}")
+        res = classify.classify_file(file)
+    except LlamaError as exc:
+        typer.echo(f"unchecked: {exc}", err=True)
+        raise typer.Exit(2)
+    typer.echo(f"verdict={res.verdict} run={res.run_sec} frac={res.frac:.2f}")
 
 
 @config_app.command("init")
