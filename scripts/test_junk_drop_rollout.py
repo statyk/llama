@@ -1266,3 +1266,65 @@ def test_approval_lists_refusal_with_remedy(tmp_path, capsys):
         assert f"{s}:" not in ok
     assert "refused by the audio check (not approvable): 3" in text
     assert out.read_text() == "a\nmo\n"
+
+
+# --- final review I3: the gate's junk-title filter (M1) and _drop_row's normalising (M3) --
+
+def _add_excluded(ws: ShowWorkspace, row: dict) -> None:
+    show = Show.model_validate_json(ws.show.read_text())
+    ws.show.write_text(show.model_copy(update={
+        "excluded_files": show.excluded_files + [row]}).model_dump_json(indent=2))
+
+
+def test_gate_ignores_excluded_rows_that_are_not_junk_title(tmp_path, capsys):
+    # A non-junk excluded row (no `check`) beside a passing junk-title row: the gate
+    # judges junk-title rows only, so recheck passes and approval approves.
+    cfg, root, station = _lib(tmp_path)
+    ws = _gate_show(root, station)                     # t1.mp3: junk title, check junk
+    _add_excluded(ws, {"filename": "x.mp3", "reasons": ["operator excluded"]})
+    show = Show.model_validate_json(ws.show.read_text())
+    assert [r.get("check") for r in show.excluded_files] == ["junk", None]
+    lst = _list_file(tmp_path, cfg, _voiced_member(ws))
+    capsys.readouterr()
+    assert _recheck(cfg, lst, "s1") == 0
+    text = capsys.readouterr().out
+    assert "every junk-title drop passes the audio check: ok" in text
+    assert "audio check is" not in text and "FAIL" not in text
+    status = _status(tmp_path, {"slug": "s1", "voiced_by": "phil",
+                                "tts_now": {"backend": "voxtral"}})
+    out = tmp_path / "approved.txt"
+    assert _approval(cfg, lst, status, "--out", str(out)) == 0
+    text = capsys.readouterr().out
+    assert "s1: presenter phil" in _section(text, "approvable")
+    assert "refused by the audio check (not approvable): 0" in text
+    assert out.read_text() == "s1\n"
+
+
+def test_list_normalises_missing_and_unknown_check_to_unchecked(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "s1", ["Tuning", "Bertha", "Crowd", "Sugaree"])
+    _station(station, "s1", ["Tuning", "Bertha", "Crowd", "Sugaree"])
+    missing = _drop("t1.mp3", "Tuning", run_sec=200, frac=0.9)
+    del missing["check"]
+    unknown = _drop("t3.mp3", "Crowd", after_track=1, check="maybe", run_sec=200, frac=0.9,
+                    check_error=None)
+    music = _drop("t4.mp3", "Sugaree", after_track=2, check="music", run_sec=200, frac=0.9,
+                  check_error="ignored")
+    arm = _arm(tmp_path, cfg, _row(ws, drops=[missing, unknown, music]))
+    rc, out = _list(tmp_path, cfg, arm)
+    assert rc == 0
+    by_file = {d["source_file"]: d for d in _members(out)["s1"]["drops"]}
+    for name, error in (("t1.mp3", "no audio check outcome recorded"),
+                        ("t3.mp3", "audio check outcome 'maybe' not recognised")):
+        d = by_file[name]
+        assert (d["check"], d["run_sec"], d["frac"], d["check_error"]) == \
+            ("unchecked", None, None, error)
+        assert d["music_held"] is False and d["held"] is False
+    m = by_file["t4.mp3"]
+    assert (m["check"], m["run_sec"], m["frac"], m["check_error"]) == ("music", 200, 0.9, None)
+    assert m["music_held"] is True and m["held"] is True
+    lines = capsys.readouterr().out.splitlines()
+    assert "  s1 t1.mp3: unchecked (no audio check outcome recorded)" in lines
+    assert "  s1 t3.mp3: unchecked (audio check outcome 'maybe' not recognised)" in lines
+    assert "  s1 t4.mp3: music" in lines
+    assert lines[-1] == "unchecked: 2"
