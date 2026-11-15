@@ -1,4 +1,5 @@
 *.mp3
+!packages/llama/src/llama/data/audio_check_tone.mp3
 *.flac
 *.shn
 __pycache__/

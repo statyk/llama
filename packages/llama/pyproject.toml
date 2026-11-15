@@ -18,6 +18,7 @@ dependencies = [
     "tomli-w>=1.0",
     "onnxruntime>=1.18",
     "numpy>=1.26",
+    "miniaudio>=1.59",
 ]
 
 [project.optional-dependencies]

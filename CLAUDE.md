@@ -121,6 +121,8 @@ a delivered show in `~/.llama/shows/` normally has an empty `package/audio/`.
   One exception: `packages/emcee/src/emcee/data/preflight_en.wav`, the ~2.6 s
   bundled check clip for the verification preflight (provenance in
   `docs/superpowers/2026-10-12-mlx-audio-calibration.md`).
+  Also `packages/llama/src/llama/data/audio_check_tone.mp3`, a synthetic ~5 s tone
+  (regenerate with `scripts/make_audio_check_tone.py`) used by the audio-check tests.
 - Test fixtures are captured real archive.org API responses (gd73-06-10 is the
   canonical one). Pipeline tests use the `fake` LLM backend and run offline;
   the only live end-to-end test is manual/opt-in.
