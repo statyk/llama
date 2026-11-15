@@ -20,6 +20,7 @@ An entry's identity is its `identifier`, `filename` and exactly one of `md5` / `
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -43,8 +44,10 @@ class CacheUnreadable(LlamaError):
 
     Raised for invalid JSON, and for a wrong shape: the top level is not an object,
     its `entries` is missing or not a list, or any entry is not an object carrying a
-    string `identifier`/`filename`, an `md5` or `size` key, a `verdict` of `music` or
-    `junk`, an integer `run_sec`, a numeric `frac`, and string `version`/`checked_at`.
+    string `identifier`/`filename`, exactly one of a string `md5` or a `size` (string,
+    integer or null), a `verdict` of `music` or `junk`, an integer `run_sec`, a finite
+    numeric `frac` (NaN and the infinities are corrupt), and string
+    `version`/`checked_at`.
     Invalid encoding (not UTF-8) counts as invalid JSON.
     """
 
@@ -106,12 +109,22 @@ def _valid_entry(e: object) -> bool:
         return False
     if ("md5" in e) == ("size" in e):
         return False
+    # The identity values are hashed (`_id_key`) and compared: type them as the
+    # writer writes them (`identity`: an archive.org md5 string, or the listed size,
+    # a string, an int or None), so a corrupt one is unreadable content, not a raise.
+    if "md5" in e and not isinstance(e["md5"], str):
+        return False
+    if "size" in e and (isinstance(e["size"], bool)
+                        or not (e["size"] is None or isinstance(e["size"], (str, int)))):
+        return False
     if e.get("verdict") not in _VERDICTS:
         return False
     run_sec, frac = e.get("run_sec"), e.get("frac")
     if not isinstance(run_sec, int) or isinstance(run_sec, bool):
         return False
     if not isinstance(frac, (int, float)) or isinstance(frac, bool):
+        return False
+    if not math.isfinite(frac):  # json.loads accepts NaN / Infinity / -Infinity
         return False
     return isinstance(e.get("version"), str) and isinstance(e.get("checked_at"), str)
 

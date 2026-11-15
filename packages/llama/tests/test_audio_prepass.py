@@ -561,3 +561,21 @@ def test_prepass_prior_summary_of_this_version_merges(tmp_path, durations):
     assert rc == 0
     files = _files(out)
     assert files[("s9", "x.mp3")] == prior and ("s1", "t1.mp3") in files
+
+
+def test_prepass_overwrites_mistyped_identity_instead_of_aborting(tmp_path, durations):
+    # An unhashable md5 used to escape write_verdicts as a TypeError and abort the run.
+    root, station, out = _env(tmp_path)
+    ws = _show(root, "s1", ["Tuning"])
+    _show(root, "s2", ["Tuning"])
+    ia = FakeIA({"t1.mp3": ("300", _verdict_bytes("junk", 0, 0.0))})
+    ws.audio_check.write_text(json.dumps({"entries": [
+        {"identifier": IDENT, "filename": "t1.mp3", "md5": ["md5-t1.mp3"], "verdict": "music",
+         "run_sec": 200, "frac": 0.9, "version": rule.VERSION,
+         "checked_at": "2026-01-01T00:00:00Z"}]}))
+    rc, _ = _run(root, ia, out, station)
+    assert rc == 0 and _summary(out)["finished_at"] is not None
+    files = _files(out)
+    assert files[("s1", "t1.mp3")]["outcome"] == "junk"
+    assert files[("s2", "t1.mp3")]["outcome"] == "junk"
+    assert _cache(ws)["t1.mp3"]["md5"] == "md5-t1.mp3"

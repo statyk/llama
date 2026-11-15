@@ -6,6 +6,7 @@ Authority: docs/superpowers/specs/2026-11-13-junk-tag-drop-design.md, "The
 rule". The last track of the list a rule is judged on, if its title starts with an
 arrow, is never dropped under any rule (A, B or C). No I/O; imports only
 llama.junk, llama.titles and the stdlib."""
+import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -148,11 +149,18 @@ def hold_flag(drop: JunkDrop, *, total: float, median: float) -> str:
 
 def music_flag(drop: JunkDrop) -> str:
     """The audio check's hold for a drop whose audio sounds like music. Ends in
-    `file <filename>` verbatim: the overrule keys on the filename alone."""
-    s = int(round(float(drop.duration_sec or 0)))
+    `file <filename>` verbatim: the overrule keys on the filename alone. Never
+    raises: a non-finite duration or fraction renders as `?` (gather builds this
+    flag outside the audio check's guard)."""
+    d, f = float(drop.duration_sec or 0), float(drop.frac or 0)
+    if math.isfinite(d):
+        s = int(round(d))
+        length = f"{s // 60}:{s % 60:02d}"
+    else:
+        length = "?"
     r = int(drop.run_sec or 0)
-    pct = int(round(100 * float(drop.frac or 0)))
-    return (f"{MUSIC_PREFIX}'{drop.title}' ({s // 60}:{s % 60:02d}) {r // 60}:{r % 60:02d} "
+    pct = int(round(100 * f)) if math.isfinite(f) else "?"
+    return (f"{MUSIC_PREFIX}'{drop.title}' ({length}) {r // 60}:{r % 60:02d} "
             f"continuous, {pct}% music, file {drop.filename}")
 
 

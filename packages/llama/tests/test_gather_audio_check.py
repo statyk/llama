@@ -451,3 +451,22 @@ def test_adjudicator_bar_never_for_music_hold():
 
 def test_replay_family_for_music_hold():
     assert flag_family(junk_titles.music_flag(_drop_with())) == "junk-music"
+
+
+@pytest.mark.parametrize("bad", [dict(frac=float("nan")), dict(frac=float("inf")),
+                                 dict(frac=float("-inf")), dict(duration_sec=float("nan"))])
+def test_music_flag_never_raises_on_non_finite(bad):
+    flag = junk_titles.music_flag(_drop_with(**bad))
+    assert flag.startswith(junk_titles.MUSIC_PREFIX)
+    assert flag.endswith("file gd77-05-08d2t09.mp3")
+    assert flag_key(flag, _show()) == FlagKey("junk-music", ("gd77-05-08d2t09.mp3",))
+
+
+def test_gather_non_finite_music_outcome_holds_not_raises(tmp_path):
+    # The backstop: a checker that hands gather a non-finite frac (the cache now refuses
+    # one) still completes, with the music hold keyed on the filename.
+    res = _gather(tmp_path, _md(TUNING),
+                  _factory(FakeChecker({F["d1t02"]: Outcome("music", 550, float("nan"))})))
+    assert res.show.needs_review is True
+    (flag,) = [f for f in res.show.review_flags if f.startswith(junk_titles.MUSIC_PREFIX)]
+    assert flag.endswith(f"file {F['d1t02']}")

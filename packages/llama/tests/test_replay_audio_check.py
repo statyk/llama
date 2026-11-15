@@ -114,3 +114,18 @@ def test_arm_row_junk_drops_carry_outcome(tmp_path):
     assert (crowd["check"], crowd["run_sec"], crowd["frac"], crowd["check_error"]) == \
         ("unchecked", None, None, "no cached verdict")
     assert json.loads(json.dumps(r.to_dict()))["junk_drops"] == r.junk_drops
+
+
+@pytest.mark.parametrize("frac", [float("nan"), float("inf"), float("-inf")])
+def test_replay_non_finite_music_verdict_is_unchecked_not_a_raise(tmp_path, frac):
+    # write_verdicts json.dumps a non-finite frac as NaN/Infinity, which json.loads reads
+    # back: corrupt content (the whole cache is unreadable), never a raise out of gather.
+    ws, _ = _library_show(tmp_path, held=False)
+    md = drop_tuning(tmp_path)
+    cache_verdict(ws, md, verdict="music", run_sec=300, frac=frac)
+    r = _replay(tmp_path, ws)
+    assert r.unreplayable is None
+    d = r.junk_drops[0]
+    assert (d["check"], d["run_sec"], d["frac"], d["check_error"]) == \
+        ("unchecked", None, None, "verdict cache unreadable")
+    json.dumps(r.to_dict(), allow_nan=False)

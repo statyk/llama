@@ -314,3 +314,59 @@ def test_cache_not_a_stage_artifact(tmp_path):
     ws = ShowWorkspace(tmp_path)
     assert ws.audio_check == tmp_path / "audio-check.json"
     assert ws.audio_check not in sum((show_stage_artifacts(ws, s) for s in SHOW_STAGE_ORDER), [])
+
+
+def _raw_entry(**kw):
+    entry = {"identifier": ID, "filename": "d1t01.mp3", "md5": "aaa", "verdict": "music",
+             "run_sec": 300, "frac": 0.9, "version": rule.VERSION,
+             "checked_at": "2026-11-14T00:00:00Z"}
+    entry.update(kw)
+    return entry
+
+
+@pytest.mark.parametrize("token", ["NaN", "Infinity", "-Infinity"])
+def test_non_finite_frac_is_corrupt_content(tmp_path, fake_classify, token):
+    # json.loads accepts these tokens; a non-finite frac would raise later (music_flag's
+    # int(round(...))) or write non-standard JSON into arm rows and members.json.
+    p = tmp_path / "audio-check.json"
+    p.write_text('{"entries": [{"identifier": "%s", "filename": "d1t01.mp3", "md5": "aaa", '
+                 '"verdict": "music", "run_sec": 300, "frac": %s, "version": "%s", '
+                 '"checked_at": "2026-11-14T00:00:00Z"}]}' % (ID, token, rule.VERSION))
+    with pytest.raises(CacheUnreadable) as ei:
+        lookup(p, ID, "d1t01.mp3", META)
+    assert not isinstance(ei.value, CacheReadError)
+    assert Checker(p, META, ID).check("d1t01.mp3") == Outcome(
+        "unchecked", None, None, error="verdict cache unreadable")
+    chk = Checker(p, META, ID, ia=FakeIA(), tmp_dir=tmp_path / "tmp")
+    assert chk.check("d1t01.mp3") == Outcome("music", 300, 0.9)   # online: recomputed
+    write_verdicts(p, chk.new_verdicts)                            # corrupt content: overwritten
+    assert json.loads(p.read_text())["entries"][0]["frac"] == 0.9
+
+
+@pytest.mark.parametrize("bad", [{"md5": ["x"]}, {"md5": 5}, {"md5": None},
+                                 {"md5": None, "size": ["4000"]}, {"md5": None, "size": True},
+                                 {"md5": None, "size": {"n": 1}}, {"md5": None, "size": 1.5}])
+def test_mistyped_identity_is_corrupt_content_and_overwritten(tmp_path, fake_classify, bad):
+    entry = _raw_entry(**bad)
+    if entry.get("md5") is None and "size" in bad:
+        del entry["md5"]
+    p = tmp_path / "audio-check.json"
+    p.write_text(json.dumps({"entries": [entry]}))
+    with pytest.raises(CacheUnreadable) as ei:
+        lookup(p, ID, "d1t01.mp3", META)
+    assert not isinstance(ei.value, CacheReadError)
+    assert Checker(p, META, ID).check("d1t01.mp3").error == "verdict cache unreadable"
+    chk = Checker(p, META, ID, ia=FakeIA(), tmp_dir=tmp_path / "tmp")
+    assert chk.check("d1t01.mp3").check == "music"
+    write_verdicts(p, chk.new_verdicts)               # no TypeError (unhashable list)
+    assert lookup(p, ID, "d1t01.mp3", META).verdict == "music"
+
+
+@pytest.mark.parametrize("ident", [{"md5": "aaa"}, {"size": "4000"}, {"size": 4000},
+                                   {"size": None}])
+def test_identity_types_the_writer_writes_are_readable(tmp_path, ident):
+    entry = {k: v for k, v in _raw_entry().items() if k != "md5"}
+    entry.update(ident)
+    p = tmp_path / "audio-check.json"
+    p.write_text(json.dumps({"entries": [entry]}))
+    assert cache._read_entries(p) == [entry]
