@@ -45,7 +45,15 @@ class CacheUnreadable(LlamaError):
     its `entries` is missing or not a list, or any entry is not an object carrying a
     string `identifier`/`filename`, an `md5` or `size` key, a `verdict` of `music` or
     `junk`, an integer `run_sec`, a numeric `frac`, and string `version`/`checked_at`.
+    Invalid encoding (not UTF-8) counts as invalid JSON.
     """
+
+
+class CacheReadError(CacheUnreadable):
+    """The verdict cache exists but could not be READ (an OSError other than a missing
+    file: permission, a transient disk or SMB error). Its content may be fine, so
+    `write_verdicts` refuses to overwrite it; `lookup` and `Checker` treat it like any
+    other unreadable cache."""
 
 
 @dataclass(frozen=True)
@@ -109,15 +117,16 @@ def _valid_entry(e: object) -> bool:
 
 
 def _read_entries(cache_path: Path) -> list[dict] | None:
-    """The stored entries; None when the file does not exist. Raises CacheUnreadable."""
+    """The stored entries; None when the file does not exist. Raises CacheReadError
+    when the file cannot be read, CacheUnreadable when its content is corrupt."""
     try:
-        text = Path(cache_path).read_text()
+        raw = Path(cache_path).read_bytes()
     except FileNotFoundError:
         return None
     except OSError as exc:
-        raise CacheUnreadable(f"cannot read {cache_path}: {exc}") from exc
+        raise CacheReadError(f"cannot read {cache_path}: {exc}") from exc
     try:
-        data = json.loads(text)
+        data = json.loads(raw.decode("utf-8"))
     except ValueError as exc:
         raise CacheUnreadable(f"{cache_path} is not valid JSON: {exc}") from exc
     if not isinstance(data, dict) or not isinstance(data.get("entries"), list):
@@ -150,12 +159,19 @@ def _now() -> str:
 
 def write_verdicts(cache_path: Path, entries: "list[tuple[dict, Result]]", *, now: str | None = None) -> None:
     """Merge `entries` into the cache by identity (a new verdict replaces the stored
-    one for the same identity) and write atomically. An unreadable existing file is
-    overwritten. Nothing to write writes nothing."""
+    one for the same identity) and write atomically. Nothing to write writes nothing.
+
+    An existing file whose CONTENT is corrupt (invalid encoding, invalid JSON, wrong
+    shape) is overwritten. An existing file that cannot be READ raises CacheReadError
+    and nothing is written, so a transient read error never erases stored verdicts.
+    The atomic write itself may raise OSError. The caller must hold the show lock
+    (this is a read-modify-write)."""
     if not entries:
         return
     try:
         existing = _read_entries(cache_path) or []
+    except CacheReadError:
+        raise
     except CacheUnreadable:
         existing = []
     at = now or _now()
@@ -224,10 +240,14 @@ class Checker:
 
     def _compute(self, filename: str, ident: dict) -> "tuple[Result | None, str | None]":
         """Fetch and classify one file; (result, None) or (None, reason)."""
-        if self.tmp_dir is not None:
-            Path(self.tmp_dir).mkdir(parents=True, exist_ok=True)
-        work = Path(tempfile.mkdtemp(prefix="audio-check-", dir=self.tmp_dir))
+        work: Path | None = None
         try:
+            try:
+                if self.tmp_dir is not None:
+                    Path(self.tmp_dir).mkdir(parents=True, exist_ok=True)
+                work = Path(tempfile.mkdtemp(prefix="audio-check-", dir=self.tmp_dir))
+            except Exception as exc:
+                return None, f"fetch failed: cannot make a temp dir: {exc}"
             dest = work / Path(filename).name
             try:
                 path = self.ia.download_file(self.identifier, filename, dest, md5=ident.get("md5"))
@@ -246,4 +266,5 @@ class Checker:
             except Exception as exc:
                 return None, f"audio check failed: {type(exc).__name__}: {exc}"
         finally:
-            shutil.rmtree(work, ignore_errors=True)
+            if work is not None:
+                shutil.rmtree(work, ignore_errors=True)

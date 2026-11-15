@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from llama.audio_check import cache, classify, decode, model, rule
-from llama.audio_check.cache import CacheUnreadable, Checker, Outcome, identity, lookup, write_verdicts
+from llama.audio_check.cache import CacheReadError, CacheUnreadable, Checker, Outcome, identity, lookup, write_verdicts
 from llama.audio_check.classify import Result
 from llama.workspace import SHOW_STAGE_ORDER, ShowWorkspace, show_stage_artifacts
 
@@ -132,6 +132,60 @@ def test_wrong_shape_is_unreadable(tmp_path, text):
     p.write_text(text)
     with pytest.raises(CacheUnreadable):
         lookup(p, ID, "d1t01.mp3", META)
+
+
+def test_binary_garbage_is_unreadable_not_a_raise(tmp_path, fake_classify):
+    p = tmp_path / "audio-check.json"
+    p.write_bytes(b"\xff\xfe\x00garbage")
+    with pytest.raises(CacheUnreadable) as ei:
+        lookup(p, ID, "d1t01.mp3", META)
+    assert not isinstance(ei.value, CacheReadError)
+    assert Checker(p, META, ID).check("d1t01.mp3") == Outcome(
+        "unchecked", None, None, error="verdict cache unreadable")
+    chk = Checker(p, META, ID, ia=FakeIA(), tmp_dir=tmp_path / "tmp")
+    assert chk.check("d1t01.mp3").check == "music"
+    write_verdicts(p, chk.new_verdicts)  # corrupt content is overwritten
+    assert lookup(p, ID, "d1t01.mp3", META).verdict == "music"
+
+
+def test_unreadable_read_is_never_overwritten(tmp_path, monkeypatch, fake_classify):
+    p = tmp_path / "audio-check.json"
+    _store(p, "d1t01.mp3", verdict="music")
+    _store(p, "d1t02.mp3", verdict="junk", run_sec=0, frac=0.0)
+    before = p.read_bytes()
+    real = Path.read_bytes
+
+    def denied(self):
+        if self == p:
+            raise PermissionError(13, "Permission denied")
+        return real(self)
+
+    monkeypatch.setattr(Path, "read_bytes", denied)
+    with pytest.raises(CacheReadError):
+        lookup(p, ID, "d1t01.mp3", META)
+    assert Checker(p, META, ID).check("d1t01.mp3").error == "verdict cache unreadable"
+    chk = Checker(p, META, ID, ia=FakeIA(), tmp_dir=tmp_path / "tmp")
+    assert chk.check("d1t03.mp3").check == "music"  # online: a miss, recomputed
+    with pytest.raises(CacheReadError):
+        write_verdicts(p, chk.new_verdicts)
+    monkeypatch.undo()
+    assert p.read_bytes() == before
+    assert [x.name for x in tmp_path.iterdir() if x.name != "tmp"] == ["audio-check.json"]
+
+
+def test_unusable_tmp_dir_is_unchecked_not_a_raise(tmp_path, fake_classify):
+    ia = FakeIA()
+    chk = Checker(tmp_path / "audio-check.json", META, ID, ia=ia, tmp_dir=Path("/dev/null/zz"))
+    out = chk.check("d1t01.mp3")
+    assert out.check == "unchecked" and out.error.startswith("fetch failed")
+    assert ia.calls == [] and fake_classify.calls == [] and chk.new_verdicts == []
+
+
+def test_unusable_tmp_dir_on_stale_keeps_stale(tmp_path, fake_classify):
+    p = tmp_path / "audio-check.json"
+    _store(p, "d1t01.mp3", verdict="music", version="old")
+    out = Checker(p, META, ID, ia=FakeIA(), tmp_dir=Path("/dev/null/zz")).check("d1t01.mp3")
+    assert (out.check, out.stale) == ("music", True) and "temp dir" in out.error
 
 
 def test_lookup_missing_file_is_none(tmp_path):
