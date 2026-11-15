@@ -167,7 +167,9 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
     `kind = "needs-llm"`. A delivered show first plans its audio reuse strictly (its
     outcome is not known yet), so an unpaired or unreadable station copy spends no
     call. An LLM failure there escapes before any write (the list runner records a
-    retryable row failure); a dry run makes no call (`dry-run: needs-llm`)."""
+    retryable row failure); a dry run makes no call: it reports `dry-run: needs-llm`, or
+    `dry-run: skipped: unchecked drop (<files>)` when a drop seen before the recompute
+    is unchecked (a prediction: the recompute can change the drops)."""
     ws = entry.ws
     if dry_run:
         with file_lock(ws.lock):
@@ -233,6 +235,14 @@ def _reapply(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
     gather_llm = False
     if with_gather_llm and legs.needs_llm and set(legs.needs_llm) <= GATHER_LLM:
         if dry_run:
+            # A dry run makes no LLM call, so it predicts the commit-point gate below
+            # from the drops seen BEFORE the gather-LLM recompute (which can add or
+            # remove drops; the live gate stays after it). An unchecked drop previews
+            # the skip; otherwise the recompute is needed.
+            unchecked = unchecked_drops(legs)
+            if unchecked:
+                return result(f"dry-run: {UNCHECKED_DROP} ({', '.join(unchecked)})", "none",
+                              legs.flags)
             return result("dry-run: needs-llm", legs.brief, legs.flags, kind="needs-llm")
         if delivered:
             # The outcome is not known yet, so every delivered show is checked: an

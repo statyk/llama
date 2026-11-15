@@ -994,8 +994,10 @@ Nothing here is done by an implementer or the orchestrator.
    **Clear `unchecked` on the needs-llm members before step 5.** A show in
    `H/list/reapply-needs-llm.json` whose drop is still `unchecked` pays its gather LLM calls in
    the `--with-gather-llm` wave and only then reaches the unchecked-drop gate, so it skips
-   after spending, and its retry spends again (a dry run cannot preview this: `--dry-run
-   --with-gather-llm` reports `needs-llm` first). Repair or accept such a failure now, while a
+   after spending, and its retry spends again. `--dry-run --with-gather-llm` previews the skip
+   (`would: <slug> -> skipped: unchecked drop (<files>)`) from the drops seen before the LLM
+   recompute; that is a prediction, because the recompute can add or remove drops, and the
+   applied run's gate stays after it. Repair or accept such a failure now, while a
    re-arm and rebuild are still allowed.
 5. **Mark.** `... junk_drop_rollout.py mark --list H/list/members.json` (dry run), then `--apply`.
    Exit 0 required; a stop (emcee running, station locked) is re-run after the cause is cleared.
@@ -1019,9 +1021,11 @@ Nothing here is done by an implementer or the orchestrator.
    input. Precedence: the skip is decided after the (last) recompute and before the needs-llm
    outcome, so on an apply it wins over `needs-llm`, with or without `--with-gather-llm` (with
    it, the gather LLM calls have already been spent: see step 4); the earlier skips
-   (`skipped: re-selection`, `processed`, `not held`, `inputs changed`) win over it. The one
-   exception is `--dry-run --with-gather-llm`, which reports `dry-run: needs-llm` before it
-   reaches the gate.
+   (`skipped: re-selection`, `processed`, `not held`, `inputs changed`) win over it. A
+   `--dry-run --with-gather-llm` makes no LLM call, so it previews the skip from the drops
+   seen before the recompute (`would: <slug> -> skipped: unchecked drop (<files>)`, else
+   `would: <slug> -> needs-llm`); that is a prediction, because the recompute can add or remove
+   drops, and the applied run decides after it.
    **Retry loop** (the one description of it; the CLAUDE.md files point here). Do it once per
    list whose applied run recorded such skips (`reapply-replayable.json` and
    `reapply-needs-llm.json` each have their own batch), after that list's waves have

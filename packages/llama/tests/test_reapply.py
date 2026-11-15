@@ -2694,6 +2694,47 @@ def test_reapply_with_gather_llm_new_drop_unchecked_skips(tmp_path, monkeypatch)
     assert tree_bytes(entry.ws.dir) == before
 
 
+def _needs_align_with_tuning_drop(root, config):
+    """`_needs_align`, but the TUNING track keeps its (retitled) tape title, so the
+    first, deterministic replay already drops it and still needs align_structure."""
+    _needs_align(root, config)
+    md = drop_tuning(root)
+    for shows in (root / "shows").iterdir():
+        ws = ShowWorkspace(shows)
+        ov = read_model(ws.overrides, Overrides)
+        write_artifact(ws.overrides, ov.model_copy(update={
+            "titles": {f: t for f, t in ov.titles.items() if f != TUNING}}))
+    return md
+
+
+def test_reapply_dry_run_with_gather_llm_predicts_unchecked_skip(tmp_path):
+    # Final review I2: the dry run previews the commit-point skip from the drops seen
+    # before the gather-LLM recompute, instead of reporting needs-llm.
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align_with_tuning_drop(root, config)        # no cached verdict: unchecked
+    before = tree_bytes(entry.ws.dir)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    providers = _gl_providers(align, [OK_BRIEF])
+    out = _run(config, ledger, entry, providers, with_gather_llm=True, dry_run=True)
+    assert out.outcome == f"dry-run: skipped: unchecked drop ({TUNING})"
+    assert out.briefing == "none"
+    assert align.calls == [] and providers["brief"].calls == []
+    assert tree_bytes(entry.ws.dir) == before
+
+
+def test_reapply_dry_run_with_gather_llm_junk_drop_still_needs_llm(tmp_path):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    md = _needs_align_with_tuning_drop(root, config)
+    cache_verdict(entry.ws, md, TUNING, verdict="junk")
+    before = tree_bytes(entry.ws.dir)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    providers = _gl_providers(align, [OK_BRIEF])
+    out = _run(config, ledger, entry, providers, with_gather_llm=True, dry_run=True)
+    assert out.outcome == "dry-run: needs-llm"
+    assert align.calls == []
+    assert tree_bytes(entry.ws.dir) == before
+
+
 @pytest.mark.parametrize("verdict,outcome", [("junk", "cleared"), ("music", "held")])
 def test_reapply_commits_when_all_drops_junk_or_music(tmp_path, monkeypatch, verdict, outcome):
     root, config, ledger, entry, _ = _env(tmp_path)
