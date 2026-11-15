@@ -195,7 +195,7 @@ metadata from the IA cache's `md_<id>.json`) and by the pre-pass.
 - `unchecked`: nothing changes except the record.
 
 **Where the outcome is recorded.** Each drop's outcome (`check`: `music` | `junk` |
-`unchecked`; `run`; `frac`; and for `unchecked` a short `check_error`) is written on the
+`unchecked`; `run_sec`; `frac`; and for `unchecked` a short `check_error`) is written on the
 drop's `excluded_files` row in `show.json`, carried in `JunkDrop`, and in the replay arm
 rows' `junk_drops`. It is not written to the manifest: nothing station-side reads it, so the
 manifest model is unchanged and free-text `check_error` stays out of station manifests.
@@ -300,7 +300,7 @@ held shows out of re-voicing.
 **The commit-point gate (unchecked drops; operator, 2026-11-14).** Unvoiced members are
 re-delivered and then voiced by emcee in ordinary rotation, reaching the same costly undo as
 a re-voice, and the expected unchecked count after the pre-pass is near zero. So the rollout
-has one commit-point rule: when `reapply` runs from a rollout list, a show whose freshly
+has one commit-point rule: when `reapply` runs (any reapply, operator 2026-11-14), a show whose freshly
 computed junk-title drops include any outcome other than `junk` or `music` **writes nothing**
 and returns a retryable `skipped: unchecked drop` naming the files. This covers voiced and
 unvoiced members alike, and drops that first appear at reapply (`--with-gather-llm`). The
