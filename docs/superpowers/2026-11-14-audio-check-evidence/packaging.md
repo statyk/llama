@@ -71,23 +71,26 @@ gomez-2006-03-21 "Silence" (round 1). Space/Drums reads music in 7 of 12, as the
 ## CI rehearsal (Steps 5-6)
 
 Run 43678663853 (`release.yml`, ref `audio-check` @ 64c97ffa, version
-`2.24.0-rc.audiocheck1`, `skip_release=true`), 2026-11-15. Before = the v2.23.0 release
-artifact of the same leg, unpacked. Startup is not measured on the non-macOS legs (their
-binaries do not run on the build Mac); the smoke column is the build's own
+`2.24.0-rc.audiocheck1`, `skip_release=true`), 2026-11-15; attempt 1 green on linux and
+windows, attempt 2 (`gh run rerun --failed`) green on macOS. Before = the v2.23.0 release
+artifact of the same leg, unpacked (macOS: the installed v2.23.0 release binary). Startup
+is not measured on the non-macOS legs (their binaries do not run on the build Mac); macOS
+startup is the median of 5 warm `llama --version` runs after one discarded warm-up, both
+binaries measured in the same session. The smoke column is the build's own
 `llama _audio-check` on the source-tree tone.
 
 | leg | before size | after size | before startup | after startup | smoke |
 |---|---|---|---|---|---|
 | linux x64 | 32,354,616 B | 77,495,112 B | not measured | not measured | `verdict=junk run=0 frac=0.00` |
 | linux arm64 | 31,283,192 B | 72,748,600 B | not measured | not measured | `verdict=junk run=0 frac=0.00` |
-| macos arm64 | 18.2 MB | _TBD_ | 1.51 s | _TBD_ | _TBD_: leg FAILED before llama was built |
+| macos arm64 | 18,159,616 B | 58,116,208 B | 1.34 s | 1.58 s | `verdict=junk run=0 frac=0.00` |
 | windows x64 | 19,385,576 B | 60,835,488 B | not measured | not measured | `verdict=junk run=0 frac=0.00` |
 
 macOS arm64: the leg failed while notarizing `emcee` (built first): `xcrun notarytool`
 returned HTTP 403, "A required agreement is missing or has expired". This is an Apple
-Developer account agreement, not a code fault; no `macos-arm64` artifact was uploaded.
-The macOS row, and the labelled gate on its signed artifact, wait for the agreement to be
-renewed and the failed job re-run.
+Developer account agreement, not a code fault; no `macos-arm64` artifact was uploaded by
+attempt 1. The operator renewed the agreement and attempt 2 re-ran the failed job:
+notarization `Accepted`, smoke green.
 
 Archive contents (PyInstaller `archive_viewer -l -r` on each downloaded `llama`):
 
@@ -102,6 +105,11 @@ Archive contents (PyInstaller `archive_viewer -l -r` on each downloaded `llama`)
 - linux: no standalone `libonnxruntime*.so`; the core is linked into the pybind `.so`
   (only `libonnxruntime_providers_shared.so` is separate). The smoke step proves it loads.
 
-Labelled gate on the downloaded, signed `macos-arm64` artifact: _TBD_ (blocked on the
-macOS re-run above). Mandatory: the build's smoke step runs before signing, so this is
+Labelled gate on the downloaded, signed `macos-arm64` artifact (attempt 2): **exit 0,
+PASS, 145 of 145 tracks found, 0 flips**; per group identical to the local build above
+(drops 118: 31 music / 87 junk / 0 unchecked; control songs 12/12 music; Space/Drums 7
+music / 5 junk; Gomez "Silence" 3 music), and the gate log is byte-identical to the
+local-build run. The binary: hardened runtime, Developer ID team 4Y5LUH8C5W,
+`codesign --verify --strict` valid, `spctl -a -t install` "Notarized Developer ID" (no
+stapled ticket, as usual for a bare CLI). `_audio-check` on the tone: 2.21 s. Mandatory: the build's smoke step runs before signing, so this is
 the only check of the signed, hardened-runtime binary loading the onnxruntime dylib.
