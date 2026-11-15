@@ -6,6 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from llama.audio_check import model, rule
 
@@ -106,3 +107,27 @@ def test_rule_reproduces_spike_on_population2():
         if got != (r["music_chosen"] == "True"):
             bad.append((r["slug"], r["source_file"], r["run_055"], r["frac_055"], r["music_chosen"]))
     assert not bad, bad
+
+
+def test_bin_membership_includes_tail_frames():
+    # F=25, 20 s -> 2 bins of 12 and 13 frames; only frame 24 (bin 1's last) is non-zero.
+    a = np.zeros((25, 521))
+    a[24, 0] = 1.3
+    w = rule.windows(a, 20.0)
+    assert w[0, 0] == 0.0
+    assert abs(w[1, 0] - 0.1) < 1e-9
+
+
+def test_run_is_longest_consecutive_not_total():
+    frames = np.vstack(
+        [scores(80, music=0.9), scores(10, speech=0.9), scores(50, music=0.9)]
+    )
+    m = rule.measure(frames, 140.0)  # 14 windows: 8 musical, 1 talk, 5 musical
+    assert m == rule.Measure(run_sec=80, frac=13 / 14)
+
+
+@pytest.mark.parametrize("label", [d for d in _DRUMS if d != "Drum kit"])
+def test_each_drum_label_alone_counts_as_musical(label):
+    a = scores(260, music=0.0)
+    a[:, model.CLASS_NAMES.index(label)] = 0.6
+    assert rule.verdict(rule.measure(a, 125.0)) == "music"
