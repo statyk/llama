@@ -1,5 +1,5 @@
 """Junk-title drop rule: pure planning of which gathered tracks to drop on
-their title alone (tuning / crowd noise / silence anywhere; intro words at a
+their title alone (tuning / crowd noise anywhere; intro words at a
 show or set start; outro words at the show end).
 
 Authority: docs/superpowers/specs/2026-11-13-junk-tag-drop-design.md, "The
@@ -25,7 +25,7 @@ BREAKER_MEDIAN_MULTIPLE = 1.0
 BREAKER_NEEDED = 2
 
 # Operator's vocabulary; never widen.
-_W = r"(?:tuning(?:\s*up)?|tune\s*up|crowd(?:\s+noise)?|silence)"
+_W = r"(?:tuning(?:\s*up)?|tune\s*up|crowd(?:\s+noise)?)"
 _INTRO = r"(?:intro(?:duction)?s?)"
 _OUTRO = r"(?:outros?)"
 _A = re.compile(_W, re.I)

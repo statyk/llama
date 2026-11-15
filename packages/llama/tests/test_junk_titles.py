@@ -1,5 +1,6 @@
 import pytest
 
+from llama import junk_titles
 from llama.junk_titles import (
     DropInput as D, JunkDrop, held, hold_flag, plan_drops, renumber_text, show_stats,
 )
@@ -11,7 +12,7 @@ def _drops(rows, **kw):   # rows: (title, set) pairs; filename f"f{i}.mp3", dura
 
 
 @pytest.mark.parametrize("title", ["Tuning", "crowd", "Crowd Noise", "Crowd/Tuning", "crowd & tuning",
-    "Tuning Up", "Tune Up", "tuneup", "Silence", "TUNING", "(crowd)", "[crowd]", "***crowd noise***",
+    "Tuning Up", "Tune Up", "tuneup", "TUNING", "(crowd)", "[crowd]", "***crowd noise***",
     "Crowd + Tuning", "Crowd~", "01 Tuning", "Tuning (2:01)"])
 def test_rule_a_drops_anywhere(title):
     assert _drops([("Song", "1"), (title, "1"), ("Song 2", "1")]) == [(1, "A")]
@@ -123,3 +124,17 @@ def test_renumber_text_does_not_read_times_as_tracks():
 @pytest.mark.parametrize("title", ["-> Crowd", "-> Intro"])
 def test_last_track_leading_arrow_never_drops_under_any_rule(title):
     assert plan_drops([D("a", "S", "1", 100.0), D("b", title, "2", 100.0)]) == []
+
+
+@pytest.mark.parametrize("title", ["Silence", "silence", "SILENCE"])
+def test_silence_is_not_junk(title):
+    assert not junk_titles.is_a_title(title)
+
+
+def test_crowd_and_tuning_still_junk():
+    assert junk_titles.is_a_title("Crowd/Tuning") and junk_titles.is_a_title("Tune Up")
+
+
+def test_crowd_slash_silence_pinned():
+    # Combo grammar needs every part junk; "silence" no longer is, so the combo is not junk.
+    assert not junk_titles.is_a_title("Crowd/Silence")
