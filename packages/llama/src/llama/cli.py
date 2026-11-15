@@ -5414,6 +5414,31 @@ def audio_check_cmd(file: Path = typer.Argument(..., help="An MP3 or FLAC file")
     typer.echo(f"verdict={res.verdict} run={res.run_sec} frac={res.frac:.2f}")
 
 
+@app.command("audio-prepass", rich_help_panel="Sessions & config")
+def audio_prepass_cmd(
+    out: Path = typer.Option(..., "--out", help="Directory for summary.json (the rollout dir)"),
+    arm: Path = typer.Option(None, "--arm", help="Also check this replay arm's junk_drops"),
+    from_skips: Path = typer.Option(None, "--from-skips",
+                                    help="Also check the files of a reapply progress.jsonl's "
+                                         "'skipped: unchecked drop' rows"),
+    slug: list[str] = typer.Option(None, "--slug", help="Only these shows (repeatable)"),
+):
+    """Fill each library show's audio-check verdict cache before the junk-drop rollout's arm.
+
+    Classifies every junk-titled track (from the station copy when it pairs and its
+    length checks, else from archive.org) and writes only `<show>/audio-check.json`
+    and `OUT/summary.json`. Resumable: current cached verdicts are not recomputed.
+    Exits 3, writing nothing, when the classifier cannot load."""
+    from llama.audio_check import prepass
+
+    config, ia, _ledger = _setup()
+    rc = prepass.run(config.root, ia, out, station_root=config.delivery_path, arm=arm,
+                     from_skips=from_skips, slugs=list(slug or []),
+                     echo=typer.echo, err=lambda m: typer.echo(m, err=True))
+    if rc:
+        raise typer.Exit(rc)
+
+
 @config_app.command("init")
 def config_init(
     stdout: bool = typer.Option(False, "--stdout",
