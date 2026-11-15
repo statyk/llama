@@ -965,6 +965,13 @@ Nothing here is done by an implementer or the orchestrator.
    file and re-run the pre-pass (current verdicts are not recomputed; failures are retried), or
    accept it as a recorded failure: its drop then reads `unchecked` in `list` and `reapply`
    skips the show.
+   **Read the decode-failure count after every pre-pass.** The summary has no separate field
+   for it (the last line's `failed` counts every failure), so count the `files` rows whose
+   `error` starts `decode failed:`:
+   `python3 -c 'import json,sys; r=[f for f in json.load(open(sys.argv[1]))["files"] if (f.get("error") or "").startswith("decode failed:")]; print(len(r)); [print(f["slug"], f["source_file"], f.get("audio")) for f in r]' H/audio-prepass/summary.json`.
+   A show whose station copy cannot be decoded stays `skipped: unchecked drop` and marked until
+   a later per-show override exists (backlog, ruling R17), so report every such show to the
+   operator.
    **Any pre-pass run after an arm invalidates that arm for the shows it rewrote** (the cache
    file is one of replay's `input_digests`, so reapply would skip their rows as `skipped:
    inputs changed`, which is not retryable). Up to step 5: after every pre-pass, re-arm and
