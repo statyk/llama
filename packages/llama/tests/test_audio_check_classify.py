@@ -49,6 +49,26 @@ def test_non_audio_is_decode_error(tmp_path):
         decode.to_16k_mono(p)
 
 
+def test_wav_named_mp3_is_decode_error(tmp_path):
+    import wave
+
+    p = tmp_path / "x.mp3"
+    with wave.open(str(p), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(b"\x00\x01" * 48000)
+    with pytest.raises(decode.DecodeError):
+        decode.to_16k_mono(p)
+
+
+def test_ogg_content_is_decode_error(tmp_path):
+    p = tmp_path / "x.mp3"
+    p.write_bytes(b"OggS" + b"\x00" * 200)
+    with pytest.raises(decode.DecodeError):
+        decode.to_16k_mono(p)
+
+
 def test_truncated_mp3_is_decode_error(tmp_path):
     p = tmp_path / "cut.mp3"
     p.write_bytes(TONE.read_bytes()[:1500])

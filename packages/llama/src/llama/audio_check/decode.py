@@ -29,6 +29,7 @@ def to_16k_mono(path: Path) -> "tuple[np.ndarray, float]":
     try:
         with open(path, "rb") as fh:
             data = fh.read()
+        _check_format(path, data)
         decoded = miniaudio.decode(
             data,
             output_format=miniaudio.SampleFormat.SIGNED16,
@@ -45,6 +46,19 @@ def to_16k_mono(path: Path) -> "tuple[np.ndarray, float]":
         raise DecodeError(f"cannot decode {path.name}: no audio")
     return samples, samples.size / SAMPLE_RATE
 
+
+
+def _check_format(path: Path, data: bytes) -> None:
+    """Accept only FLAC, an ID3-tagged file, or an MPEG audio frame sync at byte 0.
+
+    Deliberately signature-only: some real MP3s carry a wrong ID3v2 size, so no sync is
+    demanded after the tag. miniaudio would otherwise decode WAV/Vorbis content too.
+    """
+    if data[:4] == b"fLaC" or data[:3] == b"ID3":
+        return
+    if len(data) >= 2 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0:
+        return
+    raise DecodeError(f"cannot decode {path.name}: not MP3 or FLAC by content")
 
 
 _BITRATES = {  # MPEG1 layer III, kbps by index
