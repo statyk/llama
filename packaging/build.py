@@ -28,6 +28,11 @@ DIST = PROJECT_ROOT / "dist"
 DIST_RELEASE = PROJECT_ROOT / "dist-release"
 ENTITLEMENTS = PROJECT_ROOT / "packaging" / "llama.entitlements"
 METADATA = PROJECT_ROOT / "packaging" / "metadata.json"
+# The junk-drop audio check's smoke input: the committed synthetic MP3 in the SOURCE
+# tree (not the copy bundled in the binary), so the frozen decoder, runtime and model
+# are exercised on a real MP3 path.
+AUDIO_CHECK_TONE = PROJECT_ROOT / "packages" / "llama" / "src" / "llama" / "data" / "audio_check_tone.mp3"
+_VERDICT_LINE = re.compile(r"verdict=(music|junk)(?:\s|$)")
 
 # Per-target lookups. Both binaries share one PyInstaller `dist/` output dir
 # (their exe names never collide), one entitlements file, and one signing
@@ -113,6 +118,35 @@ def smoke_test(target: str, version: str) -> None:
             f"expected {version!r}"
         )
     print(f"smoke test OK: {target} --version -> {got}")
+    if target == "llama":
+        audio_check_smoke(binary)
+
+
+def parse_audio_check_output(returncode: int, stdout: str) -> str:
+    """The verdict (`music`/`junk`) from `llama _audio-check`'s STDOUT, or ValueError.
+
+    Only stdout is read: `unchecked: <reason>` and any model-load warning go to
+    stderr. Exit 0 and a stdout that starts `verdict=music|junk` are both required."""
+    if returncode != 0:
+        raise ValueError(f"exited {returncode}")
+    m = _VERDICT_LINE.match(stdout)
+    if m is None:
+        raise ValueError(f"stdout does not start with a verdict: {stdout.strip()[:200]!r}")
+    return m.group(1)
+
+
+def audio_check_smoke(binary: Path) -> None:
+    """Fail the build unless the frozen binary classifies the synthetic MP3 (not unchecked)."""
+    res = subprocess.run([str(binary), "_audio-check", str(AUDIO_CHECK_TONE)],
+                         capture_output=True, text=True)
+    try:
+        parse_audio_check_output(res.returncode, res.stdout)
+    except ValueError as exc:
+        raise SystemExit(
+            f"smoke test failed: `llama _audio-check {AUDIO_CHECK_TONE.name}` {exc}\n"
+            f"stdout: {res.stdout}\nstderr: {res.stderr}"
+        )
+    print(f"smoke test OK: llama _audio-check -> {res.stdout.strip()}")
 
 
 # --- macOS code signing + notarization -------------------------------------

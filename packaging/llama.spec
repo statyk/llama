@@ -12,7 +12,7 @@ import re
 import sys
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 PROJECT_ROOT = Path(SPECPATH).parent  # type: ignore[name-defined]  # SPECPATH injected by PyInstaller
 
@@ -69,7 +69,15 @@ if sys.platform == "win32":
 
 # The one mandatory bundling step: prompt templates are loaded at runtime via
 # importlib.resources.files("llama.prompts").
+# llama.data also carries the junk-drop audio check's model (yamnet.onnx), its class
+# map and the synthetic smoke tone.
 datas = collect_data_files("llama.prompts") + collect_data_files("llama.data")
+
+# The audio check's runtime (imported lazily, inside functions): onnxruntime's native
+# library and provider plugins from onnxruntime/capi, and miniaudio's CFFI extension
+# `_miniaudio`, whose C-level import of `_cffi_backend` the import scan cannot see.
+binaries = collect_dynamic_libs("onnxruntime")
+hiddenimports = ["onnxruntime", "miniaudio", "_miniaudio", "_cffi_backend", "numpy"]
 
 a = Analysis(  # type: ignore[name-defined]
     [str(PROJECT_ROOT / "packages" / "llama" / "src" / "llama" / "__main__.py")],
@@ -77,9 +85,9 @@ a = Analysis(  # type: ignore[name-defined]
         str(PROJECT_ROOT / "packages" / "llama" / "src"),
         str(PROJECT_ROOT / "packages" / "herder" / "src"),
     ],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
