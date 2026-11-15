@@ -56,6 +56,9 @@ _PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # junk-title drop (spec "What a drop looks like"): the subject is the filename; the
     # duration and percentages in the flag never key it.
     (re.compile(r"^junk-title drop held for review: .* file (.+)$", re.S), "junk-drop", "raw"),
+    # The audio check's music hold: its own kind, keyed on the filename only, so a
+    # re-gather's slightly different measured numbers never change the key.
+    (re.compile(r"^junk-title drop sounds like music: .* file (.+)$", re.S), "junk-music", "raw"),
 ]
 
 

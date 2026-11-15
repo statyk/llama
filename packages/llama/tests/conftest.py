@@ -89,3 +89,43 @@ def _no_ambient_adjudication(monkeypatch):
     import llama.cli as cli
     monkeypatch.setattr(cli, "_adjudicate_enabled", lambda config, flag: bool(flag),
                         raising=False)
+
+
+class _NoRealAudioModel:
+    """What the faked `classify.get_model` returns: running it is a test bug."""
+
+    def frame_scores(self, wave):
+        raise AssertionError("a test ran the audio classifier model; take `real_classify` "
+                             "and fake `model.load`, or mark it `real_model`")
+
+
+@pytest.fixture(autouse=True)
+def _no_real_audio_classifier(request, monkeypatch):
+    """No test loads the real YAMNet runtime or classifies real audio (Task 6).
+
+    `classify.get_model` returns a stub that refuses to run, and
+    `classify.classify_file` returns a fixed `junk` verdict, so a pipeline test whose
+    gather checks a junk-title drop gets an ordinary `junk` outcome: no hold, no
+    change. Tests marked `real_model` keep both real. A test that needs the real
+    `classify_file` over a faked `model.load` takes `real_classify`. Yields the real
+    functions (empty for `real_model` tests)."""
+    if "real_model" in request.keywords:
+        yield {}
+        return
+    from llama.audio_check import classify
+
+    real = {"get_model": classify.get_model, "classify_file": classify.classify_file}
+    monkeypatch.setattr(classify, "get_model", lambda: _NoRealAudioModel())
+    monkeypatch.setattr(classify, "classify_file",
+                        lambda path: classify.Result("junk", 0, 0.0))
+    yield real
+
+
+@pytest.fixture
+def real_classify(monkeypatch, _no_real_audio_classifier):
+    """Restore the real `classify.get_model` and `classify.classify_file` after the
+    autouse fake (the test still fakes `model.load`, so nothing real loads)."""
+    from llama.audio_check import classify
+
+    for name, fn in _no_real_audio_classifier.items():
+        monkeypatch.setattr(classify, name, fn)

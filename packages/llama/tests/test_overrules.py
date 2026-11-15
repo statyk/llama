@@ -130,3 +130,15 @@ def test_junk_drop_flag_key_is_the_filename():
     assert ka == kb == FlagKey("junk-drop", ("gd73-06-10d1t02.mp3",))
     other = a.replace("d1t02", "d1t03")
     assert flag_key(other, _show()) != ka
+
+
+def test_junk_music_flag_key_is_the_filename():
+    a = ("junk-title drop sounds like music: 'Crowd' (9:19) 9:10 continuous, 98% music, "
+         "file gd73-06-10d1t02.mp3")
+    b = ("junk-title drop sounds like music: 'Crowd' (9:21) 9:00 continuous, 97% music, "
+         "file gd73-06-10d1t02.mp3")
+    ka, kb = flag_key(a, _show()), flag_key(b, _show())
+    assert ka == kb == FlagKey("junk-music", ("gd73-06-10d1t02.mp3",))
+    size = ("junk-title drop held for review: 'Crowd' (9:19, 8.5% of show, 0.75x median) "
+            "file gd73-06-10d1t02.mp3")
+    assert flag_key(size, _show()).kind == "junk-drop"

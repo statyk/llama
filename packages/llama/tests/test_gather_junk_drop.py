@@ -72,7 +72,10 @@ def test_tuning_track_drops_and_is_recorded(tmp_path):
                                                                 "d2t02", "d3t01")]
     assert show.excluded_files == [SPAM_ROW, {
         "filename": F["d1t02"], "reasons": ["junk title"], "duration_sec": 180.0,
-        "title": "Tuning", "set": "1", "after_track": 1}]
+        "title": "Tuning", "set": "1", "after_track": 1,
+        # audio check (2026-11-14): no checker here, so the drop is recorded unchecked
+        "check": "unchecked", "run_sec": None, "frac": None, "check_error": "no checker"}]
+    assert f"audio check skipped for {F['d1t02']}: no checker" in res.notes
     assert len(res.junk_drops) == 1
     drop = res.junk_drops[0]
     assert (drop.rule, drop.position, drop.after_track, drop.held) == ("A", 1, 1, False)
@@ -131,7 +134,8 @@ def test_set_of_only_dropped_tracks_vanishes(tmp_path):
     assert show.set_breaks == [3]
     assert show.excluded_files[-1] == {
         "filename": F["d3t01"], "reasons": ["junk title"], "duration_sec": 299.0,
-        "title": "Crowd", "set": "encore", "after_track": 5}
+        "title": "Crowd", "set": "encore", "after_track": 5,
+        "check": "unchecked", "run_sec": None, "frac": None, "check_error": "no checker"}
     assert show.needs_review is False
 
 

@@ -60,6 +60,8 @@ OVERRULE_BAR: dict[str, str] = {
     "lineage-unknown": "never", "misattribution": "medium",
     # a junk-title drop held for review: only an operator releases it.
     "junk-drop": "never",
+    # the audio check's music hold: only an operator releases it.
+    "junk-music": "never",
 }
 STRUCTURE_KINDS = {k for k, b in OVERRULE_BAR.items() if b == "structure"}
 

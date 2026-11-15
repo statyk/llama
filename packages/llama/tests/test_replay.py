@@ -493,6 +493,8 @@ def test_show_replay_to_dict_has_the_contract_keys_plus_date():
     ("unassigned multi-event tape", "events"),
     ("multi-event date: 2 shows", "events"),
     ("no playable tracks", "tracks"),
+    ("junk-title drop sounds like music: 'Crowd' (9:19) 9:10 continuous, 98% music, file x.mp3",
+     "junk-music"),
     ("research asserts something new", "other"),
     ("something else", "other"),
 ])

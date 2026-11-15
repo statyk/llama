@@ -16,6 +16,9 @@ from llama.titles import clean_tag_title
 
 REASON = "junk title"
 HOLD_PREFIX = "junk-title drop held for review: "
+# The audio check's hold (spec 2026-11-14-junk-drop-audio-check-design, "Its own
+# overrule"): a distinct kind, never a prefix of HOLD_PREFIX nor HOLD_PREFIX of it.
+MUSIC_PREFIX = "junk-title drop sounds like music: "
 
 # Breaker constants: operator-set, do not retune. A drop holds when at least
 # BREAKER_NEEDED of the three strict '>' tests pass.
@@ -58,6 +61,13 @@ class JunkDrop:
     position: int
     after_track: int
     held: bool
+    # The audio check's outcome (spec 2026-11-14-junk-drop-audio-check-design, "Where
+    # the outcome is recorded"): "music" | "junk" | "unchecked"; check_error only when
+    # unchecked. Defaults are a drop that was never checked.
+    check: str = "unchecked"
+    run_sec: int | None = None
+    frac: float | None = None
+    check_error: str | None = None
 
 
 def is_a_title(title: str) -> bool:
@@ -134,6 +144,16 @@ def hold_flag(drop: JunkDrop, *, total: float, median: float) -> str:
     x = f"{d / median:.2f}" if median else "0.00"
     return (f"{HOLD_PREFIX}'{drop.title}' ({s // 60}:{s % 60:02d}, {pct}% of show, "
             f"{x}x median) file {drop.filename}")
+
+
+def music_flag(drop: JunkDrop) -> str:
+    """The audio check's hold for a drop whose audio sounds like music. Ends in
+    `file <filename>` verbatim: the overrule keys on the filename alone."""
+    s = int(round(float(drop.duration_sec or 0)))
+    r = int(drop.run_sec or 0)
+    pct = int(round(100 * float(drop.frac or 0)))
+    return (f"{MUSIC_PREFIX}'{drop.title}' ({s // 60}:{s % 60:02d}) {r // 60}:{r % 60:02d} "
+            f"continuous, {pct}% music, file {drop.filename}")
 
 
 _REF = re.compile(

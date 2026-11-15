@@ -651,6 +651,8 @@ OVERRULE_CASES = [
     ("possible misattribution: scorer gave no attribution verdict", "misattribution", "medium"),
     ("junk-title drop held for review: 'Crowd' (6:40, 8.5% of show, 0.75x median) file x-d1t1.mp3",
      "junk-drop", "never"),
+    ("junk-title drop sounds like music: 'Crowd' (9:19) 9:10 continuous, 98% music, file x-d1t1.mp3",
+     "junk-music", "never"),
 ]
 
 

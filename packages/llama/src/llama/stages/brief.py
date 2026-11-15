@@ -293,6 +293,21 @@ def vetting_summary(show_ws: ShowWorkspace) -> str:
     return vetting_summary_text(read_model(show_ws.vetting, VettingResult))
 
 
+# The audio check's per-drop record (spec 2026-11-14-junk-drop-audio-check-design): kept
+# out of the briefing LLM's input, which sees every other `excluded_files` key as before.
+_AUDIO_CHECK_KEYS = ("check", "run_sec", "frac", "check_error")
+
+
+def _brief_show_json(show: Show) -> str:
+    """`show.json` as the brief prompt sees it: the audio check's four keys dropped
+    from each `excluded_files` row, nothing else changed."""
+    if not any(k in row for row in show.excluded_files for k in _AUDIO_CHECK_KEYS):
+        return show.model_dump_json(indent=2)
+    rows = [{k: v for k, v in row.items() if k not in _AUDIO_CHECK_KEYS}
+            for row in show.excluded_files]
+    return show.model_copy(update={"excluded_files": rows}).model_dump_json(indent=2)
+
+
 def generate_briefing(provider, show: Show, research_md: str, reviews: list[dict], *,
                       narration: str, vetting: VettingResult | None,
                       overrules: Sequence[Overrule] = ()) -> tuple[Briefing, list[str]]:
@@ -310,7 +325,7 @@ def generate_briefing(provider, show: Show, research_md: str, reviews: list[dict
     ones included: the caller splits them with the same rules into hold flags
     and `overruled: <flag>` notes. The default `()` is the rule-free behaviour."""
     inputs = dict(
-        show_json=show.model_dump_json(indent=2),
+        show_json=_brief_show_json(show),
         research=research_md or "(no research available)",
         vetting=vetting_summary_text(vetting),
         reviews_digest=reviews_digest(reviews),

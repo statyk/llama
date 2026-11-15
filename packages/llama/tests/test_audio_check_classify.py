@@ -21,7 +21,7 @@ class FakeModel:
 
 
 @pytest.fixture
-def fake_model(monkeypatch):
+def fake_model(monkeypatch, real_classify):
     import numpy as np
 
     scores = np.zeros((10, 521), dtype=np.float32)
@@ -102,7 +102,7 @@ def test_music_scores_give_music_verdict(monkeypatch, fake_model):
     assert res == classify.Result("music", 200, 1.0)
 
 
-def test_model_runtime_error_is_unavailable(monkeypatch):
+def test_model_runtime_error_is_unavailable(monkeypatch, real_classify):
     classify.reset_model_cache()
     monkeypatch.setattr(model, "load", lambda: FakeModel(exc=RuntimeError("boom")))
     with pytest.raises(model.ClassifierUnavailable, match="boom") as ei:
@@ -128,7 +128,7 @@ def test_silent_file_is_junk(monkeypatch):
     classify.reset_model_cache()
 
 
-def test_unavailable_warns_once(monkeypatch, capsys):
+def test_unavailable_warns_once(monkeypatch, capsys, real_classify):
     classify.reset_model_cache()
 
     def boom():

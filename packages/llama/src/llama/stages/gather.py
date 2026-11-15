@@ -18,6 +18,7 @@ from llama.desc_list import DescRead, artist_names, drop_leading_artist_items, r
 from llama.lossless_titles import (SHIFTED_DELIVERED_NOTE, LosslessResult, apply_lossless,
                                    demoted_note)
 from llama import junk_titles
+from llama.audio_check import cache as audio_cache
 from llama.title_cosmetics import cosmetic_strip
 from llama.title_hygiene import DDecision, SetlistPlan
 from llama.models import (AlignedStructure, AlignResult, JerrybaseEvent, Candidate, Overrides,
@@ -1809,7 +1810,12 @@ class GatherResult(NamedTuple):
 
     Junk-title drop, in-process only: `junk_drops` are the tracks the rule dropped
     (`junk_titles.JunkDrop`, pre-drop positions), and `kept_positions` the pre-drop
-    0-based position of each kept track in order, None when nothing dropped."""
+    0-based position of each kept track in order, None when nothing dropped.
+
+    Audio check (spec 2026-11-14-junk-drop-audio-check-design), in-process only:
+    `new_verdicts` are the verdicts the checker computed this gather, as
+    `(identity, Result)` pairs for `audio_check.cache.write_verdicts`; `run_gather`
+    writes them, `compute_gather` never does."""
     show: Show
     reviews: list[dict]
     notes: list[str]
@@ -1822,6 +1828,7 @@ class GatherResult(NamedTuple):
     title_record: CascadeRecord | None = None
     junk_drops: tuple[junk_titles.JunkDrop, ...] = ()
     kept_positions: tuple[int, ...] | None = None
+    new_verdicts: tuple = ()
 
 
 # Slice 1 1d's hold (Contracts "Exact note and flag strings"); an operator
@@ -1926,6 +1933,7 @@ def compute_gather(
     llm_failures_raise: bool = False,
     allowlist: Allowlist | None = None,
     assessment: QualityAssessment | None = None,
+    checker_factory: "Callable[[str, dict], audio_cache.Checker] | None" = None,
 ) -> GatherResult:
     """Gather without the writes: `run_gather` minus `should_run` and the
     three artifacts. Reads `overrides.json` from `show_ws` and nothing else
@@ -1949,7 +1957,13 @@ def compute_gather(
     a `ts-` candidate for its `attribution` verdict (None or absent holds as
     misattribution). A `ts-` candidate whose selected recording the current entry
     forbids raises `LlamaError` (ruling R27): gather never re-gathers a forbidden tape
-    on a path that skips select (replay, reapply, redo/fix from gather)."""
+    on a path that skips select (replay, reapply, redo/fix from gather).
+
+    `checker_factory` (audio check): called as `checker_factory(identifier, metadata)`
+    only when the junk-title drop dropped something; the checker's outcome for each
+    drop is recorded on its `excluded_files` row and `JunkDrop`, and a `music` outcome
+    adds a hold flag. None records every drop `unchecked` ("no checker"). The check
+    never changes the kept track list."""
     structure_cfg = structure_cfg or StructureConfig()
     # Operator-facing notes for notes.json are `op_notes` below, deliberately a
     # SEPARATE list from the local `notes`, which keeps flowing into
@@ -2459,24 +2473,28 @@ def compute_gather(
     # is not re-run, so kept tracks keep their set labels). No drop, no change.
     junk_drops: tuple[junk_titles.JunkDrop, ...] = ()
     kept_positions: tuple[int, ...] | None = None
+    new_verdicts: tuple = ()
     jd = _junk_drop(tracks, arrowed=frozenset(cascade.record.short2a_arrowed),
                     include=frozenset(overrides.include))
     if jd is not None:
-        junk_drops, kept_positions = jd.drops, jd.kept_positions
+        # Audio check (spec 2026-11-14-junk-drop-audio-check-design): records an outcome
+        # on each drop; never changes which tracks drop or are kept (`jd.kept`).
+        junk_drops, new_verdicts, check_notes = _audio_check(
+            jd.drops, checker_factory, identifier, md)
+        kept_positions = jd.kept_positions
         tracks = jd.kept
         breaks = set_breaks(tracks)
         flags = [junk_titles.renumber_text(f, jd.numbers) for f in flags]
         op_notes = [junk_titles.renumber_text(n, jd.numbers) for n in op_notes]
+        op_notes += check_notes   # after renumbering: a filename is never renumbered
         if structure_info is not None:
             structure_info = structure_info.model_copy(update={"conflicts": [
                 junk_titles.renumber_text(c, jd.numbers) for c in structure_info.conflicts]})
         title_paths = tuple(title_paths[i] for i in kept_positions if i < len(title_paths))
-        excluded = list(excluded) + [
-            {"filename": d.filename, "reasons": [junk_titles.REASON],
-             "duration_sec": d.duration_sec, "title": d.title, "set": d.set,
-             "after_track": d.after_track} for d in junk_drops]
+        excluded = list(excluded) + [_junk_row(d) for d in junk_drops]
         flags += [junk_titles.hold_flag(d, total=jd.total, median=jd.median)
                   for d in junk_drops if d.held]
+        flags += [junk_titles.music_flag(d) for d in junk_drops if d.check == "music"]
         if not tracks and "no playable tracks" not in flags:
             flags.append("no playable tracks")
 
@@ -2518,7 +2536,76 @@ def compute_gather(
                         needs_llm=needs_llm, taper_owned=taper_owned, taper=decision,
                         step1_alignment=step1_alignment, self_filled=cascade.self_filled,
                         title_paths=title_paths, title_record=cascade.record,
-                        junk_drops=junk_drops, kept_positions=kept_positions)
+                        junk_drops=junk_drops, kept_positions=kept_positions,
+                        new_verdicts=new_verdicts)
+
+
+def _junk_row(d: junk_titles.JunkDrop) -> dict:
+    """A junk-title drop's `excluded_files` row, with the audio check's outcome
+    (`check_error` only when unchecked). Never written to the manifest."""
+    row = {"filename": d.filename, "reasons": [junk_titles.REASON],
+           "duration_sec": d.duration_sec, "title": d.title, "set": d.set,
+           "after_track": d.after_track, "check": d.check, "run_sec": d.run_sec,
+           "frac": d.frac}
+    if d.check == "unchecked":
+        row["check_error"] = d.check_error
+    return row
+
+
+def _failure(exc: BaseException) -> str:
+    return f"audio check failed: {type(exc).__name__}: {exc}"
+
+
+def _audio_check(drops: tuple[junk_titles.JunkDrop, ...], checker_factory, identifier: str,
+                 md: dict) -> tuple[tuple[junk_titles.JunkDrop, ...], tuple, list[str]]:
+    """(drops with their outcomes, new verdicts, gather notes). Never raises: a
+    missing checker, a factory or checker exception, or an outcome that is not one
+    of the three becomes `unchecked` with a reason (spec "Failure = unchecked"). A
+    stale verdict is used as stored (no `check_error`) and noted."""
+    checker, factory_error = None, "no checker"
+    if checker_factory is not None:
+        try:
+            checker = checker_factory(identifier, md)
+        except Exception as exc:
+            factory_error = _failure(exc)
+        else:
+            if checker is None:
+                factory_error = "no checker"
+    out: list[junk_titles.JunkDrop] = []
+    notes: list[str] = []
+    for d in drops:
+        if checker is None:
+            o = audio_cache.Outcome("unchecked", None, None, error=factory_error)
+        else:
+            try:
+                o = checker.check(d.filename)
+            except Exception as exc:
+                o = audio_cache.Outcome("unchecked", None, None, error=_failure(exc))
+        if getattr(o, "check", None) in ("music", "junk"):
+            if getattr(o, "stale", False):
+                notes.append(f"audio check used a stale verdict for {d.filename}")
+            out.append(replace(d, check=o.check, run_sec=o.run_sec, frac=o.frac,
+                               check_error=None))
+            continue
+        error = getattr(o, "error", None) if getattr(o, "check", None) == "unchecked" \
+            else f"audio check returned {o!r}"
+        error = error or "audio check failed"
+        notes.append(f"audio check skipped for {d.filename}: {error}")
+        out.append(replace(d, check="unchecked", run_sec=None, frac=None, check_error=error))
+    new: tuple = ()
+    if checker is not None:
+        try:
+            new = tuple(checker.new_verdicts)
+        except Exception:
+            new = ()
+    return tuple(out), new, notes
+
+
+def _online_checker(show_ws: ShowWorkspace, ia):
+    """`run_gather`'s checker factory: the show's verdict cache plus archive.org
+    fetch-and-classify (to a private temp dir, deleted after each file)."""
+    return lambda ident, md: audio_cache.Checker(show_ws.audio_check, md, ident, ia=ia,
+                                                 tmp_dir=None)
 
 
 @dataclass(frozen=True)
@@ -2599,12 +2686,22 @@ def run_gather(
         show_ws, ia, provider, candidate, identifier,
         audio_format=audio_format, align_provider=align_provider,
         setlistfm=setlistfm, structure_cfg=structure_cfg,
-        jerrybase_enabled=jerrybase_enabled, allowlist=allowlist, assessment=assessment)
+        jerrybase_enabled=jerrybase_enabled, allowlist=allowlist, assessment=assessment,
+        checker_factory=_online_checker(show_ws, ia))
+    notes = list(res.notes)
+    # The audio check's new verdicts go to the show's verdict cache first (before
+    # notes.json and show.json; the caller holds the show lock). A write failure is a
+    # note, never a raise: the verdicts are recomputed by the next gather.
+    if res.new_verdicts:
+        try:
+            audio_cache.write_verdicts(show_ws.audio_check, list(res.new_verdicts))
+        except Exception as exc:
+            notes.append(f"audio check cache not written: {exc}")
     # notes.json is REPLACED on every gather (`vet` reset: a vet note belongs
     # to the gather it was raised against), and written BEFORE show.json:
     # show.json is `should_run`'s done-marker, so a crash between the two
     # leaves gather to re-run rather than a new show.json beside stale notes.
-    write_artifact(show_ws.notes, ShowNotes(gather=res.notes, vet=[]))
+    write_artifact(show_ws.notes, ShowNotes(gather=notes, vet=[]))
     write_artifact(show_ws.show, res.show)
     write_artifact(show_ws.reviews, res.reviews)
     return res.show

@@ -19,7 +19,7 @@ from pathlib import Path
 import llama
 from llama.catalog import derive_state
 from llama.config import Config
-from llama import title_hygiene
+from llama import junk_titles, title_hygiene
 from llama.errors import LlamaError
 from llama.junk import basename_without_extension
 from llama.models import Briefing, Overrides, Overrule, Provenance, Show, VettingResult
@@ -175,6 +175,7 @@ _FAMILIES: tuple[tuple[str, Callable[[str], bool]], ...] = (
     ("package", lambda f: f.startswith(package_stage.FLAG_PREFIX)),
     ("lineage-unknown", lambda f: f.startswith("unclassified lineage for")),
     ("misattribution", lambda f: f.startswith("possible misattribution:")),
+    ("junk-music", lambda f: f.startswith(junk_titles.MUSIC_PREFIX)),
 )
 
 
