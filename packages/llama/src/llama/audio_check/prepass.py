@@ -24,8 +24,8 @@ library show lock) and `DIR/summary.json` (atomic, rewritten after every show so
 interrupted run leaves a valid file). Never the station lock, never the station tree.
 An existing `summary.json` is MERGED, keyed by (slug, source_file): this run's rows
 replace the prior ones, untouched prior rows are kept, and `finished_at` stays null
-until this run reaches its end (a corrupt one refuses, exit 2; delete DIR to start a
-fresh summary). No `delivery_path`, or an unreadable or empty station root, refuses
+until this run reaches its end (a corrupt one, or one written under another
+`rule.VERSION`, refuses, exit 2; delete DIR to start a fresh summary). No `delivery_path`, or an unreadable or empty station root, refuses
 (exit 2) before anything is written: the population gate measures the station copies.
 
 **Resumable:** a file whose cache already holds a verdict of the current
@@ -208,6 +208,12 @@ def read_prior_summary(path: Path) -> list[dict]:
             and isinstance(r.get("source_file"), str) for r in files):
         raise LlamaError(f"the existing summary {path} has the wrong shape; "
                          "fix or delete it (delete DIR to start a fresh summary)")
+    version = doc.get("version")
+    if not isinstance(version, str) or version != rule.VERSION:
+        have = version if isinstance(version, str) else "missing"
+        raise LlamaError(f"the existing summary {path} was written under version {have}; "
+                         f"this code is {rule.VERSION}: its verdicts must not merge with "
+                         "this run's (delete DIR to start a fresh summary)")
     return files
 
 

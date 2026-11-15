@@ -522,3 +522,42 @@ def test_prepass_corrupt_prior_summary_exits_2(tmp_path, durations, content):
     assert rc == 2 and str(out / "summary.json") in msgs[0]
     assert (out / "summary.json").read_text() == content       # never discarded
     assert not ws.audio_check.exists() and ia.downloads == []
+
+
+# --- fix round 2: a prior summary of another version never merges (R12) ---
+
+@pytest.mark.parametrize("version,shown", [("yamnet-onnx-0/rule-old", "yamnet-onnx-0/rule-old"),
+                                           (None, "missing"), (7, "missing")])
+def test_prepass_prior_summary_of_another_version_exits_2(tmp_path, durations, version, shown):
+    root, station, out = _env(tmp_path)
+    ws = _show(root, "s1", ["Tuning"])
+    out.mkdir()
+    doc = {"started_at": "a", "finished_at": "b", "files": [
+        {"slug": "s9", "source_file": "x.mp3", "outcome": "music", "run_sec": 200,
+         "frac": 0.9, "error": None, "cached": False}]}
+    if version is not None:
+        doc["version"] = version
+    content = json.dumps(doc)
+    (out / "summary.json").write_text(content)
+    ia = FakeIA({"t1.mp3": ("300", _verdict_bytes("junk", 0, 0.0))})
+    rc, msgs = _run(root, ia, out, station)
+    assert rc == 2 and len(msgs) == 1
+    m = msgs[0]
+    assert str(out / "summary.json") in m and f"version {shown}" in m
+    assert rule.VERSION in m and "delete DIR to start a fresh summary" in m
+    assert (out / "summary.json").read_text() == content
+    assert not ws.audio_check.exists() and ia.downloads == []
+
+
+def test_prepass_prior_summary_of_this_version_merges(tmp_path, durations):
+    root, station, out = _env(tmp_path)
+    _show(root, "s1", ["Tuning"])
+    out.mkdir()
+    prior = {"slug": "s9", "source_file": "x.mp3", "outcome": "music", "run_sec": 200,
+             "frac": 0.9, "error": None, "cached": False}
+    (out / "summary.json").write_text(json.dumps(
+        {"version": rule.VERSION, "started_at": "a", "finished_at": "b", "files": [prior]}))
+    rc, _ = _run(root, FakeIA({"t1.mp3": ("300", _verdict_bytes("junk", 0, 0.0))}), out, station)
+    assert rc == 0
+    files = _files(out)
+    assert files[("s9", "x.mp3")] == prior and ("s1", "t1.mp3") in files
