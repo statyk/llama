@@ -153,3 +153,21 @@ def test_population_real_tsv_reads_28_held_when_reproduced(tmp_path, capsys):
     summ = _summary_from(rows, tmp_path)
     assert pop.main(["--summary", str(summ)]) == 0
     assert "held shows: 28" in capsys.readouterr().out
+
+
+def test_population_incomplete_summary_exits_1_before_comparing(tmp_path, capsys):
+    rows = _population()
+    tsv = _write_tsv(tmp_path, rows)
+    summ = _summary_from(rows, tmp_path)
+    doc = json.loads(summ.read_text())
+    doc["finished_at"] = None
+    summ.write_text(json.dumps(doc))
+    assert pop.main(["--summary", str(summ), "--tsv", str(tsv)]) == 1
+    out = capsys.readouterr().out
+    assert "INCOMPLETE: summary.json has no finished_at (pre-pass did not finish)" in out
+    assert "compared" not in out and "PASS" not in out
+
+
+def test_population_prints_summary_version(tmp_path, capsys):
+    rc, out = _run(tmp_path, _population(), capsys)
+    assert rc == 0 and out.splitlines()[0].startswith(f"summary {tmp_path / 'summary.json'}: version v,")

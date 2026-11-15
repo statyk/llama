@@ -63,6 +63,7 @@ def _env(tmp_path):
     (root / "shows").mkdir(parents=True)
     station = tmp_path / "station"
     station.mkdir()
+    (station / "placeholder").mkdir()     # a mounted station is never empty
     return root, station, tmp_path / "out"
 
 
@@ -411,3 +412,113 @@ def test_prepass_summary_valid_after_each_show(tmp_path, durations, monkeypatch)
         _run(root, ia, out, station)
     assert [r["slug"] for r in _summary(out)["files"]] == ["s1"]
     assert not (out / ".fetch").exists()
+
+
+# --- fix round 1: station gate (R11) and the merged summary (R10) ---
+
+@pytest.mark.parametrize("state,expect", [
+    ("none", "audio-prepass: no delivery_path in config: the station root is needed "
+             "(set delivery_path); nothing written"),
+    ("missing", "is unreadable (is the station mounted?); nothing written"),
+    ("empty", "is empty (is the station mounted?); nothing written"),
+    ("dotfiles", "is empty (is the station mounted?); nothing written"),
+])
+def test_prepass_refuses_unusable_station_root(tmp_path, durations, monkeypatch, state, expect):
+    root, station, out = _env(tmp_path)
+    ws = _show(root, "s1", ["Tuning"])
+    ia = FakeIA({"t1.mp3": ("300", _verdict_bytes("junk", 0, 0.0))})
+    models = []
+    monkeypatch.setattr(classify, "get_model", lambda: models.append(1))
+    bare = tmp_path / "mnt"
+    if state == "none":
+        st = None
+    elif state == "missing":
+        st = tmp_path / "nowhere"
+    else:
+        bare.mkdir()
+        if state == "dotfiles":
+            (bare / ".DS_Store").write_text("")
+        st = bare
+    rc, msgs = _run(root, ia, out, st)
+    assert rc == 2
+    assert len(msgs) == 1 and msgs[0].endswith(expect) and msgs[0].startswith("audio-prepass: ")
+    assert models == []                                  # refused before the model loads
+    assert not out.exists() and not ws.audio_check.exists() and ia.downloads == []
+
+
+def test_prepass_cli_refuses_without_delivery_path(tmp_path):
+    from conftest import cli_invoke
+    root, station, out = _env(tmp_path)
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(f'root = "{root}"\n')
+    r = cli_invoke(cfg, "audio-prepass", "--out", str(out))
+    assert r.exit_code == 2 and "no delivery_path in config" in r.output
+    assert not out.exists()
+
+
+def test_prepass_slug_retry_keeps_other_shows_rows(tmp_path, durations):
+    root, station, out = _env(tmp_path)
+    _show(root, "s1", ["Tuning"])
+    _show(root, "s2", ["Tuning", "Crowd"])
+    ia = FakeIA({"t1.mp3": ("300", _verdict_bytes("junk", 0, 0.0)), "t2.mp3": ("300", None)})
+    _run(root, ia, out, station)
+    first = _summary(out)
+    assert first["finished_at"] and set(_files(out)) == {("s1", "t1.mp3"), ("s2", "t1.mp3"),
+                                                         ("s2", "t2.mp3")}
+    assert _files(out)[("s2", "t2.mp3")]["outcome"] == "failed"
+    ia.files["t2.mp3"] = ("300", _verdict_bytes("music", 200, 0.9))
+    rc, msgs = _run(root, ia, out, station, slugs=["s2"])
+    assert rc == 0
+    s = _summary(out)
+    assert s["started_at"] >= first["started_at"] and s["finished_at"]
+    files = _files(out)
+    assert set(files) == {("s1", "t1.mp3"), ("s2", "t1.mp3"), ("s2", "t2.mp3")}
+    assert files[("s1", "t1.mp3")] == {r["source_file"]: r for r in first["files"]
+                                       if r["slug"] == "s1"}["t1.mp3"]       # kept as is
+    assert files[("s2", "t2.mp3")]["outcome"] == "music"                     # replaced
+    assert files[("s2", "t1.mp3")]["cached"] is True                         # replaced
+    assert [(r["slug"], r["source_file"]) for r in s["files"]] == \
+        [(r["slug"], r["source_file"]) for r in first["files"]]              # order kept
+    assert "summary holds 3 file(s), 0 failed, 1 show(s) with a music verdict" in msgs[-1]
+
+
+def test_prepass_interrupted_run_leaves_finished_at_null(tmp_path, durations, monkeypatch,
+                                                       capsys):
+    root, station, out = _env(tmp_path)
+    _show(root, "s1", ["Tuning"])
+    _show(root, "s2", ["Tuning"])
+    ia = FakeIA({"t1.mp3": ("300", _verdict_bytes("junk", 0, 0.0))})
+    _run(root, ia, out, station)                     # a full run first: finished_at set
+    assert _summary(out)["finished_at"]
+    real = prepass._one_show
+
+    def stop_second(ws, slug, *a):
+        if slug == "s2":
+            raise KeyboardInterrupt
+        return real(ws, slug, *a)
+    monkeypatch.setattr(prepass, "_one_show", stop_second)
+    with pytest.raises(KeyboardInterrupt):
+        _run(root, ia, out, station)
+    s = _summary(out)
+    assert s["finished_at"] is None
+    assert {(r["slug"], r["source_file"]) for r in s["files"]} == {("s1", "t1.mp3"),
+                                                                   ("s2", "t1.mp3")}
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+    import audio_check_population as pop
+    capsys.readouterr()
+    assert pop.main(["--summary", str(out / "summary.json")]) == 1
+    assert "INCOMPLETE: summary.json has no finished_at" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("content", ["{not json", '{"files": "x"}', '{"files": [{"slug": 1}]}', "[]"])
+def test_prepass_corrupt_prior_summary_exits_2(tmp_path, durations, content):
+    root, station, out = _env(tmp_path)
+    ws = _show(root, "s1", ["Tuning"])
+    out.mkdir()
+    (out / "summary.json").write_text(content)
+    ia = FakeIA({"t1.mp3": ("300", _verdict_bytes("junk", 0, 0.0))})
+    rc, msgs = _run(root, ia, out, station)
+    assert rc == 2 and str(out / "summary.json") in msgs[0]
+    assert (out / "summary.json").read_text() == content       # never discarded
+    assert not ws.audio_check.exists() and ia.downloads == []

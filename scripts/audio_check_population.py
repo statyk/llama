@@ -17,7 +17,8 @@ Exit 1 (the rollout stops before the arm) when:
   window (10 s) of 120 s or `frac_055` within 0.05 of 0.60);
 - a caught labelled song is missing from the summary or `failed`;
 - the held count is outside 28 +/- 3.
-Exit 2 for an unreadable input. Read-only; stdlib only.
+A summary with no `finished_at` (the pre-pass did not reach its end) prints
+`INCOMPLETE: ...` and exits 1 before any comparison. Exit 2 for an unreadable input. Read-only; stdlib only.
 """
 from __future__ import annotations
 
@@ -60,14 +61,15 @@ def read_tsv(path: Path) -> list[dict]:
         return list(csv.DictReader(f, delimiter="\t"))
 
 
-def read_summary(path: Path) -> dict[tuple[str, str], dict]:
+def read_summary(path: Path) -> tuple[dict, dict[tuple[str, str], dict]]:
+    """(the summary document, (slug, source_file) -> row)."""
     doc = json.loads(Path(path).read_text())
     files = doc.get("files") if isinstance(doc, dict) else None
     if not isinstance(files, list):
         raise ValueError(f"{path} has no `files` list")
-    return {(r["slug"], r["source_file"]): r for r in files
-            if isinstance(r, dict) and isinstance(r.get("slug"), str)
-            and isinstance(r.get("source_file"), str)}
+    return doc, {(r["slug"], r["source_file"]): r for r in files
+                 if isinstance(r, dict) and isinstance(r.get("slug"), str)
+                 and isinstance(r.get("source_file"), str)}
 
 
 def compare(rows: list[dict], summary: dict[tuple[str, str], dict]) -> dict:
@@ -117,10 +119,15 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     try:
         rows = read_tsv(args.tsv)
-        summary = read_summary(args.summary)
+        doc, summary = read_summary(args.summary)
     except (OSError, ValueError, KeyError) as exc:
         print(f"audio_check_population: cannot read input: {exc}", file=sys.stderr)
         return 2
+    print(f"summary {args.summary}: version {doc.get('version')}, started "
+          f"{doc.get('started_at')}, finished {doc.get('finished_at')}")
+    if not doc.get("finished_at"):
+        print("INCOMPLETE: summary.json has no finished_at (pre-pass did not finish)")
+        return 1
     r = compare(rows, summary)
     print(f"compared {r['compared']} population row(s); absent from the summary "
           f"{len(r['absent'])}; failed {len(r['failed'])}; flips {len(r['flips'])}")

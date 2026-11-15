@@ -22,6 +22,11 @@ the source is fetched from archive.org into a temp dir under `DIR`, deleted afte
 **Writes:** only `<show>/audio-check.json` (via `cache.write_verdicts`, under the
 library show lock) and `DIR/summary.json` (atomic, rewritten after every show so an
 interrupted run leaves a valid file). Never the station lock, never the station tree.
+An existing `summary.json` is MERGED, keyed by (slug, source_file): this run's rows
+replace the prior ones, untouched prior rows are kept, and `finished_at` stays null
+until this run reaches its end (a corrupt one refuses, exit 2; delete DIR to start a
+fresh summary). No `delivery_path`, or an unreadable or empty station root, refuses
+(exit 2) before anything is written: the population gate measures the station copies.
 
 **Resumable:** a file whose cache already holds a verdict of the current
 `rule.VERSION` is not re-classified; it is listed with `cached: true` and its stored
@@ -32,6 +37,7 @@ with their reason and never cached, so a re-run retries them.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import tempfile
 from dataclasses import dataclass, field
@@ -163,12 +169,71 @@ def _known_names(ws: ShowWorkspace, show: Show) -> set[str]:
 
 # --- the run ---------------------------------------------------------------------
 
+def station_problem(station_root: Path | None) -> str | None:
+    """Why the station root cannot be used, or None. Like `junk_drop_rollout.py list`:
+    no `delivery_path`, not a readable directory, or empty (an unmounted share can
+    leave its mount point as an empty directory). Without it every file would be
+    fetched from archive.org, which is not the audio the population gate measured."""
+    if station_root is None:
+        return "no delivery_path in config: the station root is needed (set delivery_path)"
+    root = Path(station_root)
+    if not root.is_dir() or not os.access(root, os.R_OK):
+        return f"station root {root} is unreadable (is the station mounted?)"
+    try:
+        with os.scandir(root) as it:
+            if any(not e.name.startswith(".") for e in it):
+                return None
+    except OSError:
+        return f"station root {root} is unreadable (is the station mounted?)"
+    return f"station root {root} is empty (is the station mounted?)"
+
+
+def read_prior_summary(path: Path) -> list[dict]:
+    """The rows of an existing summary.json ([] when there is none). Raises LlamaError
+    when it cannot be read or is not a summary: it is never silently discarded."""
+    try:
+        raw = Path(path).read_text()
+    except FileNotFoundError:
+        return []
+    except OSError as exc:
+        raise LlamaError(f"cannot read the existing summary {path}: {exc}") from exc
+    try:
+        doc = json.loads(raw)
+    except ValueError as exc:
+        raise LlamaError(f"the existing summary {path} is not valid JSON ({exc}); "
+                         "fix or delete it (delete DIR to start a fresh summary)") from exc
+    files = doc.get("files") if isinstance(doc, dict) else None
+    if not isinstance(files, list) or not all(
+            isinstance(r, dict) and isinstance(r.get("slug"), str)
+            and isinstance(r.get("source_file"), str) for r in files):
+        raise LlamaError(f"the existing summary {path} has the wrong shape; "
+                         "fix or delete it (delete DIR to start a fresh summary)")
+    return files
+
+
 @dataclass
 class Summary:
+    """`summary.json`, merged across runs: rows keyed by (slug, source_file); a row this
+    run produced replaces the prior one in place, prior rows this run did not touch are
+    kept. `finished_at` is null until this run reaches its end."""
     path: Path
+    prior: list[dict] = field(default_factory=list)
     started_at: str = field(default_factory=_now)
     finished_at: str | None = None
-    files: list[dict] = field(default_factory=list)
+    run_rows: list[dict] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self._rows: dict[tuple[str, str], dict] = {
+            (r["slug"], r["source_file"]): r for r in self.prior}
+
+    def add(self, rows: list[dict]) -> None:
+        self.run_rows.extend(rows)
+        for r in rows:
+            self._rows[(r["slug"], r["source_file"])] = r
+
+    @property
+    def files(self) -> list[dict]:
+        return list(self._rows.values())
 
     def write(self) -> None:
         doc = {"version": rule.VERSION, "started_at": self.started_at,
@@ -306,6 +371,10 @@ def run(root: Path, ia, out: Path, *, station_root: Path | None, arm: Path | Non
         echo: Callable[[str], None] = print, err: Callable[[str], None] = print) -> int:
     """The whole pass; returns the exit code."""
     from llama.audio_check import classify, model
+    problem = station_problem(station_root)
+    if problem is not None:
+        err(f"audio-prepass: {problem}; nothing written")
+        return EXIT_BAD_INPUT
     for what, p in (("library root", root), ("station root", station_root)):
         if p is not None and _overlaps(Path(out), Path(p)):
             err(f"audio-prepass: refusing --out {out}: it overlaps the {what} {p}")
@@ -313,6 +382,7 @@ def run(root: Path, ia, out: Path, *, station_root: Path | None, arm: Path | Non
     try:
         arm_drops = read_arm(arm) if arm is not None else {}
         skips = read_skips(from_skips) if from_skips is not None else {}
+        prior = read_prior_summary(Path(out) / SUMMARY)
     except LlamaError as exc:
         err(f"audio-prepass: {exc}")
         return EXIT_BAD_INPUT
@@ -330,7 +400,7 @@ def run(root: Path, ia, out: Path, *, station_root: Path | None, arm: Path | Non
         order = list(dict.fromkeys([*on_disk, *sorted(arm_drops), *sorted(skips)]))
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
-    summary = Summary(out / SUMMARY)
+    summary = Summary(out / SUMMARY, prior=prior)
     summary.write()
     tmp_root = out / ".fetch"
     try:
@@ -344,7 +414,7 @@ def run(root: Path, ia, out: Path, *, station_root: Path | None, arm: Path | Non
                 with file_lock(ws.lock):
                     rows = _one_show(ws, slug, arm_drops.get(slug, []), skips.get(slug, []),
                                      ia, station_root, tmp_root)
-            summary.files.extend(rows)
+            summary.add(rows)
             summary.write()
             if rows:
                 counts = _counts(rows)
@@ -353,11 +423,14 @@ def run(root: Path, ia, out: Path, *, station_root: Path | None, arm: Path | Non
         shutil.rmtree(tmp_root, ignore_errors=True)
     summary.finished_at = _now()
     summary.write()
-    totals = _counts(summary.files)
-    held = len({r["slug"] for r in summary.files if r["outcome"] == "music"})
-    echo(f"audio-prepass: {len(summary.files)} file(s): music {totals['music']}, junk "
-         f"{totals['junk']}, failed {totals['failed']} ({totals['cached']} already cached); "
-         f"shows with a music verdict: {held}; summary {summary.path}")
+    totals = _counts(summary.run_rows)
+    everything = summary.files
+    held = len({r["slug"] for r in everything if r["outcome"] == "music"})
+    failed = sum(r["outcome"] == "failed" for r in everything)
+    echo(f"audio-prepass: this run {len(summary.run_rows)} file(s): music {totals['music']}, "
+         f"junk {totals['junk']}, failed {totals['failed']} ({totals['cached']} already "
+         f"cached); summary holds {len(everything)} file(s), {failed} failed, "
+         f"{held} show(s) with a music verdict: {summary.path}")
     return 0
 
 
