@@ -77,9 +77,11 @@ def _station(station: Path, slug: str, titles, *, sets=None, segues=None, dj_aud
 
 
 def _drop(filename, title, *, set="1", after_track=0, duration_sec=300.0, rule="A",
-          held=False):
+          held=False, check="junk", run_sec=0, frac=0.0, check_error=None):
+    """An arm row's junk drop as replay writes it (Task 7: with the audio check's outcome)."""
     return {"filename": filename, "title": title, "set": set, "after_track": after_track,
-            "duration_sec": duration_sec, "rule": rule, "held": held}
+            "duration_sec": duration_sec, "rule": rule, "held": held, "check": check,
+            "run_sec": run_sec, "frac": frac, "check_error": check_error}
 
 
 def _row(ws: ShowWorkspace, *, outcome="clean-changed", drops=(), briefing="fresh",
@@ -150,7 +152,9 @@ def test_member_by_paired_station_track(tmp_path):
     assert m["digests"] == input_digests(ws)
     assert m["station"]["state"] == "unvoiced"
     assert m["drops"] == [{"source_file": "t1.mp3", "title": "Tuning", "duration_sec": 300.0,
-                           "set": "1", "after_track": 0, "rule": "A", "held": False}]
+                           "set": "1", "after_track": 0, "rule": "A", "held": False,
+                           "music_held": False, "check": "junk", "run_sec": 0, "frac": 0.0,
+                           "check_error": None}]
     assert m["held"] is False
     assert m["pairs"] == [{"station_file": "01 - Tuning.mp3", "station_title": "Tuning",
                            "source_file": "t1.mp3"}]
@@ -724,14 +728,19 @@ def test_mark_dry_run_writes_nothing(tmp_path, capsys):
 
 # --- approval and recheck (plan Task 15; spec "Rollout" step 6, Stakes) --------------
 
-def _reprocess(ws: ShowWorkspace, dropped=("t1.mp3",), *, flags=()) -> None:
+def _reprocess(ws: ShowWorkspace, dropped=("t1.mp3",), *, flags=(), check="junk",
+               run_sec=0, frac=0.0, check_error=None) -> None:
     """The library show.json after step 4's re-process: each dropped file leaves `tracks`
-    for an `excluded_files` row with reason `junk title`; `flags` hold the show."""
+    for an `excluded_files` row with reason `junk title` carrying the audio check's
+    outcome (`check=None` writes a row with no `check` key); `flags` hold the show."""
     show = Show.model_validate_json(ws.show.read_text())
     gone = [t for t in show.tracks if t.filename in dropped]
     kept = [t for t in show.tracks if t.filename not in dropped]
+    outcome = {} if check is None else {"check": check, "run_sec": run_sec, "frac": frac}
+    if check == "unchecked":
+        outcome["check_error"] = check_error
     rows = [{"filename": t.filename, "reasons": ["junk title"], "duration_sec": t.duration_sec,
-             "title": t.title, "set": t.set, "after_track": 0} for t in gone]
+             "title": t.title, "set": t.set, "after_track": 0, **outcome} for t in gone]
     show = show.model_copy(update={"tracks": kept,
                                    "excluded_files": show.excluded_files + rows,
                                    "review_flags": list(flags), "needs_review": bool(flags)})
@@ -885,7 +894,7 @@ def test_recheck_passes(tmp_path, capsys):
     assert _recheck(cfg, lst, "s1") == 0
     text = capsys.readouterr().out
     assert "FAIL" not in text and "leave s1 out" not in text
-    assert text.count(": ok") == 4
+    assert text.count(": ok") == 5
 
 
 def _recheck_fails(cfg, lst, slug, capsys, needle):
@@ -1001,3 +1010,259 @@ def test_recheck_refuses_a_damaged_list(tmp_path, capsys):
     noslug = _list_file(tmp_path, cfg, _voiced_member(ws), bad)
     assert _recheck(cfg, noslug, "s1") == 2
     assert "a row without a slug or digests" in capsys.readouterr().err
+
+
+# --- the audio check (audio-check plan Task 10; spec "Replay and the rollout") ------
+
+from llama import junk_titles, overrules   # noqa: E402
+from llama.audio_check import cache as audio_cache   # noqa: E402
+from llama.models import Overrule   # noqa: E402
+
+
+def _metadata(root: Path, names=("t1.mp3", "t2.mp3", "t3.mp3", "t4.mp3")) -> dict:
+    md = {"files": [{"name": n, "md5": f"md5-{n}", "size": "1000"} for n in names]}
+    (root / "cache").mkdir(exist_ok=True)
+    (root / "cache" / f"md_{IDENT}.json").write_text(json.dumps(md))
+    return md
+
+
+def _verdicts(ws: ShowWorkspace, md: dict, **by_file) -> None:
+    """Cache `verdict, run_sec, frac` per source file in the show's verdict cache."""
+    entries = [{**audio_cache.identity(IDENT, name, md), "verdict": v, "run_sec": r,
+                "frac": f, "version": "older-version", "checked_at": "2026-11-14T00:00:00Z"}
+               for name, (v, r, f) in by_file.items()]
+    ws.audio_check.write_text(json.dumps({"entries": entries}))
+
+
+def _needs_llm_show(root, station):
+    ws = _show(root, "s1", ["Tuning", "Bertha", "Crowd", "Sugaree"])
+    _station(station, "s1", ["Tuning", "Bertha", "Crowd", "Sugaree"])
+    return ws
+
+
+GATE = ("audio check is {}; clear the hold with llama triage (records an overrule) "
+        "or retitle the track")
+
+
+def test_list_carries_outcome_and_unchecked_total(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _show(root, "s1", ["Tuning", "Bertha", "Crowd", "Sugaree"])
+    _station(station, "s1", ["Tuning", "Bertha", "Crowd", "Sugaree"])
+    ws2 = _show(root, "s2", ["Tuning", "Bertha"])
+    arm = _arm(tmp_path, cfg,
+               _row(ws, drops=[_drop("t1.mp3", "Tuning", check="music", run_sec=200, frac=0.9),
+                               _drop("t3.mp3", "Crowd", after_track=1, check="unchecked",
+                                     run_sec=None, frac=None, check_error="no cached verdict")]),
+               _row(ws2, drops=[_drop("t1.mp3", "Tuning", check="unchecked", run_sec=None,
+                                      frac=None, check_error="no cached verdict")]))
+    rc, out = _list(tmp_path, cfg, arm)
+    assert rc == 0                                   # never refuses on counts
+    m = _members(out)["s1"]
+    music, unchecked = m["drops"]
+    assert (music["check"], music["run_sec"], music["frac"]) == ("music", 200, 0.9)
+    assert music["music_held"] is True and music["held"] is True       # size test passed
+    assert (unchecked["check"], unchecked["check_error"]) == ("unchecked", "no cached verdict")
+    assert unchecked["music_held"] is False and unchecked["held"] is False
+    assert m["held"] is True                         # the music hold holds the member
+    lines = capsys.readouterr().out.splitlines()
+    assert "  s1 t1.mp3: music" in lines
+    assert "  s1 t3.mp3: unchecked (no cached verdict)" in lines
+    assert "  s2 t1.mp3: unchecked (no cached verdict)" in lines
+    assert lines[-1] == "unchecked: 2"
+
+
+def test_show_json_plan_reads_cache_for_needs_llm_rows(tmp_path):
+    cfg, root, station = _lib(tmp_path)
+    ws = _needs_llm_show(root, station)
+    md = _metadata(root)
+    _verdicts(ws, md, **{"t1.mp3": ("junk", 0, 0.0), "t3.mp3": ("music", 300, 0.95)})
+    arm = _arm(tmp_path, cfg, _row(ws, outcome="needs-llm", briefing="none", keep=[]))
+    rc, out = _list(tmp_path, cfg, arm)
+    assert rc == 0
+    m = _members(out)["s1"]
+    assert m["drop_source"] == "show.json"
+    by = {d["source_file"]: d for d in m["drops"]}
+    assert (by["t1.mp3"]["check"], by["t1.mp3"]["held"]) == ("junk", False)
+    # a stale-version verdict is used as stored (cache-only), and holds
+    assert (by["t3.mp3"]["check"], by["t3.mp3"]["run_sec"], by["t3.mp3"]["frac"]) == \
+        ("music", 300, 0.95)
+    assert by["t3.mp3"]["music_held"] is True and by["t3.mp3"]["held"] is True
+    assert by["t3.mp3"]["check_error"] is None
+    assert m["held"] is True
+    # a dropped file the cache does not hold is unchecked
+    _verdicts(ws, md, **{"t1.mp3": ("junk", 0, 0.0)})
+    rc, out = _list(tmp_path, cfg, _arm(tmp_path, cfg, _row(ws, outcome="needs-llm",
+                                                            briefing="none", keep=[])))
+    by = {d["source_file"]: d for d in _members(out)["s1"]["drops"]}
+    assert by["t3.mp3"]["check"] == "unchecked" and by["t3.mp3"]["check_error"]
+    assert by["t3.mp3"]["held"] is False
+
+
+def test_show_json_plan_unreadable_cache_is_unchecked(tmp_path, capsys, monkeypatch):
+    cfg, root, station = _lib(tmp_path)
+    ws = _needs_llm_show(root, station)
+    _metadata(root)
+    ws.audio_check.write_text("{not json")
+    arm = _arm(tmp_path, cfg, _row(ws, outcome="needs-llm", briefing="none", keep=[]))
+    rc, out = _list(tmp_path, cfg, arm)
+    assert rc == 0
+    assert _doc(out, "unpaired.json")["rows"] == []          # never "unpaired"
+    drops = _members(out)["s1"]["drops"]
+    assert [d["source_file"] for d in drops] == ["t1.mp3", "t3.mp3"]
+    for d in drops:
+        assert d["check"] == "unchecked" and d["run_sec"] is None and d["frac"] is None
+        assert "verdict cache unreadable" in d["check_error"]
+        assert "not valid JSON" in d["check_error"]
+    assert capsys.readouterr().out.splitlines()[-1] == "unchecked: 2"
+    # a cache that cannot be READ (CacheReadError) is the same
+    def unreadable(path, *a, **kw):
+        raise audio_cache.CacheReadError(f"cannot read {path}: permission denied")
+    monkeypatch.setattr(audio_cache, "lookup", unreadable)
+    rc, out = _list(tmp_path, cfg, arm)
+    drops = _members(out)["s1"]["drops"]
+    assert all(d["check"] == "unchecked" and "permission denied" in d["check_error"]
+               for d in drops)
+
+
+def test_show_json_plan_missing_metadata_is_unchecked(tmp_path):
+    cfg, root, station = _lib(tmp_path)
+    ws = _needs_llm_show(root, station)
+    md = {"files": [{"name": n, "md5": f"md5-{n}"} for n in ("t1.mp3", "t3.mp3")]}
+    _verdicts(ws, md, **{"t1.mp3": ("junk", 0, 0.0), "t3.mp3": ("junk", 0, 0.0)})
+    arm = _arm(tmp_path, cfg, _row(ws, outcome="needs-llm", briefing="none", keep=[]))
+    rc, out = _list(tmp_path, cfg, arm)                 # no md_<identifier>.json at all
+    assert rc == 0
+    assert _doc(out, "unpaired.json")["rows"] == []
+    drops = _members(out)["s1"]["drops"]
+    assert len(drops) == 2
+    for d in drops:
+        assert d["check"] == "unchecked"
+        assert f"md_{IDENT}.json" in d["check_error"]
+    # unreadable metadata is the same
+    (root / "cache").mkdir()
+    (root / "cache" / f"md_{IDENT}.json").write_text("[1, 2")
+    rc, out = _list(tmp_path, cfg, arm)
+    assert rc == 0
+    assert all(d["check"] == "unchecked" and f"md_{IDENT}.json" in d["check_error"]
+               for d in _members(out)["s1"]["drops"])
+
+
+def _gate_show(root, station, slug="s1", **reprocess):
+    ws = _show(root, slug, ["Tuning", "Bertha", "Sugaree"])
+    _station(station, slug, ["Tuning", "Bertha", "Sugaree"], dj_audio=VOICED)
+    _reprocess(ws, **reprocess)
+    return ws
+
+
+def _music_overrule(ws: ShowWorkspace, flag_fn=junk_titles.music_flag) -> None:
+    """Record the overrule `llama triage` records when it clears the show's music hold."""
+    show = Show.model_validate_json(ws.show.read_text())
+    row = next(r for r in show.excluded_files if r["filename"] == "t1.mp3")
+    drop = junk_titles.JunkDrop(filename="t1.mp3", title=row["title"], set=row["set"],
+                                duration_sec=row["duration_sec"], rule="A", position=0,
+                                after_track=0, held=False, check="music", run_sec=200,
+                                frac=0.9)
+    rules = overrules.records_for([flag_fn(drop)], show, source="triage",
+                                  at="2026-11-14T00:00:00Z")
+    ws.overrides.write_text(Overrides(overrules=rules).model_dump_json(indent=2))
+
+
+def test_recheck_refuses_unchecked_voiced_drop(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _gate_show(root, station, check="unchecked", check_error="no cached verdict")
+    lst = _list_file(tmp_path, cfg, _voiced_member(ws))
+    _recheck_fails(cfg, lst, "s1", capsys, "audio check")
+    assert _recheck(cfg, lst, "s1") == 1
+    assert "s1: t1.mp3 " + GATE.format("unchecked") in capsys.readouterr().out.splitlines()
+
+
+def test_recheck_refuses_row_without_check_key(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _gate_show(root, station, check=None)
+    show = Show.model_validate_json(ws.show.read_text())
+    assert "check" not in show.excluded_files[0]
+    lst = _list_file(tmp_path, cfg, _voiced_member(ws))
+    _recheck_fails(cfg, lst, "s1", capsys, "audio check")
+    assert _recheck(cfg, lst, "s1") == 1
+    assert "s1: t1.mp3 " + GATE.format("missing") in capsys.readouterr().out.splitlines()
+
+
+def test_recheck_refuses_music_without_overrule(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    # the hold was cleared (not needs_review) but no music-hold overrule was recorded;
+    # a size-hold (`junk-drop`) overrule of the same file does not release it
+    ws = _gate_show(root, station, check="music", run_sec=200, frac=0.9)
+    _music_overrule(ws, flag_fn=lambda d: junk_titles.hold_flag(d, total=1000.0, median=300.0))
+    rules = Overrides.model_validate_json(ws.overrides.read_text()).overrules
+    assert [r.kind for r in rules] == ["junk-drop"]
+    lst = _list_file(tmp_path, cfg, _voiced_member(ws))
+    _recheck_fails(cfg, lst, "s1", capsys, "audio check")
+    assert _recheck(cfg, lst, "s1") == 1
+    assert "s1: t1.mp3 " + GATE.format("music") in capsys.readouterr().out.splitlines()
+    # an overrule for another recording does not count either
+    show = Show.model_validate_json(ws.show.read_text())
+    other = Overrule(identifier="other-item", kind="junk-music", subject=["t1.mp3"],
+                     flag="x", source="triage", at="2026-11-14T00:00:00Z")
+    ws.overrides.write_text(Overrides(overrules=[other]).model_dump_json(indent=2))
+    assert show.identifier != "other-item"
+    _recheck_fails(cfg, lst, "s1", capsys, "audio check")
+
+
+def test_recheck_passes_music_with_overrule(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _gate_show(root, station, check="music", run_sec=200, frac=0.9)
+    _music_overrule(ws)
+    lst = _list_file(tmp_path, cfg, _voiced_member(ws))
+    capsys.readouterr()
+    assert _recheck(cfg, lst, "s1") == 0
+    text = capsys.readouterr().out
+    assert "FAIL" not in text and "audio check is" not in text
+    assert text.count(": ok") == 5
+
+
+def test_recheck_reads_live_show_json_not_list(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    ws = _gate_show(root, station, check="unchecked", check_error="no cached verdict")
+    m = _voiced_member(ws)
+    m["drops"][0].update(check="junk", run_sec=0, frac=0.0, check_error=None)
+    lst = _list_file(tmp_path, cfg, m)
+    _recheck_fails(cfg, lst, "s1", capsys, "audio check")     # the list says junk
+    # live show.json now junk while the list says unchecked: passes
+    show = Show.model_validate_json(ws.show.read_text())
+    rows = [{**r, "check": "junk", "run_sec": 0, "frac": 0.0} for r in show.excluded_files]
+    for r in rows:
+        r.pop("check_error", None)
+    ws.show.write_text(show.model_copy(update={"excluded_files": rows}).model_dump_json())
+    m["drops"][0].update(check="unchecked", run_sec=None, frac=None,
+                         check_error="no cached verdict")
+    lst = _list_file(tmp_path, cfg, m)
+    capsys.readouterr()
+    assert _recheck(cfg, lst, "s1") == 0
+
+
+def test_approval_lists_refusal_with_remedy(tmp_path, capsys):
+    cfg, root, station = _lib(tmp_path)
+    a = _gate_show(root, station, "a")
+    u = _gate_show(root, station, "u", check="unchecked", check_error="no cached verdict")
+    n = _gate_show(root, station, "n", check=None)
+    mu = _gate_show(root, station, "mu", check="music", run_sec=200, frac=0.9)
+    mo = _gate_show(root, station, "mo", check="music", run_sec=200, frac=0.9)
+    _music_overrule(mo)
+    lst = _list_file(tmp_path, cfg, *(_voiced_member(ws) for ws in (a, u, n, mu, mo)))
+    status = _status(tmp_path, *({"slug": s, "voiced_by": "phil",
+                                  "tts_now": {"backend": "voxtral"}}
+                                 for s in ("a", "u", "n", "mu", "mo")))
+    out = tmp_path / "approved.txt"
+    capsys.readouterr()
+    assert _approval(cfg, lst, status, "--out", str(out)) == 0
+    text = capsys.readouterr().out
+    refused = _section(text, "refused by the audio check (not approvable)")
+    assert "u: t1.mp3 " + GATE.format("unchecked") in refused
+    assert "n: t1.mp3 " + GATE.format("missing") in refused
+    assert "mu: t1.mp3 " + GATE.format("music") in refused
+    ok = _section(text, "approvable")
+    assert "a: presenter phil" in ok and "mo: presenter phil" in ok
+    for s in ("u", "n", "mu"):
+        assert f"{s}:" not in ok
+    assert "refused by the audio check (not approvable): 3" in text
+    assert out.read_text() == "a\nmo\n"

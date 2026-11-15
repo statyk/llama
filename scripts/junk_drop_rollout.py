@@ -21,6 +21,14 @@ A show with a station copy is a member when a station track paired with `plan_re
 (show.json, else `reuse-anchor.json`) is a dropped source file; a show with no station
 copy is a member when it has a drop.
 
+Each drop carries the audio check's outcome (audio-check spec "Replay and the rollout"):
+`check` (`music` | `junk` | `unchecked`), `run_sec`, `frac`, `check_error` (only when
+unchecked). Replay rows take it from the arm; show.json rows from the show's verdict cache,
+cache-only (metadata `<root>/cache/md_<identifier>.json`; missing metadata or an unreadable
+cache makes every drop of the show `unchecked`, never unpaired). A drop's `held` is the
+size hold or a `music` outcome, `music_held` the latter alone. `list` prints every member
+drop with its outcome and a final `unchecked: <n>`; it never refuses on counts.
+
 `mark --list DIR/members.json [--config P] [--apply]` is the marking batch (spec Rollout step 3, runbook step 5),
 run BEFORE the release binaries are installed. It takes only the list (refused unless its
 `sha` and `config_fingerprint` are the running code's and config's) and marks each member
@@ -42,7 +50,11 @@ show.json the holds now (a held show is listed under `held (not approvable)`). `
 the approvable slugs, one per line. `recheck --list DIR/members.json [--config P] <slug>`
 (read-only) is the check before `llama deliver <slug> --replace-voiced`: a member, a recorded
 pair still on the station (file and title) whose source file the library show.json excludes
-with reason `junk title`, not held, voiced. Exit 0 only when every check passes, else 1 and
+with reason `junk title`, not held, voiced, and the re-voice gate. The gate (both commands)
+re-reads the live show.json `excluded_files` junk-title rows and refuses any whose `check`
+is not `junk` (a row with no `check` included), unless it is `music` with a recorded
+`junk-music` overrule for that file; `approval` lists such a show under `refused by the
+audio check (not approvable)`, never in `--out`. Exit 0 only when every check passes, else 1 and
 `leave <slug> out of this batch`. Unlike `mark`, neither applies the identity gate to the
 list (shape checks only; its sha, config fingerprint and written_at are printed as
 information): everything they act on is re-read live, and a list rebuilt after the
@@ -65,7 +77,8 @@ import replay_holds   # noqa: E402
 
 import llama.replay   # noqa: E402
 from llama import audio_reuse, junk_titles   # noqa: E402
-from llama import station_mark   # noqa: E402
+from llama import overrules, station_mark   # noqa: E402
+from llama.audio_check import cache as audio_cache   # noqa: E402
 from llama.campaign_gate import (GateRefused, require_pinned_code,   # noqa: E402
                                  require_tools)
 from llama.catalog import _performance_id   # noqa: E402
@@ -152,11 +165,33 @@ def _gates(args):
 
 # --- per show ---------------------------------------------------------------------
 
+CHECKS = ("music", "junk", "unchecked")
+
+
+def _drop_row(*, source_file, title, duration_sec, set, after_track, rule, size_held: bool,
+              check, run_sec, frac, check_error) -> dict:
+    """One drop of `members.json`, with the audio check's outcome. An outcome that is
+    not one of the three (an arm row without one included) is `unchecked`; `held` is the
+    size hold or the music hold, `music_held` the music hold alone."""
+    if check not in CHECKS:
+        check_error = ("no audio check outcome recorded" if check is None
+                       else f"audio check outcome {check!r} not recognised")
+        check, run_sec, frac = "unchecked", None, None
+    check_error = (check_error or "audio check failed") if check == "unchecked" else None
+    music = check == "music"
+    return {"source_file": source_file, "title": title, "duration_sec": duration_sec,
+            "set": set, "after_track": after_track, "rule": rule,
+            "held": bool(size_held) or music, "music_held": music, "check": check,
+            "run_sec": run_sec, "frac": frac, "check_error": check_error}
+
+
 def _arm_drops(row: dict) -> list[dict]:
-    return [{"source_file": d.get("filename"), "title": d.get("title"),
-             "duration_sec": d.get("duration_sec"), "set": d.get("set"),
-             "after_track": d.get("after_track"), "rule": d.get("rule"),
-             "held": bool(d.get("held"))}
+    return [_drop_row(source_file=d.get("filename"), title=d.get("title"),
+                      duration_sec=d.get("duration_sec"), set=d.get("set"),
+                      after_track=d.get("after_track"), rule=d.get("rule"),
+                      size_held=bool(d.get("held")), check=d.get("check"),
+                      run_sec=d.get("run_sec"), frac=d.get("frac"),
+                      check_error=d.get("check_error"))
             for d in (row.get("junk_drops") or []) if isinstance(d, dict)]
 
 
@@ -166,9 +201,48 @@ def _arm_predicted(row: dict) -> list[dict]:
              "segue": bool(t["segue"])} for t in side]
 
 
-def _show_json_plan(ws: ShowWorkspace, show: Show) -> tuple[list[dict], list[dict]]:
+def _metadata(md_dir: Path, identifier: str) -> tuple[dict | None, str | None]:
+    """(the cached archive.org metadata `md_<identifier>.json`, or None and why)."""
+    path = md_dir / f"md_{identifier}.json"
+    try:
+        md = json.loads(path.read_text())
+    except FileNotFoundError:
+        return None, f"no cached metadata {path.name}"
+    except (OSError, ValueError) as exc:
+        return None, f"cannot read cached metadata {path.name}: {bulk_apply._one_line(exc)}"
+    if not isinstance(md, dict):
+        return None, f"cached metadata {path.name} is not an object"
+    return md, None
+
+
+def _cached_outcomes(ws: ShowWorkspace, identifier: str, filenames: list[str],
+                     md_dir: Path) -> dict[str, tuple[str, int | None, float | None,
+                                                      str | None]]:
+    """source file -> (check, run_sec, frac, check_error) from the show's verdict cache,
+    cache-only (replay's rule): a stored verdict of any version is used as stored, a
+    missing one is `unchecked`. Missing or unreadable metadata, or an unreadable cache
+    (`CacheUnreadable`, `CacheReadError` included), makes every drop `unchecked`."""
+    md, problem = _metadata(md_dir, identifier)
+    if md is None:
+        return {f: ("unchecked", None, None, problem) for f in filenames}
+    out = {}
+    for f in filenames:
+        try:
+            v = audio_cache.lookup(ws.audio_check, identifier, f, md)
+        except audio_cache.CacheUnreadable as exc:
+            why = f"verdict cache unreadable: {bulk_apply._one_line(exc)}"
+            return {g: ("unchecked", None, None, why) for g in filenames}
+        out[f] = (("unchecked", None, None, "no cached verdict") if v is None
+                  else (v.verdict, v.run_sec, v.frac, None))
+    return out
+
+
+def _show_json_plan(ws: ShowWorkspace, show: Show,
+                    md_dir: Path) -> tuple[list[dict], list[dict]]:
     """(drops, predicted kept tracks) from the current show.json, gather's rule: a kept
-    track whose next track dropped loses its segue unless its own title ends in an arrow."""
+    track whose next track dropped loses its segue unless its own title ends in an arrow.
+    Each drop carries its audio check outcome from the verdict cache (`_cached_outcomes`,
+    metadata from `md_dir`)."""
     include = frozenset(read_overrides(ws).include)
     tracks = show.tracks
     plan = junk_titles.plan_drops(
@@ -176,13 +250,17 @@ def _show_json_plan(ws: ShowWorkspace, show: Show) -> tuple[list[dict], list[dic
                                duration_sec=t.duration_sec) for t in tracks], include=include)
     rules = {d.position: d.rule for d in plan}
     total, median = junk_titles.show_stats([t.duration_sec for t in tracks])
+    outcomes = (_cached_outcomes(ws, show.identifier, [tracks[i].filename for i in rules],
+                                 md_dir) if rules else {})
     drops, kept = [], []
     for i, t in enumerate(tracks):
         if i in rules:
-            drops.append({"source_file": t.filename, "title": t.title,
-                          "duration_sec": t.duration_sec, "set": t.set, "after_track": len(kept),
-                          "rule": rules[i],
-                          "held": junk_titles.held(t.duration_sec, total=total, median=median)})
+            check, run_sec, frac, error = outcomes[t.filename]
+            drops.append(_drop_row(
+                source_file=t.filename, title=t.title, duration_sec=t.duration_sec,
+                set=t.set, after_track=len(kept), rule=rules[i],
+                size_held=junk_titles.held(t.duration_sec, total=total, median=median),
+                check=check, run_sec=run_sec, frac=frac, check_error=error))
             continue
         segue = bool(t.segue) and not ((i + 1) in rules
                                        and not junk_titles.trailing_arrow(t.title))
@@ -266,7 +344,7 @@ def _one_show(root: Path, station_root: Path, slug: str, row: dict,
     needs_llm = row.get("outcome") in SHOW_JSON_OUTCOMES
     try:
         if needs_llm:
-            drops, predicted = _show_json_plan(ws, read_model(ws.show, Show))
+            drops, predicted = _show_json_plan(ws, read_model(ws.show, Show), root / "cache")
         else:
             drops, predicted = _arm_drops(row), _arm_predicted(row)
     except (OSError, ValueError, LlamaError) as exc:
@@ -359,6 +437,16 @@ def cmd_list(args) -> int:
     for u in unpaired:
         print(f"  {u['slug']}: {u['detail']}")
     print(f"wrote {', '.join(OUTPUT_FILES)} to {out}")
+    print("drops (slug, source file: audio check):")
+    unchecked = 0
+    for m in members:
+        for d in m["drops"]:
+            if d["check"] == "unchecked":
+                unchecked += 1
+                print(f"  {m['slug']} {d['source_file']}: unchecked ({d['check_error']})")
+            else:
+                print(f"  {m['slug']} {d['source_file']}: {d['check']}")
+    print(f"unchecked: {unchecked}")
     return 0
 
 
@@ -480,6 +568,44 @@ def _library_show(root: Path, slug: str) -> tuple[Show | None, str | None]:
         return None, f"cannot read show.json: {bulk_apply._one_line(exc)}"
 
 
+def _music_overruled(rules, show: Show, row: dict) -> bool:
+    """Whether `rules` (the show's recorded overrules) hold one matching the music hold
+    of this `excluded_files` row. The key is derived from the flag gather raises
+    (`junk_titles.music_flag`) through `overrules.flag_key`, exactly as `llama triage`
+    records it (kind `junk-music`, the filename), scoped to the show's recording."""
+    drop = junk_titles.JunkDrop(filename=row["filename"], title=str(row.get("title")),
+                                set=str(row.get("set")), duration_sec=None, rule="",
+                                position=0, after_track=0, held=False, check="music")
+    key = overrules.flag_key(junk_titles.music_flag(drop), show)
+    return (key is not None and key.kind == "junk-music"
+            and any(overrules.rule_matches(r, key, show.identifier) for r in rules))
+
+
+def _audio_gate(root: Path, slug: str, show: Show) -> list[str]:
+    """The re-voice gate (spec "The re-voice gate"): one refusal per LIVE show.json
+    `excluded_files` junk-title row whose `check` is not `junk` (no `check` key
+    included), unless it is `music` with a recorded music-hold overrule. An unreadable
+    overrides.json records no overrule."""
+    try:
+        rules = read_overrides(ShowWorkspace(root / "shows" / slug)).overrules
+    except (OSError, ValueError, LlamaError):
+        rules = []
+    out = []
+    for row in show.excluded_files:
+        if not (isinstance(row, dict) and junk_titles.REASON in (row.get("reasons") or [])):
+            continue
+        check = row.get("check")
+        if check == "junk":
+            continue
+        if check == "music" and isinstance(row.get("filename"), str) \
+                and _music_overruled(rules, show, row):
+            continue
+        out.append(f"{slug}: {row.get('filename')} audio check is {check or 'missing'}; "
+                   f"clear the hold with llama triage (records an overrule) or retitle "
+                   f"the track")
+    return out
+
+
 def _mmss(d) -> str:
     s = int(round(float(d or 0)))
     return f"{s // 60}:{s % 60:02d}"
@@ -498,7 +624,7 @@ def cmd_approval(args) -> int:
     _out_gate(args.out, config, station_root)
     rows = _read_list_info(args.list)
     status = _read_status(args.emcee_status)
-    approvable, held, gone, cannot = [], [], [], []
+    approvable, held, gone, cannot, refused = [], [], [], [], []
     unvoiced = other_backend = 0
     for r in rows:
         slug = r["slug"]
@@ -528,6 +654,10 @@ def cmd_approval(args) -> int:
         if show is None:
             cannot.append(f"{slug}: {problem}")
             continue
+        refusals = _audio_gate(config.root, slug, show)
+        if refusals:
+            refused.append((r, station, show.review_flags, refusals))
+            continue
         (held if show.needs_review else approvable).append((r, station, show.review_flags))
 
     def block(r, station, flags):
@@ -546,6 +676,11 @@ def cmd_approval(args) -> int:
     print(f"held (not approvable): {len(held)}")
     for e in held:
         block(*e)
+    print(f"refused by the audio check (not approvable): {len(refused)}")
+    for r, station, flags, refusals in refused:
+        block(r, station, flags)
+        for line in refusals:
+            print(f"    {line}")
     print(f"no longer voiced (unvoiced route): {len(gone)}")
     for slug in gone:
         print(f"  {slug}")
@@ -604,8 +739,17 @@ def cmd_recheck(args) -> int:
         checks.append(("station copy voiced",
                        data is not None and data.get("dj_audio") is not None,
                        None if data is not None else "station manifest missing or unreadable"))
+        refusals = _audio_gate(config.root, slug, show) if show is not None else []
+        checks.append(("every junk-title drop passes the audio check",
+                       show is not None and not refusals,
+                       problem if show is None
+                       else f"{len(refusals)} refused" if refusals else None))
+    else:
+        refusals = []
     for name, ok, detail in checks:
         print(f"{slug}: {name}: {'ok' if ok else 'FAIL'}" + (f" ({detail})" if detail else ""))
+    for line in refusals:
+        print(line)
     if all(ok for _, ok, _ in checks):
         print(f"{slug}: recheck passed")
         return 0
