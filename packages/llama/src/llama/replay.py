@@ -20,6 +20,7 @@ import llama
 from llama.catalog import derive_state
 from llama.config import Config
 from llama import junk_titles, title_hygiene
+from llama.audio_check import cache as audio_cache
 from llama.errors import LlamaError
 from llama.junk import basename_without_extension
 from llama.models import Briefing, Overrides, Overrule, Provenance, Show, VettingResult
@@ -95,6 +96,10 @@ def input_digests(ws: ShowWorkspace) -> dict[str, str | None]:
 
     `vetting.extraction` hashes only the extraction, never the flags (which
     are derived by the arm under test).
+
+    `audio-check.json` (the show's verdict cache, which the replay's cache-only audio
+    check reads) is a key only when the file exists, so an arm taken before any cache
+    was written still matches a show that has none.
     """
     def of(path: Path) -> str | None:
         return _sha256(path.read_bytes()) if path.exists() else None
@@ -103,13 +108,26 @@ def input_digests(ws: ShowWorkspace) -> dict[str, str | None]:
     if ws.vetting.exists():
         result = read_model(ws.vetting, VettingResult)
         extraction = _sha256(result.vetting.model_dump_json().encode())
-    return {
+    out = {
         "show.json": of(ws.show),
         "overrides.json": of(ws.overrides),
         "provenance.json": of(ws.provenance),
         "research.md": of(ws.research),
         "vetting.extraction": extraction,
     }
+    if ws.audio_check.exists():
+        out["audio-check.json"] = of(ws.audio_check)
+    return out
+
+
+def cache_only_checker(ws: ShowWorkspace):
+    """The replay's audio-check factory: the REAL show dir's verdict cache
+    (`ws.audio_check`, never the scratch workspace), cache-only (`ia=None`: nothing
+    is fetched or classified). `compute_gather` passes the metadata it read from the
+    cache-only archive.org client. A drop with no cached verdict is `unchecked`, a
+    stale one is used as stored."""
+    return lambda identifier, metadata: audio_cache.Checker(ws.audio_check, metadata,
+                                                            identifier, ia=None)
 
 
 def setlistfm_configured(config: Config) -> bool:
@@ -638,7 +656,8 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
         audio_format=config.audio_format, align_provider=align_provider, setlistfm=slfm,
         structure_cfg=config.structure, jerrybase_enabled=config.jerrybase.enabled,
         enabled_slices=enabled_slices, llm_failures_raise=llm_failures_raise,
-        allowlist=Allowlist.from_config(config.taperssection), assessment=prov.assessment)
+        allowlist=Allowlist.from_config(config.taperssection), assessment=prov.assessment,
+        checker_factory=cache_only_checker(ws))
     needs_llm = list(gathered.needs_llm)
     if (gather_providers is None
             and stored.structure is not None and stored.structure.alignment == "llm"
@@ -772,7 +791,8 @@ class ShowReplay:
     flags: list[str] = dataclasses.field(default_factory=list)
     # Junk-title drop (spec 2026-11-13-junk-tag-drop-design). Base-arm rows lack this key.
     # One dict per dropped track, in drop order: `filename`, `title`, `set`, `after_track`,
-    # `duration_sec`, `rule`, `held`. `cascade` positions are remapped to the kept tracks.
+    # `duration_sec`, `rule`, `held`, and the audio check's `check`, `run_sec`, `frac`,
+    # `check_error` (None unless unchecked). `cascade` positions are remapped to the kept tracks.
     junk_drops: list[dict] = dataclasses.field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -886,7 +906,9 @@ def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlis
         r.cascade = _cascade_dict(g.title_record, keep=g.kept_positions)
         r.junk_drops = [{"filename": j.filename, "title": j.title, "set": j.set,
                          "after_track": j.after_track, "duration_sec": j.duration_sec,
-                         "rule": j.rule, "held": j.held} for j in g.junk_drops]
+                         "rule": j.rule, "held": j.held, "check": j.check,
+                         "run_sec": j.run_sec, "frac": j.frac,
+                         "check_error": j.check_error} for j in g.junk_drops]
         r.filenames = [t.filename for t in g.show.tracks]
         r.short_kept = [bool(t.short_kept) for t in g.show.tracks]
         r.segues = [bool(t.segue) for t in g.show.tracks]

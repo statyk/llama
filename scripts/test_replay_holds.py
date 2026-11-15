@@ -972,6 +972,18 @@ def test_shadow_takes_the_keys_as_a_contract(tmp_path):
     assert set(stripped) == {"titles", "set_breaks", "encore_after"}
 
 
+def test_shadow_files_include_audio_check(tmp_path):
+    # the replay's cache-only audio check reads the show dir's verdict cache, so a
+    # stripped-overrides shadow must carry it (else every drop reads `unchecked`)
+    assert "audio-check.json" in rh.SHADOW_FILES
+    root = tmp_path / "lib"
+    shows = build_library(root)
+    d = shows["gratefuldead-1973-06-10"].dir
+    d.joinpath("audio-check.json").write_text('{"entries": []}\n')
+    ws, _ = rh._shadow(d, tmp_path / "sh", ("titles",))
+    assert ws.audio_check.read_bytes() == d.joinpath("audio-check.json").read_bytes()
+
+
 def _title_arms(tmp_path, base_flag, cand_flag):
     root = tmp_path / "lib"
     build_library(root, held_for_real=True)

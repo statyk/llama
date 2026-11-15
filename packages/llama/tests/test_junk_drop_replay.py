@@ -55,7 +55,10 @@ def test_replay_row_lists_junk_drops(tmp_path):
     assert len(r.junk_drops) == 1
     d = r.junk_drops[0]
     assert d == {"filename": "gd73-06-10d1t02.mp3", "title": "Tuning", "set": "1",
-                 "after_track": 1, "duration_sec": 180.0, "rule": "A", "held": False}
+                 "after_track": 1, "duration_sec": 180.0, "rule": "A", "held": False,
+                 # the audio check's outcome (Task 7): no verdict cache, so unchecked
+                 "check": "unchecked", "run_sec": None, "frac": None,
+                 "check_error": "no cached verdict"}
     assert "gd73-06-10d1t02.mp3" not in r.filenames
     assert len(r.title_paths) == len(r.filenames)
     assert all(p <= len(r.filenames) for k in ("s_fills", "s_declined", "deferred_applied")

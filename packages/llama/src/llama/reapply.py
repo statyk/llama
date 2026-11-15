@@ -70,6 +70,14 @@ _PREDICTED = {
 }
 # held outcomes that go on to the brief and the package
 _HELD_PACKAGE = frozenset({"clears", "needs-brief", "structure-changed"})
+# The commit-point gate's outcome prefix: `skipped: unchecked drop (<files>)`.
+UNCHECKED_DROP = "skipped: unchecked drop"
+
+
+def unchecked_drops(legs) -> list[str]:
+    """The filenames, in drop order, of the freshly computed junk-title drops whose
+    audio-check outcome is anything other than `junk` or `music`."""
+    return [d.filename for d in legs.gather.junk_drops if d.check not in ("junk", "music")]
 
 
 @dataclasses.dataclass
@@ -79,7 +87,7 @@ class ReapplyOutcome:
     # "skipped: not held" | "skipped: processed" |
     # "skipped: re-selection (llama redo <slug> --from select)" |
     # "skipped: inputs changed" | "skipped: structure changed" |
-    # "dry-run: <predicted>"
+    # "skipped: unchecked drop (<file>, ...)" | "dry-run: <predicted>"
     outcome: str
     briefing: str                  # "reuse" | "fresh" | "none"
     flags: list[str]
@@ -247,6 +255,16 @@ def _reapply(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
         if stored_llm or align_calls():
             extra["align_reproduced"] = _align_reproduced(legs.stored, legs.replayed_show)
     replayed = legs.replayed_show
+    # The commit-point gate (audio-check spec, "The commit-point gate"; operator
+    # 2026-11-14: every reapply, no mode flag). Here, after the LAST compute_legs
+    # (the gather-LLM recompute included) and before the classification, the dry-run
+    # returns and any write (the reuse anchor included): a junk-title drop whose
+    # audio check is anything but `junk`/`music` writes nothing and is retried after
+    # the pre-pass fills its verdict. A held show is gated the same way.
+    unchecked = unchecked_drops(legs)
+    if unchecked:
+        status = f"{UNCHECKED_DROP} ({', '.join(unchecked)})"
+        return result(f"dry-run: {status}" if dry_run else status, "none", legs.flags)
 
     if held:
         outcome, _would_be = classify(legs, "held")
@@ -454,10 +472,12 @@ def read_progress(batch: Path) -> dict[str, dict]:
 def outcome_retryable(outcome: str, with_gather_llm: bool = False) -> bool:
     """Whether a row that ended in `outcome` is run again by a re-run of the same list:
     a row that needed an LLM call it was not allowed (run without --with-gather-llm), and a structure change nobody
-    allowed yet. The committed outcomes and the `skipped: processed`/`re-selection`
-    rows are finished."""
+    allowed yet, and an unchecked junk-title drop (retried once the pre-pass has
+    filled its verdict). The committed outcomes and the `skipped: processed`/
+    `re-selection` rows are finished."""
     return ((outcome == "needs-llm" and not with_gather_llm)
-            or outcome == "skipped: structure changed")
+            or outcome == "skipped: structure changed"
+            or outcome.startswith(UNCHECKED_DROP))
 
 
 def record_progress(batch: Path, slug: str, outcome: str, retryable: bool,

@@ -2473,7 +2473,9 @@ def test_campaign_list_retires_the_rekey_restore(tmp_path, monkeypatch):
     ("held", False, False), ("label-only", False, False), ("unchanged", False, False),
     ("skipped: processed", False, False),
     ("skipped: re-selection (llama redo x --from select)", False, False),
-    ("needs-llm", True, False), ("skipped: structure changed", True, False)])
+    ("needs-llm", True, False), ("skipped: structure changed", True, False),
+    ("skipped: unchecked drop (x.mp3, y.mp3)", True, False),
+    ("skipped: unchecked drop (x.mp3)", True, True)])
 def test_retryability_per_outcome(tmp_path, monkeypatch, outcome, retryable, gather_llm):
     from conftest import cli_invoke
     root, config, entries, lst = _batch_env(tmp_path, monkeypatch)
@@ -2580,3 +2582,151 @@ def test_broken_snapshot_refuses_before_the_first_show(tmp_path, monkeypatch):
     assert prov.calls == [] and calls == []
     assert tree_bytes(root / "shows") == tree_before
     assert (batch / "progress.jsonl").read_bytes() == progress_before
+
+
+# --- Audio check (Task 7): the reapply commit-point gate on unchecked drops ---
+# spec 2026-11-14-junk-drop-audio-check-design, "The commit-point gate": a show whose
+# freshly computed junk-title drops include any outcome other than `junk`/`music`
+# writes NOTHING and returns a retryable `skipped: unchecked drop (<files>)`.
+
+from test_replay_audio_check import TUNING, cache_verdict, drop_tuning  # noqa: E402
+
+CROWD = "gd73-06-10d2t02.mp3"
+
+
+def _listing(d: Path) -> set[str]:
+    """Every path under `d` (directories too), except the top-level `.lock`."""
+    return {p.relative_to(d).as_posix() for p in d.rglob("*")} - {".lock"}
+
+
+def test_reapply_skips_show_with_unchecked_drop_and_writes_nothing(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    drop_tuning(root)
+    drop_tuning(root, CROWD, title="Crowd", length="1:30")
+    campaign.add_mark(entry.ws, reason=REASON, start_stage="gather", batch="b1", at=LONG_AGO)
+    calls = _stub_package(monkeypatch)
+    before, paths = tree_bytes(entry.ws.dir), _listing(entry.ws.dir)
+    providers = _providers(OK_BRIEF)
+    out = _run(config, ledger, entry, providers, allow_structure_change=True)
+    assert out.outcome == f"skipped: unchecked drop ({TUNING}, {CROWD})"
+    assert out.written == [] and calls == [] and providers["brief"].calls == []
+    assert tree_bytes(entry.ws.dir) == before and _listing(entry.ws.dir) == paths
+    assert reapply_mod.outcome_retryable(out.outcome)
+
+
+def test_reapply_names_only_the_unchecked_drops(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    md = drop_tuning(root)
+    drop_tuning(root, CROWD, title="Crowd", length="1:30")
+    cache_verdict(entry.ws, md, TUNING, verdict="junk")
+    _stub_package(monkeypatch)
+    out = _run(config, ledger, entry, allow_structure_change=True)
+    assert out.outcome == f"skipped: unchecked drop ({CROWD})"
+
+
+def test_reapply_unchecked_held_stored_show_skips(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path, held_for_real=True)
+    assert read_model(entry.ws.show, Show).needs_review
+    drop_tuning(root)
+    _stub_package(monkeypatch)
+    before = tree_bytes(entry.ws.dir)
+    out = _run(config, ledger, entry, allow_structure_change=True)
+    assert out.outcome == f"skipped: unchecked drop ({TUNING})"
+    assert tree_bytes(entry.ws.dir) == before
+
+
+def test_reapply_unchecked_dry_run_prediction(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    drop_tuning(root)
+    _stub_package(monkeypatch)
+    before = tree_bytes(entry.ws.dir)
+    out = _run(config, ledger, entry, dry_run=True)
+    assert out.outcome == f"dry-run: skipped: unchecked drop ({TUNING})"
+    assert tree_bytes(entry.ws.dir) == before
+
+
+def test_reapply_unchecked_writes_nothing_incl_anchor(tmp_path, monkeypatch):
+    config, _cfg, ledger, entry, ia, out_dir = _delivered_env(tmp_path, monkeypatch,
+                                                              marked=True, fresh=True)
+    drop_tuning(config.root)
+    before, paths = tree_bytes(entry.ws.dir), _listing(entry.ws.dir)
+    station, station_paths = tree_bytes(out_dir), _listing(out_dir)
+    assert "campaign.json" in before and "reuse-anchor.json" not in before
+    providers = _providers(OK_BRIEF)
+    o, _lines = _apply(config, ledger, entry, ia, providers, allow_structure_change=True)
+    assert o.outcome == f"skipped: unchecked drop ({TUNING})" and o.written == []
+    assert providers["brief"].calls == [] and ia.downloads == []
+    assert tree_bytes(entry.ws.dir) == before and _listing(entry.ws.dir) == paths
+    assert not entry.ws.reuse_anchor.exists()
+    assert tree_bytes(out_dir) == station and _listing(out_dir) == station_paths
+    assert campaign.awaiting_fix(campaign.read_record(entry.ws))     # the mark stays
+
+
+def test_reapply_with_gather_llm_new_drop_unchecked_skips(tmp_path, monkeypatch):
+    import dataclasses
+    from llama.junk_titles import JunkDrop
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _needs_align(root, config)
+    calls = _stub_package(monkeypatch)
+    real = reapply_mod.compute_legs
+    seen = []
+
+    def legs_with_new_drop(*args, **kw):
+        legs = real(*args, **kw)
+        seen.append(kw.get("gather_providers") is not None)
+        assert legs.gather.junk_drops == ()          # neither call drops anything itself
+        if kw.get("gather_providers") is None:
+            return legs
+        # a drop that first appears in the gather-LLM recompute, with no cached verdict
+        drop = JunkDrop(filename=TUNING, title="Tuning", set="1", duration_sec=180.0,
+                        rule="A", position=1, after_track=1, held=False,
+                        check="unchecked", check_error="no cached verdict")
+        return dataclasses.replace(legs, gather=legs.gather._replace(junk_drops=(drop,)))
+    monkeypatch.setattr(reapply_mod, "compute_legs", legs_with_new_drop)
+    before = tree_bytes(entry.ws.dir)
+    align = FakeProvider(completes=[_align_resp(entry.ws)])
+    providers = _gl_providers(align, [OK_BRIEF])
+    out = _run(config, ledger, entry, providers, with_gather_llm=True,
+               allow_structure_change=True)
+    assert seen == [False, True]
+    assert out.outcome == f"skipped: unchecked drop ({TUNING})"
+    assert calls == [] and providers["brief"].calls == []
+    assert tree_bytes(entry.ws.dir) == before
+
+
+@pytest.mark.parametrize("verdict,outcome", [("junk", "cleared"), ("music", "held")])
+def test_reapply_commits_when_all_drops_junk_or_music(tmp_path, monkeypatch, verdict, outcome):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    md = drop_tuning(root)
+    cache_verdict(entry.ws, md, TUNING, verdict=verdict, run_sec=170, frac=0.9)
+    _stub_package(monkeypatch)
+    out = _run(config, ledger, entry, _providers(OK_BRIEF), allow_structure_change=True)
+    assert out.outcome == outcome and "show.json" in out.written
+    show = read_model(entry.ws.show, Show)
+    row = next(r for r in show.excluded_files if r["filename"] == TUNING)
+    assert row["check"] == verdict
+    assert TUNING not in [t.filename for t in show.tracks]
+
+
+def test_unchecked_outcome_is_retryable():
+    for gl in (False, True):
+        assert reapply_mod.outcome_retryable(f"skipped: unchecked drop ({TUNING})", gl)
+        assert reapply_mod.outcome_retryable(f"skipped: unchecked drop ({TUNING}, {CROWD})", gl)
+    # the existing outcomes keep their retryability
+    assert not reapply_mod.outcome_retryable("skipped: inputs changed")
+    assert not reapply_mod.outcome_retryable("held")
+    assert reapply_mod.outcome_retryable("skipped: structure changed")
+
+
+def test_cache_change_after_arm_is_inputs_changed(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    md = drop_tuning(root)
+    _stub_package(monkeypatch)
+    row = {"slug": entry.slug, "digests": input_digests(entry.ws)}   # armed with no cache
+    cache_verdict(entry.ws, md, TUNING, verdict="junk")              # a pre-pass after the arm
+    before = tree_bytes(entry.ws.dir)
+    assert _run(config, ledger, entry, row=row).outcome == "skipped: inputs changed"
+    assert tree_bytes(entry.ws.dir) == before
+    row = {"slug": entry.slug, "digests": input_digests(entry.ws)}   # re-armed
+    cache_verdict(entry.ws, md, CROWD, verdict="junk")               # another pre-pass
+    assert _run(config, ledger, entry, row=row).outcome == "skipped: inputs changed"

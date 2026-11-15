@@ -101,7 +101,8 @@ STRUCTURE_KEYS = ("set_breaks", "encore_after")
 TITLE_KEYS = ("titles",)
 # Copied into a shadow show dir: everything `compute_legs` reads from the show directory
 # besides `overrides.json` (rewritten) and the stored side `replay_show` reads.
-SHADOW_FILES = ("provenance.json", "show.json", "vetting.json", "briefing.json", "briefing.md")
+SHADOW_FILES = ("provenance.json", "show.json", "vetting.json", "briefing.json", "briefing.md",
+                "audio-check.json")
 
 
 # The refusal texts of an overrides validation error, as a replayed row's `unreplayable` carries
