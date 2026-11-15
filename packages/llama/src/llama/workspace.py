@@ -82,6 +82,7 @@ class ShowWorkspace:
         self.notes = dir / "notes.json"
         self.adjudication = dir / "adjudication.json"
         self.campaign = dir / "campaign.json"
+        self.audio_check = dir / "audio-check.json"  # verdict cache; not a stage artifact
         self.reuse_anchor = dir / "reuse-anchor.json"
         self.package_dir = dir / "package"
         self.lock = dir / ".lock"
