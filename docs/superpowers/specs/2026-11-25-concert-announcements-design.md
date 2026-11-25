@@ -149,8 +149,11 @@ player, which groups coming-up shows under the occurrence they air in
 (`antenna/public/assets/programs.js` `comingUpGroups`), while each show's own
 ticket keeps its own program line.
 
-Within a block, every break repeats "Coming up next, Overnight Variety with
-…". *(My call; a "continues with" variant is cheap to add later.)*
+**Entering vs continuing a block** (Shawn, 2026-11-25): when X is the first
+show of its block occurrence, Next is "Coming up next, <block>" + "with
+<artist>"; when X continues the block the previous show was in, Next is
+"<block> continues" + "with <artist>" ("Overnight Variety continues with
+Cracker, followed by Ryan Adams, …"). The artist pieces are shared.
 
 Z's time is the block's **nominal** clock time ("at 2"), as today's
 announcements use; Y's time is its **actual** planned start, bucketed.
@@ -187,6 +190,7 @@ nominal clock time and is unaffected.
 |---|---|
 | Station ID (one text, from config) | 1 |
 | "Coming up next, <block title>" | one per titled block |
+| "<block title> continues" | one per titled block |
 | "Then, at <time> Eastern, <block title>" | one per (titled block, nominal start time) |
 | "with <artist>," / "with <artist>." / "followed by <artist>," | 3 per artist (291 artists in the delivered library on 2026-11-25, so ~870) |
 | time phrases | 144 |
@@ -244,6 +248,10 @@ pieces.
   store are reused. Its exact frame count is known before the row is
   appended. Whether transmitter assembles to WAV/MP3 via ffmpeg 5.1 or to AAC
   directly is the builder's call.
+- **Purge:** an assembled clip is deleted once its break has aired (same
+  "has aired" test as plan-row trimming; never one a row in the lead or the
+  timeline window still needs). Deletion is always safe because the clip can
+  be re-assembled from its pieces.
 - Re-validation at render: the assembled clip exists with the same key;
   if not, it is re-assembled from its pieces; if a piece is gone, the existing
   interstitial re-validation path applies (drop and re-plan from the
