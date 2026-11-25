@@ -271,10 +271,13 @@ pieces.
     block-title words) are compared **phonetically**, by Metaphone key
     (`jellyfish.metaphone`), not by character edits (Shawn's ruling
     2026-11-25): each run of name tokens (a title, an artist) is a span,
-    spans are compared pairwise in order, each pair must have the same number
-    of tokens, and every token must have an equal key (Shawn's ruling
-    2026-11-25: no token insert/delete in names, so "with Grateful Dead"
-    heard "with Dead" and "with Cracker" heard "with Big Cracker" fail). So raq/rack,
+    spans are compared pairwise in order (the span count must match), and a
+    pair passes when the Metaphone key of its tokens joined with no separator
+    is equal (Shawn's ruling 2026-11-25: a name span compares by the Metaphone
+    key of its joined words). So Whisper splitting or joining a compound
+    ("Supersuckers"/"Super Suckers", "Allstars"/"All-Stars") passes, while
+    "with Grateful Dead" heard "with Dead" and "with Cracker" heard "with Big
+    Cracker" fail. So raq/rack,
     pardners/partners, Feat/Feet and Carll/Carl pass, while Ryan/Brian,
     Adams/Adam, "Ripple continues" heard "Nipple continues" and
     Stopped/Stops fail. `tts/verify.py`'s normaliser is not reused (it drops

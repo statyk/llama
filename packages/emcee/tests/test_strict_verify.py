@@ -32,7 +32,7 @@ def test_passes(text, heard):
 
 
 @pytest.mark.parametrize("text,heard,why", [
-    ("followed by Ryan Adams,", "Followed by Ryan Adam.", "final"),        # swallowed final consonant
+    ("followed by Ryan Adams,", "Followed by Ryan Adam.", "names"),        # swallowed final consonant
     ("around quarter past 11 Eastern.", "Around quarter past 12 Eastern.", "template"),
     ("around quarter past 11 Eastern.", "Around a quarter past 11 Eastern.", "template"),
     ("with Dark Star Orchestra.", "With Dork Stars Orchestra.", "names"),   # two name edits
@@ -69,35 +69,64 @@ def test_phonetic_passes(text, heard):
 
 
 @pytest.mark.parametrize("text,heard,why", [
-    ("with Ryan.", "With Brian.", "final"),                                  # RYN/BRN
+    ("with Ryan.", "With Brian.", "names"),                                  # RYN/BRN
     ("followed by Ryan Adams,", "Followed by Brian Adams,", "names"),        # RYN/BRN, a different key (not the last word)
-    ("followed by Ryan Adams,", "Followed by Ryan Adam,", "final"),          # ATMS/ATM
+    ("followed by Ryan Adams,", "Followed by Ryan Adam,", "names"),          # ATMS/ATM
     ("Ripple continues", "Nipple continues", "names"),                       # RPL/NPL, final stays template
     ("Then, at 2 Eastern, The Music Never Stopped",
-     "Then, at 2 Eastern, The Music Never Stops", "final"),                  # STPT/STPS
+     "Then, at 2 Eastern, The Music Never Stops", "names"),                  # STPT/STPS
     ("Coming up next, Ripple in Crime continues",
      "Coming up next, Nipple in Crime continues", "names"),                  # span count same, key differs
-    ("with Hayes Carll.", "With Hayes Carll Band.", "final"),
+    ("with Hayes Carll.", "With Hayes Carll Band.", "names"),
     ("Ripple continues", "continues", "spans"),                              # swallowed title
     ("Coming up next, Live at the Fillmore", "Coming up next, at the Fillmore", "names"),
     ("Coming up next, Live at the Fillmore", "Coming up next, at the Fillmore", "spans"),
-    ("Hayes Carll continues", "Hayes Carll Band continues", "words wanted"),  # now a length failure
+    ("Hayes Carll continues", "Hayes Carll Band continues", "names"),  # now a length failure
     ("Coming up next, Pardners in Crime continues",
-     "Coming up next, Pardners in continues", "words wanted"),
+     "Coming up next, Pardners in continues", "names"),
 ])
 def test_phonetic_fails(text, heard, why):
     assert why in strict_problem(text, heard)
 
 
 @pytest.mark.parametrize("text,heard,why", [
-    ("with Grateful Dead.", "With Dead.", "1 heard"),
-    ("with Cracker.", "With Big Cracker.", "2 heard"),
+    ("with Grateful Dead.", "With Dead.", '"grateful dead" (KRTFLTT) heard as "dead" (TT)'),
+    ("with Cracker.", "With Big Cracker.", '"cracker" (KRKR) heard as "big cracker" (BKKRKR)'),
     ("followed by George Porter, Jr. and Runnin' Pardners,",
-     "Followed by George, Jr. and Runnin' Pardners,", "6 words wanted, 5 heard"),
-    ("with Dark Star Orchestra.", "With Dark Star Big Orchestra.", "4 heard"),
+     "Followed by George, Jr. and Runnin' Pardners,", '"george porter jr and runnin pardners" (JRJ'),
+    ("with Dark Star Orchestra.", "With Dark Star Big Orchestra.", "heard as"),
+    ("followed by Ryan Adams,", "Followed by Brian Adams,", '"ryan adams"'),
+    ("followed by Ryan Adams,", "Followed by Ryan Adam,", '"ryan adam"'),
+    ("Ripple continues", "Nipple continues", '"ripple"'),
+    ("with The Codetalkers.", "with the code Deadtalkers.", '"the codetalkers" (0KTTLKRS) heard as "the code deadtalkers"'),
+    ("with Dumpstaphunk,", "with Dump Staff on.", '"dumpstaphunk" (TMPSTFNK) heard as "dump staff on" (TMPSTFN)'),
+    ("with Toubab Krewe.", "with 2bab crew a", "template words differ"),  # "2bab" -> "two bab": number words are template
+    ("with Cris Jacobs.", "with Chris Jacobs.", '"cris jacobs"'),
+    ("with New Mastersounds.", "with new Master Sound.", '"new mastersounds"'),
 ])
-def test_no_token_insert_or_delete_in_names(text, heard, why):
-    assert why in strict_problem(text, heard)
+def test_names_that_must_still_fail(text, heard, why):
+    reason = strict_problem(text, heard)
+    assert reason is not None and why in reason
+
+
+# Real Whisper output from the 2026-11-25 overnight run: it splits or joins compounds.
+@pytest.mark.parametrize("text,heard", [
+    ("with Supersuckers.", "with super suckers"),
+    ("followed by Ratdog,", "Followed by Rat Dog."),
+    ("with North Mississippi Allstars.", "with North Mississippi All-Stars."),
+    ("with Signal Path.", "With SignalPath..."),
+    ("Mid-morning Dead continues.", "Midmorning Dead continues."),
+    ("followed by fIREHOSE,", "Followed by fire hose."),
+    ("with Subdudes.", "with Sub Dudes."),
+    ("with Infamous Stringdusters,", "with infamous string dusters."),
+    ("with Scrapomatic.", "with Scrap-O-Matic."),
+    ("with Shinyribs.", "with sheeny ribs."),
+    ("with Soulive,", "with Soul Live."),
+    ("with The Codetalkers,", "with the CODET Talkers."),
+    ("followed by Blueground Undergrass,", "followed by Blue Ground Undergrass."),
+])
+def test_split_and_joined_compounds_pass(text, heard):
+    assert strict_problem(text, heard) is None
 
 
 def test_final_template_token_stays_exact():

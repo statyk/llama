@@ -6,14 +6,14 @@ the word.  The tokenizer here is deliberately its own (it spells digits out, so
 
 A piece's text splits into *template* tokens (fixed phrase words and every
 number word) and *name* tokens (everything else).  Template tokens must match
-exactly, in order.  Name tokens are compared phonetically, by Metaphone key
-(Shawn's ruling 2026-11-25, replacing a one-edit character tolerance).  Each
-maximal run of name tokens is a *span* (a title, an artist); spans are
-compared pairwise in order; paired spans must have the same number of tokens
-and every token an equal key (Shawn's ruling 2026-11-25: no token
-insert/delete in names, no substitution of an unequal key).  The piece's
-final token is compared by key when it is a name token, exactly when it is
-template (``continues``, ``Eastern``).
+exactly, in order.  Name tokens are compared phonetically (Shawn's rulings 2026-11-25).  Each
+maximal run of name tokens is a *span* (a title, an artist); spans are paired
+in order and the span count must match.  A paired span compares by ONE
+Metaphone key of its tokens joined with no separator, so Whisper splitting or
+joining a compound ("Supersuckers" / "Super Suckers", "Allstars" /
+"All-Stars") passes, while a dropped, added or mis-heard word changes the key
+and fails.  The span key covers a name-token final word; a template final
+token (``continues``, ``Eastern``) is compared exactly.
 """
 from __future__ import annotations
 
@@ -95,9 +95,14 @@ def _name_bearing(toks: list[str]) -> bool:
             or toks[-1:] == ["continues"])
 
 
-def _key(tok: str) -> str:
-    """Metaphone key; a token with no letters (digits) keys as itself."""
-    return jellyfish.metaphone(tok) or tok
+def _key(span: list[str]) -> str:
+    """Metaphone key of the span's joined tokens.
+
+    Metaphone drops digits, so a digit-bearing token (a number past 999,999
+    stays as digits) keeps its digits in the key.
+    """
+    joined = "".join(span)
+    return jellyfish.metaphone(joined) + re.sub(r"\D", "", joined)
 
 
 def _spans(toks: list[str], name_bearing: bool) -> tuple[list[str], list[list[str]]]:
@@ -131,13 +136,8 @@ def strict_problem(text: str, transcript: str, *, expect: str | None = None) -> 
             return f"transcript differs from .expect: wanted {' '.join(tokens(expect))!r}, heard {' '.join(heard)!r}"
         return None
     bearing = bool(want) and _name_bearing(want)
-    if want:
-        if bearing and want[-1] not in TEMPLATE_WORDS and want[-1] != "continues":
-            if _key(heard[-1]) != _key(want[-1]):
-                return (f'final word "{want[-1]}" ({_key(want[-1])}) heard as '
-                        f'"{heard[-1]}" ({_key(heard[-1])})')
-        elif heard[-1] != want[-1]:
-            return f'final word "{want[-1]}" heard as "{heard[-1]}"'
+    if want and not (bearing and want[-1] not in TEMPLATE_WORDS) and heard[-1] != want[-1]:
+        return f'final word "{want[-1]}" heard as "{heard[-1]}"'
     want_t, want_s = _spans(want, bearing)
     heard_t, heard_s = _spans(heard, bearing)
     if want_t != heard_t:
@@ -146,11 +146,7 @@ def strict_problem(text: str, transcript: str, *, expect: str | None = None) -> 
         return (f"names: name spans differ in number: wanted {len(want_s)}, heard {len(heard_s)} "
                 f"(wanted {[' '.join(x) for x in want_s]}, heard {[' '.join(x) for x in heard_s]})")
     for w, h in zip(want_s, heard_s):
-        if len(w) != len(h):
-            return (f'names: "{" ".join(w)}" heard as "{" ".join(h)}" '
-                    f"({len(w)} words wanted, {len(h)} heard)")
-        for a, b in zip(w, h):
-            if _key(a) != _key(b):
-                return (f'names: "{" ".join(w)}" heard as "{" ".join(h)}": '
-                        f'"{a}" ({_key(a)}) vs "{b}" ({_key(b)})')
+        kw, kh = _key(w), _key(h)
+        if kw != kh:
+            return f'names: "{" ".join(w)}" ({kw}) heard as "{" ".join(h)}" ({kh})'
     return None
