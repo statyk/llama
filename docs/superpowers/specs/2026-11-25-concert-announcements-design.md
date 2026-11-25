@@ -265,9 +265,9 @@ pieces.
   - **verify, strictly**: transcribe (the existing STT path) and compare the
     transcript with the piece's **original** text, not the lexicon
     respelling. A new tokenizer maps digits and "2:30"-style times to words
-    on both sides. Template words, numbers, hour words and the final token
-    must match exactly and in order (a template final token such as
-    "continues" or "Eastern" stays exact). Name tokens (artist and
+    on both sides. Template words, numbers, hour words and the final token,
+    when it is a template word (e.g. "continues", "Eastern"), must match
+    exactly and in order. Name tokens (artist and
     block-title words) are compared **phonetically**, by Metaphone key
     (`jellyfish.metaphone`), not by character edits (Shawn's ruling
     2026-11-25): each run of name tokens (a title, an artist) is a span,

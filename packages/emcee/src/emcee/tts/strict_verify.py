@@ -156,7 +156,7 @@ def strict_problem(text: str, transcript: str, *, expect: str | None = None) -> 
     if want_t != heard_t:
         return f"template words differ: wanted {' '.join(want_t)!r}, heard {' '.join(heard_t)!r}"
     if len(want_s) != len(heard_s):
-        return (f"names: {len(want_s)} name spans wanted, {len(heard_s)} heard "
+        return (f"names: name spans differ in number: wanted {len(want_s)}, heard {len(heard_s)} "
                 f"(wanted {[' '.join(x) for x in want_s]}, heard {[' '.join(x) for x in heard_s]})")
     edits = 0
     for w, h in zip(want_s, heard_s):

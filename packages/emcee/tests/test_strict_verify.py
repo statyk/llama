@@ -25,7 +25,7 @@ def test_tokens_of_hard_names():
 @pytest.mark.parametrize("text,heard", [
     ("Then, at 2:30 Eastern, The Music Never Stopped", "Then at two thirty Eastern, the music never stopped."),
     ("a few minutes before midnight Eastern.", "A few minutes before midnight, Eastern."),
-    ("with Dark Star Orchestra.", "With Dark Starr Orchestra."),           # one name edit
+    ("with Dark Star Orchestra.", "With Dark Starr Orchestra."),           # keys equal (STR/STR), not an edit
 ])
 def test_passes(text, heard):
     assert strict_problem(text, heard) is None
@@ -78,6 +78,12 @@ def test_phonetic_passes(text, heard):
     ("Coming up next, Ripple in Crime continues",
      "Coming up next, Nipple in Crime continues", "names"),                  # span count same, key differs
     ("with Hayes Carll.", "With Hayes Carll Band.", "final"),
+    ("Ripple continues", "continues", "spans"),                              # swallowed title
+    ("Coming up next, Live at the Fillmore", "Coming up next, at the Fillmore", "names"),
+    ("Coming up next, Live at the Fillmore", "Coming up next, at the Fillmore", "spans"),
+    ("Hayes Carll continues", "Hayes Carll Band continues", "last word"),    # span-last, not piece-final
+    ("Coming up next, Pardners in Crime continues",
+     "Coming up next, Pardners in continues", "last word"),
 ])
 def test_phonetic_fails(text, heard, why):
     assert why in strict_problem(text, heard)
