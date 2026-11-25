@@ -235,6 +235,35 @@ def test_zero_byte_mp3_with_failed_is_not_pending(env):
     assert pieces.pending(env.folder) == []
 
 
+def test_dangling_symlink_mp3_is_pending(env, monkeypatch):
+    i = put(env.folder, "with Cracker.")
+    mp3 = env.folder / f"piece-{i}.mp3"
+    mp3.symlink_to(env.folder / "missing.mp3")
+    assert [p.id for p in pieces.pending(env.folder)] == [i]
+    seam(monkeypatch, FakeSpeech(), FakeStt(["With Cracker."]))
+    r = run(env)
+    assert r.exit_code == 0, r.output
+    assert not mp3.is_symlink()
+    assert mp3.is_file() and mp3.stat().st_size > 0
+    assert not (env.folder / "missing.mp3").exists()
+
+
+def test_symlink_to_empty_mp3_is_pending(env):
+    i = put(env.folder, "with A.")
+    target = env.folder / "empty.mp3"
+    target.write_bytes(b"")
+    (env.folder / f"piece-{i}.mp3").symlink_to(target)
+    assert [p.id for p in pieces.pending(env.folder)] == [i]
+
+
+def test_symlink_to_nonempty_mp3_is_voiced(env):
+    i = put(env.folder, "with A.")
+    target = env.folder / "real.mp3"
+    target.write_bytes(b"x")
+    (env.folder / f"piece-{i}.mp3").symlink_to(target)
+    assert pieces.pending(env.folder) == []
+
+
 def test_non_regular_mp3_never_crashes_pending(env):
     i = put(env.folder, "with A.")
     (env.folder / f"piece-{i}.mp3").mkdir()

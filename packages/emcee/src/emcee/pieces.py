@@ -76,10 +76,12 @@ class Tally:
 def _mp3_blocks(mp3: Path) -> bool:
     """True when `mp3` means the piece is not pending: a regular non-empty file
     (voiced, as transmitter counts it) or a non-regular entry (clutter, never
-    replaced). Absent or a zero-byte regular file is not blocking, so the piece
-    is re-voiced over it."""
+    replaced). Follows symlinks, as transmitter does: absent, a dangling link,
+    or a zero-byte regular file (or a link to one) is not blocking, so the
+    piece is re-voiced over it (os.replace swaps the link itself, not its
+    target)."""
     try:
-        st = mp3.lstat()
+        st = mp3.stat()
     except FileNotFoundError:
         return False
     except OSError:
