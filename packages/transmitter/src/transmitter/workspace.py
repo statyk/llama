@@ -68,6 +68,10 @@ class Workspace:
         return self.root / "clock.toml"
 
     @property
+    def announce_path(self) -> Path:
+        return self.root / "announce.toml"
+
+    @property
     def clock_last_good_path(self) -> Path:
         return self.root / "clock.last-good.toml"
 

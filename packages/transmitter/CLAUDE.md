@@ -118,3 +118,9 @@ has run).
   occurrence, 3 pieces per cleaned artist, 78 time phrases). Times are always spoken in
   `America/New_York` whatever the clock's timezone (`time_phrase` buckets, `then_time`); artists go
   through `clean` (`" ".join(split())`, non-string or empty -> none).
+- `transmitter/announce_config.py` (`<TRANSMITTER_ROOT>/announce.toml`, `Workspace.announce_path`): strict
+  (`extra="forbid"`, no NaN/inf), off by default. `load_settings(ws, alert=)` never raises and returns
+  `LoadedSettings(settings, source "file"|"missing"|"invalid", problem)`; an invalid file (bad TOML, non-UTF-8,
+  unreadable, unknown key, out-of-range value, relative `bed`, multi-line `id_text`, `enabled = true` without
+  `bed`) yields default (off) settings and, with `alert=True`, one `announce-config` event alert naming the
+  cause. The `announce-*` codes are ungated, non-level. `config.toml` and the clock gain no keys.
