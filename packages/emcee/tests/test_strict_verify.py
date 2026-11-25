@@ -51,3 +51,47 @@ def test_id_piece_tokens_are_all_template():         # no name tolerance for the
 def test_expect_overrides():
     assert strict_problem("with moe.,", "With Mo.", expect="with mo") is None
     assert "expect" in strict_problem("with moe.,", "With Moe.", expect="with mo")
+
+
+# Shawn's ruling 2026-11-25: name tokens compare by Metaphone key.
+@pytest.mark.parametrize("text,heard", [
+    ("with Raq.", "With rack."),                                      # RK/RK
+    ("followed by Pardners,", "Followed by partners."),               # PRTNRS
+    ("with The McCourys.", "With the Macquaries."),                   # MKKRS
+    ("with Bonerama.", "With Bonarama."),                             # BNRM
+    ("with Club d'Elf.", "With Club Delph."),                         # TLF
+    ("followed by Little Feat,", "Followed by little feet."),         # FT
+    ("with Hayes Carll.", "With Hayes Carl."),                        # KRL
+    ("Coming up next, Pardners in Crime continues", "Coming up next, Partners in Crime continues"),
+])
+def test_phonetic_passes(text, heard):
+    assert strict_problem(text, heard) is None
+
+
+@pytest.mark.parametrize("text,heard,why", [
+    ("with Ryan.", "With Brian.", "final"),                                  # RYN/BRN
+    ("followed by Ryan Adams,", "Followed by Brian Adams,", "names"),        # two token edits
+    ("followed by Ryan Adams,", "Followed by Ryan Adam,", "final"),          # ATMS/ATM
+    ("Ripple continues", "Nipple continues", "names"),                       # RPL/NPL, final stays template
+    ("Then, at 2 Eastern, The Music Never Stopped",
+     "Then, at 2 Eastern, The Music Never Stops", "final"),                  # STPT/STPS
+    ("Coming up next, Ripple in Crime continues",
+     "Coming up next, Nipple in Crime continues", "names"),                  # span count same, key differs
+    ("with Hayes Carll.", "With Hayes Carll Band.", "final"),
+])
+def test_phonetic_fails(text, heard, why):
+    assert why in strict_problem(text, heard)
+
+
+def test_nonfinal_name_token_may_be_inserted_once():
+    assert strict_problem("with Dark Star Orchestra.", "With Dark Star Big Orchestra.") is None
+    assert "names" in strict_problem("with Dark Star Orchestra.", "With Big Dark Star Big Orchestra.")
+
+
+def test_final_template_token_stays_exact():
+    assert "final" in strict_problem("Ripple continues", "Ripple continue")
+
+
+def test_no_key_token_does_not_crash():
+    assert strict_problem("with Blink 1000000.", "With Blink 1000000.") is None
+    assert strict_problem("with Blink 1000000.", "With Blink 1000001.") is not None

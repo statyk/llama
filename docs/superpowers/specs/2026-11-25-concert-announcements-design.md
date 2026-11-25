@@ -266,9 +266,17 @@ pieces.
     transcript with the piece's **original** text, not the lexicon
     respelling. A new tokenizer maps digits and "2:30"-style times to words
     on both sides. Template words, numbers, hour words and the final token
-    must match exactly and in order; name tokens (artist and block-title
-    words) allow a small stated tolerance (the builder picks it, e.g. one
-    token-level edit). `tts/verify.py`'s normaliser is not reused (it drops
+    must match exactly and in order (a template final token such as
+    "continues" or "Eastern" stays exact). Name tokens (artist and
+    block-title words) are compared **phonetically**, by Metaphone key
+    (`jellyfish.metaphone`), not by character edits (Shawn's ruling
+    2026-11-25): each run of name tokens (a title, an artist) is a span,
+    spans are compared pairwise in order, and the last token of every span
+    must have an equal key with no further allowance; earlier name tokens
+    may differ by one token-level insert/delete. So raq/rack,
+    pardners/partners, Feat/Feet and Carll/Carl pass, while Ryan/Brian,
+    Adams/Adam, "Ripple continues" heard "Nipple continues" and
+    Stopped/Stops fail. `tts/verify.py`'s normaliser is not reused (it drops
     number words), nor its tolerance. An operator-written
     `piece-<id>.expect` beside the text, holding the expected transcript,
     overrides the comparison for names STT can't spell (e.g. "moe.",

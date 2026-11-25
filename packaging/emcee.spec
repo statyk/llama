@@ -82,7 +82,7 @@ a = Analysis(  # type: ignore[name-defined]
     ],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=["jellyfish._rustyfish"],  # compiled (Rust) Metaphone, strict_verify
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

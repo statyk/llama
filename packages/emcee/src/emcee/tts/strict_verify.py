@@ -6,13 +6,21 @@ the word.  The tokenizer here is deliberately its own (it spells digits out, so
 
 A piece's text splits into *template* tokens (fixed phrase words and every
 number word) and *name* tokens (everything else).  Template tokens must match
-exactly, in order; the final token must match exactly; name tokens may differ
-by ``NAME_EDITS`` token-level edits.
+exactly, in order.  Name tokens are compared phonetically, by Metaphone key
+(Shawn's ruling 2026-11-25, replacing a one-edit character tolerance).  Each
+maximal run of name tokens is a *span* (a title, an artist); spans are
+compared pairwise in order, the last token of every span must have an equal key,
+and earlier tokens may differ by ``NAME_EDITS`` token-level insert/delete
+(never a substitution of an unequal key) over the whole piece.  The piece's
+final token is compared by key when it is a name token, exactly when it is
+template (``continues``, ``Eastern``).
 """
 from __future__ import annotations
 
 import re
 import unicodedata
+
+import jellyfish
 
 NAME_EDITS = 1
 
@@ -89,21 +97,40 @@ def _name_bearing(toks: list[str]) -> bool:
             or toks[-1:] == ["continues"])
 
 
-def _split(toks: list[str], name_bearing: bool) -> tuple[list[str], list[str]]:
+def _key(tok: str) -> str:
+    """Metaphone key; a token with no letters (digits) keys as itself."""
+    return jellyfish.metaphone(tok) or tok
+
+
+def _spans(toks: list[str], name_bearing: bool) -> tuple[list[str], list[list[str]]]:
+    """Template tokens in order, and the maximal runs of name tokens."""
     if not name_bearing:
         return toks, []
-    return ([t for t in toks if t in TEMPLATE_WORDS],
-            [t for t in toks if t not in TEMPLATE_WORDS])
+    template: list[str] = []
+    spans: list[list[str]] = []
+    run: list[str] = []
+    for t in toks:
+        if t in TEMPLATE_WORDS:
+            template.append(t)
+            if run:
+                spans.append(run)
+                run = []
+        else:
+            run.append(t)
+    if run:
+        spans.append(run)
+    return template, spans
 
 
-def _levenshtein(a: list[str], b: list[str]) -> int:
-    prev = list(range(len(b) + 1))
-    for i, x in enumerate(a, 1):
-        cur = [i]
+def _indels(a: list[str], b: list[str]) -> int:
+    """Token-level insert/delete distance between two key lists."""
+    prev = [0] * (len(b) + 1)
+    for x in a:
+        cur = [0]
         for j, y in enumerate(b, 1):
-            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (x != y)))
+            cur.append(prev[j - 1] + 1 if x == y else max(prev[j], cur[j - 1]))
         prev = cur
-    return prev[-1]
+    return len(a) + len(b) - 2 * prev[-1]
 
 
 def strict_problem(text: str, transcript: str, *, expect: str | None = None) -> str | None:
@@ -116,15 +143,28 @@ def strict_problem(text: str, transcript: str, *, expect: str | None = None) -> 
         if heard != tokens(expect):
             return f"transcript differs from .expect: wanted {' '.join(tokens(expect))!r}, heard {' '.join(heard)!r}"
         return None
-    if want and heard[-1] != want[-1]:
-        return f'final word "{want[-1]}" heard as "{heard[-1]}"'
     bearing = bool(want) and _name_bearing(want)
-    want_t, want_n = _split(want, bearing)
-    heard_t, heard_n = _split(heard, bearing)
+    if want:
+        if bearing and want[-1] not in TEMPLATE_WORDS and want[-1] != "continues":
+            if _key(heard[-1]) != _key(want[-1]):
+                return (f'final word "{want[-1]}" ({_key(want[-1])}) heard as '
+                        f'"{heard[-1]}" ({_key(heard[-1])})')
+        elif heard[-1] != want[-1]:
+            return f'final word "{want[-1]}" heard as "{heard[-1]}"'
+    want_t, want_s = _spans(want, bearing)
+    heard_t, heard_s = _spans(heard, bearing)
     if want_t != heard_t:
         return f"template words differ: wanted {' '.join(want_t)!r}, heard {' '.join(heard_t)!r}"
-    edits = _levenshtein(want_n, heard_n)
+    if len(want_s) != len(heard_s):
+        return (f"names: {len(want_s)} name spans wanted, {len(heard_s)} heard "
+                f"(wanted {[' '.join(x) for x in want_s]}, heard {[' '.join(x) for x in heard_s]})")
+    edits = 0
+    for w, h in zip(want_s, heard_s):
+        if _key(w[-1]) != _key(h[-1]):
+            return (f'names: last word "{w[-1]}" ({_key(w[-1])}) heard as '
+                    f'"{h[-1]}" ({_key(h[-1])}) in {" ".join(w)!r} vs {" ".join(h)!r}')
+        edits += _indels([_key(t) for t in w[:-1]], [_key(t) for t in h[:-1]])
     if edits > NAME_EDITS:
-        return (f"names differ by {edits} edits: wanted {' '.join(want_n)!r}, "
-                f"heard {' '.join(heard_n)!r}")
+        return (f"names differ by {edits} token edits by key: wanted "
+                f"{[' '.join(x) for x in want_s]}, heard {[' '.join(x) for x in heard_s]}")
     return None
