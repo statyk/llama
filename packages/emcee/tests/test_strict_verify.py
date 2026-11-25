@@ -70,7 +70,7 @@ def test_phonetic_passes(text, heard):
 
 @pytest.mark.parametrize("text,heard,why", [
     ("with Ryan.", "With Brian.", "final"),                                  # RYN/BRN
-    ("followed by Ryan Adams,", "Followed by Brian Adams,", "names"),        # two token edits
+    ("followed by Ryan Adams,", "Followed by Brian Adams,", "names"),        # RYN/BRN, a different key (not the last word)
     ("followed by Ryan Adams,", "Followed by Ryan Adam,", "final"),          # ATMS/ATM
     ("Ripple continues", "Nipple continues", "names"),                       # RPL/NPL, final stays template
     ("Then, at 2 Eastern, The Music Never Stopped",
@@ -93,7 +93,7 @@ def test_phonetic_fails(text, heard, why):
     ("with Grateful Dead.", "With Dead.", "1 heard"),
     ("with Cracker.", "With Big Cracker.", "2 heard"),
     ("followed by George Porter, Jr. and Runnin' Pardners,",
-     "Followed by George, Jr. and Runnin' Pardners,", "heard"),
+     "Followed by George, Jr. and Runnin' Pardners,", "6 words wanted, 5 heard"),
     ("with Dark Star Orchestra.", "With Dark Star Big Orchestra.", "4 heard"),
 ])
 def test_no_token_insert_or_delete_in_names(text, heard, why):
