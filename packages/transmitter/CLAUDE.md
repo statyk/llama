@@ -124,3 +124,12 @@ has run).
   unreadable, unknown key, out-of-range value, relative `bed`, multi-line `id_text`, `enabled = true` without
   `bed`) yields default (off) settings and, with `alert=True`, one `announce-config` event alert naming the
   cause. The `announce-*` codes are ungated, non-level. `config.toml` and the clock gain no keys.
+- `transmitter/piecelist.py` (the needed-piece list, phase A): `pipeline.plan_step` calls `Station.scan_all` once,
+  then `write_piece_list` (never raises: any exception is logged and alerts `announce-pieces`), then
+  `scan_pieces(shows=)`, all BEFORE its "already covered" early return. It saves `<root>/pieces-needed.json`
+  (`Workspace.pieces_needed_path`, rewritten only when the pieces change; artists = eligible shows plus
+  `Ineligible.artist`) whether or not announcements are switched on, and writes each missing
+  `<interstitials>/pieces/piece-<id>.txt` (temp `.piece-<id>.txt.<pid>-<tok>.tmp` + fsync + rename; at most
+  `WRITES_PER_STEP` 250 per step; own temps older than 1 h removed). transmitter never creates `pieces/`: a missing
+  folder means no texts and no alert. Only `plan_step` writes; `schedule`/`status`/`library` never do. Present =
+  `piece-<12 hex>.mp3` regular, non-empty, quiet; dot files and other names are ignored.

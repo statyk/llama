@@ -58,6 +58,7 @@ class Show:
 class Ineligible:
     slug: str
     reasons: tuple[str, ...]
+    artist: str | None = None     # manifest show.artist, when the manifest parsed as an object
 
 
 def require_root(root: Path | None) -> Path:
@@ -163,9 +164,12 @@ def _evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligib
         return Ineligible(slug, (f"unreadable manifest.json: {exc}",))
     if not isinstance(manifest, dict):
         return Ineligible(slug, ("manifest.json is not an object",))
+    shown = manifest.get("show")
+    artist = shown.get("artist") if isinstance(shown, dict) else None
+    artist = artist if isinstance(artist, str) else None
     version = manifest.get("schema_version")
     if not isinstance(version, int) or version < 3:
-        return Ineligible(slug, (f"unsupported manifest (schema_version {version!r}; need >= 3)",))
+        return Ineligible(slug, (f"unsupported manifest (schema_version {version!r}; need >= 3)",), artist)
 
     reasons: list[str] = []
     held = awaiting_fix_reason(manifest)
@@ -207,7 +211,7 @@ def _evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligib
         try:
             rels = read_m3u(m3u)
         except UnicodeDecodeError as exc:    # persistent corruption, not a race
-            return Ineligible(slug, (f"unreadable broadcast.m3u: {exc}",))
+            return Ineligible(slug, (f"unreadable broadcast.m3u: {exc}",), artist)
         if not rels:
             reasons.append("broadcast.m3u lists nothing")
         for rel in rels:
@@ -223,16 +227,16 @@ def _evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligib
             watched += [p for p in dj_dir.iterdir() if not p.name.endswith(".tmp")]
         newest = max((p.stat().st_mtime for p in watched), default=0.0)
     except OSError as exc:
-        return Ineligible(slug, (f"changing: {exc}",))
+        return Ineligible(slug, (f"changing: {exc}",), artist)
     if now_s - newest < quiet_s:
         reasons.append(f"changed {now_s - newest:.0f}s ago (quiet period {quiet_s:.0f}s)")
 
     if reasons:
-        return Ineligible(slug, tuple(reasons))
+        return Ineligible(slug, tuple(reasons), artist)
     try:
         key, sizes = file_set_key_and_sizes(pkg_dir, rels)
     except OSError as exc:
-        return Ineligible(slug, (f"changing: {exc}",))
+        return Ineligible(slug, (f"changing: {exc}",), artist)
     entries = tuple(
         Entry(rel, "clip", clips[rel]) if rel in clips
         else Entry(rel, "track", titles.get(rel, Path(rel).stem))

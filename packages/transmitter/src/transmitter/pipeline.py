@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Callable, Protocol
 
 from transmitter import aacenc, alerts, analysis as analysis_mod, clock as clock_mod, grid, history
-from transmitter import interstitials, render, station
+from transmitter import announce_config, concert, interstitials, piecelist, render, station
 from transmitter.analysis import ShowAnalysis
 from transmitter.clock import ClockConfig
 from transmitter.config import TransmitterConfig
@@ -95,12 +95,17 @@ class Station:
     notify: Callable[[str], object] | None = None   # the service's sd_notify; fed during long plan steps
     lengths: LengthCache | None = None              # piece lengths; see length_cache()
 
+    def scan_all(self, now_us: int) -> tuple[list[Show], list[Ineligible]]:
+        """Eligible shows and the ineligible packages; raises StationRootError
+        when the root is unusable."""
+        if self.scan is not None:
+            return self.scan(now_us / 1e6)
+        return station.scan(self.cfg.station.root, now_s=now_us / 1e6,
+                            quiet_s=self.cfg.station.quiet_minutes * 60)
+
     def scan_now(self, now_us: int) -> list[Show]:
         """Eligible shows; raises StationRootError when the root is unusable."""
-        if self.scan is not None:
-            return self.scan(now_us / 1e6)[0]
-        return station.scan(self.cfg.station.root, now_s=now_us / 1e6,
-                            quiet_s=self.cfg.station.quiet_minutes * 60)[0]
+        return self.scan_all(now_us)[0]
 
     @property
     def gap_frames(self) -> int:
@@ -145,11 +150,14 @@ class Station:
             lc = self.lengths = LengthCache(self.ws.cache_dir, pause, extra)
         return lc
 
-    def scan_pieces(self, now_us: int, *, read_only: bool = False) -> list[Piece]:
+    def scan_pieces(self, now_us: int, *, read_only: bool = False,
+                    shows: list[Show] | None = None) -> list[Piece]:
         """The piece pool: eligible packages (estimated unless their analysis
         is cached or learned) and the interstitials folder's clips (analysed
-        exactly unless `read_only`). Raises StationRootError like `scan_now`."""
-        shows = self.scan_now(now_us)
+        exactly unless `read_only`). Raises StationRootError like `scan_now`;
+        `shows` (a scan the caller already made) skips the rescan."""
+        if shows is None:
+            shows = self.scan_now(now_us)
         folder = interstitials.folder(self.cfg)
         clips = interstitials.scan(folder, now_s=now_us / 1e6, quiet_s=self.cfg.station.quiet_minutes * 60)
         clip_dir = interstitials.row_dir(self.cfg, folder) if folder is not None else ""
@@ -281,8 +289,44 @@ def _drop_unpublished_segments(st: Station, last: int | None) -> None:
             p.unlink(missing_ok=True)
 
 
+def write_piece_list(st: Station, now_us: int, shows: list[Show], ineligible: list[Ineligible]) -> None:
+    """Derive the needed announcement pieces, keep the list in the workspace and
+    write each missing text into `<interstitials>/pieces` (never creating it:
+    while it is missing the feature is dormant). Never raises: any failure is
+    logged and alerted (`announce-pieces`) and planning goes on."""
+    try:
+        settings = announce_config.load_settings(st.ws, alert=True).settings
+        artists = []
+        for value in [s.meta.get("artist") for s in shows] + [i.artist for i in ineligible]:
+            try:
+                if isinstance(value, str):
+                    value.encode("utf-8")       # a lone surrogate would poison the whole list
+                    artists.append(value)
+            except UnicodeError:
+                continue
+        clock = clock_mod.live_clock(st.ws, save=False).clock
+        needed = concert.needed_pieces(clock, artists, settings.id_text, now_us)
+        piecelist.save_needed(st.ws, needed, now_us=now_us)
+        folder = piecelist.pieces_folder(st.cfg)
+        if folder is None or not folder.is_dir():
+            return
+        written, remaining = piecelist.write_texts(folder, needed, now_s=now_us / 1e6)
+        if written or remaining:
+            st.log(f"piece list: wrote {written} text(s), {remaining} left for the next step")
+    except Exception as exc:
+        for report in (lambda: st.log(f"piece list: {type(exc).__name__}: {exc}"),
+                       lambda: alerts.alert("announce-pieces", "cannot write the needed announcement "
+                                            f"pieces: {type(exc).__name__}: {exc}")):
+            try:
+                report()
+            except Exception:
+                pass
+
+
 def plan_step(st: Station, now_us: int, *, max_new: int | None = None) -> list[PlanRow]:
-    pool = st.scan_pieces(now_us)            # StationRootError: refuse, plan untouched
+    shows, ineligible = st.scan_all(now_us)   # StationRootError: refuse, plan untouched
+    write_piece_list(st, now_us, shows, ineligible)   # before the early return below; never raises
+    pool = st.scan_pieces(now_us, shows=shows)
     rows = read_plan(st.ws.plan_path)
     pub = load_publish_state(st.ws)
     # The highest segment R2 may list: local `last`, or above it when a crash
