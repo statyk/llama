@@ -103,3 +103,12 @@ HOLD: one Step 3 take passes the strict check (r1). The calibration or the premi
 the strict check can catch with this STT model) is the operator's call. Also for the operator:
 10 of 60 pieces (17%) failed on strict mismatches of unusual names, two of them among the 10
 shortest.
+
+## Operator ruling (2026-11-25 09:55, relayed by the orchestrating session)
+
+**Premise ACCEPTED; HOLD lifted.** A swallowed final consonant that Whisper restores from
+context goes uncaught by the strict check. Accepted because the presenter `roydemure` voices
+on Qwen, whose known-bad take (r3, "stopped" heard as "stops") is caught; the uncaught r1 take
+is a Voxtral take. Tightening the name comparison (last word of each title/artist exact) is
+approved in principle but deferred to a combined Task 2 follow-up with a pending decision on
+phonetic name matching.
