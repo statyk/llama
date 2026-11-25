@@ -112,3 +112,67 @@ on Qwen, whose known-bad take (r3, "stopped" heard as "stops") is caught; the un
 is a Voxtral take. Tightening the name comparison (last word of each title/artist exact) is
 approved in principle but deferred to a combined Task 2 follow-up with a pending decision on
 phonetic name matching.
+
+## Step 2 re-run under the phonetic rule (2026-11-25, commit 49209191)
+
+Same 60 piece texts (copied into `~/.llama-harness/concert-announcements/premises-t2b/pieces/`;
+the first run's directory is untouched), same presenter `roydemure` (Qwen), same STT model,
+same command (`./.venv/bin/python -m emcee pieces <dir> --presenter roydemure`, no `--limit`),
+worktree venv at commit 49209191 (emcee imported from the worktree; jellyfish installed).
+No code changed. Log: `premises-t2b/voice.log`.
+
+Summary line: `voiced 57, re-takes 12, failed 3, left 0`. Wall time 6 min 25 s for 60 pieces
+(11:31:19 to 11:37:44 EST, about 6.4 s per piece).
+
+- Re-take rate: 12 re-take lines over 60 pieces = 0.20 per piece; 6 pieces needed at least one
+  re-take (10%). 3 re-took once then voiced (`23ae6aba9e99` EOTO, "eoto" heard "yudo";
+  `42a92323859f` EOTO, heard "ioto"; `ba8df9cc4584` AfroSkull, heard "skull"); 3 failed after 4 takes (5%).
+- Every re-take/failure was a name-match reason except one onset re-take (the first 50 ms of a
+  U-Melt take was at speech level). No runaway-guard or no-speech failures.
+
+### Failed pieces (all after 4 takes)
+
+| id | text | last reason | last transcript |
+|---|---|---|---|
+| 4823abc7d2ed | with U-Melt. | names differ by 2 token edits by key: wanted ['u melt'], heard ['you melt'] | With you melt. |
+| 879aee971e4f | with George Porter, Jr. and Runnin' Pardners, | names differ by 3 token edits by key: wanted ['george porter jr and runnin pardners'], heard ['george porter jr and run in partners'] | with George Porter Jr. and Run-In Partners. |
+| a85dc57cbcbb | with Ekoostik Hookah. | names differ by 2 token edits by key: wanted ['ekoostik hookah'], heard ['acoustic hookah'] | with acoustic hookah. |
+
+### Comparison with the first run
+
+| | first run (character-level rule) | re-run (phonetic rule, 49209191) |
+|---|---|---|
+| voiced | 50 | 57 |
+| re-take lines | 35 | 12 |
+| pieces needing a re-take | 13 (22%) | 6 (10%) |
+| failed | 10 (17%) | 3 (5%) |
+| wall time | about 8 min 42 s (about 8.7 s/piece) | 6 min 25 s (about 6.4 s/piece) |
+
+TTS takes differ run to run (and the engine is not seeded), so these counts are indicative,
+not a controlled A/B. The wall-time gain mostly follows from fewer re-takes.
+
+### The first run's 10 failures
+
+Now PASS (9): Raq. and Raq, (raq/rack), Emmitt Nershi Band, Runnin' Pardners with the period
+(`6391934e3e89`), The Travelin' McCourys, Bonerama, Club d'Elf, Little Feat, Hayes Carll. All
+voiced on the first take (none of these appears in the re-take lines).
+
+Still FAIL (1): `879aee971e4f` "with George Porter, Jr. and Runnin' Pardners,". This take
+was heard as "Run-In Partners" (an extra token, "run in" for "runnin"), which the token-count
+tolerance for non-final name tokens does not absorb (3 token edits); the same text with a
+period (`6391934e3e89`) happened to be transcribed "Runnin' Partners" and passed, so the
+pardners/partners key equality works and the remaining failure is the STT splitting
+"Runnin'" into two words.
+
+### New failures in this run (voiced in the first run)
+
+- `4823abc7d2ed` "with U-Melt." (first run: voiced after 1 re-take). Whisper writes "you melt";
+  the key tokens ['u','melt'] vs ['you','melt'] differ, and the onset re-take shows a
+  clipped take. A short-name case where the STT renders the letter U as a word.
+- `a85dc57cbcbb` "with Ekoostik Hookah." (first run: voiced on the first take). Whisper writes
+  "acoustic hookah" on all four takes; "Ekoostik" and "acoustic" differ by key. This piece
+  needs an `.expect` entry (or a lexicon spelling) either way.
+
+Net: the rule clears 9 of the first run's 10 failures (the ruling's PASS list: raq, pardners,
+mccourys, bonerama, delf, feat, carll, plus Emmitt Nershi), but two spelling gaps (U-Melt,
+Ekoostik) and one STT word-split ("Run-In") remain `.expect` or lexicon candidates.
