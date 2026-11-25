@@ -16,7 +16,7 @@ from typer.testing import CliRunner
 from emcee import pieces
 from emcee.cli import app
 from emcee.piece_audio import pcm_to_wav
-from emcee.tts.provider import SpeechDefect, SpeechError
+from emcee.tts.provider import SpeechBlocked, SpeechDefect, SpeechError
 
 runner = CliRunner()
 RATE = 24000
@@ -377,3 +377,47 @@ def test_cleans_only_its_own_old_dot_temps(env, monkeypatch):
     assert r.exit_code == 0, r.output
     assert not any(p.exists() for p in mine)
     assert theirs.exists() and young.exists()
+
+
+def test_content_block_is_a_failed_take_and_the_run_goes_on(env, monkeypatch):
+    ids = sorted(put(env.folder, f"with {n}.") for n in "AB")
+    first = next(i for i in ids if pid("with A.") == i or pid("with B.") == i)
+    texts = {pid("with A."): "with A.", pid("with B."): "with B."}
+    blocked_text = texts[ids[0]]
+
+    class Blocking(FakeSpeech):
+        def synthesize(self, text, fmt="mp3"):
+            if text == blocked_text:
+                raise SpeechBlocked("mlx", text=text, categories=["x"])
+            return super().synthesize(text, fmt)
+
+    seam(monkeypatch, Blocking(), FakeStt([texts[ids[1]].capitalize()]))
+    r = run(env)
+    assert r.exit_code == 0, r.output
+    assert f"re-take {ids[0]} (" in r.output
+    assert (env.folder / f"piece-{ids[0]}.failed").exists()
+    assert not (env.folder / f"piece-{ids[0]}.mp3").exists()
+    assert json.loads((env.folder / f"piece-{ids[0]}.failed").read_text())["attempts"] == 4
+    assert (env.folder / f"piece-{ids[1]}.mp3").exists()
+    assert "voiced 1, re-takes 3, failed 1, left 0" in r.output
+
+
+def test_write_error_stops_cleanly_leaving_no_temp(env, monkeypatch):
+    i = put(env.folder, "with Cracker.")
+    seam(monkeypatch, FakeSpeech(), FakeStt(["With Cracker."]))
+
+    def broken(*a, **k):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(pieces.os, "replace", broken)
+    r = run(env)
+    assert r.exit_code == 1
+    assert "error: [Errno 28] No space left on device" in r.output
+    assert not (env.folder / f"piece-{i}.mp3").exists()
+    assert not (env.folder / f"piece-{i}.failed").exists()
+    assert [p.name for p in env.folder.iterdir() if p.name.startswith(".")] == []
+    fd = os.open(env.home / "pieces.lock", os.O_RDWR)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)  # released
+    finally:
+        os.close(fd)

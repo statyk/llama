@@ -31,7 +31,7 @@ from emcee.piece_audio import finish_take, onset_problem, pcm_to_wav, read_wav
 from emcee.presenters import load_presenter
 from emcee.process import speech_for
 from emcee.speech_text import load_lexicon, normalize_for_speech
-from emcee.tts.provider import SpeechDefect, SpeechError
+from emcee.tts.provider import SpeechBlocked, SpeechDefect, SpeechError
 from emcee.tts.strict_verify import strict_problem
 from emcee.tts.verify import SttClient
 
@@ -157,7 +157,7 @@ def _read_expect(piece: PieceFile) -> str | None:
 def run_pieces(folder: Path, *, speech, stt, lexicon, max_takes: int, limit: int | None,
                echo: Callable[[str], None]) -> Tally:
     """Voice each pending piece. A `SpeechError` other than a runaway-guard
-    `SpeechDefect` (server or STT down, unusable WAV) propagates: the run
+    `SpeechDefect` or `SpeechBlocked` (server or STT down, unusable WAV) propagates: the run
     aborts and the piece in hand gets no sidecar."""
     tally = Tally()
     todo = pending(folder)
@@ -184,6 +184,8 @@ def run_pieces(folder: Path, *, speech, stt, lexicon, max_takes: int, limit: int
                 wav = inner.synthesize(normalize_for_speech(text, lexicon), "wav")
             except SpeechDefect as exc:
                 reason = exc.reason
+            except SpeechBlocked as exc:
+                reason = f"content filter blocked the take: {exc}"
             else:
                 pcm, rate = read_wav(wav)
                 reason = onset_problem(pcm, rate)
@@ -259,6 +261,9 @@ def run_command(config: EmceeConfig, folder: Path, presenter_id: str, *, max_tak
             err(f"error: {exc}")
             for line in getattr(exc, "details", []):
                 err(f"  {line}")
+            return 1
+        except OSError as exc:
+            err(f"error: {exc}")
             return 1
         finally:
             for closer in (stt, speech):
