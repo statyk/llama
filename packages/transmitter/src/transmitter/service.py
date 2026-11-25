@@ -513,6 +513,37 @@ def _scheduler_lines(cfg: TransmitterConfig, ws: Workspace, rows: list[PlanRow],
     missing = missing_announcements(cfg, clock, t_us, 8)
     lines.append(f"announce   {len(missing)} announcement audio file(s) missing for the next 8 days"
                  + (" (see `transmitter announcements`)" if missing else ""))
+    lines += _concert_lines(cfg, ws, t_us)
+    return lines
+
+
+def _concert_lines(cfg: TransmitterConfig, ws: Workspace, t_us: int) -> list[str]:
+    """The announcement switch and the piece counts: read-only, never an alert, and never raising (a failure
+    degrades to a plain line). The bed path is printed, never opened."""
+    from transmitter import announce_config, piecelist
+    lines: list[str] = []
+    try:
+        loaded = announce_config.load_settings(ws, alert=False)
+        if loaded.source == "invalid":
+            lines.append("concert    off: announce.toml invalid (" +
+                         pipeline.condense_clock_problem(loaded.problem or "unusable") + ")")
+        else:
+            word = "on" if loaded.settings.enabled else "off"
+            bed = loaded.settings.bed
+            text = f"concert    {word}" + (f"; bed {bed}" if bed is not None else "")
+            lines.append("concert    off (no announce.toml)" if loaded.source == "missing" else text)
+    except Exception as e:
+        lines.append(f"concert    unavailable ({type(e).__name__})")
+    try:
+        folder = piecelist.pieces_folder(cfg)
+        if folder is None or not folder.is_dir():
+            lines.append(f"pieces     dormant: {folder} does not exist (create it to start voicing)")
+        else:
+            c = piecelist.counts(ws, folder, now_s=t_us / 1e6, quiet_s=cfg.station.quiet_minutes * 60)
+            lines.append("pieces     no needed-piece list yet (written at the next plan step)" if c is None else
+                         f"pieces     needed {c.needed}; present {c.present}; failed {c.failed}; missing {c.missing}")
+    except Exception as e:
+        lines.append(f"pieces     unavailable ({type(e).__name__})")
     return lines
 
 

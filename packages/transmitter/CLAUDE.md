@@ -82,7 +82,9 @@ has run).
   init`, `transmitter offair on --reason … | off` and `transmitter budget
   [--raise-to <usd>]` (`offair` and `budget --raise-to` write `state/` directly,
   bypassing the publish lock, the guard and the PUT budget); `transmitter status` also shows the cost guard, kill switch,
-  off-air flag and active alerts. Production runs the SYSTEM unit
+  off-air flag and active alerts, plus the `concert` switch line (`announce.toml`, read with `alert=False`) and the
+  `pieces` line (dormant / no list yet / needed-present-failed-missing, read from `pieces-needed.json` and the pieces
+  folder; never writes, never raises). Production runs the SYSTEM unit
   `packages/transmitter/systemd/transmitter@.service` (`Type=notify`,
   `WatchdogSec=45min`, env file `/etc/transmitter/<user>.env`), so it is
   `sudo systemctl … transmitter@<user>` with no `--user`. hugo's alerts:

@@ -970,3 +970,92 @@ def test_open_station_lengths_match_what_render_plans_with(tmp_path, monkeypatch
     assert st.length_cache() is lc and st.lengths is lc
     engine.extra = 4
     assert st.length_cache() is not lc and st.length_cache().extra == 4
+
+
+# --- announcement switch and piece counts in status ---------------------------
+
+def _status(tmp_path, announce=None, needed=None, pieces=None):
+    import json as _json
+    from transmitter import interstitials
+
+    st = _with_epoch(make_station(tmp_path)[0])
+    if announce is not None:
+        st.ws.announce_path.write_text(announce)
+    if needed is not None:
+        st.ws.pieces_needed_path.write_text(needed if isinstance(needed, str) else _json.dumps(
+            {"updated_us": 0, "pieces": [{"id": i, "text": "t", "kind": "k"} for i in needed]}))
+    folder = interstitials.folder(st.cfg) / "pieces"
+    if pieces is not None:
+        folder.mkdir(parents=True, exist_ok=True)
+        for name in pieces:
+            (folder / name).write_bytes(b"x")
+    return st, folder, service.status_lines(st.cfg, NOW + 10**13)
+
+
+def test_status_concert_off_without_announce_toml(tmp_path):
+    _, _, lines = _status(tmp_path)
+    assert "concert    off (no announce.toml)" in lines
+
+
+def test_status_concert_off_when_switched_off(tmp_path):
+    _, _, lines = _status(tmp_path, announce="enabled = false\n")
+    assert "concert    off" in lines
+    _, _, lines = _status(tmp_path / "b", announce='enabled = false\nbed = "/beds/b.mp3"\n')
+    assert "concert    off; bed /beds/b.mp3" in lines
+
+
+def test_status_concert_on_shows_the_bed(tmp_path):
+    _, _, lines = _status(tmp_path, announce='enabled = true\nbed = "/beds/b.mp3"\n')
+    assert "concert    on; bed /beds/b.mp3" in lines
+
+
+def test_status_concert_invalid_is_off_with_the_problem(tmp_path):
+    _, _, lines = _status(tmp_path, announce="enabled = true\n")
+    line = next(x for x in lines if x.startswith("concert"))
+    assert line.startswith("concert    off: announce.toml invalid (") and "bed is required" in line
+    assert "\n" not in line
+
+
+def test_status_pieces_dormant_without_the_folder(tmp_path):
+    st, folder, lines = _status(tmp_path)
+    assert f"pieces     dormant: {folder} does not exist (create it to start voicing)" in lines
+
+
+def test_status_pieces_no_list_yet(tmp_path):
+    _, _, lines = _status(tmp_path, pieces=[])
+    assert "pieces     no needed-piece list yet (written at the next plan step)" in lines
+
+
+def test_status_pieces_counts(tmp_path):
+    a, b, c, d = ("%012x" % i for i in range(4))
+    _, _, lines = _status(tmp_path, needed=[a, b, c, d],
+                          pieces=[f"piece-{a}.mp3", f"piece-{b}.failed", f"piece-{c}.txt", "piece-ffffffffffff.mp3"])
+    assert "pieces     needed 4; present 1; failed 1; missing 2" in lines
+
+
+def test_status_pieces_lines_never_raise_on_a_corrupt_list(tmp_path):
+    _, _, lines = _status(tmp_path, needed="{not json", pieces=[])
+    assert "pieces     no needed-piece list yet (written at the next plan step)" in lines
+
+
+def test_status_pieces_lines_degrade_when_the_probe_raises(tmp_path, monkeypatch):
+    from transmitter import piecelist
+    monkeypatch.setattr(piecelist, "pieces_folder", lambda cfg: 1 / 0)
+    st = _with_epoch(make_station(tmp_path)[0])
+    lines = service.status_lines(st.cfg, NOW)
+    assert any(x.startswith("pieces     unavailable") for x in lines)
+    assert any(x.startswith("block ") for x in lines)
+
+
+def test_status_writes_nothing(tmp_path):
+    import os
+    a = "%012x" % 1
+    st, folder, _ = _status(tmp_path, announce='enabled = true\nbed = "/beds/b.mp3"\n', needed=[a],
+                            pieces=[f"piece-{a}.txt"])
+
+    def snap():
+        return sorted((str(p), p.stat().st_mtime_ns) for base in (st.ws.root, folder) for p in base.rglob("*"))
+    before = snap()
+    service.status_lines(st.cfg, NOW + 10**13)
+    assert snap() == before and not (folder / "piece-ffffffffffff.txt").exists()
+    assert os.listdir(folder) == [f"piece-{a}.txt"]

@@ -628,6 +628,31 @@ Mac commands run from the repo's `antenna/`.
 - Never truncate `plan.jsonl` by hand: a shortened plan restarts the run over segment keys already published (and immutable).
 - Before rolling back past `684d323` ("interstitials folder scan, announcement texts with time zones, announcements command"), the commit adding `[interstitials]`, remove `[interstitials]` from `config.toml` (only if you uncommented it: `config init` on this build writes the header commented out), or the older build refuses the unknown section.
 
+### 7.6 Concert announcements (phase A: the needed pieces)
+
+Short spoken pieces (concert artist and date announcements) are written as text by transmitter and voiced on the Mac. Phase A only produces and voices the pieces; nothing airs them yet. The `announce.toml` switch stays off (or absent) in this phase.
+
+**The pieces folder.** Create `delivered/interstitials/pieces/` on the NAS (`<interstitials dir>/pieces`). It must be writable by hugo's transmitter user (which writes `piece-<id>.txt`) and by the Mac's user (which writes `piece-<id>.mp3`, `.failed`, `.expect`). Check on hugo as the transmitter user: `touch <folder>/.w && rm <folder>/.w`. transmitter never creates the folder: while it is missing the feature is dormant and `transmitter status` says so (`pieces     dormant: <folder> does not exist (create it to start voicing)`).
+
+**Texts appear at plan steps.** transmitter writes piece texts only inside `plan_step`, which runs only while the service is filling (the lead below `low_water_hours`), at most 250 texts per plan step. After the first fill, `transmitter status` shows the counts:
+
+```
+concert    off (no announce.toml)
+pieces     needed 1012; present 0; failed 0; missing 1012
+```
+
+Before the first plan step it shows `pieces     no needed-piece list yet (written at the next plan step)`. `concert    on` / `off` (with `; bed <path>`) reflects `announce.toml`; an unusable file shows `concert    off: announce.toml invalid (...)`. `status` only reads; it never writes the folder or the workspace.
+
+**The launchd job on the Mac.** Voicing runs as `emcee pieces` from a dedicated venv (`~/.venvs/emcee-pieces`, used only by the job) under a launchd agent every 15 minutes. The venv, the plist and the `launchctl bootstrap` command are in the README, subsection "Concert announcement pieces (`emcee pieces`)". A long `emcee pieces` run counts as an emcee process, so llama's `station_mark` and `emcee retitle` refuse while it runs; `--limit N` keeps runs short.
+
+**Voicing and re-arming.** About 17% of pieces fail strict verification on unusual names (STT cannot spell them), leaving `piece-<id>.failed` (JSON with `attempts`, `last_reason`, `last_transcript`). For each one:
+
+1. Read it: `cat <folder>/piece-<id>.failed`.
+2. If the take sounded right, write `piece-<id>.expect` containing the text as the speech-to-text hears it correctly (it replaces the text compared against).
+3. Delete the `.failed` file to re-arm; the next run re-voices the piece against the `.expect`.
+
+`status` counts `present` as any non-empty, quiet `piece-<id>.mp3` whether or not it decodes; `failed` counts `.failed` files with no mp3.
+
 ## 8. Phase-2 verification checklist
 
 Run with the station up and **not yet shared**. Run the `transmitter` commands as described at the top of section 7. Record each result (date, observation) in `docs/superpowers/<date>-playout-phase2-verification.md`. Restore the normal deploy (`npx wrangler deploy`, with no `--var`) after each item that changes it.
