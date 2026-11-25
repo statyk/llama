@@ -23,6 +23,7 @@ from typer.core import TyperGroup
 
 from herder import HerderError
 
+from emcee import pieces as pieces_mod
 from emcee.config import DEFAULT_CONFIG_TOML, EmceeConfig, default_root, load_config
 from emcee.errors import EmceeError
 from emcee.models import ScriptNotes
@@ -52,7 +53,7 @@ from emcee.station import (AWAITING, PackageStatus, assess, awaiting_fix_reason,
                            manifest_voiced_source, package_status, profile_label, raw_manifest,
                            scan, target_problem, unsupported_status)
 
-_COMMAND_ORDER = ["run", "voice", "status", "move", "say", "retitle", "lock", "presenter",
+_COMMAND_ORDER = ["run", "voice", "status", "move", "say", "pieces", "retitle", "lock", "presenter",
                   "config"]
 
 
@@ -1069,6 +1070,31 @@ def say_cmd(
     dest = out or text_file.with_suffix(".mp3")
     atomic_write_bytes(dest, data)
     typer.echo(f"wrote {dest}")
+
+
+@app.command("pieces")
+def pieces_cmd(
+    folder: Path = typer.Argument(..., help="The shared folder holding piece-<id>.txt files"),
+    presenter: str = typer.Option(..., "--presenter", help="Presenter whose voice reads them"),
+    max_takes: int = typer.Option(pieces_mod.MAX_TAKES, "--max-takes", min=1,
+                                  help="Takes per piece before a .failed sidecar"),
+    limit: int = typer.Option(None, "--limit", min=1, help="Voice at most N pieces this run"),
+    dry_run: bool = typer.Option(False, "--dry-run",
+                                 help="List the pending pieces and write nothing"),
+):
+    """Voice transmitter's announcement pieces: piece-<id>.txt -> piece-<id>.mp3.
+
+    Each take is checked (runaway guard, onset, speech present, and a strict
+    transcript comparison via [tts.mlx_audio] stt_model) and re-taken up to
+    --max-takes times; a piece that never passes gets piece-<id>.failed. A
+    piece-<id>.expect file replaces the text the transcript is compared with.
+    Touches no package and takes no station lock; one run at a time (a lock at
+    <emcee root>/pieces.lock; a second run says so and exits 0)."""
+    code = pieces_mod.run_command(
+        load_config(), folder, presenter, max_takes=max_takes, limit=limit, dry_run=dry_run,
+        echo=typer.echo, err=lambda m: typer.echo(m, err=True))
+    if code:
+        raise typer.Exit(code)
 
 
 _STATUS_STATES = ("ready", "pending", "unsupported", "error", "awaiting-fix")

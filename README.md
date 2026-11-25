@@ -846,6 +846,57 @@ and the rest of `emcee run` carries on.
    A re-pinned presenter never reuses the other backend's clips (the render
    cache keys on backend voice and model), so its next packages re-render.
 
+**Concert announcement pieces (`emcee pieces`).** transmitter writes short
+announcement texts (`piece-<id>.txt`, `<id>` = the first 12 hex digits of the
+text's sha256) into `interstitials/pieces/` on the share; `emcee pieces`
+voices each pending one on the local Qwen server, checks the take, and leaves
+`piece-<id>.mp3` or, after `--max-takes` (default 4) bad takes,
+`piece-<id>.failed` (JSON: `attempts`, `last_reason`, `last_transcript`,
+`at`). A take fails on the runaway guard, a clipped onset, no speech after
+trimming, or a strict transcript comparison (the final word and every
+template and number word exact, a name within one token edit); an
+operator-written `piece-<id>.expect` replaces the text compared against.
+It needs `[tts.mlx_audio] stt_model`, takes no station lock (it touches no
+package), and is single-instance: a flock on `<emcee root>/pieces.lock`, so a
+second run prints `another emcee pieces is running` and exits 0. Every file it
+writes goes through a dot-prefixed temp plus rename; it deletes only its own
+stale temps. With the share unmounted it exits 1 (`<dir> does not exist
+(share not mounted?)`). `--dry-run` lists what is pending and writes nothing;
+`--limit N` stops after N pieces.
+
+Run it from a dedicated venv used only by the launchd job, so the production
+`emcee` stays untouched. From a checkout of the branch, non-editable:
+
+    python3 -m venv ~/.venvs/emcee-pieces
+    ~/.venvs/emcee-pieces/bin/pip install ./packages/herder ./packages/emcee
+
+The agent below runs it every 15 minutes (paste as-is: the shell fills in your
+home directory, and `plutil` checks what it wrote):
+
+```sh
+cat > ~/Library/LaunchAgents/com.lma-radio.emcee-pieces.plist <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.lma-radio.emcee-pieces</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$HOME/.venvs/emcee-pieces/bin/emcee</string>
+    <string>pieces</string>
+    <string>/Volumes/media/lma-radio/delivered/interstitials/pieces</string>
+    <string>--presenter</string><string>roydemure</string>
+  </array>
+  <key>StartInterval</key><integer>900</integer>
+  <key>StandardOutPath</key><string>$HOME/.emcee/pieces.log</string>
+  <key>StandardErrorPath</key><string>$HOME/.emcee/pieces.log</string>
+</dict>
+</plist>
+EOF
+plutil -lint ~/Library/LaunchAgents/com.lma-radio.emcee-pieces.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.lma-radio.emcee-pieces.plist
+```
+
 **Upgrading from a pre-split llama.** If you ran llama before scripting/
 presenters/TTS moved to emcee ("the cut"), three settings in your existing
 `~/.llama/` are now **silently ignored** — pydantic drops unknown fields

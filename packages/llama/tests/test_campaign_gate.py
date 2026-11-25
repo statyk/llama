@@ -239,3 +239,8 @@ def test_require_tools_minimum(monkeypatch):
     _stub_tools(monkeypatch, {"llama": [("/c/llama", "2.25.0")], "emcee": [("/a/emcee", "2.23.0")]})
     with pytest.raises(campaign_gate.GateRefused, match="newer than the pinned 2.24.0"):
         campaign_gate.require_tools(lambda _m: None, pin={"version": "2.24.0"}, minimum="2.23.0")
+
+
+def test_emcee_pieces_counts_as_an_emcee_process():
+    line = "700     1 /x/.venv/bin/emcee pieces /v/pieces --presenter r"
+    assert campaign_gate.tool_processes([line], "emcee", self_pid=1) == [line]

@@ -88,3 +88,8 @@ def test_other_tool_processes_reads_ps(monkeypatch):
     assert procs.other_tool_processes() == ["42 1 llama status"]
     assert seen["cmd"] == ["ps", "-axo", "pid=,ppid=,command="]
     assert procs.other_tool_processes(("emcee",)) == []
+
+
+def test_emcee_pieces_is_an_emcee_process():
+    assert procs.tool_lines(
+        ["700 1 /x/.venv/bin/emcee pieces /v/pieces --presenter r"], ("emcee",), self_pid=1)
