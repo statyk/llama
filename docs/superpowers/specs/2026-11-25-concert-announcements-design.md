@@ -82,6 +82,11 @@ fall back gracefully to what it does today.
 - transmitter importing or invoking emcee (the package/folder contract stays
   the only interface).
 
+## Review mode
+
+Opus mode (two Opus reviewers). On the Pro plan the strict-surface checklist is folded into
+the two breadth reviewers' brief instead of a separate strict pair.
+
 ## Stakes
 
 This is on-air output for a small in-house station: a bad announcement is
