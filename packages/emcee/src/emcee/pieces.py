@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import tempfile
 import time
 from collections.abc import Callable
@@ -72,8 +73,22 @@ class Tally:
     left: int = 0
 
 
+def _mp3_blocks(mp3: Path) -> bool:
+    """True when `mp3` means the piece is not pending: a regular non-empty file
+    (voiced, as transmitter counts it) or a non-regular entry (clutter, never
+    replaced). Absent or a zero-byte regular file is not blocking, so the piece
+    is re-voiced over it."""
+    try:
+        st = mp3.lstat()
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+    return not stat.S_ISREG(st.st_mode) or st.st_size > 0
+
+
 def pending(folder: Path) -> list[PieceFile]:
-    """`piece-<id>.txt` regular files with neither an `.mp3` nor a `.failed`,
+    """`piece-<id>.txt` regular files with neither a non-empty `.mp3` nor a `.failed`,
     sorted by id. Anything else in the folder is clutter and never raises."""
     found = []
     try:
@@ -90,7 +105,7 @@ def pending(folder: Path) -> list[PieceFile]:
                 continue
         except OSError:
             continue
-        if piece.mp3.exists() or piece.failed.exists():
+        if _mp3_blocks(piece.mp3) or piece.failed.exists():
             continue
         found.append(piece)
     return sorted(found, key=lambda p: p.id)

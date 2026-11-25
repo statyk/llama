@@ -215,6 +215,32 @@ def test_failed_and_voiced_pieces_are_not_pending(env):
     assert [p.id for p in pieces.pending(env.folder)] == [c]
 
 
+def test_zero_byte_mp3_is_pending_and_revoiced(env, monkeypatch):
+    i = put(env.folder, "with Cracker.")
+    mp3 = env.folder / f"piece-{i}.mp3"
+    mp3.write_bytes(b"")
+    assert [p.id for p in pieces.pending(env.folder)] == [i]
+    seam(monkeypatch, FakeSpeech(), FakeStt(["With Cracker."]))
+    r = run(env)
+    assert r.exit_code == 0, r.output
+    assert mp3.stat().st_size > 0
+    assert "voiced 1, re-takes 0, failed 0, left 0" in r.output
+    assert pieces.pending(env.folder) == []
+
+
+def test_zero_byte_mp3_with_failed_is_not_pending(env):
+    i = put(env.folder, "with A.")
+    (env.folder / f"piece-{i}.mp3").write_bytes(b"")
+    (env.folder / f"piece-{i}.failed").write_text("{}")
+    assert pieces.pending(env.folder) == []
+
+
+def test_non_regular_mp3_never_crashes_pending(env):
+    i = put(env.folder, "with A.")
+    (env.folder / f"piece-{i}.mp3").mkdir()
+    assert pieces.pending(env.folder) == []
+
+
 def test_pending_ignores_clutter(env):
     good = put(env.folder, "with D.")
     (env.folder / "notes.txt").write_text("hi")
