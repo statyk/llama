@@ -145,7 +145,8 @@ Per break, after show P and before show X (X is the next show):
    artist>," + "<time phrase for Y's actual start>." When Y's artist is X's,
    Followed is not spoken ("… continues with Grateful Dead." ends there) but
    Y is still one of the break's named shows, so Then may still follow. When
-   Followed is dropped for any other reason, Y is not named.
+   Followed is dropped for any other reason, Y is not named. (This applies
+   in every block: Followed only ever names a show in X's own block.)
 4. **Then** (optional): when the first show of the next block occurrence, Z,
    is the show directly after the last named show (X, or Y when Y is named),
    Z's block is not X's block, Z's block is titled and not degraded, and Z's
@@ -307,9 +308,12 @@ pieces.
      named shows exactly (the watchdog pinged after each, as
      `Station.frames_of` does).
   3. **Pass 2**: the scheduler re-runs with those exact lengths. If it
-     proposes the same content, the row is appended. If not, this break is
-     planned at the last rung (today's logic). There is no third pass and no
-     fixed-point iteration.
+     names the same shows (same X/Y/Z, same phrases present), the row is
+     appended with pass 1's clip; a different time-phrase bucket for Y alone
+     does not count as a difference (times are loose: Shawn, 2026-11-25), and
+     pass 1's wording stands. If the named shows or the phrases present differ,
+     this break is planned at the last rung (today's logic). There is no third
+     pass and no fixed-point iteration.
 
   Both passes judge Y's bucket and Z's window with the clip in place. A
   named show that cannot be analysed is excluded from the pool as today's
