@@ -93,6 +93,8 @@ def load_settings(ws: Workspace, *, alert: bool) -> LoadedSettings:
         problem = _describe(e)
     except OSError as e:
         problem = f"cannot be read ({e})"
+    except Exception as e:      # e.g. RecursionError from absurdly nested TOML; never raise
+        problem = f"cannot be loaded ({type(e).__name__})"
     if alert:
         alerts.alert("announce-config", f"{path} is invalid, announcements are off: {problem}")
     return LoadedSettings(AnnounceSettings(), "invalid", problem)

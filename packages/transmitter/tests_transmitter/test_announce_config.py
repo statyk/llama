@@ -90,3 +90,10 @@ def test_unreadable_file_never_raises(tmp_path, calls):
 def test_new_codes_are_ungated_events():
     for c in ("announce-assembly", "announce-pieces", "announce-promise", "announce-config"):
         assert c not in alerts.GATED_CODES and c not in alerts.LEVEL_CODES
+
+
+def test_deeply_nested_toml_never_raises(tmp_path, calls):
+    r = load_settings(_ws(tmp_path, "a = " + "[" * 5000 + "]" * 5000), alert=True)
+    assert r.source == "invalid" and r.problem
+    assert r.settings == AnnounceSettings()
+    assert [c for c, _ in calls] == ["announce-config"]
