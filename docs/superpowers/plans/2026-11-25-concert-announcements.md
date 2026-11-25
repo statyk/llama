@@ -83,7 +83,7 @@ from it, do not redesign). Builds on `docs/superpowers/specs/2026-10-25-schedule
 - No task touches hugo, the NAS station root, `~/.transmitter`, `~/.emcee` or any release.
   **Single exception: Task 5** reads `/Volumes/media/lma-radio/delivered/*/manifest.json`
   and `~/.emcee` (config, presenter, lexicon) read-only, reads the spike takes under
-  `/private/tmp/claude-501/-Users-shawn-projects-llama/f5ce4b25-70b4-4476-879d-ce9d81e941f7/scratchpad/spike/`
+  `/Users/shawn/.llama-harness/concert-announcements/spike/`
   read-only when present, and writes only under `~/.llama-harness/concert-announcements/` plus
   `~/.emcee/pieces.lock` (the `emcee pieces` flock). It requires `[tts.mlx_audio] stt_model` set
   in `~/.emcee/config.toml`; unset -> stop and report BLOCKED (the task never sets it).
@@ -578,7 +578,7 @@ may touch is the Task 5 exception in Global Constraints.
   30 random others (seed 0). Expected: 60 `.txt` files.
 - [ ] **Step 2: Voice it.** `./.venv/bin/python -m emcee pieces <dir> --presenter roydemure`.
   Record the summary line and every `re-take`/`failed` line.
-- [ ] **Step 3: The swallowed consonant.** With `SP=/private/tmp/claude-501/-Users-shawn-projects-llama/f5ce4b25-70b4-4476-879d-ce9d81e941f7/scratchpad/spike`,
+- [ ] **Step 3: The swallowed consonant.** With `SP=/Users/shawn/.llama-harness/concert-announcements/spike`,
   use the spike's known-bad takes when present: r1 Voxtral `$SP/frag/06-ryan.mp3` (text in
   `$SP/frag/06-ryan.txt`, `Ryan Adams,`) and r3 Qwen `$SP/r3/frag/then-2-musicnever.mp3` (text in
   `$SP/r3/frag/then-2-musicnever.txt`, `Then, at 2 Eastern, The Music Never Stopped`; the
