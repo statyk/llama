@@ -81,17 +81,23 @@ def test_phonetic_passes(text, heard):
     ("Ripple continues", "continues", "spans"),                              # swallowed title
     ("Coming up next, Live at the Fillmore", "Coming up next, at the Fillmore", "names"),
     ("Coming up next, Live at the Fillmore", "Coming up next, at the Fillmore", "spans"),
-    ("Hayes Carll continues", "Hayes Carll Band continues", "last word"),    # span-last, not piece-final
+    ("Hayes Carll continues", "Hayes Carll Band continues", "words wanted"),  # now a length failure
     ("Coming up next, Pardners in Crime continues",
-     "Coming up next, Pardners in continues", "last word"),
+     "Coming up next, Pardners in continues", "words wanted"),
 ])
 def test_phonetic_fails(text, heard, why):
     assert why in strict_problem(text, heard)
 
 
-def test_nonfinal_name_token_may_be_inserted_once():
-    assert strict_problem("with Dark Star Orchestra.", "With Dark Star Big Orchestra.") is None
-    assert "names" in strict_problem("with Dark Star Orchestra.", "With Big Dark Star Big Orchestra.")
+@pytest.mark.parametrize("text,heard,why", [
+    ("with Grateful Dead.", "With Dead.", "1 heard"),
+    ("with Cracker.", "With Big Cracker.", "2 heard"),
+    ("followed by George Porter, Jr. and Runnin' Pardners,",
+     "Followed by George, Jr. and Runnin' Pardners,", "heard"),
+    ("with Dark Star Orchestra.", "With Dark Star Big Orchestra.", "4 heard"),
+])
+def test_no_token_insert_or_delete_in_names(text, heard, why):
+    assert why in strict_problem(text, heard)
 
 
 def test_final_template_token_stays_exact():

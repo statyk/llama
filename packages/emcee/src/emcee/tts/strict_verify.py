@@ -9,9 +9,9 @@ number word) and *name* tokens (everything else).  Template tokens must match
 exactly, in order.  Name tokens are compared phonetically, by Metaphone key
 (Shawn's ruling 2026-11-25, replacing a one-edit character tolerance).  Each
 maximal run of name tokens is a *span* (a title, an artist); spans are
-compared pairwise in order, the last token of every span must have an equal key,
-and earlier tokens may differ by ``NAME_EDITS`` token-level insert/delete
-(never a substitution of an unequal key) over the whole piece.  The piece's
+compared pairwise in order; paired spans must have the same number of tokens
+and every token an equal key (Shawn's ruling 2026-11-25: no token
+insert/delete in names, no substitution of an unequal key).  The piece's
 final token is compared by key when it is a name token, exactly when it is
 template (``continues``, ``Eastern``).
 """
@@ -21,8 +21,6 @@ import re
 import unicodedata
 
 import jellyfish
-
-NAME_EDITS = 1
 
 _ONES = ("zero one two three four five six seven eight nine ten eleven twelve "
          "thirteen fourteen fifteen sixteen seventeen eighteen nineteen").split()
@@ -122,17 +120,6 @@ def _spans(toks: list[str], name_bearing: bool) -> tuple[list[str], list[list[st
     return template, spans
 
 
-def _indels(a: list[str], b: list[str]) -> int:
-    """Token-level insert/delete distance between two key lists."""
-    prev = [0] * (len(b) + 1)
-    for x in a:
-        cur = [0]
-        for j, y in enumerate(b, 1):
-            cur.append(prev[j - 1] + 1 if x == y else max(prev[j], cur[j - 1]))
-        prev = cur
-    return len(a) + len(b) - 2 * prev[-1]
-
-
 def strict_problem(text: str, transcript: str, *, expect: str | None = None) -> str | None:
     """None when the transcript matches ``text`` strictly, else a reason."""
     heard = tokens(transcript)
@@ -158,13 +145,12 @@ def strict_problem(text: str, transcript: str, *, expect: str | None = None) -> 
     if len(want_s) != len(heard_s):
         return (f"names: name spans differ in number: wanted {len(want_s)}, heard {len(heard_s)} "
                 f"(wanted {[' '.join(x) for x in want_s]}, heard {[' '.join(x) for x in heard_s]})")
-    edits = 0
     for w, h in zip(want_s, heard_s):
-        if _key(w[-1]) != _key(h[-1]):
-            return (f'names: last word "{w[-1]}" ({_key(w[-1])}) heard as '
-                    f'"{h[-1]}" ({_key(h[-1])}) in {" ".join(w)!r} vs {" ".join(h)!r}')
-        edits += _indels([_key(t) for t in w[:-1]], [_key(t) for t in h[:-1]])
-    if edits > NAME_EDITS:
-        return (f"names differ by {edits} token edits by key: wanted "
-                f"{[' '.join(x) for x in want_s]}, heard {[' '.join(x) for x in heard_s]}")
+        if len(w) != len(h):
+            return (f'names: "{" ".join(w)}" heard as "{" ".join(h)}" '
+                    f"({len(w)} words wanted, {len(h)} heard)")
+        for a, b in zip(w, h):
+            if _key(a) != _key(b):
+                return (f'names: "{" ".join(w)}" heard as "{" ".join(h)}": '
+                        f'"{a}" ({_key(a)}) vs "{b}" ({_key(b)})')
     return None
