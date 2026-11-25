@@ -111,3 +111,10 @@ has run).
   `packages/transmitter/scripts/test-in-debian12.sh` runs them on hugo's
   Python 3.11 + ffmpeg 5.1 (needs docker). Container spike:
   `python -m transmitter.spike build|serve <dir>`.
+- `transmitter/concert.py` (concert announcements, phase A; pure, no IO): the finite inventory of
+  piece texts emcee will voice. `piece_id(text)` is `sha256(text)[:12]`; `needed_pieces(clock,
+  artists, id_text, from_us, days=8)` returns `NeededPiece(id, text, kind)` deduped by id and sorted
+  by id (the ID, 4 block pieces per titled block, a `Then, at <time> Eastern, <title>` per titled
+  occurrence, 3 pieces per cleaned artist, 78 time phrases). Times are always spoken in
+  `America/New_York` whatever the clock's timezone (`time_phrase` buckets, `then_time`); artists go
+  through `clean` (`" ".join(split())`, non-string or empty -> none).
