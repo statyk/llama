@@ -30,7 +30,8 @@ fall back gracefully to what it does today.
   "not perfect but usable"; whole-sentence reads sound better but would need
   the plan to run hours ahead of render and a fixed-length padded slot.
   Stitching removes both: every piece is voiced long before it can air, and a
-  stitched clip's exact length is known at plan time.
+  stitched clip is assembled and measured at plan time, so its exact length
+  is known before the plan relies on it.
 - **Pieces are phrase-sized, not word-sized.** "a few minutes before midnight
   Eastern." is one piece. Names never end a piece unpunctuated in a way that
   swallows a final consonant (the spike lost the "s" of "Adams" when the name
@@ -122,7 +123,7 @@ the station root, which transmitter will now write to (one subfolder only).
    clip doesn't shift later times (fallback clips are shorter: padding risks
    the 3 s dead-air limit). Biggest scheduler change.
 2. **Stitched pre-voiced pieces (chosen).** Finite vocabulary voiced days
-   ahead; transmitter assembles at plan time with exact known length; no
+   ahead; transmitter assembles and measures at plan time; no
    padding, no look-ahead deadline. Cost: some stitch audibility (judged
    acceptable).
 3. **Hybrid** (pieces as base, whole sentences as upgrade). Reintroduces
@@ -140,14 +141,18 @@ Per break, after show P and before show X (X is the next show):
    otherwise, including when only Then follows, so it never reads "with
    Cracker, Then, ...").
 3. **Followed** (optional): when the show after X, call it Y, is in the same
-   block occurrence as X: "followed by <Y artist>," + "<time phrase for Y's
-   actual start>."
+   block occurrence as X and Y's artist is not X's artist: "followed by <Y
+   artist>," + "<time phrase for Y's actual start>." When Y's artist is X's,
+   Followed is not spoken ("… continues with Grateful Dead." ends there) but
+   Y is still one of the break's named shows, so Then may still follow. When
+   Followed is dropped for any other reason, Y is not named.
 4. **Then** (optional): when the first show of the next block occurrence, Z,
-   is the show directly after the last show named so far (X, or Y when
-   Followed is present), Z's block is titled and not degraded, and Z's
+   is the show directly after the last named show (X, or Y when Y is named),
+   Z's block is not X's block, Z's block is titled and not degraded, and Z's
    predicted start is inside its window (the truth condition today's `later`
    announcements use): "Then, at <Z's nominal time> Eastern, <Z's block
-   title>" + "with <Z artist>."
+   title>" + "with <Z artist>." The hour is spoken as in the time phrases
+   (12-hour, "midnight"/"noon").
 
 So at most three shows are named, and the named shows are always contiguous
 in the plan. (Contiguity is what makes Goal 2 cheap; see "Promises".)
@@ -218,50 +223,65 @@ pieces.
 
 ### The contract: `interstitials/pieces/`
 
+- `pieces/` is a subfolder of the interstitials folder (`<interstitials
+  folder>/pieces`). transmitter never creates it: while it is missing the
+  feature is dormant (no piece files written, none present, every break on
+  the last rung), shown as a note in `status`, never alerted.
 - transmitter writes `piece-<id>.txt` (UTF-8, the exact text) for every piece
   it needs, where `<id>` is a hash of the text (as `ann-<id>` today). It
   derives the set from the clock (blocks, nominal times), the artists of
   **all delivered packages** in the scan, ineligible ones included (delivery
   usually precedes voicing by hours to days, so a new artist's pieces are
   requested before it becomes airable), the fixed time phrases and the ID
-  text. Written only when missing; it never deletes. *(Stale pieces are
-  harmless; pruning is a later convenience.)*
+  text. The scan's ineligible records gain an `artist` field, filled where
+  the manifest is already parsed, so the artist set covers every delivered
+  package. Written only when missing; it never deletes a piece. *(Stale
+  pieces are harmless; pruning is a later convenience.)*
 - Only `plan_step` writes these files; the read-only views (`schedule`,
   `status`, `library`) never write. Writes are atomic: a dot-prefixed temp
-  file unique per process, then rename (emcee ignores dotfiles). The list is
+  file unique per process, then rename (emcee ignores dotfiles); transmitter
+  deletes its own dot-temps there once they are older than 1 h. The list is
   written whether or not announcements are switched on, so pieces get voiced
   before the switch is turned on. It must not slow or block planning; a write
-  failure is logged and alerted with a gated code, never fatal to planning.
+  failure is logged and alerted (see "Alerts"), never fatal to planning.
   A hung hard NFS mount blocks the write as it already blocks the pool scan;
   no new risk.
 - The plan step also persists the needed-piece list (a small JSON in the
   workspace); `status` reads that file rather than scanning the library.
-- emcee voices every `piece-<id>.txt` without a `piece-<id>.mp3` and writes
-  the MP3 atomically beside it. A new emcee command (name the builder's call,
-  e.g. `emcee pieces <dir>`), run on the Mac on a launchd timer, exits at
-  once when nothing is pending. It does not take the station lock (it touches
+- emcee voices every `piece-<id>.txt` without a `piece-<id>.mp3` (or a
+  `piece-<id>.failed`) and writes the MP3 atomically beside it. A new emcee
+  command (name the builder's call, e.g. `emcee pieces <dir>`), run on the
+  Mac on a launchd timer, exits at once when nothing is pending. The
+  announcer presenter is a flag of that command, set in the launchd job, not
+  a key in emcee's config (emcee's config is `extra="forbid"`, so an older
+  emcee would refuse the key). It does not take the station lock (it touches
   no package) and must coexist with `emcee run`, with which it shares the mlx
   server. While it runs it counts as an emcee process for llama's
   `station_mark` gate and the `emcee retitle` gate.
 - **How a piece is voiced (emcee owns this):** dry (no bed), one call (no
-  chunking), the house/announcer presenter's voice and backend (config: which
-  presenter; today `roydemure` on mlx_audio), lexicon applied, then:
-  - **verify, strictly**: transcribe (the existing STT verification path)
-    and require every normalised word to match in order, numbers and hour
-    words included, compared after lexicon respelling. Only `tts/verify.py`'s
-    normaliser is reused, not its tolerance (`MISS_FLOOR`, the 15 % allowance,
-    number-word skipping). A piece may carry an optional expected-transcript
-    override for names STT can't spell (e.g. "moe.", "STS9"). On mismatch
-    re-voice, up to a small cap (spike: a swallowed "Stopped" was fixed by one
-    re-take, 3/3 re-takes correct);
+  chunking), the announcer presenter's voice and backend (today `roydemure`
+  on mlx_audio), lexicon applied, then:
+  - **verify, strictly**: transcribe (the existing STT path) and compare the
+    transcript with the piece's **original** text, not the lexicon
+    respelling. A new tokenizer maps digits and "2:30"-style times to words
+    on both sides. Template words, numbers, hour words and the final token
+    must match exactly and in order; name tokens (artist and block-title
+    words) allow a small stated tolerance (the builder picks it, e.g. one
+    token-level edit). `tts/verify.py`'s normaliser is not reused (it drops
+    number words), nor its tolerance. An operator-written
+    `piece-<id>.expect` beside the text, holding the expected transcript,
+    overrides the comparison for names STT can't spell (e.g. "moe.",
+    "STS9"). On mismatch re-voice, up to a small cap (spike: a swallowed
+    "Stopped" was fixed by one re-take, 3/3 re-takes correct);
   - **onset check**: reject a take whose first 50 ms is already speech-level
     (spike: Voxtral clipped "You're"); re-voice;
   - **trim** leading/trailing silence gently (spike values: -60 dB threshold,
     keep ~80 ms lead and ~120 ms tail) and **loudness-normalise** every piece
     to one target, so pieces match each other;
-  - after the cap, leave no MP3, record the failure (a sidecar or log the
-    builder picks) so `status` can show it, and don't retry it every timer
-    tick forever (backoff is the builder's call).
+  - after the cap, leave no MP3 and write `piece-<id>.failed` (small JSON:
+    attempts, last transcript, time) beside the text; `status` reads these.
+    Retry and backoff are emcee's call; deleting the `.failed` file re-arms
+    the piece.
 - After changing the announcer presenter, or a lexicon entry that affects
   pieces, clear `pieces/*.mp3` by hand so they are re-voiced. There is no
   mechanism for this.
@@ -270,46 +290,64 @@ pieces.
 
 ### Assembly (transmitter, at plan time)
 
-- For a break, transmitter decides the text phrase by phrase (above), keeping
-  only phrases whose pieces are all present; then joins the pieces with the
-  tight gaps (spike: 0.4 s after the ID, ~0.05 s plus the pieces' own edges
-  between pieces within a phrase, ~0.15 s after a comma-ending piece; the
-  builder tunes) and mixes the house bed under the whole clip with a short
-  lead-in and tail (spike: bed 20 dB under the voice, 0.5 s lead-in, 1 s
-  tail).
-- **Length is a pure function.** The clip's sample count is an exact function
-  of the pieces' analysed sample counts, the gaps and the bed lead-in/tail,
-  then padded to whole AAC frames the way render pads clips. The scheduler
-  computes it with no IO, from cached piece analyses. Pieces are analysed
-  lazily, the first time a break uses them, and cached by file-set key; the
-  inventory is never decoded up front.
-- The assembler decodes and mixes in numpy, as render does (not an ffmpeg
-  concat), and must produce exactly the computed count. A mismatch or any
-  assembly failure (piece missing or undecodable, bed missing or unreadable,
-  write error) sends that break to the last rung (today's logic), alerted
-  with a gated code; it never raises out of `extend`.
-- **Key = content, not text.** The clip's key is a hash of the file-set key
-  (size+mtime, `station.file_set_key_and_sizes`) of every piece and of the
-  bed, plus the gaps and the bed gain. The clip is written to transmitter's
-  own workspace on hugo (not the station root) and is then an ordinary
-  one-clip interstitial piece: analysis, encode and the frame store are
-  reused.
+- **The clip.** For a break, the text is decided phrase by phrase (above),
+  keeping only phrases whose pieces are all present. The pieces are joined
+  with the tight gaps (spike: 0.4 s after the ID, ~0.05 s plus the pieces'
+  own edges between pieces within a phrase, ~0.15 s after a comma-ending
+  piece; the builder tunes) and the house bed is mixed under the whole clip
+  with a short lead-in and tail (spike: bed 20 dB under the voice, 0.5 s
+  lead-in, 1 s tail).
+- **The scheduler stays pure.** A break candidate is just another piece
+  offered to it; `extend` (the IO side) builds it. Per break row, `extend`:
+  1. **Pass 1**: the scheduler proposes the break's content (rung, phrases,
+     named slugs) on estimated lengths: a typical assembled length for the
+     clip, best-known lengths for the shows.
+  2. `extend` assembles that content into a clip file and analyses it
+     exactly like any clip (the existing analysis path), and analyses the
+     named shows exactly (the watchdog pinged after each, as
+     `Station.frames_of` does).
+  3. **Pass 2**: the scheduler re-runs with those exact lengths. If it
+     proposes the same content, the row is appended. If not, this break is
+     planned at the last rung (today's logic). There is no third pass and no
+     fixed-point iteration.
+
+  Both passes judge Y's bucket and Z's window with the clip in place. A
+  named show that cannot be analysed is excluded from the pool as today's
+  skip does, and the break falls to the last rung.
+- **Failure at plan time.** Any assembly failure (a piece missing or
+  undecodable, the bed missing or unreadable, an IO error) sends that break
+  to the last rung, alerted (see "Alerts"); it never raises out of `extend`.
+  Where possible a piece that fails to decode counts as absent instead: the
+  assembler drops its phrase (rung 2), treats the piece as absent for the
+  rest of the call, and pass 2 compares against the content actually
+  assembled. A required piece (the Next block piece) failing sends the break
+  to the last rung.
+- **File.** The assembled clip is a lossless WAV at the grid rate (44.1 kHz,
+  2 channels), written atomically (`atomic_write_bytes`, or temp + rename)
+  into a clip folder in transmitter's own workspace on hugo (not the station
+  root). Its slug is `concert-<content hash>`, the content hash being a hash
+  of the pieces' file-set keys (`station.file_set_key_and_sizes`), the gaps,
+  the bed file's key and gain, and an `ASSEMBLY_VERSION`; its key is the clip
+  file's own file-set key, as for any clip, and the row's `dir` is the
+  workspace clip folder. It is then an ordinary one-clip interstitial piece:
+  analysis, encode and the frame store are reused.
 - **Loudness**: emcee normalises each piece to one target so pieces match
   each other; the assembler does not normalise, and sets only the bed's gain
   relative to the voice. Render normalises the whole clip as it does every
   clip (`render.file_gain`, `speech_target_lufs`).
-- **At render**, an assembled row resolves from the row itself (its piece ids
-  and key) plus the voiced pieces in `interstitials/pieces/`; if the
-  workspace file is missing it is re-assembled. If the rebuilt key differs (a
-  piece was re-voiced), the existing skip/re-plan path applies before the
-  break's first segment is encoded. If the break is already on air with its
-  encode lost, the existing on-air refusal (`LayoutError`) applies; this is a
-  documented limitation.
+- **At render**, an assembled row is treated like any interstitial row,
+  resolved from the workspace clip folder. **Any** problem with it (file
+  missing, key changed, frames changed, unreadable) is a skip-path reason.
+  The re-plan from that row runs with assembly disabled at that position for
+  the rest of the call (that boundary is planned at the last rung), so a
+  re-plan can never rebuild the same mismatching break and loop to the cap.
+  If the break is already on air with its encode lost, the existing on-air
+  refusal (`LayoutError`) applies; this is a documented limitation.
 - **Purge** is garbage collection by reference, as `_gc_encodes` does for
-  encodes: an assembled clip is deleted when no plan row ending after the
-  published high-water mark references it, with an age floor (e.g. 1 h) for
-  temp files and for clips of candidates that were never appended. Deletion
-  is always safe because a clip can be re-assembled from its pieces.
+  encodes: an assembled clip file and its `cache/<key>.json` analysis are
+  deleted when no plan row ending after the published high-water mark
+  references the clip, with an age floor (e.g. 1 h) for temp files and for
+  clips of candidates that were never appended.
 
 ### The break row
 
@@ -319,15 +357,17 @@ An assembled break is one plan row:
 - `role` a new value (e.g. `"concert"`);
 - `block`/`nominal_start`: X's occurrence, so `_continuing` resumes correctly
   on both the new and the old build;
-- `names`: occurrence-key pairs exactly as today (never slugs);
+- `names`: occurrence-key pairs as today (never slugs), holding only the
+  occurrence announced **with a time**: Z's when Then is present, otherwise
+  empty. So a late entry into a block named only by Next is not flagged
+  broken;
 - two new list fields: the named show slugs in order, and the ordered piece
   ids.
 
-Broken-promise accounting reuses the existing `announcement_broken` field
-(already carried into `aired.jsonl` and read by old builds): the show row that
-takes a promised slot in place of the promised show sets it. The new role joins
-`pipeline.ANNOUNCEMENT_ROLES`, so a named block landing outside its window or
-degraded is flagged exactly as `_announcement_broken` flags it today.
+The new role joins `pipeline.ANNOUNCEMENT_ROLES`, so a Z landing outside its
+window or degraded is flagged exactly as `_announcement_broken` flags it
+today. Broken promises (below) reuse the same `announcement_broken` field,
+already carried into `aired.jsonl` and read by old builds.
 
 **Rollback.** At the rollback floor (`af46d72`) `PlanRow.role` is a free
 `str | None` and `from_json` keeps unknown keys in `extra` (round-tripped by
@@ -335,7 +375,8 @@ degraded is flagged exactly as `_announcement_broken` flags it today.
 finds no assembled clip in its pool scan, so a new break not yet rendered is
 skipped and re-planned once with the old logic (acceptable). A new break
 already on air whose encode is lost raises the existing on-air refusal
-(documented limitation).
+(documented limitation). Rolling back while a promise is pending can air
+"followed by Y" with Y never placed (documented limitation).
 
 ### Promises (Goal 2)
 
@@ -343,40 +384,44 @@ The break names X, maybe Y, maybe Z, all contiguous. Because the scheduler
 appends one row at a time, those shows are not yet in the plan when the break
 row is written. Requirement: **the shows that a break names are the shows the
 plan then places, in order, at those slots**, wherever that can still be
-true. The break row records them (the slug list above).
+true.
 
-- **Measure before promising.** Before a break row is appended, the shows it
-  would name (X, and Y/Z when named) are analysed exactly (frame counts, with
-  the watchdog pinged after each, as `Station.frames_of` does), and the names
-  are chosen on exact lengths. A show that cannot be analysed is not named
-  for that step: the break names fewer shows, or falls to a lower rung.
-- **Keeping a promise.** Later plan steps place a promised show at its slot
-  only while its slug is in the current pool and the plan has not been cut
-  or re-planned at or before the promising break, with no `run_start` in
-  between. Once Z has been named it is placed even if exact lengths would
-  now land it slightly off its window (promises win over the window); that
-  occurrence is flagged `announcement_broken` when Z lands outside its
-  window.
-- **A void promise is never fatal.** Otherwise the promise is void: the
-  scheduler plans normally, counts a broken promise, alerts once (ungated)
-  and shows it in `status`. A promise can never cause a `PlanError`, a
-  re-plan loop or a stall.
-- **Re-planning.** Re-planning from row i voids the promises of every break
-  row at or after i. When render's skip path drops a named show, that show
-  is excluded from the pool (as today); the break before it stays and its
-  promise is void (counted).
+- **A promise is derived from rows.** A break row's promise is its ordered
+  list of named slugs. It is **live** while all of these hold: (a) the show
+  rows after it, in order, are a prefix of that list (interstitial rows
+  between them ignored); (b) no row after it has `run_start`; (c) each named
+  slug not yet placed is in the current pool; (d) each named occurrence is
+  still yielded by the clock. At the first failure the whole promise is
+  void.
+- **Live promises are kept.** The scheduler places the next named show of a
+  live promise at its slot. Live promises are applied identically to
+  persisted and projected break rows (the projection is live), so preview
+  and live agree and continuation closure holds. A live promise places Z
+  even if it would now land outside its window; `names` flags that as
+  above. Promises are kept whether announcements are switched on or off.
+- **A void promise is never fatal.** Promises are never resolved by a lookup
+  that can raise; a void promise never raises, loops or stalls, and the
+  scheduler plans normally. The show row placed at the first mismatched
+  slot (only that row) sets `announcement_broken`; broken promises are
+  counted in `status` and alerted once (see "Alerts").
+- **Deciding X/Y/Z.** The named shows are decided inside `boundary()` from
+  the runs, independent of `ahead` and `last_pos`, so the `extend` invariant
+  that piece [0] does not depend on `ahead` still holds. The continuation
+  closure test is extended to concert breaks. A new break's names must agree
+  with every promise still live: where an earlier break's live promise
+  already fixes the shows after X (e.g. it named Y and Z), the new break names
+  those same shows or fewer, never different ones. With the feature on, the
+  block search's boundary estimate (`boundary` in the scheduler: gap +
+  typical ID + gap) uses a typical assembled announcement length in place of
+  the typical ID. How the search finds X/Y/Z is the builder's call, within
+  the existing rules (window landing, rotation rules, compromise order).
 
-Render does no extra check of the named shows before encoding a break: X is
-placed within a tick of its break and Y/Z rest on the plan-time promise, so a
-show failing between plan and render is the rare counted broken promise.
-
-How the scheduler finds X/Y/Z for a break (running its existing block search
-from the break's position, using the known assembled length, with the
-run-1/run-2 exact-length pattern) is the builder's call, within the existing
-rules (window landing, rotation rules, compromise order). With the feature on,
-the block search's boundary estimate (`boundary` in the scheduler: gap +
-typical ID + gap) uses a typical assembled announcement length in place of
-the typical ID.
+**Exposure window.** X is normally placed within a tick of its break, but
+filling can stop with the plan ending on a break, and Y and Z are placed
+hours later (up to `lead_hours` - `low_water_hours`). Render does no extra
+check of the named shows before encoding a break. Re-deliveries,
+`awaiting_fix` marks and clock edits inside that window void promises; each
+is a counted broken promise.
 
 ### Fallback ladder (per break)
 
@@ -385,13 +430,14 @@ last rung.
 
 1. Full assembled announcement with every qualifying phrase.
 2. Reduced: missing optional phrases (Followed, Then) dropped; missing artist
-   piece for X: "Coming up next, <block>." (a period variant of the block
-   piece is not needed if the block piece is voiced ending without
-   punctuation and the assembly ends there; builder's call); missing ID
-   piece: the clip is assembled without it.
-3. No usable Next phrase, X's block untitled or degraded, or assembly failed:
-   today's logic exactly (the `next`/`later` `ann-*` clips at block edges,
-   station ID elsewhere, then a gap).
+   piece for X: the clip ends after the block piece ("Coming up next,
+   <block>." / "<block> continues."), and Followed and Then are dropped too
+   (a period variant of the block piece is not needed if the block piece is
+   voiced ending without punctuation and the assembly ends there; builder's
+   call); missing ID piece: the clip is assembled without it.
+3. No usable Next phrase, X's block untitled or degraded, assembly failed, or
+   pass 2 disagreed with pass 1: today's logic exactly (the `next`/`later`
+   `ann-*` clips at block edges, station ID elsewhere, then a gap).
 
 So with the Mac gone for good, the station behaves as it does today.
 
@@ -409,13 +455,24 @@ the gaps if configurable, and an on/off switch defaulting off). Nothing is
 added to the clock file's `[announce]` or to `config.toml`: both are
 `extra="forbid"`, so a rollback would lose the clock or fail to start. The
 switch gates assembly and placement only; the needed-piece list is always
-written. emcee config names the announcer presenter.
+written. A missing `announce.toml` means the feature is off, silently (shown as a
+`status` note, like a missing `pieces/`); one that is invalid or unreadable
+also means off, with one alert. Neither ever raises out of plan or render. The
+announcer presenter is not transmitter config; it is the emcee command's
+flag (see the contract).
+
+### Alerts
+
+The new codes are assembly failure, piece-list write failure, broken
+promise and invalid `announce.toml`. All are ungated event codes, deduped by
+`repeat_hours`: a gated code fires only on a streak of failing observations,
+which cannot build when break steps alternate with show steps.
 
 ### Visibility
 
 - `transmitter status`: pieces needed/present/failed counts (from the
-  persisted needed-piece list); breaks in the next 24 h by rung; broken
-  promises.
+  persisted needed-piece list and the `.failed` files); a note when
+  `pieces/` is missing; breaks in the next 24 h by rung; broken promises.
 - `transmitter schedule`: per break, the text that would air (or the rung).
 - emcee side: the new command prints what it voiced, re-took and failed.
 
@@ -424,17 +481,19 @@ written. emcee config names the announcer presenter.
 - On the NAS, create `interstitials/pieces/` writable by hugo's transmitter
   user and the Mac's user (exact uid/permissions per the NAS).
 - Create `announce.toml` with the switch off; turn it on once the first
-  pieces are voiced. Name the announcer presenter in emcee config.
-- launchd job on the Mac for the voicing command.
+  pieces are voiced.
+- launchd job on the Mac for the voicing command, with the announcer
+  presenter flag.
 
 ## Left to the builder
 
-- Command names, config key names, sidecar formats.
+- Command names, config key names.
 - How often `plan_step` writes the needed-piece files.
 - How the scheduler searches for X/Y/Z.
 - Exact gaps, bed gain, trim parameters, piece loudness target (measure).
+- The name-token tolerance in verification.
 - Bucket edges; how Y's start is predicted; the typical assembled length
-  used for the boundary estimate.
+  used for pass 1 and the boundary estimate.
 
 ## Open premises to verify in the plan's first task
 
@@ -443,8 +502,6 @@ written. emcee config names the announcer presenter.
   shortest pieces.
 - STT on a swallowed final consonant ("Adam" for "Adams"): transcribe a
   known-bad take under the strict comparison.
-- Assembling the same inputs twice gives the identical sample count
-  (re-assembly safety): test in the Debian-12 container.
 - Rename atomicity hugo to Mac across the share: write and rename on hugo
   while emcee polls.
 - Assembly + analysis time on hugo per break (must not slow a plan step
