@@ -236,3 +236,69 @@ def test_long_plan_only_the_tail_counts():
     assert first_mismatch(rows, show("w")) is True
     old = [concert("x", "y", "z", names=[LK])] + [show("x"), show("y"), show("z", LK), show("w", LK)]
     assert rem(old) == ()
+
+
+def test_first_mismatch_after_an_interstitial_that_starts_a_run():
+    r = concert("x", "y")
+    clip_run = dataclasses.replace(iid(), run_start=True)
+    # The run_start clip voids the promise; the first show row after it is the broken one, whatever its slug.
+    assert first_mismatch([r, show("x"), clip_run], show("w")) is True
+    assert first_mismatch([r, show("x"), clip_run], show("y")) is True
+    assert first_mismatch([r, clip_run], show("w")) is True
+    assert first_mismatch([r, clip_run], show("x")) is True
+    assert first_mismatch([r, clip_run, iid("id-b")], show("x")) is True
+    # Flagged once: a show row already followed the void.
+    assert first_mismatch([r, clip_run, show("x")], show("y")) is False
+    assert first_mismatch([r, show("x"), clip_run, show("w")], show("v")) is False
+    # A kept promise is not broken by a later run start.
+    assert first_mismatch([r, show("x"), show("y"), clip_run], show("w")) is False
+    # And remaining treats it as void.
+    assert rem([r, clip_run]) == ()
+    assert rem([r, show("x"), clip_run]) == ()
+
+
+def test_a_break_that_starts_a_run_still_promises():
+    assert rem([concert("x", "y", run_start=True)]) == (("x", EK), ("y", EK))
+    assert rem([concert("x", "y", run_start=True), show("x")]) == (("y", EK),)
+
+
+def test_placed_entries_occurrence_must_still_be_yielded():
+    rows = [concert("x", "z", names=[LK]), show("x")]
+    assert rem(rows) == (("z", LK),)
+    assert rem(rows, clock=clk({**EVE, "name": "evening"}, LATE, DAWN)) == ()
+
+
+class _Rows:
+    """A Sequence that is neither list nor tuple and refuses to be iterated whole."""
+
+    def __init__(self, rows):
+        self._rows = rows
+
+    def __len__(self):
+        return len(self._rows)
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            raise AssertionError("sliced")
+        return self._rows[i]
+
+    def __iter__(self):
+        raise AssertionError("iterated whole")
+
+
+def test_tail_indexes_a_sequence_from_the_end():
+    import collections.abc
+    collections.abc.Sequence.register(_Rows)
+    rows = _Rows([show(f"s{i}") for i in range(50)] + [concert("x", "y"), show("x")])
+    assert rem(rows) == (("y", EK),)
+    assert first_mismatch(rows, show("w")) is True
+
+
+def test_a_coding_bug_is_logged(monkeypatch, caplog):
+    def boom(*a, **k):
+        raise RuntimeError("bug")
+    monkeypatch.setattr(promises, "_tail", boom)
+    with caplog.at_level("ERROR", logger="transmitter.promises"):
+        assert rem([concert("x")]) == ()
+        assert first_mismatch([concert("x")], show("w")) is False
+    assert sum("failed" in r.getMessage() for r in caplog.records) == 2

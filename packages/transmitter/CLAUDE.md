@@ -143,5 +143,6 @@ has run).
   `run_start` row after it; unplaced slugs in the pool; every named occurrence still yielded by `clock.occurrences`),
   combined oldest first by `merge_remainders(older, newer)` (a prefix agrees and the longer is kept; any differing
   position: the newer wins); `run_start=True` voids all. `first_mismatch(rows, row)` (rows only) is True for the one
-  show row that first breaks a promise. Only the plan tail is read (back to a 4th show row or the latest
-  `run_start`); any exception degrades to "no promise".
+  show row that first breaks a promise (a wrong slug, a show row with `run_start`, or the first show row after a
+  non-show `run_start` row). Only the plan tail is read (back to a 4th show row; for `remaining` also to the latest
+  `run_start`); any exception is logged and degrades to "no promise".

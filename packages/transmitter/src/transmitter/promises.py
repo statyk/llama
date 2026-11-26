@@ -10,9 +10,11 @@ yielded by the clock. At the first failure the whole promise is void.
 STRICT SURFACE: nothing here raises and nothing loops. A malformed row means
 no promise; any unexpected failure degrades to "no promise" (`()` / False).
 Only the tail of the plan is examined: a break with more than three show rows
-after it, or one before the latest `run_start`, can no longer be live.
+after it is kept or already broken; for `remaining`, one before the latest
+`run_start` is void too.
 """
 
+import logging
 from collections.abc import Sequence
 
 from transmitter.clock import ClockConfig, occurrences
@@ -21,6 +23,7 @@ from transmitter.grid import iso_to_us
 from transmitter.layout import CONCERT_ROLE, PlanRow
 
 MAX_NAMED = 3
+_log = logging.getLogger(__name__)
 
 
 def _key(value: object) -> tuple[str, str] | None:
@@ -87,38 +90,58 @@ def _is_show(row: object) -> bool:
     return getattr(row, "kind", None) == "show"
 
 
-def _tail(rows: Sequence[PlanRow]) -> list[PlanRow]:
-    """The rows that can still hold or decide a live promise: back from the end
-    until a fourth show row or the latest run_start row (kept: only rows AFTER a
-    break void it)."""
-    seq = rows if isinstance(rows, (list, tuple)) else list(rows)
+def _tail(rows: Sequence[PlanRow], *, cut_at_run_start: bool) -> list[PlanRow]:
+    """The rows that can still hold or decide a promise: back from the end until
+    a fourth show row (a break that many shows back is kept or broken already)
+    and, with `cut_at_run_start`, the latest run_start row (kept: only rows AFTER
+    a break void it). Indexes from the end; never copies the whole plan."""
+    seq = rows if isinstance(rows, Sequence) else list(rows)
+    n = len(seq)
     shows = 0
-    i = len(seq)
+    i = n
+    start = 0
     while i > 0:
         i -= 1
         r = seq[i]
         if _is_show(r):
             shows += 1
             if shows > MAX_NAMED:
-                return list(seq[i + 1:])
-        if bool(getattr(r, "run_start", False)):
-            return list(seq[i:])
-    return list(seq)
+                start = i + 1
+                break
+        if cut_at_run_start and bool(getattr(r, "run_start", False)):
+            start = i
+            break
+    return [seq[j] for j in range(start, n)]
 
 
-def _progress(entries: tuple[Named, ...], after: Sequence[PlanRow]) -> int | None:
-    """How many entries the show rows in `after` placed, in order; None when the
-    promise is already broken there (a mismatch, an extra show, a run_start)."""
+_INTACT = "intact"     # every show after the break matched, no run_start since
+_VOIDED = "voided"     # a non-show run_start row voided it; no show row has followed yet
+_SETTLED = "settled"   # kept in full, or broken and already flagged on a show row
+
+
+def _progress(entries: tuple[Named, ...], after: Sequence[PlanRow]) -> tuple[str, int]:
+    """(state, placed) of a promise given the rows after its break."""
     placed = 0
+    voided = False
     for r in after:
-        if bool(getattr(r, "run_start", False)):   # (b); `_tail` already cuts here
-            return None
-        if not _is_show(r):
+        show = _is_show(r)
+        if voided:
+            if show:
+                return _SETTLED, placed            # that show row was the flagged one
             continue
-        if placed >= len(entries) or getattr(r, "slug", None) != entries[placed][0]:
-            return None
+        rs = bool(getattr(r, "run_start", False))
+        if placed >= len(entries):
+            if show or rs:
+                return _SETTLED, placed
+            continue
+        if not show:
+            if rs:
+                voided = True                      # (b): flagged on the next show row
+            continue
+        if rs or getattr(r, "slug", None) != entries[placed][0]:
+            return _SETTLED, placed                # (a)/(b) broken on this show row
         placed += 1
-    return placed
+    return (_VOIDED if voided else _INTACT), placed
 
 
 def _yielded(clock: ClockConfig, key: tuple[str, str], cache: dict) -> bool:
@@ -141,15 +164,15 @@ def remaining(rows: Sequence[PlanRow], *, pool_slugs: frozenset[str], clock: Clo
     try:
         if run_start:
             return ()
-        tail = _tail(rows)
+        tail = _tail(rows, cut_at_run_start=True)
         cache: dict = {}
         out: tuple[Named, ...] = ()
         for i, r in enumerate(tail):
             entries = entries_of(r)
             if entries is None:
                 continue
-            placed = _progress(entries, tail[i + 1:])
-            if placed is None or placed >= len(entries):
+            state, placed = _progress(entries, tail[i + 1:])
+            if state != _INTACT or placed >= len(entries):
                 continue
             rest = entries[placed:]
             if not all(slug in pool_slugs for slug, _ in rest):
@@ -159,28 +182,33 @@ def remaining(rows: Sequence[PlanRow], *, pool_slugs: frozenset[str], clock: Clo
             out = merge_remainders(out, rest)
         return out
     except Exception:
+        _log.exception("promises.remaining failed; treating every promise as void")
         return ()
 
 
 def first_mismatch(rows: Sequence[PlanRow], row: PlanRow) -> bool:
     """`row` (about to be appended) is a show row that breaks a promise for the
-    first time: some concert row R in `rows` has entries, every show row after R
-    so far matched them in order with no run_start, fewer than all are placed,
-    and `row` is not the next named slug or has run_start. Rows only (pool and
-    clock are not consulted); never raises."""
+    first time: some concert row R in `rows` has entries, fewer than all are
+    placed, every show row after R so far matched them in order, and either a
+    non-show row after R started a run (no show row since: the promise is void
+    and this is the first show row after it) or `row` is not the next named slug
+    or has run_start. Rows only (pool and clock are not consulted); never raises."""
     try:
         if not _is_show(row):
             return False
-        tail = _tail(rows)
+        tail = _tail(rows, cut_at_run_start=False)
         for i, r in enumerate(tail):
             entries = entries_of(r)
             if entries is None:
                 continue
-            placed = _progress(entries, tail[i + 1:])
-            if placed is None or placed >= len(entries):
+            state, placed = _progress(entries, tail[i + 1:])
+            if state == _VOIDED:
+                return True
+            if state != _INTACT or placed >= len(entries):
                 continue
             if bool(getattr(row, "run_start", False)) or getattr(row, "slug", None) != entries[placed][0]:
                 return True
         return False
     except Exception:
+        _log.exception("promises.first_mismatch failed; treating the row as not breaking a promise")
         return False
