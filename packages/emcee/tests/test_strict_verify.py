@@ -81,7 +81,7 @@ def test_phonetic_passes(text, heard):
     ("Ripple continues", "continues", "spans"),                              # swallowed title
     ("Coming up next, Live at the Fillmore", "Coming up next, at the Fillmore", "names"),
     ("Coming up next, Live at the Fillmore", "Coming up next, at the Fillmore", "spans"),
-    ("Hayes Carll continues", "Hayes Carll Band continues", "names"),  # now a length failure
+    ("Hayes Carll continues", "Hayes Carll Band continues", "names"),  # joined keys differ (extra "Band")
     ("Coming up next, Pardners in Crime continues",
      "Coming up next, Pardners in continues", "names"),
 ])

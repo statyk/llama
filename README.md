@@ -853,7 +853,7 @@ voices each pending one on the local Qwen server, checks the take, and leaves
 `piece-<id>.mp3` or, after `--max-takes` (default 4) bad takes,
 `piece-<id>.failed` (JSON: `attempts`, `last_reason`, `last_transcript`,
 `at`). A take fails on the runaway guard, a clipped onset, no speech after
-trimming, or a strict transcript comparison (the final word and every
+trimming, or a strict transcript comparison (a template final word and every
 template and number word exact, a name span by the Metaphone key of its joined words); an
 operator-written `piece-<id>.expect` replaces the text compared against.
 It needs `[tts.mlx_audio] stt_model`, takes no station lock (it touches no

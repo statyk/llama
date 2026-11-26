@@ -280,7 +280,13 @@ pieces.
     Cracker" fail. So raq/rack,
     pardners/partners, Feat/Feet and Carll/Carl pass, while Ryan/Brian,
     Adams/Adam, "Ripple continues" heard "Nipple continues" and
-    Stopped/Stops fail. `tts/verify.py`'s normaliser is not reused (it drops
+    Stopped/Stops fail. **Known limit, accepted (Shawn, 2026-11-25):** the
+    joined key cannot see a vowel-only word added or dropped inside or at the
+    end of a name ("Ryan Adams" heard "Ryan Adams ooh"), nor a dropped
+    one-letter word beside the same letter ("Drivin n Cryin" heard "Driven
+    Cryin'"). Not seen from Qwen in practice; if it shows up, the agreed fix is
+    a guard failing a pair whose spans differ by an all-vowel or one-letter
+    token on one side only. `tts/verify.py`'s normaliser is not reused (it drops
     number words), nor its tolerance. An operator-written
     `piece-<id>.expect` beside the text, holding the expected transcript,
     overrides the comparison for names STT can't spell (e.g. "moe.",
