@@ -135,3 +135,13 @@ has run).
   `WRITES_PER_STEP` 250 per step; own temps older than 1 h removed). transmitter never creates `pieces/`: a missing
   folder means no texts and no alert. Only `plan_step` writes; `schedule`/`status`/`library` never do. Present =
   `piece-<12 hex>.mp3` regular, non-empty, quiet; dot files and other names are ignored.
+- `transmitter/promises.py` (concert promises, phase B; pure, never raises, never loops): `entries_of(row)` gives a
+  `role="concert"` row's `named_shows` as `(slug, occurrence key)` pairs (all in the row's `block`/`nominal_start`,
+  except Z in `names[0]` when `names` is set), or None when malformed (non-str/empty slug, 0 or >3 slugs, >1 names
+  pair, names with one slug, no block/nominal). `remaining(rows, pool_slugs=, clock=, run_start=)` is the unplaced
+  entries of the LIVE promises (show rows after the break a prefix of its entries, interstitials ignored; no
+  `run_start` row after it; unplaced slugs in the pool; every named occurrence still yielded by `clock.occurrences`),
+  combined oldest first by `merge_remainders(older, newer)` (a prefix agrees and the longer is kept; any differing
+  position: the newer wins); `run_start=True` voids all. `first_mismatch(rows, row)` (rows only) is True for the one
+  show row that first breaks a promise. Only the plan tail is read (back to a 4th show row or the latest
+  `run_start`); any exception degrades to "no promise".
