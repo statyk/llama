@@ -32,16 +32,20 @@ from pathlib import Path
 from typing import Callable, Protocol
 
 from transmitter import aacenc, alerts, analysis as analysis_mod, clock as clock_mod, grid, history
-from transmitter import announce_config, concert, interstitials, piecelist, render, station
+from transmitter import announce_config, concert, interstitials, piecelist, promises, render, station
+from transmitter import assemble as assemble_mod
 from transmitter.analysis import ShowAnalysis
+from transmitter.announce_config import AnnounceSettings
 from transmitter.clock import ClockConfig
+from transmitter.concert import BreakContent, ConcertInput
 from transmitter.config import TransmitterConfig
-from transmitter.errors import AnalysisStale, FrameCountDrift, LayoutError, PlanError, TransmitterError
+from transmitter.errors import (AnalysisStale, FrameCountDrift, LayoutError, PieceUndecodable, PlanError,
+                                TransmitterError)
 from transmitter.grid import SEGMENT_FRAMES
 from transmitter.layout import CONCERT_ROLE, FrameStore, PlanRow, rows_overlapping, validate_rows
 from transmitter.pieces import LengthCache, Piece, build_pool
 from transmitter.planner import cut_for_recovery, next_start, publish_next, read_plan, replan_from, write_plan
-from transmitter.scheduler import SchedulerInput, project, to_row
+from transmitter.scheduler import PLACEHOLDER_SLUG, PlannedPiece, SchedulerInput, project, to_row
 from transmitter.state import load_publish_state
 from transmitter.station import Ineligible, Show
 from transmitter.workspace import Epoch, Workspace, atomic_write_bytes
@@ -94,6 +98,8 @@ class Station:
     log: Callable[[str], None] = print
     notify: Callable[[str], object] | None = None   # the service's sd_notify; fed during long plan steps
     lengths: LengthCache | None = None              # piece lengths; see length_cache()
+    # builds a concert break's clip; None: a call-scoped `assemble.Assembler` over the pieces folder
+    assemble: Callable[[BreakContent, AnnounceSettings], Show] | None = None
 
     def scan_all(self, now_us: int) -> tuple[list[Show], list[Ineligible]]:
         """Eligible shows and the ineligible packages; raises StationRootError
@@ -165,7 +171,30 @@ class Station:
                                    analyze_clip=None if read_only else self.frames_of, read_only=read_only)
         for clip, exc in dropped:
             self.log(f"skipping {clip.slug}: {exc}")
-        return pool
+        return pool + self.concert_pieces()
+
+    def concert_pieces(self) -> list[Piece]:
+        """The assembled concert clips in the workspace clip folder as interstitial
+        pieces (`dir` the folder). Lengths come from the length cache (exact once
+        analysed, else estimated); nothing is analysed here, since the scheduler
+        never picks a concert clip from the pool (render re-analyses what it
+        encodes). Never raises: any failure is no clips."""
+        try:
+            lengths = self.length_cache()
+            out: list[Piece] = []
+            for show in assemble_mod.scan_clips(self.ws.concert_dir):
+                try:
+                    frames, exact = lengths.length(show)
+                except Exception:
+                    continue
+                out.append(Piece("interstitial", show, str(self.ws.concert_dir), frames, exact))
+            return out
+        except Exception as exc:
+            try:
+                self.log(f"concert clips unreadable: {type(exc).__name__}: {exc}")
+            except Exception:
+                pass
+            return []
 
     def clock(self) -> ClockConfig:
         """The live clock (saving the last-good copy). An invalid clock.toml is
@@ -183,14 +212,24 @@ class Station:
             self.notify("WATCHDOG=1")
 
     def extend(self, rows: list[PlanRow], pool: list[Piece], now_us: int, *, start_frame: int,
-               run_start: bool, max_new: int | None = None) -> list[PlanRow]:
+               run_start: bool, max_new: int | None = None,
+               no_assembly_at: frozenset[int] = frozenset()) -> list[PlanRow]:
         """Append scheduler rows from `start_frame` until the plan covers
         `until_frame(now_us)` (at most `max_new`); never changes a row of
         `rows`. Per row (spec "Exact timing"): run the scheduler on the
         best-known lengths; analyse its pick when estimated; run it once more
         with the exact count; append run 2's pick when analysed, else run 1's
         analysed pick. A pick that cannot be measured is skipped for the rest
-        of the call. Every written row carries an exact frame count."""
+        of the call. Every written row carries an exact frame count.
+
+        A concert break (spec "Assembly") is planned in two passes: pass 1's
+        content is assembled into a clip and measured, the shows it names are
+        measured, and pass 2 re-runs with those exact lengths and the clip; the
+        row is appended with pass 1's wording when pass 2 proposes a break of the
+        same shape, else that boundary is planned at the last rung (today's
+        logic), as it is on any assembly failure. `no_assembly_at` (start
+        frames) are planned at the last rung from the start. Nothing of the
+        feature raises out of here (`_ConcertCall`); a `PlanError` propagates as today."""
         clock = self.clock()
         lengths = self.length_cache()
         aired = history.load_aired(self.ws)
@@ -205,17 +244,23 @@ class Station:
         appended: list[PlanRow] = []
         next_seq = max((r.seq for r in out), default=-1) + 1
         start, mark = start_frame, run_start
+        conc = _ConcertCall(self, now_us, no_assembly_at)
         while (not out or out[-1].end_frame < until) and (max_new is None or len(appended) < max_new):
             # every persisted row (and each row appended so far) is history; the
             # projection adds only what it projects
             rec = history.recency(aired, out, self.epoch, clock.timezone, meta_of)
-            inp = SchedulerInput(rows=tuple(out), start_frame=start, run_start=mark, pool=tuple(pool),
-                                 clock=clock, rec=rec, epoch_us=self.epoch.epoch_us,
-                                 gap_frames=self.gap_frames, seed=self.cfg.planner.seed)
-            run1 = project(inp, ahead=1)[0]     # piece [0] does not depend on `ahead`
+            inp = conc.prepare(SchedulerInput(rows=tuple(out), start_frame=start, run_start=mark,
+                                              pool=tuple(pool), clock=clock, rec=rec,
+                                              epoch_us=self.epoch.epoch_us, gap_frames=self.gap_frames,
+                                              seed=self.cfg.planner.seed))
+            run1 = conc.project(inp)            # piece [0] does not depend on `ahead`
+            if run1 is None:
+                continue                        # the guard fell back: this row again, as today
             self._ping()
-            chosen = run1
-            if not run1.piece.exact:
+            chosen: PlannedPiece | None = run1
+            if run1.concert is not None:        # before the measuring below: the placeholder is not exact
+                chosen, pool = conc.plan_break(run1, inp, pool, lengths)
+            elif not run1.piece.exact:
                 piece = run1.piece
                 frames, exact = lengths.length(piece.show)     # learned earlier in this process?
                 if not exact:
@@ -230,9 +275,17 @@ class Station:
                     lengths.mark_exact(piece.key, frames)
                 measured = dataclasses.replace(piece, frames=frames, exact=True)
                 pool = [measured if (p.kind, p.slug) == (piece.kind, piece.slug) else p for p in pool]
-                run2 = project(dataclasses.replace(inp, pool=tuple(pool)), ahead=1)[0]
+                run2 = conc.project(dataclasses.replace(inp, pool=tuple(pool)))
+                if run2 is None:
+                    continue
                 self._ping()
-                chosen = run2 if run2.piece.exact else dataclasses.replace(run1, piece=measured)
+                chosen = run2 if run2.piece.exact and run2.concert is None else \
+                    dataclasses.replace(run1, piece=measured)
+            if chosen is None:
+                continue                        # re-proposed: a piece absent, or this boundary at the last rung
+            if chosen.piece.slug == PLACEHOLDER_SLUG:     # never written; unreachable
+                conc.no_asm.add(start)
+                continue
             row = to_row(chosen, next_seq)
             # The first row goes at the caller's start, never prev.end + gap: on the
             # render skip path `replan_from` hands back the dropped row's own start,
@@ -246,6 +299,9 @@ class Station:
             if _announcement_broken(row, out):
                 row = dataclasses.replace(row, announcement_broken=True)
                 self.log(f"announcement-broken: {row.block} {row.nominal_start}")
+            if _promise_broken(out, row):
+                row = dataclasses.replace(row, announcement_broken=True)
+                _report(self, "announce-promise", f"promise-broken: {row.slug} at {row.block} {row.nominal_start}")
             out.append(row)
             appended.append(row)
             next_seq += 1
@@ -277,6 +333,200 @@ def _announcement_broken(row: PlanRow, persisted: list[PlanRow]) -> bool:
     occ = (row.block, row.nominal_start)
     return any(r.kind == "interstitial" and r.role in ANNOUNCEMENT_ROLES and occ in r.names
                for r in persisted)
+
+
+def _promise_broken(out: list[PlanRow], row: PlanRow) -> bool:
+    """`row` is the show row placed at a concert break's first mismatched slot
+    (spec "A void promise is never fatal"). Never raises."""
+    try:
+        return row.kind == "show" and bool(promises.first_mismatch(out, row))
+    except Exception:
+        return False
+
+
+def _report(st: "Station", code: str, message: str) -> None:
+    """Log and alert, never raising (the feature's failures must not stop planning)."""
+    for report in (lambda: st.log(message), lambda: alerts.alert(code, message)):
+        try:
+            report()
+        except Exception:
+            pass
+
+
+def concert_input(st: "Station", now_us: int, *, read_only: bool,
+                  no_assembly_at: frozenset[int] = frozenset()) -> tuple[ConcertInput | None, AnnounceSettings]:
+    """The scheduler's concert input and the settings: None unless `announce.toml`
+    switches announcements on and the pieces folder exists (transmitter never
+    creates it). `read_only` loads the settings without alerting. `present` is
+    the voiced pieces past the station's quiet period; `typical_frames` the
+    assumed assembled length (`concert.ASSEMBLED_TYPICAL_SECONDS`). Never raises."""
+    settings = AnnounceSettings()
+    try:
+        settings = announce_config.load_settings(st.ws, alert=not read_only).settings
+        if not settings.enabled:
+            return None, settings
+        folder = piecelist.pieces_folder(st.cfg)
+        if folder is None or not folder.is_dir():
+            return None, settings
+        present = piecelist.present_ids(folder, now_s=now_us / 1e6, quiet_s=st.cfg.station.quiet_minutes * 60)
+        samples = aacenc.pad_to_frame(grid.samples_for_seconds(concert.ASSEMBLED_TYPICAL_SECONDS))
+        typical = aacenc.frames_for(samples, st.engine.extra_frames())
+        return ConcertInput(present=present, id_text=settings.id_text, typical_frames=typical,
+                            no_assembly_at=frozenset(no_assembly_at)), settings
+    except Exception as exc:
+        message = f"concert breaks unavailable: {type(exc).__name__}: {exc}; planning without them"
+        if read_only:
+            try:
+                st.log(message)
+            except Exception:
+                pass
+        else:
+            _report(st, "announce-assembly", message)
+        return None, settings
+
+
+class _ConcertCall:
+    """One `extend` call's concert-break state (spec "Assembly", "Fallback ladder").
+
+    `present` shrinks when a piece turns out undecodable and `no_asm` (start
+    frames planned at the last rung) grows on every other failure, so each
+    re-proposal of a row makes progress and the loop ends. The guard: an
+    exception other than `PlanError` out of a projection that had concert input
+    or live promises is logged, alerted and the row re-run with neither, for the
+    rest of the call (`off`); with `off` set a projection is today's and its
+    exceptions propagate as today."""
+
+    def __init__(self, st: "Station", now_us: int, no_assembly_at: frozenset[int]):
+        self.st = st
+        self.ci, self.settings = concert_input(st, now_us, read_only=False, no_assembly_at=no_assembly_at)
+        self.present = set(self.ci.present) if self.ci is not None else set()
+        self.no_asm = set(no_assembly_at)
+        self.off = False
+        self.live = False
+        self.built: dict[tuple[int, BreakContent], Piece] = {}
+        self._assembler: assemble_mod.Assembler | None = None    # call-scoped: its decode cache is unbounded
+
+    def _degrade(self, code: str, what: str, exc: BaseException) -> None:
+        self.off, self.live = True, False
+        _report(self.st, code, f"{what}: {type(exc).__name__}: {exc}; planning this step without concert "
+                               "breaks or promises")
+
+    def prepare(self, base: SchedulerInput) -> SchedulerInput:
+        """`base` with this row's concert input, or with neither concert breaks
+        nor promises once the guard has fallen back."""
+        if not self.off:
+            try:
+                self.live = bool(promises.remaining(
+                    base.rows, pool_slugs=frozenset(p.slug for p in base.pool if p.kind == "show"),
+                    clock=base.clock, run_start=base.run_start))
+            except Exception as exc:
+                self._degrade("announce-promise", "live promises unreadable", exc)
+        if self.off:
+            return dataclasses.replace(base, concert=None, promises=False)
+        if self.ci is None:
+            return base
+        return dataclasses.replace(base, concert=dataclasses.replace(
+            self.ci, present=frozenset(self.present), no_assembly_at=frozenset(self.no_asm)))
+
+    def project(self, inp: SchedulerInput) -> PlannedPiece | None:
+        """Piece [0] of `project(inp)`, or None when the guard fell back (re-run the row)."""
+        if inp.concert is None and not (inp.promises and self.live):
+            return project(inp, ahead=1)[0]
+        try:
+            return project(inp, ahead=1)[0]
+        except PlanError:
+            raise
+        except Exception as exc:
+            if inp.concert is not None:
+                self._degrade("announce-assembly", "the concert-break projection failed", exc)
+            else:
+                self._degrade("announce-promise", "the live-promise projection failed", exc)
+            return None
+
+    def _assemble(self, content: BreakContent) -> Show:
+        if self.st.assemble is not None:
+            return self.st.assemble(content, self.settings)
+        if self._assembler is None:
+            folder = piecelist.pieces_folder(self.st.cfg)
+            if folder is None:
+                raise TransmitterError("no interstitials folder")
+            self._assembler = assemble_mod.Assembler(pieces=folder, out_dir=self.st.ws.concert_dir,
+                                                     settings=self.settings, ffmpeg=self.st.cfg.render.ffmpeg)
+        return self._assembler.build(content)
+
+    def _clip(self, content: BreakContent, start: int, lengths: LengthCache) -> Piece | None:
+        """The assembled, measured clip for `content` at `start` (at most one
+        assembly per (start, content) per call), or None after recording the
+        failure: an undecodable piece leaves `present`, anything else puts
+        `start` in `no_asm`."""
+        clip = self.built.get((start, content))
+        if clip is not None:
+            return clip
+        try:
+            show = self._assemble(content)
+            frames = self.st.frames_of(show)
+            if frames <= 0:
+                raise TransmitterError(f"{show.slug} measures {frames} frames")
+        except PieceUndecodable as exc:
+            if exc.piece_id not in self.present:   # not one we offered: no progress to make by re-proposing
+                self.no_asm.add(start)
+                _report(self.st, "announce-assembly", f"concert break at frame {start}: {exc}; planned at the "
+                                                      "last rung")
+                return None
+            self.present.discard(exc.piece_id)
+            _report(self.st, "announce-assembly", f"concert break at frame {start}: piece {exc.piece_id} "
+                                                  f"undecodable ({exc}); treated as absent for this step")
+            return None
+        except Exception as exc:
+            self.no_asm.add(start)
+            _report(self.st, "announce-assembly", f"concert break at frame {start} cannot be assembled: "
+                                                  f"{type(exc).__name__}: {exc}; planned at the last rung")
+            return None
+        lengths.mark_exact(show.key, frames)
+        clip = self.built[(start, content)] = Piece("interstitial", show, str(self.st.ws.concert_dir), frames, True)
+        return clip
+
+    def plan_break(self, run1: PlannedPiece, inp: SchedulerInput, pool: list[Piece],
+                   lengths: LengthCache) -> tuple[PlannedPiece | None, list[Piece]]:
+        """Pass 1's break `run1` assembled, its named shows measured and pass 2
+        run: (the row's piece, the pool), or (None, the pool) to re-propose."""
+        content = run1.concert
+        start = run1.start_frame
+        if content is None or inp.concert is None:     # unreachable: a break needs concert input
+            self._degrade("announce-assembly", "a concert break without concert input",
+                          TransmitterError(f"at frame {start}"))
+            return None, pool
+        clip = self._clip(content, start, lengths)
+        if clip is None:
+            return None, pool
+        for slug in content.named:                 # exact before pass 2 (the watchdog fed after each)
+            piece = next((p for p in pool if p.kind == "show" and p.slug == slug), None)
+            if piece is None or piece.exact:
+                continue
+            frames, exact = lengths.length(piece.show)
+            if not exact:
+                try:
+                    frames = self.st.frames_of(piece.show)
+                    if frames <= 0:
+                        raise PlanError(f"{slug} measures {frames} frames")
+                except Exception as exc:           # today's skip; this boundary at the last rung
+                    self.st.log(f"skipping {slug}: {exc}")
+                    self.no_asm.add(start)
+                    return None, [p for p in pool if (p.kind, p.slug) != ("show", slug)]
+                lengths.mark_exact(piece.key, frames)
+            measured = dataclasses.replace(piece, frames=frames, exact=True)
+            pool = [measured if (p.kind, p.slug) == ("show", slug) else p for p in pool]
+        run2 = self.project(dataclasses.replace(inp, pool=tuple(pool),
+                                                concert=dataclasses.replace(inp.concert, first_break=clip)))
+        if run2 is None:
+            return None, pool
+        self.st._ping()
+        if run2.concert is not None and run2.start_frame == start and run2.piece.key == clip.key \
+                and run2.concert.same_shape(content):
+            # pass 1's wording stands (a different Y bucket alone is no difference)
+            return dataclasses.replace(run2, piece=clip, concert=content, names=content.names), pool
+        self.no_asm.add(start)
+        return None, pool
 
 
 def _drop_unpublished_segments(st: Station, last: int | None) -> None:

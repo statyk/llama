@@ -172,3 +172,15 @@ has run).
   `next`/`later` judgments and a new break's X/Y/Z use the promised shows (`_PromisedRun`); a new break names the
   same shows or fewer. A head whose occurrence is neither the current one nor the next one (the next only once the current one has a
   show placed, so an inserted block is void alike in preview and live) voids the promise (never raises).
+- `pipeline.extend` concert breaks (phase B): `concert_input(st, now_us, read_only=, no_assembly_at=)` is None unless
+  `announce.toml` is on and the pieces folder exists (`present` = voiced pieces past the quiet period, `typical_frames` =
+  18 s). Per concert row: pass 1's content is assembled (`Station.assemble`, else one call-scoped `assemble.Assembler`)
+  and measured, every named show is measured (`frames_of`, watchdog fed), and pass 2 re-runs with the clip as
+  `first_break`; same shape -> the row is appended with pass 1's wording, else that start goes into `no_assembly_at`
+  (last rung). `PieceUndecodable(id)`: alert `announce-assembly`, the id leaves `present` for the call; any other
+  assembly failure or an unmeasurable named show (skipped as today): that start at the last rung. The guard: a
+  non-`PlanError` exception from a projection with concert input or live promises (or from extend's own
+  `promises.remaining`) alerts `announce-assembly`/`announce-promise` and the call goes on with `concert=None`,
+  `promises=False`. A show row that `promises.first_mismatch` flags gets `announcement_broken`, logs
+  `promise-broken: <slug> at <block> <nominal>` and alerts `announce-promise`. `scan_pieces` adds
+  `Station.concert_pieces()` (the workspace clips, lengths from the length cache; never raises).
