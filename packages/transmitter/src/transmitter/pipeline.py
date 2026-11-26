@@ -22,6 +22,14 @@ their segments are built from the encode regardless of later package
 changes. A piece already on air whose encode was lost is re-encoded when its
 files are unchanged, and refused (LayoutError) otherwise -- never re-planned
 into a mid-show cut.
+
+A concert row (an assembled break, `role == CONCERT_ROLE`) renders like any
+interstitial row, resolved from the workspace clip folder. Any skip-path
+reason on it puts its start frame into the call's `no_assembly` set, passed to
+every re-plan of the call, so that boundary is planned at the last rung and a
+re-plan never rebuilds the same failing break. The clips a re-plan assembles
+join the call's piece map. After the loop, assembled clips no row ending after
+the published high-water mark references are garbage-collected (`_gc_assembled`).
 """
 
 import dataclasses
@@ -652,6 +660,34 @@ def _gc_encodes(st: Station, rows: list[PlanRow], next_n: int) -> None:
             pass
 
 
+def _gc_assembled(st: Station, rows: list[PlanRow], pub) -> None:
+    """Drop assembled clips (and their analyses) no concert row ending after the
+    published high-water mark references (spec "Purge"); all concert rows are
+    kept while nothing is published. Runs at the end of `render_step`, after its
+    plan is written and under the plan lock, so every candidate a re-plan of the
+    call built is either a row here or unreferenced. Never raises."""
+    try:
+        bound = pub.listed_bound()
+        floor = None if bound is None else (bound + 1) * SEGMENT_FRAMES
+        concert_dir = str(st.ws.concert_dir)
+        keep = {r.slug for r in rows
+                if (r.role == CONCERT_ROLE or r.dir == concert_dir) and isinstance(r.slug, str)
+                and (floor is None or r.end_frame > floor)}
+        assemble_mod.gc_clips(st.ws.concert_dir, st.ws.cache_dir, keep, now_s=time.time())
+    except Exception as exc:
+        try:
+            st.log(f"concert clips not collected: {type(exc).__name__}: {exc}")
+        except Exception:
+            pass
+
+
+def _merge_concert_pieces(st: Station, pieces: dict[tuple[str, str], Piece]) -> None:
+    """Add the workspace clips a re-plan just assembled to the call's piece map
+    (a slug already there, excluded or not, is left as it is)."""
+    for p in st.concert_pieces():
+        pieces.setdefault((p.kind, p.slug), p)
+
+
 def render_step(st: Station, now_us: int, *, limit: int | None = None,
                 notify: Callable[[str], object] | None = None) -> RenderReport:
     report = RenderReport()
@@ -680,6 +716,9 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None,
     # "Re-validation": above the clip pool plus the rows in the lead).
     cap: int | None = None
     replans = 0
+    # Start frames of concert rows skipped this call: every re-plan plans them at
+    # the last rung, so a mismatching break is never rebuilt there.
+    no_assembly: set[int] = set()
     while n <= target and (limit is None or len(report.written) < limit):
         path = seg_dir / f"{n}.aac"
         if path.exists():
@@ -762,9 +801,14 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None,
                     excluded.add(ident)
                 else:
                     mismatched.add(ident)
+                if r.role == CONCERT_ROLE:
+                    no_assembly.add(r.start_frame)
                 kept, start, run_start = replan_from(rows, rows.index(r))
                 pool = [p for key, p in pieces.items() if key not in excluded]
-                rows = st.extend(kept, pool, now_us, start_frame=start, run_start=run_start)
+                # (passed only once set: with the feature off the call is today's)
+                kw = {"no_assembly_at": frozenset(no_assembly)} if no_assembly else {}
+                rows = st.extend(kept, pool, now_us, start_frame=start, run_start=run_start, **kw)
+                _merge_concert_pieces(st, pieces)
                 write_plan(st.ws.plan_path, rows)
                 st.log(f"plan-changed: skipped {r.slug} at frame {r.start_frame} ({reason})")
                 report.replanned.append(r.slug)
@@ -776,4 +820,5 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None,
         report.written.append(n)
         n += 1
     _gc_encodes(st, rows, n)
+    _gc_assembled(st, rows, pub)
     return report

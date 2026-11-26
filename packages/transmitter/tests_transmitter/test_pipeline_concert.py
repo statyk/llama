@@ -7,7 +7,9 @@ import dataclasses
 import hashlib
 import io
 import json
+import os
 import shutil
+import time
 import wave
 
 import pytest
@@ -17,6 +19,7 @@ from tests_transmitter.test_pipeline import library, short_clock
 from transmitter import alerts, assemble, concert, pipeline, scheduler
 from transmitter.concert import piece_id
 from transmitter.errors import PieceUndecodable, RenderError
+from transmitter.grid import SEGMENT_FRAMES as F
 from transmitter.layout import CONCERT_ROLE
 from transmitter.planner import read_plan, write_plan
 from transmitter.scheduler import PLACEHOLDER_SLUG
@@ -44,6 +47,7 @@ class FakeAssembler:
         self.cap = cap
         self.undecodable_prefix = undecodable_prefix
         self.fail = fail
+        self.salt = ""                          # set: every content assembles to a new clip
         self.calls: list[concert.BreakContent] = []
         self.by_slug: dict[str, concert.BreakContent] = {}
 
@@ -56,7 +60,7 @@ class FakeAssembler:
         for pid, text in content.pieces:
             if self.undecodable_prefix is not None and text.startswith(self.undecodable_prefix):
                 raise PieceUndecodable(pid)
-        h = hashlib.sha256(json.dumps(content.pieces).encode()).hexdigest()[:16]
+        h = hashlib.sha256((json.dumps(content.pieces) + self.salt).encode()).hexdigest()[:16]
         slug = f"{assemble.CLIP_PREFIX}{h}"
         name = f"{slug}.wav"
         out = self.ws.concert_dir
@@ -561,3 +565,279 @@ def test_the_real_assembler_with_a_missing_bed_falls_to_the_last_rung(tmp_path, 
     assert rows[1].role in ("id", "next", "later")
     assert [c for c, _ in fired] == ["announce-assembly"] and "bed" in fired[0][1]
     assert not st.ws.concert_dir.exists() or not any(st.ws.concert_dir.glob("concert-*.wav"))
+
+
+# --- render: concert rows, the no-loop skip path, garbage collection --------------------
+
+class Drifting(FakeEngine):
+    """Concert clips in `bad` (every concert clip with `all_bad`) analyse to a new
+    length on every call, so what extend measured never matches what render finds."""
+
+    def __init__(self, **kw):
+        super().__init__(samples_per_file=SHOW_FILE_SAMPLES, clip_samples=CLIP_SAMPLES, **kw)
+        self.bad: set[str] = set()
+        self.all_bad = False
+        self.drifts = 0
+
+    def analyze(self, show):
+        a = super().analyze(show)
+        if show.meta.get("role") == CONCERT_ROLE and (self.all_bad or show.slug in self.bad):
+            self.drifts += 1
+            a = dataclasses.replace(a, files=tuple(dataclasses.replace(f, samples=f.samples + 4096 * self.drifts)
+                                                   for f in a.files))
+        return a
+
+
+def lead_rows(st, rows):
+    """The rows render_step's call covers (from the first segment to the lead)."""
+    from transmitter.layout import rows_overlapping
+    first_n = rows[0].start_frame // F
+    target = st.epoch.index_at(NOW + st.lead_us)
+    return rows_overlapping(rows, first_n * F, (target + 1) * F)
+
+
+def skipped_frames(logs):
+    return [int(m.split(" at frame ")[1].split(" ")[0]) for m in logs if m.startswith("plan-changed: skipped ")]
+
+
+def wav_of(st, slug):
+    return st.ws.concert_dir / f"{slug}.wav"
+
+
+def all_segments_written(st, rows, report):
+    first_n = rows[0].start_frame // F
+    return report.covered and report.written == list(range(first_n, st.epoch.index_at(NOW + st.lead_us) + 1))
+
+
+def concert_in_lead(st, rows, *, after=0):
+    return [r for r in lead_rows(st, rows) if r.role == CONCERT_ROLE and rows.index(r) > after
+            and r.end_frame <= st.epoch.index_at(NOW + st.lead_us) * F]
+
+
+def test_concert_row_renders_from_the_workspace_clip_folder(tmp_path, fired):
+    st, _ = concert_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    breaks = concert_in_lead(st, rows)
+    assert breaks
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned == [] and all_segments_written(st, rows, report)
+    assert read_plan(st.ws.plan_path) == rows
+    for r in breaks:
+        assert r.slug in st.engine.encoded
+    assert fired == []
+
+
+def test_a_changed_concert_clip_is_replanned_at_the_last_rung_once(tmp_path, fired):
+    eng = Drifting()
+    st, logs = concert_station(tmp_path, eng=eng)
+    rows = pipeline.plan_step(st, NOW)
+    victim = concert_in_lead(st, rows)[0]
+    path = wav_of(st, victim.slug)
+    path.write_bytes(path.read_bytes() + b"\0\0\0\0")       # its file-set key changes
+    eng.bad.add(victim.slug)                                 # and a rebuild never measures alike
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned == [victim.slug]
+    assert skipped_frames(logs) == [victim.start_frame]
+    new = read_plan(st.ws.plan_path)
+    at = next(r for r in new if r.start_frame == victim.start_frame)
+    assert at.role in ("id", "next", "later") and at.kind == "interstitial"
+    assert any("clip changed" in m for m in logs)
+    assert all_segments_written(st, new, report)
+    assert_well_formed(st, new)
+
+
+def test_render_replan_with_assembly_disabled_cannot_loop(tmp_path, fired):
+    eng = Drifting()
+    st, logs = concert_station(tmp_path, eng=eng)
+    rows = pipeline.plan_step(st, NOW)
+    assert concert_in_lead(st, rows)
+    eng.all_bad = True                                       # every assembled clip mismatches at render
+    report = pipeline.render_step(st, NOW)                   # no PlanError: the cap is never reached
+    new = read_plan(st.ws.plan_path)
+    frames = skipped_frames(logs)
+    assert frames and len(frames) == len(set(frames))        # each boundary re-planned at most once
+    last_rung = {r.start_frame for r in new if r.role in ("id", "next", "later")}
+    assert set(frames) <= last_rung
+    assert len(report.replanned) <= sum(r.kind == "interstitial" for r in lead_rows(st, new))
+    assert report.covered
+    assert_well_formed(st, new)
+
+
+def test_missing_concert_clip_is_replanned_at_the_last_rung(tmp_path, fired):
+    st, logs = concert_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    victim = concert_in_lead(st, rows)[0]
+    wav_of(st, victim.slug).unlink()
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned == [victim.slug]
+    assert skipped_frames(logs) == [victim.start_frame]
+    new = read_plan(st.ws.plan_path)
+    at = next(r for r in new if r.start_frame == victim.start_frame)
+    assert at.role in ("id", "next", "later") and at.kind == "interstitial"
+    assert new[:rows.index(victim)] == rows[:rows.index(victim)]
+    assert all_segments_written(st, new, report)
+    assert_well_formed(st, new)
+
+
+def test_render_replan_keeps_an_earlier_promise(tmp_path, fired):
+    st, logs = concert_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    brk = next(r for r in concert_in_lead(st, rows) if len(r.named_shows) == 3
+               and [x.slug for x in show_rows_after(rows, r)][:3] == list(r.named_shows))
+    x = show_rows_after(rows, brk)[0]
+    pkg = st.cfg.station.root / x.dir
+    f = next((pkg / "audio").iterdir())
+    f.write_bytes(f.read_bytes() + b"re-voiced")             # X re-voiced: re-planned in place
+    from tests_transmitter.helpers import set_age
+    set_age(pkg, 3600)
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned == [x.slug]
+    new = read_plan(st.ws.plan_path)
+    at = next(r for r in new if r.start_frame == x.start_frame)
+    assert at.slug == x.slug and at.kind == "show" and at.key != x.key
+    assert [s.slug for s in show_rows_after(new, brk)][:3] == list(brk.named_shows)
+    assert not any(r.announcement_broken for r in new)
+    assert fired == []
+    assert_well_formed(st, new)
+
+
+def test_new_concert_breaks_from_a_render_replan_render_without_another_replan(tmp_path, fired):
+    st, logs = concert_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    x = next(r for r in lead_rows(st, rows) if r.kind == "show" and rows.index(r) > 0
+             and concert_in_lead(st, rows, after=rows.index(r)))
+    before = {s.slug for s in assemble.scan_clips(st.ws.concert_dir)}
+    st.assemble.salt = "rebuilt"                             # every break from now on is a new clip
+    pkg = st.cfg.station.root / x.dir
+    f = next((pkg / "audio").iterdir())
+    f.write_bytes(f.read_bytes() + b"re-voiced")
+    from tests_transmitter.helpers import set_age
+    set_age(pkg, 3600)
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned == [x.slug]
+    new = read_plan(st.ws.plan_path)
+    fresh = [r for r in concert_in_lead(st, new) if r.slug not in before]
+    assert fresh
+    for r in fresh:
+        assert r.slug in st.engine.encoded
+    assert all_segments_written(st, new, report)
+    assert_well_formed(st, new)
+
+
+def test_a_deleted_show_replans_into_new_concert_breaks_without_a_plan_error(tmp_path, fired):
+    # Task 14 spec review I1: a re-plan's extend assembles clips render's pieces
+    # map never scanned; each was re-planned again, rebuilt, until the cap.
+    st, logs = concert_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    victim = next(r for r in lead_rows(st, rows) if r.kind == "show" and rows.index(r) > 0
+                  and concert_in_lead(st, rows, after=rows.index(r)))
+    shutil.rmtree(st.cfg.station.root / victim.dir)
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned == [victim.slug]                 # one skip
+    new = read_plan(st.ws.plan_path)
+    assert victim.slug not in {r.slug for r in new}
+    clips = {p.slug for p in st.concert_pieces()}
+    for r in new[rows.index(victim):]:
+        if r.kind == "interstitial":
+            assert r.slug in clips if r.role == CONCERT_ROLE else r.role in ("id", "next", "later")
+    assert all_segments_written(st, new, report)
+    assert_well_formed(st, new)
+
+
+def test_lost_encode_of_a_concert_row_on_air_is_refused(tmp_path, fired):
+    from transmitter.errors import LayoutError
+    st, logs = concert_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    brk = concert_in_lead(st, rows)[0]
+    first_n = rows[0].start_frame // F
+    mid_n = brk.start_frame // F + 1
+    assert mid_n * F < brk.end_frame
+    pipeline.render_step(st, NOW, limit=mid_n - first_n)     # brk is on air
+    (st.ws.shows_dir / f"{brk.key}.aac").unlink()            # its encode is lost
+    wav_of(st, brk.slug).unlink()                            # and it cannot be re-made
+    with pytest.raises(LayoutError, match="already on air"):
+        pipeline.render_step(st, NOW)
+    assert read_plan(st.ws.plan_path) == rows
+    assert not any("plan-changed" in m for m in logs)
+
+
+def _gc_spy(monkeypatch, *, age_s=0.0):
+    """Wrap `assemble.gc_clips`: record its keep set, run it `age_s` later."""
+    seen = []
+    real = assemble.gc_clips
+
+    def spy(out_dir, cache_dir, keep, *, now_s, **kw):
+        seen.append(set(keep))
+        return real(out_dir, cache_dir, keep, now_s=now_s + age_s, **kw)
+    monkeypatch.setattr(assemble, "gc_clips", spy)
+    return seen
+
+
+def _stray(st, h="f" * 16):
+    st.ws.concert_dir.mkdir(parents=True, exist_ok=True)
+    p = st.ws.concert_dir / f"{assemble.CLIP_PREFIX}{h}.wav"
+    p.write_bytes(b"RIFFstray")
+    return p
+
+
+def test_gc_keeps_clips_of_rows_after_the_high_water_mark(tmp_path, monkeypatch, fired):
+    from transmitter.state import PublishState, save_publish_state
+    st, _ = concert_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    pipeline.render_step(st, NOW)
+    breaks = concert_in_lead(st, rows)
+    assert len(breaks) >= 2
+    first_n = rows[0].start_frame // F
+    bound = breaks[0].end_frame // F + 1                     # the first break fully published
+    save_publish_state(st.ws, PublishState(epoch_id="etest", first=first_n, last=first_n,
+                                           runs=[[first_n, first_n]], high_water=bound))
+    stray = _stray(st)
+    seen = _gc_spy(monkeypatch, age_s=7200)                  # every file past the age floor
+    pipeline.render_step(st, NOW)
+    want = {r.slug for r in concert_rows(rows) if r.end_frame > (bound + 1) * F}
+    assert seen == [want] and breaks[0].slug not in want
+    for r in concert_rows(rows):
+        assert wav_of(st, r.slug).exists() == (r.slug in want)
+    assert not stray.exists()
+
+
+def test_gc_keeps_every_concert_clip_when_nothing_is_published_and_young_strays(tmp_path, monkeypatch, fired):
+    st, _ = concert_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    old, young = _stray(st, "e" * 16), _stray(st, "d" * 16)
+    t = time.time() - 7200
+    os.utime(old, (t, t))                                    # a stray test file, not a planned clip
+    seen = _gc_spy(monkeypatch)
+    pipeline.render_step(st, NOW)
+    assert seen == [{r.slug for r in concert_rows(rows)}]
+    assert all(wav_of(st, r.slug).exists() for r in concert_rows(rows))
+    assert young.exists() and not old.exists()               # the age floor: candidates never appended
+
+
+def test_gc_failure_never_fails_render(tmp_path, monkeypatch, fired):
+    st, logs = concert_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+
+    def boom(*a, **k):
+        raise ValueError("embedded null byte")
+    monkeypatch.setattr(assemble, "gc_clips", boom)
+    report = pipeline.render_step(st, NOW)
+    assert all_segments_written(st, rows, report)
+    assert any("embedded null byte" in m for m in logs)
+
+
+@pytest.mark.parametrize("bad", [{"named_shows": [5, None]}, {"piece_ids": [1, {"x": 2}]}])
+@pytest.mark.parametrize("missing", [False, True])
+def test_a_malformed_concert_row_never_raises_out_of_render(tmp_path, fired, bad, missing):
+    st, logs = concert_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    brk = concert_in_lead(st, rows)[0]
+    i = rows.index(brk)
+    data = brk.to_json()
+    data.update(bad)
+    write_plan(st.ws.plan_path, rows[:i] + [type(brk).from_json(data)] + rows[i + 1:])
+    if missing:
+        wav_of(st, brk.slug).unlink()
+    report = pipeline.render_step(st, NOW)
+    assert report.covered
+    assert report.replanned == ([brk.slug] if missing else [])

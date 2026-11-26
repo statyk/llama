@@ -184,3 +184,13 @@ has run).
   `promises=False`. A show row that `promises.first_mismatch` flags gets `announcement_broken`, logs
   `promise-broken: <slug> at <block> <nominal>` and alerts `announce-promise`. `scan_pieces` adds
   `Station.concert_pieces()` (the workspace clips, lengths from the length cache; never raises).
+- `pipeline.render_step` concert rows (phase B): a `role="concert"` row renders like any interstitial, its piece from
+  the scan (which includes `Workspace.concert_dir`). Any skip-path reason on it (missing, key changed, frames changed,
+  render failed) adds its start to the call's `no_assembly`, passed as `extend(no_assembly_at=)` to every re-plan of
+  the call (only once non-empty, so feature-off calls are unchanged), so that boundary is planned at the last rung;
+  after each re-plan the clips it assembled join the call's piece map (`concert_pieces()`, existing keys kept), so new
+  breaks render with no further re-plan. On-air lost encode: `LayoutError` as for any piece. At the end
+  `_gc_assembled` calls `assemble.gc_clips` with keep = slugs of concert rows (or rows with `dir` the clip folder)
+  ending after `(listed_bound + 1) * 441` (all of them when nothing is published); it runs after the plan is written
+  under the plan lock, so a reused old clip of an unappended candidate may go (the next build re-makes it); any
+  exception is logged, never raised.
