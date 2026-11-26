@@ -8,12 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from tests_transmitter.helpers import show_piece
+from tests_transmitter.helpers import library_pieces, show_piece
 from tests_transmitter.test_scheduler import (
-    DAY, DAYCLOCK, E, GAP, IDS, all_anns, at, clip, clk, daypool, fr, ld, mk, occ, shows_of)
+    DAY, DAYCLOCK, E, GAP, IDS, REPRO_CLOCK, all_anns, at, clip, clk, daypool, fr, ld, live, mk, occ, shows_of)
 from transmitter import concert, promises, scheduler
 from transmitter.clock import occurrences
 from transmitter.concert import piece_id
+from transmitter.history import Recency
 from transmitter.layout import CONCERT_ROLE, PlanRow
 from transmitter.scheduler import project, to_row
 
@@ -456,3 +457,81 @@ def test_piece_zero_does_not_depend_on_ahead():
     inp = after_first(start_inp())
     assert project(inp, ahead=1)[0] == project(inp, ahead=3)[0]
     assert project(inp, ahead=1)[0].role == CONCERT_ROLE
+
+
+# --- strict surface with the feature on: append-only and fallback purity ----------------
+
+def _repro_pool_and_rec():
+    pool = library_pieces() + IDS + all_anns(REPRO_CLOCK, seconds=9)
+    rec = Recency()
+    for i, p in enumerate(pool[:120:3]):
+        when = E - (i + 1) * DAY // 3
+        rec = rec.with_piece(p, when, ld(when))
+    return pool, rec
+
+
+@pytest.mark.parametrize("ahead", [1, 2])
+def test_appending_first_pieces_reproduces_one_projection_with_concert_on(ahead):
+    # test_scheduler.py's closure test with concert input: appending piece [0] one at a
+    # time (concert rows included) reproduces one projection row for row
+    pool, rec = _repro_pool_and_rec()
+    inp = mkc(pool, REPRO_CLOCK, cin(REPRO_CLOCK, pool), start=fr(12 * 60), rec=rec)
+    until = fr(12 * 60) + fr(36 * 60)
+    one = project(inp, until_frame=until)
+    rows = live(inp, until, ahead)
+    assert [to_row(pp, i) for i, pp in enumerate(one[:len(rows)])] == rows
+    concert_rows = [r for r in rows if r.role == CONCERT_ROLE]
+    assert len(concert_rows) >= 3 and any(len(r.named_shows) == 3 for r in concert_rows)
+
+
+ID_TYP = clip("id-t", 18)                         # one station ID of exactly the typical length
+
+
+@pytest.mark.parametrize("present", ["empty", "no-block-pieces"])
+@pytest.mark.parametrize("world", ["day", "repro"])
+def test_falling_back_at_every_boundary_is_todays_rows(world, present):
+    # with the boundary estimate equal both ways (one ID of TYP frames), concert input
+    # that falls to the last rung at every boundary leaves today's projection unchanged
+    assert ID_TYP.frames == TYP
+    if world == "day":
+        clock, pool = DAYCLOCK, daypool() + [ID_TYP] + all_anns(DAYCLOCK)
+    else:
+        clock, pool = REPRO_CLOCK, library_pieces() + [ID_TYP] + all_anns(REPRO_CLOCK, seconds=9)
+    ci = (concert.ConcertInput(frozenset(), ID_TEXT, TYP) if present == "empty"
+          else cin(clock, pool, drop=_block_pieces(clock)))
+    off = project(mk(pool, clock, start=fr(12 * 60)), until_frame=fr(2 * 24 * 60))
+    on = project(mkc(pool, clock, ci, seed=7, start=fr(12 * 60)), until_frame=fr(2 * 24 * 60))
+    assert {p.role for p in off} >= {"next", "later", "id"}
+    assert [to_row(p, i) for i, p in enumerate(on)] == [to_row(p, i) for i, p in enumerate(off)]
+
+
+def test_messy_block_titles_are_spoken_cleaned():
+    # X's and Z's pieces exist only under the cleaned title (the inventory's `title_of`)
+    clock = tclock(ov_title="Overnight  Variety ", tm_title=" The Music  Never Stopped")
+    pool = tpool()
+    pieces = project(mkc(pool, clock, cin(clock, pool), start=fr(19 * 60)))
+    b = breaks(pieces)[0]
+    assert texts(b)[1] == "Coming up next, Overnight Variety"
+    assert texts(b)[5:] == [THEN, "with Dark Star Orchestra."]
+    assert texts(breaks(pieces)[1])[1] == "Overnight Variety continues"
+
+
+@pytest.mark.parametrize("drop", ["block-pieces", "untitled"])
+def test_a_falling_back_concert_attempt_leaves_the_projection_state_alone(drop):
+    # the fallback contract `boundary()` relies on: no `_enter`, the active run and its
+    # index restored (the output cannot show a lost restore: `_run_at` re-plans a
+    # mismatching run, so this pins the state directly)
+    clock = tclock(ov_title=None) if drop == "untitled" else TCLOCK
+    pool = tpool()
+    inp = after_first(mkc(pool, clock, cin(clock, pool, drop=_block_pieces(clock)), start=fr(19 * 60)))
+    for k in range(3):                       # the boundary into Overnight Variety, then inside it
+        p = scheduler._Projection(inp)
+        before = (p.run, p.run_k, p.occ, p.start, list(p.placed), p.rec, p.after_show)
+        assert p._try_concert(inp.concert, inp.start_frame, 5) is None
+        assert (p.run, p.run_k, p.occ, p.start, list(p.placed), p.rec, p.after_show) == before
+        assert p.run is before[0]
+        if k == 2:
+            break
+        pieces = project(inp)
+        nxt = next(i for i, q in enumerate(pieces) if i > 0 and pieces[i - 1].role == "show")
+        inp = prefix_inp(inp, pieces, nxt)
