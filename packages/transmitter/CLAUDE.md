@@ -113,85 +113,124 @@ has run).
   `packages/transmitter/scripts/test-in-debian12.sh` runs them on hugo's
   Python 3.11 + ffmpeg 5.1 (needs docker). Container spike:
   `python -m transmitter.spike build|serve <dir>`.
-- `transmitter/concert.py` (concert announcements, phase A; pure, no IO): the finite inventory of
-  piece texts emcee will voice. `piece_id(text)` is `sha256(text)[:12]`; `needed_pieces(clock,
-  artists, id_text, from_us, days=8)` returns `NeededPiece(id, text, kind)` deduped by id and sorted
-  by id (the ID, 4 block pieces per titled block, a `Then, at <time> Eastern, <title>` per titled
-  occurrence, 3 pieces per cleaned artist, 78 time phrases). Times are always spoken in
-  `America/New_York` whatever the clock's timezone (`time_phrase` buckets, `then_time`); artists go
-  through `clean` (`" ".join(split())`, non-string or empty -> none).
+
+**Concert announcements** (spec `docs/superpowers/specs/2026-11-25-concert-announcements-design.md`; runbook
+`docs/playout-setup.md` 7.6). Every break between two shows can carry one assembled clip: ID, "Coming up next, <block>
+with <artist>" (or "<block> continues ..."), optionally "followed by <artist>, <time phrase> Eastern.", optionally
+"Then, at <time> Eastern, <block> with <artist>.". Transmitter writes the piece texts and plans and assembles the
+clips; emcee voices the pieces (`emcee pieces`, `packages/emcee/CLAUDE.md`); the folder on the share is the only
+contract. Nothing here raises out of a plan or render step: a failure plans that break at the last rung (today's
+logic) and alerts.
+- **The pieces contract.** `<interstitials dir>/pieces/` holds `piece-<id>.txt` (written by transmitter, `<id>` =
+  `sha256(text)[:12]`), `piece-<id>.mp3` (emcee), `piece-<id>.failed` (emcee's JSON sidecar) and `piece-<id>.expect`
+  (the operator's). transmitter never creates `pieces/`: while it is missing the feature is dormant (no texts written,
+  none present, every break on the last rung), shown in `status`, never alerted. A piece is present when its
+  `piece-<12 hex>.mp3` is a regular, non-empty file past `[station] quiet_minutes`; dot files and other names are
+  ignored. Texts are written only when missing, never deleted, and only by `plan_step`: `schedule`/`status`/`library`
+  never write. After changing the announcer presenter or a lexicon entry, clear `pieces/*.mp3` by hand (no mechanism).
+- `transmitter/concert.py` (pure, no IO): the finite inventory of piece texts. `piece_id(text)` is
+  `sha256(text)[:12]`; `needed_pieces(clock, artists, id_text, from_us, days=8)` returns `NeededPiece(id, text, kind)`
+  deduped by id and sorted by id (the ID, 4 block pieces per titled block, a `Then, at <time> Eastern, <title>` per
+  titled occurrence, 3 pieces per cleaned artist, 78 time phrases). Times are always spoken in `America/New_York`
+  whatever the clock's timezone (`time_phrase` buckets, `then_time`); artists and block titles go through `clean` (`"
+  ".join(split())`, non-string or empty -> none).
+- `transmitter/piecelist.py` (the needed-piece list): `pipeline.plan_step` calls `Station.scan_all` once, then
+  `write_piece_list` (never raises: any exception is logged and alerts `announce-pieces`), then `scan_pieces(shows=)`,
+  all BEFORE its "already covered" early return. It saves `<root>/pieces-needed.json` (`Workspace.pieces_needed_path`,
+  rewritten only when the pieces change; artists = eligible shows plus `Ineligible.artist`) whether or not
+  announcements are switched on, and writes each missing `<interstitials>/pieces/piece-<id>.txt` (temp
+  `.piece-<id>.txt.<pid>-<tok>.tmp` + fsync + rename; at most `WRITES_PER_STEP` 250 per step; own temps older than 1 h
+  removed). `status` reads the list and the folder (`piecelist.counts`), never the library.
 - `transmitter/announce_config.py` (`<TRANSMITTER_ROOT>/announce.toml`, `Workspace.announce_path`): strict
-  (`extra="forbid"`, no NaN/inf), off by default. `load_settings(ws, alert=)` never raises and returns
-  `LoadedSettings(settings, source "file"|"missing"|"invalid", problem)`; an invalid file (bad TOML, non-UTF-8,
-  unreadable, unknown key, out-of-range value, relative `bed`, multi-line `id_text`, `enabled = true` without
-  `bed`) yields default (off) settings and, with `alert=True`, one `announce-config` event alert naming the
-  cause. The `announce-*` codes are ungated, non-level. `config.toml` and the clock gain no keys.
-- `transmitter/piecelist.py` (the needed-piece list, phase A): `pipeline.plan_step` calls `Station.scan_all` once,
-  then `write_piece_list` (never raises: any exception is logged and alerts `announce-pieces`), then
-  `scan_pieces(shows=)`, all BEFORE its "already covered" early return. It saves `<root>/pieces-needed.json`
-  (`Workspace.pieces_needed_path`, rewritten only when the pieces change; artists = eligible shows plus
-  `Ineligible.artist`) whether or not announcements are switched on, and writes each missing
-  `<interstitials>/pieces/piece-<id>.txt` (temp `.piece-<id>.txt.<pid>-<tok>.tmp` + fsync + rename; at most
-  `WRITES_PER_STEP` 250 per step; own temps older than 1 h removed). transmitter never creates `pieces/`: a missing
-  folder means no texts and no alert. Only `plan_step` writes; `schedule`/`status`/`library` never do. Present =
-  `piece-<12 hex>.mp3` regular, non-empty, quiet; dot files and other names are ignored.
-- `transmitter/assemble.py` (concert breaks, phase B): `Assembler(pieces=, out_dir=, settings=).build(content)` joins `piece-<id>.mp3` (decoded 44.1 kHz stereo) with `settings.gaps` (after the ID piece, chosen by `content.phrases[0] == "id"`, `after_id`; else by the piece's last character `,` `after_comma` / `.` `after_period` / `within`), mixes the bed under (RMS `bed_under_db` below the voice's, lead-in/tail, 0.1 s fade in, tail fade out; bed looped) and writes a 16-bit 44.1 kHz stereo WAV `concert-<16 hex>.wav` atomically into `Workspace.concert_dir` (`render/concert`), returning a one-clip `Show` (`Entry(name, "clip", "Announcement")`, meta `role=concert`). The slug hashes the pieces' file-set keys, gaps, bed key, `bed_under_db` and `ASSEMBLY_VERSION`; an existing clip is reused completely untouched (no `os.utime`: its own file-set key hashes its mtime and plan rows carry it). A missing/undecodable piece of any kind is `PieceUndecodable(piece_id)`; any bed problem (incl. a NUL path) is `AssemblyError`. `scan_clips(out_dir)` (no quiet period); `gc_clips(out_dir, cache_dir, keep_slugs, now_s=)` removes unreferenced clips and dot-temps older than 1 h with the clip's `cache/<key>.json`. `scripts/time_assembly.py` times assembly plus analysis on a folder of pieces.
-- `transmitter/promises.py` (concert promises, phase B; pure, never raises, never loops): `entries_of(row)` gives a
-  `role="concert"` row's `named_shows` as `(slug, occurrence key)` pairs (all in the row's `block`/`nominal_start`,
-  except Z in `names[0]` when `names` is set), or None when malformed (non-str/empty slug, 0 or >3 slugs, >1 names
-  pair, names with one slug, no block/nominal). `remaining(rows, pool_slugs=, clock=, run_start=)` is the unplaced
-  entries of the LIVE promises (show rows after the break a prefix of its entries, interstitials ignored; no
-  `run_start` row after it; unplaced slugs in the pool; every named occurrence still yielded by `clock.occurrences`),
-  combined oldest first by `merge_remainders(older, newer)` (a prefix agrees and the longer is kept; any differing
-  position: the newer wins); `run_start=True` voids all. `first_mismatch(rows, row)` (rows only) is True for the one
-  show row that first breaks a promise (a wrong slug, a show row with `run_start`, or the first show row after a
-  non-show `run_start` row). Only the plan tail is read (back to a 4th show row; for `remaining` also to the latest
-  `run_start`); any exception is logged and degrades to "no promise".
-- Scheduler concert breaks (phase B): `SchedulerInput.concert: concert.ConcertInput | None = None` (None, the default:
-  output byte-identical to before, pinned by `tests_transmitter/fixtures/concert_off_golden.jsonl`). When set and the
+  (`extra="forbid"`, no NaN/inf), off by default. Keys: `enabled`, `id_text` (single line), `bed` (absolute; required
+  when `enabled`), `bed_under_db` (default 20.0, 0-60) and `[gaps]` `after_id` 0.4, `after_comma` 0.15, `after_period`
+  0.3, `within` 0.05, `bed_lead_in` 0.5, `bed_tail` 1.0 (each 0-2 s). The bed fades are not keys
+  (`assemble.BED_FADE_IN_S` 0.1 s in; the fade out is `bed_tail`). `load_settings(ws, alert=)` never raises and
+  returns `LoadedSettings(settings, source "file"|"missing"|"invalid", problem)`; an invalid file (bad TOML,
+  non-UTF-8, unreadable, unknown key, out-of-range value, relative `bed`, multi-line `id_text`, `enabled = true`
+  without `bed`) yields default (off) settings and, with `alert=True`, one `announce-config` alert naming the cause.
+  `config.toml` and the clock gain no keys (both are strict, so a rollback would break). The `announce-*` codes
+  (`announce-config`, `announce-pieces`, `announce-assembly`, `announce-promise`) are ungated events.
+- `transmitter/assemble.py`: `Assembler(pieces=, out_dir=, settings=).build(content)` joins `piece-<id>.mp3` (decoded
+  44.1 kHz stereo) with `settings.gaps` (after the ID piece, chosen by `content.phrases[0] == "id"`, `after_id`; else
+  by the piece's last character `,` `after_comma` / `.` `after_period` / `within`), mixes the bed under (RMS
+  `bed_under_db` below the voice's, lead-in and tail, bed looped) and writes a 16-bit 44.1 kHz stereo WAV `concert-<16
+  hex>.wav` atomically into `Workspace.concert_dir` (`render/concert`), returning a one-clip `Show` (`Entry(name,
+  "clip", "Announcement")`, meta `role=concert`). The slug hashes the pieces' file-set keys, gaps, bed key,
+  `bed_under_db` and `ASSEMBLY_VERSION`. A reused clip is never touched (no `os.utime`: its own file-set key hashes
+  `st_mtime_ns` and plan rows carry it). A missing/undecodable piece of any kind is `PieceUndecodable(piece_id)`; any
+  bed problem (incl. a NUL path) is `AssemblyError`. `scan_clips(out_dir)` has no quiet period; `gc_clips(out_dir,
+  cache_dir, keep_slugs, now_s=)` removes unreferenced clips and dot-temps older than 1 h with the clip's
+  `cache/<key>.json`. `scripts/time_assembly.py` times assembly plus analysis on a folder of pieces.
+- **Concert rows and promises.** A concert break is one `kind="interstitial"`, `role="concert"` plan row
+  (`pipeline.ANNOUNCEMENT_ROLES`): `block`/`nominal_start` are X's occurrence, `named_shows` the named slugs in order
+  (at most 3, contiguous), `piece_ids` the ordered piece ids, and `names` Z's occurrence only when Then is spoken. The
+  fields ride in `PlanRow.extra`, so `af46d72` and later builds load them. `transmitter/promises.py` (pure, never
+  raises, never loops): `entries_of(row)` gives `named_shows` as `(slug, occurrence key)` pairs (all in the row's
+  `block`/`nominal_start`, except Z in `names[0]` when `names` is set), or None when malformed (non-str/empty slug, 0
+  or >3 slugs, >1 names pair, names with one slug, no block/nominal). `remaining(rows, pool_slugs=, clock=,
+  run_start=)` is the unplaced entries of the LIVE promises (show rows after the break a prefix of its entries,
+  interstitials ignored; no `run_start` row after it; unplaced slugs in the pool; every named occurrence still yielded
+  by `clock.occurrences`), combined oldest first by `merge_remainders(older, newer)` (a prefix agrees and the longer
+  is kept; any differing position: the newer wins); `run_start=True` voids all. `first_mismatch(rows, row)` (rows
+  only) is True for the one show row that first breaks a promise (a wrong slug, a show row with `run_start`, or the
+  first show row after a non-show `run_start` row). Only the plan tail is read (back to a 4th show row; for
+  `remaining` also to the latest `run_start`); any exception is logged and degrades to "no promise".
+- Scheduler concert breaks: `SchedulerInput.concert: concert.ConcertInput | None = None` (None, the default: output
+  byte-identical to before, pinned by `tests_transmitter/fixtures/concert_off_golden.jsonl`). When set and the
   boundary's start is not in `no_assembly_at`, `boundary()` first tries a `role="concert"` break: X is judged with the
   concert clip's own length (`first_break.frames` at `start_frame`, else `typical_frames`), so it may open the next
-  occurrence where an ID would not (or the reverse); the row's `block`/`nominal_start` are X's occurrence, and X's
-  occurrence past the horizon stops the projection. Untitled X (`concert.title_of` = `clean(title)` is None, the same
-  helper the inventory uses), degraded X or a missing Next/continues block piece: today's logic, state untouched.
-  Phrases kept only when all their pieces are present: ID; block piece; `with X,` (Followed) or `with X.` (absent:
-  the clip ends on the `.`-variant block piece, else the plain one, naming only X); Followed (Y = next show of X's run,
-  cleaned artist differs; same artist: Y named but unspoken); Then (Z = first show of the next occurrence when the
-  last named show ends X's run, a different, titled, undegraded block, landing in its window; drawn with the named
-  shows in the history and `used`, never a named show). `PlannedPiece.concert: BreakContent` (`same_shape` ignores
-  a Y-bucket-only difference); `to_row` writes `named_shows`, `piece_ids`, and `names` = Z's occurrence only with
-  Then. Pass 1 uses the `PLACEHOLDER_SLUG = "concert-pending"` piece (`exact=False`). With concert set the block
-  search's boundary estimate is `2 * gap + typical_frames`. The scheduler does not catch exceptions here (the
-  caller's guard does).
-  **Live promises** (concert on or off): `_Projection.promise` starts as `promises.remaining(rows, ...)` (none with
-  `SchedulerInput.promises=False`, for the caller's guard), grows by `promises.merge_remainders(promise,
-  entries)` at each projected break (never overwritten, so preview and a live continuation agree), and its head
-  is placed at the next show slot (current occurrence, or the next one, entered), even outside its window (`miss`).
-  When the run's own pick is another show, the row's `fill` is derived from own-pool membership (`None`, also in a
-  degraded block; else the run's cause or `"structural"`), `bends=()`, and the run is re-planned. Under a promise the boundary kind,
-  `next`/`later` judgments and a new break's X/Y/Z use the promised shows (`_PromisedRun`); a new break names the
-  same shows or fewer. A head whose occurrence is neither the current one nor the next one (the next only once the current one has a
-  show placed, so an inserted block is void alike in preview and live) voids the promise (never raises).
-- `pipeline.extend` concert breaks (phase B): `concert_input(st, now_us, read_only=, no_assembly_at=)` is None unless
-  `announce.toml` is on and the pieces folder exists (`present` = voiced pieces past the quiet period, `typical_frames` =
-  18 s). Per concert row: pass 1's content is assembled (`Station.assemble`, else one call-scoped `assemble.Assembler`)
-  and measured, every named show is measured (`frames_of`, watchdog fed), and pass 2 re-runs with the clip as
-  `first_break`; same shape -> the row is appended with pass 1's wording, else that start goes into `no_assembly_at`
-  (last rung). `PieceUndecodable(id)`: alert `announce-assembly`; an id the break offered leaves `present` for the
-  call (re-proposed), any other id sends that start to the last rung; any other assembly failure or an unmeasurable named show (skipped as today): that start at the last rung. The guard: a
-  non-`PlanError` exception from a projection with concert input or live promises (or from extend's own
-  `promises.remaining`) alerts `announce-assembly`/`announce-promise` and the call goes on with `concert=None`,
-  `promises=False`. A show row that `promises.first_mismatch` flags gets `announcement_broken`, logs
+  occurrence where an ID would not (or the reverse); X's occurrence past the horizon stops the projection. Untitled X
+  (`concert.title_of` = `clean(title)` is None, the same helper the inventory uses), degraded X or a missing
+  Next/continues block piece: today's logic, state untouched. Phrases are kept only when all their pieces are present:
+  ID; block piece; `with X,` (Followed) or `with X.` (absent: the clip ends on the `.`-variant block piece, else the
+  plain one, naming only X); Followed (Y = next show of X's run, cleaned artist differs; same artist: Y named but
+  unspoken); Then (Z = first show of the next occurrence when the last named show ends X's run, a different, titled,
+  undegraded block, landing in its window; drawn with the named shows in the history and `used`, never a named show).
+  `PlannedPiece.concert: BreakContent` (`same_shape` ignores a Y-bucket-only difference); `to_row` writes
+  `named_shows`, `piece_ids` and `names`. Pass 1 uses the `PLACEHOLDER_SLUG = "concert-pending"` piece
+  (`exact=False`), which never reaches `plan.jsonl`. With concert set the block search's boundary estimate is `2 * gap
+  + typical_frames`. The scheduler does not catch exceptions here (the caller's guard does).
+- Live promises in the scheduler (concert on or off): `_Projection.promise` starts as `promises.remaining(rows, ...)`
+  (none with `SchedulerInput.promises=False`, for the caller's guard), grows by `promises.merge_remainders(promise,
+  entries)` at each projected break (never overwritten, so preview and a live continuation agree), and its head is
+  placed at the next show slot (current occurrence, or the next one, entered), even outside its window (`miss`). When
+  the run's own pick is another show, the row's `fill` is derived from own-pool membership (`None`, also in a degraded
+  block; else the run's cause or `"structural"`), `bends=()`, and the run is re-planned. Under a promise the boundary
+  kind, `next`/`later` judgments and a new break's X/Y/Z use the promised shows (`_PromisedRun`); a new break names
+  the same shows or fewer. A head whose occurrence is neither the current one nor the next one (the next only once the
+  current one has a show placed, so an inserted block is void alike in preview and live) voids the promise (never
+  raises).
+- `pipeline.extend` concert breaks: `concert_input(st, now_us, read_only=, no_assembly_at=)` is None unless
+  `announce.toml` is on and the pieces folder exists (`present` = voiced pieces past the quiet period,
+  `typical_frames` = 18 s, `concert.ASSEMBLED_TYPICAL_SECONDS`). Per concert row: pass 1's content is assembled
+  (`Station.assemble`, else one call-scoped `assemble.Assembler`) and measured, every named show is measured
+  (`frames_of`, watchdog fed), and pass 2 re-runs with the clip as `first_break`; same shape -> the row is appended
+  with pass 1's wording, else that start goes into `no_assembly_at` (last rung). `PieceUndecodable(id)`: alert
+  `announce-assembly`; an id the break offered leaves `present` for the call (re-proposed), any other id sends that
+  start to the last rung. Any other assembly failure, or an unmeasurable named show (skipped as today): that start at
+  the last rung. The guard: a non-`PlanError` exception from a projection with concert input or live promises (or from
+  extend's own `promises.remaining`) alerts `announce-assembly`/`announce-promise` and the call goes on with
+  `concert=None`, `promises=False`. A show row that `promises.first_mismatch` flags gets `announcement_broken`, logs
   `promise-broken: <slug> at <block> <nominal>` and alerts `announce-promise`. `scan_pieces` adds
   `Station.concert_pieces()` (the workspace clips, lengths from the length cache; never raises).
-- `schedule`/`status` and concert breaks: `schedule_report` calls `concert_input(st, t, read_only=True)` (no alert) and projects with the pass-1 placeholder, never an assembler (it runs outside `plan_lock`, which gc protection relies on); a projected break prints its `BreakContent` texts, a persisted one its `piece_ids` through `report.block_views(texts_of=)` (from `piecelist.load_needed`; unknown id `<id>`, non-str element `<?>`). `status` adds `breaks     next 24 h: A assembled, F fallback` (interstitial rows, role `concert` vs other; `0 assembled` with the feature off) and `promises   B broken announcement(s) (last 24 h and planned)`. Neither view writes texts or clips.
-- `pipeline.render_step` concert rows (phase B): a `role="concert"` row renders like any interstitial, its piece from
-  the scan (which includes `Workspace.concert_dir`). Any skip-path reason on it (missing, key changed, frames changed,
-  render failed) adds its start to the call's `no_assembly`, passed as `extend(no_assembly_at=)` to every re-plan of
-  the call (only once non-empty, so feature-off calls are unchanged), so that boundary is planned at the last rung;
-  after each re-plan the clips it assembled join the call's piece map (`concert_pieces()`, existing keys kept), so new
-  breaks render with no further re-plan. On-air lost encode: `LayoutError` as for any piece. At the end
-  `_gc_assembled` calls `assemble.gc_clips` with keep = slugs of concert rows (or rows with `dir` the clip folder)
-  ending after `(listed_bound + 1) * 441` (all of them when nothing is published); it runs after the plan is written
-  under the plan lock, so a reused old clip of an unappended candidate may go (the next build re-makes it); any
-  exception is logged, never raised.
+- `pipeline.render_step` concert rows: a `role="concert"` row renders like any interstitial, its piece from the scan
+  (which includes `Workspace.concert_dir`). Any skip-path reason on it (missing, key changed, frames changed, render
+  failed) adds its start to the call's `no_assembly`, passed as `extend(no_assembly_at=)` to every re-plan of the call
+  (only once non-empty, so feature-off calls are unchanged), so that boundary is planned at the last rung; after each
+  re-plan the clips it assembled join the call's piece map (`concert_pieces()`, existing keys kept), so new breaks
+  render with no further re-plan. On-air lost encode: `LayoutError` as for any piece. At the end `_gc_assembled` calls
+  `assemble.gc_clips` with keep = slugs of concert rows (or rows with `dir` the clip folder) ending after
+  `(listed_bound + 1) * 441` (all of them when nothing is published); it runs only after the plan is written, under
+  the plan lock, so a reused old clip of an unappended candidate may go (the next build re-makes it); any exception is
+  logged, never raised.
+- `schedule`/`status` and concert breaks: `schedule_report` calls `concert_input(st, t, read_only=True)` (no alert)
+  and projects with the pass-1 placeholder, never an assembler (it runs outside `plan_lock`, which gc protection
+  relies on); a projected break prints its `BreakContent` texts as `concert: <text>`, a persisted one its `piece_ids`
+  through `report.block_views(texts_of=)` (from `piecelist.load_needed`; unknown id `<id>`, non-str element `<?>`).
+  `status` adds `concert    on|off[; bed <path>]` (`off (no announce.toml)`, `off: announce.toml invalid (...)`),
+  `pieces     dormant: <folder> does not exist (create it to start voicing)` / `no needed-piece list yet (written at
+  the next plan step)` / `needed N; present P; failed F; missing M`, `breaks     next 24 h: A assembled, F fallback`
+  (interstitial rows, role `concert` vs other; `0 assembled` with the feature off) and `promises   B broken
+  announcement(s) (last 24 h and planned)`. These read with `alert=False`, never write texts or clips, and a failure
+  degrades to an `unavailable (<ExceptionName>)` line.

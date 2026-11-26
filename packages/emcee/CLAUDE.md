@@ -307,5 +307,49 @@ else:                                                # this run's write: put it 
   optional `bed` override, plus the optional `tts`/`tts_model`/`voice_clone_text` pin; strict — an unknown key is a load error). emcee never imports llama (enforced by
   `packages/emcee/tests/test_no_llama_imports.py`) — its only input is the
   delivered package directory's files.
-- `tts/strict_verify.py` (`strict_problem(text, transcript, *, expect=None)`) is the strict take check for announcement pieces, separate from `tts/verify.py` and sharing none of its normaliser: its own `tokens()` spells digits and `H:MM` times out as words and joins spelled letters (`l m a` -> `lma`). Template tokens (`TEMPLATE_WORDS`: phrase words plus every number word) must match exactly; a template final token (`continues`, `eastern`) is exact too. Name tokens compare phonetically (Shawn's rulings 2026-11-25): each maximal run of name tokens is a span (title or artist), spans are paired in order (a different count fails), and a paired span passes when `jellyfish.metaphone("".join(span_tokens))` is equal for wanted and heard (any digits in the span are appended to the key, since Metaphone drops digits). So Whisper splitting or joining a compound ("Supersuckers" heard "Super Suckers", "Allstars" heard "All-Stars") passes, while a dropped or added word ("with Grateful Dead" heard "with Dead") changes the key and fails. There is no separate name final-word check; the last span's key covers it. `jellyfish` is a compiled dependency (hidden import `jellyfish._rustyfish` in `packaging/emcee.spec`). Only texts starting `coming up next`/`then at`/`with`/`followed by` or ending `continues` have name tokens; the ID text is all template. A `.expect` text replaces the comparison with exact token equality.
-- `piece_audio.py` is the audio side of announcement pieces (16-bit mono PCM; `read_wav` raises `SpeechError` otherwise). `onset_problem` rejects a take when every 10 ms frame of its first 50 ms is within 20 dB of the take's speech-active level (the engine clipped the word's start; digital silence never counts). `trim_edges` keeps 80 ms before and 120 ms after the first/last 10 ms frame at or above -60 dBFS RMS, padding with digital silence to exactly those lengths, and raises `ValueError("no speech")` when no frame qualifies. `finish_take` = trim, then `normalize_speech` (gain clamped to +/-10 dB, so a take whose active level is below -30 dBFS will not reach `TARGET_DB`).
+- `emcee pieces <folder> --presenter <id> [--max-takes 4] [--limit N] [--dry-run]` (`pieces.py`;
+  operator runbook `docs/playout-setup.md` 7.6, launchd job in the README) voices transmitter's
+  announcement pieces: each `piece-<id>.txt` (`<id>` = `sha256(text)[:12]`; an id that does not
+  match its text is skipped with `skip <id>: text does not match its id`) with neither a non-empty
+  `piece-<id>.mp3` (symlinks followed, as transmitter does: a zero-byte or dangling mp3 is not
+  blocking) nor a `piece-<id>.failed` becomes `piece-<id>.mp3`. A take is dry, one call (no
+  chunking), the presenter's voice, lexicon applied; then the runaway guard, `onset_problem`,
+  `finish_take`, STT and `strict_problem(text, transcript, expect=)` (the text of an operator
+  `piece-<id>.expect` replaces the comparison text); a bad take is re-taken up to `--max-takes`,
+  then `piece-<id>.failed` is written (JSON: `attempts`, `last_reason`, `last_transcript`, `at`;
+  deleting it re-arms the piece). The announcer presenter is a flag, never emcee config (config is
+  `extra="forbid"`, so an older emcee would refuse the key). It needs `[tts.mlx_audio] stt_model`
+  (else `error: emcee pieces needs [tts.mlx_audio] stt_model for strict verification`, exit 1),
+  exits 1 with `<dir> does not exist (share not mounted?)`, and exits 0 at once when nothing is
+  pending. It touches no package and takes no station lock; one run at a time via a non-blocking
+  flock on `<emcee root>/pieces.lock` (local disk), a second run prints `another emcee pieces is
+  running` and exits 0. While it runs it counts as an emcee process for llama's `station_mark` gate
+  and the `emcee retitle` gate. Every file it writes goes through a dot-prefixed temp
+  (`.piece-<id>.mp3.<token>.tmp`, `.piece-<id>.failed.<token>.tmp`) plus `os.replace`; it removes
+  only its own temps older than 1 h, never transmitter's `.piece-*.txt.*.tmp`. A `SpeechError` other
+  than the runaway guard's `SpeechDefect` or `SpeechBlocked` (server or STT down) aborts the run
+  with no sidecar for the piece in hand. It prints `voiced <id>: <text>`, `re-take <id> (<reason>)`,
+  `failed <id> after N takes: <reason>` and a final `voiced V, re-takes R, failed F, left L` line.
+- `tts/strict_verify.py` (`strict_problem(text, transcript, *, expect=None)`) is the strict take
+  check for announcement pieces, separate from `tts/verify.py` and sharing none of its normaliser:
+  its own `tokens()` spells digits and `H:MM` times out as words and joins spelled letters (`l m a`
+  -> `lma`). Template tokens (`TEMPLATE_WORDS`: phrase words plus every number word) must match
+  exactly; a template final token (`continues`, `eastern`) is exact too. Name tokens compare
+  phonetically (Shawn's rulings 2026-11-25): each maximal run of name tokens is a span (title or
+  artist), spans are paired in order (a different count fails), and a paired span passes when
+  `jellyfish.metaphone("".join(span_tokens))` is equal for wanted and heard (any digits in the span
+  are appended to the key, since Metaphone drops digits). So Whisper splitting or joining a compound
+  ("Supersuckers" heard "Super Suckers", "Allstars" heard "All-Stars") passes, while a dropped or
+  added word ("with Grateful Dead" heard "with Dead") changes the key and fails. There is no
+  separate name final-word check; the last span's key covers it. `jellyfish` is a compiled
+  dependency (hidden import `jellyfish._rustyfish` in `packaging/emcee.spec`). Only texts starting
+  `coming up next`/`then at`/`with`/`followed by` or ending `continues` have name tokens; the ID
+  text is all template. A `.expect` text replaces the comparison with exact token equality.
+- `piece_audio.py` is the audio side of announcement pieces (16-bit mono PCM; `read_wav` raises
+  `SpeechError` otherwise). `onset_problem` rejects a take when every 10 ms frame of its first 50 ms
+  is within 20 dB of the take's speech-active level (the engine clipped the word's start; digital
+  silence never counts). `trim_edges` keeps 80 ms before and 120 ms after the first/last 10 ms frame
+  at or above -60 dBFS RMS, padding with digital silence to exactly those lengths, and raises
+  `ValueError("no speech")` when no frame qualifies. `finish_take` = trim, then `normalize_speech`
+  (gain clamped to +/-10 dB, so a take whose active level is below -30 dBFS will not reach
+  `TARGET_DB`).

@@ -464,7 +464,8 @@ What each alert means and how to respond: `docs/playout-incident-runbook.md`.
 
 - **Level codes**, active until resolved: `dead-clock` and `guard-stale` (resolved by the monitor), `station-root` and `plan` (by a successful plan step), `render` (by a successful render step), `monitor-stalled` (new: fired by the main tick when the monitor thread has completed no pass for 5 min or is not alive, **sent at once**; resolved by the main tick once passes are fresh again).
 - **Event codes**, re-sent at most every `repeat_hours` and dropped from the active list once `repeat_hours` pass without a new fire: `publish`, `prune`, `publish-state`, `put-budget`, `horizon-held`, `frame-count-drift`, `dead-clock-check` (the dead-clock monitor itself raised an error; not the same as `dead-clock`), `clock` (phase 3: `clock.toml` is invalid and planning runs on the last-good copy, else the implicit open block; this is hugo's scheduler clock, not the cloud "clock" family; unlike the other event codes it sends "resolved", at the next fill once the clock is valid or absent), `history` (phase 3: `aired.jsonl` was not appended, e.g. the `publish.json` epoch differs from the station epoch; it also sends "resolved", on the next successful tick).
-- **Gate.** Gated at 3: `prune`, `publish`, `publish-state`, `station-root`, `plan`, `render`, `dead-clock-check`. Sent at once: `put-budget` (spend), `frame-count-drift` (latches `halted`, fires once), `monitor-stalled`, `clock`, `history`. Unchanged (already debounced): `dead-clock`, `guard-stale`, `horizon-held`.
+- **Concert announcement codes** (7.6), all ungated events, deduped by `repeat_hours`, never fatal to a plan or render step: `announce-config` (`announce.toml` is invalid, so announcements are off; the alert names the cause), `announce-pieces` (the needed-piece list or the `piece-<id>.txt` files could not be written; planning goes on), `announce-assembly` (a concert break could not be assembled, a piece would not decode, a bed problem, or the break projection failed; that break is planned at the last rung, today's behaviour) and `announce-promise` (a promised show was not placed as named, logged as `promise-broken: <slug> at <block> <nominal>`, or the live-promise projection failed). A failure inside the concert or promise projection makes the rest of that call plan without concert breaks and promises.
+- **Gate.** Gated at 3: `prune`, `publish`, `publish-state`, `station-root`, `plan`, `render`, `dead-clock-check`. Sent at once: `put-budget` (spend), `frame-count-drift` (latches `halted`, fires once), `monitor-stalled`, `clock`, `history`, `announce-config`, `announce-pieces`, `announce-assembly`, `announce-promise`. Unchanged (already debounced): `dead-clock`, `guard-stale`, `horizon-held`.
 
 **The monitor thread.** The dead-clock check and the relay run on a daemon thread every 60 s, independent of plan, render and publish (a plan step analysing shows over NFS used to delay `dead-clock` by 13+ min). The thread starts when `[antenna] site_url` or hugo's ntfy is configured; each part runs only if its own configuration is present. It has its own get-only R2 reader (short timeouts), never writes to R2, never touches `guard-cache.json` and never pings the watchdog, so the watchdog still means "the main loop is alive". It reads `state/guard.json` and `state/offair.json` itself (2 class-B GETs a minute; with the relay's GET of `state/alert-relay.json`, about 3 a minute, ~130k a month, ~1.3% of the 10M allowance) instead of using hugo's 15-minute cache. `transmitter run --once` runs one tick and then one dead-clock check on the main thread; it does not relay and starts no thread.
 
@@ -626,11 +627,12 @@ Mac commands run from the repo's `antenna/`.
 - The commit that made plan rows tolerate scheduler fields (`4fa87a7`, "tolerant plan rows with scheduler fields; non-show rows skipped downstream (deploy before the scheduler)", plus its fix `af46d72`, "serialise phase-1 plan rows byte-identically") writes phase-1-shaped rows only (a scheduler field is written only when it differs from its default). `af46d72` was deployed to hugo before the scheduler. Rolling back from it to the build before it stays safe until a scheduler build writes its first scheduler row.
 - A build from before that commit cannot read a plan that holds scheduler rows: plan, render and publish wedge. Once the scheduler has run, `af46d72` is the oldest safe rollback target. It is also the commit that keeps interstitial rows out of `timeline.json`, `notes/` and `show/`.
 - Never truncate `plan.jsonl` by hand: a shortened plan restarts the run over segment keys already published (and immutable).
+- Rolling back past the concert breaks (7.6): the plan keeps its `role = "concert"` rows (they load on `af46d72` and later builds). An older build finds no assembled clip in its pool scan, so a concert break not yet rendered is skipped and re-planned once with the old logic (an ID or announcement instead). A concert break already on air whose encode is lost is refused (the existing on-air refusal, `LayoutError`), as for any piece. Rolling back while a promise is pending can air "followed by Y" with Y never placed. All three are accepted limits.
 - Before rolling back past `684d323` ("interstitials folder scan, announcement texts with time zones, announcements command"), the commit adding `[interstitials]`, remove `[interstitials]` from `config.toml` (only if you uncommented it: `config init` on this build writes the header commented out), or the older build refuses the unknown section.
 
-### 7.6 Concert announcements (phase A: the needed pieces)
+### 7.6 Concert announcements
 
-Short spoken pieces (concert artist and date announcements) are written as text by transmitter and voiced on the Mac. Phase A only produces and voices the pieces; nothing airs them yet. The `announce.toml` switch stays off (or absent) in this phase.
+Every break between two shows can carry a spoken announcement assembled from short pre-voiced pieces: the station ID, then "Coming up next, <block> with <artist>" (or "<block> continues with <artist>" when the previous show was in the same block), then optionally "followed by <artist>, <time phrase> Eastern.", then optionally "Then, at <time> Eastern, <block> with <artist>." The text is decided at plan time; the pieces are voiced ahead of time on the Mac and transmitter stitches them over a bed. The `announce.toml` switch is off until you turn it on; the first part (the pieces) runs without it, so pieces get voiced before the switch.
 
 **The pieces folder.** Create `delivered/interstitials/pieces/` on the NAS (`<interstitials dir>/pieces`). It must be writable by hugo's transmitter user (which writes `piece-<id>.txt`) and by the Mac's user (which writes `piece-<id>.mp3`, `.failed`, `.expect`). Check on hugo as the transmitter user: `touch <folder>/.w && rm <folder>/.w`. transmitter never creates the folder: while it is missing the feature is dormant and `transmitter status` says so (`pieces     dormant: <folder> does not exist (create it to start voicing)`).
 
@@ -652,6 +654,47 @@ Before the first plan step it shows `pieces     no needed-piece list yet (writte
 3. Delete the `.failed` file to re-arm; the next run re-voices the piece against the `.expect`.
 
 `status` counts `present` as any non-empty, quiet `piece-<id>.mp3` whether or not it decodes; `failed` counts `.failed` files with no mp3.
+
+After changing the announcer presenter, or a lexicon entry that affects the pieces, clear `pieces/*.mp3` by hand so they are re-voiced (there is no mechanism for this). A piece that already aired in a stitched clip is unaffected: an existing assembled clip is never rebuilt, and the next clip made with the new piece gets a new name.
+
+**`announce.toml`** (`<TRANSMITTER_ROOT>/announce.toml`, `~/.transmitter/announce.toml` on hugo). Nothing is added to `config.toml` or the clock file, so a rollback never trips on it. Every key is optional except `bed` when `enabled = true`; an unknown key is an error.
+
+```toml
+enabled = false          # the switch; gates assembly and placement only (the piece list is always written)
+id_text = "You're listening to LMA Radio. Live concert tapes from the Live Music Archive."   # one line
+bed = "/abs/path/bed.mp3"   # REQUIRED when enabled = true; absolute path
+bed_under_db = 20.0      # the bed's RMS this many dB below the voice (0 to 60)
+
+[gaps]                   # seconds, each 0 to 2.0
+after_id = 0.4           # after the ID piece
+after_comma = 0.15       # after a piece ending in a comma
+after_period = 0.3       # after a piece ending in a period
+within = 0.05            # between other pieces
+bed_lead_in = 0.5        # bed before the voice starts
+bed_tail = 1.0           # bed after the voice ends (also the bed's fade-out length)
+```
+
+The fades are not keys: the bed fades in over a fixed 0.1 s and out over `bed_tail`. A missing file means off, silently (`status` says `concert    off (no announce.toml)`). An invalid or unreadable file (bad TOML, not UTF-8, unknown key, out-of-range value, relative `bed`, multi-line `id_text`, `enabled = true` without `bed`) also means off and raises one `announce-config` alert naming the cause; it never stops a plan or render step. Editing `id_text` requests a new ID piece; voice it before relying on it (a missing ID piece only drops the ID from the clip).
+
+**Switching on.**
+
+1. Wait until `status` shows most pieces present (`pieces     needed N; present P; failed F; missing M`), failed ones handled as above.
+2. Optional timing check on hugo: `python packages/transmitter/scripts/time_assembly.py <pieces folder> --breaks 20` (assembly plus analysis per break; the median should be a few seconds at most, well under a plan step's budget).
+3. Write `announce.toml` with `enabled = true` and `bed`. `transmitter status` shows `concert    on; bed <path>`.
+4. `transmitter schedule --days 1` previews the breaks; a concert break prints as `concert: <the text that would air>`. At the next fill the new breaks are assembled; `status` shows `breaks     next 24 h: A assembled, F fallback` and `promises   B broken announcement(s) (last 24 h and planned)`.
+5. Listen to the first assembled breaks when they air.
+
+To switch off, set `enabled = false`. Breaks already planned still air, and the promises they made are kept (the shows they named are still placed as named). Assembled clips live in the workspace on hugo (`render/concert`), not on the station root, and are garbage-collected when no plan row after the published high-water mark references them.
+
+**What each rung sounds like.** Each break takes the highest rung it can:
+
+1. Full: ID, "Coming up next, <block> with <artist>," (or "<block> continues with <artist>,"), "followed by <artist>, <time phrase> Eastern.", "Then, at <time> Eastern, <block> with <artist>." Followed is spoken only when the show after is in the same block with a different artist; Then only when the next block's first show follows directly, in a titled, undegraded block, landing in its window.
+2. Reduced: a phrase whose pieces are not all voiced is dropped (Followed, Then); a missing artist piece for the next show ends the clip after the block piece ("Coming up next, <block>."); a missing ID piece drops the ID.
+3. Today's behaviour: no usable block piece, an untitled or degraded block, the bed missing or unreadable, an assembly failure, or the plan step's two passes disagreeing on which shows are named. The old `next`/`later` announcement at block edges, else a station ID, else a gap. With the Mac gone for good the station behaves as it did before this feature.
+
+**Promises.** A break names the shows that follow it; the scheduler then places those shows, in order, as named (promises are kept whether announcements are on or off). If a named show can no longer be placed (re-delivery, an `awaiting_fix` mark, a clock edit between the break and the show), the promise is void: planning goes on normally, the show placed at the first mismatched slot is flagged `announcement_broken`, `status` counts it under `promises`, and `announce-promise` alerts. Nothing airs wrong because of it beyond the announcement having been inaccurate.
+
+**Alert codes** (7.1): `announce-config`, `announce-pieces`, `announce-assembly`, `announce-promise`. None of them stops planning or rendering.
 
 ## 8. Phase-2 verification checklist
 
