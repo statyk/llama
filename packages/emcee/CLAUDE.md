@@ -320,7 +320,7 @@ else:                                                # this run's write: put it 
   deleting it re-arms the piece). The announcer presenter is a flag, never emcee config (config is
   `extra="forbid"`, so an older emcee would refuse the key). It needs `[tts.mlx_audio] stt_model`
   (else `error: emcee pieces needs [tts.mlx_audio] stt_model for strict verification`, exit 1),
-  exits 1 with `<dir> does not exist (share not mounted?)`, and exits 0 at once when nothing is
+  exits 1 with `error: <dir> does not exist (share not mounted?)`, and exits 0 at once when nothing is
   pending. It touches no package and takes no station lock; one run at a time via a non-blocking
   flock on `<emcee root>/pieces.lock` (local disk), a second run prints `another emcee pieces is
   running` and exits 0. While it runs it counts as an emcee process for llama's `station_mark` gate

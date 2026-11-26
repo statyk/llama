@@ -226,7 +226,7 @@ logic) and alerts.
   logged, never raised.
 - `schedule`/`status` and concert breaks: `schedule_report` calls `concert_input(st, t, read_only=True)` (no alert)
   and projects with the pass-1 placeholder, never an assembler (it runs outside `plan_lock`, which gc protection
-  relies on); a projected break prints its `BreakContent` texts as `concert: <text>`, a persisted one its `piece_ids`
+  relies on; if the concert projection raises it logs, never alerts, and re-projects without concert input); a projected break prints its `BreakContent` texts as `concert: <text>`, a persisted one its `piece_ids`
   through `report.block_views(texts_of=)` (from `piecelist.load_needed`; unknown id `<id>`, non-str element `<?>`).
   `status` adds `concert    on|off[; bed <path>]` (`off (no announce.toml)`, `off: announce.toml invalid (...)`),
   `pieces     dormant: <folder> does not exist (create it to start voicing)` / `no needed-piece list yet (written at

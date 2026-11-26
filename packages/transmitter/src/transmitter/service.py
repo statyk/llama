@@ -523,7 +523,8 @@ def _break_lines(rows: list[PlanRow], now_f: int, n24: int) -> list[str]:
     """The break and promise counts, from the persisted rows alone. Counts print as 0 with the feature off."""
     ahead = [r for r in rows if r.kind == "interstitial" and now_f <= r.start_frame < n24]
     assembled = sum(1 for r in ahead if r.role == CONCERT_ROLE)
-    broken = sum(1 for r in rows if r.announcement_broken)
+    f24 = now_f - (86_400_000_000 * grid.SAMPLE_RATE) // (grid.FRAME_SAMPLES * 1_000_000)
+    broken = sum(1 for r in rows if r.announcement_broken and r.start_frame >= f24)
     return [f"breaks     next 24 h: {assembled} assembled, {len(ahead) - assembled} fallback",
             f"promises   {broken} broken announcement(s) (last 24 h and planned)"]
 

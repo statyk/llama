@@ -1094,12 +1094,15 @@ def test_schedule_prints_the_concert_text(tmp_path, monkeypatch):
 def test_schedule_projected_concert_breaks_print_their_content_and_never_assemble(tmp_path, monkeypatch):
     st = _concert_world(tmp_path, monkeypatch)
     # nothing planned yet: every concert break is a projection
+    from transmitter import assemble as assemble_mod
     calls = []
 
-    def boom(content, settings):
-        calls.append(content)
+    def boom(*a, **kw):
+        calls.append(a)
         raise AssertionError("schedule must not assemble")
-    st.assemble = boom
+    # schedule_report builds its own Station, so trip the real entry points extend would use
+    monkeypatch.setattr(assemble_mod, "Assembler", boom)
+    monkeypatch.setattr(pipeline._ConcertCall, "_assemble", boom)
     out = service.schedule_report(st.cfg, NOW, days=1)
     projected = [line for line in out if line.startswith("    . concert: ")]
     assert projected and calls == []
@@ -1199,3 +1202,19 @@ def test_status_counts_broken_promises(tmp_path, monkeypatch):
     write_plan(st.ws.plan_path, rows)
     _, promises = _break_status(service.status_lines(st.cfg, NOW))
     assert promises == "promises   2 broken announcement(s) (last 24 h and planned)"
+
+
+def test_status_promises_line_ignores_broken_rows_older_than_24_h():
+    from transmitter.layout import PlanRow
+    day = 86_400_000_000 * grid.SAMPLE_RATE // (grid.FRAME_SAMPLES * 1_000_000)
+    now_f = 10 * day
+
+    def row(seq, start, broken):
+        return PlanRow(seq=seq, slug=f"s{seq}", dir="d", key="k", start_frame=start, frames=10,
+                       announcement_broken=broken)
+    rows = [row(0, now_f - day - 500, True),      # older than 24 h: not counted
+            row(1, now_f - day + 500, True),      # recent: counted
+            row(2, now_f + 500, True),            # planned: counted
+            row(3, now_f + 900, False)]
+    assert service._break_lines(rows, now_f, now_f + day)[1] == \
+        "promises   2 broken announcement(s) (last 24 h and planned)"
