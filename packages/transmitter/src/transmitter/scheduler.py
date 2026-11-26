@@ -381,7 +381,13 @@ class _PromisedRun:
     judgments: the promised shows in it at their predicted starts (the
     boundary estimate after each), then either the block's end (the promise
     goes on in another occurrence) or `tail`, the run continued with them
-    placed (the promise ends inside it)."""
+    placed (the promise ends inside it).
+
+    Two or more promised shows in one occurrence (`start_of` past the first
+    show, a boundary kind of `internal` from a second promised show) are
+    unreachable today: only a break's X follows it with no boundary between,
+    so by any boundary X is placed and at most one promised show remains per
+    occurrence. They are kept general on purpose; they are not dead bugs."""
 
     def __init__(self, fixed: Sequence[Piece], starts: Sequence[int], tail: _BlockRun | None, end: int,
                  next_offset: int):
@@ -536,8 +542,11 @@ class _Projection:
 
     def _head(self) -> tuple[str, Occurrence, Piece] | None:
         """The promise's next entry (slug, occurrence, piece) when it plays in the
-        current occurrence or the next one; otherwise the promise is void
-        (cleared) and None: planning goes on as if it never existed."""
+        current occurrence, or in the next one once the current one has a show
+        placed; otherwise the promise is void (cleared) and None: planning goes
+        on as if it never existed. (An occurrence entered with nothing placed is
+        the current one for a live step too, so the void is decided the same way
+        from the rows; the next one is never reached past an unplaced block.)"""
         if not self.promise:
             return None
         try:
@@ -547,7 +556,7 @@ class _Projection:
                 if key == self.occ.key:
                     return slug, self.occ, piece
                 nxt = self.occs.after(self.occ)
-                if key == nxt.key:
+                if key == nxt.key and self.placed:
                     return slug, nxt, piece
         except Exception:
             _log.exception("live promise unusable; voiding it")
@@ -951,7 +960,9 @@ class _Projection:
             self.run_k = k + 1
         else:
             in_own = any(p.slug == slug for p in self.pools.own(occ))
-            fill = None if in_own else (run.cause or "structural")
+            # a degraded block writes fill None for every show (as its run does); an
+            # open block's own pool is the open pool, so `in_own` already covers it
+            fill = None if (in_own or self.pools.degraded(occ)) else (run.cause or "structural")
             bends, degraded = (), self.pools.degraded(occ)
             self.run = None
         pp = PlannedPiece(piece, s, self.run_start, occ.block.name, occ.nominal_iso, "show",

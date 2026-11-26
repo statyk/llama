@@ -785,3 +785,45 @@ def test_a_falling_back_concert_attempt_under_a_live_promise_leaves_the_state_al
     assert (p.run, p.run_k, p.occ, p.start, list(p.placed), p.rec, p.after_show, list(p.promise)) == before
     assert p.run is before[0]
     assert slugs(project(inp))[:2] == ["ryanadams", "dso"]
+
+
+# a titled open block ("ins") between Overnight Variety and Z's block
+INS_CLOCK = clk({"name": "pre", "start": "19:00", "profiles": ["e"], "max_shows": 1},
+                {"name": "ov", "title": "Overnight Variety", "start": "22:00", "profiles": ["p"], "max_shows": 2},
+                {"name": "ins", "title": "Inserted", "start": "01:00"},
+                {"name": "tmns", "title": "The Music Never Stopped", "start": "02:00", "profiles": ["d"],
+                 "max_shows": 1},
+                {"name": "day", "start": "06:00"})
+
+
+@pytest.mark.parametrize("concert_on", [True, False])
+@pytest.mark.parametrize("through", [2, 3])
+def test_a_promise_past_an_inserted_block_is_void_alike_in_preview_and_live(through, concert_on):
+    # Z's occurrence is two on from Overnight Variety once a block is inserted: the promise
+    # is void at the boundary after Y (the next occurrence is "ins"), and a live step
+    # entering "ins" with nothing placed decides the same, so "ins" gets its show
+    inp = promised(through, x_min=60, y_min=60, concert_on=concert_on, clock=INS_CLOCK)
+    one, rows = closure(inp)
+    assert one == rows
+    assert any(r.block == "ins" and r.kind == "show" for r in rows)
+
+
+def test_then_names_only_the_occurrence_after_xs():
+    # under the promise [Y, Z in tmns] the break before Y has no Then: the occurrence
+    # after Overnight Variety is now "ins", not Z's
+    inp = promised(3, x_min=60, y_min=60, clock=INS_CLOCK)
+    b = project(inp)[0]
+    assert b.role == CONCERT_ROLE and b.concert.named == ("ryanadams",) and b.names == ()
+    assert "then" not in b.concert.phrases
+
+
+def test_a_promised_show_in_a_degraded_block_writes_no_fill():
+    # Overnight Variety's profile is gone from the pool: the block is degraded; the
+    # promised cracker is not the run's pick, and its row reads as a degraded run's would
+    deg = tclock(ov_profiles=("nobody",))
+    inp = promised(x_min=60, concert_on=False, clock=deg)
+    assert slugs(project(strip(inp)))[0] != "cracker"
+    pieces = project(inp)
+    assert slugs(pieces)[:2] == ["cracker", "ryanadams"]
+    for p in shows_of(pieces)[:2]:
+        assert p.block == "ov" and p.degraded and p.fill is None
