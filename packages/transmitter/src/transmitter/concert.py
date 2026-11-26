@@ -5,9 +5,13 @@ import hashlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from transmitter.clock import ClockConfig, occurrences
+
+if TYPE_CHECKING:
+    from transmitter.pieces import Piece
 
 Named = tuple[str, tuple[str, str]]  # (slug, occurrence key)
 EASTERN = "America/New_York"
@@ -28,6 +32,13 @@ def clean(value: object) -> str | None:
         return None
     out = " ".join(value.split())
     return out or None
+
+
+def title_of(block: object) -> str | None:
+    """A block's spoken title: its `title` through `clean`; None means untitled.
+    The inventory and the scheduler both use this, so the scheduler asks for
+    exactly the block pieces the inventory lists."""
+    return clean(getattr(block, "title", None))
 
 
 def hour_word(h24: int) -> str:
@@ -127,7 +138,7 @@ def needed_pieces(clock: ClockConfig, artists: Iterable[object], id_text: str,
 
     add(id_text, "id")
     for block in clock.block:
-        title = clean(block.title)
+        title = title_of(block)
         if title:
             add(next_text(title), "next")
             add(next_end_text(title), "next_end")
@@ -135,7 +146,7 @@ def needed_pieces(clock: ClockConfig, artists: Iterable[object], id_text: str,
             add(continues_end_text(title), "continues_end")
     until = from_us + round(days * _DAY_US)
     for occ in occurrences(clock, from_us, until):
-        title = clean(occ.block.title)
+        title = title_of(occ.block)
         if title:
             add(then_text(title, occ.nominal_us), "then")
     for artist in dict.fromkeys(a for a in map(clean, artists) if a):
@@ -145,3 +156,43 @@ def needed_pieces(clock: ClockConfig, artists: Iterable[object], id_text: str,
     for text in ALL_TIME_PHRASES:
         add(text, "time")
     return sorted(found.values(), key=lambda p: p.id)
+
+
+PHRASES = ("id", "next", "x", "followed", "then")
+
+
+@dataclass(frozen=True)
+class ConcertInput:
+    """What the scheduler needs to propose concert breaks (`SchedulerInput.concert`).
+
+    `present`: the piece ids whose MP3 is usable. `typical_frames`: the assumed
+    assembled-clip length (pass 1, the boundary estimate, Y's predicted start).
+    `first_break`: pass 2's assembled clip, used for the break at `start_frame`
+    only. `no_assembly_at`: start frames planned at the last rung (today's logic)."""
+    present: frozenset[str]
+    id_text: str
+    typical_frames: int
+    first_break: "Piece | None" = None
+    no_assembly_at: frozenset[int] = frozenset()
+
+
+@dataclass(frozen=True)
+class BreakContent:
+    """One proposed concert break: the pieces in play order, the shows it names
+    (X[, Y][, Z] with their occurrences), the occurrence announced with a time
+    (Z's, when Then is spoken) and the phrases spoken (an ordered subset of
+    `PHRASES`). `y_time_id` is the id of Y's time-phrase piece (Followed only)."""
+    pieces: tuple[tuple[str, str], ...]
+    entries: tuple[Named, ...]
+    names: tuple[tuple[str, str], ...]
+    phrases: tuple[str, ...]
+    y_time_id: str | None
+
+    @property
+    def named(self) -> tuple[str, ...]:
+        return tuple(slug for slug, _ in self.entries)
+
+    def same_shape(self, other: "BreakContent") -> bool:
+        """Same shows, same timed occurrence, same phrases: a different Y bucket
+        alone (times are loose) does not count as a difference."""
+        return (self.entries, self.names, self.phrases) == (other.entries, other.names, other.phrases)

@@ -21,16 +21,17 @@ from pathlib import Path
 from typing import Final, NamedTuple
 from zoneinfo import ZoneInfo
 
-from transmitter import rules
+from transmitter import concert, rules
 from transmitter._blocksearch import (  # noqa: F401  (re-exported: tests reach these)
     FILL_PREFIXES, MAX_FILL, NEAR_EACH_SIDE, PAIR_FIRSTS, PAIR_PARTNERS, _C, _Ctx, _Pool, _Search, _Seq,
     _Step, _Tier, _choose, _dedupe, _excluded, _fill_cause, _has_fill, _sequence_violations)
 from transmitter.announce import Form, ann_id, text_for, two_block_ok
+from transmitter.concert import BreakContent, ConcertInput
 from transmitter.clock import ClockConfig, Occurrence, occurrences
 from transmitter.errors import PlanError
 from transmitter.grid import frame_to_us, frames_ceil, iso_to_us, samples_for_seconds
 from transmitter.history import Recency
-from transmitter.layout import PlanRow
+from transmitter.layout import CONCERT_ROLE, PlanRow
 from transmitter.pieces import Piece
 from transmitter.station import Show
 
@@ -225,6 +226,7 @@ class SchedulerInput:
     epoch_us: int
     gap_frames: int
     seed: int
+    concert: ConcertInput | None = None         # None: concert breaks off, today's logic exactly
 
 
 @dataclass(frozen=True)
@@ -244,12 +246,13 @@ class PlannedPiece:
     run_start: bool
     block: str
     nominal_start: str
-    role: str                                   # "show" | "id" | "next" | "later"
+    role: str                                   # "show" | "id" | "next" | "later" | "concert"
     miss: bool | None = None                    # set on each occurrence's first show only
     degraded: bool = False
     fill: str | None = None                     # the block plan's fill cause, on fill shows
     bends: tuple[str, ...] = ()
     names: tuple[tuple[str, str], ...] = ()     # announcements: the occurrences named, in order
+    concert: BreakContent | None = None         # a concert break's content (role "concert")
 
     @property
     def end_frame(self) -> int:
@@ -258,10 +261,25 @@ class PlannedPiece:
 
 def to_row(pp: PlannedPiece, seq: int) -> PlanRow:
     p = pp.piece
+    c = pp.concert
+    if c is not None:
+        return PlanRow(seq=seq, slug=p.slug, dir=p.dir, key=p.key, start_frame=pp.start_frame, frames=p.frames,
+                       run_start=pp.run_start, kind=p.kind, block=pp.block, nominal_start=pp.nominal_start,
+                       role=CONCERT_ROLE, names=c.names, package=p.package, named_shows=c.named,
+                       piece_ids=tuple(i for i, _ in c.pieces))
     return PlanRow(seq=seq, slug=p.slug, dir=p.dir, key=p.key, start_frame=pp.start_frame, frames=p.frames,
                    run_start=pp.run_start, kind=p.kind, block=pp.block, nominal_start=pp.nominal_start,
                    role=pp.role, miss=pp.miss, degraded=pp.degraded, fill=pp.fill, bends=pp.bends,
                    names=pp.names, package=p.package)
+
+
+# the pass-1 stand-in for an assembled concert clip, of the typical length
+PLACEHOLDER_SLUG: Final = "concert-pending"
+
+
+def placeholder(frames: int) -> Piece:
+    show = Show(PLACEHOLDER_SLUG, Path("concert"), (), PLACEHOLDER_SLUG, {"role": CONCERT_ROLE})
+    return Piece("interstitial", show, "concert", frames, False)
 
 
 class _Pools:
@@ -361,7 +379,8 @@ class _Projection:
         self.tz = ZoneInfo(inp.clock.timezone)
         self.gap = inp.gap_frames
         self.pools = _Pools(inp.pool, inp.clock, inp.gap_frames)
-        self.B = self.pools.boundary
+        # with concert breaks on, a boundary is estimated as gap, a typical assembled clip, gap
+        self.B = self.pools.boundary if inp.concert is None else 2 * self.gap + inp.concert.typical_frames
         rows = list(inp.rows)
         self.rec = inp.rec
         # every show laid out so far, persisted or projected, by start frame (for `used_at`)
@@ -575,6 +594,11 @@ class _Projection:
                 kind, target = ("last" if not run.step(k + 1).shows else "internal"), self.occ
         if self.occs.pos(target) > last_pos:
             return _STOP
+        ci = self.inp.concert
+        if ci is not None and s not in ci.no_assembly_at:
+            got = self._try_concert(ci, s, last_pos)
+            if got is not None:
+                return got
         choice = None
         if kind == "into":
             choice = self._try_next(target, s)
@@ -595,6 +619,144 @@ class _Projection:
         if choice.run is not None:
             self.run, self.run_k = choice.run, 0
         return pp
+
+    # --- concert breaks ---
+
+    def _try_concert(self, ci: ConcertInput, s: int, last_pos: int) -> PlannedPiece | _Stop | None:
+        """A concert break at `s` naming X[, Y][, Z], or None for today's logic
+        (state left as it found it: no `_enter`, the active run restored).
+        `_STOP` when X's own occurrence (judged with the concert clip's length,
+        not the ID's) lies past the horizon."""
+        first = ci.first_break if s == self.inp.start_frame else None
+        clip_piece = first if first is not None else placeholder(ci.typical_frames)
+        x_start = s + clip_piece.frames + self.gap
+        saved = (self.run, self.run_k)
+        entering = not self.placed
+        xocc = self.occ
+        run, k = self._run_at(x_start)
+        step = run.step(k)
+        if not step.shows:
+            if entering:                         # unreachable: a block always gets a first show
+                self.run, self.run_k = saved
+                return None
+            entering = True
+            xocc = self.occs.after(self.occ)
+            if self.occs.pos(xocc) > last_pos:
+                self.run, self.run_k = saved
+                return _STOP
+            run = self._new_run(xocc, x_start, (), self.rec, self.prev_artist)
+            k = 0
+            step = run.step(0)
+        content = self._content(ci, xocc, run, k, entering, x_start)
+        if content is None or not step.shows:
+            self.run, self.run_k = saved
+            return None
+        if entering and xocc.key != self.occ.key:
+            self._enter(xocc)
+        self.after_show = False
+        pp = PlannedPiece(clip_piece, s, self.run_start, xocc.block.name, xocc.nominal_iso, CONCERT_ROLE,
+                          names=content.names, concert=content)
+        self._add(clip_piece, s)
+        self.run, self.run_k = run, k            # X's run is active, as after `_try_next`/`_try_later`
+        return pp
+
+    def _content(self, ci: ConcertInput, xocc: Occurrence, run: "_BlockRun", k: int, entering: bool,
+                 x_start: int) -> BreakContent | None:
+        """The phrases whose pieces are all present (spec "The announcement
+        text"); None when there is no usable Next (today's logic)."""
+        title = concert.title_of(xocc.block)
+        if title is None or self.pools.degraded(xocc):
+            return None
+        step = run.step(k)
+        if step is None or not step.shows:
+            return None
+        present = ci.present
+
+        def have(*texts: str) -> bool:
+            return all(concert.piece_id(t) in present for t in texts)
+
+        block_text = concert.next_text(title) if entering else concert.continues_text(title)
+        if not have(block_text):
+            return None
+        out: list[str] = []
+        phrases: list[str] = []
+        if have(ci.id_text):
+            out.append(ci.id_text)
+            phrases.append("id")
+        x = step.shows[0].piece
+        entries: list[concert.Named] = [(x.slug, xocc.key)]
+        ax = concert.clean(x.artist)
+        ystep = run.step(k + 1)
+        y = ystep.shows[0].piece if ystep is not None and ystep.shows else None
+        y_start = run.start_of(k + 1) if y is not None else None
+        ay = concert.clean(y.artist) if y is not None else None
+        time_text = concert.time_phrase(self._us(y_start)) if y_start is not None else None
+        followed = (ax is not None and ay is not None and ay != ax and time_text is not None
+                    and have(concert.with_comma(ax), concert.followed_by(ay), time_text))
+        x_text = concert.with_comma(ax) if followed else (concert.with_period(ax) if ax is not None else None)
+        if x_text is None or not have(x_text):
+            end = concert.next_end_text(title) if entering else concert.continues_end_text(title)
+            out.append(end if have(end) else block_text)
+            phrases.append("next")
+            return self._break(out, entries, (), phrases, None)
+        out += [block_text, x_text]
+        phrases += ["next", "x"]
+        y_time_id = None
+        named_y = followed or (y is not None and ax is not None and ay == ax)
+        if followed:
+            out += [concert.followed_by(ay), time_text]
+            phrases.append("followed")
+            y_time_id = concert.piece_id(time_text)
+        if named_y:
+            entries.append((y.slug, xocc.key))
+        then = self._then(xocc, run, k + (2 if named_y else 1), x, x_start, y if named_y else None, y_start)
+        names: tuple[tuple[str, str], ...] = ()
+        if then is not None:
+            zocc, z, then_text, z_text = then
+            if have(then_text, z_text):
+                out += [then_text, z_text]
+                phrases.append("then")
+                entries.append((z.slug, zocc.key))
+                names = (zocc.key,)
+        return self._break(out, entries, names, phrases, y_time_id)
+
+    def _then(self, xocc: Occurrence, run: "_BlockRun", after: int, x: Piece, x_start: int, y: Piece | None,
+              y_start: int | None) -> tuple[Occurrence, Piece, str, str] | None:
+        """Z, when it directly follows the last named show in the next
+        occurrence: a different, titled, undegraded block whose predicted start
+        (X's run's landing) is in its window. Z is drawn with the named shows in
+        the history and `used`, and is never one of them."""
+        rest = run.step(after)
+        if rest is None or rest.shows:
+            return None                          # X's run plays another show after the last named one
+        zocc = self.occs.after(xocc)
+        z_title = concert.title_of(zocc.block)
+        if zocc.block.name == xocc.block.name or z_title is None or self.pools.degraded(zocc):
+            return None
+        landing = run.complete()[-1].landing
+        if not self._in_window(zocc, landing):
+            return None
+        rec = self.rec
+        named = [(x, x_start)] + ([(y, y_start)] if y is not None else [])
+        for piece, start in named:
+            us = self._us(start)
+            rec = rec.with_piece(piece, us, rules.local_date(us, self.tz))
+        last = named[-1][0]
+        zrun = self._new_run(zocc, landing, (), rec, last.artist, extra_used=tuple(p.slug for p, _ in named))
+        zstep = zrun.step(0)
+        if zstep is None or not zstep.shows:
+            return None
+        z = zstep.shows[0].piece
+        az = concert.clean(z.artist)
+        if az is None or z.slug in {p.slug for p, _ in named}:
+            return None
+        return zocc, z, concert.then_text(z_title, zocc.nominal_us), concert.with_period(az)
+
+    @staticmethod
+    def _break(texts: list[str], entries: list, names: tuple[tuple[str, str], ...], phrases: list[str],
+               y_time_id: str | None) -> BreakContent:
+        return BreakContent(pieces=tuple((concert.piece_id(t), t) for t in texts), entries=tuple(entries),
+                            names=names, phrases=tuple(phrases), y_time_id=y_time_id)
 
     def show(self, last_pos: int) -> PlannedPiece | _Stop:
         s = self.start

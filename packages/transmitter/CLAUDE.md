@@ -146,3 +146,19 @@ has run).
   show row that first breaks a promise (a wrong slug, a show row with `run_start`, or the first show row after a
   non-show `run_start` row). Only the plan tail is read (back to a 4th show row; for `remaining` also to the latest
   `run_start`); any exception is logged and degrades to "no promise".
+- Scheduler concert breaks (phase B): `SchedulerInput.concert: concert.ConcertInput | None = None` (None, the default:
+  output byte-identical to before, pinned by `tests_transmitter/fixtures/concert_off_golden.jsonl`). When set and the
+  boundary's start is not in `no_assembly_at`, `boundary()` first tries a `role="concert"` break: X is judged with the
+  concert clip's own length (`first_break.frames` at `start_frame`, else `typical_frames`), so it may open the next
+  occurrence where an ID would not (or the reverse); the row's `block`/`nominal_start` are X's occurrence, and X's
+  occurrence past the horizon stops the projection. Untitled X (`concert.title_of` = `clean(title)` is None, the same
+  helper the inventory uses), degraded X or a missing Next/continues block piece: today's logic, state untouched.
+  Phrases kept only when all their pieces are present: ID; block piece; `with X,` (Followed) or `with X.` (absent:
+  the clip ends on the `.`-variant block piece, else the plain one, naming only X); Followed (Y = next show of X's run,
+  cleaned artist differs; same artist: Y named but unspoken); Then (Z = first show of the next occurrence when the
+  last named show ends X's run, a different, titled, undegraded block, landing in its window; drawn with the named
+  shows in the history and `used`, never a named show). `PlannedPiece.concert: BreakContent` (`same_shape` ignores
+  a Y-bucket-only difference); `to_row` writes `named_shows`, `piece_ids`, and `names` = Z's occurrence only with
+  Then. Pass 1 uses the `PLACEHOLDER_SLUG = "concert-pending"` piece (`exact=False`). With concert set the block
+  search's boundary estimate is `2 * gap + typical_frames`. The scheduler does not catch exceptions here (the
+  caller's guard, Task 14, does).
