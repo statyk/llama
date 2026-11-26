@@ -28,13 +28,20 @@ ID_TEXT = "You are listening to LMA Radio."
 ANNOUNCE = f'enabled = true\nbed = "/nonexistent/bed.wav"\nid_text = "{ID_TEXT}"\n'
 
 
+class Runaway(BaseException):
+    """Past `FakeAssembler.cap` calls: escapes every `except Exception`, so a
+    re-proposal loop fails the test at once instead of hanging it."""
+
+
 class FakeAssembler:
     """`Station.assemble`: writes a small real WAV per content into the
     workspace clip folder and returns its one-clip Show (key = the file's own
     file-set key, as `assemble.Assembler` does); records every call."""
 
-    def __init__(self, ws, *, undecodable_prefix: str | None = None, fail: Exception | None = None):
+    def __init__(self, ws, *, undecodable_prefix: str | None = None, fail: Exception | None = None,
+                 cap: int = 200):
         self.ws = ws
+        self.cap = cap
         self.undecodable_prefix = undecodable_prefix
         self.fail = fail
         self.calls: list[concert.BreakContent] = []
@@ -42,6 +49,8 @@ class FakeAssembler:
 
     def __call__(self, content, settings):
         self.calls.append(content)
+        if len(self.calls) > self.cap:
+            raise Runaway(f"{len(self.calls)} assemblies in one test")
         if self.fail is not None:
             raise self.fail
         for pid, text in content.pieces:
@@ -296,6 +305,26 @@ def test_assembly_error_alerts_and_falls_to_the_last_rung(tmp_path, fired):
     assert {c for c, _ in fired} == {"announce-assembly"} and len(st.assemble.calls) == 1
 
 
+def test_an_undecodable_piece_never_offered_falls_to_the_last_rung_and_terminates(tmp_path, fired):
+    # an id the break did not offer: discarding it from `present` makes no progress, so
+    # only putting that start at the last rung ends the re-proposals
+    st, _ = concert_station(tmp_path, fail=PieceUndecodable("0123456789ab"), cap=60)
+    rows = pipeline.plan_step(st, NOW)
+    assert rows[-1].end_frame >= st.until_frame(NOW)
+    assert not concert_rows(rows)
+    assert len(st.assemble.calls) <= sum(r.kind == "interstitial" for r in rows)   # one try per boundary
+    assert {c for c, _ in fired} == {"announce-assembly"}
+    assert_well_formed(st, rows)
+
+
+def test_typical_frames_is_the_typical_assembled_length(tmp_path):
+    from transmitter import aacenc, grid
+    st, _ = concert_station(tmp_path, eng=engine(extra=3))
+    ci, settings = pipeline.concert_input(st, NOW, read_only=True)
+    want = aacenc.frames_for(aacenc.pad_to_frame(grid.samples_for_seconds(concert.ASSEMBLED_TYPICAL_SECONDS)), 3)
+    assert ci.typical_frames == want and settings.enabled and ci.id_text == ID_TEXT
+
+
 def test_undecodable_piece_is_treated_absent_for_the_call(tmp_path, fired):
     st, _ = concert_station(tmp_path, undecodable_prefix="followed by")
     rows = pipeline.plan_step(st, NOW, max_new=2)
@@ -333,7 +362,7 @@ def test_unmeasurable_named_show_is_skipped_and_the_break_falls(tmp_path, fired)
     # out of the pool for the rest of the call (today's skip): tried once, never proposed again
     assert st.engine.analyzed.count(y) == 1 and sum(y in c.named for c in st.assemble.calls[n:]) <= 1
     assert_well_formed(st, rows)
-    assert {c for c, _ in fired} <= {"announce-assembly"}
+    assert fired == []                                         # today's skip: logged, not alerted
 
 
 def test_named_shows_are_measured_before_pass_2(tmp_path, monkeypatch, fired):
@@ -417,7 +446,7 @@ def test_void_promise_never_stalls_planning(tmp_path, fired):
     assert rows[-1].end_frame >= st.until_frame(NOW)
     assert brk.named_shows[1] not in {r.slug for r in rows}
     assert_well_formed(st, rows)
-    assert {c for c, _ in fired} <= {"announce-promise"}
+    assert [c for c, _ in fired] == ["announce-promise"]       # the show at Y's slot breaks the promise
 
 
 @pytest.mark.parametrize("bad", [{"named_shows": [5, None]}, {"piece_ids": [1, {"x": 2}]},

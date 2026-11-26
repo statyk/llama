@@ -177,8 +177,8 @@ has run).
   18 s). Per concert row: pass 1's content is assembled (`Station.assemble`, else one call-scoped `assemble.Assembler`)
   and measured, every named show is measured (`frames_of`, watchdog fed), and pass 2 re-runs with the clip as
   `first_break`; same shape -> the row is appended with pass 1's wording, else that start goes into `no_assembly_at`
-  (last rung). `PieceUndecodable(id)`: alert `announce-assembly`, the id leaves `present` for the call; any other
-  assembly failure or an unmeasurable named show (skipped as today): that start at the last rung. The guard: a
+  (last rung). `PieceUndecodable(id)`: alert `announce-assembly`; an id the break offered leaves `present` for the
+  call (re-proposed), any other id sends that start to the last rung; any other assembly failure or an unmeasurable named show (skipped as today): that start at the last rung. The guard: a
   non-`PlanError` exception from a projection with concert input or live promises (or from extend's own
   `promises.remaining`) alerts `announce-assembly`/`announce-promise` and the call goes on with `concert=None`,
   `promises=False`. A show row that `promises.first_mismatch` flags gets `announcement_broken`, logs
