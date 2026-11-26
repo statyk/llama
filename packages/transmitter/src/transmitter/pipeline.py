@@ -38,7 +38,7 @@ from transmitter.clock import ClockConfig
 from transmitter.config import TransmitterConfig
 from transmitter.errors import AnalysisStale, FrameCountDrift, LayoutError, PlanError, TransmitterError
 from transmitter.grid import SEGMENT_FRAMES
-from transmitter.layout import FrameStore, PlanRow, rows_overlapping, validate_rows
+from transmitter.layout import CONCERT_ROLE, FrameStore, PlanRow, rows_overlapping, validate_rows
 from transmitter.pieces import LengthCache, Piece, build_pool
 from transmitter.planner import cut_for_recovery, next_start, publish_next, read_plan, replan_from, write_plan
 from transmitter.scheduler import SchedulerInput, project, to_row
@@ -47,7 +47,7 @@ from transmitter.station import Ineligible, Show
 from transmitter.workspace import Epoch, Workspace, atomic_write_bytes
 
 KINDS = ("show", "interstitial")
-ANNOUNCEMENT_ROLES = ("next", "later")
+ANNOUNCEMENT_ROLES = ("next", "later", CONCERT_ROLE)
 CLOCK_PROBLEM_MAX = 300
 
 

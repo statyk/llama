@@ -1045,7 +1045,7 @@ def _occurrence(clock_text, name, local_day="2096-10-02"):
     raise LookupError(name)
 
 
-def _persisted_ann_then_extend(st, x, ann_at_us, *, names):
+def _persisted_ann_then_extend(st, x, ann_at_us, *, names, role="next"):
     """Persist [show, `next` announcement for X] ending near `ann_at_us`, then
     append X's first show."""
     gap = st.gap_frames
@@ -1056,7 +1056,7 @@ def _persisted_ann_then_extend(st, x, ann_at_us, *, names):
                    package="act00-1970-05-01")
     ann = PlanRow(seq=1, slug="ann-x", dir="interstitials", key="k-ann", start_frame=show.end_frame + gap,
                   frames=400, kind="interstitial", block=x.block.name, nominal_start=x.nominal_iso,
-                  role="next", names=names)
+                  role=role, names=names)
     rows = [show, ann]
     pool = [p for p in st.scan_pieces(NOW)]
     return rows, st.extend(rows, pool, NOW, start_frame=next_start(rows, gap), run_start=False, max_new=1)
@@ -1085,6 +1085,21 @@ def test_announcement_kept_or_not_made_is_not_broken(tmp_path):
     rows, out = _persisted_ann_then_extend(st2, x, x.nominal_us + HOUR_US, names=(("b02", "2096-10-02T06:00:00.000Z"),))
     assert out[len(rows)].miss is True and out[len(rows)].announcement_broken is False
     assert not any("announcement-broken" in m for m in logs + logs2)
+
+
+def test_concert_names_flag_a_missed_z(tmp_path):
+    st, logs = clock_station(tmp_path)
+    x = _occurrence(short_clock(), "b05")
+    rows, out = _persisted_ann_then_extend(st, x, x.nominal_us + HOUR_US, names=((x.block.name, x.nominal_iso),),
+                                           role="concert")
+    first = out[len(rows)]
+    assert first.miss is True and first.announcement_broken is True
+    assert any(m == f"announcement-broken: b05 {x.nominal_iso}" for m in logs)
+    # a concert row naming nothing never flags
+    st2, logs2 = clock_station(tmp_path / "2")
+    rows, out = _persisted_ann_then_extend(st2, x, x.nominal_us + HOUR_US, names=(), role="concert")
+    assert out[len(rows)].miss is True and out[len(rows)].announcement_broken is False
+    assert not any("announcement-broken" in m for m in logs2)
 
 
 # --- required scenarios (spec "Testing") --------------------------------------

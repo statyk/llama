@@ -159,3 +159,36 @@ def test_plan_rewrite_leaves_phase1_keys_unchanged(tmp_path):
     before = p.read_text()
     planner.write_plan(p, planner.read_plan(p))
     assert p.read_text() == before
+
+
+def _concert_row(**kw):
+    return PlanRow(seq=5, slug="concert-0123456789abcdef", dir="/tx/render/concert", key="k", start_frame=100,
+                   frames=800, kind="interstitial", role="concert", block="b", nominal_start="2026-11-26T05:00:00Z",
+                   names=(("c", "2026-11-26T07:00:00Z"),), named_shows=("x", "y", "z"), piece_ids=("a1", "b2"), **kw)
+
+
+def test_concert_row_round_trips():
+    import json
+    r = _concert_row()
+    d = json.loads(json.dumps(r.to_json()))
+    assert d["named_shows"] == ["x", "y", "z"] and d["piece_ids"] == ["a1", "b2"]
+    assert PlanRow.from_json(d) == r
+
+
+def test_concert_row_with_unknown_keys_round_trips():
+    import json
+    d = {**_concert_row().to_json(), "future": {"q": 1}}
+    back = PlanRow.from_json(json.loads(json.dumps(d)))
+    assert back.extra["future"] == {"q": 1} and back.to_json() == json.loads(json.dumps(d))
+
+
+def test_empty_new_fields_are_not_written():
+    r = PlanRow(seq=0, slug="s", dir="s", key="k", start_frame=0, frames=10)
+    assert "named_shows" not in r.to_json() and "piece_ids" not in r.to_json()
+
+
+@pytest.mark.parametrize("field", ["named_shows", "piece_ids"])
+def test_new_list_fields_must_be_lists(field):
+    d = {**_concert_row().to_json(), field: "x"}
+    with pytest.raises(TypeError):
+        PlanRow.from_json(d)

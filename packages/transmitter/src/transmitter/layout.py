@@ -20,6 +20,9 @@ from transmitter.errors import LayoutError
 from transmitter.grid import SEGMENT_FRAMES
 
 
+CONCERT_ROLE = "concert"
+
+_LIST_FIELDS = ("bends", "named_shows", "piece_ids")
 _PHASE1_FIELDS = frozenset({"seq", "slug", "dir", "key", "start_frame", "frames", "run_start", "cut_frame"})
 
 
@@ -37,7 +40,7 @@ class PlanRow:
     kind: str = "show"             # "show" | "interstitial"; consumers skip kinds they do not know
     block: str | None = None
     nominal_start: str | None = None   # ISO UTC; with `block` identifies the occurrence
-    role: str | None = None        # "show" | "id" | "next" | "later"
+    role: str | None = None        # "show" | "id" | "next" | "later" | "concert"
     miss: bool | None = None
     degraded: bool = False
     fill: str | None = None        # "pool-short" | "structural"
@@ -45,6 +48,8 @@ class PlanRow:
     names: tuple[tuple[str, str], ...] = ()
     package: str | None = None
     announcement_broken: bool = False
+    named_shows: tuple[str, ...] = ()   # concert rows: the shows named, in order
+    piece_ids: tuple[str, ...] = ()     # concert rows: the voiced pieces spoken, in order
     # Unknown keys from the plan file, carried through a rewrite.
     extra: Mapping[str, Any] = field(default_factory=dict, compare=False)
 
@@ -66,7 +71,7 @@ class PlanRow:
             v = getattr(self, f.name)
             if f.name not in _PHASE1_FIELDS and v == f.default:
                 continue
-            if f.name == "bends":
+            if f.name in _LIST_FIELDS:
                 v = list(v)
             elif f.name == "names":
                 v = [list(n) for n in v]
@@ -80,10 +85,11 @@ class PlanRow:
         known = {f.name for f in fields(cls) if f.name != "extra"}
         kw = {k: v for k, v in data.items() if k in known}
         extra = {k: v for k, v in data.items() if k not in known}
-        if "bends" in kw:
-            if not isinstance(kw["bends"], (list, tuple)):
-                raise TypeError(f"bends must be a list, got {kw['bends']!r}")
-            kw["bends"] = tuple(kw["bends"])
+        for name in _LIST_FIELDS:
+            if name in kw:
+                if not isinstance(kw[name], (list, tuple)):
+                    raise TypeError(f"{name} must be a list, got {kw[name]!r}")
+                kw[name] = tuple(kw[name])
         if "names" in kw:
             n = kw["names"]
             if not isinstance(n, (list, tuple)) or not all(
