@@ -552,13 +552,13 @@ def test_a_falling_back_concert_attempt_leaves_the_projection_state_alone(drop):
 XYZ = ["cracker", "ryanadams", "dso"]
 
 
-def cpool(*, x_min=115, y_min=116, y_profile="p", with_y=True, alt_min=100, anns=False):
+def cpool(*, x_min=115, y_min=116, y_profile="p", with_y=True, alt_min=100, z_min=235, anns=False):
     """tpool's shows with lengths changed after the first break was persisted, plus an
     alternative own show (alt) and Z alternative (dso2), so a fresh run picks otherwise."""
     pool = [sp_("pre", 178, "Pre Act", "e"), sp_("cracker", x_min, "Cracker", "p")]
     if with_y:
         pool.append(sp_("ryanadams", y_min, "Ryan Adams", y_profile))
-    pool += [sp_("alt", alt_min, "Alt Act", "p"), sp_("dso", 235, "Dark Star Orchestra", "d"),
+    pool += [sp_("alt", alt_min, "Alt Act", "p"), sp_("dso", z_min, "Dark Star Orchestra", "d"),
              sp_("dso2", 200, "DSO Two", "d")]
     return pool + IDS + (all_anns(TCLOCK) if anns else [])
 
@@ -605,8 +605,11 @@ def test_live_promise_places_the_named_shows_after_lengths_change():
     assert pieces[1].concert.named == ("ryanadams", "dso")
 
 
-def test_promise_places_z_even_outside_its_window():
-    inp = promised(x_min=200)
+@pytest.mark.parametrize("concert_on", [True, False])
+def test_promise_places_z_even_outside_its_window(concert_on):
+    # X now 200 min: the run would end Overnight Variety after X (an announcement or ID
+    # into The Music Never Stopped); the promise still places Y here, then Z, late
+    inp = promised(x_min=200, concert_on=concert_on)
     pieces = project(inp)
     assert slugs(pieces)[:3] == XYZ
     z = show_named(pieces, "dso")
@@ -624,6 +627,15 @@ def test_new_break_between_x_and_y_names_y_and_z_or_fewer():
         assert slugs(pieces)[:2] == ["ryanadams", "dso"]
         if y_min == 200:
             assert b.concert.named == ("ryanadams",) and b.names == ()   # fewer: Then is not true now
+
+
+def test_a_new_break_names_the_promised_z_not_a_fresh_pick():
+    # rows [pre, R1(X, Y, Z), X], Z now 150 min: a fresh Then would pick dso2; the break
+    # before Y names the promised Z
+    inp = promised(3, alt_min=60, z_min=150)
+    b = project(inp)[0]
+    assert b.role == CONCERT_ROLE and b.concert.named == ("ryanadams", "dso") and "then" in b.concert.phrases
+    assert slugs(project(inp))[:2] == ["ryanadams", "dso"]
 
 
 def test_a_new_break_naming_fewer_keeps_the_older_promise_and_projection_equals_live():
