@@ -161,4 +161,12 @@ has run).
   a Y-bucket-only difference); `to_row` writes `named_shows`, `piece_ids`, and `names` = Z's occurrence only with
   Then. Pass 1 uses the `PLACEHOLDER_SLUG = "concert-pending"` piece (`exact=False`). With concert set the block
   search's boundary estimate is `2 * gap + typical_frames`. The scheduler does not catch exceptions here (the
-  caller's guard, Task 14, does).
+  caller's guard does).
+  **Live promises** (concert on or off): `_Projection.promise` starts as `promises.remaining(rows, ...)` (none with
+  `SchedulerInput.promises=False`, for the caller's guard), grows by `promises.merge_remainders(promise,
+  entries)` at each projected break (never overwritten, so preview and a live continuation agree), and its head
+  is placed at the next show slot (current occurrence, or the next one, entered), even outside its window (`miss`).
+  When the run's own pick is another show, the row's `fill` is derived from own-pool membership (`None`, else the
+  run's cause or `"structural"`), `bends=()`, and the run is re-planned. Under a promise the boundary kind,
+  `next`/`later` judgments and a new break's X/Y/Z use the promised shows (`_PromisedRun`); a new break names the
+  same shows or fewer. A head whose occurrence is neither the current nor the next voids the promise (never raises).

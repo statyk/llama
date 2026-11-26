@@ -277,15 +277,18 @@ def prefix_inp(inp, pieces, i):
 
 def first_divergence(inp, today_ci):
     """The first concert break of `project(inp)` at which today's logic, deciding at the
-    same frame with the same rows, names another occurrence: (today's piece, the break)."""
+    same frame with the same rows, names another occurrence: (today's piece, the break).
+    Both are decided with the earlier breaks' promises taken away, so that the clip
+    length alone decides (a live promise would fix X for both)."""
     pieces = project(inp)
     for i, b in enumerate(pieces):
         if b.role != CONCERT_ROLE:
             continue
-        base = prefix_inp(inp, pieces, i)
+        base = strip(prefix_inp(inp, pieces, i))
+        b0 = project(base)[0]
         t0 = project(dataclasses.replace(base, concert=today_ci))[0]
-        if (t0.block, t0.nominal_start) != (b.block, b.nominal_start):
-            return pieces, t0, b
+        if b0.role == CONCERT_ROLE and (t0.block, t0.nominal_start) != (b0.block, b0.nominal_start):
+            return pieces, t0, b0
     return pieces, None, None
 
 
@@ -471,9 +474,10 @@ def _repro_pool_and_rec():
 
 
 @pytest.mark.parametrize("ahead", [1, 2])
-def test_appending_first_pieces_reproduces_one_projection_with_concert_on(ahead):
+def test_appending_first_pieces_reproduces_one_projection_with_concert_breaks(ahead):
     # test_scheduler.py's closure test with concert input: appending piece [0] one at a
-    # time (concert rows included) reproduces one projection row for row
+    # time (concert rows included, so every live step keeps the persisted breaks' promises
+    # while the projection keeps its projected ones) reproduces one projection row for row
     pool, rec = _repro_pool_and_rec()
     inp = mkc(pool, REPRO_CLOCK, cin(REPRO_CLOCK, pool), start=fr(12 * 60), rec=rec)
     until = fr(12 * 60) + fr(36 * 60)
@@ -482,6 +486,12 @@ def test_appending_first_pieces_reproduces_one_projection_with_concert_on(ahead)
     assert [to_row(pp, i) for i, pp in enumerate(one[:len(rows)])] == rows
     concert_rows = [r for r in rows if r.role == CONCERT_ROLE]
     assert len(concert_rows) >= 3 and any(len(r.named_shows) == 3 for r in concert_rows)
+    # every break's promise is kept: its named shows are the show rows that follow it
+    shows = [(i, r) for i, r in enumerate(rows) if r.kind == "show"]
+    for i, r in enumerate(rows):
+        after = [s.slug for j, s in shows if j > i][:len(r.named_shows)]
+        if r.role == CONCERT_ROLE and len(after) == len(r.named_shows):
+            assert tuple(after) == r.named_shows
 
 
 ID_TYP = clip("id-t", 18)                         # one station ID of exactly the typical length
@@ -526,12 +536,240 @@ def test_a_falling_back_concert_attempt_leaves_the_projection_state_alone(drop):
     inp = after_first(mkc(pool, clock, cin(clock, pool, drop=_block_pieces(clock)), start=fr(19 * 60)))
     for k in range(3):                       # the boundary into Overnight Variety, then inside it
         p = scheduler._Projection(inp)
-        before = (p.run, p.run_k, p.occ, p.start, list(p.placed), p.rec, p.after_show)
+        before = (p.run, p.run_k, p.occ, p.start, list(p.placed), p.rec, p.after_show, list(p.promise))
         assert p._try_concert(inp.concert, inp.start_frame, 5) is None
-        assert (p.run, p.run_k, p.occ, p.start, list(p.placed), p.rec, p.after_show) == before
+        assert (p.run, p.run_k, p.occ, p.start, list(p.placed), p.rec, p.after_show, list(p.promise)) == before
         assert p.run is before[0]
         if k == 2:
             break
         pieces = project(inp)
         nxt = next(i for i, q in enumerate(pieces) if i > 0 and pieces[i - 1].role == "show")
         inp = prefix_inp(inp, pieces, nxt)
+
+
+# --- live promises (spec "Promises": the shows a break names are the shows then placed) ----
+
+XYZ = ["cracker", "ryanadams", "dso"]
+
+
+def cpool(*, x_min=115, y_min=116, y_profile="p", with_y=True, alt_min=100, anns=False):
+    """tpool's shows with lengths changed after the first break was persisted, plus an
+    alternative own show (alt) and Z alternative (dso2), so a fresh run picks otherwise."""
+    pool = [sp_("pre", 178, "Pre Act", "e"), sp_("cracker", x_min, "Cracker", "p")]
+    if with_y:
+        pool.append(sp_("ryanadams", y_min, "Ryan Adams", y_profile))
+    pool += [sp_("alt", alt_min, "Alt Act", "p"), sp_("dso", 235, "Dark Star Orchestra", "d"),
+             sp_("dso2", 200, "DSO Two", "d")]
+    return pool + IDS + (all_anns(TCLOCK) if anns else [])
+
+
+def promised(through=2, *, concert_on=True, clock=TCLOCK, **pkw):
+    """`start_inp()`'s first `through` pieces persisted ([pre, concert(cracker, ryanadams,
+    dso)] for 2; then cracker, the break before ryanadams, ...), then the pool changed."""
+    inp = start_inp()
+    base = prefix_inp(inp, project(inp), through)
+    pool = cpool(**pkw)
+    return dataclasses.replace(base, pool=pool, clock=clock, concert=cin(clock, pool) if concert_on else None)
+
+
+def strip(inp):
+    """`inp` with every concert row's promise taken away (no named shows, no names)."""
+    return dataclasses.replace(inp, rows=tuple(
+        dataclasses.replace(r, named_shows=(), names=()) if r.role == CONCERT_ROLE else r for r in inp.rows))
+
+
+def slugs(pieces):
+    return [p.piece.slug for p in shows_of(pieces)]
+
+
+def rows_of(pieces, seq=0):
+    return [to_row(p, seq + i) for i, p in enumerate(pieces)]
+
+
+def closure(inp):
+    """(one projection's rows, the rows a live planner appends), compared row for row."""
+    rows = live(inp, UNTIL)[len(inp.rows):]
+    one = rows_of(project(inp, until_frame=UNTIL), len(inp.rows))[:len(rows)]
+    return one, rows
+
+
+UNTIL = fr(32 * 60)
+
+
+def test_live_promise_places_the_named_shows_after_lengths_change():
+    inp = promised(x_min=135, alt_min=100)
+    assert slugs(project(strip(inp)))[:3] != XYZ          # a fresh run now picks otherwise
+    pieces = project(inp)
+    assert slugs(pieces)[:3] == XYZ
+    assert pieces[0].piece.slug == "cracker" and pieces[1].role == CONCERT_ROLE
+    assert pieces[1].concert.named == ("ryanadams", "dso")
+
+
+def test_promise_places_z_even_outside_its_window():
+    inp = promised(x_min=200)
+    pieces = project(inp)
+    assert slugs(pieces)[:3] == XYZ
+    z = show_named(pieces, "dso")
+    assert (z.block, z.nominal_start) == occ(TCLOCK, "tmns", 1).key
+    assert z.miss is True and to_row(z, 0).miss is True
+
+
+def test_new_break_between_x_and_y_names_y_and_z_or_fewer():
+    for y_min in (116, 200):                                # 200: Z now lands outside its window
+        inp = promised(3, y_min=y_min, alt_min=100)
+        pieces = project(inp)
+        b = pieces[0]
+        assert b.role == CONCERT_ROLE and b.concert.named[0] == "ryanadams"
+        assert list(b.concert.named) == ["ryanadams", "dso"][:len(b.concert.named)]
+        assert slugs(pieces)[:2] == ["ryanadams", "dso"]
+        if y_min == 200:
+            assert b.concert.named == ("ryanadams",) and b.names == ()   # fewer: Then is not true now
+
+
+def test_a_new_break_naming_fewer_keeps_the_older_promise_and_projection_equals_live():
+    # R2 (projected) names only Y; merged with R1's remainder [Y, Z], Z is still placed, in
+    # the projection and in a live continuation alike
+    inp = promised(3, y_min=200, alt_min=100)
+    assert slugs(project(strip(inp)))[:2] != ["ryanadams", "dso"]
+    one, rows = closure(inp)
+    assert one == rows
+    assert rows[0].role == CONCERT_ROLE and rows[0].named_shows == ("ryanadams",)
+    assert [r.slug for r in rows if r.kind == "show"][:2] == ["ryanadams", "dso"]
+
+
+def _far_names(inp):
+    far = occ(TCLOCK, "tmns", 8).key                       # yielded by the clock, but a week on
+    return dataclasses.replace(inp, rows=tuple(
+        dataclasses.replace(r, names=(far,)) if r.role == CONCERT_ROLE else r for r in inp.rows))
+
+
+GONE_CLOCK = clk({"name": "pre", "start": "19:00", "profiles": ["e"], "max_shows": 1},
+                 {"name": "ov", "title": "Overnight Variety", "start": "22:00", "profiles": ["p"], "max_shows": 2},
+                 {"name": "tm2", "title": "The Music Never Stopped", "start": "02:00", "profiles": ["d"],
+                  "max_shows": 1},
+                 {"name": "day", "start": "06:00"})
+
+VOID_CASES = {
+    "y-left-the-pool": lambda: promised(x_min=135, with_y=False),
+    "occurrence-gone": lambda: promised(x_min=135, clock=GONE_CLOCK),
+    "run-start": lambda: dataclasses.replace(promised(x_min=135), run_start=True),
+}
+
+
+@pytest.mark.parametrize("case", sorted(VOID_CASES))
+def test_void_promise_plans_normally_and_never_raises(case):
+    inp = VOID_CASES[case]()
+    assert rows_of(project(inp)) == rows_of(project(strip(inp)))
+
+
+def test_a_promise_voided_mid_projection_plans_on():
+    # Z's occurrence is still yielded, but is not the one after Y's: X and Y are placed,
+    # then the promise is void and planning continues normally
+    for concert_on in (True, False):
+        inp = _far_names(promised(x_min=135, concert_on=concert_on))
+        pieces = project(inp, until_frame=UNTIL)
+        assert slugs(pieces)[:2] == ["cracker", "ryanadams"] and pieces[-1].end_frame >= UNTIL
+
+
+MALFORMED = {
+    "non-str-slug": dict(named_shows=(1, None)),
+    "empty-slug": dict(named_shows=("",)),
+    "too-many": dict(named_shows=("cracker", "ryanadams", "dso", "alt")),
+    "a-string": dict(named_shows="cracker"),
+    "bad-names": dict(names=(("tmns",),)),
+    "names-not-str": dict(names=(("tmns", 5),)),
+    "two-names": dict(names=(("a", "b"), ("c", "d"))),
+    "not-in-pool": dict(named_shows=("nope", "dso")),
+    "no-block": dict(block=None),
+}
+
+
+@pytest.mark.parametrize("case", sorted(MALFORMED))
+def test_malformed_concert_row_never_raises(case):
+    inp = promised(x_min=135)
+    bad = dataclasses.replace(inp, rows=tuple(
+        dataclasses.replace(r, **MALFORMED[case]) if r.role == CONCERT_ROLE else r for r in inp.rows))
+    pieces = project(bad)
+    assert pieces and rows_of(pieces) == rows_of(project(strip(bad)))
+
+
+def test_promises_false_plans_as_if_no_promise():
+    inp = promised(x_min=135)
+    off = dataclasses.replace(inp, promises=False)
+    assert rows_of(project(off)) == rows_of(project(strip(inp))) != rows_of(project(inp))
+
+
+def test_a_prefix_promise_places_y_then_z():
+    # rows [R1(X, Y, Z), X, R2(Y)]: R2's promise is a prefix of R1's remainder, so they agree
+    inp = promised(4, y_min=160, alt_min=100)
+    assert inp.rows[-1].role == CONCERT_ROLE
+    inp = dataclasses.replace(inp, rows=inp.rows[:-1] + (
+        dataclasses.replace(inp.rows[-1], named_shows=("ryanadams",), names=()),))
+    assert slugs(project(strip(inp)))[:2] != ["ryanadams", "dso"]
+    assert slugs(project(inp))[:2] == ["ryanadams", "dso"]
+    rows = live(inp, UNTIL)
+    assert rows_of(project(inp, until_frame=UNTIL), len(inp.rows))[:len(rows) - len(inp.rows)] == rows[len(inp.rows):]
+    for i in range(len(inp.rows), len(rows)):
+        assert not promises.first_mismatch(rows[:i], rows[i])
+    assert [r.slug for r in rows if r.kind == "show"][2:4] == ["ryanadams", "dso"]
+
+
+def test_promises_hold_with_announcements_off():
+    inp = promised(x_min=135, concert_on=False)
+    assert inp.concert is None
+    assert slugs(project(strip(inp)))[:3] != XYZ
+    pieces = project(inp)
+    assert slugs(pieces)[:3] == XYZ and not breaks(pieces)
+
+
+def test_projection_equals_live_for_promises():
+    for concert_on in (True, False):
+        inp = promised(3, y_min=160, alt_min=100, concert_on=concert_on)
+        assert slugs(project(strip(inp)))[:2] != ["ryanadams", "dso"]
+        one, rows = closure(inp)
+        assert one == rows
+        assert [r.slug for r in rows if r.kind == "show"][:2] == ["ryanadams", "dso"]
+
+
+def test_projection_equals_live_when_the_promised_show_is_a_fill_show():
+    # Y moved to a profile Overnight Variety does not play: placed by the promise, it is a
+    # fill show, its fill derived from the pool, so a live continuation rebuilds `extra_own`
+    # (from the rows' fill) exactly as the projection had it
+    for concert_on in (True, False):
+        inp = promised(x_min=135, y_profile="q", concert_on=concert_on)
+        one, rows = closure(inp)
+        assert one == rows
+        y = next(r for r in rows if r.slug == "ryanadams")
+        assert y.fill is not None and y.block == "ov"
+        assert [r.slug for r in rows if r.kind == "show"][:3] == XYZ
+        rows = list(inp.rows) + rows
+        i = rows.index(y)
+        cont = dataclasses.replace(inp, rows=tuple(rows[:i + 1]), start_frame=y.end_frame + GAP, run_start=False)
+        p = scheduler._Projection(cont)
+        assert [q.slug for q in p.extra_own] == ["cracker"] and p.promise == [("dso", occ(TCLOCK, "tmns", 1).key)]
+
+
+def test_a_later_under_a_promise_is_judged_with_the_promised_show():
+    # announcements off, Y now 200 min: a fresh run would play alt (120) and land The Music
+    # Never Stopped in its window, so today's logic voices a `later` for it; under the
+    # promise Y plays, Z cannot start in its window, and no `later` is voiced
+    inp = promised(y_min=200, alt_min=120, concert_on=False, anns=True)
+    today = project(strip(inp))
+    assert [p.role for p in today][:3] == ["show", "later", "show"] and slugs(today)[1] == "alt"
+    pieces = project(inp)
+    assert slugs(pieces)[:3] == XYZ
+    assert pieces[1].role != "later"
+
+
+def test_a_falling_back_concert_attempt_under_a_live_promise_leaves_the_state_alone():
+    # rows [pre, R1(X, Y, Z), X], the continues piece now missing: the attempt before Y
+    # falls back with the promise [Y, Z] (and the rest of the state) as it found them
+    inp = promised(3, y_min=160)
+    inp = dataclasses.replace(inp, concert=cin(TCLOCK, inp.pool, drop=_block_pieces(TCLOCK)))
+    p = scheduler._Projection(inp)
+    assert p.promise == [("ryanadams", occ(TCLOCK, "ov").key), ("dso", occ(TCLOCK, "tmns", 1).key)]
+    before = (p.run, p.run_k, p.occ, p.start, list(p.placed), p.rec, p.after_show, list(p.promise))
+    assert p._try_concert(inp.concert, inp.start_frame, 5) is None
+    assert (p.run, p.run_k, p.occ, p.start, list(p.placed), p.rec, p.after_show, list(p.promise)) == before
+    assert p.run is before[0]
+    assert slugs(project(inp))[:2] == ["ryanadams", "dso"]

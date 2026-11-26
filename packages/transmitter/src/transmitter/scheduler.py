@@ -13,6 +13,7 @@ runs) with the station IDs and announcements at its boundaries, laid out
 exactly; see `project`."""
 
 import bisect
+import logging
 import statistics
 import sys
 from collections.abc import Iterable, Sequence
@@ -21,7 +22,7 @@ from pathlib import Path
 from typing import Final, NamedTuple
 from zoneinfo import ZoneInfo
 
-from transmitter import concert, rules
+from transmitter import concert, promises, rules
 from transmitter._blocksearch import (  # noqa: F401  (re-exported: tests reach these)
     FILL_PREFIXES, MAX_FILL, NEAR_EACH_SIDE, PAIR_FIRSTS, PAIR_PARTNERS, _C, _Ctx, _Pool, _Search, _Seq,
     _Step, _Tier, _choose, _dedupe, _excluded, _fill_cause, _has_fill, _sequence_violations)
@@ -34,6 +35,8 @@ from transmitter.history import Recency
 from transmitter.layout import CONCERT_ROLE, PlanRow
 from transmitter.pieces import Piece
 from transmitter.station import Show
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -227,6 +230,7 @@ class SchedulerInput:
     gap_frames: int
     seed: int
     concert: ConcertInput | None = None         # None: concert breaks off, today's logic exactly
+    promises: bool = True                       # False: the projection starts with no promise
 
 
 @dataclass(frozen=True)
@@ -366,6 +370,49 @@ class _Choice(NamedTuple):
     run: "_BlockRun | None"
 
 
+class _Fixed(NamedTuple):
+    """A promised show, shaped like a search candidate (`.piece`)."""
+    piece: Piece
+
+
+class _PromisedRun:
+    """An occurrence's shows under a live promise, read like a `_BlockRun`
+    (`step`, `start_of`, `complete`) by the concert, `next` and `later`
+    judgments: the promised shows in it at their predicted starts (the
+    boundary estimate after each), then either the block's end (the promise
+    goes on in another occurrence) or `tail`, the run continued with them
+    placed (the promise ends inside it)."""
+
+    def __init__(self, fixed: Sequence[Piece], starts: Sequence[int], tail: _BlockRun | None, end: int,
+                 next_offset: int):
+        self._steps = [_Step((_Fixed(p),), 0, None, nxt, ())
+                       for p, nxt in zip(fixed, list(starts[1:]) + [end])]
+        self._starts = list(starts)
+        self.tail = tail
+        self._end = _Step((), 0, None, end, ())
+        self.end = end
+        self.next_offset = next_offset          # the promise index after its shows here
+
+    def step(self, i: int) -> _Step | None:
+        n = len(self._steps)
+        if i < n:
+            return self._steps[i]
+        if self.tail is not None:
+            return self.tail.step(i - n)
+        return self._end if i == n else None
+
+    def start_of(self, i: int) -> int | None:
+        n = len(self._steps)
+        if i < n:
+            return self._starts[i]
+        if self.tail is not None:
+            return self.tail.start_of(i - n)
+        return self.end if i == n else None
+
+    def complete(self) -> list[_Step]:
+        return self._steps + (self.tail.complete() if self.tail is not None else [self._end])
+
+
 class _Projection:
     """The projection's state, advanced one piece at a time. Every decision is
     a function of the state alone (the pieces laid out so far, the history
@@ -407,6 +454,9 @@ class _Projection:
         # its persisted own shows: kept in its own pool even if the pool no longer lists them
         # as own (a moved or vanished package), so they are never mistaken for fill
         self.extra_own = [p for r, p in zip(placed_rows, self.placed) if r.fill is None and not r.degraded]
+        # the live promises' unplaced entries, in order (spec "Promises"): derived from the
+        # persisted rows exactly as a live step derives them, then kept as pieces are projected
+        self.promise: list[concert.Named] = self._initial_promise(rows) if inp.promises else []
 
     # --- frames, time, pieces ---
 
@@ -464,6 +514,72 @@ class _Projection:
         self.extra_own: list[Piece] = []
         self.run: _BlockRun | None = None
         self.run_k = 0
+
+    # --- promises ---
+
+    def _initial_promise(self, rows: Sequence[PlanRow]) -> list[concert.Named]:
+        """`promises.remaining` over the persisted rows, every entry checked (a
+        slug of the pool, an occurrence key of two strings); anything odd: none."""
+        try:
+            got = promises.remaining(rows, pool_slugs=frozenset(self.pools.by_slug), clock=self.clock,
+                                     run_start=self.inp.run_start)
+            out: list[concert.Named] = []
+            for slug, key in got:
+                if not (isinstance(slug, str) and slug in self.pools.by_slug and isinstance(key, tuple)
+                        and len(key) == 2 and all(isinstance(v, str) for v in key)):
+                    return []
+                out.append((slug, (key[0], key[1])))
+            return out
+        except Exception:
+            _log.exception("live promises unreadable; planning without them")
+            return []
+
+    def _head(self) -> tuple[str, Occurrence, Piece] | None:
+        """The promise's next entry (slug, occurrence, piece) when it plays in the
+        current occurrence or the next one; otherwise the promise is void
+        (cleared) and None: planning goes on as if it never existed."""
+        if not self.promise:
+            return None
+        try:
+            slug, key = self.promise[0]
+            piece = self.pools.by_slug.get(slug)
+            if piece is not None:
+                if key == self.occ.key:
+                    return slug, self.occ, piece
+                nxt = self.occs.after(self.occ)
+                if key == nxt.key:
+                    return slug, nxt, piece
+        except Exception:
+            _log.exception("live promise unusable; voiding it")
+        self.promise = []
+        return None
+
+    def _run_for(self, occ: Occurrence, start: int, placed: Sequence[Piece], rec: Recency,
+                 prev_artist: str | None, offset: int = 0,
+                 extra_used: Iterable[str] = ()) -> "_BlockRun | _PromisedRun":
+        """`_new_run`, except that the promise's entries from `offset` that play in
+        `occ` are its next shows (`_PromisedRun`)."""
+        fixed: list[Piece] = []
+        i = offset
+        while i < len(self.promise) and self.promise[i][1] == occ.key:
+            p = self.pools.by_slug.get(self.promise[i][0])
+            if p is None:                            # unreachable: every entry is a pool show
+                break
+            fixed.append(p)
+            i += 1
+        if not fixed:
+            return self._new_run(occ, start, placed, rec, prev_artist, extra_used)
+        starts: list[int] = []
+        f = start
+        for p in fixed:
+            starts.append(f)
+            us = self._us(f)
+            rec = rec.with_piece(p, us, rules.local_date(us, self.tz))
+            f += p.frames + self.B
+        tail = None
+        if i >= len(self.promise):                  # the promise ends here: the block goes on by the run
+            tail = self._new_run(occ, f, tuple(placed) + tuple(fixed), rec, fixed[-1].artist, extra_used)
+        return _PromisedRun(fixed, starts, tail, f, i)
 
     # --- runs ---
 
@@ -538,10 +654,10 @@ class _Projection:
                 continue
             xrun = None
             if y is not None:
-                xrun = self._new_run(x, x_start, (), self.rec, self.prev_artist)
+                xrun = self._run_for(x, x_start, (), self.rec, self.prev_artist)
                 if not self._in_window(y, xrun.complete()[-1].landing):
                     continue                     # fails only on Y: the one-block form
-            return _Choice(clip, "next", self._names(x, y), xrun)
+            return _Choice(clip, "next", self._names(x, y), xrun if isinstance(xrun, _BlockRun) else None)
         return None
 
     def _try_later(self, s: int) -> _Choice | None:
@@ -557,7 +673,10 @@ class _Projection:
             if clip is None:
                 continue
             l_start = s + clip.frames + self.gap
-            run, k = self._run_at(l_start)
+            if self.promise:                     # the promised show is the block's last one
+                run, k = self._run_for(self.occ, l_start, tuple(self.placed), self.rec, self.prev_artist), 0
+            else:
+                run, k = self._run_at(l_start)
             step = run.step(k)
             if not step.shows or run.step(k + 1).shows:
                 continue                         # with this clip the block is not one show from its end
@@ -568,7 +687,8 @@ class _Projection:
                 last = step.shows[0].piece
                 us = self._us(l_start)
                 rec = self.rec.with_piece(last, us, rules.local_date(us, self.tz))
-                xrun = self._new_run(x, x_start, (), rec, last.artist, extra_used=(last.slug,))
+                xrun = self._run_for(x, x_start, (), rec, last.artist, getattr(run, "next_offset", 0),
+                                     extra_used=(last.slug,))
                 if not self._in_window(y, xrun.complete()[-1].landing):
                     continue
             return _Choice(clip, "later", self._names(x, y), None)   # the run from l_start is active
@@ -584,8 +704,14 @@ class _Projection:
         s = self.start
         id_clip = self._station_id()
         m = s + (id_clip.frames + self.gap if id_clip is not None else 0)     # the next show, after an ID
-        if not self.placed:
+        head = self._head()
+        if head is not None and head[1].key != self.occ.key:
+            kind, target = "into", head[1]           # the promised show opens the next occurrence
+        elif not self.placed:
             kind, target = "into", self.occ          # a mid-block entry: this occurrence's first show
+        elif head is not None:                       # the promised show plays here: is it the last?
+            pr = self._run_for(self.occ, m, tuple(self.placed), self.rec, self.prev_artist)
+            kind, target = ("last" if not pr.step(1).shows else "internal"), self.occ
         else:
             run, k = self._run_at(m)
             if not run.step(k).shows:
@@ -633,7 +759,17 @@ class _Projection:
         saved = (self.run, self.run_k)
         entering = not self.placed
         xocc = self.occ
-        run, k = self._run_at(x_start)
+        head = self._head()
+        if head is not None:                     # X[, Y][, Z] start from the promise's entries
+            xocc = head[1]
+            if xocc.key != self.occ.key:
+                entering = True
+                if self.occs.pos(xocc) > last_pos:
+                    return _STOP
+            run, k = self._run_for(xocc, x_start, tuple(self.placed) if not entering else (), self.rec,
+                                   self.prev_artist), 0
+        else:
+            run, k = self._run_at(x_start)
         step = run.step(k)
         if not step.shows:
             if entering:                         # unreachable: a block always gets a first show
@@ -657,7 +793,11 @@ class _Projection:
         pp = PlannedPiece(clip_piece, s, self.run_start, xocc.block.name, xocc.nominal_iso, CONCERT_ROLE,
                           names=content.names, concert=content)
         self._add(clip_piece, s)
-        self.run, self.run_k = run, k            # X's run is active, as after `_try_next`/`_try_later`
+        # X's run is active, as after `_try_next`/`_try_later` (a promised one is not a run)
+        self.run, self.run_k = (run, k) if isinstance(run, _BlockRun) else (None, 0)
+        # a new break agrees with the live promise (it may name fewer) and is merged exactly
+        # as `promises.remaining` merges persisted breaks, so preview and live agree
+        self.promise = list(promises.merge_remainders(self.promise, content.entries))
         return pp
 
     def _content(self, ci: ConcertInput, xocc: Occurrence, run: "_BlockRun", k: int, entering: bool,
@@ -736,17 +876,25 @@ class _Projection:
         landing = run.complete()[-1].landing
         if not self._in_window(zocc, landing):
             return None
-        rec = self.rec
         named = [(x, x_start)] + ([(y, y_start)] if y is not None else [])
-        for piece, start in named:
-            us = self._us(start)
-            rec = rec.with_piece(piece, us, rules.local_date(us, self.tz))
-        last = named[-1][0]
-        zrun = self._new_run(zocc, landing, (), rec, last.artist, extra_used=tuple(p.slug for p, _ in named))
-        zstep = zrun.step(0)
-        if zstep is None or not zstep.shows:
-            return None
-        z = zstep.shows[0].piece
+        zi = len(named)
+        if isinstance(run, _PromisedRun) and zi < len(self.promise) and run.tail is None:
+            if self.promise[zi][1] != zocc.key:
+                return None                      # the promise goes on elsewhere: no Then
+            z = self.pools.by_slug.get(self.promise[zi][0])
+            if z is None:
+                return None
+        else:
+            rec = self.rec
+            for piece, start in named:
+                us = self._us(start)
+                rec = rec.with_piece(piece, us, rules.local_date(us, self.tz))
+            last = named[-1][0]
+            zrun = self._new_run(zocc, landing, (), rec, last.artist, extra_used=tuple(p.slug for p, _ in named))
+            zstep = zrun.step(0)
+            if zstep is None or not zstep.shows:
+                return None
+            z = zstep.shows[0].piece
         az = concert.clean(z.artist)
         if az is None or z.slug in {p.slug for p, _ in named}:
             return None
@@ -760,6 +908,9 @@ class _Projection:
 
     def show(self, last_pos: int) -> PlannedPiece | _Stop:
         s = self.start
+        head = self._head()
+        if head is not None:
+            return self._promised_show(head, last_pos)
         while True:
             if self.occs.pos(self.occ) > last_pos:
                 return _STOP
@@ -770,26 +921,67 @@ class _Projection:
             self._enter(self.occs.after(self.occ))     # the block re-planned to end here
         occ = self.occ
         piece = step.shows[0].piece
+        fill, bends = self._run_fields(run, k)
+        pp = PlannedPiece(piece, s, self.run_start, occ.block.name, occ.nominal_iso, "show",
+                          miss=None if self.placed else not self._in_window(occ, s),
+                          degraded=run.degraded, fill=fill, bends=bends)
+        self.run_k = k + 1
+        self._placed_show(piece, s, bends)
+        return pp
+
+    def _promised_show(self, head: tuple[str, Occurrence, Piece], last_pos: int) -> PlannedPiece | _Stop:
+        """The promise's next show at this slot, in its occurrence (entered when it
+        is the next one). The run's own pick when it is that show; else its
+        fields are derived from the pool (`fill` from membership in the own pool,
+        so `extra_own`, rebuilt from the rows, is the same live) and the run is
+        dropped, to be re-planned with the show placed."""
+        slug, hocc, piece = head
+        if hocc.key != self.occ.key:
+            self._enter(hocc)
+        if self.occs.pos(self.occ) > last_pos:
+            return _STOP
+        s = self.start
+        occ = self.occ
+        run, k = self._run_at(s)
+        step = run.step(k)
+        if step.shows and step.shows[0].piece.slug == slug:     # the run's own pick: its fields
+            piece = step.shows[0].piece
+            fill, bends = self._run_fields(run, k)
+            degraded = run.degraded
+            self.run_k = k + 1
+        else:
+            in_own = any(p.slug == slug for p in self.pools.own(occ))
+            fill = None if in_own else (run.cause or "structural")
+            bends, degraded = (), self.pools.degraded(occ)
+            self.run = None
+        pp = PlannedPiece(piece, s, self.run_start, occ.block.name, occ.nominal_iso, "show",
+                          miss=None if self.placed else not self._in_window(occ, s),
+                          degraded=degraded, fill=fill, bends=bends)
+        self.promise.pop(0)
+        self._placed_show(piece, s, bends)
+        return pp
+
+    def _run_fields(self, run: _BlockRun, k: int) -> tuple[str | None, tuple[str, ...]]:
+        """(fill, bends) of run `k`'s show, placed as the run chose it."""
+        step = run.step(k)
         is_fill = run.is_fill(k)
         nxt = run.step(k + 1)
         own = set(step.bends) - set(nxt.bends if nxt is not None else ())
-        if self.pools.open_bent and (occ.is_open or run.degraded or is_fill):
+        if self.pools.open_bent and (self.occ.is_open or run.degraded or is_fill):
             own.add(EXCLUDE_BEND)
         bends = tuple(b for b in _BEND_ORDER if b in own and b not in self.placed_bends)
-        pp = PlannedPiece(piece, s, self.run_start, occ.block.name, occ.nominal_iso, "show",
-                          miss=None if self.placed else not self._in_window(occ, s),
-                          degraded=run.degraded, fill=run.cause if is_fill else None, bends=bends)
+        return (run.cause if is_fill else None), bends
+
+    def _placed_show(self, piece: Piece, s: int, bends: tuple[str, ...]) -> None:
         if not self.placed:
             self.block_start = s
         self.placed.append(piece)
         self.placed_bends.update(bends)
-        self.run_k = k + 1
         self._add(piece, s)
         self._show_starts.append(s)
         self._show_slugs.append(piece.slug)
         self.prev_artist = piece.artist
         self.after_show = True
-        return pp
 
     def clock_horizon(self, until_frame: int, ahead: int) -> int:
         """`ahead` past the occurrence in progress at `until_frame` by the clock."""
