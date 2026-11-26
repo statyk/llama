@@ -6,16 +6,17 @@ Bends are reported, never alerted (spec: status noise is an anti-goal)."""
 
 import re
 import statistics
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from types import MappingProxyType
 from zoneinfo import ZoneInfo
 
 from transmitter import rules
 from transmitter.announce import Needed
 from transmitter.clock import ClockConfig
 from transmitter.grid import FRAME_SAMPLES, SAMPLE_RATE, frame_to_us, iso_to_us
-from transmitter.layout import PlanRow
+from transmitter.layout import CONCERT_ROLE, PlanRow
 from transmitter.scheduler import EXCLUDE_BEND, PlannedPiece
 from transmitter.workspace import Epoch
 
@@ -93,18 +94,29 @@ class _Item:
     exact: bool
     artist: str | None
     date: str | None
+    text: str | None = None     # a concert break: the texts spoken, joined by a space
 
 
-def _from_row(r: PlanRow, meta_of: Callable[[str | None], tuple[str | None, str | None]]) -> _Item:
+def _row_text(r: PlanRow, texts_of: Mapping[str, str]) -> str:
+    """A persisted concert row's texts by piece id; an id the list does not know prints as `<id>`, a
+    malformed (non-str) element as `<?>`. Never raises."""
+    ids = r.piece_ids if isinstance(r.piece_ids, (list, tuple)) else ()
+    return " ".join(("<?>" if not isinstance(i, str) else texts_of.get(i, f"<{i}>")) for i in ids)
+
+
+def _from_row(r: PlanRow, meta_of: Callable[[str | None], tuple[str | None, str | None]],
+              texts_of: Mapping[str, str]) -> _Item:
     artist, date = meta_of(r.package) if r.kind == "show" else (None, None)
+    text = _row_text(r, texts_of) if r.kind == "interstitial" and r.role == CONCERT_ROLE else None
     return _Item(r.kind, r.role, r.slug, r.start_frame, r.end_frame - r.start_frame, r.block, r.nominal_start,
-                 r.miss, r.degraded, r.fill, tuple(r.bends), True, True, artist, date)
+                 r.miss, r.degraded, r.fill, tuple(r.bends), True, True, artist, date, text)
 
 
 def _from_projected(pp: PlannedPiece) -> _Item:
     p = pp.piece
     return _Item(p.kind, pp.role, p.slug, pp.start_frame, p.frames, pp.block, pp.nominal_start, pp.miss,
-                 pp.degraded, pp.fill, tuple(pp.bends), False, p.exact, p.artist, p.date)
+                 pp.degraded, pp.fill, tuple(pp.bends), False, p.exact, p.artist, p.date,
+                 None if pp.concert is None else " ".join(t for _, t in pp.concert.pieces))
 
 
 def _no_meta(package: str | None) -> tuple[str | None, str | None]:
@@ -118,14 +130,15 @@ def local_text(us: int, tz: str) -> str:
 
 def block_views(rows: Sequence[PlanRow], projected: Sequence[PlannedPiece], clock: ClockConfig, epoch: Epoch, *,
                 missing: Sequence[Needed] = (), since_frame: int | None = None,
-                meta_of: Callable[[str | None], tuple[str | None, str | None]] = _no_meta) -> list[BlockView]:
+                meta_of: Callable[[str | None], tuple[str | None, str | None]] = _no_meta,
+                texts_of: Mapping[str, str] = MappingProxyType({})) -> list[BlockView]:
     """One view per occurrence, in order of first appearance. A boundary
     interstitial belongs to the occurrence it carries (`block`, `nominal`).
 
     An occurrence's start, slip, miss and bends come from ALL its rows given;
     with `since_frame`, shows that ended at or before it (already aired) are
     left out of the per-show listing only."""
-    items = [_from_row(r, meta_of) for r in rows] + [_from_projected(p) for p in projected]
+    items = [_from_row(r, meta_of, texts_of) for r in rows] + [_from_projected(p) for p in projected]
     titles = {b.name: b.title or b.name for b in clock.block}
     open_blocks = {b.name for b in clock.block if not b.profiles}
     need: dict[tuple[str, str], list[Needed]] = {}
@@ -146,7 +159,8 @@ def block_views(rows: Sequence[PlanRow], projected: Sequence[PlannedPiece], cloc
         bent: set[str] = set()
         for i in shows:
             bent.update(i.bends)
-        breaks = tuple(("station ID " if i.role == "id" else "announcement ") + i.slug
+        breaks = tuple(f"concert: {i.text}" if i.text is not None else
+                       ("station ID " if i.role == "id" else "announcement ") + i.slug
                        for i in its if i.kind == "interstitial")
         first = shows[0] if shows else None
         out.append(BlockView(

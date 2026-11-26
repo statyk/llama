@@ -9,6 +9,7 @@ dead-clock check and the antenna alert relay run on their own thread
 (monitor.MonitorLoop), which every tick watches through `monitor-stalled`;
 only the main loop pings the watchdog."""
 
+import dataclasses
 import logging
 import math
 import os
@@ -16,8 +17,8 @@ import time
 from pathlib import Path
 from typing import Callable, Mapping
 
-from transmitter import (alerts, analysis, announce, cloudstate, grid, history, interstitials, monitor, pieces, pipeline,
-                         publish, r2, relay, report, scheduler, sdnotify, station)
+from transmitter import (alerts, analysis, announce, cloudstate, grid, history, interstitials, monitor, piecelist, pieces,
+                         pipeline, publish, r2, relay, report, scheduler, sdnotify, station)
 from transmitter import clock as clock_mod
 from transmitter.alerts import NtfyChannel
 from transmitter.analysis import ShowAnalysis
@@ -25,7 +26,7 @@ from transmitter.config import TransmitterConfig
 from transmitter.deadclock import DeadClockMonitor
 from transmitter.clock import ClockConfig
 from transmitter.errors import CloudDocumentError, ConfigError, FrameCountDrift, PlanLocked, PublishLocked, StationRootError, TransmitterError
-from transmitter.layout import PlanRow
+from transmitter.layout import CONCERT_ROLE, PlanRow
 from transmitter.locks import plan_lock
 from transmitter.monitor import MonitorLoop
 from transmitter.planner import read_plan
@@ -513,8 +514,18 @@ def _scheduler_lines(cfg: TransmitterConfig, ws: Workspace, rows: list[PlanRow],
     missing = missing_announcements(cfg, clock, t_us, 8)
     lines.append(f"announce   {len(missing)} announcement audio file(s) missing for the next 8 days"
                  + (" (see `transmitter announcements`)" if missing else ""))
+    lines += _break_lines(rows, now_f, n24)
     lines += _concert_lines(cfg, ws, t_us)
     return lines
+
+
+def _break_lines(rows: list[PlanRow], now_f: int, n24: int) -> list[str]:
+    """The break and promise counts, from the persisted rows alone. Counts print as 0 with the feature off."""
+    ahead = [r for r in rows if r.kind == "interstitial" and now_f <= r.start_frame < n24]
+    assembled = sum(1 for r in ahead if r.role == CONCERT_ROLE)
+    broken = sum(1 for r in rows if r.announcement_broken)
+    return [f"breaks     next 24 h: {assembled} assembled, {len(ahead) - assembled} fallback",
+            f"promises   {broken} broken announcement(s) (last 24 h and planned)"]
 
 
 def _concert_lines(cfg: TransmitterConfig, ws: Workspace, t_us: int) -> list[str]:
@@ -644,14 +655,24 @@ def schedule_report(cfg: TransmitterConfig, t_us: int, *, days: float = 7.0, clo
         base = []
         start = (epoch.index_at(t_us) + st.start_margin_segments) * grid.SEGMENT_FRAMES
         run_start = True
+    # read-only: no alert, no assembly (the pass-1 placeholder stands in for a clip), no write
+    concert_in, _ = pipeline.concert_input(st, t_us, read_only=True)
     inp = scheduler.SchedulerInput(rows=tuple(base), start_frame=start, run_start=run_start, pool=tuple(pool),
                                    clock=clock, rec=rec, epoch_us=epoch.epoch_us, gap_frames=st.gap_frames,
-                                   seed=cfg.planner.seed)
-    projected = scheduler.project(inp, until_frame=until_f, ahead=1)
+                                   seed=cfg.planner.seed, concert=concert_in)
+    try:
+        projected = scheduler.project(inp, until_frame=until_f, ahead=1)
+    except Exception:
+        if concert_in is None:
+            raise
+        log.exception("schedule: concert projection failed; previewing without concert breaks")
+        projected = scheduler.project(dataclasses.replace(inp, concert=None), until_frame=until_f, ahead=1)
     live = {(r.block, r.nominal_start) for r in base if r.end_frame > now_f and r.block is not None}
     shown = [r for r in base if r.end_frame > now_f or (r.block, r.nominal_start) in live]
     missing = missing_announcements(cfg, clock, t_us, days + 1)
-    views = report.block_views(shown, projected, clock, epoch, missing=missing, meta_of=meta_of, since_frame=now_f)
+    texts = {p.id: p.text for p in (piecelist.load_needed(ws) or [])}
+    views = report.block_views(shown, projected, clock, epoch, missing=missing, meta_of=meta_of, since_frame=now_f,
+                               texts_of=texts)
     # keep an occurrence whose nominal start OR whose first show is inside the horizon (an open-time block can
     # air for hours before its next nominal start; a late block keeps its MISS)
     views = [v for v in views if v.nominal_us is None or v.nominal_us < until_us

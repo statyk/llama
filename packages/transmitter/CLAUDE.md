@@ -184,6 +184,7 @@ has run).
   `promises=False`. A show row that `promises.first_mismatch` flags gets `announcement_broken`, logs
   `promise-broken: <slug> at <block> <nominal>` and alerts `announce-promise`. `scan_pieces` adds
   `Station.concert_pieces()` (the workspace clips, lengths from the length cache; never raises).
+- `schedule`/`status` and concert breaks: `schedule_report` calls `concert_input(st, t, read_only=True)` (no alert) and projects with the pass-1 placeholder, never an assembler (it runs outside `plan_lock`, which gc protection relies on); a projected break prints its `BreakContent` texts, a persisted one its `piece_ids` through `report.block_views(texts_of=)` (from `piecelist.load_needed`; unknown id `<id>`, non-str element `<?>`). `status` adds `breaks     next 24 h: A assembled, F fallback` (interstitial rows, role `concert` vs other; `0 assembled` with the feature off) and `promises   B broken announcement(s) (last 24 h and planned)`. Neither view writes texts or clips.
 - `pipeline.render_step` concert rows (phase B): a `role="concert"` row renders like any interstitial, its piece from
   the scan (which includes `Workspace.concert_dir`). Any skip-path reason on it (missing, key changed, frames changed,
   render failed) adds its start to the call's `no_assembly`, passed as `extend(no_assembly_at=)` to every re-plan of

@@ -1059,3 +1059,143 @@ def test_status_writes_nothing(tmp_path):
     service.status_lines(st.cfg, NOW + 10**13)
     assert snap() == before and not (folder / "piece-ffffffffffff.txt").exists()
     assert os.listdir(folder) == [f"piece-{a}.txt"]
+
+
+# --- schedule and status show concert breaks and promises (Task 16) -------------
+
+def _concert_world(tmp_path, monkeypatch, **kw):
+    """A planned concert station whose epoch is on disk, with `service.make_engine` its fake engine."""
+    from tests_transmitter.test_pipeline_concert import concert_station
+    st, _ = concert_station(tmp_path, **kw)
+    _with_epoch(st)
+    monkeypatch.setattr(service, "make_engine", lambda ws, cfg: st.engine)
+    return st
+
+
+def _tree_state(st):
+    return sorted((str(p), p.stat().st_mtime_ns, p.stat().st_size) for p in st.ws.root.rglob("*")) + sorted(
+        (str(p), p.stat().st_mtime_ns) for p in st.cfg.station.root.joinpath("interstitials").rglob("*"))
+
+
+def _concert_text(st, row):
+    return " ".join(t for _, t in st.assemble.by_slug[row.slug].pieces)
+
+
+def test_schedule_prints_the_concert_text(tmp_path, monkeypatch):
+    from tests_transmitter.test_pipeline_concert import concert_rows
+    st = _concert_world(tmp_path, monkeypatch)
+    rows = pipeline.plan_step(st, NOW)
+    first = next(r for r in concert_rows(rows) if r.end_frame > 0)
+    out = service.schedule_report(st.cfg, NOW, days=1)
+    assert any(line == f"    . concert: {_concert_text(st, first)}" for line in out), "\n".join(out)
+    assert not any("concert-pending" in line or "concert-" in line and ".wav" in line for line in out)
+
+
+def test_schedule_projected_concert_breaks_print_their_content_and_never_assemble(tmp_path, monkeypatch):
+    st = _concert_world(tmp_path, monkeypatch)
+    # nothing planned yet: every concert break is a projection
+    calls = []
+
+    def boom(content, settings):
+        calls.append(content)
+        raise AssertionError("schedule must not assemble")
+    st.assemble = boom
+    out = service.schedule_report(st.cfg, NOW, days=1)
+    projected = [line for line in out if line.startswith("    . concert: ")]
+    assert projected and calls == []
+    assert any("(projected)" in line for line in out)
+
+
+def test_schedule_prints_fallback_breaks_as_today(tmp_path, monkeypatch):
+    st = _concert_world(tmp_path, monkeypatch, announce=None)
+    pipeline.plan_step(st, NOW)
+    out = service.schedule_report(st.cfg, NOW, days=1)
+    assert any(line.startswith("    . station ID ") for line in out)
+    assert not any("concert" in line for line in out)
+
+
+def test_schedule_unknown_and_malformed_piece_ids_never_raise(tmp_path, monkeypatch):
+    from tests_transmitter.test_pipeline_concert import concert_rows
+    from transmitter.planner import read_plan, write_plan
+    st = _concert_world(tmp_path, monkeypatch)
+    rows = pipeline.plan_step(st, NOW)
+    keep = concert_rows(rows)[0]
+    bad = dataclasses_replace(keep, piece_ids=("ffffffffffff", 7, None, ["x"]), named_shows=(1, None))
+    write_plan(st.ws.plan_path, [bad if r.seq == keep.seq else r for r in read_plan(st.ws.plan_path)])
+    out = service.schedule_report(st.cfg, NOW, days=1)
+    assert any(line.endswith("concert: <ffffffffffff> <?> <?> <?>") for line in out), "\n".join(out)
+    assert any(x.startswith("breaks     next 24 h:") for x in service.status_lines(st.cfg, NOW))
+
+
+def dataclasses_replace(obj, **kw):
+    import dataclasses
+    return dataclasses.replace(obj, **kw)
+
+
+def test_schedule_and_status_write_nothing_and_never_alert_with_an_invalid_announce_toml(tmp_path, monkeypatch):
+    from tests_transmitter.test_pipeline_concert import FakeAssembler
+    st = _concert_world(tmp_path, monkeypatch)
+    pipeline.plan_step(st, NOW)
+    st.ws.announce_path.write_text("enabled = maybe\n")
+    # lose the texts so an erroneous write would show
+    for txt in (st.cfg.station.root / "interstitials" / "pieces").glob("piece-*.txt"):
+        txt.unlink()
+    fired = []
+    monkeypatch.setattr(alerts, "alert", lambda code, msg: fired.append((code, msg)))
+    monkeypatch.setattr(alerts, "resolve", lambda code: fired.append(("resolve", code)))
+    before = _tree_state(st)
+    service.schedule_report(st.cfg, NOW, days=1)
+    service.status_lines(st.cfg, NOW)
+    assert fired == []
+    assert _tree_state(st) == before
+    assert not list((st.cfg.station.root / "interstitials" / "pieces").glob("piece-*.txt"))
+
+
+def test_schedule_with_announcements_on_writes_nothing_and_does_not_alert(tmp_path, monkeypatch):
+    st = _concert_world(tmp_path, monkeypatch)
+    pipeline.plan_step(st, NOW)
+    fired = []
+    monkeypatch.setattr(alerts, "alert", lambda code, msg: fired.append((code, msg)))
+    before = _tree_state(st)
+    service.schedule_report(st.cfg, NOW, days=1)
+    service.status_lines(st.cfg, NOW)
+    assert fired == [] and _tree_state(st) == before
+
+
+def _break_status(lines):
+    return (next(x for x in lines if x.startswith("breaks ")), next(x for x in lines if x.startswith("promises ")))
+
+
+def test_status_counts_assembled_and_fallback_breaks(tmp_path, monkeypatch):
+    from tests_transmitter.test_pipeline_concert import concert_rows
+    from transmitter.planner import read_plan
+    st = _concert_world(tmp_path, monkeypatch)
+    rows = pipeline.plan_step(st, NOW)
+    now_f = (NOW - st.epoch.epoch_us) * grid.SAMPLE_RATE // (grid.FRAME_SAMPLES * 1_000_000)
+    n24 = now_f + 86_400_000_000 * grid.SAMPLE_RATE // (grid.FRAME_SAMPLES * 1_000_000)
+    ahead = [r for r in read_plan(st.ws.plan_path) if r.kind == "interstitial" and now_f <= r.start_frame < n24]
+    a = sum(1 for r in ahead if r.role == "concert")
+    assert a >= 1
+    breaks, _ = _break_status(service.status_lines(st.cfg, NOW))
+    assert breaks == f"breaks     next 24 h: {a} assembled, {len(ahead) - a} fallback"
+    assert concert_rows(rows)
+
+
+def test_status_breaks_with_the_feature_off_count_zero_assembled(tmp_path, monkeypatch):
+    st = _concert_world(tmp_path, monkeypatch, announce=None)
+    pipeline.plan_step(st, NOW)
+    breaks, promises = _break_status(service.status_lines(st.cfg, NOW))
+    assert breaks.startswith("breaks     next 24 h: 0 assembled, ") and breaks.endswith(" fallback")
+    assert promises == "promises   0 broken announcement(s) (last 24 h and planned)"
+
+
+def test_status_counts_broken_promises(tmp_path, monkeypatch):
+    from transmitter.planner import read_plan, write_plan
+    st = _concert_world(tmp_path, monkeypatch)
+    pipeline.plan_step(st, NOW)
+    rows = read_plan(st.ws.plan_path)
+    shows = [i for i, r in enumerate(rows) if r.kind == "show"][:2]
+    rows = [dataclasses_replace(r, announcement_broken=True) if i in shows else r for i, r in enumerate(rows)]
+    write_plan(st.ws.plan_path, rows)
+    _, promises = _break_status(service.status_lines(st.cfg, NOW))
+    assert promises == "promises   2 broken announcement(s) (last 24 h and planned)"
