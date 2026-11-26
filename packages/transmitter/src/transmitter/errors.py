@@ -84,3 +84,15 @@ class CloudStateError(TransmitterError):
 class CloudDocumentError(CloudStateError):
     """The object was read but is not a JSON object (a corrupt or hand-edited
     document), as against an access or transport failure."""
+
+
+class AssemblyError(TransmitterError):
+    """A concert break could not be assembled (an unreadable bed, an IO error)."""
+
+
+class PieceUndecodable(AssemblyError):
+    """A voiced piece is missing or does not decode; `piece_id` names it."""
+
+    def __init__(self, piece_id: str, message: str | None = None):
+        super().__init__(message or f"piece {piece_id} is missing or undecodable")
+        self.piece_id = piece_id

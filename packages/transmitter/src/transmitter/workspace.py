@@ -88,6 +88,10 @@ class Workspace:
         return self.root / "render"
 
     @property
+    def concert_dir(self) -> Path:
+        return self.render_dir / "concert"
+
+    @property
     def shows_dir(self) -> Path:
         return self.render_dir / "shows"
 
